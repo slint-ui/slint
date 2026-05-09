@@ -237,12 +237,15 @@ fn main() -> std::io::Result<()> {
                 write!(cursor, " {}", x.display())?;
             }
         }
-        for resource in doc.embedded_file_resources.borrow().keys() {
-            if !fileaccess::load_file(std::path::Path::new(resource))
-                .is_some_and(|f| f.is_builtin())
-            {
-                write!(cursor, " {resource}")?;
-            }
+        // A variable font is stored once per weight, so dedupe here.
+        let embedded = doc.embedded_file_resources.borrow();
+        let resources: std::collections::BTreeSet<&str> = embedded
+            .iter()
+            .filter_map(|er| er.path.as_deref())
+            .filter(|resource| !resource.starts_with("builtin:/"))
+            .collect();
+        for resource in resources {
+            write!(cursor, " {resource}")?;
         }
         writeln!(cursor)?;
         fileaccess::write_file_if_changed(&depfile, &cursor.into_inner())?;

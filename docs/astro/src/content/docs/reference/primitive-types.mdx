@@ -213,6 +213,9 @@ Slint looks for images in the following places:
 
 Loading image from `http` is only supported in [SlintPad](https://slintpad.com).
 
+Images can also be loaded from [`data:` URIs](https://developer.mozilla.org/en-US/docs/Web/URI/Reference/Schemes/data), with either base64 or URL-encoded content.
+For example: `@image-url("data:image/png;base64,iVBORw0KGgo...")`.
+
 Supported format are SVG, and formats supported by the [`image` crate](https://crates.io/crates/image):
 AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP.
 

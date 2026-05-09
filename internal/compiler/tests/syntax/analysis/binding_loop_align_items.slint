@@ -1,0 +1,14 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Test {
+    VerticalLayout {
+//  >             <error{The binding for the property 'layout-cache-ortho' is part of a binding loop (align-items -> layout-cache-ortho -> r.x -> align-items)}
+//  >             <^error{The binding for the property 'x' is part of a binding loop (align-items -> layout-cache-ortho -> r.x -> align-items)}
+        align-items: r.x > 10px ? start : end;
+//                   >                       <error{The binding for the property 'align-items' is part of a binding loop (align-items -> layout-cache-ortho -> r.x -> align-items)}
+        r := Rectangle {
+            preferred-width: 50px;
+        }
+    }
+}

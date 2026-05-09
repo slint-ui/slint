@@ -90,6 +90,7 @@ impl MenuFromItemTree {
                 self.root.replace(SharedVector::default());
                 return;
             }
+            crate::item_tree::ensure_item_tree_instantiated(&self.item_tree);
             self.root.replace(
                 self.update_shadow_tree_recursive(&ItemRc::new_root(self.item_tree.clone())),
             );
@@ -202,9 +203,12 @@ pub struct MenuItem {
 impl crate::items::Item for MenuItem {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: crate::items::Orientation,
+        _cross_axis_constraint: crate::Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> crate::layout::LayoutInfo {
@@ -285,7 +289,7 @@ impl crate::items::ItemConsts for MenuItem {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         MenuItem,
         CachedRenderingData,
-    > = MenuItem::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = MenuItem::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 #[cfg(feature = "ffi")]

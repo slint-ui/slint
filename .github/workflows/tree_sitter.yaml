@@ -22,7 +22,7 @@ jobs:
             - uses: actions/checkout@v6
               with:
                   fetch-depth: 0
-            - uses: robinraju/release-downloader@v1.12
+            - uses: robinraju/release-downloader@v1.13
               with:
                   repository: "tree-sitter/tree-sitter"
                   tag: ${{ inputs.tag }}

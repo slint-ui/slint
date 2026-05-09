@@ -348,14 +348,14 @@ fn whitespace_to_one_of(
                 return Ok(SyntaxMatch::Found(expected_kind));
             }
             _ => {
-                eprintln!("Inconsistency: expected {elements:?},  found {n:?}");
+                tracing::warn!("Inconsistency: expected {elements:?},  found {n:?}");
                 fold(n, writer, state)?;
                 return Ok(SyntaxMatch::NotFound);
             }
         }
         fold(n, writer, state)?;
     }
-    eprintln!("Inconsistency: expected {elements:?},  not found");
+    tracing::warn!("Inconsistency: expected {elements:?},  not found");
     Ok(SyntaxMatch::NotFound)
 }
 
@@ -1093,7 +1093,7 @@ fn format_array(
                 }
             }
             SyntaxMatch::NotFound | SyntaxMatch::Found(_) => {
-                eprintln!("Inconsistency: unexpected syntax in array.");
+                tracing::warn!("Inconsistency: unexpected syntax in array.");
                 break;
             }
         }
@@ -1169,7 +1169,7 @@ fn format_states(
         && whitespace_to(&mut sub, SyntaxKind::LBracket, writer, state, " ")?;
 
     if !ok {
-        eprintln!("Inconsistency: Expect states and ']'");
+        tracing::warn!("Inconsistency: Expect states and ']'");
         return Ok(());
     }
 
@@ -1365,7 +1365,7 @@ fn format_object_literal(
         } else if let SyntaxMatch::Found(SyntaxKind::RBrace) = el {
             break;
         } else {
-            eprintln!("Inconsistency: unexpected syntax in object literal.");
+            tracing::warn!("Inconsistency: unexpected syntax in object literal.");
             break;
         }
     }
@@ -1452,7 +1452,7 @@ fn format_object_type(
         } else if let SyntaxMatch::Found(SyntaxKind::RBrace) = el {
             break;
         } else {
-            eprintln!("Inconsistency: unexpected syntax in object type.");
+            tracing::warn!("Inconsistency: unexpected syntax in object type.");
             break;
         }
     }

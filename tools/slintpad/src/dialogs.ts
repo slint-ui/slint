@@ -1,6 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import pkg from "../package.json";
+
+type PanicSource = "lsp" | "preview";
+
+let share_url_getter: (() => Promise<string>) | null = null;
+
+export function set_panic_share_url_getter(f: () => Promise<string>) {
+    share_url_getter = f;
+}
+
 export function modal_dialog(
     extra_class: string,
     content:
@@ -137,6 +147,92 @@ export async function export_gist_dialog(
         [description, is_public_div],
         "Export",
         () => exporter(description.value, is_public.checked),
+    );
+}
+
+let panic_dialog_shown = false;
+
+export function report_panic_dialog(source: PanicSource, message: string) {
+    if (panic_dialog_shown) {
+        return;
+    }
+    panic_dialog_shown = true;
+
+    const short_name = source === "lsp" ? "LSP" : "LivePreview";
+    const long_name = `The Slint ${short_name}`;
+
+    const headline = document.createElement("p");
+    headline.classList.add("panic_headline");
+    headline.innerText = `${long_name} has panicked.`;
+
+    const intro = document.createElement("p");
+    intro.innerText =
+        "SlintPad may no longer work. Please consider filing a bug report " +
+        "so we can fix it.";
+
+    const summary = message.trim();
+
+    const details_label = document.createElement("p");
+    details_label.innerText = "Panic message:";
+
+    const details = document.createElement("textarea");
+    details.classList.add("panic_details");
+    details.readOnly = true;
+    details.rows = 4;
+    details.cols = 70;
+    details.value = summary;
+
+    const environment_details = `SlintPad ${pkg.version}\nBrowser: ${navigator.userAgent}\n`;
+
+    function build_issue_url(share_url: string | null): string {
+        const bug_description =
+            `${long_name} panicked while running in SlintPad.\n\n` +
+            "**Steps to reproduce:**\n1. \n2. \n3. \n\n" +
+            "**Panic message:**\n```\n" +
+            summary +
+            "\n```\n" +
+            (share_url ? `\n**SlintPad link:** ${share_url}\n` : "");
+
+        const params = new URLSearchParams({
+            template: "1-bug-report.yaml",
+            title: `[SlintPad] ${short_name} panic: ${summary.split("\n").pop() ?? ""}`,
+            "bug-description": bug_description,
+            "environment-details": environment_details,
+        });
+        return `https://github.com/slint-ui/slint/issues/new?${params}`;
+    }
+
+    const link_anchor = document.createElement("a");
+    link_anchor.target = "_blank";
+    link_anchor.rel = "noopener noreferrer";
+    link_anchor.innerText = "Report this on GitHub";
+    link_anchor.href = build_issue_url(null);
+
+    const share_warning = document.createElement("p");
+    share_warning.classList.add("panic_warning");
+    share_warning.innerText =
+        "Heads up: the bug report will embed a link to your SlintPad code. " +
+        "Please remove anything private before submitting.";
+    share_warning.style.display = "none";
+
+    if (share_url_getter !== null) {
+        share_url_getter()
+            .then((share_url) => {
+                // GitHub rejects URLs over ~8000 chars; bail out if adding
+                // the share link would push us past a safe threshold.
+                const candidate = build_issue_url(share_url);
+                if (candidate.length <= 6000) {
+                    link_anchor.href = candidate;
+                    share_warning.style.display = "";
+                }
+            })
+            .catch(() => {});
+    }
+
+    modal_dialog(
+        "panic_dialog",
+        [headline, intro, details_label, details, link_anchor, share_warning],
+        "Close",
     );
 }
 

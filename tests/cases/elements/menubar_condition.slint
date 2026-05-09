@@ -63,6 +63,7 @@ let height_with_menubar = instance.get_win_height();
 // The same, but this time there is no menu bar
 instance.set_result("".into());
 instance.set_show_menubar(false);
+slint_testing::mock_elapsed_time(16);
 
 assert!(instance.get_test());
 assert_ne!(instance.get_win_height(), height_with_menubar);
@@ -89,6 +90,7 @@ auto height_with_menubar = instance.get_win_height();
 // The same, but this time there is no menu bar
 instance.set_result("");
 instance.set_show_menubar(false);
+slint_testing::mock_elapsed_time(16);
 
 assert(instance.get_test());
 assert(instance.get_win_height() > height_with_menubar);
@@ -112,6 +114,7 @@ assert.equal(instance.result, "New");
 // The same, but this time there is no menu bar
 instance.result = "";
 instance.show_menubar = false;
+slintlib.private_api.mock_elapsed_time(16);
 
 assert(instance.test);
 assert(instance.win_height > height_with_menubar);

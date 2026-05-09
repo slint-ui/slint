@@ -21,6 +21,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(missing_docs)] // because documenting each property of items is redundant
 
 use crate::api::LogicalPosition;
+use crate::data_transfer::DataTransfer;
 use crate::graphics::{Brush, Color, FontRequest, Image};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
@@ -45,6 +46,7 @@ use core::cell::Cell;
 use core::num::NonZeroU32;
 use core::pin::Pin;
 use i_slint_core_macros::*;
+pub use system_tray::SystemTrayIcon;
 use vtable::*;
 
 mod component_container;
@@ -63,6 +65,7 @@ pub use drag_n_drop::*;
 mod path;
 #[cfg(feature = "path")]
 pub use path::*;
+pub mod system_tray;
 
 /// Alias for `&mut dyn ItemRenderer`. Required so cbindgen generates the ItemVTable
 /// despite the presence of trait object
@@ -126,16 +129,22 @@ pub struct ItemVTable {
     /// bindings are set.
     pub init: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, my_item: &ItemRc),
 
+    pub deinit: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, window_adapter: &WindowAdapterRc),
+
     /// offset in bytes from the *const ItemImpl.
-    /// isize::MAX  means None
+    /// usize::MAX  means None
     #[allow(non_upper_case_globals)]
     #[field_offset(CachedRenderingData)]
     pub cached_rendering_data_offset: usize,
 
-    /// We would need max/min/preferred size, and all layout info
+    /// We would need max/min/preferred size, and all layout info.
+    /// `cross_axis_constraint` is the available width when querying vertical
+    /// layout info, enabling height-for-width (Text word-wrap, Image aspect
+    /// ratio). Negative values mean unconstrained.
     pub layout_info: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         orientation: Orientation,
+        cross_axis_constraint: Coord,
         window_adapter: &WindowAdapterRc,
         self_rc: &ItemRc,
     ) -> LayoutInfo,
@@ -223,9 +232,12 @@ pub struct Empty {
 impl Item for Empty {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -307,7 +319,7 @@ impl ItemConsts for Empty {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         Empty,
         CachedRenderingData,
-    > = Empty::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = Empty::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -326,9 +338,12 @@ pub struct Rectangle {
 impl Item for Rectangle {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -416,7 +431,7 @@ impl ItemConsts for Rectangle {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         Rectangle,
         CachedRenderingData,
-    > = Rectangle::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = Rectangle::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -438,9 +453,12 @@ pub struct BasicBorderRectangle {
 impl Item for BasicBorderRectangle {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -537,7 +555,7 @@ impl ItemConsts for BasicBorderRectangle {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         BasicBorderRectangle,
         CachedRenderingData,
-    > = BasicBorderRectangle::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = BasicBorderRectangle::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -563,9 +581,12 @@ pub struct BorderRectangle {
 impl Item for BorderRectangle {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -667,7 +688,7 @@ impl ItemConsts for BorderRectangle {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         BorderRectangle,
         CachedRenderingData,
-    > = BorderRectangle::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = BorderRectangle::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -711,9 +732,12 @@ pub struct Clip {
 impl Item for Clip {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -814,7 +838,7 @@ impl Clip {
 
 impl ItemConsts for Clip {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Clip, CachedRenderingData> =
-        Clip::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Clip::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -834,9 +858,12 @@ pub struct Opacity {
 impl Item for Opacity {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -944,7 +971,7 @@ impl ItemConsts for Opacity {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         Opacity,
         CachedRenderingData,
-    > = Opacity::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = Opacity::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -963,9 +990,12 @@ pub struct Layer {
 impl Item for Layer {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -1046,7 +1076,7 @@ impl ItemConsts for Layer {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         Layer,
         CachedRenderingData,
-    > = Layer::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = Layer::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -1069,9 +1099,12 @@ pub struct Transform {
 impl Item for Transform {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -1157,7 +1190,7 @@ impl ItemConsts for Transform {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         Transform,
         CachedRenderingData,
-    > = Transform::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = Transform::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -1238,9 +1271,12 @@ impl Item for WindowItem {
         self.full_screen.set(std::env::var("SLINT_FULLSCREEN").is_ok());
     }
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -1443,7 +1479,7 @@ impl WindowItem {
 
 impl ItemConsts for WindowItem {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 #[cfg(feature = "ffi")]
@@ -1483,9 +1519,12 @@ pub struct ContextMenu {
 impl Item for ContextMenu {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -1629,7 +1668,7 @@ impl ContextMenu {
 
 impl ItemConsts for ContextMenu {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -1683,9 +1722,12 @@ pub struct BoxShadow {
 impl Item for BoxShadow {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -1767,7 +1809,7 @@ impl Item for BoxShadow {
 
 impl ItemConsts for BoxShadow {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
-        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+        Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 declare_item_vtable! {
@@ -1809,6 +1851,10 @@ declare_item_vtable! {
 
 declare_item_vtable! {
     fn slint_get_MenuItemVTable() -> MenuItemVTable for MenuItem
+}
+
+declare_item_vtable! {
+    fn slint_get_SystemTrayIconVTable() -> SystemTrayIconVTable for SystemTrayIcon
 }
 
 macro_rules! declare_enums {

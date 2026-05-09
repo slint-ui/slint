@@ -97,6 +97,11 @@ pub enum BuiltinFunction {
     /// `no_native_menu_bar` is a boolean literal that is true when we shouldn't try to setup the native menu bar.
     /// `condition` is an optional expression that is the expression to `if condition : MenuBar { ... }` for optional menu
     SetupMenuBar,
+    /// Setup the menu of a `SystemTrayIcon`.
+    ///
+    /// Arguments are `(system_tray_ref, menu_tree_root)` where `menu_tree_root` is an ElementReference to the root of
+    /// the MenuItem tree, lowered to a NumberLiteral index into [`crate::llr::SubComponent::menu_item_trees`] in the LLR.
+    SetupSystemTrayIcon,
     Use24HourFormat,
     MonthDayCount,
     MonthOffset,
@@ -216,7 +221,7 @@ declare_builtin_function_types!(
     StringToLowercase: (Type::String) -> Type::String,
     StringToUppercase: (Type::String) -> Type::String,
     KeysToString: (Type::Keys) -> Type::String,
-    ImplicitLayoutInfo(..): (Type::ElementReference) -> typeregister::layout_info_type().into(),
+    ImplicitLayoutInfo(..): (Type::ElementReference, Type::Float32) -> typeregister::layout_info_type().into(),
     ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
             (SmolStr::new_static("red"), Type::Int32),
@@ -271,6 +276,8 @@ declare_builtin_function_types!(
     SupportsNativeMenuBar: () -> Type::Bool,
     // entries, sub-menu, activate. But the types here are not accurate.
     SetupMenuBar: (Type::Model, typeregister::noarg_callback_type(), typeregister::noarg_callback_type()) -> Type::Void,
+    // (system_tray_ref, menu_tree_ref) — types not accurate (menu_tree becomes an index in LLR)
+    SetupSystemTrayIcon: (Type::ElementReference, Type::ElementReference) -> Type::Void,
     MonthDayCount: (Type::Int32, Type::Int32) -> Type::Int32,
     MonthOffset: (Type::Int32, Type::Int32) -> Type::Int32,
     FormatDate: (Type::String, Type::Int32, Type::Int32, Type::Int32) -> Type::String,
@@ -295,7 +302,7 @@ declare_builtin_function_types!(
     RestartTimer: (Type::ElementReference) -> Type::Void,
     ParseMarkdown: (Type::String, Type::Array(Type::StyledText.into())) -> Type::StyledText,
     StringToStyledText: (Type::String) -> Type::StyledText
-    OpenUrl: (Type::String) -> Type::Void,
+    OpenUrl: (Type::String) -> Type::Bool,
 );
 
 impl Default for BuiltinFunctionTypes {
@@ -326,6 +333,7 @@ impl BuiltinFunction {
             BuiltinFunction::AccentColor => false,
             BuiltinFunction::SupportsNativeMenuBar => false,
             BuiltinFunction::SetupMenuBar => false,
+            BuiltinFunction::SetupSystemTrayIcon => false,
             BuiltinFunction::MonthDayCount => false,
             BuiltinFunction::MonthOffset => false,
             BuiltinFunction::FormatDate => false,
@@ -417,6 +425,7 @@ impl BuiltinFunction {
             BuiltinFunction::AccentColor => true,
             BuiltinFunction::SupportsNativeMenuBar => true,
             BuiltinFunction::SetupMenuBar => false,
+            BuiltinFunction::SetupSystemTrayIcon => false,
             BuiltinFunction::MonthDayCount => true,
             BuiltinFunction::MonthOffset => true,
             BuiltinFunction::FormatDate => true,
@@ -764,6 +773,8 @@ pub enum Expression {
 
     EasingCurve(EasingCurve),
 
+    EmptyDataTransfer,
+
     LinearGradient {
         angle: Box<Expression>,
         /// First expression in the tuple is a color, second expression is the stop position
@@ -835,7 +846,7 @@ pub enum Expression {
         layout: crate::layout::GridLayout,
         orientation: crate::layout::Orientation,
     },
-    /// Determine the coordinates of the items
+    /// Determine the coordinates of the items in the given orientation.
     SolveBoxLayout(crate::layout::BoxLayout, crate::layout::Orientation),
     SolveGridLayout {
         layout_organized_data_prop: NamedReference,
@@ -963,6 +974,7 @@ impl Expression {
             Expression::Array { element_ty, .. } => Type::Array(Rc::new(element_ty.clone())),
             Expression::Struct { ty, .. } => ty.clone().into(),
             Expression::PathData { .. } => Type::PathData,
+            Expression::EmptyDataTransfer => Type::DataTransfer,
             Expression::StoreLocalVariable { .. } => Type::Void,
             Expression::ReadLocalVariable { ty, .. } => ty.clone(),
             Expression::EasingCurve(_) => Type::Easing,
@@ -1049,6 +1061,7 @@ impl Expression {
                 }
                 Path::Commands(commands) => visitor(commands),
             },
+            Expression::EmptyDataTransfer => {}
             Expression::StoreLocalVariable { value, .. } => visitor(value),
             Expression::ReadLocalVariable { .. } => {}
             Expression::EasingCurve(_) => {}
@@ -1169,6 +1182,7 @@ impl Expression {
                 }
                 Path::Commands(commands) => visitor(commands),
             },
+            Expression::EmptyDataTransfer => {}
             Expression::StoreLocalVariable { value, .. } => visitor(value),
             Expression::ReadLocalVariable { .. } => {}
             Expression::EasingCurve(_) => {}
@@ -1288,6 +1302,7 @@ impl Expression {
                 Path::Events(_, _) => true,
                 Path::Commands(_) => false,
             },
+            Expression::EmptyDataTransfer => true,
             Expression::StoreLocalVariable { value, .. } => value.is_constant(ga),
             // We only load what we store, and stores are alredy checked
             Expression::ReadLocalVariable { .. } => true,
@@ -1521,6 +1536,7 @@ impl Expression {
             | Type::LayoutCache
             | Type::ArrayOfU16 => Expression::Invalid,
             Type::Void => Expression::CodeBlock(Vec::new()),
+            Type::DataTransfer => Expression::EmptyDataTransfer,
             Type::Float32 => Expression::NumberLiteral(0., Unit::None),
             Type::String => Expression::StringLiteral(SmolStr::default()),
             Type::Int32 | Type::Color | Type::UnitProduct(_) => Expression::Cast {
@@ -1562,7 +1578,11 @@ impl Expression {
             }
             Type::Keys => Expression::Keys(Keys::default()),
             Type::ComponentFactory => Expression::EmptyComponentFactory,
-            Type::StyledText => Expression::Invalid,
+            Type::StyledText => Expression::FunctionCall {
+                function: Callable::Builtin(BuiltinFunction::StringToStyledText),
+                arguments: vec![Self::default_value_for_type(&Type::String)],
+                source_location: None,
+            },
         }
     }
 
@@ -1655,17 +1675,32 @@ fn model_inner_type(model: &Expression) -> Type {
 
 /// The right hand side of a two way binding
 #[derive(Clone, Debug)]
-pub struct TwoWayBinding {
-    /// The property being linked
-    pub property: NamedReference,
-    /// If property is a struct, this is the fields.
-    /// So if you have `foo <=> element.property.baz.xyz`, then `field_access` is `vec!["baz", "xyz"]`
-    pub field_access: Vec<SmolStr>,
+pub enum TwoWayBinding {
+    Property {
+        /// The property being linked
+        property: NamedReference,
+        /// If property is a struct, this is the fields.
+        /// So if you have `foo <=> element.property.baz.xyz`, then `field_access` is `vec!["baz", "xyz"]`
+        field_access: Vec<SmolStr>,
+    },
+    ModelData {
+        /// The model being linked
+        repeated_element: ElementWeak,
+        /// same as `Self::Property::field_access`
+        field_access: Vec<SmolStr>,
+    },
 }
 impl TwoWayBinding {
     pub fn ty(&self) -> Type {
-        let mut ty = self.property.ty();
-        for x in &self.field_access {
+        let (mut ty, field_access) = match self {
+            Self::Property { property, field_access } => (property.ty(), field_access),
+            Self::ModelData { repeated_element, field_access } => {
+                let ty =
+                    Expression::RepeaterModelReference { element: repeated_element.clone() }.ty();
+                (ty, field_access)
+            }
+        };
+        for x in field_access {
             ty = match ty {
                 Type::InferredProperty | Type::InferredCallback => return ty,
                 Type::Struct(s) => s.fields.get(x).cloned().unwrap_or_default(),
@@ -1674,11 +1709,25 @@ impl TwoWayBinding {
         }
         ty
     }
+
+    pub fn is_constant(&self) -> bool {
+        match self {
+            Self::Property { property, .. } => property.is_constant(),
+            Self::ModelData { .. } => false,
+        }
+    }
+
+    pub fn property(&self) -> Option<&NamedReference> {
+        match self {
+            Self::Property { property, .. } => Some(property),
+            Self::ModelData { .. } => None,
+        }
+    }
 }
 
 impl From<NamedReference> for TwoWayBinding {
     fn from(nr: NamedReference) -> Self {
-        Self { property: nr, field_access: Vec::new() }
+        Self::Property { property: nr, field_access: Vec::new() }
     }
 }
 
@@ -1836,8 +1885,8 @@ pub enum EasingCurve {
 pub enum ImageReference {
     None,
     AbsolutePath(SmolStr),
-    EmbeddedData { resource_id: usize, extension: String },
-    EmbeddedTexture { resource_id: usize },
+    EmbeddedData { resource_id: crate::embedded_resources::EmbeddedResourcesIdx, extension: String },
+    EmbeddedTexture { resource_id: crate::embedded_resources::EmbeddedResourcesIdx },
 }
 
 /// Print the expression as a .slint code (not necessarily valid .slint)
@@ -1945,6 +1994,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, " }}")
         }
         Expression::PathData(data) => write!(f, "{data:?}"),
+        Expression::EmptyDataTransfer => write!(f, "{{ }}"),
         Expression::EasingCurve(e) => write!(f, "{e:?}"),
         Expression::LinearGradient { angle, stops } => {
             write!(f, "@linear-gradient(")?;

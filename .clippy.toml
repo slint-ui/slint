@@ -3,3 +3,15 @@
 
 type-complexity-threshold = 2500
 too-many-arguments-threshold = 10
+
+# `disallowed-methods` is the configuration for the `clippy::disallowed_methods`
+# lint, which is allow-by-default. Listing entries here therefore has no effect
+# in crates that don't opt into the lint. We currently enable it only in the
+# slint-lsp crate (see `#![deny(clippy::disallowed_methods)]` in `tools/lsp/main.rs`
+# and `tools/lsp/wasm_main.rs`), so the entries below are effectively scoped to
+# slint-lsp. Putting them here (rather than in `tools/lsp/clippy.toml`) avoids
+# shadowing the workspace-wide thresholds above — clippy reads exactly one
+# clippy.toml per crate, with no merging.
+disallowed-methods = [
+  { path = "tokio::task::spawn_local", reason = "Use `slint_lsp::common::spawn_local` — it routes to `wasm_bindgen_futures::spawn_local` on wasm." },
+]

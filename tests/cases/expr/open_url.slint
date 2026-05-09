@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export component TestCase  {
-    callback open-url-callback(url: string);
+    callback open-url-callback(url: string) -> bool;
     open-url-callback(url) => {
-        Platform.open-url(url);
+        Platform.open-url(url)
     }
 
     TouchArea {
@@ -21,7 +21,7 @@ export component TestCase  {
 
 ```rust
 let instance = TestCase::new().unwrap();
-instance.invoke_open_url_callback("https://example.com".into());
+assert!(instance.invoke_open_url_callback("https://example.com".into()));
 let url = slint_testing::access_testing_window(instance.window(), |window| window.open_url());
 assert_eq!(url, Some("https://example.com".into()));
 ```

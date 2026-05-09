@@ -233,6 +233,69 @@ impl<T: Into<LocalMemberIndex>> From<T> for LocalMemberReference {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct TwoWayBinding {
+    pub prop1: LocalMemberReference,
+    pub prop2: MemberReference,
+    /// `Some` when the binding targets a model row. `prop2` is then the
+    /// `model_data` property of the enclosing `for`'s body sub-component,
+    /// and this index is the `model_index` property in the same sub-component.
+    pub is_model: Option<PropertyIdx>,
+    /// Field path applied to `prop2`, when `prop2` is a struct.
+    pub field_access: Vec<SmolStr>,
+}
+
+/// Resolved view of a model two-way binding, used by code generators to
+/// avoid re-deriving the parent walk and the data/index/repeater references.
+pub struct ResolvedModelTwoWayBinding<'a> {
+    /// Number of `parent` hops up to the body sub-component.
+    pub parent_level: usize,
+    pub body_sub_component: SubComponentIdx,
+    pub data_prop: PropertyIdx,
+    /// Type of `data_prop`, i.e. the starting type of [`TwoWayBinding::field_access`].
+    pub data_prop_ty: &'a Type,
+    pub index_prop: PropertyIdx,
+    pub parent_sub_component: SubComponentIdx,
+    pub repeater_index: RepeatedElementIdx,
+}
+
+impl TwoWayBinding {
+    /// Resolve the parent walk and the data/index/repeater references of a
+    /// model two-way binding. Returns `None` for regular property bindings.
+    pub fn resolve_model<'a, T>(
+        &self,
+        ctx: &EvaluationContext<'a, T>,
+    ) -> Option<ResolvedModelTwoWayBinding<'a>> {
+        let index_prop = self.is_model?;
+        let MemberReference::Relative { parent_level, local_reference } = &self.prop2 else {
+            unreachable!("model two-way binding's prop2 is always a Relative reference")
+        };
+        debug_assert!(local_reference.sub_component_path.is_empty());
+        let LocalMemberIndex::Property(data_prop) = local_reference.reference else {
+            unreachable!("model two-way binding's prop2 always references a property")
+        };
+        let super::EvaluationScope::SubComponent(mut sc, mut par) = ctx.current_scope else {
+            unreachable!("model two-way binding cannot be in a global")
+        };
+        for _ in 0..*parent_level {
+            let x = par.expect("parent_level should be valid");
+            par = x.parent;
+            sc = x.sub_component;
+        }
+        let par = par.expect("repeated item_tree must have a parent");
+        let data_prop_ty = &ctx.compilation_unit.sub_components[sc].properties[data_prop].ty;
+        Some(ResolvedModelTwoWayBinding {
+            parent_level: *parent_level,
+            body_sub_component: sc,
+            data_prop,
+            data_prop_ty,
+            index_prop,
+            parent_sub_component: par.sub_component,
+            repeater_index: par.repeater_index.expect("repeated parent has a repeater_index"),
+        })
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct Property {
     pub name: SmolStr,
@@ -268,13 +331,13 @@ pub struct Function {
 /// The property references might be either in the parent context, or in the
 /// repeated's component context
 pub struct ListViewInfo {
-    pub viewport_y: LocalMemberReference,
-    pub viewport_height: LocalMemberReference,
-    pub viewport_width: LocalMemberReference,
+    pub viewport_y: MemberReference,
+    pub viewport_height: MemberReference,
+    pub viewport_width: MemberReference,
     /// The ListView's inner visible height (not counting eventual scrollbar)
-    pub listview_height: LocalMemberReference,
+    pub listview_height: MemberReference,
     /// The ListView's inner visible width (not counting eventual scrollbar)
-    pub listview_width: LocalMemberReference,
+    pub listview_width: MemberReference,
 
     // In the repeated component context
     pub prop_y: MemberReference,
@@ -388,7 +451,7 @@ pub struct SubComponent {
     pub repeated: TiVec<RepeatedElementIdx, RepeatedElement>,
     pub component_containers: Vec<ComponentContainerElement>,
     pub popup_windows: Vec<PopupWindow>,
-    /// The MenuItem trees. The index is stored in a Expression::NumberLiteral in the arguments of BuiltinFunction::ShowPopupMenu and BuiltinFunction::SetupNativeMenuBar
+    /// The MenuItem trees. The index is stored in a Expression::NumberLiteral in the arguments of BuiltinFunction::ShowPopupMenu and BuiltinFunction::SetupMenuBar
     pub menu_item_trees: Vec<ItemTree>,
     pub timers: Vec<Timer>,
     pub sub_components: TiVec<SubComponentInstanceIdx, SubComponentInstance>,
@@ -399,7 +462,7 @@ pub struct SubComponent {
     /// The animation for properties which are animated
     pub animations: HashMap<LocalMemberReference, Expression>,
     /// The two way bindings that map the first property to the second wih optional field access
-    pub two_way_bindings: Vec<(MemberReference, MemberReference, Vec<SmolStr>)>,
+    pub two_way_bindings: Vec<TwoWayBinding>,
     pub const_properties: Vec<LocalMemberReference>,
     /// Code that is run in the sub component constructor, after property initializations
     pub init_code: Vec<MutExpression>,
@@ -498,12 +561,22 @@ pub struct ItemTree {
     pub tree: TreeNode,
 }
 
+/// What top-level role an exported component plays. Drives whether the
+/// generated public API is `slint::Window`-shaped (a `ComponentHandle` impl
+/// with `show`/`hide`/`run`/`window`) or something else.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TopLevelComponentType {
+    Window,
+    SystemTrayIcon,
+}
+
 #[derive(Debug)]
 pub struct PublicComponent {
     pub public_properties: PublicProperties,
     pub private_properties: PrivateProperties,
     pub item_tree: ItemTree,
     pub name: SmolStr,
+    pub top_level_type: TopLevelComponentType,
 }
 
 #[derive(Debug)]
@@ -521,6 +594,11 @@ pub struct CompilationUnit {
 }
 
 impl CompilationUnit {
+    pub fn needs_window_adapter(&self) -> bool {
+        self.public_components.iter().any(|p| p.top_level_type == TopLevelComponentType::Window)
+            || self.popup_menu.is_some()
+    }
+
     pub fn for_each_sub_components<'a>(
         &'a self,
         visitor: &mut dyn FnMut(&'a SubComponent, &EvaluationContext<'_>),

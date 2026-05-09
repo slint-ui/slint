@@ -5,7 +5,7 @@
 
 [package]
 name = "servo-example"
-version = "1.16.0"
+version = "1.17.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2024"
 publish = false
@@ -39,12 +39,14 @@ termcolor = "1.4.1"
 thiserror = "2.0.17"
 foreign-types-shared = "0.3.1"
 
-wgpu-hal = "28.0.0"
-wgpu-core = "28.0.0"
-wgpu = { version = "28.0.0", features = ["metal"] }
-
 surfman = { version = "0.11.0", features = ["chains"] }
-libservo = { git = "https://github.com/servo/servo", tag = "v0.0.6" }
+servo = "0.1.0"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+surfman = { version = "0.11.0", features = ["chains", "sm-angle-default"] }
+servo = { version = "0.1.0", features = ["no-wgl"] }
+windows = { version = "0.62.2", features = ["Win32_Graphics_Dxgi", "Win32_Graphics_Direct3D11", "Win32_Graphics_Direct3D12", "Win32_Foundation", "Win32_Graphics_Dxgi_Common"] }
+wio = "0.2"
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 ash = "0.38.0"

@@ -19,15 +19,11 @@ pub fn check_expressions(doc: &crate::object_tree::Document, diag: &mut BuildDia
 fn check_expression(component: &Rc<Component>, e: &Expression, diag: &mut BuildDiagnostics) {
     if let Expression::FunctionCall { function: Callable::Builtin(b), source_location, .. } = e {
         match b {
-            BuiltinFunction::GetWindowScaleFactor => {
-                if component.is_global() {
-                    diag.push_error("Cannot convert between logical and physical length in a global component, because the scale factor is not known".into(), source_location);
-                }
+            BuiltinFunction::GetWindowScaleFactor if component.is_global() => {
+                diag.push_error("Cannot convert between logical and physical length in a global component, because the scale factor is not known".into(), source_location);
             }
-            BuiltinFunction::GetWindowDefaultFontSize => {
-                if component.is_global() {
-                    diag.push_error("Cannot convert between rem and logical length in a global component, because the default font size is not known".into(), source_location);
-                }
+            BuiltinFunction::GetWindowDefaultFontSize if component.is_global() => {
+                diag.push_error("Cannot convert between rem and logical length in a global component, because the default font size is not known".into(), source_location);
             }
             _ => {}
         }

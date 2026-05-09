@@ -3,7 +3,7 @@
 
 [package]
 name = "bevy-hosts-slint"
-version = "1.16.0"
+version = "1.17.0"
 authors = ["Slint Developers <info@slint.dev>"]
 edition = "2024"
 publish = false
@@ -15,7 +15,7 @@ name = "bevy_hosts_slint"
 path = "main.rs"
 
 [dependencies]
-slint = { path = "../../../../slint/api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software", "software-renderer-systemfonts", "std"] }
+slint = { path = "../../../api/rs/slint", default-features = false, features = ["compat-1-2", "renderer-software", "software-renderer-systemfonts", "std"] }
 bevy = { version = "0.18.0" }
 bevy_image = { version = "0.18.0", features = ["zstd_rust"] }
 bytemuck = "1.13.1"

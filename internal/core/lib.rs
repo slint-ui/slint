@@ -23,7 +23,7 @@ pub mod unsafe_single_threaded;
 compile_error!(
     "At least one of the following feature need to be enabled: `std` or `unsafe-single-threaded`"
 );
-use crate::items::OperatingSystemType;
+pub use crate::items::OperatingSystemType;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 pub use crate::unsafe_single_threaded::thread_local;
 #[cfg(feature = "std")]
@@ -35,7 +35,9 @@ pub mod api;
 pub mod callbacks;
 pub mod component_factory;
 pub mod context;
+pub mod data_transfer;
 pub mod date_time;
+pub mod debug_log;
 pub mod future;
 pub mod graphics;
 pub mod input;
@@ -57,7 +59,6 @@ pub mod sharedvector;
 pub mod slice;
 pub mod string;
 pub mod styled_text;
-pub mod tests;
 pub mod textlayout;
 pub mod timers;
 pub mod translations;
@@ -94,7 +95,10 @@ pub use graphics::PathData;
 #[doc(inline)]
 pub use graphics::BorderRadius;
 
-pub use context::{SlintContext, with_global_context};
+#[doc(inline)]
+pub use data_transfer::DataTransfer;
+
+pub use context::{SlintContext, SlintContextWeak, with_global_context};
 
 #[cfg(not(slint_int_coord))]
 pub type Coord = f32;
@@ -168,6 +172,6 @@ pub fn is_apple_platform() -> bool {
     matches!(detect_operating_system(), OperatingSystemType::Macos | OperatingSystemType::Ios)
 }
 
-pub fn open_url(url: &str, window: &crate::api::Window) {
+pub fn open_url(url: &str, window: &crate::api::Window) -> Result<(), crate::api::PlatformError> {
     crate::window::WindowInner::from_pub(window).context().platform().open_url(url)
 }

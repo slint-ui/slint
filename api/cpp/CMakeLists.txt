@@ -4,7 +4,7 @@
 cmake_minimum_required(VERSION 3.21)
 # Select C++ and C as languages, as Corrosion needs ${CMAKE_C_COMPILER}
 # for linking
-project(Slint HOMEPAGE_URL "https://slint.dev/" LANGUAGES C CXX VERSION 1.16.0)
+project(Slint HOMEPAGE_URL "https://slint.dev/" LANGUAGES C CXX VERSION 1.17.0)
 
 include(FeatureSummary)
 include(CMakeDependentOption)
@@ -22,7 +22,7 @@ if (NOT Corrosion_FOUND)
 endif ()
 
 list(PREPEND CMAKE_MODULE_PATH ${Corrosion_SOURCE_DIR}/cmake)
-find_package(Rust 1.88 REQUIRED MODULE)
+find_package(Rust 1.92 REQUIRED MODULE)
 
 option(BUILD_SHARED_LIBS "Build Slint as shared library" ON)
 option(SLINT_FEATURE_COMPILER "Enable support for compiling .slint files to C++ ahead of time" ON)
@@ -382,6 +382,7 @@ if (SLINT_BUILD_RUNTIME)
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_pathdata_internal.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_platform_internal.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_properties_internal.h
+        ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_data_transfer_internal.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_qt_internal.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_sharedvector_internal.h
         ${CMAKE_CURRENT_BINARY_DIR}/generated_include/private/slint_string_internal.h

@@ -406,6 +406,7 @@ impl<T> Property<Length<crate::Coord, T>> {
 #[cfg(test)]
 mod animation_tests {
     use super::*;
+    use std::rc::Rc;
 
     #[derive(Default)]
     struct Component {

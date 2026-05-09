@@ -1,0 +1,61 @@
+---
+title: Library Modules
+description: Experimental cross-crate Slint library modules.
+---
+
+A Slint *library module* lets one Rust crate publish a set of `.slint` components and another crate import them through Cargo's dependency system.
+The consumer writes `import { Foo } from "@libname";` and Cargo's build metadata tells the Slint compiler where to find the library source.
+
+> **Note**: Library modules are experimental.
+> The publishing side requires the `experimental-module-builds` feature of `slint-build`, and the consumer side requires the `experimental-library-module` feature of the Slint compiler.
+> Tracking issue: [slint-ui/slint#154](https://github.com/slint-ui/slint/issues/154).
+
+## Publishing a library
+
+A crate that provides a library compiles its `.slint` entry point in its `build.rs` and marks it as a library.
+This causes Cargo to emit `DEP_*` environment variables that downstream crates can read.
+
+```rust,no_run
+// build.rs of the publishing crate
+fn main() {
+    let config = slint_build::CompilerConfiguration::new()
+        .as_library("mywidgets");
+    slint_build::compile_with_config("ui/lib.slint", config).unwrap();
+}
+```
+
+The crate's `Cargo.toml` must declare `links = "mywidgets"` so that Cargo forwards the metadata to dependent crates.
+
+```toml
+[package]
+name = "mywidgets"
+links = "mywidgets"
+```
+
+## Consuming a library
+
+A crate that depends on the publishing crate imports its components with the `@` prefix followed by the library name:
+
+```slint no-test
+import { FancyButton } from "@mywidgets";
+
+export component App inherits Window {
+    FancyButton { text: "Click me"; }
+}
+```
+
+No extra build.rs configuration is needed on the consumer side: the Slint compiler discovers the library through the `DEP_MYWIDGETS_SLINT_LIBRARY_*` environment variables that Cargo forwards automatically for `links` dependencies.
+
+## Environment variables
+
+When the publishing crate uses `as_library("name")`, its build script emits the following metadata, which Cargo exposes to dependents as `DEP_NAME_*`:
+
+| Variable                     | Meaning                                       |
+| ---------------------------- | --------------------------------------------- |
+| `SLINT_LIBRARY_NAME`         | The library name used in the `@name` import.  |
+| `SLINT_LIBRARY_SOURCE`       | Absolute path to the library's entry `.slint` file. |
+| `SLINT_LIBRARY_PACKAGE`      | The publishing crate's package name.          |
+| `SLINT_LIBRARY_MODULE`       | Optional Rust module path where the generated code lives. |
+
+Ad-hoc local libraries that do not need to travel across crates can still be registered directly with `slint_build::CompilerConfiguration::with_library_paths`.
+That API is stable and does not require the experimental feature.

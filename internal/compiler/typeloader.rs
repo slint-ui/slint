@@ -8,7 +8,7 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 
-use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::diagnostics::{BuildDiagnostics, Diagnostic, Spanned};
 use crate::expression_tree::Callable;
 use crate::object_tree::{self, Document, ExportedName, Exports};
 use crate::parser::{NodeOrToken, SyntaxKind, SyntaxToken, syntax_nodes};
@@ -179,8 +179,8 @@ impl Snapshotter {
         registry
             .borrow()
             .all_elements()
-            .iter()
-            .filter_map(|(_, ty)| match ty {
+            .values()
+            .filter_map(|ty| match ty {
                 langtype::ElementType::Component(c) if c.is_global() => Some(c),
                 _ => None,
             })
@@ -600,9 +600,20 @@ impl Snapshotter {
             two_way_bindings: binding_expression
                 .two_way_bindings
                 .iter()
-                .map(|twb| crate::expression_tree::TwoWayBinding {
-                    property: twb.property.snapshot(self),
-                    field_access: twb.field_access.clone(),
+                .map(|twb| match twb {
+                    crate::expression_tree::TwoWayBinding::Property { property, field_access } => {
+                        crate::expression_tree::TwoWayBinding::Property {
+                            property: property.snapshot(self),
+                            field_access: field_access.clone(),
+                        }
+                    }
+                    crate::expression_tree::TwoWayBinding::ModelData {
+                        repeated_element,
+                        field_access,
+                    } => crate::expression_tree::TwoWayBinding::ModelData {
+                        repeated_element: repeated_element.clone(),
+                        field_access: field_access.clone(),
+                    },
                 })
                 .collect(),
         }
@@ -990,7 +1001,10 @@ impl TypeLoader {
                 return HashSet::new();
             }
         } else {
-            return HashSet::new();
+            // If a document is not in the TypeLoader, it may still have dependencies,
+            // as another document may have tried to import it, but it failed (e.g. the file didn't exist).
+            // So still invalidate all dependencies, even if the file is not in the TypeLoader.
+            // (Fallthrough)
         }
         let deps = self.all_documents.dependencies.remove(path).unwrap_or_default();
         let mut extra_deps = HashSet::new();
@@ -1100,7 +1114,18 @@ impl TypeLoader {
         std::future::poll_fn(|cx| {
             dependencies_futures.retain_mut(|fut| {
                 let core::task::Poll::Ready((mut import, doc_path)) = fut.as_mut().poll(cx) else { return true; };
-                let Some(doc_path) = doc_path else { return false };
+                let doc_path = match doc_path {
+                    Ok(doc_path) => doc_path,
+                    Err(Some(doc_path)) => {
+                        // Even if the import failed (e.g. the file doesn't exist), we need to add it to the document imports so that
+                        // the dependency graph is correct and we can retry loading the document if the imported file changes or is created.
+                        import.file = doc_path.to_string_lossy().into_owned();
+                        imports.push(import);
+
+                        return false;
+                    }
+                    Err(None) => return false,
+                };
                 let mut state = state.borrow_mut();
                 let state: &mut BorrowedTypeLoader<'a> = &mut state;
                 let Some(doc) = state.tl.get_document(&doc_path) else {
@@ -1187,8 +1212,8 @@ impl TypeLoader {
             match Self::ensure_document_loaded(&state, file_to_import, None, Default::default())
                 .await
             {
-                Some(doc_path) => doc_path,
-                None => return None,
+                Ok(doc_path) => doc_path,
+                Err(_) => return None,
             };
 
         let Some(doc) = self.get_document(&doc_path) else {
@@ -1225,13 +1250,15 @@ impl TypeLoader {
         }
     }
 
+    /// Returns whether the file was succesfully loaded.
+    /// If not, the path that was attempted to be loaded is returned (if any).
     #[allow(clippy::await_holding_refcell_ref)] // false positive: explicit drop() before await
     async fn ensure_document_loaded<'a: 'b, 'b>(
         state: &'a RefCell<BorrowedTypeLoader<'a>>,
         file_to_import: &'b str,
         import_token: Option<NodeOrToken>,
         mut import_stack: HashSet<PathBuf>,
-    ) -> Option<PathBuf> {
+    ) -> Result<PathBuf, Option<PathBuf>> {
         let mut borrowed_state = state.borrow_mut();
 
         let mut resolved = false;
@@ -1280,7 +1307,8 @@ impl TypeLoader {
                     let path = crate::pathutils::join(
                         &crate::pathutils::dirname(&base_path),
                         Path::new(file_to_import),
-                    )?;
+                    )
+                    .ok_or(None)?;
                     (path, None)
                 }
             }
@@ -1291,7 +1319,7 @@ impl TypeLoader {
                 format!("Recursive import of \"{}\"", path_canon.display()),
                 &import_token,
             );
-            return None;
+            return Err(Some(path_canon));
         }
 
         drop(borrowed_state);
@@ -1326,7 +1354,7 @@ impl TypeLoader {
         })
         .await;
         if is_loaded {
-            return Some(path_canon);
+            return Ok(path_canon);
         }
 
         let doc_node = if let Some((doc_node, errors)) = doc_node {
@@ -1359,18 +1387,14 @@ impl TypeLoader {
                     if !resolved
                         && matches!(err.kind(), ErrorKind::NotFound | ErrorKind::NotADirectory) =>
                 {
+                    let import_kind =
+                        if file_to_import.starts_with('@') { "library" } else { "include" };
                     state.borrow_mut().diag.push_error(
-                            if file_to_import.starts_with('@') {
-                                format!(
-                                    "Cannot find requested import \"{file_to_import}\" in the library search path",
-                                )
-                            } else {
-                                format!(
-                                    "Cannot find requested import \"{file_to_import}\" in the include search path",
-                                )
-                            },
-                            &import_token,
-                        );
+                        format!(
+                            "Cannot find requested import \"{file_to_import}\" in the {import_kind} search path",
+                        ),
+                        &import_token,
+                    );
                     None
                 }
                 Err(err) => {
@@ -1407,7 +1431,7 @@ impl TypeLoader {
             x.wake();
         }
 
-        ok.then_some(path_canon)
+        if ok { Ok(path_canon) } else { Err(Some(path_canon)) }
     }
 
     /// Load a file, and its dependency, running only the import passes.
@@ -1471,12 +1495,26 @@ impl TypeLoader {
         } else {
             None
         };
-        state
-            .tl
-            .all_documents
-            .docs
-            .insert(path.clone(), (LoadedDocument::Document(doc), parse_errors));
+        Self::register_document(state, doc, path.clone(), parse_errors);
         (path, raw_type_loader)
+    }
+
+    fn register_document(
+        state: &mut BorrowedTypeLoader<'_>,
+        doc: Document,
+        path: PathBuf,
+        parse_errors: Vec<Diagnostic>,
+    ) {
+        for dep in &doc.imports {
+            state
+                .tl
+                .all_documents
+                .dependencies
+                .entry(Path::new(&dep.file).into())
+                .or_default()
+                .insert(path.clone());
+        }
+        state.tl.all_documents.docs.insert(path, (LoadedDocument::Document(doc), parse_errors));
     }
 
     async fn load_file_impl<'a>(
@@ -1501,16 +1539,7 @@ impl TypeLoader {
         if !state.diag.has_errors() {
             crate::passes::run_import_passes(&doc, state.tl, state.diag);
         }
-        for dep in &doc.imports {
-            state
-                .tl
-                .all_documents
-                .dependencies
-                .entry(Path::new(&dep.file).into())
-                .or_default()
-                .insert(path.clone());
-        }
-        state.tl.all_documents.docs.insert(path, (LoadedDocument::Document(doc), parse_errors));
+        Self::register_document(state, doc, path, parse_errors);
     }
 
     async fn load_doc_no_pass<'a>(
@@ -1716,6 +1745,39 @@ impl TypeLoader {
     /// Return an iterator over all the loaded file path
     pub fn all_files(&self) -> impl Iterator<Item = &PathBuf> {
         self.all_documents.docs.keys()
+    }
+
+    /// Returns all file paths whose on-disk changes can affect the current document graph.
+    ///
+    /// This includes loaded documents and unresolved import targets that are kept in the
+    /// dependency graph so newly created files can invalidate their dependents.
+    pub fn all_files_to_watch(&self) -> HashSet<PathBuf> {
+        // Note: This only works if the full set of passes have run (e.g. in load_root_file, but not
+        // in load_file).
+        //
+        // TODO: the LSP will only run the import passes, which do not yet
+        // detect embedded file resources, so we won't know about them until we
+        // run the full pass pipeline (e.g. in the editor binary).
+        fn resource_paths(document: &LoadedDocument) -> Vec<PathBuf> {
+            match document {
+                LoadedDocument::Document(document) => document
+                    .embedded_file_resources
+                    .borrow()
+                    .iter()
+                    .flat_map(|resource| resource.path.as_ref().map(|path| PathBuf::from(&**path)))
+                    .collect(),
+                LoadedDocument::Invalidated(_document) => vec![],
+            }
+        }
+
+        self.all_documents
+            .docs
+            .iter()
+            .flat_map(|(path, (document, _diagnostics))| {
+                std::iter::once(path.clone()).chain(resource_paths(document))
+            })
+            .chain(self.all_documents.dependencies.keys().cloned())
+            .collect()
     }
 
     /// Returns an iterator over all the loaded documents
@@ -2009,6 +2071,119 @@ component Foo { XX {} }
     assert_eq!(
         diags,
         &["HELLO:3: Cannot find requested import \"error.slint\" in the include search path"]
+    );
+}
+
+#[test]
+fn test_load_file_watches_missing_imports() {
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.embed_resources = crate::EmbedResourcesKind::ListAllResources;
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let main_path = Path::new("/tmp/main.slint");
+
+    spin_on::spin_on(
+        loader.load_file(
+            main_path,
+            main_path,
+            r#"
+/* ... */
+import { XX } from "missing/dependency.slint";
+component Foo { XX {} }
+"#
+            .into(),
+            false,
+            &mut build_diagnostics,
+        ),
+    );
+
+    assert!(build_diagnostics.has_errors());
+
+    let watch_files = loader.all_files_to_watch();
+    assert!(watch_files.contains(&PathBuf::from("/tmp/main.slint")));
+    assert!(watch_files.contains(&PathBuf::from("/tmp/missing/dependency.slint")));
+}
+
+#[test]
+fn test_load_root_file_tracks_missing_imports() {
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.embed_resources = crate::EmbedResourcesKind::ListAllResources;
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let main_path = std::env::temp_dir().join("main.slint");
+    let missing_path = main_path.with_file_name("missing.slint");
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    spin_on::spin_on(
+        loader.load_root_file(
+            &main_path,
+            &main_path,
+            r#"
+import { Missing } from "missing.slint";
+export component Main inherits Window {
+    Missing { }
+}
+"#
+            .into(),
+            false,
+            &mut build_diagnostics,
+        ),
+    );
+
+    assert!(build_diagnostics.has_errors());
+    assert!(
+        loader.all_files_to_watch().contains(&main_path),
+        "watch paths: {:?}",
+        loader.all_files_to_watch()
+    );
+    assert!(
+        loader.all_files_to_watch().contains(&missing_path),
+        "watch paths: {:?}",
+        loader.all_files_to_watch()
+    );
+}
+
+#[test]
+fn test_load_root_file_tracks_missing_resources() {
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.embed_resources = crate::EmbedResourcesKind::ListAllResources;
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let main_path = std::env::temp_dir().join("main.slint");
+    let resource_path = main_path.with_file_name("icon.svg");
+
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    spin_on::spin_on(
+        loader.load_root_file(
+            &main_path,
+            &main_path,
+            r#"
+export component Main inherits Window {
+    Image {
+        source: @image-url("icon.svg");
+    }
+}
+"#
+            .into(),
+            false,
+            &mut build_diagnostics,
+        ),
+    );
+
+    // The image is not embedded, so it doesn't cause an error
+    assert!(!build_diagnostics.has_errors());
+    assert!(
+        loader.all_files_to_watch().contains(&main_path),
+        "watch paths: {:?}",
+        loader.all_files_to_watch()
+    );
+    assert!(
+        loader.all_files_to_watch().contains(&resource_path),
+        "watch paths: {:?}",
+        loader.all_files_to_watch()
     );
 }
 

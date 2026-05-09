@@ -82,7 +82,7 @@ The following is included as part of the plan
 
 ### Small Enterprise Plan
 
-This plan is limited to individual companies with a staff headcount between 10 and 50 and either a turnover or balance sheet total of 10 million EUR or less. If You are a Small Enterprise, You are required to submit the self-assessment report generated from the EU SME Self-Assessment Tool (https://ec.europa.eu/info/funding-tenders/opportunities/portal/sme/public/organisation-name).
+This plan is limited to individual companies with a staff headcount of upto 50 and either a turnover or balance sheet total of 10 million EUR or less. If You are a Small Enterprise, You are required to submit the self-assessment report generated from the EU SME Self-Assessment Tool (https://ec.europa.eu/info/funding-tenders/opportunities/portal/sme/public/organisation-name).
 
 The following is included as part of the plan
 

@@ -58,7 +58,8 @@ pub struct Color {
     alpha: Channel,
 }
 
-// until slint uses rust 1.90 as MSRV.
+// Can't use f32::round() yet because the Float trait in num_traits isn't const
+// (when building with libm)
 const fn round(mut value: f32) -> u8 {
     if value % 1.0 > 0.5 {
         value += 0.5;

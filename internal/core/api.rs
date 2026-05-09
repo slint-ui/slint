@@ -7,11 +7,12 @@ This module contains types that are public and re-exported in the slint-rs as we
 
 #![warn(missing_docs)]
 
-use crate::input::{InternalKeyEvent, KeyEventType, MouseEvent};
+use crate::input::{InternalKeyEvent, KeyEventType, MouseEvent, TouchPhase};
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
 use alloc::string::String;
 
+pub use crate::data_transfer::DataTransfer;
 #[cfg(target_has_atomic = "ptr")]
 pub use crate::future::*;
 pub use crate::graphics::{
@@ -648,7 +649,7 @@ impl Window {
                     position: position.to_euclid().cast(),
                     button,
                     click_count: 0,
-                    is_touch: false,
+                    touch_finger_id: 0,
                 });
             }
             crate::platform::WindowEvent::PointerReleased { position, button } => {
@@ -656,13 +657,13 @@ impl Window {
                     position: position.to_euclid().cast(),
                     button,
                     click_count: 0,
-                    is_touch: false,
+                    touch_finger_id: 0,
                 });
             }
             crate::platform::WindowEvent::PointerMoved { position } => {
                 self.0.process_mouse_input(MouseEvent::Moved {
                     position: position.to_euclid().cast(),
-                    is_touch: false,
+                    touch_finger_id: 0,
                 });
             }
             crate::platform::WindowEvent::PointerScrolled { position, delta_x, delta_y } => {
@@ -670,6 +671,7 @@ impl Window {
                     position: position.to_euclid().cast(),
                     delta_x: delta_x as _,
                     delta_y: delta_y as _,
+                    phase: TouchPhase::Cancelled,
                 });
             }
             crate::platform::WindowEvent::PointerExited => {
@@ -1280,6 +1282,7 @@ pub enum PlatformError {
     /// or call [`platform::set_platform()`](crate::platform::set_platform)
     /// before running the event loop
     NoPlatform,
+
     /// The Slint Platform does not provide an event loop.
     ///
     /// The [`Platform::run_event_loop`](crate::platform::Platform::run_event_loop)
@@ -1289,11 +1292,14 @@ pub enum PlatformError {
     /// There is already a platform set from another thread.
     SetPlatformError(crate::platform::SetPlatformError),
 
+    /// The operation is not supported by the current platform.
+    Unsupported,
+
     /// Another platform-specific error occurred
     Other(String),
+
     /// Another platform-specific error occurred.
-    #[cfg(feature = "std")]
-    OtherError(Box<dyn std::error::Error + Send + Sync>),
+    OtherError(Box<dyn core::error::Error + Send + Sync>),
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -1321,8 +1327,10 @@ impl core::fmt::Display for PlatformError {
             PlatformError::SetPlatformError(_) => {
                 f.write_str("The Slint platform was initialized in another thread")
             }
+            PlatformError::Unsupported => {
+                f.write_str("The operation is not supported by the current platform")
+            }
             PlatformError::Other(str) => f.write_str(str),
-            #[cfg(feature = "std")]
             PlatformError::OtherError(error) => error.fmt(f),
         }
     }

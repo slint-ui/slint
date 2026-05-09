@@ -900,30 +900,46 @@ class Repeater
         std::vector<RepeatedInstanceWithState> data;
         private_api::Property<bool> is_dirty { true };
         std::shared_ptr<Model<ModelData>> model;
+        cbindgen_private::RepeaterLayoutState layout_state {};
 
         void row_added(size_t index, size_t count) override
         {
-            if (index > data.size()) {
-                // Can happen before ensure_updated was called
+            if (index < layout_state.offset) {
+                if (index + count <= layout_state.offset) {
+                    // Entirely before the visible range: shift the offset.
+                    layout_state.offset += count;
+                    is_dirty.set(true);
+                    for (auto &c : data) {
+                        c.state = State::Dirty;
+                    }
+                    return;
+                }
+                count -= layout_state.offset - index;
+                index = 0;
+            } else {
+                index -= layout_state.offset;
+            }
+            if (count == 0 || index > data.size()) {
                 return;
             }
             is_dirty.set(true);
             data.resize(data.size() + count);
             std::rotate(data.begin() + index, data.end() - count, data.end());
             for (std::size_t i = index; i < data.size(); ++i) {
-                // all the indexes are dirty
                 data[i].state = State::Dirty;
             }
         }
         void row_changed(size_t index) override
         {
-            if (index >= data.size()) {
+            if (index < layout_state.offset)
                 return;
-            }
-            auto &c = data[index];
+            const auto local = index - layout_state.offset;
+            if (local >= data.size())
+                return;
+            auto &c = data[local];
             if (model && c.ptr) {
-                std::optional<ModelData> data = model->row_data(index);
-                (*c.ptr)->update_data(index, data ? *data : ModelData {});
+                std::optional<ModelData> row_data = model->row_data(index);
+                (*c.ptr)->update_data(index, row_data ? *row_data : ModelData {});
                 c.state = State::Clean;
             } else {
                 c.state = State::Dirty;
@@ -931,14 +947,31 @@ class Repeater
         }
         void row_removed(size_t index, size_t count) override
         {
-            if (index + count > data.size()) {
-                // Can happen before ensure_updated was called
+            if (index < layout_state.offset) {
+                if (index + count <= layout_state.offset) {
+                    // Entirely before the visible range: shift the offset.
+                    layout_state.offset -= count;
+                    is_dirty.set(true);
+                    for (auto &c : data) {
+                        c.state = State::Dirty;
+                    }
+                    return;
+                }
+                count -= layout_state.offset - index;
+                layout_state.offset = index;
+                index = 0;
+            } else {
+                index -= layout_state.offset;
+            }
+            if (count == 0 || index >= data.size()) {
                 return;
+            }
+            if (index + count > data.size()) {
+                count = data.size() - index;
             }
             is_dirty.set(true);
             data.erase(data.begin() + index, data.begin() + index + count);
             for (std::size_t i = index; i < data.size(); ++i) {
-                // all the indexes are dirty
                 data[i].state = State::Dirty;
             }
         }
@@ -949,8 +982,71 @@ class Repeater
         }
     };
 
+    /// Context passed as user_data to the RepeaterInstanceOpsVTable callbacks.
+    template<typename Parent>
+    struct VTableContext
+    {
+        RepeaterInner *inner;
+        const Parent *parent;
+    };
+
+    /// Build the ops vtable. The returned struct borrows from `ctx`,
+    /// which must outlive the vtable.
+    template<typename Parent>
+    static cbindgen_private::RepeaterInstanceOpsVTable make_ops(VTableContext<Parent> &ctx)
+    {
+        using Ctx = VTableContext<Parent>;
+        return cbindgen_private::RepeaterInstanceOpsVTable {
+            .user_data = &ctx,
+            .len = [](void *ud) -> uintptr_t { return static_cast<Ctx *>(ud)->inner->data.size(); },
+            .splice =
+                    [](void *ud, uintptr_t position, uintptr_t remove, uintptr_t add) {
+                        auto &data = static_cast<Ctx *>(ud)->inner->data;
+                        data.erase(data.begin() + position, data.begin() + position + remove);
+                        data.insert(data.begin() + position, add, {});
+                    },
+            .ensure_updated = [](void *ud, uintptr_t instance_idx, uintptr_t row) -> bool {
+                auto *ctx = static_cast<Ctx *>(ud);
+                auto &c = ctx->inner->data[instance_idx];
+                if (c.state != RepeaterInner::State::Dirty)
+                    return false;
+                bool created = !c.ptr;
+                if (created)
+                    c.ptr = C::create(ctx->parent);
+                std::optional<ModelData> data = ctx->inner->model->row_data(row);
+                (*c.ptr)->update_data(row, data ? *data : ModelData {});
+                c.state = RepeaterInner::State::Clean;
+                return created;
+            },
+            .height = [](void *ud, uintptr_t instance_idx) -> float {
+                auto &c = static_cast<Ctx *>(ud)->inner->data[instance_idx];
+                return c.ptr ? (*c.ptr)->item_geometry(0).height
+                             : std::numeric_limits<float>::quiet_NaN();
+            },
+            .listview_layout =
+                    [] {
+                        if constexpr (requires(C c, float *y) { c.listview_layout(y); }) {
+                            return [](void *ud, uintptr_t instance_idx, float *y) -> float {
+                                return (**static_cast<Ctx *>(ud)->inner->data[instance_idx].ptr)
+                                        .listview_layout(y);
+                            };
+                        } else {
+                            return nullptr;
+                        }
+                    }(),
+            .init =
+                    [](void *ud, uintptr_t instance_idx) {
+                        (*static_cast<Ctx *>(ud)->inner->data[instance_idx].ptr)->init();
+                    },
+        };
+    }
+
     private_api::Property<std::shared_ptr<Model<ModelData>>> model;
     mutable std::shared_ptr<RepeaterInner> inner;
+    /// Toggled by ensure_updated when instances are added or removed.
+    /// Layout code tracks this instead of is_dirty so it re-evaluates
+    /// only after the update pass materializes the change.
+    mutable private_api::Property<bool> instance_generation { false };
 
     vtable::VRef<private_api::ItemTreeVTable> item_at(int i) const
     {
@@ -965,8 +1061,7 @@ public:
         model.set_binding(std::forward<F>(binding));
     }
 
-    template<typename Parent>
-    void ensure_updated(const Parent *parent) const
+    void refresh_model() const
     {
         if (model.is_dirty()) {
             auto old_model = model.get_internal();
@@ -979,53 +1074,105 @@ public:
                 }
             }
         }
+    }
 
+    /// Instantiate or remove items to match the model, and recurse into children.
+    /// Returns true if any instance was created, removed, or changed.
+    template<typename Parent>
+    bool ensure_updated(const Parent *parent) const
+    {
+        refresh_model();
+
+        bool changed = false;
         if (inner && inner->is_dirty.get()) {
             inner->is_dirty.set(false);
             if (auto m = model.get()) {
-                auto count = m->row_count();
-                inner->data.resize(count);
-                for (size_t i = 0; i < count; ++i) {
-                    auto &c = inner->data[i];
-                    bool created = false;
-                    if (!c.ptr) {
-                        c.ptr = C::create(parent);
-                        created = true;
-                    }
-                    if (c.state == RepeaterInner::State::Dirty) {
-                        std::optional<ModelData> data = m->row_data(i);
-                        (*c.ptr)->update_data(i, data ? *data : ModelData {});
-                    }
-                    if (created) {
-                        (*c.ptr)->init();
-                    }
-                }
+                VTableContext<Parent> ctx { inner.get(), parent };
+                auto ops = make_ops(ctx);
+                cbindgen_private::slint_repeater_ensure_updated(&ops, 0, m->row_count());
             } else {
                 inner->data.clear();
             }
-        } else {
-            // just do a get() on the model to register dependencies so that, for example, the
-            // layout property tracker becomes dirty.
-            model.get();
+            instance_generation.mark_dirty();
+            changed = true;
         }
+        return recurse_ensure_instantiated() || changed;
     }
 
+    /// Same as ensure_updated but for a ListView.
+    /// Returns true if any instance was created or any child changed.
     template<typename Parent>
-    void ensure_updated_listview(const Parent *parent,
+    bool ensure_updated_listview(const Parent *parent,
                                  const private_api::Property<float> *viewport_width,
                                  const private_api::Property<float> *viewport_height,
                                  const private_api::Property<float> *viewport_y,
-                                 float listview_width, [[maybe_unused]] float listview_height) const
+                                 float listview_width, float listview_height) const
     {
-        // TODO: the rust code in model.rs try to only allocate as many items as visible items
-        ensure_updated(parent);
+        refresh_model();
 
-        float h = compute_layout_listview(viewport_width, listview_width, viewport_y->get());
-        viewport_height->set(h);
+        if (!inner)
+            return false;
+
+        inner->is_dirty.set(false);
+
+        const auto m = model.get();
+        if (!m)
+            return false;
+
+        VTableContext<Parent> ctx { inner.get(), parent };
+        auto ops = make_ops(ctx);
+        bool changed = cbindgen_private::slint_repeater_ensure_updated_listview(
+                &ops, &inner->layout_state, m->row_count(), viewport_width, viewport_height,
+                viewport_y, listview_width, listview_height);
+        if (changed)
+            instance_generation.mark_dirty();
+        return recurse_ensure_instantiated() || changed;
     }
 
+    /// Returns true if the repeater's model or data has changed since the
+    /// last ensure_updated call.
+    bool is_dirty() const { return model.is_dirty() || (inner && inner->is_dirty.get()); }
+
+    /// Register the model and dirty flag as dependencies of the current
+    /// tracking scope (e.g. the redraw tracker) so it is notified when the
+    /// model or its data changes.
+    void track_model_changes() const
+    {
+        model.register_as_dependency();
+        if (inner)
+            inner->is_dirty.register_as_dependency();
+    }
+
+    /// Register the instance generation as a dependency of the current
+    /// tracking scope. Layout code uses this to re-evaluate only after
+    /// ensure_updated materializes instance changes.
+    void track_instance_changes() const
+    {
+        if (inner)
+            instance_generation.register_as_dependency();
+    }
+
+    /// Register the ListView viewport properties as dependencies so that
+    /// scrolling triggers a redraw.  Model dependencies are registered by
+    /// visit(), so this only covers the viewport geometry.
+    void track_changes_listview(const private_api::Property<float> *viewport_width,
+                                const private_api::Property<float> *viewport_height,
+                                const private_api::Property<float> *viewport_y,
+                                [[maybe_unused]] float listview_width,
+                                const private_api::Property<float> *listview_height) const
+    {
+        viewport_width->register_as_dependency();
+        viewport_height->register_as_dependency();
+        viewport_y->register_as_dependency();
+        listview_height->register_as_dependency();
+    }
+
+    /// Call the visitor for the root of each instance.
+    /// Also registers model dependencies so the current tracking scope
+    /// (e.g. the redraw tracker) is notified when the model changes.
     uint64_t visit(TraversalOrder order, private_api::ItemVisitorRefMut visitor) const
     {
+        track_model_changes();
         for (std::size_t i = 0; i < inner->data.size(); ++i) {
             auto index = order == TraversalOrder::BackToFront ? i : inner->data.size() - 1 - i;
             auto ref = item_at(index);
@@ -1039,16 +1186,18 @@ public:
 
     vtable::VWeak<private_api::ItemTreeVTable> instance_at(std::size_t i) const
     {
-        if (i >= inner->data.size()) {
+        const auto offset = inner->layout_state.offset;
+        if (i < offset || i - offset >= inner->data.size()) {
             return {};
         }
-        const auto &x = inner->data.at(i);
+        const auto &x = inner->data.at(i - offset);
         return vtable::VWeak<private_api::ItemTreeVTable> { x.ptr->into_dyn() };
     }
 
     private_api::IndexRange index_range() const
     {
-        return private_api::IndexRange { 0, inner->data.size() };
+        const auto offset = inner->layout_state.offset;
+        return private_api::IndexRange { offset, offset + inner->data.size() };
     }
 
     std::size_t len() const { return inner ? inner->data.size() : 0; }
@@ -1087,12 +1236,28 @@ public:
             }
         }
     }
+
+    bool recurse_ensure_instantiated() const
+    {
+        if (!inner)
+            return false;
+        bool changed = false;
+        for (auto &x : inner->data) {
+            if (x.ptr) {
+                vtable::VRef<private_api::ItemTreeVTable> ref { &C::static_vtable,
+                                                                const_cast<C *>(&(**x.ptr)) };
+                changed |= ref.vtable->ensure_instantiated(ref);
+            }
+        }
+        return changed;
+    }
 };
 
 template<typename C>
 class Conditional
 {
     private_api::Property<bool> model;
+    mutable private_api::Property<bool> instance_generation { false };
     mutable std::optional<ComponentHandle<C>> instance;
 
 public:
@@ -1102,19 +1267,42 @@ public:
         model.set_binding(std::forward<F>(binding));
     }
 
+    /// Create or destroy the conditional instance, and recurse into children.
+    /// Returns true if the instance was created, removed, or any child changed.
     template<typename Parent>
-    void ensure_updated(const Parent *parent) const
+    bool ensure_updated(const Parent *parent) const
     {
+        bool changed;
         if (!model.get()) {
+            changed = instance.has_value();
             instance = std::nullopt;
         } else if (!instance) {
             instance = C::create(parent);
             (*instance)->init();
+            changed = true;
+        } else {
+            changed = false;
         }
+        if (changed)
+            instance_generation.mark_dirty();
+        return recurse_ensure_instantiated() || changed;
     }
 
+    /// Register the condition as a dependency of the current tracking scope
+    /// (e.g. the redraw tracker) so it is notified when the condition changes.
+    void track_model_changes() const { model.register_as_dependency(); }
+
+    /// Register the instance generation as a dependency of the current
+    /// tracking scope. Layout code uses this to re-evaluate only after
+    /// ensure_updated materializes instance changes.
+    void track_instance_changes() const { instance_generation.register_as_dependency(); }
+
+    /// Call the visitor for the root of each instance.
+    /// Also registers model dependencies so the current tracking scope
+    /// (e.g. the redraw tracker) is notified when the condition changes.
     uint64_t visit(TraversalOrder order, private_api::ItemVisitorRefMut visitor) const
     {
+        track_model_changes();
         if (instance) {
             vtable::VRef<private_api::ItemTreeVTable> ref { &C::static_vtable,
                                                             const_cast<C *>(&(**instance)) };
@@ -1143,6 +1331,16 @@ public:
         if (instance) {
             f(*instance);
         }
+    }
+
+    bool recurse_ensure_instantiated() const
+    {
+        if (instance) {
+            vtable::VRef<private_api::ItemTreeVTable> ref { &C::static_vtable,
+                                                            const_cast<C *>(&(**instance)) };
+            return ref.vtable->ensure_instantiated(ref);
+        }
+        return false;
     }
 };
 

@@ -8,6 +8,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 use super::{Item, ItemConsts, ItemRc, RenderingResult};
+use crate::Coord;
 use crate::component_factory::{ComponentFactory, FactoryContext};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
@@ -51,7 +52,7 @@ pub struct ComponentContainer {
 }
 
 impl ComponentContainer {
-    pub fn ensure_updated(self: Pin<&Self>) {
+    pub fn ensure_updated(self: Pin<&Self>) -> bool {
         let factory = self
             .component_tracker
             .get()
@@ -60,7 +61,12 @@ impl ComponentContainer {
             .evaluate_if_dirty(|| self.component_factory());
 
         let Some(factory) = factory else {
-            return;
+            // Factory unchanged — still recurse into the embedded component
+            // so its repeaters and conditionals get instantiated.
+            if let Some(inner) = self.subtree_component().upgrade() {
+                return crate::item_tree::ensure_item_tree_instantiated(&inner);
+            }
+            return false;
         };
 
         let mut window = None;
@@ -117,6 +123,11 @@ impl ComponentContainer {
         self.has_component.set(product.is_some());
 
         self.item_tree.replace(product);
+
+        if let Some(inner) = self.subtree_component().upgrade() {
+            crate::item_tree::ensure_item_tree_instantiated(&inner);
+        }
+        true
     }
 
     pub fn subtree_range(self: Pin<&Self>) -> IndexRange {
@@ -166,9 +177,12 @@ impl Item for ComponentContainer {
         self.self_weak.set(self_rc.downgrade()).ok().unwrap();
     }
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -270,5 +284,5 @@ impl ItemConsts for ComponentContainer {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         ComponentContainer,
         CachedRenderingData,
-    > = ComponentContainer::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = ComponentContainer::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }

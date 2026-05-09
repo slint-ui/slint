@@ -8,10 +8,18 @@ use i_slint_core::api::{ComponentHandle, LogicalPosition};
 use i_slint_core::item_tree::{ItemTreeRc, ItemWeak, ParentItemTraversalMode};
 use i_slint_core::items::{ItemRc, Opacity, PointerEventButton};
 use i_slint_core::platform::WindowEvent;
-use i_slint_core::tests::slint_mock_elapsed_time;
 use i_slint_core::window::WindowInner;
 use std::rc::Rc;
 use std::time::Duration;
+
+/// Delay in milliseconds between interpolated PointerMoved events during drag simulation
+/// (~one frame at 60 fps).
+const DRAG_STEP_DELAY_MS: u64 = 16;
+
+/// Distance in logical pixels between interpolated PointerMoved events during drag
+/// simulation. Chosen to be below the 8 px `DISTANCE_THRESHOLD` (see `flickable.rs`)
+/// so that every intermediate position is reported to the element.
+const DRAG_STEP_SIZE: f32 = 5.0;
 
 fn warn_missing_debug_info() {
     i_slint_core::debug_log!(
@@ -775,6 +783,28 @@ impl ElementHandle {
             .and_then(|item| item.parse().ok())
     }
 
+    /// Returns the value of the `accessible-orientation` property, if present.
+    pub fn accessible_orientation(&self) -> Option<crate::Orientation> {
+        if self.element_index != 0 {
+            return None;
+        }
+        self.item
+            .upgrade()
+            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Orientation))
+            .and_then(|s| s.parse().ok())
+    }
+
+    /// Returns the value of the `accessible-live` property, if present.
+    pub fn accessible_live(&self) -> Option<crate::AccessibleLive> {
+        if self.element_index != 0 {
+            return None;
+        }
+        self.item
+            .upgrade()
+            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Live))
+            .and_then(|s| s.parse().ok())
+    }
+
     /// Returns the size of the element in logical pixels. This corresponds to the value of the `width` and
     /// `height` properties in Slint code. Returns a zero size if the element is not valid.
     pub fn size(&self) -> i_slint_core::api::LogicalSize {
@@ -895,13 +925,13 @@ impl ElementHandle {
     /// Simulates a single click (or touch tap) on the element at its center point with the
     /// specified button.
     ///
-    /// Compared to [Self::single_click()], this function uses slint_mock_elapsed_time instead
+    /// Compared to [Self::single_click()], this function uses mock time instead
     /// of an actual timer, so that it can be used in our internal tests that do not have an event
     /// loop.
     pub fn mock_single_click(&self, button: PointerEventButton) {
         self.pointer_pressed(button);
 
-        slint_mock_elapsed_time(50);
+        crate::testing_backend::mock_elapsed_time(50);
 
         self.pointer_released(button);
     }
@@ -934,6 +964,86 @@ impl ElementHandle {
         wait_for(single_click_duration).await;
 
         self.pointer_released(button);
+    }
+
+    /// Simulates a drag gesture from the element's center to the given target position.
+    ///
+    /// The sequence is:
+    /// 1. `PointerMoved` + `PointerPressed` at the element center
+    /// 2. Interpolated `PointerMoved` events from center to `target` (step size ~5 logical
+    ///    pixels, with a 16 ms delay between steps)
+    /// 3. `PointerMoved` + `PointerReleased` at `target`
+    ///
+    /// The step size is chosen to be smaller than the 8 px drag/flick detection threshold
+    /// so that intermediate positions are always reported.
+    pub async fn drag(&self, target: LogicalPosition, button: PointerEventButton) {
+        let Some(window_adapter) = self.window_adapter() else {
+            return;
+        };
+        let window = window_adapter.window();
+        let start = self.absolute_center();
+
+        // Press at element center.
+        window.dispatch_event(WindowEvent::PointerMoved { position: start });
+        window.dispatch_event(WindowEvent::PointerPressed { position: start, button });
+
+        // Interpolate intermediate moves.
+        let dx = target.x - start.x;
+        let dy = target.y - start.y;
+        let distance = (dx * dx + dy * dy).sqrt();
+
+        if distance > f32::EPSILON {
+            // At least 2 steps to guarantee the drag threshold is crossed.
+            let steps = ((distance / DRAG_STEP_SIZE).ceil() as usize).max(2);
+
+            for i in 1..steps {
+                let t = i as f32 / steps as f32;
+                let pos = LogicalPosition::new(start.x + dx * t, start.y + dy * t);
+                wait_for(Duration::from_millis(DRAG_STEP_DELAY_MS)).await;
+                window.dispatch_event(WindowEvent::PointerMoved { position: pos });
+            }
+
+            // Final move to exact target.
+            wait_for(Duration::from_millis(DRAG_STEP_DELAY_MS)).await;
+            window.dispatch_event(WindowEvent::PointerMoved { position: target });
+        }
+
+        window.dispatch_event(WindowEvent::PointerReleased { position: target, button });
+    }
+
+    /// Simulates a drag gesture from the element's center to the given target position.
+    ///
+    /// Compared to [Self::drag()], this function uses mock time instead
+    /// of an actual timer, so that it can be used in internal tests without an event loop.
+    pub fn mock_drag(&self, target: LogicalPosition, button: PointerEventButton) {
+        let Some(window_adapter) = self.window_adapter() else {
+            return;
+        };
+        let window = window_adapter.window();
+        let start = self.absolute_center();
+
+        window.dispatch_event(WindowEvent::PointerMoved { position: start });
+        window.dispatch_event(WindowEvent::PointerPressed { position: start, button });
+
+        let dx = target.x - start.x;
+        let dy = target.y - start.y;
+        let distance = (dx * dx + dy * dy).sqrt();
+
+        if distance > f32::EPSILON {
+            let steps = ((distance / DRAG_STEP_SIZE).ceil() as usize).max(2);
+
+            for i in 1..steps {
+                let t = i as f32 / steps as f32;
+                let pos = LogicalPosition::new(start.x + dx * t, start.y + dy * t);
+                crate::testing_backend::mock_elapsed_time(DRAG_STEP_DELAY_MS);
+                window.dispatch_event(WindowEvent::PointerMoved { position: pos });
+            }
+
+            crate::testing_backend::mock_elapsed_time(DRAG_STEP_DELAY_MS);
+            window.dispatch_event(WindowEvent::PointerMoved { position: target });
+        }
+
+        window.dispatch_event(WindowEvent::PointerReleased { position: target, button });
     }
 
     fn absolute_center(&self) -> LogicalPosition {
@@ -1318,4 +1428,86 @@ fn test_popups() {
             .collect::<Vec<_>>(),
         ["Nested", "Ok"]
     );
+}
+
+#[test]
+fn test_drag_touch_area() {
+    crate::init_no_event_loop();
+
+    slint::slint! {
+        export component App inherits Window {
+            width: 200px;
+            height: 200px;
+            out property <int> move-count: 0;
+            out property <float> last-x: 0;
+            out property <float> last-y: 0;
+            ta := TouchArea {
+                width: 100%;
+                height: 100%;
+                moved => {
+                    root.move-count += 1;
+                    root.last-x = self.mouse-x / 1px;
+                    root.last-y = self.mouse-y / 1px;
+                }
+            }
+        }
+    }
+
+    let app = App::new().unwrap();
+    let ta = ElementHandle::find_by_element_id(&app, "App::ta").next().unwrap();
+
+    // Drag from center (100,100) to (150,100) — 50px horizontal drag.
+    ta.mock_drag(LogicalPosition::new(150.0, 100.0), PointerEventButton::Left);
+
+    assert!(app.get_move_count() > 0, "moved callback should have fired");
+    // The last move should land at the target position (within the element, so
+    // target minus element origin = 150 - 0 = 150).
+    let last_x = app.get_last_x();
+    assert!((last_x - 150.0).abs() < 1.0, "last mouse-x should be near 150, got {last_x}");
+}
+
+#[test]
+fn test_drag_zero_distance() {
+    crate::init_no_event_loop();
+
+    slint::slint! {
+        export component App inherits Window {
+            width: 100px;
+            height: 100px;
+            out property <bool> was-pressed: false;
+            out property <bool> was-released: false;
+            out property <int> move-count: 0;
+            ta := TouchArea {
+                width: 100%;
+                height: 100%;
+                pointer-event(e) => {
+                    if e.kind == PointerEventKind.down {
+                        root.was-pressed = true;
+                    }
+                    if e.kind == PointerEventKind.up {
+                        root.was-released = true;
+                    }
+                }
+                moved => {
+                    root.move-count += 1;
+                }
+            }
+        }
+    }
+
+    let app = App::new().unwrap();
+    let ta = ElementHandle::find_by_element_id(&app, "App::ta").next().unwrap();
+
+    // Drag to the element's own center — zero distance.
+    let center = ta.absolute_position();
+    let sz = ta.size();
+    let target = LogicalPosition::new(center.x + sz.width / 2.0, center.y + sz.height / 2.0);
+    ta.mock_drag(target, PointerEventButton::Left);
+
+    assert!(app.get_was_pressed(), "press event should have fired");
+    assert!(app.get_was_released(), "release event should have fired");
+    // Zero-distance drag should skip interpolation — no moved events from the
+    // drag itself (the initial PointerMoved before press doesn't trigger `moved`
+    // because the button isn't down yet).
+    assert_eq!(app.get_move_count(), 0, "no moved events expected for zero-distance drag");
 }

@@ -102,6 +102,13 @@ pub struct ItemTreeVTable {
     pub layout_info:
         extern "C" fn(::core::pin::Pin<VRef<ItemTreeVTable>>, Orientation) -> LayoutInfo,
 
+    /// Recursively materialize every Repeater, Conditional, and
+    /// ComponentContainer reachable from this ItemTree. Called at event-loop
+    /// boundaries so init code runs outside any in-flight property evaluation.
+    /// This is the "repeater instantiation pass".
+    /// Returns `true` if any instance was created or removed.
+    pub ensure_instantiated: extern "C" fn(::core::pin::Pin<VRef<ItemTreeVTable>>) -> bool,
+
     /// Returns the item's geometry (relative to its parent item)
     pub item_geometry:
         extern "C" fn(::core::pin::Pin<VRef<ItemTreeVTable>>, item_index: u32) -> LogicalRect,
@@ -167,6 +174,14 @@ pub type ItemTreeRc = vtable::VRc<ItemTreeVTable, Dyn>;
 /// Type alias to the commonly used VWeak<ItemTreeVTable, Dyn>>
 pub type ItemTreeWeak = vtable::VWeak<ItemTreeVTable, Dyn>;
 
+/// Ensure all repeaters and conditionals within the given item tree are
+/// instantiated. Call this before non-rendering tree walks that use
+/// `first_child` / `next_sibling`.
+/// Returns `true` if any instance was created or removed.
+pub fn ensure_item_tree_instantiated(item_tree: &vtable::VRc<ItemTreeVTable>) -> bool {
+    vtable::VRc::borrow_pin(item_tree).as_ref().ensure_instantiated()
+}
+
 /// Call init() on the ItemVTable for each item of the ItemTree.
 pub fn register_item_tree(item_tree_rc: &ItemTreeRc, window_adapter: Option<WindowAdapterRc>) {
     let c = vtable::VRc::borrow_pin(item_tree_rc);
@@ -184,16 +199,23 @@ pub fn register_item_tree(item_tree_rc: &ItemTreeRc, window_adapter: Option<Wind
 }
 
 /// Free the backend graphics resources allocated by the ItemTree's items.
+/// This will be called  if an sub-tree gets destroyed or a popup gets closed, ...
+/// It will be called only once not for every sub item
+///
+/// * `item_tree` - the item tree to unregister
 pub fn unregister_item_tree<Base>(
     base: core::pin::Pin<&Base>,
     item_tree: ItemTreeRef,
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
     window_adapter: &WindowAdapterRc,
 ) {
-    window_adapter.renderer().free_graphics_resources(
-        item_tree,
-        &mut item_array.iter().map(|item| item.apply_pin(base)),
-    ).expect("Fatal error encountered when freeing graphics resources while destroying Slint component");
+    item_array.iter().for_each(|item| {
+        item.apply_pin(base).as_ref().deinit(window_adapter);
+    });
+    window_adapter.renderer().free_graphics_resources(item_tree, &mut item_array.iter().map(|item| item.apply_pin(base))).expect(
+        "Fatal error encountered when freeing graphics resources while destroying Slint component",
+    );
+
     if let Some(w) = window_adapter.internal(crate::InternalToken) {
         w.unregister_item_tree(item_tree, &mut item_array.iter().map(|item| item.apply_pin(base)));
     }
@@ -391,59 +413,76 @@ impl ItemRc {
             return true;
         }
 
-        let (_, geometry) = self.absolute_clip_rect_and_geometry();
-        let geometry = geometry.to_box2d();
-
-        let mut clip = LogicalRect::from_size((crate::Coord::MAX, crate::Coord::MAX).into());
-        let mut ancestors = Vec::new();
+        // The item is not visible. Walk toward the root and find the first
+        // clipping ancestor that actually hides the item: if it is a
+        // Flickable, scrolling can bring the item back into view.
+        let geometry = self.absolute_clip_rect_and_geometry().1.to_box2d();
         let mut parent = self.parent_item(ParentItemTraversalMode::StopAtPopups);
-        while let Some(item_rc) = parent {
-            parent = item_rc.parent_item(ParentItemTraversalMode::StopAtPopups);
-            ancestors.push(item_rc);
-        }
-
-        for ancestor in ancestors.into_iter().rev() {
-            let clips_children = ancestor.borrow().as_ref().clips_children();
-            if !clips_children {
-                continue;
+        while let Some(ancestor) = parent {
+            if ancestor.borrow().as_ref().clips_children() {
+                let (clip, ancestor_geo) = ancestor.absolute_clip_rect_and_geometry();
+                let clip = ancestor_geo.intersection(&clip).unwrap_or_default().to_box2d();
+                let item_in_clip = !clip.is_empty()
+                    && clip.max.x >= geometry.min.x
+                    && clip.max.y >= geometry.min.y
+                    && clip.min.x <= geometry.max.x
+                    && clip.min.y <= geometry.max.y;
+                if !item_in_clip {
+                    return ancestor.downcast::<crate::items::Flickable>().is_some()
+                        && ancestor.is_visible_or_clipped_by_flickable();
+                }
             }
-
-            let ancestor_geometry = ancestor.absolute_clip_rect_and_geometry().1;
-            clip = ancestor_geometry.intersection(&clip).unwrap_or_default();
-            let clip = clip.to_box2d();
-
-            let is_visible = !clip.is_empty()
-                && clip.max.x >= geometry.min.x
-                && clip.max.y >= geometry.min.y
-                && clip.min.x <= geometry.max.x
-                && clip.min.y <= geometry.max.y;
-            if !is_visible {
-                return ancestor.downcast::<crate::items::Flickable>().is_some();
-            }
+            parent = ancestor.parent_item(ParentItemTraversalMode::StopAtPopups);
         }
 
         false
     }
 
+    /// Returns the accumulated transform from this item's local coordinate space to window
+    /// coordinates, walking up the ancestor chain until `stop_condition` returns true.
+    ///
+    /// At each ancestor the ancestor's `children_transform` (scale/rotate) is composed first,
+    /// then its translation. This matches the traversal order used by
+    /// [`map_to_item_tree_impl`](Self::map_to_item_tree_impl) and the partial renderer's
+    /// `current_transform()`.
+    fn local_to_window_transform(&self, stop_condition: impl Fn(&Self) -> bool) -> ItemTransform {
+        let supports_transformations = self
+            .window_adapter()
+            .is_none_or(|adapter| adapter.renderer().supports_transformations());
+        let mut transform = ItemTransform::identity();
+        let mut current = self.clone();
+        while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
+            if stop_condition(&parent) {
+                break;
+            }
+            if supports_transformations
+                && let Some(children_transform) = parent.children_transform()
+            {
+                transform = transform.then(&children_transform);
+            }
+            transform = transform.then_translate(parent.geometry().origin.to_vector().cast());
+            current = parent;
+        }
+        transform
+    }
+
     /// Returns the clip rect that applies to this item (in window coordinates) as well as the
     /// item's (unclipped) geometry (also in window coordinates).
     fn absolute_clip_rect_and_geometry(&self) -> (LogicalRect, LogicalRect) {
-        let (mut clip, parent_geometry) =
-            self.parent_item(ParentItemTraversalMode::StopAtPopups).map_or_else(
-                || {
-                    (
-                        LogicalRect::from_size((crate::Coord::MAX, crate::Coord::MAX).into()),
-                        Default::default(),
-                    )
-                },
-                |parent| parent.absolute_clip_rect_and_geometry(),
-            );
+        let geometry = self
+            .local_to_window_transform(|_| false)
+            .outer_transformed_rect(&self.geometry().cast())
+            .cast();
 
-        let geometry = self.geometry().translate(parent_geometry.origin.to_vector());
-
-        let item = self.borrow();
-        if item.as_ref().clips_children() {
-            clip = geometry.intersection(&clip).unwrap_or_default();
+        // Intersect the clip rects contributed by all clipping ancestors.
+        let mut clip = LogicalRect::from_size((crate::Coord::MAX, crate::Coord::MAX).into());
+        let mut cur = self.parent_item(ParentItemTraversalMode::StopAtPopups);
+        while let Some(ref ancestor) = cur {
+            if ancestor.borrow().as_ref().clips_children() {
+                let (_, ancestor_geom) = ancestor.absolute_clip_rect_and_geometry();
+                clip = ancestor_geom.intersection(&clip).unwrap_or_default();
+            }
+            cur = ancestor.parent_item(ParentItemTraversalMode::StopAtPopups);
         }
 
         (clip, geometry)
@@ -617,26 +656,10 @@ impl ItemRc {
         p: LogicalPoint,
         stop_condition: impl Fn(&Self) -> bool,
     ) -> LogicalPoint {
-        let mut current = self.clone();
-        let mut result = p;
-        if stop_condition(&current) {
-            return result;
+        if stop_condition(self) {
+            return p;
         }
-        let supports_transformations = self
-            .window_adapter()
-            .is_none_or(|adapter| adapter.renderer().supports_transformations());
-        while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
-            if stop_condition(&parent) {
-                break;
-            }
-            let geometry = parent.geometry();
-            if supports_transformations && let Some(transform) = parent.children_transform() {
-                result = transform.transform_point(result.cast()).cast();
-            }
-            result += geometry.origin.to_vector();
-            current = parent;
-        }
-        result
+        self.local_to_window_transform(stop_condition).transform_point(p.cast()).cast()
     }
 
     fn map_from_item_tree_impl(
@@ -644,41 +667,25 @@ impl ItemRc {
         p: LogicalPoint,
         stop_condition: impl Fn(&Self) -> bool,
     ) -> LogicalPoint {
-        let mut current = self.clone();
-        let mut result = p;
-        if stop_condition(&current) {
-            return result;
+        if stop_condition(self) {
+            return p;
         }
-        let supports_transformations = self
-            .window_adapter()
-            .is_none_or(|adapter| adapter.renderer().supports_transformations());
 
-        let mut full_transform = supports_transformations.then(ItemTransform::identity);
+        if let Some(transform) = self.local_to_window_transform(&stop_condition).inverse() {
+            return transform.transform_point(p.cast()).cast();
+        }
+
+        let mut current = self.clone();
         let mut offset = euclid::Vector2D::zero();
         while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
             if stop_condition(&parent) {
                 break;
             }
-            let geometry = parent.geometry();
-            if let (Some(transform), Some(children_transform)) =
-                (full_transform, parent.children_transform())
-            {
-                full_transform = Some(
-                    transform
-                        .then_translate(geometry.origin.to_vector().cast())
-                        .then(&children_transform),
-                );
-            }
-            offset += geometry.origin.to_vector();
+            offset += parent.geometry().origin.to_vector();
             current = parent;
         }
-        full_transform = full_transform.and_then(|ft| ft.inverse());
-        if let Some(transform) = full_transform {
-            result = transform.transform_point(result.cast()).cast();
-        } else {
-            result -= offset;
-        }
-        result
+
+        p - offset
     }
 
     /// Return the index of the item within the ItemTree
@@ -985,12 +992,20 @@ impl ItemRc {
         result
     }
 
-    /// Visit the children of this element and call the visitor to each of them, until the visitor returns [`ControlFlow::Break`].
-    /// When the visitor breaks, the function returns the value. If it doesn't break, the function returns None.
+    /// Visit the children of this element and call the visitor to each of them,
+    /// until the visitor returns [`ControlFlow::Break`].
+    /// When the visitor breaks, the function returns the value.
+    /// If it doesn't break, the function returns None.
+    ///
+    /// Runs [`ensure_item_tree_instantiated`] once before the walk so all
+    /// repeaters, conditionals, and component containers are materialized.
+    /// The recursive descent uses the private `visit_descendants_impl`,
+    /// which doesn't call it again.
     pub fn visit_descendants<R>(
         &self,
         mut visitor: impl FnMut(&ItemRc) -> ControlFlow<R>,
     ) -> Option<R> {
+        ensure_item_tree_instantiated(self.item_tree());
         self.visit_descendants_impl(&mut visitor)
     }
 
@@ -1045,7 +1060,6 @@ impl ItemRc {
                         ),
                     ],
                 );
-                break;
             }
 
             parent = item_rc.parent_item(ParentItemTraversalMode::StopAtPopups);
@@ -1479,7 +1493,7 @@ mod tests {
     use crate::Property;
     use crate::api::LogicalPosition;
     use crate::api::Window;
-    use crate::items::WindowItem;
+    use crate::items::{Clip, Transform, WindowItem};
     use crate::lengths::LogicalLength;
     use crate::lengths::LogicalSize;
     use euclid::Point2D;
@@ -1491,7 +1505,9 @@ mod tests {
     const GEOMETRY_HEIGHT: f32 = 42.;
 
     #[derive(Default)]
-    struct Renderer {}
+    struct Renderer {
+        supports_transformations: bool,
+    }
 
     struct WindowAdapter {
         renderer: Renderer,
@@ -1500,9 +1516,13 @@ mod tests {
 
     impl WindowAdapter {
         fn new() -> Rc<Self> {
+            Self::new_with_transformations(false)
+        }
+
+        fn new_with_transformations(supports_transformations: bool) -> Rc<Self> {
             Rc::<Self>::new_cyclic(|w| Self {
                 window: Window::new(w.clone()),
-                renderer: Default::default(),
+                renderer: Renderer { supports_transformations },
             })
         }
     }
@@ -1571,6 +1591,10 @@ mod tests {
             _parent_component: &ItemTreeWeak,
             _item_tree_index: u32,
         ) -> bool {
+            false
+        }
+
+        fn ensure_instantiated(self: core::pin::Pin<&Self>) -> bool {
             false
         }
 
@@ -1667,7 +1691,11 @@ mod tests {
 
     crate::item_tree::ItemTreeVTable_static!(static TEST_COMPONENT_VT for TestItemTree);
 
-    fn create_one_node_component() -> VRc<ItemTreeVTable, vtable::Dyn> {
+    fn create_one_node_component(
+        window_item: Option<WindowItem>,
+    ) -> (std::rc::Weak<WindowAdapter>, VRc<ItemTreeVTable, vtable::Dyn>) {
+        let window_adapter = WindowAdapter::new();
+        let weak = Rc::downgrade(&window_adapter);
         let component = VRc::new(TestItemTree {
             parent_component: None,
             item_tree: vec![ItemTreeNode::Item {
@@ -1680,15 +1708,15 @@ mod tests {
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
 
-            window_adapter: WindowAdapter::new(),
-            window_item: None,
+            window_adapter,
+            window_item,
         });
-        VRc::into_dyn(component)
+        (weak, VRc::into_dyn(component))
     }
 
     #[test]
     fn test_tree_traversal_one_node_structure() {
-        let component = create_one_node_component();
+        let component = create_one_node_component(None).1;
 
         let item = ItemRc::new_root(component.clone());
 
@@ -1700,7 +1728,7 @@ mod tests {
 
     #[test]
     fn test_tree_traversal_one_node_forward_focus() {
-        let component = create_one_node_component();
+        let component = create_one_node_component(None).1;
 
         let item = ItemRc::new_root(component.clone());
 
@@ -1710,7 +1738,7 @@ mod tests {
 
     #[test]
     fn test_tree_traversal_one_node_backward_focus() {
-        let component = create_one_node_component();
+        let component = create_one_node_component(None).1;
 
         let item = ItemRc::new_root(component.clone());
 
@@ -2470,8 +2498,10 @@ mod tests {
     }
 
     // It does not contain any dynamic elements
-    fn create_subsubtree_items() -> (std::rc::Weak<WindowAdapter>, VRc<ItemTreeVTable>) {
-        let window_adapter = WindowAdapter::new();
+    fn create_subsubtree_items(
+        window_adapter: Option<std::rc::Rc<WindowAdapter>>,
+    ) -> (std::rc::Weak<WindowAdapter>, VRc<ItemTreeVTable>) {
+        let window_adapter = window_adapter.unwrap_or(WindowAdapter::new());
         let weak = Rc::downgrade(&window_adapter);
         let mut window_item = WindowItem::default();
         window_item.width = Property::new(LogicalLength::new(30.));
@@ -2514,9 +2544,195 @@ mod tests {
         )
     }
 
+    struct TransformTestItemTree {
+        item_tree: Vec<ItemTreeNode>,
+        geometries: Vec<LogicalRect>,
+        window_adapter: WindowAdapterRc,
+        root: WindowItem,
+        transform: Transform,
+        clip: Clip,
+        leaf: WindowItem,
+    }
+
+    impl ItemTree for TransformTestItemTree {
+        fn visit_children_item(
+            self: Pin<&Self>,
+            _index: isize,
+            _order: TraversalOrder,
+            _visitor: vtable::VRefMut<ItemVisitorVTable>,
+        ) -> VisitChildrenResult {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn get_item_ref(self: Pin<&Self>, index: u32) -> Pin<VRef<'_, ItemVTable>> {
+            let this = self.get_ref();
+            match index {
+                0 => Pin::new(VRef::new(&this.root)),
+                1 => Pin::new(VRef::new(&this.transform)),
+                2 => Pin::new(VRef::new(&this.clip)),
+                3 => Pin::new(VRef::new(&this.leaf)),
+                _ => unimplemented!("Not needed for this test"),
+            }
+        }
+
+        fn get_item_tree(self: Pin<&Self>) -> Slice<'_, ItemTreeNode> {
+            Slice::from_slice(&self.get_ref().item_tree)
+        }
+
+        fn parent_node(self: Pin<&Self>, _result: &mut ItemWeak) {}
+
+        fn embed_component(
+            self: Pin<&Self>,
+            _parent_component: &ItemTreeWeak,
+            _item_tree_index: u32,
+        ) -> bool {
+            false
+        }
+
+        fn layout_info(self: Pin<&Self>, _orientation: Orientation) -> LayoutInfo {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn subtree_index(self: Pin<&Self>) -> usize {
+            usize::MAX
+        }
+
+        fn get_subtree_range(self: Pin<&Self>, _subtree_index: u32) -> IndexRange {
+            (0..0).into()
+        }
+
+        fn get_subtree(
+            self: Pin<&Self>,
+            _subtree_index: u32,
+            _component_index: usize,
+            _result: &mut ItemTreeWeak,
+        ) {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn accessible_role(self: Pin<&Self>, _index: u32) -> AccessibleRole {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn accessible_string_property(
+            self: Pin<&Self>,
+            _index: u32,
+            _what: AccessibleStringProperty,
+            _result: &mut SharedString,
+        ) -> bool {
+            false
+        }
+
+        fn item_element_infos(self: Pin<&Self>, _index: u32, _result: &mut SharedString) -> bool {
+            false
+        }
+
+        fn ensure_instantiated(self: Pin<&Self>) -> bool {
+            false
+        }
+
+        fn window_adapter(
+            self: Pin<&Self>,
+            _do_create: bool,
+            result: &mut Option<WindowAdapterRc>,
+        ) {
+            *result = Some(self.window_adapter.clone())
+        }
+
+        fn item_geometry(self: Pin<&Self>, index: u32) -> LogicalRect {
+            self.geometries[index as usize]
+        }
+
+        fn accessibility_action(self: Pin<&Self>, _index: u32, _action: &AccessibilityAction) {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn supported_accessibility_actions(
+            self: Pin<&Self>,
+            _index: u32,
+        ) -> SupportedAccessibilityAction {
+            unimplemented!("Not needed for this test")
+        }
+    }
+
+    crate::item_tree::ItemTreeVTable_static!(static TRANSFORM_TEST_COMPONENT_VT for TransformTestItemTree);
+
+    fn create_transform_test_items() -> VRc<ItemTreeVTable> {
+        let window_adapter = WindowAdapter::new_with_transformations(true);
+
+        let mut transform = Transform::default();
+        transform.transform_scale_x = Property::new(2.);
+        transform.transform_scale_y = Property::new(3.);
+        transform.transform_rotation = Property::new(0.);
+        transform.transform_origin = Property::new(LogicalPosition::new(0., 0.));
+
+        let mut clip = Clip::default();
+        clip.clip = Property::new(true);
+
+        VRc::into_dyn(VRc::new(TransformTestItemTree {
+            item_tree: vec![
+                ItemTreeNode::Item {
+                    is_accessible: false,
+                    children_count: 1,
+                    children_index: 1,
+                    parent_index: 0,
+                    item_array_index: 0,
+                },
+                ItemTreeNode::Item {
+                    is_accessible: false,
+                    children_count: 1,
+                    children_index: 2,
+                    parent_index: 0,
+                    item_array_index: 1,
+                },
+                ItemTreeNode::Item {
+                    is_accessible: false,
+                    children_count: 1,
+                    children_index: 3,
+                    parent_index: 1,
+                    item_array_index: 2,
+                },
+                ItemTreeNode::Item {
+                    is_accessible: false,
+                    children_count: 0,
+                    children_index: 4,
+                    parent_index: 2,
+                    item_array_index: 3,
+                },
+            ],
+            geometries: vec![
+                LogicalRect::new(Point2D::new(0., 0.), LogicalSize::new(100., 100.)),
+                LogicalRect::new(Point2D::new(10., 20.), LogicalSize::new(40., 40.)),
+                LogicalRect::new(Point2D::new(5., 6.), LogicalSize::new(20., 20.)),
+                LogicalRect::new(Point2D::new(8., 4.), LogicalSize::new(10., 10.)),
+            ],
+            window_adapter,
+            root: WindowItem::default(),
+            transform,
+            clip,
+            leaf: WindowItem::default(),
+        }))
+    }
+
+    fn assert_point_approx_eq(actual: LogicalPoint, expected: LogicalPoint) {
+        const EPSILON: f32 = 0.0001;
+        assert!(
+            (actual.x - expected.x).abs() < EPSILON,
+            "actual x {}, expected x {}",
+            actual.x,
+            expected.x
+        );
+        assert!(
+            (actual.y - expected.y).abs() < EPSILON,
+            "actual y {}, expected y {}",
+            actual.y,
+            expected.y
+        );
+    }
+
     #[test]
     fn test_map_to_anchestor() {
-        let item_tree = create_subsubtree_items().1;
+        let item_tree = create_subsubtree_items(None).1;
         let root = ItemRc::new_root(item_tree);
         let first_child = root.first_child().unwrap();
         let first_child_of_first_child = first_child.first_child().unwrap();
@@ -2545,7 +2761,7 @@ mod tests {
 
     #[test]
     fn test_map_to_window() {
-        let item_tree = create_subsubtree_items().1;
+        let item_tree = create_subsubtree_items(None).1;
         let root = ItemRc::new_root(item_tree);
         let first_child = root.first_child().unwrap();
         let first_child_of_first_child = first_child.first_child().unwrap();
@@ -2557,18 +2773,54 @@ mod tests {
     }
 
     #[test]
+    fn test_map_to_window_through_transform_roundtrip() {
+        let item_tree = create_transform_test_items();
+        let root = ItemRc::new_root(item_tree);
+        let transform = root.first_child().unwrap();
+        let clip = transform.first_child().unwrap();
+        let leaf = clip.first_child().unwrap();
+
+        let local_point = Point2D::new(4., 5.);
+        let window_point = leaf.map_to_window(local_point);
+        assert_point_approx_eq(window_point, Point2D::new(28., 53.));
+        assert_point_approx_eq(leaf.map_from_window(window_point), local_point);
+    }
+
+    #[test]
+    fn test_visibility_with_clip_under_transform() {
+        let item_tree = create_transform_test_items();
+        let root = ItemRc::new_root(item_tree);
+        let transform = root.first_child().unwrap();
+        let clip = transform.first_child().unwrap();
+        let leaf = clip.first_child().unwrap();
+
+        assert!(leaf.is_visible());
+
+        let hidden_point = leaf.map_to_window(Point2D::new(25., 25.));
+        let (clip_rect, leaf_geometry) = leaf.absolute_clip_rect_and_geometry();
+        assert!(clip_rect.intersection(&leaf_geometry).is_some());
+        assert!(!clip_rect.contains(hidden_point));
+    }
+
+    #[test]
     fn test_map_to_native_window_popup() {
         const POPUP_LOCATION: LogicalPosition = LogicalPosition::new(20., 33.);
-        let (window_adapter_weak, item_tree) = create_subsubtree_items();
+        let mut window_item = WindowItem::default();
+        window_item.width = Property::new(LogicalLength::new(30.));
+        window_item.height = Property::new(LogicalLength::new(30.));
+        // A popup has it's own ItemTreeVTable
+        let (window_adapter_weak, parent) = create_one_node_component(Some(window_item));
+        let popup_component =
+            create_subsubtree_items(Some(window_adapter_weak.upgrade().unwrap())).1;
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
-            &item_tree,
+            &popup_component,
             POPUP_LOCATION,
             crate::items::PopupClosePolicy::NoAutoClose,
-            &ItemRc::new_root(item_tree.clone()),
+            &ItemRc::new_root(parent.clone()),
             false,
         );
 
-        let root = ItemRc::new_root(item_tree);
+        let root = ItemRc::new_root(popup_component);
         let first_child = root.first_child().unwrap();
         let first_child_of_first_child = first_child.first_child().unwrap();
 
@@ -2597,7 +2849,7 @@ mod tests {
     #[test]
     fn test_map_to_window_popup() {
         const POPUP_LOCATION: LogicalPosition = LogicalPosition::new(20., 33.);
-        let (window_adapter_weak, item_tree) = create_subsubtree_items();
+        let (window_adapter_weak, item_tree) = create_subsubtree_items(None);
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
             &item_tree,
             POPUP_LOCATION,
@@ -2627,10 +2879,9 @@ mod tests {
     }
 
     // Includes also dynamic elements
-    fn create_subsubtree_items_dynamic_elements()
-    -> (std::rc::Weak<WindowAdapter>, VRc<ItemTreeVTable>) {
-        let window_adapter = WindowAdapter::new();
-        let weak = Rc::downgrade(&window_adapter);
+    fn create_subsubtree_items_dynamic_elements(
+        window_adapter: Rc<WindowAdapter>,
+    ) -> VRc<ItemTreeVTable> {
         let mut window_item = WindowItem::default();
         window_item.width = Property::new(LogicalLength::new(30.));
         window_item.height = Property::new(LogicalLength::new(30.));
@@ -2682,7 +2933,7 @@ mod tests {
             window_item: None,
         })]]);
 
-        (weak, VRc::into_dyn(item_tree))
+        VRc::into_dyn(item_tree)
     }
 
     // This time the element is a child of a dynamic element with a different item tree
@@ -2690,12 +2941,20 @@ mod tests {
     #[test]
     fn test_map_to_native_window_popup_dynamic_element() {
         const POPUP_LOCATION: LogicalPosition = LogicalPosition::new(20., 33.);
-        let (window_adapter_weak, item_tree) = create_subsubtree_items_dynamic_elements();
+
+        let mut window_item = WindowItem::default();
+        window_item.width = Property::new(LogicalLength::new(30.));
+        window_item.height = Property::new(LogicalLength::new(30.));
+
+        // A popup has it's own ItemTreeVTable
+        let (window_adapter_weak, parent) = create_one_node_component(Some(window_item));
+        let popup_component =
+            create_subsubtree_items_dynamic_elements(window_adapter_weak.upgrade().unwrap());
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
-            &item_tree,
+            &popup_component,
             POPUP_LOCATION,
             crate::items::PopupClosePolicy::NoAutoClose,
-            &ItemRc::new_root(item_tree.clone()),
+            &ItemRc::new_root(parent.clone()),
             false,
         );
 
@@ -2706,7 +2965,7 @@ mod tests {
         let popup = active_popups.first().unwrap();
         assert!(matches!(popup.location, crate::window::PopupWindowLocation::ChildWindow { .. }));
 
-        let root = ItemRc::new_root(item_tree);
+        let root = ItemRc::new_root(popup_component);
         let first_child = root.first_child().unwrap();
         // Check if the first item is a dynamic tree!
         let comp_ref_pin = vtable::VRc::borrow_pin(&root.item_tree);
@@ -2811,7 +3070,7 @@ mod tests {
         }
 
         fn supports_transformations(&self) -> bool {
-            false
+            self.supports_transformations
         }
 
         fn take_snapshot(

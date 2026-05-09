@@ -100,6 +100,15 @@ image-default-formats = ["i-slint-core/image-default-formats"]
 ## ```
 live-preview = ["dep:slint-interpreter"]
 
+## Enable the embedded MCP (Model Context Protocol) server.
+##
+## When this feature is enabled and the `SLINT_MCP_PORT` environment variable is set
+## at runtime, the application starts an HTTP server implementing the MCP Streamable HTTP
+## transport. This allows MCP clients to inspect and interact with the running UI.
+##
+## This is a developer/debug feature. It is not recommended to enable it in production builds.
+mcp = ["std", "i-slint-backend-selector/mcp"]
+
 #! ### Backends
 
 #! Slint needs a backend that will act as liaison between Slint and the OS.
@@ -157,19 +166,19 @@ renderer-winit-skia-vulkan = ["renderer-skia-vulkan"]
 renderer-winit-software = ["renderer-software"]
 
 ## Render using the [FemtoVG](https://crates.io/crates/femtovg) crate.
-renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "dep:i-slint-renderer-femtovg", "std"]
+renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "i-slint-renderer-femtovg/opengl", "std"]
 ## Render using the [FemtoVG](https://crates.io/crates/femtovg) crate and [WGPU](https://crates.io/crates/wgpu).
 renderer-femtovg-wgpu = ["i-slint-backend-selector/renderer-femtovg-wgpu", "i-slint-renderer-femtovg/wgpu", "std"]
 
 ## Render using [Skia](https://skia.org/).
-renderer-skia = ["i-slint-backend-selector/renderer-skia", "std"]
+renderer-skia = ["i-slint-backend-selector/renderer-skia", "dep:i-slint-renderer-skia", "std"]
 
 ## Same as `renderer-skia`, but Skia will always use OpenGL.
 ## Note: This is not supported on iOS. Use `renderer-skia` on iOS to enable Meta based rendering.
-renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "std"]
+renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "dep:i-slint-renderer-skia", "std"]
 
 ## Same as `renderer-skia`, but Skia will always use Vulkan.
-renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "std"]
+renderer-skia-vulkan = ["i-slint-backend-selector/renderer-skia-vulkan", "dep:i-slint-renderer-skia", "std"]
 
 ## Render using the software renderer.
 renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-renderer-software"]
@@ -205,7 +214,7 @@ backend-android-activity-05 = [
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.16", features = ["unstable-wgpu-27"] }
+## slint = { version = "~1.17", features = ["unstable-wgpu-27"] }
 ## ```
 unstable-wgpu-27 = [
   "i-slint-core/unstable-wgpu-27",
@@ -224,7 +233,7 @@ unstable-wgpu-27 = [
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.16", features = ["unstable-wgpu-28"] }
+## slint = { version = "~1.17", features = ["unstable-wgpu-28"] }
 ## ```
 unstable-wgpu-28 = [
   "i-slint-core/unstable-wgpu-28",
@@ -241,7 +250,7 @@ unstable-wgpu-28 = [
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.16", features = ["unstable-winit-030"] }
+## slint = { version = "~1.17", features = ["unstable-winit-030"] }
 ## ```
 unstable-winit-030 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-backend-selector/unstable-winit-030"]
 
@@ -255,11 +264,11 @@ unstable-winit-030 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-bac
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.16", features = ["unstable-libinput-09"] }
+## slint = { version = "~1.17", features = ["unstable-libinput-09"] }
 ## ```
 unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 
-## Enable support for exposing [fontique](https://docs.rs/fontique/0.8.0/fontique/) related APIs.
+## Enable support for exposing [fontique](https://docs.rs/fontique/0.9.0/fontique/) related APIs.
 ##
 ## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees. This feature as well as the APIs changed or removed
 ## in future minor releases of Slint, likely to be replaced by a feature with a similar name but the fontique version suffix being bumped.
@@ -268,9 +277,9 @@ unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.16", features = ["unstable-fontique-08"] }
+## slint = { version = "~1.17", features = ["unstable-fontique-09"] }
 ## ```
-unstable-fontique-08 = ["i-slint-common/shared-fontique"]
+unstable-fontique-09 = ["i-slint-common/shared-fontique"]
 
 [dependencies]
 i-slint-core = { workspace = true }
@@ -281,7 +290,7 @@ i-slint-common = { workspace = true }
 i-slint-renderer-software = { workspace = true, optional = true }
 slint-interpreter = { workspace = true, optional = true, default-features = false, features = ["display-diagnostics", "compat-1-2", "internal-live-preview"] }
 
-const-field-offset = { version = "0.1.2", path = "../../../helper_crates/const-field-offset" }
+const-field-offset = { version = "0.2.0", path = "../../../helper_crates/const-field-offset" }
 document-features = { version = "0.2.0", optional = true }
 vtable = { workspace = true }
 
@@ -304,6 +313,7 @@ i-slint-backend-winit = { workspace = true, optional = true }
 # FemtoVG is disabled on android because it doesn't compile without setting RUST_FONTCONFIG_DLOPEN=on
 # end even then wouldn't work because it can't load fonts
 i-slint-renderer-femtovg = { workspace = true, optional = true }
+i-slint-renderer-skia = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 i-slint-backend-android-activity = { workspace = true, optional = true }
@@ -335,6 +345,6 @@ features = [
   "unstable-wgpu-28",
   "unstable-winit-030",
   "unstable-libinput-09",
-  "unstable-fontique-08",
+  "unstable-fontique-09",
 ]
 rustdoc-args = ["--generate-link-to-definition"]

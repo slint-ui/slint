@@ -6,7 +6,9 @@ use std::pin::Pin;
 use std::ptr::NonNull;
 use std::rc::Weak;
 
-use accesskit::{Action, ActionRequest, Node, NodeId, Role, Toggled, Tree, TreeUpdate};
+use accesskit::{
+    Action, ActionRequest, Live, Node, NodeId, Orientation, Role, Toggled, Tree, TreeId, TreeUpdate,
+};
 use i_slint_core::SharedString;
 use i_slint_core::accessibility::{
     AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
@@ -135,6 +137,7 @@ impl AccessKitAdapter {
         self.inner.update_if_active(|| TreeUpdate {
             nodes: Vec::new(),
             tree: None,
+            tree_id: TreeId::ROOT,
             focus: self.nodes.focus_node(&self.window_adapter_weak),
         })
     }
@@ -145,7 +148,7 @@ impl AccessKitAdapter {
             Action::Focus => {
                 return self
                     .nodes
-                    .item_rc_for_node_id(request.target)
+                    .item_rc_for_node_id(request.target_node)
                     .map(DeferredAccessKitAction::SetFocus);
             }
             Action::Decrement => AccessibilityAction::Decrement,
@@ -167,7 +170,7 @@ impl AccessKitAdapter {
             _ => return None,
         };
         self.nodes
-            .item_rc_for_node_id(request.target)
+            .item_rc_for_node_id(request.target_node)
             .map(|item| DeferredAccessKitAction::InvokeAccessibleAction(item, a))
     }
 
@@ -239,6 +242,7 @@ impl AccessKitAdapter {
                 TreeUpdate {
                     nodes: nodes.collect(),
                     tree: None,
+                    tree_id: TreeId::ROOT,
                     focus: self.nodes.focus_node(&self.window_adapter_weak),
                 }
             })
@@ -429,11 +433,13 @@ impl NodeCollection {
             return TreeUpdate {
                 nodes: Default::default(),
                 tree: Default::default(),
+                tree_id: TreeId::ROOT,
                 focus: self.root_node_id,
             };
         };
         let window = window_adapter.window();
         let window_inner = i_slint_core::window::WindowInner::from_pub(window);
+        window_inner.ensure_tree_instantiated();
 
         let root_item = ItemRc::new_root(window_inner.component());
 
@@ -473,6 +479,7 @@ impl NodeCollection {
         TreeUpdate {
             nodes,
             tree: Some(self.tree_info(root_id)),
+            tree_id: TreeId::ROOT,
             focus: self.focus_node(window_adapter_weak),
         }
     }
@@ -658,6 +665,28 @@ impl NodeCollection {
             .is_some_and(|x| x == "true")
         {
             node.set_read_only();
+        }
+
+        if let Some(orientation) = item
+            .accessible_string_property(AccessibleStringProperty::Orientation)
+            .and_then(|s| s.parse::<i_slint_core::items::Orientation>().ok())
+        {
+            node.set_orientation(match orientation {
+                i_slint_core::items::Orientation::Horizontal => Orientation::Horizontal,
+                i_slint_core::items::Orientation::Vertical => Orientation::Vertical,
+            });
+        }
+
+        if let Some(live) = item
+            .accessible_string_property(AccessibleStringProperty::Live)
+            .and_then(|s| s.parse::<i_slint_core::items::AccessibleLive>().ok())
+        {
+            node.set_live(match live {
+                i_slint_core::items::AccessibleLive::Off => Live::Off,
+                i_slint_core::items::AccessibleLive::Polite => Live::Polite,
+                i_slint_core::items::AccessibleLive::Assertive => Live::Assertive,
+                _ => Live::Off,
+            });
         }
 
         if item

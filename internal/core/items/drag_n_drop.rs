@@ -4,6 +4,8 @@
 use super::{
     DropEvent, Item, ItemConsts, ItemRc, MouseCursor, PointerEventButton, RenderingResult,
 };
+use crate::Coord;
+use crate::data_transfer::DataTransfer;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
     KeyEventResult, MouseEvent,
@@ -14,7 +16,7 @@ use crate::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
-use crate::{Callback, Property, SharedString};
+use crate::{Callback, Property};
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
@@ -29,8 +31,7 @@ pub type DropEventArg = (DropEvent,);
 /// The implementation of the `DragArea` element
 pub struct DragArea {
     pub enabled: Property<bool>,
-    pub mime_type: Property<SharedString>,
-    pub data: Property<SharedString>,
+    pub data: Property<DataTransfer>,
     pressed: Cell<bool>,
     pressed_position: Cell<LogicalPoint>,
     pub cached_rendering_data: CachedRenderingData,
@@ -39,9 +40,12 @@ pub struct DragArea {
 impl Item for DragArea {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -200,7 +204,7 @@ impl ItemConsts for DragArea {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         DragArea,
         CachedRenderingData,
-    > = DragArea::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = DragArea::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 impl DragArea {
@@ -225,9 +229,12 @@ pub struct DropArea {
 impl Item for DropArea {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         _: Orientation,
+        _cross_axis_constraint: Coord,
         _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -256,7 +263,7 @@ impl Item for DropArea {
         }
         match event {
             MouseEvent::DragMove(event) => {
-                let r = Self::FIELD_OFFSETS.can_drop.apply_pin(self).call(&(event.clone(),));
+                let r = Self::FIELD_OFFSETS.can_drop().apply_pin(self).call(&(event.clone(),));
                 if r {
                     self.contains_drag.set(true);
                     *cursor = MouseCursor::Copy;
@@ -268,7 +275,7 @@ impl Item for DropArea {
             }
             MouseEvent::Drop(event) => {
                 self.contains_drag.set(false);
-                Self::FIELD_OFFSETS.dropped.apply_pin(self).call(&(event.clone(),));
+                Self::FIELD_OFFSETS.dropped().apply_pin(self).call(&(event.clone(),));
                 InputEventResult::EventAccepted
             }
             MouseEvent::Exit => {
@@ -334,5 +341,5 @@ impl ItemConsts for DropArea {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         DropArea,
         CachedRenderingData,
-    > = DropArea::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = DropArea::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }

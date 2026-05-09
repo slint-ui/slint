@@ -76,4 +76,9 @@ impl JsComponentDefinition {
     pub fn name(&self) -> String {
         self.internal.name().into()
     }
+
+    #[napi(getter)]
+    pub fn is_window(&self) -> bool {
+        self.internal.is_window()
+    }
 }

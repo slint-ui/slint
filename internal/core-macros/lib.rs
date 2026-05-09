@@ -97,21 +97,21 @@ pub fn slint_element(input: TokenStream) -> TokenStream {
             fn properties<Value: ValueType>() -> ::alloc::vec::Vec<(&'static str, &'static dyn PropertyInfo<Self, Value>)> {
                 ::alloc::vec![#( {
                     const O : MaybeAnimatedPropertyInfoWrapper<#item_name, #pub_prop_field_types> =
-                        MaybeAnimatedPropertyInfoWrapper(#item_name::FIELD_OFFSETS.#pub_prop_field_names);
+                        MaybeAnimatedPropertyInfoWrapper(#item_name::FIELD_OFFSETS.#pub_prop_field_names());
                     (#pub_prop_field_names_normalized, (&O).as_property_info())
                 } ),*]
             }
             fn fields<Value: ValueType>() -> ::alloc::vec::Vec<(&'static str, &'static dyn FieldInfo<Self, Value>)> {
                 ::alloc::vec![#( {
                     const O : const_field_offset::FieldOffset<#item_name, #plain_field_types, const_field_offset::AllowPin> =
-                        #item_name::FIELD_OFFSETS.#plain_field_names;
+                        #item_name::FIELD_OFFSETS.#plain_field_names();
                     (#plain_field_names_normalized, &O as &'static dyn FieldInfo<Self, Value>)
                 } ),*]
             }
             fn callbacks<Value: ValueType>() -> ::alloc::vec::Vec<(&'static str, &'static dyn CallbackInfo<Self, Value>)> {
                 ::alloc::vec![#( {
                     const O : const_field_offset::FieldOffset<#item_name, Callback<#callback_args, #callback_rets>, const_field_offset::AllowPin> =
-                         #item_name::FIELD_OFFSETS.#callback_field_names;
+                         #item_name::FIELD_OFFSETS.#callback_field_names();
                     (#callback_field_names_normalized, &O as  &'static dyn CallbackInfo<Self, Value>)
                 } ),*]
             }
@@ -120,7 +120,7 @@ pub fn slint_element(input: TokenStream) -> TokenStream {
         impl #item_name {
             #(
                 #property_visibility fn #property_names(self: core::pin::Pin<&Self>) -> #property_types {
-                    Self::FIELD_OFFSETS.#property_names.apply_pin(self).get()
+                    Self::FIELD_OFFSETS.#property_names().apply_pin(self).get()
                 }
             )*
         }

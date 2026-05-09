@@ -430,17 +430,6 @@ impl JavaHelper {
         })
     }
 
-    pub fn get_view_rect(&self) -> Result<(PhysicalPosition, PhysicalSize), jni::errors::Error> {
-        self.with_jni_env(|env, helper| {
-            let rect = helper.get_view_rect(env)?;
-            let x = rect.left(env)?;
-            let y = rect.top(env)?;
-            let width = rect.right(env)? - x;
-            let height = rect.bottom(env)? - y;
-            Ok((PhysicalPosition::new(x as _, y as _), PhysicalSize::new(width as _, height as _)))
-        })
-    }
-
     pub fn get_safe_area(&self) -> Result<PhysicalEdges, jni::errors::Error> {
         self.with_jni_env(|env, helper| {
             let rect = helper.get_safe_area(env)?;
@@ -513,6 +502,10 @@ fn callback_update_text<'local>(
                         preedit_start
                     }
                 } as i32;
+                let mut key_event = KeyEvent::default();
+                key_event.text =
+                    i_slint_core::format!("{}{}", &text[..preedit_start], &text[preedit_end..]);
+
                 InternalKeyEvent {
                     event_type: KeyEventType::UpdateComposition,
                     preedit_text: text[preedit_start..preedit_end].into(),
@@ -520,23 +513,19 @@ fn callback_update_text<'local>(
                     replacement_range: Some(i32::MIN..i32::MAX),
                     cursor_position: Some(adjust(cursor_position)),
                     anchor_position: Some(adjust(anchor_position)),
-                    key_event: KeyEvent {
-                        text: i_slint_core::format!(
-                            "{}{}",
-                            &text[..preedit_start],
-                            &text[preedit_end..]
-                        ),
-                        ..Default::default()
-                    },
+                    key_event,
                     ..Default::default()
                 }
             } else {
+                let mut key_event = KeyEvent::default();
+                key_event.text = text;
+
                 InternalKeyEvent {
                     event_type: KeyEventType::CommitComposition,
                     replacement_range: Some(i32::MIN..i32::MAX),
                     cursor_position: Some(cursor_position as _),
                     anchor_position: Some(anchor_position as _),
-                    key_event: KeyEvent { text: text, ..Default::default() },
+                    key_event,
                     ..Default::default()
                 }
             };
@@ -570,12 +559,17 @@ fn callback_set_night_mode<'local>(
 ) -> Result<(), jni::errors::Error> {
     i_slint_core::api::invoke_from_event_loop(move || {
         if let Some(w) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
-            w.color_scheme.as_ref().set(match night_mode {
+            let scheme = match night_mode {
                 0x10 => ColorScheme::Light,  // UI_MODE_NIGHT_NO(0x10)
                 0x20 => ColorScheme::Dark,   // UI_MODE_NIGHT_YES(0x20)
                 0x0 => ColorScheme::Unknown, // UI_MODE_NIGHT_UNDEFINED
                 _ => ColorScheme::Unknown,
-            });
+            };
+            let ctx = i_slint_core::window::WindowInner::from_pub(&w.window).context();
+            ctx.set_color_scheme(scheme);
+            if let Ok(accent) = w.java_helper.accent_color() {
+                ctx.set_accent_color(accent);
+            }
         }
     })
     .unwrap();

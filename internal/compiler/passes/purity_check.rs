@@ -43,17 +43,17 @@ fn ensure_pure(
 ) -> bool {
     let mut r = true;
     expr.visit_recursive(&mut |e| match e {
-        Expression::FunctionCall { function: Callable::Callback(nr), source_location, .. } => {
-            if !nr.element().borrow().lookup_property(nr.name()).declared_pure.unwrap_or(false) {
-                if let Some(diag) = diag.as_deref_mut() {
-                    diag.push_diagnostic(
-                        format!("Call of impure callback '{}'", nr.name()),
-                        source_location,
-                        level,
-                    );
-                }
-                r = false;
+        Expression::FunctionCall { function: Callable::Callback(nr), source_location, .. }
+            if !nr.element().borrow().lookup_property(nr.name()).declared_pure.unwrap_or(false) =>
+        {
+            if let Some(diag) = diag.as_deref_mut() {
+                diag.push_diagnostic(
+                    format!("Call of impure callback '{}'", nr.name()),
+                    source_location,
+                    level,
+                );
             }
+            r = false;
         }
         Expression::FunctionCall { function: Callable::Function(nr), source_location, .. } => {
             match nr.element().borrow().lookup_property(nr.name()).declared_pure {
@@ -99,13 +99,13 @@ fn ensure_pure(
                 }
             }
         }
-        Expression::FunctionCall { function: Callable::Builtin(func), source_location, .. } => {
-            if !func.is_pure() {
-                if let Some(diag) = diag.as_deref_mut() {
-                    diag.push_diagnostic("Call of impure function".into(), source_location, level);
-                }
-                r = false;
+        Expression::FunctionCall { function: Callable::Builtin(func), source_location, .. }
+            if !func.is_pure() =>
+        {
+            if let Some(diag) = diag.as_deref_mut() {
+                diag.push_diagnostic("Call of impure function".into(), source_location, level);
             }
+            r = false;
         }
         Expression::SelfAssignment { node, .. } => {
             if let Some(diag) = diag.as_deref_mut() {

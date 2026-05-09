@@ -118,16 +118,6 @@ public:
         slint_windowrc_set_const_scale_factor(&inner, value);
     }
 
-    cbindgen_private::ColorScheme color_scheme() const
-    {
-        return slint_windowrc_color_scheme(&inner);
-    }
-    Color accent_color() const
-    {
-        Color col;
-        slint_windowrc_accent_color(&inner, &col);
-        return col;
-    }
     bool supports_native_menu_bar() const
     {
         return slint_windowrc_supports_native_menu_bar(&inner);
@@ -165,7 +155,16 @@ public:
                         cbindgen_private::PopupClosePolicy close_policy,
                         cbindgen_private::ItemRc parent_item) const
     {
-        auto popup = Component::create(parent_component);
+        using SharedGlobals = decltype(parent_component->globals);
+        SharedGlobals _own_globals = nullptr;
+        if (auto _popup_adapter = create_popup_window_adapter()) {
+            _own_globals = parent_component->globals->clone_with_window_adapter(*_popup_adapter);
+        }
+        if (!_own_globals) {
+            _own_globals = parent_component->globals;
+        }
+
+        auto popup = Component::create(parent_component, _own_globals);
         auto p = pos(popup);
         auto popup_dyn = popup.into_dyn();
         auto id = cbindgen_private::slint_windowrc_show_popup(&inner, &popup_dyn, p, close_policy,
@@ -179,6 +178,20 @@ public:
         if (popup_id > 0) {
             cbindgen_private::slint_windowrc_close_popup(&inner, popup_id);
         }
+    }
+
+    /// Try to create a window adapter for a popup window.
+    /// Returns std::nullopt if the backend renders popups as child windows.
+    std::optional<WindowAdapterRc> create_popup_window_adapter() const
+    {
+        cbindgen_private::WindowAdapterRcOpaque raw_result;
+        if (cbindgen_private::slint_windowrc_create_popup_window_adapter(&inner, &raw_result)) {
+            std::optional<WindowAdapterRc> result;
+            result.emplace(raw_result); // clone: refcount = 2
+            cbindgen_private::slint_windowrc_drop(&raw_result); // drop original: refcount = 1
+            return result;
+        }
+        return std::nullopt;
     }
 
     template<typename Component, typename SharedGlobals, typename InitFn>
@@ -541,7 +554,7 @@ public:
     {
         private_api::assert_main_thread();
         inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Pressed({ pos.x, pos.y }, button, 0, false));
+                slint::cbindgen_private::MouseEvent::Pressed({ pos.x, pos.y }, button, 0, 0));
     }
     /// Dispatches a pointer or mouse release event to the scene.
     ///
@@ -554,7 +567,7 @@ public:
     {
         private_api::assert_main_thread();
         inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Released({ pos.x, pos.y }, button, 0, false));
+                slint::cbindgen_private::MouseEvent::Released({ pos.x, pos.y }, button, 0, 0));
     }
     /// Dispatches a pointer exit event to the scene.
     ///
@@ -578,7 +591,7 @@ public:
     {
         private_api::assert_main_thread();
         inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Moved({ pos.x, pos.y }, false));
+                slint::cbindgen_private::MouseEvent::Moved({ pos.x, pos.y }, 0));
     }
 
     /// Dispatches a scroll (or wheel) event to the scene.
@@ -589,11 +602,15 @@ public:
     /// \a parameter represents the logical position of the pointer relative to the window.
     /// \a delta_x and \a delta_y represent the scroll delta values in the X and Y
     /// directions in logical pixels.
-    void dispatch_pointer_scroll_event(LogicalPosition pos, float delta_x, float delta_y)
+    /// \a scroll_phase represents the current phase of scrolling. If no phase is
+    /// available like for mouse scroll wheels, use the default
+    void dispatch_pointer_scroll_event(LogicalPosition pos, float delta_x, float delta_y,
+                                       slint::cbindgen_private::types::TouchPhase scroll_phase =
+                                               slint::cbindgen_private::types::TouchPhase::Moved)
     {
         private_api::assert_main_thread();
-        inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Wheel({ pos.x, pos.y }, delta_x, delta_y));
+        inner.dispatch_pointer_event(slint::cbindgen_private::MouseEvent::Wheel(
+                { pos.x, pos.y }, delta_x, delta_y, scroll_phase));
     }
 
     /// Set the logical size of this window after a resize event

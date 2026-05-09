@@ -22,19 +22,22 @@ use i_slint_compiler::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
 use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
+use i_slint_preview_protocol::LspToPreviewMessage;
 use itertools::Itertools;
-use lsp_types::request::{
-    CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
-    DocumentHighlightRequest, DocumentSymbolRequest, ExecuteCommand, Formatting, GotoDefinition,
-    HoverRequest, PrepareRenameRequest, Rename, SemanticTokensFullRequest, SignatureHelpRequest,
-};
+use lsp_types::TextDocumentPositionParams;
 use lsp_types::{
     ClientCapabilities, CodeActionOrCommand, CodeActionProviderCapability, CodeLens,
     CodeLensOptions, Color, ColorInformation, ColorPresentation, Command, CompletionOptions,
-    DocumentSymbol, DocumentSymbolResponse, InitializeParams, InitializeResult, OneOf, Position,
-    PrepareRenameResponse, RenameOptions, SemanticTokensFullOptions, SemanticTokensLegend,
-    SemanticTokensOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextEdit,
-    Url, WorkDoneProgressOptions,
+    DocumentSymbol, DocumentSymbolResponse, FileChangeType, InitializeParams, InitializeResult,
+    OneOf, Position, PrepareRenameResponse, RenameOptions, SemanticTokensFullOptions,
+    SemanticTokensLegend, SemanticTokensOptions, ServerCapabilities, ServerInfo,
+    TextDocumentSyncCapability, TextEdit, Url, WorkDoneProgressOptions,
+    request::{
+        CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
+        DocumentHighlightRequest, DocumentSymbolRequest, ExecuteCommand, Formatting,
+        GotoDefinition, HoverRequest, PrepareRenameRequest, Rename, SemanticTokensFullRequest,
+        SignatureHelpRequest,
+    },
 };
 
 use std::collections::HashMap;
@@ -69,7 +72,7 @@ fn create_show_preview_command(
 
 fn create_populate_command(
     uri: lsp_types::Url,
-    version: common::SourceFileVersion,
+    version: i_slint_preview_protocol::SourceFileVersion,
     title: String,
     text: String,
 ) -> Command {
@@ -90,20 +93,20 @@ pub fn send_state_to_preview(ctx: &Context) {
         }
         let version = ctx.document_cache.document_version(&url);
 
-        ctx.to_preview.send(&common::LspToPreviewMessage::SetContents {
-            url: common::VersionedUrl::new(url, version),
+        ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::SetContents {
+            url: i_slint_preview_protocol::VersionedUrl::new(url, version),
             contents: node.text().to_string(),
         });
         doc_count += 1;
     }
 
-    ctx.to_preview.send(&common::LspToPreviewMessage::SetConfiguration {
+    ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::SetConfiguration {
         config: ctx.preview_config.clone(),
     });
 
     if let Some(c) = ctx.to_show.clone() {
         tracing::debug!("Sending state to preview: {} documents, showing {}", doc_count, c.url);
-        ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(c));
+        ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::ShowPreview(c));
     } else {
         tracing::debug!(
             "Sending state to preview: {} documents, showing default component",
@@ -127,7 +130,11 @@ async fn register_file_watcher(ctx: &Context) -> common::Result<()> {
         let fs_watcher = lsp_types::DidChangeWatchedFilesRegistrationOptions {
             watchers: vec![lsp_types::FileSystemWatcher {
                 glob_pattern: lsp_types::GlobPattern::String("**/*".to_string()),
-                kind: Some(lsp_types::WatchKind::Change | lsp_types::WatchKind::Delete),
+                kind: Some(
+                    lsp_types::WatchKind::Change
+                        | lsp_types::WatchKind::Delete
+                        | lsp_types::WatchKind::Create,
+                ),
             }],
         };
         let server_notifier = { ctx.server_notifier.clone() };
@@ -149,12 +156,12 @@ async fn register_file_watcher(ctx: &Context) -> common::Result<()> {
 
 pub struct Context {
     pub document_cache: common::DocumentCache,
-    pub preview_config: common::PreviewConfig,
+    pub preview_config: i_slint_preview_protocol::PreviewConfig,
     pub server_notifier: crate::ServerNotifier,
     pub init_param: InitializeParams,
     /// The last component for which the user clicked "show preview"
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-    pub to_show: Option<common::PreviewComponent>,
+    pub to_show: Option<i_slint_preview_protocol::PreviewComponent>,
     /// File currently open in the editor
     pub open_urls: HashSet<lsp_types::Url>,
     pub to_preview: Rc<dyn common::LspToPreview>,
@@ -329,14 +336,24 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         Ok(result)
     });
     rh.register::<HoverRequest>(|params, ctx| {
-        let result = token_descr(
+        let Some((token, _text_size)) = token_descr(
             &ctx.document_cache,
             &params.text_document_position_params.text_document.uri,
             &params.text_document_position_params.position,
-        )
-        .and_then(|(token, _)| hover::get_tooltip(&mut ctx.document_cache, token));
+        ) else {
+            return Ok(None);
+        };
 
-        Ok(result)
+        let hover = hover::get_tooltip(&mut ctx.document_cache, token.clone());
+
+        // we will show a tooltip in the editor, also update the highlight in the live preview
+        if hover.is_some() {
+            let (_document, preview) =
+                get_highlights_for_position(ctx, &params.text_document_position_params);
+            ctx.to_preview.send(&preview);
+        }
+
+        Ok(hover)
     });
     rh.register::<SignatureHelpRequest>(|params, ctx| {
         let result = token_descr(
@@ -365,7 +382,7 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             return Ok(None::<serde_json::Value>);
         }
         if params.command.as_str() == POPULATE_COMMAND {
-            tokio::task::spawn_local(populate_command(&params.arguments, ctx)?);
+            common::spawn_local(populate_command(&params.arguments, ctx)?);
             return Ok(None::<serde_json::Value>);
         }
         Ok(None::<serde_json::Value>)
@@ -407,70 +424,21 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         Ok(semantic_tokens::get_semantic_tokens(&mut ctx.document_cache, &params.text_document))
     });
     rh.register::<DocumentHighlightRequest>(|params, ctx| {
-        let uri = params.text_document_position_params.text_document.uri;
-        if let Some((tk, _)) =
-            token_descr(&ctx.document_cache, &uri, &params.text_document_position_params.position)
-        {
-            let p = tk.parent();
-            let gp = p.parent();
+        tracing::trace!(
+            "DocumentHighlightRequest for {} at {:?}",
+            params.text_document_position_params.text_document.uri,
+            params.text_document_position_params.position
+        );
 
-            if p.kind() == SyntaxKind::DeclaredIdentifier
-                && gp.as_ref().is_some_and(|n| n.kind() == SyntaxKind::Component)
-            {
-                let element = gp.as_ref().unwrap().child_node(SyntaxKind::Element).unwrap();
+        let (document_highlights, preview) =
+            get_highlights_for_position(ctx, &params.text_document_position_params);
 
-                ctx.to_preview.send(&common::LspToPreviewMessage::HighlightFromEditor {
-                    url: Some(uri),
-                    offset: element.text_range().start().into(),
-                });
+        // Update the highlight in the live preview.
+        // We do this even if there are no highlights to clear any previous highlights.
+        ctx.to_preview.send(&preview);
 
-                let range = util::node_to_lsp_range(&p, ctx.document_cache.format);
-                return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
-            }
-
-            if p.kind() == SyntaxKind::QualifiedName
-                && gp.as_ref().is_some_and(|n| n.kind() == SyntaxKind::Element)
-            {
-                let range = util::node_to_lsp_range(&p, ctx.document_cache.format);
-
-                if gp
-                    .as_ref()
-                    .unwrap()
-                    .parent()
-                    .as_ref()
-                    .is_some_and(|n| n.kind() != SyntaxKind::Component)
-                {
-                    ctx.to_preview.send(&common::LspToPreviewMessage::HighlightFromEditor {
-                        url: Some(uri),
-                        offset: gp.unwrap().text_range().start().into(),
-                    });
-                }
-                return Ok(Some(vec![lsp_types::DocumentHighlight { range, kind: None }]));
-            }
-
-            if let Some(value) = common::rename_element_id::find_element_ids(&tk, &p) {
-                ctx.to_preview.send(&common::LspToPreviewMessage::HighlightFromEditor {
-                    url: None,
-                    offset: 0,
-                });
-                return Ok(Some(
-                    value
-                        .into_iter()
-                        .map(|r| lsp_types::DocumentHighlight {
-                            range: util::text_range_to_lsp_range(
-                                &p.source_file,
-                                r,
-                                ctx.document_cache.format,
-                            ),
-                            kind: None,
-                        })
-                        .collect(),
-                ));
-            }
-        }
-        ctx.to_preview
-            .send(&common::LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 });
-        Ok(None)
+        let not_empty = !document_highlights.is_empty();
+        Ok(not_empty.then_some(document_highlights))
     });
     rh.register::<Rename>(|params, ctx| {
         let uri = params.text_document_position.text_document.uri;
@@ -571,11 +539,17 @@ pub fn show_preview_command(
         params.get(1).and_then(|v| v.as_str()).filter(|v| !v.is_empty()).map(|v| v.to_string());
 
     tracing::debug!("Show preview: url={}, component={:?}", url, component);
-    let c = common::PreviewComponent { url, component };
-    ctx.to_show = Some(c.clone());
-    ctx.to_preview.send(&common::LspToPreviewMessage::ShowPreview(c));
+    let c = i_slint_preview_protocol::PreviewComponent { url, component };
+    show_preview(c, ctx);
 
     Ok(())
+}
+
+#[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+pub fn show_preview(component: i_slint_preview_protocol::PreviewComponent, ctx: &mut Context) {
+    ctx.pending_recompile.insert(component.url.clone());
+    ctx.to_show = Some(component.clone());
+    ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::ShowPreview(component));
 }
 
 fn populate_command_range(
@@ -745,8 +719,8 @@ pub(crate) async fn load_document_impl(
 
     let dependencies = match action {
         FileAction::ProcessContent(content) => {
-            ctx.to_preview.send(&common::LspToPreviewMessage::SetContents {
-                url: common::VersionedUrl::new(url.clone(), version),
+            ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::SetContents {
+                url: i_slint_preview_protocol::VersionedUrl::new(url.clone(), version),
                 contents: content.clone(),
             });
             let dependencies: HashSet<Url> = ctx.document_cache.invalidate_url(&url);
@@ -755,7 +729,9 @@ pub(crate) async fn load_document_impl(
         }
         FileAction::IgnoreFile => return Default::default(),
         FileAction::InvalidateFile => {
-            ctx.to_preview.send(&common::LspToPreviewMessage::ForgetFile { url: url.clone() });
+            ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::ForgetFile {
+                url: url.clone(),
+            });
             ctx.document_cache.invalidate_url(&url)
         }
     };
@@ -909,7 +885,9 @@ fn drop_document_impl(ctx: &mut Context, url: lsp_types::Url) -> common::Result<
 pub async fn drop_document(ctx: &mut Context, url: lsp_types::Url) -> common::Result<()> {
     tracing::debug!("Dropping document: {url}");
     // The preview cares about resources and slint files, so forward everything
-    ctx.to_preview.send(&common::LspToPreviewMessage::InvalidateContents { url: url.clone() });
+    ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::InvalidateContents {
+        url: url.clone(),
+    });
 
     drop_document_impl(ctx, url)
 }
@@ -917,7 +895,8 @@ pub async fn drop_document(ctx: &mut Context, url: lsp_types::Url) -> common::Re
 pub async fn delete_document(ctx: &mut Context, url: lsp_types::Url) -> common::Result<()> {
     tracing::debug!("Deleting document: {url}");
     // The preview cares about resources and slint files, so forward everything
-    ctx.to_preview.send(&common::LspToPreviewMessage::ForgetFile { url: url.clone() });
+    ctx.to_preview
+        .send(&i_slint_preview_protocol::LspToPreviewMessage::ForgetFile { url: url.clone() });
 
     drop_document_impl(ctx, url)
 }
@@ -929,10 +908,14 @@ pub async fn trigger_file_watcher(
 ) -> common::Result<()> {
     if !ctx.open_urls.contains(&url) {
         tracing::debug!("File watcher triggered for {url} (type: {:?})", typ);
-        if typ == lsp_types::FileChangeType::DELETED {
-            delete_document(ctx, url).await?;
-        } else {
-            drop_document(ctx, url).await?;
+        match typ {
+            FileChangeType::DELETED => delete_document(ctx, url).await?,
+            // If the file was newly created, we still need to drop it as another file may
+            // already depend on it by trying to import it before it exists.
+            // This is especially common on file renames.
+            // See also #11304
+            FileChangeType::CHANGED | FileChangeType::CREATED => drop_document(ctx, url).await?,
+            _ => tracing::warn!("Unknown file change type: {:?} for {url}", typ),
         }
     } else {
         tracing::trace!("Ignoring file watcher event for open document: {url}");
@@ -1364,7 +1347,7 @@ fn get_document_symbols(
         (!r.is_empty()).then_some(r)
     }
 
-    r.sort_by(|a, b| a.range.start.cmp(&b.range.start));
+    r.sort_by_key(|a| a.range.start);
 
     #[cfg(debug_assertions)]
     fn check_ranges(r: &[DocumentSymbol]) {
@@ -1446,6 +1429,73 @@ export component MainWindow inherits Window {
     }
 
     (!result.is_empty()).then_some(result)
+}
+
+/// Returns the list of DocumentHighlights, plus a LspToPreviewMessage::HighlightFromEditor  for the
+/// given position
+/// The list of DocumentHighlights will be empty if there is no highlight to show in the editor
+/// The HighlightFromEditor will have url=None if there is no highlight to show in the preview
+fn get_highlights_for_position(
+    ctx: &Context,
+    params: &TextDocumentPositionParams,
+) -> (Vec<lsp_types::DocumentHighlight>, LspToPreviewMessage) {
+    let uri = params.text_document.uri.clone();
+    if let Some((token, _)) = token_descr(&ctx.document_cache, &uri, &params.position) {
+        let parent = token.parent();
+        let grand_parent = parent.parent();
+
+        if parent.kind() == SyntaxKind::DeclaredIdentifier
+            && grand_parent.as_ref().is_some_and(|n| n.kind() == SyntaxKind::Component)
+        {
+            let element = grand_parent.as_ref().unwrap().child_node(SyntaxKind::Element).unwrap();
+
+            let preview_highlight =
+                i_slint_preview_protocol::LspToPreviewMessage::HighlightFromEditor {
+                    url: Some(uri),
+                    offset: element.text_range().start().into(),
+                };
+
+            let range = util::node_to_lsp_range(&parent, ctx.document_cache.format);
+            return (vec![lsp_types::DocumentHighlight { range, kind: None }], preview_highlight);
+        }
+
+        if parent.kind() == SyntaxKind::QualifiedName
+            && grand_parent.as_ref().is_some_and(|n| n.kind() == SyntaxKind::Element)
+        {
+            let great_grand_parent = grand_parent.as_ref().unwrap().parent();
+            let should_highlight_preview =
+                great_grand_parent.as_ref().is_some_and(|n| n.kind() != SyntaxKind::Component);
+            let preview_highlight =
+                i_slint_preview_protocol::LspToPreviewMessage::HighlightFromEditor {
+                    url: should_highlight_preview.then_some(uri),
+                    offset: grand_parent.unwrap().text_range().start().into(),
+                };
+            let range = util::node_to_lsp_range(&parent, ctx.document_cache.format);
+
+            return (vec![lsp_types::DocumentHighlight { range, kind: None }], preview_highlight);
+        }
+
+        if let Some(value) = common::rename_element_id::find_element_ids(&token, &parent) {
+            let preview_highlight =
+                i_slint_preview_protocol::LspToPreviewMessage::HighlightFromEditor {
+                    url: None,
+                    offset: 0,
+                };
+            let document_highlight = value
+                .into_iter()
+                .map(|r| lsp_types::DocumentHighlight {
+                    range: util::text_range_to_lsp_range(
+                        &parent.source_file,
+                        r,
+                        ctx.document_cache.format,
+                    ),
+                    kind: None,
+                })
+                .collect();
+            return (document_highlight, preview_highlight);
+        }
+    }
+    (vec![], LspToPreviewMessage::HighlightFromEditor { url: None, offset: 0 })
 }
 
 pub async fn startup_lsp(ctx: &mut Context) -> common::Result<()> {
@@ -1551,7 +1601,7 @@ pub async fn load_configuration(ctx: &mut Context) -> common::Result<()> {
         );
     }
 
-    let config = common::PreviewConfig {
+    let config = i_slint_preview_protocol::PreviewConfig {
         hide_ui,
         style: cc.style.clone().unwrap_or_default(),
         include_paths: cc.include_paths.clone(),
@@ -1561,7 +1611,8 @@ pub async fn load_configuration(ctx: &mut Context) -> common::Result<()> {
     };
     {
         ctx.preview_config = config.clone();
-        ctx.to_preview.send(&common::LspToPreviewMessage::SetConfiguration { config });
+        ctx.to_preview
+            .send(&i_slint_preview_protocol::LspToPreviewMessage::SetConfiguration { config });
     }
 
     tracing::debug!("Loaded configuration from client");

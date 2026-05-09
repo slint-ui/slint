@@ -1,0 +1,415 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+use anyhow::Context;
+use std::fs::create_dir_all;
+use std::io::{BufWriter, Write};
+use std::path::Path;
+
+/// Generate all markdown/mdx documentation files.
+pub fn generate(include_experimental: bool) -> Result<(), Box<dyn std::error::Error>> {
+    generate_enum_docs(include_experimental)?;
+    generate_builtin_struct_docs(include_experimental)?;
+    generate_keys_docs()?;
+    crate::element_docs::generate()?;
+
+    let root = crate::root_dir();
+    let enums = extract_enum_docs(include_experimental);
+    let structs = extract_builtin_structs(include_experimental);
+    write_global_structs_enums_index(&root, &structs, &enums)?;
+
+    Ok(())
+}
+
+fn write_global_structs_enums_index(
+    root_dir: &Path,
+    structs: &std::collections::BTreeMap<String, StructDoc>,
+    enums: &std::collections::BTreeMap<String, EnumDoc>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let generated_dir = root_dir.join("docs/astro/src/content/docs/reference/generated");
+    create_dir_all(&generated_dir)?;
+    let path = generated_dir.join("global-structs-enums.mdx");
+    let mut file =
+        BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
+
+    writeln!(
+        file,
+        r#"---
+title: Global Structs and Enums
+description: Global Structs and Enums
+slug: reference/global-structs-enums
+---
+"#
+    )?;
+
+    for name in structs.keys() {
+        writeln!(
+            file,
+            "import {0} from \"/src/content/docs/reference/generated/structs/{0}.md\"",
+            name
+        )?;
+    }
+
+    if !structs.is_empty() {
+        writeln!(file)?;
+    }
+
+    for name in enums.keys() {
+        // `keys.md` is generated separately and documented elsewhere.
+        if name == "keys" {
+            continue;
+        }
+        writeln!(
+            file,
+            "import {0} from \"/src/content/docs/reference/generated/enums/{0}.md\"",
+            name
+        )?;
+    }
+
+    writeln!(file)?;
+    writeln!(file, "## Structs")?;
+    writeln!(file)?;
+
+    for name in structs.keys() {
+        writeln!(file, "### {name}")?;
+        writeln!(file, "<{name} />")?;
+        writeln!(file)?;
+    }
+
+    writeln!(file, "## Enums")?;
+    writeln!(file)?;
+
+    for name in enums.keys() {
+        if name == "keys" {
+            continue;
+        }
+        writeln!(file, "### {name}")?;
+        writeln!(file, "<{name} />")?;
+        writeln!(file)?;
+    }
+
+    file.flush()?;
+
+    Ok(())
+}
+
+fn write_individual_enum_files(
+    root_dir: &Path,
+    enums: &std::collections::BTreeMap<String, EnumDoc>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let enums_dir = root_dir.join("docs/astro/src/content/docs/reference/generated/enums");
+    create_dir_all(&enums_dir).context(format!(
+        "Failed to create folder holding individual enum doc files {enums_dir:?}"
+    ))?;
+
+    for (k, e) in enums {
+        let path = enums_dir.join(format!("{k}.md"));
+        let mut file = BufWriter::new(
+            std::fs::File::create(&path).context(format!("error creating {path:?}"))?,
+        );
+
+        write!(
+            file,
+            r#"---
+title: {0}
+description: {0} content
+slug: reference/enums/{0}
+---
+
+<!-- Generated with slint-doc-generator from internal/commons/enums.rs -->
+
+`{0}`
+
+{1}
+"#,
+            k, e.description
+        )?;
+        for v in &e.values {
+            writeln!(file, r#"* **`{}`**: {}"#, v.key, v.description)?;
+        }
+
+        file.flush()?;
+    }
+    Ok(())
+}
+
+pub struct EnumValueDoc {
+    key: String,
+    description: String,
+}
+
+pub struct EnumDoc {
+    pub description: String,
+    pub values: Vec<EnumValueDoc>,
+}
+
+pub fn extract_enum_docs(
+    include_experimental: bool,
+) -> std::collections::BTreeMap<String, EnumDoc> {
+    let mut enums: std::collections::BTreeMap<String, EnumDoc> = std::collections::BTreeMap::new();
+
+    macro_rules! gen_enums {
+        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+            $(
+                let name = stringify!($Name).to_string();
+                let mut description = String::new();
+                $( description += &format!("{}\n", $enum_doc); )*
+
+                let mut values = Vec::new();
+
+                $(
+                    let mut value_docs = String::new();
+                    $(
+                        value_docs += $value_doc;
+                    )*
+                    values.push(EnumValueDoc { key: to_kebab_case(stringify!($Value)), description: value_docs });
+                )*
+
+                enums.insert(name, EnumDoc { description, values});
+            )*
+        }
+    }
+
+    #[allow(unused)] // for 'has_val'
+    {
+        i_slint_common::for_each_enums!(gen_enums);
+    }
+
+    if !include_experimental {
+        enums.retain(|name, _| !name.starts_with("FlexboxLayout"));
+    }
+
+    enums
+}
+
+pub fn generate_enum_docs(include_experimental: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let enums = extract_enum_docs(include_experimental);
+    write_individual_enum_files(&crate::root_dir(), &enums)?;
+    Ok(())
+}
+
+pub struct StructFieldDoc {
+    key: String,
+    description: String,
+    type_name: String,
+}
+
+pub struct StructDoc {
+    pub description: String,
+    pub fields: Vec<StructFieldDoc>,
+}
+
+pub fn extract_builtin_structs(
+    include_experimental: bool,
+) -> std::collections::BTreeMap<String, StructDoc> {
+    // `Point` should be in the documentation, but it's not inside of `for_each_builtin_structs`,
+    // so we manually create its entry first.
+    let mut structs = std::collections::BTreeMap::from([
+        (
+            "Point".to_string(),
+            StructDoc {
+                description: "This structure represents a point with x and y coordinate"
+                    .to_string(),
+                fields: vec![
+                    StructFieldDoc {
+                        key: "x".to_string(),
+                        description: String::new(),
+                        type_name: "length".to_string(),
+                    },
+                    StructFieldDoc {
+                        key: "y".to_string(),
+                        description: String::new(),
+                        type_name: "length".to_string(),
+                    },
+                ],
+            },
+        ),
+        (
+            "Size".to_string(),
+            StructDoc {
+                description: "This structure represents a size with width and height".to_string(),
+                fields: vec![
+                    StructFieldDoc {
+                        key: "width".to_string(),
+                        description: String::new(),
+                        type_name: "length".to_string(),
+                    },
+                    StructFieldDoc {
+                        key: "height".to_string(),
+                        description: String::new(),
+                        type_name: "length".to_string(),
+                    },
+                ],
+            },
+        ),
+    ]);
+
+    macro_rules! map_type {
+        (i32) => {
+            stringify!(int)
+        };
+        (f32) => {
+            stringify!(float)
+        };
+        (SharedString) => {
+            stringify!(string)
+        };
+        (Coord) => {
+            "length"
+        };
+        (Image) => {
+            "image"
+        };
+        (DataTransfer) => {
+            "data-transfer"
+        };
+        ($pub_type:ident) => {
+            stringify!($pub_type)
+        };
+    }
+
+    macro_rules! gen_structs {
+        ($(
+            $(#[doc = $struct_doc:literal])*
+            $(#[non_exhaustive])?
+            $(#[derive(Copy, Eq)])?
+            struct $Name:ident {
+                @name = $inner_name:expr,
+                export {
+                    $( $(#[doc = $pub_doc:literal])* $pub_field:ident : $pub_type:ident, )*
+                }
+                private {
+                    $( $(#[doc = $pri_doc:literal])* $pri_field:ident : $pri_type:ty, )*
+                }
+            }
+        )*) => {
+            $(
+                let name = stringify!($Name).to_string();
+                let mut description = String::new();
+                $(description += &format!("{}\n", $struct_doc);)*
+
+                let mut fields = Vec::new();
+                $(
+                    let key = stringify!($pub_field).to_string();
+                    let type_name = map_type!($pub_type).to_string();
+                    let mut f_description = String::new();
+                    $(
+                        f_description += &format!("{}", $pub_doc);
+                    )*
+                    fields.push(StructFieldDoc { key, description: f_description, type_name });
+                )*
+                structs.insert(name, StructDoc { description, fields });
+            )*
+        }
+    }
+
+    i_slint_common::for_each_builtin_structs!(gen_structs);
+
+    // Internal type
+    structs.remove("MenuEntry");
+    if !include_experimental {
+        // Experimental type
+        structs.remove("DropEvent");
+    }
+
+    structs
+}
+
+fn write_individual_struct_files(
+    root_dir: &Path,
+    structs: std::collections::BTreeMap<String, StructDoc>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let structs_dir = root_dir.join("docs/astro/src/content/docs/reference/generated/structs");
+    create_dir_all(&structs_dir).context(format!(
+        "Failed to create folder holding individual structs doc files {structs_dir:?}"
+    ))?;
+
+    for (s, v) in &structs {
+        let path = structs_dir.join(format!("{s}.md"));
+        let mut file = BufWriter::new(
+            std::fs::File::create(&path).context(format!("error creating {path:?}"))?,
+        );
+
+        write!(
+            file,
+            r#"---
+title: {0}
+description: {0} content
+slug: reference/structs/{0}
+---
+
+<!-- Generated with slint-doc-generator from internal/common/builtin_structs.rs -->
+
+`{0}`
+
+{1}
+"#,
+            s, v.description
+        )?;
+
+        for f in &v.fields {
+            writeln!(file, r#"- **`{}`** (_{}_): {}"#, f.key, f.type_name, f.description)?;
+        }
+
+        file.flush()?;
+    }
+
+    Ok(())
+}
+
+pub fn generate_builtin_struct_docs(
+    include_experimental: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let structs = extract_builtin_structs(include_experimental);
+    write_individual_struct_files(&crate::root_dir(), structs)
+}
+
+/// Convert a ascii pascal case string to kebab case.
+pub fn to_kebab_case(str: &str) -> String {
+    let mut result = Vec::with_capacity(str.len());
+    for x in str.as_bytes() {
+        if x.is_ascii_uppercase() {
+            if !result.is_empty() {
+                result.push(b'-');
+            }
+            result.push(x.to_ascii_lowercase());
+        } else {
+            result.push(*x);
+        }
+    }
+    String::from_utf8(result).unwrap()
+}
+
+fn generate_keys_docs() -> Result<(), Box<dyn std::error::Error>> {
+    let root_dir = &crate::root_dir();
+    let enums_dir = root_dir.join("docs/astro/src/content/docs/reference/generated/enums");
+    create_dir_all(&enums_dir).context(format!(
+        "Failed to create folder holding individual enum doc files {enums_dir:?}"
+    ))?;
+
+    let path = enums_dir.join("keys.md");
+    let mut file =
+        BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
+
+    writeln!(file, "---")?;
+    writeln!(file, "title: keys")?;
+    writeln!(file, "slug: reference/enums/keys")?;
+    writeln!(file, "---")?;
+    writeln!(file)?;
+
+    macro_rules! collect_special_key {
+        ($($char:literal # $name:ident # $($shifted:ident)? $(=> $($_muda:ident)? # $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)*) => {
+            $(
+                 write!(file, r#"-   **`{}`**
+"#, stringify!($name)
+                 )?;
+            )*
+        };
+    }
+
+    i_slint_common::for_each_keys!(collect_special_key);
+
+    file.flush()?;
+
+    Ok(())
+}

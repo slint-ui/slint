@@ -1,39 +1,42 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_core::api::PhysicalSize as PhysicalWindowSize;
-
 use ash::vk::Handle;
 use skia_safe::gpu::vk;
 
 use wgpu_28 as wgpu;
 
-pub unsafe fn make_vulkan_surface(
-    size: PhysicalWindowSize,
+fn vk_format_and_color_type(
+    format: wgpu::TextureFormat,
+) -> Option<(skia_safe::gpu::vk::Format, skia_safe::ColorType)> {
+    match format {
+        wgpu::TextureFormat::Rgba8Unorm => {
+            Some((skia_safe::gpu::vk::Format::R8G8B8A8_UNORM, skia_safe::ColorType::RGBA8888))
+        }
+        wgpu::TextureFormat::Rgba8UnormSrgb => {
+            Some((skia_safe::gpu::vk::Format::R8G8B8A8_SRGB, skia_safe::ColorType::SRGBA8888))
+        }
+        wgpu::TextureFormat::Bgra8Unorm => {
+            Some((skia_safe::gpu::vk::Format::B8G8R8A8_UNORM, skia_safe::ColorType::BGRA8888))
+        }
+        _ => None,
+    }
+}
+
+/// # Safety
+/// `vk_image_raw` must be a valid Vulkan image handle for the lifetime of the returned Surface.
+unsafe fn wrap_vulkan_texture(
+    width: i32,
+    height: i32,
     gr_context: &mut skia_safe::gpu::DirectContext,
-    frame: &wgpu::SurfaceTexture,
+    vk_image_raw: u64,
+    vk_format: skia_safe::gpu::vk::Format,
+    color_type: skia_safe::ColorType,
 ) -> Option<skia_safe::Surface> {
     unsafe {
-        let vulkan_texture = frame.texture.as_hal::<wgpu::wgc::api::Vulkan>();
-
-        let alloc = skia_safe::gpu::vk::Alloc::default();
-
-        let (vk_format, color_type) = match frame.texture.format() {
-            wgpu::TextureFormat::Rgba8Unorm => {
-                (skia_safe::gpu::vk::Format::R8G8B8A8_UNORM, skia_safe::ColorType::RGBA8888)
-            }
-            wgpu::TextureFormat::Rgba8UnormSrgb => {
-                (skia_safe::gpu::vk::Format::R8G8B8A8_SRGB, skia_safe::ColorType::SRGBA8888)
-            }
-            wgpu::TextureFormat::Bgra8Unorm => {
-                (skia_safe::gpu::vk::Format::B8G8R8A8_UNORM, skia_safe::ColorType::BGRA8888)
-            }
-            _ => return None,
-        };
-
         let texture_info = &skia_safe::gpu::vk::ImageInfo::new(
-            vulkan_texture.unwrap().raw_handle().as_raw() as _,
-            alloc,
+            vk_image_raw as _,
+            skia_safe::gpu::vk::Alloc::default(),
             skia_safe::gpu::vk::ImageTiling::OPTIMAL,
             skia_safe::gpu::vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
             vk_format,
@@ -43,12 +46,8 @@ pub unsafe fn make_vulkan_surface(
             None,
             None,
         );
-
-        let backend_render_target = skia_safe::gpu::backend_render_targets::make_vk(
-            (size.width as i32, size.height as i32),
-            texture_info,
-        );
-
+        let backend_render_target =
+            skia_safe::gpu::backend_render_targets::make_vk((width, height), texture_info);
         skia_safe::gpu::surfaces::wrap_backend_render_target(
             gr_context,
             &backend_render_target,
@@ -56,6 +55,31 @@ pub unsafe fn make_vulkan_surface(
             color_type,
             None,
             None,
+        )
+    }
+}
+
+/// # Safety
+/// The caller must ensure `texture` was created by a Vulkan-backed wgpu device and remains
+/// valid for the lifetime of the returned `skia_safe::Surface`.
+pub unsafe fn make_vulkan_surface(
+    gr_context: &mut skia_safe::gpu::DirectContext,
+    texture: &wgpu::Texture,
+) -> Option<skia_safe::Surface> {
+    // SAFETY: texture is borrowed for the duration of this call; the Vulkan handle is copied
+    // into Skia's internal BackendRenderTarget via wrap_vulkan_texture.
+    unsafe {
+        let vulkan_texture = texture.as_hal::<wgpu::wgc::api::Vulkan>()?;
+        let vk_image_raw = vulkan_texture.raw_handle().as_raw();
+        let size = texture.size();
+        let (vk_format, color_type) = vk_format_and_color_type(texture.format())?;
+        wrap_vulkan_texture(
+            size.width as i32,
+            size.height as i32,
+            gr_context,
+            vk_image_raw,
+            vk_format,
+            color_type,
         )
     }
 }

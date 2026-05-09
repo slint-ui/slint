@@ -31,60 +31,38 @@
 //! # Example
 //!
 //! ```rust,no_run
+//! use std::cell::Cell;
 //! use slint::ComponentHandle;
 //! use crate::webview::WebView;
 //!
 //! pub fn main() {
-//! // Create Slint application
-//! let app = MyApp::new().unwrap();
-//!
-//! // Initialize WGPU for GPU rendering (non-Android platforms)
-//! let (device, queue) = setup_wgpu();
-//!
-//! // Create WebView instance
-//! WebView::new(
-//!     app.clone_strong(),
-//!     "https://example.com".into(),
-//!     device,
-//!     queue,
-//! );
-//!
-//! // Run the application
-//! app.run().unwrap();
-//! }
-//!
-//! fn setup_wgpu() -> (wgpu::Device, wgpu::Queue) {
-//!     let backends = wgpu::Backends::from_env().unwrap_or_default();
-
-//!     let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-//!         backends,
-//!         flags: Default::default(),
-//!         backend_options: Default::default(),
-//!         memory_budget_thresholds: Default::default(),
-//!     });
-//!
-//!     let adapter = spin_on::spin_on(async {
-//!         instance
-//!             .request_adapter(&Default::default())
-//!             .await
-//!             .unwrap()
-//!     });
-//!
-//!     let (device, queue) = spin_on::spin_on(async {
-//!         adapter.request_device(&Default::default()).await.unwrap()
-//!     });
-//!
+//!     // Let Slint create the wgpu instance so that backend-specific
+//!     // requirements (e.g. DRM display extensions on linuxkms) are honored.
 //!     slint::BackendSelector::new()
-//!         .require_wgpu_28(slint::wgpu_28::WGPUConfiguration::Manual {
-//!             instance,
-//!             adapter,
-//!             device: device.clone(),
-//!             queue: queue.clone()
-//!         })
+//!         .require_wgpu_28(slint::wgpu_28::WGPUConfiguration::Automatic(
+//!             slint::wgpu_28::WGPUSettings::default(),
+//!         ))
 //!         .select()
 //!         .unwrap();
 //!
-//!     (device, queue)
+//!     let app = MyApp::new().unwrap();
+//!
+//!     let initialized = Cell::new(false);
+//!     let app_weak = app.as_weak();
+//!
+//!     app.window().set_rendering_notifier(move |state, graphics_api| {
+//!         if !matches!(state, slint::RenderingState::RenderingSetup) || initialized.get() {
+//!             return;
+//!         }
+//!         let slint::GraphicsAPI::WGPU28 { device, queue, .. } = graphics_api else {
+//!             return;
+//!         };
+//!         let app = app_weak.upgrade().unwrap();
+//!         WebView::new(app, "https://example.com".into(), device.clone(), queue.clone());
+//!         initialized.set(true);
+//!     }).unwrap();
+//!
+//!     app.run().unwrap();
 //! }
 //! ```
 

@@ -1,6 +1,9 @@
 {
     "root": true,
-    "extends": ["../../../biome.json"],
+    "extends": [
+        "../../../biome.json",
+        "../../../docs/common/biome-starlight-shared.json"
+    ],
     "formatter": {
         "includes": [
             "**",

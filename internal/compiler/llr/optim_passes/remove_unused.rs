@@ -263,7 +263,13 @@ mod visitor {
     }
 
     pub fn visit_public_component(
-        PublicComponent { public_properties, private_properties: _, item_tree, name:_ }: &mut PublicComponent,
+        PublicComponent {
+            public_properties,
+            private_properties: _,
+            item_tree,
+            name: _,
+            top_level_type: _,
+        }: &mut PublicComponent,
         state: &VisitorState,
         visitor: &mut (impl Visitor + ?Sized),
     ) {
@@ -333,11 +339,11 @@ mod visitor {
             }
 
             if let Some(listview) = listview {
-                visit_local_member_reference(&mut listview.viewport_y, &scope, state, visitor);
-                visit_local_member_reference(&mut listview.viewport_height, &scope, state, visitor);
-                visit_local_member_reference(&mut listview.viewport_width, &scope, state, visitor);
-                visit_local_member_reference(&mut listview.listview_width, &scope, state, visitor);
-                visit_local_member_reference(&mut listview.listview_height, &scope, state, visitor);
+                visit_member_reference(&mut listview.viewport_y, &scope, state, visitor);
+                visit_member_reference(&mut listview.viewport_height, &scope, state, visitor);
+                visit_member_reference(&mut listview.viewport_width, &scope, state, visitor);
+                visit_member_reference(&mut listview.listview_width, &scope, state, visitor);
+                visit_member_reference(&mut listview.listview_height, &scope, state, visitor);
 
                 visit_member_reference(&mut listview.prop_y, &inner_scope, state, visitor);
                 visit_member_reference(&mut listview.prop_height, &inner_scope, state, visitor);
@@ -370,9 +376,9 @@ mod visitor {
             })
             .collect();
 
-        for (a, b, _) in two_way_bindings {
-            visit_member_reference(a, &scope, state, visitor);
-            visit_member_reference(b, &scope, state, visitor);
+        for twb in two_way_bindings {
+            visit_local_member_reference(&mut twb.prop1, &scope, state, visitor);
+            visit_member_reference(&mut twb.prop2, &scope, state, visitor);
         }
         for c in const_properties {
             visit_local_member_reference(c, &scope, state, visitor);

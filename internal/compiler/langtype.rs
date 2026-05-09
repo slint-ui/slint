@@ -55,6 +55,9 @@ pub enum Type {
     Struct(Rc<Struct>),
     Enumeration(Rc<Enumeration>),
     Keys,
+    /// `data-transfer` - a special type that handles reading a value from the system with
+    /// some set of available MIME types.
+    DataTransfer,
 
     /// A type made up of the product of several "unit" types.
     /// The first parameter is the unit, and the second parameter is the power.
@@ -112,6 +115,7 @@ impl core::cmp::PartialEq for Type {
             Type::LayoutCache => matches!(other, Type::LayoutCache),
             Type::ArrayOfU16 => matches!(other, Type::ArrayOfU16),
             Type::StyledText => matches!(other, Type::StyledText),
+            Type::DataTransfer => matches!(other, Type::DataTransfer),
         }
     }
 }
@@ -169,6 +173,7 @@ impl Display for Type {
             Type::Brush => write!(f, "brush"),
             Type::Enumeration(enumeration) => write!(f, "enum {}", enumeration.name),
             Type::Keys => write!(f, "keys"),
+            Type::DataTransfer => write!(f, "data-transfer"),
             Type::UnitProduct(vec) => {
                 const POWERS: &[char] = &['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
                 let mut x = vec.iter().map(|(unit, power)| {
@@ -220,6 +225,7 @@ impl Type {
                 | Self::Easing
                 | Self::Enumeration(_)
                 | Self::Keys
+                | Self::DataTransfer
                 | Self::ElementReference
                 | Self::Struct { .. }
                 | Self::Array(_)
@@ -325,6 +331,7 @@ impl Type {
             Type::Struct { .. } => None,
             Type::Enumeration(_) => None,
             Type::Keys => None,
+            Type::DataTransfer => None,
             Type::UnitProduct(_) => None,
             Type::ElementReference => None,
             Type::LayoutCache => None,
@@ -662,6 +669,7 @@ pub enum BuiltinPrivateStruct {
     GridLayoutData,
     GridLayoutInputData,
     BoxLayoutData,
+    BoxLayoutOrthoData,
     FlexboxLayoutData,
     LayoutItemInfo,
     FlexboxLayoutItemInfo,
@@ -669,8 +677,6 @@ pub enum BuiltinPrivateStruct {
     LayoutInfo,
     FontMetrics,
     PathElement,
-    PointerEvent,
-    PointerScrollEvent,
     DropEvent,
     TableColumn,
     MenuEntry,
@@ -685,6 +691,7 @@ impl BuiltinPrivateStruct {
             Self::GridLayoutInputData
                 | Self::GridLayoutData
                 | Self::BoxLayoutData
+                | Self::BoxLayoutOrthoData
                 | Self::FlexboxLayoutData
         )
     }
@@ -695,9 +702,7 @@ impl BuiltinPrivateStruct {
             | Self::FontMetrics
             | Self::TableColumn
             | Self::MenuEntry
-            | Self::PointerEvent
             | Self::InternalKeyEvent
-            | Self::PointerScrollEvent
             | Self::Edges => {
                 let name: &'static str = self.into();
                 Some(SmolStr::new_static(name))
@@ -716,6 +721,8 @@ pub enum BuiltinPublicStruct {
     Keys,
     KeyEvent,
     KeyboardModifiers,
+    PointerEvent,
+    PointerScrollEvent,
 }
 
 impl BuiltinPublicStruct {
@@ -728,6 +735,8 @@ impl BuiltinPublicStruct {
             Self::Keys => Some(SmolStr::new_static("Keys")),
             Self::KeyEvent => Some(SmolStr::new_static("KeyEvent")),
             Self::KeyboardModifiers => Some(SmolStr::new_static("KeyboardModifiers")),
+            Self::PointerEvent => Some(SmolStr::new_static("PointerEvent")),
+            Self::PointerScrollEvent => Some(SmolStr::new_static("PointerScrollEvent")),
         }
     }
 }

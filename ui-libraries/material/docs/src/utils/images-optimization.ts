@@ -88,7 +88,7 @@ const parseAspectRatio = (
                 return num / den;
             }
         } else {
-            const numericValue = parseFloat(aspectRatio);
+            const numericValue = Number.parseFloat(aspectRatio);
             if (!Number.isNaN(numericValue)) {
                 return numericValue;
             }
@@ -111,16 +111,16 @@ export const getSizes = (
     switch (layout) {
         // If screen is wider than the max size, image width is the max size,
         // otherwise it's the width of the screen
-        case `constrained`:
+        case "constrained":
             return `(min-width: ${width}px) ${width}px, 100vw`;
 
         // Image is always the same width, whatever the size of the screen
-        case `fixed`:
+        case "fixed":
             return `${width}px`;
 
         // Image is always the width of the screen
-        case `fullWidth`:
-            return `100vw`;
+        case "fullWidth":
+            return "100vw";
 
         default:
             return undefined;

@@ -1,0 +1,69 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LineEdit } from "std-widgets.slint";
+
+// When the popup closes the `text-input-focused` must be false as well to close also the virtual keyboard
+
+export component TestCase inherits Window {
+    init => {
+        popup.show();
+    }
+
+    callback close_popup;
+    close_popup => {
+        popup.close();
+    }
+
+    popup:= PopupWindow {
+        Timer {
+            running: true;
+            interval: 200ms;
+            triggered => {
+                le.focus();
+                self.running = false;
+            }
+        }
+
+        le := LineEdit {}
+    }
+
+    out property<bool> focused: TextInputInterface.text-input-focused;
+
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(!instance.get_focused());
+
+slint_testing::mock_elapsed_time(500);
+assert!(instance.get_focused());
+
+instance.invoke_close_popup();
+assert!(!instance.get_focused());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(!instance.get_focused());
+
+slint_testing::mock_elapsed_time(500);
+assert(instance.get_focused());
+
+instance.invoke_close_popup();
+assert(!instance.get_focused());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(!instance.focused);
+
+slintlib.private_api.mock_elapsed_time(500);
+assert(instance.focused);
+
+instance.close_popup();
+assert(!instance.focused);
+```
+*/

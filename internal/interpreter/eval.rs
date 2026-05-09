@@ -8,7 +8,7 @@ use corelib::graphics::{
     ConicGradientBrush, GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush,
 };
 use corelib::input::FocusReason;
-use corelib::items::{ColorScheme, ItemRc, ItemRef, PropertyAnimation, WindowItem};
+use corelib::items::{ItemRc, ItemRef, PropertyAnimation, WindowItem};
 use corelib::menus::{Menu, MenuFromItemTree};
 use corelib::model::{Model, ModelExt, ModelRc, VecModel};
 use corelib::rtti::AnimatedBindingKind;
@@ -21,8 +21,8 @@ use i_slint_compiler::expression_tree::{
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_core as corelib;
 use i_slint_core::api::ToSharedString;
+use i_slint_core::{self as corelib};
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -43,6 +43,9 @@ pub trait ErasedPropertyInfo {
     );
     fn offset(&self) -> usize;
 
+    #[cfg(slint_debug_property)]
+    fn set_debug_name(&self, item: Pin<ItemRef>, name: String);
+
     /// Safety: Property2 must be a (pinned) pointer to a `Property<T>`
     /// where T is the same T as the one represented by this property.
     unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const ());
@@ -54,6 +57,13 @@ pub trait ErasedPropertyInfo {
         item: Pin<ItemRef>,
         property2: Pin<Rc<corelib::Property<Value>>>,
         map: Option<Rc<dyn corelib::rtti::TwoWayBindingMapping<Value>>>,
+    );
+
+    fn link_two_way_to_model_data(
+        &self,
+        item: Pin<ItemRef>,
+        getter: Box<dyn Fn() -> Option<Value>>,
+        setter: Box<dyn Fn(&Value)>,
     );
 }
 
@@ -82,6 +92,10 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyIn
     fn offset(&self) -> usize {
         (*self).offset()
     }
+    #[cfg(slint_debug_property)]
+    fn set_debug_name(&self, item: Pin<ItemRef>, name: String) {
+        (*self).set_debug_name(ItemRef::downcast_pin(item).unwrap(), name);
+    }
     unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const ()) {
         // Safety: ErasedPropertyInfo::link_two_ways and PropertyInfo::link_two_ways have the same safety requirement
         unsafe { (*self).link_two_ways(ItemRef::downcast_pin(item).unwrap(), property2) }
@@ -98,6 +112,15 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyIn
         map: Option<Rc<dyn corelib::rtti::TwoWayBindingMapping<Value>>>,
     ) {
         (*self).link_two_way_with_map(ItemRef::downcast_pin(item).unwrap(), property2, map)
+    }
+
+    fn link_two_way_to_model_data(
+        &self,
+        item: Pin<ItemRef>,
+        getter: Box<dyn Fn() -> Option<Value>>,
+        setter: Box<dyn Fn(&Value)>,
+    ) {
+        (*self).link_two_way_to_model_data(ItemRef::downcast_pin(item).unwrap(), getter, setter)
     }
 }
 
@@ -220,16 +243,15 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
         }
         Expression::Cast { from, to } => {
-            let v = eval_expression(from, local_context);
-            match (v, to) {
-                (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
-                (Value::Number(n), Type::String) => {
-                    Value::String(i_slint_core::string::shared_string_from_number(n))
+            match try_cast(eval_expression(from, local_context), to.clone()) {
+                Ok(value) => value,
+                Err(value) => {
+                    let actual_ty = value.value_type();
+                    eprintln!(
+                        "Encountered `Expression::Cast`, but could not cast from {actual_ty:?} to {to}"
+                    );
+                    value
                 }
-                (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
-                (Value::Brush(brush), Type::Color) => brush.color().into(),
-                (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
-                (v, _) => v,
             }
         }
         Expression::CodeBlock(sub) => {
@@ -336,18 +358,13 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 i_slint_compiler::expression_tree::ImageReference::None => Ok(Default::default()),
                 i_slint_compiler::expression_tree::ImageReference::AbsolutePath(path) => {
                     if path.starts_with("data:") {
-                        match i_slint_compiler::data_uri::decode_data_uri(path) {
-                            Ok((data, extension)) => {
-                                let data: &'static [u8] = Box::leak(data.into_boxed_slice());
-                                let ext_bytes: &'static [u8] =
-                                    Box::leak(extension.into_boxed_str().into_boxed_bytes());
-                                Ok(corelib::graphics::load_image_from_embedded_data(
-                                    corelib::slice::Slice::from_slice(data),
-                                    corelib::slice::Slice::from_slice(ext_bytes),
-                                ))
-                            }
-                            Err(_) => Err(Default::default()),
-                        }
+                        i_slint_compiler::data_uri::decode_data_uri(path)
+                            .ok()
+                            .and_then(|(data, extension)| {
+                                corelib::graphics::load_image_from_dynamic_data(&data, &extension)
+                                    .ok()
+                            })
+                            .ok_or_else(Default::default)
                     } else {
                         let path = std::path::Path::new(path);
                         if path.starts_with("builtin:/") {
@@ -459,17 +476,20 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())
         }
-        Expression::Keys(ks) => Value::Keys(i_slint_core::input::make_keys(
-            SharedString::from(&*ks.key),
-            i_slint_core::input::KeyboardModifiers {
-                alt: ks.modifiers.alt,
-                control: ks.modifiers.control,
-                shift: ks.modifiers.shift,
-                meta: ks.modifiers.meta,
-            },
-            ks.ignore_shift,
-            ks.ignore_alt,
-        )),
+        Expression::Keys(ks) => {
+            let mut modifiers = i_slint_core::input::KeyboardModifiers::default();
+            modifiers.alt = ks.modifiers.alt;
+            modifiers.control = ks.modifiers.control;
+            modifiers.shift = ks.modifiers.shift;
+            modifiers.meta = ks.modifiers.meta;
+
+            Value::Keys(i_slint_core::input::make_keys(
+                SharedString::from(&*ks.key),
+                modifiers,
+                ks.ignore_shift,
+                ks.ignore_alt,
+            ))
+        }
         Expression::ReturnStatement(x) => {
             let val = x.as_ref().map_or(Value::Void, |x| eval_expression(x, local_context));
             if local_context.return_value.is_none() {
@@ -648,8 +668,24 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
         }
         Expression::EmptyComponentFactory => Value::ComponentFactory(Default::default()),
+        Expression::EmptyDataTransfer => Value::DataTransfer(Default::default()),
         Expression::DebugHook { expression, .. } => eval_expression(expression, local_context),
     }
+}
+
+/// Try to convert the type to `to`, or return the value unmodified as an error if
+/// casting is not possible.
+fn try_cast(value: Value, to: Type) -> Result<Value, Value> {
+    Ok(match (value, to) {
+        (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
+        (Value::Number(n), Type::String) => {
+            Value::String(i_slint_core::string::shared_string_from_number(n))
+        }
+        (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
+        (Value::Brush(brush), Type::Color) => brush.color().into(),
+        (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
+        (v, _) => return Err(v),
+    })
 }
 
 fn call_builtin_function(
@@ -1401,19 +1437,19 @@ fn call_builtin_function(
             let a = a.clamp(0., 1.);
             Value::Brush(Brush::SolidColor(Color::from_oklch(l, c, h, a)))
         }
-        BuiltinFunction::ColorScheme => local_context
-            .component_instance
-            .window_adapter()
-            .internal(corelib::InternalToken)
-            .map_or(ColorScheme::Unknown, |x| x.color_scheme())
-            .into(),
+        BuiltinFunction::ColorScheme => {
+            let root_weak =
+                vtable::VWeak::into_dyn(local_context.component_instance.root_weak().clone());
+            let root = root_weak.upgrade().unwrap();
+            corelib::window::context_for_root(&root)
+                .map_or(corelib::items::ColorScheme::Unknown, |ctx| ctx.color_scheme(Some(&root)))
+                .into()
+        }
         BuiltinFunction::AccentColor => {
-            let color = local_context
-                .component_instance
-                .window_adapter()
-                .internal(corelib::InternalToken)
-                .map_or(corelib::Color::default(), |x| x.accent_color());
-            Value::Brush(corelib::Brush::SolidColor(color))
+            let root_weak =
+                vtable::VWeak::into_dyn(local_context.component_instance.root_weak().clone());
+            let root = root_weak.upgrade().unwrap();
+            Value::Brush(corelib::Brush::SolidColor(corelib::window::accent_color(&root)))
         }
         BuiltinFunction::SupportsNativeMenuBar => local_context
             .component_instance
@@ -1469,6 +1505,40 @@ fn call_builtin_function(
             set_callback_handler(i, &sub_menu_nr.element(), sub_menu_nr.name(), sub_menu).unwrap();
             set_callback_handler(i, &activated_nr.element(), activated_nr.name(), activated)
                 .unwrap();
+
+            Value::Void
+        }
+        BuiltinFunction::SetupSystemTrayIcon => {
+            let [
+                Expression::ElementReference(system_tray_elem),
+                Expression::ElementReference(item_tree_root),
+                rest @ ..,
+            ] = arguments
+            else {
+                panic!("internal error: incorrect argument count to SetupSystemTrayIcon")
+            };
+
+            let component = local_context.component_instance;
+            let elem = system_tray_elem.upgrade().unwrap();
+            generativity::make_guard!(guard);
+            let enclosing_component = enclosing_component_for_element(&elem, component, guard);
+            let description = enclosing_component.description;
+            let item_info = &description.items[elem.borrow().id.as_str()];
+            let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
+            let item_tree = vtable::VRc::into_dyn(item_comp);
+            let item_rc = corelib::items::ItemRc::new(item_tree.clone(), item_info.item_index());
+
+            let menu_item_tree_component =
+                item_tree_root.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
+            let menu_vrc = crate::dynamic_item_tree::make_menu_item_tree(
+                &menu_item_tree_component,
+                &enclosing_component,
+                rest.first(),
+            );
+
+            let system_tray =
+                item_rc.downcast::<corelib::items::SystemTrayIcon>().expect("SystemTrayIcon item");
+            system_tray.as_pin_ref().set_menu(&item_rc, vtable::VRc::into_dyn(menu_vrc));
 
             Value::Void
         }
@@ -1530,8 +1600,11 @@ fn call_builtin_function(
         }
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
             let component = local_context.component_instance;
-            if let [Expression::ElementReference(item)] = arguments {
+            if let [Expression::ElementReference(item), constraint_expr] = arguments {
                 generativity::make_guard!(guard);
+
+                let constraint: f32 =
+                    eval_expression(constraint_expr, local_context).try_into().unwrap_or(-1.);
 
                 let item = item.upgrade().unwrap();
                 let enclosing_component = enclosing_component_for_element(&item, component, guard);
@@ -1545,6 +1618,7 @@ fn call_builtin_function(
                     .as_ref()
                     .layout_info(
                         crate::eval_layout::to_runtime(orient),
+                        constraint,
                         &window_adapter,
                         &ItemRc::new(vtable::VRc::into_dyn(item_comp), item_info.item_index()),
                     )
@@ -1653,8 +1727,7 @@ fn call_builtin_function(
             let url: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
             let window_adapter = local_context.component_instance.window_adapter();
-            corelib::open_url(&url, window_adapter.window());
-            Value::Void
+            Value::Bool(corelib::open_url(&url, window_adapter.window()).is_ok())
         }
         BuiltinFunction::ParseMarkdown => {
             let format_string: SharedString =
@@ -2011,6 +2084,7 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
         Type::ArrayOfU16 => matches!(value, Value::ArrayOfU16(_)),
         Type::ComponentFactory => matches!(value, Value::ComponentFactory(_)),
         Type::StyledText => matches!(value, Value::StyledText(_)),
+        Type::DataTransfer => matches!(value, Value::DataTransfer(_)),
     }
 }
 
@@ -2302,6 +2376,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
             e.values.get(e.default_value).unwrap().to_string(),
         ),
         Type::Keys => Value::Keys(Default::default()),
+        Type::DataTransfer => Value::DataTransfer(Default::default()),
         Type::Easing => Value::EasingCurve(Default::default()),
         Type::Void | Type::Invalid => Value::Void,
         Type::UnitProduct(_) => Value::Number(0.),

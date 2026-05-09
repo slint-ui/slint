@@ -753,8 +753,10 @@ fn nowrap_text_change_doesnt_change_height() {
 
 #[test]
 fn create_item_tree_during_rendering() {
-    // This test has a `init` callback which will cause item tree to be changed during rendeiring,
-    // between the compute dirty region and the actual rendering.
+    // This test has `init` callbacks that cascade: cond1's init sets cond2=true,
+    // cond2-red's init sets cond3=true. The ensure_tree_instantiated loop
+    // materializes all three levels before rendering, so every rectangle
+    // lands in the first draw's dirty region.
     slint::slint! {
         export component Ui inherits Window {
             in property <bool> cond1: false;
@@ -808,16 +810,17 @@ fn create_item_tree_during_rendering() {
     ui.set_cond1(true);
 
     assert!(window.draw_if_needed(|renderer| {
-        do_test_render_region(renderer, 10, 15, 22, 25);
+        // All three cascaded conditionals are instantiated before rendering:
+        // cond3's rect is at y=5 (foo), so the region starts at y=5.
+        do_test_render_region(renderer, 10, 5, 22, 25);
     }));
-    // FIXME: in this case, there is nothing done to trigger any redraw. Ideally this call shouldn't be necessary.
-    assert!(!window.draw_if_needed(|_| ()));
-    // So therefore force a redraw
+
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
 
     ui.set_foo(4.0);
 
     assert!(window.draw_if_needed(|renderer| {
-        do_test_render_region(renderer, 10, 4, 22, 25);
+        do_test_render_region(renderer, 12, 4, 22, 25);
     }));
 
     assert!(!window.draw_if_needed(|_| { unreachable!() }));
@@ -825,6 +828,55 @@ fn create_item_tree_during_rendering() {
     ui.set_foo(3.0);
     assert!(window.draw_if_needed(|renderer| {
         do_test_render_region(renderer, 12, 3, 22, 24);
+    }));
+}
+
+#[test]
+fn init_property_read_does_not_trigger_redraw() {
+    slint::slint! {
+        export component Ui inherits Window {
+            width: 100px;
+            height: 100px;
+
+            in property <bool> cond: false;
+            in property <length> unrelated: 10px;
+            property <length> stash;
+
+            if cond: Rectangle {
+                x: 5px;
+                y: 5px;
+                width: 20px;
+                height: 20px;
+                background: red;
+                // The init callback reads `unrelated`.  That read must NOT
+                // register as a dependency of the redraw tracker.
+                init => { stash = unrelated; }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(100, 100));
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 100, 100);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // Activate the conditional — the rectangle appears and init runs.
+    ui.set_cond(true);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 5, 5, 25, 25);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // Change the property that the init callback read.
+    // This must NOT trigger a redraw because init reads should be untracked.
+    ui.set_unrelated(42.0);
+    assert!(!window.draw_if_needed(|_| {
+        unreachable!("changing a property only read by init must not trigger a redraw")
     }));
 }
 
@@ -935,4 +987,266 @@ fn position_tracking_without_partial_rendering() {
         do_test_render_region(renderer, 0, 0, 180, 260);
     }));
     assert!(!window.draw_if_needed(|_| { unreachable!() }));
+}
+
+/// Items under a `transform-scale` parent at large local coordinates must not
+/// be culled when their screen-space position (after scaling) is within the
+/// viewport.
+#[test]
+fn partial_rendering_does_not_cull_scaled_items() {
+    slint::slint! {
+        export component Ui inherits Window {
+            width: 300px;
+            height: 300px;
+            background: white;
+            in property <float> scale-val: 0.5;
+
+            Rectangle {
+                x: 0px; y: 0px;
+                width: 1000px; height: 1000px;
+                transform-origin: { x: 0px, y: 0px };
+                transform-scale-x: scale-val;
+                transform-scale-y: scale-val;
+
+                Rectangle {
+                    x: 400px; y: 400px;
+                    width: 100px; height: 100px;
+                    background: red;
+                }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(300, 300).into());
+    ui.show().unwrap();
+
+    // Frame 1: full repaint.
+    assert!(window.draw_if_needed());
+
+    // Check that the scaled rectangle is visible via pixel data.
+    // At scale 0.5 from origin (0,0), rect at local (400,400) size 100
+    // → screen (200,200) size 50.
+    {
+        let pixels = window.render_buffer.pixels.borrow();
+        let buf = pixels.as_ref().expect("render buffer should contain pixels");
+        {
+            let data = buf.as_bytes();
+            // RGBA8888, pixel at (220, 220)
+            let offset = ((220 * 300 + 220) * 4) as usize;
+            let (r, g, b) = (data[offset], data[offset + 1], data[offset + 2]);
+            assert!(
+                r > 200 && g < 50 && b < 50,
+                "Frame 1: pixel at (220,220) should be red, got rgb=({r},{g},{b})"
+            );
+        }
+    }
+
+    assert!(!window.draw_if_needed());
+
+    // Change scale to trigger a partial repaint.
+    ui.set_scale_val(0.5001);
+
+    // Frame 2: partial repaint. The item must not be culled.
+    assert!(window.draw_if_needed());
+
+    {
+        let pixels = window.render_buffer.pixels.borrow();
+        let buf = pixels.as_ref().expect("render buffer should contain pixels");
+        {
+            let data = buf.as_bytes();
+            let offset = ((220 * 300 + 220) * 4) as usize;
+            let (r, g, b) = (data[offset], data[offset + 1], data[offset + 2]);
+            assert!(
+                r > 200 && g < 50 && b < 50,
+                "Frame 2: pixel at (220,220) should still be red after partial repaint, \
+                 got rgb=({r},{g},{b})"
+            );
+        }
+    }
+}
+
+/// Items under a `transform-rotation` parent must not be culled when their
+/// screen-space position (after rotation) is within the viewport.
+#[test]
+fn partial_rendering_does_not_cull_rotated_items() {
+    slint::slint! {
+        export component Ui inherits Window {
+            width: 300px;
+            height: 300px;
+            background: white;
+            in property <angle> rot: 90deg;
+
+            Rectangle {
+                x: 0px; y: 0px;
+                width: 600px; height: 600px;
+                transform-origin: { x: 150px, y: 150px };
+                transform-rotation: rot;
+
+                Rectangle {
+                    x: 250px; y: 150px;
+                    width: 50px; height: 50px;
+                    background: red;
+                }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(300, 300).into());
+    ui.show().unwrap();
+
+    assert!(window.draw_if_needed());
+
+    // 90° clockwise rotation around (150,150):
+    // local (250,150) → screen (100,250). Check center at (125, 275).
+    {
+        let pixels = window.render_buffer.pixels.borrow();
+        let buf = pixels.as_ref().expect("render buffer should contain pixels");
+        {
+            let data = buf.as_bytes();
+            let offset = ((275 * 300 + 125) * 4) as usize;
+            let (r, g, b) = (data[offset], data[offset + 1], data[offset + 2]);
+            assert!(
+                r > 200 && g < 50 && b < 50,
+                "Rotated rectangle should be visible at (125,275), got rgb=({r},{g},{b})"
+            );
+        }
+    }
+}
+
+/// Nested scale transforms must compose correctly across save/restore.
+#[test]
+fn partial_rendering_nested_scales() {
+    slint::slint! {
+        export component Ui inherits Window {
+            width: 300px;
+            height: 300px;
+            background: white;
+
+            Rectangle {
+                x: 0px; y: 0px;
+                width: 2000px; height: 2000px;
+                transform-origin: { x: 0px, y: 0px };
+                transform-scale-x: 0.5;
+                transform-scale-y: 0.5;
+
+                Rectangle {
+                    x: 0px; y: 0px;
+                    width: 2000px; height: 2000px;
+                    transform-origin: { x: 0px, y: 0px };
+                    transform-scale-x: 0.5;
+                    transform-scale-y: 0.5;
+
+                    Rectangle {
+                        x: 800px; y: 800px;
+                        width: 200px; height: 200px;
+                        background: red;
+                    }
+                }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(300, 300).into());
+    ui.show().unwrap();
+
+    assert!(window.draw_if_needed());
+
+    // Combined scale 0.25: local (800,800) size 200 → screen (200,200) size 50.
+    {
+        let pixels = window.render_buffer.pixels.borrow();
+        let buf = pixels.as_ref().expect("render buffer should contain pixels");
+        {
+            let data = buf.as_bytes();
+            // Inside at (220,220)
+            let offset = ((220 * 300 + 220) * 4) as usize;
+            let (r, g, b) = (data[offset], data[offset + 1], data[offset + 2]);
+            assert!(
+                r > 200 && g < 50 && b < 50,
+                "Nested scale: pixel at (220,220) should be red, got rgb=({r},{g},{b})"
+            );
+            // Outside at (260,260)
+            let offset2 = ((260 * 300 + 260) * 4) as usize;
+            let (r2, g2, b2) = (data[offset2], data[offset2 + 1], data[offset2 + 2]);
+            assert!(
+                r2 > 200 && g2 > 200 && b2 > 200,
+                "Nested scale: pixel at (260,260) should be white, got rgb=({r2},{g2},{b2})"
+            );
+        }
+    }
+}
+
+/// Regression test for https://github.com/slint-ui/slint/issues/11431.
+///
+/// A cached Layer (`cache-rendering-hint: true`) that starts zero-sized must
+/// re-render when its size later becomes non-zero. Without tracking the
+/// bounds-closure's dependencies on the zero-size path, the cache stores
+/// `None` with an empty dependency tracker and never reruns, so the layer
+/// stays invisible even after its size grows.
+#[test]
+fn layer_visible_after_becoming_non_zero_sized() {
+    slint::slint! {
+        export component Ui inherits Window {
+            width: 32px;
+            height: 32px;
+            background: white;
+            in-out property <length> content-height: 0px;
+            Rectangle {
+                cache-rendering-hint: true;
+                x: 4px;
+                y: 4px;
+                width: 24px;
+                height: root.content-height;
+                background: red;
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(32, 32).into());
+    ui.show().unwrap();
+
+    // Frame 1: the layer is 0-height, so the cache update closure returns
+    // None. The fix re-invokes the bounds closure with tracking so the
+    // dependency on `content-height` gets registered.
+    assert!(window.draw_if_needed());
+
+    ui.set_content_height(24.);
+
+    // Frame 2: the tracked dependency is now dirty, the layer cache reruns,
+    // and the red rectangle is drawn. Without the fix the cache stays on
+    // the stale None and the pixel below remains white.
+    assert!(window.draw_if_needed());
+
+    let pixels = window.render_buffer.pixels.borrow();
+    let buf = pixels.as_ref().expect("render buffer should contain pixels");
+    let data = buf.as_bytes();
+    let offset = ((16 * 32 + 16) * 4) as usize;
+    let (r, g, b) = (data[offset], data[offset + 1], data[offset + 2]);
+    assert!(
+        r > 200 && g < 50 && b < 50,
+        "Layer pixel at (16,16) should be red after content-height grew, got rgb=({r},{g},{b})"
+    );
 }

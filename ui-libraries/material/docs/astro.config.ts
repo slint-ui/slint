@@ -3,9 +3,13 @@
 // @ts-check
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
-import starlightLinksValidator from "starlight-links-validator";
-import rehypeExternalLinks from "rehype-external-links";
-
+import { slintStarlightFaviconHead } from "@slint/common-files/src/utils/starlight-favicon-head";
+import {
+    SLINT_STARLIGHT_TRAILING_SLASH,
+    slintStarlightLinksValidatorPlugin,
+} from "@slint/common-files/src/utils/starlight-site-defaults";
+import { rehypeExternalLinksSlint } from "@slint/common-files/src/utils/rehype-external-links-preset";
+import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -38,25 +42,13 @@ const whenExternalScripts = (
 
 // https://astro.build/config
 export default defineConfig({
-    trailingSlash: "always",
+    trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
     markdown: {
         remarkPlugins: [readingTimeRemarkPlugin],
         rehypePlugins: [
             responsiveTablesRehypePlugin,
             lazyImagesRehypePlugin,
-            [
-                rehypeExternalLinks,
-                {
-                    content: {
-                        type: "text",
-                        value: " ↗",
-                    },
-                    properties: {
-                        target: "_blank",
-                    },
-                    rel: ["noopener"],
-                },
-            ],
+            rehypeExternalLinksSlint,
         ],
     },
     integrations: [
@@ -66,8 +58,9 @@ export default defineConfig({
                 src: "./src/assets/slint-logo-small-light.svg",
             },
             customCss: [
-                "./src/assets/styles/custom.css",
-                "./src/assets/styles/theme.css",
+                "@slint/common-files/src/styles/starlight-slint-custom.css",
+                "@slint/common-files/src/styles/starlight-slint-theme.css",
+                "./src/assets/styles/starlight-material-supplement.css",
             ],
             components: {
                 Footer: "@slint/common-files/src/components/Footer.astro",
@@ -82,91 +75,13 @@ export default defineConfig({
                 },
             ],
             plugins: [
-                starlightLinksValidator({
+                slintStarlightLinksValidatorPlugin({
                     exclude: ["/zip/**"],
                 }),
             ],
-            social: [
-                {
-                    icon: "github",
-                    label: "GitHub",
-                    href: "https://github.com/slint-ui/material-components",
-                },
-                { icon: "x.com", label: "X", href: "https://x.com/slint_ui" },
-                {
-                    icon: "blueSky",
-                    label: "Bluesky",
-                    href: "https://bsky.app/profile/slint.dev",
-                },
-                {
-                    icon: "linkedin",
-                    label: "Linkedin",
-                    href: "https://www.linkedin.com/company/slint-ui/",
-                },
-                {
-                    icon: "mastodon",
-                    label: "Mastodon",
-                    href: "https://fosstodon.org/@slint",
-                },
-                {
-                    icon: "youtube",
-                    label: "YouTube",
-                    href: "https://www.youtube.com/@slint-ui",
-                },
-            ],
+            social: slintStarlightSocial,
             favicon: "favicon.svg",
-            head: [
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "icon",
-                        type: "image/svg+xml",
-                        href: "/favicon.svg",
-                    },
-                },
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "icon",
-                        type: "image/png",
-                        sizes: "32x32",
-                        href: "/favicon-32x32.png",
-                    },
-                },
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "icon",
-                        type: "image/png",
-                        sizes: "16x16",
-                        href: "/favicon-16x16.png",
-                    },
-                },
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "icon",
-                        type: "image/x-icon",
-                        href: "/favicon.ico",
-                    },
-                },
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "mask-icon",
-                        href: "/favicon.svg",
-                        color: "#8D46E7",
-                    },
-                },
-                {
-                    tag: "link",
-                    attrs: {
-                        rel: "apple-touch-icon",
-                        sizes: "180x180",
-                        href: "/apple-touch-icon.png",
-                    },
-                },
-            ],
+            head: slintStarlightFaviconHead((filename) => `/${filename}`),
         }),
         tailwind({
             applyBaseStyles: false,

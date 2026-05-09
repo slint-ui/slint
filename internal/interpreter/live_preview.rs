@@ -4,11 +4,12 @@
 //! This is an internal module that contains the [`LiveReloadingComponent`] struct.
 
 use crate::dynamic_item_tree::WindowOptions;
+use crate::file_watcher::FileWatcher;
 use core::cell::RefCell;
 use core::task::Waker;
 use i_slint_core::api::{ComponentHandle, PlatformError};
-use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
@@ -20,6 +21,7 @@ pub use crate::{Compiler, ComponentInstance, DefaultTranslationContext, Value};
 pub struct LiveReloadingComponent {
     // because new_cyclic cannot return error, we need to initialize the instance after
     instance: Option<ComponentInstance>,
+    watcher: Arc<Mutex<Watcher>>,
     compiler: Compiler,
     file_name: PathBuf,
     component_name: String,
@@ -34,18 +36,13 @@ impl LiveReloadingComponent {
         file_name: PathBuf,
         component_name: String,
     ) -> Result<Rc<RefCell<Self>>, PlatformError> {
+        compiler.set_embed_resources(i_slint_compiler::EmbedResourcesKind::ListAllResources);
+
         let self_rc = Rc::<RefCell<Self>>::new_cyclic(move |self_weak| {
             let watcher = Watcher::new(self_weak.clone());
-            if watcher.lock().unwrap().watcher.is_some() {
-                let watcher_clone = watcher.clone();
-                compiler.set_file_loader(move |path| {
-                    Watcher::watch(&watcher_clone, path);
-                    Box::pin(async { None })
-                });
-                Watcher::watch(&watcher, &file_name);
-            }
             RefCell::new(Self {
                 instance: None,
+                watcher,
                 compiler,
                 file_name,
                 component_name,
@@ -55,17 +52,7 @@ impl LiveReloadingComponent {
         });
 
         let mut self_mut = self_rc.borrow_mut();
-        let result = {
-            let mut future =
-                core::pin::pin!(self_mut.compiler.build_from_path(&self_mut.file_name));
-            let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
-            let std::task::Poll::Ready(result) =
-                std::future::Future::poll(future.as_mut(), &mut cx)
-            else {
-                unreachable!("Compiler returned Pending")
-            };
-            result
-        };
+        let result = self_mut.build();
         #[cfg(feature = "display-diagnostics")]
         result.print_diagnostics();
         assert!(
@@ -90,16 +77,7 @@ impl LiveReloadingComponent {
     /// If there is an error, it won't actually reload.
     /// Return false in case of errors
     pub fn reload(&mut self) -> bool {
-        let result = {
-            let mut future = core::pin::pin!(self.compiler.build_from_path(&self.file_name));
-            let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
-            let std::task::Poll::Ready(result) =
-                std::future::Future::poll(future.as_mut(), &mut cx)
-            else {
-                unreachable!("Compiler returned Pending")
-            };
-            result
-        };
+        let result = self.build();
         #[cfg(feature = "display-diagnostics")]
         result.print_diagnostics();
         if result.has_errors() {
@@ -124,6 +102,21 @@ impl LiveReloadingComponent {
             return false;
         }
         true
+    }
+
+    fn build(&self) -> crate::CompilationResult {
+        let mut future = core::pin::pin!(self.compiler.build_from_path(&self.file_name));
+        let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+        let std::task::Poll::Ready(result) = std::future::Future::poll(future.as_mut(), &mut cx)
+        else {
+            unreachable!("Compiler returned Pending")
+        };
+        Watcher::update_watched_paths(
+            &self.watcher,
+            std::iter::once(self.file_name.clone())
+                .chain(result.watch_paths(i_slint_core::InternalToken).iter().cloned()),
+        );
+        result
     }
 
     /// Reload the properties and callbacks after a reload()
@@ -237,18 +230,13 @@ enum WatcherState {
 
 struct Watcher {
     // (wouldn't need to be an option if new_cyclic() could return errors)
-    watcher: Option<notify::RecommendedWatcher>,
+    watcher: Option<FileWatcher>,
     state: WatcherState,
-    files: HashSet<PathBuf>,
 }
 
 impl Watcher {
     fn new(component_weak: std::rc::Weak<RefCell<LiveReloadingComponent>>) -> Arc<Mutex<Self>> {
-        let arc = Arc::new(Mutex::new(Self {
-            state: WatcherState::Starting,
-            watcher: None,
-            files: Default::default(),
-        }));
+        let arc = Arc::new(Mutex::new(Self { state: WatcherState::Starting, watcher: None }));
 
         let watcher_weak = Arc::downgrade(&arc);
         let result = crate::spawn_local(std::future::poll_fn(move |cx| {
@@ -277,47 +265,33 @@ impl Watcher {
         }
 
         let watcher_weak = Arc::downgrade(&arc);
-        arc.lock().unwrap().watcher =
-            notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
-                use notify::{EventKind as K, event::ModifyKind as M};
-                let Ok(event) = event else { return };
+        arc.lock().unwrap().watcher = FileWatcher::start(
+            move |_event| {
                 let Some(watcher) = watcher_weak.upgrade() else { return };
-                if matches!(event.kind, K::Modify(M::Data(_) | M::Any) | K::Create(_))
-                    && watcher.lock().is_ok_and(|w| event.paths.iter().any(|p| w.files.contains(p)))
-                    && let WatcherState::Waiting(waker) =
-                        std::mem::replace(&mut watcher.lock().unwrap().state, WatcherState::Changed)
+                if let WatcherState::Waiting(waker) =
+                    std::mem::replace(&mut watcher.lock().unwrap().state, WatcherState::Changed)
                 {
                     // Wait a bit to let the time to write multiple files
                     std::thread::sleep(std::time::Duration::from_millis(15));
                     waker.wake();
                 }
-            })
-            .ok();
+            },
+            move |err| eprintln!("Warning: file watcher error: {err}"),
+        )
+        .ok();
         arc
     }
 
-    fn watch(self_: &Mutex<Self>, path: &Path) {
-        let Some(parent) = path.parent() else { return };
-
+    fn update_watched_paths<I>(self_: &Mutex<Self>, paths: I)
+    where
+        I: IntoIterator<Item = PathBuf>,
+    {
         let mut locked = self_.lock().unwrap();
         let Some(mut watcher) = locked.watcher.take() else { return };
-        locked.files.insert(path.into());
-        // Don't call the notify api while holding the mutex
         drop(locked);
-        notify::Watcher::watch(
-            &mut watcher,
-            parent,
-            // on macOS, notify only delivers us events for changes within a directory when using
-            // the recursive mode. On the upside, fsevents works already recursively anyway.
-            if cfg!(target_vendor = "apple") {
-                notify::RecursiveMode::Recursive
-            } else {
-                notify::RecursiveMode::NonRecursive
-            },
-        )
-        .unwrap_or_else(|err| {
-            eprintln!("Warning: error while watching {}: {:?}", path.display(), err)
-        });
+        if let Err(err) = watcher.update_watched_paths(paths) {
+            eprintln!("Warning: error while updating file watcher paths: {err:?}");
+        }
         self_.lock().unwrap().watcher = Some(watcher);
     }
 }

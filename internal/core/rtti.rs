@@ -59,6 +59,7 @@ macro_rules! declare_ValueType_2 {
             crate::model::ModelRc<crate::items::MenuEntry>,
             crate::styled_text::StyledText,
             crate::input::Keys,
+            crate::data_transfer::DataTransfer,
             $(crate::items::$Name,)*
         ];
     };
@@ -139,6 +140,10 @@ pub trait PropertyInfo<Item, Value> {
     #[allow(unsafe_code)]
     unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ());
 
+    /// Set the debug name of this property (only effective with `cfg(slint_debug_property)`)
+    #[cfg(slint_debug_property)]
+    fn set_debug_name(&self, _item: Pin<&Item>, _name: alloc::string::String) {}
+
     /// Prepare the property for two way binding and return the "common" shared property in the TwoWayBinding
     fn prepare_for_two_way_binding(&self, item: Pin<&Item>) -> Pin<Rc<Property<Value>>>;
 
@@ -150,6 +155,16 @@ pub trait PropertyInfo<Item, Value> {
         item: Pin<&Item>,
         property2: Pin<Rc<Property<Value>>>,
         mapper: Option<Rc<dyn TwoWayBindingMapping<Value>>>,
+    );
+
+    /// Install a two-way binding between this property and a row of a model.
+    /// `getter` reads the current row value (or `None` if the row no longer
+    /// exists); `setter` writes a new value back into the row.
+    fn link_two_way_to_model_data(
+        &self,
+        item: Pin<&Item>,
+        getter: Box<dyn Fn() -> Option<Value>>,
+        setter: Box<dyn Fn(&Value)>,
     );
 }
 
@@ -193,6 +208,11 @@ where
         self.get_byte_offset()
     }
 
+    #[cfg(slint_debug_property)]
+    fn set_debug_name(&self, item: Pin<&Item>, name: alloc::string::String) {
+        self.apply_pin(item).debug_name.replace(name);
+    }
+
     #[allow(unsafe_code)]
     unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ()) {
         let p1 = self.apply_pin(item);
@@ -204,9 +224,20 @@ where
     fn prepare_for_two_way_binding(&self, item: Pin<&Item>) -> Pin<Rc<Property<Value>>> {
         if let Some(self_) =
             (self as &dyn core::any::Any).downcast_ref::<FieldOffset<Item, Property<Value>>>()
-            && let Some(p) = Property::check_common_property(self_.apply_pin(item))
         {
-            return p;
+            let p = self_.apply_pin(item);
+            if let Some(cp) = Property::check_common_property(p) {
+                return cp;
+            }
+            // link_two_way sets a TwoWayBinding on p, which
+            // check_common_property can find on subsequent calls.
+            // Only safe when p has no binding yet (a pre-existing
+            // binding's intercept_set_binding may not accept this).
+            if !p.has_binding() {
+                let anchor = Rc::pin(Property::<Value>::default());
+                Property::link_two_way(anchor.as_ref(), p);
+                return Property::check_common_property(p).unwrap();
+            }
         }
 
         let p1 = self.apply_pin(item);
@@ -217,6 +248,7 @@ where
             p1,
             |v| v.clone().try_into().unwrap_or_default(),
             |v, v2| *v = v2.clone().try_into().unwrap_or_default(),
+            true,
         );
         shared_property
     }
@@ -237,6 +269,7 @@ where
                     prop1.as_ref(),
                     move |value| m1.map_to(value),
                     move |value, value2| m2.map_from(value, value2),
+                    true,
                 );
             }
             None => {
@@ -245,9 +278,23 @@ where
                     prop1.as_ref(),
                     |value| value.clone(),
                     |value, value2| *value = value2.clone(),
+                    true,
                 );
             }
         }
+    }
+
+    fn link_two_way_to_model_data(
+        &self,
+        item: Pin<&Item>,
+        getter: Box<dyn Fn() -> Option<Value>>,
+        setter: Box<dyn Fn(&Value)>,
+    ) {
+        self.apply_pin(item).link_two_way_to_model_data(
+            (),
+            move |_| getter().and_then(|v| v.try_into().ok()),
+            move |_, v: &T| setter(&v.clone().try_into().unwrap_or_default()),
+        );
     }
 }
 
@@ -337,6 +384,11 @@ where
         self.get_byte_offset()
     }
 
+    #[cfg(slint_debug_property)]
+    fn set_debug_name(&self, item: Pin<&Item>, name: alloc::string::String) {
+        self.0.set_debug_name(item, name);
+    }
+
     #[allow(unsafe_code)]
     unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ()) {
         let p1 = self.apply_pin(item);
@@ -356,6 +408,15 @@ where
         mapper: Option<Rc<dyn TwoWayBindingMapping<Value>>>,
     ) {
         self.0.link_two_way_with_map(item, property2, mapper)
+    }
+
+    fn link_two_way_to_model_data(
+        &self,
+        item: Pin<&Item>,
+        getter: Box<dyn Fn() -> Option<Value>>,
+        setter: Box<dyn Fn(&Value)>,
+    ) {
+        self.0.link_two_way_to_model_data(item, getter, setter)
     }
 }
 

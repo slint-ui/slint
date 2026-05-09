@@ -737,6 +737,10 @@ export class EditorWidget extends Widget {
     }
 
     public async copy_permalink_to_clipboard() {
+        navigator.clipboard.writeText(await this.share_url());
+    }
+
+    public async share_url(): Promise<string> {
         const params = new URLSearchParams(window.location.search);
         params.delete("load_url");
         params.delete("load_demo");
@@ -745,7 +749,7 @@ export class EditorWidget extends Widget {
 
         const url = new URL(window.location.href);
         url.search = params.toString();
-        navigator.clipboard.writeText(url.toString());
+        return url.toString();
     }
 }
 

@@ -28,8 +28,7 @@ use crate::platform::Clipboard;
 use crate::rtti::*;
 use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString, SharedVector};
-use alloc::rc::Rc;
-use alloc::string::String;
+use alloc::{rc::Rc, string::String};
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
 use core::pin::Pin;
@@ -66,9 +65,12 @@ pub struct ComplexText {
 impl Item for ComplexText {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
+        cross_axis_constraint: Coord,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -77,7 +79,8 @@ impl Item for ComplexText {
             self_rc,
             window_adapter,
             orientation,
-            Self::FIELD_OFFSETS.width.apply_pin(self),
+            Self::FIELD_OFFSETS.width().apply_pin(self),
+            cross_axis_constraint,
         )
     }
 
@@ -156,7 +159,7 @@ impl ItemConsts for ComplexText {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         ComplexText,
         CachedRenderingData,
-    > = ComplexText::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = ComplexText::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 impl HasFont for ComplexText {
@@ -234,6 +237,8 @@ pub struct StyledTextItem {
     pub height: Property<LogicalLength>,
     pub text: Property<crate::styled_text::StyledText>,
     pub default_color: Property<Brush>,
+    pub default_font_size: Property<LogicalLength>,
+    pub default_font_family: Property<SharedString>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
     pub link_clicked: Callback<StringArg>,
@@ -244,9 +249,12 @@ pub struct StyledTextItem {
 impl Item for StyledTextItem {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
+        cross_axis_constraint: Coord,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -255,7 +263,8 @@ impl Item for StyledTextItem {
             self_rc,
             window_adapter,
             orientation,
-            Self::FIELD_OFFSETS.width.apply_pin(self),
+            Self::FIELD_OFFSETS.width().apply_pin(self),
+            cross_axis_constraint,
         )
     }
 
@@ -297,11 +306,11 @@ impl Item for StyledTextItem {
                 position,
                 button: PointerEventButton::Left,
                 click_count: _,
-                is_touch: _,
+                touch_finger_id: _,
             } => {
                 if let Some(link) = find_link(position) {
                     *cursor = super::MouseCursor::Pointer;
-                    Self::FIELD_OFFSETS.link_clicked.apply_pin(self).call(&(link.into(),));
+                    Self::FIELD_OFFSETS.link_clicked().apply_pin(self).call(&(link.into(),));
                 }
                 InputEventResult::EventAccepted
             }
@@ -373,16 +382,16 @@ impl ItemConsts for StyledTextItem {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         StyledTextItem,
         CachedRenderingData,
-    > = StyledTextItem::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = StyledTextItem::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 impl HasFont for StyledTextItem {
     fn font_request(self: Pin<&Self>, self_rc: &crate::items::ItemRc) -> FontRequest {
         crate::items::WindowItem::resolved_font_request(
             self_rc,
+            self.default_font_family(),
             Default::default(),
-            Default::default(),
-            Default::default(),
+            self.default_font_size(),
             Default::default(),
             Default::default(),
         )
@@ -462,9 +471,12 @@ pub struct SimpleText {
 impl Item for SimpleText {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
+        cross_axis_constraint: Coord,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -473,7 +485,8 @@ impl Item for SimpleText {
             self_rc,
             window_adapter,
             orientation,
-            Self::FIELD_OFFSETS.width.apply_pin(self),
+            Self::FIELD_OFFSETS.width().apply_pin(self),
+            cross_axis_constraint,
         )
     }
 
@@ -552,7 +565,7 @@ impl ItemConsts for SimpleText {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         SimpleText,
         CachedRenderingData,
-    > = SimpleText::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = SimpleText::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 impl HasFont for SimpleText {
@@ -626,6 +639,7 @@ fn text_layout_info(
     window_adapter: &Rc<dyn WindowAdapter>,
     orientation: Orientation,
     width: Pin<&Property<LogicalLength>>,
+    cross_axis_constraint: Coord,
 ) -> LayoutInfo {
     let implicit_size = |max_width, text_wrap| {
         window_adapter.renderer().text_size(text, self_rc, max_width, text_wrap)
@@ -655,8 +669,14 @@ fn text_layout_info(
         Orientation::Vertical => {
             let h = match text.wrap() {
                 TextWrap::NoWrap => implicit_size(None, TextWrap::NoWrap).height,
-                TextWrap::WordWrap => implicit_size(Some(width.get()), TextWrap::WordWrap).height,
-                TextWrap::CharWrap => implicit_size(Some(width.get()), TextWrap::CharWrap).height,
+                wrap @ (TextWrap::WordWrap | TextWrap::CharWrap) => {
+                    let w = if cross_axis_constraint >= 0 as Coord {
+                        LogicalLength::new(cross_axis_constraint)
+                    } else {
+                        width.get()
+                    };
+                    implicit_size(Some(w), wrap).height
+                }
             }
             .ceil();
             LayoutInfo { min: h, preferred: h, ..LayoutInfo::default() }
@@ -754,9 +774,17 @@ pub struct TextInput {
 impl Item for TextInput {
     fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
+    fn deinit(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
+        if self.has_focus() {
+            let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
+            window_inner.set_text_input_focused(false);
+        }
+    }
+
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
+        cross_axis_constraint: Coord,
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> LayoutInfo {
@@ -783,11 +811,13 @@ impl Item for TextInput {
             Orientation::Vertical => {
                 let h = match self.wrap() {
                     TextWrap::NoWrap => implicit_size(None, TextWrap::NoWrap).height,
-                    TextWrap::WordWrap => {
-                        implicit_size(Some(self.width()), TextWrap::WordWrap).height
-                    }
-                    TextWrap::CharWrap => {
-                        implicit_size(Some(self.width()), TextWrap::CharWrap).height
+                    wrap @ (TextWrap::WordWrap | TextWrap::CharWrap) => {
+                        let w = if cross_axis_constraint >= 0 as Coord {
+                            LogicalLength::new(cross_axis_constraint)
+                        } else {
+                            self.width()
+                        };
+                        implicit_size(Some(w), wrap).height
                     }
                 }
                 .ceil();
@@ -925,84 +955,57 @@ impl Item for TextInput {
         match event.event_type {
             KeyEventType::KeyPressed => {
                 // invoke first key_pressed callback to give the developer/designer the possibility to implement a custom behaviour
-                if Self::FIELD_OFFSETS.key_pressed.apply_pin(self).call(&(event.key_event.clone(),))
+                if Self::FIELD_OFFSETS
+                    .key_pressed()
+                    .apply_pin(self)
+                    .call(&(event.key_event.clone(),))
                     == EventResult::Accept
                 {
                     return KeyEventResult::EventAccepted;
                 }
 
-                match event.text_shortcut() {
-                    Some(text_shortcut) if !self.read_only() => match text_shortcut {
-                        TextShortcut::Move(direction) => {
-                            TextInput::move_cursor(
-                                self,
-                                direction,
-                                event.key_event.modifiers.into(),
-                                TextChangeNotify::TriggerCallbacks,
-                                window_adapter,
-                                self_rc,
-                            );
-                            return KeyEventResult::EventAccepted;
-                        }
-                        TextShortcut::DeleteForward => {
-                            TextInput::select_and_delete(
-                                self,
-                                TextCursorDirection::Forward,
-                                window_adapter,
-                                self_rc,
-                            );
-                            return KeyEventResult::EventAccepted;
-                        }
-                        TextShortcut::DeleteBackward => {
-                            // Special case: backspace breaks the grapheme and selects the previous character
-                            TextInput::select_and_delete(
-                                self,
-                                TextCursorDirection::PreviousCharacter,
-                                window_adapter,
-                                self_rc,
-                            );
-                            return KeyEventResult::EventAccepted;
-                        }
-                        TextShortcut::DeleteWordForward => {
-                            TextInput::select_and_delete(
-                                self,
-                                TextCursorDirection::ForwardByWord,
-                                window_adapter,
-                                self_rc,
-                            );
-                            return KeyEventResult::EventAccepted;
-                        }
-                        TextShortcut::DeleteWordBackward => {
-                            TextInput::select_and_delete(
-                                self,
-                                TextCursorDirection::BackwardByWord,
-                                window_adapter,
-                                self_rc,
-                            );
-                            return KeyEventResult::EventAccepted;
-                        }
-                        TextShortcut::DeleteToStartOfLine => {
-                            TextInput::select_and_delete(
-                                self,
-                                TextCursorDirection::StartOfLine,
-                                window_adapter,
-                                self_rc,
-                            );
-                            return KeyEventResult::EventAccepted;
-                        }
-                    },
-                    Some(_) => {
+                let delete_direction = match event.text_shortcut() {
+                    Some(TextShortcut::Move(direction)) => {
+                        TextInput::move_cursor(
+                            self,
+                            direction,
+                            event.key_event.modifiers.into(),
+                            TextChangeNotify::TriggerCallbacks,
+                            window_adapter,
+                            self_rc,
+                        );
+                        return KeyEventResult::EventAccepted;
+                    }
+                    // Special case: backspace breaks the grapheme and selects the previous character
+                    Some(TextShortcut::DeleteBackward) => {
+                        Some(TextCursorDirection::PreviousCharacter)
+                    }
+                    Some(TextShortcut::DeleteForward) => Some(TextCursorDirection::Forward),
+                    Some(TextShortcut::DeleteWordForward) => {
+                        Some(TextCursorDirection::ForwardByWord)
+                    }
+                    Some(TextShortcut::DeleteWordBackward) => {
+                        Some(TextCursorDirection::BackwardByWord)
+                    }
+                    Some(TextShortcut::DeleteToStartOfLine) => {
+                        Some(TextCursorDirection::StartOfLine)
+                    }
+                    None => None,
+                };
+                if let Some(direction) = delete_direction {
+                    if self.read_only() {
                         return KeyEventResult::EventIgnored;
                     }
-                    None => (),
-                };
+                    TextInput::select_and_delete(self, direction, window_adapter, self_rc);
+                    return KeyEventResult::EventAccepted;
+                }
 
                 if let Some(keycode) = event.key_event.text.chars().next()
                     && keycode == key_codes::Return
                     && !self.read_only()
                     && self.single_line()
                 {
-                    Self::FIELD_OFFSETS.accepted.apply_pin(self).call(&());
+                    Self::FIELD_OFFSETS.accepted().apply_pin(self).call(&());
                     return KeyEventResult::EventAccepted;
                 }
 
@@ -1094,13 +1097,13 @@ impl Item for TextInput {
                 // nothing is entered or the cursor isn't moved.
                 self.as_ref().show_cursor(window_adapter);
 
-                Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
+                Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
 
                 KeyEventResult::EventAccepted
             }
             KeyEventType::KeyReleased => {
                 match Self::FIELD_OFFSETS
-                    .key_released
+                    .key_released()
                     .apply_pin(self)
                     .call(&(event.key_event.clone(),))
                 {
@@ -1188,9 +1191,6 @@ impl Item for TextInput {
                 }
                 WindowInner::from_pub(window_adapter.window()).set_text_input_focused(false);
                 if !self.read_only() {
-                    if let Some(window_adapter) = window_adapter.internal(crate::InternalToken) {
-                        window_adapter.input_method_request(InputMethodRequest::Disable);
-                    }
                     // commit the preedit text on android
                     #[cfg(target_os = "android")]
                     {
@@ -1209,7 +1209,7 @@ impl Item for TextInput {
                                 window_adapter,
                                 self_rc,
                             );
-                            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
+                            Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
                         }
                     }
                     self.preedit_text.set(Default::default());
@@ -1257,7 +1257,7 @@ impl ItemConsts for TextInput {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<
         TextInput,
         CachedRenderingData,
-    > = TextInput::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+    > = TextInput::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
 impl HasFont for TextInput {
@@ -1275,7 +1275,7 @@ impl HasFont for TextInput {
 
 impl RenderString for TextInput {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
-        PlainOrStyledText::Plain(self.as_ref().text())
+        PlainOrStyledText::Plain(self.as_ref().visual_representation(None).text.clone())
     }
 }
 
@@ -1368,7 +1368,7 @@ fn safe_byte_offset(unsafe_byte_offset: i32, text: &str) -> usize {
 #[derive(Debug)]
 pub struct TextInputVisualRepresentation {
     /// The text to be rendered including any pre-edit string
-    pub text: String,
+    pub text: SharedString,
     /// If set, this field specifies the range as byte offsets within the text field where the composition
     /// is in progress. Renderers typically provide visual feedback for the currently composed text, such as
     /// by using underlines.
@@ -1381,7 +1381,7 @@ pub struct TextInputVisualRepresentation {
     pub text_color: Brush,
     /// The color of the blinking cursor
     pub cursor_color: Color,
-    text_without_password: Option<String>,
+    text_without_password: Option<SharedString>,
     password_character: char,
 }
 
@@ -1419,14 +1419,25 @@ impl TextInputVisualRepresentation {
         self.password_character = password_character;
     }
 
-    /// Use this function to make a byte offset in the text used for rendering back to a byte offset in the
+    /// Use this function to make a byte offset in the visual text (used for rendering) back to a byte offset in the
     /// TextInput's text. The offsets might differ for example for password text input fields.
-    pub fn map_byte_offset_from_byte_offset_in_visual_text(&self, byte_offset: usize) -> usize {
+    pub fn map_byte_offset_from_visual_text_to_actual_text(&self, byte_offset: usize) -> usize {
         if let Some(text_without_password) = self.text_without_password.as_ref() {
             text_without_password
                 .char_indices()
                 .nth(byte_offset / self.password_character.len_utf8())
                 .map_or(text_without_password.len(), |(r, _)| r)
+        } else {
+            byte_offset
+        }
+    }
+
+    /// Map the byte_offset inside the TextInput's text to the byte offset in the visual text.
+    /// This is the opposite of `map_byte_offset_from_byte_offset_in_visual_text`.
+    pub fn map_byte_offset_from_actual_to_visual_text(&self, byte_offset: usize) -> usize {
+        if let Some(text_without_password) = self.text_without_password.as_ref() {
+            text_without_password[..byte_offset].chars().count()
+                * self.password_character.len_utf8()
         } else {
             byte_offset
         }
@@ -1613,7 +1624,7 @@ impl TextInput {
             }
             if trigger_callbacks == TextChangeNotify::TriggerCallbacks {
                 Self::FIELD_OFFSETS
-                    .cursor_position_changed
+                    .cursor_position_changed()
                     .apply_pin(self)
                     .call(&(crate::api::LogicalPosition::from_euclid(pos),));
                 self.update_ime(window_adapter, self_rc);
@@ -1693,7 +1704,7 @@ impl TextInput {
                 window_adapter,
                 self_rc,
             );
-            Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
+            Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
         } else {
             self.cursor_position_byte_offset.set(anchor as i32);
         }
@@ -1813,7 +1824,7 @@ impl TextInput {
             window_adapter,
             self_rc,
         );
-        Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
+        Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
     }
 
     pub fn cut(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
@@ -1964,13 +1975,14 @@ impl TextInput {
         self: Pin<&Self>,
         password_character_fn: Option<fn() -> char>,
     ) -> TextInputVisualRepresentation {
-        let mut text: String = self.text().into();
+        let mut text = self.text();
 
         let preedit_text = self.preedit_text();
         let (preedit_range, selection_range, cursor_position) = if !preedit_text.is_empty() {
             let cursor_position = self.cursor_position(&text);
 
-            text.insert_str(cursor_position, &preedit_text);
+            text =
+                [&text[..cursor_position], &preedit_text, &text[cursor_position..]].concat().into();
             let preedit_range = cursor_position..cursor_position + preedit_text.len();
 
             if let Some(preedit_sel) = self.preedit_selection().as_option() {
@@ -1986,7 +1998,7 @@ impl TextInput {
             let (selection_anchor_pos, selection_cursor_pos) = self.selection_anchor_and_cursor();
             let selection_range = selection_anchor_pos..selection_cursor_pos;
             let cursor_position = self.cursor_position(&text);
-            let cursor_visible = self.cursor_visible() && self.enabled() && !self.read_only();
+            let cursor_visible = self.cursor_visible() && self.enabled();
             let cursor_position = if cursor_visible && selection_range.is_empty() {
                 Some(cursor_position)
             } else {
@@ -2077,16 +2089,14 @@ impl TextInput {
                         items.push(item);
                     }
                 }
-                (UndoItemKind::TextRemove, UndoItemKind::TextRemove) => {
-                    if item.pos + item.text.len() == last.pos {
-                        last.pos = item.pos;
-                        let old_text = last.text.clone();
-                        last.text = item.text;
-                        last.text += &old_text;
-                        // prepend
-                    } else {
-                        items.push(item);
-                    }
+                (UndoItemKind::TextRemove, UndoItemKind::TextRemove)
+                    if item.pos + item.text.len() == last.pos =>
+                {
+                    last.pos = item.pos;
+                    let old_text = last.text.clone();
+                    last.text = item.text;
+                    last.text += &old_text;
+                    // prepend
                 }
                 _ => {
                     items.push(item);
@@ -2141,7 +2151,7 @@ impl TextInput {
         let mut redo = self.redo_items.take();
         redo.push(last);
         self.redo_items.set(redo);
-        Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
+        Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
     }
 
     fn redo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
@@ -2187,7 +2197,7 @@ impl TextInput {
         let mut undo_items = self.undo_items.take();
         undo_items.push(last);
         self.undo_items.set(undo_items);
-        Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
+        Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
     }
 
     pub fn font_metrics(

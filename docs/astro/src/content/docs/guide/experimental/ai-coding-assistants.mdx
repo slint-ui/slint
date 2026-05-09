@@ -1,0 +1,30 @@
+---
+title: AI Coding Assistants
+description: Install the Slint skill for Claude Code and Codex.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Use the Slint skill to give Claude Code or Codex project-specific guidance for working with Slint.
+
+<Tabs syncKey="ai-tool">
+  <TabItem label="Claude Code">
+  Add the Slint marketplace from GitHub and install the plugin:
+
+  ```sh
+  /plugin marketplace add slint-ui/slint
+  /plugin install slint@slint
+  ```
+
+  Claude Code can then use the bundled Slint skill when working with Slint projects.
+  </TabItem>
+  <TabItem label="Codex">
+  Enter the following in the Codex prompt to install the skill from GitHub:
+
+  ```sh
+  $skill-installer install https://github.com/slint-ui/slint/tree/master/docs/skills/slint
+  ```
+
+  Restart Codex after the install so it picks up the new skill.
+  </TabItem>
+</Tabs>

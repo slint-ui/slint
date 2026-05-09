@@ -1,0 +1,55 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// If we click on an element in the flickable and move the mouse we don't want to flick
+
+import { Button } from "std-widgets.slint";
+export component TestCase inherits Window {
+  width: 500px;
+  height: 500px;
+
+  flick := Flickable {
+      x: 0px;
+      y: 0px;
+      width: parent.width;
+      height: parent.height;
+      VerticalLayout {
+          for i in 100: Button {
+              property <int> index: i;
+              text: "Button " + i;
+              clicked => {
+                root.button-clicked = self.index;
+                debug("Button " + self.index + " clicked");
+              }
+          }
+      }
+  }
+
+  out property <length> viewport_y <=> flick.viewport_y;
+  out property <length> viewport_height <=> flick.viewport_height;
+  out property <length> height_ <=> flick.height;
+  out property <int> button-clicked: -1;
+}
+
+/*
+```rust
+// Test that mouse exit events are dispatched while scrolling
+use slint::*;
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+
+assert!(instance.get_viewport_height() > instance.get_height_(), "{} > {} not fullfilled", instance.get_viewport_height(), instance.get_height_());
+
+let pressed_position = LogicalPosition::new(250., 10.);
+window.dispatch_event(platform::WindowEvent::PointerPressed { position: pressed_position, button: platform::PointerEventButton::Left });
+window.dispatch_event(platform::WindowEvent::PointerReleased { position: pressed_position, button: platform::PointerEventButton::Left });
+
+assert_eq!(instance.get_button_clicked(), 0);
+assert_eq!(instance.get_viewport_y(), 0.);
+
+let moved_position = LogicalPosition::new(250., 0.); // Moved cursor up
+window.dispatch_event(platform::WindowEvent::PointerMoved { position: moved_position });
+
+assert_eq!(instance.get_viewport_y(), 0.); // The flickable did not move
+```
+*/

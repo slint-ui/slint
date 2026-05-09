@@ -12,7 +12,7 @@ use skrifa::MetadataProvider as _;
 use std::cell::RefCell;
 
 use crate::{
-    Color, SharedString,
+    Color,
     graphics::FontRequest,
     item_rendering::PlainOrStyledText,
     items::TextStrokeStyle,
@@ -190,7 +190,7 @@ impl LayoutWithoutLineBreaksBuilder {
         font_ctx: &'a mut parley::FontContext,
         text: &'a str,
     ) -> parley::RangedBuilder<'a, Brush> {
-        let mut builder = layout_ctx.ranged_builder(font_ctx, text, self.scale_factor.get(), true);
+        let mut builder = layout_ctx.ranged_builder(font_ctx, text, self.scale_factor.get(), false);
 
         if let Some(ref font_request) = self.font_request {
             let mut fallback_family_iter = sharedfontique::FALLBACK_FAMILIES
@@ -242,6 +242,15 @@ impl LayoutWithoutLineBreaksBuilder {
             TextWrap::NoWrap => parley::style::OverflowWrap::Normal,
             TextWrap::WordWrap | TextWrap::CharWrap => parley::style::OverflowWrap::Anywhere,
         }));
+        if self.text_wrap == TextWrap::NoWrap {
+            // Parley 0.9 removed the width parameter from `Layout::align()` and instead
+            // uses the `max_advance` set by `break_all_lines()` as the alignment container
+            // width. To allow passing `max_physical_width` to `break_all_lines` for alignment
+            // purposes without triggering actual line wrapping, we must set `TextWrapMode::NoWrap`.
+            builder.push_default(parley::StyleProperty::TextWrapMode(
+                parley::style::TextWrapMode::NoWrap,
+            ));
+        }
 
         builder.push_default(parley::StyleProperty::Brush(Brush {
             override_fill_color: None,
@@ -278,7 +287,8 @@ impl LayoutWithoutLineBreaksBuilder {
                 }
             }
 
-            for span in formatting {
+            // filter empty ranges otherwise parley will panic on assert
+            for span in formatting.into_iter().filter(|s| !s.range.is_empty()) {
                 match span.style {
                     Style::Emphasis => {
                         builder.push(
@@ -419,8 +429,6 @@ fn create_text_paragraphs(
     paragraphs
 }
 
-/// `text_wrap` is passed separately from the shaped paragraphs because
-/// `text_layout_info()` calls `text_size()` with `NoWrap` for horizontal sizing.
 /// Note: parley currently uses `WordBreak` while shaping via `analyze_text()`,
 /// so shaped paragraphs aren't identical across wrap modes. This is why `text_size()`
 /// doesn't use the `TextLayoutCache` — it would be incorrect to share cached paragraphs
@@ -430,7 +438,6 @@ fn layout(
     font_context: &mut parley::FontContext,
     mut paragraphs: Vec<TextParagraph>,
     scale_factor: ScaleFactor,
-    text_wrap: TextWrap,
     options: LayoutOptions,
 ) -> Layout {
     let max_physical_width = options.max_width.map(|max_width| max_width * scale_factor);
@@ -463,11 +470,8 @@ fn layout(
 
     let mut para_y = 0.0;
     for para in paragraphs.iter_mut() {
-        para.layout.break_all_lines(
-            max_physical_width.filter(|_| text_wrap != TextWrap::NoWrap).map(|width| width.get()),
-        );
+        para.layout.break_all_lines(max_physical_width.map(|width| width.get()));
         para.layout.align(
-            max_physical_width.map(|width| width.get()),
             match options.horizontal_align {
                 TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
                     parley::Alignment::Left
@@ -604,7 +608,7 @@ impl TextParagraph {
                     // we want to place an elipsis on the last line and not draw any lines beyond the
                     // given max height.
                     Some(max_physical_height) if layout.elision_info.is_some() => {
-                        max_physical_height.get().ceil() >= metrics.max_coord
+                        max_physical_height.get().ceil() >= metrics.block_max_coord
                     }
                     _ => true,
                 }
@@ -778,7 +782,8 @@ impl TextParagraph {
                 PhysicalRect::new(
                     PhysicalPoint::from_lengths(
                         PhysicalLength::new(glyph_run.offset()),
-                        para_y + PhysicalLength::new(run.font_size() - metrics.underline_offset),
+                        para_y
+                            + PhysicalLength::new(glyph_run.baseline() - metrics.underline_offset),
                     ),
                     PhysicalSize::new(glyph_run.advance(), metrics.underline_size),
                 ),
@@ -792,7 +797,9 @@ impl TextParagraph {
                     PhysicalPoint::from_lengths(
                         PhysicalLength::new(glyph_run.offset()),
                         para_y
-                            + PhysicalLength::new(run.font_size() - metrics.strikethrough_offset),
+                            + PhysicalLength::new(
+                                glyph_run.baseline() - metrics.strikethrough_offset,
+                            ),
                     ),
                     PhysicalSize::new(glyph_run.advance(), metrics.strikethrough_size),
                 ),
@@ -1055,14 +1062,12 @@ pub fn draw_text(
 
     let (horizontal_align, vertical_align) = text.alignment();
     let text_overflow = text.overflow();
-    let text_wrap = text.wrap();
 
     let layout = layout(
         &layout_builder,
         &mut font_ctx,
         guard.paragraphs.take().unwrap_or_default(),
         scale_factor,
-        text_wrap,
         LayoutOptions {
             horizontal_align,
             vertical_align,
@@ -1148,7 +1153,6 @@ pub fn link_under_cursor(
         font_context,
         guard.paragraphs.take().unwrap_or_default(),
         scale_factor,
-        text.wrap(),
         LayoutOptions {
             horizontal_align,
             vertical_align,
@@ -1234,7 +1238,7 @@ pub fn draw_text_input(
         scale_factor,
     );
 
-    let text: SharedString = visual_representation.text.into();
+    let text = visual_representation.text.clone();
 
     // When a piece of text is first selected, it gets an empty range like `Some(1..1)`.
     // If the text starts with a multi-byte character then this selection will be within
@@ -1260,7 +1264,6 @@ pub fn draw_text_input(
         &mut font_ctx,
         paragraphs_without_linebreaks,
         scale_factor,
-        text_input.wrap(),
         LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
     );
 
@@ -1346,7 +1349,6 @@ pub fn text_size(
         &mut font_ctx,
         paragraphs_without_linebreaks,
         scale_factor,
-        text_wrap,
         LayoutOptions {
             max_width,
             max_height: None,
@@ -1452,11 +1454,11 @@ pub fn text_input_byte_offset_for_position(
         scale_factor,
     );
 
-    let text = text_input.text();
+    let visual_representation = text_input.visual_representation(None);
     let paragraphs_without_linebreaks = create_text_paragraphs(
         &layout_builder,
         &mut font_ctx,
-        PlainOrStyledText::Plain(text),
+        PlainOrStyledText::Plain(visual_representation.text.clone()),
         None,
         Color::default(),
     );
@@ -1466,12 +1468,10 @@ pub fn text_input_byte_offset_for_position(
         &mut font_ctx,
         paragraphs_without_linebreaks,
         scale_factor,
-        text_input.wrap(),
         LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
     );
     let byte_offset = layout.byte_offset_from_point(pos);
-    let visual_representation = text_input.visual_representation(None);
-    visual_representation.map_byte_offset_from_byte_offset_in_visual_text(byte_offset)
+    visual_representation.map_byte_offset_from_visual_text_to_actual_text(byte_offset)
 }
 
 pub fn text_input_cursor_rect_for_byte_offset(
@@ -1503,13 +1503,16 @@ pub fn text_input_cursor_rect_for_byte_offset(
     let Some(ctx) = renderer.slint_context() else {
         return LogicalRect::default();
     };
+
     let mut font_ctx = ctx.font_context().borrow_mut();
 
-    let text = text_input.text();
+    let visual_representation = text_input.visual_representation(None);
+    let byte_offset = visual_representation.map_byte_offset_from_actual_to_visual_text(byte_offset);
+
     let paragraphs_without_linebreaks = create_text_paragraphs(
         &layout_builder,
         &mut font_ctx,
-        PlainOrStyledText::Plain(text),
+        PlainOrStyledText::Plain(visual_representation.text),
         None,
         Color::default(),
     );
@@ -1519,7 +1522,6 @@ pub fn text_input_cursor_rect_for_byte_offset(
         &mut font_ctx,
         paragraphs_without_linebreaks,
         scale_factor,
-        text_input.wrap(),
         LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
     );
     let cursor_rect = layout

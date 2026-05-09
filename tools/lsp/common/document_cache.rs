@@ -8,6 +8,7 @@ use i_slint_compiler::object_tree::Document;
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
+use i_slint_preview_protocol::SourceFileVersion;
 use lsp_types::Url;
 
 use std::{
@@ -21,8 +22,6 @@ use std::{
 
 use crate::common::{ElementRcNode, Result, file_to_uri, uri_to_file};
 use std::collections::HashSet;
-
-pub type SourceFileVersion = Option<i32>;
 
 pub type SourceFileVersionMap = HashMap<PathBuf, SourceFileVersion>;
 
@@ -269,6 +268,14 @@ impl DocumentCache {
         self.type_loader.all_files().filter_map(|p| file_to_uri(p))
     }
 
+    pub fn all_urls_to_watch(&self) -> HashSet<Url> {
+        self.type_loader
+            .all_files_to_watch()
+            .into_iter()
+            .filter_map(|path| file_to_uri(&path))
+            .collect()
+    }
+
     pub fn global_type_registry(&self) -> std::cell::Ref<'_, TypeRegister> {
         self.type_loader.global_type_registry.borrow()
     }
@@ -362,7 +369,7 @@ impl DocumentCache {
     pub fn drop_document(&mut self, url: &Url) -> Result<HashSet<Url>> {
         let Some(path) = uri_to_file(url) else {
             // This isn't fatal, but we might want to learn about paths/schemes to support in the future.
-            eprintln!("Failed to convert path for dropping document: {url}");
+            tracing::error!("Failed to convert path for dropping document: {url}");
             return Ok(Default::default());
         };
         Ok(self

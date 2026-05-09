@@ -26,8 +26,8 @@ pub(crate) fn fold_node(
                 })
                 .flatten();
 
-                if let Some(twb) = twb {
-                    let lk = twb.property.element().borrow().lookup_property(twb.property.name());
+                if let Some(nr) = twb.and_then(|twb| twb.property().cloned()) {
+                    let lk = nr.element().borrow().lookup_property(nr.name());
                     if lk.declared_pure == Some(true) {
                         write!(file, "pure ")?;
                     } else if let Type::Callback(callback) = lk.property_type

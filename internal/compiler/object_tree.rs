@@ -57,10 +57,16 @@ pub struct Document {
     pub imports: Vec<ImportedTypes>,
     pub library_exports: HashMap<String, LibraryInfo>,
 
-    /// Map of resources that should be embedded in the generated code, indexed by their absolute path on
-    /// disk on the build system
-    pub embedded_file_resources:
-        RefCell<BTreeMap<SmolStr, crate::embedded_resources::EmbeddedResources>>,
+    /// Resources to embed in the generated code.
+    ///
+    /// The [`crate::embedded_resources::EmbeddedResourcesIdx`] is the identifier used by code generators.
+    /// Each entry's `path` is the absolute path on disk, or `None` for in-memory data URI payloads.
+    pub embedded_file_resources: RefCell<
+        typed_index_collections::TiVec<
+            crate::embedded_resources::EmbeddedResourcesIdx,
+            crate::embedded_resources::EmbeddedResources,
+        >,
+    >,
 
     #[cfg(feature = "bundle-translations")]
     pub translation_builder: Option<crate::translations::TranslationsBuilder>,
@@ -490,6 +496,17 @@ impl Component {
     /// This is an interface introduced with the "interface" keyword
     pub fn is_interface(&self) -> bool {
         matches!(&self.root_element.borrow().base_type, ElementType::Interface)
+    }
+
+    /// True if this component's root resolves to the `SystemTrayIcon` native
+    /// class. Uses `native_class()` rather than `builtin_type()` so the check
+    /// still matches once the root has been resolved to `Native(SystemTrayIcon)`
+    /// after `resolve_native_classes`.
+    pub fn inherits_system_tray_icon(&self) -> bool {
+        self.root_element
+            .borrow()
+            .native_class()
+            .is_some_and(|n| n.class_name.as_str() == "SystemTrayIcon")
     }
 
     /// Returns the names of aliases to global singletons, exactly as
@@ -1806,7 +1823,9 @@ impl Element {
             diag,
             tr,
         );
-        let is_listview = if parent.borrow().base_type.to_string() == "ListView" {
+        let is_listview = if parent.borrow().base_type.to_string() == "ListView"
+            && let Some(geometry_props) = e.borrow().geometry_props.as_ref()
+        {
             let lvi = ListViewInfo {
                 viewport_y: NamedReference::new(parent, SmolStr::new_static("viewport-y")),
                 viewport_height: NamedReference::new(
@@ -1820,7 +1839,7 @@ impl Element {
             // these properties are set by the ListView layouting code
             lvi.viewport_height.mark_as_set();
             lvi.viewport_width.mark_as_set();
-            e.borrow().geometry_props.as_ref().unwrap().y.mark_as_set();
+            geometry_props.y.mark_as_set();
             Some(lvi)
         } else {
             None
@@ -2424,12 +2443,28 @@ pub fn recurse_elem_including_sub_components_no_borrow<State>(
         .for_each(|c| recurse_elem_including_sub_components_no_borrow(c, state, vis));
 }
 
-/// This visit the binding attached to this element, but does not recurse in children elements
-/// Also does not recurse within the expressions.
+/// Visit the model expression of `elem`, if `elem` is the body of a `for`.
 ///
-/// This code will temporarily move the bindings or states member so it can call the visitor without
-/// maintaining a borrow on the RefCell.
-pub fn visit_element_expressions(
+/// The expression is temporarily moved out of `repeated.model` so the visitor
+/// can mutate it without holding a borrow on `elem`.
+pub fn visit_repeater_model_expression(
+    elem: &ElementRc,
+    mut vis: impl FnMut(&mut Expression, Option<&str>, &dyn Fn() -> Type),
+) {
+    let repeated = elem
+        .borrow_mut()
+        .repeated
+        .as_mut()
+        .map(|r| (std::mem::take(&mut r.model), r.is_conditional_element));
+    if let Some((mut model, is_cond)) = repeated {
+        vis(&mut model, None, &|| if is_cond { Type::Bool } else { Type::Model });
+        elem.borrow_mut().repeated.as_mut().unwrap().model = model;
+    }
+}
+
+/// Like [`visit_element_expressions`] but skips the repeater model
+/// expression. Use [`visit_repeater_model_expression`] separately for that.
+pub fn visit_element_expressions_excluding_repeater_model(
     elem: &ElementRc,
     mut vis: impl FnMut(&mut Expression, Option<&str>, &dyn Fn() -> Type),
 ) {
@@ -2441,6 +2476,17 @@ pub fn visit_element_expressions(
             vis(&mut expr.borrow_mut(), Some(name.as_str()), &|| {
                 elem.borrow().lookup_property(name).property_type
             });
+
+            for twb in &mut expr.borrow_mut().two_way_bindings {
+                if let expression_tree::TwoWayBinding::ModelData { repeated_element, .. } = twb {
+                    let mut e =
+                        Expression::RepeaterModelReference { element: repeated_element.clone() };
+                    vis(&mut e, None, &|| Type::Invalid);
+                    if let Expression::RepeaterModelReference { element } = e {
+                        *repeated_element = element;
+                    }
+                }
+            }
 
             match &mut expr.borrow_mut().animation {
                 Some(PropertyAnimation::Static(e)) => visit_element_expressions_simple(e, vis),
@@ -2455,15 +2501,6 @@ pub fn visit_element_expressions(
         }
     }
 
-    let repeated = elem
-        .borrow_mut()
-        .repeated
-        .as_mut()
-        .map(|r| (std::mem::take(&mut r.model), r.is_conditional_element));
-    if let Some((mut model, is_cond)) = repeated {
-        vis(&mut model, None, &|| if is_cond { Type::Bool } else { Type::Model });
-        elem.borrow_mut().repeated.as_mut().unwrap().model = model;
-    }
     visit_element_expressions_simple(elem, &mut vis);
 
     for expr in elem.borrow().change_callbacks.values() {
@@ -2499,6 +2536,14 @@ pub fn visit_element_expressions(
             vis(e, None, &|| Type::Void);
         }
     }
+}
+
+pub fn visit_element_expressions(
+    elem: &ElementRc,
+    mut vis: impl FnMut(&mut Expression, Option<&str>, &dyn Fn() -> Type),
+) {
+    visit_repeater_model_expression(elem, &mut vis);
+    visit_element_expressions_excluding_repeater_model(elem, &mut vis);
 }
 
 pub fn visit_named_references_in_expression(
@@ -2602,8 +2647,10 @@ pub fn visit_all_named_references_in_element(
 
     // visit two way bindings
     for expr in elem.borrow().bindings.values() {
-        for nr in &mut expr.borrow_mut().two_way_bindings {
-            vis(&mut nr.property);
+        for twb in &mut expr.borrow_mut().two_way_bindings {
+            if let expression_tree::TwoWayBinding::Property { property, .. } = twb {
+                vis(property);
+            }
         }
     }
 

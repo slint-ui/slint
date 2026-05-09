@@ -1,11 +1,11 @@
 {
     "name": "imagefilter",
-    "version": "1.16.0",
+    "version": "1.17.0",
     "main": "main.js",
     "type": "module",
     "dependencies": {
         "slint-ui": "workspace:*",
-        "image-js": "1.5.0"
+        "image-js": "1.6.0"
     },
     "devDependencies": {
         "@types/node": "catalog:",
