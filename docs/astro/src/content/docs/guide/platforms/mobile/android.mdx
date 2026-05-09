@@ -62,42 +62,49 @@ A Slint C++ Android project uses the standard Android toolchain: **Gradle** orch
 **CMake** compiles the native code (both the Slint runtime via Rust and your C++ application), and
 Gradle packages everything into an APK.
 
-A typical project has this structure:
+A Slint C++ application is typically cross-platform, with the C++ code at the project root and
+the Android-specific wrapper in a subdirectory:
 
 ```
 my-app/
-├── build.gradle.kts              # Top-level Gradle config
-├── settings.gradle.kts           # Project name
-├── gradle.properties
-├── gradle/wrapper/               # Gradle wrapper
-├── app/
-│   ├── build.gradle.kts          # Android app: SDK versions, CMake setup
-│   └── src/main/
-│       ├── AndroidManifest.xml   # NativeActivity declaration
-│       └── cpp/
-│           ├── CMakeLists.txt    # Finds Slint and builds your app
-│           ├── main.cpp          # Your application code
-│           └── main.slint        # Your Slint UI
+├── CMakeLists.txt                # Builds your app (desktop & Android)
+├── main.cpp                      # Your application code
+├── main.slint                    # Your Slint UI
+├── android/
+│   ├── build.gradle.kts          # Top-level Gradle config
+│   ├── settings.gradle.kts       # Project name
+│   ├── gradle.properties
+│   ├── gradle/wrapper/           # Gradle wrapper
+│   └── app/
+│       ├── build.gradle.kts      # Android app: SDK versions, CMake setup
+│       └── src/main/
+│           └── AndroidManifest.xml   # NativeActivity declaration
 ```
 
 ### CMakeLists.txt
 
-The CMake file fetches Slint and builds your app as a shared library:
+The CMake file at the project root works for both desktop and Android builds:
 
 ```cmake
 cmake_minimum_required(VERSION 3.21)
 project(SlintApp LANGUAGES CXX)
 
-include(FetchContent)
-FetchContent_Declare(
-    Slint
-    GIT_REPOSITORY https://github.com/slint-ui/slint.git
-    GIT_TAG v1.17.0
-    SOURCE_SUBDIR api/cpp
-)
-FetchContent_MakeAvailable(Slint)
+if (NOT TARGET Slint::Slint)
+    include(FetchContent)
+    FetchContent_Declare(
+        Slint
+        GIT_REPOSITORY https://github.com/slint-ui/slint.git
+        GIT_TAG v1.17.0
+        SOURCE_SUBDIR api/cpp
+    )
+    FetchContent_MakeAvailable(Slint)
+endif()
 
-add_library(app SHARED main.cpp)
+if(ANDROID)
+    add_library(app SHARED main.cpp)
+else()
+    add_executable(app main.cpp)
+endif()
 target_link_libraries(app PRIVATE Slint::Slint)
 slint_target_sources(app main.slint)
 ```
@@ -133,7 +140,7 @@ The manifest declares a `NativeActivity` that loads your native library:
 
 The `android:value="app"` must match the CMake library name in `add_library(app SHARED ...)`.
 
-### app/build.gradle.kts
+### android/app/build.gradle.kts
 
 ```kotlin
 plugins {
@@ -157,7 +164,7 @@ android {
 
     externalNativeBuild {
         cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
+            path = file("../../CMakeLists.txt")
             version = "3.22.1"
         }
     }
