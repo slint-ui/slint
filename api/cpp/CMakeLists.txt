@@ -45,7 +45,7 @@ if(ANDROID)
     # Android requires a shared library
     set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
 
-    # Enable skia renderer and disable desktop backends for Android
+    # Android requires the skia renderer and cannot use desktop backends
     set(SLINT_FEATURE_RENDERER_SKIA ON CACHE BOOL "" FORCE)
     set(SLINT_FEATURE_BACKEND_WINIT OFF CACHE BOOL "" FORCE)
     set(SLINT_FEATURE_BACKEND_QT OFF CACHE BOOL "" FORCE)

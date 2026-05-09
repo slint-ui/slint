@@ -17,4 +17,3 @@ dependencyResolution {
 }
 
 rootProject.name = "SlintUsecases"
-include(":app")
