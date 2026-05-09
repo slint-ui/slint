@@ -868,7 +868,7 @@ impl WinitWindowAdapter {
         } = &*self.winit_window_or_none.borrow()
         {
             if let Some(muda_adapter) = maybe_muda_adapter.borrow().as_ref() {
-                muda_adapter.set_menubar_theme(&winit_window, scheme);
+                muda_adapter.set_menubar_theme(&**winit_window, scheme);
             };
         }
 

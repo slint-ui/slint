@@ -94,8 +94,9 @@ cfg_if::cfg_if! {
         const DEFAULT_RENDERER_NAME: &str = "Skia";
     } else if #[cfg(feature = "renderer-software")] {
         const DEFAULT_RENDERER_NAME: &str = "Software";
-    } else if #[cfg(doc)] {
-        const DEFAULT_RENDERER_NAME: &str = "Software";
+    } else if #[cfg(any(doc, feature = "renderer-femtovg", feature = "renderer-femtovg-wgpu"))] {
+        // FemtoVG renderer temporarily disabled during winit 0.31 port
+        const DEFAULT_RENDERER_NAME: &str = "FemtoVG";
     } else {
         compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan` or `renderer-software`");
     }
@@ -113,7 +114,8 @@ fn default_renderer_factory(
             renderer::femtovg::GlutinFemtoVGRenderer::new_suspended(shared_backend_data)
         } else if #[cfg(feature = "renderer-software")] {
             renderer::sw::WinitSoftwareRenderer::new_suspended(shared_backend_data)
-        } else if #[cfg(doc)] {
+        } else if #[cfg(any(doc, feature = "renderer-femtovg", feature = "renderer-femtovg-wgpu"))] {
+            // FemtoVG renderer temporarily disabled during winit 0.31 port
             Err("No renderer configured".into())
         } else {
             compile_error!("Please select a feature to build with the winit backend: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl`, `renderer-skia-vulkan` or `renderer-software`");
@@ -145,15 +147,20 @@ fn try_create_window_with_fallback_renderer(
         renderer::sw::WinitSoftwareRenderer::new_suspended,
     ]
     .into_iter()
-    .find_map(|renderer_factory| {
-        Some(WinitWindowAdapter::new(
-            shared_backend_data.clone(),
-            renderer_factory(shared_backend_data).ok()?,
-            attrs.clone(),
-            #[cfg(all(muda, target_os = "macos"))]
-            muda_enable_default_menu_bar,
-        ))
-    })
+    .find_map(
+        |renderer_factory: fn(
+            &Rc<SharedBackendData>,
+        )
+            -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError>| {
+            Some(WinitWindowAdapter::new(
+                shared_backend_data.clone(),
+                renderer_factory(shared_backend_data).ok()?,
+                attrs.clone(),
+                #[cfg(all(muda, target_os = "macos"))]
+                muda_enable_default_menu_bar,
+            ))
+        },
+    )
 }
 
 #[doc(hidden)]

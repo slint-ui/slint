@@ -302,8 +302,6 @@ impl winit::application::ApplicationHandler for EventLoopState {
 
                 #[cfg(target_os = "windows")]
                 let text_without_modifiers = {
-                    use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
-
                     // On Windows, if Ctrl+Alt is pressed with a key that does not use
                     // AltGr for remapping, we need to fall back to the
                     // key_without_modifiers.
@@ -313,8 +311,7 @@ impl winit::application::ApplicationHandler for EventLoopState {
                     // The text_without_modifiers also let's us disambiguate between a Ctrl+Alt
                     // combination used to imply AltGr or not.
                     // The latter case should be treated as a shortcut, the former should not.
-                    let text_without_modifiers =
-                        to_slint_key(&event, &event.key_without_modifiers());
+                    let text_without_modifiers = to_slint_key(&event, &event.key_without_modifiers);
                     if text.is_empty() && !text_without_modifiers.is_empty() {
                         text = text_without_modifiers.clone();
                     }
