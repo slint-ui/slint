@@ -14,8 +14,120 @@ use i_slint_core::items::TextWrap;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::pin::Pin;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use std::sync::Mutex;
+
+std::thread_local! {
+    /// Live windows targeted by [`ensure_all_tracked_trees_instantiated`].
+    static ALL_TESTING_WINDOWS: RefCell<Vec<Weak<TestingWindow>>> =
+        const { RefCell::new(Vec::new()) }
+}
+
+/// Run the `ensure_instantiated` repeater instantiation pass on every live
+/// testing window.
+fn ensure_all_tracked_trees_instantiated() {
+    let live: Vec<Rc<TestingWindow>> = ALL_TESTING_WINDOWS.with(|list| {
+        let mut list = list.borrow_mut();
+        list.retain(|w| w.upgrade().is_some());
+        list.iter().filter_map(|w| w.upgrade()).collect()
+    });
+    for tw in live {
+        WindowInner::from_pub(&tw.window).ensure_tree_instantiated();
+    }
+}
+
+/// Advance the mocked time by the given number of milliseconds, updating
+/// animations, firing timers, running change handlers, and instantiating
+/// pending repeaters and conditionals on every live testing window.
+pub fn mock_elapsed_time(time_in_ms: u64) {
+    let tick = i_slint_core::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+        let mut tick = driver.current_tick();
+        tick += core::time::Duration::from_millis(time_in_ms);
+        driver.update_animations(tick);
+        tick
+    });
+    i_slint_core::timers::TimerList::maybe_activate_timers(tick);
+    i_slint_core::properties::ChangeTracker::run_change_handlers();
+    ensure_all_tracked_trees_instantiated();
+}
+
+/// Return the current mocked time in milliseconds.
+pub fn get_mocked_time() -> u64 {
+    i_slint_core::animations::CURRENT_ANIMATION_DRIVER
+        .with(|driver| driver.current_tick())
+        .as_millis()
+}
+
+#[cfg(any(feature = "internal", feature = "ffi"))]
+/// Simulate a click at (`x`, `y`) and release after 50 ms of mock time.
+pub fn send_mouse_click(x: f32, y: f32, window_adapter: &i_slint_core::window::WindowAdapterRc) {
+    use i_slint_core::api::LogicalPosition;
+    use i_slint_core::items::PointerEventButton;
+    use i_slint_core::platform::WindowEvent;
+
+    let position = LogicalPosition::new(x, y);
+    let button = PointerEventButton::Left;
+
+    window_adapter.window().dispatch_event(WindowEvent::PointerMoved { position });
+    window_adapter.window().dispatch_event(WindowEvent::PointerPressed { position, button });
+    mock_elapsed_time(50);
+    window_adapter.window().dispatch_event(WindowEvent::PointerReleased { position, button });
+}
+
+#[cfg(any(feature = "internal", feature = "ffi"))]
+/// Dispatch a single key press or release event.
+pub fn send_keyboard_key_text(
+    text: &i_slint_core::SharedString,
+    pressed: bool,
+    window_adapter: &i_slint_core::window::WindowAdapterRc,
+) {
+    use i_slint_core::platform::WindowEvent;
+    window_adapter.window().dispatch_event(if pressed {
+        WindowEvent::KeyPressed { text: text.clone() }
+    } else {
+        WindowEvent::KeyReleased { text: text.clone() }
+    })
+}
+
+#[cfg(feature = "ffi")]
+/// Dispatch each character in the string as a separate key event.
+pub fn send_keyboard_char(
+    string: &i_slint_core::SharedString,
+    pressed: bool,
+    window_adapter: &i_slint_core::window::WindowAdapterRc,
+) {
+    for ch in string.chars() {
+        send_keyboard_key_text(&ch.into(), pressed, window_adapter);
+    }
+}
+
+#[cfg(any(feature = "internal", feature = "ffi"))]
+/// Simulate typing a string, with automatic Shift handling for uppercase letters.
+pub fn send_keyboard_string_sequence(
+    sequence: &i_slint_core::SharedString,
+    window_adapter: &i_slint_core::window::WindowAdapterRc,
+) {
+    use i_slint_core::input::key_codes::Key;
+    use i_slint_core::platform::WindowEvent;
+
+    for ch in sequence.chars() {
+        if ch.is_ascii_uppercase() {
+            window_adapter
+                .window()
+                .dispatch_event(WindowEvent::KeyPressed { text: Key::Shift.into() });
+        }
+
+        let text: i_slint_core::SharedString = ch.into();
+        window_adapter.window().dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+        window_adapter.window().dispatch_event(WindowEvent::KeyReleased { text });
+
+        if ch.is_ascii_uppercase() {
+            window_adapter
+                .window()
+                .dispatch_event(WindowEvent::KeyReleased { text: Key::Shift.into() });
+        }
+    }
+}
 
 const FIXED_TEST_FONT: &str = "FixedTestFont";
 
@@ -33,8 +145,8 @@ pub struct TestingBackend {
     clipboard: Mutex<Option<String>>,
     queue: Option<Queue>,
     mock_time: bool,
-    #[allow(dead_code)]
     pub open_url: Rc<RefCell<Option<SharedString>>>,
+    pub debug_logs: Rc<RefCell<Vec<String>>>,
 }
 
 impl TestingBackend {
@@ -44,6 +156,7 @@ impl TestingBackend {
             queue: options.threading.then(|| Queue(Default::default(), std::thread::current())),
             mock_time: options.mock_time,
             open_url: Default::default(),
+            debug_logs: Default::default(),
         }
     }
 }
@@ -52,14 +165,17 @@ impl i_slint_core::platform::Platform for TestingBackend {
     fn create_window_adapter(
         &self,
     ) -> Result<Rc<dyn WindowAdapter>, i_slint_core::platform::PlatformError> {
-        Ok(Rc::new_cyclic(|self_weak| TestingWindow {
+        let window = Rc::new_cyclic(|self_weak| TestingWindow {
             window: i_slint_core::api::Window::new(self_weak.clone() as _),
             size: Default::default(),
             ime_requests: Default::default(),
             mouse_cursor: Default::default(),
             all_item_trees: Default::default(),
             open_url: self.open_url.clone(),
-        }))
+            debug_logs: self.debug_logs.clone(),
+        });
+        ALL_TESTING_WINDOWS.with(|list| list.borrow_mut().push(Rc::downgrade(&window)));
+        Ok(window)
     }
 
     fn duration_since_start(&self) -> core::time::Duration {
@@ -120,6 +236,11 @@ impl i_slint_core::platform::Platform for TestingBackend {
         *self.open_url.borrow_mut() = Some(url.into());
         Ok(())
     }
+
+    fn debug_log(&self, arguments: core::fmt::Arguments) {
+        self.debug_logs.borrow_mut().push(arguments.to_string());
+        i_slint_core::debug_log::default_debug_log(arguments);
+    }
 }
 
 #[derive(Default)]
@@ -144,6 +265,7 @@ pub struct TestingWindow {
     mouse_cursor: Cell<i_slint_core::items::MouseCursor>,
     all_item_trees: CheckAllItemTreesUnregistered,
     pub open_url: Rc<RefCell<Option<SharedString>>>,
+    pub debug_logs: Rc<RefCell<Vec<String>>>,
 }
 
 impl TestingWindow {
@@ -155,6 +277,11 @@ impl TestingWindow {
     #[allow(dead_code)]
     pub fn open_url(&self) -> Option<SharedString> {
         self.open_url.borrow().clone()
+    }
+
+    /// Drain and return all debug_log messages captured since the last call.
+    pub fn take_debug_log(&self) -> Vec<String> {
+        self.debug_logs.borrow_mut().drain(..).collect()
     }
 }
 

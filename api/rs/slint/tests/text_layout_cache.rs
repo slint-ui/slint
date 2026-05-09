@@ -1,24 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use slint::PhysicalSize;
+mod common;
+
 use slint::platform::software_renderer::{
-    MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType, SoftwareRenderer, TargetPixel,
+    MinimalSoftwareWindow, PremultipliedRgbaColor, SoftwareRenderer, TargetPixel,
 };
-use slint::platform::{PlatformError, WindowAdapter};
 use std::rc::Rc;
-
-thread_local! {
-    static WINDOW: Rc<MinimalSoftwareWindow> =
-        MinimalSoftwareWindow::new(RepaintBufferType::ReusedBuffer);
-}
-
-struct TestPlatform;
-impl slint::platform::Platform for TestPlatform {
-    fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-        Ok(WINDOW.with(|x| x.clone()))
-    }
-}
 
 #[allow(dead_code)]
 #[derive(Clone, Copy, Default)]
@@ -38,10 +26,7 @@ const WIDTH: usize = 200;
 const HEIGHT: usize = 100;
 
 fn setup() -> Rc<MinimalSoftwareWindow> {
-    slint::platform::set_platform(Box::new(TestPlatform)).ok();
-    let window = WINDOW.with(|x| x.clone());
-    window.set_size(PhysicalSize::new(WIDTH as u32, HEIGHT as u32));
-    window
+    common::setup(WIDTH as u32, HEIGHT as u32)
 }
 
 fn render_and_get_miss_count(renderer: &SoftwareRenderer) -> u64 {

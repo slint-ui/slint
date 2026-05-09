@@ -581,24 +581,24 @@ state.borrow_mut().timer_500.start(TimerMode::Repeated, Duration::from_millis(50
     state_.borrow_mut().timer_500_called += 1;
 });
 slint::platform::update_timers_and_animations();
-i_slint_core::tests::slint_mock_elapsed_time(100);
+i_slint_backend_testing::mock_elapsed_time(100);
 assert_eq!(state.borrow().timer_200_called, 0);
 assert_eq!(state.borrow().timer_once_called, 0);
 assert_eq!(state.borrow().timer_500_called, 0);
-i_slint_core::tests::slint_mock_elapsed_time(100);
+i_slint_backend_testing::mock_elapsed_time(100);
 assert_eq!(state.borrow().timer_200_called, 1);
 assert_eq!(state.borrow().timer_once_called, 0);
 assert_eq!(state.borrow().timer_500_called, 0);
-i_slint_core::tests::slint_mock_elapsed_time(100);
+i_slint_backend_testing::mock_elapsed_time(100);
 assert_eq!(state.borrow().timer_200_called, 1);
 assert_eq!(state.borrow().timer_once_called, 1);
 assert_eq!(state.borrow().timer_500_called, 0);
-i_slint_core::tests::slint_mock_elapsed_time(200); // total: 500
+i_slint_backend_testing::mock_elapsed_time(200); // total: 500
 assert_eq!(state.borrow().timer_200_called, 2);
 assert_eq!(state.borrow().timer_once_called, 1);
 assert_eq!(state.borrow().timer_500_called, 1);
 for _ in 0..10 {
-    i_slint_core::tests::slint_mock_elapsed_time(100);
+    i_slint_backend_testing::mock_elapsed_time(100);
 }
 // total: 1500
 assert_eq!(state.borrow().timer_200_called, 7);
@@ -608,22 +608,22 @@ state.borrow().timer_once.restart();
 state.borrow().timer_200.restart();
 state.borrow().timer_500.stop();
 slint::platform::update_timers_and_animations();
-i_slint_core::tests::slint_mock_elapsed_time(100);
+i_slint_backend_testing::mock_elapsed_time(100);
 assert_eq!(state.borrow().timer_200_called, 7);
 assert_eq!(state.borrow().timer_once_called, 1);
 assert_eq!(state.borrow().timer_500_called, 3);
 slint::platform::update_timers_and_animations();
-i_slint_core::tests::slint_mock_elapsed_time(100);
+i_slint_backend_testing::mock_elapsed_time(100);
 assert_eq!(state.borrow().timer_200_called, 8);
 assert_eq!(state.borrow().timer_once_called, 1);
 assert_eq!(state.borrow().timer_500_called, 3);
 slint::platform::update_timers_and_animations();
-i_slint_core::tests::slint_mock_elapsed_time(100);
+i_slint_backend_testing::mock_elapsed_time(100);
 assert_eq!(state.borrow().timer_200_called, 8);
 assert_eq!(state.borrow().timer_once_called, 2);
 assert_eq!(state.borrow().timer_500_called, 3);
 slint::platform::update_timers_and_animations();
-i_slint_core::tests::slint_mock_elapsed_time(1000);
+i_slint_backend_testing::mock_elapsed_time(1000);
 slint::platform::update_timers_and_animations();
 slint::platform::update_timers_and_animations();
 // Despite 1000ms have passed, the 200 timer is only called once because we didn't call update_timers_and_animations in between
@@ -635,14 +635,14 @@ state.borrow().timer_200.start(TimerMode::SingleShot, Duration::from_millis(200)
     state_.borrow_mut().timer_200_called += 1;
 });
 for _ in 0..5 {
-    i_slint_core::tests::slint_mock_elapsed_time(75);
+    i_slint_backend_testing::mock_elapsed_time(75);
 }
 assert_eq!(state.borrow().timer_200_called, 10);
 assert_eq!(state.borrow().timer_once_called, 2);
 assert_eq!(state.borrow().timer_500_called, 3);
 state.borrow().timer_200.restart();
 for _ in 0..5 {
-    i_slint_core::tests::slint_mock_elapsed_time(75);
+    i_slint_backend_testing::mock_elapsed_time(75);
 }
 assert_eq!(state.borrow().timer_200_called, 11);
 assert_eq!(state.borrow().timer_once_called, 2);
@@ -662,7 +662,7 @@ state.borrow_mut().timer_500.start(TimerMode::Repeated, Duration::from_millis(50
     });
 });
 for _ in 0..20 {
-    i_slint_core::tests::slint_mock_elapsed_time(100);
+    i_slint_backend_testing::mock_elapsed_time(100);
 }
 assert_eq!(state.borrow().timer_200_called, 7011);
 assert_eq!(state.borrow().timer_once_called, 2);
@@ -686,7 +686,7 @@ state.borrow_mut().timer_500.start(TimerMode::Repeated, Duration::from_millis(50
 let state_ = state.clone();
 slint::platform::update_timers_and_animations();
 for _ in 0..5 {
-    i_slint_core::tests::slint_mock_elapsed_time(100);
+    i_slint_backend_testing::mock_elapsed_time(100);
 }
 slint::platform::update_timers_and_animations();
 assert_eq!(state.borrow().timer_200_called, 7013);
@@ -702,12 +702,12 @@ for _ in 0..20 {
     assert_eq!(state.borrow().timer_once_called, 3);
     assert_eq!(state.borrow().timer_500_called, 3005);
 
-    i_slint_core::tests::slint_mock_elapsed_time(100);
+    i_slint_backend_testing::mock_elapsed_time(100);
 }
 
 slint::platform::update_timers_and_animations();
 for _ in 0..9 {
-    i_slint_core::tests::slint_mock_elapsed_time(100);
+    i_slint_backend_testing::mock_elapsed_time(100);
 }
 slint::platform::update_timers_and_animations();
 assert_eq!(state.borrow().timer_200_called, 7015);
@@ -719,16 +719,16 @@ state.borrow().timer_500.stop();
 
 state.borrow_mut().timer_once.restart();
 for _ in 0..4 {
-    i_slint_core::tests::slint_mock_elapsed_time(100);
+    i_slint_backend_testing::mock_elapsed_time(100);
 }
 assert_eq!(state.borrow().timer_once_called, 3);
 for _ in 0..4 {
-    i_slint_core::tests::slint_mock_elapsed_time(100);
+    i_slint_backend_testing::mock_elapsed_time(100);
 }
 assert_eq!(state.borrow().timer_once_called, 4);
 
 state.borrow_mut().timer_once.stop();
-i_slint_core::tests::slint_mock_elapsed_time(1000);
+i_slint_backend_testing::mock_elapsed_time(1000);
 
 assert_eq!(state.borrow().timer_200_called, 7015);
 assert_eq!(state.borrow().timer_once_called, 4);
@@ -767,30 +767,30 @@ Timer::single_shot(Duration::from_millis(500), move || {
         state.borrow_mut().variable2 += 1;
     })
 } );
-i_slint_core::tests::slint_mock_elapsed_time(10);
+i_slint_backend_testing::mock_elapsed_time(10);
 assert_eq!(state.borrow().variable1, 0);
 assert_eq!(state.borrow().variable2, 0);
-i_slint_core::tests::slint_mock_elapsed_time(200);
+i_slint_backend_testing::mock_elapsed_time(200);
 assert_eq!(state.borrow().variable1, 1);
 assert_eq!(state.borrow().variable2, 0);
-i_slint_core::tests::slint_mock_elapsed_time(200);
+i_slint_backend_testing::mock_elapsed_time(200);
 assert_eq!(state.borrow().variable1, 2);
 assert_eq!(state.borrow().variable2, 0);
-i_slint_core::tests::slint_mock_elapsed_time(100);
+i_slint_backend_testing::mock_elapsed_time(100);
 // More than 500ms have elapsed, the single shot timer should have been activated, but that has no effect on variable 1 and 2
 // This should just restart the timer so that the next change should happen 200ms from now
 assert_eq!(state.borrow().variable1, 2);
 assert_eq!(state.borrow().variable2, 0);
-i_slint_core::tests::slint_mock_elapsed_time(110);
+i_slint_backend_testing::mock_elapsed_time(110);
 assert_eq!(state.borrow().variable1, 2);
 assert_eq!(state.borrow().variable2, 0);
-i_slint_core::tests::slint_mock_elapsed_time(100);
+i_slint_backend_testing::mock_elapsed_time(100);
 assert_eq!(state.borrow().variable1, 2);
 assert_eq!(state.borrow().variable2, 1);
-i_slint_core::tests::slint_mock_elapsed_time(100);
+i_slint_backend_testing::mock_elapsed_time(100);
 assert_eq!(state.borrow().variable1, 2);
 assert_eq!(state.borrow().variable2, 1);
-i_slint_core::tests::slint_mock_elapsed_time(100);
+i_slint_backend_testing::mock_elapsed_time(100);
 assert_eq!(state.borrow().variable1, 2);
 assert_eq!(state.borrow().variable2, 2);
 ```
@@ -819,13 +819,13 @@ timer.start(TimerMode::SingleShot, Duration::from_millis(200), move || {
 
 // Singleshot timer set up and run...
 assert!(timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(10);
+i_slint_backend_testing::mock_elapsed_time(10);
 assert!(timer.running());
 assert_eq!(state.borrow().variable1, 0);
-i_slint_core::tests::slint_mock_elapsed_time(200);
+i_slint_backend_testing::mock_elapsed_time(200);
 assert_eq!(state.borrow().variable1, 1);
 assert!(!timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(200);
+i_slint_backend_testing::mock_elapsed_time(200);
 assert_eq!(state.borrow().variable1, 1); // It's singleshot, it only triggers once!
 assert!(!timer.running());
 
@@ -833,10 +833,10 @@ assert!(!timer.running());
 timer.restart();
 assert!(timer.running());
 assert_eq!(state.borrow().variable1, 1);
-i_slint_core::tests::slint_mock_elapsed_time(200);
+i_slint_backend_testing::mock_elapsed_time(200);
 assert_eq!(state.borrow().variable1, 2);
 assert!(!timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(200);
+i_slint_backend_testing::mock_elapsed_time(200);
 assert_eq!(state.borrow().variable1, 2); // It's singleshot, it only triggers once!
 assert!(!timer.running());
 
@@ -844,10 +844,10 @@ assert!(!timer.running());
 timer.stop();
 assert!(!timer.running());
 assert_eq!(state.borrow().variable1, 2);
-i_slint_core::tests::slint_mock_elapsed_time(200);
+i_slint_backend_testing::mock_elapsed_time(200);
 assert_eq!(state.borrow().variable1, 2);
 assert!(!timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(200);
+i_slint_backend_testing::mock_elapsed_time(200);
 assert_eq!(state.borrow().variable1, 2); // It's singleshot, it only triggers once!
 assert!(!timer.running());
 
@@ -855,31 +855,31 @@ assert!(!timer.running());
 timer.restart();
 assert!(timer.running());
 assert_eq!(state.borrow().variable1, 2);
-i_slint_core::tests::slint_mock_elapsed_time(10);
+i_slint_backend_testing::mock_elapsed_time(10);
 timer.stop();
 assert!(!timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(200);
+i_slint_backend_testing::mock_elapsed_time(200);
 assert_eq!(state.borrow().variable1, 2);
 assert!(!timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(200);
+i_slint_backend_testing::mock_elapsed_time(200);
 assert_eq!(state.borrow().variable1, 2); // It's singleshot, it only triggers once!
 assert!(!timer.running());
 
 // set_interval on a non-running singleshot timer
 timer.set_interval(Duration::from_millis(300));
 assert!(!timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(1000);
+i_slint_backend_testing::mock_elapsed_time(1000);
 assert_eq!(state.borrow().variable1, 2);
 assert!(!timer.running());
 timer.restart();
 assert!(timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(200);
+i_slint_backend_testing::mock_elapsed_time(200);
 assert_eq!(state.borrow().variable1, 2);
 assert!(timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(200);
+i_slint_backend_testing::mock_elapsed_time(200);
 assert_eq!(state.borrow().variable1, 3);
 assert!(!timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(300);
+i_slint_backend_testing::mock_elapsed_time(300);
 assert_eq!(state.borrow().variable1, 3); // It's singleshot, it only triggers once!
 assert!(!timer.running());
 
@@ -887,16 +887,16 @@ assert!(!timer.running());
 timer.restart();
 assert!(timer.running());
 assert_eq!(state.borrow().variable1, 3);
-i_slint_core::tests::slint_mock_elapsed_time(290);
+i_slint_backend_testing::mock_elapsed_time(290);
 timer.set_interval(Duration::from_millis(400));
 assert!(timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(200);
+i_slint_backend_testing::mock_elapsed_time(200);
 assert_eq!(state.borrow().variable1, 3);
 assert!(timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(250);
+i_slint_backend_testing::mock_elapsed_time(250);
 assert_eq!(state.borrow().variable1, 4);
 assert!(!timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(400);
+i_slint_backend_testing::mock_elapsed_time(400);
 assert_eq!(state.borrow().variable1, 4); // It's singleshot, it only triggers once!
 assert!(!timer.running());
 ```
@@ -937,11 +937,11 @@ timer_to_stop.start(TimerMode::Repeated, Duration::from_millis(100), {
 }});
 
 assert_eq!(last_fired.get(), false);
-i_slint_core::tests::slint_mock_elapsed_time(110);
+i_slint_backend_testing::mock_elapsed_time(110);
 assert_eq!(last_fired.get(), false);
 drop(timer_to_stop);
 
-i_slint_core::tests::slint_mock_elapsed_time(110);
+i_slint_backend_testing::mock_elapsed_time(110);
 assert_eq!(last_fired.get(), true);
 ```
  */
@@ -973,30 +973,30 @@ state.borrow().timer.start(TimerMode::Repeated, Duration::from_millis(200), move
 });
 
 assert!(state.borrow().timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(10);
+i_slint_backend_testing::mock_elapsed_time(10);
 assert!(state.borrow().timer.running());
 assert_eq!(state.borrow().variable1, 0);
-i_slint_core::tests::slint_mock_elapsed_time(200);
+i_slint_backend_testing::mock_elapsed_time(200);
 assert_eq!(state.borrow().variable1, 1); // fired
 assert!(state.borrow().timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(180);
+i_slint_backend_testing::mock_elapsed_time(180);
 assert_eq!(state.borrow().variable1, 1);
 assert!(state.borrow().timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(30);
+i_slint_backend_testing::mock_elapsed_time(30);
 assert_eq!(state.borrow().variable1, 2); // fired
 assert!(state.borrow().timer.running());
 // now the timer interval should be 500
-i_slint_core::tests::slint_mock_elapsed_time(480);
+i_slint_backend_testing::mock_elapsed_time(480);
 assert_eq!(state.borrow().variable1, 2);
 assert!(state.borrow().timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(30);
+i_slint_backend_testing::mock_elapsed_time(30);
 assert_eq!(state.borrow().variable1, 3); // fired
 assert!(state.borrow().timer.running());
 // now the timer interval should be 100
-i_slint_core::tests::slint_mock_elapsed_time(100);
+i_slint_backend_testing::mock_elapsed_time(100);
 assert_eq!(state.borrow().variable1, 4); // fired
 assert!(state.borrow().timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(100);
+i_slint_backend_testing::mock_elapsed_time(100);
 assert_eq!(state.borrow().variable1, 5); // fired
 assert!(state.borrow().timer.running());
 ```
@@ -1035,11 +1035,11 @@ sooner_timer.start(TimerMode::SingleShot, Duration::from_millis(100), {
 }});
 
 assert_eq!(later_timer_expiration_count.get(), 0);
-i_slint_core::tests::slint_mock_elapsed_time(110);
+i_slint_backend_testing::mock_elapsed_time(110);
 assert_eq!(later_timer_expiration_count.get(), 0);
-i_slint_core::tests::slint_mock_elapsed_time(400);
+i_slint_backend_testing::mock_elapsed_time(400);
 assert_eq!(later_timer_expiration_count.get(), 0);
-i_slint_core::tests::slint_mock_elapsed_time(800);
+i_slint_backend_testing::mock_elapsed_time(800);
 assert_eq!(later_timer_expiration_count.get(), 1);
 ```
  */
@@ -1077,7 +1077,7 @@ sooner_timer.start(TimerMode::SingleShot, Duration::from_millis(100), {
 }});
 
 assert_eq!(later_timer_expiration_count.get(), 0);
-i_slint_core::tests::slint_mock_elapsed_time(120);
+i_slint_backend_testing::mock_elapsed_time(120);
 assert_eq!(later_timer_expiration_count.get(), 1);
 ```
  */
@@ -1105,7 +1105,7 @@ destructive_timer.borrow().as_ref().unwrap().start(TimerMode::Repeated, Duration
 });
 
 drop(destructive_timer);
-i_slint_core::tests::slint_mock_elapsed_time(120);
+i_slint_backend_testing::mock_elapsed_time(120);
 ```
  */
 #[cfg(doctest)]
@@ -1139,14 +1139,14 @@ sooner_timer.start(TimerMode::SingleShot, Duration::from_millis(100), {
 
 assert_eq!(later_timer_expiration_count.get(), 0);
 assert!(later_timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(110);
+i_slint_backend_testing::mock_elapsed_time(110);
 assert_eq!(later_timer_expiration_count.get(), 0);
 assert!(!later_timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(800);
+i_slint_backend_testing::mock_elapsed_time(800);
 assert_eq!(later_timer_expiration_count.get(), 0);
 assert!(!later_timer.running());
-i_slint_core::tests::slint_mock_elapsed_time(800);
-i_slint_core::tests::slint_mock_elapsed_time(800);
+i_slint_backend_testing::mock_elapsed_time(800);
+i_slint_backend_testing::mock_elapsed_time(800);
 assert_eq!(later_timer_expiration_count.get(), 0);
 ```
  */
@@ -1191,14 +1191,14 @@ std::thread::spawn(move || {
     slint::Timer::single_shot(std::time::Duration::from_millis(100), move || {
             CALL1_COUNT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     });
-    i_slint_core::tests::slint_mock_elapsed_time(50);
+    i_slint_backend_testing::mock_elapsed_time(50);
 
     assert_eq!(CALL1_COUNT.load(std::sync::atomic::Ordering::SeqCst), 0);
     assert_eq!(CALL2_COUNT.load(std::sync::atomic::Ordering::SeqCst), 0);
-    i_slint_core::tests::slint_mock_elapsed_time(60);
+    i_slint_backend_testing::mock_elapsed_time(60);
     assert_eq!(CALL1_COUNT.load(std::sync::atomic::Ordering::SeqCst), 1);
     assert_eq!(CALL2_COUNT.load(std::sync::atomic::Ordering::SeqCst), 1);
-    i_slint_core::tests::slint_mock_elapsed_time(60);
+    i_slint_backend_testing::mock_elapsed_time(60);
 }).join().unwrap();
 assert_eq!(DROP_COUNT.load(std::sync::atomic::Ordering::SeqCst), 1);
 assert_eq!(CALL1_COUNT.load(std::sync::atomic::Ordering::SeqCst), 1);

@@ -177,6 +177,24 @@ test("loadSource", () => {
     ]);
 });
 
+test("non-windowed components have no `window` property", () => {
+    const source = `
+        export component Win inherits Window {
+            in-out property <string> name: "world";
+        }
+        export component Tray inherits SystemTrayIcon {
+            callback do-something();
+        }
+    `;
+    const mod = loadSource(source, "api.spec.ts") as any;
+
+    const win = new mod.Win();
+    const tray = new mod.Tray();
+
+    expect("window" in win).toBe(true);
+    expect("window" in tray).toBe(false);
+});
+
 test("loadSource constructor parameters", () => {
     const source = `export component Test {
         callback say_hello();

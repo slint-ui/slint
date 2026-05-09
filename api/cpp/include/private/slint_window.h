@@ -118,16 +118,6 @@ public:
         slint_windowrc_set_const_scale_factor(&inner, value);
     }
 
-    cbindgen_private::ColorScheme color_scheme() const
-    {
-        return slint_windowrc_color_scheme(&inner);
-    }
-    Color accent_color() const
-    {
-        Color col;
-        slint_windowrc_accent_color(&inner, &col);
-        return col;
-    }
     bool supports_native_menu_bar() const
     {
         return slint_windowrc_supports_native_menu_bar(&inner);
@@ -564,7 +554,7 @@ public:
     {
         private_api::assert_main_thread();
         inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Pressed({ pos.x, pos.y }, button, 0, false));
+                slint::cbindgen_private::MouseEvent::Pressed({ pos.x, pos.y }, button, 0, 0));
     }
     /// Dispatches a pointer or mouse release event to the scene.
     ///
@@ -577,7 +567,7 @@ public:
     {
         private_api::assert_main_thread();
         inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Released({ pos.x, pos.y }, button, 0, false));
+                slint::cbindgen_private::MouseEvent::Released({ pos.x, pos.y }, button, 0, 0));
     }
     /// Dispatches a pointer exit event to the scene.
     ///
@@ -601,7 +591,7 @@ public:
     {
         private_api::assert_main_thread();
         inner.dispatch_pointer_event(
-                slint::cbindgen_private::MouseEvent::Moved({ pos.x, pos.y }, false));
+                slint::cbindgen_private::MouseEvent::Moved({ pos.x, pos.y }, 0));
     }
 
     /// Dispatches a scroll (or wheel) event to the scene.

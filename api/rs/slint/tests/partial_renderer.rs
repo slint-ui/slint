@@ -753,8 +753,10 @@ fn nowrap_text_change_doesnt_change_height() {
 
 #[test]
 fn create_item_tree_during_rendering() {
-    // This test has a `init` callback which will cause item tree to be changed during rendeiring,
-    // between the compute dirty region and the actual rendering.
+    // This test has `init` callbacks that cascade: cond1's init sets cond2=true,
+    // cond2-red's init sets cond3=true. The ensure_tree_instantiated loop
+    // materializes all three levels before rendering, so every rectangle
+    // lands in the first draw's dirty region.
     slint::slint! {
         export component Ui inherits Window {
             in property <bool> cond1: false;
@@ -808,16 +810,17 @@ fn create_item_tree_during_rendering() {
     ui.set_cond1(true);
 
     assert!(window.draw_if_needed(|renderer| {
-        do_test_render_region(renderer, 10, 15, 22, 25);
+        // All three cascaded conditionals are instantiated before rendering:
+        // cond3's rect is at y=5 (foo), so the region starts at y=5.
+        do_test_render_region(renderer, 10, 5, 22, 25);
     }));
-    // FIXME: in this case, there is nothing done to trigger any redraw. Ideally this call shouldn't be necessary.
-    assert!(!window.draw_if_needed(|_| ()));
-    // So therefore force a redraw
+
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
 
     ui.set_foo(4.0);
 
     assert!(window.draw_if_needed(|renderer| {
-        do_test_render_region(renderer, 10, 4, 22, 25);
+        do_test_render_region(renderer, 12, 4, 22, 25);
     }));
 
     assert!(!window.draw_if_needed(|_| { unreachable!() }));
@@ -825,6 +828,55 @@ fn create_item_tree_during_rendering() {
     ui.set_foo(3.0);
     assert!(window.draw_if_needed(|renderer| {
         do_test_render_region(renderer, 12, 3, 22, 24);
+    }));
+}
+
+#[test]
+fn init_property_read_does_not_trigger_redraw() {
+    slint::slint! {
+        export component Ui inherits Window {
+            width: 100px;
+            height: 100px;
+
+            in property <bool> cond: false;
+            in property <length> unrelated: 10px;
+            property <length> stash;
+
+            if cond: Rectangle {
+                x: 5px;
+                y: 5px;
+                width: 20px;
+                height: 20px;
+                background: red;
+                // The init callback reads `unrelated`.  That read must NOT
+                // register as a dependency of the redraw tracker.
+                init => { stash = unrelated; }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(100, 100));
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 100, 100);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // Activate the conditional — the rectangle appears and init runs.
+    ui.set_cond(true);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 5, 5, 25, 25);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // Change the property that the init callback read.
+    // This must NOT trigger a redraw because init reads should be untracked.
+    ui.set_unrelated(42.0);
+    assert!(!window.draw_if_needed(|_| {
+        unreachable!("changing a property only read by init must not trigger a redraw")
     }));
 }
 
@@ -1139,4 +1191,62 @@ fn partial_rendering_nested_scales() {
             );
         }
     }
+}
+
+/// Regression test for https://github.com/slint-ui/slint/issues/11431.
+///
+/// A cached Layer (`cache-rendering-hint: true`) that starts zero-sized must
+/// re-render when its size later becomes non-zero. Without tracking the
+/// bounds-closure's dependencies on the zero-size path, the cache stores
+/// `None` with an empty dependency tracker and never reruns, so the layer
+/// stays invisible even after its size grows.
+#[test]
+fn layer_visible_after_becoming_non_zero_sized() {
+    slint::slint! {
+        export component Ui inherits Window {
+            width: 32px;
+            height: 32px;
+            background: white;
+            in-out property <length> content-height: 0px;
+            Rectangle {
+                cache-rendering-hint: true;
+                x: 4px;
+                y: 4px;
+                width: 24px;
+                height: root.content-height;
+                background: red;
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(32, 32).into());
+    ui.show().unwrap();
+
+    // Frame 1: the layer is 0-height, so the cache update closure returns
+    // None. The fix re-invokes the bounds closure with tracking so the
+    // dependency on `content-height` gets registered.
+    assert!(window.draw_if_needed());
+
+    ui.set_content_height(24.);
+
+    // Frame 2: the tracked dependency is now dirty, the layer cache reruns,
+    // and the red rectangle is drawn. Without the fix the cache stays on
+    // the stale None and the pixel below remains white.
+    assert!(window.draw_if_needed());
+
+    let pixels = window.render_buffer.pixels.borrow();
+    let buf = pixels.as_ref().expect("render buffer should contain pixels");
+    let data = buf.as_bytes();
+    let offset = ((16 * 32 + 16) * 4) as usize;
+    let (r, g, b) = (data[offset], data[offset + 1], data[offset + 2]);
+    assert!(
+        r > 200 && g < 50 && b < 50,
+        "Layer pixel at (16,16) should be red after content-height grew, got rgb=({r},{g},{b})"
+    );
 }

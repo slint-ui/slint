@@ -1037,6 +1037,7 @@ impl LookupObject for StringExpression<'_> {
             .or_else(|| f("to-uppercase", member_function(BuiltinFunction::StringToUppercase)))
     }
 }
+
 struct ColorExpression<'a>(&'a Expression);
 impl LookupObject for ColorExpression<'_> {
     fn for_each_entry<R>(

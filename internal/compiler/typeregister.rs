@@ -330,6 +330,16 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
                 Type::Enumeration(BUILTIN.with(|e| e.enums.AccessibleRole.clone())),
                 PropertyVisibility::Constexpr,
             ),
+            (
+                "accessible-orientation",
+                Type::Enumeration(BUILTIN.with(|e| e.enums.Orientation.clone())),
+                PropertyVisibility::Input,
+            ),
+            (
+                "accessible-live",
+                Type::Enumeration(BUILTIN.with(|e| e.enums.AccessibleLive.clone())),
+                PropertyVisibility::Input,
+            ),
         ]))
         .chain(std::iter::once(("init", noarg_callback_type(), PropertyVisibility::Private)))
 }
@@ -464,6 +474,7 @@ impl TypeRegister {
         register.insert_type(Type::Rem);
         register.insert_type(Type::StyledText);
         register.insert_type(Type::Keys);
+        register.insert_type(Type::DataTransfer);
         register.types.insert("Point".into(), logical_point_type().into());
         register.types.insert("Size".into(), logical_size_type().into());
 
@@ -626,9 +637,10 @@ impl TypeRegister {
         register.elements.remove("ComponentContainer").unwrap();
         register.types.remove("component-factory").unwrap();
 
+        register.types.remove("data-transfer").unwrap();
         register.elements.remove("DragArea").unwrap();
         register.elements.remove("DropArea").unwrap();
-        register.types.remove("DropEvent").unwrap(); // Also removed in xtask/src/slintdocs.rs
+        register.types.remove("DropEvent").unwrap(); // Also removed in docs/slint-doc-generator
 
         register.elements.remove("FlexboxLayout").unwrap();
         register.types.remove("FlexboxLayoutDirection").unwrap();
@@ -795,6 +807,7 @@ pub mod builtin_structs {
         ($pub_type:ident, Image) => { Type::Image };
         ($pub_type:ident, Coord) => { Type::LogicalLength };
         ($pub_type:ident, Keys) => { Type::Keys };
+        ($pub_type:ident, DataTransfer) => { Type::DataTransfer };
         ($pub_type:ident, LogicalPosition) => { Type::Struct(logical_point_type()) };
         ($pub_type:ident, LogicalSize) => { Type::Struct(logical_size_type()) };
         // builtin structs

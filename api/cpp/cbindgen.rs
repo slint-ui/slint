@@ -28,8 +28,20 @@ fn enums(path: &Path) -> anyhow::Result<()> {
             writeln!(enums_priv, "using slint::PointerEventButton;")?;
             &mut enums_pub
         }};
+        (PointerEventKind) => {{
+            writeln!(enums_priv, "using slint::PointerEventKind;")?;
+            &mut enums_pub
+        }};
         (AccessibleRole) => {{
             writeln!(enums_priv, "using slint::testing::AccessibleRole;")?;
+            &mut enums_pub
+        }};
+        (Orientation) => {{
+            writeln!(enums_priv, "using slint::Orientation;")?;
+            &mut enums_pub
+        }};
+        (AccessibleLive) => {{
+            writeln!(enums_priv, "using slint::AccessibleLive;")?;
             &mut enums_pub
         }};
         ($_:ident) => {
@@ -109,6 +121,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     );
     writeln!(structs_pub, "#pragma once")?;
     writeln!(structs_pub, "// This file is auto-generated from {}", file!())?;
+    writeln!(structs_pub, "#include \"private/slint_enums.h\"")?;
     writeln!(structs_pub, "namespace slint::language {{")?;
 
     let mut structs_priv = BufWriter::new(
@@ -121,6 +134,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_priv, "#include \"private/slint_enums_internal.h\"")?;
     writeln!(structs_priv, "#include \"private/slint_point.h\"")?;
     writeln!(structs_priv, "#include \"private/slint_image.h\"")?;
+    writeln!(structs_priv, "#include \"private/slint_data_transfer.h\"")?;
     writeln!(structs_priv, "#include \"private/slint_keys.h\"")?;
     writeln!(structs_priv, "namespace slint::cbindgen_private {{")?;
     writeln!(structs_priv, "enum class KeyEventType : uint8_t;")?;
@@ -320,6 +334,7 @@ fn gen_corelib(
         "Layer",
         "ContextMenu",
         "MenuItem",
+        "SystemTrayIcon",
     ];
 
     config.export.include = [
@@ -348,6 +363,7 @@ fn gen_corelib(
         "Rect",
         "SortOrder",
         "BitmapFont",
+        "DataTransferOpaque",
     ]
     .iter()
     .chain(items.iter())
@@ -379,6 +395,7 @@ fn gen_corelib(
         "PathData",
         "PathElement",
         "Brush",
+        "DataTransfer",
         "slint_new_path_elements",
         "slint_new_path_events",
         "Property",
@@ -535,12 +552,16 @@ fn gen_corelib(
             "",
         ),
         (
+            vec!["DataTransferOpaque"],
+            "slint_data_transfer_internal.h",
+            "",
+        ),
+        (
             vec!["MouseEvent", "TouchPhase"],
             "slint_events_internal.h",
             "#include \"private/slint_point.h\"
             #include \"private/slint_builtin_structs_internal.h\"
             namespace slint::cbindgen_private {
-                struct PointerEvent;
                 struct Rect;
                 using LogicalRect = Rect;
                 using LogicalPoint = Point2D<float>;
@@ -568,6 +589,7 @@ fn gen_corelib(
             "slint_visit_item_tree",
             "slint_windowrc_drop",
             "slint_windowrc_clone",
+            "slint_windowrc_ensure_tree_instantiated",
             "slint_windowrc_show",
             "slint_windowrc_hide",
             "slint_windowrc_is_visible",
@@ -589,8 +611,6 @@ fn gen_corelib(
             "slint_windowrc_size",
             "slint_windowrc_set_logical_size",
             "slint_windowrc_set_physical_size",
-            "slint_windowrc_color_scheme",
-            "slint_windowrc_accent_color",
             "slint_windowrc_supports_native_menu_bar",
             "slint_windowrc_setup_native_menu_bar",
             "slint_windowrc_setup_menu_bar_shortcuts",
@@ -652,6 +672,7 @@ fn gen_corelib(
             .with_src(crate_dir.join("graphics/brush.rs"))
             .with_src(crate_dir.join("graphics/image.rs"))
             .with_src(crate_dir.join("graphics/image/cache.rs"))
+            .with_src(crate_dir.join("data_transfer/ffi.rs"))
             .with_src(crate_dir.join("animations.rs"))
             .with_src(crate_dir.join("input.rs"))
             .with_src(crate_dir.join("item_rendering.rs"))
@@ -757,6 +778,14 @@ fn gen_corelib(
         .body
         .insert("Flickable".to_owned(), "    inline Flickable(); inline ~Flickable();".into());
     config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
+    config.export.body.insert(
+        "SystemTrayIcon".to_owned(),
+        "    inline SystemTrayIcon(); inline ~SystemTrayIcon();".into(),
+    );
+    config
+        .export
+        .pre_body
+        .insert("SystemTrayIconDataBox".to_owned(), "struct SystemTrayIconData;".into());
 
     cbindgen::Builder::new()
         .with_config(config)
@@ -778,6 +807,8 @@ fn gen_corelib(
         .with_include("private/slint_timer.h")
         .with_include("private/slint_builtin_structs_internal.h")
         .with_include("private/slint_events_internal.h")
+        .with_include("private/slint_data_transfer_internal.h")
+        .with_include("private/slint_data_transfer.h")
         .with_after_include(
             r"
 namespace slint {

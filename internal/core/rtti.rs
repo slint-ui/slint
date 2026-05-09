@@ -59,6 +59,7 @@ macro_rules! declare_ValueType_2 {
             crate::model::ModelRc<crate::items::MenuEntry>,
             crate::styled_text::StyledText,
             crate::input::Keys,
+            crate::data_transfer::DataTransfer,
             $(crate::items::$Name,)*
         ];
     };
@@ -223,9 +224,20 @@ where
     fn prepare_for_two_way_binding(&self, item: Pin<&Item>) -> Pin<Rc<Property<Value>>> {
         if let Some(self_) =
             (self as &dyn core::any::Any).downcast_ref::<FieldOffset<Item, Property<Value>>>()
-            && let Some(p) = Property::check_common_property(self_.apply_pin(item))
         {
-            return p;
+            let p = self_.apply_pin(item);
+            if let Some(cp) = Property::check_common_property(p) {
+                return cp;
+            }
+            // link_two_way sets a TwoWayBinding on p, which
+            // check_common_property can find on subsequent calls.
+            // Only safe when p has no binding yet (a pre-existing
+            // binding's intercept_set_binding may not accept this).
+            if !p.has_binding() {
+                let anchor = Rc::pin(Property::<Value>::default());
+                Property::link_two_way(anchor.as_ref(), p);
+                return Property::check_common_property(p).unwrap();
+            }
         }
 
         let p1 = self.apply_pin(item);
@@ -236,6 +248,7 @@ where
             p1,
             |v| v.clone().try_into().unwrap_or_default(),
             |v, v2| *v = v2.clone().try_into().unwrap_or_default(),
+            true,
         );
         shared_property
     }
@@ -256,6 +269,7 @@ where
                     prop1.as_ref(),
                     move |value| m1.map_to(value),
                     move |value, value2| m2.map_from(value, value2),
+                    true,
                 );
             }
             None => {
@@ -264,6 +278,7 @@ where
                     prop1.as_ref(),
                     |value| value.clone(),
                     |value, value2| *value = value2.clone(),
+                    true,
                 );
             }
         }

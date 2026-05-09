@@ -6,7 +6,12 @@
 import { test, expect, afterEach } from "vitest";
 import * as http from "node:http";
 
-import { runEventLoop, quitEventLoop, private_api } from "../dist/index.js";
+import {
+    loadSource,
+    runEventLoop,
+    quitEventLoop,
+    private_api,
+} from "../dist/index.js";
 
 afterEach(() => {
     quitEventLoop();
@@ -53,6 +58,47 @@ test.sequential("merged event loops with networking", async () => {
     });
 
     expect(received_response).toBe("Hello World");
+});
+
+test.sequential("event loop restart", async () => {
+    let first_run = false;
+    let second_run = false;
+
+    await runEventLoop(() => {
+        setTimeout(() => {
+            first_run = true;
+            quitEventLoop();
+        }, 2);
+    });
+    expect(first_run).toBe(true);
+
+    await runEventLoop(() => {
+        setTimeout(() => {
+            second_run = true;
+            quitEventLoop();
+        }, 2);
+    });
+    expect(second_run).toBe(true);
+});
+
+test.sequential("set property from JS timer mid-run", async () => {
+    const ui = loadSource(
+        `export component App inherits Window {
+            in-out property <string> label: "initial";
+        }`,
+        "test.slint",
+    ) as any;
+    const app = new ui.App();
+    app.show();
+
+    await runEventLoop(() => {
+        setTimeout(() => {
+            app.label = "updated";
+            quitEventLoop();
+        }, 2);
+    });
+    expect(app.label).toBe("updated");
+    app.hide();
 });
 
 test.sequential("quit event loop on last window closed with callback", async () => {

@@ -8,7 +8,7 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 
-use crate::diagnostics::{BuildDiagnostics, Spanned};
+use crate::diagnostics::{BuildDiagnostics, Diagnostic, Spanned};
 use crate::expression_tree::Callable;
 use crate::object_tree::{self, Document, ExportedName, Exports};
 use crate::parser::{NodeOrToken, SyntaxKind, SyntaxToken, syntax_nodes};
@@ -1495,12 +1495,26 @@ impl TypeLoader {
         } else {
             None
         };
-        state
-            .tl
-            .all_documents
-            .docs
-            .insert(path.clone(), (LoadedDocument::Document(doc), parse_errors));
+        Self::register_document(state, doc, path.clone(), parse_errors);
         (path, raw_type_loader)
+    }
+
+    fn register_document(
+        state: &mut BorrowedTypeLoader<'_>,
+        doc: Document,
+        path: PathBuf,
+        parse_errors: Vec<Diagnostic>,
+    ) {
+        for dep in &doc.imports {
+            state
+                .tl
+                .all_documents
+                .dependencies
+                .entry(Path::new(&dep.file).into())
+                .or_default()
+                .insert(path.clone());
+        }
+        state.tl.all_documents.docs.insert(path, (LoadedDocument::Document(doc), parse_errors));
     }
 
     async fn load_file_impl<'a>(
@@ -1525,16 +1539,7 @@ impl TypeLoader {
         if !state.diag.has_errors() {
             crate::passes::run_import_passes(&doc, state.tl, state.diag);
         }
-        for dep in &doc.imports {
-            state
-                .tl
-                .all_documents
-                .dependencies
-                .entry(Path::new(&dep.file).into())
-                .or_default()
-                .insert(path.clone());
-        }
-        state.tl.all_documents.docs.insert(path, (LoadedDocument::Document(doc), parse_errors));
+        Self::register_document(state, doc, path, parse_errors);
     }
 
     async fn load_doc_no_pass<'a>(
@@ -1740,6 +1745,39 @@ impl TypeLoader {
     /// Return an iterator over all the loaded file path
     pub fn all_files(&self) -> impl Iterator<Item = &PathBuf> {
         self.all_documents.docs.keys()
+    }
+
+    /// Returns all file paths whose on-disk changes can affect the current document graph.
+    ///
+    /// This includes loaded documents and unresolved import targets that are kept in the
+    /// dependency graph so newly created files can invalidate their dependents.
+    pub fn all_files_to_watch(&self) -> HashSet<PathBuf> {
+        // Note: This only works if the full set of passes have run (e.g. in load_root_file, but not
+        // in load_file).
+        //
+        // TODO: the LSP will only run the import passes, which do not yet
+        // detect embedded file resources, so we won't know about them until we
+        // run the full pass pipeline (e.g. in the editor binary).
+        fn resource_paths(document: &LoadedDocument) -> Vec<PathBuf> {
+            match document {
+                LoadedDocument::Document(document) => document
+                    .embedded_file_resources
+                    .borrow()
+                    .iter()
+                    .flat_map(|resource| resource.path.as_ref().map(|path| PathBuf::from(&**path)))
+                    .collect(),
+                LoadedDocument::Invalidated(_document) => vec![],
+            }
+        }
+
+        self.all_documents
+            .docs
+            .iter()
+            .flat_map(|(path, (document, _diagnostics))| {
+                std::iter::once(path.clone()).chain(resource_paths(document))
+            })
+            .chain(self.all_documents.dependencies.keys().cloned())
+            .collect()
     }
 
     /// Returns an iterator over all the loaded documents
@@ -2033,6 +2071,119 @@ component Foo { XX {} }
     assert_eq!(
         diags,
         &["HELLO:3: Cannot find requested import \"error.slint\" in the include search path"]
+    );
+}
+
+#[test]
+fn test_load_file_watches_missing_imports() {
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.embed_resources = crate::EmbedResourcesKind::ListAllResources;
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    let main_path = Path::new("/tmp/main.slint");
+
+    spin_on::spin_on(
+        loader.load_file(
+            main_path,
+            main_path,
+            r#"
+/* ... */
+import { XX } from "missing/dependency.slint";
+component Foo { XX {} }
+"#
+            .into(),
+            false,
+            &mut build_diagnostics,
+        ),
+    );
+
+    assert!(build_diagnostics.has_errors());
+
+    let watch_files = loader.all_files_to_watch();
+    assert!(watch_files.contains(&PathBuf::from("/tmp/main.slint")));
+    assert!(watch_files.contains(&PathBuf::from("/tmp/missing/dependency.slint")));
+}
+
+#[test]
+fn test_load_root_file_tracks_missing_imports() {
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.embed_resources = crate::EmbedResourcesKind::ListAllResources;
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let main_path = std::env::temp_dir().join("main.slint");
+    let missing_path = main_path.with_file_name("missing.slint");
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    spin_on::spin_on(
+        loader.load_root_file(
+            &main_path,
+            &main_path,
+            r#"
+import { Missing } from "missing.slint";
+export component Main inherits Window {
+    Missing { }
+}
+"#
+            .into(),
+            false,
+            &mut build_diagnostics,
+        ),
+    );
+
+    assert!(build_diagnostics.has_errors());
+    assert!(
+        loader.all_files_to_watch().contains(&main_path),
+        "watch paths: {:?}",
+        loader.all_files_to_watch()
+    );
+    assert!(
+        loader.all_files_to_watch().contains(&missing_path),
+        "watch paths: {:?}",
+        loader.all_files_to_watch()
+    );
+}
+
+#[test]
+fn test_load_root_file_tracks_missing_resources() {
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    compiler_config.embed_resources = crate::EmbedResourcesKind::ListAllResources;
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let main_path = std::env::temp_dir().join("main.slint");
+    let resource_path = main_path.with_file_name("icon.svg");
+
+    let mut loader = TypeLoader::new(compiler_config, &mut build_diagnostics);
+    spin_on::spin_on(
+        loader.load_root_file(
+            &main_path,
+            &main_path,
+            r#"
+export component Main inherits Window {
+    Image {
+        source: @image-url("icon.svg");
+    }
+}
+"#
+            .into(),
+            false,
+            &mut build_diagnostics,
+        ),
+    );
+
+    // The image is not embedded, so it doesn't cause an error
+    assert!(!build_diagnostics.has_errors());
+    assert!(
+        loader.all_files_to_watch().contains(&main_path),
+        "watch paths: {:?}",
+        loader.all_files_to_watch()
+    );
+    assert!(
+        loader.all_files_to_watch().contains(&resource_path),
+        "watch paths: {:?}",
+        loader.all_files_to_watch()
     );
 }
 

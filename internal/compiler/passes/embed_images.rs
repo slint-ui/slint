@@ -96,15 +96,23 @@ fn embed_images_from_expression(
         && let ImageReference::AbsolutePath(path) = resource_ref
     {
         if path.starts_with("data:") {
-            let image_ref = embed_data_uri(
-                global_embedded_resources,
-                path,
+            // Data URIs have no external file to track, so skip for
+            // Nothing (interpreter) and ListAllResources (dependency tracking).
+            if !matches!(
                 embed_files,
-                scale_factor,
-                diag,
-                source_location,
-            );
-            *resource_ref = image_ref;
+                EmbedResourcesKind::Nothing | EmbedResourcesKind::ListAllResources
+            ) {
+                let image_ref = embed_data_uri(
+                    global_embedded_resources,
+                    path_to_id,
+                    path,
+                    embed_files,
+                    scale_factor,
+                    diag,
+                    source_location,
+                );
+                *resource_ref = image_ref;
+            }
             return;
         }
 
@@ -467,23 +475,29 @@ fn load_image(
     load_image_from_bytes(&data, extension, scale_factor)
 }
 
-#[cfg(feature = "software-renderer")]
-fn load_image_from_data_uri(
-    decoded_data: &[u8],
-    extension: &str,
-    scale_factor: f32,
-) -> image::ImageResult<(image::RgbaImage, SourceFormat, Size)> {
-    load_image_from_bytes(decoded_data, Some(extension), scale_factor)
-}
-
 fn embed_data_uri(
     global_embedded_resources: &RefCell<TiVec<EmbeddedResourcesIdx, EmbeddedResources>>,
+    path_to_id: &mut HashMap<SmolStr, EmbeddedResourcesIdx>,
     data_uri: &str,
     _embed_files: EmbedResourcesKind,
     _scale_factor: f32,
     diag: &mut BuildDiagnostics,
     source_location: &Option<crate::diagnostics::SourceLocation>,
 ) -> ImageReference {
+    if let Some(&resource_id) = path_to_id.get(data_uri) {
+        let resources = global_embedded_resources.borrow();
+        return match &resources[resource_id].kind {
+            #[cfg(feature = "software-renderer")]
+            EmbeddedResourcesKind::TextureData { .. } => {
+                ImageReference::EmbeddedTexture { resource_id }
+            }
+            EmbeddedResourcesKind::DataUriPayload(_, ext) => {
+                ImageReference::EmbeddedData { resource_id, extension: ext.clone() }
+            }
+            _ => ImageReference::None,
+        };
+    }
+
     let (decoded_data, extension) = match crate::data_uri::decode_data_uri(data_uri) {
         Ok(result) => result,
         Err(e) => {
@@ -493,22 +507,23 @@ fn embed_data_uri(
     };
 
     let mut resources = global_embedded_resources.borrow_mut();
+    let mut push = |kind| {
+        let id = resources.push_and_get_key(EmbeddedResources { path: None, kind });
+        path_to_id.insert(data_uri.into(), id);
+        id
+    };
 
     #[cfg(feature = "software-renderer")]
     if _embed_files == EmbedResourcesKind::EmbedTextures {
-        let data_buffer = decoded_data.clone();
-        match load_image_from_data_uri(&data_buffer, &extension, _scale_factor)
+        match load_image_from_bytes(&decoded_data, Some(&extension), _scale_factor)
             .map_err(|e| e.to_string())
         {
             Ok((img, source_format, original_size)) => {
-                let resource_id = resources.push_and_get_key(EmbeddedResources {
-                    path: None,
-                    kind: EmbeddedResourcesKind::TextureData(generate_texture(
-                        img,
-                        source_format,
-                        original_size,
-                    )),
-                });
+                let resource_id = push(EmbeddedResourcesKind::TextureData(generate_texture(
+                    img,
+                    source_format,
+                    original_size,
+                )));
                 return ImageReference::EmbeddedTexture { resource_id };
             }
             Err(err) => {
@@ -518,10 +533,7 @@ fn embed_data_uri(
         }
     }
 
-    let resource_id = resources.push_and_get_key(EmbeddedResources {
-        path: None,
-        kind: EmbeddedResourcesKind::DataUriPayload(decoded_data, extension.clone()),
-    });
+    let resource_id = push(EmbeddedResourcesKind::DataUriPayload(decoded_data, extension.clone()));
 
     ImageReference::EmbeddedData { resource_id, extension }
 }

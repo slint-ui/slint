@@ -111,36 +111,41 @@ Once enabled, an AI coding assistant can connect to the MCP endpoint to inspect 
 
 ### Enabling the MCP Server
 
-**Important**: The MCP server is exposed through the **internal** crate `i-slint-backend-selector`, not the public `slint` crate. This internal crate does not follow semver and **must be pinned to the exact Slint version** using `=`. If the project uses `slint = "1.16.0"`, then the backend selector must use `version = "=1.16.0"`. A version mismatch will cause build failures.
-
-**Step 1**: Add the `i-slint-backend-selector` crate with the `mcp` feature to the project's `Cargo.toml`, pinned to the exact same version as the `slint` crate:
-
-```toml
-[dependencies]
-slint = "1.16.0"
-i-slint-backend-selector = { version = "=1.16.0", features = ["mcp"] }
-```
-
-If the project is part of a workspace that depends on Slint from a path (e.g. working within the Slint repo itself), use the workspace reference instead and enable the feature via `--features i-slint-backend-selector/mcp` on the cargo command line.
-
-**Step 2**: Build with `SLINT_EMIT_DEBUG_INFO=1` so that element IDs and source locations are preserved in the compiled output. Without this, elements will lack the debug metadata needed for meaningful introspection. Set `SLINT_MCP_PORT` to an available port when running:
+**Step 1**: Build with `SLINT_EMIT_DEBUG_INFO=1` so that element IDs and source locations are preserved in the compiled output. Without this, elements will lack the debug metadata needed for meaningful introspection. Set `SLINT_MCP_PORT` to an available port when running, and pass `--features slint/mcp` to enable the server:
 
 ```sh
-SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=9315 cargo run -p my-app
+SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=9315 cargo run -p my-app --features slint/mcp
 ```
 
-**Step 3**: Connect to the running application's MCP server at `http://localhost:9315/mcp` using Streamable HTTP transport and use the available tools to inspect and interact with the UI.
+Do not add `mcp` to the `[features]` section of your `Cargo.toml` — use the `--features` flag on the command line instead.
+
+**Step 2**: Connect to the running application's MCP server at `http://localhost:9315/mcp` using Streamable HTTP transport and use the available tools to inspect and interact with the UI.
+
+When scripting or verifying the server from the command line, use `curl` — it is the most reliable approach for raw JSON-RPC. Prefer `curl` over built-in HTTP fetch tools, which agents sometimes reach for but which are less predictable for this use case:
+
+```sh
+# Initialize (confirms the server is up and prints available tools)
+curl -s -X POST http://127.0.0.1:9315/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
+
+# List windows
+curl -s -X POST http://127.0.0.1:9315/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"list_windows","arguments":{}}}'
+
+# Take a screenshot (response contains a base64-encoded PNG in the "data" field)
+curl -s -X POST http://127.0.0.1:9315/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"take_screenshot","arguments":{"windowHandle":{"index":"1","generation":"1"}}}}'
+```
 
 ### Version Requirements
 
-The MCP server uses internal Slint APIs (`i-slint-backend-selector`), so the available features depend on the Slint version:
-
 | Slint Version | MCP Support |
 |---------------|-------------|
-| < 1.16.0 | Not available |
-| >= 1.16.0 | Full MCP server with `i-slint-backend-selector` `mcp` feature |
-
-The `i-slint-backend-selector` crate does not follow semver. It must be pinned to the exact Slint version with `=`. MCP features and tools may change between Slint releases without notice.
+| < 1.17.0 | Not available |
+| >= 1.17.0 | Enable via `--features slint/mcp` on the cargo command line |
 
 ### When to Suggest MCP
 

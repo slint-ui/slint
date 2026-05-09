@@ -21,6 +21,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(missing_docs)] // because documenting each property of items is redundant
 
 use crate::api::LogicalPosition;
+use crate::data_transfer::DataTransfer;
 use crate::graphics::{Brush, Color, FontRequest, Image};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
@@ -45,6 +46,7 @@ use core::cell::Cell;
 use core::num::NonZeroU32;
 use core::pin::Pin;
 use i_slint_core_macros::*;
+pub use system_tray::SystemTrayIcon;
 use vtable::*;
 
 mod component_container;
@@ -63,6 +65,7 @@ pub use drag_n_drop::*;
 mod path;
 #[cfg(feature = "path")]
 pub use path::*;
+pub mod system_tray;
 
 /// Alias for `&mut dyn ItemRenderer`. Required so cbindgen generates the ItemVTable
 /// despite the presence of trait object
@@ -1848,6 +1851,10 @@ declare_item_vtable! {
 
 declare_item_vtable! {
     fn slint_get_MenuItemVTable() -> MenuItemVTable for MenuItem
+}
+
+declare_item_vtable! {
+    fn slint_get_SystemTrayIconVTable() -> SystemTrayIconVTable for SystemTrayIcon
 }
 
 macro_rules! declare_enums {

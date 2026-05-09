@@ -21,8 +21,8 @@ use i_slint_core::item_tree::{
     ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeWeak, ParentItemTraversalMode,
 };
 use i_slint_core::items::{
-    self, ColorScheme, FillRule, ImageRendering, ItemRc, ItemRef, Layer, LineCap, LineJoin,
-    MouseCursor, Opacity, PointerEventButton, RenderingResult, TextWrap,
+    self, FillRule, ImageRendering, ItemRc, ItemRef, Layer, LineCap, LineJoin, MouseCursor,
+    Opacity, PointerEventButton, RenderingResult, TextWrap,
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
@@ -32,7 +32,7 @@ use i_slint_core::lengths::{
 use i_slint_core::platform::{PlatformError, WindowEvent};
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
 use i_slint_core::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
-use i_slint_core::{ImageInner, Property, SharedString};
+use i_slint_core::{ImageInner, SharedString};
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -42,7 +42,6 @@ use std::rc::{Rc, Weak};
 
 use crate::key_generated;
 use i_slint_core::renderer::Renderer;
-use std::cell::OnceCell;
 
 cpp! {{
     // Note: Do not include <QtWidgets> to avoid inclusion of gl.h (see #10989).
@@ -177,7 +176,7 @@ cpp! {{
             rust!(Slint_mousePressEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
-                rust_window.mouse_event(MouseEvent::Pressed{ position, button, click_count: 0, is_touch: false })
+                rust_window.mouse_event(MouseEvent::Pressed{ position, button, click_count: 0, touch_finger_id: 0 })
             });
         }
         void mouseReleaseEvent(QMouseEvent *event) override {
@@ -207,7 +206,7 @@ cpp! {{
             rust!(Slint_mouseReleaseEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
-                rust_window.mouse_event(MouseEvent::Released{ position, button, click_count: 0, is_touch: false })
+                rust_window.mouse_event(MouseEvent::Released{ position, button, click_count: 0, touch_finger_id: 0 })
             });
         }
         void mouseMoveEvent(QMouseEvent *event) override {
@@ -216,7 +215,7 @@ cpp! {{
                 return;
             rust!(Slint_mouseMoveEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
-                rust_window.mouse_event(MouseEvent::Moved{position, is_touch: false})
+                rust_window.mouse_event(MouseEvent::Moved{position, touch_finger_id: 0})
             });
         }
         void wheelEvent(QWheelEvent *event) override {
@@ -285,17 +284,6 @@ cpp! {{
                 bool active = isActiveWindow();
                 rust!(Slint_updateWindowActivation [rust_window: &QtWindow as "void*", active: bool as "bool"] {
                     rust_window.window.dispatch_event(WindowEvent::WindowActiveChanged(active));
-                });
-            } else if (event->type() == QEvent::PaletteChange || event->type() == QEvent::StyleChange) {
-                bool dark_color_scheme = qApp->palette().color(QPalette::Window).valueF() < 0.5;
-                rust!(Slint_updateWindowDarkColorScheme [rust_window: &QtWindow as "void*", dark_color_scheme: bool as "bool"] {
-                    if let Some(ds) = rust_window.color_scheme.get() {
-                        ds.as_ref().set(if dark_color_scheme {
-                            ColorScheme::Dark
-                        } else {
-                            ColorScheme::Light
-                        });
-                    }
                 });
             }
 
@@ -1806,10 +1794,10 @@ pub struct QtWindow {
 
     tree_structure_changed: RefCell<bool>,
 
-    color_scheme: OnceCell<Pin<Box<Property<ColorScheme>>>>,
-
     // Last icon image set on the window
     window_icon_cache_key: RefCell<Option<ImageCacheKey>>,
+
+    parent: Weak<QtWindow>,
 }
 
 impl Drop for QtWindow {
@@ -1823,7 +1811,7 @@ impl Drop for QtWindow {
 }
 
 impl QtWindow {
-    pub fn new() -> Rc<Self> {
+    pub fn new(parent: Weak<QtWindow>) -> Rc<Self> {
         let rc = Rc::new_cyclic(|self_weak| {
             let window_ptr = self_weak.clone().into_raw();
             let widget_ptr = cpp! {unsafe [window_ptr as "void*"] -> QWidgetPtr as "std::unique_ptr<QWidget, QWidgetDeleteLater>" {
@@ -1844,8 +1832,8 @@ impl QtWindow {
                 cache: Default::default(),
                 text_layout_cache: Default::default(),
                 tree_structure_changed: RefCell::new(false),
-                color_scheme: Default::default(),
                 window_icon_cache_key: Default::default(),
+                parent,
             }
         });
         let widget_ptr = rc.widget_ptr();
@@ -1898,7 +1886,7 @@ impl QtWindow {
             }
         });
 
-        // Update the accessibility tree (if the component tree has changed)
+        // Update the accessibility tree (if the component tree has changed).
         if self.tree_structure_changed.replace(false) {
             let widget_ptr = self.widget_ptr();
             cpp! { unsafe [widget_ptr as "QWidget*"] {
@@ -2044,7 +2032,12 @@ impl WindowAdapter for QtWindow {
         let widget_ptr = self.widget_ptr();
         let pos = qttypes::QPoint { x: physical_position.x as _, y: physical_position.y as _ };
         cpp! {unsafe [widget_ptr as "QWidget*", pos as "QPoint"] {
-            widget_ptr->move(pos);
+            const auto* parent = widget_ptr->parentWidget();
+            if (parent) {
+                widget_ptr->move(parent->mapToGlobal(QPoint(0,0)) + pos);
+            } else {
+                widget_ptr->move(pos);
+            }
         }};
     }
 
@@ -2220,6 +2213,10 @@ fn into_qsize(logical_size: i_slint_core::api::LogicalSize) -> qttypes::QSize {
 }
 
 impl WindowAdapterInternal for QtWindow {
+    fn get_parent(&self) -> Option<Rc<dyn WindowAdapter>> {
+        self.parent.clone().upgrade().map(|rc| rc as _)
+    }
+
     fn register_item_tree(&self, _: ItemTreeRefPin) {
         self.tree_structure_changed.replace(true);
     }
@@ -2233,7 +2230,7 @@ impl WindowAdapterInternal for QtWindow {
     }
 
     fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
-        let popup_window = QtWindow::new();
+        let popup_window = QtWindow::new(self.self_weak.clone());
         let popup_ptr = popup_window.widget_ptr();
         let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*", popup_ptr as "QWidget*"] {
@@ -2335,32 +2332,6 @@ impl WindowAdapterInternal for QtWindow {
                 }
             }};
         }
-    }
-
-    fn color_scheme(&self) -> ColorScheme {
-        let ds = self.color_scheme.get_or_init(|| {
-            Box::pin(Property::new(
-                if cpp! {unsafe [] -> bool as "bool" {
-                    return qApp->palette().color(QPalette::Window).valueF() < 0.5;
-                }} {
-                    ColorScheme::Dark
-                } else {
-                    ColorScheme::Light
-                },
-            ))
-        });
-        ds.as_ref().get()
-    }
-
-    fn accent_color(&self) -> i_slint_core::graphics::Color {
-        let argb = cpp! {unsafe [] -> u32 as "QRgb" {
-            #if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
-                return qApp->palette().color(QPalette::Accent).rgba();
-            #else
-                return qApp->palette().color(QPalette::Highlight).rgba();
-            #endif
-        }};
-        i_slint_core::graphics::Color::from_argb_encoded(argb)
     }
 
     fn bring_to_front(&self) -> Result<(), i_slint_core::platform::PlatformError> {

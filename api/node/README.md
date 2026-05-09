@@ -18,6 +18,10 @@ Slint-node is still in the early stages of development: APIs will change and imp
 The [Slint Language Documentation](../slint) covers the Slint UI description language
 in detail.
 
+## API documentation (local build)
+
+Published API docs for this binding live under [slint.dev …/docs/node/](https://slint.dev/latest/docs/node/). See [docs/building.md](../../docs/building.md#nodejs-api-docs) and [docs/nodejs/README.md](../../docs/nodejs/README.md).
+
 ## Installing Slint
 
 Slint is available via NPM, so you can install by running the following command:

@@ -10,3 +10,5 @@ licenses/output
 target/
 Cargo.lock
 docs/src/assets/generated
+test-results/
+playwright-report/

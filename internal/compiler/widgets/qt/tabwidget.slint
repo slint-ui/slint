@@ -47,6 +47,7 @@ component QtTabBarBase inherits TabBarBase {
 }
 
 export component TabBarHorizontalImpl inherits QtTabBarBase{
+    accessible-orientation: Orientation.horizontal;
     Rectangle {
         // The breeze style draws outside of the tab bar, which is clip by default with Qt
         clip: true;
@@ -61,6 +62,7 @@ export component TabBarHorizontalImpl inherits QtTabBarBase{
 }
 
 export component TabBarVerticalImpl inherits QtTabBarBase{
+    accessible-orientation: Orientation.vertical;
     Rectangle {
         // The breeze style draws outside of the tab bar, which is clip by default with Qt
         clip: true;

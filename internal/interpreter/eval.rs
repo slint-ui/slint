@@ -8,7 +8,7 @@ use corelib::graphics::{
     ConicGradientBrush, GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush,
 };
 use corelib::input::FocusReason;
-use corelib::items::{ColorScheme, ItemRc, ItemRef, PropertyAnimation, WindowItem};
+use corelib::items::{ItemRc, ItemRef, PropertyAnimation, WindowItem};
 use corelib::menus::{Menu, MenuFromItemTree};
 use corelib::model::{Model, ModelExt, ModelRc, VecModel};
 use corelib::rtti::AnimatedBindingKind;
@@ -21,8 +21,8 @@ use i_slint_compiler::expression_tree::{
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_core as corelib;
 use i_slint_core::api::ToSharedString;
+use i_slint_core::{self as corelib};
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -243,16 +243,15 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
         }
         Expression::Cast { from, to } => {
-            let v = eval_expression(from, local_context);
-            match (v, to) {
-                (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
-                (Value::Number(n), Type::String) => {
-                    Value::String(i_slint_core::string::shared_string_from_number(n))
+            match try_cast(eval_expression(from, local_context), to.clone()) {
+                Ok(value) => value,
+                Err(value) => {
+                    let actual_ty = value.value_type();
+                    eprintln!(
+                        "Encountered `Expression::Cast`, but could not cast from {actual_ty:?} to {to}"
+                    );
+                    value
                 }
-                (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
-                (Value::Brush(brush), Type::Color) => brush.color().into(),
-                (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
-                (v, _) => v,
             }
         }
         Expression::CodeBlock(sub) => {
@@ -359,18 +358,13 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 i_slint_compiler::expression_tree::ImageReference::None => Ok(Default::default()),
                 i_slint_compiler::expression_tree::ImageReference::AbsolutePath(path) => {
                     if path.starts_with("data:") {
-                        match i_slint_compiler::data_uri::decode_data_uri(path) {
-                            Ok((data, extension)) => {
-                                let data: &'static [u8] = Box::leak(data.into_boxed_slice());
-                                let ext_bytes: &'static [u8] =
-                                    Box::leak(extension.into_boxed_str().into_boxed_bytes());
-                                Ok(corelib::graphics::load_image_from_embedded_data(
-                                    corelib::slice::Slice::from_slice(data),
-                                    corelib::slice::Slice::from_slice(ext_bytes),
-                                ))
-                            }
-                            Err(_) => Err(Default::default()),
-                        }
+                        i_slint_compiler::data_uri::decode_data_uri(path)
+                            .ok()
+                            .and_then(|(data, extension)| {
+                                corelib::graphics::load_image_from_dynamic_data(&data, &extension)
+                                    .ok()
+                            })
+                            .ok_or_else(Default::default)
                     } else {
                         let path = std::path::Path::new(path);
                         if path.starts_with("builtin:/") {
@@ -674,8 +668,24 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
         }
         Expression::EmptyComponentFactory => Value::ComponentFactory(Default::default()),
+        Expression::EmptyDataTransfer => Value::DataTransfer(Default::default()),
         Expression::DebugHook { expression, .. } => eval_expression(expression, local_context),
     }
+}
+
+/// Try to convert the type to `to`, or return the value unmodified as an error if
+/// casting is not possible.
+fn try_cast(value: Value, to: Type) -> Result<Value, Value> {
+    Ok(match (value, to) {
+        (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
+        (Value::Number(n), Type::String) => {
+            Value::String(i_slint_core::string::shared_string_from_number(n))
+        }
+        (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
+        (Value::Brush(brush), Type::Color) => brush.color().into(),
+        (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
+        (v, _) => return Err(v),
+    })
 }
 
 fn call_builtin_function(
@@ -1427,19 +1437,19 @@ fn call_builtin_function(
             let a = a.clamp(0., 1.);
             Value::Brush(Brush::SolidColor(Color::from_oklch(l, c, h, a)))
         }
-        BuiltinFunction::ColorScheme => local_context
-            .component_instance
-            .window_adapter()
-            .internal(corelib::InternalToken)
-            .map_or(ColorScheme::Unknown, |x| x.color_scheme())
-            .into(),
+        BuiltinFunction::ColorScheme => {
+            let root_weak =
+                vtable::VWeak::into_dyn(local_context.component_instance.root_weak().clone());
+            let root = root_weak.upgrade().unwrap();
+            corelib::window::context_for_root(&root)
+                .map_or(corelib::items::ColorScheme::Unknown, |ctx| ctx.color_scheme(Some(&root)))
+                .into()
+        }
         BuiltinFunction::AccentColor => {
-            let color = local_context
-                .component_instance
-                .window_adapter()
-                .internal(corelib::InternalToken)
-                .map_or(corelib::Color::default(), |x| x.accent_color());
-            Value::Brush(corelib::Brush::SolidColor(color))
+            let root_weak =
+                vtable::VWeak::into_dyn(local_context.component_instance.root_weak().clone());
+            let root = root_weak.upgrade().unwrap();
+            Value::Brush(corelib::Brush::SolidColor(corelib::window::accent_color(&root)))
         }
         BuiltinFunction::SupportsNativeMenuBar => local_context
             .component_instance
@@ -1495,6 +1505,40 @@ fn call_builtin_function(
             set_callback_handler(i, &sub_menu_nr.element(), sub_menu_nr.name(), sub_menu).unwrap();
             set_callback_handler(i, &activated_nr.element(), activated_nr.name(), activated)
                 .unwrap();
+
+            Value::Void
+        }
+        BuiltinFunction::SetupSystemTrayIcon => {
+            let [
+                Expression::ElementReference(system_tray_elem),
+                Expression::ElementReference(item_tree_root),
+                rest @ ..,
+            ] = arguments
+            else {
+                panic!("internal error: incorrect argument count to SetupSystemTrayIcon")
+            };
+
+            let component = local_context.component_instance;
+            let elem = system_tray_elem.upgrade().unwrap();
+            generativity::make_guard!(guard);
+            let enclosing_component = enclosing_component_for_element(&elem, component, guard);
+            let description = enclosing_component.description;
+            let item_info = &description.items[elem.borrow().id.as_str()];
+            let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
+            let item_tree = vtable::VRc::into_dyn(item_comp);
+            let item_rc = corelib::items::ItemRc::new(item_tree.clone(), item_info.item_index());
+
+            let menu_item_tree_component =
+                item_tree_root.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
+            let menu_vrc = crate::dynamic_item_tree::make_menu_item_tree(
+                &menu_item_tree_component,
+                &enclosing_component,
+                rest.first(),
+            );
+
+            let system_tray =
+                item_rc.downcast::<corelib::items::SystemTrayIcon>().expect("SystemTrayIcon item");
+            system_tray.as_pin_ref().set_menu(&item_rc, vtable::VRc::into_dyn(menu_vrc));
 
             Value::Void
         }
@@ -2040,6 +2084,7 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
         Type::ArrayOfU16 => matches!(value, Value::ArrayOfU16(_)),
         Type::ComponentFactory => matches!(value, Value::ComponentFactory(_)),
         Type::StyledText => matches!(value, Value::StyledText(_)),
+        Type::DataTransfer => matches!(value, Value::DataTransfer(_)),
     }
 }
 
@@ -2331,6 +2376,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
             e.values.get(e.default_value).unwrap().to_string(),
         ),
         Type::Keys => Value::Keys(Default::default()),
+        Type::DataTransfer => Value::DataTransfer(Default::default()),
         Type::Easing => Value::EasingCurve(Default::default()),
         Type::Void | Type::Invalid => Value::Void,
         Type::UnitProduct(_) => Value::Number(0.),

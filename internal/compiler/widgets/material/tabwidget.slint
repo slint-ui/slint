@@ -158,6 +158,7 @@ component MaterialTabBarBase inherits TabBarBase {
 }
 
 export component TabBarHorizontalImpl inherits MaterialTabBarBase {
+    accessible-orientation: Orientation.horizontal;
     Flickable {
         HorizontalLayout {
             @children
@@ -166,6 +167,7 @@ export component TabBarHorizontalImpl inherits MaterialTabBarBase {
 }
 
 export component TabBarVerticalImpl inherits MaterialTabBarBase {
+    accessible-orientation: Orientation.vertical;
     Flickable {
         VerticalLayout {
             @children
