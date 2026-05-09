@@ -797,7 +797,6 @@ namespace slint {
         using types::IntRect;
         using types::Size;
         using types::MouseEvent;
-        using ::slint::Timer;
     }
     template<typename ModelData> class Model;
 }",
