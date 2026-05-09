@@ -147,20 +147,15 @@ fn try_create_window_with_fallback_renderer(
         renderer::sw::WinitSoftwareRenderer::new_suspended,
     ]
     .into_iter()
-    .find_map(
-        |renderer_factory: fn(
-            &Rc<SharedBackendData>,
-        )
-            -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError>| {
-            Some(WinitWindowAdapter::new(
-                shared_backend_data.clone(),
-                renderer_factory(shared_backend_data).ok()?,
-                attrs.clone(),
-                #[cfg(all(muda, target_os = "macos"))]
-                muda_enable_default_menu_bar,
-            ))
-        },
-    )
+    .find_map(|renderer_factory| {
+        Some(WinitWindowAdapter::new(
+            shared_backend_data.clone(),
+            renderer_factory(shared_backend_data).ok()?,
+            attrs.clone(),
+            #[cfg(all(muda, target_os = "macos"))]
+            muda_enable_default_menu_bar,
+        ))
+    })
 }
 
 #[doc(hidden)]
