@@ -10,12 +10,12 @@ import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 Slint supports building Android applications in both Rust and C++.
 
-Also see the documentation of the <LangRefLink lang="rust-slint" relpath="android/">android module in our Rust API documentation</LangRefLink>.
-
 ## Project Setup
 
 <Tabs syncKey="dev-language">
 <TabItem label="Rust">
+
+Also see the documentation of the <LangRefLink lang="rust-slint" relpath="android/">android module in our Rust API documentation</LangRefLink>.
 
 Slint uses the [android-activity crate](https://github.com/rust-mobile/android-activity) as the interface to
 the operating system, which is re-exported as `slint::android::android_activity`. To get started, follow these steps:
@@ -58,12 +58,26 @@ build the project.
 </TabItem>
 <TabItem label="C++">
 
-A Slint C++ Android project uses the standard Android toolchain: **Gradle** orchestrates the build,
-**CMake** compiles the native code (both the Slint runtime via Rust and your C++ application), and
-Gradle packages everything into an APK.
+A Slint C++ Android application is a standard CMake project (see the [getting started tutorial](/docs/tutorial/getting_started))
+with an Android-specific Gradle wrapper. The C++ code lives at the project root and works
+for both desktop and Android builds. The only Android-specific difference in CMake is building
+a shared library instead of an executable:
 
-A Slint C++ application is typically cross-platform, with the C++ code at the project root and
-the Android-specific wrapper in a subdirectory:
+```cmake
+if(ANDROID)
+    add_library(app SHARED main.cpp)
+else()
+    add_executable(app main.cpp)
+endif()
+```
+
+When CMake is invoked with the Android NDK toolchain, Slint automatically:
+- Detects the Android target and maps the ABI to the correct Rust target
+- Enables the Android backend and Skia renderer
+- Disables desktop-only backends (winit, Qt)
+- Sets the Material style as default
+
+The `android/` subdirectory contains the Gradle project that wraps the CMake build:
 
 ```
 my-app/
@@ -71,105 +85,28 @@ my-app/
 ├── main.cpp                      # Your application code
 ├── main.slint                    # Your Slint UI
 ├── android/
-│   ├── build.gradle.kts          # Top-level Gradle config
-│   ├── settings.gradle.kts       # Project name
+│   ├── build.gradle.kts
+│   ├── settings.gradle.kts
 │   ├── gradle.properties
-│   ├── gradle/wrapper/           # Gradle wrapper
 │   └── app/
-│       ├── build.gradle.kts      # Android app: SDK versions, CMake setup
+│       ├── build.gradle.kts      # SDK versions, CMake path
 │       └── src/main/
-│           └── AndroidManifest.xml   # NativeActivity declaration
+│           └── AndroidManifest.xml
 ```
 
-### CMakeLists.txt
-
-The CMake file at the project root works for both desktop and Android builds:
-
-```cmake
-cmake_minimum_required(VERSION 3.21)
-project(SlintApp LANGUAGES CXX)
-
-if (NOT TARGET Slint::Slint)
-    include(FetchContent)
-    FetchContent_Declare(
-        Slint
-        GIT_REPOSITORY https://github.com/slint-ui/slint.git
-        GIT_TAG v1.17.0
-        SOURCE_SUBDIR api/cpp
-    )
-    FetchContent_MakeAvailable(Slint)
-endif()
-
-if(ANDROID)
-    add_library(app SHARED main.cpp)
-else()
-    add_executable(app main.cpp)
-endif()
-target_link_libraries(app PRIVATE Slint::Slint)
-slint_target_sources(app main.slint)
-```
-
-When CMake is invoked by Gradle with the Android NDK toolchain, Slint automatically:
-- Detects the Android target and maps the ABI to the correct Rust target
-- Enables the Android backend and Skia renderer
-- Disables desktop-only backends (winit, Qt)
-- Sets the Material style as default
-
-### AndroidManifest.xml
-
-The manifest declares a `NativeActivity` that loads your native library:
-
-```xml
-<application
-    android:label="My Slint App"
-    android:hasCode="false">
-    <activity
-        android:name="android.app.NativeActivity"
-        android:exported="true"
-        android:configChanges="orientation|screenSize|keyboardHidden">
-        <meta-data
-            android:name="android.app.lib_name"
-            android:value="app" />
-        <intent-filter>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.LAUNCHER" />
-        </intent-filter>
-    </activity>
-</application>
-```
-
-The `android:value="app"` must match the CMake library name in `add_library(app SHARED ...)`.
-
-### android/app/build.gradle.kts
+The `app/build.gradle.kts` points CMake to the root `CMakeLists.txt`:
 
 ```kotlin
-plugins {
-    id("com.android.application")
-}
-
-android {
-    namespace = "dev.slint.app"
-    compileSdk = 35
-
-    defaultConfig {
-        applicationId = "dev.slint.app"
-        minSdk = 26
-        targetSdk = 35
-
-        ndk {
-            // Add other ABIs as needed: "armeabi-v7a", "x86_64", "x86"
-            abiFilters += "arm64-v8a"
-        }
-    }
-
-    externalNativeBuild {
-        cmake {
-            path = file("../../CMakeLists.txt")
-            version = "3.22.1"
-        }
+externalNativeBuild {
+    cmake {
+        path = file("../../CMakeLists.txt")
+        version = "3.22.1"
     }
 }
 ```
+
+The `AndroidManifest.xml` declares a `NativeActivity` whose `android.app.lib_name` must
+match the CMake library name (e.g. `app` in `add_library(app SHARED ...)`).
 
 The minimum SDK is 26 (Android 8.0), which is required by the Slint Android backend.
 
@@ -325,27 +262,10 @@ listener by replacing the call to `slint::android::init` with `slint::android::i
 </TabItem>
 <TabItem label="C++">
 
-The entry point for a Slint C++ Android application is the `slint_main` function:
+On Android, the entry point is `slint_main` instead of `main`. The Slint runtime provides
+the actual `android_main` entry point internally and calls your `slint_main` once the
+platform is initialized.
 
-```cpp
-#include "main.h"  // Generated from main.slint
-
-extern "C" void slint_main()
-{
-    auto window = MainWindow::create();
-    window->run();
-}
-```
-
-This function is called by the Slint runtime after Android platform initialization is complete.
-From here, you use the standard Slint C++ API — create windows, set up callbacks, run the event
-loop. No Android-specific code is needed for a basic application.
-
-The `extern "C"` and the name `slint_main` are required. The Slint runtime provides the actual
-Android entry point (`android_main`) internally and calls your `slint_main` once the platform
-is ready.
-
-:::tip
 To share a `main.cpp` between desktop and Android builds, use a preprocessor guard:
 
 ```cpp
@@ -359,28 +279,9 @@ int main()
     window->run();
 }
 ```
-:::
 
 </TabItem>
 </Tabs>
-
-Define your UI in a `.slint` file as usual:
-
-```slint
-export component MainWindow inherits Window {
-    preferred-width: 360px;
-    preferred-height: 640px;
-
-    VerticalLayout {
-        alignment: center;
-        Text {
-            text: "Hello from Slint on Android!";
-            horizontal-alignment: center;
-            font-size: 24px;
-        }
-    }
-}
-```
 
 ## Building and Running
 
