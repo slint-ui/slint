@@ -57,7 +57,7 @@ impl Scene {
         items.retain(|i| i.pos.y_length() + i.size.height_length() > current_line);
         items.sort_unstable_by(compare_scene_item);
         let current_items_index = items.partition_point(|i| i.pos.y_length() <= current_line);
-        items[..current_items_index].sort_unstable_by(|a, b| b.z.cmp(&a.z));
+        items[..current_items_index].sort_unstable_by_key(|b| core::cmp::Reverse(b.z));
         let mut r = Self {
             items,
             current_line,
@@ -116,7 +116,7 @@ impl Scene {
                 self.items[i] = item;
                 i += 1;
             }
-            self.items[0..i].sort_unstable_by(|a, b| b.z.cmp(&a.z));
+            self.items[0..i].sort_unstable_by_key(|b| core::cmp::Reverse(b.z));
             self.current_items_index = i;
             return;
         }
@@ -197,7 +197,7 @@ impl Scene {
                     self.items[i] = item;
                     i += 1;
                 }
-                self.items[sort_begin..i].sort_unstable_by(|a, b| b.z.cmp(&a.z));
+                self.items[sort_begin..i].sort_unstable_by_key(|b| core::cmp::Reverse(b.z));
                 break;
             }
             self.items[i] = item;

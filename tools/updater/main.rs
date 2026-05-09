@@ -181,6 +181,7 @@ struct State {
     lookup_change: LookupChangeState,
 }
 
+#[allow(clippy::collapsible_match)]
 fn visit_node(
     node: SyntaxNode,
     file: &mut impl Write,

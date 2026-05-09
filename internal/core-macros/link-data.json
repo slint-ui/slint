@@ -56,9 +56,6 @@
     "Expressions": {
         "href": "guide/language/coding/expressions-and-statements/"
     },
-    "FlexboxLayout": {
-        "href": "reference/layouts/flexboxlayout/"
-    },
     "float": {
         "href": "reference/primitive-types/#float"
     },
@@ -177,7 +174,10 @@
         "href": "reference/std-widgets/views/scrollview/"
     },
     "StyledText": {
-        "href": "reference/elements/styled-text/"
+        "href": "reference/elements/styledtext/"
+    },
+    "SystemTrayIcon": {
+        "href": "reference/window/systemtrayicon/"
     },
     "styled_text": {
         "href": "reference/primitive-types/#styled-text"

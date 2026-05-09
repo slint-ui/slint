@@ -76,17 +76,14 @@ export component Menu {
         if(menu-button-visible || container-visibility == 1.0 || stays-open) : HorizontalLayout {
             y:  -i-menu-button.height / 2;
             alignment: center;
+            align-items: start;
 
-            VerticalLayout {
-                alignment: start;
-
-                i-menu-button := MenuButton {
-                    clicked => {
-                        if(open) {
-                            hide();
-                        } else {
-                            open-menu();
-                        }
+            i-menu-button := MenuButton {
+                clicked => {
+                    if(open) {
+                        hide();
+                    } else {
+                        open-menu();
                     }
                 }
             }

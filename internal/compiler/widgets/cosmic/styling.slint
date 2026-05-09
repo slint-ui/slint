@@ -9,18 +9,9 @@ export struct TextStyle {
 }
 
 export global CosmicFontSettings {
-    out property <TextStyle> body: {
-        font-size: 14 * 0.0769rem,
-        font-weight: FontWeight.normal
-    };
-    out property <TextStyle> body-strong: {
-        font-size: 14 * 0.0769rem,
-        font-weight: FontWeight.semi-bold
-    };
-    out property <TextStyle> title: {
-        font-size: 24 * 0.0769rem,
-        font-weight: FontWeight.light
-    };
+    out property <TextStyle> body: { font-size: 14 * 0.0769rem, font-weight: FontWeight.normal };
+    out property <TextStyle> body-strong: { font-size: 14 * 0.0769rem, font-weight: FontWeight.semi-bold };
+    out property <TextStyle> title: { font-size: 24 * 0.0769rem, font-weight: FontWeight.light };
 }
 
 export global CosmicPalette {
@@ -35,8 +26,9 @@ export global CosmicPalette {
     pure function accentify(default-color: color) -> color {
         let accent-color = SlintInternal.accent-color;
         if (accent-color.alpha > 0) {
-            let lch = default-color.to-oklch();
-            return oklch(lch.lightness, lch.chroma, accent-color.to-oklch().hue);
+            let default-lch = default-color.to-oklch();
+            let accent-lch = accent-color.to-oklch();
+            return oklch(default-lch.lightness, accent-lch.chroma, accent-lch.hue);
         }
         return default-color;
     }
@@ -65,10 +57,10 @@ export global CosmicPalette {
     out property <brush> accent-text: accent-background;
     out property <brush> placeholder-foreground: dark-color-scheme ? #959595 : #585858;
     out property <brush> neutral-5-background: #636363;
-    out property <brush> neutral-6-background: dark-color-scheme ? #808080 :#484848;
+    out property <brush> neutral-6-background: dark-color-scheme ? #808080 : #484848;
 
-    out property <brush> control-disabled: dark-color-scheme ? #212121 :#cfcfcf;
-    out property <brush> text-disabled: dark-color-scheme ? #707070 :#808080;
+    out property <brush> control-disabled: dark-color-scheme ? #212121 : #cfcfcf;
+    out property <brush> text-disabled: dark-color-scheme ? #707070 : #808080;
     out property <brush> secondary-accent-background: dark-color-scheme ? accentify(#51a3ae) : accentify(#367378);
 
     out property <brush> state: dark-color-scheme ? #ffffff : #000000;

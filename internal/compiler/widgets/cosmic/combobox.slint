@@ -61,12 +61,14 @@ export component ComboBox {
             spacing: 10px;
 
             text := Text {
+                horizontal-stretch: 1;
                 horizontal-alignment: left;
                 vertical-alignment: center;
                 font-size: CosmicFontSettings.body.font-size;
                 font-weight: CosmicFontSettings.body.font-weight;
                 color: CosmicPalette.control-foreground;
                 text: root.current-value;
+                overflow: elide;
                 accessible-role: none;
             }
 

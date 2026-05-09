@@ -232,21 +232,25 @@ pub mod private_unstable_api;
 /// Enters the main event loop. This is necessary in order to receive
 /// events from the windowing system for rendering to the screen
 /// and reacting to user input.
-/// This function will run until the last window is closed or until
-/// [`quit_event_loop()`] is called.
 ///
-/// See also [`run_event_loop_until_quit()`] to keep the event loop running until
-/// [`quit_event_loop()`] is called, even if all windows are closed.
+/// This function will run until the last window is closed and the last
+/// visible system tray icon is hidden, or until [`quit_event_loop()`] is
+/// called. A visible `SystemTrayIcon` keeps the loop alive on its own, so a
+/// tray-only program can use this variant directly.
+///
+/// See also [`run_event_loop_until_quit()`] to keep the loop running even
+/// when nothing visible is left.
 pub fn run_event_loop() -> Result<(), PlatformError> {
     i_slint_backend_selector::with_platform(|b| b.run_event_loop())
 }
 
-/// Similar to [`run_event_loop()`], but this function enters the main event loop
-/// and continues to run even when the last window is closed, until
+/// Similar to [`run_event_loop()`], but this function continues to run even
+/// when no windows or system tray icons are visible, until
 /// [`quit_event_loop()`] is called.
 ///
-/// This is useful for system tray applications where the application needs to stay alive
-/// even if no windows are visible.
+/// Use this for daemon-style programs that wait on callbacks without any
+/// visible UI. A program with at least one visible window or `SystemTrayIcon`
+/// can use [`run_event_loop()`] instead, since either keeps the loop alive.
 pub fn run_event_loop_until_quit() -> Result<(), PlatformError> {
     i_slint_backend_selector::with_platform(|b| {
         #[allow(deprecated)]
@@ -422,6 +426,21 @@ pub mod platform {
         pub use i_slint_renderer_femtovg::opengl::OpenGLInterface;
     }
 
+    /// This module contains the [`skia_renderer::SkiaWGPURenderer`] and related types.
+    ///
+    /// It is only enabled when the `renderer-skia` Slint feature is enabled.
+    #[cfg(all(
+        feature = "unstable-wgpu-28",
+        any(
+            feature = "renderer-skia",
+            feature = "renderer-skia-opengl",
+            feature = "renderer-skia-vulkan"
+        )
+    ))]
+    pub mod skia_renderer {
+        pub use i_slint_renderer_skia::SkiaWGPURenderer;
+    }
+
     #[cfg(feature = "renderer-software")]
     /// This module contains the [`software_renderer::SoftwareRenderer`] and related types.
     ///
@@ -436,8 +455,6 @@ pub mod platform {
 ///
 /// See also the list of [global structs and enums](slint:StructType)
 pub mod language {
-    pub use i_slint_core::items::ColorScheme;
-
     macro_rules! export_builtin_structs {
         ($(
             $(#[$attr:meta])*
@@ -462,6 +479,8 @@ pub mod language {
     }
 
     i_slint_common::for_each_builtin_structs!(export_builtin_structs);
+
+    pub use i_slint_core::items::{ColorScheme, PointerEventButton, PointerEventKind};
 }
 
 #[cfg(any(
@@ -476,7 +495,7 @@ pub mod android;
 /// Helper type that helps checking that the generated code is generated for the right version
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
-pub struct VersionCheck_1_16_0;
+pub struct VersionCheck_1_17_0;
 
 #[cfg(doctest)]
 mod compile_fail_tests;
@@ -508,7 +527,7 @@ pub mod wgpu_27 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.16", features = ["unstable-wgpu-27"] }
+    //! slint = { version = "~1.17", features = ["unstable-wgpu-27"] }
     //! ```
     //!
     //! `main.rs`:
@@ -604,7 +623,7 @@ pub mod wgpu_28 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.16", features = ["unstable-wgpu-28"] }
+    //! slint = { version = "~1.17", features = ["unstable-wgpu-28"] }
     //! ```
     //!
     //! `main.rs`:
@@ -691,7 +710,7 @@ pub mod winit_030 {
     //!
     //! `Cargo.toml`:
     //! ```toml
-    //! slint = { version = "~1.16", features = ["unstable-winit-030"] }
+    //! slint = { version = "~1.17", features = ["unstable-winit-030"] }
     //! ```
     //!
     //! `main.rs`:
@@ -747,9 +766,9 @@ pub mod winit_030 {
     pub type WinitWindowEventResult = EventResult;
 }
 
-#[cfg(feature = "unstable-fontique-08")]
-pub mod fontique_08 {
-    //! Fontique 0.8 specific types and re-exports.
+#[cfg(feature = "unstable-fontique-09")]
+pub mod fontique_09 {
+    //! Fontique 0.9 specific types and re-exports.
     //!
     //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
     //!         as new major Fontique releases become available.
@@ -772,18 +791,18 @@ pub mod fontique_08 {
     ///
     /// `Cargo.toml`:
     /// ```toml
-    /// slint = { version = "~1.16", features = ["unstable-fontique-08"] }
+    /// slint = { version = "~1.17", features = ["unstable-fontique-09"] }
     /// ```
     ///
     /// `main.rs`:
     /// ```rust,no_run
-    /// use slint::fontique_08::fontique;
+    /// use slint::fontique_09::fontique;
     ///
     /// fn main() {
     ///     // ...
     ///     let downloaded_font: Vec<u8> = todo!("Download https://somewebsite.com/font.ttf");
     ///     let blob = fontique::Blob::new(std::sync::Arc::new(downloaded_font));
-    ///     let mut collection = slint::fontique_08::shared_collection();
+    ///     let mut collection = slint::fontique_09::shared_collection();
     ///     let fonts = collection.register_fonts(blob, None);
     ///     collection
     ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_str_unchecked("Hira"), None), fonts.iter().map(|x| x.0));

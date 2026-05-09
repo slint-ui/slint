@@ -10,7 +10,6 @@ use android_activity::{InputStatus, MainEvent, PollEvent};
 use i_slint_core::api::{
     LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, PlatformError, Window,
 };
-use i_slint_core::graphics::Color;
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventResult, KeyEventType, TouchPhase};
 use i_slint_core::items::ColorScheme;
 use i_slint_core::lengths::PhysicalEdges;
@@ -38,7 +37,6 @@ pub struct AndroidWindowAdapter {
     pub(crate) event_queue: EventQueue,
     pub(crate) pending_redraw: Cell<bool>,
     pub(super) java_helper: JavaHelper,
-    pub(crate) color_scheme: core::pin::Pin<Box<Property<ColorScheme>>>,
     pub(crate) fullscreen: Cell<bool>,
     /// The offset at which the Slint view is drawn in the native window (account for status bar)
     pub offset: Cell<PhysicalPosition>,
@@ -164,14 +162,6 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
         });
     }
 
-    fn color_scheme(&self) -> ColorScheme {
-        self.color_scheme.as_ref().get()
-    }
-
-    fn accent_color(&self) -> Color {
-        self.java_helper.accent_color().unwrap_or_else(|e| print_jni_error(&self.app, e))
-    }
-
     fn safe_area_inset(&self) -> PhysicalEdges {
         if self.fullscreen.get() {
             Default::default()
@@ -184,15 +174,16 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
 impl AndroidWindowAdapter {
     pub fn new(app: AndroidApp) -> Rc<Self> {
         let java_helper = JavaHelper::new(&app).unwrap_or_else(|e| print_jni_error(&app, e));
-        let color_scheme = Box::pin(Property::new(
+        let initial_scheme =
             match java_helper.color_scheme().unwrap_or_else(|e| print_jni_error(&app, e)) {
                 0x10 => ColorScheme::Light,  // UI_MODE_NIGHT_NO(0x10)
                 0x20 => ColorScheme::Dark,   // UI_MODE_NIGHT_YES(0x20)
                 0x0 => ColorScheme::Unknown, // UI_MODE_NIGHT_UNDEFINED
                 _ => ColorScheme::Unknown,
-            },
-        ));
-        Rc::<Self>::new_cyclic(|w| Self {
+            };
+        let initial_accent =
+            java_helper.accent_color().unwrap_or_else(|e| print_jni_error(&app, e));
+        let rc = Rc::<Self>::new_cyclic(|w| Self {
             app,
             window: Window::new(w.clone()),
             #[cfg(not(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28")))]
@@ -204,14 +195,17 @@ impl AndroidWindowAdapter {
             requested_graphics_api: RefCell::new(None),
             event_queue: Default::default(),
             pending_redraw: Default::default(),
-            color_scheme,
             java_helper,
             fullscreen: Cell::new(false),
             offset: Default::default(),
             show_cursor_handles: Cell::new(false),
             long_press: RefCell::default(),
             last_pressed_state: Cell::new(ButtonState(0)),
-        })
+        });
+        let ctx = i_slint_core::window::WindowInner::from_pub(&rc.window).context();
+        ctx.set_color_scheme(initial_scheme);
+        ctx.set_accent_color(initial_accent);
+        rc
     }
 
     pub fn process_event(&self, event: &PollEvent<'_>) -> Result<ControlFlow<()>, PlatformError> {
@@ -296,18 +290,31 @@ impl AndroidWindowAdapter {
             WindowEvent::KeyPressed { text } => WindowInner::from_pub(&self.window)
                 .process_key_input(InternalKeyEvent {
                     event_type: KeyEventType::KeyPressed,
-                    key_event: KeyEvent { text, ..Default::default() },
+                    key_event: {
+                        let mut key_event = KeyEvent::default();
+                        key_event.text = text;
+                        key_event
+                    },
                     ..Default::default()
                 }),
             WindowEvent::KeyPressRepeated { text } => WindowInner::from_pub(&self.window)
                 .process_key_input(InternalKeyEvent {
                     event_type: KeyEventType::KeyPressed,
-                    key_event: KeyEvent { text, repeat: true, ..Default::default() },
+                    key_event: {
+                        let mut key_event = KeyEvent::default();
+                        key_event.text = text;
+                        key_event.repeat = true;
+                        key_event
+                    },
                     ..Default::default()
                 }),
             WindowEvent::KeyReleased { text } => WindowInner::from_pub(&self.window)
                 .process_key_input(InternalKeyEvent {
-                    key_event: KeyEvent { text, ..Default::default() },
+                    key_event: {
+                        let mut key_event = KeyEvent::default();
+                        key_event.text = text;
+                        key_event
+                    },
                     event_type: KeyEventType::KeyReleased,
                     ..Default::default()
                 }),
@@ -469,6 +476,13 @@ impl AndroidWindowAdapter {
                     let event = if let Some(r) = state.compose_region {
                         let adjust =
                             |pos| if pos > r.start { pos - r.start + r.end } else { pos } as i32;
+                        let mut key_event = KeyEvent::default();
+                        key_event.text = i_slint_core::format!(
+                            "{}{}",
+                            &state.text[..r.start],
+                            &state.text[r.end..]
+                        );
+
                         InternalKeyEvent {
                             event_type: KeyEventType::UpdateComposition,
                             preedit_text: state.text[r.start..r.end].into(),
@@ -476,26 +490,18 @@ impl AndroidWindowAdapter {
                             replacement_range: Some(i32::MIN..i32::MAX),
                             cursor_position: Some(adjust(state.selection.end)),
                             anchor_position: Some(adjust(state.selection.start)),
-                            key_event: KeyEvent {
-                                text: i_slint_core::format!(
-                                    "{}{}",
-                                    &state.text[..r.start],
-                                    &state.text[r.end..]
-                                ),
-                                ..Default::default()
-                            },
+                            key_event,
                             ..Default::default()
                         }
                     } else {
+                        let mut key_event = KeyEvent::default();
+                        key_event.text = state.text.as_str().into();
                         InternalKeyEvent {
                             event_type: KeyEventType::CommitComposition,
                             replacement_range: Some(i32::MIN..i32::MAX),
                             cursor_position: Some(state.selection.end as _),
                             anchor_position: Some(state.selection.start as _),
-                            key_event: KeyEvent {
-                                text: state.text.as_str().into(),
-                                ..Default::default()
-                            },
+                            key_event,
                             ..Default::default()
                         }
                     };

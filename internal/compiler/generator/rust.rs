@@ -81,6 +81,7 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Float32 => Some(quote!(f32)),
         Type::String => Some(quote!(sp::SharedString)),
         Type::Color => Some(quote!(sp::Color)),
+        Type::DataTransfer => Some(quote!(sp::DataTransfer)),
         Type::Easing => Some(quote!(sp::EasingCurve)),
         Type::ComponentFactory => Some(quote!(slint::ComponentFactory)),
         Type::Duration => Some(quote!(i64)),
@@ -341,6 +342,28 @@ fn generate_public_component(
         &ctx,
     );
 
+    // SystemTrayIcon-rooted components don't have a `WindowAdapter`. Skip the
+    // eager creation calls in `new` / `new_with_context` so instantiating
+    // a tray doesn't spin up a hidden window adapter as a side effect.
+    let (eager_create_window, init_with_context, ensure_tree_instantiated): (
+        Option<TokenStream>,
+        TokenStream,
+        Option<TokenStream>,
+    ) = match llr.top_level_type {
+        llr::TopLevelComponentType::Window => (
+            Some(quote!(
+                // ensure that the window exist as this point so further call to window() don't panic
+                inner.globals.get().unwrap().window_adapter_ref()?;
+            )),
+            quote!(inner.globals.get().unwrap().create_window_from_context(ctx)?;),
+            Some(quote!(
+                let window = inner.globals.get().unwrap().window_adapter_ref()?;
+                sp::WindowInner::from_pub(window.window()).ensure_tree_instantiated();
+            )),
+        ),
+        llr::TopLevelComponentType::SystemTrayIcon => (None, quote!(let _ = ctx;), None),
+    };
+
     #[cfg(feature = "bundle-translations")]
     let init_bundle_translations = unit
         .translations
@@ -351,6 +374,95 @@ fn generate_public_component(
 
     let experimental = compiler_config.enable_experimental;
 
+    // Window-rooted components get the full `ComponentHandle` impl. SystemTrayIcon
+    // gets an inherent impl with no `window()` accessor: a tray icon is not a
+    // `slint::Window` and the previous accessor's body would panic at runtime.
+    let handle_impl = {
+        let common = |vis: TokenStream| {
+            quote!(
+                #vis fn as_weak(&self) -> slint::Weak<Self> {
+                    slint::Weak::new(sp::VRc::downgrade(&self.0))
+                }
+
+                #vis fn clone_strong(&self) -> Self {
+                    Self(self.0.clone())
+                }
+
+                #vis fn global<'a, T: slint::Global<'a, Self>>(&'a self) -> T {
+                    T::get(&self)
+                }
+            )
+        };
+        match llr.top_level_type {
+            llr::TopLevelComponentType::Window => {
+                let common = common(quote!());
+                quote!(
+                    impl slint::ComponentHandle for #public_component_id {
+                        #common
+
+                        fn run(&self) -> ::core::result::Result<(), slint::PlatformError> {
+                            self.show()?;
+                            sp::WindowInner::from_pub(self.window()).context().run_event_loop()?;
+                            self.hide()?;
+                            ::core::result::Result::Ok(())
+                        }
+
+                        fn show(&self) -> ::core::result::Result<(), slint::PlatformError> {
+                            self.0.globals.get().unwrap().window_adapter_ref()?.window().show()
+                        }
+
+                        fn hide(&self) -> ::core::result::Result<(), slint::PlatformError> {
+                            self.0.globals.get().unwrap().window_adapter_ref()?.window().hide()
+                        }
+
+                        fn window(&self) -> &slint::Window {
+                            self.0.globals.get().unwrap().window_adapter_ref().unwrap().window()
+                        }
+                    }
+                )
+            }
+            llr::TopLevelComponentType::SystemTrayIcon => {
+                // Look up the SystemTrayIcon native item — it sits as item 0 of the
+                // root sub-component when the public component inherits SystemTrayIcon.
+                let root_sub = &unit.sub_components[llr.item_tree.root];
+                let tray_item = &root_sub.items[llr::ItemInstanceIdx::from(0usize)];
+                debug_assert_eq!(
+                    tray_item.ty.class_name.as_str(),
+                    "SystemTrayIcon",
+                    "TopLevelComponentType::SystemTrayIcon expects the root item to be a SystemTrayIcon"
+                );
+                let tray_field = ident(&tray_item.name);
+                let common = common(quote!(pub));
+                // No `run()`: a tray icon doesn't drive the event loop. `show`/`hide`
+                // toggle the `visible` property; the platform side of the change
+                // tracker turns that into a real show/hide of the OS tray icon.
+                quote!(
+                    impl #public_component_id {
+                        #common
+
+                        pub fn show(&self) -> ::core::result::Result<(), slint::PlatformError> {
+                            let _self = sp::VRc::as_pin_ref(&self.0);
+                            #inner_component_id::FIELD_OFFSETS.#tray_field()
+                                .apply_pin(_self)
+                                .visible
+                                .set(true);
+                            ::core::result::Result::Ok(())
+                        }
+
+                        pub fn hide(&self) -> ::core::result::Result<(), slint::PlatformError> {
+                            let _self = sp::VRc::as_pin_ref(&self.0);
+                            #inner_component_id::FIELD_OFFSETS.#tray_field()
+                                .apply_pin(_self)
+                                .visible
+                                .set(false);
+                            ::core::result::Result::Ok(())
+                        }
+                    }
+                )
+            }
+        }
+    };
+
     quote!(
         #component
         pub struct #public_component_id(sp::VRc<sp::ItemTreeVTable, #inner_component_id>);
@@ -360,9 +472,9 @@ fn generate_public_component(
                 slint::private_unstable_api::ensure_backend()?;
                 let inner = #inner_component_id::new()?;
                 #init_bundle_translations
-                // ensure that the window exist as this point so further call to window() don't panic
-                inner.globals.get().unwrap().window_adapter_ref()?;
+                #eager_create_window
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
+                #ensure_tree_instantiated
                 ::core::result::Result::Ok(Self(inner))
             }
 
@@ -371,9 +483,10 @@ fn generate_public_component(
                 let inner = #inner_component_id::new()?;
                 #init_bundle_translations
 
-                inner.globals.get().unwrap().create_window_from_context(ctx)?;
+                #init_with_context
 
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
+                #ensure_tree_instantiated
                 ::core::result::Result::Ok(Self(inner))
             }
 
@@ -394,38 +507,7 @@ fn generate_public_component(
             }
         }
 
-        impl slint::ComponentHandle for #public_component_id {
-            fn as_weak(&self) -> slint::Weak<Self> {
-                slint::Weak::new(sp::VRc::downgrade(&self.0))
-            }
-
-            fn clone_strong(&self) -> Self {
-                Self(self.0.clone())
-            }
-
-            fn run(&self) -> ::core::result::Result<(), slint::PlatformError> {
-                self.show()?;
-                sp::WindowInner::from_pub(self.window()).context().run_event_loop()?;
-                self.hide()?;
-                ::core::result::Result::Ok(())
-            }
-
-            fn show(&self) -> ::core::result::Result<(), slint::PlatformError> {
-                self.0.globals.get().unwrap().window_adapter_ref()?.window().show()
-            }
-
-            fn hide(&self) -> ::core::result::Result<(), slint::PlatformError> {
-                self.0.globals.get().unwrap().window_adapter_ref()?.window().hide()
-            }
-
-            fn window(&self) -> &slint::Window {
-                self.0.globals.get().unwrap().window_adapter_ref().unwrap().window()
-            }
-
-            fn global<'a, T: slint::Global<'a, Self>>(&'a self) -> T {
-                T::get(&self)
-            }
-        }
+        #handle_impl
     )
 }
 
@@ -493,6 +575,36 @@ fn generate_shared_globals(
         })
         .unzip();
 
+    let needs_window_adapter = llr.needs_window_adapter();
+
+    // `create_window_from_context` is only invoked from a Window-rooted
+    // public component's `new_with_context`, and `maybe_window_adapter_impl`
+    // is only invoked from per-tree `register_item_tree` / PinnedDrop hooks
+    // — both gated out for tray-only units. Emit them only when something
+    // actually calls them; otherwise `#![deny(warnings)]` builds (e.g.
+    // test-driver-rust with `--features build-time`) trip on dead_code.
+    // `window_adapter_impl` / `window_adapter_ref` are kept unconditionally
+    // because expression codegen (layout-info, font metrics) still
+    // references them on every tree.
+    let optional_window_adapter_helpers = needs_window_adapter.then(|| {
+        quote!(
+            #[cfg(#experimental)]
+            fn create_window_from_context(&self, ctx: sp::SlintContext) -> sp::Result<(), slint::PlatformError> {
+                let adapter = ctx.platform().create_window_adapter()?;
+                sp::WindowInner::from_pub(adapter.window()).set_context(ctx);
+                let root_rc = self.root_item_tree_weak.upgrade().unwrap();
+                sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
+                #apply_constant_scale_factor
+                self.window_adapter.set(adapter).map_err(|_|()).expect("The window shouldn't be initialized before this call");
+                sp::Ok(())
+            }
+
+            fn maybe_window_adapter_impl(&self) -> sp::Option<sp::Rc<dyn sp::WindowAdapter>> {
+                self.window_adapter.get().cloned()
+            }
+        )
+    });
+
     quote! {
         #pub_token struct SharedGlobals {
             #(#pub_token #global_names : ::core::pin::Pin<sp::Rc<#global_types>>,)*
@@ -516,6 +628,19 @@ fn generate_shared_globals(
                 _self
             }
 
+            // Clone the SharedGlobals struct but use a different window adapter. This is for example used for popup windows, because they need access to the globals, but need their own window adapter
+            #[allow(dead_code)]
+            #pub_token fn clone_with_window_adapter(&self, window_adapter: sp::WindowAdapterRc) -> sp::Rc<Self> {
+                sp::Rc::new(Self {
+                    #(#global_names : self.#global_names.clone(),)*
+                    #(#from_library_global_names : self.#from_library_global_names.clone(),)*
+                    window_adapter: window_adapter.into(),
+                    // `root_item_tree_weak` is only used to init the window_adapter. Since we have the window_adapter here already we don't need this variable
+                    root_item_tree_weak: ::core::default::Default::default(),
+                    #(#library_shared_globals_names: self.#library_shared_globals_names.clone(),)*
+                })
+            }
+
             fn window_adapter_impl(&self) -> sp::Rc<dyn sp::WindowAdapter> {
                 sp::Rc::clone(self.window_adapter_ref().unwrap())
             }
@@ -531,20 +656,7 @@ fn generate_shared_globals(
                 })
             }
 
-            #[cfg(#experimental)]
-            fn create_window_from_context(&self, ctx: sp::SlintContext) -> sp::Result<(), slint::PlatformError> {
-                let adapter = ctx.platform().create_window_adapter()?;
-                sp::WindowInner::from_pub(adapter.window()).set_context(ctx);
-                let root_rc = self.root_item_tree_weak.upgrade().unwrap();
-                sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
-                #apply_constant_scale_factor
-                self.window_adapter.set(adapter).map_err(|_|()).expect("The window shouldn't be initialized before this call");
-                sp::Ok(())
-            }
-
-            fn maybe_window_adapter_impl(&self) -> sp::Option<sp::Rc<dyn sp::WindowAdapter>> {
-                self.window_adapter.get().cloned()
-            }
+            #optional_window_adapter_helpers
         }
     }
 }
@@ -612,6 +724,84 @@ fn generate_enum(en: &std::rc::Rc<Enumeration>) -> TokenStream {
             #(#enum_values,)*
         }
     }
+}
+
+/// Walk `field_access` on `root_ty`, producing the Rust access suffix
+/// (e.g. `.foo.bar`) and the type of the leaf field.
+fn lower_field_access_chain(root_ty: &Type, field_access: &[SmolStr]) -> (TokenStream, Type) {
+    let mut access = quote!();
+    let mut ty = root_ty;
+    for f in field_access {
+        let Type::Struct(s) = ty else { panic!("Field of two way binding on a non-struct type") };
+        let a = struct_field_access(s, f);
+        access.extend(quote!(.#a));
+        ty = s.fields.get(f).unwrap();
+    }
+    (access, ty.clone())
+}
+
+/// Emit a `link_two_way_to_model_data` call wiring `p1` to a row of the
+/// model described by `info`, optionally through a struct `field_access`.
+fn generate_model_two_way_binding(
+    ctx: &EvaluationContext,
+    info: &llr::ResolvedModelTwoWayBinding,
+    p1: &TokenStream,
+    field_access: &[SmolStr],
+) -> TokenStream {
+    let body_sc = &ctx.compilation_unit.sub_components[info.body_sub_component];
+    let parent_sc = &ctx.compilation_unit.sub_components[info.parent_sub_component];
+    let body_id = self::inner_component_id(body_sc);
+    let data_f =
+        access_component_field_offset(&body_id, &ident(&body_sc.properties[info.data_prop].name));
+    let index_f =
+        access_component_field_offset(&body_id, &ident(&body_sc.properties[info.index_prop].name));
+    let repeater = access_component_field_offset(
+        &self::inner_component_id(parent_sc),
+        &format_ident!("repeater{}", usize::from(info.repeater_index)),
+    );
+
+    let item_tree_weak = if info.parent_level == 0 {
+        quote!(sp::VRcMapped::downgrade(&self_rc))
+    } else {
+        let mut e = quote!(_self.parent.clone());
+        for _ in 1..info.parent_level {
+            e = quote!(#e.upgrade().unwrap().parent.clone());
+        }
+        e
+    };
+
+    // The leaf field type may differ from the property type (e.g. struct
+    // field `f32` vs property `LogicalLength`); apply the usual conversions.
+    let (access_model, getter_value) = if field_access.is_empty() {
+        (quote!(let data = value.clone();), quote!(#data_f.apply_pin(x.as_pin_ref()).get()))
+    } else {
+        let (access, ty) = lower_field_access_chain(info.data_prop_ty, field_access);
+        let to_struct_value = primitive_value_from_property_value(&ty, quote!(value.clone()));
+        let to_property_value = set_primitive_property_value(
+            &ty,
+            quote!(#data_f.apply_pin(x.as_pin_ref()).get() #access .clone()),
+        );
+        (
+            quote! {
+                let mut data = #data_f.apply_pin(x.as_pin_ref()).get();
+                data #access = #to_struct_value;
+            },
+            to_property_value,
+        )
+    };
+
+    quote! { sp::Property::link_two_way_to_model_data(#p1, #item_tree_weak,
+        |item_tree_weak| item_tree_weak.upgrade().map(|x| #getter_value),
+        |item_tree_weak, value| {
+            if let Some(x) = item_tree_weak.upgrade() {
+                if let Some(parent) = x.parent.upgrade() {
+                    let index = #index_f.apply_pin(x.as_pin_ref()).get();
+                    #access_model
+                    #repeater.apply_pin(parent.as_pin_ref()).model_set_row_data(index as usize, data);
+                }
+            }
+        }
+    )}
 }
 
 fn handle_property_init(
@@ -841,7 +1031,7 @@ fn generate_sub_component(
                 root,
                 Some(&ParentScope::new(&ctx, None)),
                 None,
-                false,
+                true,
             )
         })
         .chain(component.menu_item_trees.iter().map(|tree| {
@@ -915,6 +1105,7 @@ fn generate_sub_component(
     let mut repeated_element_components: Vec<TokenStream> = Vec::new();
     let mut repeated_subtree_ranges: Vec<TokenStream> = Vec::new();
     let mut repeated_subtree_components: Vec<TokenStream> = Vec::new();
+    let mut ensure_instantiated_stmts: Vec<TokenStream> = Vec::new();
 
     for (idx, repeated) in component.repeated.iter_enumerated() {
         extra_components.push(generate_repeated_component(
@@ -931,32 +1122,26 @@ fn generate_sub_component(
                 &ctx,
             );
 
-            let ensure_updated = {
-                quote! {
-                    #embed_item.ensure_updated();
-                }
-            };
-
             repeated_visit_branch.push(quote!(
                 #idx => {
-                    #ensure_updated
                     #embed_item.visit_children_item(-1, order, visitor)
                 }
             ));
             repeated_subtree_ranges.push(quote!(
                 #idx => {
-                    #ensure_updated
                     #embed_item.subtree_range()
                 }
             ));
             repeated_subtree_components.push(quote!(
                 #idx => {
-                    #ensure_updated
                     if subtree_index == 0 {
                         *result = #embed_item.subtree_component()
                     }
                 }
             ));
+            ensure_instantiated_stmts.push(quote!({
+                _changed |= #embed_item.ensure_updated();
+            }));
         } else {
             let repeater_id = format_ident!("repeater{}", idx);
             let rep_inner_component_id =
@@ -973,41 +1158,47 @@ fn generate_sub_component(
                     }
                 });
             });
-            let ensure_updated = if let Some(listview) = &repeated.listview {
+            if let Some(listview) = &repeated.listview {
                 let vp_y = access_member(&listview.viewport_y, &ctx).unwrap();
                 let vp_h = access_member(&listview.viewport_height, &ctx).unwrap();
                 let lv_h = access_member(&listview.listview_height, &ctx).unwrap();
                 let vp_w = access_member(&listview.viewport_width, &ctx).unwrap();
                 let lv_w = access_member(&listview.listview_width, &ctx).unwrap();
 
-                quote! {
-                    #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated_listview(
+                repeated_visit_branch.push(quote!(
+                    #idx => {
+                        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).track_changes_listview(
+                            #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
+                        );
+                        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).visit(order, visitor)
+                    }
+                ));
+                ensure_instantiated_stmts.push(quote!({
+                    _changed |= #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated_listview(
                         || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() },
                         #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
                     );
-                }
+                }));
             } else {
-                quote! {
-                    #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated(
+                repeated_visit_branch.push(quote!(
+                    #idx => {
+                        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).visit(order, visitor)
+                    }
+                ));
+                ensure_instantiated_stmts.push(quote!({
+                    _changed |= #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated(
                         || #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into()
                     );
-                }
-            };
-            repeated_visit_branch.push(quote!(
-                #idx => {
-                    #ensure_updated
-                    _self.#repeater_id.visit(order, visitor)
-                }
-            ));
+                }));
+            }
             repeated_subtree_ranges.push(quote!(
                 #idx => {
-                    #ensure_updated
+                    #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).track_instance_changes();
                     sp::IndexRange::from(_self.#repeater_id.range())
                 }
             ));
             repeated_subtree_components.push(quote!(
                 #idx => {
-                    #ensure_updated
                     if let Some(instance) = _self.#repeater_id.instance_at(subtree_index) {
                         *result = sp::VRc::downgrade(&sp::VRc::into_dyn(instance));
                     }
@@ -1122,6 +1313,9 @@ fn generate_sub_component(
                     #sub_compo_field.apply_pin(_self).subtree_component(dyn_index - #repeater_offset, subtree_index, result)
                 }
             ));
+            ensure_instantiated_stmts.push(quote!(
+                _changed |= #sub_compo_field.apply_pin(_self).ensure_instantiated();
+            ));
         }
 
         let sub_items_count = sc.child_item_count(root);
@@ -1167,36 +1361,26 @@ fn generate_sub_component(
     let popup_id_names =
         component.popup_windows.iter().enumerate().map(|(i, _)| internal_popup_id(i));
 
-    for (prop1, prop2, fields) in &component.two_way_bindings {
-        let p1 = access_member(prop1, &ctx).unwrap();
-        let p2 = access_member(prop2, &ctx);
-        let r = p2.then(|p2| {
-            if fields.is_empty() {
-                quote!(sp::Property::link_two_way(#p1, #p2))
-            } else {
-                let mut access = quote!();
-                let mut ty = ctx.property_ty(prop2);
-                for f in fields {
-                    let Type::Struct(s) = &ty else {
-                        panic!("Field of two way binding on a non-struct type")
-                    };
-                    let a = struct_field_access(s, f);
-                    access.extend(quote!(.#a));
-                    ty = s.fields.get(f).unwrap();
+    for twb in &component.two_way_bindings {
+        let p1 = access_local_member(&twb.prop1, &ctx);
+        let r = if let Some(info) = twb.resolve_model(&ctx) {
+            generate_model_two_way_binding(&ctx, &info, &p1, &twb.field_access)
+        } else {
+            let p2 = access_member(&twb.prop2, &ctx);
+            p2.then(|p2| {
+                if twb.field_access.is_empty() {
+                    quote!(sp::Property::link_two_way(#p1, #p2))
+                } else {
+                    let (access, ty) =
+                        lower_field_access_chain(ctx.property_ty(&twb.prop2), &twb.field_access);
+                    let to_property_value =
+                        set_primitive_property_value(&ty, quote!(s #access .clone()));
+                    let to_struct_value =
+                        primitive_value_from_property_value(&ty, quote!((*v).clone()));
+                    quote!(sp::Property::link_two_way_with_map(#p2, #p1, |s| #to_property_value, |s, v| s #access = #to_struct_value))
                 }
-                let to_property_value =
-                    set_primitive_property_value(ty, quote!(s #access .clone()));
-                let to_struct_value = primitive_value_from_property_value(ty, quote!((*v).clone()));
-                quote!(
-                    sp::Property::link_two_way_with_map(
-                        #p2,
-                        #p1,
-                        |s| #to_property_value,
-                        |s, v| s #access = #to_struct_value,
-                    )
-                )
-            }
-        });
+            })
+        };
         init.push(quote!(#r;))
     }
 
@@ -1373,6 +1557,14 @@ fn generate_sub_component(
                     #(#repeated_visit_branch)*
                     _ => panic!("invalid dyn_index {}", dyn_index),
                 }
+            }
+
+            fn ensure_instantiated(self: ::core::pin::Pin<&Self>) -> bool {
+                #![allow(unused)]
+                let _self = self;
+                let mut _changed = false;
+                #(#ensure_instantiated_stmts)*
+                _changed
             }
 
             fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sp::Orientation) -> sp::LayoutInfo {
@@ -1716,9 +1908,16 @@ fn generate_item_tree(
     root: &llr::CompilationUnit,
     parent_ctx: Option<&ParentScope>,
     index_property: Option<llr::PropertyIdx>,
-    is_popup_menu: bool,
+    is_popup: bool,
 ) -> TokenStream {
-    let sub_comp = generate_sub_component(sub_tree.root, root, parent_ctx, index_property, true);
+    let needs_window_adapter = root.needs_window_adapter();
+    let sub_comp = generate_sub_component(
+        sub_tree.root,
+        root,
+        parent_ctx,
+        index_property,
+        needs_window_adapter,
+    );
     let inner_component_id = self::inner_component_id(&root.sub_components[sub_tree.root]);
     let parent_component_type = parent_ctx
         .iter()
@@ -1729,14 +1928,14 @@ fn generate_item_tree(
         })
         .collect::<Vec<_>>();
 
-    let globals = if is_popup_menu {
+    let globals = if is_popup {
         quote!(globals)
     } else if parent_ctx.is_some() {
         quote!(parent.upgrade().unwrap().globals.get().unwrap().clone())
     } else {
         quote!(SharedGlobals::new(sp::VRc::downgrade(&self_dyn_rc)))
     };
-    let globals_arg = is_popup_menu.then(|| quote!(globals: sp::Rc<SharedGlobals>));
+    let globals_arg = is_popup.then(|| quote!(globals: sp::Rc<SharedGlobals>));
 
     let embedding_function = if parent_ctx.is_some() {
         quote!(todo!("Components written in Rust can not get embedded yet."))
@@ -1827,6 +2026,48 @@ fn generate_item_tree(
         quote!(false)
     };
 
+    // SystemTrayIcon-only compilation units don't have a `WindowAdapter` on
+    // SharedGlobals, so the per-tree register / unregister / vtable hooks
+    // skip the adapter-touching paths and bottom out at None. Without a
+    // `WindowAdapter` there's no renderer to free graphics resources with
+    // and tray-rooted items allocate none, so the `PinnedDrop` impl is
+    // omitted entirely (the struct uses `#[pin]` instead of `#[pin_drop]`).
+    let (register_window_adapter_arg, pinned_drop_impl, window_adapter_vtable_body): (
+        TokenStream,
+        Option<TokenStream>,
+        TokenStream,
+    ) = if needs_window_adapter {
+        (
+            quote!(globals.maybe_window_adapter_impl()),
+            Some(quote!(
+                impl sp::PinnedDrop for #inner_component_id {
+                    fn drop(self: ::core::pin::Pin<&mut #inner_component_id>) {
+                        sp::vtable::new_vref!(let vref : VRef<sp::ItemTreeVTable> for sp::ItemTree = self.as_ref().get_ref());
+                        if let Some(wa) = self.globals.get().unwrap().maybe_window_adapter_impl() {
+                            sp::unregister_item_tree(self.as_ref(), vref, Self::item_array(), &wa);
+                        }
+                    }
+                }
+            )),
+            quote!(if do_create {
+                *result = sp::Some(self.globals.get().unwrap().window_adapter_impl());
+            } else {
+                *result = self.globals.get().unwrap().maybe_window_adapter_impl();
+            }),
+        )
+    } else {
+        (
+            quote!(::core::option::Option::None),
+            None,
+            // Always None for tray-rooted trees: there's no adapter to hand
+            // out and `do_create=true` must not silently materialize one.
+            quote!(
+                let _ = do_create;
+                *result = sp::None;
+            ),
+        )
+    };
+
     quote!(
         #sub_comp
 
@@ -1838,7 +2079,7 @@ fn generate_item_tree(
                 let self_rc = sp::VRc::new(_self);
                 let self_dyn_rc = sp::VRc::into_dyn(self_rc.clone());
                 let globals = #globals;
-                sp::register_item_tree(&self_dyn_rc, globals.maybe_window_adapter_impl());
+                sp::register_item_tree(&self_dyn_rc, #register_window_adapter_arg);
                 Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1);
                 ::core::result::Result::Ok(self_rc)
             }
@@ -1862,14 +2103,7 @@ fn generate_item_tree(
             ItemTreeVTable_static!(static VT for self::#inner_component_id);
         };
 
-        impl sp::PinnedDrop for #inner_component_id {
-            fn drop(self: ::core::pin::Pin<&mut #inner_component_id>) {
-                sp::vtable::new_vref!(let vref : VRef<sp::ItemTreeVTable> for sp::ItemTree = self.as_ref().get_ref());
-                if let Some(wa) = self.globals.get().unwrap().maybe_window_adapter_impl() {
-                    sp::unregister_item_tree(self.as_ref(), vref, Self::item_array(), &wa);
-                }
-            }
-        }
+        #pinned_drop_impl
 
         impl sp::ItemTree for #inner_component_id {
             fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sp::TraversalOrder, visitor: sp::ItemVisitorRefMut<'_>)
@@ -1928,6 +2162,10 @@ fn generate_item_tree(
                 self.layout_info(orientation)
             }
 
+            fn ensure_instantiated(self: ::core::pin::Pin<&Self>) -> bool {
+                self.ensure_instantiated()
+            }
+
             fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> sp::LogicalRect {
                 self.item_geometry(index)
             }
@@ -1971,11 +2209,7 @@ fn generate_item_tree(
                 do_create: bool,
                 result: &mut sp::Option<sp::Rc<dyn sp::WindowAdapter>>,
             ) {
-                if do_create {
-                    *result = sp::Some(self.globals.get().unwrap().window_adapter_impl());
-                } else {
-                    *result = self.globals.get().unwrap().maybe_window_adapter_impl();
-                }
+                #window_adapter_vtable_body
             }
         }
 
@@ -2025,15 +2259,8 @@ fn generate_repeated_component(
                     llr::RowChildTemplateInfo::Repeated { repeater_index } => {
                         let inner_rep_id =
                             format_ident!("repeater{}", usize::from(*repeater_index));
-                        let inner_rep_sc_idx =
-                            root_sc.repeated[*repeater_index].sub_tree.root;
-                        let inner_inner_component_id = self::inner_component_id(
-                            &unit.sub_components[inner_rep_sc_idx],
-                        );
                         quote! {
-                            #inner_component_id::FIELD_OFFSETS.#inner_rep_id().apply_pin(_self.as_ref()).ensure_updated(
-                                || #inner_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into()
-                            );
+                            #inner_component_id::FIELD_OFFSETS.#inner_rep_id().apply_pin(_self.as_ref()).track_instance_changes();
                             let inner_len = _self.as_ref().#inner_rep_id.len();
                             for _i in 0..inner_len {
                                 if write_idx < result.len() {
@@ -2162,6 +2389,7 @@ fn generate_repeated_component(
                                 let advance = (!is_last).then(|| quote! { count += inner_len; });
                                 quote! {
                                     {
+                                        #inner_component_id::FIELD_OFFSETS.#inner_rep_id().apply_pin(_self).track_instance_changes();
                                         let inner_len = _self.#inner_rep_id.len();
                                         if index >= count && index - count < inner_len {
                                             if let Some(inner) = _self.#inner_rep_id.instance_at(index - count) {
@@ -2624,11 +2852,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 quote!(
                     sp::make_keys(
                         #key.into(),
-                        sp::KeyboardModifiers {
-                            alt: #alt,
-                            control: #control,
-                            shift: #shift,
-                            meta: #meta
+                        {
+                            let mut modifiers = sp::KeyboardModifiers::default();
+                            modifiers.alt = #alt;
+                            modifiers.control = #control;
+                            modifiers.shift = #shift;
+                            modifiers.meta = #meta;
+                            modifiers
                         },
                         #ignore_shift,
                         #ignore_alt))
@@ -3180,6 +3410,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
         }
         Expression::EmptyComponentFactory => quote!(slint::ComponentFactory::default()),
+        Expression::EmptyDataTransfer => quote!(slint::DataTransfer::default()),
         Expression::TranslationReference { format_args, string_index, plural } => {
             let args = compile_expression(format_args, ctx);
             match plural {
@@ -3282,18 +3513,27 @@ fn compile_builtin_function_call(
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
 
                 let close_policy = compile_expression(close_policy, ctx);
-                let window_adapter_tokens = access_window_adapter_field(ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
                 component_access_tokens.then(|component_access_tokens| quote!({
                     let parent_item = #parent_item;
-                    let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).unwrap();
+                    // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one
+                    let shared_global = #component_access_tokens.globals.get().unwrap();
+                    let window_adapter = shared_global.window_adapter_impl();
+                    let window = sp::WindowInner::from_pub(window_adapter.window());
+                    let globals = if let Some(popup_window_adapter) = window.create_popup_window_adapter() {
+                        shared_global.clone_with_window_adapter(popup_window_adapter)
+                    } else {
+                        shared_global.clone()
+                    };
+
+                    let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone(), globals).unwrap();
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
                     let position = { let _self = popup_instance_vrc.as_pin_ref(); #position };
                     if let Some(current_id) = #component_access_tokens.#popup_id_name.take() {
-                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
+                        window.close_popup(current_id);
                     }
                     #component_access_tokens.#popup_id_name.set(Some(
-                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
+                        window.show_popup(
                             &sp::VRc::into_dyn(popup_instance.into()),
                             position,
                             #close_policy,
@@ -3694,12 +3934,19 @@ fn compile_builtin_function_call(
             })
         }
         BuiltinFunction::ColorScheme => {
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).color_scheme())
+            // A `Palette.color-scheme` binding inside a SystemTrayIcon-rooted component
+            // resolves against the tray's own scheme; everything else falls back to the
+            // process-wide value held by the SlintContext.
+            let global_access = &ctx.generator_state.global_access;
+            quote!({
+                let _root = #global_access.root_item_tree_weak.upgrade().unwrap();
+                sp::context_for_root(&_root)
+                    .map_or(sp::ColorScheme::Unknown, |c| c.color_scheme(Some(&_root)))
+            })
         }
         BuiltinFunction::AccentColor => {
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).accent_color())
+            let global_access = &ctx.generator_state.global_access;
+            quote!(sp::accent_color(&#global_access.root_item_tree_weak.upgrade().unwrap()))
         }
         BuiltinFunction::SupportsNativeMenuBar => {
             let window_adapter_tokens = access_window_adapter_field(ctx);
@@ -3778,6 +4025,51 @@ fn compile_builtin_function_call(
                 }
                 sp::WindowInner::from_pub(#window_adapter_tokens.window())
                     .setup_menubar_shortcuts(sp::VRc::into_dyn(menu_item_tree));
+            })
+        }
+        BuiltinFunction::SetupSystemTrayIcon => {
+            let [
+                Expression::PropertyReference(system_tray_ref),
+                Expression::NumberLiteral(tree_index),
+                rest @ ..,
+            ] = arguments
+            else {
+                panic!("internal error: incorrect arguments to SetupSystemTrayIcon")
+            };
+
+            let current_sub_component = ctx.current_sub_component().unwrap();
+            let item_tree_id = inner_component_id(
+                &ctx.compilation_unit.sub_components
+                    [current_sub_component.menu_item_trees[*tree_index as usize].root],
+            );
+
+            let system_tray = access_member(system_tray_ref, ctx).unwrap();
+            let system_tray_rc = access_item_rc(system_tray_ref, ctx);
+
+            // `if cond : Menu { ... }` lowers the condition into a closure that
+            // gates the menu's shadow tree. `MenuFromItemTree::new_with_condition`
+            // re-evaluates it through a property-tracked binding.
+            let menu_from_item_tree = if let Some(condition) = rest.first() {
+                let binding = compile_expression(condition, ctx);
+                quote!(sp::MenuFromItemTree::new_with_condition(
+                    sp::VRc::into_dyn(menu_item_tree_instance),
+                    {
+                        let self_weak = _self.self_weak.get().unwrap().clone();
+                        move || {
+                            let Some(self_rc) = self_weak.upgrade() else { return false };
+                            let _self = self_rc.as_pin_ref();
+                            #binding
+                        }
+                    },
+                ))
+            } else {
+                quote!(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)))
+            };
+
+            quote!({
+                let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
+                let menu_vrc = sp::VRc::into_dyn(sp::VRc::new(#menu_from_item_tree));
+                #system_tray.set_menu(#system_tray_rc, menu_vrc);
             })
         }
         BuiltinFunction::MonthDayCount => {
@@ -3905,18 +4197,17 @@ fn generate_common_repeater_code(
 ) -> (TokenStream, Option<usize>) {
     let repeater_id = format_ident!("repeater{}", usize::from(repeater_index));
     let inner_component_id = self::inner_component_id(ctx.current_sub_component().unwrap());
-    let rep_inner_component_id = self::inner_component_id(
-        &ctx.compilation_unit.sub_components
-            [ctx.current_sub_component().unwrap().repeated[repeater_index].sub_tree.root],
-    );
     *repeater_count_code = quote!(#repeater_count_code + _self.#repeater_id.len());
 
     let items_vec_ident = ident(items_vec_name);
-    let mut repeater_code = quote!();
+    let mut repeater_code = quote!(
+        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).track_instance_changes();
+    );
     let mut rs_idx_for_init = None;
     if let Some(ri) = repeated_indices_var_name {
         let ri_idx = *repeated_indices_size;
         repeater_code = quote!(
+            #repeater_code
             #ri[#ri_idx] = #items_vec_ident.len() as u32;
             #ri[#ri_idx + 1] = _self.#repeater_id.len() as u32;
         );
@@ -3926,13 +4217,7 @@ fn generate_common_repeater_code(
         }
     }
 
-    let code = quote!(
-        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated(
-            || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() }
-        );
-        #repeater_code
-    );
-    (code, rs_idx_for_init)
+    (repeater_code, rs_idx_for_init)
 }
 
 fn generate_common_repeater_indices_init_code(
@@ -3955,27 +4240,20 @@ fn generate_common_repeater_indices_init_code(
     }
 }
 
-/// For each inner repeater in `templates`, generates code to `ensure_updated` it
-/// and add its length to `total`.  `row_sc` / `row_inner_component_id` describe the
-/// repeating Row sub-component; `unit` is the full compilation unit.
-fn build_inner_ensure_and_len(
+/// For each inner repeater in `templates`, generates code to track instance
+/// changes and add its length to `total`.  `row_inner_component_id` is the
+/// repeating Row sub-component's identifier.
+fn build_inner_track_and_len(
     templates: &[llr::RowChildTemplateInfo],
-    row_sc: &llr::SubComponent,
     row_inner_component_id: &proc_macro2::Ident,
-    unit: &llr::CompilationUnit,
 ) -> Vec<TokenStream> {
     templates
         .iter()
         .filter_map(|e| match e {
             llr::RowChildTemplateInfo::Repeated { repeater_index } => {
-                let inner_rep_sc_idx = row_sc.repeated[*repeater_index].sub_tree.root;
-                let inner_inner_component_id =
-                    inner_component_id(&unit.sub_components[inner_rep_sc_idx]);
                 let inner_rep_id = format_ident!("repeater{}", usize::from(*repeater_index));
                 Some(quote! {
-                    #row_inner_component_id::FIELD_OFFSETS.#inner_rep_id().apply_pin(pin).ensure_updated(
-                        || #inner_inner_component_id::new(pin.self_weak.get().unwrap().clone()).unwrap().into()
-                    );
+                    #row_inner_component_id::FIELD_OFFSETS.#inner_rep_id().apply_pin(pin).track_instance_changes();
                     total += pin.#inner_rep_id.len();
                 })
             }
@@ -4008,12 +4286,7 @@ fn generate_repeater_push_code(
         let row_sc_idx = parent_sc.repeated[repeater_index].sub_tree.root;
         let row_sc = &ctx.compilation_unit.sub_components[row_sc_idx];
         let row_inner_component_id = self::inner_component_id(row_sc);
-        let inner_ensure_and_len = build_inner_ensure_and_len(
-            templates,
-            row_sc,
-            &row_inner_component_id,
-            ctx.compilation_unit,
-        );
+        let inner_ensure_and_len = build_inner_track_and_len(templates, &row_inner_component_id);
 
         let (common_push_code, rs_idx) = self::generate_common_repeater_code(
             repeater_index,

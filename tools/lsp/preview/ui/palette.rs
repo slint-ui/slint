@@ -11,11 +11,9 @@ use crate::{
 use lsp_types::Url;
 
 use i_slint_compiler::{expression_tree, langtype, object_tree};
-use slint::{ComponentHandle, Model, ModelRc, SharedString};
+use slint::{Model, ModelRc, SharedString};
 
-pub fn setup(ui: &ui::PreviewUi) {
-    let api = ui.global::<ui::Api>();
-
+pub fn setup(api: &ui::Api<'_>) {
     api.on_filter_palettes(filter_palettes);
     api.on_is_css_color(is_css_color);
 }
@@ -74,8 +72,7 @@ pub fn collect_palette(
     ModelRc::new(model)
 }
 
-pub fn set_palette(ui: &ui::PreviewUi, values: ModelRc<ui::PaletteEntry>) {
-    let api = ui.global::<ui::Api>();
+pub fn set_palette(api: &ui::Api<'_>, values: ModelRc<ui::PaletteEntry>) {
     api.set_palettes(values);
 }
 
@@ -111,10 +108,13 @@ fn find_binding_expression(
     let be = elem.bindings.get(&property_name).map(|be| be.borrow().clone())?;
     if matches!(be.expression, expression_tree::Expression::Invalid) {
         for twb in &be.two_way_bindings {
+            let expression_tree::TwoWayBinding::Property { property, field_access } = twb else {
+                continue;
+            };
             if let Some(mut e) =
-                find_binding_expression(&twb.property.element(), twb.property.name().as_str())
+                find_binding_expression(&property.element(), property.name().as_str())
             {
-                for f in &twb.field_access {
+                for f in field_access {
                     e = expression_tree::Expression::StructFieldAccess {
                         base: e.into(),
                         name: f.clone(),
@@ -305,9 +305,9 @@ mod tests {
             if diag.is_empty() {
                 continue;
             }
-            eprintln!("Diags for {u}");
+            tracing::debug!("Diags for {u}");
             for d in diag {
-                eprintln!("{d:#?}");
+                tracing::debug!("{d:#?}");
                 assert!(!matches!(d.severity, Some(lsp_types::DiagnosticSeverity::ERROR)));
             }
         }
@@ -328,7 +328,7 @@ mod tests {
 
     #[track_caller]
     fn compare_brush(entry: &PaletteEntry, name: &str, brush: &slint::Brush) {
-        eprintln!("\n\n\n{name}:\n{entry:#?}");
+        tracing::debug!("\n\n\n{name}:\n{entry:#?}");
         assert_eq!(entry.name, name);
         assert_eq!(entry.value.display_string, name);
         assert_eq!(entry.value.code, name);

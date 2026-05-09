@@ -146,6 +146,7 @@ component FluentTabBarBase inherits TabBarBase {
 }
 
 export component TabBarHorizontalImpl inherits FluentTabBarBase {
+    accessible-orientation: Orientation.horizontal;
     Flickable {
         HorizontalLayout {
             @children
@@ -154,6 +155,7 @@ export component TabBarHorizontalImpl inherits FluentTabBarBase {
 }
 
 export component TabBarVerticalImpl inherits FluentTabBarBase {
+    accessible-orientation: Orientation.vertical;
     Flickable {
         VerticalLayout {
             @children

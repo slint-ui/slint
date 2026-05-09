@@ -3,44 +3,29 @@
 // @ts-check
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
-import starlightLinksValidator from "starlight-links-validator";
-import rehypeExternalLinks from "rehype-external-links";
+import mermaid from "astro-mermaid";
+import {
+    SLINT_STARLIGHT_TRAILING_SLASH,
+    slintStarlightLinksValidatorPlugin,
+    slintStarlightMarkdownRehypeExternalLinksOnly,
+} from "@slint/common-files/src/utils/starlight-site-defaults";
+import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
 
 // https://astro.build/config
 export default defineConfig({
-    trailingSlash: "always",
-    markdown: {
-        rehypePlugins: [
-            [
-                rehypeExternalLinks,
-                {
-                    content: {
-                        type: "text",
-                        value: " ↗",
-                    },
-                    properties: {
-                        target: "_blank",
-                    },
-                    rel: ["noopener"],
-                },
-            ],
-        ],
-    },
+    trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
+    markdown: slintStarlightMarkdownRehypeExternalLinksOnly(),
     integrations: [
+        mermaid(),
         starlight({
             title: "Slint SC Safety Manual",
-            // This is the right-hand TOC for each page.
-            tableOfContents: false,
             components: {
                 Footer: "@slint/common-files/src/components/Footer.astro",
                 Header: "@slint/common-files/src/components/Header.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
-            plugins: [
-                starlightLinksValidator({
-                    errorOnLocalLinks: false,
-                }),
-            ],
+            plugins: [slintStarlightLinksValidatorPlugin()],
+            social: slintStarlightSocial,
             sidebar: [
                 { label: "Slint SC Safety Manual", slug: "index" },
                 { label: "Safety Policy", slug: "safety-policy" },
@@ -89,8 +74,9 @@ export default defineConfig({
                         },
                     ],
                 },
-                { label: "System Components", slug: "system-components" },
-                { label: "Development Cycle", slug: "development-cycle" },
+                { label: "Using Slint SC", slug: "using-slint-sc" },
+                { label: "Development Process", slug: "development-process" },
+                { label: "Development Phases", slug: "development-phases" },
                 {
                     label: "Qualification Plan",
                     items: [
@@ -105,6 +91,10 @@ export default defineConfig({
                         {
                             label: "Known Issues",
                             slug: "qualification-plan/known-issues",
+                        },
+                        {
+                            label: "Test Cases",
+                            slug: "qualification-plan/test-cases",
                         },
                         {
                             label: "Validation",

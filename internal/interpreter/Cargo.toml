@@ -122,6 +122,10 @@ raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/ra
 ## any stability guarantees whatsoever.
 internal = []
 
+# (internal) Expose the native file watcher for other Slint tooling.
+# NOTE: this is not a semver compatible feature
+internal-file-watcher = ["dep:notify"]
+
 # (internal) Draw an highlight on a specified element
 # NOTE: this is not a semver compatible feature
 internal-highlight = []
@@ -131,7 +135,7 @@ internal-highlight = []
 internal-json = ["dep:serde_json"]
 
 # (internal)
-internal-live-preview = ["dep:notify", "display-diagnostics"]
+internal-live-preview = ["internal-file-watcher", "display-diagnostics"]
 
 
 [dependencies]

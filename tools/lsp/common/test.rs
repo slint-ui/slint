@@ -115,9 +115,9 @@ pub fn recompile_test_with_sources(
         },
     ));
 
-    eprintln!("Test source diagnostics:");
+    tracing::debug!("Test source diagnostics:");
     for d in diagnostics.iter() {
-        eprintln!("    {:?}: {d}", d.level());
+        tracing::debug!("    {:?}: {d}", d.level());
     }
     assert!(!diagnostics.has_errors());
     if !allow_warnings {

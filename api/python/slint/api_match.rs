@@ -25,18 +25,20 @@ impl PyGeneratedAPI {
 
     #[staticmethod]
     fn compare_generated_vs_actual(generated: &Self, actual: &Self) -> PyResult<()> {
+        let changed_version = generated.module.changed_version(&actual.module);
         let changed_globals = generated.module.changed_globals(&actual.module);
         let changed_components = generated.module.changed_components(&actual.module);
         let changed_structs_or_enums = generated.module.changed_structs_or_enums(&actual.module);
 
-        let diff = changed_globals.is_some()
+        let diff = changed_version.is_some()
+            || changed_globals.is_some()
             || changed_components.is_some()
             || changed_structs_or_enums.is_some();
 
-        let incompatible_changes =
-            changed_globals.as_ref().map_or(false, |c| c.incompatible_changes())
-                || changed_components.as_ref().map_or(false, |c| c.incompatible_changes())
-                || changed_structs_or_enums.as_ref().map_or(false, |c| c.incompatible_changes());
+        let incompatible_changes = changed_version.is_some()
+            || changed_globals.as_ref().map_or(false, |c| c.incompatible_changes())
+            || changed_components.as_ref().map_or(false, |c| c.incompatible_changes())
+            || changed_structs_or_enums.as_ref().map_or(false, |c| c.incompatible_changes());
 
         if diff {
             let slint_file = actual.path.display();
@@ -48,6 +50,14 @@ Re-run the slint compiler to re-generate the file, for example:
 uxv slint-compiler -f python -o {slint_file} {python_file}
 "#,
             )
+        }
+
+        if changed_version.is_some() {
+            return Err(pyo3::exceptions::PyRuntimeError::new_err(format!(
+                "{} is no longer compatible with this Slint runtime — please regenerate from {}",
+                generated.path.display(),
+                actual.path.display()
+            )));
         }
 
         if incompatible_changes {

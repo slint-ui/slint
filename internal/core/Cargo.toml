@@ -42,6 +42,8 @@ std = [
   "i-slint-common/color-parsing",
   "i-slint-common/markdown",
   "taffy/std",
+  "dep:ksni",
+  "dep:async-channel",
 ]
 # Unsafe feature meaning that there is only one core running and all thread_local are static.
 # You can only enable this feature if you are sure that any API of this crate is only called
@@ -61,8 +63,6 @@ testing = []
 shared-fontique = ["i-slint-common/shared-fontique"]
 
 raw-window-handle-06 = ["dep:raw-window-handle-06"]
-
-experimental-rich-text = []
 
 # The wgpu-{27,28} features enable the internal wgpu module (SurfaceTarget, init helpers)
 # without exposing public API types (GraphicsAPI::WGPU*, WGPUTexture, WGPUConfiguration).
@@ -121,7 +121,7 @@ unicode-linebreak = { version = "0.1.5", optional = true }
 unicode-script = { version = "0.5.7", optional = true }
 icu_normalizer = { workspace = true, optional = true }
 sys-locale = { version = "0.3.2", optional = true, features = ["js"] }
-parley = { version = "0.8.0", optional = true }
+parley = { version = "0.9.0", optional = true }
 
 image = { workspace = true, optional = true, default-features = false }
 clru = { workspace = true, optional = true }
@@ -146,6 +146,19 @@ taffy = { version = "0.9", default-features = false, features = ["flexbox", "taf
 [target.'cfg(target_family = "unix")'.dependencies]
 gettext-rs = { version = "0.7.1", optional = true, features = ["gettext-system"] }
 
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { workspace = true }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSStatusBar", "NSStatusItem", "NSStatusBarButton", "NSButton", "NSControl", "NSResponder", "NSView", "NSImage", "NSMenu", "NSMenuItem", "NSApplication", "NSAppearance", "objc2-core-foundation"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSArray", "NSData", "NSDictionary", "NSKeyValueObserving", "NSString", "NSGeometry", "NSObjCRuntime"] }
+image = { workspace = true, default-features = false, features = ["png"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { workspace = true, features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+
+[target.'cfg(all(target_family = "unix", not(target_vendor = "apple"), not(target_os = "android")))'.dependencies]
+ksni = { version = "0.3.3", optional = true, default-features = false, features = ["async-io", "blocking"] }
+async-channel = { version = "2", optional = true }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = { version = "1.0", optional = true }
 wasm-bindgen = { version = "0.2" }
@@ -154,7 +167,7 @@ web-sys = { workspace = true, features = ["HtmlImageElement", "Navigator"] }
 
 [dev-dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-1-2", "renderer-software"] }
-i-slint-backend-testing = { path = "../backends/testing" }
+i-slint-backend-testing = { path = "../backends/testing", features = ["internal"] }
 rustybuzz = { workspace = true }
 ttf-parser = { workspace = true }
 serde_json = { workspace = true }

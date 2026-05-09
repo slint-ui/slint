@@ -8,14 +8,16 @@ This page explains how to build and test Slint.
 ### Installing Rust
 
 Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started). If you already
-have Rust installed, make sure that it's at least version 1.88 or newer. You can check which version you have installed
+have Rust installed, make sure that it's at least version 1.92 or newer. You can check which version you have installed
 by running `rustc --version`.
 
 Once this is done, you should have the `rustc` compiler and the `cargo` build system installed in your path.
 
 ### Dependencies
 
-- **FFMPEG**
+- **(optional) FFmpeg** (only needed for the `ffmpeg` example)
+
+- **(optional) GStreamer** (only needed for the `gstreamer-player` example)
 
 - **Skia** (binaries limited to few platforms):
 
@@ -40,7 +42,8 @@ For Linux a few additional packages beyond the usual build essentials are needed
 - xkbcommon (`libxkbcommon-dev` on debian based distributions)
 - fontconfig library (`libfontconfig-dev` on debian based distributions)
 - (optional) Qt will be used when `qmake` is found in `PATH`
-- FFMPEG library `clang` `libavcodec-dev` `libavformat-dev` `libavutil-dev` `libavfilter-dev` `libavdevice-dev` `libasound2-dev` `pkg-config`
+- (optional) FFmpeg library `clang` `libavcodec-dev` `libavformat-dev` `libavutil-dev` `libavfilter-dev` `libavdevice-dev` `libasound2-dev` `pkg-config`
+- (optional) GStreamer libraries `libgstreamer1.0-dev` `libgstreamer-plugins-base1.0-dev` `gstreamer1.0-plugins-base` `gstreamer1.0-plugins-good` `gstreamer1.0-plugins-bad` `gstreamer1.0-plugins-ugly` `gstreamer1.0-libav` `libgstrtspserver-1.0-dev` `libges-1.0-dev`
 - openssl (`libssl-dev` on debian based distributions)
 
 `xcb` and `xcbcommon` aren't needed if you are only using `backend-winit-wayland` without `backend-winit-x11`.
@@ -49,7 +52,8 @@ For Linux a few additional packages beyond the usual build essentials are needed
 
 - Make sure the "Xcode Command Line Tools" are installed: `xcode-select --install`
 - (optional) Qt will be used when `qmake` is found in `PATH`
-- FFMPEG `brew install pkg-config ffmpeg`
+- (optional) FFmpeg `brew install pkg-config ffmpeg`
+- (optional) GStreamer `brew install pkg-config gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad`
 
 ### Windows
 
@@ -58,7 +62,7 @@ For Linux a few additional packages beyond the usual build essentials are needed
 - See [System Link](#symlinks-in-the-repository-windows)
 - Make sure the MSVC Build Tools are installed: `winget install Microsoft.VisualStudio.2022.BuildTools`
 - (optional) make sure Qt is installed and `qmake` is in the `Path`
-- FFMPEG
+- (optional) FFmpeg
 
   - Option 1:
 
@@ -68,8 +72,13 @@ For Linux a few additional packages beyond the usual build essentials are needed
     - Make sure `%VCPKG_ROOT%\installed\x64-windows\bin` is in your path
 
   - Option 2:
-    - Download FFMPEG 4.4 shared and extract (<https://github.com/BtbN/FFmpeg-Builds/releases/tag/latest>)
-    - Add FFMPEG to path: `*\ffmpeg\bin` `*\ffmpeg\include\libavutil` `*\ffmpeg\lib`
+    - Download FFmpeg 4.4 shared and extract (<https://github.com/BtbN/FFmpeg-Builds/releases/tag/latest>)
+    - Add FFmpeg to path: `*\ffmpeg\bin` `*\ffmpeg\include\libavutil` `*\ffmpeg\lib`
+
+- (optional) GStreamer
+
+  - Install the GStreamer runtime and development packages from <https://gstreamer.freedesktop.org/data/pkg/windows/>
+  - Make sure the GStreamer `bin` directory is in your `Path`
 
 ### C++ API (optional)
 
@@ -254,12 +263,13 @@ cargo xtask cppdocs
 
 ### Node.js API docs
 
-Run the following commands from the `/api/node` sub-folder to generate the docs using [typedoc](https://typedoc.org/) in the `/api/node/docs` sub-folder:
+Run the following commands from the `/docs/nodejs` sub-folder to generate the docs.
 
 ```sh
-npm install
-npm run docs
+pnpm install
+pnpm build
 ```
+
 
 ### Building search database
 

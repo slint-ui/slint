@@ -306,7 +306,7 @@ impl PyStructOrEnum {
 
 #[derive(Serialize, Deserialize)]
 pub struct PyModule {
-    version: SmolStr,
+    pub(crate) version: SmolStr,
     globals: Vec<PyComponent>,
     components: Vec<PyComponent>,
     structs_and_enums: Vec<PyStructOrEnum>,
@@ -315,7 +315,11 @@ pub struct PyModule {
 impl Default for PyModule {
     fn default() -> Self {
         Self {
-            version: SmolStr::new_static("1.0"),
+            // Bump whenever the meaning of any annotation produced by
+            // `python_type_name` changes (e.g. Type::Int32 → "int" in 2.0).
+            // A previously-generated wrapper that carries an older version
+            // is treated as incompatible by `changed_version`.
+            version: SmolStr::new_static("2.0"),
             globals: Default::default(),
             components: Default::default(),
             structs_and_enums: Default::default(),
@@ -341,13 +345,8 @@ pub fn generate_py_module(
 
     for export in doc.exports.iter() {
         match &export.1 {
-            Either::Left(component) if !component.is_global() => {
-                if export.0.name != component.id {
-                    compo_aliases
-                        .entry(component.id.clone())
-                        .or_default()
-                        .push(export.0.name.clone());
-                }
+            Either::Left(component) if !component.is_global() && export.0.name != component.id => {
+                compo_aliases.entry(component.id.clone()).or_default().push(export.0.name.clone());
             }
             Either::Right(ty) => match &ty {
                 Type::Struct(s) if s.node().is_some() => {
@@ -360,13 +359,8 @@ pub fn generate_py_module(
                             .push(export.0.name.clone());
                     }
                 }
-                Type::Enumeration(en) => {
-                    if export.0.name != en.name {
-                        enum_aliases
-                            .entry(en.name.clone())
-                            .or_default()
-                            .push(export.0.name.clone());
-                    }
+                Type::Enumeration(en) if export.0.name != en.name => {
+                    enum_aliases.entry(en.name.clone()).or_default().push(export.0.name.clone());
                 }
                 _ => {}
             },
@@ -663,8 +657,8 @@ fn python_type_name(ty: &Type) -> SmolStr {
         Type::Void => SmolStr::new_static("None"),
         Type::String => SmolStr::new_static("str"),
         Type::Color => SmolStr::new_static("slint.Color"),
+        Type::Int32 => SmolStr::new_static("int"),
         Type::Float32
-        | Type::Int32
         | Type::Duration
         | Type::Angle
         | Type::PhysicalLength
@@ -708,6 +702,7 @@ fn python_type_name(ty: &Type) -> SmolStr {
             )
         }
         Type::Keys => SmolStr::new_static("slint.Keys"),
+        Type::DataTransfer => SmolStr::new_static("slint.DataTransfer"),
         ty => unimplemented!("implemented type conversion {:#?}", ty),
     }
 }

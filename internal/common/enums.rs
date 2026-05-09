@@ -394,10 +394,12 @@ macro_rules! for_each_enums {
                 SpaceEvenly,
             }
 
-            /// Controls the alignment of individual items along the cross axis within each flex line.
+            /// Controls the alignment of individual items along the cross axis of a layout.
+            /// Used as the `align-items` property of `HorizontalLayout`, `VerticalLayout`,
+            /// and `FlexboxLayout`.
             #[non_exhaustive]
-            enum FlexboxLayoutAlignItems {
-                /// Items are stretched to fill the line along the cross axis.
+            enum LayoutAlignItems {
+                /// Items are stretched to fill the cross axis.
                 Stretch,
                 /// Items are placed at the start of the cross axis.
                 Start,
@@ -496,6 +498,19 @@ macro_rules! for_each_enums {
                 ListItem,
                 /// The element is a `RadioButton` or behaves like one.
                 RadioButton,
+            }
+
+            /// This enum represents the different values of the `accessible-live` property.
+            /// It indicates that an element is a live region whose content changes should be
+            /// announced by assistive technologies.
+            #[non_exhaustive]
+            enum AccessibleLive {
+                /// The element is not a live region.
+                Off,
+                /// Updates are announced when the user is idle.
+                Polite,
+                /// Updates are announced as soon as possible.
+                Assertive,
             }
 
             /// This enum represents the different values of the `sort-order` property.

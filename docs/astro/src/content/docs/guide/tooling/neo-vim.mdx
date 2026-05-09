@@ -1,5 +1,5 @@
 ---
-// cSpell: ignore vimrc nvim lspconfig kosayoda
+// cSpell: ignore vimrc nvim lspconfig kosayoda akioweh
 title: (Neo-)Vim
 description: Vim and Neovim Configuration for Slint
 ---
@@ -71,6 +71,16 @@ You may also want to install a plugin that indicates when code actions are avail
 **Example with nvim-lightbulb**:
 
 ![Opening Live Preview from Neovim](../../../../assets/guide/tooling/nvim-show-preview.webp)
+
+#### Highlighting elements from Neovim
+
+To highlight elements in the live preview from Neovim directly, either:
+Use the "hover" LSP action (`K` by default) or enable the [document-highlight](https://neovim.io/doc/user/lsp/#vim.lsp.buf.document_highlight()) feature.
+When document highlighting is enabled, moving the caret over an element will automatically highlight it in the live preview, and moving the caret away will remove the highlight.
+
+:::tip[Personal Recommendation]
+The [akioweh/lsp-document-highlight](https://github.com/akioweh/lsp-document-highlight.nvim) plugin provides an easy way to configure the the document-highlight action without the flickering the default configuration will create.
+:::
 
 ### Tree-sitter
 

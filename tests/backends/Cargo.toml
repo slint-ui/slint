@@ -11,6 +11,7 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
+publish = false
 
 [dependencies]
 # This disables the default feature selection so that each test binary is forced to set up

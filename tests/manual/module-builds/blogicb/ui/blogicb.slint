@@ -106,3 +106,17 @@ export component BLogicB {
         }
     }
 }
+
+
+/// This component only exists to test that exporting non-Window components from libraries
+/// does not trigger a warning (see #10881)
+export component BLogicB2 {
+    width: 600px; height: 240px;
+    Text {
+        text: "B2 component";
+        color: black;
+        font-size: 24px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}

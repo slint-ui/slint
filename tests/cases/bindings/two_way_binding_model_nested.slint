@@ -1,0 +1,134 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Verify that two-way bindings to a model row work when the binding lives
+// inside an element that's nested *under* the for-loop body. This exercises
+// the `parent_level > 0` codegen path in the Rust generator and the
+// equivalent `body_expr` parent walk in the C++ generator. Also verifies
+// the read-direction: writing the model from native code propagates into
+// the nested chain, and a click *inside* the nested element propagates
+// back out into the model.
+
+struct Item {
+    name: string,
+    value: int,
+}
+
+component Inner {
+    in-out property <int> value;
+    callback bump();
+    Rectangle {
+        TouchArea {
+            clicked => { root.value = root.value + 1; bump(); }
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+
+    in-out property <[Item]> model: [
+        { name: "first", value: 10 },
+        { name: "second", value: 20 },
+    ];
+
+    // Receives the most recently bumped row's value via the bump callback.
+    in-out property <int> last-bumped: 0;
+
+    VerticalLayout {
+        for itm[idx] in model: HorizontalLayout {
+            // The two-way binding lives inside `Inner`, so `itm.value` is
+            // accessed from `parent_level > 0` relative to the binding site.
+            Inner {
+                value <=> itm.value;
+                bump => { last-bumped = self.value; }
+            }
+        }
+    }
+
+    out property <bool> test:
+        model[0].value == 10 && model[1].value == 20;
+}
+
+/*
+```rust
+use slint::{Model, VecModel};
+use std::rc::Rc;
+
+let instance = TestCase::new().unwrap();
+// Provide the model from Rust so `set_row_data` is callable on it below.
+let model = Rc::new(VecModel::from(vec![
+    Item { name: "first".into(), value: 10 },
+    Item { name: "second".into(), value: 20 },
+]));
+instance.set_model(model.clone().into());
+assert!(instance.get_test());
+
+// Native write: setting the model row from Rust must propagate through
+// the nested binding chain (the click below reads `root.value`, which
+// must already reflect the new model value).
+model.set_row_data(0, Item { name: "first".into(), value: 100 });
+slint_testing::mock_elapsed_time(0);
+assert_eq!(model.row_data(0).unwrap().value, 100);
+
+// Click inside the *nested* Inner of the first row: the click handler
+// reads `root.value` (which must come from the model = 100), increments
+// it, and assigns back. The assignment must reach the model.
+slint_testing::send_mouse_click(&instance, 100., 50.);
+assert_eq!(instance.get_last_bumped(), 101);
+assert_eq!(model.row_data(0).unwrap().value, 101);
+
+// Same thing for the second row, after a fresh native model write.
+model.set_row_data(1, Item { name: "second".into(), value: 200 });
+slint_testing::mock_elapsed_time(0);
+slint_testing::send_mouse_click(&instance, 100., 150.);
+assert_eq!(instance.get_last_bumped(), 201);
+assert_eq!(model.row_data(1).unwrap().value, 201);
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+
+auto model = instance.get_model();
+
+model->set_row_data(0, Item { .name = "first", .value = 100 });
+slint_testing::mock_elapsed_time(0);
+assert(model->row_data(0).value().value == 100);
+
+slint_testing::send_mouse_click(&instance, 100., 50.);
+assert_eq(instance.get_last_bumped(), 101);
+assert(model->row_data(0).value().value == 101);
+
+model->set_row_data(1, Item { .name = "second", .value = 200 });
+slint_testing::mock_elapsed_time(0);
+slint_testing::send_mouse_click(&instance, 100., 150.);
+assert_eq(instance.get_last_bumped(), 201);
+assert(model->row_data(1).value().value == 201);
+```
+
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+
+// JS can't call setRowData on the slint-owned ArrayModel wrapper, so we
+// drive a fresh model from JS to exercise the read-direction explicitly.
+let m = new slintlib.ArrayModel([
+    { name: "first", value: 100 },
+    { name: "second", value: 200 },
+]);
+instance.model = m;
+
+slintlib.private_api.send_mouse_click(instance, 100., 50.);
+assert.equal(instance.last_bumped, 101);
+assert.equal(m.rowData(0).value, 101);
+
+slintlib.private_api.send_mouse_click(instance, 100., 150.);
+assert.equal(instance.last_bumped, 201);
+assert.equal(m.rowData(1).value, 201);
+```
+*/

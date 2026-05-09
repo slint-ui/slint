@@ -5,6 +5,9 @@
 
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, TextSize, syntax_nodes};
+use i_slint_preview_protocol::{
+    LspToPreviewMessage, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
+};
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
 
 use std::path::Path;
@@ -12,7 +15,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 pub mod component_catalog;
 pub mod document_cache;
-pub use document_cache::{DocumentCache, SourceFileVersion};
+pub use document_cache::DocumentCache;
 pub use i_slint_compiler::diagnostics::ByteFormat;
 pub mod rename_component;
 pub mod rename_element_id;
@@ -26,6 +29,20 @@ pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
+
+#[allow(clippy::disallowed_methods)]
+pub fn spawn_local<F>(future: F)
+where
+    F: std::future::Future + 'static,
+    F::Output: 'static,
+{
+    #[cfg(target_arch = "wasm32")]
+    wasm_bindgen_futures::spawn_local(async move {
+        let _ = future.await;
+    });
+    #[cfg(not(target_arch = "wasm32"))]
+    tokio::task::spawn_local(future);
+}
 
 /// Use this in nodes you want the language server and preview to
 /// ignore a node for code analysis purposes.
@@ -454,36 +471,6 @@ pub fn create_workspace_edit_from_single_text_edits(
 }
 
 /// A versioned file
-#[derive(Clone, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
-pub struct VersionedUrl {
-    /// The file url
-    url: Url,
-    // The file version
-    version: SourceFileVersion,
-}
-
-impl VersionedUrl {
-    pub fn new(url: Url, version: SourceFileVersion) -> Self {
-        VersionedUrl { url, version }
-    }
-
-    pub fn url(&self) -> &Url {
-        &self.url
-    }
-
-    pub fn version(&self) -> &SourceFileVersion {
-        &self.version
-    }
-}
-
-impl std::fmt::Debug for VersionedUrl {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let version = self.version.map(|v| format!("v{v}")).unwrap_or_else(|| "none".to_string());
-        write!(f, "{}@{}", self.url, version)
-    }
-}
-
-/// A versioned file
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 pub struct Position {
     /// The file url
@@ -535,44 +522,6 @@ impl VersionedPosition {
     }
 }
 
-#[derive(Default, Clone, PartialEq, Debug, serde::Deserialize, serde::Serialize)]
-pub struct PreviewConfig {
-    pub hide_ui: Option<bool>,
-    pub style: String,
-    pub include_paths: Vec<PathBuf>,
-    pub library_paths: HashMap<String, PathBuf>,
-    pub format_utf8: bool,
-    pub enable_experimental: bool,
-}
-
-/// The Component to preview
-#[allow(unused)]
-#[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
-pub struct PreviewComponent {
-    /// The file name to preview
-    pub url: Url,
-    /// The name of the component within that file.
-    /// If None, then the last component is going to be shown.
-    pub component: Option<String>,
-}
-
-#[allow(unused)]
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-pub enum LspToPreviewMessage {
-    InvalidateContents { url: lsp_types::Url },
-    ForgetFile { url: lsp_types::Url },
-    SetContents { url: VersionedUrl, contents: String },
-    SetConfiguration { config: PreviewConfig },
-    ShowPreview(PreviewComponent),
-    HighlightFromEditor { url: Option<Url>, offset: u32 },
-    Quit,
-}
-
-impl lsp_types::notification::Notification for LspToPreviewMessage {
-    type Params = Self;
-    const METHOD: &'static str = "slint/lsp_to_preview";
-}
-
 #[allow(unused)]
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct Diagnostic {
@@ -595,26 +544,6 @@ impl PropertyChange {
     pub fn new(name: &str, value: String) -> Self {
         PropertyChange { name: name.to_string(), value }
     }
-}
-
-#[allow(unused)]
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-pub enum PreviewToLspMessage {
-    /// Report diagnostics to editor.
-    Diagnostics { uri: Url, version: SourceFileVersion, diagnostics: Vec<lsp_types::Diagnostic> },
-    /// Show a document in the editor.
-    ShowDocument { file: Url, selection: lsp_types::Range, take_focus: bool },
-    /// Switch between native and WASM preview (if supported)
-    PreviewTypeChanged { is_external: bool },
-    /// Request all documents and configuration to be sent from the LSP to the
-    /// Preview.
-    RequestState { unused: bool },
-    /// Pass a `WorkspaceEdit` on to the editor
-    SendWorkspaceEdit { label: Option<String>, edit: lsp_types::WorkspaceEdit },
-    /// Pass a `ShowMessage` notification on to the editor
-    SendShowMessage { message: lsp_types::ShowMessageParams },
-    /// Send a telemetry event
-    TelemetryEvent(serde_json::Map<String, serde_json::Value>),
 }
 
 /// Information on the Element types available
@@ -752,7 +681,7 @@ pub fn fuzzy_filter_iter<T: std::fmt::Debug>(
         .collect::<Vec<_>>();
 
     // sort by value, highest first. Sort names with the same value alphabetically
-    all_matches.sort_by(|r, l| l.0.cmp(&r.0));
+    all_matches.sort_by_key(|l| std::cmp::Reverse(l.0));
 
     let cut_off = {
         let lowest_value = all_matches.last().map(|(v, _)| *v).unwrap_or_default();

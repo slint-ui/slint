@@ -25,27 +25,137 @@ The administrators of the slint-ui Github organization are the founders of Sixty
 All employees of SixtyFPS GmbH are members of the organization.
 External contributors may also be invited to become members of the Github organization.
 
-## Code changes
+## Code Changes
 
-The development happens in the `master` branch.
-Developers can create a branch `<developer-name>/<feature-name>` in the slint-ui/slint repository to make a PR, although some developers prefer to work on their own forks.
-Only members of the organization can push to a branch in `slint-ui/slint`, so outside contributors need to create a PR from a branch in their own fork.
+We aim for a clean, readable history on `master` so that `git blame` and `git bisect` remain useful.
+Commit messages should make sense on their own,
+even without access to the pull request that introduced them.
 
-For simple commits that do not need to be reviewed and are unlikely to break the CI, the commit can be directly pushed to the `master` branch without creating a PR.
-The master branch is protected, only admins are able to push directly to the `master` branch.
+The commit and PR title should be short and describe *what* changed.
+Start with the area of the code it affects,
+for example `compiler:`, `slintpad:`, `skia:`, `docs:`.
+Don't use the `feat:`/`fix:` convention.
 
-A PR should be reviewed before being merged, unless the PR is trivial. Trivial PRs may be merged without review.
+The commit body can be longer, expand on *what* was done, and explain *why* and *what it fixes*.
+Reference related issues in the body:
+use `Fixes: #123` or `Closes: #123` if the commit resolves the issue,
+or `Issue: #123` / `CC: #123` to reference it without closing it.
 
-Reviewers can leave comments on the PR. Some comments are just nitpicks but some other comments should be addressed before merging the PR. Reviewers should make an effort to clearly indicate what needs to be addressed to obtain approval.
+Changes to user-visible behavior should include an update to the documentation.
+Ideally, every change should come with an automated test.
 
-Once approved, the author of the PR can merge the PR if he has the rights to do so.
-For external contribution, the reviewer must merge the PR.
+### Branches
 
-Ideally, the PR should keep a clean history with self contained commits.
-If the history of the PR is clean, the PR can be "Rebased and merged" so that the individual commits are merged into the `master` branch.
-But some developers do not take care to keep a clean history and a PR may contain many commits or "autofix" commits.
-In this case it is preferable to "Squash and merge" the PR in the Github UI.
-The submitter can edit the commit message to make it nicer and removed the artifacts of all the "fixups".
+Developers can create a branch `<developer-name>/<feature-name>` in the slint-ui/slint repository.
+Organization members are encouraged to use this naming convention rather than working from personal forks,
+as it keeps branches discoverable and triggers CI automatically.
+Outside contributors need to create a PR from a branch in their own fork,
+since only organization members can push to `slint-ui/slint`.
+
+The `master` branch and `feature/*` branches are protected.
+Members of the "trusted-with-git" GitHub team can push directly to these branches.
+Admins are implicitly part of this group.
+For simple commits that don't need review and are unlikely to break CI,
+a trusted-with-git member can push directly to `master` without creating a PR.
+
+### Pull Requests
+
+A PR should be reviewed before merging, unless the change is trivial.
+
+Reviewers leave comments on the PR.
+Some are nitpicks, others must be addressed before merging.
+Reviewers should clearly indicate which is which.
+
+Once approved, the author merges the PR.
+GitHub's auto-merge feature can be used to merge automatically once CI passes and approvals are in.
+For external contributions, the reviewer can also merge it.
+
+Use draft PRs for work that isn't ready for review yet.
+When you mark a PR as ready, let the reviewer know — GitHub doesn't notify them loudly.
+
+### Commit Hygiene
+
+Many PRs accumulate "fixup" or "autofix" commits during review. These are noise in the final history.
+
+For small changes, **squash and merge** the PR.
+Edit the commit message to produce a clean, self-contained summary that follows the guidelines above.
+Remove any leftover fixup or autofix commit titles from the message.
+
+For larger changes with several logically independent parts,
+maintain a clean history of a few self-contained commits within the PR.
+In this case, force-push to the PR branch as needed to keep the history tidy,
+and use **rebase and merge** so the individual commits land on `master`.
+
+When in doubt, squash.
+A single well-written commit is better than a noisy sequence.
+
+### Feature Branches
+
+Feature branches are for larger efforts where partial, incremental reviews are useful.
+They follow the `feature/<name>` naming convention.
+
+#### Creating a Feature Branch
+
+A trusted-with-git member creates the feature branch:
+
+```sh
+git push origin origin/master:feature/<name>
+```
+
+#### Working on a Feature Branch
+
+Development on a feature branch follows the same PR and review workflow as `master`,
+but PRs target the feature branch instead.
+Temporary regressions are acceptable as long as they're tracked in the tracking PR (see below).
+
+Once a PR has been merged into the feature branch, don't rewrite that history.
+Don't force-push, squash, or rebase commits that were already reviewed and merged.
+The commit hashes are the link back to the PR that introduced them.
+
+#### Merging Master Into the Feature Branch
+
+Only merge `master` into the feature branch when something from `master` is actually needed —
+for example to resolve conflicts or to pick up a specific commit.
+Don't merge routinely.
+
+A trusted-with-git member performs the merge:
+
+```sh
+git switch feature/<name>
+git pull origin feature/<name>
+git merge origin/master
+# resolve any conflicts and commit
+git push origin feature/<name>
+```
+
+Resolving merge conflicts requires understanding the changes on both sides.
+If you're unsure, ask for help.
+
+#### Tracking PR
+
+Create a **draft** PR that merges the feature branch into `master`.
+This tracking PR serves as the central place for the feature:
+
+ - Give it a descriptive title and a label.
+ - Use the PR description to list remaining work items, known regressions, and open questions.
+ - Keep the description up to date as the feature progresses.
+
+Don't merge the tracking PR through GitHub's merge button.
+
+#### Completing a Feature Branch
+
+When the author and reviewers agree the feature is complete,
+a trusted-with-git member pushes the merge commit to `master`:
+
+```sh
+git switch master
+git pull origin master
+git merge origin/feature/<name>
+git push origin master
+```
+
+GitHub automatically closes the tracking PR once its head commit is part of `master`.
+Delete the feature branch after merging.
 
 ## CI
 

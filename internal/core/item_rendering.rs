@@ -547,8 +547,10 @@ pub trait ItemRenderer {
     fn get_current_clip(&self) -> LogicalRect;
 
     fn translate(&mut self, distance: LogicalVector);
-    fn translation(&self) -> LogicalVector {
-        unimplemented!()
+    /// Returns the accumulated local-to-screen transform, including
+    /// translate, scale, and rotate.
+    fn current_transform(&self) -> crate::lengths::ItemTransform {
+        todo!("this renderer does not track transforms for partial rendering")
     }
     fn rotate(&mut self, angle_in_degrees: f32);
     fn scale(&mut self, scale_x_factor: f32, scale_y_factor: f32);
@@ -599,6 +601,82 @@ pub trait ItemRenderer {
 
     /// Return the internal renderer
     fn as_any(&mut self) -> Option<&mut dyn core::any::Any>;
+}
+
+/// Renderer-backend hooks for [`Layer::render`], which owns the caching and
+/// bounds computation; implementors only describe how to allocate, render
+/// into, and unwrap a layer target.
+///
+/// The `'cache` lifetime lets `layer_cache` hand out a reference that doesn't
+/// borrow `self`, so the orchestrator can call the other `&mut self` methods.
+#[cfg(feature = "std")]
+pub trait LayerRenderer<'cache>: ItemRenderer {
+    /// Per-layer render target (for example a skia `Surface` or a reused GPU texture).
+    type LayerTarget;
+    /// Cached image type produced from rendering into a [`Self::LayerTarget`].
+    type Image: Clone;
+
+    /// Access the renderer's layer cache.
+    fn layer_cache(
+        &self,
+    ) -> &'cache ItemCache<Option<(euclid::Point2D<f32, crate::lengths::PhysicalPx>, Self::Image)>>;
+
+    /// Allocate a target of the given physical size; `None` aborts rendering.
+    fn create_layer_target(
+        &mut self,
+        item_rc: &ItemRc,
+        physical_size: euclid::Size2D<f32, crate::lengths::PhysicalPx>,
+    ) -> Option<Self::LayerTarget>;
+
+    /// Redirect rendering into `target`, translate so children are positioned
+    /// relative to `bounding_rect.origin`, call `render_item_children`, then
+    /// restore. The dance is backend-specific (sub-renderer vs. render-target
+    /// swap), hence the hook.
+    fn render_into_layer(
+        &mut self,
+        target: Self::LayerTarget,
+        item_rc: &ItemRc,
+        bounding_rect: LogicalRect,
+    ) -> Self::Image;
+}
+
+/// Render the children of a [`Layer`] item through the given [`LayerRenderer`] backend.
+#[cfg(feature = "std")]
+pub fn render_layer<'cache, R>(
+    renderer: &mut R,
+    item_rc: &ItemRc,
+) -> Option<(euclid::Point2D<f32, crate::lengths::PhysicalPx>, R::Image)>
+where
+    R: LayerRenderer<'cache> + ?Sized + 'cache,
+{
+    let cache = renderer.layer_cache();
+    let scale_factor = crate::lengths::ScaleFactor::new(renderer.scale_factor());
+
+    let compute_bounds = |r: &R| -> LogicalRect {
+        item_children_bounding_rect(item_rc, &r.window().window_adapter())
+            .intersection(&r.get_current_clip().union(&item_rc.geometry()))
+            .unwrap_or_default()
+    };
+
+    cache.get_or_update_cache_entry(item_rc, || {
+        // Don't track dependencies of the bounding rect here: the actual
+        // rendering below will track them as it walks the children.
+        let bounding_rect = crate::properties::evaluate_no_tracking(|| compute_bounds(renderer));
+        let physical_origin = bounding_rect.origin.cast() * scale_factor;
+        let layer_size = bounding_rect.size.cast() * scale_factor;
+
+        let Some(target) = renderer.create_layer_target(item_rc, layer_size) else {
+            // Target allocation failed (typically a zero-sized layer). The
+            // children never ran, so their dependencies weren't tracked.
+            // Re-invoke the bounds closure with tracking enabled so the
+            // layer re-renders when the size becomes non-zero.
+            let _ = compute_bounds(renderer);
+            return None;
+        };
+
+        let image = renderer.render_into_layer(target, item_rc, bounding_rect);
+        Some((physical_origin, image))
+    })
 }
 
 /// Helper trait to express the features of an item renderer.

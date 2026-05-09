@@ -213,12 +213,7 @@ pub fn lex(mut source: &str) -> Vec<crate::parser::Token> {
             //
             // Note: Make sure to actually consume a whole character (may be more than 1 byte with
             // UTF-8 multi-byte characters)
-            //
-            // TODO: Replace with:
-            // (source.ceil_char_boundary(1), SyntaxKind::Error)
-            // Once MSRV is 1.91
-            let length = source.chars().next().map(char::len_utf8).unwrap_or_else(|| source.len());
-            (length, SyntaxKind::Error)
+            (source.ceil_char_boundary(1), SyntaxKind::Error)
         });
         result.push(crate::parser::Token {
             kind,

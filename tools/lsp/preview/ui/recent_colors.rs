@@ -5,27 +5,21 @@ use std::rc::Rc;
 
 use crate::preview::ui;
 
-use slint::{ComponentHandle, Model};
+use slint::Model;
 
 const MAX_RECENT_COLORS: usize = 9;
 
-pub fn setup(ui: &ui::PreviewUi) {
-    let api = ui.global::<ui::Api>();
-
+pub fn setup(api: &ui::Api<'_>, api_weak: slint::Weak<ui::Api<'static>>) {
     api.set_recent_colors(Rc::new(slint::VecModel::default()).into());
 
-    let weak_ui = ui.as_weak();
-
     api.on_add_recent_color(move |color| {
-        if let Some(ui) = weak_ui.upgrade() {
-            add_recent_color(ui, color);
+        if let Some(api) = api_weak.upgrade() {
+            add_recent_color(&api, color);
         }
     });
 }
 
-fn add_recent_color(ui: ui::PreviewUi, value: slint::Color) {
-    let api = ui.global::<ui::Api>();
-
+fn add_recent_color(api: &ui::Api<'_>, value: slint::Color) {
     let model = api.get_recent_colors();
     let Some(model) = model.as_any().downcast_ref::<slint::VecModel<slint::Color>>() else {
         return;

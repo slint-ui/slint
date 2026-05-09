@@ -96,8 +96,10 @@ assert(instance.get_test());
 
 // Toggle extra_row to test cache grow/shrink with nested repeater
 instance.set_extra_row(true);
+slint_testing::mock_elapsed_time(16);
 assert_eq(instance.get_end_row(), 6);
 instance.set_extra_row(false);
+slint_testing::mock_elapsed_time(16);
 assert_eq(instance.get_end_row(), 5);
 ```
 
@@ -109,8 +111,10 @@ assert!(instance.get_test());
 
 // Toggle extra_row to test cache grow/shrink with nested repeater
 instance.set_extra_row(true);
+slint_testing::mock_elapsed_time(16);
 assert_eq!(instance.get_end_row(), 6);
 instance.set_extra_row(false);
+slint_testing::mock_elapsed_time(16);
 assert_eq!(instance.get_end_row(), 5);
 
 // Additional test: mutate outer model
@@ -120,6 +124,7 @@ instance.set_row_model(slint::ModelRc::new(slint::VecModel::from(vec![
      slint::ModelRc::new(slint::VecModel::<slint::SharedString>::from(
          vec![slint::SharedString::from("x")]))),
 ])));
+slint_testing::mock_elapsed_time(0);
 assert_eq!(instance.get_end_row(), 3);
 
 // 2. grow — add a third row to verify cache expands
@@ -134,6 +139,7 @@ instance.set_row_model(slint::ModelRc::new(slint::VecModel::from(vec![
      slint::ModelRc::new(slint::VecModel::<slint::SharedString>::from(
          vec![slint::SharedString::from("C1"), slint::SharedString::from("C2")]))),
 ])));
+slint_testing::mock_elapsed_time(0);
 assert_eq!(instance.get_end_row(), 7);
 ```
 

@@ -1,0 +1,354 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Tests for the `align-items` property on HorizontalLayout and VerticalLayout.
+
+component TestHStretch inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    HorizontalLayout {
+        padding: 0phx;
+        align-items: stretch;
+        r1 := Rectangle { background: red; }
+        r2 := Rectangle { background: green; }
+    }
+
+    out property <bool> test:
+        r1.y == 0phx && r1.height == 200phx
+        && r2.y == 0phx && r2.height == 200phx;
+}
+
+component TestHStart inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    HorizontalLayout {
+        padding: 0phx;
+        align-items: start;
+        r1 := Rectangle { background: red; preferred-height: 40phx; }
+        r2 := Rectangle { background: green; preferred-height: 80phx; }
+    }
+
+    out property <bool> test:
+        r1.y == 0phx && r1.height == 40phx
+        && r2.y == 0phx && r2.height == 80phx;
+}
+
+component TestHEnd inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    HorizontalLayout {
+        padding: 0phx;
+        align-items: end;
+        r1 := Rectangle { background: red; preferred-height: 40phx; }
+        r2 := Rectangle { background: green; preferred-height: 80phx; }
+    }
+
+    out property <bool> test:
+        r1.y == 200phx - 40phx && r1.height == 40phx
+        && r2.y == 200phx - 80phx && r2.height == 80phx;
+}
+
+component TestHCenter inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    HorizontalLayout {
+        padding: 0phx;
+        align-items: center;
+        r1 := Rectangle { background: red; preferred-height: 40phx; }
+        r2 := Rectangle { background: green; preferred-height: 80phx; }
+    }
+
+    out property <bool> test:
+        r1.y == (200phx - 40phx) / 2 && r1.height == 40phx
+        && r2.y == (200phx - 80phx) / 2 && r2.height == 80phx;
+}
+
+component TestVStretch inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    VerticalLayout {
+        padding: 0phx;
+        align-items: stretch;
+        r1 := Rectangle { background: red; }
+        r2 := Rectangle { background: green; }
+    }
+
+    out property <bool> test:
+        r1.x == 0phx && r1.width == 300phx
+        && r2.x == 0phx && r2.width == 300phx;
+}
+
+component TestVStart inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    VerticalLayout {
+        padding: 0phx;
+        align-items: start;
+        r1 := Rectangle { background: red; preferred-width: 60phx; }
+        r2 := Rectangle { background: green; preferred-width: 120phx; }
+    }
+
+    out property <bool> test:
+        r1.x == 0phx && r1.width == 60phx
+        && r2.x == 0phx && r2.width == 120phx;
+}
+
+component TestVEnd inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    VerticalLayout {
+        padding: 0phx;
+        align-items: end;
+        r1 := Rectangle { background: red; preferred-width: 60phx; }
+        r2 := Rectangle { background: green; preferred-width: 120phx; }
+    }
+
+    out property <bool> test:
+        r1.x == 300phx - 60phx && r1.width == 60phx
+        && r2.x == 300phx - 120phx && r2.width == 120phx;
+}
+
+component TestVCenter inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    VerticalLayout {
+        padding: 0phx;
+        align-items: center;
+        r1 := Rectangle { background: red; preferred-width: 60phx; }
+        r2 := Rectangle { background: green; preferred-width: 120phx; }
+    }
+
+    out property <bool> test:
+        r1.x == (300phx - 60phx) / 2 && r1.width == 60phx
+        && r2.x == (300phx - 120phx) / 2 && r2.width == 120phx;
+}
+
+// Centering happens within the padded content box.
+component TestHCenterWithPadding inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    HorizontalLayout {
+        padding-top: 30phx;
+        padding-bottom: 10phx;
+        padding-left: 0phx;
+        padding-right: 0phx;
+        align-items: center;
+        r1 := Rectangle { background: red; preferred-height: 40phx; }
+    }
+
+    // content box: 200 - 30 - 10 = 160phx, offset by 30phx
+    out property <bool> test: r1.y == 30phx + (160phx - 40phx) / 2 && r1.height == 40phx;
+}
+
+component TestVEndWithPadding inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    VerticalLayout {
+        padding-left: 40phx;
+        padding-right: 20phx;
+        padding-top: 0phx;
+        padding-bottom: 0phx;
+        align-items: end;
+        r1 := Rectangle { background: red; preferred-width: 60phx; }
+    }
+
+    // content box: 300 - 40 - 20 = 240phx, starting at x=40
+    out property <bool> test: r1.x == 40phx + 240phx - 60phx && r1.width == 60phx;
+}
+
+// max-width clamps the cross-axis size when not stretching.
+component TestVCenterMaxWidth inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    VerticalLayout {
+        padding: 0phx;
+        align-items: center;
+        r1 := Rectangle {
+            background: red;
+            preferred-width: 1000phx;
+            max-width: 80phx;
+        }
+    }
+
+    out property <bool> test: r1.x == (300phx - 80phx) / 2 && r1.width == 80phx;
+}
+
+// stretch with a max-width clamps the size but stays at the start.
+component TestVStretchMinWidthWins inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    VerticalLayout {
+        padding: 0phx;
+        align-items: stretch;
+        r1 := Rectangle {
+            background: red;
+            max-width: 100phx;
+        }
+    }
+
+    out property <bool> test: r1.x == 0phx && r1.width == 100phx;
+}
+
+// Inner layout's align-items doesn't affect the outer layout.
+component TestNestedInStretch inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    VerticalLayout {
+        padding: 0phx;
+        inner := HorizontalLayout {
+            padding: 0phx;
+            align-items: center;
+            r1 := Rectangle { background: red; preferred-height: 40phx; }
+        }
+    }
+
+    out property <bool> test: inner.height == 200phx && r1.y == (200phx - 40phx) / 2 && r1.height == 40phx;
+}
+
+component TestNestedOuterCenter inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    VerticalLayout {
+        padding: 0phx;
+        align-items: center;
+        inner := HorizontalLayout {
+            padding: 0phx;
+            spacing: 0phx;
+            max-width: 100phx;
+            Rectangle { background: red; min-width: 40phx; max-width: 40phx; }
+            Rectangle { background: blue; min-width: 60phx; max-width: 60phx; }
+        }
+    }
+
+    out property <bool> test: inner.width == 100phx && inner.x == (300phx - 100phx) / 2;
+}
+
+component TestNestedSameOrientation inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    HorizontalLayout {
+        padding: 0phx;
+        align-items: end;
+        spacing: 0phx;
+        inner := HorizontalLayout {
+            padding: 0phx;
+            spacing: 0phx;
+            preferred-height: 40phx;
+            max-height: 40phx;
+            Rectangle { background: red; min-width: 30phx; max-width: 30phx; }
+            Rectangle { background: blue; min-width: 50phx; max-width: 50phx; }
+        }
+        r2 := Rectangle { background: green; preferred-height: 60phx; max-height: 60phx; }
+    }
+
+    out property <bool> test:
+        inner.height == 40phx && inner.y == 200phx - 40phx && inner.width == 80phx
+        && r2.height == 60phx && r2.y == 200phx - 60phx;
+}
+
+component TestNestedHInV inherits Rectangle {
+    width: 300phx;
+    height: 200phx;
+
+    VerticalLayout {
+        padding: 0phx;
+        align-items: end;
+        inner := HorizontalLayout {
+            padding: 0phx;
+            spacing: 0phx;
+            max-width: 110phx;
+            Rectangle { background: red; min-width: 50phx; max-width: 50phx; }
+            Rectangle { background: blue; min-width: 60phx; max-width: 60phx; }
+        }
+    }
+
+    out property <bool> test: inner.width == 110phx && inner.x == 300phx - 110phx;
+}
+
+component TestTripleNesting inherits Rectangle {
+    width: 300phx;
+    height: 300phx;
+
+    VerticalLayout {
+        padding: 0phx;
+        align-items: stretch;
+        middle := HorizontalLayout {
+            padding: 0phx;
+            preferred-height: 100phx;
+            max-height: 100phx;
+            align-items: start;
+            inner := Rectangle {
+                background: red;
+                preferred-height: 30phx;
+                max-height: 30phx;
+            }
+        }
+    }
+
+    out property <bool> test:
+        middle.height == 100phx && inner.height == 30phx && inner.y == 0phx;
+}
+
+export component TestCase inherits Rectangle {
+    h_stretch := TestHStretch {}
+    h_start := TestHStart {}
+    h_end := TestHEnd {}
+    h_center := TestHCenter {}
+    v_stretch := TestVStretch {}
+    v_start := TestVStart {}
+    v_end := TestVEnd {}
+    v_center := TestVCenter {}
+    h_center_pad := TestHCenterWithPadding {}
+    v_end_pad := TestVEndWithPadding {}
+    v_max := TestVCenterMaxWidth {}
+    v_stretch_min := TestVStretchMinWidthWins {}
+    nested := TestNestedInStretch {}
+    nested_outer_center := TestNestedOuterCenter {}
+    nested_same := TestNestedSameOrientation {}
+    nested_h_in_v := TestNestedHInV {}
+    triple := TestTripleNesting {}
+
+    out property <bool> test:
+        h_stretch.test && h_start.test && h_end.test && h_center.test
+        && v_stretch.test && v_start.test && v_end.test && v_center.test
+        && h_center_pad.test && v_end_pad.test
+        && v_max.test && v_stretch_min.test
+        && nested.test && nested_outer_center.test && nested_same.test
+        && nested_h_in_v.test && triple.test;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+
+*/

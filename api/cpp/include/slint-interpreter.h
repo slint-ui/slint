@@ -396,7 +396,8 @@ public:
     }
 
 private:
-    inline Value(const void *) = delete; // Avoid that for example Value("foo") turns to Value(bool)
+    inline Value(const void *) =
+            SLINT_DELETED_FUNCTION("pointers would otherwise implicitly convert to Value(bool)");
     slint::cbindgen_private::Value *inner;
     friend struct Struct;
     friend class ComponentInstance;
@@ -581,7 +582,7 @@ public:
     /// Returns the Window associated with this component. The window API can be used
     /// to control different aspects of the integration into the windowing system,
     /// such as the position on the screen.
-    const slint::Window &window()
+    const slint::Window &window() const
     {
         const cbindgen_private::WindowAdapterRcOpaque *win_ptr = nullptr;
         cbindgen_private::slint_interpreter_component_instance_window(inner(), &win_ptr);
@@ -1065,19 +1066,6 @@ public:
         }
     }
 };
-}
-
-namespace slint::private_api::testing {
-/// Send a key events to the given component instance
-inline void send_keyboard_string_sequence(const slint::interpreter::ComponentInstance *component,
-                                          const slint::SharedString &str)
-{
-    const cbindgen_private::WindowAdapterRcOpaque *win_ptr = nullptr;
-    cbindgen_private::slint_interpreter_component_instance_window(
-            reinterpret_cast<const cbindgen_private::ErasedItemTreeBox *>(component), &win_ptr);
-    cbindgen_private::send_keyboard_string_sequence(
-            &str, reinterpret_cast<const cbindgen_private::WindowAdapterRc *>(win_ptr));
-}
 }
 
 #endif

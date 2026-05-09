@@ -28,6 +28,16 @@ pub unsafe extern "C" fn slint_property_update(handle: &PropertyHandleOpaque, va
     }
 }
 
+/// Register this property as a dependency of the current tracking scope
+/// without evaluating any binding.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_property_register_as_dependency(handle: &PropertyHandleOpaque) {
+    unsafe {
+        let handle = Pin::new_unchecked(&handle.0);
+        handle.register_as_dependency_to_current_binding();
+    }
+}
+
 /// Mark the fact that the property was changed and that its binding need to be removed, and
 /// the dependencies marked dirty.
 /// To be called after the `value` has been changed
@@ -157,6 +167,16 @@ pub unsafe extern "C" fn slint_property_delete_binding(binding: *mut c_void) {
 pub unsafe extern "C" fn slint_property_evaluate_binding(binding: *mut c_void, value: *mut c_void) {
     let b = binding as *mut BindingHolder;
     unsafe { ((*b).vtable.evaluate)(b, value) };
+}
+
+/// Call `intercept_set` on a raw binding, returning whether the binding accepted the write
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_property_intercept_set_binding(
+    binding: *mut c_void,
+    value: *const c_void,
+) -> bool {
+    let b = binding as *mut BindingHolder;
+    unsafe { ((*b).vtable.intercept_set)(b, value) }
 }
 
 /// Returns whether the property behind this handle is marked as dirty

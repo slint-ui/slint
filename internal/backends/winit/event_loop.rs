@@ -131,7 +131,7 @@ impl EventLoopState {
             && let Some(window) = self.shared_backend_data.window_by_id(window_id)
         {
             let runtime_window = WindowInner::from_pub(window.window());
-            runtime_window.process_mouse_input(MouseEvent::Moved { position, is_touch: false });
+            runtime_window.process_mouse_input(MouseEvent::Moved { position, touch_finger_id: 0 });
         }
     }
 }
@@ -152,6 +152,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
         }
     }
 
+    #[allow(clippy::collapsible_match)]
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -268,7 +269,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
 
                 fn to_slint_key(event: &winit::event::KeyEvent, key_code: &Key) -> SharedString {
                     macro_rules! winit_key_to_char {
-                        ($($char:literal # $name:ident # $($shifted:ident)? # $($_muda:ident)? $(=> $($_qt:ident)|* # $($winit:ident $(($pos:ident))?)|* # $($_xkb:ident)|* )? ;)*) => {
+                        ($($char:literal # $name:ident # $($shifted:ident)? $(=> $($_muda:ident)? # $($_qt:ident)|* # $($winit:ident $(($pos:ident))?)|* # $($_xkb:ident)|* )? ;)*) => {
                             #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
                             match key_code {
                                 $( $( $(
@@ -336,9 +337,11 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                         corelib::input::KeyEventType::KeyReleased
                     }
                 };
+                let mut key_event = KeyEvent::default();
+                key_event.text = text;
 
                 let event = corelib::input::InternalKeyEvent {
-                    key_event: corelib::input::KeyEvent { text, ..Default::default() },
+                    key_event,
                     event_type,
                     #[cfg(target_os = "windows")]
                     text_without_modifiers,
@@ -357,9 +360,11 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 runtime_window.process_key_input(event);
             }
             WindowEvent::Ime(winit::event::Ime::Commit(string)) => {
+                let mut key_event = KeyEvent::default();
+                key_event.text = string.into();
                 let event = InternalKeyEvent {
                     event_type: KeyEventType::CommitComposition,
-                    key_event: KeyEvent { text: string.into(), ..Default::default() },
+                    key_event,
                     ..Default::default()
                 };
                 runtime_window.process_key_input(event);
@@ -434,7 +439,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                             position: self.cursor_pos,
                             button,
                             click_count: 0,
-                            is_touch: false,
+                            touch_finger_id: 0,
                         }
                     }
                     winit::event::ElementState::Released => {
@@ -443,7 +448,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                             position: self.cursor_pos,
                             button,
                             click_count: 0,
-                            is_touch: false,
+                            touch_finger_id: 0,
                         }
                     }
                 };
@@ -600,8 +605,8 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 .shared_backend_data
                 .active_windows
                 .borrow()
-                .iter()
-                .filter_map(|(_, w)| w.upgrade())
+                .values()
+                .filter_map(|w| w.upgrade())
             {
                 if w.window().has_active_animations() {
                     w.request_redraw();

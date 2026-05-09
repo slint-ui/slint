@@ -4,7 +4,7 @@
 // cSpell: ignore cupertino lumino permalink
 
 import { EditorWidget, initialize as initializeEditor } from "./editor_widget";
-import { LspWaiter, type Lsp } from "./lsp";
+import { LspWaiter, type Lsp, type LoadPhase } from "./lsp";
 import { PreviewWidget } from "./preview_widget";
 
 import {
@@ -18,6 +18,7 @@ import {
     report_export_error_dialog,
     export_gist_dialog,
     about_dialog,
+    set_panic_share_url_getter,
 } from "./dialogs";
 
 import { CommandRegistry } from "@lumino/commands";
@@ -25,7 +26,35 @@ import { Menu, MenuBar, SplitPanel, Widget } from "@lumino/widgets";
 
 import { type InvokeSlintpadCallback, SlintPadCallbackFunction } from "./lsp";
 
-const lsp_waiter = new LspWaiter();
+const loader = document.getElementById("loader");
+const loader_message = document.getElementById("loader-message");
+const loader_progress = document.getElementById(
+    "loader-progress",
+) as HTMLProgressElement | null;
+
+function update_loader(phase: LoadPhase) {
+    if (loader_message === null || loader_progress === null) return;
+    if (phase.kind === "downloading") {
+        if (phase.total) {
+            const percent = Math.round((phase.received / phase.total) * 100);
+            loader_message.textContent = `Downloading Slint runtime… ${percent}%`;
+            loader_progress.max = phase.total;
+            loader_progress.value = phase.received;
+        } else {
+            const kb = Math.round(phase.received / 1024);
+            loader_message.textContent = `Downloading Slint runtime… ${kb} KB`;
+            loader_progress.removeAttribute("value");
+        }
+    } else if (phase.kind === "compiling") {
+        loader_message.textContent = "Compiling…";
+        loader_progress.removeAttribute("value");
+    } else if (phase.kind === "initializing") {
+        loader_message.textContent = "Initializing…";
+        loader_progress.removeAttribute("value");
+    }
+}
+
+const lsp_waiter = new LspWaiter(update_loader);
 
 const commands = new CommandRegistry();
 
@@ -34,6 +63,7 @@ const url_style = url_params.get("style");
 
 function setup(lsp: Lsp) {
     const editor = new EditorWidget(lsp);
+    set_panic_share_url_getter(() => editor.share_url());
     const preview = new PreviewWidget(
         lsp,
         (url: string) => editor.map_url(url),
@@ -70,11 +100,14 @@ function setup(lsp: Lsp) {
 function main() {
     initializeEditor()
         .then((_) => {
+            if (loader_message !== null) {
+                loader_message.textContent = "Starting language server…";
+            }
             lsp_waiter
                 .wait_for_lsp()
                 .then((lsp) => {
                     setup(lsp);
-                    document.body.getElementsByClassName("loader")[0].remove();
+                    loader?.remove();
                 })
                 .catch((e) => {
                     console.info("LSP fail:", e);
@@ -82,7 +115,7 @@ function main() {
                     div.className = "browser-error";
                     div.innerHTML =
                         "<p>Failed to start the slint language server</p>";
-                    document.body.getElementsByClassName("loader")[0].remove();
+                    loader?.remove();
                     document.body.appendChild(div);
                 });
         })

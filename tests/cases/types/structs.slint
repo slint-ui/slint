@@ -91,28 +91,28 @@ assert.equal(instance.player_2.energy_level, 0.4);
 class Player:
     energy_level: float
     name: str
-    score: float
+    score: int
 
-    def __init__(self, *, energy_level: typing.Optional[float] = None, name: typing.Optional[str] = None, score: typing.Optional[float] = None) -> None: ...
+    def __init__(self, *, energy_level: typing.Optional[float] = None, name: typing.Optional[str] = None, score: typing.Optional[int] = None) -> None: ...
 
 
 class Unused:
-    foo: float
+    foo: int
 
-    def __init__(self, *, foo: typing.Optional[float] = None) -> None: ...
+    def __init__(self, *, foo: typing.Optional[int] = None) -> None: ...
 
 
 class With_Dash_And_underscore:
-    foo_bar: float
+    foo_bar: int
 
-    def __init__(self, *, foo_bar: typing.Optional[float] = None) -> None: ...
+    def __init__(self, *, foo_bar: typing.Optional[int] = None) -> None: ...
 
 
 class TestCase(slint.Component):
     player_1: Player
     player_2: Player
     player_2_alias: Player
-    player_2_score: float
+    player_2_score: int
     player_list: slint.Model[Player]
     players: slint.Model[Player]
     test: bool

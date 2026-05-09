@@ -206,3 +206,28 @@
 .dialog.about_dialog .slint-logo-link {
     display: inline-block;
 }
+
+.dialog.panic_dialog .panic_headline {
+    color: white;
+    background: #c0392b;
+    padding: 6px 10px;
+    margin: 0 0 8px 0;
+    font-weight: bold;
+    border-radius: 3px;
+}
+
+.dialog.panic_dialog .panic_details {
+    font-family: monospace;
+    width: 100%;
+    box-sizing: border-box;
+    white-space: pre;
+}
+
+.dialog.panic_dialog .panic_warning {
+    color: #8a6d3b;
+    background: #fcf8e3;
+    border: 1px solid #faebcc;
+    padding: 6px 10px;
+    border-radius: 3px;
+    font-size: 90%;
+}

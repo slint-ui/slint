@@ -5,10 +5,43 @@ export Test := Window {
 //          ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
     Text {
         text: "hel\lo";
-//            >      <error{Cannot parse string literal}
+//                ><error{Unknown escape sequence. Use '\\' to escape a literal backslash}
     }
     property <string> p1: "hello\"world";
     property <string> p2: "hello\\";
     property <string> p3: "hello\world";
-//                        >           <error{Cannot parse string literal}
+//                              ><error{Unknown escape sequence. Use '\\' to escape a literal backslash}
+    property <string> p4: "ok\{p1}bad\xend";
+//                                   ><error{Unknown escape sequence. Use '\\' to escape a literal backslash}
+    // Bad escape after \u{...} escape
+    property <string> p5: "a\u{41}b\xc";
+//                                 ><error{Unknown escape sequence. Use '\\' to escape a literal backslash}
+
+    // Unicode escape without opening brace
+    property <string> p6: "abc\uxx";
+//                              |error{Invalid unicode escape: expected '{'}
+
+    // Unterminated unicode escape (no closing brace)
+    property <string> p7: "abc\u{41";
+//                              |error{Unterminated unicode escape}
+
+    // Invalid hexadecimal in unicode escape
+    property <string> p8: "abc\u{xyz}";
+//                               > <error{Invalid hexadecimal in unicode escape}
+
+    // Invalid unicode code point (out of range)
+    property <string> p9: "abc\u{ffffff}";
+//                               >    <error{Invalid unicode code point}
+
+    // Bare \u at end of string
+    property <string> p10: "\u";
+//                            |error{Invalid unicode escape: expected '{'}
+
+    // \u after escaped content
+    property <string> p11: "\nx\u";
+//                               |error{Invalid unicode escape: expected '{'}
+
+    // \u{ at end of string (unterminated)
+    property <string> p12: "\u{";
+//                            |error{Unterminated unicode escape}
 }

@@ -46,6 +46,11 @@ pub fn lower_to_item_tree(
     let public_components = document
         .exported_roots()
         .map(|component| {
+            let top_level_type = if component.inherits_system_tray_icon() {
+                TopLevelComponentType::SystemTrayIcon
+            } else {
+                TopLevelComponentType::Window
+            };
             let mut sc = lower_sub_component(&component, &mut state, None, compiler_config);
             let public_properties = public_properties(&component, &sc.mapping, &state);
             sc.sub_component.name = component.id.clone();
@@ -59,6 +64,7 @@ pub fn lower_to_item_tree(
                 public_properties,
                 private_properties: component.private_properties.borrow().clone(),
                 name: component.id.clone(),
+                top_level_type,
             }
         })
         .collect();
@@ -476,11 +482,29 @@ fn lower_sub_component(
         }
 
         for tw in &binding.two_way_bindings {
-            sub_component.two_way_bindings.push((
-                prop.clone(),
-                ctx.map_property_reference(&tw.property),
-                tw.field_access.clone(),
-            ));
+            sub_component.two_way_bindings.push(match tw {
+                crate::expression_tree::TwoWayBinding::Property { property, field_access } => {
+                    TwoWayBinding {
+                        prop1: prop.local(),
+                        prop2: ctx.map_property_reference(property),
+                        field_access: field_access.clone(),
+                        is_model: None,
+                    }
+                }
+                crate::expression_tree::TwoWayBinding::ModelData {
+                    repeated_element,
+                    field_access,
+                } => TwoWayBinding {
+                    prop1: prop.local(),
+                    prop2: super::lower_expression::repeater_special_property(
+                        repeated_element,
+                        component,
+                        PropertyIdx::REPEATER_DATA,
+                    ),
+                    field_access: field_access.clone(),
+                    is_model: Some(PropertyIdx::REPEATER_INDEX),
+                },
+            });
         }
         if !matches!(binding.expression, tree_Expression::Invalid) {
             let expression =
@@ -678,9 +702,13 @@ fn lower_sub_component(
                     to: Type::String,
                 },
                 Type::String => super::Expression::PropertyReference(prop),
-                Type::Enumeration(e) if e.name == "AccessibleRole" => {
+                Type::Enumeration(ref e) if e.name == "AccessibleRole" => {
                     super::Expression::PropertyReference(prop)
                 }
+                Type::Enumeration(_) => super::Expression::Cast {
+                    from: super::Expression::PropertyReference(prop).into(),
+                    to: Type::String,
+                },
                 Type::Callback(callback) => super::Expression::CallBackCall {
                     callback: prop,
                     arguments: (0..callback.args.len())
@@ -749,10 +777,8 @@ fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::Prope
         }
         let base = elem.borrow().base_type.clone();
         match base {
-            ElementType::Native(n) => {
-                if n.properties.get(p).is_some_and(|p| p.is_native_output()) {
-                    a.is_set = true;
-                }
+            ElementType::Native(n) if n.properties.get(p).is_some_and(|p| p.is_native_output()) => {
+                a.is_set = true;
             }
             ElementType::Component(c) => {
                 elem = c.root_element.clone();

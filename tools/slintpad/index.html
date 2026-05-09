@@ -16,8 +16,12 @@
 </head>
 
 <body>
-  <div class="loader" style="z-index: 1000; position: absolute">
-    <img class="loader-image" src="static/loader.svg" />
+  <div class="loader" id="loader" style="z-index: 1000; position: absolute">
+    <div class="loader-content">
+      <img class="loader-logo" src="static/loader.svg" alt="Slint" />
+      <label class="loader-message" id="loader-message" for="loader-progress">Loading…</label>
+      <progress class="loader-progress" id="loader-progress"></progress>
+    </div>
   </div>
 </body>
 

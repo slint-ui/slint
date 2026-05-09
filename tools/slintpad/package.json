@@ -1,7 +1,7 @@
 {
     "//": "cSpell: ignore codingame dragdrop femtovg frsource lumino treemended quickaccess ",
     "name": "slintpad",
-    "version": "1.16.0",
+    "version": "1.17.0",
     "description": "",
     "scripts": {
         "build": "pnpm clean && vite build",

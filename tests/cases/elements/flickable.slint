@@ -236,7 +236,7 @@ assert!((instance.get_offset_y() - 55.).abs() < 5.);
 
 ```rust
 // Test 2
-// Test wheel events
+// Test high-level wheel events stay synchronous
 use slint::{LogicalPosition, platform::{WindowEvent, Key} };
 let instance = TestCase::new().unwrap();
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: -30.0, delta_y: -50.0 });
@@ -255,6 +255,35 @@ if !cfg!(target_os = "macos") {
 ```
 
 ```rust
+// Test 2b
+// Standalone wheel move events animate without a synthetic settle callback
+use slint_testing::{LogicalPoint, MouseEvent, TouchPhase};
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+let inner = slint_testing::WindowInner::from_pub(&window);
+
+assert_eq!(instance.get_flicked(), 0);
+inner.process_mouse_input(MouseEvent::Wheel {
+    position: LogicalPoint::new(175., 175.),
+    delta_x: -30.,
+    delta_y: -50.,
+    phase: TouchPhase::Moved,
+});
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_offset_y(), 0.);
+assert_eq!(instance.get_flicked(), 0);
+slint_testing::mock_elapsed_time(50);
+assert!(instance.get_offset_x() > 0.);
+assert!(instance.get_offset_y() > 0.);
+assert!(instance.get_offset_x() < 30.);
+assert!(instance.get_offset_y() < 50.);
+slint_testing::mock_elapsed_time(500);
+assert_eq!(instance.get_offset_x(), 30.);
+assert_eq!(instance.get_offset_y(), 50.);
+assert_eq!(instance.get_flicked(), 0);
+```
+
+```rust
 // Test3
 // Test flicked-Callback behaviour
 // The pointer will be released after a short time after the last move event, so we start the animation
@@ -265,7 +294,7 @@ assert_eq!(instance.get_flicked(), 0);
 // test scrolling behaviour
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: -30.0, delta_y: -50.0 });
 dbg!(instance.get_flicked());
-assert_eq!(instance.get_flicked(), -3000050); //flicked got called after scrolling
+assert_eq!(instance.get_flicked(), -3000050); // flicked got called after scrolling
 instance.set_flicked(0);
 
 // test dragging bevaviour
@@ -294,7 +323,7 @@ assert_eq!(instance.get_flicked(), 0);
 // test scrolling behaviour
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: -30.0, delta_y: -50.0 });
 dbg!(instance.get_flicked());
-assert_eq!(instance.get_flicked(), -3000050); //flicked got called after scrolling
+assert_eq!(instance.get_flicked(), -3000050); // flicked got called after scrolling
 instance.set_flicked(0);
 
 // test dragging bevaviour
@@ -400,4 +429,3 @@ assert_eq!(instance.get_double_clicked(), 0);
 ```
 
 */
-

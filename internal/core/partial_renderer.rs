@@ -654,8 +654,9 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
 
         let clipped_geom = self.get_current_clip().intersection(&item_bounding_rect);
         let draw = clipped_geom.is_some_and(|clipped_geom| {
-            let clipped_geom = clipped_geom.translate(self.translation());
-            self.dirty_region.draw_intersects(clipped_geom)
+            let screen_geom =
+                self.current_transform().outer_transformed_rect(&clipped_geom.cast()).cast();
+            self.dirty_region.draw_intersects(screen_geom)
         });
 
         (draw, item_geometry)
@@ -691,8 +692,8 @@ impl<T: ItemRenderer + ItemRendererFeatures> ItemRenderer for PartialRenderer<'_
     fn translate(&mut self, distance: LogicalVector) {
         self.actual_renderer.translate(distance)
     }
-    fn translation(&self) -> LogicalVector {
-        self.actual_renderer.translation()
+    fn current_transform(&self) -> ItemTransform {
+        self.actual_renderer.current_transform()
     }
 
     fn rotate(&mut self, angle_in_degrees: f32) {

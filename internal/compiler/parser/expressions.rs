@@ -264,7 +264,7 @@ fn parse_at_keyword(p: &mut impl Parser) {
         _ => {
             p.consume();
             p.test(SyntaxKind::Identifier); // consume the identifier, so that autocomplete works
-            p.error("Expected 'image-url', 'tr', 'keys', 'conic-gradient', 'linear-gradient', or 'radial-gradient' after '@'");
+            p.error("Expected 'image-url', 'tr', 'keys', 'markdown' 'conic-gradient', 'linear-gradient', or 'radial-gradient' after '@'");
         }
     }
 }

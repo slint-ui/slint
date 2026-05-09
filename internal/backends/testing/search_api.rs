@@ -8,7 +8,6 @@ use i_slint_core::api::{ComponentHandle, LogicalPosition};
 use i_slint_core::item_tree::{ItemTreeRc, ItemWeak, ParentItemTraversalMode};
 use i_slint_core::items::{ItemRc, Opacity, PointerEventButton};
 use i_slint_core::platform::WindowEvent;
-use i_slint_core::tests::slint_mock_elapsed_time;
 use i_slint_core::window::WindowInner;
 use std::rc::Rc;
 use std::time::Duration;
@@ -784,6 +783,28 @@ impl ElementHandle {
             .and_then(|item| item.parse().ok())
     }
 
+    /// Returns the value of the `accessible-orientation` property, if present.
+    pub fn accessible_orientation(&self) -> Option<crate::Orientation> {
+        if self.element_index != 0 {
+            return None;
+        }
+        self.item
+            .upgrade()
+            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Orientation))
+            .and_then(|s| s.parse().ok())
+    }
+
+    /// Returns the value of the `accessible-live` property, if present.
+    pub fn accessible_live(&self) -> Option<crate::AccessibleLive> {
+        if self.element_index != 0 {
+            return None;
+        }
+        self.item
+            .upgrade()
+            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Live))
+            .and_then(|s| s.parse().ok())
+    }
+
     /// Returns the size of the element in logical pixels. This corresponds to the value of the `width` and
     /// `height` properties in Slint code. Returns a zero size if the element is not valid.
     pub fn size(&self) -> i_slint_core::api::LogicalSize {
@@ -904,13 +925,13 @@ impl ElementHandle {
     /// Simulates a single click (or touch tap) on the element at its center point with the
     /// specified button.
     ///
-    /// Compared to [Self::single_click()], this function uses slint_mock_elapsed_time instead
+    /// Compared to [Self::single_click()], this function uses mock time instead
     /// of an actual timer, so that it can be used in our internal tests that do not have an event
     /// loop.
     pub fn mock_single_click(&self, button: PointerEventButton) {
         self.pointer_pressed(button);
 
-        slint_mock_elapsed_time(50);
+        crate::testing_backend::mock_elapsed_time(50);
 
         self.pointer_released(button);
     }
@@ -992,7 +1013,7 @@ impl ElementHandle {
 
     /// Simulates a drag gesture from the element's center to the given target position.
     ///
-    /// Compared to [Self::drag()], this function uses slint_mock_elapsed_time instead
+    /// Compared to [Self::drag()], this function uses mock time instead
     /// of an actual timer, so that it can be used in internal tests without an event loop.
     pub fn mock_drag(&self, target: LogicalPosition, button: PointerEventButton) {
         let Some(window_adapter) = self.window_adapter() else {
@@ -1014,11 +1035,11 @@ impl ElementHandle {
             for i in 1..steps {
                 let t = i as f32 / steps as f32;
                 let pos = LogicalPosition::new(start.x + dx * t, start.y + dy * t);
-                slint_mock_elapsed_time(DRAG_STEP_DELAY_MS);
+                crate::testing_backend::mock_elapsed_time(DRAG_STEP_DELAY_MS);
                 window.dispatch_event(WindowEvent::PointerMoved { position: pos });
             }
 
-            slint_mock_elapsed_time(DRAG_STEP_DELAY_MS);
+            crate::testing_backend::mock_elapsed_time(DRAG_STEP_DELAY_MS);
             window.dispatch_event(WindowEvent::PointerMoved { position: target });
         }
 

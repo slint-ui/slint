@@ -36,8 +36,8 @@ pub enum MouseEvent {
         button: PointerEventButton,
         /// The current click count reported for this press.
         click_count: u8,
-        /// Whether the event originated from touch input.
-        is_touch: bool,
+        /// The touch ID if the event originated from touch input.
+        touch_finger_id: i32,
     },
     /// The mouse or finger was released
     Released {
@@ -47,15 +47,15 @@ pub enum MouseEvent {
         button: PointerEventButton,
         /// The current click count reported for this release.
         click_count: u8,
-        /// Whether the event originated from touch input.
-        is_touch: bool,
+        /// The touch ID if the event originated from touch input.
+        touch_finger_id: i32,
     },
     /// The position of the pointer has changed
     Moved {
         /// The new position of the pointer.
         position: LogicalPoint,
-        /// Whether the event originated from touch input.
-        is_touch: bool,
+        /// The touch ID if the event originated from touch input.
+        touch_finger_id: i32,
     },
     /// Wheel was operated.
     Wheel {
@@ -97,16 +97,13 @@ pub enum MouseEvent {
 }
 
 impl MouseEvent {
-    /// The flag for when event generated from touch
-    pub fn is_touch(&self) -> Option<bool> {
+    /// The touch ID if the event originated from touch input.
+    pub fn touch_finger_id(&self) -> i32 {
         match self {
-            MouseEvent::Pressed { is_touch, .. } => Some(*is_touch),
-            MouseEvent::Released { is_touch, .. } => Some(*is_touch),
-            MouseEvent::Moved { is_touch, .. } => Some(*is_touch),
-            MouseEvent::Wheel { .. } => None,
-            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => Some(true),
-            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => None,
-            MouseEvent::Exit => None,
+            MouseEvent::Pressed { touch_finger_id, .. } => *touch_finger_id,
+            MouseEvent::Released { touch_finger_id, .. } => *touch_finger_id,
+            MouseEvent::Moved { touch_finger_id, .. } => *touch_finger_id,
+            _ => 0,
         }
     }
 
@@ -251,7 +248,7 @@ pub enum InputEventFilterResult {
 #[allow(missing_docs, non_upper_case_globals)]
 pub mod key_codes {
     macro_rules! declare_consts_for_special_keys {
-       ($($char:literal # $name:ident # $($shifted:ident)? # $($_muda:ident)? $(=> $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|*    # $($_xkb:ident)|* )? ;)*) => {
+       ($($char:literal # $name:ident # $($shifted:ident)? $(=> $($_muda:ident)? # $($_qt:ident)|* # $($_winit:ident $(($_pos:ident))?)|*    # $($_xkb:ident)|* )? ;)*) => {
             $(pub const $name : char = $char;)*
 
             #[allow(missing_docs)]
@@ -544,7 +541,7 @@ impl Keys {
 
         if let Some(first_char) = first_char {
             macro_rules! check_special_key {
-                ($($char:literal # $name:ident # $($shifted:ident)? # $($_muda:ident)? $(=> $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($xkb:ident)|*)? ;)*) => {
+                ($($char:literal # $name:ident # $($shifted:ident)? $(=> $($_muda:ident)? # $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($xkb:ident)|*)? ;)*) => {
                     match first_char {
                     $($(
                         // Use $qt as a marker - if it exists, generate the check
@@ -945,7 +942,7 @@ impl ClickState {
     /// Check if the click is repeated.
     pub fn check_repeat(&self, mouse_event: MouseEvent, click_interval: Duration) -> MouseEvent {
         match mouse_event {
-            MouseEvent::Pressed { position, button, is_touch, .. } => {
+            MouseEvent::Pressed { position, button, touch_finger_id, .. } => {
                 let instant_now = crate::animations::Instant::now();
 
                 if let Some(click_count_time_stamp) = self.click_count_time_stamp.get() {
@@ -966,15 +963,15 @@ impl ClickState {
                     position,
                     button,
                     click_count: self.click_count.get(),
-                    is_touch,
+                    touch_finger_id,
                 };
             }
-            MouseEvent::Released { position, button, is_touch, .. } => {
+            MouseEvent::Released { position, button, touch_finger_id, .. } => {
                 return MouseEvent::Released {
                     position,
                     button,
                     click_count: self.click_count.get(),
-                    is_touch,
+                    touch_finger_id,
                 };
             }
             _ => {}
@@ -1011,6 +1008,11 @@ impl MouseInputState {
     /// Returns the item in the top of the stack, if there is a delayed event, this would be the top of the delayed stack
     pub fn top_item_including_delayed(&self) -> Option<ItemRc> {
         self.delayed_exit_items.last().and_then(|x| x.upgrade()).or_else(|| self.top_item())
+    }
+
+    /// Returns true if there is a pending delayed event (e.g. from a Flickable)
+    pub fn has_delayed_event(&self) -> bool {
+        self.delayed.is_some()
     }
 }
 
@@ -1092,11 +1094,9 @@ pub(crate) fn handle_mouse_grab(
         InputEventResult::StartDrag => {
             mouse_input_state.grabbed = false;
             let drag_area_item = grabber.downcast::<crate::items::DragArea>().unwrap();
-            mouse_input_state.drag_data = Some(DropEvent {
-                mime_type: drag_area_item.as_pin_ref().mime_type(),
-                data: drag_area_item.as_pin_ref().data(),
-                position: Default::default(),
-            });
+            let data = drag_area_item.as_pin_ref().data().clone();
+
+            mouse_input_state.drag_data = Some(DropEvent { data, position: Default::default() });
             None
         }
         _ => {
@@ -1104,7 +1104,7 @@ pub(crate) fn handle_mouse_grab(
             // Return a move event so that the new position can be registered properly
             Some(mouse_event.position().map_or(MouseEvent::Exit, |position| MouseEvent::Moved {
                 position,
-                is_touch: mouse_event.is_touch().unwrap_or(false),
+                touch_finger_id: mouse_event.touch_finger_id(),
             }))
         }
     }
@@ -1165,7 +1165,7 @@ pub fn process_mouse_input(
     root: ItemRc,
     mouse_event: &MouseEvent,
     window_adapter: &Rc<dyn WindowAdapter>,
-    mouse_input_state: MouseInputState,
+    mut mouse_input_state: MouseInputState,
 ) -> MouseInputState {
     let mut result = MouseInputState {
         drag_data: mouse_input_state.drag_data.clone(),
@@ -1185,7 +1185,8 @@ pub fn process_mouse_input(
             || Option::zip(result.item_stack.last(), mouse_input_state.item_stack.last())
                 .is_none_or(|(a, b)| a.0 != b.0))
     {
-        // Keep the delayed event
+        // Keep the delayed event, but preserve the cursor from the new result
+        mouse_input_state.cursor = result.cursor;
         return mouse_input_state;
     }
     send_exit_events(&mouse_input_state, &mut result, mouse_event.position(), window_adapter);
@@ -1196,7 +1197,7 @@ pub fn process_mouse_input(
         // An accepted wheel event might have moved things. Send a move event at the position to reset the has-hover
         return process_mouse_input(
             root,
-            &MouseEvent::Moved { position: *position, is_touch: false },
+            &MouseEvent::Moved { position: *position, touch_finger_id: 0 },
             window_adapter,
             result,
         );
@@ -1220,6 +1221,10 @@ pub(crate) fn process_delayed_event(
         None => return MouseInputState::default(),
     };
 
+    // Recover the real previous click target so click_count is preserved across delayed events
+    let prev_target = mouse_input_state.delayed_exit_items.last().and_then(|x| x.upgrade());
+    let last_top_item = prev_target.as_ref().unwrap_or(&top_item);
+
     let mut actual_visitor =
         |component: &ItemTreeRc, index: u32, _: Pin<ItemRef>| -> VisitChildrenResult {
             send_mouse_event_to_item(
@@ -1227,7 +1232,7 @@ pub(crate) fn process_delayed_event(
                 ItemRc::new(component.clone(), index),
                 window_adapter,
                 &mut mouse_input_state,
-                Some(&top_item),
+                Some(last_top_item),
                 true,
             )
         };
@@ -1355,11 +1360,9 @@ fn send_mouse_event_to_item(
                 InputEventFilterResult::ForwardAndInterceptGrab;
             result.grabbed = false;
             let drag_area_item = item_rc.downcast::<crate::items::DragArea>().unwrap();
-            result.drag_data = Some(DropEvent {
-                mime_type: drag_area_item.as_pin_ref().mime_type(),
-                data: drag_area_item.as_pin_ref().data(),
-                position: Default::default(),
-            });
+            let data = drag_area_item.as_pin_ref().data().clone();
+
+            result.drag_data = Some(DropEvent { data, position: Default::default() });
             VisitChildrenResult::abort(item_rc.index(), 0)
         }
     }
@@ -1663,7 +1666,7 @@ impl TouchState {
                 position,
                 button: PointerEventButton::Left,
                 click_count: 0,
-                is_touch: true,
+                touch_finger_id: (id + 1) as i32,
             });
         } else if total == 2 {
             // Second finger: transition Idle → TwoFingersDown.
@@ -1690,12 +1693,13 @@ impl TouchState {
                 position: primary_pos,
                 button: PointerEventButton::Left,
                 click_count: 0,
-                is_touch: true,
+                touch_finger_id: (id as i32 + 1),
             });
         }
         // 3+ fingers: tracked in active_touches but ignored for gesture.
     }
 
+    #[allow(clippy::collapsible_match)]
     fn process_moved(&mut self, id: u64, position: LogicalPoint, events: &mut TouchEventBuffer) {
         if let Some(tp) = self.active_touches.get_mut(id) {
             tp.position = position;
@@ -1706,7 +1710,7 @@ impl TouchState {
         match self.gesture_state {
             GestureRecognitionState::Idle => {
                 if self.primary_touch_id == Some(id) {
-                    events.push(MouseEvent::Moved { position, is_touch: true });
+                    events.push(MouseEvent::Moved { position, touch_finger_id: (id + 1) as i32 });
                 }
             }
             GestureRecognitionState::TwoFingersDown {
@@ -1785,6 +1789,7 @@ impl TouchState {
         }
     }
 
+    #[allow(clippy::collapsible_match)]
     fn process_ended(
         &mut self,
         id: u64,
@@ -1805,7 +1810,7 @@ impl TouchState {
                         position,
                         button: PointerEventButton::Left,
                         click_count: 0,
-                        is_touch: true,
+                        touch_finger_id: (id + 1) as i32,
                     });
                     events.push(MouseEvent::Exit);
                 }
@@ -1820,7 +1825,7 @@ impl TouchState {
                             position: remaining_pos,
                             button: PointerEventButton::Left,
                             click_count: 0,
-                            is_touch: true,
+                            touch_finger_id: (remaining.id + 1) as i32,
                         });
                     } else {
                         self.primary_touch_id = None;
@@ -1859,12 +1864,12 @@ impl TouchState {
                     phase: gesture_phase,
                 });
 
-                if let Some((_, rpos)) = remaining {
+                if let Some((rid, rpos)) = remaining {
                     events.push(MouseEvent::Pressed {
                         position: rpos,
                         button: PointerEventButton::Left,
                         click_count: 0,
-                        is_touch: true,
+                        touch_finger_id: (rid + 1) as i32,
                     });
                 } else {
                     events.push(MouseEvent::Exit);
