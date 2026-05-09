@@ -631,9 +631,8 @@ impl WinitWindowAdapter {
             }
 
             // Don't activate the window by default, as that will cause the page to scroll,
-            // ignoring any existing anchors.
-            // TODO: winit 0.31 removed `with_active(false)` — check if this is still needed
-            // or handled differently.
+            // ignoring any existing anchors. winit 0.31 removed `with_active(false)` so this
+            // may need a different approach.
             attrs = attrs.with_platform_attributes(Box::new(web_attrs));
         };
 
