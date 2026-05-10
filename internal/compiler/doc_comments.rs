@@ -119,7 +119,10 @@ pub(crate) fn element_doc_entries(
                         doc_comment_span = Some(child.to_source_location());
                     } else if let Some(content) = strip_doc_prefix(text, "//!") {
                         if let Some(span) = doc_comment_span.take() {
-                            diag.push_warning_with_span("`///` doc comment not attached to a declaration".into(), span);
+                            diag.push_warning_with_span(
+                                "`///` doc comment not attached to a declaration".into(),
+                                span,
+                            );
                         }
                         section_lines.push(content.to_string());
                     }
@@ -154,7 +157,10 @@ pub(crate) fn element_doc_entries(
             }
             _ => {
                 if let Some(span) = doc_comment_span.take() {
-                    diag.push_warning_with_span("`///` doc comment not attached to a declaration".into(), span);
+                    diag.push_warning_with_span(
+                        "`///` doc comment not attached to a declaration".into(),
+                        span,
+                    );
                 }
             }
         }
