@@ -128,7 +128,9 @@ fn try_create_window_with_fallback_renderer(
     attrs: winit::window::WindowAttributes,
     #[cfg(all(muda, target_os = "macos"))] muda_enable_default_menu_bar: bool,
 ) -> Option<Rc<WinitWindowAdapter>> {
-    [
+    type RendererFactory =
+        fn(&Rc<SharedBackendData>) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError>;
+    let renderer_factories: &[RendererFactory] = &[
         #[cfg(any(
             feature = "renderer-skia",
             feature = "renderer-skia-opengl",
@@ -145,9 +147,8 @@ fn try_create_window_with_fallback_renderer(
         renderer::femtovg::GlutinFemtoVGRenderer::new_suspended,
         #[cfg(feature = "renderer-software")]
         renderer::sw::WinitSoftwareRenderer::new_suspended,
-    ]
-    .into_iter()
-    .find_map(|renderer_factory| {
+    ];
+    renderer_factories.iter().find_map(|renderer_factory| {
         Some(WinitWindowAdapter::new(
             shared_backend_data.clone(),
             renderer_factory(shared_backend_data).ok()?,

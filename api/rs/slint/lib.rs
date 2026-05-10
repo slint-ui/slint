@@ -745,7 +745,7 @@ pub mod winit_031 {
     //!     app.on_clicked(move || {
     //!         // access the winit window
     //!         let app = app_weak.unwrap();
-    //!         app.window().with_winit_window(|winit_window: &winit::window::Window| {
+    //!         app.window().with_winit_window(|winit_window: &dyn winit::window::Window| {
     //!             eprintln!("window id = {:#?}", winit_window.id());
     //!         });
     //!     });
