@@ -197,6 +197,8 @@ macro_rules! for_each_builtin_structs {
                     is_separator: bool,
                     /// The shortcut keys
                     shortcut: Keys,
+                    /// The platform role of this entry. `none` means a regular custom item.
+                    role: MenuItemRole,
                 }
                 private {}
             }

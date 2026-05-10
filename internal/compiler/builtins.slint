@@ -1197,6 +1197,13 @@ component MenuItem {
     in-out property <bool> checked: false;
     /// The icon shown next to the title.
     in property <image> icon;
+    /// The platform role for this menu item.
+    /// When set to a value other than `none`, the item is mapped to a platform-native
+    /// predefined action (e.g. minimize, close window) by the native backend.
+    /// The `activated` callback, `shortcut`, `icon`, `checkable`, and `checked`
+    /// properties are ignored for role-bearing items on native backends.
+    /// \default MenuItemRole.none
+    in property <MenuItemRole> role: MenuItemRole.none;
     //-disallow_global_types_as_child_elements
     //-is_non_item_type
 }

@@ -1,0 +1,42 @@
+
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Compile-pass test: all Phase 1 MenuItemRole variants are accepted by the compiler,
+// including title overrides and disabled role items.
+
+export component TestCase inherits Window {
+    MenuBar {
+        Menu {
+            title: "File";
+            MenuItem {
+                title: "Save";
+                activated => { }
+            }
+        }
+        Menu {
+            title: "Window";
+            // All role variants, bare
+            MenuItem { role: MenuItemRole.minimize; }
+            MenuItem { role: MenuItemRole.maximize; }
+            MenuItem { role: MenuItemRole.close-window; }
+            MenuItem { role: MenuItemRole.fullscreen; }
+            MenuSeparator {}
+            MenuItem { role: MenuItemRole.bring-all-to-front; }
+            MenuSeparator {}
+            // Title override: backend uses it as the visible label instead of the platform default
+            MenuItem { role: MenuItemRole.minimize; title: "Minimize Window"; }
+            // Disabled role item: roles can be combined with the enabled state.
+            MenuItem { role: MenuItemRole.close-window; enabled: false; }
+        }
+    }
+
+    out property <bool> test: true;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+*/

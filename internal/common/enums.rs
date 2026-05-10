@@ -146,6 +146,26 @@ macro_rules! for_each_enums {
                 Action,
             }
 
+            /// This enum represents the role of a `MenuItem`, mapping it to a platform-native
+            /// predefined menu action where supported (e.g. minimize, close window).
+            /// The default value `none` means the item is a regular custom menu entry.
+            #[non_exhaustive]
+            enum MenuItemRole {
+                /// Regular custom menu item (default).
+                None,
+                /// Platform action to minimize the current window.
+                Minimize,
+                /// Platform action to maximize the current window.
+                Maximize,
+                /// Platform action to close the current window.
+                CloseWindow,
+                /// Platform action to toggle full-screen mode.
+                Fullscreen,
+                /// Bring all application windows to front. Has an effect only on macOS;
+                /// the item is omitted from the menu entirely on other platforms.
+                BringAllToFront,
+            }
+
             /// This enum describes the different reasons for a FocusEvent
             #[non_exhaustive]
             enum FocusReason {
