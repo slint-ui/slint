@@ -52,6 +52,7 @@ impl AppWindow {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn run(&self) -> Result<(), PlatformError> {
         match self {
             AppWindow::Preview(ui) => ui.run(),
