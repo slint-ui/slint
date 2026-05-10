@@ -110,12 +110,9 @@ export component MenuItemBase {
     in property <length> horizontal-padding;
     in property <length> vertical-padding;
 
-    // Role-bearing items are hidden in rendered menus; native backends handle them as predefined items.
-    // `visible: false` alone does not collapse layout space in Slint, so we also force height to 0.
-    // For normal items, this pins them to layout.min-height, making them non-stretchable.
-    // That is correct for menu items and matches their effective behavior before this property existed.
+    // Role-bearing items are not interactive in the rendered fallback; native backends handle them
+    // as predefined items. They are invisible but still occupy layout space (a known Phase 1 limitation).
     visible: entry.role == MenuItemRole.none;
-    height: entry.role == MenuItemRole.none ? layout.min-height : 0;
 
     callback set-current();
     callback clear-current();
