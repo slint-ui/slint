@@ -3,8 +3,22 @@
 
 //! Extract `///` doc comments from the syntax tree.
 
+use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::langtype::{BuiltinElement, ElementDocEntry};
 use crate::parser::{SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
+
+/// Strip a doc-comment prefix (`///` or `//!`) from a line.
+/// Returns the content after the prefix if the line matches exactly
+/// `prefix` or `prefix` followed by a space and content.
+/// Rejects lines like `////` or `//!!`.
+fn strip_doc_prefix<'a>(line: &'a str, prefix: &str) -> Option<&'a str> {
+    let rest = line.strip_prefix(prefix)?;
+    match rest.strip_prefix(' ') {
+        Some(content) => Some(content),
+        None if rest.is_empty() => Some(""),
+        None => None,
+    }
+}
 
 /// Walk backwards across sibling tokens/nodes collecting consecutive
 /// `///` doc comment lines immediately before `anchor`. Returns the
@@ -17,9 +31,9 @@ fn collect_before(anchor: &SyntaxNode) -> Option<String> {
         match cur.kind() {
             SyntaxKind::Whitespace => {}
             SyntaxKind::Comment => {
-                let text = cur.as_token().unwrap().text().to_string();
-                if text.starts_with("///") {
-                    lines.push(text);
+                let text = cur.as_token().unwrap().text();
+                if let Some(content) = strip_doc_prefix(text, "///") {
+                    lines.push(content.to_string());
                 } else if text.starts_with("//") {
                     // Skip regular comments and //-annotations.
                 } else {
@@ -34,9 +48,9 @@ fn collect_before(anchor: &SyntaxNode) -> Option<String> {
                         match child.kind() {
                             SyntaxKind::Whitespace => {}
                             SyntaxKind::Comment => {
-                                let t = child.as_token().unwrap().text().to_string();
-                                if t.starts_with("///") {
-                                    lines.push(t);
+                                let t = child.as_token().unwrap().text();
+                                if let Some(content) = strip_doc_prefix(t, "///") {
+                                    lines.push(content.to_string());
                                 } else if t.starts_with("//") {
                                     // skip
                                 } else {
@@ -58,13 +72,7 @@ fn collect_before(anchor: &SyntaxNode) -> Option<String> {
         return None;
     }
     lines.reverse();
-    Some(
-        lines
-            .iter()
-            .map(|t| t.strip_prefix("/// ").or_else(|| t.strip_prefix("///")).unwrap_or(""))
-            .collect::<Vec<_>>()
-            .join("\n"),
-    )
+    Some(lines.join("\n"))
 }
 
 /// Extract the `///` doc comment before a syntax node. Also checks
@@ -87,6 +95,7 @@ pub(crate) fn doc_comment(anchor: &SyntaxNode) -> Option<String> {
 pub(crate) fn element_doc_entries(
     component: &SyntaxNode,
     element: &syntax_nodes::Element,
+    diag: &mut BuildDiagnostics,
 ) -> Vec<ElementDocEntry> {
     let description = doc_comment(component).unwrap_or_default();
 
@@ -99,19 +108,25 @@ pub(crate) fn element_doc_entries(
         }
     };
 
+    let mut doc_comment_span = None;
     for child in element.children_with_tokens() {
         match child.kind() {
+            SyntaxKind::Whitespace => {}
             SyntaxKind::Comment => {
                 if let Some(t) = child.as_token() {
                     let text = t.text();
-                    if let Some(content) =
-                        text.strip_prefix("//! ").or_else(|| text.strip_prefix("//!"))
-                    {
+                    if strip_doc_prefix(text, "///").is_some() {
+                        doc_comment_span = Some(child.to_source_location());
+                    } else if let Some(content) = strip_doc_prefix(text, "//!") {
+                        if let Some(span) = doc_comment_span.take() {
+                            diag.push_warning_with_span("`///` doc comment not attached to a declaration".into(), span);
+                        }
                         section_lines.push(content.to_string());
                     }
                 }
             }
             SyntaxKind::PropertyDeclaration => {
+                doc_comment_span = None;
                 let p = syntax_nodes::PropertyDeclaration::from(child.into_node().unwrap());
                 if p.TwoWayBinding().is_some() {
                     continue;
@@ -121,6 +136,7 @@ pub(crate) fn element_doc_entries(
                 entries.push(ElementDocEntry::Member(name));
             }
             SyntaxKind::CallbackDeclaration => {
+                doc_comment_span = None;
                 let cb = syntax_nodes::CallbackDeclaration::from(child.into_node().unwrap());
                 if cb.TwoWayBinding().is_some() {
                     continue;
@@ -130,13 +146,21 @@ pub(crate) fn element_doc_entries(
                 entries.push(ElementDocEntry::Member(name));
             }
             SyntaxKind::Function => {
+                doc_comment_span = None;
                 let f = syntax_nodes::Function::from(child.into_node().unwrap());
                 flush_section(&mut section_lines, &mut entries);
                 let name = identifier_text(&f.DeclaredIdentifier()).unwrap();
                 entries.push(ElementDocEntry::Member(name));
             }
-            _ => {}
+            _ => {
+                if let Some(span) = doc_comment_span.take() {
+                    diag.push_warning_with_span("`///` doc comment not attached to a declaration".into(), span);
+                }
+            }
         }
+    }
+    if let Some(span) = doc_comment_span.take() {
+        diag.push_warning_with_span("`///` doc comment not attached to a declaration".into(), span);
     }
     flush_section(&mut section_lines, &mut entries);
     entries

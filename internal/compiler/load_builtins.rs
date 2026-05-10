@@ -189,7 +189,7 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
         }
         properties
             .extend(builtin.native_class.properties.iter().map(|(k, v)| (k.clone(), v.clone())));
-        let entries = docs::element_doc_entries(&c, &e);
+        let entries = docs::element_doc_entries(&c, &e, &mut diag.borrow_mut());
         let parent_builtin = match &base {
             Base::NativeParent(p) => Some(p.as_ref()),
             _ => None,
