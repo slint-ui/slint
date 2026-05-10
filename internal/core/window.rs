@@ -18,7 +18,7 @@ use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
-use crate::items::{InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
+use crate::items::{InputType, ItemRef, MenuEntry, MenuItemRole, MouseCursor, PopupClosePolicy};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
@@ -1345,7 +1345,11 @@ impl WindowInner {
             };
             flatten_menu(VRc::borrow(&menubar), None)
                 .into_iter()
-                .filter(|entry| entry.enabled && entry.shortcut != Keys::default())
+                .filter(|entry| {
+                    entry.enabled
+                        && entry.shortcut != Keys::default()
+                        && entry.role == MenuItemRole::None
+                })
                 .collect()
         });
     }

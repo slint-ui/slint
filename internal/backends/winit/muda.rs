@@ -6,7 +6,7 @@ use super::WinitWindowAdapter;
 use crate::SlintEvent;
 use core::pin::Pin;
 use i_slint_core::api::LogicalPosition;
-use i_slint_core::items::MenuEntry;
+use i_slint_core::items::{MenuEntry, MenuItemRole};
 use i_slint_core::menus::MenuVTable;
 use i_slint_core::properties::{PropertyDirtyHandler, PropertyTracker};
 use muda::ContextMenu;
@@ -132,11 +132,52 @@ impl MudaAdapter {
             window_id: &str,
             muda_type: MudaType,
         ) -> Box<dyn muda::IsMenuItem> {
+            // Separators and enabled predefined items fire OS-native actions and never
+            // reach invoke() via the muda MenuEvent system — they don't need a map entry.
+            // Disabled role items and unknown-role fallbacks degrade to custom MenuItem,
+            // which does use the event system, so they allocate an id further below.
+            if entry.is_separator {
+                return Box::new(muda::PredefinedMenuItem::separator());
+            }
+
+            if entry.role != MenuItemRole::None && !entry.has_sub_menu {
+                let text = if entry.title.is_empty() { None } else { Some(entry.title.as_str()) };
+                let predefined = match entry.role {
+                    MenuItemRole::Minimize => Some(muda::PredefinedMenuItem::minimize(text)),
+                    MenuItemRole::Maximize => Some(muda::PredefinedMenuItem::maximize(text)),
+                    MenuItemRole::CloseWindow => Some(muda::PredefinedMenuItem::close_window(text)),
+                    MenuItemRole::Fullscreen => Some(muda::PredefinedMenuItem::fullscreen(text)),
+                    #[cfg(target_os = "macos")]
+                    MenuItemRole::BringAllToFront => {
+                        Some(muda::PredefinedMenuItem::bring_all_to_front(text))
+                    }
+                    // Unknown/future roles: degrade gracefully rather than panic so that
+                    // adding a new role variant in Phase 2 doesn't crash apps on older backends.
+                    _ => {
+                        i_slint_core::debug_log!(
+                            "Warning: Unhandled MenuItemRole — dropping item '{}'",
+                            entry.title
+                        );
+                        None
+                    }
+                };
+                if let Some(predefined) = predefined {
+                    if entry.enabled {
+                        return Box::new(predefined);
+                    }
+                    let id = muda::MenuId(format!("{window_id}|{}|{}", map.len(), muda_type));
+                    map.push(entry.clone());
+                    return Box::new(muda::MenuItem::with_id(id, predefined.text(), false, None));
+                }
+                // Unknown role: fall through to create a regular custom item.
+            }
+
+            // All remaining items (regular custom, unknown-role fallback, sub-menus) fire
+            // MenuEvent and need a map entry so invoke() can look them up.
             let id = muda::MenuId(format!("{window_id}|{}|{}", map.len(), muda_type));
             map.push(entry.clone());
-            if entry.is_separator {
-                Box::new(muda::PredefinedMenuItem::separator())
-            } else if !entry.has_sub_menu {
+
+            if !entry.has_sub_menu {
                 let accelerator = keys_to_accelerator(&entry.shortcut);
 
                 let err_handler = |err| {
@@ -150,7 +191,7 @@ impl MudaAdapter {
                 // the top level always has a sub menu regardless of entry.has_sub_menu
                 if entry.checkable {
                     let check_menu = muda::CheckMenuItem::with_id(
-                        id.clone(),
+                        id,
                         &entry.title,
                         entry.enabled,
                         entry.checked,
@@ -165,27 +206,30 @@ impl MudaAdapter {
                         rgba.height(),
                     )
                     .ok();
-                    let icon_menu = muda::IconMenuItem::with_id(
-                        id.clone(),
-                        &entry.title,
-                        entry.enabled,
-                        icon,
-                        None,
-                    );
+                    let icon_menu =
+                        muda::IconMenuItem::with_id(id, &entry.title, entry.enabled, icon, None);
                     icon_menu.set_key_accelerator(accelerator).map_err(err_handler).ok();
                     Box::new(icon_menu)
                 } else {
-                    let menu_item =
-                        muda::MenuItem::with_id(id.clone(), &entry.title, entry.enabled, None);
+                    let menu_item = muda::MenuItem::with_id(id, &entry.title, entry.enabled, None);
                     menu_item.set_key_accelerator(accelerator).map_err(err_handler).ok();
                     Box::new(menu_item)
                 }
             } else {
-                let sub_menu = muda::Submenu::with_id(id.clone(), &entry.title, entry.enabled);
+                if entry.role != MenuItemRole::None {
+                    i_slint_core::debug_log!(
+                        "Warning: MenuItem '{}' has both a role and a sub-menu; the role is ignored",
+                        entry.title
+                    );
+                }
+                let sub_menu = muda::Submenu::with_id(id, &entry.title, entry.enabled);
                 if depth < 15 {
                     let mut sub_entries = Default::default();
                     menu.sub_menu(Some(entry), &mut sub_entries);
                     for e in sub_entries {
+                        if !role_supported_on_platform(e.role) {
+                            continue;
+                        }
                         sub_menu
                             .append(&*generate_menu_entry(
                                 menu,
@@ -258,6 +302,9 @@ impl MudaAdapter {
                 let window_id = u64::from(winit_window.id()).to_string();
                 if let Some(menu) = self.menu.as_ref() {
                     for e in menu_entries {
+                        if !role_supported_on_platform(e.role) {
+                            continue;
+                        }
                         menu.append(&*generate_menu_entry(
                             vtable::VRc::borrow(menu_tree),
                             &e,
@@ -319,6 +366,16 @@ impl MudaAdapter {
         if is_active && let Some(menu) = self.menu.as_ref() {
             menu.init_for_nsapp();
         }
+    }
+}
+
+/// Returns `false` for role variants that have no implementation on the current platform
+/// and must be omitted from the menu entirely.
+fn role_supported_on_platform(role: MenuItemRole) -> bool {
+    match role {
+        #[cfg(not(target_os = "macos"))]
+        MenuItemRole::BringAllToFront => false,
+        _ => true,
     }
 }
 
