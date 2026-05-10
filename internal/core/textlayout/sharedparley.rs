@@ -710,3 +710,202 @@ fn text_input_cursor_rect_for_byte_offset_impl(
     )
     .unwrap_or_default()
 }
+
+#[cfg(all(test, feature = "accessibility-text"))]
+mod accessibility_tests {
+    use super::*;
+    use accesskit::{Node, NodeId, Role, TreeId, TreeUpdate};
+    use parley::LayoutAccessibility;
+
+    fn empty_tree_update() -> TreeUpdate {
+        TreeUpdate { nodes: alloc::vec::Vec::new(), tree: None, tree_id: TreeId::ROOT, focus: NodeId(0) }
+    }
+
+    fn build_one_paragraph(text: &str, max_width: f32) -> parley::Layout<Brush> {
+        let scale_factor = ScaleFactor::new(1.0);
+        let builder = LayoutWithoutLineBreaksBuilder::new(
+            None,
+            TextWrap::WordWrap,
+            None,
+            scale_factor,
+        );
+        let collection = i_slint_common::sharedfontique::create_collection(false);
+        let mut font_ctx = parley::FontContext {
+            collection: collection.inner,
+            source_cache: collection.source_cache,
+        };
+        let mut layout = builder.build(&mut font_ctx, text, std::iter::empty(), None);
+        apply_line_break_and_align(
+            &mut layout,
+            Some(PhysicalLength::new(max_width)),
+            TextHorizontalAlignment::Left,
+        );
+        layout
+    }
+
+    fn collect_text_runs(update: &TreeUpdate) -> Vec<&Node> {
+        update
+            .nodes
+            .iter()
+            .filter_map(|(_, n)| (n.role() == Role::TextRun).then_some(n))
+            .collect()
+    }
+
+    #[test]
+    fn build_nodes_emits_text_run_for_plain_paragraph() {
+        let layout = build_one_paragraph("Hello", 200.0);
+        let mut layout_access = LayoutAccessibility::default();
+        let mut update = empty_tree_update();
+        let mut parent_node = Node::new(Role::TextInput);
+        let mut next_id: u64 = 1;
+
+        layout_access.build_nodes(
+            "Hello",
+            &layout,
+            &mut update,
+            &mut parent_node,
+            || {
+                let id = NodeId(next_id);
+                next_id += 1;
+                id
+            },
+            0.0,
+            0.0,
+            |_node, _style| {},
+        );
+
+        let text_runs = collect_text_runs(&update);
+        assert!(
+            !text_runs.is_empty(),
+            "expected at least one TextRun child for non-empty paragraph"
+        );
+        assert!(
+            text_runs.iter().any(|n| n.value().is_some_and(|v| v.contains("Hello"))),
+            "expected a TextRun whose value contains the input text, got: {:?}",
+            text_runs.iter().map(|n| n.value()).collect::<alloc::vec::Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn build_nodes_handles_empty_paragraph_without_panic() {
+        // Empty paragraphs occur naturally in slint's per-paragraph split
+        // (e.g. text ending with `\n` produces a trailing empty paragraph).
+        // parley emits a placeholder TextRun for cursor positioning; we just
+        // need the call not to panic and not emit characters.
+        let layout = build_one_paragraph("", 200.0);
+        let mut layout_access = LayoutAccessibility::default();
+        let mut update = empty_tree_update();
+        let mut parent_node = Node::new(Role::TextInput);
+        let mut next_id: u64 = 1;
+
+        layout_access.build_nodes(
+            "",
+            &layout,
+            &mut update,
+            &mut parent_node,
+            || {
+                let id = NodeId(next_id);
+                next_id += 1;
+                id
+            },
+            0.0,
+            0.0,
+            |_node, _style| {},
+        );
+
+        for node in collect_text_runs(&update) {
+            assert!(
+                node.value().is_none_or(|v| v.is_empty()),
+                "empty paragraph TextRun should carry empty value, got {:?}",
+                node.value()
+            );
+        }
+    }
+
+    #[test]
+    fn build_nodes_reuses_node_ids_across_passes() {
+        // Stable NodeIds across rebuilds are the entire point of holding
+        // `LayoutAccessibility` in a cache that survives shape changes:
+        // when the same `ClusterPath` reappears, the same `NodeId` is reused.
+        let layout1 = build_one_paragraph("Hello", 200.0);
+        let mut layout_access = LayoutAccessibility::default();
+        let mut update1 = empty_tree_update();
+        let mut parent1 = Node::new(Role::TextInput);
+        let mut next_id: u64 = 1;
+        layout_access.build_nodes(
+            "Hello",
+            &layout1,
+            &mut update1,
+            &mut parent1,
+            || {
+                let id = NodeId(next_id);
+                next_id += 1;
+                id
+            },
+            0.0,
+            0.0,
+            |_, _| {},
+        );
+        let first_pass_ids: Vec<NodeId> =
+            update1.nodes.iter().filter_map(|(id, n)| (n.role() == Role::TextRun).then_some(*id)).collect();
+
+        // Re-run on a fresh Layout for the same text. NodeIds for the same
+        // cluster paths must be reused.
+        let layout2 = build_one_paragraph("Hello", 200.0);
+        let mut update2 = empty_tree_update();
+        let mut parent2 = Node::new(Role::TextInput);
+        layout_access.build_nodes(
+            "Hello",
+            &layout2,
+            &mut update2,
+            &mut parent2,
+            || {
+                let id = NodeId(next_id);
+                next_id += 1;
+                id
+            },
+            0.0,
+            0.0,
+            |_, _| {},
+        );
+        let second_pass_ids: Vec<NodeId> =
+            update2.nodes.iter().filter_map(|(id, n)| (n.role() == Role::TextRun).then_some(*id)).collect();
+
+        assert_eq!(
+            first_pass_ids, second_pass_ids,
+            "NodeIds for unchanged spans must persist across build_nodes calls"
+        );
+    }
+
+    #[test]
+    fn cursor_to_access_position_round_trips() {
+        // `Cursor::to_access_position` requires that `build_nodes` ran first,
+        // because it consults `LayoutAccessibility::span_paths_by_cluster_path`.
+        let layout = build_one_paragraph("ab", 200.0);
+        let mut layout_access = LayoutAccessibility::default();
+        let mut update = empty_tree_update();
+        let mut parent = Node::new(Role::TextInput);
+        let mut next_id: u64 = 1;
+        layout_access.build_nodes(
+            "ab",
+            &layout,
+            &mut update,
+            &mut parent,
+            || {
+                let id = NodeId(next_id);
+                next_id += 1;
+                id
+            },
+            0.0,
+            0.0,
+            |_, _| {},
+        );
+
+        // Round-trip the start-of-buffer cursor through the AT representation.
+        let cursor = parley::Cursor::from_byte_index(&layout, 0, parley::layout::Affinity::Downstream);
+        let pos = cursor.to_access_position(&layout, &layout_access).expect("position for cursor at 0");
+        let recovered = parley::Cursor::from_access_position(&pos, &layout, &layout_access)
+            .expect("cursor for AT position");
+        assert_eq!(recovered.index(), cursor.index());
+    }
+}
