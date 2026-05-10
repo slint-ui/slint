@@ -55,7 +55,7 @@ renderer-software = [
   "i-slint-renderer-software/std",
   "dep:bytemuck",
 ]
-accessibility = ["dep:accesskit", "dep:accesskit_winit"]
+accessibility = ["dep:accesskit", "dep:accesskit_winit", "i-slint-core/accessibility-text"]
 raw-window-handle-06 = ["i-slint-core/raw-window-handle-06"]
 unstable-wgpu-29 = ["i-slint-core/unstable-wgpu-29", "i-slint-renderer-skia?/unstable-wgpu-29"]
 unstable-wgpu-30 = [
