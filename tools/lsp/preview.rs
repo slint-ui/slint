@@ -1572,7 +1572,7 @@ fn set_preview_factory(
     callback: Box<dyn Fn(ComponentInstance)>,
     behavior: LoadBehavior,
 ) {
-    // Ensure that any popups are closed as they are related to the old factory
+    // Close popups from the old preview instance
     i_slint_core::window::WindowInner::from_pub(app_window.window()).close_all_popups();
 
     compiled.set_debug_handler(
@@ -1615,6 +1615,9 @@ fn set_preview_factory(
 
     let factory = slint::ComponentFactory::new(move |ctx: FactoryContext| {
         let instance = compiled.create_embedded(ctx).unwrap();
+        let previewed_window = i_slint_core::window::WindowInner::from_pub(instance.window());
+        previewed_window.set_enable_native_popups(false);
+        previewed_window.set_allow_interaction_outside_non_menu_popups(true);
 
         callback(instance.clone_strong());
 
@@ -1756,6 +1759,7 @@ fn set_selected_element(
     set_drop_mark(&None);
 
     let element_node = selection.as_ref().and_then(|s| s.as_element_node());
+    let element_node_for_editor = element_node.clone();
     let notify_editor_about_selection_after_update =
         editor_notification == SelectionNotification::AfterUpdate;
 
@@ -1775,6 +1779,9 @@ fn set_selected_element(
         };
 
         if let Some(api) = preview_state.api.upgrade() {
+            api.set_popup_selection_overlay(selection.as_ref().is_some_and(|selection| {
+                selection.path.to_string_lossy().starts_with("builtin:/")
+            }));
             api.set_selection(ui::Selection {
                 highlight_index: selection.as_ref().map(|s| s.instance_index as i32).unwrap_or(-1),
                 layout_data: layout_kind,
@@ -1782,6 +1789,8 @@ fn set_selected_element(
                 is_moveable: true,
                 is_resizable: !is_in_layout && !is_layout,
             });
+
+            let mut properties_set = false;
 
             if let Some(document_cache) = document_cache_from(preview_state)
                 && let Some((uri, version, selection)) = selection
@@ -1834,6 +1843,41 @@ fn set_selected_element(
                         &document_cache,
                         properties::query_properties(&uri, version, &selection, in_layout).ok(),
                     ));
+                    properties_set = true;
+                }
+            }
+
+            if !properties_set {
+                preview_state.property_range_declarations = None;
+
+                if let Some(element_node) = element_node.as_ref() {
+                    let (component_name, type_name): (String, String) = element_node
+                        .with_element_node(|node| {
+                            let component_name = node
+                                .parent()
+                                .and_then(syntax_nodes::Component::new)
+                                .map(|component| component.DeclaredIdentifier().text().to_string())
+                                .unwrap_or_default();
+                            let type_name = node
+                                .QualifiedName()
+                                .map(|name| name.text().to_string().trim().to_string())
+                                .unwrap_or_default();
+                            (component_name, type_name)
+                        });
+
+                    let selection = selection.as_ref().unwrap();
+                    api.set_properties(Default::default());
+                    api.set_current_element(ui::ElementInformation {
+                        id: element_node.element.borrow().id.to_string().into(),
+                        component_name: component_name.into(),
+                        type_name: type_name.into(),
+                        source_uri: selection.path.to_string_lossy().to_string().into(),
+                        source_version: i32::MIN,
+                        offset: u32::from(selection.offset) as i32,
+                    });
+                } else {
+                    api.set_properties(Default::default());
+                    api.set_current_element(ui::ElementInformation::default());
                 }
             }
         }
@@ -1846,7 +1890,7 @@ fn set_selected_element(
     });
 
     if editor_notification == SelectionNotification::Now
-        && let Some(element_node) = element_node
+        && let Some(element_node) = element_node_for_editor
     {
         let (path, pos) = element_node.with_element_node(|node| {
             let sf = &node.source_file;

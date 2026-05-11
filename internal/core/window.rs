@@ -468,6 +468,8 @@ pub struct WindowInner {
 
     /// Stack of currently active popups
     active_popups: RefCell<Vec<PopupWindow>>,
+    enable_native_popups: Cell<bool>,
+    allow_interaction_outside_non_menu_popups: Cell<bool>,
     next_popup_id: Cell<NonZeroU32>,
     had_popup_on_press: Cell<bool>,
     close_requested: Callback<(), CloseRequestResponse>,
@@ -530,6 +532,8 @@ impl WindowInner {
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),
             active_popups: Default::default(),
+            enable_native_popups: Cell::new(true),
+            allow_interaction_outside_non_menu_popups: Cell::new(false),
             next_popup_id: Cell::new(NonZeroU32::MIN),
             had_popup_on_press: Default::default(),
             close_requested: Default::default(),
@@ -691,10 +695,16 @@ impl WindowInner {
             match popup.close_policy {
                 PopupClosePolicy::CloseOnClick => {
                     let mouse_inside_popup = mouse_inside_popup();
+                    let close_outside_click =
+                        !self.allow_interaction_outside_non_menu_popups.get() || popup.is_menu;
                     (mouse_inside_popup && released_event && self.had_popup_on_press.get())
-                        || (!mouse_inside_popup && pressed_event)
+                        || (close_outside_click && !mouse_inside_popup && pressed_event)
                 }
-                PopupClosePolicy::CloseOnClickOutside => !mouse_inside_popup() && pressed_event,
+                PopupClosePolicy::CloseOnClickOutside => {
+                    let close_outside_click =
+                        !self.allow_interaction_outside_non_menu_popups.get() || popup.is_menu;
+                    close_outside_click && !mouse_inside_popup() && pressed_event
+                }
                 PopupClosePolicy::NoAutoClose => false,
             }
             .then_some(popup.popup_id)
@@ -711,30 +721,42 @@ impl WindowInner {
             let mut offset = LogicalPoint::default();
             let mut menubar_item = None;
             for (idx, popup) in active_popups.borrow().iter().enumerate().rev() {
-                item_tree = None;
-                menubar_item = None;
                 if let PopupWindowLocation::ChildWindow(coordinates) = &popup.location {
                     let geom = ItemTreeRc::borrow_pin(&popup.component).as_ref().item_geometry(0);
                     let mouse_inside_popup = event
                         .position()
                         .is_none_or(|pos| geom.contains(pos - coordinates.to_vector()));
                     if mouse_inside_popup {
+                        if self.allow_interaction_outside_non_menu_popups.get() && !popup.is_menu {
+                            continue;
+                        }
                         item_tree = Some(popup.component.clone());
+                        menubar_item = None;
                         offset = *coordinates;
                         break;
                     }
                 } else if native_popup_index.is_some_and(|i| i == idx) {
+                    if self.allow_interaction_outside_non_menu_popups.get() && !popup.is_menu {
+                        continue;
+                    }
                     item_tree = self.component.borrow().upgrade();
+                    menubar_item = None;
                     break;
                 }
 
                 if !popup.is_menu {
+                    if self.allow_interaction_outside_non_menu_popups.get() {
+                        continue;
+                    }
+                    item_tree = None;
+                    menubar_item = None;
                     break;
                 } else if popup_to_close.is_some() {
                     // clicking outside of a popup menu should close all the menus
                     popup_to_close = Some(popup.popup_id);
                 }
 
+                item_tree = None;
                 menubar_item = popup.parent_item.upgrade();
             }
 
@@ -1352,9 +1374,24 @@ impl WindowInner {
     /// Create a new popup window adapter
     /// This window adapter can be used on a popup component and shown with show_popup()
     pub fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+        if !self.enable_native_popups.get() {
+            return None;
+        }
         self.window_adapter()
             .internal(crate::InternalToken)
             .and_then(|s| s.create_popup_window_adapter())
+    }
+
+    /// Enable or disable native popups for this window.
+    ///
+    /// Live preview turns this off so popups stay inside the window.
+    pub fn set_enable_native_popups(&self, enable: bool) {
+        self.enable_native_popups.set(enable);
+    }
+
+    /// Live preview helper.
+    pub fn set_allow_interaction_outside_non_menu_popups(&self, enable: bool) {
+        self.allow_interaction_outside_non_menu_popups.set(enable);
     }
 
     /// Show a popup at the given position relative to the `parent_item` and returns its ID.
