@@ -48,7 +48,7 @@ const DECELERATION: f32 = 2000.;
 /// Fixed-duration animation used for wheel scrolling, where we don't have enough phase
 /// information to derive a fling velocity.
 /// The unit is: millisecond
-const WHEEL_SCROLL_DURATION: i32 = 180;
+const WHEEL_SCROLL_DURATION: Duration = Duration::from_millis(180);
 const WHEEL_SCROLL_EASING: EasingCurve = EasingCurve::CubicBezier([0.0, 0.0, 0.58, 1.0]);
 /// The maximum duration between a move and a release event to start an animation
 /// If the duration is larger than this value, no animation will be executed because
@@ -390,6 +390,8 @@ enum CaptureEvents {
 #[derive(Default)]
 struct FlickableDataInner {
     /// The position in which the press was made
+    ///
+    /// This position is in the coordinate system of the flickable, not of the viewport.
     pressed_mouse_position: LogicalPoint,
     pressed_time: Option<Instant>,
     /// Set to true if the flickable is flicking and capturing all mouse event, not forwarding back to the children
@@ -403,20 +405,19 @@ struct FlickableDataInner {
 
     /// Ringbuffer to store the last move events. From those data the velocity can be
     /// calculated required for the animation after the release event
+    ///
+    /// The position is in the coordinate system of the flickable, not of the viewport.
     position_time_rb: PositionTimeRingBuffer<5>,
 
     final_pos: Option<LogicalPoint>,
+    running_animation: Option<(
+        Instant,
+        physics_simulation::ConstantDecelerationParameters,
+        physics_simulation::ConstantDecelerationParameters,
+    )>,
 }
 
 impl FlickableDataInner {
-    fn wheel_scroll_animation() -> PropertyAnimation {
-        PropertyAnimation {
-            duration: WHEEL_SCROLL_DURATION,
-            easing: WHEEL_SCROLL_EASING,
-            ..Default::default()
-        }
-    }
-
     fn should_capture_scroll(&self, timeout: Duration, position: LogicalPoint) -> bool {
         self.last_scroll_event.is_some_and(|(last_time, last_position)| {
             // Note: Squared length for MCU support, which use i32 coords.
@@ -442,7 +443,7 @@ impl FlickableDataInner {
     fn process_wheel_event(
         &mut self,
         flick: Pin<&Flickable>,
-        delta: LogicalVector,
+        mut delta: LogicalVector,
         position: LogicalPoint,
         phase: TouchPhase,
         flick_rc: &ItemRc,
@@ -459,21 +460,36 @@ impl FlickableDataInner {
 
         let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
         let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
-        let mut old_pos = LogicalPoint::from_lengths(viewport_x.get(), viewport_y.get());
+        let current_pos = LogicalPoint::from_lengths(viewport_x.get(), viewport_y.get());
 
         if self.capture_events.is_none()
             && matches!(phase, TouchPhase::Moved)
-            && let Some(pos) = self.final_pos
+            && let Some((start_time, x_simulation, y_simulation)) = &self.running_animation
         {
-            // If the animation is not finished, we use final value of the animation, otherwise we slow the scrolling down
-            old_pos = pos;
+            let animation_duration = crate::animations::current_tick().duration_since(*start_time);
+            if animation_duration < WHEEL_SCROLL_DURATION {
+                let missing = |sim: &physics_simulation::ConstantDecelerationParameters| {
+                    0.5 * (-sim.deceleration)
+                        * (WHEEL_SCROLL_DURATION.as_secs_f32().powi(2)
+                            - animation_duration.as_secs_f32().powi(2))
+                        + sim.initial_velocity
+                            * (WHEEL_SCROLL_DURATION.as_secs_f32()
+                                - animation_duration.as_secs_f32())
+                };
+                let missing_x = missing(x_simulation);
+                let missing_y = missing(y_simulation);
+
+                // If the animation is not finished, we add the remaining animations delta.
+                delta += LogicalVector::new(missing_x, missing_y);
+            }
         }
 
-        let new_pos = ensure_in_bound(flick, old_pos + delta, flick_rc);
+        let new_pos = ensure_in_bound(flick, current_pos + delta, flick_rc);
 
         if phase != TouchPhase::Ended {
             viewport_x.remove_binding();
             viewport_y.remove_binding();
+            self.running_animation = None;
         }
 
         match phase {
@@ -497,10 +513,93 @@ impl FlickableDataInner {
                     viewport_y.set(new_pos.y_length());
                 } else {
                     // Mousewheel case with no phase
-                    let animation = Self::wheel_scroll_animation();
-                    viewport_x.set_animated_value(new_pos.x_length(), animation.clone());
-                    viewport_y.set_animated_value(new_pos.y_length(), animation);
-                    self.final_pos = Some(new_pos);
+                    let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
+                    let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
+
+                    let flick_weak = flick_rc.downgrade();
+                    let calculate_limits = move || {
+                        flick_weak
+                            .upgrade()
+                            .and_then(|flick_rc| {
+                                flick_rc.downcast::<Flickable>().map(move |flick| (flick_rc, flick))
+                            })
+                            .map(|(flick_rc, flick)| {
+                                let flick = flick.as_pin_ref();
+                                ensure_in_bound(
+                                    flick,
+                                    LogicalPoint::from_lengths(
+                                        -flick.viewport_width(),
+                                        -flick.viewport_height(),
+                                    ),
+                                    &flick_rc,
+                                )
+                            })
+                    };
+
+                    let dist = new_pos - current_pos;
+
+                    let limit_x = if dist.x < 0 as Coord {
+                        let property = Box::pin(Property::new(0.0));
+                        property.set_binding({
+                            let calculate_limits = calculate_limits.clone();
+                            move || {
+                                calculate_limits()
+                                    .map(|limit| limit.x_length().get())
+                                    .unwrap_or(0.0)
+                            }
+                        });
+                        property
+                    } else {
+                        Box::pin(Property::new(0.0))
+                    };
+
+                    let limit_y = if dist.y < 0 as Coord {
+                        let property = Box::pin(Property::new(0.0));
+                        property.set_binding(move || {
+                            calculate_limits().map(|limit| limit.y_length().get()).unwrap_or(0.0)
+                        });
+                        property
+                    } else {
+                        Box::pin(Property::new(0.0))
+                    };
+
+                    let x_simulation = {
+                        // v0 * t + 0.5 * a * t^2 = d
+                        // v0 * t + 0.5 * -(v0 / t) * t^2 = d
+                        // v0 * t + 0.5 * -v0 * t = d
+                        // v0 * (t + -0.5 * t) = d
+                        // v0 * (0.5 t) = d
+                        // => v0 = d / (0.5 t)
+
+                        let d = dist.x;
+                        let v0 = d / (0.5 * WHEEL_SCROLL_DURATION.as_secs_f32());
+                        let a = -(v0 / WHEEL_SCROLL_DURATION.as_secs_f32());
+                        let simulation = physics_simulation::ConstantDecelerationParameters::new(
+                            v0, // deceleration: therefore -a
+                            -a,
+                        );
+                        viewport_x.set_physic_animation_value(limit_x, simulation.clone());
+                        simulation
+                    };
+
+                    let y_simulation = {
+                        let d = dist.y;
+                        let v0 = d / (0.5 * WHEEL_SCROLL_DURATION.as_secs_f32());
+                        let a = -(v0 / WHEEL_SCROLL_DURATION.as_secs_f32());
+                        let simulation = physics_simulation::ConstantDecelerationParameters::new(
+                            v0, // deceleration: therefore -a
+                            -a,
+                        );
+                        viewport_y.set_physic_animation_value(limit_y, simulation.clone());
+                        simulation
+                    };
+
+                    if dist.x != 0 as Coord || dist.y != 0 as Coord {
+                        (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
+                    }
+
+                    self.running_animation =
+                        Some((crate::animations::current_tick(), x_simulation, y_simulation));
                 }
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
@@ -517,8 +616,8 @@ impl FlickableDataInner {
             }
         }
 
-        let flicked =
-            old_pos.x_length() != new_pos.x_length() || old_pos.y_length() != new_pos.y_length();
+        let flicked = current_pos.x_length() != new_pos.x_length()
+            || current_pos.y_length() != new_pos.y_length();
         if flicked {
             (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
             InputEventResult::EventAccepted
