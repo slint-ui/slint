@@ -12,6 +12,7 @@ use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
 use alloc::string::String;
 
+pub use crate::data_transfer::DataTransfer;
 #[cfg(target_has_atomic = "ptr")]
 pub use crate::future::*;
 pub use crate::graphics::{
@@ -1281,6 +1282,7 @@ pub enum PlatformError {
     /// or call [`platform::set_platform()`](crate::platform::set_platform)
     /// before running the event loop
     NoPlatform,
+
     /// The Slint Platform does not provide an event loop.
     ///
     /// The [`Platform::run_event_loop`](crate::platform::Platform::run_event_loop)
@@ -1295,9 +1297,9 @@ pub enum PlatformError {
 
     /// Another platform-specific error occurred
     Other(String),
+
     /// Another platform-specific error occurred.
-    #[cfg(feature = "std")]
-    OtherError(Box<dyn std::error::Error + Send + Sync>),
+    OtherError(Box<dyn core::error::Error + Send + Sync>),
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -1329,7 +1331,6 @@ impl core::fmt::Display for PlatformError {
                 f.write_str("The operation is not supported by the current platform")
             }
             PlatformError::Other(str) => f.write_str(str),
-            #[cfg(feature = "std")]
             PlatformError::OtherError(error) => error.fmt(f),
         }
     }

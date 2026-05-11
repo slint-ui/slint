@@ -35,6 +35,7 @@ pub mod api;
 pub mod callbacks;
 pub mod component_factory;
 pub mod context;
+pub mod data_transfer;
 pub mod date_time;
 pub mod debug_log;
 pub mod future;
@@ -94,7 +95,10 @@ pub use graphics::PathData;
 #[doc(inline)]
 pub use graphics::BorderRadius;
 
-pub use context::{SlintContext, with_global_context};
+#[doc(inline)]
+pub use data_transfer::DataTransfer;
+
+pub use context::{SlintContext, SlintContextWeak, with_global_context};
 
 #[cfg(not(slint_int_coord))]
 pub type Coord = f32;

@@ -81,6 +81,7 @@ pub fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Float32 => Some(quote!(f32)),
         Type::String => Some(quote!(sp::SharedString)),
         Type::Color => Some(quote!(sp::Color)),
+        Type::DataTransfer => Some(quote!(sp::DataTransfer)),
         Type::Easing => Some(quote!(sp::EasingCurve)),
         Type::ComponentFactory => Some(quote!(slint::ComponentFactory)),
         Type::Duration => Some(quote!(i64)),
@@ -344,17 +345,24 @@ fn generate_public_component(
     // SystemTrayIcon-rooted components don't have a `WindowAdapter`. Skip the
     // eager creation calls in `new` / `new_with_context` so instantiating
     // a tray doesn't spin up a hidden window adapter as a side effect.
-    let (eager_create_window, init_with_context): (Option<TokenStream>, TokenStream) =
-        match llr.top_level_type {
-            llr::TopLevelComponentType::Window => (
-                Some(quote!(
-                    // ensure that the window exist as this point so further call to window() don't panic
-                    inner.globals.get().unwrap().window_adapter_ref()?;
-                )),
-                quote!(inner.globals.get().unwrap().create_window_from_context(ctx)?;),
-            ),
-            llr::TopLevelComponentType::SystemTrayIcon => (None, quote!(let _ = ctx;)),
-        };
+    let (eager_create_window, init_with_context, ensure_tree_instantiated): (
+        Option<TokenStream>,
+        TokenStream,
+        Option<TokenStream>,
+    ) = match llr.top_level_type {
+        llr::TopLevelComponentType::Window => (
+            Some(quote!(
+                // ensure that the window exist as this point so further call to window() don't panic
+                inner.globals.get().unwrap().window_adapter_ref()?;
+            )),
+            quote!(inner.globals.get().unwrap().create_window_from_context(ctx)?;),
+            Some(quote!(
+                let window = inner.globals.get().unwrap().window_adapter_ref()?;
+                sp::WindowInner::from_pub(window.window()).ensure_tree_instantiated();
+            )),
+        ),
+        llr::TopLevelComponentType::SystemTrayIcon => (None, quote!(let _ = ctx;), None),
+    };
 
     #[cfg(feature = "bundle-translations")]
     let init_bundle_translations = unit.translations.as_ref().map(|_| {
@@ -467,6 +475,7 @@ fn generate_public_component(
                 #init_bundle_translations
                 #eager_create_window
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
+                #ensure_tree_instantiated
                 ::core::result::Result::Ok(Self(inner))
             }
 
@@ -478,6 +487,7 @@ fn generate_public_component(
                 #init_with_context
 
                 #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
+                #ensure_tree_instantiated
                 ::core::result::Result::Ok(Self(inner))
             }
 
@@ -1096,6 +1106,7 @@ fn generate_sub_component(
     let mut repeated_element_components: Vec<TokenStream> = Vec::new();
     let mut repeated_subtree_ranges: Vec<TokenStream> = Vec::new();
     let mut repeated_subtree_components: Vec<TokenStream> = Vec::new();
+    let mut ensure_instantiated_stmts: Vec<TokenStream> = Vec::new();
 
     for (idx, repeated) in component.repeated.iter_enumerated() {
         extra_components.push(generate_repeated_component(
@@ -1112,32 +1123,26 @@ fn generate_sub_component(
                 &ctx,
             );
 
-            let ensure_updated = {
-                quote! {
-                    #embed_item.ensure_updated();
-                }
-            };
-
             repeated_visit_branch.push(quote!(
                 #idx => {
-                    #ensure_updated
                     #embed_item.visit_children_item(-1, order, visitor)
                 }
             ));
             repeated_subtree_ranges.push(quote!(
                 #idx => {
-                    #ensure_updated
                     #embed_item.subtree_range()
                 }
             ));
             repeated_subtree_components.push(quote!(
                 #idx => {
-                    #ensure_updated
                     if subtree_index == 0 {
                         *result = #embed_item.subtree_component()
                     }
                 }
             ));
+            ensure_instantiated_stmts.push(quote!({
+                _changed |= #embed_item.ensure_updated();
+            }));
         } else {
             let repeater_id = format_ident!("repeater{}", idx);
             let rep_inner_component_id =
@@ -1154,41 +1159,47 @@ fn generate_sub_component(
                     }
                 });
             });
-            let ensure_updated = if let Some(listview) = &repeated.listview {
+            if let Some(listview) = &repeated.listview {
                 let vp_y = access_member(&listview.viewport_y, &ctx).unwrap();
                 let vp_h = access_member(&listview.viewport_height, &ctx).unwrap();
                 let lv_h = access_member(&listview.listview_height, &ctx).unwrap();
                 let vp_w = access_member(&listview.viewport_width, &ctx).unwrap();
                 let lv_w = access_member(&listview.listview_width, &ctx).unwrap();
 
-                quote! {
-                    #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated_listview(
+                repeated_visit_branch.push(quote!(
+                    #idx => {
+                        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).track_changes_listview(
+                            #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
+                        );
+                        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).visit(order, visitor)
+                    }
+                ));
+                ensure_instantiated_stmts.push(quote!({
+                    _changed |= #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated_listview(
                         || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() },
                         #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
                     );
-                }
+                }));
             } else {
-                quote! {
-                    #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated(
+                repeated_visit_branch.push(quote!(
+                    #idx => {
+                        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).visit(order, visitor)
+                    }
+                ));
+                ensure_instantiated_stmts.push(quote!({
+                    _changed |= #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated(
                         || #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into()
                     );
-                }
-            };
-            repeated_visit_branch.push(quote!(
-                #idx => {
-                    #ensure_updated
-                    _self.#repeater_id.visit(order, visitor)
-                }
-            ));
+                }));
+            }
             repeated_subtree_ranges.push(quote!(
                 #idx => {
-                    #ensure_updated
+                    #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).track_instance_changes();
                     sp::IndexRange::from(_self.#repeater_id.range())
                 }
             ));
             repeated_subtree_components.push(quote!(
                 #idx => {
-                    #ensure_updated
                     if let Some(instance) = _self.#repeater_id.instance_at(subtree_index) {
                         *result = sp::VRc::downgrade(&sp::VRc::into_dyn(instance));
                     }
@@ -1302,6 +1313,9 @@ fn generate_sub_component(
                 #repeater_offset..=#last_repeater => {
                     #sub_compo_field.apply_pin(_self).subtree_component(dyn_index - #repeater_offset, subtree_index, result)
                 }
+            ));
+            ensure_instantiated_stmts.push(quote!(
+                _changed |= #sub_compo_field.apply_pin(_self).ensure_instantiated();
             ));
         }
 
@@ -1544,6 +1558,14 @@ fn generate_sub_component(
                     #(#repeated_visit_branch)*
                     _ => panic!("invalid dyn_index {}", dyn_index),
                 }
+            }
+
+            fn ensure_instantiated(self: ::core::pin::Pin<&Self>) -> bool {
+                #![allow(unused)]
+                let _self = self;
+                let mut _changed = false;
+                #(#ensure_instantiated_stmts)*
+                _changed
             }
 
             fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sp::Orientation) -> sp::LayoutInfo {
@@ -2141,6 +2163,10 @@ fn generate_item_tree(
                 self.layout_info(orientation)
             }
 
+            fn ensure_instantiated(self: ::core::pin::Pin<&Self>) -> bool {
+                self.ensure_instantiated()
+            }
+
             fn item_geometry(self: ::core::pin::Pin<&Self>, index: u32) -> sp::LogicalRect {
                 self.item_geometry(index)
             }
@@ -2234,15 +2260,8 @@ fn generate_repeated_component(
                     llr::RowChildTemplateInfo::Repeated { repeater_index } => {
                         let inner_rep_id =
                             format_ident!("repeater{}", usize::from(*repeater_index));
-                        let inner_rep_sc_idx =
-                            root_sc.repeated[*repeater_index].sub_tree.root;
-                        let inner_inner_component_id = self::inner_component_id(
-                            &unit.sub_components[inner_rep_sc_idx],
-                        );
                         quote! {
-                            #inner_component_id::FIELD_OFFSETS.#inner_rep_id().apply_pin(_self.as_ref()).ensure_updated(
-                                || #inner_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into()
-                            );
+                            #inner_component_id::FIELD_OFFSETS.#inner_rep_id().apply_pin(_self.as_ref()).track_instance_changes();
                             let inner_len = _self.as_ref().#inner_rep_id.len();
                             for _i in 0..inner_len {
                                 if write_idx < result.len() {
@@ -2371,6 +2390,7 @@ fn generate_repeated_component(
                                 let advance = (!is_last).then(|| quote! { count += inner_len; });
                                 quote! {
                                     {
+                                        #inner_component_id::FIELD_OFFSETS.#inner_rep_id().apply_pin(_self).track_instance_changes();
                                         let inner_len = _self.#inner_rep_id.len();
                                         if index >= count && index - count < inner_len {
                                             if let Some(inner) = _self.#inner_rep_id.instance_at(index - count) {
@@ -3391,6 +3411,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
         }
         Expression::EmptyComponentFactory => quote!(slint::ComponentFactory::default()),
+        Expression::EmptyDataTransfer => quote!(slint::DataTransfer::default()),
         Expression::TranslationReference { format_args, string_index, plural } => {
             let args = compile_expression(format_args, ctx);
             match plural {
@@ -3922,12 +3943,19 @@ fn compile_builtin_function_call(
             })
         }
         BuiltinFunction::ColorScheme => {
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).color_scheme())
+            // A `Palette.color-scheme` binding inside a SystemTrayIcon-rooted component
+            // resolves against the tray's own scheme; everything else falls back to the
+            // process-wide value held by the SlintContext.
+            let global_access = &ctx.generator_state.global_access;
+            quote!({
+                let _root = #global_access.root_item_tree_weak.upgrade().unwrap();
+                sp::context_for_root(&_root)
+                    .map_or(sp::ColorScheme::Unknown, |c| c.color_scheme(Some(&_root)))
+            })
         }
         BuiltinFunction::AccentColor => {
-            let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(sp::WindowInner::from_pub(#window_adapter_tokens.window()).accent_color())
+            let global_access = &ctx.generator_state.global_access;
+            quote!(sp::accent_color(&#global_access.root_item_tree_weak.upgrade().unwrap()))
         }
         BuiltinFunction::SupportsNativeMenuBar => {
             let window_adapter_tokens = access_window_adapter_field(ctx);
@@ -4178,18 +4206,17 @@ fn generate_common_repeater_code(
 ) -> (TokenStream, Option<usize>) {
     let repeater_id = format_ident!("repeater{}", usize::from(repeater_index));
     let inner_component_id = self::inner_component_id(ctx.current_sub_component().unwrap());
-    let rep_inner_component_id = self::inner_component_id(
-        &ctx.compilation_unit.sub_components
-            [ctx.current_sub_component().unwrap().repeated[repeater_index].sub_tree.root],
-    );
     *repeater_count_code = quote!(#repeater_count_code + _self.#repeater_id.len());
 
     let items_vec_ident = ident(items_vec_name);
-    let mut repeater_code = quote!();
+    let mut repeater_code = quote!(
+        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).track_instance_changes();
+    );
     let mut rs_idx_for_init = None;
     if let Some(ri) = repeated_indices_var_name {
         let ri_idx = *repeated_indices_size;
         repeater_code = quote!(
+            #repeater_code
             #ri[#ri_idx] = #items_vec_ident.len() as u32;
             #ri[#ri_idx + 1] = _self.#repeater_id.len() as u32;
         );
@@ -4199,13 +4226,7 @@ fn generate_common_repeater_code(
         }
     }
 
-    let code = quote!(
-        #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated(
-            || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() }
-        );
-        #repeater_code
-    );
-    (code, rs_idx_for_init)
+    (repeater_code, rs_idx_for_init)
 }
 
 fn generate_common_repeater_indices_init_code(
@@ -4228,27 +4249,20 @@ fn generate_common_repeater_indices_init_code(
     }
 }
 
-/// For each inner repeater in `templates`, generates code to `ensure_updated` it
-/// and add its length to `total`.  `row_sc` / `row_inner_component_id` describe the
-/// repeating Row sub-component; `unit` is the full compilation unit.
-fn build_inner_ensure_and_len(
+/// For each inner repeater in `templates`, generates code to track instance
+/// changes and add its length to `total`.  `row_inner_component_id` is the
+/// repeating Row sub-component's identifier.
+fn build_inner_track_and_len(
     templates: &[llr::RowChildTemplateInfo],
-    row_sc: &llr::SubComponent,
     row_inner_component_id: &proc_macro2::Ident,
-    unit: &llr::CompilationUnit,
 ) -> Vec<TokenStream> {
     templates
         .iter()
         .filter_map(|e| match e {
             llr::RowChildTemplateInfo::Repeated { repeater_index } => {
-                let inner_rep_sc_idx = row_sc.repeated[*repeater_index].sub_tree.root;
-                let inner_inner_component_id =
-                    inner_component_id(&unit.sub_components[inner_rep_sc_idx]);
                 let inner_rep_id = format_ident!("repeater{}", usize::from(*repeater_index));
                 Some(quote! {
-                    #row_inner_component_id::FIELD_OFFSETS.#inner_rep_id().apply_pin(pin).ensure_updated(
-                        || #inner_inner_component_id::new(pin.self_weak.get().unwrap().clone()).unwrap().into()
-                    );
+                    #row_inner_component_id::FIELD_OFFSETS.#inner_rep_id().apply_pin(pin).track_instance_changes();
                     total += pin.#inner_rep_id.len();
                 })
             }
@@ -4281,12 +4295,7 @@ fn generate_repeater_push_code(
         let row_sc_idx = parent_sc.repeated[repeater_index].sub_tree.root;
         let row_sc = &ctx.compilation_unit.sub_components[row_sc_idx];
         let row_inner_component_id = self::inner_component_id(row_sc);
-        let inner_ensure_and_len = build_inner_ensure_and_len(
-            templates,
-            row_sc,
-            &row_inner_component_id,
-            ctx.compilation_unit,
-        );
+        let inner_ensure_and_len = build_inner_track_and_len(templates, &row_inner_component_id);
 
         let (common_push_code, rs_idx) = self::generate_common_repeater_code(
             repeater_index,

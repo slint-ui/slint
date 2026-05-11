@@ -9,7 +9,6 @@ use crate::api::{
     CloseRequestResponse, LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize,
     PlatformError, Window, WindowPosition, WindowSize,
 };
-use crate::graphics::Color;
 use crate::input::{
     ClickState, FocusEvent, FocusReason, InternalKeyEvent, KeyEventResult, KeyEventType, Keys,
     MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase, TouchState,
@@ -19,7 +18,7 @@ use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
-use crate::items::{ColorScheme, InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
+use crate::items::{InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
@@ -202,16 +201,6 @@ pub trait WindowAdapterInternal: core::any::Any {
     /// Handle focus change
     // used for accessibility
     fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {}
-
-    /// returns the color scheme used
-    fn color_scheme(&self) -> ColorScheme {
-        ColorScheme::Unknown
-    }
-
-    /// Returns the system accent color, or transparent if the platform doesn't provide one.
-    fn accent_color(&self) -> Color {
-        Color::default()
-    }
 
     /// Returns whether we can have a native menu bar
     fn supports_native_menu_bar(&self) -> bool {
@@ -589,6 +578,30 @@ impl WindowInner {
         self.component.borrow().upgrade()
     }
 
+    /// Walk the component tree and every active popup to materialize every
+    /// Repeater, Conditional and ComponentContainer.  Runs change handlers
+    /// and the instantiation pass in a loop because init callbacks may set
+    /// properties that trigger change handlers, and change handlers may
+    /// make new conditionals/repeaters dirty.
+    pub fn ensure_tree_instantiated(&self) {
+        // Instantiation runs first so that ListView's ensure_updated_listview
+        // sees the model property before any change handler can reset it.
+        for _ in 0..10 {
+            let mut changed = false;
+            if let Some(component) = self.try_component() {
+                changed |= crate::item_tree::ensure_item_tree_instantiated(&component);
+            }
+            for popup in self.active_popups.borrow().iter() {
+                changed |= crate::item_tree::ensure_item_tree_instantiated(&popup.component);
+            }
+            changed |= crate::properties::ChangeTracker::run_change_handlers_once();
+            if !changed {
+                return;
+            }
+        }
+        crate::debug_log!("Slint: long callback/instantiation chain detected");
+    }
+
     /// Returns a slice of the active popups.
     pub fn active_popups(&self) -> core::cell::Ref<'_, [PopupWindow]> {
         core::cell::Ref::map(self.active_popups.borrow(), |v| v.as_slice())
@@ -600,6 +613,7 @@ impl WindowInner {
         crate::animations::update_animations();
 
         let Some(item_tree) = self.try_component() else { return };
+        self.ensure_tree_instantiated();
 
         // handle multiple press release
         event = self.click_state.check_repeat(event, self.context().platform().click_interval());
@@ -689,6 +703,10 @@ impl WindowInner {
         mouse_input_state = if let Some(mut event) =
             crate::input::handle_mouse_grab(&event, &window_adapter, &mut mouse_input_state)
         {
+            // The grab handler may have fired callbacks that modified models or
+            // other state, so materialize any pending repeater/conditional
+            // changes before hit-testing with the returned event.
+            self.ensure_tree_instantiated();
             let mut item_tree = self.component.borrow().upgrade();
             let mut offset = LogicalPoint::default();
             let mut menubar_item = None;
@@ -777,7 +795,7 @@ impl WindowInner {
             WindowInner::from_pub(parent_adapter.window()).close_popup(popup_id);
         }
 
-        crate::properties::ChangeTracker::run_change_handlers();
+        self.ensure_tree_instantiated();
     }
 
     /// Receive a raw touch event from a backend and either forward it as a mouse
@@ -811,6 +829,7 @@ impl WindowInner {
         &self,
         mut internal_key_event: InternalKeyEvent,
     ) -> crate::input::KeyEventResult {
+        self.ensure_tree_instantiated();
         // NFC-normalize the event text so that shortcut matching works consistently
         // regardless of the composed/decomposed form the backend provides
         // (e.g. é as U+00E9 vs e + U+0301).
@@ -841,7 +860,7 @@ impl WindowInner {
         // Slint widgets. Therefore we process the menubar shortcuts here first and abort event
         // propagation if a shortcut matches.
         if self.process_menubar_shortcuts(&internal_key_event) == KeyEventResult::EventAccepted {
-            crate::properties::ChangeTracker::run_change_handlers();
+            self.ensure_tree_instantiated();
             return crate::input::KeyEventResult::EventAccepted;
         }
 
@@ -870,7 +889,7 @@ impl WindowInner {
             if i.borrow().as_ref().capture_key_event(&internal_key_event, &self.window_adapter(), i)
                 == crate::input::KeyEventResult::EventAccepted
             {
-                crate::properties::ChangeTracker::run_change_handlers();
+                self.ensure_tree_instantiated();
                 return crate::input::KeyEventResult::EventAccepted;
             }
         }
@@ -885,7 +904,7 @@ impl WindowInner {
                 &focus_item,
             ) == crate::input::KeyEventResult::EventAccepted
             {
-                crate::properties::ChangeTracker::run_change_handlers();
+                self.ensure_tree_instantiated();
                 return crate::input::KeyEventResult::EventAccepted;
             }
             item = focus_item.parent_item(ParentItemTraversalMode::StopAtPopups);
@@ -901,7 +920,7 @@ impl WindowInner {
             && internal_key_event.event_type == KeyEventType::KeyPressed
         {
             self.focus_next_item();
-            crate::properties::ChangeTracker::run_change_handlers();
+            self.ensure_tree_instantiated();
             return crate::input::KeyEventResult::EventAccepted;
         } else if (internal_key_event.key_event.text.starts_with(key_codes::Backtab)
             || (internal_key_event.key_event.text.starts_with(key_codes::Tab)
@@ -910,7 +929,7 @@ impl WindowInner {
             && !extra_mod
         {
             self.focus_previous_item();
-            crate::properties::ChangeTracker::run_change_handlers();
+            self.ensure_tree_instantiated();
             return crate::input::KeyEventResult::EventAccepted;
         } else if internal_key_event.event_type == KeyEventType::KeyPressed
             && internal_key_event.key_event.text.starts_with(key_codes::Escape)
@@ -937,11 +956,11 @@ impl WindowInner {
             if close_on_escape {
                 window.close_top_popup();
             }
-            crate::properties::ChangeTracker::run_change_handlers();
+            self.ensure_tree_instantiated();
             return crate::input::KeyEventResult::EventAccepted;
         }
 
-        crate::properties::ChangeTracker::run_change_handlers();
+        self.ensure_tree_instantiated();
         crate::input::KeyEventResult::EventIgnored
     }
 
@@ -1213,6 +1232,7 @@ impl WindowInner {
         &self,
         render_components: impl FnOnce(&[(ItemTreeWeak, LogicalPoint)]) -> T,
     ) -> Option<T> {
+        crate::properties::evaluate_no_tracking(|| self.ensure_tree_instantiated());
         let component_weak = ItemTreeRc::downgrade(&self.try_component()?);
         Some(self.pinned_fields.as_ref().project_ref().redraw_tracker.evaluate_as_dependency_root(
             || {
@@ -1252,6 +1272,7 @@ impl WindowInner {
             }
         }
 
+        self.ensure_tree_instantiated();
         self.update_window_properties();
         self.window_adapter().set_visible(true)?;
         // Make sure that the window's inner size is in sync with the root window item's
@@ -1280,20 +1301,6 @@ impl WindowInner {
             self.context().release_keepalive();
         }
         result
-    }
-
-    /// returns the color theme used
-    pub fn color_scheme(&self) -> ColorScheme {
-        self.window_adapter()
-            .internal(crate::InternalToken)
-            .map_or(ColorScheme::Unknown, |x| x.color_scheme())
-    }
-
-    /// Returns the system accent color, or transparent if unavailable.
-    pub fn accent_color(&self) -> Color {
-        self.window_adapter()
-            .internal(crate::InternalToken)
-            .map_or(Color::default(), |x| x.accent_color())
     }
 
     /// Return whether the platform supports native menu bars
@@ -1361,6 +1368,9 @@ impl WindowInner {
         parent_item: &ItemRc,
         is_menu: bool,
     ) -> NonZeroU32 {
+        // Popups live in their own ItemTree, which was invisible to any
+        // earlier instantiation pass; materialize it before the layout queries below.
+        crate::item_tree::ensure_item_tree_instantiated(popup_componentrc);
         let position = parent_item
             .map_to_native_window(parent_item.geometry().origin + position.to_euclid().to_vector());
         let popup_component = ItemTreeRc::borrow_pin(popup_componentrc);
@@ -1781,6 +1791,28 @@ impl WindowInner {
 /// Internal alias for `Rc<dyn WindowAdapter>`.
 pub type WindowAdapterRc = Rc<dyn WindowAdapter>;
 
+/// Resolve the [`crate::SlintContext`] associated with a component root by
+/// asking it for (or creating) its window adapter and reading the context off
+/// the resulting window. Returns `None` only when no adapter can be produced.
+pub fn context_for_root(root: &ItemTreeRc) -> Option<crate::SlintContext> {
+    let comp_ref_pin = vtable::VRc::borrow_pin(root);
+    let mut adapter = None;
+    comp_ref_pin.as_ref().window_adapter(true, &mut adapter);
+    adapter.map(|a| WindowInner::from_pub(a.window()).context().clone())
+}
+
+/// Runtime entry point for `BuiltinFunction::AccentColor`. Returns the accent color
+/// from the component's [`crate::SlintContext`] reached via its window adapter, or
+/// transparent if none is associated.
+pub fn accent_color(root: &crate::item_tree::ItemTreeRc) -> crate::graphics::Color {
+    let comp_ref_pin = vtable::VRc::borrow_pin(root);
+    let mut adapter = None;
+    comp_ref_pin.as_ref().window_adapter(true, &mut adapter);
+    adapter.map_or(crate::graphics::Color::default(), |a| {
+        WindowInner::from_pub(a.window()).context().accent_color()
+    })
+}
+
 /// This module contains the functions needed to interface with the event loop and window traits
 /// from outside the Rust language.
 #[cfg(feature = "ffi")]
@@ -1842,6 +1874,17 @@ pub mod ffi {
             );
             let window = &*(source as *const Rc<dyn WindowAdapter>);
             core::ptr::write(target as *mut Rc<dyn WindowAdapter>, window.clone());
+        }
+    }
+
+    /// Ensure repeaters, conditionals and component containers are instantiated.
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_windowrc_ensure_tree_instantiated(
+        handle: *const WindowAdapterRcOpaque,
+    ) {
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            WindowInner::from_pub(window_adapter.window()).ensure_tree_instantiated();
         }
     }
 
@@ -2194,31 +2237,6 @@ pub mod ffi {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
             window_adapter.window().set_size(crate::api::LogicalSize::new(size.width, size.height));
         }
-    }
-
-    /// Return whether the style is using a dark theme
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_windowrc_color_scheme(
-        handle: *const WindowAdapterRcOpaque,
-    ) -> ColorScheme {
-        unsafe {
-            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-            window_adapter
-                .internal(crate::InternalToken)
-                .map_or(ColorScheme::Unknown, |x| x.color_scheme())
-        }
-    }
-
-    /// Return the system accent color, or transparent if not available
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_windowrc_accent_color(
-        handle: *const WindowAdapterRcOpaque,
-        out: &mut Color,
-    ) {
-        let window_adapter = unsafe { &*(handle as *const Rc<dyn WindowAdapter>) };
-        *out = window_adapter
-            .internal(crate::InternalToken)
-            .map_or(Color::default(), |x| x.accent_color());
     }
 
     /// Return whether the platform supports native menu bars

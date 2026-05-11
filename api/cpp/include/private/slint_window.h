@@ -118,16 +118,6 @@ public:
         slint_windowrc_set_const_scale_factor(&inner, value);
     }
 
-    cbindgen_private::ColorScheme color_scheme() const
-    {
-        return slint_windowrc_color_scheme(&inner);
-    }
-    Color accent_color() const
-    {
-        Color col;
-        slint_windowrc_accent_color(&inner, &col);
-        return col;
-    }
     bool supports_native_menu_bar() const
     {
         return slint_windowrc_supports_native_menu_bar(&inner);

@@ -11,18 +11,24 @@ use super::{Error, Params};
 use crate::SharedVector;
 use crate::graphics::Image;
 use crate::item_tree::ItemWeak;
-use crate::items::MenuEntry;
+use crate::items::{ColorScheme, MenuEntry};
 use crate::menus::MenuVTable;
 
+use core::ffi::c_void;
+
 use objc2::rc::Retained;
-use objc2::runtime::Sel;
+use objc2::runtime::{AnyObject, Sel};
 use objc2::{
     AllocAnyThread, DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel,
 };
 use objc2_app_kit::{
+    NSAppearance, NSAppearanceCustomization, NSAppearanceNameAqua, NSAppearanceNameDarkAqua,
     NSImage, NSMenu, NSMenuItem, NSStatusBar, NSStatusItem, NSVariableStatusItemLength,
 };
-use objc2_foundation::{NSData, NSObject, NSObjectProtocol, NSSize, NSString};
+use objc2_foundation::{
+    NSArray, NSData, NSDictionary, NSKeyValueChangeKey, NSKeyValueObservingOptions, NSObject,
+    NSObjectNSKeyValueObserverRegistration, NSObjectProtocol, NSSize, NSString, ns_string,
+};
 
 // Mirror the other backends' depth cap to protect against accidental infinite menu trees.
 const MAX_DEPTH: usize = 15;
@@ -85,6 +91,62 @@ fn activate_entry(self_weak: &ItemWeak, entry_index: usize) {
     }
 }
 
+struct AppearanceObserverIvars {
+    self_weak: ItemWeak,
+}
+
+define_class!(
+    #[unsafe(super = NSObject)]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = AppearanceObserverIvars]
+    struct AppearanceObserver;
+
+    unsafe impl NSObjectProtocol for AppearanceObserver {}
+
+    impl AppearanceObserver {
+        #[unsafe(method(observeValueForKeyPath:ofObject:change:context:))]
+        fn observe(
+            &self,
+            _key_path: Option<&NSString>,
+            of_object: Option<&AnyObject>,
+            _change: Option<&NSDictionary<NSKeyValueChangeKey, AnyObject>>,
+            _context: *mut c_void,
+        ) {
+            let Some(of_object) = of_object else { return };
+            let Some(status_item) = of_object.downcast_ref::<NSStatusItem>() else { return };
+            let Some(button) = status_item.button(self.mtm()) else { return };
+            let scheme = scheme_for_appearance(&button.effectiveAppearance());
+            let Some(item_rc) = self.ivars().self_weak.upgrade() else { return };
+            let Some(tray) = item_rc.downcast::<super::SystemTrayIcon>() else { return };
+            tray.as_pin_ref().set_color_scheme(scheme);
+        }
+    }
+);
+
+impl AppearanceObserver {
+    fn new(mtm: MainThreadMarker, self_weak: ItemWeak) -> Retained<Self> {
+        let this = Self::alloc(mtm).set_ivars(AppearanceObserverIvars { self_weak });
+        unsafe { msg_send![super(this), init] }
+    }
+}
+
+fn scheme_for_appearance(appearance: &NSAppearance) -> ColorScheme {
+    // `bestMatchFromAppearancesWithNames:` collapses the high-contrast / vibrant
+    // variants down to whichever of these two best matches, so we don't have to
+    // enumerate them. `None` means it didn't match either family — surface that
+    // as `Unknown` rather than guessing.
+    let names = [unsafe { NSAppearanceNameAqua }, unsafe { NSAppearanceNameDarkAqua }];
+    let candidates = NSArray::from_slice(&names);
+    let Some(best) = appearance.bestMatchFromAppearancesWithNames(&candidates) else {
+        return ColorScheme::Unknown;
+    };
+    if &*best == unsafe { NSAppearanceNameDarkAqua } {
+        ColorScheme::Dark
+    } else {
+        ColorScheme::Light
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Icon conversion: Slint `Image` -> `NSImage` via `NSBitmapImageRep`.
 // ---------------------------------------------------------------------------
@@ -126,6 +188,7 @@ fn image_to_nsimage(icon: &Image) -> Result<Retained<NSImage>, Error> {
 pub struct PlatformTray {
     status_item: Retained<NSStatusItem>,
     action_target: Retained<MenuAction>,
+    appearance_observer: Retained<AppearanceObserver>,
     mtm: MainThreadMarker,
 }
 
@@ -143,7 +206,7 @@ impl PlatformTray {
         let status_bar = NSStatusBar::systemStatusBar();
         let status_item = status_bar.statusItemWithLength(NSVariableStatusItemLength);
 
-        let action_target = MenuAction::new(mtm, self_weak);
+        let action_target = MenuAction::new(mtm, self_weak.clone());
 
         if let Some(button) = status_item.button(mtm) {
             button.setImage(Some(&image));
@@ -166,7 +229,17 @@ impl PlatformTray {
             }
         }
 
-        Ok(Self { status_item, action_target, mtm })
+        let observer = AppearanceObserver::new(mtm, self_weak);
+        unsafe {
+            status_item.addObserver_forKeyPath_options_context(
+                &observer,
+                ns_string!("button.effectiveAppearance"),
+                NSKeyValueObservingOptions::Initial | NSKeyValueObservingOptions::New,
+                core::ptr::null_mut(),
+            );
+        }
+
+        Ok(Self { status_item, action_target, appearance_observer: observer, mtm })
     }
 
     pub fn rebuild_menu(
@@ -219,8 +292,12 @@ impl PlatformTray {
 
 impl Drop for PlatformTray {
     fn drop(&mut self) {
-        // Safe: PlatformTray is only constructed on the main thread and is owned by
-        // the SystemTrayIcon item, which is itself dropped on the event loop (main thread).
+        unsafe {
+            self.status_item.removeObserver_forKeyPath(
+                &self.appearance_observer,
+                ns_string!("button.effectiveAppearance"),
+            );
+        }
         let status_bar = NSStatusBar::systemStatusBar();
         status_bar.removeStatusItem(&self.status_item);
     }

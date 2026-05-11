@@ -5,6 +5,7 @@ use std::cell::{Cell, RefCell};
 
 use pyo3_stub_gen::{define_stub_info_gatherer, derive::gen_stub_pyfunction};
 
+mod data_transfer;
 mod image;
 mod interpreter;
 mod language;
@@ -183,6 +184,7 @@ fn slint(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<brush::PyColor>()?;
     m.add_class::<brush::PyBrush>()?;
     m.add_class::<keys::PyKeys>()?;
+    m.add_class::<data_transfer::PyDataTransfer>()?;
     m.add_class::<models::PyModelBase>()?;
     m.add_class::<value::PyStruct>()?;
     m.add_class::<async_adapter::AsyncAdapter>()?;

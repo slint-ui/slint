@@ -503,7 +503,7 @@ macro_rules! for_each_enums {
             /// This enum represents the different values of the `accessible-live` property.
             /// It indicates that an element is a live region whose content changes should be
             /// announced by assistive technologies.
-            // (on purpose not #[non_exhaustive])
+            #[non_exhaustive]
             enum AccessibleLive {
                 /// The element is not a live region.
                 Off,

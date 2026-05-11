@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for #4522: setting `viewport-y` from a Repeater item's
+// init used to panic with "Recursion detected".
+
+import { ScrollView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 200px;
+    in-out property <int> init-count: 0;
+    out property <bool> test: init-count == 4;
+    Rectangle {
+        scroll-view := ScrollView {
+            protected function to-bottom() {
+                self.viewport-y = self.visible-height - self.viewport-height;
+            }
+            VerticalLayout {
+                alignment: start;
+                padding: 8px;
+                for i in 4: Text {
+                    text: i;
+                    wrap: word-wrap;
+                    init => {
+                        scroll-view.to-bottom();
+                        init-count += 1;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_init_count(), 4);
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_init_count() == 4);
+assert(handle->get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.init_count, 4);
+assert(instance.test);
+```
+*/

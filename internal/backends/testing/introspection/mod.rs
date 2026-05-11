@@ -19,10 +19,7 @@ slotmap::new_key_type! {
 }
 
 #[allow(dead_code, non_snake_case, unused_imports, non_camel_case_types, clippy::all)]
-pub(crate) mod proto {
-    include!(concat!(env!("OUT_DIR"), "/proto.rs"));
-    include!(concat!(env!("OUT_DIR"), "/proto.serde.rs"));
-}
+pub(crate) mod proto;
 
 /// Maximum number of element handles kept in the arena before evicting the oldest.
 const ELEMENT_HANDLE_CAP: usize = 10_000;
@@ -446,7 +443,7 @@ pub(crate) fn convert_pointer_event_button(
 }
 
 // ============================================================================
-// Index ↔ parts conversion
+// Index ↔ handle conversion
 // ============================================================================
 
 pub(crate) fn index_to_handle(index: ArenaIndex) -> proto::Handle {
@@ -468,6 +465,158 @@ pub(crate) fn handle_to_index(handle: proto::Handle) -> Result<ArenaIndex, Strin
     }
 
     Ok(index)
+}
+
+// ============================================================================
+// Shared dispatch functions used by both transports
+// ============================================================================
+
+pub(crate) mod dispatch {
+    use super::{
+        ArenaIndex, IntrospectionState, convert_pointer_event_button, index_to_handle,
+        invoke_element_accessibility_action, proto,
+    };
+
+    pub(crate) fn list_windows(state: &IntrospectionState) -> proto::WindowListResponse {
+        proto::WindowListResponse {
+            window_handles: state.window_handles().into_iter().map(index_to_handle).collect(),
+        }
+    }
+
+    pub(crate) fn window_properties(
+        state: &IntrospectionState,
+        window: ArenaIndex,
+    ) -> Result<proto::WindowPropertiesResponse, String> {
+        state.window_properties(window)
+    }
+
+    pub(crate) fn find_elements_by_id(
+        state: &IntrospectionState,
+        window: ArenaIndex,
+        elements_id: &str,
+    ) -> Result<proto::ElementsResponse, String> {
+        let elements = state.find_elements_by_id(window, elements_id)?;
+        Ok(proto::ElementsResponse {
+            element_handles: elements
+                .into_iter()
+                .map(|e| index_to_handle(state.element_to_handle(e)))
+                .collect(),
+        })
+    }
+
+    pub(crate) fn element_properties(
+        state: &IntrospectionState,
+        element: ArenaIndex,
+    ) -> Result<proto::ElementPropertiesResponse, String> {
+        let element = state.element("element_properties", element)?;
+        Ok(super::element_properties(&element))
+    }
+
+    pub(crate) fn query_element_descendants(
+        state: &IntrospectionState,
+        element: ArenaIndex,
+        query_stack: Vec<proto::ElementQueryInstruction>,
+        find_all: bool,
+    ) -> Result<proto::ElementQueryResponse, String> {
+        let element = state.element("query_element_descendants", element)?;
+        let results = super::query_element_descendants(element, query_stack, find_all)?;
+        Ok(proto::ElementQueryResponse {
+            element_handles: results
+                .into_iter()
+                .map(|e| index_to_handle(state.element_to_handle(e)))
+                .collect(),
+        })
+    }
+
+    pub(crate) fn take_snapshot(
+        state: &IntrospectionState,
+        window: ArenaIndex,
+        image_mime_type: &str,
+    ) -> Result<proto::TakeSnapshotResponse, String> {
+        state.take_snapshot_response(window, image_mime_type)
+    }
+
+    pub(crate) fn invoke_accessibility_action(
+        state: &IntrospectionState,
+        element: ArenaIndex,
+        action: proto::ElementAccessibilityAction,
+    ) -> Result<(), String> {
+        let element = state.element("invoke_accessibility_action", element)?;
+        invoke_element_accessibility_action(&element, action);
+        Ok(())
+    }
+
+    pub(crate) fn set_accessible_value(
+        state: &IntrospectionState,
+        element: ArenaIndex,
+        value: String,
+    ) -> Result<(), String> {
+        let element = state.element("set_accessible_value", element)?;
+        element.set_accessible_value(value);
+        Ok(())
+    }
+
+    pub(crate) async fn click(
+        state: &IntrospectionState,
+        element: ArenaIndex,
+        action: proto::ClickAction,
+        button: proto::PointerEventButton,
+    ) -> Result<(), String> {
+        let element = state.element("click", element)?;
+        let button = convert_pointer_event_button(button);
+        match action {
+            proto::ClickAction::SingleClick => element.single_click(button).await,
+            proto::ClickAction::DoubleClick => element.double_click(button).await,
+        }
+        Ok(())
+    }
+
+    pub(crate) async fn drag(
+        state: &IntrospectionState,
+        element: ArenaIndex,
+        target: proto::LogicalPosition,
+        button: proto::PointerEventButton,
+    ) -> Result<(), String> {
+        let element = state.element("drag", element)?;
+        let button = convert_pointer_event_button(button);
+        let target = i_slint_core::api::LogicalPosition::new(target.x, target.y);
+        element.drag(target, button).await;
+        Ok(())
+    }
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
+
+#[test]
+fn test_dispatch_element_properties_stale_handle() {
+    let state = IntrospectionState::new();
+    let err = dispatch::element_properties(&state, ArenaIndex::default()).unwrap_err();
+    assert!(err.contains("Invalid element handle"), "got: {err}");
+}
+
+#[test]
+fn test_dispatch_find_elements_by_id_stale_window() {
+    let state = IntrospectionState::new();
+    let err = dispatch::find_elements_by_id(&state, ArenaIndex::default(), "foo").unwrap_err();
+    assert!(err.contains("Invalid window handle"), "got: {err}");
+}
+
+#[test]
+fn test_dispatch_click_double_click_stale_handle() {
+    futures_lite::future::block_on(async {
+        let state = IntrospectionState::new();
+        let err = dispatch::click(
+            &state,
+            ArenaIndex::default(),
+            proto::ClickAction::DoubleClick,
+            proto::PointerEventButton::Left,
+        )
+        .await
+        .unwrap_err();
+        assert!(err.contains("Invalid element handle"), "got: {err}");
+    });
 }
 
 #[test]

@@ -439,6 +439,7 @@ impl NodeCollection {
         };
         let window = window_adapter.window();
         let window_inner = i_slint_core::window::WindowInner::from_pub(window);
+        window_inner.ensure_tree_instantiated();
 
         let root_item = ItemRc::new_root(window_inner.component());
 
@@ -684,6 +685,7 @@ impl NodeCollection {
                 i_slint_core::items::AccessibleLive::Off => Live::Off,
                 i_slint_core::items::AccessibleLive::Polite => Live::Polite,
                 i_slint_core::items::AccessibleLive::Assertive => Live::Assertive,
+                _ => Live::Off,
             });
         }
 

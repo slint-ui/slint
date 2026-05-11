@@ -135,6 +135,8 @@ pub enum Value {
     ArrayOfU16(SharedVector<u16>) = 14,
     /// Correspond to the `keys` type in .slint
     Keys(Keys) = 15,
+    /// Correspond to the `data-transfer` type in .slint
+    DataTransfer(DataTransfer) = 16,
 }
 
 impl Value {
@@ -187,6 +189,9 @@ impl PartialEq for Value {
             Value::Keys(lhs) => {
                 matches!(other, Value::Keys(rhs) if lhs == rhs)
             }
+            Value::DataTransfer(lhs) => {
+                matches!(other, Value::DataTransfer(rhs) if lhs == rhs)
+            }
         }
     }
 }
@@ -216,6 +221,7 @@ impl std::fmt::Debug for Value {
                 write!(f, "Value::ArrayOfU16({data:?})")
             }
             Value::Keys(ks) => write!(f, "Value::Keys({ks:?})"),
+            Value::DataTransfer(cd) => write!(f, "Value::DataTransfer({cd:?})"),
         }
     }
 }
@@ -261,6 +267,7 @@ declare_value_conversion!(ComponentFactory => [ComponentFactory] );
 declare_value_conversion!(StyledText => [StyledText] );
 declare_value_conversion!(ArrayOfU16 => [SharedVector<u16>] );
 declare_value_conversion!(Keys => [Keys]);
+declare_value_conversion!(DataTransfer => [DataTransfer]);
 
 /// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Struct`
 macro_rules! declare_value_struct_conversion {
@@ -1123,8 +1130,16 @@ impl ComponentDefinition {
     /// Creates a new instance of the component and returns a shared handle to it.
     pub fn create(&self) -> Result<ComponentInstance, PlatformError> {
         let instance = self.create_with_options(Default::default())?;
-        // Make sure the window adapter is created so call to `window()` do not panic later.
-        instance.inner.window_adapter_ref()?;
+        // SystemTrayIcon-rooted components don't have a real WindowAdapter.
+        // Skip the eager window creation and tree instantiation for them.
+        if !instance.is_system_tray_rooted() {
+            // Make sure the window adapter is created so call to `window()` do not panic later.
+            instance.inner.window_adapter_ref()?;
+            // Eagerly instantiate repeaters and conditionals so that layout
+            // bindings can see all instances without calling ensure_updated.
+            i_slint_core::window::WindowInner::from_pub(instance.window())
+                .ensure_tree_instantiated();
+        }
         Ok(instance)
     }
 

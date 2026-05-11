@@ -90,6 +90,7 @@ impl MenuFromItemTree {
                 self.root.replace(SharedVector::default());
                 return;
             }
+            crate::item_tree::ensure_item_tree_instantiated(&self.item_tree);
             self.root.replace(
                 self.update_shadow_tree_recursive(&ItemRc::new_root(self.item_tree.clone())),
             );

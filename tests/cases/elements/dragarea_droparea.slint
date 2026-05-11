@@ -1,18 +1,37 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+export global Api {
+    pure callback string-to-transfer(string) -> data-transfer;
+    pure callback image-to-transfer(image) -> data-transfer;
+    pure callback transfer-to-image(data-transfer) -> image;
+    pure callback transfer-to-string(data-transfer) -> string;
+    pure callback can-drop(data-transfer, bool) -> bool;
+}
+
 export component TestCase inherits Window {
+    pure callback string-to-transfer <=> Api.string-to-transfer;
+    pure callback image-to-transfer <=> Api.image-to-transfer;
+    pure callback transfer-to-image <=> Api.transfer-to-image;
+    pure callback transfer-to-string <=> Api.transfer-to-string;
+    pure callback can-drop <=> Api.can-drop;
+
     width: 100px;
     height: 200px;
     in-out property <string> result;
+    out property <image> result-image;
+    in property <bool> use-image: false;
     out property <bool> contains-drag <=> da.contains-drag;
+    // TODO: Expose the image version
     out property <bool> inner_touch_area_has_hover <=> inner_touch_area.has-hover;
+
     VerticalLayout {
         Rectangle {
             background: inner_touch_area.has-hover ? yellow : red;
             DragArea {
-                mime-type: "text/plain";
-                data: "Hello World";
+                data: use-image
+                ? Api.image-to-transfer(@image-url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC"))
+                : Api.string-to-transfer("Hello World");
 
                 inner_touch_area := TouchArea {
                     x: 50px;
@@ -27,10 +46,14 @@ export component TestCase inherits Window {
             da := DropArea {
                 can-drop(event) => {
                     debug("can-drop", event);
-                    true
+                    Api.can-drop(event.data, use-image)
                 }
                 dropped(event) => {
-                    result += "D[" + event.data + "];";
+                    if (use-image) {
+                        result-image = Api.transfer-to-image(event.data)
+                    } else {
+                        result += "D[" + Api.transfer-to-string(event.data) + "];";
+                    }
                     debug("dropped", event);
                 }
 
@@ -47,6 +70,21 @@ use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton
 use slint::private_unstable_api::re_exports::MouseCursor;
 
 let instance = TestCase::new().unwrap();
+
+instance.on_string_to_transfer(Into::into);
+instance.on_image_to_transfer(Into::into);
+
+instance.on_transfer_to_string(|data| data.fetch_plaintext().unwrap_or_default());
+instance.on_transfer_to_image(|data| data.fetch_image().unwrap_or_default());
+
+instance.on_can_drop(|data, use_image| {
+    if use_image {
+        data.has_image()
+    } else {
+        data.has_plaintext()
+    }
+});
+
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(instance.get_result(), "");
 assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Default);
@@ -73,6 +111,8 @@ assert_eq!(slint_testing::access_testing_window(instance.window(), |window| wind
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(22.0, 120.0), button: PointerEventButton::Left });
 slint_testing::mock_elapsed_time(20);
 assert_eq!(instance.get_result(), "D[Hello World];");
+assert_eq!(instance.get_result_image().size().width, 0);
+assert_eq!(instance.get_result_image().size().height, 0);
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Default);
 
@@ -161,6 +201,45 @@ assert_eq!(instance.get_inner_touch_area_has_hover(), false);
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(instance.get_result(), "");
 assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Default);
+
+assert_eq!(instance.get_result_image().size().width, 0);
+assert_eq!(instance.get_result_image().size().height, 0);
+
+instance.set_use_image(true);
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(20.0, 25.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(instance.get_result(), "");
+assert_eq!(instance.get_result_image().size().width, 0);
+assert_eq!(instance.get_result_image().size().height, 0);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Default);
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(21.0, 40.0) });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(instance.get_result(), "");
+assert_eq!(instance.get_result_image().size().width, 0);
+assert_eq!(instance.get_result_image().size().height, 0);
+// FIXME: the drag has just started, but the previous event didn't yet try to drop, so the cursor didn't update in this event
+//assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::NoDrop);
+
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(22.0, 120.0) });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_contains_drag(), true);
+assert_eq!(instance.get_result(), "");
+assert_eq!(instance.get_result_image().size().width, 0);
+assert_eq!(instance.get_result_image().size().height, 0);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Copy);
+
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(22.0, 120.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_result_image().size().width, 1);
+assert_eq!(instance.get_result_image().size().height, 1);
+assert_eq!(instance.get_result(), "");
+assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Default);
+
 ```
 
 */

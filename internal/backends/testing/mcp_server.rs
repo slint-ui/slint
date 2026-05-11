@@ -20,7 +20,7 @@ use i_slint_core::api::EventLoopError;
 use serde_json::Value;
 use std::rc::Rc;
 
-use crate::introspection::{self, IntrospectionState, proto};
+use crate::introspection::{self, IntrospectionState, dispatch, proto};
 use introspection::{handle_to_index, index_to_handle};
 
 // ============================================================================
@@ -174,9 +174,7 @@ async fn handle_tool_call(
 ) -> Result<ToolResult, String> {
     match name {
         "list_windows" => {
-            let response = proto::WindowListResponse {
-                window_handles: state.window_handles().into_iter().map(index_to_handle).collect(),
-            };
+            let response = dispatch::list_windows(state);
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
@@ -186,7 +184,7 @@ async fn handle_tool_call(
             let window_index = handle_to_index(
                 p.window_handle.ok_or_else(|| "missing windowHandle".to_string())?,
             )?;
-            let response = state.window_properties(window_index)?;
+            let response = dispatch::window_properties(state, window_index)?;
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
@@ -196,13 +194,7 @@ async fn handle_tool_call(
             let window_index = handle_to_index(
                 p.window_handle.ok_or_else(|| "missing windowHandle".to_string())?,
             )?;
-            let elements = state.find_elements_by_id(window_index, &p.elements_id)?;
-            let response = proto::ElementsResponse {
-                element_handles: elements
-                    .into_iter()
-                    .map(|e| index_to_handle(state.element_to_handle(e)))
-                    .collect(),
-            };
+            let response = dispatch::find_elements_by_id(state, window_index, &p.elements_id)?;
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
@@ -212,8 +204,7 @@ async fn handle_tool_call(
             let element_index = handle_to_index(
                 p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             )?;
-            let element = state.element("get_element_properties", element_index)?;
-            let response = introspection::element_properties(&element);
+            let response = dispatch::element_properties(state, element_index)?;
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
@@ -223,15 +214,12 @@ async fn handle_tool_call(
             let element_index = handle_to_index(
                 p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             )?;
-            let element = state.element("query_element_descendants", element_index)?;
-            let results =
-                introspection::query_element_descendants(element, p.query_stack, p.find_all)?;
-            let response = proto::ElementQueryResponse {
-                element_handles: results
-                    .into_iter()
-                    .map(|e| index_to_handle(state.element_to_handle(e)))
-                    .collect(),
-            };
+            let response = dispatch::query_element_descendants(
+                state,
+                element_index,
+                p.query_stack,
+                p.find_all,
+            )?;
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
@@ -291,7 +279,7 @@ async fn handle_tool_call(
             let window_index = handle_to_index(
                 p.window_handle.ok_or_else(|| "missing windowHandle".to_string())?,
             )?;
-            let response = state.take_snapshot_response(window_index, "image/png")?;
+            let response = dispatch::take_snapshot(state, window_index, "image/png")?;
             let png_data = response.window_contents_as_encoded_image;
             Ok(ToolResult::Image {
                 meta: serde_json::json!({ "sizeBytes": png_data.len() }),
@@ -303,16 +291,11 @@ async fn handle_tool_call(
             let element_index = handle_to_index(
                 p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             )?;
-            let element = state.element("click_element", element_index)?;
             let button = proto::PointerEventButton::try_from(p.button)
                 .map_err(|_| format!("invalid button value: {}", p.button))?;
-            let button = introspection::convert_pointer_event_button(button);
             let action = proto::ClickAction::try_from(p.action)
                 .map_err(|_| format!("invalid action value: {}", p.action))?;
-            match action {
-                proto::ClickAction::SingleClick => element.single_click(button).await,
-                proto::ClickAction::DoubleClick => element.double_click(button).await,
-            }
+            dispatch::click(state, element_index, action, button).await?;
             let response = proto::ElementClickResponse {};
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
@@ -323,13 +306,10 @@ async fn handle_tool_call(
             let element_index = handle_to_index(
                 p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             )?;
-            let element = state.element("drag_element", element_index)?;
-            let target_pos = p.target.ok_or_else(|| "missing target position".to_string())?;
-            let target = i_slint_core::api::LogicalPosition::new(target_pos.x, target_pos.y);
+            let target = p.target.ok_or_else(|| "missing target position".to_string())?;
             let button = proto::PointerEventButton::try_from(p.button)
                 .map_err(|_| format!("invalid button value: {}", p.button))?;
-            let button = introspection::convert_pointer_event_button(button);
-            element.drag(target, button).await;
+            dispatch::drag(state, element_index, target, button).await?;
             let response = proto::ElementDragResponse {};
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
@@ -340,10 +320,9 @@ async fn handle_tool_call(
             let element_index = handle_to_index(
                 p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             )?;
-            let element = state.element("invoke_accessibility_action", element_index)?;
             let action = proto::ElementAccessibilityAction::try_from(p.action)
                 .map_err(|_| format!("invalid action value: {}", p.action))?;
-            introspection::invoke_element_accessibility_action(&element, action);
+            dispatch::invoke_accessibility_action(state, element_index, action)?;
             let response = proto::InvokeElementAccessibilityActionResponse {};
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
@@ -354,8 +333,7 @@ async fn handle_tool_call(
             let element_index = handle_to_index(
                 p.element_handle.ok_or_else(|| "missing elementHandle".to_string())?,
             )?;
-            let element = state.element("set_element_value", element_index)?;
-            element.set_accessible_value(p.value);
+            dispatch::set_accessible_value(state, element_index, p.value)?;
             let response = proto::SetElementAccessibleValueResponse {};
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,

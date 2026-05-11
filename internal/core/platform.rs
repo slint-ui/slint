@@ -63,6 +63,14 @@ pub trait Platform {
         Err(PlatformError::NoEventLoopProvider)
     }
 
+    /// Called once by `set_platform` immediately after the [`crate::SlintContext`]
+    /// has been constructed, to give the platform a weak handle to its own context.
+    /// Platforms can stash the handle and later use it to spawn futures or write
+    /// process-wide state without going through a window adapter. The default impl
+    /// drops the handle.
+    #[doc(hidden)]
+    fn bind_context(&self, _ctx: crate::SlintContextWeak, _: crate::InternalToken) {}
+
     #[doc(hidden)]
     #[deprecated(
         note = "i-slint-core takes care of closing behavior. Application should call run_event_loop_until_quit"
@@ -161,7 +169,7 @@ pub trait Platform {
 /// The clip board, used in [`Platform::clipboard_text`] and [Platform::set_clipboard_text`]
 #[repr(u8)]
 #[non_exhaustive]
-#[derive(PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub enum Clipboard {
     /// This is the default clipboard used for text action for Ctrl+V,  Ctrl+C.
     /// Corresponds to the secondary clipboard on X11.
@@ -239,8 +247,7 @@ impl core::fmt::Display for SetPlatformError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for SetPlatformError {}
+impl core::error::Error for SetPlatformError {}
 
 /// Set the Slint platform abstraction.
 ///
@@ -264,6 +271,8 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
             .set(crate::SlintContext::new(platform))
             .map_err(|_| SetPlatformError::AlreadySet)
             .unwrap();
+        let ctx = instance.get().unwrap();
+        ctx.platform().bind_context(ctx.downgrade(), crate::InternalToken);
         // Ensure a sane starting point for the animation tick.
         update_timers_and_animations();
         Ok(())

@@ -3,31 +3,48 @@
 
 use crate::Property;
 use crate::api::PlatformError;
+use crate::graphics::Color;
 use crate::input::InternalKeyboardModifierState;
+use crate::item_tree::{ItemRc, ItemTreeRc};
+use crate::items::ColorScheme;
 use crate::platform::{EventLoopProxy, Platform};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::Cell;
+use pin_weak::rc::PinWeak;
 
 crate::thread_local! {
     pub(crate) static GLOBAL_CONTEXT : once_cell::unsync::OnceCell<SlintContext>
         = const { once_cell::unsync::OnceCell::new() }
 }
 
+#[pin_project::pin_project]
 pub(crate) struct SlintContextInner {
     platform: Box<dyn Platform>,
     pub(crate) window_count: core::cell::RefCell<isize>,
 
-    /// This property is read by all translations, and marked dirty when the language changes,
-    /// so that every translated string gets re-translated. The property's value is the current selected
-    /// language when bundling translations.
-    pub(crate) translations_dirty: core::pin::Pin<Box<Property<usize>>>,
+    /// Read by all translations, and marked dirty when the language changes so every
+    /// translated string re-translates. The value is the currently selected language
+    /// when bundling translations.
+	#[pin]
+    pub(crate) translations_dirty: Property<usize>,
     pub(crate) translations_bundle:
         core::cell::RefCell<Option<alloc::vec::Vec<i_slint_common::TranslationsBundled>>>,
     #[cfg(feature = "tr")]
     external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
-    pub(crate) locale_decimal_separator: core::pin::Pin<Box<Property<char>>>,
+	#[pin]
+    pub(crate) locale_decimal_separator: Property<char>,
 
+    /// Process-wide color scheme. Backends' system-theme observers write here; bindings
+    /// read from it through [`SlintContext::color_scheme`]. Window-less components like
+    /// `SystemTrayIcon` rely on this as their default source.
+    #[pin]
+    pub(crate) color_scheme: Property<ColorScheme>,
+    /// Process-wide system accent color. Backends' system-theme observers write here;
+    /// bindings read from it through [`SlintContext::accent_color`]. Defaults to a
+    /// transparent color when the platform doesn't expose one.
+    #[pin]
+    pub(crate) accent_color: Property<Color>,
     pub(crate) window_shown_hook:
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
     #[cfg(all(unix, not(target_os = "macos")))]
@@ -43,7 +60,7 @@ pub(crate) struct SlintContextInner {
 /// Currently it is not possible to have several platform at the same time in one process, but in the future it might be.
 /// See issue #4294
 #[derive(Clone)]
-pub struct SlintContext(pub(crate) Rc<SlintContextInner>);
+pub struct SlintContext(pub(crate) core::pin::Pin<Rc<SlintContextInner>>);
 
 impl SlintContext {
     /// Create a new context with a given platform
@@ -51,20 +68,25 @@ impl SlintContext {
         #[cfg(feature = "shared-parley")]
         let collection = i_slint_common::sharedfontique::create_collection(true);
 
-        Self(Rc::new(SlintContextInner {
+        Self(Rc::pin(SlintContextInner {
             platform,
             window_count: 0.into(),
-            translations_dirty: Box::pin(Property::new_named(0, "SlintContext::translations")),
+
+            translations_dirty: Property::new_named(0, "SlintContext::translations"),
             translations_bundle: Default::default(),
-            window_shown_hook: Default::default(),
-            locale_decimal_separator: Box::pin(Property::new_named(
-                i_slint_common::DEFAULT_DECIMAL_SEPARATOR,
-                "SlintContext::locale_decimal_separator",
-            )),
-            #[cfg(all(unix, not(target_os = "macos")))]
-            xdg_app_id: Default::default(),
             #[cfg(feature = "tr")]
             external_translator: Default::default(),
+			locale_decimal_separator: Property::new_named(
+                i_slint_common::DEFAULT_DECIMAL_SEPARATOR,
+                "SlintContext::locale_decimal_separator",
+            ),
+
+            color_scheme: Property::new_named(ColorScheme::Unknown, "SlintContext::color_scheme"),
+            accent_color: Property::new_named(Color::default(), "SlintContext::accent_color"),
+            window_shown_hook: Default::default(),
+            
+            #[cfg(all(unix, not(target_os = "macos")))]
+            xdg_app_id: Default::default(),
             #[cfg(feature = "shared-parley")]
             font_context: {
                 let font_context = parley::FontContext {
@@ -113,6 +135,43 @@ impl SlintContext {
 
     pub fn run_event_loop(&self) -> Result<(), PlatformError> {
         self.0.platform.run_event_loop()
+    }
+
+    /// Returns the effective color scheme for the given component root, or the
+    /// process-wide scheme when `root` is `None`. A `SystemTrayIcon`-rooted
+    /// component resolves against the tray's own scheme first, falling back to
+    /// the process-wide value when the tray reports `Unknown`. Reads register a
+    /// property dependency, so bindings re-evaluate when the platform reports a
+    /// system-theme change.
+    pub fn color_scheme(&self, root: Option<&ItemTreeRc>) -> ColorScheme {
+        if let Some(root) = root {
+            let root_item = ItemRc::new_root(root.clone());
+            if let Some(tray) = root_item.downcast::<crate::items::SystemTrayIcon>() {
+                let scheme = tray.as_pin_ref().color_scheme();
+                if scheme != ColorScheme::Unknown {
+                    return scheme;
+                }
+            }
+        }
+        self.0.as_ref().project_ref().color_scheme.get()
+    }
+
+    /// Backend-side write path for the process-wide color scheme. Called by each
+    /// platform's system-theme observer; `Property::set` short-circuits no-op writes.
+    pub fn set_color_scheme(&self, scheme: ColorScheme) {
+        self.0.as_ref().project_ref().color_scheme.set(scheme);
+    }
+
+    /// Returns the process-wide system accent color. Reads register a property dependency,
+    /// so bindings re-evaluate when the platform reports an accent-color change.
+    pub fn accent_color(&self) -> Color {
+        self.0.as_ref().project_ref().accent_color.get()
+    }
+
+    /// Backend-side write path for the process-wide accent color. Called by each
+    /// platform's system-theme observer; `Property::set` short-circuits no-op writes.
+    pub fn set_accent_color(&self, color: Color) {
+        self.0.as_ref().project_ref().accent_color.set(color);
     }
 
     /// Add one to the counter of "things keeping the event loop alive".
@@ -168,7 +227,7 @@ impl SlintContext {
     #[cfg(feature = "tr")]
     pub fn set_external_translator(&self, translator: Option<Box<dyn tr::Translator>>) {
         *self.0.external_translator.borrow_mut() = translator;
-        self.0.translations_dirty.mark_dirty();
+        self.0.as_ref().project_ref().translations_dirty.mark_dirty();
     }
 
     #[cfg(feature = "tr")]
@@ -177,6 +236,26 @@ impl SlintContext {
             maybe_translator.as_ref()
         })
         .ok()
+    }
+
+    /// Returns a weak handle to this context, suitable for stashing in places that must
+    /// not keep the context alive (e.g. a backend that's owned by the context itself).
+    pub fn downgrade(&self) -> SlintContextWeak {
+        SlintContextWeak(PinWeak::downgrade(self.0.clone()))
+    }
+}
+
+/// Weak handle to a [`SlintContext`]. Backends that opt into
+/// [`crate::platform::Platform::bind_context`] receive one of these right after
+/// `set_platform` so they can spawn futures and write process-wide state without
+/// holding the context strongly.
+#[derive(Clone)]
+pub struct SlintContextWeak(PinWeak<SlintContextInner>);
+
+impl SlintContextWeak {
+    /// Attempts to upgrade to a strong [`SlintContext`].
+    pub fn upgrade(&self) -> Option<SlintContext> {
+        self.0.upgrade().map(SlintContext)
     }
 }
 

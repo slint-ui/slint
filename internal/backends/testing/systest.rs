@@ -10,9 +10,8 @@ use prost::Message;
 use std::io::Cursor;
 use std::rc::Rc;
 
-use crate::ElementHandle;
-use crate::introspection::{self, IntrospectionState, proto};
-use introspection::{handle_to_index, index_to_handle};
+use crate::introspection::{self, IntrospectionState, dispatch, proto};
+use introspection::handle_to_index;
 
 struct TestingClient {
     state: Rc<IntrospectionState>,
@@ -61,41 +60,31 @@ impl TestingClient {
         let request = request.ok_or_else(|| "Empty request".to_string())?;
 
         Ok(match request {
-            Req::RequestWindowList(..) => Resp::WindowList(proto::WindowListResponse {
-                window_handles: self
-                    .state
-                    .window_handles()
-                    .into_iter()
-                    .map(index_to_handle)
-                    .collect(),
-            }),
+            Req::RequestWindowList(..) => Resp::WindowList(dispatch::list_windows(&self.state)),
             Req::RequestWindowProperties(proto::RequestWindowProperties { window_handle }) => {
-                Resp::WindowProperties(self.state.window_properties(handle_to_index(
-                    window_handle.ok_or_else(|| {
-                        "window properties request missing window handle".to_string()
-                    })?,
-                )?)?)
+                let window_index = handle_to_index(window_handle.ok_or_else(|| {
+                    "window properties request missing window handle".to_string()
+                })?)?;
+                Resp::WindowProperties(dispatch::window_properties(&self.state, window_index)?)
             }
             Req::RequestFindElementsById(proto::RequestFindElementsById {
                 window_handle,
                 elements_id,
             }) => {
-                let elements = self.state.find_elements_by_id(
-                    handle_to_index(window_handle.ok_or_else(|| {
-                        "find elements by id request missing window handle".to_string()
-                    })?)?,
+                let window_index = handle_to_index(window_handle.ok_or_else(|| {
+                    "find elements by id request missing window handle".to_string()
+                })?)?;
+                Resp::Elements(dispatch::find_elements_by_id(
+                    &self.state,
+                    window_index,
                     &elements_id,
-                )?;
-                Resp::Elements(proto::ElementsResponse {
-                    element_handles: elements
-                        .into_iter()
-                        .map(|elem| self.element_to_handle(elem))
-                        .collect(),
-                })
+                )?)
             }
             Req::RequestElementProperties(proto::RequestElementProperties { element_handle }) => {
-                let element = self.element("element properties request", element_handle)?;
-                Resp::ElementProperties(introspection::element_properties(&element))
+                let element_index = handle_to_index(element_handle.ok_or_else(|| {
+                    "element properties request missing element handle".to_string()
+                })?)?;
+                Resp::ElementProperties(dispatch::element_properties(&self.state, element_index)?)
             }
             Req::RequestInvokeElementAccessibilityAction(
                 msg @ proto::RequestInvokeElementAccessibilityAction { element_handle, .. },
@@ -104,9 +93,10 @@ impl TestingClient {
                     proto::ElementAccessibilityAction::try_from(msg.action).map_err(|_| {
                         format!("invalid ElementAccessibilityAction value: {}", msg.action)
                     })?;
-                let element =
-                    self.element("invoke element accessibility action request", element_handle)?;
-                introspection::invoke_element_accessibility_action(&element, action);
+                let element_index = handle_to_index(element_handle.ok_or_else(|| {
+                    "invoke element accessibility action request missing element handle".to_string()
+                })?)?;
+                dispatch::invoke_accessibility_action(&self.state, element_index, action)?;
                 Resp::InvokeElementAccessibilityActionResponse(
                     proto::InvokeElementAccessibilityActionResponse {},
                 )
@@ -115,21 +105,23 @@ impl TestingClient {
                 element_handle,
                 value,
             }) => {
-                let element =
-                    self.element("set element accessible value request", element_handle)?;
-                element.set_accessible_value(value);
+                let element_index = handle_to_index(element_handle.ok_or_else(|| {
+                    "set element accessible value request missing element handle".to_string()
+                })?)?;
+                dispatch::set_accessible_value(&self.state, element_index, value)?;
                 Resp::SetElementAccessibleValueResponse(proto::SetElementAccessibleValueResponse {})
             }
             Req::RequestTakeSnapshot(proto::RequestTakeSnapshot {
                 window_handle,
                 image_mime_type,
             }) => {
-                Resp::TakeSnapshotResponse(self.state.take_snapshot_response(
-                    handle_to_index(
-                        window_handle.ok_or_else(|| {
-                            "grab window request missing window handle".to_string()
-                        })?,
-                    )?,
+                let window_index = handle_to_index(
+                    window_handle
+                        .ok_or_else(|| "grab window request missing window handle".to_string())?,
+                )?;
+                Resp::TakeSnapshotResponse(dispatch::take_snapshot(
+                    &self.state,
+                    window_index,
                     &image_mime_type,
                 )?)
             }
@@ -138,17 +130,15 @@ impl TestingClient {
                 action,
                 button,
             }) => {
-                let element = self.element("element click request", element_handle)?;
-                let button = introspection::convert_pointer_event_button(
-                    proto::PointerEventButton::try_from(button)
-                        .map_err(|_| format!("invalid PointerEventButton value: {button}"))?,
-                );
-                match proto::ClickAction::try_from(action)
-                    .map_err(|_| format!("invalid ClickAction value: {action}"))?
-                {
-                    proto::ClickAction::SingleClick => element.single_click(button).await,
-                    proto::ClickAction::DoubleClick => element.double_click(button).await,
-                }
+                let element_index =
+                    handle_to_index(element_handle.ok_or_else(|| {
+                        "element click request missing element handle".to_string()
+                    })?)?;
+                let button = proto::PointerEventButton::try_from(button)
+                    .map_err(|_| format!("invalid PointerEventButton value: {button}"))?;
+                let action = proto::ClickAction::try_from(action)
+                    .map_err(|_| format!("invalid ClickAction value: {action}"))?;
+                dispatch::click(&self.state, element_index, action, button).await?;
                 Resp::ElementClickResponse(proto::ElementClickResponse {})
             }
             Req::RequestElementDrag(proto::RequestElementDrag {
@@ -156,25 +146,26 @@ impl TestingClient {
                 target,
                 button,
             }) => {
-                let element = self.element("element drag request", element_handle)?;
-                let button = introspection::convert_pointer_event_button(
-                    proto::PointerEventButton::try_from(button)
-                        .map_err(|_| format!("invalid PointerEventButton value: {button}"))?,
-                );
+                let element_index =
+                    handle_to_index(element_handle.ok_or_else(|| {
+                        "element drag request missing element handle".to_string()
+                    })?)?;
+                let button = proto::PointerEventButton::try_from(button)
+                    .map_err(|_| format!("invalid PointerEventButton value: {button}"))?;
                 let target =
                     target.ok_or_else(|| "element drag request missing target".to_string())?;
-                let target = i_slint_core::api::LogicalPosition::new(target.x, target.y);
-                element.drag(target, button).await;
+                dispatch::drag(&self.state, element_index, target, button).await?;
                 Resp::ElementDragResponse(proto::ElementDragResponse {})
             }
             Req::RequestDispatchWindowEvent(proto::RequestDispatchWindowEvent {
                 window_handle,
                 event,
             }) => {
+                let window_index = handle_to_index(window_handle.ok_or_else(|| {
+                    "window event dispatch request missing window handle".to_string()
+                })?)?;
                 self.state.dispatch_window_event(
-                    handle_to_index(window_handle.ok_or_else(|| {
-                        "window event dispatch request missing window handle".to_string()
-                    })?)?,
+                    window_index,
                     convert_window_event(event.ok_or_else(|| {
                         "window event dispatch request missing event".to_string()
                     })?)?,
@@ -186,36 +177,21 @@ impl TestingClient {
                 query_stack,
                 find_all,
             }) => {
-                let element = self.element("run element query request", element_handle)?;
-                let elements =
-                    introspection::query_element_descendants(element, query_stack, find_all)?;
-                Resp::ElementQueryResponse(proto::ElementQueryResponse {
-                    element_handles: elements
-                        .into_iter()
-                        .map(|elem| self.element_to_handle(elem))
-                        .collect(),
-                })
+                let element_index = handle_to_index(element_handle.ok_or_else(|| {
+                    "run element query request missing element handle".to_string()
+                })?)?;
+                Resp::ElementQueryResponse(dispatch::query_element_descendants(
+                    &self.state,
+                    element_index,
+                    query_stack,
+                    find_all,
+                )?)
             }
             // MCP-only tools — not supported over the binary system-testing transport
             Req::RequestDispatchKeyEvent(..) | Req::RequestGetElementTree(..) => {
                 return Err("this request is only supported via the MCP transport".into());
             }
         })
-    }
-
-    fn element(
-        &self,
-        request: &'static str,
-        element_handle: Option<proto::Handle>,
-    ) -> Result<ElementHandle, String> {
-        let index = handle_to_index(
-            element_handle.ok_or_else(|| format!("{request} missing element handle"))?,
-        )?;
-        self.state.element(request, index)
-    }
-
-    fn element_to_handle(&self, element: ElementHandle) -> proto::Handle {
-        index_to_handle(self.state.element_to_handle(element))
     }
 }
 

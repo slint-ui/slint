@@ -302,6 +302,9 @@ export global Api {
     // The actual preview
     in-out property <component-factory> preview-area;
 
+    pure callback new-component-data(index: int) -> data-transfer;
+    pure callback move-element-instance-data(component-uri: string, offset: int) -> data-transfer;
+
     // set to true to resize
     in property <bool> resize-to-preferred-size: false;
 
@@ -469,8 +472,8 @@ export global Api {
     in-out property <[OutlineTreeNode]> outline;
     callback outline-select-element(uri: string, offset: int, notify_editor: bool);
     // Data is either a "file:offset" for an element to move, or just a component index.
-    callback outline-drop(data: string, uri: string, offset: int, location: DropLocation);
-    callback outline-can-drop(data: string, uri: string, offset: int, location: DropLocation) -> bool;
+    callback outline-drop(data: data-transfer, uri: string, offset: int, location: DropLocation);
+    callback outline-can-drop(data: data-transfer, uri: string, offset: int, location: DropLocation) -> bool;
 
     // ## preview data
 
@@ -493,8 +496,8 @@ export global Api {
     callback add-new-component();
 
     // Add an existing component
-    pure callback can-drop(component-index: int, x: length, y: length, on-drop-area: bool) -> bool;
-    callback drop(component-index: int, x: length, y: length);
+    pure callback can-drop(data: data-transfer, x: length, y: length, on-drop-area: bool) -> bool;
+    callback drop(data: data-transfer, x: length, y: length);
 
     callback rename-component(old-name: string, defined-at: string, new-name: string);
 

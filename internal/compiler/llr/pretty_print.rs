@@ -464,6 +464,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 MinMaxOp::Max => write!(f, "max({}, {})", e(lhs), e(rhs)),
             },
             Expression::EmptyComponentFactory => write!(f, "<empty-component-factory>",),
+            Expression::EmptyDataTransfer => write!(f, "<empty-data-transfer>",),
             Expression::TranslationReference { format_args, string_index, plural } => {
                 match plural {
                     Some(plural) => write!(

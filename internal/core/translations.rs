@@ -275,7 +275,7 @@ fn translate_gettext(
 fn global_translation_property() -> usize {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else { return 0 };
-        ctx.0.translations_dirty.as_ref().get()
+        ctx.0.as_ref().project_ref().translations_dirty.get()
     })
 }
 
@@ -296,7 +296,7 @@ pub fn mark_all_translations_dirty() {
 
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else { return };
-        ctx.0.translations_dirty.mark_dirty();
+        ctx.0.as_ref().project_ref().translations_dirty.mark_dirty();
 
         // Update the decimal separator
         #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
@@ -385,11 +385,9 @@ pub fn set_bundled_languages(translations: &[TranslationsBundled]) {
         if ctx.0.translations_bundle.borrow().is_none() {
             ctx.0.translations_bundle.replace(Some(translations.to_vec()));
             #[cfg(feature = "std")]
-            {
-                if let Some(idx) = language_index_from_sys_locale(translations) {
-                    ctx.0.translations_dirty.as_ref().set(idx);
-                }
-            }
+			if let Some(idx) = language_index_from_sys_locale(translations) {
+				ctx.0.as_ref().project_ref().translations_dirty.set(idx);
+			}
         }
     });
 }
@@ -431,16 +429,17 @@ pub fn select_bundled_translation(language: &str) -> Result<(), SelectBundledTra
         let Some(translations) = &*translations else {
             return Err(SelectBundledTranslationError::NoTranslationsBundled);
         };
+		let pinned = ctx.0.as_ref().project_ref();
         if let Some((idx, translation_bundle)) =
             translations.iter().enumerate().find(|(_i, x)| x.language == language)
         {
-            ctx.0.translations_dirty.as_ref().set(idx);
+            pinned.translations_dirty.as_ref().set(idx);
             // Update the decimal separator
-            ctx.0.locale_decimal_separator.as_ref().set(translation_bundle.decimal_separator);
+            pinned.locale_decimal_separator.as_ref().set(translation_bundle.decimal_separator);
             Ok(())
         } else if language.is_empty() || language == "en" {
-            ctx.0.translations_dirty.as_ref().set(0);
-            ctx.0.locale_decimal_separator.as_ref().set(i_slint_common::DEFAULT_DECIMAL_SEPARATOR);
+            pinned.translations_dirty.as_ref().set(0);
+            pinned.locale_decimal_separator.as_ref().set(i_slint_common::DEFAULT_DECIMAL_SEPARATOR);
             Ok(())
         } else {
             Err(SelectBundledTranslationError::LanguageNotFound {

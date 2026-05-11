@@ -15,7 +15,9 @@ use crate::input::{
     KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
-use crate::items::{Item, ItemConsts, ItemRc, MouseCursor, Orientation, RenderingResult, VoidArg};
+use crate::items::{
+    ColorScheme, Item, ItemConsts, ItemRc, MouseCursor, Orientation, RenderingResult, VoidArg,
+};
 use crate::layout::LayoutInfo;
 use crate::lengths::{LogicalRect, LogicalSize};
 #[cfg(feature = "rtti")]
@@ -38,7 +40,7 @@ cfg_if::cfg_if! {
     } else if #[cfg(target_os = "windows")] {
         mod windows;
         use self::windows::PlatformTray;
-    } else if #[cfg(all(target_family = "unix", not(target_vendor = "apple"), not(target_os = "android")))] {
+    } else if #[cfg(all(feature = "std", target_family = "unix", not(target_vendor = "apple"), not(target_os = "android")))] {
         mod ksni;
         use self::ksni::PlatformTray;
     } else {
@@ -185,6 +187,7 @@ pub struct SystemTrayIcon {
     pub tooltip: Property<SharedString>,
     pub title: Property<SharedString>,
     pub visible: Property<bool>,
+    pub color_scheme: Property<ColorScheme>,
     pub activated: Callback<VoidArg>,
     pub cached_rendering_data: CachedRenderingData,
     data: SystemTrayIconDataBox,
@@ -221,6 +224,10 @@ impl SystemTrayIcon {
         tracker.as_ref().evaluate(|| {
             handle.rebuild_menu(vtable::VRc::borrow(menu_vrc), entries);
         });
+    }
+
+    pub fn set_color_scheme(self: Pin<&Self>, scheme: ColorScheme) {
+        Self::FIELD_OFFSETS.color_scheme().apply_pin(self).set(scheme);
     }
 
     /// Reconcile the SlintContext keepalive counter with this tray's state.
