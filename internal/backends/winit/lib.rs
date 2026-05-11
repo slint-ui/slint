@@ -670,6 +670,7 @@ impl Backend {
     }
 }
 
+#[allow(unused)]
 const DEFAULT_CURSOR_FLASH_CYCLE: core::time::Duration = core::time::Duration::from_millis(1000);
 
 #[cfg(xdg_desktop_settings)]

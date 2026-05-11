@@ -52,7 +52,7 @@ pub struct ComponentContainer {
 }
 
 impl ComponentContainer {
-    pub fn ensure_updated(self: Pin<&Self>) {
+    pub fn ensure_updated(self: Pin<&Self>) -> bool {
         let factory = self
             .component_tracker
             .get()
@@ -61,7 +61,12 @@ impl ComponentContainer {
             .evaluate_if_dirty(|| self.component_factory());
 
         let Some(factory) = factory else {
-            return;
+            // Factory unchanged — still recurse into the embedded component
+            // so its repeaters and conditionals get instantiated.
+            if let Some(inner) = self.subtree_component().upgrade() {
+                return crate::item_tree::ensure_item_tree_instantiated(&inner);
+            }
+            return false;
         };
 
         let mut window = None;
@@ -118,6 +123,11 @@ impl ComponentContainer {
         self.has_component.set(product.is_some());
 
         self.item_tree.replace(product);
+
+        if let Some(inner) = self.subtree_component().upgrade() {
+            crate::item_tree::ensure_item_tree_instantiated(&inner);
+        }
+        true
     }
 
     pub fn subtree_range(self: Pin<&Self>) -> IndexRange {

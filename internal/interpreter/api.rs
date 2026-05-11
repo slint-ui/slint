@@ -1130,8 +1130,16 @@ impl ComponentDefinition {
     /// Creates a new instance of the component and returns a shared handle to it.
     pub fn create(&self) -> Result<ComponentInstance, PlatformError> {
         let instance = self.create_with_options(Default::default())?;
-        // Make sure the window adapter is created so call to `window()` do not panic later.
-        instance.inner.window_adapter_ref()?;
+        // SystemTrayIcon-rooted components don't have a real WindowAdapter.
+        // Skip the eager window creation and tree instantiation for them.
+        if !instance.is_system_tray_rooted() {
+            // Make sure the window adapter is created so call to `window()` do not panic later.
+            instance.inner.window_adapter_ref()?;
+            // Eagerly instantiate repeaters and conditionals so that layout
+            // bindings can see all instances without calling ensure_updated.
+            i_slint_core::window::WindowInner::from_pub(instance.window())
+                .ensure_tree_instantiated();
+        }
         Ok(instance)
     }
 

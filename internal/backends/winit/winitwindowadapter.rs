@@ -6,7 +6,6 @@
 // cspell:ignore accesskit borderless corelib nesw webgl winit winsys xlib
 
 use core::cell::{Cell, RefCell};
-use core::pin::Pin;
 #[cfg(target_os = "macos")]
 use std::cell::OnceCell;
 use std::rc::Rc;
@@ -1555,7 +1554,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     fn unregister_item_tree(
         &self,
         component: ItemTreeRef,
-        _: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
+        _: &mut dyn Iterator<Item = core::pin::Pin<ItemRef<'_>>>,
     ) {
         let Some(accesskit_adapter_cell) = self.accesskit_adapter() else { return };
         if let Ok(mut a) = accesskit_adapter_cell.try_borrow_mut() {
