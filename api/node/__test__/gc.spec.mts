@@ -3,12 +3,7 @@
 
 import { test, expect } from "vitest";
 
-import {
-    loadSource,
-    private_api,
-    ArrayModel,
-    Model,
-} from "../dist/index.js";
+import { loadSource, private_api, ArrayModel, Model } from "../dist/index.js";
 
 private_api.initTesting();
 
@@ -27,10 +22,13 @@ function gcAndYield(): Promise<void> {
 
 test("callback closure does not prevent GC", async () => {
     function makeInstance() {
-        const demo = loadSource(`export component Test {
+        const demo = loadSource(
+            `export component Test {
             callback say_hello();
             in-out property <string> check: "initial value";
-        }`, "gc.slint") as any;
+        }`,
+            "gc.slint",
+        ) as any;
         const instance = new demo.Test();
 
         // Set a callback that captures the instance, creating a cycle.
@@ -73,7 +71,9 @@ test("multiple callbacks do not prevent GC", async () => {
             callback on_key();
             in-out property <string> status: "idle";
         }`;
-        const instance = new (loadSource(source, "gc-multi.slint") as any).Test();
+        const instance = new (
+            loadSource(source, "gc-multi.slint") as any
+        ).Test();
 
         instance.on_click = function () {
             instance.status = "clicked";
@@ -123,10 +123,13 @@ test("global callback does not prevent GC", async () => {
 
 test("constructor callback does not prevent GC", async () => {
     function makeInstance() {
-        const demo = loadSource(`export component Test {
+        const demo = loadSource(
+            `export component Test {
             callback say_hello();
             in-out property <string> check: "initial value";
-        }`, "gc.slint") as any;
+        }`,
+            "gc.slint",
+        ) as any;
         const instance = new demo.Test({
             say_hello: function () {
                 instance.check = "constructed callback";
@@ -145,10 +148,13 @@ test("constructor callback does not prevent GC", async () => {
 // --- Tests that callbacks SURVIVE GC while instance is alive ---
 
 test("callback survives GC while instance is alive", async () => {
-    const demo = loadSource(`export component Test {
+    const demo = loadSource(
+        `export component Test {
         callback say_hello();
         in-out property <string> check: "initial value";
-    }`, "gc.slint") as any;
+    }`,
+        "gc.slint",
+    ) as any;
     const instance = new demo.Test();
 
     let callCount = 0;
@@ -184,10 +190,13 @@ test("callback with return value survives GC", async () => {
 });
 
 test("constructor callback survives GC", async () => {
-    const demo = loadSource(`export component Test {
+    const demo = loadSource(
+        `export component Test {
         callback say_hello();
         in-out property <string> check: "initial value";
-    }`, "gc.slint") as any;
+    }`,
+        "gc.slint",
+    ) as any;
     const instance = new demo.Test({
         say_hello: function () {
             instance.check = "from constructor";
@@ -229,7 +238,9 @@ test("model without JS reference survives GC", async () => {
     const source = `export component Test {
         in-out property <[int]> items;
     }`;
-    const instance = new (loadSource(source, "gc-model-surv.slint") as any).Test();
+    const instance = new (
+        loadSource(source, "gc-model-surv.slint") as any
+    ).Test();
 
     // Assign a model without keeping a JS reference to it.
     instance.items = new ArrayModel([10, 20, 30]);
@@ -248,7 +259,9 @@ test("custom model without JS reference survives GC", async () => {
     const source = `export component Test {
         in-out property <[string]> items;
     }`;
-    const instance = new (loadSource(source, "gc-model-custom.slint") as any).Test();
+    const instance = new (
+        loadSource(source, "gc-model-custom.slint") as any
+    ).Test();
 
     class MyModel extends ArrayModel<string> {
         greeting(row: number): string {
@@ -342,7 +355,9 @@ test("model in struct field survives GC", async () => {
             in-out property <Data> data;
         }
     `;
-    const instance = new (loadSource(source, "gc-struct-model.slint") as any).Test();
+    const instance = new (
+        loadSource(source, "gc-struct-model.slint") as any
+    ).Test();
 
     // The model inside the struct has no JS variable holding it.
     instance.data = {
@@ -467,10 +482,13 @@ test("nested model in struct returned by rowData survives GC", async () => {
 test("callback and instance are both collected together", async () => {
     let callbackRef: WeakRef<Function>;
     function makeInstance() {
-        const demo = loadSource(`export component Test {
+        const demo = loadSource(
+            `export component Test {
             callback say_hello();
             in-out property <string> check: "initial";
-        }`, "gc-2phase-cb.slint") as any;
+        }`,
+            "gc-2phase-cb.slint",
+        ) as any;
         const instance = new demo.Test();
 
         const cb = function () {
@@ -503,7 +521,9 @@ test("model survives while instance alive, then both collected", async () => {
         const source = `export component Test {
             in-out property <[string]> items;
         }`;
-        const instance = new (loadSource(source, "gc-2phase-model.slint") as any).Test();
+        const instance = new (
+            loadSource(source, "gc-2phase-model.slint") as any
+        ).Test();
 
         const model = new ArrayModel(["a", "b", "c"]);
         modelRef = new WeakRef(model);
@@ -541,7 +561,9 @@ test("model in struct field: survives then collected", async () => {
                 in-out property <Data> data;
             }
         `;
-        const instance = new (loadSource(source, "gc-2phase-struct.slint") as any).Test();
+        const instance = new (
+            loadSource(source, "gc-2phase-struct.slint") as any
+        ).Test();
 
         const model = new ArrayModel(["one", "two"]);
         modelRef = new WeakRef(model);
@@ -632,7 +654,9 @@ test("multiple callbacks capturing instance: all collected", async () => {
             callback gamma();
             in-out property <string> log: "";
         }`;
-        const instance = new (loadSource(source, "gc-2phase-multi-cb.slint") as any).Test();
+        const instance = new (
+            loadSource(source, "gc-2phase-multi-cb.slint") as any
+        ).Test();
 
         for (const name of ["alpha", "beta", "gamma"]) {
             const cb = function () {
@@ -658,7 +682,9 @@ test("model replaced multiple times: old models collected", async () => {
     const source = `export component Test {
         in-out property <[int]> items;
     }`;
-    const instance = new (loadSource(source, "gc-replace-model.slint") as any).Test();
+    const instance = new (
+        loadSource(source, "gc-replace-model.slint") as any
+    ).Test();
 
     const oldModels: WeakRef<object>[] = [];
 
