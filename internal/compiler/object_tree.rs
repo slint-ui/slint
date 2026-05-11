@@ -845,6 +845,11 @@ pub struct Element {
     pub child_of_layout: bool,
     /// The property pointing to the layout info. `(horizontal, vertical)`
     pub layout_info_prop: Option<(NamedReference, NamedReference)>,
+    /// `pure function layoutinfo-v-with-constraint(width: length) -> LayoutInfo`
+    /// synthesized for elements whose vertical layout info depends on
+    /// their width — lets the parent supply the width and avoid the
+    /// recursion that would happen via the descendants' width property.
+    pub layout_info_v_with_constraint: Option<NamedReference>,
     /// Whether we have `preferred-{width,height}: 100%`
     pub default_fill_parent: (bool, bool),
 
@@ -2092,6 +2097,44 @@ impl Element {
             Orientation::Horizontal => &prop.0,
             Orientation::Vertical => &prop.1,
         })
+    }
+
+    /// Whether this element is a *builtin* whose vertical layout info
+    /// depends on its width. Returns `false` for user components — even
+    /// ones whose own bindings derive height from width (e.g.
+    /// `component Foo { height: self.width; }`); those don't carry the
+    /// information needed to detect the dependency here. The synthesis
+    /// pass catches user components by other means (descendant
+    /// h-for-w + LIVC propagation).
+    pub fn is_builtin_height_for_width(&self) -> bool {
+        let Some(builtin) = self.builtin_type() else { return false };
+        match builtin.name.as_str() {
+            // Conservatively treat any wrap binding (including a literal
+            // `no-wrap`) as height-for-width.
+            "Text" | "TextInput" => self.is_binding_set("wrap", false),
+            // `StyledText` has no `wrap` property; markdown text always
+            // wraps to fill the given width.
+            "Image" | "ClippedImage" | "StyledText" => true,
+            _ => false,
+        }
+    }
+
+    /// Returns the `layoutinfo-v-with-constraint` NamedReference reachable
+    /// from `self`, looking through the base-type chain. The NR points to
+    /// the element actually carrying the binding.
+    pub fn inherited_layout_info_v_with_constraint(&self) -> Option<NamedReference> {
+        if let Some(nr) = &self.layout_info_v_with_constraint {
+            return Some(nr.clone());
+        }
+        let mut base = self.base_type.clone();
+        while let ElementType::Component(base_comp) = base {
+            let root = base_comp.root_element.borrow();
+            if let Some(nr) = &root.layout_info_v_with_constraint {
+                return Some(nr.clone());
+            }
+            base = root.base_type.clone();
+        }
+        None
     }
 
     /// Returns the element's name as specified in the markup, not normalized.
