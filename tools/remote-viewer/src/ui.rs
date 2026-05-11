@@ -28,10 +28,11 @@ pub async fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Resu
     );
 
     let mut compiler = compilation::init_compiler(Rc::downgrade(&connection));
-    let current_exe = std::env::current_exe().unwrap();
-    let compilation_result = compiler
-        .build_from_source(MAIN_SLINT.to_owned(), current_exe.parent().unwrap().to_owned())
-        .await;
+    let base_path = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_owned()))
+        .unwrap_or_else(std::env::temp_dir);
+    let compilation_result = compiler.build_from_source(MAIN_SLINT.to_owned(), base_path).await;
     if compilation_result.has_errors() {
         let mut build_diagnostics = BuildDiagnostics::default();
         for d in compilation_result.diagnostics() {

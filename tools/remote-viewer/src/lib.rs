@@ -7,7 +7,13 @@ mod resources;
 mod ui;
 mod util;
 
-pub use tokio;
-pub use tracing;
-pub use tracing_subscriber;
 pub use ui::run;
+
+#[cfg(target_os = "android")]
+#[unsafe(no_mangle)]
+fn android_main(app: slint::android::AndroidApp) {
+    slint::android::init(app).unwrap();
+
+    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+    rt.block_on(ui::run(None, true)).unwrap();
+}
