@@ -324,9 +324,13 @@ async fn lsp_main(
 fn handle_preview_message(msg: PreviewToLspMessage, ctx: &language::Context) {
     use PreviewToLspMessage::*;
     match &msg {
-        RequestState { .. } => {
-            tracing::debug!("Preview requested state, re-sending all documents");
-            language::send_state_to_preview(ctx);
+        RequestState { files } => {
+            if files.is_empty() {
+                tracing::debug!("Preview requested state, re-sending all documents");
+                language::send_state_to_preview(ctx);
+            } else {
+                language::send_files_to_preview(ctx, &files);
+            }
         }
         SendShowMessage { message } => {
             match message.typ {

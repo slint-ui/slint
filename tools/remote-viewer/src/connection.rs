@@ -304,7 +304,12 @@ impl Connection {
         }
         if request_file {
             self.send(i_slint_preview_protocol::PreviewToLspMessage::RequestState {
-                files: vec![Url::from_file_path(file).unwrap()],
+                files: vec![Url::from_file_path(&file).map_err(|()| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        format!("Invalid file path: {file}"),
+                    )
+                })?],
             })
             .map_err(std::io::Error::other)?;
         }
