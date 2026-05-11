@@ -320,6 +320,7 @@ fn lower_grid_layout(
                 layout_organized_data_prop: layout_organized_data_prop.clone(),
                 layout: grid.clone(),
                 orientation: Orientation::Horizontal,
+                cross_axis_size: None,
             },
             span.clone(),
         )
@@ -332,6 +333,7 @@ fn lower_grid_layout(
                 layout_organized_data_prop: layout_organized_data_prop.clone(),
                 layout: grid.clone(),
                 orientation: Orientation::Vertical,
+                cross_axis_size: None,
             },
             span,
         )
@@ -885,7 +887,11 @@ fn lower_box_layout(
     layout_info_prop_h.element().borrow_mut().bindings.insert(
         layout_info_prop_h.name().clone(),
         BindingExpression::new_with_span(
-            Expression::ComputeBoxLayoutInfo(layout.clone(), Orientation::Horizontal),
+            Expression::ComputeBoxLayoutInfo {
+                layout: layout.clone(),
+                orientation: Orientation::Horizontal,
+                cross_axis_size: None,
+            },
             span.clone(),
         )
         .into(),
@@ -893,7 +899,11 @@ fn lower_box_layout(
     layout_info_prop_v.element().borrow_mut().bindings.insert(
         layout_info_prop_v.name().clone(),
         BindingExpression::new_with_span(
-            Expression::ComputeBoxLayoutInfo(layout.clone(), Orientation::Vertical),
+            Expression::ComputeBoxLayoutInfo {
+                layout: layout.clone(),
+                orientation: Orientation::Vertical,
+                cross_axis_size: None,
+            },
             span,
         )
         .into(),
@@ -1012,7 +1022,11 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
     layout_info_prop_h.element().borrow_mut().bindings.insert(
         layout_info_prop_h.name().clone(),
         BindingExpression::new_with_span(
-            Expression::ComputeFlexboxLayoutInfo(layout.clone(), Orientation::Horizontal),
+            Expression::ComputeFlexboxLayoutInfo {
+                layout: layout.clone(),
+                orientation: Orientation::Horizontal,
+                cross_axis_size: None,
+            },
             span.clone(),
         )
         .into(),
@@ -1020,7 +1034,11 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
     layout_info_prop_v.element().borrow_mut().bindings.insert(
         layout_info_prop_v.name().clone(),
         BindingExpression::new_with_span(
-            Expression::ComputeFlexboxLayoutInfo(layout.clone(), Orientation::Vertical),
+            Expression::ComputeFlexboxLayoutInfo {
+                layout: layout.clone(),
+                orientation: Orientation::Vertical,
+                cross_axis_size: None,
+            },
             span,
         )
         .into(),
@@ -1278,6 +1296,7 @@ fn lower_dialog_layout(
                 layout_organized_data_prop: layout_organized_data_prop.clone(),
                 layout: grid.clone(),
                 orientation: Orientation::Horizontal,
+                cross_axis_size: None,
             },
             span.clone(),
         )
@@ -1290,6 +1309,7 @@ fn lower_dialog_layout(
                 layout_organized_data_prop: layout_organized_data_prop.clone(),
                 layout: grid.clone(),
                 orientation: Orientation::Vertical,
+                cross_axis_size: None,
             },
             span,
         )

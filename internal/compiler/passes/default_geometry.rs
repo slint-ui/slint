@@ -199,6 +199,7 @@ fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
                                 c,
                                 orientation,
                                 BuiltinFilter::SkipNonImplicit,
+                                None,
                             )
                         }
                     };
@@ -224,9 +225,9 @@ fn gen_layout_info_prop(elem: &ElementRc, diag: &mut BuildDiagnostics) {
     );
     elem.borrow_mut().layout_info_prop = Some((li_h.clone(), li_v.clone()));
     let mut expr_h =
-        implicit_layout_info_call(elem, Orientation::Horizontal, BuiltinFilter::All).unwrap();
+        implicit_layout_info_call(elem, Orientation::Horizontal, BuiltinFilter::All, None).unwrap();
     let mut expr_v =
-        implicit_layout_info_call(elem, Orientation::Vertical, BuiltinFilter::All).unwrap();
+        implicit_layout_info_call(elem, Orientation::Vertical, BuiltinFilter::All, None).unwrap();
 
     let explicit_constraints = LayoutConstraints::new(elem, diag, DiagnosticLevel::Warning);
     if !explicit_constraints.fixed_width {

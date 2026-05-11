@@ -2685,8 +2685,8 @@ pub fn visit_named_references_in_expression(
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
         Expression::GridRepeaterCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
         Expression::OrganizeGridLayout(l) => l.visit_named_references(vis),
-        Expression::ComputeBoxLayoutInfo(l, _) => l.visit_named_references(vis),
-        Expression::ComputeFlexboxLayoutInfo(l, _) => l.visit_named_references(vis),
+        Expression::ComputeBoxLayoutInfo { layout, .. } => layout.visit_named_references(vis),
+        Expression::ComputeFlexboxLayoutInfo { layout, .. } => layout.visit_named_references(vis),
         Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, .. } => {
             vis(layout_organized_data_prop);
             layout.visit_named_references(vis);
@@ -3206,12 +3206,14 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
             old_root,
             Orientation::Horizontal,
             crate::layout::BuiltinFilter::All,
+            None,
         )
         .unwrap();
         let expr_v = crate::layout::implicit_layout_info_call(
             old_root,
             Orientation::Vertical,
             crate::layout::BuiltinFilter::All,
+            None,
         )
         .unwrap();
         let expr_v =
