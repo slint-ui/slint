@@ -18,7 +18,7 @@ pub type ImageData = Image;
 /// SlintPoint implements {@link ImageData}.
 #[napi]
 pub struct SlintImageData {
-    inner: Image,
+    pub(crate) inner: Image,
 }
 
 impl From<Image> for SlintImageData {

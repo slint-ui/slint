@@ -325,6 +325,12 @@ importers:
         specifier: workspace:*
         version: link:../../../api/node
 
+  examples/dnd-kanban:
+    dependencies:
+      slint-ui:
+        specifier: workspace:*
+        version: link:../../api/node
+
   examples/imagefilter/node:
     dependencies:
       image-js:
