@@ -6,13 +6,12 @@ use std::{any::Any, cell::RefCell, collections::HashMap};
 
 use super::{LspToPreview, Result};
 
-#[allow(dead_code)]
 pub struct SwitchableLspToPreview {
     lsp_to_previews: HashMap<PreviewTarget, Box<dyn LspToPreview>>,
     current_target: RefCell<PreviewTarget>,
 }
 
-#[allow(dead_code)]
+#[allow(dead_code)] // Which methods are live depends on the enabled preview features.
 impl SwitchableLspToPreview {
     pub fn new(
         lsp_to_previews: HashMap<PreviewTarget, Box<dyn LspToPreview>>,
@@ -25,7 +24,6 @@ impl SwitchableLspToPreview {
         }
     }
 
-    #[allow(unused)]
     pub fn with_one(lsp_to_preview: impl LspToPreview) -> Self {
         let target = lsp_to_preview.preview_target();
         let lsp_to_previews =
@@ -45,7 +43,6 @@ impl SwitchableLspToPreview {
         .await;
     }
 
-    #[allow(unused)]
     pub fn preview_target(&self) -> PreviewTarget {
         *self.current_target.borrow()
     }
@@ -59,7 +56,6 @@ impl SwitchableLspToPreview {
         }
     }
 
-    #[allow(unused)]
     pub fn with_preview_target<T: LspToPreview, R>(&self, f: impl FnOnce(&T) -> R) -> Option<R> {
         for target in self.lsp_to_previews.values() {
             if let Some(target) = <dyn Any>::downcast_ref(target.as_ref()) {
@@ -69,7 +65,6 @@ impl SwitchableLspToPreview {
         None
     }
 
-    #[allow(unused)]
     pub async fn with_preview_target_async<T: LspToPreview, R>(
         &self,
         f: impl AsyncFnOnce(&T) -> R,
