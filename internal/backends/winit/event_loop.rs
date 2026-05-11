@@ -42,10 +42,6 @@ use winit::window::ResizeDirection;
 /// This enum captures run-time specific events that can be dispatched to the event loop in
 /// addition to the winit events.
 pub enum CustomEvent {
-    /// On wasm request_redraw doesn't wake the event loop, so we need to manually send an event
-    /// so that the event loop can run
-    #[cfg(target_arch = "wasm32")]
-    WakeEventLoopWorkaround,
     /// Slint internal: Invoke the
     UserEvent(Box<dyn FnOnce() + Send>),
     /// Emitted from quit_event_loop with the current event loop generation
@@ -59,8 +55,6 @@ pub enum CustomEvent {
 impl std::fmt::Debug for CustomEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            #[cfg(target_arch = "wasm32")]
-            Self::WakeEventLoopWorkaround => write!(f, "WakeEventLoopWorkaround"),
             Self::UserEvent(_) => write!(f, "UserEvent"),
             Self::Exit(_) => write!(f, "Exit"),
             #[cfg(enable_accesskit)]
@@ -585,10 +579,6 @@ impl winit::application::ApplicationHandler for EventLoopState {
                             deferred_action.invoke(window.window());
                         }
                     }
-                }
-                #[cfg(target_arch = "wasm32")]
-                CustomEvent::WakeEventLoopWorkaround => {
-                    event_loop.set_control_flow(ControlFlow::Poll);
                 }
                 #[cfg(muda)]
                 CustomEvent::Muda(event) => {

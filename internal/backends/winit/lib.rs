@@ -794,18 +794,6 @@ impl i_slint_core::platform::Platform for Backend {
                 event: Box<dyn FnOnce() + Send>,
             ) -> Result<(), EventLoopError> {
                 let mut queue = self.1.lock().unwrap();
-                // Calling send_event is usually done by winit at the bottom of the stack,
-                // in event handlers, and thus winit might decide to process the event
-                // immediately within that stack.
-                // To prevent re-entrancy issues that might happen by getting the application
-                // event processed on top of the current stack, set winit in Poll mode so that
-                // events are queued and process on top of a clean stack during a requested animation
-                // frame a few moments later.
-                // This also allows batching multiple post_event calls and redraw their state changes
-                // all at once.
-                #[cfg(target_arch = "wasm32")]
-                queue.push_back(CustomEvent::WakeEventLoopWorkaround);
-
                 queue.push_back(CustomEvent::UserEvent(event));
                 drop(queue);
                 self.0.wake_up();
