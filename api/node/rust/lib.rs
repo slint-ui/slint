@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 mod interpreter;
+mod weak_ref;
 use std::path::PathBuf;
 
 pub use interpreter::*;
@@ -62,12 +63,12 @@ pub fn invoke_from_event_loop(env: &Env, callback: DynFunction<'_>) -> napi::Res
     })
     .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
-    let stored_fn = StoredFunction::new(&callback)?;
+    let func_ref = callback.create_ref()?;
     let env = *env;
-    let wrapper = send_wrapper::SendWrapper::new((stored_fn, env));
+    let wrapper = send_wrapper::SendWrapper::new((func_ref, env));
     i_slint_core::api::invoke_from_event_loop(move || {
-        let (stored_fn, env) = wrapper.take();
-        if stored_fn.call(&env, vec![]).is_err() {
+        let (func_ref, env) = wrapper.take();
+        if func_ref.borrow_back(&env).and_then(|f| f.call(DynArgs(vec![]))).is_err() {
             eprintln!("Node.js: JavaScript invoke_from_event_loop threw an exception");
         }
     })
