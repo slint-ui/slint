@@ -223,17 +223,14 @@ mod tests {
 
     #[test]
     fn test_doc_comment_before_component() {
-        let (comp, _, _) = parse_component(
-            "/// My component\ncomponent Foo inherits Rectangle {}",
-        );
+        let (comp, _, _) = parse_component("/// My component\ncomponent Foo inherits Rectangle {}");
         assert_eq!(doc_comment(&comp), Some("My component".into()));
     }
 
     #[test]
     fn test_element_doc_entries_basic() {
-        let (comp, elem, mut diag) = parse_component(
-            "/// Description\ncomponent Foo {\n  in property <int> bar;\n}",
-        );
+        let (comp, elem, mut diag) =
+            parse_component("/// Description\ncomponent Foo {\n  in property <int> bar;\n}");
         let entries = element_doc_entries(&comp, &elem, &mut diag);
         assert!(diag.is_empty(), "unexpected diag: {:?}", diag.to_string_vec());
         assert!(matches!(&entries[0], ElementDocEntry::Text(t) if t == "Description"));
@@ -242,9 +239,8 @@ mod tests {
 
     #[test]
     fn test_element_doc_entries_section_text() {
-        let (comp, elem, mut diag) = parse_component(
-            "component Foo {\n  //! section\n  in property <int> x;\n}",
-        );
+        let (comp, elem, mut diag) =
+            parse_component("component Foo {\n  //! section\n  in property <int> x;\n}");
         let entries = element_doc_entries(&comp, &elem, &mut diag);
         assert!(diag.is_empty(), "unexpected diag: {:?}", diag.to_string_vec());
         // entries[0] = empty description, entries[1] = section text, entries[2] = member
@@ -255,9 +251,7 @@ mod tests {
 
     #[test]
     fn test_element_doc_entries_warns_orphan_doc_comment() {
-        let (comp, elem, mut diag) = parse_component(
-            "component Foo {\n  /// orphan\n}",
-        );
+        let (comp, elem, mut diag) = parse_component("component Foo {\n  /// orphan\n}");
         let _entries = element_doc_entries(&comp, &elem, &mut diag);
         assert!(
             diag.to_string_vec().iter().any(|m| m.contains("not attached to a declaration")),
@@ -268,9 +262,8 @@ mod tests {
 
     #[test]
     fn test_element_doc_entries_callback_and_function() {
-        let (comp, elem, mut diag) = parse_component(
-            "component Foo {\n  callback clicked();\n  function do-stuff() {}\n}",
-        );
+        let (comp, elem, mut diag) =
+            parse_component("component Foo {\n  callback clicked();\n  function do-stuff() {}\n}");
         let entries = element_doc_entries(&comp, &elem, &mut diag);
         assert!(diag.is_empty(), "unexpected diag: {:?}", diag.to_string_vec());
         assert!(matches!(&entries[1], ElementDocEntry::Member(n) if n == "clicked"));
