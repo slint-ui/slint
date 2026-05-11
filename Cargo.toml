@@ -37,6 +37,7 @@ members = [
   'examples/mcu-embassy',
   'examples/uefi-demo',
   'examples/async-io',
+  'examples/dnd-kanban',
   'examples/system_tray',
   'demos/weather-demo',
   'demos/usecases/rust',
