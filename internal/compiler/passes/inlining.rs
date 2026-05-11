@@ -609,23 +609,45 @@ fn fixup_element_references(expr: &mut Expression, mapping: &Mapping) {
     };
     match expr {
         Expression::ElementReference(element) => fx(element),
-        Expression::SolveBoxLayout(layout, _) | Expression::ComputeBoxLayoutInfo { layout, .. } => {
+        Expression::SolveBoxLayout(layout, _) => {
             for e in &mut layout.elems {
                 fxe(&mut e.element);
             }
         }
-        Expression::SolveGridLayout { layout, .. }
-        | Expression::OrganizeGridLayout(layout)
-        | Expression::ComputeGridLayoutInfo { layout, .. } => {
+        Expression::ComputeBoxLayoutInfo { layout, cross_axis_size, .. } => {
+            for e in &mut layout.elems {
+                fxe(&mut e.element);
+            }
+            if let Some(cas) = cross_axis_size {
+                fixup_element_references(cas, mapping);
+            }
+        }
+        Expression::SolveGridLayout { layout, .. } | Expression::OrganizeGridLayout(layout) => {
             for e in &mut layout.elems {
                 fxe(&mut e.item.element);
             }
             layout.clone_cells();
         }
-        Expression::SolveFlexboxLayout(layout)
-        | Expression::ComputeFlexboxLayoutInfo { layout, .. } => {
+        Expression::ComputeGridLayoutInfo { layout, cross_axis_size, .. } => {
             for e in &mut layout.elems {
                 fxe(&mut e.item.element);
+            }
+            layout.clone_cells();
+            if let Some(cas) = cross_axis_size {
+                fixup_element_references(cas, mapping);
+            }
+        }
+        Expression::SolveFlexboxLayout(layout) => {
+            for e in &mut layout.elems {
+                fxe(&mut e.item.element);
+            }
+        }
+        Expression::ComputeFlexboxLayoutInfo { layout, cross_axis_size, .. } => {
+            for e in &mut layout.elems {
+                fxe(&mut e.item.element);
+            }
+            if let Some(cas) = cross_axis_size {
+                fixup_element_references(cas, mapping);
             }
         }
         Expression::RepeaterModelReference { element }
