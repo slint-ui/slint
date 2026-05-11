@@ -45,7 +45,7 @@ you can utilize the [`WinitWindowAccessor::with_winit_window`] function to acces
 # struct C; impl C { fn window(&self) ->i_slint_core::api::Window {todo!()} }
 # let my_ui = C;
 use i_slint_backend_winit::WinitWindowAccessor; // import the trait
-my_ui.window().with_winit_window(|winit_window: &winit::window::Window| {
+my_ui.window().with_winit_window(|winit_window: &dyn winit::window::Window| {
     // Here, you can use the winit API
 });
 ```

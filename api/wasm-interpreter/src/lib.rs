@@ -340,7 +340,7 @@ pub fn init() -> Result<(), JsValue> {
         .with_window_attributes_hook(|mut attrs| {
             NEXT_CANVAS_ID.with(|next_id| {
                 if let Some(canvas_id) = next_id.borrow_mut().take() {
-                    use i_slint_backend_winit::winit::platform::web::WindowAttributesExtWebSys;
+                    use i_slint_backend_winit::winit::platform::web::WindowAttributesWeb;
 
                     use wasm_bindgen::JsCast;
 
@@ -362,10 +362,12 @@ pub fn init() -> Result<(), JsValue> {
                                 canvas_id
                             )
                         });
+                    let web_attrs = WindowAttributesWeb::default()
+                        .with_canvas(Some(html_canvas));
+                    // Don't activate the window by default, as that will cause the page to scroll,
+                    // ignoring any existing anchors.
                     attrs = attrs
-                        .with_canvas(Some(html_canvas))
-                        // Don't activate the window by default, as that will cause the page to scroll,
-                        // ignoring any existing anchors.
+                        .with_platform_attributes(Box::new(web_attrs))
                         .with_active(false);
                     attrs
                 } else {

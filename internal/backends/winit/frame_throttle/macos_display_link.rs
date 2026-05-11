@@ -69,14 +69,14 @@ impl Drop for CADisplayLinkFrameThrottle {
 }
 
 impl super::FrameThrottle for CADisplayLinkFrameThrottle {
-    fn request_throttled_redraw(&self, _winit_window: &winit::window::Window) {
+    fn request_throttled_redraw(&self, _winit_window: &dyn winit::window::Window) {
         self.display_link.setPaused(false);
     }
 }
 
 pub(super) fn try_create(
     window_adapter: Weak<WinitWindowAdapter>,
-    winit_window: &winit::window::Window,
+    winit_window: &dyn winit::window::Window,
 ) -> Option<Box<dyn super::FrameThrottle>> {
     // -[NSView displayLinkWithTarget:selector:] is only available on macOS
     // 14.0+. The CADisplayLink class itself is reachable on older macOS via
