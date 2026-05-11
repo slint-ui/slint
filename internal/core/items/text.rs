@@ -642,7 +642,13 @@ fn text_layout_info(
     cross_axis_constraint: Coord,
 ) -> LayoutInfo {
     let implicit_size = |max_width, text_wrap| {
-        window_adapter.renderer().text_size(text, self_rc, max_width, text_wrap)
+        let mut size = window_adapter.renderer().text_size(text, self_rc, max_width, text_wrap);
+        // ensure that the single-line text input doesn't shrink when going from empty to text that ends up selecting a font that has
+        // an ascent - descent that's less than the requested default font.
+        let request = text.font_request(self_rc);
+        let metrics = window_adapter.renderer().font_metrics(request);
+        size.height = size.height.max(metrics.ascent - metrics.descent);
+        size
     };
 
     // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
@@ -789,7 +795,13 @@ impl Item for TextInput {
         self_rc: &ItemRc,
     ) -> LayoutInfo {
         let implicit_size = |max_width, text_wrap| {
-            window_adapter.renderer().text_size(self, self_rc, max_width, text_wrap)
+            let mut size = window_adapter.renderer().text_size(self, self_rc, max_width, text_wrap);
+            // ensure that the single-line text input doesn't shrink when going from empty to text that ends up selecting a font that has
+            // an ascent - descent that's less than the requested default font.
+            let request = self.font_request(self_rc);
+            let metrics = window_adapter.renderer().font_metrics(request);
+            size.height = size.height.max(metrics.ascent - metrics.descent);
+            size
         };
 
         // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
