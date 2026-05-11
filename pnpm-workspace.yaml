@@ -11,6 +11,7 @@ packages:
   - examples/imagefilter/node
   - examples/carousel/node
   - examples/todo/node
+  - examples/dnd-kanban
   - examples/memory
   - examples/system_tray
   - docs/astro

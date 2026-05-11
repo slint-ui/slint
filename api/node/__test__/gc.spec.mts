@@ -3,7 +3,13 @@
 
 import { test, expect } from "vitest";
 
-import { loadSource, private_api, ArrayModel, Model } from "../dist/index.js";
+import {
+    DataTransfer,
+    loadSource,
+    private_api,
+    ArrayModel,
+    Model,
+} from "../dist/index.js";
 
 private_api.initTesting();
 
@@ -677,4 +683,87 @@ test("custom model capturing instance does not prevent GC", async () => {
     const weakRef = makeInstance();
     await gcAndYield();
     expect(weakRef.deref()).toBeUndefined();
+});
+
+// --- DataTransfer userData ---
+
+test("DataTransfer userData cycle does not prevent GC", async () => {
+    function makeTransfer() {
+        const dt = new DataTransfer();
+        // Cycle: dt → __slint_user_data → cyclic → dt.
+        // The strong NAPI ref the old implementation used would have kept
+        // this alive forever; with weak ref + hidden property V8 can
+        // collect it.
+        const cyclic: { backref: DataTransfer | null } = { backref: null };
+        cyclic.backref = dt;
+        dt.userData = cyclic;
+        return { dt: new WeakRef(dt), userData: new WeakRef(cyclic) };
+    }
+    const refs = makeTransfer();
+    await gcAndYield();
+    expect(refs.dt.deref()).toBeUndefined();
+    expect(refs.userData.deref()).toBeUndefined();
+});
+
+test("DataTransfer userData survives storage in a Slint property", async () => {
+    const ui = loadSource(
+        `
+        export component App {
+            in-out property <data-transfer> dt;
+        }
+        `,
+        "gc-data-transfer-property.slint",
+    ) as any;
+    const instance = new ui.App();
+
+    // Store a DataTransfer with userData into a Slint property, then drop
+    // all JS references to the original wrapper and its payload. The Rust
+    // side of the property still holds the transfer, so reading it back
+    // should yield the original userData.
+    function setup() {
+        const dt = new DataTransfer();
+        dt.userData = { tag: "secret" };
+        instance.dt = dt;
+    }
+    setup();
+    await gcAndYield();
+
+    const fetched = instance.dt;
+    expect((fetched.userData as { tag: string } | null)?.tag).toBe("secret");
+});
+
+test("DataTransfer userData survives clone after original is collected", async () => {
+    const ui = loadSource(
+        `
+        export global Api {
+            pure callback identity(data-transfer) -> data-transfer;
+        }
+        export component App {}
+        `,
+        "gc-data-transfer-clone.slint",
+    ) as any;
+    const app = new ui.App();
+    app.Api.identity = (dt: DataTransfer) => dt;
+
+    // Build a clone through a Slint callback. Only `echoed` survives the
+    // inner scope: `source` is local and `payload` is reachable only via
+    // userData. If anchor_js_user_data didn't re-attach the JS value to
+    // the new wrapper, the WeakValueRef would dangle once `source` is GC'd.
+    function makeClone(): DataTransfer {
+        const source = new DataTransfer();
+        source.userData = { tag: "secret" };
+        return app.Api.identity(source);
+    }
+    let echoed: DataTransfer | null = makeClone();
+    await gcAndYield();
+    expect((echoed.userData as { tag: string }).tag).toBe("secret");
+
+    // Drop the clone; both the clone and its payload should now collect.
+    const echoedWeak = new WeakRef(echoed);
+    const payloadWeak = new WeakRef(echoed.userData as object);
+    echoed = null;
+    await gcAndYield();
+    await gcAndYield();
+    expect(echoedWeak.deref()).toBeUndefined();
+    expect(payloadWeak.deref()).toBeUndefined();
 });

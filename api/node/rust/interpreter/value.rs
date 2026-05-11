@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::{
-    ReadOnlyRustModel, RgbaColor, SlintBrush, SlintImageData, SlintKeys, SlintStyledText,
-    js_into_rust_model, rust_into_js_model,
+    ReadOnlyRustModel, RgbaColor, SlintBrush, SlintDataTransfer, SlintImageData, SlintKeys,
+    SlintStyledText, js_into_rust_model, rust_into_js_model,
 };
 use i_slint_compiler::langtype::Type;
 use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
@@ -116,6 +116,12 @@ pub fn to_js_unknown<'a>(env: &'a Env, value: &Value) -> Result<Unknown<'a>> {
         }
         Value::Brush(brush) => {
             SlintBrush::from(brush.clone()).into_instance(env)?.as_object(env).into_unknown(env)
+        }
+        Value::DataTransfer(data) => {
+            let instance = SlintDataTransfer::from(data.clone()).into_instance(env)?;
+            let mut obj = instance.as_object(env);
+            instance.anchor_js_user_data(&mut obj)?;
+            obj.into_unknown(env)
         }
         Value::Model(model) => {
             if let Some(maybe_js_model) = rust_into_js_model(env, model) {
@@ -363,6 +369,13 @@ pub fn to_value(
                 ClassInstance::from_unknown(obj.into_unknown(env)?)?;
             Ok(Value::Keys(keys_instance.inner.clone()))
         }
+        Type::DataTransfer => {
+            let object = unknown.coerce_to_object()?;
+            let instance: ClassInstance<SlintDataTransfer> =
+                ClassInstance::from_unknown(object.into_unknown(env)?)?;
+            instance.pin_user_data_on(env, model_owner)?;
+            Ok(Value::DataTransfer(instance.inner.clone()))
+        }
         Type::Invalid
         | Type::Model
         | Type::Void
@@ -375,8 +388,7 @@ pub fn to_value(
         | Type::PathData
         | Type::LayoutCache
         | Type::ArrayOfU16
-        | Type::ElementReference
-        | Type::DataTransfer => Err(napi::Error::from_reason("reason")),
+        | Type::ElementReference => Err(napi::Error::from_reason("reason")),
         Type::StyledText => {
             let obj = unknown.coerce_to_object()?;
             let styled_instance: ClassInstance<SlintStyledText> =

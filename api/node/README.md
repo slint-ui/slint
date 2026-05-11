@@ -190,6 +190,7 @@ The types used for properties in .slint design markup each translate to specific
 | `color` | `RgbaColor` |  |
 | `brush` | `Brush` |  |
 | `image` | `ImageData` |  |
+| `data-transfer` | `DataTransfer` | Drag-and-drop and clipboard payload; usually obtained from a callback parameter. See [Drag and Drop](https://docs.slint.dev/latest/docs/guide/development/drag-and-drop/). |
 | `length` | `Number` | |
 | `physical_length` | `Number` | |
 | `duration` | `Number` | The number of milliseconds |
