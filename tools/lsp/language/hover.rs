@@ -6,7 +6,8 @@ use crate::common::{
     token_info::{TokenInfo, token_info},
 };
 use crate::util;
-use i_slint_compiler::langtype::{BuiltinElement, ElementDocEntry, ElementType, Type};
+use i_slint_compiler::doc_comments::ElementDocEntry;
+use i_slint_compiler::langtype::{BuiltinElement, ElementType, Type};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, SyntaxToken};
 use itertools::Itertools as _;

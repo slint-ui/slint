@@ -19,7 +19,7 @@ use std::rc::Rc;
 pub mod builtin_macros;
 pub mod data_uri;
 pub mod diagnostics;
-pub(crate) mod doc_comments;
+pub mod doc_comments;
 pub mod embedded_resources;
 pub mod expression_tree;
 pub mod fileaccess;

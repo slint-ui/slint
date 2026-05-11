@@ -4,8 +4,19 @@
 //! Extract `///` doc comments from the syntax tree.
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
-use crate::langtype::{BuiltinElement, ElementDocEntry};
+use crate::langtype::BuiltinElement;
 use crate::parser::{SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
+use smol_str::SmolStr;
+
+/// One entry in the documentation of a builtin element, preserving the
+/// source order from `builtins.slint`.
+#[derive(Debug, Clone)]
+pub enum ElementDocEntry {
+    /// Free-form documentation text (from `///` or `//!` comments).
+    Text(String),
+    /// Reference to a property, callback, or function by name.
+    Member(SmolStr),
+}
 
 /// Strip a doc-comment prefix (`///` or `//!`) from a line.
 /// Returns the content after the prefix if the line matches exactly
@@ -130,21 +141,15 @@ pub(crate) fn element_doc_entries(
             }
             SyntaxKind::PropertyDeclaration => {
                 doc_comment_span = None;
-                let p = syntax_nodes::PropertyDeclaration::from(child.into_node().unwrap());
-                if p.TwoWayBinding().is_some() {
-                    continue;
-                }
                 flush_section(&mut section_lines, &mut entries);
+                let p = syntax_nodes::PropertyDeclaration::from(child.into_node().unwrap());
                 let name = identifier_text(&p.DeclaredIdentifier()).unwrap();
                 entries.push(ElementDocEntry::Member(name));
             }
             SyntaxKind::CallbackDeclaration => {
                 doc_comment_span = None;
-                let cb = syntax_nodes::CallbackDeclaration::from(child.into_node().unwrap());
-                if cb.TwoWayBinding().is_some() {
-                    continue;
-                }
                 flush_section(&mut section_lines, &mut entries);
+                let cb = syntax_nodes::CallbackDeclaration::from(child.into_node().unwrap());
                 let name = identifier_text(&cb.DeclaredIdentifier()).unwrap();
                 entries.push(ElementDocEntry::Member(name));
             }
@@ -186,4 +191,89 @@ pub(crate) fn assemble(
         entries.splice(1..1, parent.docs[1..].iter().cloned());
     }
     entries
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::diagnostics::BuildDiagnostics;
+    use crate::parser::{self, syntax_nodes};
+
+    /// Parse a mini `.slint` document and return the first Component node
+    /// and its Element, along with diagnostics.
+    fn parse_component(source: &str) -> (SyntaxNode, syntax_nodes::Element, BuildDiagnostics) {
+        let mut diag = BuildDiagnostics::default();
+        let node = parser::parse(source.into(), None, &mut diag);
+        assert!(!diag.has_errors(), "parse errors: {:?}", diag.to_string_vec());
+        let doc: syntax_nodes::Document = node.into();
+        let comp = doc.Component().next().expect("no component found");
+        let elem = comp.Element();
+        (comp.into(), elem, BuildDiagnostics::default())
+    }
+
+    #[test]
+    fn test_strip_doc_prefix() {
+        assert_eq!(strip_doc_prefix("/// hello", "///"), Some("hello"));
+        assert_eq!(strip_doc_prefix("///", "///"), Some(""));
+        assert_eq!(strip_doc_prefix("////", "///"), None);
+        assert_eq!(strip_doc_prefix("//! section", "//!"), Some("section"));
+        assert_eq!(strip_doc_prefix("//!", "//!"), Some(""));
+        assert_eq!(strip_doc_prefix("//!!", "//!"), None);
+    }
+
+    #[test]
+    fn test_doc_comment_before_component() {
+        let (comp, _, _) = parse_component(
+            "/// My component\ncomponent Foo inherits Rectangle {}",
+        );
+        assert_eq!(doc_comment(&comp), Some("My component".into()));
+    }
+
+    #[test]
+    fn test_element_doc_entries_basic() {
+        let (comp, elem, mut diag) = parse_component(
+            "/// Description\ncomponent Foo {\n  in property <int> bar;\n}",
+        );
+        let entries = element_doc_entries(&comp, &elem, &mut diag);
+        assert!(diag.is_empty(), "unexpected diag: {:?}", diag.to_string_vec());
+        assert!(matches!(&entries[0], ElementDocEntry::Text(t) if t == "Description"));
+        assert!(matches!(&entries[1], ElementDocEntry::Member(n) if n == "bar"));
+    }
+
+    #[test]
+    fn test_element_doc_entries_section_text() {
+        let (comp, elem, mut diag) = parse_component(
+            "component Foo {\n  //! section\n  in property <int> x;\n}",
+        );
+        let entries = element_doc_entries(&comp, &elem, &mut diag);
+        assert!(diag.is_empty(), "unexpected diag: {:?}", diag.to_string_vec());
+        // entries[0] = empty description, entries[1] = section text, entries[2] = member
+        assert!(matches!(&entries[0], ElementDocEntry::Text(t) if t.is_empty()));
+        assert!(matches!(&entries[1], ElementDocEntry::Text(t) if t == "section"));
+        assert!(matches!(&entries[2], ElementDocEntry::Member(n) if n == "x"));
+    }
+
+    #[test]
+    fn test_element_doc_entries_warns_orphan_doc_comment() {
+        let (comp, elem, mut diag) = parse_component(
+            "component Foo {\n  /// orphan\n}",
+        );
+        let _entries = element_doc_entries(&comp, &elem, &mut diag);
+        assert!(
+            diag.to_string_vec().iter().any(|m| m.contains("not attached to a declaration")),
+            "expected warning about orphan doc comment, got: {:?}",
+            diag.to_string_vec(),
+        );
+    }
+
+    #[test]
+    fn test_element_doc_entries_callback_and_function() {
+        let (comp, elem, mut diag) = parse_component(
+            "component Foo {\n  callback clicked();\n  function do-stuff() {}\n}",
+        );
+        let entries = element_doc_entries(&comp, &elem, &mut diag);
+        assert!(diag.is_empty(), "unexpected diag: {:?}", diag.to_string_vec());
+        assert!(matches!(&entries[1], ElementDocEntry::Member(n) if n == "clicked"));
+        assert!(matches!(&entries[2], ElementDocEntry::Member(n) if n == "do-stuff"));
+    }
 }

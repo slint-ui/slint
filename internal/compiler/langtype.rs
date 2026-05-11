@@ -844,17 +844,7 @@ pub struct BuiltinElement {
     /// Documentation sections from builtins.slint, preserving source order.
     /// `Text` entries come from `///` (element-level) and `//!` (section) comments;
     /// `Member` entries reference a property, callback, or function by name.
-    pub docs: Vec<ElementDocEntry>,
-}
-
-/// One entry in the documentation of a builtin element, preserving the
-/// source order from `builtins.slint`.
-#[derive(Debug, Clone)]
-pub enum ElementDocEntry {
-    /// Free-form documentation text (from `///` or `//!` comments).
-    Text(String),
-    /// Reference to a property, callback, or function by name.
-    Member(SmolStr),
+    pub docs: Vec<crate::doc_comments::ElementDocEntry>,
 }
 
 impl BuiltinElement {

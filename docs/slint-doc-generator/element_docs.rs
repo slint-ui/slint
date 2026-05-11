@@ -4,8 +4,9 @@
 // Generate mdx documentation files for builtin elements using data from
 // the compiler's TypeRegister.
 
+use i_slint_compiler::doc_comments::ElementDocEntry;
 use i_slint_compiler::langtype::{
-    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, ElementDocEntry, ElementType, Type,
+    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, ElementType, Type,
 };
 use i_slint_compiler::object_tree::PropertyVisibility;
 
