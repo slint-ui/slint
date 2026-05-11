@@ -1254,9 +1254,7 @@ impl WindowInner {
                             ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
                                 .expect("Popup component is a Window item");
                         // Access the properties to set them as dependencies
-                        let width = if window_item.fixed_width() {
-                            window_item.width().0
-                        } else {
+                        let width = {
                             let layout_info_h = component
                                 .as_ref()
                                 .layout_info(crate::layout::Orientation::Horizontal);
@@ -1265,9 +1263,7 @@ impl WindowInner {
                             w
                         };
 
-                        let height = if window_item.fixed_height() {
-                            window_item.height().0
-                        } else {
+                        let height = {
                             let layout_info_v = component
                                 .as_ref()
                                 .layout_info(crate::layout::Orientation::Vertical);
@@ -1447,8 +1443,9 @@ impl WindowInner {
         parent_item: &ItemRc,
         is_menu: bool,
     ) -> NonZeroU32 {
-        let position = parent_item
-            .map_to_native_window(parent_item.geometry().origin + popup_access_position().to_euclid().to_vector());
+        let position = parent_item.map_to_native_window(
+            parent_item.geometry().origin + popup_access_position().to_euclid().to_vector(),
+        );
         let popup_component = ItemTreeRc::borrow_pin(popup_componentrc);
         let popup_root = popup_component.as_ref().get_item_ref(0);
 
@@ -1481,12 +1478,8 @@ impl WindowInner {
                 crate::items::WindowItem::FIELD_OFFSETS.width().apply_pin(window_item);
             let height_property =
                 crate::items::WindowItem::FIELD_OFFSETS.height().apply_pin(window_item);
-            if !window_item.fixed_width() {
-                width_property.set(size.width_length());
-            }
-            if !window_item.fixed_height() {
-                height_property.set(size.height_length());
-            }
+            width_property.set(size.width_length());
+            height_property.set(size.height_length());
         };
 
         let popup_id = self.next_popup_id.get();
