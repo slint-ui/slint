@@ -297,6 +297,24 @@ fn format_signature(func: &i_slint_compiler::langtype::Function) -> String {
     format!("({}){ret}", params.join(", "))
 }
 
+/// MDX treats `{` as a JSX expression and `<` as a tag start in headings; use a code
+/// heading when the signature would otherwise confuse the parser.
+fn write_mdx_signature_heading(
+    file: &mut impl Write,
+    markdown_heading: &str,
+    name: &str,
+    func: &i_slint_compiler::langtype::Function,
+) -> std::io::Result<()> {
+    let sig = format_signature(func);
+    let title = format!("{name}{sig}");
+    if title.contains('{') || title.contains('<') {
+        writeln!(file, "{markdown_heading} `{title}`")?;
+    } else {
+        writeln!(file, "{markdown_heading} {title}")?;
+    }
+    Ok(())
+}
+
 /// Convert a `PropertyVisibility` to the direction string used in docs.
 fn visibility_to_direction(v: PropertyVisibility) -> &'static str {
     match v {
@@ -461,7 +479,7 @@ fn write_member(
                 writeln!(file)?;
                 *in_callbacks = true;
             }
-            writeln!(file, "### {name}{}", format_signature(func))?;
+            write_mdx_signature_heading(file, "###", name, func)?;
             if let Some(doc) = &info.docs
                 && !doc.is_empty()
             {
@@ -475,7 +493,7 @@ fn write_member(
                 writeln!(file)?;
                 *in_functions = true;
             }
-            writeln!(file, "### {name}{}", format_signature(func))?;
+            write_mdx_signature_heading(file, "###", name, func)?;
             if let Some(doc) = &info.docs {
                 writeln!(file, "{}", transform_code_fences(doc, sc).trim_end())?;
             }
@@ -654,7 +672,7 @@ fn write_sub_element(
         writeln!(file)?;
         for (name, info) in &cbs {
             let Type::Callback(func) = &info.ty else { continue };
-            writeln!(file, "{h} {name}{}", format_signature(func))?;
+            write_mdx_signature_heading(file, h, name, func)?;
             if let Some(doc) = &info.docs
                 && !doc.is_empty()
             {
@@ -668,7 +686,7 @@ fn write_sub_element(
         writeln!(file)?;
         for (name, info) in &fns {
             let Type::Function(func) = &info.ty else { continue };
-            writeln!(file, "{h} {name}{}", format_signature(func))?;
+            write_mdx_signature_heading(file, h, name, func)?;
             if let Some(doc) = &info.docs {
                 writeln!(file, "{}", transform_code_fences(doc, sc).trim_end())?;
             }
