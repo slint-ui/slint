@@ -365,6 +365,10 @@ pub struct BuildDiagnostics {
     /// When false, throw error for experimental features
     pub enable_experimental: bool,
 
+    /// When true, reject features not supported by the safety-critical subset
+    #[cfg(feature = "slint-sc")]
+    pub slint_sc: bool,
+
     /// This is the list of all loaded files (with or without diagnostic)
     /// does not include the main file.
     /// FIXME: this doesn't really belong in the diagnostics, it should be somehow returned in another way
@@ -413,6 +417,22 @@ impl BuildDiagnostics {
     }
     pub fn push_compiler_error(&mut self, error: Diagnostic) {
         self.inner.push(error);
+    }
+
+    /// If in safety-critical mode, push an error saying that `feature` is not
+    /// supported.
+    ///
+    /// Errors are suppressed for builtin files (paths starting with `builtin:`)
+    /// since those are loaded automatically by the compiler and are not user code.
+    #[cfg(feature = "slint-sc")]
+    pub fn slint_sc_error(&mut self, feature: &str, source: &dyn Spanned) {
+        if self.slint_sc
+            && !source
+                .source_file()
+                .is_some_and(|sf| sf.path().to_string_lossy().starts_with("builtin:"))
+        {
+            self.push_error(format!("{feature} not supported in Slint SC"), source);
+        }
     }
 
     pub fn push_property_deprecation_warning(
