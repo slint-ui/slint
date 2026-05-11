@@ -287,6 +287,18 @@ impl InterpolatedPropertyValue for LogicalLength {
 }
 
 impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
+    /// Evaluate the property and remove the (animation) binding of this property.
+    ///
+    /// Note that a binding can intercept this via intercept_set_binding and still remain on the property.
+    /// (e.g. two-way-bindings will not be removed with this call!)
+    pub fn remove_binding(self: Pin<&Self>) {
+        // FIXME: This is a bit of a hack, set_animated_value will call set_binding on the internal handle,
+        // which will call intercept_set_binding, which will check if the binding should be removed or not.
+        // In the case of two-way bindings, we want to keep the binding, but reset the value to the current one,
+        // so that any animation binding is removed, but the two-way-binding is kept.
+        self.set_animated_value(self.get(), PropertyAnimation::default());
+    }
+
     /// Change the value of this property, by animating (interpolating) from the current property's value
     /// to the specified parameter value. The animation is done according to the parameters described by
     /// the PropertyAnimation object.
