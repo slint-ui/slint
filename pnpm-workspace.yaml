@@ -20,10 +20,10 @@ packages:
   - ui-libraries/material/docs
 
 catalog:
-  '@astrojs/check': 0.9.8
+  '@astrojs/check': 0.9.9
   '@astrojs/sitemap': 3.7.2
   '@astrojs/starlight': 0.38.4
-  '@biomejs/biome': 2.4.13
+  '@biomejs/biome': 2.4.15
   '@expressive-code/plugin-line-numbers': 0.41.7
   '@playwright/test': 1.59.1
   '@types/node': 24.12.0
@@ -38,5 +38,5 @@ catalog:
   typescript: 6.0.3
   unified: 11.0.5
   unist-util-visit: 5.1.0
-  vite: 8.0.10
+  vite: 8.0.11
   vitest: 4.1.5
