@@ -19,6 +19,7 @@ import {
     GridBox,
     TimePickerPopup,
     DatePickerPopup,
+    Palette,
 } from "std-widgets.slint";
 import { GallerySettings } from "../gallery_settings.slint";
 import { Page } from "page.slint";
@@ -118,12 +119,12 @@ export component ControlsPage inherits Page {
                         Text {
                             text: @tr("Quick Actions");
                             font-weight: 700;
-                            color: #fff;
+                            color: Palette.alternate-foreground;
                         }
 
                         Text {
                             text: @tr("Open command palette and search settings.");
-                            color: #d1d5db;
+                            color: Palette.alternate-foreground;
                             wrap: word-wrap;
                         }
 
@@ -131,24 +132,24 @@ export component ControlsPage inherits Page {
                             spacing: 6px;
                             Rectangle {
                                 border-radius: 4px;
-                                background: #374151;
+                                background: Palette.control-background;
                                 HorizontalBox {
                                     padding: 4px;
                                     Text {
                                         text: "Ctrl";
-                                        color: #fff;
+                                        color: Palette.control-foreground;
                                     }
                                 }
                             }
 
                             Rectangle {
                                 border-radius: 4px;
-                                background: #374151;
+                                background: Palette.control-background;
                                 HorizontalBox {
                                     padding: 4px;
                                     Text {
                                         text: "K";
-                                        color: #fff;
+                                        color: Palette.control-foreground;
                                     }
                                 }
                             }
@@ -156,7 +157,6 @@ export component ControlsPage inherits Page {
                     }
                 }
             }
-
         }
     }
 

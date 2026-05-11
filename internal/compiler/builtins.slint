@@ -20,7 +20,7 @@
    otherwise it is assumed the native item don't write to that property.
  */
 
-component Empty {
+ component Empty {
     //-is_internal
 }
 
@@ -2413,29 +2413,26 @@ export component TooltipArea inherits Empty {
 /// }
 /// ```
 ///
-/// Use `ToolTip` to show a small popup when the **parent** element is hovered. The tooltip appears while the mouse is over that parent and hides when the pointer leaves.
+/// Place a `ToolTip` inside any element to show helpful information when hovering over it.
+/// The tooltip appears after a short delay and hides when the pointer leaves.
 ///
-/// The active style provides the visual implementation for text tooltips; this builtin describes the lowered behavior.
+/// Set the `text` property for a simple text tooltip,
+/// or add a child element instead for custom content.
 ///
-/// You can bind a plain string via `text`, or build **custom** content by nesting **one** root element (such as `Rectangle`, `HorizontalLayout`, or `VerticalLayout`) instead of setting `text`, and placing the remaining UI inside that root.
-///
-/// A parent may have **at most one** `ToolTip`. Multiple sibling `ToolTip` elements produce a compiler error.
+/// Each element can contain at most one `ToolTip`.
 ///
 /// \footer
-/// ## Custom content
+/// ## Custom Content
 ///
-/// When you need richer layout (multiple lines, badges, shortcuts, colors), omit `text`, provide the single wrapping child, then add backgrounds, padding, and nested layouts yourself. Placement uses that content's implicit or explicit size.
+/// For richer tooltips, omit `text` and provide your own layout inside a single child element.
 ///
-/// :::note{Note}
-/// For custom tooltips, keep exactly one outer element (`Rectangle`, `VerticalLayout`, and similar); put every other widget inside it.
-/// :::
 ///
 /// ```slint playground
-/// import { Button } from "std-widgets.slint";
+/// import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
 ///
 /// export component Example inherits Window {
 ///     width: 320px;
-///     height: 220px;
+///     height: 200px;
 ///
 ///     VerticalLayout {
 ///         alignment: center;
@@ -2444,49 +2441,42 @@ export component TooltipArea inherits Empty {
 ///             text: "Custom tooltip";
 ///
 ///             ToolTip {
-///                 placement: pointer;
+///                 placement: above-element;
 ///
-///                 Rectangle {
-///                     border-radius: 8px;
-///                     background: #1f2937;
+///                 VerticalBox {
+///                     padding: 10px;
+///                     spacing: 6px;
 ///
-///                     VerticalLayout {
-///                         padding: 10px;
+///                     Text {
+///                         text: "Quick Actions";
+///                         font-weight: 700;
+///                         color: #fff;
+///                     }
+///
+///                     Text {
+///                         text: "Open command palette and search settings.";
+///                         color: #d1d5db;
+///                         wrap: word-wrap;
+///                     }
+///
+///                     HorizontalBox {
 ///                         spacing: 6px;
 ///
-///                         Text {
-///                             text: "Save document";
-///                             color: #fff;
-///                             font-weight: 600;
-///                         }
-///
-///                         Text {
-///                             text: "Press the shortcut to save.";
-///                             color: #d1d5db;
-///                             wrap: word-wrap;
-///                         }
-///
-///                         HorizontalLayout {
-///                             spacing: 4px;
-///
-///                             Rectangle {
-///                                 border-radius: 4px;
-///                                 background: #374151;
-///
-///                                 HorizontalLayout {
-///                                     padding: 4px 6px;
-///                                     Text { text: "Ctrl"; color: #fff; font-size: 12px; }
-///                                 }
+///                         Rectangle {
+///                             border-radius: 4px;
+///                             background: #374151;
+///                             HorizontalBox {
+///                                 padding: 4px;
+///                                 Text { text: "Ctrl"; color: #fff; }
 ///                             }
+///                         }
 ///
-///                             Rectangle {
-///                                 border-radius: 4px;
-///                                 background: #374151;
-///
-///                                 HorizontalLayout {
-///                                     padding: 4px 6px;
-///                                     Text { text: "S"; color: #fff; font-size: 12px; }
-///                                 }
+///                         Rectangle {
+///                             border-radius: 4px;
+///                             background: #374151;
+///                             HorizontalBox {
+///                                 padding: 4px;
+///                                 Text { text: "K"; color: #fff; }
 ///                             }
 ///                         }
 ///                     }
@@ -2498,77 +2488,14 @@ export component TooltipArea inherits Empty {
 /// ```
 /// \group:window
 export component ToolTip inherits Empty {
-    /// Text rendered by the active style's tooltip implementation. Setting `text` means the `ToolTip` must remain childless because custom markup lives in the single alternate child instead.
-    /// ```slint
-    /// Button {
-    ///     text: "Save";
-    ///
-    ///     ToolTip {
-    ///         text: "Save the current file";
-    ///     }
-    /// }
-    /// ```
+    /// The text to display in the tooltip.
+    /// Don't set this property when using custom content.
     in property <string> text;
-    /// Placement relative to the pointer or hovered element (<ToolTipPlacement />).
-    ///
-    /// - `pointer`: anchor using the hover position captured when shown; stays fixed until hidden.
-    /// - `above-element` / `below-element` / `left-element` / `right-element`: anchor centered along the hovered element's respective outside edge with a spacing gap.
-    /// ```slint playground
-    /// import { Button } from "std-widgets.slint";
-    ///
-    /// export component Example inherits Window {
-    ///     width: 280px;
-    ///     height: 160px;
-    ///
-    ///     VerticalLayout {
-    ///         alignment: center;
-    ///         spacing: 24px;
-    ///
-    ///         Button {
-    ///             text: "Pointer";
-    ///
-    ///             ToolTip {
-    ///                 placement: pointer;
-    ///                 text: "Shown near the cursor when it appears";
-    ///             }
-    ///         }
-    ///
-    ///         Button {
-    ///             text: "Below";
-    ///
-    ///             ToolTip {
-    ///                 placement: below-element;
-    ///                 text: "Anchored below the button";
-    ///             }
-    ///         }
-    ///     }
-    /// }
-    /// ```
+    /// <ToolTipPlacement />
     in property <ToolTipPlacement> placement;
-    /// Delay before showing the tooltip after hover begins—use larger values when the cursor only glances across controls.
-    /// ```slint playground
-    /// import { Button } from "std-widgets.slint";
-    ///
-    /// export component Example inherits Window {
-    ///     width: 280px;
-    ///     height: 160px;
-    ///
-    ///     VerticalLayout {
-    ///         alignment: center;
-    ///
-    ///         Button {
-    ///             text: "Slow tooltip";
-    ///
-    ///             ToolTip {
-    ///                 delay: 700ms;
-    ///                 text: "Appears after the pointer rests briefly";
-    ///             }
-    ///         }
-    ///     }
-    /// }
-    /// ```
+    /// How long to wait before showing the tooltip after hover begins.
     in property <duration> delay: 500ms;
-    /// Distance between the tooltip and the pointer/hovered element.
+    /// Space between the tooltip and the pointer or hovered element.
     in property <length> offset: 8px;
     //-can_be_declared_without_children_slot
     //-is_non_item_type
