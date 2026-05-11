@@ -392,24 +392,16 @@ pub fn shared_string_from_number_precision(n: f64, precision: usize) -> SharedSt
 /// Convert a string to a float
 pub fn string_to_float(string: &str) -> Option<f32> {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
-        fn parse(s: &str) -> Option<f32> {
-            if matches!(s, "." | "-" | "-.") {
-                return Some(Default::default());
-            }
-
-            s.parse::<f32>().ok() // Because for example appending a `.` to `5.5` is not valid so the last `.` must not be accepted
-        }
-
         let sep = ctx.get().map(|ctx| ctx.locale_decimal_separator()).unwrap_or('.');
 
         if sep == '.' {
-            parse(string)
+            string.parse::<f32>().ok()
         } else {
             if string.contains('.') {
                 return None;
             }
             // Normalize locale separator to '.' because f64::parse only accepts '.'
-            parse(&string.replace(sep, "."))
+            string.replace(sep, ".").parse::<f32>().ok()
         }
     })
 }
@@ -417,9 +409,9 @@ pub fn string_to_float(string: &str) -> Option<f32> {
 #[test]
 fn test_string_to_float() {
     const TEST: &[(&str, Option<f32>)] = &[
-        ("-", Some(0.)),
-        (".", Some(0.)),
-        ("-.", Some(0.)),
+        ("-", None),
+        (".", None),
+        ("-.", None),
         ("-.5", Some(-0.5)),
         ("--", None),
         ("..", None),

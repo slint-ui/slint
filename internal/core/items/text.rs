@@ -2219,6 +2219,22 @@ impl TextInput {
                 let (a, c) = self.selection_anchor_and_cursor();
                 let current = self.text();
                 let candidate = [&current[..a], text_to_insert, &current[c..]].concat();
+
+                if candidate.len() <= 2
+                    && crate::context::GLOBAL_CONTEXT.with(|ctx| {
+                        let sep =
+                            ctx.get().map(|ctx| ctx.locale_decimal_separator()).unwrap_or('.');
+                        let mut it = candidate.chars();
+                        match (it.next(), it.next()) {
+                            (Some('-'), None) => true,
+                            (Some('-'), Some(c2)) => c2 == sep,
+                            (Some(c1), None) => c1 == sep,
+                            _ => false,
+                        }
+                    })
+                {
+                    return true;
+                }
                 return string_to_float(&candidate).is_some();
             }
             InputType::Password | InputType::Text => (),
