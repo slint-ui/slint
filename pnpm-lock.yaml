@@ -362,8 +362,8 @@ importers:
   tools/figma-inspector:
     dependencies:
       figma-kit:
-        specifier: 1.0.0-beta.22
-        version: 1.0.0-beta.22(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+        specifier: 1.0.0-beta.23
+        version: 1.0.0-beta.23(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       html-react-parser:
         specifier: 6.0.1
         version: 6.0.1(@types/react@19.2.14)(react@19.2.6)
@@ -5114,8 +5114,8 @@ packages:
   fft.js@4.0.4:
     resolution: {integrity: sha512-f9c00hphOgeQTlDyavwTtu6RiK8AIFjD6+jvXkNkpeQ7rirK3uFWVpalkoS4LAwbdX7mfZ8aoBfFVQX1Re/8aw==}
 
-  figma-kit@1.0.0-beta.22:
-    resolution: {integrity: sha512-0RQizqyyChYmMdIx/Lc4ED+FpXrl6Yxy9UXypXidrGeWmz/3saRPjI8C3lCQFdLNDAJsZZ1YhFTJSzPQvaHlbg==}
+  figma-kit@1.0.0-beta.23:
+    resolution: {integrity: sha512-QVQK3BUzw1XB6w/7h551NdKQJs3hqOSc+VKOofFHufy2AcVWibnEtpQ33HkcDEs+nhUir5HEIhSN3YqBLSM7wQ==}
     peerDependencies:
       react: ^18.2.0
       react-dom: ^18.2.0
@@ -6561,8 +6561,8 @@ packages:
   remark-stringify@11.0.0:
     resolution: {integrity: sha512-1OSmLd3awB/t8qdoEOMazZkNsfVTeY4fTsgzcQFdXNq8ToTN4ZGwrMnlda4K6smTFKD+GRV6O48i6Z4iKgPPpw==}
 
-  remeda@2.33.7:
-    resolution: {integrity: sha512-cXlyjevWx5AcslOUEETG4o8XYi9UkoCXcJmj7XhPFVbla+ITuOBxv6ijBrmbeg+ZhzmDThkNdO+iXKUfrJep1w==}
+  remeda@2.34.0:
+    resolution: {integrity: sha512-zL4cEPkLHxwmlDRPyvJZjojpG5M5HXrDiABNKof+dq7kkuyQttP6NrF2uJB0DKIU09K8cTq+sQDlbo2r7mdR5Q==}
 
   request-light@0.5.8:
     resolution: {integrity: sha512-3Zjgh+8b5fhRJBQZoy+zbVKpAQGLyka0MPgW3zruTF4dFFJ8Fqcfu9YsAvi/rvdcaTeWG3MkbZv4WKxAn/84Lg==}
@@ -12186,7 +12186,7 @@ snapshots:
 
   fft.js@4.0.4: {}
 
-  figma-kit@1.0.0-beta.22(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
+  figma-kit@1.0.0-beta.23(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
     dependencies:
       '@emmetio/math-expression': 1.0.5
       '@radix-ui/react-alert-dialog': 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -12208,7 +12208,7 @@ snapshots:
       react: 19.2.6
       react-dom: 19.2.6(react@19.2.6)
       react-textarea-autosize: 8.5.9(@types/react@19.2.14)(react@19.2.6)
-      remeda: 2.33.7
+      remeda: 2.34.0
     transitivePeerDependencies:
       - '@types/react'
       - '@types/react-dom'
@@ -14229,7 +14229,7 @@ snapshots:
       mdast-util-to-markdown: 2.1.2
       unified: 11.0.5
 
-  remeda@2.33.7: {}
+  remeda@2.34.0: {}
 
   request-light@0.5.8: {}
 
