@@ -183,6 +183,15 @@ impl<'a, 'id> EvalLocalContext<'a, 'id> {
     }
 }
 
+/// Evaluate `expression` as a length / number and return the resulting f32.
+/// Caller's responsibility to only pass length-typed expressions.
+fn eval_to_f32(expression: &Expression, local_context: &mut EvalLocalContext) -> f32 {
+    match eval_expression(expression, local_context) {
+        Value::Number(n) => n as f32,
+        other => unreachable!("expected length-typed expression; got {other:?} for {expression:?}"),
+    }
+}
+
 /// Evaluate an expression and return a Value as the result of this expression
 pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalContext) -> Value {
     if let Some(r) = &local_context.return_value {
@@ -600,10 +609,17 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 panic!("invalid layout cache")
             }
         }
-        Expression::ComputeBoxLayoutInfo(lay, o) => {
-            crate::eval_layout::compute_box_layout_info(lay, *o, local_context)
+        Expression::ComputeBoxLayoutInfo { layout, orientation, cross_axis_size } => {
+            let cross = cross_axis_size.as_deref().map(|e| eval_to_f32(e, local_context));
+            crate::eval_layout::compute_box_layout_info(layout, *orientation, local_context, cross)
         }
-        Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, orientation } => {
+        Expression::ComputeGridLayoutInfo {
+            layout_organized_data_prop,
+            layout,
+            orientation,
+            cross_axis_size,
+        } => {
+            let cross = cross_axis_size.as_deref().map(|e| eval_to_f32(e, local_context));
             let cache = load_property_helper(
                 &ComponentInstance::InstanceRef(local_context.component_instance),
                 &layout_organized_data_prop.element(),
@@ -616,6 +632,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     &organized_data,
                     *orientation,
                     local_context,
+                    cross,
                 )
             } else {
                 panic!("invalid layout organized data cache")
@@ -648,8 +665,14 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::SolveFlexboxLayout(layout) => {
             crate::eval_layout::solve_flexbox_layout(layout, local_context)
         }
-        Expression::ComputeFlexboxLayoutInfo(layout, orientation) => {
-            crate::eval_layout::compute_flexbox_layout_info(layout, *orientation, local_context)
+        Expression::ComputeFlexboxLayoutInfo { layout, orientation, cross_axis_size } => {
+            let cross = cross_axis_size.as_deref().map(|e| eval_to_f32(e, local_context));
+            crate::eval_layout::compute_flexbox_layout_info(
+                layout,
+                *orientation,
+                local_context,
+                cross,
+            )
         }
         Expression::MinMax { ty: _, op, lhs, rhs } => {
             let Value::Number(lhs) = eval_expression(lhs, local_context) else {

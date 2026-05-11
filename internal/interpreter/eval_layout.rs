@@ -38,6 +38,7 @@ pub(crate) fn compute_grid_layout_info(
     organized_data: &GridLayoutOrganizedData,
     orientation: Orientation,
     local_context: &mut EvalLocalContext,
+    cross_axis_size: Option<f32>,
 ) -> Value {
     let component = local_context.component_instance;
     let expr_eval = |nr: &NamedReference| -> f32 {
@@ -46,8 +47,13 @@ pub(crate) fn compute_grid_layout_info(
     let (padding, spacing) = padding_and_spacing(&grid_layout.geometry, orientation, &expr_eval);
     let repeater_steps = grid_repeater_steps(grid_layout, local_context);
     let repeater_indices = grid_repeater_indices(grid_layout, local_context, &repeater_steps);
-    let constraints =
-        grid_layout_constraints(grid_layout, orientation, local_context, &repeater_steps);
+    let constraints = grid_layout_constraints(
+        grid_layout,
+        orientation,
+        local_context,
+        &repeater_steps,
+        cross_axis_size,
+    );
     core_layout::grid_layout_info(
         organized_data.clone(),
         Slice::from_slice(constraints.as_slice()),
@@ -65,12 +71,14 @@ pub(crate) fn compute_box_layout_info(
     box_layout: &BoxLayout,
     orientation: Orientation,
     local_context: &mut EvalLocalContext,
+    cross_axis_size: Option<f32>,
 ) -> Value {
     let component = local_context.component_instance;
     let expr_eval = |nr: &NamedReference| -> f32 {
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     };
-    let (cells, alignment) = box_layout_data(box_layout, orientation, component, &expr_eval, None);
+    let (cells, alignment) =
+        box_layout_data(box_layout, orientation, component, &expr_eval, None, cross_axis_size);
     let (padding, spacing) = padding_and_spacing(&box_layout.geometry, orientation, &expr_eval);
     if orientation == box_layout.orientation {
         core_layout::box_layout_info(Slice::from(cells.as_slice()), spacing, &padding, alignment)
@@ -120,7 +128,7 @@ pub(crate) fn solve_grid_layout(
     let repeater_steps = grid_repeater_steps(grid_layout, local_context);
     let repeater_indices = grid_repeater_indices(grid_layout, local_context, &repeater_steps);
     let constraints =
-        grid_layout_constraints(grid_layout, orientation, local_context, &repeater_steps);
+        grid_layout_constraints(grid_layout, orientation, local_context, &repeater_steps, None);
 
     let (padding, spacing) = padding_and_spacing(&grid_layout.geometry, orientation, &expr_eval);
     let size_ref = grid_layout.geometry.rect.size_reference(orientation);
@@ -159,6 +167,7 @@ pub(crate) fn solve_box_layout(
         component,
         &expr_eval,
         Some(&mut repeated_indices),
+        None,
     );
     let (padding, spacing) = padding_and_spacing(&box_layout.geometry, orientation, &expr_eval);
     let size = box_layout.geometry.rect.size_reference(orientation).map(&expr_eval).unwrap_or(0.);
@@ -374,6 +383,7 @@ pub(crate) fn compute_flexbox_layout_info(
     flexbox_layout: &i_slint_compiler::layout::FlexboxLayout,
     orientation: Orientation,
     local_context: &mut EvalLocalContext,
+    cross_axis_size: Option<f32>,
 ) -> Value {
     let component = local_context.component_instance;
     let expr_eval = |nr: &NamedReference| -> f32 {
@@ -381,7 +391,7 @@ pub(crate) fn compute_flexbox_layout_info(
     };
 
     let (cells_h, cells_v, _repeated_indices) =
-        flexbox_layout_data(flexbox_layout, component, &expr_eval, local_context, None);
+        flexbox_layout_data(flexbox_layout, component, &expr_eval, local_context, cross_axis_size);
 
     // Get the direction from the property binding
     let direction = flexbox_layout_direction(flexbox_layout, local_context);
@@ -553,7 +563,7 @@ fn flexbox_layout_data(
                 component,
                 &window_adapter,
                 Orientation::Vertical,
-                width_constraint,
+                Some(width_constraint),
             );
             fill_layout_info_constraints(
                 &mut layout_info_v,
@@ -805,6 +815,7 @@ fn grid_layout_constraints(
     orientation: Orientation,
     ctx: &mut EvalLocalContext,
     repeater_steps: &[u32],
+    cross_axis_size: Option<f32>,
 ) -> Vec<core_layout::LayoutItemInfo> {
     let component = ctx.component_instance;
     let expr_eval = |nr: &NamedReference| -> f32 {
@@ -913,11 +924,14 @@ fn grid_layout_constraints(
             }
             repeater_idx += 1;
         } else {
-            let mut layout_info = get_layout_info(
+            let cross_axis =
+                cross_axis_size_for_cell(&layout_elem.item.element, orientation, cross_axis_size);
+            let mut layout_info = get_layout_info_with_constraint(
                 &layout_elem.item.element,
                 component,
                 &component.window_adapter(),
                 orientation,
+                cross_axis,
             );
             fill_layout_info_constraints(
                 &mut layout_info,
@@ -938,6 +952,7 @@ fn box_layout_data(
     component: InstanceRef,
     expr_eval: &impl Fn(&NamedReference) -> f32,
     mut repeater_indices: Option<&mut Vec<u32>>,
+    cross_axis_size: Option<f32>,
 ) -> (Vec<core_layout::LayoutItemInfo>, i_slint_core::items::LayoutAlignment) {
     let window_adapter = component.window_adapter();
     let mut cells = Vec::with_capacity(box_layout.elems.len());
@@ -956,8 +971,14 @@ fn box_layout_data(
             );
         } else {
             // Collect non repeated elements
-            let mut layout_info =
-                get_layout_info(&cell.element, component, &window_adapter, orientation);
+            let cross_axis = cross_axis_size_for_cell(&cell.element, orientation, cross_axis_size);
+            let mut layout_info = get_layout_info_with_constraint(
+                &cell.element,
+                component,
+                &window_adapter,
+                orientation,
+                cross_axis,
+            );
             fill_layout_info_constraints(
                 &mut layout_info,
                 &cell.constraints,
@@ -1045,16 +1066,37 @@ pub(crate) fn get_layout_info(
     window_adapter: &Rc<dyn WindowAdapter>,
     orientation: Orientation,
 ) -> core_layout::LayoutInfo {
-    get_layout_info_with_constraint(elem, component, window_adapter, orientation, -1.)
+    get_layout_info_with_constraint(elem, component, window_adapter, orientation, None)
 }
 
-fn get_layout_info_with_constraint(
+pub(crate) fn get_layout_info_with_constraint(
     elem: &ElementRc,
     component: InstanceRef,
     window_adapter: &Rc<dyn WindowAdapter>,
     orientation: Orientation,
-    cross_axis_constraint: f32,
+    cross_axis_constraint: Option<f32>,
 ) -> core_layout::LayoutInfo {
+    // Components with a synthesized `layoutinfo-v-with-constraint`
+    // function: call it when the parent has supplied a cross-axis width
+    // and we are asking for vertical info. This breaks the recursion that
+    // would otherwise occur via the descendant's `width` property read.
+    let livc_nr = if orientation == Orientation::Vertical && cross_axis_constraint.is_some() {
+        elem.borrow().layout_info_v_with_constraint.clone()
+    } else {
+        None
+    };
+    if let Some(livc_nr) = livc_nr {
+        let width = cross_axis_constraint.unwrap();
+        let v = eval::call_function(
+            &eval::ComponentInstance::InstanceRef(component),
+            &livc_nr.element(),
+            livc_nr.name(),
+            vec![Value::Number(width as f64)],
+        )
+        .expect("layoutinfo-v-with-constraint is a synthesized pure function");
+        return v.try_into().unwrap();
+    }
+
     let elem = elem.borrow();
     if let Some(nr) = elem.layout_info_prop(orientation) {
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
@@ -1069,10 +1111,38 @@ fn get_layout_info_with_constraint(
         unsafe {
             item.item_from_item_tree(component.as_ptr()).as_ref().layout_info(
                 to_runtime(orientation),
-                cross_axis_constraint,
+                cross_axis_constraint.unwrap_or(-1.),
                 window_adapter,
                 &ItemRc::new(vtable::VRc::into_dyn(item_comp), item.item_index()),
             )
         }
     }
+}
+
+/// Decide the cross-axis (width) constraint to forward to a cell's
+/// vertical layout-info call: returns `Some` only when this cell is
+/// height-for-width (a builtin Text with wrap, Image, or a component
+/// with a synthesized `layoutinfo-v-with-constraint`) AND the parent
+/// has supplied the cross-axis dimension.
+fn cross_axis_size_for_cell(
+    elem: &ElementRc,
+    orientation: Orientation,
+    parent_cross_axis_size: Option<f32>,
+) -> Option<f32> {
+    if orientation != Orientation::Vertical {
+        return None;
+    }
+    let width = parent_cross_axis_size?;
+    let elem_b = elem.borrow();
+    if elem_b.layout_info_v_with_constraint.is_some() {
+        return Some(width);
+    }
+    // For builtin h-for-w items, the existing VTable cross_axis_constraint
+    // parameter mechanism is what consumes the value; conservatively
+    // forward it for any element without its own layoutinfo-v property
+    // (i.e. anything that ends up calling the builtin VTable).
+    if elem_b.layout_info_prop(Orientation::Vertical).is_none() {
+        return Some(width);
+    }
+    None
 }

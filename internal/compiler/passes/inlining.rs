@@ -602,8 +602,8 @@ fn fixup_element_references(expr: &mut Expression, mapping: &Mapping) {
     };
     match expr {
         Expression::ElementReference(element) => fx(element),
-        Expression::SolveBoxLayout(l, _) | Expression::ComputeBoxLayoutInfo(l, _) => {
-            for e in &mut l.elems {
+        Expression::SolveBoxLayout(layout, _) | Expression::ComputeBoxLayoutInfo { layout, .. } => {
+            for e in &mut layout.elems {
                 fxe(&mut e.element);
             }
         }
@@ -616,7 +616,7 @@ fn fixup_element_references(expr: &mut Expression, mapping: &Mapping) {
             layout.clone_cells();
         }
         Expression::SolveFlexboxLayout(layout)
-        | Expression::ComputeFlexboxLayoutInfo(layout, _) => {
+        | Expression::ComputeFlexboxLayoutInfo { layout, .. } => {
             for e in &mut layout.elems {
                 fxe(&mut e.item.element);
             }

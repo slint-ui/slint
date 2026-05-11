@@ -234,7 +234,11 @@ fn simplify_expression(
         Expression::LayoutCacheAccess { .. } => false,
         Expression::OrganizeGridLayout { .. } => false,
         Expression::SolveBoxLayout { .. } => false,
+        Expression::SolveGridLayout { .. } => false,
+        Expression::SolveFlexboxLayout { .. } => false,
         Expression::ComputeBoxLayoutInfo { .. } => false,
+        Expression::ComputeGridLayoutInfo { .. } => false,
+        Expression::ComputeFlexboxLayoutInfo { .. } => false,
         _ => {
             let mut result = true;
             expr.visit_mut(|expr| result &= simplify_expression(expr, ga, cache));

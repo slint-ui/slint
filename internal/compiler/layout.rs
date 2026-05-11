@@ -732,18 +732,9 @@ pub enum BuiltinFilter {
 }
 
 /// Get the implicit layout info of a particular element.
+/// When `constraint` is `Some`, it's passed as the `cross_axis_constraint`
+/// parameter to `Item::layout_info` for height-for-width support.
 pub fn implicit_layout_info_call(
-    elem: &ElementRc,
-    orientation: Orientation,
-    filter: BuiltinFilter,
-) -> Option<Expression> {
-    implicit_layout_info_call_with_constraint(elem, orientation, filter, None)
-}
-
-/// Like `implicit_layout_info_call`, but with an optional cross-axis constraint.
-/// When `constraint` is Some, it's passed as the cross_axis_constraint parameter
-/// to Item::layout_info for height-for-width support.
-pub fn implicit_layout_info_call_with_constraint(
     elem: &ElementRc,
     orientation: Orientation,
     filter: BuiltinFilter,
