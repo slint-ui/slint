@@ -1246,7 +1246,7 @@ pub fn password_text_height(
     let mut para_y = 0.0;
     for para in paragraphs_without_linebreaks_password_character.iter_mut() {
         para.layout.break_all_lines(None);
-        para.layout.align(None, parley::Alignment::Left, parley::AlignmentOptions::default());
+        para.layout.align(parley::Alignment::Left, parley::AlignmentOptions::default());
 
         para.y = PhysicalLength::new(para_y);
         para_y += para.layout.height();
