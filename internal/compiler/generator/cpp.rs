@@ -2382,6 +2382,7 @@ fn generate_sub_component(
         properties_init_code.push(format!("{p}.set_constant();"));
     }
 
+    // Create all member components for the header
     for item in &component.items {
         target_struct.members.push((
             field_access,
