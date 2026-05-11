@@ -292,6 +292,13 @@ fn inline_element(
             elem_mut.layout_info_prop = Some(orig.clone());
         }
     }
+    if let Some(orig) = &inlined_component.root_element.borrow().layout_info_v_with_constraint {
+        if let Some(_new) = &mut elem_mut.layout_info_v_with_constraint {
+            todo!("Merge layout infos");
+        } else {
+            elem_mut.layout_info_v_with_constraint = Some(orig.clone());
+        }
+    }
 
     core::mem::drop(elem_mut);
 

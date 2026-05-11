@@ -1185,7 +1185,15 @@ fn generate_layout_padding_and_spacing(
 fn is_height_for_width_cell(elem: &ElementRc) -> bool {
     let elem_b = elem.borrow();
 
-    if elem_b.layout_info_v_with_constraint.is_some() {
+    // Component path: LIVC may live on `elem` itself or on the base
+    // component's root_element.
+    let has_livc = elem_b.layout_info_v_with_constraint.is_some()
+        || matches!(
+            &elem_b.base_type,
+            crate::langtype::ElementType::Component(base_comp)
+                if base_comp.root_element.borrow().layout_info_v_with_constraint.is_some()
+        );
+    if has_livc {
         return true;
     }
 
@@ -1214,13 +1222,15 @@ fn is_height_for_width_cell(elem: &ElementRc) -> bool {
 /// is the body of a `layoutinfo-v-with-constraint` function which
 /// received the width as a parameter).
 ///
-/// Precondition: `is_height_for_width_cell(elem)` is true.
+/// Precondition: `is_height_for_width_cell(elem)` is true. After the
+/// LIVC synthesis pass, any element with `layout_info_v_with_constraint`
+/// also has `layout_info_prop` set (LIVC is synthesized from the existing
+/// `layoutinfo-v` binding), so the `layout_info_prop` branch covers it.
 fn default_cross_axis_constraint(elem: &ElementRc) -> Option<crate::expression_tree::Expression> {
     let elem_b = elem.borrow();
 
-    // Component path: parametrized layout-info is available.
-    if elem_b.layout_info_v_with_constraint.is_some() {
-        let (h_nr, _v_nr) = elem_b.layout_info_prop.as_ref()?;
+    // Layouts and components with their own resolved layout_info_prop.
+    if let Some((h_nr, _v_nr)) = elem_b.layout_info_prop.as_ref() {
         return Some(crate::expression_tree::Expression::StructFieldAccess {
             base: Box::new(crate::expression_tree::Expression::PropertyReference(h_nr.clone())),
             name: "preferred".into(),
@@ -1228,7 +1238,7 @@ fn default_cross_axis_constraint(elem: &ElementRc) -> Option<crate::expression_t
     }
     drop(elem_b);
 
-    // Builtin path.
+    // Builtins and component instances (looked up via the base component).
     crate::layout::implicit_layout_info_call(
         elem,
         Orientation::Horizontal,
