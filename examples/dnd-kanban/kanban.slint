@@ -9,8 +9,8 @@ export struct TaskData {
 }
 
 // Bridges between Slint's opaque `data-transfer` type and the typed
-// Rust payload we attach via `DataTransfer::set_user_data`. The
-// implementations live in Rust.
+// host-language payload we attach via `DataTransfer::set_user_data`.
+// The implementations live in the host language.
 export global Api {
     pure callback make-data(task: TaskData, source-column: int, source-index: int) -> data-transfer;
     pure callback can-drop(data: data-transfer, target-column: int) -> bool;

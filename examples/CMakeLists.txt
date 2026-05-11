@@ -16,6 +16,7 @@ endif()
 
 if (TARGET Slint::slint-compiler)
     add_subdirectory(carousel/cpp/)
+    add_subdirectory(dnd-kanban/)
     add_subdirectory(todo/cpp/)
     add_subdirectory(gallery/)
     add_subdirectory(memory/)
