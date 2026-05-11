@@ -8,7 +8,7 @@ use winit::dpi::PhysicalSize;
 
 use slint::wgpu_28::wgpu::{
     Device, Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-    wgc::api::Dx12,
+    hal, wgc::api::Dx12,
 };
 
 use windows::{
@@ -206,7 +206,7 @@ impl super::GPURenderingContext {
                 Extent3d { width: size.width, height: size.height, depth_or_array_layers: 1 };
 
             let wgpu_texture = wgpu_device.create_texture_from_hal::<Dx12>(
-                <Dx12 as wgpu_hal::Api>::Device::texture_from_raw(
+                <Dx12 as hal::Api>::Device::texture_from_raw(
                     dx12_resource,
                     TextureFormat::Rgba8Unorm,
                     TextureDimension::D2,

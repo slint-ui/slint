@@ -11,11 +11,11 @@ slint::include_modules!();
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn load_font_from_bytes(font_data: js_sys::Uint8Array, locale: &str) -> Result<(), JsValue> {
-    use slint::fontique_08::fontique;
+    use slint::fontique_09::fontique;
 
     let font_data = font_data.to_vec();
     let blob = fontique::Blob::new(std::sync::Arc::new(font_data));
-    let mut collection = slint::fontique_08::shared_collection();
+    let mut collection = slint::fontique_09::shared_collection();
     let fonts = collection.register_fonts(blob, None);
 
     scripts_for_locale(locale, |script| {
@@ -29,9 +29,9 @@ pub fn load_font_from_bytes(font_data: js_sys::Uint8Array, locale: &str) -> Resu
 #[cfg(target_arch = "wasm32")]
 fn scripts_for_locale(
     locale: &str,
-    mut callback: impl FnMut(&slint::fontique_08::fontique::Script),
+    mut callback: impl FnMut(&slint::fontique_09::fontique::Script),
 ) {
-    use slint::fontique_08::fontique;
+    use slint::fontique_09::fontique;
 
     let Ok(locale) = icu_locale_core::Locale::try_from_str(locale) else {
         return;

@@ -10,7 +10,6 @@ export component LineEditBase implements LineEditInterface inherits Rectangle {
     text <=> text-input.text;
     enabled <=> text-input.enabled;
     has-focus: text-input.has-focus;
-    in property <InputType> input-type;
     // When true, the password input shows as plain text.
     // Cleared automatically on focus loss.
     in-out property <bool> password-revealed: false;

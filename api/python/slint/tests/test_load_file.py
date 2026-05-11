@@ -94,6 +94,19 @@ def test_load_file_wrapper() -> None:
     del instance
 
 
+def test_system_tray_has_no_window_attribute() -> None:
+    # No Python component currently exposes a `window` attribute, so this
+    # check is also true for a windowed component. The point of the test is
+    # forward-looking: if `window` ever gets added to `slint.Component` (where
+    # it would naturally live), this assertion catches that change leaking
+    # onto a SystemTrayIcon, which is not a window.
+    module = load_file(base_dir() / "test-system-tray.slint")
+
+    tray = module.Tray()
+    assert not hasattr(tray, "window")
+    del tray
+
+
 def test_constructor_kwargs() -> None:
     module = load_file(base_dir() / "test-load-file.slint", quiet=False)
 

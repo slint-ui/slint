@@ -251,6 +251,15 @@ impl LayoutWithoutLineBreaksBuilder {
             TextWrap::NoWrap => parley::style::OverflowWrap::Normal,
             TextWrap::WordWrap | TextWrap::CharWrap => parley::style::OverflowWrap::Anywhere,
         }));
+        if self.text_wrap == TextWrap::NoWrap {
+            // Parley 0.9 removed the width parameter from `Layout::align()` and instead
+            // uses the `max_advance` set by `break_all_lines()` as the alignment container
+            // width. To allow passing `max_physical_width` to `break_all_lines` for alignment
+            // purposes without triggering actual line wrapping, we must set `TextWrapMode::NoWrap`.
+            builder.push_default(parley::StyleProperty::TextWrapMode(
+                parley::style::TextWrapMode::NoWrap,
+            ));
+        }
 
         builder.push_default(parley::StyleProperty::Brush(Brush {
             override_fill_color: None,
@@ -429,8 +438,6 @@ fn create_text_paragraphs(
     paragraphs
 }
 
-/// `text_wrap` is passed separately from the shaped paragraphs because
-/// `text_layout_info()` calls `text_size()` with `NoWrap` for horizontal sizing.
 /// Note: parley currently uses `WordBreak` while shaping via `analyze_text()`,
 /// so shaped paragraphs aren't identical across wrap modes. This is why `text_size()`
 /// doesn't use the `TextLayoutCache` — it would be incorrect to share cached paragraphs
@@ -440,7 +447,6 @@ fn layout(
     font_context: &mut parley::FontContext,
     mut paragraphs: Vec<TextParagraph>,
     scale_factor: ScaleFactor,
-    text_wrap: TextWrap,
     options: LayoutOptions,
 ) -> Layout {
     let max_physical_width = options.max_width.map(|max_width| max_width * scale_factor);
@@ -473,11 +479,8 @@ fn layout(
 
     let mut para_y = 0.0;
     for para in paragraphs.iter_mut() {
-        para.layout.break_all_lines(
-            max_physical_width.filter(|_| text_wrap != TextWrap::NoWrap).map(|width| width.get()),
-        );
+        para.layout.break_all_lines(max_physical_width.map(|width| width.get()));
         para.layout.align(
-            max_physical_width.map(|width| width.get()),
             match options.horizontal_align {
                 TextHorizontalAlignment::Start | TextHorizontalAlignment::Left => {
                     parley::Alignment::Left
@@ -620,7 +623,7 @@ impl TextParagraph {
                     // we want to place an elipsis on the last line and not draw any lines beyond the
                     // given max height.
                     Some(max_physical_height) if layout.elision_info.is_some() => {
-                        max_physical_height.get().ceil() >= metrics.max_coord
+                        max_physical_height.get().ceil() >= metrics.block_max_coord
                     }
                     _ => true,
                 }
@@ -1074,14 +1077,12 @@ pub fn draw_text(
 
     let (horizontal_align, vertical_align) = text.alignment();
     let text_overflow = text.overflow();
-    let text_wrap = text.wrap();
 
     let layout = layout(
         &layout_builder,
         &mut font_ctx,
         guard.paragraphs.take().unwrap_or_default(),
         scale_factor,
-        text_wrap,
         LayoutOptions {
             horizontal_align,
             vertical_align,
@@ -1168,7 +1169,6 @@ pub fn link_under_cursor(
         font_context,
         guard.paragraphs.take().unwrap_or_default(),
         scale_factor,
-        text.wrap(),
         LayoutOptions {
             horizontal_align,
             vertical_align,
@@ -1327,7 +1327,6 @@ pub fn draw_text_input(
         &mut font_ctx,
         paragraphs_without_linebreaks,
         scale_factor,
-        text_input.wrap(),
         layout_options,
     );
 
@@ -1421,7 +1420,6 @@ pub fn text_size(
         &mut font_ctx,
         paragraphs_without_linebreaks,
         scale_factor,
-        text_wrap,
         options,
     );
     Some(PhysicalSize::from_lengths(layout.max_width, layout.height) / scale_factor)
@@ -1545,7 +1543,6 @@ pub fn text_input_byte_offset_for_position(
         &mut font_ctx,
         paragraphs_without_linebreaks,
         scale_factor,
-        text_input.wrap(),
         options,
     );
     let byte_offset = layout.byte_offset_from_point(pos);
@@ -1610,7 +1607,6 @@ pub fn text_input_cursor_rect_for_byte_offset(
         &mut font_ctx,
         paragraphs_without_linebreaks,
         scale_factor,
-        text_input.wrap(),
         options,
     );
     let cursor_rect = layout

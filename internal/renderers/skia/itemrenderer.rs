@@ -11,7 +11,8 @@ use i_slint_core::graphics::boxshadowcache::BoxShadowCache;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::item_rendering::{
-    CachedRenderingData, ItemCache, ItemRenderer, ItemRendererFeatures, RenderImage, RenderText,
+    CachedRenderingData, ItemCache, ItemRenderer, ItemRendererFeatures, LayerRenderer, RenderImage,
+    RenderText,
 };
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
 use i_slint_core::lengths::{
@@ -39,7 +40,7 @@ pub struct SkiaItemRenderer<'a> {
     state_stack: Vec<RenderState>,
     current_state: RenderState,
     image_cache: &'a ItemCache<Option<skia_safe::Image>>,
-    layer_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Image)>>,
+    layer_cache: &'a ItemCache<Option<(PhysicalPoint, skia_safe::Image)>>,
     path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
     text_layout_cache: &'a sharedparley::TextLayoutCache,
     box_shadow_cache: &'a mut SkiaBoxShadowCache,
@@ -51,7 +52,7 @@ impl<'a> SkiaItemRenderer<'a> {
         window: &'a i_slint_core::api::Window,
         surface: Option<&'a dyn crate::Surface>,
         image_cache: &'a ItemCache<Option<skia_safe::Image>>,
-        layer_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Image)>>,
+        layer_cache: &'a ItemCache<Option<(PhysicalPoint, skia_safe::Image)>>,
         path_cache: &'a ItemCache<Option<(Vector2D<f32, PhysicalPx>, skia_safe::Path)>>,
         text_layout_cache: &'a sharedparley::TextLayoutCache,
         box_shadow_cache: &'a mut SkiaBoxShadowCache,
@@ -332,18 +333,9 @@ impl<'a> SkiaItemRenderer<'a> {
     }
 
     fn render_and_blend_layer(&mut self, item_rc: &ItemRc) -> RenderingResult {
-        let window_adapter = self.window().window_adapter();
-        let current_clip = self.get_current_clip();
-        if let Some((layer_offset, layer_image)) = self.render_layer(item_rc, &|| {
-            // We don't need to include the size of the "layer" item itself, since it has no content.
-            // But intersect with the union of the clip with the geometry to make sure we don't
-            // render insanely large surface.
-            i_slint_core::properties::evaluate_no_tracking(|| {
-                i_slint_core::item_rendering::item_children_bounding_rect(item_rc, &window_adapter)
-                    .intersection(&current_clip.union(&item_rc.geometry()))
-                    .unwrap_or_default()
-            })
-        }) {
+        if let Some((layer_offset, layer_image)) =
+            i_slint_core::item_rendering::render_layer(self, item_rc)
+        {
             self.canvas.translate(skia_safe::Vector::from((layer_offset.x, layer_offset.y)));
             let _saved_canvas = self.pixel_align_origin_auto_restore();
             self.canvas.draw_image_with_sampling_options(
@@ -354,49 +346,6 @@ impl<'a> SkiaItemRenderer<'a> {
             );
         }
         RenderingResult::ContinueRenderingWithoutChildren
-    }
-
-    fn render_layer(
-        &mut self,
-        item_rc: &ItemRc,
-        layer_bounding_rect_fn: &dyn Fn() -> LogicalRect,
-    ) -> Option<(Vector2D<f32, PhysicalPx>, skia_safe::Image)> {
-        self.layer_cache.get_or_update_cache_entry(item_rc, || {
-            let bounding_rect = layer_bounding_rect_fn();
-            let physical_origin = bounding_rect.origin * self.scale_factor;
-            let layer_size = bounding_rect.size * self.scale_factor;
-
-            let image_info = skia_safe::ImageInfo::new(
-                to_skia_size(&layer_size).to_ceil(),
-                skia_safe::ColorType::RGBA8888,
-                skia_safe::AlphaType::Premul,
-                None,
-            );
-            let mut surface = self.canvas.new_surface(&image_info, None)?;
-            let canvas = surface.canvas();
-            canvas.clear(skia_safe::Color::TRANSPARENT);
-
-            let mut sub_renderer = SkiaItemRenderer::new(
-                canvas,
-                self.window,
-                self.surface,
-                self.image_cache,
-                self.layer_cache,
-                self.path_cache,
-                self.text_layout_cache,
-                self.box_shadow_cache,
-            );
-            sub_renderer.translate(-bounding_rect.origin.to_vector());
-
-            i_slint_core::item_rendering::render_item_children(
-                &mut sub_renderer,
-                item_rc.item_tree(),
-                item_rc.index() as isize,
-                &WindowInner::from_pub(self.window).window_adapter(),
-            );
-
-            Some((physical_origin.to_vector(), surface.image_snapshot()))
-        })
     }
 
     // Same as pixel_align_origin_auto_restore() but can be used across function calls where
@@ -955,6 +904,60 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             self.image_cache.release(self_rc);
             RenderingResult::ContinueRenderingChildren
         }
+    }
+}
+
+impl<'a> LayerRenderer<'a> for SkiaItemRenderer<'a> {
+    type LayerTarget = skia_safe::Surface;
+    type Image = skia_safe::Image;
+
+    fn layer_cache(&self) -> &'a ItemCache<Option<(PhysicalPoint, Self::Image)>> {
+        self.layer_cache
+    }
+
+    fn create_layer_target(
+        &mut self,
+        _item_rc: &ItemRc,
+        physical_size: euclid::Size2D<f32, PhysicalPx>,
+    ) -> Option<Self::LayerTarget> {
+        let image_info = skia_safe::ImageInfo::new(
+            to_skia_size(&physical_size).to_ceil(),
+            skia_safe::ColorType::RGBA8888,
+            skia_safe::AlphaType::Premul,
+            None,
+        );
+        self.canvas.new_surface(&image_info, None)
+    }
+
+    fn render_into_layer(
+        &mut self,
+        mut surface: Self::LayerTarget,
+        item_rc: &ItemRc,
+        bounding_rect: LogicalRect,
+    ) -> Self::Image {
+        let canvas = surface.canvas();
+        canvas.clear(skia_safe::Color::TRANSPARENT);
+
+        let mut sub_renderer = SkiaItemRenderer::new(
+            canvas,
+            self.window,
+            self.surface,
+            self.image_cache,
+            self.layer_cache,
+            self.path_cache,
+            self.text_layout_cache,
+            self.box_shadow_cache,
+        );
+        sub_renderer.translate(-bounding_rect.origin.to_vector());
+
+        i_slint_core::item_rendering::render_item_children(
+            &mut sub_renderer,
+            item_rc.item_tree(),
+            item_rc.index() as isize,
+            &WindowInner::from_pub(self.window).window_adapter(),
+        );
+
+        surface.image_snapshot()
     }
 }
 

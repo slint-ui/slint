@@ -8,7 +8,7 @@
 //! This pass will attempt to assign a type to these based on the type of property they alias.
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::Expression;
+use crate::expression_tree::{Expression, TwoWayBinding};
 use crate::langtype::Type;
 use crate::lookup::LookupCtx;
 use crate::object_tree::{Document, ElementRc};
@@ -102,23 +102,37 @@ fn resolve_alias(
     drop(borrow);
 
     let mut ty = Type::Invalid;
-    if let Some(twb) = &twb {
-        let element = twb.property.element();
-        let same_element = Rc::ptr_eq(&element, elem);
-        if same_element && twb.property.name() == prop {
-            diag.push_error(
-                "Cannot alias to itself".to_string(),
-                &elem.borrow().property_declarations[prop].type_node(),
-            );
+    match &twb {
+        Some(twb @ TwoWayBinding::Property { property, .. }) => {
+            let element = property.element();
+            let same_element = Rc::ptr_eq(&element, elem);
+            if same_element && property.name() == prop {
+                diag.push_error(
+                    "Cannot alias to itself".to_string(),
+                    &elem.borrow().property_declarations[prop].type_node(),
+                );
+                return;
+            }
+            ty = twb.ty();
+            if matches!(ty, Type::InferredCallback | Type::InferredProperty) {
+                let s = if same_element { scope } else { &recompute_scope(&element) };
+                resolve_alias(&element, property.name(), s, type_register, diag);
+                ty = twb.ty();
+            }
+        }
+        Some(TwoWayBinding::ModelData { .. }) if old_type == Type::InferredProperty => {
+            // Defer to `resolve_expressions`: the model expression is not
+            // resolved yet. Restore the `InferredProperty` marker
+            // (replaced by `Invalid` above as the recursion guard).
+            elem.borrow_mut().property_declarations.get_mut(prop).unwrap().property_type = old_type;
             return;
         }
-        ty = twb.ty();
-        if matches!(ty, Type::InferredCallback | Type::InferredProperty) {
-            let s = if same_element { scope } else { &recompute_scope(&element) };
-            resolve_alias(&element, twb.property.name(), s, type_register, diag);
-            ty = twb.ty();
+        Some(TwoWayBinding::ModelData { .. }) => {
+            // `InferredCallback`: fall through with `ty = Invalid` so the
+            // callback check below reports the error.
         }
-    }
+        None => (),
+    };
 
     if old_type == Type::InferredProperty {
         if !ty.is_property_type() {
@@ -139,8 +153,7 @@ fn resolve_alias(
                     &elem.borrow().property_declarations[prop].type_node(),
                 );
             }
-        } else {
-            let nr = twb.unwrap().property;
+        } else if let Some(nr) = twb.unwrap().property() {
             let is_global = nr.element().borrow().base_type == crate::langtype::ElementType::Global;
             let purity = nr.element().borrow().lookup_property(nr.name()).declared_pure;
             let mut elem = elem.borrow_mut();

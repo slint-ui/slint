@@ -6,10 +6,9 @@
 #![warn(missing_docs)]
 //! Exposed Window API
 use crate::api::{
-    CloseRequestResponse, LogicalPosition, PhysicalPosition, PhysicalSize, PlatformError, Window,
-    WindowPosition, WindowSize,
+    CloseRequestResponse, LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize,
+    PlatformError, Window, WindowPosition, WindowSize,
 };
-use crate::graphics::Color;
 use crate::input::{
     ClickState, FocusEvent, FocusReason, InternalKeyEvent, KeyEventResult, KeyEventType, Keys,
     MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase, TouchState,
@@ -19,12 +18,12 @@ use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
-use crate::items::{ColorScheme, InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
+use crate::items::{InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
-use crate::{Callback, SharedString, SharedVector};
+use crate::{Callback, Coord, SharedString, SharedVector};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use alloc::vec::Vec;
@@ -177,13 +176,18 @@ pub trait WindowAdapterInternal: core::any::Any {
     ) {
     }
 
+    /// Get the parent window adapter of this window adapter
+    fn get_parent(&self) -> Option<Rc<dyn WindowAdapter>> {
+        None
+    }
+
     /// Create a window for a popup.
-    ///
-    /// `geometry` is the location of the popup in the window coordinate
+    /// This function will create only the window adapter but does not show the popup it self
+    /// Use this window adapter to create a new popup window and show it with `show_popup()`
     ///
     /// If this function return None (the default implementation), then the
     /// popup will be rendered within the window itself.
-    fn create_popup(&self, _geometry: LogicalRect) -> Option<Rc<dyn WindowAdapter>> {
+    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
         None
     }
 
@@ -197,16 +201,6 @@ pub trait WindowAdapterInternal: core::any::Any {
     /// Handle focus change
     // used for accessibility
     fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {}
-
-    /// returns the color scheme used
-    fn color_scheme(&self) -> ColorScheme {
-        ColorScheme::Unknown
-    }
-
-    /// Returns the system accent color, or transparent if the platform doesn't provide one.
-    fn accent_color(&self) -> Color {
-        Color::default()
-    }
 
     /// Returns whether we can have a native menu bar
     fn supports_native_menu_bar(&self) -> bool {
@@ -584,6 +578,30 @@ impl WindowInner {
         self.component.borrow().upgrade()
     }
 
+    /// Walk the component tree and every active popup to materialize every
+    /// Repeater, Conditional and ComponentContainer.  Runs change handlers
+    /// and the instantiation pass in a loop because init callbacks may set
+    /// properties that trigger change handlers, and change handlers may
+    /// make new conditionals/repeaters dirty.
+    pub fn ensure_tree_instantiated(&self) {
+        // Instantiation runs first so that ListView's ensure_updated_listview
+        // sees the model property before any change handler can reset it.
+        for _ in 0..10 {
+            let mut changed = false;
+            if let Some(component) = self.try_component() {
+                changed |= crate::item_tree::ensure_item_tree_instantiated(&component);
+            }
+            for popup in self.active_popups.borrow().iter() {
+                changed |= crate::item_tree::ensure_item_tree_instantiated(&popup.component);
+            }
+            changed |= crate::properties::ChangeTracker::run_change_handlers_once();
+            if !changed {
+                return;
+            }
+        }
+        crate::debug_log!("Slint: long callback/instantiation chain detected");
+    }
+
     /// Returns a slice of the active popups.
     pub fn active_popups(&self) -> core::cell::Ref<'_, [PopupWindow]> {
         core::cell::Ref::map(self.active_popups.borrow(), |v| v.as_slice())
@@ -595,6 +613,7 @@ impl WindowInner {
         crate::animations::update_animations();
 
         let Some(item_tree) = self.try_component() else { return };
+        self.ensure_tree_instantiated();
 
         // handle multiple press release
         event = self.click_state.check_repeat(event, self.context().platform().click_interval());
@@ -625,6 +644,7 @@ impl WindowInner {
 
         let pressed_event = matches!(event, MouseEvent::Pressed { .. });
         let released_event = matches!(event, MouseEvent::Released { .. });
+        let had_delay = mouse_input_state.has_delayed_event();
 
         let last_top_item = mouse_input_state.top_item_including_delayed();
         if released_event {
@@ -632,11 +652,11 @@ impl WindowInner {
                 crate::input::process_delayed_event(&window_adapter, mouse_input_state);
         }
 
-        // Try to get the root window in case `self` is the popup itself (to get the active_popups list)
-        let mut root_adapter = None;
-        ItemTreeRc::borrow_pin(&item_tree).as_ref().window_adapter(false, &mut root_adapter);
-        let root_adapter = root_adapter.unwrap_or_else(|| window_adapter.clone());
-        let active_popups = &WindowInner::from_pub(root_adapter.window()).active_popups;
+        let parent_adapter = window_adapter
+            .internal(crate::InternalToken)
+            .and_then(|internal| internal.get_parent())
+            .unwrap_or_else(|| window_adapter.clone());
+        let active_popups = &WindowInner::from_pub(parent_adapter.window()).active_popups;
         let native_popup_index = active_popups.borrow().iter().position(|p| {
             if let PopupWindowLocation::TopLevel(wa) = &p.location {
                 Rc::ptr_eq(wa, &window_adapter)
@@ -683,6 +703,10 @@ impl WindowInner {
         mouse_input_state = if let Some(mut event) =
             crate::input::handle_mouse_grab(&event, &window_adapter, &mut mouse_input_state)
         {
+            // The grab handler may have fired callbacks that modified models or
+            // other state, so materialize any pending repeater/conditional
+            // changes before hit-testing with the returned event.
+            self.ensure_tree_instantiated();
             let mut item_tree = self.component.borrow().upgrade();
             let mut offset = LogicalPoint::default();
             let mut menubar_item = None;
@@ -756,7 +780,10 @@ impl WindowInner {
             self.click_state.check_repeat(event, self.context().platform().click_interval());
         }
 
-        if old_cursor != mouse_input_state.cursor
+        if !had_delay && mouse_input_state.has_delayed_event() {
+            // A delay was just set up, preserve the old cursor
+            mouse_input_state.cursor = old_cursor;
+        } else if old_cursor != mouse_input_state.cursor
             && let Some(window_adapter) = window_adapter.internal(crate::InternalToken)
         {
             window_adapter.set_mouse_cursor(mouse_input_state.cursor);
@@ -765,10 +792,10 @@ impl WindowInner {
         self.mouse_input_state.set(mouse_input_state);
 
         if let Some(popup_id) = popup_to_close {
-            WindowInner::from_pub(root_adapter.window()).close_popup(popup_id);
+            WindowInner::from_pub(parent_adapter.window()).close_popup(popup_id);
         }
 
-        crate::properties::ChangeTracker::run_change_handlers();
+        self.ensure_tree_instantiated();
     }
 
     /// Receive a raw touch event from a backend and either forward it as a mouse
@@ -802,6 +829,7 @@ impl WindowInner {
         &self,
         mut internal_key_event: InternalKeyEvent,
     ) -> crate::input::KeyEventResult {
+        self.ensure_tree_instantiated();
         // NFC-normalize the event text so that shortcut matching works consistently
         // regardless of the composed/decomposed form the backend provides
         // (e.g. é as U+00E9 vs e + U+0301).
@@ -832,7 +860,7 @@ impl WindowInner {
         // Slint widgets. Therefore we process the menubar shortcuts here first and abort event
         // propagation if a shortcut matches.
         if self.process_menubar_shortcuts(&internal_key_event) == KeyEventResult::EventAccepted {
-            crate::properties::ChangeTracker::run_change_handlers();
+            self.ensure_tree_instantiated();
             return crate::input::KeyEventResult::EventAccepted;
         }
 
@@ -861,7 +889,7 @@ impl WindowInner {
             if i.borrow().as_ref().capture_key_event(&internal_key_event, &self.window_adapter(), i)
                 == crate::input::KeyEventResult::EventAccepted
             {
-                crate::properties::ChangeTracker::run_change_handlers();
+                self.ensure_tree_instantiated();
                 return crate::input::KeyEventResult::EventAccepted;
             }
         }
@@ -876,7 +904,7 @@ impl WindowInner {
                 &focus_item,
             ) == crate::input::KeyEventResult::EventAccepted
             {
-                crate::properties::ChangeTracker::run_change_handlers();
+                self.ensure_tree_instantiated();
                 return crate::input::KeyEventResult::EventAccepted;
             }
             item = focus_item.parent_item(ParentItemTraversalMode::StopAtPopups);
@@ -892,7 +920,7 @@ impl WindowInner {
             && internal_key_event.event_type == KeyEventType::KeyPressed
         {
             self.focus_next_item();
-            crate::properties::ChangeTracker::run_change_handlers();
+            self.ensure_tree_instantiated();
             return crate::input::KeyEventResult::EventAccepted;
         } else if (internal_key_event.key_event.text.starts_with(key_codes::Backtab)
             || (internal_key_event.key_event.text.starts_with(key_codes::Tab)
@@ -901,7 +929,7 @@ impl WindowInner {
             && !extra_mod
         {
             self.focus_previous_item();
-            crate::properties::ChangeTracker::run_change_handlers();
+            self.ensure_tree_instantiated();
             return crate::input::KeyEventResult::EventAccepted;
         } else if internal_key_event.event_type == KeyEventType::KeyPressed
             && internal_key_event.key_event.text.starts_with(key_codes::Escape)
@@ -928,11 +956,11 @@ impl WindowInner {
             if close_on_escape {
                 window.close_top_popup();
             }
-            crate::properties::ChangeTracker::run_change_handlers();
+            self.ensure_tree_instantiated();
             return crate::input::KeyEventResult::EventAccepted;
         }
 
-        crate::properties::ChangeTracker::run_change_handlers();
+        self.ensure_tree_instantiated();
         crate::input::KeyEventResult::EventIgnored
     }
 
@@ -1204,6 +1232,7 @@ impl WindowInner {
         &self,
         render_components: impl FnOnce(&[(ItemTreeWeak, LogicalPoint)]) -> T,
     ) -> Option<T> {
+        crate::properties::evaluate_no_tracking(|| self.ensure_tree_instantiated());
         let component_weak = ItemTreeRc::downgrade(&self.try_component()?);
         Some(self.pinned_fields.as_ref().project_ref().redraw_tracker.evaluate_as_dependency_root(
             || {
@@ -1239,10 +1268,11 @@ impl WindowInner {
         if let Some(component) = self.try_component() {
             let was_visible = self.strong_component_ref.replace(Some(component)).is_some();
             if !was_visible {
-                *(self.context().0.window_count.borrow_mut()) += 1;
+                self.context().acquire_keepalive();
             }
         }
 
+        self.ensure_tree_instantiated();
         self.update_window_properties();
         self.window_adapter().set_visible(true)?;
         // Make sure that the window's inner size is in sync with the root window item's
@@ -1268,28 +1298,9 @@ impl WindowInner {
         let result = self.window_adapter().set_visible(false);
         let was_visible = self.strong_component_ref.borrow_mut().take().is_some();
         if was_visible {
-            let mut count = self.context().0.window_count.borrow_mut();
-            *count -= 1;
-            if *count <= 0 {
-                drop(count);
-                let _ = self.context().event_loop_proxy().and_then(|p| p.quit_event_loop().ok());
-            }
+            self.context().release_keepalive();
         }
         result
-    }
-
-    /// returns the color theme used
-    pub fn color_scheme(&self) -> ColorScheme {
-        self.window_adapter()
-            .internal(crate::InternalToken)
-            .map_or(ColorScheme::Unknown, |x| x.color_scheme())
-    }
-
-    /// Returns the system accent color, or transparent if unavailable.
-    pub fn accent_color(&self) -> Color {
-        self.window_adapter()
-            .internal(crate::InternalToken)
-            .map_or(Color::default(), |x| x.accent_color())
     }
 
     /// Return whether the platform supports native menu bars
@@ -1338,6 +1349,13 @@ impl WindowInner {
                 .collect()
         });
     }
+    /// Create a new popup window adapter
+    /// This window adapter can be used on a popup component and shown with show_popup()
+    pub fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+        self.window_adapter()
+            .internal(crate::InternalToken)
+            .and_then(|s| s.create_popup_window_adapter())
+    }
 
     /// Show a popup at the given position relative to the `parent_item` and returns its ID.
     /// The returned ID will always be non-zero.
@@ -1350,6 +1368,9 @@ impl WindowInner {
         parent_item: &ItemRc,
         is_menu: bool,
     ) -> NonZeroU32 {
+        // Popups live in their own ItemTree, which was invisible to any
+        // earlier instantiation pass; materialize it before the layout queries below.
+        crate::item_tree::ensure_item_tree_instantiated(popup_componentrc);
         let position = parent_item
             .map_to_native_window(parent_item.geometry().origin + position.to_euclid().to_vector());
         let popup_component = ItemTreeRc::borrow_pin(popup_componentrc);
@@ -1433,28 +1454,34 @@ impl WindowInner {
             self.window_adapter()
         };
 
-        // If a popup can be created it is at TopLevel, otherwise it is a ChildWindow
-        // of the current window
-        let location = match parent_window_adapter
-            .internal(crate::InternalToken)
-            .and_then(|x| x.create_popup(LogicalRect::new(position, size)))
-        {
-            None => {
-                let clip = LogicalRect::new(
-                    LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
-                    self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
-                );
-                let rect = popup::place_popup(
-                    popup::Placement::Fixed(LogicalRect::new(position, size)),
-                    &Some(clip),
-                );
-                self.window_adapter().request_redraw();
-                PopupWindowLocation::ChildWindow(rect.origin)
-            }
-            Some(window_adapter) => {
-                WindowInner::from_pub(window_adapter.window()).set_component(popup_componentrc);
-                PopupWindowLocation::TopLevel(window_adapter)
-            }
+        let mut popup_window_adapter = None;
+        ItemTreeRc::borrow_pin(popup_componentrc)
+            .as_ref()
+            .window_adapter(false, &mut popup_window_adapter);
+        let popup_window_adapter =
+            popup_window_adapter.expect("It must be there because we set the global");
+
+        // If the window adapter of the popup window and the parent window are equal means that a ChildWindow shall be created
+        // because we weren't able to create a window adapter for the popup window (for example if the backend does not support it)
+        let location = if Rc::ptr_eq(&parent_window_adapter, &popup_window_adapter) {
+            let clip = LogicalRect::new(
+                LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
+                self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
+            );
+            let rect = popup::place_popup(
+                popup::Placement::Fixed(LogicalRect::new(position, size)),
+                &Some(clip),
+            );
+            self.window_adapter().request_redraw();
+            PopupWindowLocation::ChildWindow(rect.origin)
+        } else {
+            let popup_window = popup_window_adapter.window();
+            WindowInner::from_pub(popup_window).set_component(popup_componentrc);
+            popup_window.set_position(LogicalPosition::from_euclid(position));
+            popup_window.set_size(WindowSize::Logical(LogicalSize::from_euclid(size)));
+
+            popup_window_adapter.set_visible(true).expect("Unable to show popup");
+            PopupWindowLocation::TopLevel(popup_window_adapter)
         };
 
         let focus_item = self
@@ -1663,6 +1690,7 @@ impl WindowInner {
         }
     }
 
+    // Get geometry of the virtual keyboard if available
     pub(crate) fn window_item_virtual_keyboard(
         &self,
     ) -> Option<(crate::lengths::LogicalPoint, crate::lengths::LogicalSize)> {
@@ -1670,7 +1698,12 @@ impl WindowInner {
         let component = ItemTreeRc::borrow_pin(&component_rc);
         let root_item = component.as_ref().get_item_ref(0);
         let window_item = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)?;
-        Some((window_item.virtual_keyboard_position(), window_item.virtual_keyboard_size()))
+        let keyboard_size = window_item.virtual_keyboard_size();
+        if keyboard_size.width == 0. as Coord || keyboard_size.height == 0. as Coord {
+            None
+        } else {
+            Some((window_item.virtual_keyboard_position(), keyboard_size))
+        }
     }
 
     /// Sets the close_requested callback. The callback will be run when the user tries to close a window.
@@ -1758,6 +1791,28 @@ impl WindowInner {
 /// Internal alias for `Rc<dyn WindowAdapter>`.
 pub type WindowAdapterRc = Rc<dyn WindowAdapter>;
 
+/// Resolve the [`crate::SlintContext`] associated with a component root by
+/// asking it for (or creating) its window adapter and reading the context off
+/// the resulting window. Returns `None` only when no adapter can be produced.
+pub fn context_for_root(root: &ItemTreeRc) -> Option<crate::SlintContext> {
+    let comp_ref_pin = vtable::VRc::borrow_pin(root);
+    let mut adapter = None;
+    comp_ref_pin.as_ref().window_adapter(true, &mut adapter);
+    adapter.map(|a| WindowInner::from_pub(a.window()).context().clone())
+}
+
+/// Runtime entry point for `BuiltinFunction::AccentColor`. Returns the accent color
+/// from the component's [`crate::SlintContext`] reached via its window adapter, or
+/// transparent if none is associated.
+pub fn accent_color(root: &crate::item_tree::ItemTreeRc) -> crate::graphics::Color {
+    let comp_ref_pin = vtable::VRc::borrow_pin(root);
+    let mut adapter = None;
+    comp_ref_pin.as_ref().window_adapter(true, &mut adapter);
+    adapter.map_or(crate::graphics::Color::default(), |a| {
+        WindowInner::from_pub(a.window()).context().accent_color()
+    })
+}
+
 /// This module contains the functions needed to interface with the event loop and window traits
 /// from outside the Rust language.
 #[cfg(feature = "ffi")]
@@ -1819,6 +1874,17 @@ pub mod ffi {
             );
             let window = &*(source as *const Rc<dyn WindowAdapter>);
             core::ptr::write(target as *mut Rc<dyn WindowAdapter>, window.clone());
+        }
+    }
+
+    /// Ensure repeaters, conditionals and component containers are instantiated.
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_windowrc_ensure_tree_instantiated(
+        handle: *const WindowAdapterRcOpaque,
+    ) {
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            WindowInner::from_pub(window_adapter.window()).ensure_tree_instantiated();
         }
     }
 
@@ -1953,6 +2019,26 @@ pub mod ffi {
                 parent_item,
                 is_menu,
             )
+        }
+    }
+
+    /// Create a popup window adapter. Returns true if a new adapter was created and written to result.
+    /// Returns false if the backend does not support top-level popups.
+    /// This can be used to set the correct window adapter on a popup component before showing it.
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_windowrc_create_popup_window_adapter(
+        handle: *const WindowAdapterRcOpaque,
+        result: *mut WindowAdapterRcOpaque,
+    ) -> bool {
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            match WindowInner::from_pub(window_adapter.window()).create_popup_window_adapter() {
+                Some(wa) => {
+                    core::ptr::write(result as *mut Rc<dyn WindowAdapter>, wa);
+                    true
+                }
+                None => false,
+            }
         }
     }
 
@@ -2151,31 +2237,6 @@ pub mod ffi {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
             window_adapter.window().set_size(crate::api::LogicalSize::new(size.width, size.height));
         }
-    }
-
-    /// Return whether the style is using a dark theme
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_windowrc_color_scheme(
-        handle: *const WindowAdapterRcOpaque,
-    ) -> ColorScheme {
-        unsafe {
-            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-            window_adapter
-                .internal(crate::InternalToken)
-                .map_or(ColorScheme::Unknown, |x| x.color_scheme())
-        }
-    }
-
-    /// Return the system accent color, or transparent if not available
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_windowrc_accent_color(
-        handle: *const WindowAdapterRcOpaque,
-        out: &mut Color,
-    ) {
-        let window_adapter = unsafe { &*(handle as *const Rc<dyn WindowAdapter>) };
-        *out = window_adapter
-            .internal(crate::InternalToken)
-            .map_or(Color::default(), |x| x.accent_color());
     }
 
     /// Return whether the platform supports native menu bars

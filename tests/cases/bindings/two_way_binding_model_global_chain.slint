@@ -1,0 +1,191 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Two-way-binding chain that threads through a struct-field alias on a
+// global and a nested component exposing a struct property aliased down
+// to a Text, combined with a model row binding.
+//
+// `Base.link_to_alias` is aliased (via field access) to
+// `Glob.global_prop.xxx`. At the use-site inside a `for` loop it is
+// re-aliased to a model row field. `Base.link_to_text` is aliased (via
+// field access) to `c.other.xxx` (Compo's struct property), and
+// re-aliased to the same model row field. Writes from the blue
+// TouchArea (inside Compo) and the red TouchArea (inside Base) must
+// propagate through the chain into the model, and set_row_data must
+// propagate back.
+
+struct Inner {
+    bar: string,
+    baz: int,
+}
+
+struct ModelItem {
+    foo: string,
+    inner: Inner,
+}
+
+struct OtherStruct {
+    xxx: string,
+    yyy: int,
+}
+
+global Glob {
+    in-out property <OtherStruct> global_prop: { xxx: "G", yyy: 0 };
+}
+
+component Compo {
+    in-out property <OtherStruct> other;
+    callback compo_tap;
+    HorizontalLayout {
+        Text {
+            text <=> other.xxx;
+        }
+
+        Rectangle {
+            width: 30px;
+            background: blue;
+            TouchArea {
+                clicked => {
+                    other.xxx = "Z";
+                    compo_tap();
+                }
+            }
+        }
+    }
+}
+
+component Base {
+    in-out property <string> link_to_alias <=> Glob.global_prop.xxx;
+    in-out property <string> link_to_text <=> c.other.xxx;
+    callback tap <=> c.compo_tap;
+    HorizontalLayout {
+        c := Compo { }
+
+        Rectangle {
+            width: 30px;
+            background: red;
+            TouchArea {
+                clicked => {
+                    link_to_alias = "A";
+                    tap();
+                }
+            }
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 200px;
+
+    in-out property <[ModelItem]> mmm: [
+        { foo: "F0", inner: { bar: "B0", baz: 0 } },
+        { foo: "F1", inner: { bar: "B1", baz: 1 } },
+    ];
+    in-out property <OtherStruct> glob_prop <=> Glob.global_prop;
+    in-out property <string> result;
+
+    VerticalLayout {
+        for data[idx] in mmm: HorizontalLayout {
+            Base {
+                link_to_alias <=> data.inner.bar;
+                link_to_text <=> data.inner.bar;
+                tap => {
+                    result += idx + ":" + data.inner.bar + "\n";
+                }
+            }
+        }
+    }
+
+    out property <bool> test: true;
+}
+
+/*
+```rust
+use slint::{Model, VecModel};
+use std::rc::Rc;
+
+let instance = TestCase::new().unwrap();
+let m = Rc::new(VecModel::from(vec![
+    ModelItem { foo: "F0".into(), inner: Inner { bar: "B0".into(), baz: 0 } },
+    ModelItem { foo: "F1".into(), inner: Inner { bar: "B1".into(), baz: 1 } },
+]));
+instance.set_mmm(m.clone().into());
+slint_testing::mock_elapsed_time(0);
+
+// Blue click on row 0: Compo.other.xxx = "Z" propagates to data.inner.bar.
+slint_testing::send_mouse_click(&instance, 355., 50.);
+assert_eq!(m.row_data(0).unwrap().inner.bar, "Z");
+assert_eq!(instance.get_result(), "0:Z\n");
+
+// Red click on row 1: link_to_alias = "A" propagates to data.inner.bar.
+instance.set_result("".into());
+slint_testing::send_mouse_click(&instance, 385., 150.);
+assert_eq!(m.row_data(1).unwrap().inner.bar, "A");
+assert_eq!(instance.get_result(), "1:A\n");
+
+// Model -> UI: set_row_data then click to observe the new value.
+instance.set_result("".into());
+m.set_row_data(0, ModelItem { foo: "F0".into(), inner: Inner { bar: "NEW".into(), baz: 9 } });
+slint_testing::mock_elapsed_time(0);
+slint_testing::send_mouse_click(&instance, 355., 50.);
+assert_eq!(m.row_data(0).unwrap().inner.bar, "Z");
+assert_eq!(instance.get_result(), "0:Z\n");
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+auto m = std::make_shared<slint::VectorModel<ModelItem>>(std::vector<ModelItem>{
+    ModelItem { .foo = "F0", .inner = { .bar = "B0", .baz = 0 } },
+    ModelItem { .foo = "F1", .inner = { .bar = "B1", .baz = 1 } },
+});
+instance.set_mmm(m);
+slint_testing::mock_elapsed_time(0);
+
+// Blue click on row 0.
+slint_testing::send_mouse_click(&instance, 355., 50.);
+assert_eq(m->row_data(0).value().inner.bar, "Z");
+assert_eq(instance.get_result(), "0:Z\n");
+
+// Red click on row 1.
+instance.set_result("");
+slint_testing::send_mouse_click(&instance, 385., 150.);
+assert_eq(m->row_data(1).value().inner.bar, "A");
+assert_eq(instance.get_result(), "1:A\n");
+
+// Model -> UI.
+instance.set_result("");
+m->set_row_data(0, ModelItem { .foo = "F0", .inner = { .bar = "NEW", .baz = 9 } });
+slint_testing::mock_elapsed_time(0);
+slint_testing::send_mouse_click(&instance, 355., 50.);
+assert_eq(m->row_data(0).value().inner.bar, "Z");
+assert_eq(instance.get_result(), "0:Z\n");
+```
+
+
+```js
+let instance = new slint.TestCase({});
+let m = new slintlib.ArrayModel([
+    { foo: "F0", inner: { bar: "B0", baz: 0 } },
+    { foo: "F1", inner: { bar: "B1", baz: 1 } },
+]);
+instance.mmm = m;
+
+slintlib.private_api.send_mouse_click(instance, 355., 50.);
+assert.equal(m.rowData(0).inner.bar, "Z");
+assert.equal(instance.result, "0:Z\n");
+
+instance.result = "";
+slintlib.private_api.send_mouse_click(instance, 385., 150.);
+assert.equal(m.rowData(1).inner.bar, "A");
+assert.equal(instance.result, "1:A\n");
+
+instance.result = "";
+m.setRowData(0, { foo: "F0", inner: { bar: "NEW", baz: 9 } });
+slintlib.private_api.send_mouse_click(instance, 355., 50.);
+assert.equal(m.rowData(0).inner.bar, "Z");
+assert.equal(instance.result, "0:Z\n");
+```
+*/

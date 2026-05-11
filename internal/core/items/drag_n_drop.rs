@@ -5,6 +5,7 @@ use super::{
     DropEvent, Item, ItemConsts, ItemRc, MouseCursor, PointerEventButton, RenderingResult,
 };
 use crate::Coord;
+use crate::data_transfer::DataTransfer;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
     KeyEventResult, MouseEvent,
@@ -15,7 +16,7 @@ use crate::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
-use crate::{Callback, Property, SharedString};
+use crate::{Callback, Property};
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
@@ -30,8 +31,7 @@ pub type DropEventArg = (DropEvent,);
 /// The implementation of the `DragArea` element
 pub struct DragArea {
     pub enabled: Property<bool>,
-    pub mime_type: Property<SharedString>,
-    pub data: Property<SharedString>,
+    pub data: Property<DataTransfer>,
     pressed: Cell<bool>,
     pressed_position: Cell<LogicalPoint>,
     pub cached_rendering_data: CachedRenderingData,

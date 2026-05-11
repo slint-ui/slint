@@ -3,16 +3,16 @@
 import { test, expect } from "@playwright/test";
 
 test("smoke test", async ({ page }) => {
-    await page.goto("");
-    await expect(page.locator('[id="_top"]')).toContainText("Welcome to Slint");
+    await page.goto("/getting-started/");
+    await expect(page.locator('[id="_top"]')).toContainText("Getting Started");
+    await expect(page.getByRole("main")).toContainText(
+        "Material 3 Design System",
+    );
     await page
         .getByLabel("Main")
-        .getByRole("link", { name: "Reference" })
+        .getByRole("link", { name: "FilledButton" })
         .click();
-    await page.getByText("Visual Elements").click();
-    await page.getByRole("link", { name: "Image" }).click();
-    await page.getByRole("link", { name: "colorize" }).click();
-    await expect(page.locator("#colorize")).toContainText("colorize");
-    await page.getByRole("link", { name: "brush", exact: true }).click();
-    await expect(page.locator("#brush")).toContainText("brush");
+    await expect(page).toHaveURL(/filled_button/);
+    await expect(page.locator('[id="_top"]')).toContainText("FilledButton");
+    await expect(page.getByRole("main")).toContainText("Properties");
 });

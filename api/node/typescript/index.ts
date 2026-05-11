@@ -130,7 +130,8 @@ export interface ImageData {
 export interface ComponentHandle {
     /**
      * Shows the window and runs the event loop. The returned promise is resolved when the event loop
-     * is terminated, for example when the last window was closed, or {@link quitEventLoop} was called.
+     * is terminated, for example when the last window is closed and the last visible system tray
+     * icon is hidden, or when {@link quitEventLoop} is called.
      *
      * This function is a convenience for calling {@link show}, followed by {@link runEventLoop}, and
      * {@link hide} when the event loop's promise is resolved.
@@ -150,8 +151,10 @@ export interface ComponentHandle {
     /**
      * Returns the {@link Window} associated with this component instance.
      * The window API can be used to control different aspects of the integration into the windowing system, such as the position on the screen.
+     *
+     * Not present on non-windowed components such as ones inheriting from `SystemTrayIcon`.
      */
-    get window(): Window;
+    readonly window?: Window;
 }
 
 /**
@@ -166,10 +169,17 @@ class Component implements ComponentHandle {
      */
     constructor(instance: napi.ComponentInstance) {
         this.#instance = instance;
-    }
 
-    get window(): Window {
-        return this.#instance.window();
+        // Non-windowed components (e.g. `SystemTrayIcon`) don't have a `window`:
+        // the underlying `instance.window()` would panic. Install the getter
+        // only when meaningful so `'window' in component` reflects support.
+        if (instance.definition().isWindow) {
+            Object.defineProperty(this, "window", {
+                get: () => this.#instance.window(),
+                enumerable: true,
+                configurable: false,
+            });
+        }
     }
 
     /**
@@ -629,7 +639,7 @@ function loadSlint(loadData: LoadData): Object {
  * @returns Returns an object that is immutable and provides a constructor function for each exported Window component found in the `.slint` file.
  *          For instance, in the example above, a `Main` property is available, which can be used to create instances of the `Main` component using the `new` keyword.
  *          These instances offer properties and event handlers, adhering to the {@link ComponentHandle} interface.
- *          For further information on the available properties, refer to [Instantiating A Component](../index.html#instantiating-a-component).
+ *          For further information on the available properties, refer to [Instantiating A Component](/#instantiating-a-component).
  * @throws {@link CompileError} if errors occur during compilation.
  */
 export function loadFile(
@@ -669,7 +679,7 @@ export function loadFile(
  * @returns Returns an object that is immutable and provides a constructor function for each exported Window component found in the `.slint` file.
  *          For instance, in the example above, a `Main` property is available, which can be used to create instances of the `Main` component using the `new` keyword.
  *          These instances offer properties and event handlers, adhering to the {@link ComponentHandle} interface.
- *          For further information on the available properties, refer to [Instantiating A Component](../index.html#instantiating-a-component).
+ *          For further information on the available properties, refer to [Instantiating A Component](/#instantiating-a-component).
  * @throws {@link CompileError} if errors occur during compilation.
  */
 export function loadSource(
@@ -711,23 +721,55 @@ class EventLoop {
             });
         }
 
-        // Give the nodejs event loop 16 ms to tick. This polling is sub-optimal, but it's the best we
-        // can do right now.
-        const nodejsPollInterval = 16;
-        const id = setInterval(() => {
-            if (
-                napi.processEvents() === napi.ProcessEventsResult.Exited ||
-                this.#quit_loop
-            ) {
-                clearInterval(id);
-                this.#terminateResolveFn!(undefined);
-                this.#terminateResolveFn = null;
-                this.#terminationPromise = null;
-                return;
-            }
-        }, nodejsPollInterval);
+        if (napi.hasIntegratedEventLoop?.()) {
+            // Winit blocks on native events while a background thread watches
+            // the libuv fd. On activity, winit yields and setImmediate
+            // reschedules so V8 can run JS callbacks before re-entering.
+            const enqueue =
+                typeof setImmediate === "function"
+                    ? setImmediate
+                    : (fn: () => void) => setTimeout(fn, 0);
+            const pump = () => {
+                if (this.#quit_loop) {
+                    this.#resolve();
+                    return;
+                }
+                const result = napi.runIntegratedEventLoop();
+                if (
+                    result === napi.ProcessEventsResult.Exited ||
+                    this.#quit_loop
+                ) {
+                    this.#resolve();
+                    return;
+                }
+                enqueue(pump);
+            };
+            enqueue(pump);
+        } else {
+            // Fallback for Windows, Deno, and runtimes without uv_backend_fd().
+            const nodejsPollInterval = 16;
+            const id = setInterval(() => {
+                if (
+                    napi.processEvents() === napi.ProcessEventsResult.Exited ||
+                    this.#quit_loop
+                ) {
+                    clearInterval(id);
+                    this.#resolve();
+                    return;
+                }
+            }, nodejsPollInterval);
+        }
 
         return this.#terminationPromise;
+    }
+
+    #resolve() {
+        if (this.#terminateResolveFn === null) {
+            return;
+        }
+        this.#terminateResolveFn(undefined);
+        this.#terminateResolveFn = null;
+        this.#terminationPromise = null;
     }
 
     quit() {
@@ -746,16 +788,21 @@ var globalEventLoop: EventLoop = new EventLoop();
  * @param args As Function it defines a callback that's invoked once when the event loop is running.
  * @param args.runningCallback Optional callback that's invoked once when the event loop is running.
  *                         The function's return value is ignored.
- * @param args.quitOnLastWindowClosed if set to `true` event loop is quit after last window is closed otherwise
- *                          it is closed after {@link quitEventLoop} is called.
- *                          This is useful for system tray applications where the application needs to stay alive even if no windows are visible.
- *                          (default true).
+ * @param args.quitOnLastWindowClosed if set to `true` the loop quits once the last window is closed
+ *                          and the last visible system tray icon is hidden; otherwise it runs until
+ *                          {@link quitEventLoop} is called. A visible SystemTrayIcon keeps the loop alive
+ *                          on its own under the default, so set this to `false` only when an
+ *                          application must run without any visible UI. (default true).
  *
- * Note that the event loop integration with Node.js is slightly imperfect. Due to conflicting
- * implementation details between Slint's and Node.js' event loop, the two loops are merged
- * by spinning one after the other, at 16 millisecond intervals. This means that when the
- * application is idle, it continues to consume a low amount of CPU cycles, checking if either
- * event loop has any pending events.
+ * On Linux and macOS with Node.js,
+ * Slint uses an efficient event loop integration that watches libuv's backend
+ * file descriptor from a background thread.
+ * This provides zero idle CPU usage and near-instant response to both UI and
+ * JavaScript events.
+ *
+ * On Windows and other runtimes (Deno),
+ * the integration falls back to polling at 16 millisecond intervals,
+ * which consumes a small amount of CPU when idle.
  */
 export function runEventLoop(
     args?:

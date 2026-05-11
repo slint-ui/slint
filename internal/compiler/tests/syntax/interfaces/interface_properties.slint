@@ -14,6 +14,11 @@ export interface ValidInterfacePropertyDeclarations {
     in_out property <angle> in-out-underscore-property;
 }
 
+export component ComponentWithDuplicateProperty implements ValidInterfacePropertyDeclarations {
+    out property <string> out-property;
+//  >                                 <error{Conflict with 'ValidInterfacePropertyDeclarations' which declares a property with the same name}
+}
+
 export interface Background {
     in-out property <color> background;
     callback clip();

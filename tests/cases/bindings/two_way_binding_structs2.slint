@@ -1,8 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// FIXME: only works with rust
-//ignore: cpp,interpreter,js
+
 
 
 component Link {
@@ -48,12 +47,20 @@ assert_eq!(instance.get_s1(), S1{ s1: "s2-changed".into(), i1: 89 });
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert(instance.get_test());
+instance.set_s1(S1 { .s1 = "s1-changed", .i1 = 89 });
+assert(instance.get_s2() == (S2 { .f2 = 4.1f, .s2 = "s1-changed" }));
+instance.set_s2(S2 { .f2 = 4.2f, .s2 = "s2-changed" });
+assert(instance.get_s1() == (S1 { .s1 = "s2-changed", .i1 = 89 }));
 ```
 
 
 ```js
 let instance = new slint.TestCase({});
 assert(instance.test);
+instance.s1 = { s1: "s1-changed", i1: 89 };
+assert.deepEqual(instance.s2, { f2: 4.1, s2: "s1-changed" });
+instance.s2 = { f2: 4.2, s2: "s2-changed" };
+assert.deepEqual(instance.s1, { s1: "s2-changed", i1: 89 });
 ```
 
 */

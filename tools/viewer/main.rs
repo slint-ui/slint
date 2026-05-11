@@ -5,15 +5,15 @@
 
 use clap::Parser;
 use i_slint_compiler::ComponentSelection;
+use i_slint_core::timers::Timer;
 use itertools::Itertools;
 use slint_interpreter::{
-    ComponentDefinition, ComponentHandle, ComponentInstance, Value, json::JsonExt,
+    CompilationResult, ComponentDefinition, ComponentHandle, ComponentInstance, FileWatcher, Value,
+    json::JsonExt,
 };
 use std::collections::HashMap;
 use std::io::{BufReader, BufWriter};
-use std::path::Path;
-use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Arc, Mutex};
+use std::path::{Path, PathBuf};
 
 #[cfg(not(any(
     target_os = "openbsd",
@@ -112,7 +112,16 @@ struct Cli {
     no_default_translation_context: bool,
 }
 
-thread_local! {static CURRENT_INSTANCE: std::cell::RefCell<Option<ComponentInstance>> = Default::default();}
+struct Viewer {
+    instance: ComponentInstance,
+    file_watcher: FileWatcher,
+    args: Cli,
+    // The reload timer, used to debounce multiple file change events into a single reload
+    // if --auto-reload is enabled
+    reload_timer: i_slint_core::timers::Timer,
+}
+
+thread_local! {static SLINT_VIEWER: std::cell::RefCell<Option<Viewer>> = Default::default();}
 static EXIT_CODE: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
 
 fn main() -> Result<()> {
@@ -136,37 +145,38 @@ fn main() -> Result<()> {
         )?;
     };
 
-    let fswatcher = if args.auto_reload { Some(start_fswatch_thread(args.clone())?) } else { None };
-    let compiler = init_compiler(&args, fswatcher);
-    let r = spin_on::spin_on(compiler.build_from_path(&args.path));
-    r.print_diagnostics();
-    if r.has_errors() {
+    let mut file_watcher = if args.auto_reload { Some(start_file_watcher()?) } else { None };
+    if let Some(file_watcher) = file_watcher.as_mut() {
+        file_watcher.update_watched_paths(initial_watched_paths(&args))?;
+    }
+    let result = load(&args, file_watcher.as_mut());
+    if result.has_errors() {
         std::process::exit(-1);
     }
-    // If --component is used, r.compents contains only one element (filtered out in init_compiler())
-    // If no component name is specified, the last defined component is shown
-    let Some(c) = r.components().next() else {
-        match args.component {
-            Some(name) => {
-                eprintln!("Component '{name}' not found in file '{}'", args.path.display());
-            }
-            None => {
-                eprintln!("No component found in file '{}'", args.path.display());
-            }
-        }
+    let Some(c) = extract_component(&result, &args) else {
+        // extract_component already prints an error message, so we just need to exit with an error code here
         std::process::exit(-1);
     };
 
     let component = c.create()?;
     init_dialog(&component);
 
-    if let Some(data_path) = args.load_data {
-        load_data(&c, &component, &data_path)?;
+    if let Some(data_path) = args.load_data.as_ref() {
+        load_data(&c, &component, data_path)?;
     }
     install_callbacks(&component, &args.on);
 
-    if args.auto_reload {
-        CURRENT_INSTANCE.with(|current| current.replace(Some(component.clone_strong())));
+    if let Some(file_watcher) = file_watcher {
+        let args = args.clone();
+        let component = component.clone_strong();
+        SLINT_VIEWER.with(move |viewer| {
+            viewer.replace(Some(Viewer {
+                instance: component,
+                file_watcher,
+                args,
+                reload_timer: Timer::default(),
+            }))
+        });
     }
 
     // Show the preview and running the event loop. Closing the window will make it continue
@@ -210,10 +220,7 @@ fn main() -> Result<()> {
     std::process::exit(EXIT_CODE.load(std::sync::atomic::Ordering::Relaxed))
 }
 
-fn init_compiler(
-    args: &Cli,
-    fswatcher: Option<Arc<Mutex<notify::RecommendedWatcher>>>,
-) -> slint_interpreter::Compiler {
+fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
     let mut compiler = slint_interpreter::Compiler::new();
     #[cfg(feature = "gettext")]
     if let Some(domain) = args.translation_domain.clone() {
@@ -234,16 +241,6 @@ fn init_compiler(
     if let Some(style) = &args.style {
         compiler.set_style(style.clone());
     }
-    if let Some(watcher) = fswatcher {
-        watch_with_retry(&args.path, &watcher);
-        if let Some(data_path) = &args.load_data {
-            watch_with_retry(data_path, &watcher);
-        }
-        compiler.set_file_loader(move |path| {
-            watch_with_retry(path, &watcher);
-            Box::pin(async { None })
-        })
-    }
 
     compiler.compiler_configuration(i_slint_core::InternalToken).components_to_generate =
         match &args.component {
@@ -252,39 +249,6 @@ fn init_compiler(
         };
 
     compiler
-}
-
-fn watch_with_retry(path: &Path, watcher: &Arc<Mutex<notify::RecommendedWatcher>>) {
-    notify::Watcher::watch(
-        &mut *watcher.lock().unwrap(),
-        path,
-        notify::RecursiveMode::NonRecursive,
-    )
-    .unwrap_or_else(|err| match err.kind {
-        notify::ErrorKind::PathNotFound | notify::ErrorKind::Generic(_) => {
-            let path = path.to_path_buf();
-            let watcher = watcher.clone();
-            const RETRY_DURATION: u64 = 100;
-            i_slint_core::timers::Timer::single_shot(
-                std::time::Duration::from_millis(RETRY_DURATION),
-                move || {
-                    notify::Watcher::watch(
-                        &mut *watcher.lock().unwrap(),
-                        &path,
-                        notify::RecursiveMode::NonRecursive,
-                    )
-                    .unwrap_or_else(|err| {
-                        eprintln!(
-                            "Warning: error while watching missing path {}: {:?}",
-                            path.display(),
-                            err
-                        )
-                    });
-                },
-            );
-        }
-        _ => eprintln!("Warning: error while watching {}: {:?}", path.display(), err),
-    });
 }
 
 /// Init dialog if `instance` is a Dialog
@@ -309,63 +273,132 @@ fn init_dialog(instance: &ComponentInstance) {
     }
 }
 
-static PENDING_EVENTS: AtomicU32 = AtomicU32::new(0);
-
-fn start_fswatch_thread(args: Cli) -> Result<Arc<Mutex<notify::RecommendedWatcher>>> {
-    let (tx, rx) = std::sync::mpsc::channel();
-    let w = Arc::new(Mutex::new(notify::recommended_watcher(tx)?));
-    let w2 = w.clone();
-    std::thread::spawn(move || {
-        while let Ok(event) = rx.recv() {
-            use notify::EventKind::*;
-            if let Ok(event) = event
-                && (matches!(event.kind, Modify(_) | Remove(_) | Create(_)))
-                && PENDING_EVENTS.load(Ordering::SeqCst) == 0
-            {
-                PENDING_EVENTS.fetch_add(1, Ordering::SeqCst);
-                let args = args.clone();
-                let w2 = w2.clone();
-                i_slint_core::api::invoke_from_event_loop(move || {
-                    slint_interpreter::spawn_local(reload(args, w2)).unwrap();
-                })
-                .unwrap();
-            }
+fn watchable_path(path: &Path) -> Option<PathBuf> {
+    // Filter out `-` for stdin
+    (path != Path::new("-")).then(|| {
+        if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            std::env::current_dir()
+                .map(|current_dir| current_dir.join(path))
+                .unwrap_or_else(|_| path.to_path_buf())
         }
-    });
-    Ok(w)
+    })
 }
 
-async fn reload(args: Cli, fswatcher: Arc<Mutex<notify::RecommendedWatcher>>) {
-    let compiler = init_compiler(&args, Some(fswatcher));
-    let r = compiler.build_from_path(&args.path).await;
-    r.print_diagnostics();
-    if let Some(c) = r.components().next() {
-        CURRENT_INSTANCE.with(|current| {
-            let mut current = current.borrow_mut();
-            if let Some(handle) = current.take() {
-                let window = handle.window();
-                let new_handle = c.create_with_existing_window(window).unwrap();
-                init_dialog(&new_handle);
-                current.replace(new_handle);
-            } else {
-                let handle = c.create().unwrap();
-                init_dialog(&handle);
-                handle.show().unwrap();
-                current.replace(handle);
-            }
-            if let Some(data_path) = args.load_data {
-                let _ = load_data(&c, current.as_ref().unwrap(), &data_path);
-            }
-            eprintln!("Successful reload of {}", args.path.display());
+fn initial_watched_paths(args: &Cli) -> Vec<PathBuf> {
+    std::iter::once(args.path.clone())
+        .chain(args.load_data.iter().cloned())
+        .filter_map(|path| watchable_path(&path))
+        .collect()
+}
+
+fn watched_paths(args: &Cli, result: &CompilationResult) -> Vec<PathBuf> {
+    result
+        .watch_paths(i_slint_core::InternalToken)
+        .iter()
+        .cloned()
+        .chain(args.load_data.iter().cloned())
+        .filter_map(|path| watchable_path(&path))
+        .collect()
+}
+
+// When a lot of files changes (e.g. git checkout) we might get multiple events in a short time,
+// so we use a timer to debounce them into a single reload.
+const RELOAD_DEBOUNCE_DELAY: std::time::Duration = std::time::Duration::from_millis(100);
+
+fn start_file_watcher() -> Result<FileWatcher> {
+    let watcher = FileWatcher::start(
+        move |_event| {
+            // We need to get back onto the main thread, which we do with invoke_from_event_loop
+            // for our debounce-timer to work.
+            // Then we debounce multiple file-watcher changes, with the timer.
+            slint_interpreter::invoke_from_event_loop(|| {
+                SLINT_VIEWER.with_borrow_mut(|viewer| {
+                    let viewer = viewer
+                        .as_mut()
+                        .expect("Viewer must have been initialized with reload support");
+                    viewer.reload_timer.start(
+                        i_slint_core::timers::TimerMode::SingleShot,
+                        RELOAD_DEBOUNCE_DELAY,
+                        reload,
+                    )
+                })
+            })
+            .map_err(|err| eprintln!("Warning: Failed to schedule reload on file change: {err}"))
+            .ok();
+        },
+        move |err| eprintln!("Warning: file watcher error: {err}"),
+    )?;
+
+    Ok(watcher)
+}
+
+fn load(args: &Cli, file_watcher: Option<&mut FileWatcher>) -> CompilationResult {
+    let compiler = init_compiler(args);
+
+    // In theory, the compiler can be async, but in practice it is not because we have not
+    // configured an open import callback.
+    // That means we can just block here.
+    let result = spin_on::spin_on(compiler.build_from_path(args.path.clone()));
+
+    result.print_diagnostics();
+    if let Some(file_watcher) = file_watcher {
+        file_watcher.update_watched_paths(watched_paths(args, &result)).unwrap_or_else(|err| {
+            eprintln!("Warning: Failed to update file watcher paths: {err}");
         });
-    } else if !r.has_errors() {
+    }
+    result
+}
+
+/// Extract the component to show from the compilation result, and print an error if it cannot be found
+fn extract_component(result: &CompilationResult, args: &Cli) -> Option<ComponentDefinition> {
+    // If --component is used, result.compents contains only one element (filtered out in init_compiler())
+    // If no component name is specified, the last defined component is shown
+    let component = result.components().next();
+    if component.is_none() {
         match &args.component {
-            Some(name) => println!("Component {name} not found"),
-            None => println!("No component found"),
+            Some(name) => {
+                eprintln!("Component '{name}' not found in file '{}'", args.path.display());
+            }
+            None => {
+                eprintln!("No component found in file '{}'", args.path.display());
+            }
         }
     }
+    component
+}
 
-    PENDING_EVENTS.fetch_sub(1, Ordering::SeqCst);
+fn reload() {
+    SLINT_VIEWER.with_borrow_mut(|viewer| {
+        let Some(viewer) =
+            viewer.as_mut() else {
+            eprintln!("Warning: File changes detected, but the viewer is not initialized to support reloading");
+            return;
+        };
+        eprintln!("File changes detected, reloading {}", viewer.args.path.display());
+
+        let result = load(&viewer.args, Some(&mut viewer.file_watcher));
+
+        if result.has_errors() {
+            return;
+        }
+
+        let Some(component) = extract_component(&result, &viewer.args) else {
+            return;
+        };
+
+        let window = viewer.instance.window();
+        let new_instance = component.create_with_existing_window(window).unwrap();
+        init_dialog(&new_instance);
+        install_callbacks(&new_instance, &viewer.args.on);
+        if let Some(data_path) = &viewer.args.load_data {
+            let _ = load_data(&component, &new_instance, data_path);
+        }
+        viewer.instance = new_instance;
+
+        eprintln!("Successful reload of {}", viewer.args.path.display());
+    });
 }
 
 fn load_data(

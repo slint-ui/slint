@@ -3,26 +3,23 @@
 
 use std::rc::Rc;
 
-use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
+use slint::{Model, ModelRc, SharedString, VecModel};
 
 use crate::{common, preview::ui};
 
-pub fn setup(ui: &ui::PreviewUi) {
-    let api = ui.global::<ui::Api>();
+pub fn setup(api: &ui::Api<'_>) {
     api.on_filter_log_messages(filter_log_messages);
     api.on_clear_log_messages(clear_log_messages);
 
-    clear_log_messages_impl(ui);
+    clear_log_messages_impl(api);
 }
 
 pub fn append_log_message(
-    ui: &ui::PreviewUi,
+    api: &ui::Api<'_>,
     level: ui::LogMessageLevel,
     location: Option<(SharedString, usize, usize)>,
     message: &str,
 ) {
-    let api = ui.global::<ui::Api>();
-
     let log_model = api.get_log_output();
     let Some(model) = log_model.as_any().downcast_ref::<VecModel<ui::LogMessage>>() else {
         return;
@@ -41,15 +38,13 @@ pub fn append_log_message(
 
 pub fn clear_log_messages() {
     crate::preview::PREVIEW_STATE.with_borrow(|preview_state| {
-        if let Some(ui) = &preview_state.ui {
-            clear_log_messages_impl(ui);
+        if let Some(api) = preview_state.api.upgrade() {
+            clear_log_messages_impl(&api);
         }
     })
 }
 
-pub fn clear_log_messages_impl(ui: &ui::PreviewUi) {
-    let api = ui.global::<ui::Api>();
-
+pub fn clear_log_messages_impl(api: &ui::Api<'_>) {
     api.set_log_output(Rc::new(VecModel::default()).into());
 }
 

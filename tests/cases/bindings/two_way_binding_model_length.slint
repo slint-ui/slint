@@ -1,0 +1,91 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Verify that two-way bindings to a struct field of `length` type in a model
+// row apply the LogicalLength <-> f32 conversion correctly. This exercises the
+// `set_primitive_property_value` / `primitive_value_from_property_value` path
+// in the Rust generator and the equivalent in the C++ generator.
+
+struct Item {
+    name: string,
+    width: length,
+}
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 200px;
+
+    in-out property <[Item]> model: [
+        { name: "first", width: 50px },
+        { name: "second", width: 75px },
+    ];
+
+    callback set-row-width(int, length);
+    set-row-width(idx, w) => {
+        model[idx] = { name: model[idx].name, width: w };
+    }
+
+    VerticalLayout {
+        for itm[idx] in model: HorizontalLayout {
+            Rectangle {
+                width <=> itm.width;
+                height: 30px;
+                background: blue;
+            }
+        }
+    }
+
+    out property <bool> test:
+        model[0].width == 50px && model[1].width == 75px;
+}
+
+/*
+```rust
+use slint::Model;
+
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+// Mutate the model via a slint callback. The model row stores f32, and
+// the bound rectangle's LogicalLength width follows it through the
+// conversion path. We verify the round-trip by reading the model back.
+let model = instance.get_model();
+instance.invoke_set_row_width(0, 100.);
+slint_testing::mock_elapsed_time(0);
+assert_eq!(model.row_data(0).unwrap().width, 100.);
+
+instance.invoke_set_row_width(1, 200.);
+slint_testing::mock_elapsed_time(0);
+assert_eq!(model.row_data(1).unwrap().width, 200.);
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+
+auto model = instance.get_model();
+instance.invoke_set_row_width(0, 100.);
+slint_testing::mock_elapsed_time(0);
+assert(model->row_data(0).value().width == 100.);
+
+instance.invoke_set_row_width(1, 200.);
+slint_testing::mock_elapsed_time(0);
+assert(model->row_data(1).value().width == 200.);
+```
+
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+
+instance.set_row_width(0, 100.);
+slintlib.private_api.mock_elapsed_time(0);
+assert.equal(instance.model.rowData(0).width, 100.);
+
+instance.set_row_width(1, 200.);
+slintlib.private_api.mock_elapsed_time(0);
+assert.equal(instance.model.rowData(1).width, 200.);
+```
+*/

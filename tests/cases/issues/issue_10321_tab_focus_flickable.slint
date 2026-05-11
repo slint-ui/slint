@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//ignore: live-preview
+// cSpell: ignore backtab
 
 export component TestCase inherits Window {
     width: 120px;
@@ -41,14 +41,40 @@ export component TestCase inherits Window {
 /*
 ```rust
 let instance = TestCase::new().unwrap();
-
 assert_eq!(instance.get_focused_index(), -1);
 
 for i in 0..=5 {
     slint_testing::send_keyboard_string_sequence(&instance, "\t");
-    assert_eq!(instance.get_focused_index(), i);
+    assert_eq!(instance.get_focused_index(), i, "tab to item {i}");
 }
 slint_testing::send_keyboard_string_sequence(&instance, "\t");
-assert_eq!(instance.get_focused_index(), 0);
+assert_eq!(instance.get_focused_index(), 0, "tab wraps to item 0");
+
+for i in (0..=5).rev() {
+    slint_testing::send_keyboard_string_sequence(&instance, "\u{19}");
+    assert_eq!(instance.get_focused_index(), i, "backtab to item {i}");
+}
+slint_testing::send_keyboard_string_sequence(&instance, "\u{19}");
+assert_eq!(instance.get_focused_index(), 5, "backtab wraps to item 5");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_focused_index(), -1);
+
+for (int i = 0; i <= 5; i++) {
+    slint_testing::send_keyboard_string_sequence(&instance, "\t");
+    assert_eq(instance.get_focused_index(), i);
+}
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
+assert_eq(instance.get_focused_index(), 0);
+
+for (int i = 5; i >= 0; i--) {
+    slint_testing::send_keyboard_string_sequence(&instance, "\u0019");
+    assert_eq(instance.get_focused_index(), i);
+}
+slint_testing::send_keyboard_string_sequence(&instance, "\u0019");
+assert_eq(instance.get_focused_index(), 5);
 ```
 */

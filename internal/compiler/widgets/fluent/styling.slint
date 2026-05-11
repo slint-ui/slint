@@ -9,18 +9,9 @@ export struct TextStyle {
 }
 
 export global FluentFontSettings {
-    out property <TextStyle> body: {
-        font-size: 14 * 0.0769rem,
-        font-weight: FontWeight.normal
-    };
-    out property <TextStyle> body-strong: {
-        font-size: 14 * 0.0769rem,
-        font-weight: FontWeight.semi-bold
-    };
-    out property <TextStyle> title: {
-        font-size: 28 * 0.0769rem,
-        font-weight: FontWeight.semi-bold
-    };
+    out property <TextStyle> body: { font-size: 14 * 0.0769rem, font-weight: FontWeight.normal };
+    out property <TextStyle> body-strong: { font-size: 14 * 0.0769rem, font-weight: FontWeight.semi-bold };
+    out property <TextStyle> title: { font-size: 28 * 0.0769rem, font-weight: FontWeight.semi-bold };
 }
 
 export global FluentPalette {
@@ -35,8 +26,9 @@ export global FluentPalette {
     pure function accentify(default-color: color) -> color {
         let accent-color = SlintInternal.accent-color;
         if (accent-color.alpha > 0) {
-            let lch = default-color.to-oklch();
-            return oklch(lch.lightness, lch.chroma, accent-color.to-oklch().hue);
+            let default-lch = default-color.to-oklch();
+            let accent-lch = accent-color.to-oklch();
+            return oklch(default-lch.lightness, accent-lch.chroma, accent-lch.hue);
         }
         return default-color;
     }
@@ -58,17 +50,14 @@ export global FluentPalette {
     out property <brush> secondary-accent-background: accent-background.with-alpha(0.9);
     out property <brush> tertiary-accent-background: accent-background.with-alpha(0.8);
     out property <brush> accent-disabled: dark-color-scheme ? #FFFFFF29 : #00000038;
-    out property <brush> accent-control-border: dark-color-scheme ? @linear-gradient(180deg, #FFFFFF14 90.67%, #00000024 100%)
-        : @linear-gradient(180deg, #FFFFFF14 90.67%, #00000066 100%);
-    out property <brush> control-border: dark-color-scheme ? @linear-gradient(180deg, #FFFFFF17 0%, #00000012 8.33%)
-        : @linear-gradient(180deg, #0000000F 90.58%, #00000029 100%);
+    out property <brush> accent-control-border: dark-color-scheme ? @linear-gradient(180deg, #FFFFFF14 90.67%, #00000024 100%) : @linear-gradient(180deg, #FFFFFF14 90.67%, #00000066 100%);
+    out property <brush> control-border: dark-color-scheme ? @linear-gradient(180deg, #FFFFFF17 0%, #00000012 8.33%) : @linear-gradient(180deg, #0000000F 90.58%, #00000029 100%);
     out property <brush> text-accent-foreground-secondary: dark-color-scheme ? #00000080 : #FFFFFFB3;
     out property <brush> text-accent-foreground-disabled: dark-color-scheme ? #FFFFFF87 : #FFFFFF;
     out property <brush> text-secondary: dark-color-scheme ? #FFFFFFC9 : #00000099;
     out property <brush> text-tertiary: dark-color-scheme ? #FFFFFF8A : #00000073;
     out property <brush> text-disabled: dark-color-scheme ? #FFFFFF5E : #0000005E;
-    out property <brush> text-control-border: dark-color-scheme ? @linear-gradient(180deg, #FFFFFF14 99.98%, #FFFFFF8A 100%, #FFFFFF8A 100%)
-        : @linear-gradient(180deg, #0000000F 99.99%, #00000073 100%, #00000073 100%);
+    out property <brush> text-control-border: dark-color-scheme ? @linear-gradient(180deg, #FFFFFF14 99.98%, #FFFFFF8A 100%, #FFFFFF8A 100%) : @linear-gradient(180deg, #0000000F 99.99%, #00000073 100%, #00000073 100%);
     out property <brush> control-secondary: dark-color-scheme ? #FFFFFF14 : #F9F9F980;
     out property <brush> control-tertiary: dark-color-scheme ? #FFFFFF08 : #F9F9F94D;
     out property <brush> control-disabled: dark-color-scheme ? #FFFFFF0A : #F9F9F94D;
@@ -78,9 +67,8 @@ export global FluentPalette {
     out property <brush> control-alt-disabled: transparent;
     out property <brush> control-strong-stroke: dark-color-scheme ? #FFFFFF99 : #00000099;
     out property <brush> control-strong-stroke-disabled: dark-color-scheme ? #FFFFFF29 : #00000038;
-    out property <brush> control-solid: dark-color-scheme ? #454545: #FFFFFF;
-    out property <brush> circle-border: dark-color-scheme ? @linear-gradient(180deg, #FFFFFF17 0%, #FFFFFF12 100%)
-    : @linear-gradient(180deg, #0000000F 0%, #00000029 100%);
+    out property <brush> control-solid: dark-color-scheme ? #454545 : #FFFFFF;
+    out property <brush> circle-border: dark-color-scheme ? @linear-gradient(180deg, #FFFFFF17 0%, #FFFFFF12 100%) : @linear-gradient(180deg, #0000000F 0%, #00000029 100%);
     out property <brush> control-input-active: dark-color-scheme ? #1E1E1EB3 : #FFFFFF;
     out property <brush> focus-stroke-inner: dark-color-scheme ? #000000B3 : #FFFFFF;
     out property <brush> focus-stroke-outer: dark-color-scheme ? #FFFFFF : #000000E6;

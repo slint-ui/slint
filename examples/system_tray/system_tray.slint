@@ -1,0 +1,121 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { LineEdit, CheckBox, Button, VerticalBox, HorizontalBox, GroupBox, Palette } from "std-widgets.slint";
+
+// The window the user interacts with. Edits to the inputs propagate to
+// the SystemTrayIcon instance via the host language's callbacks.
+export component MainWindow inherits Window {
+    title: "Slint SystemTrayIcon Demo";
+    preferred-width: 480px;
+    preferred-height: 360px;
+
+    // State edited by the UI. Bound two-way to the corresponding LineEdit /
+    // CheckBox below; the host language forwards changes onto the tray via
+    // the *-changed callbacks.
+    in-out property <string> tray-title: "Slint";
+    in-out property <string> tray-tooltip: "Slint SystemTrayIcon demo";
+    in-out property <bool> tray-visible: true;
+    in-out property <bool> tray-menu-enabled: true;
+    in-out property <string> activation-log: "(no tray events yet)";
+
+    callback tray-title-changed(string);
+    callback tray-tooltip-changed(string);
+    callback tray-visible-changed(bool);
+    callback tray-menu-enabled-changed(bool);
+    callback hide-to-tray;
+    callback quit;
+
+    VerticalBox {
+        spacing: 12px;
+
+        GroupBox {
+            title: "Tray properties";
+            VerticalBox {
+                Text {
+                    text: "Title — visible label next to the icon on macOS, "
+                        + "accessibility / overflow name elsewhere.";
+                    wrap: word-wrap;
+                }
+                LineEdit {
+                    text <=> root.tray-title;
+                    edited(s) => { root.tray-title-changed(s); }
+                }
+                Text {
+                    text: "Tooltip — hover text on every platform.";
+                    wrap: word-wrap;
+                }
+                LineEdit {
+                    text <=> root.tray-tooltip;
+                    edited(s) => { root.tray-tooltip-changed(s); }
+                }
+                CheckBox {
+                    text: "Tray icon visible";
+                    checked <=> root.tray-visible;
+                    toggled => { root.tray-visible-changed(self.checked); }
+                }
+                CheckBox {
+                    // When this is unchecked the slint Menu's `if cond` falls
+                    // false. On macOS that detaches the NSMenu and clicks on
+                    // the icon fire `activated` instead of popping a menu.
+                    text: "Tray menu enabled";
+                    checked <=> root.tray-menu-enabled;
+                    toggled => { root.tray-menu-enabled-changed(self.checked); }
+                }
+            }
+        }
+
+        GroupBox {
+            title: "Last tray activation";
+            Text { text: root.activation-log; }
+        }
+
+        HorizontalBox {
+            alignment: end;
+            Button {
+                text: "Hide to tray";
+                clicked => { root.hide-to-tray(); }
+            }
+            Button {
+                text: "Quit";
+                clicked => { root.quit(); }
+            }
+        }
+    }
+}
+
+export component ExampleTray inherits SystemTrayIcon {
+    icon: Palette.color-scheme == ColorScheme.dark
+        ? @image-url("../../logo/slint-logo-small-dark.png")
+        : @image-url("../../logo/slint-logo-small-light.png");
+
+    // Wrapping properties so the host language gets typed `set_*` / property
+    // accessors. The inherited `tooltip` / `title` / `visible` from the
+    // SystemTrayIcon builtin aren't auto-exposed on the public component handle.
+    in-out property <string> tray-tooltip <=> root.tooltip;
+    in-out property <string> tray-title <=> root.title;
+    in-out property <bool> tray-visible <=> root.visible;
+    // Drives the conditional `if cond : Menu { ... }` below. Set to false
+    // from the host language to detach the menu and exercise the
+    // "no menu attached" branch (on macOS that's where `activated` fires).
+    in-out property <bool> menu-enabled: true;
+
+    callback toggle-window;
+    callback quit;
+
+    // Left-click (or platform equivalent) fires this callback when the
+    // platform doesn't auto-popup a menu instead.
+    activated => { toggle-window(); }
+
+    if root.menu-enabled : Menu {
+        MenuItem {
+            title: "Show / hide window";
+            activated => { toggle-window(); }
+        }
+        MenuSeparator {}
+        MenuItem {
+            title: "Quit";
+            activated => { quit(); }
+        }
+    }
+}

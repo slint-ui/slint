@@ -200,26 +200,8 @@ pub(crate) fn completion_at(
             | SyntaxKind::StringTemplate
             | SyntaxKind::IndexExpression
     ) {
-        if token.kind() == SyntaxKind::At
-            || (token.kind() == SyntaxKind::Identifier
-                && token.prev_token().is_some_and(|t| t.kind() == SyntaxKind::At))
-        {
-            return Some(
-                [
-                    ("tr(..)", "tr(\"$1\")"),
-                    ("keys(..)", "keys($1)"),
-                    ("image-url(..)", "image-url(\"$1\")"),
-                    ("linear-gradient(..)", "linear-gradient($1)"),
-                    ("radial-gradient(..)", "radial-gradient(circle, $1)"),
-                    ("conic-gradient(..)", "conic-gradient($1)"),
-                ]
-                .into_iter()
-                .map(|(label, insert)| {
-                    CompletionItem::new_simple(label.into(), String::new())
-                        .with_insert_text(insert, snippet_support)
-                })
-                .collect::<Vec<_>>(),
-            );
+        if let Some(completions) = macro_completions(token, snippet_support) {
+            return Some(completions);
         }
 
         return with_lookup_ctx(document_cache, node, Some(offset), |ctx| {
@@ -1172,6 +1154,33 @@ fn is_followed_by_brace(token: &SyntaxToken) -> bool {
         next_token = t.next_token();
     }
     next_token.is_some_and(|x| x.kind() == SyntaxKind::LBrace)
+}
+
+fn macro_completions(token: SyntaxToken, snippet_support: bool) -> Option<Vec<CompletionItem>> {
+    if token.kind() == SyntaxKind::At
+        || (token.kind() == SyntaxKind::Identifier
+            && token.prev_token().is_some_and(|t| t.kind() == SyntaxKind::At))
+    {
+        Some(
+            [
+                ("tr(..)", "tr(\"$1\")"),
+                ("keys(..)", "keys($1)"),
+                ("markdown(..)", "markdown(\"$1\")"),
+                ("image-url(..)", "image-url(\"$1\")"),
+                ("linear-gradient(..)", "linear-gradient($1)"),
+                ("radial-gradient(..)", "radial-gradient(circle, $1)"),
+                ("conic-gradient(..)", "conic-gradient($1)"),
+            ]
+            .into_iter()
+            .map(|(label, insert)| {
+                CompletionItem::new_simple(label.into(), String::new())
+                    .with_insert_text(insert, snippet_support)
+            })
+            .collect::<Vec<_>>(),
+        )
+    } else {
+        None
+    }
 }
 
 fn at_keys_completions(ctx: &mut LookupCtx) -> Vec<CompletionItem> {

@@ -18,6 +18,7 @@ cargo publish --manifest-path internal/backends/android-activity/Cargo.toml --fe
 cargo publish --manifest-path internal/backends/testing/Cargo.toml
 cargo publish --manifest-path internal/backends/selector/Cargo.toml --features backend-winit-x11,renderer-femtovg
 cargo publish --manifest-path internal/interpreter/Cargo.toml
+cargo publish --manifest-path internal/preview-protocol/Cargo.toml
 cargo publish --manifest-path api/rs/slint/Cargo.toml
 cargo publish --manifest-path tools/lsp/Cargo.toml
 cargo publish --manifest-path tools/viewer/Cargo.toml

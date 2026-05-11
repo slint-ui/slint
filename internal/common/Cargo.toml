@@ -32,3 +32,4 @@ derive_more = { workspace = true, optional = true, features = ["error", "display
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
+all-features = true

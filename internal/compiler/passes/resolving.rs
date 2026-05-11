@@ -125,41 +125,48 @@ pub fn resolve_expressions(
     type_loader: &crate::typeloader::TypeLoader,
     diag: &mut BuildDiagnostics,
 ) {
-    resolve_two_way_bindings(doc, &doc.local_registry, diag);
-
     for component in doc.inner_components.iter() {
         recurse_elem_with_scope(
             &component.root_element,
             ComponentScope(Vec::new()),
             &mut |elem, scope| {
-                let mut is_repeated = elem.borrow().repeated.is_some();
-                visit_element_expressions(elem, |expr, property_name, property_type| {
-                    let scope = if is_repeated {
-                        // The first expression is always the model and it needs to be resolved with the parent scope
-                        debug_assert!(matches!(
-                            elem.borrow().repeated.as_ref().unwrap().model,
-                            Expression::Invalid
-                        )); // should be Invalid because it is taken by the visit_element_expressions function
+                // Resolve the model expression (of a `for`) with the parent
+                // scope, and before the two-way bindings below so they can
+                // type-check field accesses against the model row type.
+                if elem.borrow().repeated.is_some() {
+                    debug_assert!(scope.0.len() > 1);
+                    let parent_scope = &scope.0[..scope.0.len() - 1];
+                    visit_repeater_model_expression(elem, |expr, property_name, property_type| {
+                        resolve_expression(
+                            elem,
+                            expr,
+                            property_name,
+                            property_type(),
+                            parent_scope,
+                            &doc.local_registry,
+                            type_loader,
+                            diag,
+                        );
+                    });
+                }
 
-                        is_repeated = false;
+                resolve_two_way_bindings_for_element(elem, &scope.0, &doc.local_registry, diag);
 
-                        debug_assert!(scope.0.len() > 1);
-                        &scope.0[..scope.0.len() - 1]
-                    } else {
-                        &scope.0
-                    };
-
-                    resolve_expression(
-                        elem,
-                        expr,
-                        property_name,
-                        property_type(),
-                        scope,
-                        &doc.local_registry,
-                        type_loader,
-                        diag,
-                    );
-                });
+                visit_element_expressions_excluding_repeater_model(
+                    elem,
+                    |expr, property_name, property_type| {
+                        resolve_expression(
+                            elem,
+                            expr,
+                            property_name,
+                            property_type(),
+                            &scope.0,
+                            &doc.local_registry,
+                            type_loader,
+                            diag,
+                        );
+                    },
+                );
             },
         );
     }
@@ -371,11 +378,9 @@ impl Expression {
                     SyntaxKind::AtTr => Some(Self::from_at_tr(node.into(), ctx)),
                     SyntaxKind::AtMarkdown => Some(Self::from_at_markdown(node.into(), ctx)),
                     SyntaxKind::AtKeys => Some(Self::from_at_keys_node(node.into(), ctx)),
-                    SyntaxKind::QualifiedName => Some(Self::from_qualified_name_node(
-                        node.clone().into(),
-                        ctx,
-                        LookupPhase::default(),
-                    )),
+                    SyntaxKind::QualifiedName => {
+                        Some(Self::from_qualified_name_node(node.clone().into(), ctx))
+                    }
                     SyntaxKind::FunctionCallExpression => {
                         Some(Self::from_function_call_node(node.into(), ctx))
                     }
@@ -409,12 +414,9 @@ impl Expression {
                 },
                 NodeOrToken::Token(token) => match token.kind() {
                     SyntaxKind::StringLiteral => Some(
-                        crate::literals::unescape_string(token.text())
+                        crate::literals::unescape_string_reporting(Some(&token), ctx.diag, &token)
                             .map(Self::StringLiteral)
-                            .unwrap_or_else(|| {
-                                ctx.diag.push_error("Cannot parse string literal".into(), &token);
-                                Self::Invalid
-                            }),
+                            .unwrap_or(Self::Invalid),
                     ),
                     SyntaxKind::NumberLiteral => Some(
                         crate::literals::parse_number_literal(token.text().into()).unwrap_or_else(
@@ -443,15 +445,12 @@ impl Expression {
     }
 
     fn from_at_image_url_node(node: syntax_nodes::AtImageUrl, ctx: &mut LookupCtx) -> Self {
-        let s = match node
-            .child_text(SyntaxKind::StringLiteral)
-            .and_then(|x| crate::literals::unescape_string(&x))
-        {
-            Some(s) => s,
-            None => {
-                ctx.diag.push_error("Cannot parse string literal".into(), &node);
-                return Self::Invalid;
-            }
+        let Some(s) = crate::literals::unescape_string_reporting(
+            node.child_token(SyntaxKind::StringLiteral).as_ref(),
+            ctx.diag,
+            &node,
+        ) else {
+            return Self::Invalid;
         };
 
         if s.is_empty() {
@@ -761,26 +760,16 @@ impl Expression {
     }
 
     fn from_at_markdown(node: syntax_nodes::AtMarkdown, ctx: &mut LookupCtx) -> Expression {
-        let mut markdown = String::new();
         let mut values = Vec::new();
+        let mut source_map = crate::literals::StringLiteralSourceMap::new();
 
         for n in node.children_with_tokens() {
             if n.kind() == SyntaxKind::StringLiteral {
-                if let Some(s) = crate::literals::unescape_string(n.as_token().unwrap().text()) {
-                    markdown.push_str(&s);
-                } else {
-                    ctx.diag.push_error("Cannot parse string literal".into(), &n);
-                }
+                source_map.push(n.as_token().unwrap(), ctx.diag);
             } else if n.kind() == SyntaxKind::StringTemplate {
                 for n in n.as_node().unwrap().children_with_tokens() {
                     if n.kind() == SyntaxKind::StringLiteral {
-                        if let Some(s) =
-                            crate::literals::unescape_string(n.as_token().unwrap().text())
-                        {
-                            markdown.push_str(&s);
-                        } else {
-                            ctx.diag.push_error("Cannot parse string literal".into(), &n);
-                        }
+                        source_map.push(n.as_token().unwrap(), ctx.diag);
                     } else if n.kind() == SyntaxKind::Expression {
                         let node = n.into_node().unwrap();
                         let expr = Expression::from_expression_node(node.clone().into(), ctx);
@@ -798,29 +787,47 @@ impl Expression {
                             }
                         };
                         values.push(expr);
-                        markdown
-                            .push(i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER);
+                        source_map.push_raw_char(
+                            i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER,
+                            node.to_source_location(),
+                        );
                     }
                 }
             }
         }
 
         let dummy_paragraph = i_slint_common::styled_text::paragraph_from_plain_text("".into());
+        let markdown = source_map.as_str();
 
         // Validate the markdown format string with dummy values
-        if let Err(e) = i_slint_common::styled_text::parse_interpolated(
-            &markdown,
+        let (_, parse_errors) = i_slint_common::styled_text::parse_interpolated(
+            markdown,
             &vec![&[dummy_paragraph]; values.len()],
-        )
-        .collect::<Result<Vec<_>, _>>()
-        {
-            ctx.diag.push_error(e.to_string(), &node);
+        );
+        for e in &parse_errors {
+            // Skip InvalidColor when the color value came from interpolation
+            // (dummy values resolve to empty strings during compile-time validation)
+            if i_slint_common::styled_text::is_invalid_color(e)
+                && e.range().is_some_and(|r| {
+                    r.end <= markdown.len()
+                        && markdown[r.start..r.end].contains(
+                            i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER,
+                        )
+                })
+            {
+                continue;
+            }
+            if let Some(r) = e.range() {
+                source_map.report(ctx.diag, e.to_string(), r, &node);
+            } else {
+                ctx.diag.push_error(e.to_string(), &node);
+            }
         }
 
         Expression::FunctionCall {
             function: BuiltinFunction::ParseMarkdown.into(),
             arguments: vec![
-                Expression::StringLiteral(markdown.into()),
+                Expression::StringLiteral(source_map.into_string().into()),
                 Expression::Array { element_ty: Type::StyledText, values },
             ],
             source_location: Some(node.to_source_location()),
@@ -828,29 +835,30 @@ impl Expression {
     }
 
     fn from_at_tr(node: syntax_nodes::AtTr, ctx: &mut LookupCtx) -> Expression {
-        let Some(string) = node
-            .child_text(SyntaxKind::StringLiteral)
-            .and_then(|s| crate::literals::unescape_string(&s))
-        else {
+        let mut source_map = crate::literals::StringLiteralSourceMap::new();
+        let Some(string_token) = node.child_token(SyntaxKind::StringLiteral) else {
             ctx.diag.push_error("Cannot parse string literal".into(), &node);
             return Expression::Invalid;
         };
+        if !source_map.push(&string_token, ctx.diag) {
+            return Expression::Invalid;
+        }
+        let string: SmolStr = source_map.as_str().into();
         let context = node.TrContext().map(|n| {
-            n.child_text(SyntaxKind::StringLiteral)
-                .and_then(|s| crate::literals::unescape_string(&s))
-                .unwrap_or_else(|| {
-                    ctx.diag.push_error("Cannot parse string literal".into(), &n);
-                    Default::default()
-                })
+            crate::literals::unescape_string_reporting(
+                n.child_token(SyntaxKind::StringLiteral).as_ref(),
+                ctx.diag,
+                &n,
+            )
+            .unwrap_or_default()
         });
         let plural = node.TrPlural().map(|pl| {
-            let s = pl
-                .child_text(SyntaxKind::StringLiteral)
-                .and_then(|s| crate::literals::unescape_string(&s))
-                .unwrap_or_else(|| {
-                    ctx.diag.push_error("Cannot parse string literal".into(), &pl);
-                    Default::default()
-                });
+            let s = crate::literals::unescape_string_reporting(
+                pl.child_token(SyntaxKind::StringLiteral).as_ref(),
+                ctx.diag,
+                &pl,
+            )
+            .unwrap_or_default();
             let n = pl.Expression();
             let expr = Expression::from_expression_node(n.clone(), ctx).maybe_convert_to(
                 Type::Int32,
@@ -882,8 +890,11 @@ impl Expression {
             let mut has_n = false;
             while let Some(mut p) = string[pos..].find(['{', '}']) {
                 if string.len() - pos < p + 1 {
-                    ctx.diag.push_error(
+                    p += pos;
+                    source_map.report(
+                        ctx.diag,
                         "Unescaped trailing '{' in format string. Escape '{' with '{{'".into(),
+                        p..p + 1,
                         &node,
                     );
                     break;
@@ -896,8 +907,10 @@ impl Expression {
                         pos = p + 2;
                         continue;
                     } else {
-                        ctx.diag.push_error(
+                        source_map.report(
+                            ctx.diag,
                             "Unescaped '}' in format string. Escape '}' with '}}'".into(),
+                            p..p + 1,
                             &node,
                         );
                         break;
@@ -914,9 +927,11 @@ impl Expression {
                 let end = if let Some(end) = string[p..].find('}') {
                     end + p
                 } else {
-                    ctx.diag.push_error(
+                    source_map.report(
+                        ctx.diag,
                         "Unterminated placeholder in format string. '{' must be escaped with '{{'"
                             .into(),
+                        p..string.len(),
                         &node,
                     );
                     break;
@@ -929,14 +944,20 @@ impl Expression {
                 } else if argument == "n" {
                     has_n = true;
                     if plural.is_none() {
-                        ctx.diag.push_error(
+                        source_map.report(
+                            ctx.diag,
                             "`{n}` placeholder can only be found in plural form".into(),
+                            p..end + 1,
                             &node,
                         );
                     }
                 } else {
-                    ctx.diag
-                        .push_error("Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'".into(), &node);
+                    source_map.report(
+                        ctx.diag,
+                        "Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'".into(),
+                        p..end + 1,
+                        &node,
+                    );
                     break;
                 };
                 pos = end + 1;
@@ -1100,7 +1121,8 @@ impl Expression {
 
         // If there is a string literal, use it as the key
         if let Some(token) = node.child_token(SyntaxKind::StringLiteral)
-            && let Some(key) = crate::literals::unescape_string(token.text())
+            && let Some(key) =
+                crate::literals::unescape_string_reporting(Some(&token), ctx.diag, &token)
         {
             // NFC-normalize the key string for consistent matching
             let normalizer = icu_normalizer::ComposingNormalizer::new_nfc();
@@ -1136,12 +1158,12 @@ impl Expression {
     }
 
     /// Perform the lookup
-    fn from_qualified_name_node(
-        node: syntax_nodes::QualifiedName,
-        ctx: &mut LookupCtx,
-        phase: LookupPhase,
-    ) -> Self {
-        Self::from_lookup_result(lookup_qualified_name_node(node.clone(), ctx, phase), ctx, &node)
+    fn from_qualified_name_node(node: syntax_nodes::QualifiedName, ctx: &mut LookupCtx) -> Self {
+        Self::from_lookup_result(
+            lookup_qualified_name_node(node.clone(), ctx, LookupPhase::default()),
+            ctx,
+            &node,
+        )
     }
 
     fn from_lookup_result(
@@ -1583,12 +1605,9 @@ impl Expression {
         for n in node.children_with_tokens() {
             let expr = if n.kind() == SyntaxKind::StringLiteral {
                 let token = n.as_token().unwrap();
-                crate::literals::unescape_string(token.text())
+                crate::literals::unescape_string_reporting(Some(token), ctx.diag, token)
                     .map(Self::StringLiteral)
-                    .unwrap_or_else(|| {
-                        ctx.diag.push_error("Cannot parse string literal".into(), token);
-                        Self::Invalid
-                    })
+                    .unwrap_or(Self::Invalid)
             } else if n.kind() == SyntaxKind::Expression {
                 let node = n.into_node().unwrap();
                 let expr = Expression::from_expression_node(node.clone().into(), ctx);
@@ -1853,13 +1872,16 @@ fn lookup_qualified_name_node(
             continue_lookup_within_element(&e.upgrade().unwrap(), &mut it, node, ctx)
         }
         LookupResult::Expression {
-            expression: Expression::RepeaterModelReference { .. }, ..
+            expression: mut e @ Expression::RepeaterModelReference { .. },
+            ..
         } if matches!(phase, LookupPhase::ResolvingTwoWayBindings) => {
-            ctx.diag.push_error(
-                "Two-way bindings to model data is not supported yet".to_string(),
-                &node,
-            );
-            None
+            // The enclosing model expression may not be resolved yet
+            // (e.g. when called from `infer_aliases_types`). Skip type
+            // checking here; `resolve_two_way_binding` does it later.
+            for n in it {
+                e = Expression::StructFieldAccess { base: e.into(), name: n.text().into() };
+            }
+            Some(e.into())
         }
         result => maybe_lookup_object(result, it, ctx),
     }
@@ -2102,143 +2124,159 @@ fn maybe_lookup_object(
     Some(base)
 }
 
-/// Go through all the two way binding and resolve them first
-fn resolve_two_way_bindings(
-    doc: &Document,
+/// Resolve all two way bindings on `elem`, and finalise the type of any
+/// `property foo <=> ...` declared without an explicit type. Run after any
+/// enclosing `for` model expression has been resolved.
+fn resolve_two_way_bindings_for_element(
+    elem: &ElementRc,
+    scope: &[ElementRc],
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
-    for component in doc.inner_components.iter() {
-        recurse_elem_with_scope(
-            &component.root_element,
-            ComponentScope(Vec::new()),
-            &mut |elem, scope| {
-                for (prop_name, binding) in &elem.borrow().bindings {
-                    let mut binding = binding.borrow_mut();
-                    if let Expression::Uncompiled(node) =
-                        binding.expression.ignore_debug_hooks().clone()
-                        && let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone())
-                    {
-                        let lhs_lookup = elem.borrow().lookup_property(prop_name);
-                        if !lhs_lookup.is_valid() {
-                            // An attempt to resolve this already failed when trying to resolve the property type
-                            assert!(diag.has_errors());
-                            continue;
+    // Queued here and applied after the loop, since the iterator holds a
+    // borrow on `elem` that blocks `borrow_mut`.
+    let mut to_infer: Vec<(SmolStr, Type)> = Vec::new();
+
+    for (prop_name, binding) in &elem.borrow().bindings {
+        let mut binding = binding.borrow_mut();
+        if let Expression::Uncompiled(node) = binding.expression.ignore_debug_hooks().clone()
+            && let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone())
+        {
+            let lhs_lookup = elem.borrow().lookup_property(prop_name);
+            if !lhs_lookup.is_valid() {
+                // An attempt to resolve this already failed when trying to resolve the property type
+                assert!(diag.has_errors());
+                continue;
+            }
+            let mut lookup_ctx = LookupCtx {
+                property_name: Some(prop_name.as_str()),
+                property_type: lhs_lookup.property_type.clone(),
+                component_scope: scope,
+                diag,
+                arguments: Vec::new(),
+                type_register,
+                type_loader: None,
+                current_token: Some(node.clone().into()),
+                local_variables: Vec::new(),
+            };
+
+            binding.expression = Expression::Invalid;
+
+            if let Some(twb) = resolve_two_way_binding(n, &mut lookup_ctx) {
+                if matches!(lhs_lookup.property_type, Type::InferredProperty) {
+                    to_infer.push((prop_name.clone(), twb.ty()));
+                }
+                let nr = twb.property().cloned();
+                binding.two_way_bindings.push(twb);
+
+                let Some(nr) = nr else { continue };
+                nr.element()
+                    .borrow()
+                    .property_analysis
+                    .borrow_mut()
+                    .entry(nr.name().clone())
+                    .or_default()
+                    .is_linked = true;
+
+                if matches!(
+                    lhs_lookup.property_visibility,
+                    PropertyVisibility::Private | PropertyVisibility::Output
+                ) && !lhs_lookup.is_local_to_component
+                {
+                    // invalid property assignment should have been reported earlier
+                    assert!(diag.has_errors() || elem.borrow().is_legacy_syntax);
+                    continue;
+                }
+
+                // Check the compatibility.
+                let mut rhs_lookup = nr.element().borrow().lookup_property(nr.name());
+                if rhs_lookup.property_type == Type::Invalid {
+                    // An attempt to resolve this already failed when trying to resolve the property type
+                    assert!(diag.has_errors());
+                    continue;
+                }
+                rhs_lookup.is_local_to_component &= lookup_ctx.is_local_element(&nr.element());
+
+                if !rhs_lookup.is_valid_for_assignment() {
+                    match (lhs_lookup.property_visibility, rhs_lookup.property_visibility) {
+                        (PropertyVisibility::Input, PropertyVisibility::Input)
+                            if !lhs_lookup.is_local_to_component =>
+                        {
+                            assert!(rhs_lookup.is_local_to_component);
+                            marked_linked_read_only(elem, prop_name);
                         }
-                        let mut lookup_ctx = LookupCtx {
-                            property_name: Some(prop_name.as_str()),
-                            property_type: lhs_lookup.property_type.clone(),
-                            component_scope: &scope.0,
-                            diag,
-                            arguments: Vec::new(),
-                            type_register,
-                            type_loader: None,
-                            current_token: Some(node.clone().into()),
-                            local_variables: Vec::new(),
-                        };
-
-                        binding.expression = Expression::Invalid;
-
-                        if let Some(twb) = resolve_two_way_binding(n, &mut lookup_ctx) {
-                            let nr = twb.property.clone();
-                            binding.two_way_bindings.push(twb);
-
-                            nr.element()
-                                .borrow()
-                                .property_analysis
-                                .borrow_mut()
-                                .entry(nr.name().clone())
-                                .or_default()
-                                .is_linked = true;
-
-                            if matches!(
-                                lhs_lookup.property_visibility,
-                                PropertyVisibility::Private | PropertyVisibility::Output
-                            ) && !lhs_lookup.is_local_to_component
-                            {
-                                // invalid property assignment should have been reported earlier
-                                assert!(diag.has_errors() || elem.borrow().is_legacy_syntax);
-                                continue;
-                            }
-
-                            // Check the compatibility.
-                            let mut rhs_lookup = nr.element().borrow().lookup_property(nr.name());
-                            if rhs_lookup.property_type == Type::Invalid {
-                                // An attempt to resolve this already failed when trying to resolve the property type
-                                assert!(diag.has_errors());
-                                continue;
-                            }
-                            rhs_lookup.is_local_to_component &=
-                                lookup_ctx.is_local_element(&nr.element());
-
-                            if !rhs_lookup.is_valid_for_assignment() {
-                                match (
-                                    lhs_lookup.property_visibility,
-                                    rhs_lookup.property_visibility,
-                                ) {
-                                    (PropertyVisibility::Input, PropertyVisibility::Input)
-                                        if !lhs_lookup.is_local_to_component =>
-                                    {
-                                        assert!(rhs_lookup.is_local_to_component);
-                                        marked_linked_read_only(elem, prop_name);
-                                    }
-                                    (
-                                        PropertyVisibility::Output | PropertyVisibility::Private,
-                                        PropertyVisibility::Output | PropertyVisibility::Input,
-                                    ) => {
-                                        assert!(lhs_lookup.is_local_to_component);
-                                        marked_linked_read_only(elem, prop_name);
-                                    }
-                                    (PropertyVisibility::Input, PropertyVisibility::Output)
-                                        if !lhs_lookup.is_local_to_component =>
-                                    {
-                                        assert!(!rhs_lookup.is_local_to_component);
-                                        marked_linked_read_only(elem, prop_name);
-                                    }
-                                    _ => {
-                                        if lookup_ctx.is_legacy_component() {
-                                            diag.push_warning(
-                                                format!(
-                                                    "Link to a {} property is deprecated",
-                                                    rhs_lookup.property_visibility
-                                                ),
-                                                &node,
-                                            );
-                                        } else {
-                                            diag.push_error(
-                                                format!(
-                                                    "Cannot link to a {} property",
-                                                    rhs_lookup.property_visibility
-                                                ),
-                                                &node,
-                                            )
-                                        }
-                                    }
-                                }
-                            } else if !lhs_lookup.is_valid_for_assignment() {
-                                if rhs_lookup.is_local_to_component
-                                    && rhs_lookup.property_visibility == PropertyVisibility::InOut
-                                {
-                                    if lookup_ctx.is_legacy_component() {
-                                        debug_assert!(!diag.is_empty()); // warning should already be reported
-                                    } else {
-                                        diag.push_error("Cannot link input property".into(), &node);
-                                    }
-                                } else if rhs_lookup.property_visibility
-                                    == PropertyVisibility::InOut
-                                {
-                                    diag.push_warning("Linking input properties to input output properties is deprecated".into(), &node);
-                                    marked_linked_read_only(&nr.element(), nr.name());
-                                } else {
-                                    // This is allowed, but then the rhs must also become read only.
-                                    marked_linked_read_only(&nr.element(), nr.name());
-                                }
+                        (
+                            PropertyVisibility::Output | PropertyVisibility::Private,
+                            PropertyVisibility::Output | PropertyVisibility::Input,
+                        ) => {
+                            assert!(lhs_lookup.is_local_to_component);
+                            marked_linked_read_only(elem, prop_name);
+                        }
+                        (PropertyVisibility::Input, PropertyVisibility::Output)
+                            if !lhs_lookup.is_local_to_component =>
+                        {
+                            assert!(!rhs_lookup.is_local_to_component);
+                            marked_linked_read_only(elem, prop_name);
+                        }
+                        _ => {
+                            if lookup_ctx.is_legacy_component() {
+                                diag.push_warning(
+                                    format!(
+                                        "Link to a {} property is deprecated",
+                                        rhs_lookup.property_visibility
+                                    ),
+                                    &node,
+                                );
+                            } else {
+                                diag.push_error(
+                                    format!(
+                                        "Cannot link to a {} property",
+                                        rhs_lookup.property_visibility
+                                    ),
+                                    &node,
+                                )
                             }
                         }
                     }
+                } else if !lhs_lookup.is_valid_for_assignment() {
+                    if rhs_lookup.is_local_to_component
+                        && rhs_lookup.property_visibility == PropertyVisibility::InOut
+                    {
+                        if lookup_ctx.is_legacy_component() {
+                            debug_assert!(!diag.is_empty()); // warning should already be reported
+                        } else {
+                            diag.push_error("Cannot link input property".into(), &node);
+                        }
+                    } else if rhs_lookup.property_visibility == PropertyVisibility::InOut {
+                        diag.push_warning(
+                            "Linking input properties to input output properties is deprecated"
+                                .into(),
+                            &node,
+                        );
+                        marked_linked_read_only(&nr.element(), nr.name());
+                    } else {
+                        // This is allowed, but then the rhs must also become read only.
+                        marked_linked_read_only(&nr.element(), nr.name());
+                    }
                 }
-            },
-        );
+            }
+        }
+    }
+
+    if !to_infer.is_empty() {
+        let mut elem_mut = elem.borrow_mut();
+        for (prop_name, inferred) in to_infer {
+            let decl = elem_mut.property_declarations.get_mut(&prop_name).unwrap();
+            if inferred.is_property_type() {
+                decl.property_type = inferred;
+            } else {
+                let type_node = decl.type_node();
+                diag.push_error(
+                    format!("Could not infer type of property '{prop_name}'"),
+                    &type_node,
+                );
+            }
+        }
     }
 
     fn marked_linked_read_only(elem: &ElementRc, prop_name: &str) {
@@ -2279,22 +2317,73 @@ pub fn resolve_two_way_binding(
                     Expression::PropertyReference(nr) => Some(nr.clone().into()),
                     Expression::StructFieldAccess { base, name } => {
                         let mut prop = unwrap_fields(base)?;
-                        prop.field_access.push(name.clone());
+                        let field_access = match &mut prop {
+                            TwoWayBinding::Property { field_access, .. } => field_access,
+                            TwoWayBinding::ModelData { field_access, .. } => field_access,
+                        };
+                        field_access.push(name.clone());
                         Some(prop)
+                    }
+                    Expression::RepeaterModelReference { element } => {
+                        Some(TwoWayBinding::ModelData {
+                            repeated_element: element.clone(),
+                            field_access: vec![],
+                        })
                     }
                     _ => None,
                 }
             }
             if let Some(result) = unwrap_fields(&expression) {
-                if report_error && expression.ty() != ctx.property_type {
+                // Walk the `ModelData` field path now: the qualified-name
+                // lookup built it without type checks (the row type may not
+                // have been known yet). Emits per-field diagnostics and
+                // yields the leaf type as `expr_ty`.
+                let expr_ty = if let TwoWayBinding::ModelData { repeated_element, field_access } =
+                    &result
+                {
+                    let mut ty =
+                        Expression::RepeaterModelReference { element: repeated_element.clone() }
+                            .ty();
+                    if !matches!(ty, Type::Invalid) {
+                        for f in field_access {
+                            let next = if let Type::Struct(s) = &ty {
+                                s.fields.get(f.as_str()).cloned()
+                            } else {
+                                None
+                            };
+                            let Some(next) = next else {
+                                ctx.diag.push_error(
+                                    format!("Cannot access the field '{f}' of {ty}"),
+                                    &node,
+                                );
+                                return None;
+                            };
+                            ty = next;
+                        }
+                    }
+                    ty
+                } else {
+                    result.ty()
+                };
+                if report_error && expr_ty != ctx.property_type {
                     ctx.diag.push_error(
-                        "The property does not have the same type as the bound property".into(),
+                        format!(
+                            "The property '{}' does not have the same type as the bound expression: {} != {expr_ty}",
+                            ctx.property_name.unwrap_or(""),
+                            ctx.property_type,
+                        ),
                         &node,
                     );
                 }
                 Some(result)
             } else {
-                ctx.diag.push_error(ERROR_MESSAGE.into(), &node);
+                let kind = match expression {
+                    Expression::StructFieldAccess { .. } | Expression::ArrayIndex { .. } => {
+                        "Two-way bindings can only target property references"
+                    }
+                    _ => ERROR_MESSAGE,
+                };
+                ctx.diag.push_error(kind.into(), &node);
                 None
             }
         }
@@ -2335,11 +2424,15 @@ fn check_callback_alias_validity(
     };
     let Some(b) = elem_borrow.bindings.get(name) else { return };
     // `try_borrow` because we might be called for the current binding
-    let Some(alias) = b.try_borrow().ok().and_then(|b| b.two_way_bindings.first().cloned()) else {
+    let Some(alias) = b
+        .try_borrow()
+        .ok()
+        .and_then(|b| b.two_way_bindings.first().and_then(|x| x.property()).cloned())
+    else {
         return;
     };
 
-    if alias.property.element().borrow().base_type == ElementType::Global {
+    if alias.element().borrow().base_type == ElementType::Global {
         diag.push_error(
             "Can't assign a local callback handler to an alias to a global callback".into(),
             &node.child_token(SyntaxKind::Identifier).unwrap(),

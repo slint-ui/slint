@@ -1,0 +1,13 @@
+{
+    "name": "system_tray",
+    "version": "1.17.0",
+    "main": "main.js",
+    "type": "module",
+    "dependencies": {
+        "slint-ui": "workspace:*"
+    },
+    "scripts": {
+        "start": "node .",
+        "prestart": "cd ../../api/node/ && pnpm run build && pnpm compile"
+    }
+}
