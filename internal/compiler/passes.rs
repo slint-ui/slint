@@ -136,15 +136,6 @@ pub async fn run_passes(
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         collect_init_code::collect_init_code(component);
         lower_timers::lower_timers(component, diag);
-
-        for p in component.popup_windows.borrow().iter() {
-            apply_default_properties_from_style::apply_default_properties_from_style(
-                &p.component,
-                &style_metrics,
-                &palette,
-                diag,
-            );
-        }
     });
 
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents, diag);

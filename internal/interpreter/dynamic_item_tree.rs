@@ -2801,7 +2801,6 @@ pub fn show_popup(
         Some(&WindowOptions::UseExistingWindow(popup_window_adapter)),
         globals,
     );
-    inst.run_setup_code();
     let pos = {
         generativity::make_guard!(guard);
         let compo_box = inst.unerase(guard);
@@ -2820,6 +2819,7 @@ pub fn show_popup(
             false,
         ),
     );
+    inst.run_setup_code();
 }
 
 pub fn close_popup(
