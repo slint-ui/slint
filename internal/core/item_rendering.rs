@@ -12,6 +12,7 @@ use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
 };
 pub use crate::partial_renderer::CachedRenderingData;
+use crate::textlayout::sharedparley::PhysicalLength;
 use crate::window::WindowAdapterRc;
 use crate::{Brush, SharedString};
 #[cfg(feature = "std")]
@@ -363,6 +364,21 @@ pub enum PlainOrStyledText {
 #[allow(missing_docs)]
 pub trait RenderString: HasFont {
     fn text(self: Pin<&Self>) -> PlainOrStyledText;
+    /// The height of the text if the text is empty
+    /// If `None`, the height will be calculated from the text
+    /// and if the text is empty from the default character,
+    /// likely the space character
+    /// This can be used to use a different size if the text
+    /// is empty, for example if characters are used with a
+    /// different ascent, descent
+    fn height_empty(
+        self: Pin<&Self>,
+        _item_rc: &crate::item_tree::ItemRc,
+        _font_context: &core::cell::RefCell<parley::FontContext>,
+        _scale_factor: crate::lengths::ScaleFactor,
+    ) -> Option<PhysicalLength> {
+        None
+    }
 }
 
 /// Trait for an item that represents an Text towards the renderer

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 pub use parley;
+use parley::FontContext;
 pub use parley::fontique;
 
 use alloc::vec::Vec;
@@ -13,8 +14,9 @@ use std::cell::RefCell;
 
 use crate::{
     Color,
+    api::ToSharedString,
     graphics::FontRequest,
-    item_rendering::PlainOrStyledText,
+    item_rendering::{PlainOrStyledText, RenderString},
     items::TextStrokeStyle,
     lengths::{
         LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx,
@@ -25,6 +27,8 @@ use crate::{
 };
 
 type InnerTextLayoutCache = crate::item_rendering::ItemCache<Vec<TextParagraph>>;
+
+pub const DEFAULT_PASSWORD_CHARACTER: char = '●';
 
 /// Cache for shaped text paragraphs (before line breaking), keyed by ItemRc.
 pub struct TextLayoutCache {
@@ -143,6 +147,7 @@ struct LayoutOptions {
     horizontal_align: TextHorizontalAlignment,
     vertical_align: TextVerticalAlignment,
     text_overflow: TextOverflow,
+    custom_height: Option<PhysicalLength>,
 }
 
 impl LayoutOptions {
@@ -150,6 +155,9 @@ impl LayoutOptions {
         text_input: Pin<&crate::items::TextInput>,
         max_width: Option<LogicalLength>,
         max_height: Option<LogicalLength>,
+        item_rc: &crate::item_tree::ItemRc,
+        font_context: &RefCell<FontContext>,
+        scale_factor: ScaleFactor,
     ) -> Self {
         Self {
             max_width,
@@ -157,6 +165,7 @@ impl LayoutOptions {
             horizontal_align: text_input.horizontal_alignment(),
             vertical_align: text_input.vertical_alignment(),
             text_overflow: TextOverflow::Clip,
+            custom_height: text_input.height_empty(item_rc, font_context, scale_factor),
         }
     }
 }
@@ -482,7 +491,11 @@ fn layout(
         );
 
         para.y = PhysicalLength::new(para_y);
-        para_y += para.layout.height();
+        if let Some(height) = options.custom_height {
+            para_y += height.get();
+        } else {
+            para_y += para.layout.height();
+        }
     }
 
     let max_width = paragraphs
@@ -495,9 +508,11 @@ fn layout(
             PhysicalLength::new(p.layout.full_width())
         })
         .fold(PhysicalLength::zero(), PhysicalLength::max);
-    let height = paragraphs
-        .last()
-        .map_or(PhysicalLength::zero(), |p| p.y + PhysicalLength::new(p.layout.height()));
+    let height = options.custom_height.unwrap_or(
+        paragraphs
+            .last()
+            .map_or(PhysicalLength::zero(), |p| p.y + PhysicalLength::new(p.layout.height())),
+    );
 
     let y_offset = match (max_physical_height, options.vertical_align) {
         (Some(max_height), TextVerticalAlignment::Center) => (max_height - height) / 2.0,
@@ -1073,6 +1088,7 @@ pub fn draw_text(
             max_height: Some(max_height),
             max_width: Some(max_width),
             text_overflow: text.overflow(),
+            custom_height: None,
         },
     );
 
@@ -1159,6 +1175,7 @@ pub fn link_under_cursor(
             max_height: Some(size.height_length()),
             max_width: Some(size.width_length()),
             text_overflow: text.overflow(),
+            custom_height: None,
         },
     );
 
@@ -1200,6 +1217,41 @@ pub fn link_under_cursor(
     guard.paragraphs = Some(layout.paragraphs);
 
     result
+}
+
+pub fn password_text_height(
+    text_input: Pin<&crate::items::TextInput>,
+    item_rc: &crate::item_tree::ItemRc,
+    font_context: &core::cell::RefCell<parley::FontContext>,
+    scale_factor: ScaleFactor,
+) -> Option<PhysicalLength> {
+    let mut font_ctx = font_context.borrow_mut();
+
+    let layout_builder = LayoutWithoutLineBreaksBuilder::new(
+        Some(text_input.font_request(item_rc)),
+        text_input.wrap(),
+        None,
+        scale_factor,
+    );
+
+    // TODO: This can be for sure simplified
+    let mut paragraphs_without_linebreaks_password_character = create_text_paragraphs(
+        &layout_builder,
+        &mut font_ctx,
+        PlainOrStyledText::Plain(DEFAULT_PASSWORD_CHARACTER.to_shared_string()),
+        None,
+        Color::default(),
+    );
+
+    let mut para_y = 0.0;
+    for para in paragraphs_without_linebreaks_password_character.iter_mut() {
+        para.layout.break_all_lines(None);
+        para.layout.align(None, parley::Alignment::Left, parley::AlignmentOptions::default());
+
+        para.y = PhysicalLength::new(para_y);
+        para_y += para.layout.height();
+    }
+    Some(PhysicalLength::new(para_y))
 }
 
 pub fn draw_text_input(
@@ -1249,6 +1301,17 @@ pub fn draw_text_input(
         None
     };
 
+    let scale_factor = ScaleFactor::new(item_renderer.scale_factor());
+    let font_context = item_renderer.window().context().font_context();
+    let layout_options = LayoutOptions::new_from_textinput(
+        text_input,
+        Some(width),
+        Some(height),
+        item_rc,
+        font_context,
+        scale_factor,
+    );
+
     let mut font_ctx = item_renderer.window().context().font_context().borrow_mut();
 
     let paragraphs_without_linebreaks = create_text_paragraphs(
@@ -1265,7 +1328,7 @@ pub fn draw_text_input(
         paragraphs_without_linebreaks,
         scale_factor,
         text_input.wrap(),
-        LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
+        layout_options,
     );
 
     drop(font_ctx);
@@ -1331,7 +1394,6 @@ pub fn text_size(
     let scale_factor = renderer.scale_factor()?;
 
     let ctx = renderer.slint_context()?;
-    let mut font_ctx = ctx.font_context().borrow_mut();
 
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
         Some(text_item.font_request(item_rc)),
@@ -1341,7 +1403,16 @@ pub fn text_size(
     );
 
     let text = text_item.text();
+    let options = LayoutOptions {
+        max_width,
+        max_height: None,
+        horizontal_align: TextHorizontalAlignment::Left,
+        vertical_align: TextVerticalAlignment::Top,
+        text_overflow: TextOverflow::Clip,
+        custom_height: text_item.height_empty(item_rc, ctx.font_context(), scale_factor),
+    };
 
+    let mut font_ctx = ctx.font_context().borrow_mut();
     let paragraphs_without_linebreaks =
         create_text_paragraphs(&layout_builder, &mut font_ctx, text, None, Color::default());
 
@@ -1351,13 +1422,7 @@ pub fn text_size(
         paragraphs_without_linebreaks,
         scale_factor,
         text_wrap,
-        LayoutOptions {
-            max_width,
-            max_height: None,
-            horizontal_align: TextHorizontalAlignment::Left,
-            vertical_align: TextVerticalAlignment::Top,
-            text_overflow: TextOverflow::Clip,
-        },
+        options,
     );
     Some(PhysicalSize::from_lengths(layout.max_width, layout.height) / scale_factor)
 }
@@ -1447,6 +1512,16 @@ pub fn text_input_byte_offset_for_position(
     let Some(ctx) = renderer.slint_context() else {
         return 0;
     };
+
+    let scale_factor = renderer.scale_factor().unwrap_or(ScaleFactor::new(1.));
+    let options = LayoutOptions::new_from_textinput(
+        text_input,
+        Some(width),
+        Some(height),
+        item_rc,
+        ctx.font_context(),
+        scale_factor,
+    );
     let mut font_ctx = ctx.font_context().borrow_mut();
 
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
@@ -1471,7 +1546,7 @@ pub fn text_input_byte_offset_for_position(
         paragraphs_without_linebreaks,
         scale_factor,
         text_input.wrap(),
-        LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
+        options,
     );
     let byte_offset = layout.byte_offset_from_point(pos);
     visual_representation.map_byte_offset_from_visual_text_to_actual_text(byte_offset)
@@ -1507,6 +1582,16 @@ pub fn text_input_cursor_rect_for_byte_offset(
         return LogicalRect::default();
     };
 
+    let scale_factor = renderer.scale_factor().unwrap_or(ScaleFactor::new(1.));
+    let options = LayoutOptions::new_from_textinput(
+        text_input,
+        Some(width),
+        Some(height),
+        item_rc,
+        ctx.font_context(),
+        scale_factor,
+    );
+
     let mut font_ctx = ctx.font_context().borrow_mut();
 
     let visual_representation = text_input.visual_representation(None);
@@ -1526,7 +1611,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
         paragraphs_without_linebreaks,
         scale_factor,
         text_input.wrap(),
-        LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
+        options,
     );
     let cursor_rect = layout
         .cursor_rect_for_byte_offset(byte_offset, text_input.text_cursor_width() * scale_factor);
