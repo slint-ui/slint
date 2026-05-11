@@ -339,19 +339,13 @@ impl Document {
 }
 
 #[derive(Debug, Clone)]
-pub enum PopupWindowKind {
-    Regular,
-    Tooltip,
-}
-
-#[derive(Debug, Clone)]
 pub struct PopupWindow {
     pub component: Rc<Component>,
     pub x: NamedReference,
     pub y: NamedReference,
     pub close_policy: EnumerationValue,
     pub parent_element: ElementRc,
-    pub popup_kind: PopupWindowKind,
+    pub is_tooltip: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -867,10 +861,8 @@ pub struct Element {
     /// because the popup references it.
     pub has_popup_child: bool,
 
-    /// Semantic kind for elements that represent popup windows.
-    ///
-    /// `None` means this is a regular non-popup element.
-    pub popup_window_kind: Option<PopupWindowKind>,
+    /// True for compiler-generated tooltip `PopupWindow` instances (see `lower_tooltips`).
+    pub is_tooltip: bool,
 
     /// This is the component-local index of this item in the item tree array.
     /// It is generated after the last pass and before the generators run.

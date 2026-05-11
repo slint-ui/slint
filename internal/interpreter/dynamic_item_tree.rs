@@ -2816,10 +2816,8 @@ pub fn show_popup(
             pos,
             close_policy,
             parent_item,
-            match popup.popup_kind {
-                object_tree::PopupWindowKind::Regular => i_slint_core::window::PopupKind::Regular,
-                object_tree::PopupWindowKind::Tooltip => i_slint_core::window::PopupKind::Tooltip,
-            },
+            popup.is_tooltip,
+            false,
         ),
     );
 }

@@ -369,8 +369,7 @@ fn lower_tooltips_in_component(
         // Traversal also visits generated children; skip tooltip popups created by this pass.
         let is_generated_tooltip_popup = {
             let elem_borrow = elem.borrow();
-            matches!(&elem_borrow.base_type, t if *t == popup_window_type)
-                && matches!(elem_borrow.popup_window_kind, Some(PopupWindowKind::Tooltip))
+            matches!(&elem_borrow.base_type, t if *t == popup_window_type) && elem_borrow.is_tooltip
         };
         if is_generated_tooltip_popup {
             return;
@@ -517,7 +516,7 @@ fn lower_tooltips_in_component(
             id: popup_id,
             base_type: popup_window_type.clone(),
             enclosing_component: enclosing_component.clone(),
-            popup_window_kind: Some(PopupWindowKind::Tooltip),
+            is_tooltip: true,
             children: popup_children,
             bindings: [(
                 SmolStr::new_static("close-policy"),

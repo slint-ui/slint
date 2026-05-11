@@ -3512,12 +3512,7 @@ fn compile_builtin_function_call(
                     Some(&parent_ctx),
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
-                let popup_kind = match popup.popup_kind {
-                    llr::PopupWindowKind::Regular => quote!(sp::PopupKind::Regular),
-                    llr::PopupWindowKind::Tooltip => quote!(sp::PopupKind::Tooltip),
-                    llr::PopupWindowKind::Menu => quote!(sp::PopupKind::Menu),
-                };
-
+                let is_tooltip = popup.is_tooltip;
                 let close_policy = compile_expression(close_policy, ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
                 component_access_tokens.then(|component_access_tokens| quote!({
@@ -3544,7 +3539,8 @@ fn compile_builtin_function_call(
                             position,
                             #close_policy,
                             parent_item,
-                            #popup_kind,
+                            #is_tooltip,
+                            false,
                         ))
                     );
                     #popup_window_id::user_init(popup_instance_vrc.clone());
@@ -3640,7 +3636,8 @@ fn compile_builtin_function_call(
                     position,
                     sp::PopupClosePolicy::CloseOnClickOutside,
                     #context_menu_rc,
-                    sp::PopupKind::Menu,
+                    false,
+                    true,
                 );
                 #set_id;
                 #popup_id::user_init(popup_instance_vrc);
