@@ -30,7 +30,9 @@ function findGlobLoader(
     baseName: string,
 ): (() => Promise<MarkdownDocModule>) | undefined {
     const tail = `/${segment}/${baseName}.md`;
-    const hit = Object.keys(glob).find((key) => key.replaceAll("\\", "/").endsWith(tail));
+    const hit = Object.keys(glob).find((key) =>
+        key.replaceAll("\\", "/").endsWith(tail),
+    );
     return hit !== undefined ? glob[hit] : undefined;
 }
 
@@ -63,7 +65,11 @@ export async function getStructContent(
     const baseStruct = structName.replace(/[\[\]]/g, "");
 
     if (baseStruct === "Time" || baseStruct === "Date") {
-        const load = findGlobLoader(stdWidgetMarkdownLoaders, "std-widgets", baseStruct);
+        const load = findGlobLoader(
+            stdWidgetMarkdownLoaders,
+            "std-widgets",
+            baseStruct,
+        );
         if (!load) {
             console.error(`No std-widgets markdown for ${baseStruct}.`);
             return "";
@@ -72,13 +78,20 @@ export async function getStructContent(
             const module = await load();
             return module.compiledContent();
         } catch (error) {
-            console.error(`Failed to load std-widgets doc for ${baseStruct}:`, error);
+            console.error(
+                `Failed to load std-widgets doc for ${baseStruct}:`,
+                error,
+            );
             return "";
         }
     }
 
     if (baseStruct) {
-        const load = findGlobLoader(structMarkdownLoaders, "structs", baseStruct);
+        const load = findGlobLoader(
+            structMarkdownLoaders,
+            "structs",
+            baseStruct,
+        );
         if (!load) {
             console.error(
                 `No struct markdown for ${baseStruct} (run slint-doc-generator if generated struct docs are missing).`,
@@ -89,7 +102,10 @@ export async function getStructContent(
             const module = await load();
             return module.compiledContent();
         } catch (error) {
-            console.error(`Failed to load struct file for ${baseStruct}:`, error);
+            console.error(
+                `Failed to load struct file for ${baseStruct}:`,
+                error,
+            );
             return "";
         }
     }
