@@ -123,10 +123,6 @@ pub trait WindowAdapter {
     /// See also [`Window::request_redraw()`]
     fn request_redraw(&self) {}
 
-    /// Bring all application windows to the front of the screen.
-    /// On macOS this calls `[NSApp arrangeInFront:]`. On other platforms this is a no-op.
-    fn bring_all_to_front(&self) {}
-
     /// Return the renderer.
     ///
     /// The `Renderer` trait is an internal trait that you are not expected to implement.
@@ -1528,11 +1524,6 @@ impl WindowInner {
         }
     }
 
-    /// Bring all application windows to the front of the screen.
-    pub fn bring_all_to_front(&self) {
-        self.window_adapter().bring_all_to_front();
-    }
-
     // Close the popup associated with the given popup window.
     fn close_popup_impl(&self, current_popup: &PopupWindow) {
         match &current_popup.location {
@@ -2180,17 +2171,6 @@ pub mod ffi {
         unsafe {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
             window_adapter.request_redraw();
-        }
-    }
-
-    /// Bring all application windows to the front of the screen.
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_windowrc_bring_all_to_front(
-        handle: *const WindowAdapterRcOpaque,
-    ) {
-        unsafe {
-            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-            window_adapter.bring_all_to_front();
         }
     }
 

@@ -93,8 +93,7 @@ export interface Window {
     /** Issues a request to the windowing system to re-render the contents of the window. */
     requestRedraw(): void;
 
-    /** Bring all application windows to the front of the screen. */
-    bringAllToFront(): void;
+
 }
 
 /**

@@ -16,7 +16,7 @@ export component PopupMenuImpl inherits Window {
 
     callback sub-menu(menu-entry: MenuEntry) -> [MenuEntry];
     callback activated(menu-entry: MenuEntry);
-    callback close();
+    callback close-popup();
 
     forward-focus: focus-scope;
     background: transparent;
@@ -108,7 +108,7 @@ export component PopupMenuImpl inherits Window {
                 return accept;
             } else if event.text == Key.LeftArrow {
                 // TODO: should close only if this menu is a sub menu
-                root.close();
+                root.close-popup();
             }
 
             reject
@@ -123,7 +123,7 @@ export component PopupMenuImpl inherits Window {
         activated(entry) => {
             current-open = -1;
             root.activated(entry);
-            root.close();
+            root.close-popup();
         }
     }
 
@@ -141,7 +141,7 @@ export component PopupMenuImpl inherits Window {
         } else {
             current-open = -1;
             activated(entry);
-            close();
+            close-popup();
         }
     }
 }

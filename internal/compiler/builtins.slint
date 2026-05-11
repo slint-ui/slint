@@ -1436,17 +1436,25 @@ component WindowItem {
     out property <Size> virtual-keyboard-size;
     /// Whether the window is minimized. Setting this to true minimizes the window.
     /// \default false
+    ///     :::caution[Caution]
+    ///     When a component is used as a sub-window or in the live preview, this may affect a
+    ///     different window than intended. See <https://github.com/slint-ui/slint/issues/10502>.
+    ///     :::
     in-out property <bool> minimized;
     /// Whether the window is maximized. Setting this to true maximizes the window.
     /// \default false
+    ///     :::caution[Caution]
+    ///     When a component is used as a sub-window or in the live preview, this may affect a
+    ///     different window than intended. See <https://github.com/slint-ui/slint/issues/10502>.
+    ///     :::
     in-out property <bool> maximized;
     /// Request that the window be closed. This triggers the `close-requested` callback,
     /// giving the application a chance to cancel the close.
+    ///     :::caution[Caution]
+    ///     When a component is used as a sub-window or in the live preview, this may affect a
+    ///     different window than intended. See <https://github.com/slint-ui/slint/issues/10502>.
+    ///     :::
     function close() {
-    }
-    /// Bring all application windows to the front of the screen.
-    /// On macOS this calls `[NSApp arrangeInFront:]`. On other platforms this is a no-op.
-    function bring-all-to-front() {
     }
     /// Hide this window.
     function hide() {

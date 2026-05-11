@@ -1474,12 +1474,8 @@ impl WindowItem {
         }
     }
 
-    pub fn close(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
+    pub fn close(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, _: &ItemRc) {
         close_window(window_adapter.window());
-    }
-
-    pub fn bring_all_to_front(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
-        WindowInner::from_pub(window_adapter.window()).bring_all_to_front();
     }
 
     pub fn hide(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
@@ -1503,20 +1499,6 @@ pub unsafe extern "C" fn slint_windowitem_close(
     unsafe {
         let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
         close_window(window_adapter.window());
-    }
-}
-
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_windowitem_bring_all_to_front(
-    _window_item: Pin<&WindowItem>,
-    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    _self_index: u32,
-) {
-    unsafe {
-        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().bring_all_to_front();
     }
 }
 
