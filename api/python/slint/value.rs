@@ -67,6 +67,9 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
                 type_collection.enum_to_py(&enum_name, &enum_value, py)?.into_bound_py_any(py)
             }
             Value::Keys(keys) => crate::keys::PyKeys::from(keys).into_bound_py_any(py),
+            Value::DataTransfer(data) => {
+                crate::data_transfer::PyDataTransfer::from(data).into_bound_py_any(py)
+            }
             v @ _ => {
                 eprintln!(
                     "Python: conversion from slint to python needed for {v:#?} and not implemented yet"
@@ -365,6 +368,10 @@ impl TypeCollection {
             .or_else(|_| {
                 ob.extract::<PyRef<'_, PyKeys>>()
                     .map(|keys| slint_interpreter::Value::Keys(keys.keys.clone()))
+            })
+            .or_else(|_| {
+                ob.extract::<PyRef<'_, crate::data_transfer::PyDataTransfer>>()
+                    .map(|data| slint_interpreter::Value::DataTransfer(data.data_transfer.clone()))
             })
             .or_else(|_| {
                 ob.extract::<PyRef<'_, crate::brush::PyColor>>()
