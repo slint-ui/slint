@@ -26,8 +26,6 @@ use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use crate::platform::Clipboard;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::textlayout::sharedparley::DEFAULT_PASSWORD_CHARACTER;
-use crate::textlayout::sharedparley::password_text_height;
 use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString, SharedVector};
 use alloc::{rc::Rc, string::String};
@@ -1279,20 +1277,6 @@ impl RenderString for TextInput {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
         PlainOrStyledText::Plain(self.as_ref().visual_representation(None).text.clone())
     }
-
-    fn height_empty(
-        self: Pin<&Self>,
-        item_rc: &crate::item_tree::ItemRc,
-        font_context: &core::cell::RefCell<parley::FontContext>,
-        scale_factor: crate::lengths::ScaleFactor,
-    ) -> Option<crate::textlayout::sharedparley::PhysicalLength> {
-        let _self = self.as_ref();
-        if !_self.text().is_empty() || _self.input_type() != InputType::Password {
-            return None;
-        }
-
-        password_text_height(self, item_rc, font_context, scale_factor)
-    }
 }
 
 pub enum TextCursorDirection {
@@ -1414,7 +1398,7 @@ impl TextInputVisualRepresentation {
             return;
         }
 
-        let password_character = password_character_fn.map_or(DEFAULT_PASSWORD_CHARACTER, |f| f());
+        let password_character = password_character_fn.map_or('●', |f| f());
 
         let text = &mut self.text;
         let fixup_range = |r: &mut core::ops::Range<usize>| {
