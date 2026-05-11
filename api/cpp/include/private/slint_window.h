@@ -79,7 +79,7 @@ auto optional_and_then(const std::optional<T> &o, F &&f) -> decltype(f(*o))
 template<typename T>
 T optional_or_default(const std::optional<T> &o)
 {
-    return o.value_or(T{});
+    return o.value_or(T {});
 }
 
 class WindowAdapterRc
