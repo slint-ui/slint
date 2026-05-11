@@ -643,7 +643,7 @@ fn text_size(
     text_wrap: TextWrap,
 ) -> LogicalSize {
     let mut size = renderer.text_size(text_item, self_rc, max_width, text_wrap);
-    // ensure that the single-line text input doesn't shrink when going from empty to text that ends up selecting a font that has
+    // ensure that text input doesn't shrink when going from empty to text that ends up selecting a font that has
     // an ascent - descent that's less than the requested default font.
     let request = text_item.font_request(self_rc);
     let metrics = renderer.font_metrics(request);
