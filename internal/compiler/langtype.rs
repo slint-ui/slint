@@ -707,7 +707,8 @@ impl BuiltinPrivateStruct {
             | Self::TableColumn
             | Self::MenuEntry
             | Self::InternalKeyEvent
-            | Self::Edges => {
+            | Self::Edges
+            | Self::DropEvent => {
                 let name: &'static str = self.into();
                 Some(SmolStr::new_static(name))
             }
