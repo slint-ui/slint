@@ -299,6 +299,13 @@ export default defineConfig({
                                             },
                                         },
                                         {
+                                            label: "Drag and Drop",
+                                            autogenerate: {
+                                                directory:
+                                                    "reference/generated/drag-and-drop",
+                                            },
+                                        },
+                                        {
                                             label: "Keyboard Input",
                                             items: [
                                                 {

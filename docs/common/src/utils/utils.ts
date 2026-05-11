@@ -70,6 +70,7 @@ export type KnownType =
     | "bool"
     | "brush"
     | "color"
+    | "data-transfer"
     | "duration"
     | "easing"
     | "enum"
@@ -115,6 +116,11 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
             return {
                 href: linkMap.color.href,
                 defaultValue: "a transparent color",
+            };
+        case "data-transfer":
+            return {
+                href: linkMap.data_transfer.href,
+                defaultValue: "an empty data-transfer",
             };
         case "duration":
             return {
