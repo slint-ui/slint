@@ -2220,6 +2220,7 @@ impl TextInput {
                 let current = self.text();
                 let candidate = [&current[..a], text_to_insert, &current[c..]].concat();
 
+                // Allow localized ".", "-", "-." because otherwise the cannot start entering
                 if candidate.len() <= 2
                     && crate::context::GLOBAL_CONTEXT.with(|ctx| {
                         let sep =
