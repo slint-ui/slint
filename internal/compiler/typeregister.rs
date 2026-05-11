@@ -659,11 +659,6 @@ impl TypeRegister {
         register.elements.remove("ComponentContainer").unwrap();
         register.types.remove("component-factory").unwrap();
 
-        register.types.remove("data-transfer").unwrap();
-        register.elements.remove("DragArea").unwrap();
-        register.elements.remove("DropArea").unwrap();
-        register.types.remove("DropEvent").unwrap(); // Also removed in docs/slint-doc-generator
-
         register.elements.remove("FlexboxLayout").unwrap();
         register.types.remove("FlexboxLayoutDirection").unwrap();
         register.types.remove("FlexboxLayoutAlignContent").unwrap();

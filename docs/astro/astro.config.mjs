@@ -169,6 +169,10 @@ export default defineConfig({
                                             label: "Custom Controls",
                                             slug: "guide/development/custom-controls",
                                         },
+                                        {
+                                            label: "Drag and Drop",
+                                            slug: "guide/development/drag-and-drop",
+                                        },
                                         "guide/development/best-practices",
                                         "guide/development/third-party-libraries",
                                     ],
@@ -222,10 +226,6 @@ export default defineConfig({
                                                   {
                                                       label: "FlexboxLayout",
                                                       slug: "guide/experimental/flexboxlayout",
-                                                  },
-                                                  {
-                                                      label: "Drag and Drop",
-                                                      slug: "guide/experimental/drag-and-drop",
                                                   },
                                                   {
                                                       label: "Interface",
