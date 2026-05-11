@@ -18,6 +18,7 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
+/// Lower all layouts and assign a LayoutConstraints to the component
 pub fn lower_layouts(
     component: &Rc<Component>,
     type_loader: &mut TypeLoader,
@@ -49,6 +50,13 @@ pub fn lower_layouts(
         &Option::default(),
         &mut |elem, parent_layout_type| {
             let component = elem.borrow().enclosing_component.upgrade().unwrap();
+
+            // Popups have their own layout constraints
+            for popup in component.popup_windows.borrow_mut().iter() {
+                let component = &popup.component;
+                *component.root_constraints.borrow_mut() =
+                    LayoutConstraints::new(&component.root_element, diag, DiagnosticLevel::Error);
+            }
 
             lower_element_layout(
                 &component,
