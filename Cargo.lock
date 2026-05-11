@@ -2226,6 +2226,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "dnd-kanban"
+version = "1.17.0"
+dependencies = [
+ "slint",
+ "slint-build",
+]
+
+[[package]]
 name = "doctests"
 version = "1.17.0"
 dependencies = [
