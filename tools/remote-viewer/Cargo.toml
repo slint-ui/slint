@@ -15,6 +15,14 @@ version.workspace = true
 categories = ["gui", "development-tools"]
 keywords = ["viewer", "gui", "ui", "toolkit"]
 
+[lib]
+crate-type = ["lib", "cdylib"]
+path = "src/lib.rs"
+
+[[bin]]
+name = "remote-viewer"
+path = "src/main.rs"
+
 [dependencies]
 i-slint-compiler = { workspace = true }
 i-slint-core = { workspace = true }
@@ -42,3 +50,17 @@ zeroconf-tokio = "0.3.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 getifs = "0.4.0"
+
+[package.metadata.android]
+package = "dev.slint.remoteviewer"
+min_sdk_version = 24
+target_sdk_version = 33
+
+[package.metadata.android.application]
+label = "Slint Remote Viewer"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.INTERNET"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.CHANGE_WIFI_MULTICAST_STATE"

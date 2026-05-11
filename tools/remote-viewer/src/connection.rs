@@ -312,16 +312,28 @@ impl Connection {
     }
 
     pub fn local_ips(&self) -> Vec<IpAddr> {
-        let unspecififed = match self.local_addr {
+        let unspecified = match self.local_addr {
             SocketAddr::V4(socket_addr_v4) => socket_addr_v4.ip().is_unspecified(),
             SocketAddr::V6(socket_addr_v6) => socket_addr_v6.ip().is_unspecified(),
         };
-        if unspecififed {
-            getifs::interface_addrs_by_filter(|addr| !addr.is_loopback())
-                .unwrap_or_default()
-                .into_iter()
-                .map(|net| net.addr())
-                .collect()
+        if unspecified {
+            let mut ips: Vec<IpAddr> =
+                getifs::interface_addrs_by_filter(|addr| !addr.is_loopback())
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|net| net.addr())
+                    .collect();
+            if ips.is_empty() {
+                // Fallback: open a UDP socket to a public address (nothing is
+                // sent) and read back the local IP the OS picked.
+                if let Ok(sock) = std::net::UdpSocket::bind("0.0.0.0:0")
+                    && sock.connect("8.8.8.8:80").is_ok()
+                    && let Ok(addr) = sock.local_addr()
+                {
+                    ips.push(addr.ip());
+                }
+            }
+            ips
         } else {
             vec![self.local_addr.ip()]
         }
@@ -334,15 +346,20 @@ impl Connection {
     pub fn service(&self) -> anyhow::Result<ServiceInfo> {
         let local_ips = self.local_ips();
         let local_port = self.local_port();
-        tracing::info!(
-            "Announcing service on {:?} for host {:?}",
-            local_ips,
-            hostname::get()?.to_str()
-        );
+        let host = hostname::get()?;
+        let host = host.to_str().unwrap_or("unknown");
+        // "localhost" is useless for mDNS — derive a name from the first IP instead.
+        let mdns_host = if host == "localhost" || host.is_empty() {
+            let ip = local_ips.first().map(|ip| ip.to_string()).unwrap_or("unknown".into());
+            format!("slint-viewer-{ip}.local.")
+        } else {
+            format!("{host}.local.")
+        };
+        tracing::info!("Announcing service on {local_ips:?} as {mdns_host}");
         ServiceInfo::new(
             i_slint_preview_protocol::SERVICE_TYPE,
             "viewer",
-            &format!("{}.local.", hostname::get()?.to_str().unwrap()),
+            &mdns_host,
             local_ips.as_slice(),
             local_port,
             None,
