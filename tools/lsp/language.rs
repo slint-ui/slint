@@ -133,18 +133,16 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
         match std::fs::read(&path) {
             Ok(contents) => {
                 tracing::debug!("Sending file {} ({} bytes) to preview", url, contents.len());
-                ctx.to_preview.send(
-                    &i_slint_preview_protocol::LspToPreviewMessage::SetContents {
-                        url: i_slint_preview_protocol::VersionedUrl::new(url.clone(), None),
-                        contents,
-                    },
-                );
+                ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::SetContents {
+                    url: i_slint_preview_protocol::VersionedUrl::new(url.clone(), None),
+                    contents,
+                });
             }
             Err(err) => {
                 tracing::warn!("Failed to read file {}: {err}", path.display());
-                ctx.to_preview.send(
-                    &i_slint_preview_protocol::LspToPreviewMessage::ForgetFile { url: url.clone() },
-                );
+                ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::ForgetFile {
+                    url: url.clone(),
+                });
             }
         }
     }

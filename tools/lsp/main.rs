@@ -739,4 +739,3 @@ async fn handle_preview_to_lsp_message(
     }
     Ok(())
 }
-
