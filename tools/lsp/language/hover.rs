@@ -413,7 +413,7 @@ export component Test { // not docs
         );
         // builtin property: signature + doc from builtins.slint
         let bg_tip = get_tooltip(&mut dc, find_tk("background: red", 0.into()));
-        assert_tooltip_contains(bg_tip.clone(), "property <brush> background");
+        assert_tooltip_contains(bg_tip.clone(), "```slint\nproperty <brush> background\n```");
         assert_tooltip_contains(bg_tip, "background brush"); // doc text
         // callbacks
         assert_tooltip(
@@ -434,7 +434,7 @@ export component Test { // not docs
         );
         assert_tooltip_contains(
             get_tooltip(&mut dc, find_tk("pointer-event", 5.into())),
-            "callback pointer-event(event: PointerEvent)",
+            "```slint\ncallback pointer-event(event: PointerEvent)\n```",
         );
         // functions
         assert_tooltip(
