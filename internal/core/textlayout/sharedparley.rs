@@ -4,13 +4,7 @@
 pub use parley;
 pub use parley::fontique;
 
-use alloc::vec::Vec;
-use core::ops::Range;
-use core::pin::Pin;
-use euclid::num::Zero;
-use skrifa::MetadataProvider as _;
-use std::cell::RefCell;
-
+use crate::item_rendering::HasFont;
 use crate::{
     Color,
     graphics::FontRequest,
@@ -23,6 +17,12 @@ use crate::{
     renderer::RendererSealed,
     textlayout::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap},
 };
+use alloc::vec::Vec;
+use core::ops::Range;
+use core::pin::Pin;
+use euclid::num::Zero;
+use skrifa::MetadataProvider as _;
+use std::cell::RefCell;
 
 type InnerTextLayoutCache = crate::item_rendering::ItemCache<Vec<TextParagraph>>;
 
