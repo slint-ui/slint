@@ -382,6 +382,8 @@ pub struct BuiltinPropertyInfo {
     /// When != None, this is the initial value that we will have to set if no other binding were specified
     pub default_value: BuiltinPropertyDefault,
     pub property_visibility: PropertyVisibility,
+    /// Raw `///` doc comment from builtins.slint, if any.
+    pub docs: Option<String>,
 }
 
 impl BuiltinPropertyInfo {
@@ -390,6 +392,7 @@ impl BuiltinPropertyInfo {
             ty,
             default_value: BuiltinPropertyDefault::None,
             property_visibility: PropertyVisibility::InOut,
+            docs: None,
         }
     }
 
@@ -404,6 +407,7 @@ impl From<BuiltinFunction> for BuiltinPropertyInfo {
             ty: Type::Function(function.ty()),
             default_value: BuiltinPropertyDefault::BuiltinFunction(function),
             property_visibility: PropertyVisibility::Public,
+            docs: None,
         }
     }
 }
@@ -844,6 +848,10 @@ pub struct BuiltinElement {
     pub default_size_binding: DefaultSizeBinding,
     /// When true this is an internal type not shown in the auto-completion
     pub is_internal: bool,
+    /// Documentation sections from builtins.slint, preserving source order.
+    /// `Text` entries come from `///` (element-level) and `//!` (section) comments;
+    /// `Member` entries reference a property, callback, or function by name.
+    pub docs: Vec<crate::doc_comments::ElementDocEntry>,
 }
 
 impl BuiltinElement {
