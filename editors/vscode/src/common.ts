@@ -200,10 +200,10 @@ export function activate(
         wasm_preview.initClientForPreview(context, cl);
         cl?.onNotification("slint/remote_viewer_discovered", (params) => {
             vscode.window.showInformationMessage(
-                `Received update for remote viewers: ${JSON.stringify(params)}`,
+                `Remote viewer discovered: ${params.host}`,
             );
             cl.outputChannel.appendLine(
-                `Received update for remote viewers: ${JSON.stringify(params)}`,
+                `Remote viewer discovered: ${params.host} (${params.addresses.join(", ")}:${params.port})`,
             );
             const old_entry = remote_viewers.get(params.host);
             if (old_entry) {
@@ -226,7 +226,7 @@ export function activate(
             switch (params.state) {
                 case "connected":
                     vscode.window.showInformationMessage(
-                        `Remote viewer connected: ${params.address}:${params.port}, remoteViewerStatusBarItem ${remoteViewerStatusBarItem ? "available" : "undefined"}`,
+                        `Remote viewer connected: ${params.address}:${params.port}`,
                     );
                     cl.outputChannel.appendLine(
                         `Remote viewer connected: ${params.address}:${params.port}`,
