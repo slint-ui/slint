@@ -1160,18 +1160,46 @@ export component ScaleRotateGestureHandler {
     //-default_size_binding:expands_to_parent_geometry
 }
 
+/// Use `DragArea` to make any part of the UI draggable.
+/// A drag starts when the user presses the mouse inside the area and moves past a small threshold,
+/// and the value bound to `data` becomes the drag payload delivered to a <Link type="DropArea" />.
+/// A click doesn't start a drag, so child elements like <Link type="TouchArea" /> stay interactive.
+///
+/// The payload is a `data-transfer` value, which abstracts over the file-type transfer mechanisms supported by each platform.
+/// `data-transfer` values are opaque in Slint code:
+/// construct and read them via callbacks implemented in the host language.
+///
+/// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
+/// \group:drag-and-drop
 export component DragArea {
+    /// Set to `false` to stop the `DragArea` from starting drags.
+    /// Events still reach the child elements.
     in property <bool> enabled: true;
     //out property <bool> dragging;
+    /// The payload that's transferred to a <Link type="DropArea" /> when a drop happens.
     in property <data-transfer> data;
     //-default_size_binding:expands_to_parent_geometry
-
 }
 
+/// Use `DropArea` to accept drops coming from a <Link type="DragArea" />, or from another application on platforms that support it.
+/// The `can-drop` callback runs while the cursor moves over the area to decide whether to accept the drag.
+/// The `dropped` callback runs when the user releases the mouse inside the area after `can-drop` returned `true`.
+///
+/// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
+/// \group:drag-and-drop
 export component DropArea {
+    /// Set to `false` to stop the `DropArea` from accepting any drops.
     in property <bool> enabled: true;
+    /// Return `true` from this callback to accept the drag, or `false` to reject it.
+    /// While the drag is accepted, `contains-drag` is `true` and the cursor changes to a "copy" shape.
+    /// The argument is a <Link type="DropEvent" /> describing the drag.
     callback can-drop(event: DropEvent) -> bool;
+    /// Invoked when the user releases the mouse over the area after `can-drop` returned `true`.
+    /// Use this callback to read `event.data` and apply the drop.
+    /// The argument is a <Link type="DropEvent" /> describing the drop.
     callback dropped(event: DropEvent);
+    /// `true` while an accepted drag hovers over the area, `false` otherwise.
+    /// Bind it to a visual property to give the user feedback, for example a background color.
     out property <bool> contains-drag;
     //-default_size_binding:expands_to_parent_geometry
 }

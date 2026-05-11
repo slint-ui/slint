@@ -112,10 +112,10 @@ macro_rules! for_each_builtin_structs {
             struct DropEvent {
                 @name = BuiltinPrivateStruct::DropEvent,
                 export {
-                    /// The data to be accessed.
+                    /// The payload set on the source `DragArea`.
                     data: DataTransfer,
 
-                    /// The current mouse position in coordinates of the `DropArea` element
+                    /// The cursor position in the `DropArea`'s local coordinates.
                     position: LogicalPosition,
                 }
                 private {

@@ -29,6 +29,21 @@
     "color": {
         "href": "reference/primitive-types/#color"
     },
+    "DragAndDrop": {
+        "href": "guide/development/drag-and-drop/"
+    },
+    "data_transfer": {
+        "href": "reference/primitive-types/#data-transfer"
+    },
+    "DragArea": {
+        "href": "reference/drag-and-drop/dragarea/"
+    },
+    "DropArea": {
+        "href": "reference/drag-and-drop/droparea/"
+    },
+    "DropEvent": {
+        "href": "reference/global-structs-enums/#dropevent"
+    },
     "ComponentLibraries": {
         "href": "guide/language/coding/file/#component-libraries"
     },
@@ -211,6 +226,9 @@
     },
     "TextInput": {
         "href": "reference/keyboard-input/textinput/"
+    },
+    "TouchArea": {
+        "href": "reference/gestures/toucharea/"
     },
     "Timer": {
         "href": "reference/timer/"
