@@ -26,13 +26,13 @@ pub(crate) struct SlintContextInner {
     /// Read by all translations, and marked dirty when the language changes so every
     /// translated string re-translates. The value is the currently selected language
     /// when bundling translations.
-	#[pin]
+    #[pin]
     pub(crate) translations_dirty: Property<usize>,
     pub(crate) translations_bundle:
         core::cell::RefCell<Option<alloc::vec::Vec<i_slint_common::TranslationsBundled>>>,
     #[cfg(feature = "tr")]
     external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
-	#[pin]
+    #[pin]
     pub(crate) locale_decimal_separator: Property<char>,
 
     /// Process-wide color scheme. Backends' system-theme observers write here; bindings
@@ -76,7 +76,7 @@ impl SlintContext {
             translations_bundle: Default::default(),
             #[cfg(feature = "tr")]
             external_translator: Default::default(),
-			locale_decimal_separator: Property::new_named(
+            locale_decimal_separator: Property::new_named(
                 i_slint_common::DEFAULT_DECIMAL_SEPARATOR,
                 "SlintContext::locale_decimal_separator",
             ),
@@ -84,7 +84,7 @@ impl SlintContext {
             color_scheme: Property::new_named(ColorScheme::Unknown, "SlintContext::color_scheme"),
             accent_color: Property::new_named(Color::default(), "SlintContext::accent_color"),
             window_shown_hook: Default::default(),
-            
+
             #[cfg(all(unix, not(target_os = "macos")))]
             xdg_app_id: Default::default(),
             #[cfg(feature = "shared-parley")]
@@ -212,15 +212,16 @@ impl SlintContext {
 
     /// Returns the locale's decimal separator, falling back to `translations::DEFAULT_SEPARATOR`.
     pub fn locale_decimal_separator(&self) -> char {
-        self.0.locale_decimal_separator.as_ref().get()
+        self.0.as_ref().project_ref().locale_decimal_separator.get()
     }
 
     /// Override the locale used for decimal separator detection (testing only).
     #[cfg(feature = "std")]
     pub fn set_locale(&self, locale: &str) {
         self.0
-            .locale_decimal_separator
             .as_ref()
+            .project_ref()
+            .locale_decimal_separator
             .set(i_slint_common::decimal_separator_for_locale(locale));
     }
 

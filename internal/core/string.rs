@@ -347,7 +347,8 @@ pub fn shared_string_from_number(n: f64) -> SharedString {
             if n < 16777216. { crate::format!("{}", n as f32) } else { crate::format!("{}", n) };
 
         if let Some(ctx) = ctx.get() {
-            let decimal_separator = ctx.0.locale_decimal_separator.as_ref().get();
+            let pinned = ctx.0.as_ref().project_ref();
+            let decimal_separator = pinned.locale_decimal_separator.get();
             if decimal_separator != i_slint_common::DEFAULT_DECIMAL_SEPARATOR {
                 result.replace_characters('.', decimal_separator, 1);
             }
@@ -362,7 +363,8 @@ pub fn shared_string_from_number_fixed(n: f64, digits: usize) -> SharedString {
         let mut result = crate::format!("{number:.digits$}", number = n, digits = digits);
 
         if let Some(ctx) = ctx.get() {
-            let decimal_separator = ctx.0.locale_decimal_separator.as_ref().get();
+            let pinned = ctx.0.as_ref().project_ref();
+            let decimal_separator = pinned.locale_decimal_separator.get();
             if decimal_separator != i_slint_common::DEFAULT_DECIMAL_SEPARATOR {
                 result.replace_characters('.', decimal_separator, 1);
             }

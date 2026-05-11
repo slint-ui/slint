@@ -296,14 +296,14 @@ pub fn mark_all_translations_dirty() {
 
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else { return };
-        ctx.0.as_ref().project_ref().translations_dirty.mark_dirty();
+        let pinned = ctx.0.as_ref().project_ref();
+        pinned.translations_dirty.mark_dirty();
 
         // Update the decimal separator
         #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
         if let Some(locale) = sys_locale::get_locale() {
-            ctx.0
+            pinned
                 .locale_decimal_separator
-                .as_ref()
                 .set(i_slint_common::decimal_separator_for_locale(&locale))
         }
     })
@@ -385,9 +385,9 @@ pub fn set_bundled_languages(translations: &[TranslationsBundled]) {
         if ctx.0.translations_bundle.borrow().is_none() {
             ctx.0.translations_bundle.replace(Some(translations.to_vec()));
             #[cfg(feature = "std")]
-			if let Some(idx) = language_index_from_sys_locale(translations) {
-				ctx.0.as_ref().project_ref().translations_dirty.set(idx);
-			}
+            if let Some(idx) = language_index_from_sys_locale(translations) {
+                ctx.0.as_ref().project_ref().translations_dirty.set(idx);
+            }
         }
     });
 }
@@ -429,7 +429,7 @@ pub fn select_bundled_translation(language: &str) -> Result<(), SelectBundledTra
         let Some(translations) = &*translations else {
             return Err(SelectBundledTranslationError::NoTranslationsBundled);
         };
-		let pinned = ctx.0.as_ref().project_ref();
+        let pinned = ctx.0.as_ref().project_ref();
         if let Some((idx, translation_bundle)) =
             translations.iter().enumerate().find(|(_i, x)| x.language == language)
         {
@@ -492,7 +492,7 @@ mod ffi {
     pub extern "C" fn slint_decimal_separator(out: &mut SharedString) {
         crate::context::GLOBAL_CONTEXT.with(|ctx| {
             let separator = if let Some(ctx) = ctx.get() {
-                ctx.0.locale_decimal_separator.as_ref().get()
+                ctx.0.as_ref().project_ref().locale_decimal_separator.get()
             } else {
                 i_slint_common::DEFAULT_DECIMAL_SEPARATOR
             };
