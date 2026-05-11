@@ -393,6 +393,7 @@ fn duplicate_element_with_mapping(
             .collect(),
         child_of_layout: elem.child_of_layout,
         layout_info_prop: elem.layout_info_prop.clone(),
+        layout_info_v_with_constraint: elem.layout_info_v_with_constraint.clone(),
         default_fill_parent: elem.default_fill_parent,
         accessibility_props: elem.accessibility_props.clone(),
         geometry_props: elem.geometry_props.clone(),
