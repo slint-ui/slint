@@ -74,14 +74,17 @@ test("multiple callbacks do not prevent GC", async () => {
 
 test("global callback does not prevent GC", async () => {
     function makeInstance() {
-        const demo = loadSource(`
+        const demo = loadSource(
+            `
             export global Logic {
                 callback do-something();
             }
             export component App {
                 in-out property <string> label: "app";
             }
-        `, "gc-global.slint") as any;
+        `,
+            "gc-global.slint",
+        ) as any;
         const instance = new demo.App();
 
         instance.Logic.doSomething = function () {
@@ -231,10 +234,13 @@ test("custom model without JS reference survives GC", async () => {
 });
 
 test("model returned by callback survives GC", async () => {
-    const demo = loadSource(`export component Test {
+    const demo = loadSource(
+        `export component Test {
         callback get_items() -> [string];
         in-out property <[string]> items;
-    }`, "gc-model-cb.slint") as any;
+    }`,
+        "gc-model-cb.slint",
+    ) as any;
     const instance = new demo.Test();
 
     // The callback returns a model as a temporary — no JS variable holds it.
@@ -254,11 +260,14 @@ test("model returned by callback survives GC", async () => {
 });
 
 test("multiple models returned by callback survive GC", async () => {
-    const demo = loadSource(`export component Test {
+    const demo = loadSource(
+        `export component Test {
         callback get_items() -> [string];
         in-out property <[string]> items1;
         in-out property <[string]> items2;
-    }`, "gc-model-multi.slint") as any;
+    }`,
+        "gc-model-multi.slint",
+    ) as any;
     const instance = new demo.Test();
 
     // Each call returns a NEW model — both must survive GC.
@@ -314,10 +323,13 @@ test("model in struct field survives GC", async () => {
 });
 
 test("model passed as callback argument survives GC", async () => {
-    const demo = loadSource(`export component Test {
+    const demo = loadSource(
+        `export component Test {
         callback receive_items([string]);
         in-out property <[string]> stored_items;
-    }`, "gc-model-arg.slint") as any;
+    }`,
+        "gc-model-arg.slint",
+    ) as any;
     const instance = new demo.Test();
 
     instance.receive_items = function (items: any) {
@@ -335,12 +347,15 @@ test("model passed as callback argument survives GC", async () => {
 });
 
 test("model passed to public function survives GC", async () => {
-    const demo = loadSource(`export component Test {
+    const demo = loadSource(
+        `export component Test {
         in-out property <[string]> stored;
         public function set_model(m: [string]) {
             stored = m;
         }
-    }`, "gc-model-fn.slint") as any;
+    }`,
+        "gc-model-fn.slint",
+    ) as any;
     const instance = new demo.Test();
 
     // Pass a model to a public function — no JS variable keeps it.
@@ -355,7 +370,8 @@ test("model passed to public function survives GC", async () => {
 });
 
 test("nested model in struct returned by rowData survives GC", async () => {
-    const demo = loadSource(`
+    const demo = loadSource(
+        `
         export struct Row {
             label: string,
             tags: [string],
@@ -363,7 +379,9 @@ test("nested model in struct returned by rowData survives GC", async () => {
         export component Test {
             in-out property <[Row]> rows;
         }
-    `, "gc-nested-model.slint") as any;
+    `,
+        "gc-nested-model.slint",
+    ) as any;
     const instance = new demo.Test();
 
     // The outer model's rowData returns structs that contain nested models.
@@ -516,7 +534,8 @@ test("nested model in rowData: survives then collected", async () => {
     let innerModelRef: WeakRef<object>;
 
     async function phase1() {
-        const demo = loadSource(`
+        const demo = loadSource(
+            `
             export struct Row {
                 label: string,
                 tags: [string],
@@ -524,7 +543,9 @@ test("nested model in rowData: survives then collected", async () => {
             export component Test {
                 in-out property <[Row]> rows;
             }
-        `, "gc-2phase-nested.slint") as any;
+        `,
+            "gc-2phase-nested.slint",
+        ) as any;
         const instance = new demo.Test();
 
         const innerModel = new ArrayModel(["tag1", "tag2"]);
@@ -632,10 +653,13 @@ test("model replaced multiple times: old models collected", async () => {
 
 test("custom model capturing instance does not prevent GC", async () => {
     function makeInstance() {
-        const demo = loadSource(`export component App {
+        const demo = loadSource(
+            `export component App {
             in-out property <[string]> items;
             in-out property <string> label: "app";
-        }`, "gc-capturing-model.slint") as any;
+        }`,
+            "gc-capturing-model.slint",
+        ) as any;
         const instance = new demo.App();
 
         class CapturingModel extends ArrayModel<string> {
