@@ -2221,6 +2221,9 @@ pub fn type_from_node(
 
         let prop_type = tr.lookup_qualified(&qualified_type.members);
 
+        #[cfg(feature = "slint-sc")]
+        diag.slint_sc_error(&format!("The type '{qualified_type}' is"), &qualified_type_node);
+
         if prop_type == Type::Invalid && tr.lookup_element(&qualified_type.to_smolstr()).is_err() {
             diag.push_error(format!("Unknown type '{qualified_type}'"), &qualified_type_node);
         } else if !prop_type.is_property_type() {
@@ -2231,8 +2234,12 @@ pub fn type_from_node(
         }
         prop_type
     } else if let Some(object_node) = node.ObjectType() {
+        #[cfg(feature = "slint-sc")]
+        diag.slint_sc_error("Inline struct types are", &object_node);
         type_struct_from_node(object_node, diag, tr, None)
     } else if let Some(array_node) = node.ArrayType() {
+        #[cfg(feature = "slint-sc")]
+        diag.slint_sc_error("Array types are", &array_node);
         Type::Array(Rc::new(type_from_node(array_node.Type(), diag, tr)))
     } else {
         assert!(diag.has_errors());
