@@ -409,8 +409,55 @@ test("loadSource styled-text with inline markdown expression", () => {
     expect(result.equals(expected)).toBe(true);
 });
 
-test("StyledText.fromMarkdown throws on unsupported syntax", () => {
-    expect(() => StyledText.fromMarkdown("<div>not supported</div>")).toThrow();
+test("StyledText.fromMarkdown throws on unsupported HTML tag", () => {
+    let thrownError: any;
+    try {
+        StyledText.fromMarkdown("<span>text</span>");
+    } catch (error) {
+        thrownError = error;
+    }
+    expect(thrownError).toBeDefined();
+    expect(thrownError).toBeInstanceOf(Error);
+    expect(thrownError.message).toBe("HTML tag <span> is not supported");
+});
+
+test("StyledText.fromMarkdown throws on unsupported markdown syntax", () => {
+    let thrownError: any;
+    try {
+        StyledText.fromMarkdown("![alt](image.png)");
+    } catch (error) {
+        thrownError = error;
+    }
+    expect(thrownError).toBeDefined();
+    expect(thrownError).toBeInstanceOf(Error);
+    expect(thrownError.message).toBe("Markdown images are not supported");
+});
+
+test("StyledText.fromMarkdown throws on invalid color", () => {
+    let thrownError: any;
+    try {
+        StyledText.fromMarkdown('<font color="notacolor">text</font>');
+    } catch (error) {
+        thrownError = error;
+    }
+    expect(thrownError).toBeDefined();
+    expect(thrownError).toBeInstanceOf(Error);
+    expect(thrownError.message).toBe("Invalid color value 'notacolor'");
+});
+
+test("StyledText.fromMarkdown reports multiple errors", () => {
+    let thrownError: any;
+    try {
+        StyledText.fromMarkdown("<div>block</div>\n<img src=\"x\">");
+    } catch (error) {
+        thrownError = error;
+    }
+    expect(thrownError).toBeDefined();
+    expect(thrownError).toBeInstanceOf(Error);
+    expect(thrownError.message).toContain("are not supported");
+    // The message contains multiple errors separated by newlines
+    const lines = thrownError.message.split("\n");
+    expect(lines.length).toBeGreaterThanOrEqual(2);
 });
 
 test("file loader", () => {
