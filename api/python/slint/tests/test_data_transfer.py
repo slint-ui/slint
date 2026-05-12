@@ -1,6 +1,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import gc
+import weakref
 from pathlib import Path
 
 import slint
@@ -106,6 +108,26 @@ def test_repr() -> None:
     dt.set_plaintext("hi")
     text = repr(dt)
     assert text.startswith("DataTransfer(")
+
+
+def test_user_data_cycle_is_collectable() -> None:
+    # The Rust side stores the Python user-data object behind `Rc<dyn Any>`,
+    # invisible to Python's GC. Without `__traverse__`/`__clear__` on
+    # DataTransfer, a cycle through `user_data` would never be collected.
+    class Holder:
+        dt: DataTransfer | None = None
+
+    dt = DataTransfer()
+    holder = Holder()
+    holder.dt = dt
+    dt.user_data = holder
+
+    weak_holder = weakref.ref(holder)
+
+    del dt, holder
+    gc.collect()
+
+    assert weak_holder() is None
 
 
 def test_callback_round_trip() -> None:

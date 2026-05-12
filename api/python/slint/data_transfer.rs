@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use pyo3::PyTraverseError;
+use pyo3::gc::PyVisit;
 use pyo3::prelude::*;
 use pyo3_stub_gen::{derive::gen_stub_pyclass, derive::gen_stub_pymethods};
 
@@ -92,6 +94,24 @@ impl PyDataTransfer {
 
     fn __eq__(&self, other: &Self) -> bool {
         self.data_transfer == other.data_transfer
+    }
+
+    #[gen_stub(skip)]
+    fn __traverse__(&self, visit: PyVisit<'_>) -> Result<(), PyTraverseError> {
+        if let Some(any) = self.data_transfer.user_data() {
+            if let Some(py_any) = (*any).downcast_ref::<Py<PyAny>>() {
+                visit.call(py_any)?;
+            }
+        }
+        Ok(())
+    }
+
+    #[gen_stub(skip)]
+    fn __clear__(&mut self) {
+        // Drop our reference to the Python user-data by installing the same
+        // sentinel the setter uses for `None`. If no other Rust clone shares
+        // this `Rc<dyn Any>`, the inner `Py<PyAny>` is released here.
+        self.data_transfer.set_user_data(Rc::new(()) as Rc<dyn Any>);
     }
 }
 
