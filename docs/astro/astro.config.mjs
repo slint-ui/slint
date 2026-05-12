@@ -286,24 +286,36 @@ export default defineConfig({
                                     items: [
                                         {
                                             label: "Basic Elements",
-                                            autogenerate: {
-                                                directory:
-                                                    "reference/generated/elements",
-                                            },
+                                            items: [
+                                                {
+                                                    autogenerate: {
+                                                        directory:
+                                                            "reference/generated/elements",
+                                                    },
+                                                },
+                                            ],
                                         },
                                         {
                                             label: "Gestures",
-                                            autogenerate: {
-                                                directory:
-                                                    "reference/generated/gestures",
-                                            },
+                                            items: [
+                                                {
+                                                    autogenerate: {
+                                                        directory:
+                                                            "reference/generated/gestures",
+                                                    },
+                                                },
+                                            ],
                                         },
                                         {
                                             label: "Drag and Drop",
-                                            autogenerate: {
-                                                directory:
-                                                    "reference/generated/drag-and-drop",
-                                            },
+                                            items: [
+                                                {
+                                                    autogenerate: {
+                                                        directory:
+                                                            "reference/generated/drag-and-drop",
+                                                    },
+                                                },
+                                            ],
                                         },
                                         {
                                             label: "Keyboard Input",
@@ -355,10 +367,14 @@ export default defineConfig({
                                         },
                                         {
                                             label: "Window",
-                                            autogenerate: {
-                                                directory:
-                                                    "reference/generated/window",
-                                            },
+                                            items: [
+                                                {
+                                                    autogenerate: {
+                                                        directory:
+                                                            "reference/generated/window",
+                                                    },
+                                                },
+                                            ],
                                         },
                                     ],
                                 },
@@ -402,38 +418,58 @@ export default defineConfig({
                                         "reference/std-widgets/style",
                                         {
                                             label: "Globals",
-                                            autogenerate: {
-                                                directory:
-                                                    "reference/std-widgets/globals",
-                                            },
+                                            items: [
+                                                {
+                                                    autogenerate: {
+                                                        directory:
+                                                            "reference/std-widgets/globals",
+                                                    },
+                                                },
+                                            ],
                                         },
                                         {
                                             label: "Basic Widgets",
-                                            autogenerate: {
-                                                directory:
-                                                    "reference/std-widgets/basic-widgets",
-                                            },
+                                            items: [
+                                                {
+                                                    autogenerate: {
+                                                        directory:
+                                                            "reference/std-widgets/basic-widgets",
+                                                    },
+                                                },
+                                            ],
                                         },
                                         {
                                             label: "Views",
-                                            autogenerate: {
-                                                directory:
-                                                    "reference/std-widgets/views",
-                                            },
+                                            items: [
+                                                {
+                                                    autogenerate: {
+                                                        directory:
+                                                            "reference/std-widgets/views",
+                                                    },
+                                                },
+                                            ],
                                         },
                                         {
                                             label: "Widget Layouts",
-                                            autogenerate: {
-                                                directory:
-                                                    "reference/std-widgets/layouts",
-                                            },
+                                            items: [
+                                                {
+                                                    autogenerate: {
+                                                        directory:
+                                                            "reference/std-widgets/layouts",
+                                                    },
+                                                },
+                                            ],
                                         },
                                         {
                                             label: "Misc",
-                                            autogenerate: {
-                                                directory:
-                                                    "reference/std-widgets/misc",
-                                            },
+                                            items: [
+                                                {
+                                                    autogenerate: {
+                                                        directory:
+                                                            "reference/std-widgets/misc",
+                                                    },
+                                                },
+                                            ],
                                         },
                                     ],
                                 },
