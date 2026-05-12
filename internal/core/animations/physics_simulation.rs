@@ -49,6 +49,63 @@ impl ConstantDecelerationParameters {
     pub fn new(initial_velocity: f32, deceleration: f32) -> Self {
         Self { initial_velocity, deceleration }
     }
+
+    /// Creates a new `ConstantDecelerationParameters` parameter object based on the distance
+    /// to travel and duration of the animation.
+    /// The deceleration is chosen such that the animation covers the given distance at the end of
+    /// the animation and the velocity becomes zero at the same time (after duration_secs).
+    ///
+    // * `distance` - the distance to cover with this animation
+    // * `duration_secs` - the duration of the animation in seconds
+    pub fn new_with_distance(distance: f32, duration_secs: f32) -> Self {
+        // The initial velocity and deceleration are calculated based on the distance and duration to cover the given distance in the given time.
+        //
+        // The calculation is based on the equations of motion for constant acceleration:
+        //      - v0 * t + 0.5 * a * t^2 = d
+        //
+        //
+        // Where t = duration_secs, d = distance, v0 = initial_velocity and a = -deceleration
+        // Warning! a is acceleration, not deceleration, so we need to flip the sign at the end
+        //
+        // We want to reach the limit value at the end of the animation, and the velocity should become zero at the same time, so we can determine `a` based on:
+        //          v0 + a * t = 0
+        //
+        //      => a = -v0 / t
+        //
+        // Then we can solve for `v0` and `a`:
+        //
+        //     v0 * t + 0.5 * -(v0 / t) * t^2 = d
+        //     v0 * t + 0.5 * -v0 * t = d
+        //     v0 * (t + -0.5 * t) = d
+        //     v0 * (0.5 * t) = d
+        //     => v0 = d / (0.5 * t)
+        //
+        let d = distance;
+        let t = duration_secs;
+        let v0 = d / (0.5 * t);
+        let a = -(v0 / t);
+        // deceleration: therefore -a
+        Self::new(v0, -a)
+    }
+
+    /// Calculates the remaining distance to the limit value at a given time based on the initial velocity and deceleration.
+    pub fn remaining_distance(&self, time_elapsed: core::time::Duration) -> f32 {
+        // The animation stops if the velocity becomes zero.
+        // Therefore we can calculate the animation duration based on the initial velocity and deceleration:
+        //          v0 + a * t = 0
+        //          => t = -v0 / a
+        // Note: our deceleration is `-a` negated
+        let total_duration = self.initial_velocity / self.deceleration;
+
+        if time_elapsed.as_secs_f32() < total_duration {
+            // Based on the equations of motion for constant acceleration we can calculate the remaining distance at a given time:
+            0.5 * (-self.deceleration)
+                * (total_duration.powi(2) - time_elapsed.as_secs_f32().powi(2))
+                + self.initial_velocity * (total_duration - time_elapsed.as_secs_f32())
+        } else {
+            0.
+        }
+    }
 }
 
 impl Parameter for ConstantDecelerationParameters {

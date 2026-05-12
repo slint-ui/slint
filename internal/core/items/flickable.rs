@@ -10,7 +10,7 @@ use super::{
     VoidArg,
 };
 use crate::animations::Instant;
-use crate::animations::physics_simulation;
+use crate::animations::physics_simulation::ConstantDecelerationParameters;
 use crate::input::InternalKeyEvent;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, MouseEvent, TouchPhase,
@@ -405,12 +405,7 @@ struct FlickableDataInner {
     /// calculated required for the animation after the release event
     velocity_rb: VelocityRingBuffer<5>,
 
-    final_pos: Option<LogicalPoint>,
-    running_animation: Option<(
-        Instant,
-        physics_simulation::ConstantDecelerationParameters,
-        physics_simulation::ConstantDecelerationParameters,
-    )>,
+    running_animation: Option<(Instant, [Option<ConstantDecelerationParameters>; 2])>,
 }
 
 impl FlickableDataInner {
@@ -443,11 +438,17 @@ impl FlickableDataInner {
         phase: TouchPhase,
         flick_rc: &ItemRc,
     ) -> InputEventResult {
-        let old_pos = LogicalPoint::from_lengths(
-            (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick).get(),
-            (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick).get(),
-        );
-        let new_pos = ensure_in_bound(flick, old_pos + delta, flick_rc);
+        if phase != TouchPhase::Started
+            && delta != LogicalVector::default()
+            && !Self::is_allowed_scroll_direction(flick, delta, flick_rc)
+        {
+            // Release the capture immediately, this event is not meant for this Flickable.
+            self.capture_events = None;
+            self.last_scroll_event = None;
+            self.running_animation = None;
+            self.velocity_rb = VelocityRingBuffer::default();
+            return InputEventResult::EventIgnored;
+        }
 
         let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
         let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
@@ -455,27 +456,21 @@ impl FlickableDataInner {
 
         if self.capture_events.is_none()
             && matches!(phase, TouchPhase::Moved)
-            && let Some((start_time, x_simulation, y_simulation)) = &self.running_animation
+            && let Some((start_time, [x_simulation, y_simulation])) = &self.running_animation
         {
+            // If the animation is not finished, we add the remaining animations delta.
             let animation_duration = crate::animations::current_tick().duration_since(*start_time);
-            if animation_duration < WHEEL_SCROLL_DURATION {
-                let missing = |sim: &physics_simulation::ConstantDecelerationParameters| {
-                    0.5 * (-sim.deceleration)
-                        * (WHEEL_SCROLL_DURATION.as_secs_f32().powi(2)
-                            - animation_duration.as_secs_f32().powi(2))
-                        + sim.initial_velocity
-                            * (WHEEL_SCROLL_DURATION.as_secs_f32()
-                                - animation_duration.as_secs_f32())
-                };
-                let missing_x = missing(x_simulation);
-                let missing_y = missing(y_simulation);
 
-                // If the animation is not finished, we add the remaining animations delta.
-                delta += LogicalVector::new(missing_x, missing_y);
+            if let Some(x_simulation) = x_simulation {
+                delta.x += x_simulation.remaining_distance(animation_duration);
+            }
+            if let Some(y_simulation) = y_simulation {
+                delta.y += y_simulation.remaining_distance(animation_duration);
             }
         }
 
         let new_pos = ensure_in_bound(flick, current_pos + delta, flick_rc);
+        delta = new_pos - current_pos;
 
         if phase != TouchPhase::Ended {
             viewport_x.remove_binding();
@@ -508,93 +503,39 @@ impl FlickableDataInner {
                     viewport_y.set(new_pos.y_length());
                 } else {
                     // Mousewheel case with no phase
-                    let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
-                    let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
+                    // Add a short animation that covers the delta for smooth scrolling
+                    //
+                    // Note that this animation must support the viewport_x/_y and width/height
+                    // changing, as e.g. the ListView might resize the viewport if it gets a new size
+                    // estimate.
+                    //
+                    // At the time of writing, in practice this means we must use a physics animation.
+                    let [limit_x, limit_y] = Self::flick_limits(flick_rc, delta);
 
-                    let flick_weak = flick_rc.downgrade();
-                    let calculate_limits = move || {
-                        flick_weak
-                            .upgrade()
-                            .and_then(|flick_rc| {
-                                flick_rc.downcast::<Flickable>().map(move |flick| (flick_rc, flick))
-                            })
-                            .map(|(flick_rc, flick)| {
-                                let flick = flick.as_pin_ref();
-                                ensure_in_bound(
-                                    flick,
-                                    LogicalPoint::from_lengths(
-                                        -flick.viewport_width(),
-                                        -flick.viewport_height(),
-                                    ),
-                                    &flick_rc,
-                                )
-                            })
-                    };
-
-                    let dist = new_pos - current_pos;
-
-                    let limit_x = if dist.x < 0 as Coord {
-                        let property = Box::pin(Property::new(0.0));
-                        property.set_binding({
-                            let calculate_limits = calculate_limits.clone();
-                            move || {
-                                calculate_limits()
-                                    .map(|limit| limit.x_length().get())
-                                    .unwrap_or(0.0)
-                            }
-                        });
-                        property
-                    } else {
-                        Box::pin(Property::new(0.0))
-                    };
-
-                    let limit_y = if dist.y < 0 as Coord {
-                        let property = Box::pin(Property::new(0.0));
-                        property.set_binding(move || {
-                            calculate_limits().map(|limit| limit.y_length().get()).unwrap_or(0.0)
-                        });
-                        property
-                    } else {
-                        Box::pin(Property::new(0.0))
-                    };
-
-                    let x_simulation = {
-                        // v0 * t + 0.5 * a * t^2 = d
-                        // v0 * t + 0.5 * -(v0 / t) * t^2 = d
-                        // v0 * t + 0.5 * -v0 * t = d
-                        // v0 * (t + -0.5 * t) = d
-                        // v0 * (0.5 t) = d
-                        // => v0 = d / (0.5 t)
-
-                        let d = dist.x;
-                        let v0 = d / (0.5 * WHEEL_SCROLL_DURATION.as_secs_f32());
-                        let a = -(v0 / WHEEL_SCROLL_DURATION.as_secs_f32());
-                        let simulation = physics_simulation::ConstantDecelerationParameters::new(
-                            v0, // deceleration: therefore -a
-                            -a,
+                    let x_simulation = (delta.x != 0.).then(|| {
+                        let simulation = ConstantDecelerationParameters::new_with_distance(
+                            delta.x,
+                            WHEEL_SCROLL_DURATION.as_secs_f32(),
                         );
                         viewport_x.set_physic_animation_value(limit_x, simulation.clone());
                         simulation
-                    };
+                    });
 
-                    let y_simulation = {
-                        let d = dist.y;
-                        let v0 = d / (0.5 * WHEEL_SCROLL_DURATION.as_secs_f32());
-                        let a = -(v0 / WHEEL_SCROLL_DURATION.as_secs_f32());
-                        let simulation = physics_simulation::ConstantDecelerationParameters::new(
-                            v0, // deceleration: therefore -a
-                            -a,
+                    let y_simulation = (delta.y != 0.).then(|| {
+                        let simulation = ConstantDecelerationParameters::new_with_distance(
+                            delta.y,
+                            WHEEL_SCROLL_DURATION.as_secs_f32(),
                         );
                         viewport_y.set_physic_animation_value(limit_y, simulation.clone());
                         simulation
-                    };
+                    });
 
-                    if dist.x != 0 as Coord || dist.y != 0 as Coord {
+                    if delta.x != 0 as Coord || delta.y != 0 as Coord {
                         (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
                     }
 
                     self.running_animation =
-                        Some((crate::animations::current_tick(), x_simulation, y_simulation));
+                        Some((crate::animations::current_tick(), [x_simulation, y_simulation]));
                 }
 
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
@@ -619,6 +560,54 @@ impl FlickableDataInner {
         }
     }
 
+    fn flick_limits(
+        flick_rc: &ItemRc,
+        flick_velocity: LogicalVector,
+    ) -> [Pin<Box<Property<f32>>>; 2] {
+        let flick_weak = flick_rc.downgrade();
+        let calculate_limits = move || {
+            flick_weak
+                .upgrade()
+                .and_then(|flick_rc| {
+                    flick_rc.downcast::<Flickable>().map(move |flick| (flick_rc, flick))
+                })
+                .map(|(flick_rc, flick)| {
+                    let flick = flick.as_pin_ref();
+                    ensure_in_bound(
+                        flick,
+                        LogicalPoint::from_lengths(
+                            -flick.viewport_width(),
+                            -flick.viewport_height(),
+                        ),
+                        &flick_rc,
+                    )
+                })
+        };
+
+        let limit_x = if flick_velocity.x < 0 as Coord {
+            let property = Box::pin(Property::new(0.0));
+            property.set_binding({
+                let calculate_limits = calculate_limits.clone();
+                move || calculate_limits().map(|limit| limit.x_length().get()).unwrap_or(0.0)
+            });
+            property
+        } else {
+            Box::pin(Property::new(0.0))
+        };
+
+        let limit_y = if flick_velocity.y < 0 as Coord {
+            let property = Box::pin(Property::new(0.0));
+            property.set_binding(move || {
+                calculate_limits().map(|limit| limit.y_length().get()).unwrap_or(0.0)
+            });
+            property
+        } else {
+            Box::pin(Property::new(0.0))
+        };
+
+        [limit_x, limit_y]
+    }
+
     fn animate(&self, flick: Pin<&Flickable>, flick_rc: &ItemRc) {
         if let Some(last_time) = self.velocity_rb.last_time() {
             let mean_velocity = self.velocity_rb.mean_velocity();
@@ -629,62 +618,17 @@ impl FlickableDataInner {
                 let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
                 let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
 
-                let flick_weak = flick_rc.downgrade();
-                let calculate_limits = move || {
-                    flick_weak
-                        .upgrade()
-                        .and_then(|flick_rc| {
-                            flick_rc.downcast::<Flickable>().map(move |flick| (flick_rc, flick))
-                        })
-                        .map(|(flick_rc, flick)| {
-                            let flick = flick.as_pin_ref();
-                            ensure_in_bound(
-                                flick,
-                                LogicalPoint::from_lengths(
-                                    -flick.viewport_width(),
-                                    -flick.viewport_height(),
-                                ),
-                                &flick_rc,
-                            )
-                        })
-                };
-
-                let limit_x = if mean_velocity.x < 0 as Coord {
-                    let property = Box::pin(Property::new(0.0));
-                    property.set_binding({
-                        let calculate_limits = calculate_limits.clone();
-                        move || {
-                            calculate_limits().map(|limit| limit.x_length().get()).unwrap_or(0.0)
-                        }
-                    });
-                    property
-                } else {
-                    Box::pin(Property::new(0.0))
-                };
-
-                let limit_y = if mean_velocity.y < 0 as Coord {
-                    let property = Box::pin(Property::new(0.0));
-                    property.set_binding(move || {
-                        calculate_limits().map(|limit| limit.y_length().get()).unwrap_or(0.0)
-                    });
-                    property
-                } else {
-                    Box::pin(Property::new(0.0))
-                };
+                let [limit_x, limit_y] = Self::flick_limits(flick_rc, mean_velocity);
 
                 {
-                    let simulation = physics_simulation::ConstantDecelerationParameters::new(
-                        mean_velocity.x,
-                        DECELERATION,
-                    );
+                    let simulation =
+                        ConstantDecelerationParameters::new(mean_velocity.x, DECELERATION);
                     viewport_x.set_physic_animation_value(limit_x, simulation);
                 }
 
                 {
-                    let animation_y = physics_simulation::ConstantDecelerationParameters::new(
-                        mean_velocity.y,
-                        DECELERATION,
-                    );
+                    let animation_y =
+                        ConstantDecelerationParameters::new(mean_velocity.y, DECELERATION);
                     viewport_y.set_physic_animation_value(limit_y, animation_y);
                 }
 
