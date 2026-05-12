@@ -8,4 +8,6 @@ export component Test inherits Window {
 //                             >     <^error{The builtin element 'Window' is not supported in Slint SC}
     public function my-func() -> int { return 42; }
 //  >                                             <error{Function declarations are not supported in Slint SC}
+//                               >  <^error{The type 'int' is not supported in Slint SC}
+//                                            ><^^error{Number literals are not supported in Slint SC}
 }

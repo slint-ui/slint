@@ -8,5 +8,7 @@ export component Test inherits Window {
 //                             >     <^error{The builtin element 'Window' is not supported in Slint SC}
     init => { debug("hello"); }
 //  >error{Callback handlers are not supported in Slint SC}
+//            >            <^error{Function calls are not supported in Slint SC}
+//                  >     <^^error{String literals are not supported in Slint SC}
 }
 //<<<<error{Callback handlers are not supported in Slint SC}

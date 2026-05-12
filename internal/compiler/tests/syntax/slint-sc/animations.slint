@@ -8,7 +8,9 @@ export component Test inherits Window {
 //                             >     <^error{The builtin element 'Window' is not supported in Slint SC}
     in-out property <int> val;
 //  >                        <error{Property declarations are not supported in Slint SC}
+//                   > <^error{The type 'int' is not supported in Slint SC}
     animate val { duration: 100ms; }
 //  >                              <error{Animations are not supported in Slint SC}
 //                >      <^error{Bindings are not supported in Slint SC}
+//                          >   <^^error{Number literals are not supported in Slint SC}
 }
