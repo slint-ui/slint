@@ -9,7 +9,7 @@ use napi::bindgen_prelude::*;
 use napi::{Env, JsValue, Result, ValueType};
 
 use crate::weak_ref::WeakValueRef;
-use crate::{ModelOwner, to_js_unknown, to_value};
+use crate::{JsAnchorOwner, to_js_unknown, to_value};
 
 #[napi]
 #[derive(Clone, Default)]
@@ -27,19 +27,19 @@ pub(crate) fn js_into_rust_model(
     env: &Env,
     maybe_js_impl: &Object,
     row_data_type: &Type,
-    model_owner: &ModelOwner,
+    anchor_owner: &JsAnchorOwner,
 ) -> Result<ModelRc<slint_interpreter::Value>> {
     let shared_model_notify: ExternalRef<SharedModelNotify> =
         maybe_js_impl.get_named_property("modelNotify")?;
     let shared_model_notify: SharedModelNotify = (*shared_model_notify).clone();
 
-    let model_id = model_owner.next_model_id();
-    let prop_key = format!("__slint_model#{model_id}");
+    let anchor_id = anchor_owner.next_anchor_id();
+    let prop_key = format!("__slint_model#{anchor_id}");
 
     // Register the model as a JS property on the owner so V8 keeps it alive
     // without creating an independent GC root.
     if let Some(mut obj) = crate::weak_ref::weak_ref_get_object::<crate::JsComponentInstance>(
-        &model_owner.owner_weak,
+        &anchor_owner.owner_weak,
         *env,
     ) {
         crate::set_hidden_property(&mut obj, &prop_key, maybe_js_impl)?;
@@ -51,7 +51,7 @@ pub(crate) fn js_into_rust_model(
         js_impl: WeakValueRef::new(env, maybe_js_impl)?,
         row_data_type: row_data_type.clone(),
         prop_key,
-        owner: model_owner.clone(),
+        owner: anchor_owner.clone(),
     })
     .into())
 }
@@ -75,13 +75,13 @@ struct JsModel {
     js_impl: WeakValueRef,
     row_data_type: Type,
     prop_key: String,
-    owner: ModelOwner,
+    owner: JsAnchorOwner,
 }
 
 impl Drop for JsModel {
     fn drop(&mut self) {
         // Pure Rust check (no NAPI calls).
-        // Returns None once the owning JsComponentInstance's model_seq
+        // Returns None once the owning JsComponentInstance's anchor_seq
         // Rc has been dropped,
         // which happens before `inner` (field declaration order).
         if self.owner.seq.upgrade().is_none() {

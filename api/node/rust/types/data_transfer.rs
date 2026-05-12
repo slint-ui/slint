@@ -6,9 +6,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use i_slint_core::data_transfer::DataTransfer;
-use napi::bindgen_prelude::{
-    JsObjectValue, Object, This, ToNapiValue, Unknown, ValueType, WeakReference,
-};
+use napi::bindgen_prelude::{JsObjectValue, Object, This, ToNapiValue, Unknown, ValueType};
 use napi::{Env, JsValue};
 
 use crate::types::SlintImageData;
@@ -26,11 +24,8 @@ const USER_DATA_PROP: &str = "__slint_user_data";
 /// wrapper is collected. Removed in [`JsUserData::drop`] when the last
 /// `Rc<JsUserData>` clone goes away, releasing the payload for GC.
 struct Anchor {
-    owner: WeakReference<crate::JsComponentInstance>,
     key: String,
-    /// Finalization guard for `owner`. `upgrade() == None` means the
-    /// owning instance is being finalized and we must not call NAPI.
-    seq: std::rc::Weak<std::cell::Cell<u32>>,
+    owner: crate::JsAnchorOwner,
 }
 
 /// What we put inside `DataTransfer.user_data` when set from JavaScript.
@@ -52,13 +47,13 @@ struct JsUserData {
 impl Drop for JsUserData {
     fn drop(&mut self) {
         for anchor in self.extra_anchors.borrow().iter() {
-            if anchor.seq.upgrade().is_none() {
+            if anchor.owner.seq.upgrade().is_none() {
                 continue;
             }
-            if let Some(mut obj) = crate::weak_ref::weak_ref_get_object::<
-                crate::JsComponentInstance,
-            >(&anchor.owner, self.env)
-            {
+            if let Some(mut obj) = crate::weak_ref::weak_ref_get_object::<crate::JsComponentInstance>(
+                &anchor.owner.owner_weak,
+                self.env,
+            ) {
                 let _ = obj.delete_named_property(&anchor.key);
             }
         }
@@ -209,7 +204,7 @@ impl SlintDataTransfer {
     pub(crate) fn pin_user_data_on(
         &self,
         env: &Env,
-        owner: &crate::ModelOwner,
+        owner: &crate::JsAnchorOwner,
     ) -> napi::Result<()> {
         let Some(js) = self.inner.user_data().and_then(|rc| rc.downcast::<JsUserData>().ok())
         else {
@@ -223,19 +218,15 @@ impl SlintDataTransfer {
             }
         }
         let Some(value) = js.weak.get_unknown() else { return Ok(()) };
-        let Some(mut owner_obj) = crate::weak_ref::weak_ref_get_object::<
-            crate::JsComponentInstance,
-        >(&owner.owner_weak, *env)
-        else {
+        let Some(mut owner_obj) = crate::weak_ref::weak_ref_get_object::<crate::JsComponentInstance>(
+            &owner.owner_weak,
+            *env,
+        ) else {
             return Ok(());
         };
-        let key = format!("__slint_dt_user_data#{}", owner.next_model_id());
+        let key = format!("__slint_dt_user_data#{}", owner.next_anchor_id());
         crate::set_hidden_property(&mut owner_obj, &key, &value)?;
-        js.extra_anchors.borrow_mut().push(Anchor {
-            owner: owner.owner_weak.clone(),
-            key,
-            seq: owner.seq.clone(),
-        });
+        js.extra_anchors.borrow_mut().push(Anchor { key, owner: owner.clone() });
         Ok(())
     }
 }
