@@ -157,8 +157,11 @@ public:
     {
         using SharedGlobals = decltype(parent_component->globals);
         SharedGlobals _own_globals = nullptr;
-        if (auto _popup_adapter = create_popup_window_adapter()) {
-            _own_globals = parent_component->globals->clone_with_window_adapter(*_popup_adapter);
+        if (!is_tooltip) {
+            if (auto _popup_adapter = create_popup_window_adapter()) {
+                _own_globals =
+                        parent_component->globals->clone_with_window_adapter(*_popup_adapter);
+            }
         }
         if (!_own_globals) {
             _own_globals = parent_component->globals;

@@ -3521,7 +3521,9 @@ fn compile_builtin_function_call(
                     let shared_global = #component_access_tokens.globals.get().unwrap();
                     let window_adapter = shared_global.window_adapter_impl();
                     let window = sp::WindowInner::from_pub(window_adapter.window());
-                    let globals = if let Some(popup_window_adapter) = window.create_popup_window_adapter() {
+                    let globals = if !#is_tooltip
+                        && let Some(popup_window_adapter) = window.create_popup_window_adapter()
+                    {
                         shared_global.clone_with_window_adapter(popup_window_adapter)
                     } else {
                         shared_global.clone()
