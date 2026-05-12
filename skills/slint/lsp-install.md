@@ -10,16 +10,7 @@ If your editor or assistant reports that `slint-lsp` cannot be found,
 install it using one of the methods below and ensure the install
 location is on your `PATH`.
 
-## Install with cargo (recommended if you have Rust)
-
-```sh
-cargo install slint-lsp
-```
-
-This places `slint-lsp` in `$HOME/.cargo/bin`, which is on `PATH` when
-Rust was installed via `rustup`.
-
-## Install a prebuilt binary
+## Install a prebuilt binary (preferred)
 
 Prebuilt binaries are published with each Slint release. From the
 [latest release](https://github.com/slint-ui/slint/releases/latest)
@@ -41,3 +32,12 @@ On Debian/Ubuntu, install the runtime dependencies:
 ```sh
 sudo apt install -y libx11-xcb1 libxkbcommon0 libinput10 libgbm1
 ```
+
+## Install with cargo (from source, requires Rust)
+
+```sh
+cargo install slint-lsp
+```
+
+This places `slint-lsp` in `$HOME/.cargo/bin`, which is on `PATH` when
+Rust was installed via `rustup`.
