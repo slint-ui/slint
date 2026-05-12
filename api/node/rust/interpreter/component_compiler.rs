@@ -163,12 +163,12 @@ impl JsComponentCompiler {
         env: &Env,
         callback: crate::DynFunction<'_>,
     ) -> napi::Result<()> {
-        let stored_fn = std::rc::Rc::new(crate::StoredFunction::new(&callback)?);
+        let func_ref = std::rc::Rc::new(callback.create_ref()?);
         let env = *env;
 
         self.internal.set_file_loader(move |path| {
             let path = PathBuf::from(path);
-            let stored_fn = stored_fn.clone();
+            let func_ref = func_ref.clone();
             Box::pin({
                 async move {
                     let Ok(path_str) = env.create_string(path.display().to_string().as_str())
@@ -178,7 +178,10 @@ impl JsComponentCompiler {
                         )));
                     };
 
-                    let Ok(result) = stored_fn.call(&env, vec![path_str.raw()]) else {
+                    let Ok(result) = func_ref
+                        .borrow_back(&env)
+                        .and_then(|f| f.call(crate::DynArgs(vec![path_str.raw()])))
+                    else {
                         return Some(Err(std::io::Error::other(
                             "Node.js: file loader callback failed.",
                         )));

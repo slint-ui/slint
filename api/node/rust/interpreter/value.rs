@@ -130,7 +130,45 @@ pub fn to_js_unknown<'a>(env: &'a Env, value: &Value) -> Result<Unknown<'a>> {
     }
 }
 
-pub fn to_value(env: &Env, unknown: Unknown<'_>, typ: &Type) -> Result<Value> {
+/// Tracks the owning [`JsComponentInstance`](crate::JsComponentInstance) so
+/// that JS model objects can be registered as properties on it.
+///
+/// Storing models as JS properties (rather than strong NAPI references)
+/// lets V8 see them as part of the normal object graph and collect cycles.
+///
+/// The `seq` field doubles as a finalization guard:
+/// when the instance is dropped its `Rc` goes away,
+/// so `seq.upgrade()` returns `None` and `JsModel::Drop` knows that
+/// NAPI calls are no longer safe.
+#[derive(Clone)]
+pub struct ModelOwner {
+    /// Weak ref to the JS wrapper object — used to get/set properties.
+    pub owner_weak: WeakReference<crate::JsComponentInstance>,
+    /// Per-instance model-ID counter (shared via `Rc`).
+    /// Also used as a finalization guard (`Weak::upgrade` → `None`).
+    pub seq: std::rc::Weak<std::cell::Cell<u32>>,
+}
+
+impl ModelOwner {
+    /// Allocate the next model ID from the owning instance.
+    pub fn next_model_id(&self) -> u32 {
+        let Some(cell) = self.seq.upgrade() else { return 0 };
+        let id = cell.get();
+        cell.set(id + 1);
+        id
+    }
+}
+
+/// Convert a JS value to a Slint [`Value`].
+///
+/// Model values encountered during conversion are registered as
+/// properties on the `model_owner` so V8 keeps them alive.
+pub fn to_value(
+    env: &Env,
+    unknown: Unknown<'_>,
+    typ: &Type,
+    model_owner: &ModelOwner,
+) -> Result<Value> {
     match typ {
         Type::Float32
         | Type::Int32
@@ -271,7 +309,7 @@ pub fn to_value(env: &Env, unknown: Unknown<'_>, typ: &Type) -> Result<Value> {
                         let prop_value = if prop.get_type()? == napi::ValueType::Undefined {
                             slint_interpreter::default_value_for_type(pro_ty)
                         } else {
-                            to_value(env, prop, pro_ty)?
+                            to_value(env, prop, pro_ty, model_owner)?
                         };
                         Ok((pro_name.to_string(), prop_value))
                     })
@@ -290,6 +328,7 @@ pub fn to_value(env: &Env, unknown: Unknown<'_>, typ: &Type) -> Result<Value> {
                             "Cannot access array element at index {i}"
                         )))?,
                         a,
+                        model_owner,
                     )?);
                 }
                 Ok(Value::Model(ModelRc::new(SharedVectorModel::from(SharedVector::from_slice(
@@ -297,7 +336,7 @@ pub fn to_value(env: &Env, unknown: Unknown<'_>, typ: &Type) -> Result<Value> {
                 )))))
             } else {
                 let obj = unknown.coerce_to_object()?;
-                let rust_model = js_into_rust_model(env, &obj, a)?;
+                let rust_model = js_into_rust_model(env, &obj, a, model_owner)?;
                 Ok(Value::Model(rust_model))
             }
         }
