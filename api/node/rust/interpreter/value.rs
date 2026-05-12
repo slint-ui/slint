@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::{
-    ReadOnlyRustModel, RgbaColor, SlintBrush, SlintImageData, SlintKeys, js_into_rust_model,
-    rust_into_js_model,
+    ReadOnlyRustModel, RgbaColor, SlintBrush, SlintImageData, SlintKeys, SlintStyledText,
+    js_into_rust_model, rust_into_js_model,
 };
 use i_slint_compiler::langtype::Type;
 use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
@@ -126,6 +126,10 @@ pub fn to_js_unknown<'a>(env: &'a Env, value: &Value) -> Result<Unknown<'a>> {
             }
         }
         Value::EnumerationValue(_, value) => value.as_str().into_unknown(env),
+        Value::StyledText(styled_text) => SlintStyledText::from(styled_text.clone())
+            .into_instance(env)?
+            .as_object(env)
+            .into_unknown(env),
         _ => ().into_unknown(env),
     }
 }
@@ -372,8 +376,13 @@ pub fn to_value(
         | Type::LayoutCache
         | Type::ArrayOfU16
         | Type::ElementReference
-        | Type::StyledText
         | Type::DataTransfer => Err(napi::Error::from_reason("reason")),
+        Type::StyledText => {
+            let obj = unknown.coerce_to_object()?;
+            let styled_instance: ClassInstance<SlintStyledText> =
+                ClassInstance::from_unknown(obj.into_unknown(env)?)?;
+            Ok(Value::StyledText(styled_instance.inner.clone()))
+        }
     }
 }
 
