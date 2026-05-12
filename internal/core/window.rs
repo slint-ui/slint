@@ -395,8 +395,9 @@ impl crate::properties::PropertyDirtyHandler for PopupWindowPropertiesTracker {
         // Use a timer here, so if we change multiple properties at the same time not multiple notifications are send
         // This timer will delay for the next evaluation
         crate::timers::Timer::single_shot(Default::default(), move || {
-            let parent_adapter = parent.upgrade().expect("The popup must belong to a window");
-            WindowInner::from_pub(parent_adapter.window()).update_popup_properties(popup_id);
+            if let Some(parent_adapter) = parent.upgrade() {
+                WindowInner::from_pub(parent_adapter.window()).update_popup_properties(popup_id);
+            }
         });
     }
 }
