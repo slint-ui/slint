@@ -239,6 +239,9 @@ impl CompilerConfiguration {
 
         let debug_info = std::env::var_os("SLINT_EMIT_DEBUG_INFO").is_some();
 
+        #[cfg(feature = "slint-sc")]
+        let slint_sc = matches!(output_format, OutputFormat::SlintSc);
+
         let cpp_namespace = match output_format {
             #[cfg(feature = "cpp")]
             OutputFormat::Cpp(config) => match config.namespace {
@@ -278,7 +281,7 @@ impl CompilerConfiguration {
             library_name: None,
             rust_module: None,
             #[cfg(feature = "slint-sc")]
-            slint_sc: matches!(output_format, OutputFormat::SlintSc),
+            slint_sc,
         }
     }
 }
