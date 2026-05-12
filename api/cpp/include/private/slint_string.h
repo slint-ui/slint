@@ -297,8 +297,8 @@ public:
     static StyledText from_plain_text(std::string_view text)
     {
         StyledText result;
-        cbindgen_private::slint_styled_text_from_plain_text(
-                private_api::string_to_slice(text), &result);
+        cbindgen_private::slint_styled_text_from_plain_text(private_api::string_to_slice(text),
+                                                            &result);
         return result;
     }
 

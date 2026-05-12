@@ -315,8 +315,8 @@ TEST_CASE("StyledText")
 
 TEST_CASE("StyledText public API")
 {
-    using slint::StyledText;
     using slint::SharedString;
+    using slint::StyledText;
 
     SECTION("from_plain_text")
     {
