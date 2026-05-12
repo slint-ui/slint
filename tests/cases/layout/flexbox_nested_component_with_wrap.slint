@@ -1,0 +1,65 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Two-level nesting: a FlexboxLayout containing an Outer component,
+// which in turn contains an Inner component, which contains a
+// word-wrapping Text. The synthesized layoutinfo-v-with-constraint
+// must chain through both component boundaries — Outer.LIVC must call
+// Inner.LIVC, which evaluates the inner VerticalLayout body with the
+// width parameter.
+
+component Inner inherits Rectangle {
+    background: #ccc;
+    VerticalLayout {
+        padding: 3px;
+        Text {
+            text: "Innermost text that should word-wrap when narrow";
+            wrap: word-wrap;
+        }
+    }
+}
+
+component Outer inherits Rectangle {
+    background: #e0e0e0;
+    VerticalLayout {
+        padding: 5px;
+        Inner { }
+        Rectangle {
+            height: 20px;
+            background: #999;
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 200px;
+    height: 250px;
+
+    FlexboxLayout {
+        spacing: 10px;
+
+        r := Rectangle {
+            width: 50px;
+            height: 50px;
+            background: red;
+            flex-shrink: 0;
+        }
+        o := Outer {
+            flex-shrink: 1;
+        }
+    }
+
+    out property <bool> test_r: r.x == 0px && r.width == 50px;
+    out property <bool> test_o: o.width > 0px && o.height > 0px;
+
+    out property <bool> test: test_r && test_o;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+*/
