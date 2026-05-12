@@ -7,11 +7,11 @@
 //! The `Flickable` item
 
 use super::{
-    Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventResult, PointerEventButton,
-    PropertyAnimation, RenderingResult, VoidArg,
+    Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventResult, PointerEventButton, RenderingResult,
+    VoidArg,
 };
+use crate::animations::Instant;
 use crate::animations::physics_simulation;
-use crate::animations::{EasingCurve, Instant};
 use crate::input::InternalKeyEvent;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, MouseEvent, TouchPhase,
@@ -39,7 +39,7 @@ use i_slint_core_macros::*;
 #[allow(unused)]
 use num_traits::Float;
 mod data_ringbuffer;
-use data_ringbuffer::PositionTimeRingBuffer;
+use data_ringbuffer::VelocityRingBuffer;
 
 /// Deceleration during the animation. It slows down the initial velocity of the simulation
 /// so that the simulation stops at some point if it didn't reach the limit
@@ -49,7 +49,6 @@ const DECELERATION: f32 = 2000.;
 /// information to derive a fling velocity.
 /// The unit is: millisecond
 const WHEEL_SCROLL_DURATION: Duration = Duration::from_millis(180);
-const WHEEL_SCROLL_EASING: EasingCurve = EasingCurve::CubicBezier([0.0, 0.0, 0.58, 1.0]);
 /// The maximum duration between a move and a release event to start an animation
 /// If the duration is larger than this value, no animation will be executed because
 /// it is not desired
@@ -148,7 +147,7 @@ impl Item for Flickable {
                 || pos.y < 0 as _
                 || pos.x_length() > geometry.width_length()
                 || pos.y_length() > geometry.height_length())
-                && self.data.inner.borrow().pressed_time.is_none()
+                && self.data.inner.borrow().pressed_mouse_state.is_none()
             {
                 return InputEventFilterResult::Intercept;
             }
@@ -389,11 +388,14 @@ enum CaptureEvents {
 
 #[derive(Default)]
 struct FlickableDataInner {
-    /// The position in which the press was made
+    /// The time and position in which the press was made
+    ///
+    /// The position is in the coordinate system of the flickable, not of the viewport.
+    pressed_mouse_state: Option<(Instant, LogicalPoint)>,
+    /// The last mouse position received, used to calculate the delta when flicking with the mouse.
     ///
     /// This position is in the coordinate system of the flickable, not of the viewport.
-    pressed_mouse_position: LogicalPoint,
-    pressed_time: Option<Instant>,
+    last_mouse_position: LogicalPoint,
     /// Set to true if the flickable is flicking and capturing all mouse event, not forwarding back to the children
     capture_events: Option<CaptureEvents>,
     /// Heuristics for filtering scroll events from children after we have scrolled ourselves.
@@ -403,13 +405,13 @@ struct FlickableDataInner {
     /// stop filtering scroll event until the next scroll event.
     last_scroll_event: Option<(Instant, LogicalPoint)>,
 
-    /// Ringbuffer to store the last move events. From those data the velocity can be
+    /// Ringbuffer to store the last move deltas. From those data the velocity can be
     /// calculated required for the animation after the release event
-    ///
-    /// The position is in the coordinate system of the flickable, not of the viewport.
-    position_time_rb: PositionTimeRingBuffer<5>,
+    velocity_rb: VelocityRingBuffer<5>,
 
-    final_pos: Option<LogicalPoint>,
+    /// The animation details of the currently running animation for smooth mouse wheel scrolling.
+    /// This allows us to add the missing delta of the animation to the next scroll event if the user scrolls again
+    /// before the animation is finished.
     running_animation: Option<(
         Instant,
         physics_simulation::ConstantDecelerationParameters,
@@ -497,18 +499,16 @@ impl FlickableDataInner {
                 viewport_x.set(new_pos.x_length());
                 viewport_y.set(new_pos.y_length());
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
-                self.final_pos = None;
             }
             TouchPhase::Started => {
-                self.position_time_rb = PositionTimeRingBuffer::default();
+                self.velocity_rb = VelocityRingBuffer::default();
                 self.capture_events = Some(CaptureEvents::MouseWheel);
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
-                self.final_pos = None;
             }
             TouchPhase::Moved => {
                 if self.capture_events.is_some_and(|capture| capture == CaptureEvents::MouseWheel) {
                     // Touchpad case with different phases
-                    self.position_time_rb.push(crate::animations::current_tick(), new_pos);
+                    self.velocity_rb.push(crate::animations::current_tick(), new_pos - current_pos);
                     viewport_x.set(new_pos.x_length());
                     viewport_y.set(new_pos.y_length());
                 } else {
@@ -632,13 +632,10 @@ impl FlickableDataInner {
     }
 
     fn animate(&self, flick: Pin<&Flickable>, flick_rc: &ItemRc) {
-        if let Some(last_time) = self.position_time_rb.last_time() {
-            let (time, dist) = self.position_time_rb.diff();
-            let millis = time.as_millis();
-
+        if let Some(last_time) = self.velocity_rb.last_time() {
+            let mean_velocity = self.velocity_rb.mean_velocity();
             if self.capture_events.is_some()
-                && dist.square_length() > (DISTANCE_THRESHOLD.get() * DISTANCE_THRESHOLD.get()) as _
-                && millis > 0
+                && mean_velocity.square_length() > 0 as Coord
                 && crate::animations::current_tick().duration_since(last_time) < MAX_DURATION
             {
                 let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
@@ -664,7 +661,7 @@ impl FlickableDataInner {
                         })
                 };
 
-                let limit_x = if dist.x < 0 as Coord {
+                let limit_x = if mean_velocity.x < 0 as Coord {
                     let property = Box::pin(Property::new(0.0));
                     property.set_binding({
                         let calculate_limits = calculate_limits.clone();
@@ -677,7 +674,7 @@ impl FlickableDataInner {
                     Box::pin(Property::new(0.0))
                 };
 
-                let limit_y = if dist.y < 0 as Coord {
+                let limit_y = if mean_velocity.y < 0 as Coord {
                     let property = Box::pin(Property::new(0.0));
                     property.set_binding(move || {
                         calculate_limits().map(|limit| limit.y_length().get()).unwrap_or(0.0)
@@ -689,7 +686,7 @@ impl FlickableDataInner {
 
                 {
                     let simulation = physics_simulation::ConstantDecelerationParameters::new(
-                        dist.x as f32 / (millis as f32 / 1000.),
+                        mean_velocity.x,
                         DECELERATION,
                     );
                     viewport_x.set_physic_animation_value(limit_x, simulation);
@@ -697,13 +694,13 @@ impl FlickableDataInner {
 
                 {
                     let animation_y = physics_simulation::ConstantDecelerationParameters::new(
-                        dist.y as f32 / (millis as f32 / 1000.),
+                        mean_velocity.y,
                         DECELERATION,
                     );
                     viewport_y.set_physic_animation_value(limit_y, animation_y);
                 }
 
-                if dist.x != 0 as Coord || dist.y != 0 as Coord {
+                if mean_velocity.x != 0 as Coord || mean_velocity.y != 0 as Coord {
                     (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
                 }
             }
@@ -745,9 +742,9 @@ impl FlickableData {
         let mut inner = self.inner.borrow_mut();
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
-                inner.position_time_rb = PositionTimeRingBuffer::default();
-                inner.pressed_mouse_position = *position;
-                inner.pressed_time = Some(crate::animations::current_tick());
+                inner.velocity_rb = VelocityRingBuffer::default();
+                inner.pressed_mouse_state = Some((crate::animations::current_tick(), *position));
+                inner.last_mouse_position = *position;
                 let x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
                 x.remove_binding(); // Stop animation by removing the binding
                 let y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
@@ -760,7 +757,7 @@ impl FlickableData {
                 }
             }
             MouseEvent::Exit | MouseEvent::Released { button: PointerEventButton::Left, .. } => {
-                inner.pressed_time = None;
+                inner.pressed_mouse_state = None;
                 if inner.capture_events.is_some() {
                     InputEventFilterResult::Intercept
                 } else {
@@ -769,28 +766,33 @@ impl FlickableData {
             }
             MouseEvent::Moved { position, .. } => {
                 let do_intercept = inner.capture_events.is_some()
-                    || inner.pressed_time.is_some_and(|pressed_time| {
-                        if crate::animations::current_tick() - pressed_time > DURATION_THRESHOLD {
-                            return false;
-                        }
-                        // Check if the mouse was moved more than the DISTANCE_THRESHOLD in a
-                        // direction in which the flickable can flick
-                        let diff = *position - inner.pressed_mouse_position;
-                        let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
-                        let w = geo.width_length();
-                        let h = geo.height_length();
-                        let vw = (Flickable::FIELD_OFFSETS.viewport_width()).apply_pin(flick).get();
-                        let vh =
-                            (Flickable::FIELD_OFFSETS.viewport_height()).apply_pin(flick).get();
-                        let x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick).get();
-                        let y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick).get();
-                        let zero = LogicalLength::zero();
-                        ((vw > w || x != zero) && abs(diff.x_length()) > DISTANCE_THRESHOLD)
-                            || ((vh > h || y != zero) && abs(diff.y_length()) > DISTANCE_THRESHOLD)
-                    });
+                    || inner.pressed_mouse_state.is_some_and(
+                        |(pressed_time, pressed_mouse_position)| {
+                            if crate::animations::current_tick() - pressed_time > DURATION_THRESHOLD
+                            {
+                                return false;
+                            }
+                            // Check if the mouse was moved more than the DISTANCE_THRESHOLD in a
+                            // direction in which the flickable can flick
+                            let diff = *position - pressed_mouse_position;
+                            let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
+                            let w = geo.width_length();
+                            let h = geo.height_length();
+                            let vw =
+                                (Flickable::FIELD_OFFSETS.viewport_width()).apply_pin(flick).get();
+                            let vh =
+                                (Flickable::FIELD_OFFSETS.viewport_height()).apply_pin(flick).get();
+                            let x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick).get();
+                            let y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick).get();
+                            let zero = LogicalLength::zero();
+                            ((vw > w || x != zero) && abs(diff.x_length()) > DISTANCE_THRESHOLD)
+                                || ((vh > h || y != zero)
+                                    && abs(diff.y_length()) > DISTANCE_THRESHOLD)
+                        },
+                    );
                 if do_intercept {
                     InputEventFilterResult::Intercept
-                } else if inner.pressed_time.is_some() {
+                } else if inner.pressed_mouse_state.is_some() {
                     InputEventFilterResult::ForwardAndInterceptGrab
                 } else {
                     InputEventFilterResult::ForwardEvent
@@ -870,16 +872,15 @@ impl FlickableData {
                 if inner.capture_events.is_some_and(|f| f == CaptureEvents::MouseOrTouchScreen) {
                     let was_capturing = true;
                     inner.animate(flick, flick_rc);
-                    inner.final_pos = None;
                     inner.capture_events = None;
-                    inner.pressed_time = None;
+                    inner.pressed_mouse_state = None;
                     if was_capturing {
                         InputEventResult::EventAccepted
                     } else {
                         InputEventResult::EventIgnored
                     }
                 } else if inner.capture_events.is_none() {
-                    inner.pressed_time = None;
+                    inner.pressed_mouse_state = None;
                     InputEventResult::EventIgnored
                 } else {
                     InputEventResult::EventIgnored
@@ -895,16 +896,12 @@ impl FlickableData {
                 // So to correctly calculate the mouse delta, we need to use the position of
                 // the mouse in the flickables coordinate system and never the viewport coordinate
                 // system.
-                if inner.pressed_time.is_some() {
-                    inner.final_pos = None;
-                    let last_mouse_position = inner
-                        .position_time_rb
-                        .last_position()
-                        .unwrap_or(inner.pressed_mouse_position);
-                    let mouse_delta = *position - last_mouse_position;
-                    let total_mouse_delta = *position - inner.pressed_mouse_position;
+                if let Some((_pressed_time, pressed_mouse_position)) = inner.pressed_mouse_state {
+                    let mouse_delta = *position - inner.last_mouse_position;
+                    let total_mouse_delta = *position - pressed_mouse_position;
+                    inner.last_mouse_position = *position;
 
-                    inner.position_time_rb.push(crate::animations::current_tick(), *position);
+                    inner.velocity_rb.push(crate::animations::current_tick(), mouse_delta);
 
                     let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
                     let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
