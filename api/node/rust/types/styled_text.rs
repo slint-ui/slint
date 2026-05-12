@@ -28,7 +28,7 @@ impl SlintStyledText {
 
     /// Parses markdown into styled text.
     ///
-    /// Throws an error if the markdown contains unsupported syntax.
+    /// @throws {Error} if the markdown contains unsupported syntax.
     #[napi(factory)]
     pub fn from_markdown(markdown: String) -> napi::Result<Self> {
         StyledText::from_markdown(&markdown)

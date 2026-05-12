@@ -409,6 +409,10 @@ test("loadSource styled-text with inline markdown expression", () => {
     expect(result.equals(expected)).toBe(true);
 });
 
+test("StyledText.fromMarkdown throws on unsupported syntax", () => {
+    expect(() => StyledText.fromMarkdown("<div>not supported</div>")).toThrow();
+});
+
 test("file loader", () => {
     const testSource = `export component Test {
        in-out property <string> text: "Hello World";
