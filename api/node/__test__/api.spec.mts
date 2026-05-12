@@ -448,7 +448,7 @@ test("StyledText.fromMarkdown throws on invalid color", () => {
 test("StyledText.fromMarkdown reports multiple errors", () => {
     let thrownError: any;
     try {
-        StyledText.fromMarkdown("<div>block</div>\n<img src=\"x\">");
+        StyledText.fromMarkdown('<div>block</div>\n<img src="x">');
     } catch (error) {
         thrownError = error;
     }
