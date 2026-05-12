@@ -611,6 +611,8 @@ jobs:
           matrix: ${{ fromJSON(needs.esp-idf-matrix.outputs.matrix) }}
         runs-on: ubuntu-22.04
         container: espressif/idf:${{ matrix.esp-idf-version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         steps:
             - name: Fix up pydantic regression (https://github.com/espressif/idf-component-manager/issues/97#issuecomment-3380777944)
               run: |
