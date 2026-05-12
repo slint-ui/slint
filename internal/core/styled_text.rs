@@ -114,6 +114,35 @@ pub mod ffi {
     pub unsafe extern "C" fn slint_styled_text_clone(out: *mut StyledText, ss: &StyledText) {
         unsafe { core::ptr::write(out, ss.clone()) }
     }
+
+    #[cfg(feature = "std")]
+    #[unsafe(no_mangle)]
+    /// Create a styled text from plain text
+    pub extern "C" fn slint_styled_text_from_plain_text(
+        text: crate::slice::Slice<u8>,
+        out: &mut StyledText,
+    ) {
+        let text = unsafe { core::str::from_utf8_unchecked(text.as_slice()) };
+        *out = StyledText::from_plain_text(text);
+    }
+
+    #[cfg(feature = "std")]
+    #[unsafe(no_mangle)]
+    /// Parse markdown into styled text. Returns true on success.
+    /// On failure, resets `out` to default.
+    pub extern "C" fn slint_styled_text_from_markdown(
+        markdown: crate::slice::Slice<u8>,
+        out: &mut StyledText,
+    ) -> bool {
+        let markdown = unsafe { core::str::from_utf8_unchecked(markdown.as_slice()) };
+        match StyledText::from_markdown(markdown) {
+            Ok(styled) => {
+                *out = styled;
+                true
+            }
+            Err(_) => false,
+        }
+    }
 }
 
 pub fn parse_markdown(_format_string: &str, _args: &[StyledText]) -> StyledText {

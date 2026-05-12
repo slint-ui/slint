@@ -304,13 +304,64 @@ TEST_CASE("SharedVector")
 
 TEST_CASE("StyledText")
 {
-    auto empty_arguments = std::array<slint::private_api::StyledText, 0> {};
+    auto empty_arguments = std::array<slint::StyledText, 0> {};
     auto text = slint::private_api::parse_markdown(
             "Hello *world*", slint::private_api::make_slice(std::span(empty_arguments)));
-    auto text_argument = std::array<slint::private_api::StyledText, 1> { text };
+    auto text_argument = std::array<slint::StyledText, 1> { text };
     // \u{e541} is MARKDOWN_INTERPOLATION_PLACEHOLDER defined in internal/common/styled_text.rs
     auto text2 = slint::private_api::parse_markdown(
             u8"Text: \uE541", slint::private_api::make_slice(std::span(text_argument)));
+}
+
+TEST_CASE("StyledText public API")
+{
+    using slint::StyledText;
+    using slint::SharedString;
+
+    SECTION("from_plain_text")
+    {
+        auto text = StyledText::from_plain_text("Hello world");
+        auto text2 = StyledText::from_plain_text("Hello world");
+        REQUIRE(text == text2);
+
+        auto empty = StyledText::from_plain_text("");
+        REQUIRE(!(text == empty));
+    }
+
+    SECTION("from_markdown success")
+    {
+        auto result = StyledText::from_markdown("Hello *world*!");
+        REQUIRE(result.has_value());
+
+        auto result2 = StyledText::from_markdown("Hello *world*!");
+        REQUIRE(result2.has_value());
+        REQUIRE(*result == *result2);
+    }
+
+    SECTION("from_markdown error")
+    {
+        auto result = StyledText::from_markdown("# heading");
+        REQUIRE(!result.has_value());
+    }
+
+    SECTION("from_plain_text vs from_markdown")
+    {
+        auto plain = StyledText::from_plain_text("plain text");
+        auto md = StyledText::from_markdown("plain text");
+        REQUIRE(md.has_value());
+        REQUIRE(plain == *md);
+    }
+
+    SECTION("copy and assign")
+    {
+        auto original = StyledText::from_plain_text("test");
+        StyledText copy(original);
+        REQUIRE(copy == original);
+
+        StyledText assigned;
+        assigned = original;
+        REQUIRE(assigned == original);
+    }
 }
 
 TEST_CASE("DataTransfer")
