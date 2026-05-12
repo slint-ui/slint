@@ -22,15 +22,19 @@ crate::thread_local! {
 pub(crate) struct SlintContextInner {
     platform: Box<dyn Platform>,
     pub(crate) window_count: core::cell::RefCell<isize>,
+
     /// Read by all translations, and marked dirty when the language changes so every
     /// translated string re-translates. The value is the currently selected language
     /// when bundling translations.
     #[pin]
     pub(crate) translations_dirty: Property<usize>,
-    pub(crate) translations_bundle_languages:
-        core::cell::RefCell<Option<alloc::vec::Vec<&'static str>>>,
+    pub(crate) translations_bundle:
+        core::cell::RefCell<Option<alloc::vec::Vec<i_slint_common::TranslationsBundled>>>,
     #[cfg(feature = "tr")]
     external_translator: core::cell::RefCell<Option<Box<dyn tr::Translator>>>,
+    #[pin]
+    pub(crate) locale_decimal_separator: Property<char>,
+
     /// Process-wide color scheme. Backends' system-theme observers write here; bindings
     /// read from it through [`SlintContext::color_scheme`]. Window-less components like
     /// `SystemTrayIcon` rely on this as their default source.
@@ -67,13 +71,20 @@ impl SlintContext {
         Self(Rc::pin(SlintContextInner {
             platform,
             window_count: 0.into(),
+
             translations_dirty: Property::new_named(0, "SlintContext::translations"),
-            translations_bundle_languages: Default::default(),
+            translations_bundle: Default::default(),
             #[cfg(feature = "tr")]
             external_translator: Default::default(),
+            locale_decimal_separator: Property::new_named(
+                i_slint_common::DEFAULT_DECIMAL_SEPARATOR,
+                "SlintContext::locale_decimal_separator",
+            ),
+
             color_scheme: Property::new_named(ColorScheme::Unknown, "SlintContext::color_scheme"),
             accent_color: Property::new_named(Color::default(), "SlintContext::accent_color"),
             window_shown_hook: Default::default(),
+
             #[cfg(all(unix, not(target_os = "macos")))]
             xdg_app_id: Default::default(),
             #[cfg(feature = "shared-parley")]
@@ -197,6 +208,21 @@ impl SlintContext {
     #[cfg(not(all(unix, not(target_os = "macos"))))]
     pub fn xdg_app_id(&self) -> Option<crate::SharedString> {
         None
+    }
+
+    /// Returns the locale's decimal separator, falling back to `translations::DEFAULT_SEPARATOR`.
+    pub fn locale_decimal_separator(&self) -> char {
+        self.0.as_ref().project_ref().locale_decimal_separator.get()
+    }
+
+    /// Override the locale used for decimal separator detection (testing only).
+    #[cfg(feature = "std")]
+    pub fn set_locale(&self, locale: &str) {
+        self.0
+            .as_ref()
+            .project_ref()
+            .locale_decimal_separator
+            .set(i_slint_common::decimal_separator_for_locale(locale));
     }
 
     #[cfg(feature = "tr")]
