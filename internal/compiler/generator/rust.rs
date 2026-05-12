@@ -3658,7 +3658,7 @@ fn compile_builtin_function_call(
                 quote! {{
                     #common_init
                     let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
-                    let context_menu_item_tree = sp::VRc::new(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)));
+                    let context_menu_item_tree = sp::VRc::new(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance), sp::Option::None, sp::Option::None));
                     let context_menu_item_tree_ = context_menu_item_tree.clone();
                     {
                         let mut entries = sp::SharedVector::default();
@@ -3960,7 +3960,9 @@ fn compile_builtin_function_call(
                 Expression::PropertyReference(activated_r),
                 Expression::NumberLiteral(tree_index),
                 Expression::BoolLiteral(no_native),
-                rest @ ..,
+                condition,
+                visible,
+                ..
             ] = arguments
             else {
                 panic!("internal error: incorrect arguments to SetupMenuBar")
@@ -3977,28 +3979,36 @@ fn compile_builtin_function_call(
             let access_sub_menu = access_member(sub_menu_r, ctx).unwrap();
             let access_activated = access_member(activated_r, ctx).unwrap();
 
-            let native_impl = if *no_native {
-                quote!(let menu_item_tree = sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance));)
-            } else {
-                let menu_from_item_tree = if let Some(condition) = &rest.first() {
-                    let binding = compile_expression(condition, ctx);
-                    quote!(sp::MenuFromItemTree::new_with_condition(sp::VRc::into_dyn(menu_item_tree_instance), {
-                        let self_weak = _self.self_weak.get().unwrap().clone();
-                        move || {
-                            let Some(self_rc) = self_weak.upgrade() else { return false };
-                            let _self = self_rc.as_pin_ref();
-                            #binding
-                        }
-                    }))
+            let compile_prop = |prop_expr: &Expression| {
+                if let Expression::BoolLiteral(true) = prop_expr {
+                    return quote!(sp::Option::None::<fn() -> bool>);
+                }
+                let binding = compile_expression(prop_expr, ctx);
+                quote!(sp::Option::Some({
+                    let self_weak = _self.self_weak.get().unwrap().clone();
+                    move || {
+                        let Some(self_rc) = self_weak.upgrade() else { return false };
+                        let _self = self_rc.as_pin_ref();
+                        #binding
+                    }
+                }))
+            };
+
+            let condition_tokens = compile_prop(condition);
+            let visible_tokens = compile_prop(visible);
+
+            let native_impl = {
+                let menu_from_item_tree = quote!(sp::VRc::new(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance), #condition_tokens, #visible_tokens)));
+                if *no_native {
+                    quote!(let menu_item_tree = #menu_from_item_tree;)
                 } else {
-                    quote!(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)))
-                };
-                quote! {
-                    let menu_item_tree = sp::VRc::new(#menu_from_item_tree);
-                    if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
-                        let menu_item_tree_dyn = sp::VRc::into_dyn(sp::VRc::clone(&menu_item_tree));
-                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(menu_item_tree_dyn);
-                    } else
+                    quote! {
+                        let menu_item_tree = #menu_from_item_tree;
+                        if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
+                            let menu_item_tree_dyn = sp::VRc::into_dyn(sp::VRc::clone(&menu_item_tree));
+                            sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(menu_item_tree_dyn);
+                        } else
+                    }
                 }
             };
 
@@ -4047,24 +4057,26 @@ fn compile_builtin_function_call(
             let system_tray_rc = access_item_rc(system_tray_ref, ctx);
 
             // `if cond : Menu { ... }` lowers the condition into a closure that
-            // gates the menu's shadow tree. `MenuFromItemTree::new_with_condition`
-            // re-evaluates it through a property-tracked binding.
-            let menu_from_item_tree = if let Some(condition) = rest.first() {
+            // gates the menu's shadow tree.
+            let condition_tokens = if let Some(condition) = rest.first() {
                 let binding = compile_expression(condition, ctx);
-                quote!(sp::MenuFromItemTree::new_with_condition(
-                    sp::VRc::into_dyn(menu_item_tree_instance),
-                    {
-                        let self_weak = _self.self_weak.get().unwrap().clone();
-                        move || {
-                            let Some(self_rc) = self_weak.upgrade() else { return false };
-                            let _self = self_rc.as_pin_ref();
-                            #binding
-                        }
-                    },
-                ))
+                quote!(sp::Option::Some({
+                    let self_weak = _self.self_weak.get().unwrap().clone();
+                    move || {
+                        let Some(self_rc) = self_weak.upgrade() else { return false };
+                        let _self = self_rc.as_pin_ref();
+                        #binding
+                    }
+                }))
             } else {
-                quote!(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)))
+                quote!(sp::Option::None)
             };
+
+            let menu_from_item_tree = quote!(sp::MenuFromItemTree::new(
+                sp::VRc::into_dyn(menu_item_tree_instance),
+                #condition_tokens,
+                sp::Option::None,
+            ));
 
             quote!({
                 let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();

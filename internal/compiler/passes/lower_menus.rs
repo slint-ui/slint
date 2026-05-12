@@ -558,11 +558,12 @@ fn process_window(
     }
 
     // Transfer the visible binding from MenuBar to MenuBarImpl
-    if let Some(visible_binding) = menu_bar.borrow_mut().bindings.remove("visible") {
+    let visible_binding = menu_bar.borrow_mut().bindings.remove("visible");
+    if let Some(visible_binding) = &visible_binding {
         menubar_impl
             .borrow_mut()
             .bindings
-            .insert(SmolStr::new_static("menubar-visible"), visible_binding);
+            .insert(SmolStr::new_static("menubar-visible"), visible_binding.clone());
     }
 
     // Transform the MenuBar in a layout
@@ -609,6 +610,14 @@ fn process_window(
 
     if let Some(condition) = original_cond {
         arguments.push(condition);
+    } else {
+        arguments.push(Expression::BoolLiteral(true));
+    }
+
+    if let Some(visible_binding) = visible_binding {
+        arguments.push(visible_binding.borrow().expression.clone());
+    } else {
+        arguments.push(Expression::BoolLiteral(true));
     }
 
     let setup_menubar = Expression::FunctionCall {

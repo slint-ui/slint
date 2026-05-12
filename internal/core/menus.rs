@@ -32,7 +32,7 @@ pub struct MenuVTable {
     sub_menu: extern "C" fn(VRef<MenuVTable>, Option<&MenuEntry>, &mut SharedVector<MenuEntry>),
     /// Handler when the menu entry is activated
     activate: extern "C" fn(VRef<MenuVTable>, &MenuEntry),
-    /// Handler to returrn whether the menu is visible or not
+    /// Handler to return whether the menu is visible or not
     visible: extern "C" fn(VRef<MenuVTable>) -> bool,
     /// drop_in_place handler
     drop_in_place: extern "C" fn(VRefMut<MenuVTable>) -> Layout,
@@ -52,37 +52,29 @@ pub struct MenuFromItemTree {
     next_id: Cell<usize>,
     tracker: Pin<Box<PropertyTracker>>,
     condition: Option<Pin<Box<Property<bool>>>>,
-    visible: bool,
+    visible: Option<Pin<Box<Property<bool>>>>,
 }
 
 impl MenuFromItemTree {
-    pub fn new(item_tree: ItemTreeRc) -> Self {
+    pub fn new(item_tree: ItemTreeRc, condition: Option<impl Fn() -> bool + 'static>, visible: Option<impl Fn() -> bool + 'static>) -> Self {
+        let cond_prop = condition.map(|cond| {
+            let prop = Box::pin(Property::new_named(true, "MenuFromItemTree::condition"));
+            prop.as_ref().set_binding(cond);
+            prop
+        });
+        let visible_prop = visible.map(|vis| {
+            let prop = Box::pin(Property::new_named(true, "MenuFromItemTree::visible"));
+            prop.as_ref().set_binding(vis);
+            prop
+        });
         Self {
             item_tree,
             item_cache: Default::default(),
             root: Default::default(),
             tracker: Box::pin(PropertyTracker::default()),
             next_id: 0.into(),
-            condition: None,
-            visible: true,
-        }
-    }
-
-    pub fn new_with_condition(
-        item_tree: ItemTreeRc,
-        condition: impl Fn() -> bool + 'static,
-    ) -> Self {
-        let cond_prop = Box::pin(Property::new_named(true, "MenuFromItemTree::condition"));
-        cond_prop.as_ref().set_binding(condition);
-
-        Self {
-            item_tree,
-            item_cache: Default::default(),
-            root: Default::default(),
-            tracker: Box::pin(PropertyTracker::default()),
-            next_id: 0.into(),
-            condition: Some(cond_prop),
-            visible: true,
+            condition: cond_prop,
+            visible: visible_prop,
         }
     }
 
@@ -188,7 +180,7 @@ impl Menu for MenuFromItemTree {
     }
 
     fn visible(&self) -> bool {
-        self.visible
+        self.visible.as_ref().map_or(true, |v| v.as_ref().get())
     }
 }
 
@@ -317,12 +309,16 @@ pub mod ffi {
         let menu = match condition {
             Some(condition) => {
                 let menu_weak = ItemTreeRc::downgrade(menu_tree);
-                MenuFromItemTree::new_with_condition(menu_tree.clone(), move || {
-                    let Some(menu_rc) = menu_weak.upgrade() else { return false };
-                    condition(&menu_rc)
-                })
+                MenuFromItemTree::new(
+                    menu_tree.clone(),
+                    core::option::Option::Some(move || {
+                        let Some(menu_rc) = menu_weak.upgrade() else { return false };
+                        condition(&menu_rc)
+                    }),
+                    core::option::Option::None,
+                )
             }
-            None => MenuFromItemTree::new(menu_tree.clone()),
+            None => MenuFromItemTree::new(menu_tree.clone(), core::option::Option::None, core::option::Option::None),
         };
 
         let vrc = vtable::VRc::into_dyn(vtable::VRc::new(menu));
