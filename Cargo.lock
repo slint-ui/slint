@@ -10461,6 +10461,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "slint-sc"
+version = "1.17.0"
+
+[[package]]
 name = "slint-tr-extractor"
 version = "1.17.0"
 dependencies = [
