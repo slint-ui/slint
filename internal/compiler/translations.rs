@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::llr::Expression;
-use i_slint_common::decimal_separator_for_locale;
 use rspolib::TranslatedEntry;
 use smol_str::{SmolStr, ToSmolStr};
 use std::collections::HashMap;
@@ -63,7 +62,7 @@ impl TranslationsBuilder {
                 let language_name = l.file_name().to_string_lossy().to_smolstr();
                 languages.push((
                     language_name.clone(),
-                    decimal_separator_for_locale(language_name.as_str()),
+                    i_slint_common::decimal_separator_for_locale(language_name.as_str()),
                 ));
 
                 let expr = if let Some(header) = catalog.metadata.get("Plural-Forms") {
