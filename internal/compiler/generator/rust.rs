@@ -1385,6 +1385,7 @@ fn generate_sub_component(
     }
 
     // Initialize all properties which have an initial value in the slint file
+    // This sets up also the callback handler and bindings
     for (prop, expression) in &component.property_init {
         handle_property_init(prop, expression, &mut init, &ctx)
     }
