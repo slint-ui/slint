@@ -1851,10 +1851,12 @@ fn generate_item_tree(
                 translations
                     .languages
                     .iter()
-                    .map(|l| format!("slint::private_api::string_to_slice({l:?})"))
+                    .map(|(l, _)| format!("slint::private_api::string_to_slice({l:?})"))
                     .join(", ")
             ));
-            create_code.push("slint::cbindgen_private::slint_translate_set_bundled_languages(slint::private_api::make_slice(std::span(languages)));".to_string());
+            create_code.push(format!("slint::cbindgen_private::slint_translate_set_bundled_languages(slint::private_api::make_slice(std::span(languages)), \
+                                                                                                     slint::private_api::make_slice(reinterpret_cast<uint32_t *>(slint_translation_bundle_decimal_separators), {}));",
+                                                                                                     translations.languages.len()));
         }
 
         create_code.push("self->globals = &self->m_globals;".into());
@@ -4142,6 +4144,7 @@ fn compile_builtin_function_call(
             ctx.generator_state.conditional_includes.iostream.set(true);
             format!("slint::private_api::debug({});", a.join(","))
         }
+        BuiltinFunction::DecimalSeparator => "slint::private_api::decimal_separator()".into(),
         BuiltinFunction::Mod => {
             ctx.generator_state.conditional_includes.cmath.set(true);
             format!("([](float a, float b) {{ auto r = std::fmod(a, b); return r >= 0 ? r : r + std::abs(b); }})({},{})", a.next().unwrap(), a.next().unwrap())
@@ -5082,6 +5085,20 @@ fn generate_translation(
             ..Default::default()
         }));
     }
+    declarations.push(Declaration::Var(Var {
+        ty: "uint32_t".into(),
+        name: "slint_translation_bundle_decimal_separators".into(),
+        array_size: Some(translations.languages.len()),
+        init: Some(format!(
+            "{{ {} }}",
+            translations
+                .languages
+                .iter()
+                .map(|(_, s)| format_smolstr!("{}", *s as u32),)
+                .join(", ")
+        )),
+        ..Default::default()
+    }));
     for (idx, ms) in translations.plurals.iter().enumerate() {
         let all_strs = ms.iter().flatten().flatten();
         let all_strs_len = all_strs.clone().count();

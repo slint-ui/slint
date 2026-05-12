@@ -6,6 +6,7 @@ description: Translations
 
 import { Tabs, TabItem, FileTree } from '@astrojs/starlight/components';
 import LangRefLink from '@slint/common-files/src/components/LangRefLink.astro';
+import Link from '@slint/common-files/src/components/Link.astro';
 
 Slint's translation infrastructure makes your application available in different languages.
 
@@ -303,3 +304,8 @@ Use the <LangRefLink lang="python" relpath="slint#init_translations">`slint.init
 
 Make sure the `gettext` feature was enabled when building slint-viewer.
 Use the `--translation-domain` and `--translation-dir` command line options to load translations for preview.
+
+## Selecting the decimal separator
+
+The current used decimal separator can be read with <Link type="Platform.decimal-separator" label="decimal-separator" />. As default the dot `.` is used as decimal separator.
+When bundling the languages, the decimal separator will be determined during compile time and bundled into the software, otherwise it will be determined from the system locale
