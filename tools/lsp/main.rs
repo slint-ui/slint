@@ -720,7 +720,7 @@ async fn handle_preview_to_lsp_message(
             if files.is_empty() {
                 crate::language::send_state_to_preview(ctx);
             } else {
-                send_files_to_preview(ctx, files);
+                crate::language::send_files_to_preview(ctx, &files);
             }
         }
         M::SendWorkspaceEdit { label, edit } => {
@@ -738,27 +738,4 @@ async fn handle_preview_to_lsp_message(
         }
     }
     Ok(())
-}
-
-#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
-fn send_files_to_preview(ctx: &Context, files: Vec<Url>) {
-    let to_preview = ctx.to_preview.clone();
-    common::spawn_local(futures_util::future::join_all(files.into_iter().map(|url| {
-        let to_preview = to_preview.clone();
-        async move {
-            match tokio::fs::read(url.to_file_path().unwrap()).await {
-                Ok(contents) => {
-                    use i_slint_preview_protocol::VersionedUrl;
-
-                    to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::SetContents {
-                        url: VersionedUrl::new(url, None),
-                        contents,
-                    });
-                }
-                Err(err) => {
-                    tracing::error!("Failed loading file: {err}");
-                }
-            }
-        }
-    })));
 }
