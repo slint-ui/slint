@@ -181,7 +181,9 @@ fn main() -> std::io::Result<()> {
             _ => generator::OutputFormat::Cpp(Default::default()),
             #[cfg(not(feature = "cpp"))]
             _ => {
-                eprintln!("Cannot guess output format from file extension. Use --format to specify.");
+                eprintln!(
+                    "Cannot guess output format from file extension. Use --format to specify."
+                );
                 std::process::exit(1);
             }
         }
