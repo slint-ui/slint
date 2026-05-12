@@ -329,7 +329,7 @@ fn handle_preview_message(msg: PreviewToLspMessage, ctx: &language::Context) {
                 tracing::debug!("Preview requested state, re-sending all documents");
                 language::send_state_to_preview(ctx);
             } else {
-                language::send_files_to_preview(ctx, &files);
+                language::send_files_to_preview(ctx, files);
             }
         }
         SendShowMessage { message } => {
