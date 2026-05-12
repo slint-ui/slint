@@ -28,6 +28,8 @@ impl slint::platform::Platform for TestPlatform {
     }
 }
 
+const BYTES_PER_PIXEL: usize = 4;
+
 #[derive(Clone, Copy, Default)]
 struct TestPixel(bool);
 
@@ -1249,4 +1251,125 @@ fn layer_visible_after_becoming_non_zero_sized() {
         r > 200 && g < 50 && b < 50,
         "Layer pixel at (16,16) should be red after content-height grew, got rgb=({r},{g},{b})"
     );
+}
+
+#[test]
+fn partial_rendering_popup_position_size_change() {
+    slint::slint! {
+        export component Ui inherits Window {
+            width: 600px;
+            height: 600px;
+            background: red;
+
+            callback show_popup();
+            show_popup() => {
+                popup.show();
+            }
+
+            callback change_popup();
+            change_popup() => {
+                // popup.x = 10px;
+                // popup.y = 20px;
+                // popup.width = 150px;
+                // popup.height = 30px;
+            }
+
+            popup:= PopupWindow {
+                x: 0px;
+                y: 0px;
+                width: 100px;
+                height: 200px;
+
+                Rectangle {
+                    background: blue;
+                }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    const WINDOW_WIDTH: usize = 600;
+    const WINDOW_HEIGHT: usize = 600;
+    const POPUP_WIDTH: usize = 100;
+    const POPUP_HEIGHT: usize = 200;
+    const RGB_COLOR_WINDOW: (u8, u8, u8) = (255, 0, 0);
+    const RGB_COLOR_POPUP: (u8, u8, u8) = (0, 0, 255);
+
+    let ui = Ui::new().unwrap();
+    // Required otherwise the buffer gets not initialized
+    window.set_size(slint::PhysicalSize::new(WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32).into());
+    ui.show().unwrap();
+
+    assert!(window.draw_if_needed());
+
+    let get_pixel_values = |pixel_index: usize| {
+        let pixels = window.render_buffer.pixels.borrow();
+        let buf = pixels.as_ref().expect("render buffer should contain pixels");
+        let data = buf.as_bytes();
+        let offset = pixel_index * BYTES_PER_PIXEL;
+        (data[offset], data[offset + 1], data[offset + 2])
+    };
+
+    {
+        let pixels = window.render_buffer.pixels.borrow();
+        let buf = pixels.as_ref().expect("render buffer should contain pixels");
+        assert_eq!(buf.as_bytes().len(), WINDOW_WIDTH * WINDOW_HEIGHT * BYTES_PER_PIXEL);
+        for pixel_idx in 0..(WINDOW_WIDTH * WINDOW_HEIGHT) {
+            let rgb = get_pixel_values(pixel_idx);
+            assert_eq!(rgb, RGB_COLOR_WINDOW, "Wrong color at pixel index pixel_idx");
+        }
+    }
+
+    ui.invoke_show_popup();
+    assert!(window.draw_if_needed());
+
+    {
+        for v_pixel in 0..WINDOW_HEIGHT {
+            for h_pixel in 0..WINDOW_WIDTH {
+                let pixel_idx = WINDOW_WIDTH * v_pixel + h_pixel;
+
+                if h_pixel < POPUP_WIDTH && v_pixel < POPUP_HEIGHT {
+                    let rgb = get_pixel_values(pixel_idx);
+                    assert_eq!(rgb, RGB_COLOR_POPUP, "Wrong color at pixel ({h_pixel}, {v_pixel})");
+                } else {
+                    let rgb = get_pixel_values(pixel_idx);
+                    assert_eq!(
+                        rgb, RGB_COLOR_WINDOW,
+                        "Wrong color at pixel ({h_pixel}, {v_pixel})"
+                    );
+                }
+            }
+        }
+    }
+
+    ui.invoke_change_popup();
+    assert!(window.draw_if_needed());
+    {
+        const POPUP_POS_X: usize = 10;
+        const POPUP_POS_Y: usize = 20;
+        for v_pixel in 0..WINDOW_HEIGHT {
+            for h_pixel in 0..WINDOW_WIDTH {
+                let pixel_idx = WINDOW_WIDTH * v_pixel + h_pixel;
+
+                if h_pixel >= POPUP_POS_X - 1
+                    && h_pixel < POPUP_POS_X + POPUP_WIDTH - 1
+                    && v_pixel >= POPUP_POS_Y - 1
+                    && v_pixel < POPUP_POS_Y + POPUP_HEIGHT - 1
+                {
+                    let rgb = get_pixel_values(pixel_idx);
+                    assert_eq!(rgb, RGB_COLOR_POPUP, "Wrong color at pixel ({h_pixel}, {v_pixel})");
+                } else {
+                    let rgb = get_pixel_values(pixel_idx);
+                    assert_eq!(
+                        rgb, RGB_COLOR_WINDOW,
+                        "Wrong color at pixel ({h_pixel}, {v_pixel})"
+                    );
+                }
+            }
+        }
+    }
 }
