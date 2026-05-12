@@ -184,6 +184,12 @@ pub struct CompilerConfiguration {
 
     /// Specify the Rust module to place the generated code in.
     pub rust_module: Option<String>,
+
+    /// Set automatically when the output format is `SlintSc`.
+    /// The compiler rejects all features not supported by the
+    /// safety-critical subset.
+    #[cfg(feature = "slint-sc")]
+    pub(crate) slint_sc: bool,
 }
 
 impl CompilerConfiguration {
@@ -233,6 +239,9 @@ impl CompilerConfiguration {
 
         let debug_info = std::env::var_os("SLINT_EMIT_DEBUG_INFO").is_some();
 
+        #[cfg(feature = "slint-sc")]
+        let slint_sc = matches!(output_format, OutputFormat::SlintSc);
+
         let cpp_namespace = match output_format {
             #[cfg(feature = "cpp")]
             OutputFormat::Cpp(config) => match config.namespace {
@@ -271,6 +280,8 @@ impl CompilerConfiguration {
                 .map(|x| x.into()),
             library_name: None,
             rust_module: None,
+            #[cfg(feature = "slint-sc")]
+            slint_sc,
         }
     }
 }
@@ -290,6 +301,10 @@ fn prepare_for_compile(
     }
 
     diagnostics.enable_experimental = compiler_config.enable_experimental;
+    #[cfg(feature = "slint-sc")]
+    {
+        diagnostics.slint_sc = compiler_config.slint_sc;
+    }
 
     typeloader::TypeLoader::new(compiler_config, diagnostics)
 }
