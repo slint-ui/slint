@@ -91,13 +91,13 @@
       },
       {
         "command": "slint.selectRemotePreview",
-        "title": "Connect to Remote Preview",
+        "title": "(Experimental) Connect to Remote Preview",
         "category": "Slint",
         "icon": "$(preview)"
       },
       {
         "command": "slint.disconnectRemotePreview",
-        "title": "Disconnect Remote Preview",
+        "title": "(Experimental) Disconnect Remote Preview",
         "category": "Slint",
         "icon": "$(debug-disconnect)"
       },

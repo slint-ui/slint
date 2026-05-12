@@ -42,7 +42,7 @@ use std::time::Duration;
 
 use crate::common::{SwitchableLspToPreview, document_cache::CompilerConfiguration};
 #[cfg(feature = "preview-remote")]
-use crate::preview::connector::RemoteLspToPreview;
+use crate::preview::connector::remote::RemoteLspToPreview;
 
 #[cfg(not(any(
     target_os = "openbsd",
@@ -359,7 +359,7 @@ async fn main_loop(
             Box::new(preview::connector::EmbeddedLspToPreview::new(sn.clone()));
         #[cfg(feature = "preview-remote")]
         let remote_preview: Box<dyn common::LspToPreview> = Box::new(
-            preview::connector::RemoteLspToPreview::new(sn, preview_to_lsp_sender.clone()),
+            preview::connector::remote::RemoteLspToPreview::new(sn, preview_to_lsp_sender.clone()),
         );
         Rc::new(
             preview::connector::SwitchableLspToPreview::new(
