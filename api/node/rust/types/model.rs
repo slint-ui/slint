@@ -42,7 +42,7 @@ pub(crate) fn js_into_rust_model(
         &model_owner.owner_weak,
         *env,
     ) {
-        obj.set_named_property(&prop_key, maybe_js_impl.to_unknown())?;
+        crate::set_hidden_property(&mut obj, &prop_key, maybe_js_impl)?;
     }
 
     Ok(Rc::new(JsModel {

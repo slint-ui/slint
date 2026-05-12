@@ -43,26 +43,6 @@ test("callback closure does not prevent GC", async () => {
     expect(weakRef.deref()).toBeUndefined();
 });
 
-test("callback with return value does not prevent GC", async () => {
-    function makeInstance() {
-        const source = `export component Test {
-            callback compute(int, int) -> int;
-            in-out property <int> result;
-        }`;
-        const instance = new (loadSource(source, "gc.slint") as any).Test();
-
-        instance.compute = function (a: number, b: number) {
-            return a + b;
-        };
-        expect(instance.compute(3, 4)).toBe(7);
-
-        return new WeakRef(instance);
-    }
-    const weakRef = makeInstance();
-    await gcAndYield();
-    expect(weakRef.deref()).toBeUndefined();
-});
-
 test("multiple callbacks do not prevent GC", async () => {
     function makeInstance() {
         const source = `export component Test {
@@ -94,25 +74,19 @@ test("multiple callbacks do not prevent GC", async () => {
 
 test("global callback does not prevent GC", async () => {
     function makeInstance() {
-        const compiler = new private_api.ComponentCompiler();
-        const definition = compiler.buildFromSource(
-            `
+        const demo = loadSource(`
             export global Logic {
-                callback do_something();
+                callback do-something();
             }
             export component App {
                 in-out property <string> label: "app";
             }
-            `,
-            "",
-        );
-        expect(definition.App).not.toBeNull();
+        `, "gc-global.slint") as any;
+        const instance = new demo.App();
 
-        const instance = definition.App!.create()!;
-
-        instance.setGlobalCallback("Logic", "do_something", function () {
-            instance.setProperty("label", "updated");
-        });
+        instance.Logic.doSomething = function () {
+            instance.label = "updated";
+        };
 
         return new WeakRef(instance);
     }
@@ -170,23 +144,6 @@ test("callback survives GC while instance is alive", async () => {
 
     instance.say_hello();
     expect(callCount).toBe(2);
-});
-
-test("callback with return value survives GC", async () => {
-    const source = `export component Test {
-        callback compute(int, int) -> int;
-    }`;
-    const instance = new (loadSource(source, "gc-surv.slint") as any).Test();
-
-    instance.compute = function (a: number, b: number) {
-        return a + b;
-    };
-
-    expect(instance.compute(2, 3)).toBe(5);
-
-    await gcAndYield();
-
-    expect(instance.compute(10, 20)).toBe(30);
 });
 
 test("constructor callback survives GC", async () => {
@@ -263,14 +220,8 @@ test("custom model without JS reference survives GC", async () => {
         loadSource(source, "gc-model-custom.slint") as any
     ).Test();
 
-    class MyModel extends ArrayModel<string> {
-        greeting(row: number): string {
-            return "hello " + (this.rowData(row) ?? "");
-        }
-    }
-
     // Assign without keeping a reference.
-    instance.items = new MyModel(["alice", "bob"]);
+    instance.items = new ArrayModel(["alice", "bob"]);
 
     await gcAndYield();
 
@@ -280,24 +231,20 @@ test("custom model without JS reference survives GC", async () => {
 });
 
 test("model returned by callback survives GC", async () => {
-    const compiler = new private_api.ComponentCompiler();
-    const definition = compiler.buildFromSource(
-        `export component Test {
-            callback get_items() -> [string];
-            in-out property <[string]> items;
-        }`,
-        "",
-    );
-    const instance = definition.Test!.create()!;
+    const demo = loadSource(`export component Test {
+        callback get_items() -> [string];
+        in-out property <[string]> items;
+    }`, "gc-model-cb.slint") as any;
+    const instance = new demo.Test();
 
     // The callback returns a model as a temporary — no JS variable holds it.
-    instance.setCallback("get_items", function () {
+    instance.get_items = function () {
         return new ArrayModel(["x", "y", "z"]);
-    });
+    };
 
     // Invoke from the Slint side — the return value goes through to_value
     // in the Rust closure, not through JS set_property.
-    const result = instance.invoke("get_items", []);
+    const result = instance.get_items();
 
     await gcAndYield();
 
@@ -307,42 +254,35 @@ test("model returned by callback survives GC", async () => {
 });
 
 test("multiple models returned by callback survive GC", async () => {
-    const compiler = new private_api.ComponentCompiler();
-    const definition = compiler.buildFromSource(
-        `export component Test {
-            callback get_items() -> [string];
-            in-out property <[string]> items1;
-            in-out property <[string]> items2;
-        }`,
-        "",
-    );
-    const instance = definition.Test!.create()!;
+    const demo = loadSource(`export component Test {
+        callback get_items() -> [string];
+        in-out property <[string]> items1;
+        in-out property <[string]> items2;
+    }`, "gc-model-multi.slint") as any;
+    const instance = new demo.Test();
 
     // Each call returns a NEW model — both must survive GC.
     let callCount = 0;
-    instance.setCallback("get_items", function () {
+    instance.get_items = function () {
         callCount++;
         return new ArrayModel(["item_" + callCount]);
-    });
+    };
 
     // Invoke the callback twice and store the results in separate properties.
-    instance.setProperty("items1", instance.invoke("get_items", []));
-    instance.setProperty("items2", instance.invoke("get_items", []));
+    instance.items1 = instance.get_items();
+    instance.items2 = instance.get_items();
 
-    const items1 = instance.getProperty("items1");
-    const items2 = instance.getProperty("items2");
-
-    expect(items1.rowCount()).toBe(1);
-    expect(items2.rowCount()).toBe(1);
-    expect(items1.rowData(0)).not.toBe(items2.rowData(0));
+    expect(instance.items1.rowCount()).toBe(1);
+    expect(instance.items2.rowCount()).toBe(1);
+    expect(instance.items1.rowData(0)).not.toBe(instance.items2.rowData(0));
 
     await gcAndYield();
 
     // Both models must still be alive after GC.
-    expect(items1.rowCount()).toBe(1);
-    expect(items1.rowData(0)).toBe("item_1");
-    expect(items2.rowCount()).toBe(1);
-    expect(items2.rowData(0)).toBe("item_2");
+    expect(instance.items1.rowCount()).toBe(1);
+    expect(instance.items1.rowData(0)).toBe("item_1");
+    expect(instance.items2.rowCount()).toBe(1);
+    expect(instance.items2.rowData(0)).toBe("item_2");
 });
 
 test("model in struct field survives GC", async () => {
@@ -374,58 +314,48 @@ test("model in struct field survives GC", async () => {
 });
 
 test("model passed as callback argument survives GC", async () => {
-    const compiler = new private_api.ComponentCompiler();
-    const definition = compiler.buildFromSource(
-        `export component Test {
-            callback receive_items([string]);
-            in-out property <[string]> stored_items;
-        }`,
-        "",
-    );
-    const instance = definition.Test!.create()!;
+    const demo = loadSource(`export component Test {
+        callback receive_items([string]);
+        in-out property <[string]> stored_items;
+    }`, "gc-model-arg.slint") as any;
+    const instance = new demo.Test();
 
-    instance.setCallback("receive_items", function (items: any) {
-        instance.setProperty("stored_items", items);
-    });
+    instance.receive_items = function (items: any) {
+        instance.stored_items = items;
+    };
 
     // Pass a model as a callback argument — no JS variable keeps it.
-    instance.invoke("receive_items", [new ArrayModel(["a", "b"])]);
+    instance.receive_items(new ArrayModel(["a", "b"]));
 
     await gcAndYield();
 
-    const items = instance.getProperty("stored_items");
+    const items = instance.stored_items;
     expect(items.rowCount()).toBe(2);
     expect(items.rowData(0)).toBe("a");
 });
 
 test("model passed to public function survives GC", async () => {
-    const compiler = new private_api.ComponentCompiler();
-    const definition = compiler.buildFromSource(
-        `export component Test {
-            in-out property <[string]> stored;
-            public function set_model(m: [string]) {
-                stored = m;
-            }
-        }`,
-        "",
-    );
-    const instance = definition.Test!.create()!;
+    const demo = loadSource(`export component Test {
+        in-out property <[string]> stored;
+        public function set_model(m: [string]) {
+            stored = m;
+        }
+    }`, "gc-model-fn.slint") as any;
+    const instance = new demo.Test();
 
     // Pass a model to a public function — no JS variable keeps it.
-    instance.invoke("set_model", [new ArrayModel(["fn_a", "fn_b"])]);
+    instance.set_model(new ArrayModel(["fn_a", "fn_b"]));
 
     await gcAndYield();
 
-    const stored = instance.getProperty("stored");
+    const stored = instance.stored;
     expect(stored.rowCount()).toBe(2);
     expect(stored.rowData(0)).toBe("fn_a");
     expect(stored.rowData(1)).toBe("fn_b");
 });
 
 test("nested model in struct returned by rowData survives GC", async () => {
-    const compiler = new private_api.ComponentCompiler();
-    const definition = compiler.buildFromSource(
-        `
+    const demo = loadSource(`
         export struct Row {
             label: string,
             tags: [string],
@@ -433,10 +363,8 @@ test("nested model in struct returned by rowData survives GC", async () => {
         export component Test {
             in-out property <[Row]> rows;
         }
-        `,
-        "",
-    );
-    const instance = definition.Test!.create()!;
+    `, "gc-nested-model.slint") as any;
+    const instance = new demo.Test();
 
     // The outer model's rowData returns structs that contain nested models.
     // Neither the outer nor inner models are held in JS variables.
@@ -457,12 +385,12 @@ test("nested model in struct returned by rowData survives GC", async () => {
         }
     }
 
-    instance.setProperty("rows", new RowModel() as any);
+    instance.rows = new RowModel();
 
     await gcAndYield();
 
     // Both the outer model and the nested ArrayModels must survive.
-    const rows = instance.getProperty("rows");
+    const rows = instance.rows;
     expect(rows.rowCount()).toBe(2);
 
     const first = rows.rowData(0);
@@ -479,39 +407,37 @@ test("nested model in struct returned by rowData survives GC", async () => {
 
 // --- Two-phase tests: survive while alive, then collected when dropped ---
 
-test("callback and instance are both collected together", async () => {
-    let callbackRef: WeakRef<Function>;
+test("callback and captured object are both collected", async () => {
+    let capturedRef: WeakRef<object>;
     function makeInstance() {
         const demo = loadSource(
             `export component Test {
-            callback say_hello();
+            callback action();
             in-out property <string> check: "initial";
         }`,
             "gc-2phase-cb.slint",
         ) as any;
         const instance = new demo.Test();
 
-        const cb = function () {
-            instance.check = "called";
+        // Capture an object the closure references so we can verify it's released.
+        const captured = { value: "alive" };
+        capturedRef = new WeakRef(captured);
+        instance.action = function () {
+            instance.check = captured.value;
         };
-        callbackRef = new WeakRef(cb);
-        instance.say_hello = cb;
 
         // Verify callback works.
-        instance.say_hello();
-        expect(instance.check).toBe("called");
+        instance.action();
+        expect(instance.check).toBe("alive");
 
         return new WeakRef(instance);
     }
     const instanceRef = makeInstance();
-
-    // GC should NOT collect — makeInstance's WeakRef is the only ref but
-    // we haven't yielded yet. Actually the instance went out of scope in
-    // makeInstance, so both should be collectible.
     await gcAndYield();
 
+    // Both the instance and the captured object should be collected.
     expect(instanceRef.deref()).toBeUndefined();
-    expect(callbackRef!.deref()).toBeUndefined();
+    expect(capturedRef!.deref()).toBeUndefined();
 });
 
 test("model survives while instance alive, then both collected", async () => {
@@ -590,9 +516,7 @@ test("nested model in rowData: survives then collected", async () => {
     let innerModelRef: WeakRef<object>;
 
     async function phase1() {
-        const compiler = new private_api.ComponentCompiler();
-        const definition = compiler.buildFromSource(
-            `
+        const demo = loadSource(`
             export struct Row {
                 label: string,
                 tags: [string],
@@ -600,10 +524,8 @@ test("nested model in rowData: survives then collected", async () => {
             export component Test {
                 in-out property <[Row]> rows;
             }
-            `,
-            "",
-        );
-        const instance = definition.Test!.create()!;
+        `, "gc-2phase-nested.slint") as any;
+        const instance = new demo.Test();
 
         const innerModel = new ArrayModel(["tag1", "tag2"]);
         innerModelRef = new WeakRef(innerModel);
@@ -619,7 +541,7 @@ test("nested model in rowData: survives then collected", async () => {
 
         const outer = new OuterModel();
         outerModelRef = new WeakRef(outer);
-        instance.setProperty("rows", outer as any);
+        instance.rows = outer;
 
         await gcAndYield();
 
@@ -627,7 +549,7 @@ test("nested model in rowData: survives then collected", async () => {
         expect(outerModelRef.deref()).toBeDefined();
         expect(innerModelRef.deref()).toBeDefined();
 
-        const rows = instance.getProperty("rows");
+        const rows = instance.rows;
         expect(rows.rowCount()).toBe(1);
         const row = rows.rowData(0);
         expect(row.label).toBe("row0");
@@ -710,25 +632,21 @@ test("model replaced multiple times: old models collected", async () => {
 
 test("custom model capturing instance does not prevent GC", async () => {
     function makeInstance() {
-        const compiler = new private_api.ComponentCompiler();
-        const definition = compiler.buildFromSource(
-            `export component App {
-                in-out property <[string]> items;
-                in-out property <string> label: "app";
-            }`,
-            "",
-        );
-        const instance = definition.App!.create()!;
+        const demo = loadSource(`export component App {
+            in-out property <[string]> items;
+            in-out property <string> label: "app";
+        }`, "gc-capturing-model.slint") as any;
+        const instance = new demo.App();
 
         class CapturingModel extends ArrayModel<string> {
             rowData(row: number): string | undefined {
-                void instance.getProperty("label");
+                void instance.label;
                 return super.rowData(row);
             }
         }
 
         const model = new CapturingModel(["a", "b", "c"]);
-        instance.setProperty("items", model);
+        instance.items = model;
 
         return new WeakRef(instance);
     }

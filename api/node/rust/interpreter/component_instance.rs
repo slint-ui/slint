@@ -208,7 +208,7 @@ impl JsComponentInstance {
 
         if let Type::Callback(cb_type) = ty {
             let prop_key = format!("__slint_cb_{callback_name}");
-            this.object.set_named_property(&prop_key, callback)?;
+            crate::set_hidden_property(&mut this.object, &prop_key, &callback)?;
 
             let mo = self.model_owner(env, &this)?;
             let handler = Self::make_callback_handler(
@@ -252,7 +252,7 @@ impl JsComponentInstance {
 
         if let Type::Callback(cb_type) = ty {
             let prop_key = format!("__slint_gcb_{global_name}_{callback_name}");
-            this.object.set_named_property(&prop_key, callback)?;
+            crate::set_hidden_property(&mut this.object, &prop_key, &callback)?;
 
             let mo = self.model_owner(env, &this)?;
             let handler = Self::make_callback_handler(

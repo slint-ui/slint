@@ -16,6 +16,24 @@ pub use uv_event_loop::*;
 use napi::Env;
 use napi::bindgen_prelude::*;
 
+/// Set a non-enumerable property on a JS object.
+///
+/// Properties set this way don't appear in `console.log`, `Object.keys`,
+/// or `for…in` loops, keeping internal bookkeeping hidden from users.
+pub(crate) fn set_hidden_property<'a, V: napi::JsValue<'a>>(
+    obj: &mut Object<'_>,
+    key: &str,
+    value: &V,
+) -> napi::Result<()> {
+    let prop = napi::Property::new()
+        .with_utf8_name(key)?
+        .with_property_attributes(
+            napi::PropertyAttributes::Writable | napi::PropertyAttributes::Configurable,
+        )
+        .with_value(value);
+    JsObjectValue::define_properties(obj, &[prop])
+}
+
 #[macro_use]
 extern crate napi_derive;
 
