@@ -1277,6 +1277,13 @@ impl Expression {
 
         arguments.extend(sub_expr);
 
+        if matches!(&function, Callable::Callback(nr) if nr.name() == "init") {
+            ctx.diag.push_warning(
+                "Calling 'init' explicitly does nothing and is deprecated".into(),
+                &node,
+            );
+        }
+
         let arguments = match function.ty() {
             Type::Function(function) | Type::Callback(function) => {
                 if arguments.len() != function.args.len() {
