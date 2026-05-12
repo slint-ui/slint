@@ -299,6 +299,7 @@ The types used for properties in .slint design markup each translate to specific
 | `angle` | `Number` | The angle in degrees |
 | `relative-font-size` | `Number` | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`. |
 | structure | `Object` | Structures are mapped to JavaScript objects where each structure field is a property. |
+| `styled-text` | `StyledText` | Use `StyledText.fromMarkdown()` or `StyledText.fromPlainText()` to create. |
 | array | {@link Model} | |
 
 ### Arrays and Models

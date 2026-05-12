@@ -5,7 +5,7 @@ import { test, expect } from "vitest";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { loadFile, loadSource, CompileError } from "../dist/index.js";
+import { loadFile, loadSource, CompileError, StyledText } from "../dist/index.js";
 
 const dirname = path.dirname(
     fileURLToPath(import.meta.url).replace("build", "__test__"),
@@ -315,6 +315,93 @@ test("loadFile enum", () => {
     test.check = demo.TestEnum.c;
 
     expect(test.check).toStrictEqual("c");
+});
+
+test("loadSource styled-text property get/set", () => {
+    const source = `export component App {
+        in-out property <styled-text> content;
+    }`;
+    const demo = loadSource(source, "api.spec.ts") as any;
+    const app = new demo.App();
+
+    const st = StyledText.fromPlainText("hello world");
+    app.content = st;
+
+    const result = app.content;
+    expect(result).toBeInstanceOf(StyledText);
+    expect(result.equals(st)).toBe(true);
+});
+
+test("loadSource styled-text property with markdown", () => {
+    const source = `export component App {
+        in-out property <styled-text> content;
+    }`;
+    const demo = loadSource(source, "api.spec.ts") as any;
+    const app = new demo.App();
+
+    const st = StyledText.fromMarkdown("**bold** and *italic*");
+    app.content = st;
+
+    const result = app.content;
+    expect(result).toBeInstanceOf(StyledText);
+    expect(result.equals(st)).toBe(true);
+});
+
+test("loadSource styled-text default is returned as StyledText", () => {
+    const source = `export component App {
+        in-out property <styled-text> content;
+    }`;
+    const demo = loadSource(source, "api.spec.ts") as any;
+    const app = new demo.App();
+
+    const result = app.content;
+    expect(result).toBeInstanceOf(StyledText);
+});
+
+test("loadSource styled-text in callback argument", () => {
+    const source = `export component App {
+        in-out property <styled-text> content;
+        callback format(styled-text) -> styled-text;
+    }`;
+    const demo = loadSource(source, "api.spec.ts") as any;
+    const app = new demo.App({
+        format: (st: InstanceType<typeof StyledText>) => {
+            expect(st).toBeInstanceOf(StyledText);
+            return StyledText.fromPlainText("formatted");
+        },
+    });
+
+    const input = StyledText.fromPlainText("input");
+    const result = app.format(input);
+    expect(result).toBeInstanceOf(StyledText);
+    expect(result.equals(StyledText.fromPlainText("formatted"))).toBe(true);
+});
+
+test("loadSource styled-text constructor parameter", () => {
+    const source = `export component App {
+        in-out property <styled-text> content;
+    }`;
+    const demo = loadSource(source, "api.spec.ts") as any;
+    const st = StyledText.fromPlainText("initial");
+    const app = new demo.App({ content: st });
+
+    const result = app.content;
+    expect(result).toBeInstanceOf(StyledText);
+    expect(result.equals(st)).toBe(true);
+});
+
+test("loadSource styled-text with inline markdown expression", () => {
+    const source = `export component App {
+        out property <styled-text> content: @markdown("hello **world**");
+    }`;
+    const demo = loadSource(source, "api.spec.ts") as any;
+    const app = new demo.App();
+
+    const result = app.content;
+    expect(result).toBeInstanceOf(StyledText);
+
+    const expected = StyledText.fromMarkdown("hello **world**");
+    expect(result.equals(expected)).toBe(true);
 });
 
 test("file loader", () => {

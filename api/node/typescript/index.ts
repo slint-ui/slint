@@ -7,6 +7,7 @@ export {
     DiagnosticLevel,
     RgbaColor,
     Brush,
+    StyledText,
 } from "../rust-module.cjs";
 
 import { Model } from "./models";
