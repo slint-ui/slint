@@ -56,7 +56,11 @@ pub struct MenuFromItemTree {
 }
 
 impl MenuFromItemTree {
-    pub fn new(item_tree: ItemTreeRc, condition: Option<impl Fn() -> bool + 'static>, visible: Option<impl Fn() -> bool + 'static>) -> Self {
+    pub fn new(
+        item_tree: ItemTreeRc,
+        condition: Option<impl Fn() -> bool + 'static>,
+        visible: Option<impl Fn() -> bool + 'static>,
+    ) -> Self {
         let cond_prop = condition.map(|cond| {
             let prop = Box::pin(Property::new_named(true, "MenuFromItemTree::condition"));
             prop.as_ref().set_binding(cond);
@@ -318,7 +322,11 @@ pub mod ffi {
                     core::option::Option::None,
                 )
             }
-            None => MenuFromItemTree::new(menu_tree.clone(), core::option::Option::None, core::option::Option::None),
+            None => MenuFromItemTree::new(
+                menu_tree.clone(),
+                core::option::Option::None,
+                core::option::Option::None,
+            ),
         };
 
         let vrc = vtable::VRc::into_dyn(vtable::VRc::new(menu));

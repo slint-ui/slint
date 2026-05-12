@@ -2836,7 +2836,7 @@ pub fn make_menu_item_tree(
     menu_item_tree: &Rc<object_tree::Component>,
     enclosing_component: &InstanceRef,
     condition: Option<&Expression>,
-	visible: Option<&Expression>,
+    visible: Option<&Expression>,
 ) -> vtable::VRc<i_slint_core::menus::MenuVTable, MenuFromItemTree> {
     generativity::make_guard!(guard);
     let mit_compiled = generate_item_tree(
@@ -2859,7 +2859,8 @@ pub fn make_menu_item_tree(
     mit_inst.run_setup_code();
     let item_tree = vtable::VRc::into_dyn(mit_inst);
     let condition = condition.map(|condition| {
-        let binding = make_binding_eval_closure(condition.clone(), enclosing_component_weak.clone());
+        let binding =
+            make_binding_eval_closure(condition.clone(), enclosing_component_weak.clone());
         move || binding().try_into().unwrap()
     });
     let visible = visible.map(|visible| {
