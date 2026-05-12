@@ -1330,6 +1330,7 @@ mod tests {
             assert!(!res.iter().any(|ci| ci.label == "Clip"));
             assert!(!res.iter().any(|ci| ci.label == "NativeStyleMetrics"));
             assert!(!res.iter().any(|ci| ci.label == "SlintInternal"));
+            assert!(!res.iter().any(|ci| ci.label == "init"));
         }
     }
 
@@ -1794,6 +1795,7 @@ mod tests {
         assert_completions_found(expected, &res);
 
         assert!(!res.iter().any(|item| item.label.contains("test")));
+        assert!(!res.iter().any(|item| item.label.contains("init")));
     }
 
     #[test]

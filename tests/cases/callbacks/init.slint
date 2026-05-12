@@ -57,13 +57,19 @@ TestCase := Rectangle {
     init => {
         InitOrder.observed-order += "|root";
         ExportedGlobal.foo += 1;
+        // Calling init() explicitly does nothing
+        self.init();
+        root.init();
+        sub1.init();
+        sub2.init();
+        elem.init();
     }
-    Sub1 {
+    sub1 := Sub1 {
         init => {
             InitOrder.observed-order += "|sub1-use-site";
         }
     }
-    Sub2 {
+    sub2 := Sub2 {
     }
     Sub3 {
         some-value: "|sub3";
@@ -76,7 +82,7 @@ TestCase := Rectangle {
         }
     }
 
-    Rectangle {
+    elem := Rectangle {
         init => {
             InitOrder.observed-order += "|element";
         }
