@@ -224,6 +224,9 @@ pub use i_slint_core::model::{
     FilterModel, MapModel, Model, ModelExt, ModelNotify, ModelPeer, ModelRc, ModelTracker,
     ReverseModel, SortModel, VecModel,
 };
+pub use i_slint_core::styled_text::StyledText;
+#[cfg(feature = "std")]
+pub use i_slint_core::styled_text::StyledTextFromMarkdownError;
 pub use i_slint_core::timers::{Timer, TimerMode};
 pub use i_slint_core::translations::{SelectBundledTranslationError, select_bundled_translation};
 
