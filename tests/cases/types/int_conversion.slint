@@ -39,4 +39,12 @@ assert.equal(instance.int_val, -7);
 assert(instance.test);
 ```
 
+```swift
+let text = instance.getProperty("text")!.asString!
+assertEqual(text, "2")
+let intVal = instance.getProperty("int-val")!.asDouble!
+assertEqual(intVal, -7.0)
+assertTrue(instance.getProperty("test")!.asBool!)
+```
+
 */
