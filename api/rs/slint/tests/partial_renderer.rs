@@ -1256,6 +1256,13 @@ fn layer_visible_after_becoming_non_zero_sized() {
 #[test]
 fn partial_rendering_popup_position_size_change() {
     slint::slint! {
+        global MyProperty {
+            in-out property<length> popup-x: 0px;
+            in-out property<length> popup-y: 0px;
+            in-out property<length> popup-width: 100px;
+            in-out property<length> popup-height: 200px;
+        }
+
         export component Ui inherits Window {
             width: 600px;
             height: 600px;
@@ -1268,17 +1275,22 @@ fn partial_rendering_popup_position_size_change() {
 
             callback change_popup();
             change_popup() => {
-                // popup.x = 10px;
-                // popup.y = 20px;
-                // popup.width = 150px;
-                // popup.height = 30px;
+                debug("Changing popup properties");
+                MyProperty.popup-x = 10px;
+                MyProperty.popup-y = 20px;
+                MyProperty.popup-width = 150px;
+                MyProperty.popup-height = 30px;
             }
 
             popup:= PopupWindow {
-                x: 0px;
-                y: 0px;
-                width: 100px;
-                height: 200px;
+                x: MyProperty.popup-x;
+                y: MyProperty.popup-y;
+                width: MyProperty.popup-width;
+                height: MyProperty.popup-height;
+
+                changed width => {
+                    debug("Width changed");
+                }
 
                 Rectangle {
                     background: blue;
