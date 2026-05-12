@@ -689,6 +689,12 @@ fn call_builtin_function(
             );
             Value::Void
         }
+        BuiltinFunction::DecimalSeparator => Value::String(
+            local_context
+                .component_instance
+                .access_window(|window| window.context().locale_decimal_separator())
+                .into(),
+        ),
         BuiltinFunction::Mod => {
             let mut to_num = |e| -> f64 { eval_expression(e, local_context).try_into().unwrap() };
             Value::Number(to_num(&arguments[0]).rem_euclid(to_num(&arguments[1])))
