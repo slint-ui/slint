@@ -12,16 +12,16 @@ export component ToolTipImpl inherits Rectangle {
     border-color: Palette.border;
 
     VerticalLayout {
-        padding-left: root.text != "" ? 9px : 0px;
-        padding-right: root.text != "" ? 9px : 0px;
-        padding-top: root.text != "" ? 6px : 0px;
-        padding-bottom: root.text != "" ? 6px : 0px;
+        padding-left: 9px;
+        padding-right: 9px;
+        padding-top: 6px;
+        padding-bottom: 6px;
 
-        if root.text != "": Text {
+        Text {
             text: root.text;
             color: Palette.foreground;
         }
-
-        @children
     }
+
+    @children
 }
