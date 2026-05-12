@@ -322,10 +322,12 @@ pub(crate) fn completion_at(
                 .with_insert_text(ins_tex, snippet_support)
         })
         .collect();
-        if let Some(component) = token
-            .prev_sibling_or_token()
-            .filter(|x| x.kind() == SyntaxKind::Component)
-            .and_then(|x| x.into_node())
+        if let Some(component) =
+            token.prev_sibling_or_token().and_then(|x| x.into_node()).and_then(|n| match n.kind() {
+                SyntaxKind::Component => Some(n),
+                SyntaxKind::ExportsList => n.children().find(|c| c.kind() == SyntaxKind::Component),
+                _ => None,
+            })
         {
             let has_child = |kind| {
                 !component.children().find(|n| n.kind() == kind).unwrap().text_range().is_empty()
@@ -2056,6 +2058,10 @@ mod tests {
             "component Bar in🔺",
             "component Bar 🔺 {}",
             "component Bar in🔺 Window {}",
+            "export component Bar 🔺",
+            "export component Bar in🔺",
+            "export component Bar 🔺 {}",
+            "export component Bar in🔺 Window {}",
         ];
         for source in sources {
             tracing::debug!("Test for inherits in {source:?}");
