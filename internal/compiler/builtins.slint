@@ -1441,10 +1441,6 @@ component WindowItem {
     /// Request that the window be closed. This triggers the `close-requested` callback,
     /// giving the application a chance to cancel the close. Calling this function on a `Window`
     /// that is not the application's top-level window is a no-op.
-    ///     :::caution[Caution]
-    ///     In the live preview, this affects the preview's own window.
-    ///     See <https://github.com/slint-ui/slint/issues/10502>.
-    ///     :::
     function close() {
     }
     /// Hide this window.

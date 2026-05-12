@@ -1475,26 +1475,30 @@ impl WindowItem {
     }
 
     pub fn close(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
-        if !is_root_window_item(self_rc) {
+        if !is_adapter_root_window_item(window_adapter, self_rc) {
             return;
         }
         close_window(window_adapter.window());
     }
 
     pub fn hide(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
-        if !is_root_window_item(self_rc) {
+        if !is_adapter_root_window_item(window_adapter, self_rc) {
             return;
         }
         let _ = WindowInner::from_pub(window_adapter.window()).hide();
     }
 }
 
-/// A `WindowItem` is considered the "root" window only when it is at index 0 of its own item
-/// tree AND that item tree has no enclosing parent (i.e. it is not used as a sub-window or
-/// embedded in the live preview).
-fn is_root_window_item(self_rc: &ItemRc) -> bool {
-    self_rc.is_root()
-        && self_rc.parent_item(crate::item_tree::ParentItemTraversalMode::FindAllParents).is_none()
+/// A `WindowItem` is considered the adapter's root window only when it is at index 0 of
+/// the component item tree currently bound to the adapter.
+fn is_adapter_root_window_item(window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) -> bool {
+    if !self_rc.is_root() {
+        return false;
+    }
+
+    WindowInner::from_pub(window_adapter.window())
+        .try_component()
+        .is_some_and(|component| VRc::ptr_eq(&component, self_rc.item_tree()))
 }
 
 impl ItemConsts for WindowItem {
