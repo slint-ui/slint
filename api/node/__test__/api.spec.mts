@@ -5,7 +5,12 @@ import { test, expect } from "vitest";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { loadFile, loadSource, CompileError, StyledText } from "../dist/index.js";
+import {
+    loadFile,
+    loadSource,
+    CompileError,
+    StyledText,
+} from "../dist/index.js";
 
 const dirname = path.dirname(
     fileURLToPath(import.meta.url).replace("build", "__test__"),

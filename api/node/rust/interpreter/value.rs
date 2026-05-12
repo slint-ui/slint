@@ -126,12 +126,10 @@ pub fn to_js_unknown<'a>(env: &'a Env, value: &Value) -> Result<Unknown<'a>> {
             }
         }
         Value::EnumerationValue(_, value) => value.as_str().into_unknown(env),
-        Value::StyledText(styled_text) => {
-            SlintStyledText::from(styled_text.clone())
-                .into_instance(env)?
-                .as_object(env)
-                .into_unknown(env)
-        }
+        Value::StyledText(styled_text) => SlintStyledText::from(styled_text.clone())
+            .into_instance(env)?
+            .as_object(env)
+            .into_unknown(env),
         _ => ().into_unknown(env),
     }
 }
