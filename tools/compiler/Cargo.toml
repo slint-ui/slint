@@ -23,11 +23,19 @@ jemalloc = ["dep:tikv-jemallocator"]
 sdf-fonts = ["i-slint-compiler/sdf-fonts"]
 fontconfig-dlopen = ["i-slint-common/fontconfig-dlopen"]
 
+# Code generators and translation support
+bundle-translations = ["i-slint-compiler/bundle-translations"]
+cpp = ["i-slint-compiler/cpp"]
+rust = ["i-slint-compiler/rust"]
+python = ["i-slint-compiler/python"]
+# Safety-critical subset
+slint-sc = ["i-slint-compiler/slint-sc"]
+
 # Keep defaults in sync with defaults applied in api/cpp/CMakeLists.txt for slint-compiler
-default = ["software-renderer", "jemalloc"]
+default = ["software-renderer", "jemalloc", "bundle-translations", "cpp", "rust", "python"]
 
 [dependencies]
-i-slint-compiler = { workspace = true, features = ["default", "display-diagnostics", "bundle-translations", "cpp", "rust", "python"] }
+i-slint-compiler = { workspace = true, features = ["default", "display-diagnostics"] }
 i-slint-common = { workspace = true }
 
 clap = { workspace = true }

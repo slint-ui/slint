@@ -56,6 +56,11 @@ struct Cli {
     #[arg(short = 'f', long = "format")]
     format: Option<generator::OutputFormat>,
 
+    /// Compile in safety-critical mode using the Slint SC subset.
+    #[cfg(feature = "slint-sc")]
+    #[arg(long = "slint-sc")]
+    slint_sc: bool,
+
     /// Specify include paths for imported .slint files or image resources.
     /// This is used for including external .slint files or image resources referenced by '@image-url'.
     #[arg(short = 'I', name = "include path", number_of_values = 1)]
@@ -102,14 +107,17 @@ struct Cli {
     /// Bundle translations from a specified path.
     /// Translation files should be in the gettext `.po` format and follow the directory structure:
     /// `<path>/<lang>/LC_MESSAGES/<domain>.po`.
+    #[cfg(feature = "bundle-translations")]
     #[arg(long = "bundle-translations", name = "path")]
     bundle_translations: Option<std::path::PathBuf>,
 
     /// Disable the default to use the component name as translation context when none is specified in `@tr`
+    #[cfg(feature = "bundle-translations")]
     #[arg(long = "no-default-translation-context")]
     no_default_translation_context: bool,
 
     /// Define the C++ namespace for generated code.
+    #[cfg(feature = "cpp")]
     #[arg(long = "cpp-namespace", name = "C++ namespace")]
     cpp_namespace: Option<String>,
 
@@ -119,6 +127,7 @@ struct Cli {
     /// If `--cpp-file` is not set, all code will be generated in the header file.
     /// If set, function definitions are placed in the specified `.cpp` file.
     /// If specified multiple times, the definitions are split across multiple `.cpp` files.
+    #[cfg(feature = "cpp")]
     #[arg(long = "cpp-file", name = "output .cpp file", number_of_values = 1)]
     cpp_files: Vec<std::path::PathBuf>,
 }
@@ -134,14 +143,53 @@ fn main() -> std::io::Result<()> {
         std::process::exit(-1);
     }
 
+    #[cfg(feature = "slint-sc")]
+    if args.slint_sc {
+        let reject = |cond: bool, flag: &str| {
+            if cond {
+                eprintln!("--slint-sc cannot be used together with {flag}");
+                std::process::exit(1);
+            }
+        };
+        reject(args.format.is_some(), "--format");
+        reject(args.style.is_some(), "--style");
+        reject(args.scale_factor.is_some(), "--scale-factor");
+        reject(args.embed_resources.is_some(), "--embed-resources");
+        reject(args.translation_domain.is_some(), "--translation-domain");
+        #[cfg(feature = "bundle-translations")]
+        reject(args.bundle_translations.is_some(), "--bundle-translations");
+        #[cfg(feature = "bundle-translations")]
+        reject(args.no_default_translation_context, "--no-default-translation-context");
+        #[cfg(feature = "cpp")]
+        reject(args.cpp_namespace.is_some(), "--cpp-namespace");
+        #[cfg(feature = "cpp")]
+        reject(!args.cpp_files.is_empty(), "--cpp-file");
+    }
+
+    #[allow(unused_mut)]
     let mut format = args.format.clone().unwrap_or_else(|| {
+        #[cfg(feature = "slint-sc")]
+        if args.slint_sc {
+            return generator::OutputFormat::SlintSc;
+        }
         match std::path::Path::new(&args.output).extension().and_then(|ext| ext.to_str()) {
+            #[cfg(feature = "rust")]
             Some("rs") => generator::OutputFormat::Rust,
+            #[cfg(feature = "python")]
             Some("py") => generator::OutputFormat::Python,
+            #[cfg(feature = "cpp")]
             _ => generator::OutputFormat::Cpp(Default::default()),
+            #[cfg(not(feature = "cpp"))]
+            _ => {
+                eprintln!(
+                    "Cannot guess output format from file extension. Use --format to specify."
+                );
+                std::process::exit(1);
+            }
         }
     });
 
+    #[cfg(feature = "cpp")]
     if args.cpp_namespace.is_some() {
         if !matches!(format, generator::OutputFormat::Cpp(..)) {
             eprintln!("C++ namespace option was set. Output format will be C++.");
@@ -152,6 +200,7 @@ fn main() -> std::io::Result<()> {
         });
     }
 
+    #[cfg(feature = "cpp")]
     if !args.cpp_files.is_empty() {
         match &mut format {
             generator::OutputFormat::Cpp(config) => {
@@ -172,6 +221,7 @@ fn main() -> std::io::Result<()> {
 
     let mut compiler_config = CompilerConfiguration::new(format.clone());
     compiler_config.translation_domain = args.translation_domain;
+    #[cfg(feature = "bundle-translations")]
     if args.no_default_translation_context {
         compiler_config.default_translation_context =
             i_slint_compiler::DefaultTranslationContext::None;
@@ -204,6 +254,7 @@ fn main() -> std::io::Result<()> {
     if let Some(constant_scale_factor) = args.scale_factor {
         compiler_config.const_scale_factor = Some(constant_scale_factor);
     }
+    #[cfg(feature = "bundle-translations")]
     if let Some(path) = args.bundle_translations {
         compiler_config.translation_path_bundle = Some(path);
     }
