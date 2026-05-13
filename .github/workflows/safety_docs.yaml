@@ -18,7 +18,7 @@ jobs:
         runs-on: ubuntu-24.04
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.3
+            - uses: pnpm/action-setup@v6.0.6
               with:
                 version: 10.29.3
             - uses: actions/setup-node@v6
