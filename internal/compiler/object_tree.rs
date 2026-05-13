@@ -345,6 +345,7 @@ pub struct PopupWindow {
     pub y: NamedReference,
     pub close_policy: EnumerationValue,
     pub parent_element: ElementRc,
+    pub is_tooltip: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -859,6 +860,9 @@ pub struct Element {
     /// true if this Element may have a popup as child meaning it cannot be optimized
     /// because the popup references it.
     pub has_popup_child: bool,
+
+    /// True for compiler-generated tooltip `PopupWindow` instances (see `lower_tooltips`).
+    pub is_tooltip: bool,
 
     /// This is the component-local index of this item in the item tree array.
     /// It is generated after the last pass and before the generators run.

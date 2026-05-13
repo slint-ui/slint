@@ -1085,6 +1085,7 @@ fn call_builtin_function(
                     position,
                     corelib::items::PopupClosePolicy::CloseOnClickOutside,
                     &item_rc,
+                    false,
                     true,
                 );
                 context_menu_elem.popup_id.set(Some(id));

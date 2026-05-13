@@ -418,9 +418,10 @@ pub struct PopupWindow {
     focus_item_in_parent: ItemWeak,
     /// The item from where the Popup was invoked from
     pub parent_item: ItemWeak,
-    /// Whether the popup is a popup menu.
-    /// Popup menu allow the mouse event to be propagated on their parent menu/menubar
-    is_menu: bool,
+    /// Overlay tooltip: no focus steal, unclamped placement, skipped in main mouse routing.
+    pub is_tooltip: bool,
+    /// Context / popup menu: participates in menu-chain hit testing and cascading close.
+    pub is_menu: bool,
 }
 
 #[pin_project::pin_project]
@@ -711,6 +712,9 @@ impl WindowInner {
             let mut offset = LogicalPoint::default();
             let mut menubar_item = None;
             for (idx, popup) in active_popups.borrow().iter().enumerate().rev() {
+                if popup.is_tooltip {
+                    continue;
+                }
                 item_tree = None;
                 menubar_item = None;
                 if let PopupWindowLocation::ChildWindow(coordinates) = &popup.location {
@@ -1359,13 +1363,13 @@ impl WindowInner {
 
     /// Show a popup at the given position relative to the `parent_item` and returns its ID.
     /// The returned ID will always be non-zero.
-    /// `is_menu` specifies whether the popup is a popup menu.
     pub fn show_popup(
         &self,
         popup_componentrc: &ItemTreeRc,
         position: LogicalPosition,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
+        is_tooltip: bool,
         is_menu: bool,
     ) -> NonZeroU32 {
         // Popups live in their own ItemTree, which was invisible to any
@@ -1461,16 +1465,21 @@ impl WindowInner {
         let popup_window_adapter =
             popup_window_adapter.expect("It must be there because we set the global");
 
-        // If the window adapter of the popup window and the parent window are equal means that a ChildWindow shall be created
-        // because we weren't able to create a window adapter for the popup window (for example if the backend does not support it)
+        // If the window adapter of the popup window and the parent window are equal, create a ChildWindow
+        // because we weren't able to create a dedicated popup adapter (for example if the backend does not support it).
         let location = if Rc::ptr_eq(&parent_window_adapter, &popup_window_adapter) {
-            let clip = LogicalRect::new(
-                LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
-                self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
-            );
+            // Tooltips may extend past the window (e.g. above/left of the anchor); do not clamp.
+            let clip_region = if is_tooltip {
+                None
+            } else {
+                Some(LogicalRect::new(
+                    LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
+                    self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
+                ))
+            };
             let rect = popup::place_popup(
                 popup::Placement::Fixed(LogicalRect::new(position, size)),
-                &Some(clip),
+                &clip_region,
             );
             self.window_adapter().request_redraw();
             PopupWindowLocation::ChildWindow(rect.origin)
@@ -1479,15 +1488,17 @@ impl WindowInner {
             WindowInner::from_pub(popup_window).set_component(popup_componentrc);
             popup_window.set_position(LogicalPosition::from_euclid(position));
             popup_window.set_size(WindowSize::Logical(LogicalSize::from_euclid(size)));
-
-            popup_window_adapter.set_visible(true).expect("Unable to show popup");
+            popup_window_adapter.set_visible(true).expect("unable to show popup window");
             PopupWindowLocation::TopLevel(popup_window_adapter)
         };
 
-        let focus_item = self
-            .take_focus_item(&FocusEvent::FocusOut(FocusReason::PopupActivation))
-            .map(|item| item.downgrade())
-            .unwrap_or_default();
+        let focus_item = if is_tooltip {
+            Default::default()
+        } else {
+            self.take_focus_item(&FocusEvent::FocusOut(FocusReason::PopupActivation))
+                .map(|item| item.downgrade())
+                .unwrap_or_default()
+        };
 
         self.active_popups.borrow_mut().push(PopupWindow {
             popup_id,
@@ -1496,6 +1507,7 @@ impl WindowInner {
             close_policy,
             focus_item_in_parent: focus_item,
             parent_item: parent_item.downgrade(),
+            is_tooltip,
             is_menu,
         });
 
@@ -2008,6 +2020,7 @@ pub mod ffi {
         position: LogicalPosition,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
+        is_tooltip: bool,
         is_menu: bool,
     ) -> NonZeroU32 {
         unsafe {
@@ -2017,6 +2030,7 @@ pub mod ffi {
                 position,
                 close_policy,
                 parent_item,
+                is_tooltip,
                 is_menu,
             )
         }

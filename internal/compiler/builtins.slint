@@ -20,7 +20,7 @@
    otherwise it is assumed the native item don't write to that property.
  */
 
-component Empty {
+ component Empty {
     //-is_internal
 }
 
@@ -2373,6 +2373,134 @@ export component PopupWindow {
     //! Closes the popup. Use this if you set the `close-policy` property to `no-auto-close`.
 }
 
+// Internal hover tracker used with `ToolTip` lowering (the compiler inserts `TooltipArea` so `ToolTip` can react to hover and pointer position).
+export component TooltipArea inherits Empty {
+    // Set when the mouse is over the parent's region while this area is expanded to fill it during lowering.
+    out property <bool> has-hover;
+    // Pointer x within this area during hover.
+    out property <length> mouse-x;
+    // Pointer y within this area during hover.
+    out property <length> mouse-y;
+    // Tooltip configuration folded from the user-facing ToolTip element during lowering.
+    in property <string> text;
+    in property <ToolTipPlacement> placement;
+    in property <duration> delay: 500ms;
+    in property <length> offset: 8px;
+    callback show();
+    callback hide();
+    //-default_size_binding:expands_to_parent_geometry
+    //-is_internal
+}
+
+/// ```slint playground
+/// import { Button } from "std-widgets.slint";
+///
+/// export component Example inherits Window {
+///     width: 280px;
+///     height: 160px;
+///
+///     VerticalLayout {
+///         alignment: center;
+///
+///         Button {
+///             text: "Hover me";
+///
+///             ToolTip {
+///                 text: "This is a tooltip";
+///             }
+///         }
+///     }
+/// }
+/// ```
+///
+/// Place a `ToolTip` inside any element to show helpful information when hovering over it.
+/// The tooltip appears after a short delay and hides when the pointer leaves.
+///
+/// Set the `text` property for a simple text tooltip,
+/// or add a child element instead for custom content.
+///
+/// Each element can contain at most one `ToolTip`.
+///
+/// \footer
+/// ## Custom Content
+///
+/// For richer tooltips, omit `text` and provide your own layout inside a single child element.
+///
+///
+/// ```slint playground
+/// import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+///
+/// export component Example inherits Window {
+///     width: 320px;
+///     height: 200px;
+///
+///     VerticalLayout {
+///         alignment: center;
+///
+///         Button {
+///             text: "Custom tooltip";
+///
+///             ToolTip {
+///                 placement: above-element;
+///
+///                 VerticalBox {
+///                     padding: 10px;
+///                     spacing: 6px;
+///
+///                     Text {
+///                         text: "Quick Actions";
+///                         font-weight: 700;
+///                         color: #fff;
+///                     }
+///
+///                     Text {
+///                         text: "Open command palette and search settings.";
+///                         color: #d1d5db;
+///                         wrap: word-wrap;
+///                     }
+///
+///                     HorizontalBox {
+///                         spacing: 6px;
+///
+///                         Rectangle {
+///                             border-radius: 4px;
+///                             background: #374151;
+///                             HorizontalBox {
+///                                 padding: 4px;
+///                                 Text { text: "Ctrl"; color: #fff; }
+///                             }
+///                         }
+///
+///                         Rectangle {
+///                             border-radius: 4px;
+///                             background: #374151;
+///                             HorizontalBox {
+///                                 padding: 4px;
+///                                 Text { text: "K"; color: #fff; }
+///                             }
+///                         }
+///                     }
+///                 }
+///             }
+///         }
+///     }
+/// }
+/// ```
+/// \group:window
+export component ToolTip inherits Empty {
+    /// The text to display in the tooltip.
+    /// Don't set this property when using custom content.
+    in property <string> text;
+    /// Position relative to the hovered element or pointer.
+    in property <ToolTipPlacement> placement;
+    /// How long to wait before showing the tooltip after hover begins.
+    in property <duration> delay: 500ms;
+    /// Space between the tooltip and the pointer or hovered element.
+    in property <length> offset: 8px;
+    //-can_be_declared_without_children_slot
+    //-is_non_item_type
+}
+
 /// :::note[Note]
 /// Timer is not an actual element visible in the tree, therefore it doesn't have the common properties such as `x`, `y`, `width`, `height`, etc. It also doesn't take room in a layout and cannot have any children or be inherited from.
 /// :::
@@ -2588,7 +2716,9 @@ export global Platform {
     ///     }
     /// }
     /// ```
-    function open-url(url: string) -> bool { return false; }
+    function open-url(url: string) -> bool {
+        return false;
+    }
     /// The decimal separator currently used for localized float to string and vice versa conversions
     /// For more information about localization and how to change the decimal separator see <Link type="translations" label="translations page"/>.
     out property <string> decimal-separator;

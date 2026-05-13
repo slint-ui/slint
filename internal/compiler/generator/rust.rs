@@ -3512,7 +3512,7 @@ fn compile_builtin_function_call(
                     Some(&parent_ctx),
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
-
+                let is_tooltip = popup.is_tooltip;
                 let close_policy = compile_expression(close_policy, ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
                 component_access_tokens.then(|component_access_tokens| quote!({
@@ -3521,7 +3521,9 @@ fn compile_builtin_function_call(
                     let shared_global = #component_access_tokens.globals.get().unwrap();
                     let window_adapter = shared_global.window_adapter_impl();
                     let window = sp::WindowInner::from_pub(window_adapter.window());
-                    let globals = if let Some(popup_window_adapter) = window.create_popup_window_adapter() {
+                    let globals = if !#is_tooltip
+                        && let Some(popup_window_adapter) = window.create_popup_window_adapter()
+                    {
                         shared_global.clone_with_window_adapter(popup_window_adapter)
                     } else {
                         shared_global.clone()
@@ -3539,7 +3541,8 @@ fn compile_builtin_function_call(
                             position,
                             #close_policy,
                             parent_item,
-                            false, // is_menu
+                            #is_tooltip,
+                            false,
                         ))
                     );
                     #popup_window_id::user_init(popup_instance_vrc.clone());
@@ -3635,7 +3638,8 @@ fn compile_builtin_function_call(
                     position,
                     sp::PopupClosePolicy::CloseOnClickOutside,
                     #context_menu_rc,
-                    true, // is_menu
+                    false,
+                    true,
                 );
                 #set_id;
                 #popup_id::user_init(popup_instance_vrc);

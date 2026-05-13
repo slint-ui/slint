@@ -4715,6 +4715,7 @@ fn compile_builtin_function_call(
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
                 let close_policy = compile_expression(close_policy, ctx);
+                let is_tooltip = if popup.is_tooltip { "true" } else { "false" };
                 component_access.then(|component_access| format!(
                     // Use a block statement to create own globals and popup instance
                     "{window}.close_popup({component_access}->popup_id_{popup_index}); \
@@ -4722,7 +4723,8 @@ fn compile_builtin_function_call(
                         {window}.template show_popup<{popup_window_id}>(&*({component_access}),  \
                                                                         [=](auto self) {{ return {position}; }},  \
                                                                         {close_policy},  \
-                                                                        {{ {parent_component} }})"
+                                                                        {{ {parent_component} }},  \
+                                                                        {is_tooltip})"
                 ))
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")
