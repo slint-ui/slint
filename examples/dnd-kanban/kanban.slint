@@ -114,7 +114,10 @@ component KanbanColumn inherits Rectangle {
         drop-area := DropArea {
             vertical-stretch: 1;
             can-drop(event) => Api.can-drop(event.data, root.column-id) ? DragAction.move : DragAction.none;
-            dropped(event) => Api.drop-task(event.data, root.column-id);
+            dropped(event) => {
+                Api.drop-task(event.data, root.column-id);
+                return DragAction.move;
+            }
 
             VerticalLayout {
                 spacing: 8px;

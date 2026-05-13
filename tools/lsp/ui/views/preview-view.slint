@@ -401,6 +401,7 @@ export component PreviewView inherits Rectangle {
                         }
                         dropped(event) => {
                             Api.drop(event.data, event.position.x, event.position.y);
+                            return event.proposed-action;
                         }
                     }
 

@@ -45,6 +45,7 @@ export component Example inherits Window {
                 }
                 dropped(event) => {
                     debug("Got: ", Api.transfer-to-string(event.data));
+                    return event.proposed-action;
                 }
             }
             Text { text: "Drop here"; }
@@ -53,12 +54,12 @@ export component Example inherits Window {
 }
 ```
 
-`can-drop` returns a <Link type="DragAction" />: `DragAction.copy`, `DragAction.move`, `DragAction.link` to accept the drag with that action, or `DragAction.none` to reject it.
+Both `can-drop` and `dropped` return a <Link type="DragAction" />: `DragAction.copy`, `DragAction.move`, `DragAction.link` to accept with that action, or `DragAction.none` to reject. `can-drop` runs during hover (drives the cursor and `current-action`); `dropped` runs on release and the returned action is what gets reported back to the source via `drag-finished`.
 
 ## Drag actions
 
 A `DragArea` declares which actions it permits (`allow-copy`, `allow-move`, `allow-link`) and a `preferred-action` that applies when no modifier is pressed.
-The target picks the final action in `can-drop`, the runtime clamps it against the source's allowed set, and when the drop completes the source's `drag-finished(action)` fires so a "move" source can remove the original data.
+The target picks the final action in `can-drop` (for hover) and `dropped` (final answer), the runtime clamps each against the source's allowed set, and when the drop completes the source's `drag-finished(action)` fires so a "move" source can remove the original data.
 
 ```slint no-test
 DragArea {
@@ -77,7 +78,10 @@ DragArea {
 
 DropArea {
     can-drop(event) => event.allow-move ? DragAction.move : DragAction.none;
-    dropped(event) => Api.accept-drop(event.data);
+    dropped(event) => {
+        Api.accept-drop(event.data);
+        return event.proposed-action;
+    }
 }
 ```
 

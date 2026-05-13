@@ -71,6 +71,7 @@ export component OutlineView inherits VerticalLayout {
                 }
                 dropped(event) => {
                     Api.outline-drop(event.data, item.uri, item.offset, DropLocation.onto);
+                    return event.proposed-action;
                 }
             }
 
@@ -87,6 +88,7 @@ export component OutlineView inherits VerticalLayout {
                 }
                 dropped(event) => {
                     Api.outline-drop(event.data, item.uri, item.offset, DropLocation.before);
+                    return event.proposed-action;
                 }
                 Rectangle {
                     height: 1px;
@@ -108,6 +110,7 @@ export component OutlineView inherits VerticalLayout {
                 }
                 dropped(event) => {
                     Api.outline-drop(event.data, item.uri, item.offset, DropLocation.after);
+                    return event.proposed-action;
                 }
                 Rectangle {
                     height: 1px;

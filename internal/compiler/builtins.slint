@@ -1229,8 +1229,11 @@ export component DropArea {
     /// The argument is a <Link type="DropEvent" /> describing the drag.
     callback can-drop(event: DropEvent) -> DragAction;
     /// Invoked when the user releases the mouse over the area after `can-drop` returned a non-`none`
-    /// action. Use this callback to read `event.data` and apply the drop.
-    callback dropped(event: DropEvent);
+    /// action. Use this callback to read `event.data` and apply the drop. The returned
+    /// `DragAction` is reported to the source via `drag-finished`; return `event.proposed-action`
+    /// to mirror what was negotiated during hover, or a different action to refine the choice at
+    /// drop time. The runtime clamps the return value against the source's allowed set.
+    callback dropped(event: DropEvent) -> DragAction;
     /// `true` while an accepted drag hovers over the area, `false` otherwise.
     /// Bind it to a visual property to give the user feedback, for example a background color.
     out property <bool> contains-drag;
