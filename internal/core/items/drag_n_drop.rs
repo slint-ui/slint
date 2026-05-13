@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{
-    DropEvent, Item, ItemConsts, ItemRc, MouseCursor, PointerEventButton, RenderingResult,
+    DragAction, DragActionArg, DropEvent, Item, ItemConsts, ItemRc, MouseCursor,
+    PointerEventButton, RenderingResult,
 };
 use crate::Coord;
 use crate::data_transfer::DataTransfer;
@@ -36,6 +37,12 @@ pub struct DragArea {
     pub drag_image: Property<Image>,
     pub drag_image_offset_x: Property<i32>,
     pub drag_image_offset_y: Property<i32>,
+    pub allow_copy: Property<bool>,
+    pub allow_move: Property<bool>,
+    pub allow_link: Property<bool>,
+    pub preferred_action: Property<DragAction>,
+    pub dragging: Property<bool>,
+    pub drag_finished: Callback<DragActionArg, ()>,
     pressed: Cell<bool>,
     pressed_position: Cell<LogicalPoint>,
     pub cached_rendering_data: CachedRenderingData,
@@ -63,7 +70,7 @@ impl Item for DragArea {
         _self_rc: &ItemRc,
         _: &mut MouseCursor,
     ) -> InputEventFilterResult {
-        if !self.enabled() {
+        if !self.enabled() || !self.any_action_allowed() {
             self.cancel();
             return InputEventFilterResult::ForwardAndIgnore;
         }
@@ -130,7 +137,7 @@ impl Item for DragArea {
                 InputEventResult::EventIgnored
             }
             MouseEvent::Moved { position, .. } => {
-                if !self.pressed.get() || !self.enabled() {
+                if !self.pressed.get() || !self.enabled() || !self.any_action_allowed() {
                     return InputEventResult::EventIgnored;
                 }
                 let pressed_pos = self.pressed_position.get();
@@ -215,6 +222,43 @@ impl DragArea {
     fn cancel(self: Pin<&Self>) {
         self.pressed.set(false)
     }
+
+    pub(crate) fn any_action_allowed(self: Pin<&Self>) -> bool {
+        self.allow_copy() || self.allow_move() || self.allow_link()
+    }
+
+    /// Returns the first allowed of: preferred_action, move, copy, link. None if no action is allowed.
+    pub(crate) fn effective_default_action(self: Pin<&Self>) -> DragAction {
+        let preferred = self.preferred_action();
+        let allowed = |a| match a {
+            DragAction::None => false,
+            DragAction::Copy => self.allow_copy(),
+            DragAction::Move => self.allow_move(),
+            DragAction::Link => self.allow_link(),
+        };
+        if allowed(preferred) {
+            return preferred;
+        }
+        for fallback in [DragAction::Move, DragAction::Copy, DragAction::Link] {
+            if allowed(fallback) {
+                return fallback;
+            }
+        }
+        DragAction::None
+    }
+
+    /// Build the initial DropEvent for a drag starting on this DragArea, populating
+    /// the source's allowed actions and seeding `proposed_action` from the preferred default.
+    pub(crate) fn initial_drop_event(self: Pin<&Self>) -> DropEvent {
+        DropEvent {
+            data: self.data(),
+            position: Default::default(),
+            allow_copy: self.allow_copy(),
+            allow_move: self.allow_move(),
+            allow_link: self.allow_link(),
+            proposed_action: self.effective_default_action(),
+        }
+    }
 }
 
 #[repr(C)]
@@ -224,7 +268,8 @@ impl DragArea {
 pub struct DropArea {
     pub enabled: Property<bool>,
     pub contains_drag: Property<bool>,
-    pub can_drop: Callback<DropEventArg, bool>,
+    pub current_action: Property<DragAction>,
+    pub can_drop: Callback<DropEventArg, DragAction>,
     pub dropped: Callback<DropEventArg>,
 
     pub cached_rendering_data: CachedRenderingData,
@@ -267,10 +312,12 @@ impl Item for DropArea {
         }
         match event {
             MouseEvent::DragMove(event) => {
-                let r = Self::FIELD_OFFSETS.can_drop().apply_pin(self).call(&(event.clone(),));
-                if r {
+                let raw = Self::FIELD_OFFSETS.can_drop().apply_pin(self).call(&(event.clone(),));
+                let chosen = clamp_action_to_allowed(raw, event);
+                self.current_action.set(chosen);
+                if chosen != DragAction::None {
                     self.contains_drag.set(true);
-                    *cursor = MouseCursor::Copy;
+                    *cursor = cursor_for_action(chosen);
                     InputEventResult::EventAccepted
                 } else {
                     self.contains_drag.set(false);
@@ -280,10 +327,12 @@ impl Item for DropArea {
             MouseEvent::Drop(event) => {
                 self.contains_drag.set(false);
                 Self::FIELD_OFFSETS.dropped().apply_pin(self).call(&(event.clone(),));
+                self.current_action.set(DragAction::None);
                 InputEventResult::EventAccepted
             }
             MouseEvent::Exit => {
                 self.contains_drag.set(false);
+                self.current_action.set(DragAction::None);
                 InputEventResult::EventIgnored
             }
             _ => InputEventResult::EventIgnored,
@@ -346,4 +395,26 @@ impl ItemConsts for DropArea {
         DropArea,
         CachedRenderingData,
     > = DropArea::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
+}
+
+/// Clamp a `can-drop` return value against the source's allowed actions on the DropEvent.
+/// A concrete action the source did not allow becomes `None`.
+pub(crate) fn clamp_action_to_allowed(action: DragAction, event: &DropEvent) -> DragAction {
+    match action {
+        DragAction::None => DragAction::None,
+        DragAction::Copy if event.allow_copy => DragAction::Copy,
+        DragAction::Move if event.allow_move => DragAction::Move,
+        DragAction::Link if event.allow_link => DragAction::Link,
+        _ => DragAction::None,
+    }
+}
+
+/// The cursor shown while a DropArea is hovering an accepted drag.
+pub(crate) fn cursor_for_action(action: DragAction) -> MouseCursor {
+    match action {
+        DragAction::Move => MouseCursor::Move,
+        DragAction::Copy => MouseCursor::Copy,
+        DragAction::Link => MouseCursor::Alias,
+        DragAction::None => MouseCursor::NoDrop,
+    }
 }

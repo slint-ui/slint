@@ -46,7 +46,7 @@ export component TestCase inherits Window {
             da := DropArea {
                 can-drop(event) => {
                     debug("can-drop", event);
-                    Api.can-drop(event.data, use-image)
+                    Api.can-drop(event.data, use-image) ? DragAction.copy : DragAction.none
                 }
                 dropped(event) => {
                     if (use-image) {

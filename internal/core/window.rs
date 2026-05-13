@@ -646,14 +646,32 @@ impl WindowInner {
         let was_dragging = mouse_input_state.drag_data.is_some();
         let old_cursor = core::mem::replace(&mut mouse_input_state.cursor, MouseCursor::Default);
 
+        // drag-finished firing is deferred until after dispatch so the DropArea has had
+        // a chance to fire its own `dropped` callback first.
+        let mut pending_drag_finished: Option<(
+            crate::item_tree::ItemWeak,
+            crate::items::DragAction,
+        )> = None;
+
         if let Some(mut drop_event) = mouse_input_state.drag_data.clone() {
             match &event {
                 MouseEvent::Released { position, button: PointerEventButton::Left, .. } => {
                     mouse_input_state.drag_data = None;
-                    mouse_input_state.drag_source = None;
-                    if mouse_input_state.drop_target.take().is_some() {
+                    let source = mouse_input_state.drag_source.take();
+                    if let Some(target_weak) = mouse_input_state.drop_target.take() {
+                        // Capture the action the target chose on its last DragMove; we'll
+                        // notify the source after the Drop callback runs.
+                        let chosen = target_weak
+                            .upgrade()
+                            .and_then(|t| t.downcast::<crate::items::DropArea>())
+                            .map(|d| d.as_pin_ref().current_action())
+                            .unwrap_or(crate::items::DragAction::None);
+                        drop_event.proposed_action = chosen;
                         drop_event.position = crate::lengths::logical_position_to_api(*position);
                         event = MouseEvent::Drop(drop_event);
+                        if let Some(s) = source {
+                            pending_drag_finished = Some((s, chosen));
+                        }
                     } else {
                         // No DropArea accepted the most recent DragMove. Tear the drag
                         // down via Exit instead of converting to Drop so a non-accepting
@@ -661,6 +679,9 @@ impl WindowInner {
                         // underlying Release doesn't reach hit-tested items as a
                         // spurious click.
                         event = MouseEvent::Exit;
+                        if let Some(s) = source {
+                            pending_drag_finished = Some((s, crate::items::DragAction::None));
+                        }
                     }
                 }
                 MouseEvent::Moved { position, .. } => {
@@ -675,8 +696,10 @@ impl WindowInner {
                 }
                 MouseEvent::Exit => {
                     mouse_input_state.drag_data = None;
-                    mouse_input_state.drag_source = None;
                     mouse_input_state.drop_target = None;
+                    if let Some(s) = mouse_input_state.drag_source.take() {
+                        pending_drag_finished = Some((s, crate::items::DragAction::None));
+                    }
                 }
                 _ => {}
             }
@@ -841,6 +864,18 @@ impl WindowInner {
         // we just need to schedule the redraw.
         if was_dragging || is_dragging {
             window_adapter.request_redraw();
+        }
+
+        if let Some((source_weak, action)) = pending_drag_finished
+            && let Some(source) = source_weak.upgrade()
+            && let Some(drag_area) = source.downcast::<crate::items::DragArea>()
+        {
+            let drag_area = drag_area.as_pin_ref();
+            drag_area.dragging.set(false);
+            crate::items::DragArea::FIELD_OFFSETS
+                .drag_finished()
+                .apply_pin(drag_area)
+                .call(&(action,));
         }
 
         if let Some(popup_id) = popup_to_close {
