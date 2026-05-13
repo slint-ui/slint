@@ -3,7 +3,7 @@
 
 slint::include_modules!();
 
-use slint::wgpu_28::{WGPUConfiguration, WGPUSettings, wgpu};
+use slint::wgpu_29::{WGPUConfiguration, WGPUSettings, wgpu};
 
 struct DemoRenderer {
     device: wgpu::Device,
@@ -132,7 +132,7 @@ pub fn main() {
     wgpu_settings.device_required_limits.max_immediate_size = 16;
 
     slint::BackendSelector::new()
-        .require_wgpu_28(WGPUConfiguration::Automatic(wgpu_settings))
+        .require_wgpu_29(WGPUConfiguration::Automatic(wgpu_settings))
         .select()
         .expect("Unable to create Slint backend with WGPU based renderer");
 
@@ -148,7 +148,7 @@ pub fn main() {
 
             match state {
                 slint::RenderingState::RenderingSetup => {
-                    if let slint::GraphicsAPI::WGPU28 { device, queue, .. } = graphics_api {
+                    if let slint::GraphicsAPI::WGPU29 { device, queue, .. } = graphics_api {
                         renderer = Some(DemoRenderer::new(device, queue));
                     }
                 }

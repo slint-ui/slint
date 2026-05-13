@@ -9,7 +9,7 @@ use i_slint_core::{api::PhysicalSize as PhysicalWindowSize, graphics::RequestedG
 
 use crate::{FemtoVGRenderer, GraphicsBackend, WindowSurface};
 
-use wgpu_28 as wgpu;
+use wgpu_29 as wgpu;
 
 pub struct WGPUBackend {
     instance: RefCell<Option<wgpu::Instance>>,
@@ -181,16 +181,29 @@ impl GraphicsBackend for WGPUBackend {
         }
         let surface = self.surface.borrow();
         let surface = surface.as_ref().unwrap();
+        let acquire = |s: &wgpu::Surface<'static>| -> Result<
+            wgpu::SurfaceTexture,
+            Box<dyn std::error::Error + Send + Sync>,
+        > {
+            match s.get_current_texture() {
+                wgpu::CurrentSurfaceTexture::Success(t)
+                | wgpu::CurrentSurfaceTexture::Suboptimal(t) => Ok(t),
+                other => {
+                    Err(format!("Failed to acquire current surface texture: {other:?}").into())
+                }
+            }
+        };
         let frame = match surface.get_current_texture() {
-            Ok(texture) => texture,
-            Err(wgpu::SurfaceError::Timeout) => surface.get_current_texture()?,
+            wgpu::CurrentSurfaceTexture::Success(t)
+            | wgpu::CurrentSurfaceTexture::Suboptimal(t) => t,
+            wgpu::CurrentSurfaceTexture::Timeout => acquire(surface)?,
             // Outdated or lost: re-configure and try again
-            Err(_) => {
+            _ => {
                 let mut device = self.device.borrow_mut();
                 let device = device.as_mut().unwrap();
 
                 surface.configure(device, self.surface_config.borrow().as_ref().unwrap());
-                surface.get_current_texture()?
+                acquire(surface)?
             }
         };
         Ok(WGPUWindowSurface::Surface(frame))
@@ -210,7 +223,7 @@ impl GraphicsBackend for WGPUBackend {
         Ok(())
     }
 
-    #[cfg(feature = "unstable-wgpu-28")]
+    #[cfg(feature = "unstable-wgpu-29")]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
@@ -219,7 +232,7 @@ impl GraphicsBackend for WGPUBackend {
         let device = self.device.borrow().clone();
         let queue = self.queue.borrow().clone();
         if let (Some(instance), Some(device), Some(queue)) = (instance, device, queue) {
-            Ok(callback(Some(i_slint_core::graphics::create_graphics_api_wgpu_28(
+            Ok(callback(Some(i_slint_core::graphics::create_graphics_api_wgpu_29(
                 instance, device, queue,
             ))))
         } else {
@@ -227,7 +240,7 @@ impl GraphicsBackend for WGPUBackend {
         }
     }
 
-    #[cfg(not(feature = "unstable-wgpu-28"))]
+    #[cfg(not(feature = "unstable-wgpu-29"))]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
@@ -285,12 +298,12 @@ impl GraphicsBackend for WGPUBackend {
 impl FemtoVGRenderer<WGPUBackend> {
     pub fn set_surface(
         &self,
-        surface_target: impl Into<i_slint_core::graphics::wgpu_28::SurfaceTarget>,
+        surface_target: impl Into<i_slint_core::graphics::wgpu_29::SurfaceTarget>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let (instance, adapter, device, queue, surface) =
-            i_slint_core::graphics::wgpu_28::init_instance_adapter_device_queue_surface(
+            i_slint_core::graphics::wgpu_29::init_instance_adapter_device_queue_surface(
                 surface_target,
                 requested_graphics_api,
                 /* rendering artifacts :( */
@@ -381,19 +394,19 @@ impl GraphicsBackend for WgpuTextureBackend {
         Ok(())
     }
 
-    #[cfg(feature = "unstable-wgpu-28")]
+    #[cfg(feature = "unstable-wgpu-29")]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
     ) -> Result<R, i_slint_core::platform::PlatformError> {
-        Ok(callback(Some(i_slint_core::graphics::create_graphics_api_wgpu_28(
+        Ok(callback(Some(i_slint_core::graphics::create_graphics_api_wgpu_29(
             self.instance.clone(),
             self.device.clone(),
             self.queue.clone(),
         ))))
     }
 
-    #[cfg(not(feature = "unstable-wgpu-28"))]
+    #[cfg(not(feature = "unstable-wgpu-29"))]
     fn with_graphics_api<R>(
         &self,
         callback: impl FnOnce(Option<i_slint_core::api::GraphicsAPI<'_>>) -> R,
@@ -441,7 +454,7 @@ impl FemtoVGWGPURenderer {
     /// Creates a new FemtoVGWGPURenderer.
     ///
     /// The `instance`, `device` and `queue` are the WGPU resources used for rendering.
-    /// These are also provided to [`Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier) callbacks via [`GraphicsAPI::WGPU28`](i_slint_core::api::GraphicsAPI::WGPU28).
+    /// These are also provided to [`Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier) callbacks via [`GraphicsAPI::WGPU29`](i_slint_core::api::GraphicsAPI::WGPU29).
     pub fn new(
         instance: wgpu::Instance,
         device: wgpu::Device,

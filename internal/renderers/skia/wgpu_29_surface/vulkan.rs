@@ -4,7 +4,7 @@
 use ash::vk::Handle;
 use skia_safe::gpu::vk;
 
-use wgpu_28 as wgpu;
+use wgpu_29 as wgpu;
 
 fn vk_format_and_color_type(
     format: wgpu::TextureFormat,

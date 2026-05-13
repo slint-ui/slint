@@ -68,21 +68,10 @@ impl SkiaRendererAdapter {
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         let drm_output = DrmOutput::new(device_opener)?;
 
-        #[cfg(skia_wgpu_28)]
-        let (surface_target, size) = drm_output.wgpu_28_surface_target()?;
-        #[cfg(skia_wgpu_27)]
-        let (surface_target, size) = drm_output.wgpu_27_surface_target()?;
+        let (surface_target, size) = drm_output.wgpu_29_surface_target()?;
 
-        #[cfg(skia_wgpu_28)]
         let skia_wgpu_surface =
-            Box::new(i_slint_renderer_skia::wgpu_28_surface::WGPUSurface::new_with_surface(
-                surface_target,
-                size,
-                requested_graphics_api.cloned(),
-            )?);
-        #[cfg(skia_wgpu_27)]
-        let skia_wgpu_surface =
-            Box::new(i_slint_renderer_skia::wgpu_27_surface::WGPUSurface::new_with_surface(
+            Box::new(i_slint_renderer_skia::wgpu_29_surface::WGPUSurface::new_with_surface(
                 surface_target,
                 size,
                 requested_graphics_api.cloned(),

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-#[cfg(feature = "unstable-wgpu-28")]
+#[cfg(feature = "unstable-wgpu-29")]
 use i_slint_core::api::GraphicsAPI;
 use i_slint_core::api::{PhysicalSize as PhysicalWindowSize, Window};
 use i_slint_core::graphics::RequestedGraphicsAPI;
@@ -11,7 +11,7 @@ use i_slint_core::platform::PlatformError;
 use std::cell::RefCell;
 use std::sync::Arc;
 
-use wgpu_28 as wgpu;
+use wgpu_29 as wgpu;
 
 use crate::SkiaSharedContext;
 
@@ -37,12 +37,12 @@ pub struct WGPUSurface {
 
 impl WGPUSurface {
     pub fn new_with_surface(
-        surface_target: impl Into<i_slint_core::graphics::wgpu_28::SurfaceTarget>,
+        surface_target: impl Into<i_slint_core::graphics::wgpu_29::SurfaceTarget>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
     ) -> Result<Self, PlatformError> {
         let (instance, adapter, device, queue, surface) =
-            i_slint_core::graphics::wgpu_28::init_instance_adapter_device_queue_surface(
+            i_slint_core::graphics::wgpu_29::init_instance_adapter_device_queue_surface(
                 surface_target,
                 requested_graphics_api,
                 wgpu::Backends::GL /* we're not mapping that to skia because we can't save/restore state */
@@ -141,7 +141,7 @@ impl crate::Surface for WGPUSurface {
     ) -> Result<Self, PlatformError> {
         Self::new_with_surface(
             Box::new(WindowAndDisplayHandle(window_handle, display_handle))
-                as Box<dyn wgpu::WindowHandle + 'static>,
+                as Box<dyn wgpu::DisplayAndWindowHandle + 'static>,
             size,
             requested_graphics_api,
         )
@@ -198,15 +198,23 @@ impl crate::Surface for WGPUSurface {
 
         let gr_context = &mut self.gr_context.borrow_mut();
 
+        let acquire = |s: &wgpu::Surface<'static>| -> Result<wgpu::SurfaceTexture, PlatformError> {
+            match s.get_current_texture() {
+                wgpu::CurrentSurfaceTexture::Success(t)
+                | wgpu::CurrentSurfaceTexture::Suboptimal(t) => Ok(t),
+                other => Err(format!("Error obtaining current surface texture: {other:?}").into()),
+            }
+        };
         let frame = match surface.get_current_texture() {
-            Ok(texture) => texture,
-            Err(wgpu::SurfaceError::Timeout) => surface.get_current_texture().map_err(|e| {
+            wgpu::CurrentSurfaceTexture::Success(t)
+            | wgpu::CurrentSurfaceTexture::Suboptimal(t) => t,
+            wgpu::CurrentSurfaceTexture::Timeout => acquire(surface).map_err(|e| {
                 format!("Error obtaining current surface texture after timeout: {e}")
             })?,
             // Outdated or lost: re-configure and try again
-            Err(_) => {
+            _ => {
                 surface.configure(&self.device, surface_config);
-                surface.get_current_texture().map_err(|e| {
+                acquire(surface).map_err(|e| {
                     format!("Error obtaining current surface texture after initial error: {e}")
                 })?
             }
@@ -233,10 +241,10 @@ impl crate::Surface for WGPUSurface {
     fn bits_per_pixel(&self) -> Result<u8, PlatformError> {
         if let Some(surface_config) = &*self.surface_config.borrow() {
             Ok(match surface_config.format {
-                wgpu_28::TextureFormat::Rgba8Unorm
-                | wgpu_28::TextureFormat::Rgba8UnormSrgb
-                | wgpu_28::TextureFormat::Bgra8Unorm
-                | wgpu_28::TextureFormat::Bgra8UnormSrgb => 32,
+                wgpu_29::TextureFormat::Rgba8Unorm
+                | wgpu_29::TextureFormat::Rgba8UnormSrgb
+                | wgpu_29::TextureFormat::Bgra8Unorm
+                | wgpu_29::TextureFormat::Bgra8UnormSrgb => 32,
                 fmt => return Err(format!("Unsupported surface format {:#?}", fmt).into()),
             })
         } else {
@@ -245,9 +253,9 @@ impl crate::Surface for WGPUSurface {
         }
     }
 
-    #[cfg(feature = "unstable-wgpu-28")]
+    #[cfg(feature = "unstable-wgpu-29")]
     fn with_graphics_api(&self, callback: &mut dyn FnMut(GraphicsAPI<'_>)) {
-        let api = i_slint_core::graphics::create_graphics_api_wgpu_28(
+        let api = i_slint_core::graphics::create_graphics_api_wgpu_29(
             self.instance.clone(),
             self.device.clone(),
             self.queue.clone(),
@@ -255,17 +263,15 @@ impl crate::Surface for WGPUSurface {
         callback(api)
     }
 
-    #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
+    #[cfg(feature = "unstable-wgpu-29")]
     fn import_wgpu_texture(
         &self,
         canvas: &skia_safe::Canvas,
         any_wgpu_texture: &i_slint_core::graphics::WGPUTexture,
     ) -> Option<skia_safe::Image> {
         let texture = match any_wgpu_texture {
-            #[cfg(feature = "unstable-wgpu-27")]
-            i_slint_core::graphics::WGPUTexture::WGPU27Texture(..) => return None,
-            #[cfg(feature = "unstable-wgpu-28")]
-            i_slint_core::graphics::WGPUTexture::WGPU28Texture(texture) => texture.clone(),
+            #[cfg(feature = "unstable-wgpu-29")]
+            i_slint_core::graphics::WGPUTexture::WGPU29Texture(texture) => texture.clone(),
         };
 
         // Skia won't submit commands right away, so remember the texture and transition before
@@ -311,15 +317,15 @@ impl TryFrom<wgpu::Backend> for Backend {
 
     fn try_from(wgpu_backend: wgpu::Backend) -> Result<Self, Self::Error> {
         match wgpu_backend {
-            wgpu_28::Backend::Noop => {
+            wgpu_29::Backend::Noop => {
                 Err(PlatformError::from("Cannot use WGPU Noop backend with Skia"))
             }
             #[cfg(all(target_family = "unix", not(target_vendor = "apple")))]
-            wgpu_28::Backend::Vulkan => Ok(Self::Vulkan),
+            wgpu_29::Backend::Vulkan => Ok(Self::Vulkan),
             #[cfg(target_vendor = "apple")]
-            wgpu_28::Backend::Metal => Ok(Self::Metal),
+            wgpu_29::Backend::Metal => Ok(Self::Metal),
             #[cfg(target_family = "windows")]
-            wgpu_28::Backend::Dx12 => Ok(Self::Dx12),
+            wgpu_29::Backend::Dx12 => Ok(Self::Dx12),
             other => Err(PlatformError::from(format!(
                 "Unsupported WGPU backend for use with Skia: {}",
                 other
