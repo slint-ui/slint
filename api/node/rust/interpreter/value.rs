@@ -366,15 +366,11 @@ pub fn to_value(
             Ok(Value::EnumerationValue(e.name.to_string(), value.to_string()))
         }
         Type::Keys => {
-            let obj = unknown.coerce_to_object()?;
-            let keys_instance: ClassInstance<SlintKeys> =
-                ClassInstance::from_unknown(obj.into_unknown(env)?)?;
+            let keys_instance: ClassInstance<SlintKeys> = ClassInstance::from_unknown(unknown)?;
             Ok(Value::Keys(keys_instance.inner.clone()))
         }
         Type::DataTransfer => {
-            let object = unknown.coerce_to_object()?;
-            let instance: ClassInstance<SlintDataTransfer> =
-                ClassInstance::from_unknown(object.into_unknown(env)?)?;
+            let instance: ClassInstance<SlintDataTransfer> = ClassInstance::from_unknown(unknown)?;
             instance.pin_user_data_on(env, anchor_owner)?;
             Ok(Value::DataTransfer(instance.inner.clone()))
         }
