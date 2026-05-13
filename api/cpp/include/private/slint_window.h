@@ -176,9 +176,11 @@ public:
         auto position_data = new PopupPositionData { std::move(pos), popup };
         auto id = cbindgen_private::slint_windowrc_show_popup(
                 &inner, &popup_dyn,
-                [](void *user_data) {
+                [](void *user_data, float* x, float* y) {
                     auto data = reinterpret_cast<PopupPositionData *>(user_data);
-                    return data->pos(data->popup_component);
+                    auto pos = data->pos(data->popup_component);
+                    *x = pos.x;
+                    *y = pos.y;
                 },
                 [](void *user_data) { delete reinterpret_cast<PopupPositionData *>(user_data); },
                 position_data, close_policy, &parent_item, is_tooltip, false);

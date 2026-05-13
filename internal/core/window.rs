@@ -2165,7 +2165,7 @@ pub mod ffi {
     pub unsafe extern "C" fn slint_windowrc_show_popup(
         handle: *const WindowAdapterRcOpaque,
         popup: &ItemTreeRc,
-        position: extern "C" fn(user_data: *mut c_void) -> LogicalPosition,
+        position: extern "C" fn(user_data: *mut c_void, x: *mut f32, y: *mut f32),
         drop_user_data: extern "C" fn(user_data: *mut c_void),
         user_data: *mut c_void,
         close_policy: PopupClosePolicy,
@@ -2175,7 +2175,7 @@ pub mod ffi {
     ) -> NonZeroU32 {
         unsafe {
             struct WithUserData {
-                callback: extern "C" fn(user_data: *mut c_void) -> LogicalPosition,
+                callback: extern "C" fn(user_data: *mut c_void, x: *mut f32, y: *mut f32),
                 drop_user_data: extern "C" fn(*mut c_void),
                 user_data: *mut c_void,
             }
@@ -2188,7 +2188,10 @@ pub mod ffi {
 
             impl WithUserData {
                 fn call(&self) -> LogicalPosition {
-                    (self.callback)(self.user_data)
+                    let mut x = 0.;
+                    let mut y = 0.;
+                    (self.callback)(self.user_data, (&mut x) as *mut f32, (&mut y) as *mut f32);
+                    LogicalPosition::new(x, y)
                 }
             }
 
