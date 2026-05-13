@@ -2025,15 +2025,19 @@ impl TooltipArea {
         }
 
         let self_weak = self_rc.downgrade();
-        self.timer.start(crate::timers::TimerMode::SingleShot, Duration::from_millis(delay_ms), move || {
-            let Some(self_rc) = self_weak.upgrade() else { return };
-            let Some(tooltip_area) = self_rc.downcast::<TooltipArea>() else { return };
-            let tooltip_area = tooltip_area.as_pin_ref();
-            if tooltip_area.has_hover() {
-                tooltip_area.show.call(&());
-                tooltip_area.popup_visible.set(true);
-            }
-        });
+        self.timer.start(
+            crate::timers::TimerMode::SingleShot,
+            Duration::from_millis(delay_ms),
+            move || {
+                let Some(self_rc) = self_weak.upgrade() else { return };
+                let Some(tooltip_area) = self_rc.downcast::<TooltipArea>() else { return };
+                let tooltip_area = tooltip_area.as_pin_ref();
+                if tooltip_area.has_hover() {
+                    tooltip_area.show.call(&());
+                    tooltip_area.popup_visible.set(true);
+                }
+            },
+        );
     }
 
     fn hide_now(self: Pin<&Self>) {
