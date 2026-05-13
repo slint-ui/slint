@@ -827,7 +827,7 @@ impl Expression {
         let mut source_map = crate::literals::StringLiteralSourceMap::new();
         use i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER as PLACEHOLDER;
 
-        let mut push_and_check =
+        let push_and_check =
             |token: &crate::parser::SyntaxToken,
              source_map: &mut crate::literals::StringLiteralSourceMap,
              diag: &mut crate::diagnostics::BuildDiagnostics| {
