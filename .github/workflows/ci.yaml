@@ -161,12 +161,11 @@ jobs:
         strategy:
             matrix:
                 include:
-                    - os: ubuntu-22.04
-                      rust_version: "1.92"
+                    # Linux C++ is covered by cpp_test_driver_32bit
                     - os: macos-14
                       rust_version: beta
                     - os: windows-2022
-                      rust_version: stable
+                      rust_version: "1.92"
         runs-on: ${{ matrix.os }}
 
         steps:
@@ -174,12 +173,6 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   force-gcc-10: true
-            - name: Install Qt
-              if: runner.os == 'Linux'
-              uses: jurplel/install-qt-action@v4
-              with:
-                  version: "5.15.2"
-                  cache: true
             - name: Set default style
               if: runner.os != 'Windows'
               run: echo "SLINT_STYLE=native" >> $GITHUB_ENV
