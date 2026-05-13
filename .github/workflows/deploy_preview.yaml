@@ -120,7 +120,7 @@ jobs:
                 DIST="preview-deploy/dist"
                 mkdir -p "$DIST"
                 printf '%s\n' \
-                  'name = "slint-pr-preview"' \
+                  'name = "slint-docs-staging"' \
                   'compatibility_date = "2026-01-15"' \
                   'preview_urls = true' \
                   '[assets]' \
@@ -183,12 +183,15 @@ jobs:
                 OUTPUT=$(pnpm dlx wrangler@4 versions upload 2>&1)
                 STATUS=$?
                 set -e
+                echo "=== wrangler output ==="
                 echo "$OUTPUT"
+                echo "=== end wrangler output ==="
                 if [ "$STATUS" -ne 0 ]; then
                   echo "::warning::Preview deploy failed (exit $STATUS)"
                   exit 0
                 fi
                 PREVIEW_URL=$(echo "$OUTPUT" | grep -oE 'https://[^[:space:]]+\.workers\.dev' | head -1)
+                echo "Preview URL: ${PREVIEW_URL:-<empty>}"
                 echo "url=${PREVIEW_URL}" >> "$GITHUB_OUTPUT"
               env:
                 CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
