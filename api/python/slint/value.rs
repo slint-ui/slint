@@ -60,6 +60,9 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
                 type_collection.struct_to_py(structval, struct_type).into_bound_py_any(py)
             }
             Value::Brush(brush) => crate::brush::PyBrush::from(brush).into_bound_py_any(py),
+            Value::StyledText(styled_text) => {
+                crate::styled_text::PyStyledText::from(styled_text).into_bound_py_any(py)
+            }
             Value::EnumerationValue(enum_name, enum_value) => {
                 type_collection.enum_to_py(&enum_name, &enum_value, py)?.into_bound_py_any(py)
             }
@@ -353,6 +356,11 @@ impl TypeCollection {
             .or_else(|_| {
                 ob.extract::<PyRef<'_, crate::brush::PyBrush>>()
                     .map(|pybrush| slint_interpreter::Value::Brush(pybrush.brush.clone()))
+            })
+            .or_else(|_| {
+                ob.extract::<PyRef<'_, crate::styled_text::PyStyledText>>().map(|styled_text| {
+                    slint_interpreter::Value::StyledText(styled_text.styled_text.clone())
+                })
             })
             .or_else(|_| {
                 ob.extract::<PyRef<'_, PyKeys>>()
