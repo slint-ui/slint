@@ -50,6 +50,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "slint-js-common": "workspace:*",
     "@napi-rs/cli": "3.6.2"
   }
 }

@@ -11,265 +11,42 @@ export {
     StyledText,
 } from "../rust-module.cjs";
 
-import { Model } from "./models";
-export { Model };
-
-export { ArrayModel } from "./models";
-
 export { language } from "./generated/language";
-
-import { Diagnostic } from "../rust-module.cjs";
 
 import { fileURLToPath } from "node:url";
 
-/**
- *  Represents a two-dimensional point.
- */
-export interface Point {
-    /**
-     * Defines the x coordinate of the point.
-     */
-    x: number;
+import {
+    CompileError,
+    wrapModule,
+    setModelBackend,
+    setRunEventLoop,
+    Component,
+    MapModel as _MapModel,
+} from "slint-js-common";
+import type { LoadFileOptions } from "slint-js-common";
 
-    /**
-     * Defines the y coordinate of the point.
-     */
-    y: number;
-}
+export { CompileError, Component } from "slint-js-common";
+export { Model, ArrayModel } from "slint-js-common";
+export type {
+    Point,
+    Size,
+    Window,
+    ImageData,
+    ComponentHandle,
+    LoadFileOptions,
+} from "slint-js-common";
 
-/**
- *  Represents a two-dimensional size.
- */
-export interface Size {
-    /**
-     * Defines the width length of the size.
-     */
-    width: number;
-
-    /**
-     * Defines the height length of the size.
-     */
-    height: number;
-}
-
-/**
- * This type represents a window towards the windowing system, that's used to render the
- * scene of a component. It provides API to control windowing system specific aspects such
- * as the position on the screen.
- */
-export interface Window {
-    /** Gets or sets the logical position of the window on the screen. */
-    logicalPosition: Point;
-
-    /** Gets or sets the physical position of the window on the screen. */
-    physicalPosition: Point;
-
-    /** Gets or sets the logical size of the window on the screen, */
-    logicalSize: Size;
-
-    /** Gets or sets the physical size of the window on the screen, */
-    physicalSize: Size;
-
-    /** Gets or sets the window's fullscreen state **/
-    fullscreen: boolean;
-
-    /** Gets or sets the window's maximized state **/
-    maximized: boolean;
-
-    /** Gets or sets the window's minimized state **/
-    minimized: boolean;
-
-    /**
-     * Returns the visibility state of the window. This function can return false even if you previously called show()
-     * on it, for example if the user minimized the window.
-     */
-    get visible(): boolean;
-
-    /**
-     * Shows the window on the screen. An additional strong reference on the
-     * associated component is maintained while the window is visible.
-     */
-    show(): void;
-
-    /** Hides the window, so that it is not visible anymore. */
-    hide(): void;
-
-    /** Issues a request to the windowing system to re-render the contents of the window. */
-    requestRedraw(): void;
-}
-
-/**
- * An image data type that can be displayed by the Image element.
- *
- * This interface is inspired by the web [ImageData](https://developer.mozilla.org/en-US/docs/Web/API/ImageData) interface.
- */
-export interface ImageData {
-    /**
-     * Returns the path of the image, if it was loaded from disk. Otherwise
-     * the property is undefined.
-     */
-    readonly path?: string;
-
-    /**
-     *  Returns the image as buffer.
-     */
-    get data(): Uint8Array;
-
-    /**
-     * Returns the width of the image in pixels.
-     */
-    get width(): number;
-
-    /**
-     *  Returns the height of the image in pixels.
-     */
-    get height(): number;
-}
-
-/**
- * This interface describes the public API of a Slint component that is common to all instances. Use this to
- * show() the window on the screen, access the window and subsequent window properties, or start the
- * Slint event loop with run().
- */
-export interface ComponentHandle {
-    /**
-     * Shows the window and runs the event loop. The returned promise is resolved when the event loop
-     * is terminated, for example when the last window is closed and the last visible system tray
-     * icon is hidden, or when {@link quitEventLoop} is called.
-     *
-     * This function is a convenience for calling {@link show}, followed by {@link runEventLoop}, and
-     * {@link hide} when the event loop's promise is resolved.
-     */
-    run(): Promise<unknown>;
-
-    /**
-     * Shows the component's window on the screen.
-     */
-    show(): void;
-
-    /**
-     * Hides the component's window, so that it is not visible anymore.
-     */
-    hide(): void;
-
-    /**
-     * Returns the {@link Window} associated with this component instance.
-     * The window API can be used to control different aspects of the integration into the windowing system, such as the position on the screen.
-     *
-     * Not present on non-windowed components such as ones inheriting from `SystemTrayIcon`.
-     */
-    readonly window?: Window;
-}
-
-/**
- * @hidden
- */
-class Component implements ComponentHandle {
-    [key: string]: unknown;
-    #instance: napi.ComponentInstance;
-
-    /**
-     * @hidden
-     */
-    constructor(instance: napi.ComponentInstance) {
-        this.#instance = instance;
-
-        // Non-windowed components (e.g. `SystemTrayIcon`) don't have a `window`:
-        // the underlying `instance.window()` would panic. Install the getter
-        // only when meaningful so `'window' in component` reflects support.
-        if (instance.definition().isWindow) {
-            Object.defineProperty(this, "window", {
-                get: () => this.#instance.window(),
-                enumerable: true,
-                configurable: false,
-            });
-        }
-    }
-
-    /**
-     * @hidden
-     */
-    get component_instance(): napi.ComponentInstance {
-        return this.#instance;
-    }
-
-    async run() {
-        this.show();
-        await runEventLoop();
-        this.hide();
-    }
-
-    show(): void {
-        this.#instance.window().show();
-    }
-
-    hide(): void {
-        this.#instance.window().hide();
-    }
-}
-
-/**
- * Represents an errors that can be emitted by the compiler.
- */
-export class CompileError extends Error {
-    /**
-     * List of {@link Diagnostic} items emitted while compiling .slint code.
-     */
-    diagnostics: napi.Diagnostic[];
-
-    /**
-     * Creates a new CompileError.
-     *
-     * @param message human-readable description of the error.
-     * @param diagnostics represent a list of diagnostic items emitted while compiling .slint code.
-     */
-    constructor(message: string, diagnostics: napi.Diagnostic[]) {
-        const formattedDiagnostics = diagnostics
-            .map(
-                (d) =>
-                    `[${d.fileName}:${d.lineNumber}:${d.columnNumber}] ${d.message}`,
-            )
-            .join("\n");
-
-        let formattedMessage = message;
-        if (diagnostics.length > 0) {
-            formattedMessage += `\nDiagnostics:\n${formattedDiagnostics}`;
-        }
-
-        super(formattedMessage);
-        this.diagnostics = diagnostics;
-    }
-}
-
-/**
- * LoadFileOptions are used to defines different optional parameters that can be used to configure the compiler.
- */
-export interface LoadFileOptions {
-    /**
-     * If set to true warnings from the compiler will not be printed to the console.
-     */
-    quiet?: boolean;
-
-    /**
-     * Sets the widget style the compiler is currently using when compiling .slint files.
-     */
-    style?: string;
-
-    /**
-     * Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
-     */
-    includePaths?: Array<string>;
-
-    /**
-     * Sets library paths used for looking up `@library` imports to the specified map of library names to paths.
-     */
-    libraryPaths?: Record<string, string>;
-
-    /**
-     * @hidden
-     */
-    fileLoader?: (path: string) => string;
-}
+// Initialize the model backend with napi functions
+setModelBackend({
+    createModelNotify: () => napi.jsModelNotifyNew(),
+    notifyRowDataChanged: (handle: any, row: number) =>
+        napi.jsModelNotifyRowDataChanged(handle, row),
+    notifyRowAdded: (handle: any, row: number, count: number) =>
+        napi.jsModelNotifyRowAdded(handle, row, count),
+    notifyRowRemoved: (handle: any, row: number, count: number) =>
+        napi.jsModelNotifyRowRemoved(handle, row, count),
+    notifyReset: (handle: any) => napi.jsModelNotifyReset(handle),
+});
 
 type LoadData =
     | {
@@ -287,10 +64,6 @@ type LoadData =
           };
           from: "source";
       };
-
-function translateName(key: string): string {
-    return key.replace(/-/g, "_");
-}
 
 function loadSlint(loadData: LoadData): Object {
     const { filePath, options } = loadData.fileData;
@@ -336,282 +109,7 @@ function loadSlint(loadData: LoadData): Object {
         }
     }
 
-    const slint_module = Object.create({});
-
-    // generate structs
-    const structs = compiler.structs;
-
-    for (const key in compiler.structs) {
-        Object.defineProperty(slint_module, translateName(key), {
-            value: function (properties: any) {
-                const defaultObject = structs[key] as any;
-                const newObject = Object.create({});
-
-                for (const propertyKey in defaultObject) {
-                    const propertyName = translateName(propertyKey);
-                    const propertyValue =
-                        properties !== undefined &&
-                        Object.hasOwn(properties, propertyName)
-                            ? properties[propertyName]
-                            : defaultObject[propertyKey];
-
-                    Object.defineProperty(newObject, propertyName, {
-                        value: propertyValue,
-                        writable: true,
-                        enumerable: true,
-                    });
-                }
-
-                return Object.seal(newObject);
-            },
-        });
-    }
-
-    // generate enums
-    const enums = compiler.enums;
-
-    for (const key in enums) {
-        Object.defineProperty(slint_module, translateName(key), {
-            value: Object.seal(enums[key]),
-            enumerable: true,
-        });
-    }
-
-    Object.keys(definitions).forEach((key) => {
-        const definition = definitions[key];
-
-        Object.defineProperty(slint_module, translateName(definition.name), {
-            value: function (properties: any) {
-                const instance = definition.create();
-
-                if (instance == null) {
-                    throw Error(
-                        "Could not create a component handle for" + filePath,
-                    );
-                }
-
-                for (var key in properties) {
-                    const value = properties[key];
-
-                    if (value instanceof Function) {
-                        instance.setCallback(key, value);
-                    } else {
-                        instance.setProperty(key, properties[key]);
-                    }
-                }
-
-                const componentHandle = new Component(instance!);
-                instance!.definition().properties.forEach((prop) => {
-                    const propName = translateName(prop.name);
-
-                    if (componentHandle[propName] !== undefined) {
-                        console.warn("Duplicated property name " + propName);
-                    } else {
-                        Object.defineProperty(componentHandle, propName, {
-                            get() {
-                                return instance!.getProperty(prop.name);
-                            },
-                            set(value) {
-                                instance!.setProperty(prop.name, value);
-                            },
-                            enumerable: true,
-                        });
-                    }
-                });
-
-                instance!.definition().callbacks.forEach((cb) => {
-                    const callbackName = translateName(cb);
-
-                    if (componentHandle[callbackName] !== undefined) {
-                        console.warn(
-                            "Duplicated callback name " + callbackName,
-                        );
-                    } else {
-                        Object.defineProperty(
-                            componentHandle,
-                            translateName(cb),
-                            {
-                                get() {
-                                    return function () {
-                                        return instance!.invoke(
-                                            cb,
-                                            Array.from(arguments),
-                                        );
-                                    };
-                                },
-                                set(callback) {
-                                    instance!.setCallback(cb, callback);
-                                },
-                                enumerable: true,
-                            },
-                        );
-                    }
-                });
-
-                instance!.definition().functions.forEach((cb) => {
-                    const functionName = translateName(cb);
-
-                    if (componentHandle[functionName] !== undefined) {
-                        console.warn(
-                            "Duplicated function name " + functionName,
-                        );
-                    } else {
-                        Object.defineProperty(
-                            componentHandle,
-                            translateName(cb),
-                            {
-                                get() {
-                                    return function () {
-                                        return instance!.invoke(
-                                            cb,
-                                            Array.from(arguments),
-                                        );
-                                    };
-                                },
-                                enumerable: true,
-                            },
-                        );
-                    }
-                });
-
-                // globals
-                instance!.definition().globals.forEach((globalName) => {
-                    const jsName = translateName(globalName);
-                    if (componentHandle[jsName] !== undefined) {
-                        console.warn(
-                            "Duplicated property name " +
-                                globalName +
-                                " (In JS: " +
-                                jsName +
-                                ")",
-                        );
-                    } else {
-                        const globalObject = Object.create({});
-
-                        instance!
-                            .definition()
-                            .globalProperties(globalName)
-                            ?.forEach((prop) => {
-                                const propName = translateName(prop.name);
-
-                                if (globalObject[propName] !== undefined) {
-                                    console.warn(
-                                        "Duplicated property name " +
-                                            propName +
-                                            " on global " +
-                                            global,
-                                    );
-                                } else {
-                                    Object.defineProperty(
-                                        globalObject,
-                                        propName,
-                                        {
-                                            get() {
-                                                return instance!.getGlobalProperty(
-                                                    globalName,
-                                                    prop.name,
-                                                );
-                                            },
-                                            set(value) {
-                                                instance!.setGlobalProperty(
-                                                    globalName,
-                                                    prop.name,
-                                                    value,
-                                                );
-                                            },
-                                            enumerable: true,
-                                        },
-                                    );
-                                }
-                            });
-
-                        instance!
-                            .definition()
-                            .globalCallbacks(globalName)
-                            ?.forEach((cb) => {
-                                const callbackName = translateName(cb);
-
-                                if (globalObject[callbackName] !== undefined) {
-                                    console.warn(
-                                        "Duplicated property name " +
-                                            cb +
-                                            " on global " +
-                                            global,
-                                    );
-                                } else {
-                                    Object.defineProperty(
-                                        globalObject,
-                                        translateName(cb),
-                                        {
-                                            get() {
-                                                return function () {
-                                                    return instance!.invokeGlobal(
-                                                        globalName,
-                                                        cb,
-                                                        Array.from(arguments),
-                                                    );
-                                                };
-                                            },
-                                            set(callback) {
-                                                instance!.setGlobalCallback(
-                                                    globalName,
-                                                    cb,
-                                                    callback,
-                                                );
-                                            },
-                                            enumerable: true,
-                                        },
-                                    );
-                                }
-                            });
-
-                        instance!
-                            .definition()
-                            .globalFunctions(globalName)
-                            ?.forEach((cb) => {
-                                const functionName = translateName(cb);
-
-                                if (globalObject[functionName] !== undefined) {
-                                    console.warn(
-                                        "Duplicated function name " +
-                                            cb +
-                                            " on global " +
-                                            global,
-                                    );
-                                } else {
-                                    Object.defineProperty(
-                                        globalObject,
-                                        translateName(cb),
-                                        {
-                                            get() {
-                                                return function () {
-                                                    return instance!.invokeGlobal(
-                                                        globalName,
-                                                        cb,
-                                                        Array.from(arguments),
-                                                    );
-                                                };
-                                            },
-                                            enumerable: true,
-                                        },
-                                    );
-                                }
-                            });
-
-                        Object.defineProperty(componentHandle, jsName, {
-                            get() {
-                                return globalObject;
-                            },
-                            enumerable: true,
-                        });
-                    }
-                });
-
-                return Object.seal(componentHandle);
-            },
-        });
-    });
-    return Object.seal(slint_module);
+    return wrapModule(definitions, compiler.structs, compiler.enums);
 }
 
 /**
@@ -671,6 +169,7 @@ export function loadFile(
  *          text: "Hello World";
  *      }
  * }`; // The content of main.slint
+ *
  * let ui = slint.loadSource(source, "main.js");
  * let main = new ui.Main();
  * main.greeting = "Hello friends";
@@ -771,7 +270,7 @@ class EventLoop {
     }
 }
 
-var globalEventLoop: EventLoop = new EventLoop();
+const globalEventLoop: EventLoop = new EventLoop();
 
 /**
  * Spins the Slint event loop and returns a promise that resolves when the loop terminates.
@@ -825,6 +324,42 @@ export function quitEventLoop() {
     globalEventLoop.quit();
 }
 
+// Wire up Component.run() to use our event loop
+setRunEventLoop(() => runEventLoop());
+
+/**
+ * Initialize translations.
+ *
+ * Call this with the path where translations are located. This function internally calls the [bindtextdomain](https://man7.org/linux/man-pages/man3/bindtextdomain.3.html) function from gettext.
+ *
+ * Translations are expected to be found at <path>/<locale>/LC_MESSAGES/<domain>.mo, where path is the directory passed as an argument to this function, locale is a locale name (e.g., en, en_GB, fr), and domain is the package name.
+ *
+ * @param domain defines the domain name e.g. name of the package.
+ * @param path specifies the directory as `string` or as `URL` in which gettext should search for translations.
+ *
+ * For example, assuming this is in a package called example and the default locale is configured to be French, it will load translations at runtime from ``/path/to/example/translations/fr/LC_MESSAGES/example.mo`.
+ *
+ * ```js
+ * import * as slint from "slint-ui";
+ * slint.initTranslations("example", new URL("translations/", import.meta.url));
+ * ````
+ */
+export function initTranslations(domain: string, path: string | URL) {
+    const pathname = path instanceof URL ? fileURLToPath(path) : path;
+    napi.initTranslations(domain, pathname);
+}
+
+/**
+ * Sets the application id for use on Wayland or X11 with [xdg](https://specifications.freedesktop.org/desktop-entry-spec/latest/)
+ * compliant window managers. This must be set before the window is shown.
+ */
+export function setXdgAppId(app_id: string) {
+    napi.setXdgAppId(app_id);
+}
+
+/**
+ * @hidden
+ */
 export namespace private_api {
     /**
      * Provides rows that are generated by a map function based on the rows of another Model.
@@ -944,79 +479,8 @@ export namespace private_api {
      * console.log(mappedModel.rowData(2));
      * ```
      */
-    export class MapModel<T, U> extends Model<U> {
-        readonly sourceModel: Model<T>;
-        #mapFunction: (data: T) => U;
+    export const MapModel = _MapModel;
 
-        /**
-         * Constructs the MapModel with a source model and map functions.
-         * @template T item type of source model that is mapped to U.
-         * @template U the type of the mapped items.
-         * @param sourceModel the wrapped model.
-         * @param mapFunction maps the data from T to U.
-         */
-        constructor(sourceModel: Model<T>, mapFunction: (data: T) => U) {
-            super(sourceModel.modelNotify);
-            this.sourceModel = sourceModel;
-            this.#mapFunction = mapFunction;
-        }
-
-        /**
-         * Returns the number of entries in the model.
-         */
-        rowCount(): number {
-            return this.sourceModel.rowCount();
-        }
-
-        /**
-         * Returns the data at the specified row.
-         * @param row index in range 0..(rowCount() - 1).
-         * @returns undefined if row is out of range otherwise the data.
-         */
-        rowData(row: number): U | undefined {
-            const data = this.sourceModel.rowData(row);
-            if (data === undefined) {
-                return undefined;
-            }
-            return this.#mapFunction(data);
-        }
-    }
-}
-
-/**
- * Initialize translations.
- *
- * Call this with the path where translations are located. This function internally calls the [bindtextdomain](https://man7.org/linux/man-pages/man3/bindtextdomain.3.html) function from gettext.
- *
- * Translations are expected to be found at <path>/<locale>/LC_MESSAGES/<domain>.mo, where path is the directory passed as an argument to this function, locale is a locale name (e.g., en, en_GB, fr), and domain is the package name.
- *
- * @param domain defines the domain name e.g. name of the package.
- * @param path specifies the directory as `string` or as `URL` in which gettext should search for translations.
- *
- * For example, assuming this is in a package called example and the default locale is configured to be French, it will load translations at runtime from ``/path/to/example/translations/fr/LC_MESSAGES/example.mo`.
- *
- * ```js
- * import * as slint from "slint-ui";
- * slint.initTranslations("example", new URL("translations/", import.meta.url));
- * ````
- */
-export function initTranslations(domain: string, path: string | URL) {
-    const pathname = path instanceof URL ? fileURLToPath(path) : path;
-    napi.initTranslations(domain, pathname);
-}
-
-/**
- * Sets the application id for use on Wayland or X11 with [xdg](https://specifications.freedesktop.org/desktop-entry-spec/latest/)
- * compliant window managers. This must be set before the window is shown.
- */
-export function setXdgAppId(app_id: string) {
-    napi.setXdgAppId(app_id);
-}
-
-/**
- * @hidden
- */
-export namespace private_api {
     export import mock_elapsed_time = napi.mockElapsedTime;
     export import get_mocked_time = napi.getMockedTime;
     export import ComponentCompiler = napi.ComponentCompiler;
@@ -1037,18 +501,18 @@ export namespace private_api {
         x: number,
         y: number,
     ) {
-        component.component_instance.sendMouseClick(x, y);
+        (component.component_instance as napi.ComponentInstance).sendMouseClick(x, y);
     }
 
     export function send_keyboard_string_sequence(
         component: Component,
         s: string,
     ) {
-        component.component_instance.sendKeyboardStringSequence(s);
+        (component.component_instance as napi.ComponentInstance).sendKeyboardStringSequence(s);
     }
 
     export function send_key_combo(component: Component, keys: string[]) {
-        component.component_instance.sendKeyCombo(keys);
+        (component.component_instance as napi.ComponentInstance).sendKeyCombo(keys);
     }
 
     export import initTesting = napi.initTesting;

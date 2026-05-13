@@ -9,21 +9,30 @@ use std::path::Path;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
-use slint_interpreter::ComponentHandle;
+use slint_interpreter::{ComponentHandle, Value, ValueType};
+
+mod value_conversion;
+use value_conversion::{js_to_value, value_to_js};
 
 #[wasm_bindgen]
 #[allow(dead_code)]
 pub struct CompilationResult {
-    component: Option<WrappedCompiledComp>,
+    #[wasm_bindgen(skip)]
+    pub definitions: Vec<WrappedDefinition>,
     diagnostics: js_sys::Array,
     error_string: String,
+    #[wasm_bindgen(skip)]
+    pub structs: JsValue,
+    #[wasm_bindgen(skip)]
+    pub enums: JsValue,
 }
 
 #[wasm_bindgen]
 impl CompilationResult {
     #[wasm_bindgen(getter)]
     pub fn component(&self) -> Option<WrappedCompiledComp> {
-        self.component.clone()
+        // Back-compat: return the first definition as a WrappedCompiledComp
+        self.definitions.first().map(|d| WrappedCompiledComp(d.0.clone()))
     }
     #[wasm_bindgen(getter)]
     pub fn diagnostics(&self) -> js_sys::Array {
@@ -32,6 +41,27 @@ impl CompilationResult {
     #[wasm_bindgen(getter)]
     pub fn error_string(&self) -> String {
         self.error_string.clone()
+    }
+    /// Returns an object mapping component names to WrappedDefinition instances.
+    #[wasm_bindgen(getter, js_name = "definitions")]
+    pub fn get_definitions(&self) -> JsValue {
+        let obj = js_sys::Object::new();
+        for def in &self.definitions {
+            let name = JsValue::from_str(def.0.name());
+            js_sys::Reflect::set(&obj, &name, &JsValue::from(def.clone()))
+                .unwrap_throw();
+        }
+        obj.into()
+    }
+    /// Returns an object mapping struct names to default-value objects.
+    #[wasm_bindgen(getter, js_name = "structs")]
+    pub fn get_structs(&self) -> JsValue {
+        self.structs.clone()
+    }
+    /// Returns an object mapping enum names to enum-value objects.
+    #[wasm_bindgen(getter, js_name = "enums")]
+    pub fn get_enums(&self) -> JsValue {
+        self.enums.clone()
     }
 }
 
@@ -50,6 +80,98 @@ extern "C" {
     pub type CurrentElementInformationCallbackFunction;
     #[wasm_bindgen(typescript_type = "Promise<WrappedInstance>")]
     pub type InstancePromise;
+}
+
+fn build_diagnostics(
+    compiler: &slint_interpreter::CompilationResult,
+) -> (js_sys::Array, String) {
+    let line_key = JsValue::from_str("lineNumber");
+    let column_key = JsValue::from_str("columnNumber");
+    let message_key = JsValue::from_str("message");
+    let file_key = JsValue::from_str("fileName");
+    let level_key = JsValue::from_str("level");
+    let mut error_as_string = String::new();
+    let array = js_sys::Array::new();
+    for d in compiler.diagnostics() {
+        let filename =
+            d.source_file().as_ref().map_or(String::new(), |sf| sf.to_string_lossy().into());
+
+        let filename_js = JsValue::from_str(&filename);
+        let (line, column) = d.line_column();
+
+        if d.level() == slint_interpreter::DiagnosticLevel::Error {
+            if !error_as_string.is_empty() {
+                error_as_string.push_str("\n");
+            }
+            use std::fmt::Write;
+
+            write!(&mut error_as_string, "{}:{}:{}", filename, line, d).unwrap();
+        }
+
+        let error_obj = js_sys::Object::new();
+        js_sys::Reflect::set(&error_obj, &message_key, &JsValue::from_str(&d.message())).unwrap_throw();
+        js_sys::Reflect::set(&error_obj, &line_key, &JsValue::from_f64(line as f64)).unwrap_throw();
+        js_sys::Reflect::set(&error_obj, &column_key, &JsValue::from_f64(column as f64)).unwrap_throw();
+        js_sys::Reflect::set(&error_obj, &file_key, &filename_js).unwrap_throw();
+        js_sys::Reflect::set(&error_obj, &level_key, &JsValue::from_f64(d.level() as i8 as f64)).unwrap_throw();
+        array.push(&error_obj);
+    }
+    (array, error_as_string)
+}
+
+fn extract_structs_and_enums(
+    compiler: &slint_interpreter::CompilationResult,
+) -> (JsValue, JsValue) {
+    use i_slint_compiler::langtype::Type;
+
+    let structs_obj = js_sys::Object::new();
+    let enums_obj = js_sys::Object::new();
+
+    for ty in compiler.structs_and_enums(i_slint_core::InternalToken {}) {
+        match ty {
+            Type::Struct(s) => {
+                if let Some(name) = s.name.slint_name() {
+                    let default_obj = js_sys::Object::new();
+                    for (field_name, field_type) in &s.fields {
+                        let default_val =
+                            slint_interpreter::default_value_for_type(field_type);
+                        js_sys::Reflect::set(
+                            &default_obj,
+                            &JsValue::from_str(field_name),
+                            &value_to_js(&default_val),
+                        )
+                        .unwrap_throw();
+                    }
+                    js_sys::Reflect::set(
+                        &structs_obj,
+                        &JsValue::from_str(&name),
+                        &default_obj,
+                    )
+                    .unwrap_throw();
+                }
+            }
+            Type::Enumeration(en) => {
+                let enum_obj = js_sys::Object::new();
+                for v in en.values.iter() {
+                    let js_name = v.replace("-", "_");
+                    js_sys::Reflect::set(
+                        &enum_obj,
+                        &JsValue::from_str(&js_name),
+                        &JsValue::from_str(&js_name),
+                    )
+                    .unwrap_throw();
+                }
+                js_sys::Reflect::set(
+                    &enums_obj,
+                    &JsValue::from_str(en.name.as_str()),
+                    &enum_obj,
+                )
+                .unwrap_throw();
+            }
+            _ => {}
+        }
+    }
+    (structs_obj.into(), enums_obj.into())
 }
 
 /// Compile the content of a string.
@@ -72,8 +194,7 @@ pub async fn compile_from_string_with_style(
     style: String,
     optional_import_callback: Option<ImportCallbackFunction>,
 ) -> Result<CompilationResult, JsValue> {
-    #[allow(deprecated)]
-    let mut compiler = slint_interpreter::ComponentCompiler::default();
+    let mut compiler = slint_interpreter::Compiler::default();
     if !style.is_empty() {
         compiler.set_style(style)
     }
@@ -102,44 +223,22 @@ pub async fn compile_from_string_with_style(
         compiler.set_file_loader(open_import_callback);
     }
 
-    let c = compiler.build_from_source(source, base_url.into()).await;
+    let result = compiler.build_from_source(source, base_url.into()).await;
 
-    let line_key = JsValue::from_str("lineNumber");
-    let column_key = JsValue::from_str("columnNumber");
-    let message_key = JsValue::from_str("message");
-    let file_key = JsValue::from_str("fileName");
-    let level_key = JsValue::from_str("level");
-    let mut error_as_string = String::new();
-    let array = js_sys::Array::new();
-    for d in compiler.diagnostics().into_iter() {
-        let filename =
-            d.source_file().as_ref().map_or(String::new(), |sf| sf.to_string_lossy().into());
+    let (diagnostics, error_as_string) = build_diagnostics(&result);
+    let (structs, enums) = extract_structs_and_enums(&result);
 
-        let filename_js = JsValue::from_str(&filename);
-        let (line, column) = d.line_column();
-
-        if d.level() == slint_interpreter::DiagnosticLevel::Error {
-            if !error_as_string.is_empty() {
-                error_as_string.push_str("\n");
-            }
-            use std::fmt::Write;
-
-            write!(&mut error_as_string, "{}:{}:{}", filename, line, d).unwrap();
-        }
-
-        let error_obj = js_sys::Object::new();
-        js_sys::Reflect::set(&error_obj, &message_key, &JsValue::from_str(&d.message()))?;
-        js_sys::Reflect::set(&error_obj, &line_key, &JsValue::from_f64(line as f64))?;
-        js_sys::Reflect::set(&error_obj, &column_key, &JsValue::from_f64(column as f64))?;
-        js_sys::Reflect::set(&error_obj, &file_key, &filename_js)?;
-        js_sys::Reflect::set(&error_obj, &level_key, &JsValue::from_f64(d.level() as i8 as f64))?;
-        array.push(&error_obj);
-    }
+    let definitions: Vec<WrappedDefinition> = result
+        .components()
+        .map(WrappedDefinition)
+        .collect();
 
     Ok(CompilationResult {
-        component: c.map(|c| WrappedCompiledComp(c)),
-        diagnostics: array,
+        definitions,
+        diagnostics,
         error_string: error_as_string,
+        structs,
+        enums,
     })
 }
 
@@ -230,6 +329,113 @@ impl WrappedCompiledComp {
     }
 }
 
+// --- WrappedDefinition: exposes component definition metadata ---
+
+#[wasm_bindgen]
+#[derive(Clone)]
+pub struct WrappedDefinition(slint_interpreter::ComponentDefinition);
+
+fn property_info_to_js(name: &str, vt: ValueType) -> JsValue {
+    let obj = js_sys::Object::new();
+    js_sys::Reflect::set(&obj, &"name".into(), &JsValue::from_str(name)).unwrap_throw();
+    js_sys::Reflect::set(&obj, &"valueType".into(), &JsValue::from_f64(vt as u8 as f64))
+        .unwrap_throw();
+    obj.into()
+}
+
+#[wasm_bindgen]
+impl WrappedDefinition {
+    /// The name of this component.
+    #[wasm_bindgen(getter)]
+    pub fn name(&self) -> String {
+        self.0.name().into()
+    }
+
+    /// Whether this component creates a window.
+    #[wasm_bindgen(getter, js_name = "isWindow")]
+    pub fn is_window(&self) -> bool {
+        self.0.is_window()
+    }
+
+    /// Returns an array of `{ name, valueType }` objects for each public property.
+    #[wasm_bindgen(getter)]
+    pub fn properties(&self) -> js_sys::Array {
+        let arr = js_sys::Array::new();
+        for (name, vt) in self.0.properties() {
+            arr.push(&property_info_to_js(&name, vt));
+        }
+        arr
+    }
+
+    /// Returns an array of callback names.
+    #[wasm_bindgen(getter)]
+    pub fn callbacks(&self) -> js_sys::Array {
+        self.0.callbacks().map(|s| JsValue::from_str(&s)).collect()
+    }
+
+    /// Returns an array of function names.
+    #[wasm_bindgen(getter)]
+    pub fn functions(&self) -> js_sys::Array {
+        self.0.functions().map(|s| JsValue::from_str(&s)).collect()
+    }
+
+    /// Returns an array of exported global singleton names.
+    #[wasm_bindgen(getter)]
+    pub fn globals(&self) -> js_sys::Array {
+        self.0.globals().map(|s| JsValue::from_str(&s)).collect()
+    }
+
+    /// Returns an array of property info objects for a global, or null.
+    #[wasm_bindgen(js_name = "globalProperties")]
+    pub fn global_properties(&self, global_name: &str) -> JsValue {
+        match self.0.global_properties(global_name) {
+            Some(props) => {
+                let arr = js_sys::Array::new();
+                for (name, vt) in props {
+                    arr.push(&property_info_to_js(&name, vt));
+                }
+                arr.into()
+            }
+            None => JsValue::NULL,
+        }
+    }
+
+    /// Returns an array of callback names for a global, or null.
+    #[wasm_bindgen(js_name = "globalCallbacks")]
+    pub fn global_callbacks(&self, global_name: &str) -> JsValue {
+        match self.0.global_callbacks(global_name) {
+            Some(cbs) => cbs.map(|s| JsValue::from_str(&s)).collect::<js_sys::Array>().into(),
+            None => JsValue::NULL,
+        }
+    }
+
+    /// Returns an array of function names for a global, or null.
+    #[wasm_bindgen(js_name = "globalFunctions")]
+    pub fn global_functions(&self, global_name: &str) -> JsValue {
+        match self.0.global_functions(global_name) {
+            Some(fns) => fns.map(|s| JsValue::from_str(&s)).collect::<js_sys::Array>().into(),
+            None => JsValue::NULL,
+        }
+    }
+
+    /// Creates a new instance of this component.
+    /// If a canvas_id is provided, the component is rendered into that canvas.
+    #[wasm_bindgen]
+    pub fn create(&self, canvas_id: Option<String>) -> Result<WrappedInstance, JsValue> {
+        if let Some(id) = canvas_id {
+            NEXT_CANVAS_ID.with(|next_id| {
+                *next_id.borrow_mut() = Some(id);
+            });
+        }
+        self.0
+            .create()
+            .map(WrappedInstance)
+            .map_err(|e| JsValue::from_str(&format!("{e}")))
+    }
+}
+
+// --- WrappedInstance: property/callback access ---
+
 #[wasm_bindgen]
 pub struct WrappedInstance(slint_interpreter::ComponentInstance);
 
@@ -254,6 +460,135 @@ impl WrappedInstance {
     #[wasm_bindgen]
     pub fn hide(&self) -> Result<js_sys::Promise, JsValue> {
         self.invoke_from_event_loop_wrapped_in_promise(|instance| instance.hide())
+    }
+
+    /// Returns the component definition for this instance.
+    #[wasm_bindgen]
+    pub fn definition(&self) -> WrappedDefinition {
+        WrappedDefinition(self.0.definition())
+    }
+
+    /// Gets a property value by name.
+    #[wasm_bindgen(js_name = "getProperty")]
+    pub fn get_property(&self, name: &str) -> Result<JsValue, JsValue> {
+        self.0
+            .get_property(name)
+            .map(|v| value_to_js(&v))
+            .map_err(|e| JsValue::from_str(&format!("{e:?}")))
+    }
+
+    /// Sets a property value by name.
+    #[wasm_bindgen(js_name = "setProperty")]
+    pub fn set_property(&self, name: &str, value: JsValue) -> Result<(), JsValue> {
+        let ty = self
+            .0
+            .definition()
+            .properties()
+            .find(|(n, _)| n == name)
+            .map(|(_, t)| t);
+        let val = js_to_value(&value, ty.as_ref());
+        self.0
+            .set_property(name, val)
+            .map_err(|e| JsValue::from_str(&format!("{e:?}")))
+    }
+
+    /// Registers a callback handler.
+    #[wasm_bindgen(js_name = "setCallback")]
+    pub fn set_callback(&self, name: &str, callback: js_sys::Function) -> Result<(), JsValue> {
+        self.0
+            .set_callback(name, move |args| {
+                let js_args: js_sys::Array =
+                    args.iter().map(|v| value_to_js(v)).collect();
+                let result = callback
+                    .apply(&JsValue::UNDEFINED, &js_args)
+                    .unwrap_or(JsValue::UNDEFINED);
+                js_to_value(&result, None)
+            })
+            .map_err(|e| JsValue::from_str(&format!("{e:?}")))
+    }
+
+    /// Invokes a callback or function by name.
+    #[wasm_bindgen]
+    pub fn invoke(&self, name: &str, args: js_sys::Array) -> Result<JsValue, JsValue> {
+        let values: Vec<Value> = args.iter().map(|a| js_to_value(&a, None)).collect();
+        self.0
+            .invoke(name, &values)
+            .map(|v| value_to_js(&v))
+            .map_err(|e| JsValue::from_str(&format!("{e:?}")))
+    }
+
+    /// Gets a global property value.
+    #[wasm_bindgen(js_name = "getGlobalProperty")]
+    pub fn get_global_property(
+        &self,
+        global_name: &str,
+        name: &str,
+    ) -> Result<JsValue, JsValue> {
+        self.0
+            .get_global_property(global_name, name)
+            .map(|v| value_to_js(&v))
+            .map_err(|e| JsValue::from_str(&format!("{e:?}")))
+    }
+
+    /// Sets a global property value.
+    #[wasm_bindgen(js_name = "setGlobalProperty")]
+    pub fn set_global_property(
+        &self,
+        global_name: &str,
+        name: &str,
+        value: JsValue,
+    ) -> Result<(), JsValue> {
+        let ty = self
+            .0
+            .definition()
+            .global_properties(global_name)
+            .and_then(|mut props| props.find(|(n, _)| n == name).map(|(_, t)| t));
+        let val = js_to_value(&value, ty.as_ref());
+        self.0
+            .set_global_property(global_name, name, val)
+            .map_err(|e| JsValue::from_str(&format!("{e:?}")))
+    }
+
+    /// Registers a callback handler on a global.
+    #[wasm_bindgen(js_name = "setGlobalCallback")]
+    pub fn set_global_callback(
+        &self,
+        global_name: &str,
+        name: &str,
+        callback: js_sys::Function,
+    ) -> Result<(), JsValue> {
+        self.0
+            .set_global_callback(global_name, name, move |args| {
+                let js_args: js_sys::Array =
+                    args.iter().map(|v| value_to_js(v)).collect();
+                let result = callback
+                    .apply(&JsValue::UNDEFINED, &js_args)
+                    .unwrap_or(JsValue::UNDEFINED);
+                js_to_value(&result, None)
+            })
+            .map_err(|e| JsValue::from_str(&format!("{e:?}")))
+    }
+
+    /// Invokes a global callback or function by name.
+    #[wasm_bindgen(js_name = "invokeGlobal")]
+    pub fn invoke_global(
+        &self,
+        global_name: &str,
+        name: &str,
+        args: js_sys::Array,
+    ) -> Result<JsValue, JsValue> {
+        let values: Vec<Value> = args.iter().map(|a| js_to_value(&a, None)).collect();
+        self.0
+            .invoke_global(global_name, name, &values)
+            .map(|v| value_to_js(&v))
+            .map_err(|e| JsValue::from_str(&format!("{e:?}")))
+    }
+
+    /// Returns the window handle (not useful in WASM, included for API parity).
+    #[wasm_bindgen]
+    pub fn window(&self) -> JsValue {
+        // Window management is canvas-based in WASM; return null for API parity.
+        JsValue::NULL
     }
 
     fn invoke_from_event_loop_wrapped_in_promise(

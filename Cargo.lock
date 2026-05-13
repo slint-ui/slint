@@ -10895,6 +10895,7 @@ version = "1.17.0"
 dependencies = [
  "console_error_panic_hook",
  "i-slint-backend-winit",
+ "i-slint-compiler",
  "i-slint-core",
  "js-sys",
  "send_wrapper",
