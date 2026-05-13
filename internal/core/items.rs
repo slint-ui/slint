@@ -1897,7 +1897,7 @@ pub struct TooltipArea {
     pub hide: Callback<VoidArg>,
     pub cached_rendering_data: CachedRenderingData,
     popup_visible: Cell<bool>,
-    timer_generation: Cell<u32>,
+    timer: crate::timers::Timer,
 }
 
 impl Item for TooltipArea {
@@ -2015,9 +2015,6 @@ impl Item for TooltipArea {
 
 impl TooltipArea {
     fn schedule_show(self: Pin<&Self>, self_rc: &ItemRc) {
-        let generation = self.timer_generation.get().wrapping_add(1);
-        self.timer_generation.set(generation);
-
         let delay_ms = self.delay().max(0) as u64;
         if delay_ms == 0 {
             if self.has_hover() {
@@ -2028,11 +2025,11 @@ impl TooltipArea {
         }
 
         let self_weak = self_rc.downgrade();
-        crate::timers::Timer::single_shot(Duration::from_millis(delay_ms), move || {
+        self.timer.start(crate::timers::TimerMode::SingleShot, Duration::from_millis(delay_ms), move || {
             let Some(self_rc) = self_weak.upgrade() else { return };
             let Some(tooltip_area) = self_rc.downcast::<TooltipArea>() else { return };
             let tooltip_area = tooltip_area.as_pin_ref();
-            if tooltip_area.timer_generation.get() == generation && tooltip_area.has_hover() {
+            if tooltip_area.has_hover() {
                 tooltip_area.show.call(&());
                 tooltip_area.popup_visible.set(true);
             }
@@ -2040,7 +2037,7 @@ impl TooltipArea {
     }
 
     fn hide_now(self: Pin<&Self>) {
-        self.timer_generation.set(self.timer_generation.get().wrapping_add(1));
+        self.timer.stop();
         if self.popup_visible.replace(false) {
             self.hide.call(&());
         }
