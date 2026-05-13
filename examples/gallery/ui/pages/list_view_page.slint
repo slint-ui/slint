@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { HorizontalBox, VerticalBox, ListView, StandardListView, GroupBox, ComboBox } from "std-widgets.slint";
+import { Button, HorizontalBox, VerticalBox, ListView, StandardListView, GroupBox, ComboBox } from "std-widgets.slint";
 import { GallerySettings } from "../gallery_settings.slint";
 import { Page } from "page.slint";
 
@@ -72,20 +72,26 @@ export component ListViewPage inherits Page {
 
         GroupBox {
             title: @tr("StandardListView");
-            vertical-stretch: 0;
-
-            StandardListView {
-                vertical-scrollbar-policy: vertical-scrollbar-policy.current-policy;
-                horizontal-scrollbar-policy: horizontal-scrollbar-policy.current-policy;
-                model: [
-                    {text: @tr("Lorem")}, {text: @tr("ipsum")},{text: @tr("dolor")},{text: @tr("sit")},{text: @tr("amet")},{text: @tr("consetetur")},
-                    {text: @tr("Lorem")}, {text: @tr("ipsum")},{text: @tr("dolor")},{text: @tr("sit")},{text: @tr("amet")},{text: @tr("consetetur")},
-                    {text: @tr("Lorem")}, {text: @tr("ipsum")},{text: @tr("dolor")},{text: @tr("sit")},{text: @tr("amet")},{text: @tr("consetetur")},
-                    {text: @tr("Lorem")}, {text: @tr("ipsum")},{text: @tr("dolor")},{text: @tr("sit")},{text: @tr("amet")},{text: @tr("consetetur")},
-                    {text: @tr("Lorem")}, {text: @tr("ipsum")},{text: @tr("dolor")},{text: @tr("sit")},{text: @tr("amet")},{text: @tr("consetetur")},
-                    {text: @tr("Lorem")}, {text: @tr("ipsum")},{text: @tr("dolor")},{text: @tr("sit")},{text: @tr("amet")},{text: @tr("consetetur")},
-                    {text: @tr("Lorem")}, {text: @tr("ipsum")},{text: @tr("dolor")},{text: @tr("sit")},{text: @tr("amet")},{text: @tr("consetetur")},
-                ];
+            VerticalBox {
+                view :=StandardListView {
+                    vertical-scrollbar-policy: vertical-scrollbar-policy.current-policy;
+                    horizontal-scrollbar-policy: horizontal-scrollbar-policy.current-policy;
+                    model: [
+                        {text: @tr("Lorem")}, {text: @tr("ipsum")},{text: @tr("dolor")},{text: @tr("sit")},{text: @tr("amet")},{text: @tr("consetetur")},
+                        {text: @tr("Lorem")}, {text: @tr("ipsum")},{text: @tr("dolor")},{text: @tr("sit")},{text: @tr("amet")},{text: @tr("consetetur")},
+                        {text: @tr("Lorem")}, {text: @tr("ipsum")},{text: @tr("dolor")},{text: @tr("sit")},{text: @tr("amet")},{text: @tr("consetetur")},
+                        {text: @tr("Lorem")}, {text: @tr("ipsum")},{text: @tr("dolor")},{text: @tr("sit")},{text: @tr("amet")},{text: @tr("consetetur")},
+                        {text: @tr("Lorem")}, {text: @tr("ipsum")},{text: @tr("dolor")},{text: @tr("sit")},{text: @tr("amet")},{text: @tr("consetetur")},
+                        {text: @tr("Lorem")}, {text: @tr("ipsum")},{text: @tr("dolor")},{text: @tr("sit")},{text: @tr("amet")},{text: @tr("consetetur")},
+                        {text: @tr("Lorem")}, {text: @tr("ipsum")},{text: @tr("dolor")},{text: @tr("sit")},{text: @tr("amet")},{text: @tr("consetetur")},
+                    ];
+                }
+                Button {
+                    text: @tr("Append Item");
+                    clicked => {
+                        view.model += {text: @tr("New Item: {}", view.model.length)};
+                    }
+                }
             }
         }
     }

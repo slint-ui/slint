@@ -97,6 +97,10 @@ public:
 #endif
     };
 
+    /// Appends a new row to the model with the given data. Returns true if the operation succeeded.
+    // \ref resizable
+    virtual bool push_back(const ModelData &) { return false; };
+
     /// \private
     /// Internal function called by the view to register itself
     void attach_peer(private_api::ModelPeer p) { peers.push_back(std::move(p)); }
@@ -294,18 +298,19 @@ public:
         }
     }
 
-    /// Append a new row with the given value
-    void push_back(const ModelData &value)
-    {
-        data.push_back(value);
-        this->notify_row_added(data.size() - 1, 1);
-    }
-
     /// Remove the row at the given index from the model
     void erase(size_t index)
     {
         data.erase(data.begin() + index);
         this->notify_row_removed(index, 1);
+    }
+
+    /// Append a new row with the given value to the model
+    bool push_back(const ModelData &value) override
+    {
+        data.push_back(value);
+        this->notify_row_added(row_count() - 1, 1);
+        return true;
     }
 
     /// Inserts the given value as a new row at the specified index
@@ -1343,6 +1348,22 @@ public:
         return false;
     }
 };
+
+template<typename ModelData>
+bool model_push_back(std::shared_ptr<slint::Model<ModelData>> &lhs, const ModelData &rhs)
+{
+    if (lhs == nullptr) {
+        return false;
+    }
+
+    const auto result = lhs->push_back(rhs);
+#ifndef SLINT_FEATURE_FREESTANDING
+    if (!result) {
+        std::cerr << "Model does not support push_back: " << typeid(*lhs).name() << "\n";
+    }
+#endif
+    return result;
+}
 
 } // namespace private_api
 
