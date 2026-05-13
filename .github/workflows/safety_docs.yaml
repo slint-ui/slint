@@ -20,8 +20,14 @@ jobs:
               with:
                 node-version: 24
                 package-manager-cache: false
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: stable
             - name: "Install Node dependencies"
               run: pnpm i --frozen-lockfile
+            - name: "Generate SC API reference"
+              run: cargo run --release -p slint-doc-generator -- --sc generate-mdx
             - name: "Build Safety Manual"
               working-directory: docs/safety
               run: pnpm build

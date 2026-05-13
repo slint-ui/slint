@@ -15,7 +15,45 @@ use std::fmt::Write as FmtWrite;
 use std::fs::create_dir_all;
 use std::io::{BufWriter, Write};
 
+use crate::Config;
 use crate::mdx;
+
+// -- SC annotation --
+
+/// Find each standalone occurrence of `\sc` (not followed by an identifier
+/// character so we don't collide with hypothetical markers like `\scope`).
+fn find_sc_markers(doc: &str) -> impl Iterator<Item = (usize, usize)> + '_ {
+    doc.match_indices("\\sc").filter_map(|(start, _)| {
+        let end = start + 3;
+        match doc.as_bytes().get(end).copied() {
+            None => Some((start, end)),
+            Some(b) if !b.is_ascii_alphanumeric() && b != b'_' => Some((start, end)),
+            _ => None,
+        }
+    })
+}
+
+/// Whether a doc string carries the `\sc` marker, identifying content that's
+/// part of the Slint SC safety-certified surface.
+pub fn is_sc_covered(doc: &str) -> bool {
+    find_sc_markers(doc).next().is_some()
+}
+
+/// Remove every `\sc` marker from a doc string so it never leaks into rendered output.
+pub fn strip_sc(doc: &str) -> String {
+    let ranges: Vec<(usize, usize)> = find_sc_markers(doc).collect();
+    if ranges.is_empty() {
+        return doc.to_string();
+    }
+    let mut out = String::with_capacity(doc.len());
+    let mut cursor = 0;
+    for (s, e) in ranges {
+        out.push_str(&doc[cursor..s]);
+        cursor = e;
+    }
+    out.push_str(&doc[cursor..]);
+    out.trim_end().to_string()
+}
 
 // -- Annotation helpers --
 
@@ -82,11 +120,14 @@ fn is_screenshot_attr(key: &str) -> bool {
 struct ScreenshotCounter {
     element_slug: String,
     next: usize,
+    /// When set, strip screenshot fence attributes instead of wrapping with
+    /// `<CodeSnippetMD>`. Used by SC mode where no PNGs are generated.
+    skip_screenshots: bool,
 }
 
 impl ScreenshotCounter {
-    fn new(element_name: &str) -> Self {
-        Self { element_slug: mdx::to_kebab_case(element_name), next: 1 }
+    fn new(element_name: &str, skip_screenshots: bool) -> Self {
+        Self { element_slug: mdx::to_kebab_case(element_name), next: 1, skip_screenshots }
     }
 
     fn path_for(&self, n: usize) -> String {
@@ -148,8 +189,14 @@ fn parse_fence_attrs(info: &str) -> Vec<(String, String)> {
 ///
 /// A fence like `` ```slint imageAlt="example" width="200" height="200" ``
 /// becomes a `<CodeSnippetMD>` wrapper with an auto-generated `imagePath`.
+/// When `counter.skip_screenshots` is true, screenshot attributes are stripped
+/// instead and the fence is emitted as a plain ```slint``` block. Also strips
+/// the `\sc` marker so it never reaches the rendered output.
 #[allow(clippy::while_let_on_iterator)] // inner loop also advances `lines`
 fn transform_code_fences(text: &str, counter: &mut ScreenshotCounter) -> String {
+    let stripped = strip_sc(text);
+    let text = stripped.as_str();
+    let skip_screenshots = counter.skip_screenshots;
     let mut result = String::with_capacity(text.len());
     let mut lines = text.lines().peekable();
     while let Some(line) = lines.next() {
@@ -171,37 +218,39 @@ fn transform_code_fences(text: &str, counter: &mut ScreenshotCounter) -> String 
                     let get =
                         |key: &str| attrs.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str());
 
-                    let image_path = counter.next_path();
-
-                    // Build <CodeSnippetMD ...> opening tag.
-                    let mut tag = format!("<CodeSnippetMD imagePath=\"{image_path}\"");
-                    if let Some(alt) = get("imageAlt") {
-                        write!(tag, " imageAlt=\"{alt}\"").unwrap();
-                    }
-                    if let Some(w) = get("width") {
-                        write!(tag, " imageWidth=\"{w}\"").unwrap();
-                    }
-                    if let Some(h) = get("height") {
-                        write!(tag, " imageHeight=\"{h}\"").unwrap();
-                    }
-                    if get("needsBackground").is_some() {
-                        tag.push_str(" needsBackground=\"true\"");
-                    }
-                    if let Some(s) = get("scale") {
-                        write!(tag, " scale=\"{s}\"").unwrap();
-                    }
-                    tag.push('>');
-
-                    result.push_str(indent);
-                    result.push_str(&tag);
-                    result.push('\n');
-
                     // Keep non-screenshot attributes (e.g. `playground`) on the fence.
                     let fence_attrs: Vec<&str> = attrs
                         .iter()
                         .filter(|(k, _)| !is_screenshot_attr(k))
                         .map(|(k, _)| k.as_str())
                         .collect();
+
+                    if !skip_screenshots {
+                        let image_path = counter.next_path();
+
+                        // Build <CodeSnippetMD ...> opening tag.
+                        let mut tag = format!("<CodeSnippetMD imagePath=\"{image_path}\"");
+                        if let Some(alt) = get("imageAlt") {
+                            write!(tag, " imageAlt=\"{alt}\"").unwrap();
+                        }
+                        if let Some(w) = get("width") {
+                            write!(tag, " imageWidth=\"{w}\"").unwrap();
+                        }
+                        if let Some(h) = get("height") {
+                            write!(tag, " imageHeight=\"{h}\"").unwrap();
+                        }
+                        if get("needsBackground").is_some() {
+                            tag.push_str(" needsBackground=\"true\"");
+                        }
+                        if let Some(s) = get("scale") {
+                            write!(tag, " scale=\"{s}\"").unwrap();
+                        }
+                        tag.push('>');
+
+                        result.push_str(indent);
+                        result.push_str(&tag);
+                        result.push('\n');
+                    }
 
                     result.push_str(indent);
                     result.push_str(backticks);
@@ -223,8 +272,10 @@ fn transform_code_fences(text: &str, counter: &mut ScreenshotCounter) -> String 
                         }
                     }
 
-                    result.push_str(indent);
-                    result.push_str("</CodeSnippetMD>\n");
+                    if !skip_screenshots {
+                        result.push_str(indent);
+                        result.push_str("</CodeSnippetMD>\n");
+                    }
                     continue;
                 }
             }
@@ -550,6 +601,7 @@ fn write_members(
     enums: &HashSet<String>,
     structs: &HashSet<String>,
     sc: &mut ScreenshotCounter,
+    cfg: &Config,
 ) -> std::io::Result<()> {
     let start = if builtin.docs.is_empty() { 0 } else { 1 };
 
@@ -562,6 +614,13 @@ fn write_members(
     for entry in &builtin.docs[start..] {
         match entry {
             ElementDocEntry::Text(text) => {
+                // Free-form text sections aren't carrying a `\sc` marker —
+                // they belong to the surrounding element-level prose. Suppress
+                // them in SC mode so SC pages only show the explicitly covered
+                // members.
+                if cfg.sc_only {
+                    continue;
+                }
                 let trimmed = text.trim_matches('\n');
                 for line in trimmed.lines() {
                     if line.starts_with("## Properties") {
@@ -582,7 +641,8 @@ fn write_members(
             }
             ElementDocEntry::Member(name) => {
                 let Some(info) = builtin.properties.get(name.as_str()) else { continue };
-                if info.docs.is_none() {
+                let Some(doc) = info.docs.as_deref() else { continue };
+                if cfg.sc_only && !is_sc_covered(doc) {
                     continue;
                 }
                 write_member(
@@ -604,6 +664,7 @@ fn write_members(
 }
 
 /// Write a sub-element section. Recurse into the sub-element's own children.
+#[allow(clippy::too_many_arguments)]
 fn write_sub_element(
     file: &mut impl Write,
     child_name: &str,
@@ -612,11 +673,20 @@ fn write_sub_element(
     structs: &HashSet<String>,
     seen: &mut HashSet<String>,
     sc: &mut ScreenshotCounter,
+    cfg: &Config,
 ) -> std::io::Result<()> {
     if !seen.insert(child_name.to_string()) {
         return Ok(());
     }
     if !has_documentation(child) {
+        return Ok(());
+    }
+    if cfg.sc_only
+        && !child
+            .docs
+            .first()
+            .is_some_and(|e| matches!(e, ElementDocEntry::Text(t) if is_sc_covered(t)))
+    {
         return Ok(());
     }
 
@@ -640,7 +710,8 @@ fn write_sub_element(
         if let ElementDocEntry::Member(name) = entry
             && let Some(info) = child.properties.get(name.as_str())
         {
-            if info.docs.is_none() {
+            let Some(doc) = info.docs.as_deref() else { continue };
+            if cfg.sc_only && !is_sc_covered(doc) {
                 continue;
             }
             match &info.ty {
@@ -697,7 +768,7 @@ fn write_sub_element(
     // Recurse into grandchildren.
     if !skip_children {
         for (gc_name, gc) in &child.additional_accepted_child_types {
-            write_sub_element(file, gc_name, gc, enums, structs, seen, sc)?;
+            write_sub_element(file, gc_name, gc, enums, structs, seen, sc, cfg)?;
         }
     }
 
@@ -705,17 +776,18 @@ fn write_sub_element(
 }
 
 /// Generate .mdx page files for each exported builtin element.
-pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
+pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     let register = i_slint_compiler::typeregister::TypeRegister::builtin_experimental();
     let register = register.borrow();
-    let root_dir = crate::root_dir();
-    let generated_dir = root_dir.join("docs/astro/src/content/docs/reference/generated");
-    create_dir_all(&generated_dir)?;
+    let generated_dir = &cfg.generated_dir;
+    create_dir_all(generated_dir)?;
 
-    // Include all types for resolution, regardless of experimental flag.
-    let enum_names: HashSet<String> = mdx::extract_enum_docs(true).keys().cloned().collect();
+    // Include all types for resolution, regardless of experimental or SC flag,
+    // so property types still resolve their kind even when the target page
+    // isn't generated.
+    let enum_names: HashSet<String> = mdx::extract_enum_docs(true, false).keys().cloned().collect();
     let struct_names: HashSet<String> =
-        mdx::extract_builtin_structs(true).keys().cloned().collect();
+        mdx::extract_builtin_structs(true, false).keys().cloned().collect();
 
     // Collect exported elements.
     let mut elements = Vec::new();
@@ -741,6 +813,10 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
             _ => continue,
         };
         if description.is_empty() {
+            continue;
+        }
+
+        if cfg.sc_only && !is_sc_covered(&description) {
             continue;
         }
 
@@ -827,7 +903,7 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
         }
         writeln!(file)?;
 
-        let mut sc = ScreenshotCounter::new(name);
+        let mut sc = ScreenshotCounter::new(name, cfg.skip_screenshots);
 
         // Description.
         if !description.is_empty() {
@@ -836,7 +912,7 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // Members.
-        write_members(&mut file, builtin, &enum_names, &struct_names, &mut sc)?;
+        write_members(&mut file, builtin, &enum_names, &struct_names, &mut sc, cfg)?;
 
         // Sub-elements (recursive, with cycle protection).
         if !skip_children {
@@ -850,6 +926,7 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
                     &struct_names,
                     &mut seen_children,
                     &mut sc,
+                    cfg,
                 )?;
             }
         }

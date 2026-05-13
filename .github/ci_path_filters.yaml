@@ -71,6 +71,10 @@ material_components:
 safety_docs:
  - 'docs/safety/**'
  - 'docs/common/**'
+ - 'docs/slint-doc-generator/**'
+ - 'internal/compiler/builtins.slint'
+ - 'internal/common/enums.rs'
+ - 'internal/common/builtin_structs.rs'
  - *js_config
  - *ci_config
 
