@@ -6,7 +6,7 @@
 #   /docs/   /editor/   /material/   /safety/
 #
 # Runs as a workflow_run so it has access to repository secrets even for fork PRs.
-name: Preview Deployments
+name: Deploy Previews for PRs
 
 on:
     workflow_run:
@@ -65,32 +65,13 @@ jobs:
 
             # --- Download artifacts from the triggering CI run ---
 
-            - name: Download docs (Rust/C++) artifact
-              id: dl-docs-rust-cpp
+            - name: Download docs artifacts
+              id: dl-docs
               continue-on-error: true
               uses: actions/download-artifact@v8
               with:
-                name: docs-rust-cpp
-                path: artifacts/docs-parts
-                github-token: ${{ secrets.GITHUB_TOKEN }}
-                run-id: ${{ github.event.workflow_run.id }}
-
-            - name: Download docs (Astro) artifact
-              id: dl-docs-astro
-              continue-on-error: true
-              uses: actions/download-artifact@v8
-              with:
-                name: docs-astro
-                path: artifacts/docs-parts
-                github-token: ${{ secrets.GITHUB_TOKEN }}
-                run-id: ${{ github.event.workflow_run.id }}
-
-            - name: Download docs (Node/Python) artifact
-              id: dl-docs-node-python
-              continue-on-error: true
-              uses: actions/download-artifact@v8
-              with:
-                name: docs-node-python
+                pattern: docs-*
+                merge-multiple: true
                 path: artifacts/docs-parts
                 github-token: ${{ secrets.GITHUB_TOKEN }}
                 run-id: ${{ github.event.workflow_run.id }}
@@ -131,9 +112,7 @@ jobs:
               id: assemble
               env:
                 PR_NUMBER: ${{ steps.pr-info.outputs.pr_number }}
-                DL_DOCS_RUST_CPP: ${{ steps.dl-docs-rust-cpp.outcome }}
-                DL_DOCS_ASTRO: ${{ steps.dl-docs-astro.outcome }}
-                DL_DOCS_NODE_PYTHON: ${{ steps.dl-docs-node-python.outcome }}
+                DL_DOCS: ${{ steps.dl-docs.outcome }}
                 DL_SLINTPAD: ${{ steps.dl-slintpad.outcome }}
                 DL_MATERIAL: ${{ steps.dl-material.outcome }}
                 DL_SAFETY: ${{ steps.dl-safety.outcome }}
@@ -151,7 +130,7 @@ jobs:
                 LINKS=""
 
                 # Assemble docs from sub-artifacts into docs/
-                if [ "$DL_DOCS_ASTRO" = "success" ] || [ "$DL_DOCS_RUST_CPP" = "success" ] || [ "$DL_DOCS_NODE_PYTHON" = "success" ]; then
+                if [ "$DL_DOCS" = "success" ]; then
                   mkdir -p "$DIST/docs"
                   cp -R artifacts/docs-parts/docs/. "$DIST/docs/"
                   LINKS="$LINKS<li>Documentation: "
