@@ -40,6 +40,12 @@ pub fn lower_platform(component: &Rc<Component>, type_loader: &mut crate::typelo
             {
                 *function = BuiltinFunction::OpenUrl.into();
             }
+            Expression::FunctionCall { function, .. }
+                if matches!(&*function, Callable::Function(nr)
+                    if is_platform(nr) && nr.name() == "bring-all-to-front") =>
+            {
+                *function = BuiltinFunction::BringAllToFront.into();
+            }
             _ => {}
         })
     })

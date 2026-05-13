@@ -123,6 +123,7 @@ pub enum BuiltinFunction {
     StopTimer,
     RestartTimer,
     OpenUrl,
+    BringAllToFront,
     ParseMarkdown,
     StringToStyledText,
     DecimalSeparator,
@@ -305,6 +306,7 @@ declare_builtin_function_types!(
     ParseMarkdown: (Type::String, Type::Array(Type::StyledText.into())) -> Type::StyledText,
     StringToStyledText: (Type::String) -> Type::StyledText
     OpenUrl: (Type::String) -> Type::Bool,
+    BringAllToFront: () -> Type::Void,
 );
 
 impl Default for BuiltinFunctionTypes {
@@ -415,6 +417,7 @@ impl BuiltinFunction {
             BuiltinFunction::ParseMarkdown => false,
             BuiltinFunction::StringToStyledText => true,
             BuiltinFunction::OpenUrl => false,
+            BuiltinFunction::BringAllToFront => false,
         }
     }
 
@@ -501,6 +504,7 @@ impl BuiltinFunction {
             BuiltinFunction::ParseMarkdown => true,
             BuiltinFunction::StringToStyledText => true,
             BuiltinFunction::OpenUrl => false,
+            BuiltinFunction::BringAllToFront => false,
         }
     }
 }
