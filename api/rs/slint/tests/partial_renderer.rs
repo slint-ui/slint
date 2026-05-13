@@ -1268,6 +1268,16 @@ fn partial_rendering_popup_position_size_change() {
             height: 600px;
             background: red;
 
+            TouchArea {
+                property<bool> was-clicked: false;
+                clicked => {
+                    if !was-clicked {
+                        was-clicked = true;
+                        show_popup();
+                    }
+                }
+            }
+
             callback show_popup();
             show_popup() => {
                 popup.show();
@@ -1287,6 +1297,13 @@ fn partial_rendering_popup_position_size_change() {
                 y: MyProperty.popup-y;
                 width: MyProperty.popup-width;
                 height: MyProperty.popup-height;
+                close-policy: PopupClosePolicy.no-auto-close;
+
+                TouchArea {
+                    clicked => {
+                        change_popup();
+                    }
+                }
 
                 changed width => {
                     debug("Width changed");
@@ -1359,7 +1376,31 @@ fn partial_rendering_popup_position_size_change() {
     }
 
     ui.invoke_change_popup();
+    // The popup properties change trigger a tracker with a timer we have to process before the next draw.
+    // for i in 0..100 {
+    slint::platform::update_timers_and_animations();
+    // }
+
     assert!(window.draw_if_needed());
+
+    let dump_pixels = || {
+        for v_pixel in 0..WINDOW_HEIGHT {
+            for h_pixel in 0..WINDOW_WIDTH {
+                let pixel_idx = WINDOW_WIDTH * v_pixel + h_pixel;
+                let rgb = get_pixel_values(pixel_idx);
+                // print!("{r:02x}{g:02x}{b:02x} ", r = rgb.0, g = rgb.1, b = rgb.2);
+                if rgb.0 > 0 {
+                    print!("r");
+                } else if rgb.2 > 0 {
+                    print!("b");
+                } else {
+                    panic!("We have only blue and red")
+                }
+            }
+            print!("\n");
+        }
+    };
+
     {
         const POPUP_POS_X: usize = 10;
         const POPUP_POS_Y: usize = 20;
@@ -1373,12 +1414,15 @@ fn partial_rendering_popup_position_size_change() {
                     && v_pixel < POPUP_POS_Y + POPUP_HEIGHT - 1
                 {
                     let rgb = get_pixel_values(pixel_idx);
-                    assert_eq!(rgb, RGB_COLOR_POPUP, "Wrong color at pixel ({h_pixel}, {v_pixel})");
+                    assert_eq!(
+                        rgb, RGB_COLOR_POPUP,
+                        "Wrong color at pixel ({h_pixel}, {v_pixel}). Expected popup color."
+                    );
                 } else {
                     let rgb = get_pixel_values(pixel_idx);
                     assert_eq!(
                         rgb, RGB_COLOR_WINDOW,
-                        "Wrong color at pixel ({h_pixel}, {v_pixel})"
+                        "Wrong color at pixel ({h_pixel}, {v_pixel}). Expected window color"
                     );
                 }
             }

@@ -595,7 +595,8 @@ impl ItemRc {
             let window_inner = crate::window::WindowInner::from_pub(window_adapter.window());
             let active_popups = window_inner.active_popups();
             for popup in active_popups.iter() {
-                if let crate::window::PopupWindowLocation::ChildWindow(location) = &popup.location {
+                if let crate::window::PopupWindowLocation::ChildWindow(_) = &popup.location {
+                    let location = (popup.position_access)().to_euclid();
                     let popup_item = ItemRc::new_root(popup.component.clone());
 
                     // Check if component is in a popup
