@@ -1,11 +1,12 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     esp_println::println!("Panic: {:?}", info);
     loop {}
 }
-
-// Copyright © SixtyFPS GmbH <info@slint.dev>
-// SPDX-License-Identifier: MIT
+esp_bootloader_esp_idf::esp_app_desc!();
 
 use alloc::boxed::Box;
 use alloc::rc::Rc;

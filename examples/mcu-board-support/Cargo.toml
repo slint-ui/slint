@@ -109,6 +109,7 @@ esp32-s3-box-3 = [
   "embedded-graphics-core",
   "slint/libm",
   "gt911",
+  "esp-bootloader-esp-idf/esp32s3",
 ]
 esp32-s3-lcd-ev-board = [
   "slint/unsafe-single-threaded",
