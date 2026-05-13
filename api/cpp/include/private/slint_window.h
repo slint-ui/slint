@@ -176,9 +176,9 @@ public:
         auto position_data = new PopupPositionData { std::move(pos), popup };
         auto id = cbindgen_private::slint_windowrc_show_popup(
                 &inner, &popup_dyn,
-                [](void *user_data, LogicalPosition& pos) {
+                [](void *user_data, LogicalPosition *pos) {
                     auto data = reinterpret_cast<PopupPositionData *>(user_data);
-                    pos = data->pos(data->popup_component);
+                    *pos = data->pos(data->popup_component);
                 },
                 [](void *user_data) { delete reinterpret_cast<PopupPositionData *>(user_data); },
                 position_data, close_policy, &parent_item, is_tooltip, false);
@@ -226,7 +226,9 @@ public:
         auto position_data = new LogicalPosition(pos);
         auto id = cbindgen_private::slint_windowrc_show_popup(
                 &inner, &popup_dyn,
-                [](void *user_data) { return *reinterpret_cast<LogicalPosition *>(user_data); },
+                [](void *user_data, LogicalPosition *pos) {
+                    *pos = *reinterpret_cast<LogicalPosition *>(user_data);
+                },
                 [](void *user_data) { delete reinterpret_cast<LogicalPosition *>(user_data); },
                 position_data, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
                 &context_menu_rc, false, true);
