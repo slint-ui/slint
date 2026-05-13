@@ -443,7 +443,8 @@ pub struct PopupWindow {
     is_menu: bool,
     /// Callback that returns the current desired logical position of the popup.
     /// Called during re-evaluation of the position tracker to re-subscribe to dependencies.
-    pub position_access: Box<dyn Fn() -> LogicalPosition>,
+    /// IMPORTANT: This position is relative to the parent
+    position_access: Box<dyn Fn() -> LogicalPosition>,
     // tracks all relevant properties and reacts on changes
     properties_tracker: Pin<Box<PropertyTracker<true, PopupWindowPropertiesTracker>>>,
 }
