@@ -6,13 +6,14 @@
 
 import builtins
 import datetime
+import gettext
 import os
 import pathlib
 import typing
-from typing import Any, List
-from collections.abc import Callable, Buffer, Coroutine
+from collections.abc import Buffer, Callable, Coroutine
 from enum import Enum, auto
-import gettext
+from typing import Any, List
+
 from . import language as language
 
 class RgbColor:
@@ -95,7 +96,10 @@ class StyledText:
     @staticmethod
     def from_markdown(markdown: str) -> "StyledText":
         r"""
-        Parses markdown.
+        Parses markdown and returns a StyledText object.
+
+        Raises:
+            ValueError: If the markdown contains unsupported syntax.
         """
         ...
 
