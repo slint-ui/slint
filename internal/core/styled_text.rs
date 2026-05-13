@@ -166,6 +166,22 @@ pub fn parse_markdown(_format_string: &str, _args: &[StyledText]) -> StyledText 
     Default::default()
 }
 
+pub fn color_to_styled_text(_color: crate::Color) -> StyledText {
+    #[cfg(feature = "std")]
+    {
+        let hex = alloc::format!(
+            "#{:02x}{:02x}{:02x}{:02x}",
+            _color.red(),
+            _color.green(),
+            _color.blue(),
+            _color.alpha()
+        );
+        StyledText::from_plain_text(&hex)
+    }
+    #[cfg(not(feature = "std"))]
+    Default::default()
+}
+
 pub fn string_to_styled_text(_string: alloc::string::String) -> StyledText {
     #[cfg(feature = "std")]
     {

@@ -351,6 +351,13 @@ inline StyledText string_to_styled_text(const SharedString &text)
     return result;
 }
 
+inline StyledText color_to_styled_text(const Color &color)
+{
+    StyledText result;
+    cbindgen_private::slint_color_to_styled_text(&color, &result);
+    return result;
+}
+
 inline bool open_url(const SharedString &url, const WindowAdapterRc &window_adapter)
 {
     return cbindgen_private::slint_open_url(&url, &window_adapter.handle());

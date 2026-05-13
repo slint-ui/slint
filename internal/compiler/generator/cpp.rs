@@ -4940,6 +4940,10 @@ fn compile_builtin_function_call(
             let string = a.next().unwrap();
             format!("slint::private_api::string_to_styled_text({})", string)
         }
+        BuiltinFunction::ColorToStyledText => {
+            let color = a.next().unwrap();
+            format!("slint::private_api::color_to_styled_text({})", color)
+        }
     }
 }
 
