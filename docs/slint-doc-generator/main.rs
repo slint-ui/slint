@@ -22,7 +22,7 @@ struct Cli {
     /// Only items annotated with `\sc` are included, and screenshot code-fence
     /// attributes are stripped.
     #[arg(long, action)]
-    sc: bool,
+    slint_sc: bool,
 
     #[command(subcommand)]
     command: Option<Command>,
@@ -94,7 +94,7 @@ fn build_astro(include_experimental: bool) -> Result<(), Box<dyn std::error::Err
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::parse();
     let experimental = args.experimental;
-    let cfg = if args.sc {
+    let cfg = if args.slint_sc {
         Config::safety_manual(experimental)
     } else {
         Config::slint_docs(experimental)

@@ -23,7 +23,7 @@ pnpm install   # install dependencies
 
 # Regenerate the SC-filtered API reference (run from the repo root).
 # Required before `pnpm build` if you've changed builtins or generator code.
-cargo run -p slint-doc-generator -- --sc generate-mdx
+cargo run -p slint-doc-generator -- --slint-sc generate-mdx
 
 pnpm dev       # start dev server
 pnpm build     # type-check and build for production
