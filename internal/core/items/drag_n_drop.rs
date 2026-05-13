@@ -10,7 +10,7 @@ use crate::data_transfer::DataTransfer;
 use crate::graphics::Image;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
-    KeyEventResult, MouseEvent,
+    KeyEventResult, KeyboardModifiers, MouseEvent,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
 use crate::layout::{LayoutInfo, Orientation};
@@ -397,6 +397,44 @@ impl ItemConsts for DropArea {
     > = DropArea::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
 }
 
+/// Compute the action proposed by the user's current modifier state, clamped to the source's
+/// allowed actions. Ctrl alone → copy, Shift alone → move, Ctrl+Shift → link, no modifier →
+/// `preferred` with deterministic fallback to the first allowed of move/copy/link.
+pub(crate) fn compute_proposed_action(
+    modifiers: KeyboardModifiers,
+    allow_copy: bool,
+    allow_move: bool,
+    allow_link: bool,
+    preferred: DragAction,
+) -> DragAction {
+    let allowed = |a| match a {
+        DragAction::Copy => allow_copy,
+        DragAction::Move => allow_move,
+        DragAction::Link => allow_link,
+        DragAction::None => false,
+    };
+    let modifier_request = match (modifiers.control, modifiers.shift) {
+        (true, true) => Some(DragAction::Link),
+        (true, false) => Some(DragAction::Copy),
+        (false, true) => Some(DragAction::Move),
+        (false, false) => None,
+    };
+    if let Some(req) = modifier_request
+        && allowed(req)
+    {
+        return req;
+    }
+    if allowed(preferred) {
+        return preferred;
+    }
+    for fallback in [DragAction::Move, DragAction::Copy, DragAction::Link] {
+        if allowed(fallback) {
+            return fallback;
+        }
+    }
+    DragAction::None
+}
+
 /// Clamp a `can-drop` return value against the source's allowed actions on the DropEvent.
 /// A concrete action the source did not allow becomes `None`.
 pub(crate) fn clamp_action_to_allowed(action: DragAction, event: &DropEvent) -> DragAction {
@@ -416,5 +454,58 @@ pub(crate) fn cursor_for_action(action: DragAction) -> MouseCursor {
         DragAction::Copy => MouseCursor::Copy,
         DragAction::Link => MouseCursor::Alias,
         DragAction::None => MouseCursor::NoDrop,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn modifiers(control: bool, shift: bool) -> KeyboardModifiers {
+        KeyboardModifiers { control, shift, alt: false, meta: false }
+    }
+
+    #[test]
+    fn compute_proposed_action_modifier_table() {
+        let preferred = DragAction::Copy;
+        // All actions allowed.
+        let a = |m| compute_proposed_action(m, true, true, true, preferred);
+        assert_eq!(a(modifiers(false, false)), DragAction::Copy);
+        assert_eq!(a(modifiers(true, false)), DragAction::Copy);
+        assert_eq!(a(modifiers(false, true)), DragAction::Move);
+        assert_eq!(a(modifiers(true, true)), DragAction::Link);
+    }
+
+    #[test]
+    fn compute_proposed_action_falls_back_when_modifier_action_not_allowed() {
+        // Source only allows move; user holds Ctrl (asking for copy).
+        assert_eq!(
+            compute_proposed_action(modifiers(true, false), false, true, false, DragAction::Move),
+            DragAction::Move
+        );
+        // User holds Ctrl+Shift asking for link, only copy allowed; preferred copy.
+        assert_eq!(
+            compute_proposed_action(modifiers(true, true), true, false, false, DragAction::Copy),
+            DragAction::Copy
+        );
+    }
+
+    #[test]
+    fn compute_proposed_action_preferred_clamped_to_allowed_set() {
+        // Preferred is move but only copy is allowed; no modifiers — should fall back to copy.
+        assert_eq!(
+            compute_proposed_action(modifiers(false, false), true, false, false, DragAction::Move),
+            DragAction::Copy
+        );
+        // Preferred None — same behavior, picks first allowed.
+        assert_eq!(
+            compute_proposed_action(modifiers(false, false), false, false, true, DragAction::None),
+            DragAction::Link
+        );
+        // Nothing allowed at all.
+        assert_eq!(
+            compute_proposed_action(modifiers(false, false), false, false, false, DragAction::Copy),
+            DragAction::None
+        );
     }
 }
