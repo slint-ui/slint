@@ -1343,6 +1343,25 @@ fn partial_rendering_popup_position_size_change() {
         (data[offset], data[offset + 1], data[offset + 2])
     };
 
+    // For debugging. Dump pixels
+    let dump_pixels = || {
+        for v_pixel in 0..WINDOW_HEIGHT {
+            for h_pixel in 0..WINDOW_WIDTH {
+                let pixel_idx = WINDOW_WIDTH * v_pixel + h_pixel;
+                let rgb = get_pixel_values(pixel_idx);
+                // print!("{r:02x}{g:02x}{b:02x} ", r = rgb.0, g = rgb.1, b = rgb.2);
+                if rgb.0 > 0 {
+                    print!("r");
+                } else if rgb.2 > 0 {
+                    print!("b");
+                } else {
+                    print!("g")
+                }
+            }
+            print!("\n");
+        }
+    };
+
     {
         let pixels = window.render_buffer.pixels.borrow();
         let buf = pixels.as_ref().expect("render buffer should contain pixels");
@@ -1377,41 +1396,24 @@ fn partial_rendering_popup_position_size_change() {
 
     ui.invoke_change_popup();
     // The popup properties change trigger a tracker with a timer we have to process before the next draw.
-    // for i in 0..100 {
     slint::platform::update_timers_and_animations();
-    // }
 
     assert!(window.draw_if_needed());
 
-    let dump_pixels = || {
-        for v_pixel in 0..WINDOW_HEIGHT {
-            for h_pixel in 0..WINDOW_WIDTH {
-                let pixel_idx = WINDOW_WIDTH * v_pixel + h_pixel;
-                let rgb = get_pixel_values(pixel_idx);
-                // print!("{r:02x}{g:02x}{b:02x} ", r = rgb.0, g = rgb.1, b = rgb.2);
-                if rgb.0 > 0 {
-                    print!("r");
-                } else if rgb.2 > 0 {
-                    print!("b");
-                } else {
-                    panic!("We have only blue and red")
-                }
-            }
-            print!("\n");
-        }
-    };
-
     {
+        // New popup properties
         const POPUP_POS_X: usize = 10;
         const POPUP_POS_Y: usize = 20;
+        const POPUP_WIDTH: usize = 150;
+        const POPUP_HEIGHT: usize = 30;
         for v_pixel in 0..WINDOW_HEIGHT {
             for h_pixel in 0..WINDOW_WIDTH {
                 let pixel_idx = WINDOW_WIDTH * v_pixel + h_pixel;
 
-                if h_pixel >= POPUP_POS_X - 1
-                    && h_pixel < POPUP_POS_X + POPUP_WIDTH - 1
-                    && v_pixel >= POPUP_POS_Y - 1
-                    && v_pixel < POPUP_POS_Y + POPUP_HEIGHT - 1
+                if h_pixel >= POPUP_POS_X
+                    && h_pixel < POPUP_POS_X + POPUP_WIDTH
+                    && v_pixel >= POPUP_POS_Y
+                    && v_pixel < POPUP_POS_Y + POPUP_HEIGHT
                 {
                     let rgb = get_pixel_values(pixel_idx);
                     assert_eq!(
