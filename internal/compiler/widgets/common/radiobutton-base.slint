@@ -10,6 +10,7 @@ export component RadioButtonBase {
     out property <bool> pressed: touch-area.pressed;
     out property <bool> has-hover: touch-area.has-hover;
     callback selected;
+    callback focus-change(bool);
 
     accessible-checkable: true;
     accessible-enabled: root.enabled;
@@ -39,6 +40,14 @@ export component RadioButtonBase {
         x: 0;
         width: 0;
         enabled <=> root.enabled;
+
+        focus-gained => {
+            root.focus-change(true);
+        }
+
+        focus-lost => {
+            root.focus-change(false);
+        }
 
         key-pressed(event) => {
             if (event.text == " " || event.text == "\n") {

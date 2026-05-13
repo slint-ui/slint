@@ -20,6 +20,7 @@ import {
     TimePickerPopup,
     DatePickerPopup,
     Palette,
+    RadioGroup,
 } from "std-widgets.slint";
 import { GallerySettings } from "../gallery_settings.slint";
 import { Page } from "page.slint";
@@ -183,6 +184,41 @@ export component ControlsPage inherits Page {
                 text: @tr("Flight Mode");
                 checked: true;
                 enabled: GallerySettings.widgets-enabled;
+            }
+        }
+    }
+
+    GroupBox {
+        title: @tr("RadioGroup");
+        vertical-stretch: 0;
+
+        HorizontalBox {
+            padding: 0px;
+            spacing: 50px;
+            alignment: start;
+
+            RadioGroup {
+                title: @tr("Orientation");
+                enabled: GallerySettings.widgets-enabled;
+                options: [
+                    { label: @tr("Portrait"), value: "portrait", enabled: true },
+                    { label: @tr("Landscape"), value: "landscape", enabled: true },
+                    { label: @tr("Auto"), value: "auto", enabled: false },
+                ];
+                value: "portrait";
+            }
+
+            RadioGroup {
+                title: @tr("Alignment");
+                enabled: GallerySettings.widgets-enabled;
+                vertical: false;
+                height: self.preferred-height;
+                options: [
+                    { label: @tr("Start"), value: "start", enabled: true },
+                    { label: @tr("Center"), value: "center", enabled: true },
+                    { label: @tr("End"), value: "end", enabled: true },
+                ];
+                value: "center";
             }
         }
     }

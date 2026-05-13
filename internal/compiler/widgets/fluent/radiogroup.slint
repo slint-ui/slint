@@ -19,6 +19,7 @@ export component RadioButton {
     out property <bool> has-focus <=> base.has-focus;
 
     callback selected <=> base.selected;
+    callback focus-change <=> base.focus-change;
 
     private property <color> text-color: FluentPalette.foreground;
 
@@ -27,19 +28,19 @@ export component RadioButton {
     base := RadioButtonBase { }
 
     states [
-        disabled when !root.enabled : {
+        disabled when !root.enabled: {
             outer.border-color: root.checked ? transparent : FluentPalette.control-strong-stroke-disabled;
             outer.background: FluentPalette.control-alt-disabled;
             inner.border-color: root.checked ? FluentPalette.accent-disabled : transparent;
             root.text-color: FluentPalette.text-disabled;
         }
-        pressed when base.pressed : {
+        pressed when base.pressed: {
             outer.background: transparent;
             inner.border-color: root.checked ? FluentPalette.tertiary-accent-background : FluentPalette.control-alt-quartiary;
             outer.border-color: root.checked ? transparent : FluentPalette.control-strong-stroke-disabled;
             inner.border-width: root.checked ? 7px : 5px;
         }
-        hover when base.has-hover : {
+        hover when base.has-hover: {
             outer.background: root.checked ? transparent : FluentPalette.control-alt-tertiary;
             inner.border-width: root.checked ? 5px : 0px;
         }
@@ -74,7 +75,7 @@ export component RadioButton {
             }
         }
 
-        if root.label != "" : Text {
+        if root.label != "": Text {
             text: root.label;
             color: root.text-color;
             font-size: FluentFontSettings.body.font-size;
@@ -84,7 +85,7 @@ export component RadioButton {
         }
     }
 
-    if root.has-focus && root.enabled : FocusBorder {
+    if root.has-focus && root.enabled: FocusBorder {
         border-radius: 7px;
     }
 }
@@ -97,11 +98,11 @@ export component RadioGroup {
     in property <[RadioOption]> options: [];
     in-out property <string> value;
 
-    out property <bool> has-focus: root.focused-index >= 0;
+    out property <bool> has-focus: root.focus-depth > 0;
 
     callback changed(string);
 
-    private property <int> focused-index: -1;
+    private property <int> focus-depth: 0;
 
     accessible-role: radio-group;
     accessible-label: root.title;
@@ -110,7 +111,7 @@ export component RadioGroup {
     VerticalLayout {
         spacing: 8px;
 
-        if root.title != "" : Text {
+        if root.title != "": Text {
             vertical-stretch: 0;
             color: !root.enabled ? FluentPalette.text-disabled : FluentPalette.control-foreground;
             font-size: FluentFontSettings.body.font-size;
@@ -118,36 +119,29 @@ export component RadioGroup {
             text: root.title;
         }
 
-        Rectangle {
+        GridLayout {
             vertical-stretch: 1;
+            spacing: 8px;
 
-            if root.vertical : VerticalLayout{
-                spacing: 8px;
-                for option[index] in root.options : RadioButton {
-                    label: option.label;
-                    enabled: root.enabled && option.enabled;
-                    checked: root.value == option.value;
-                    height: 32px;
+            for option[index] in root.options: RadioButton {
+                row: root.vertical ? index : 0;
+                col: root.vertical ? 0 : index;
+                label: option.label;
+                enabled: root.enabled && option.enabled;
+                checked: root.value == option.value;
+                height: 32px;
 
-                    selected => {
-                        root.value = option.value;
-                        root.changed(option.value);
+                focus-change(gained) => {
+                    if (gained) {
+                        root.focus-depth += 1;
+                    } else {
+                        root.focus-depth = max(0, root.focus-depth - 1);
                     }
                 }
-            }
 
-            if !root.vertical : HorizontalLayout{
-                spacing: 8px;
-                for option[index] in root.options : RadioButton {
-                    label: option.label;
-                    enabled: root.enabled && option.enabled;
-                    checked: root.value == option.value;
-                    height: 32px;
-
-                    selected => {
-                        root.value = option.value;
-                        root.changed(option.value);
-                    }
+                selected => {
+                    root.value = option.value;
+                    root.changed(option.value);
                 }
             }
         }
