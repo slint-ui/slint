@@ -60,6 +60,9 @@ jobs:
         servo_example: ${{ inputs.full || steps.filter.outputs.servo_example == 'true' }}
         bevy_examples: ${{ inputs.full || steps.filter.outputs.bevy_examples == 'true' }}
         rust_files: ${{ inputs.full || steps.filter.outputs.rust_files == 'true' }}
+        qt: ${{ inputs.full || steps.filter.outputs.qt == 'true' }}
+        docs_build: ${{ inputs.full || steps.filter.outputs.docs_build == 'true' }}
+        tree_sitter: ${{ inputs.full || steps.filter.outputs.tree_sitter == 'true' }}
       steps:
         - uses: actions/checkout@v6
           if: ${{ !inputs.full }}
@@ -94,6 +97,7 @@ jobs:
             name: ${{ matrix.name }}
             rust_version: ${{ matrix.rust_version }}
             extra_args: ${{ matrix.extra_args }}
+            run_qt: ${{ needs.files-changed.outputs.qt == 'true' }}
             save_if: ${{ github.ref == 'refs/heads/master' }}
 
     # For changes to Slint internals, do a quick test on Linux for Node.js only.
@@ -445,7 +449,7 @@ jobs:
 
     docs:
         needs: files-changed
-        if: ${{ !inputs.full && needs.files-changed.outputs.slint == 'true' }}
+        if: ${{ !inputs.full && needs.files-changed.outputs.docs_build == 'true' }}
         uses: ./.github/workflows/build_docs.yaml
         secrets:
           READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
@@ -467,7 +471,7 @@ jobs:
 
     tree-sitter:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.slint == 'true' }}
+        if: ${{ needs.files-changed.outputs.tree_sitter == 'true' }}
         uses: ./.github/workflows/tree_sitter.yaml
         with:
             latest: false
