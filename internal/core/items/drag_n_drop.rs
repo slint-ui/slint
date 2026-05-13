@@ -270,7 +270,7 @@ pub struct DropArea {
     pub contains_drag: Property<bool>,
     pub current_action: Property<DragAction>,
     pub can_drop: Callback<DropEventArg, DragAction>,
-    pub dropped: Callback<DropEventArg>,
+    pub dropped: Callback<DropEventArg, DragAction>,
 
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -326,8 +326,12 @@ impl Item for DropArea {
             }
             MouseEvent::Drop(event) => {
                 self.contains_drag.set(false);
-                Self::FIELD_OFFSETS.dropped().apply_pin(self).call(&(event.clone(),));
-                self.current_action.set(DragAction::None);
+                let returned =
+                    Self::FIELD_OFFSETS.dropped().apply_pin(self).call(&(event.clone(),));
+                // The target's `dropped` return value is the final action reported back to
+                // the source. Clamp against the source's allowed set and stash on
+                // `current_action` so the post-dispatch step in `window.rs` can read it.
+                self.current_action.set(clamp_action_to_allowed(returned, event));
                 InputEventResult::EventAccepted
             }
             MouseEvent::Exit => {

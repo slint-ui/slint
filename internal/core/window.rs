@@ -647,10 +647,11 @@ impl WindowInner {
         let old_cursor = core::mem::replace(&mut mouse_input_state.cursor, MouseCursor::Default);
 
         // drag-finished firing is deferred until after dispatch so the DropArea has had
-        // a chance to fire its own `dropped` callback first.
+        // a chance to fire its own `dropped` callback first; that callback returns the
+        // final action, which the runtime then forwards to the source.
         let mut pending_drag_finished: Option<(
             crate::item_tree::ItemWeak,
-            crate::items::DragAction,
+            Option<crate::item_tree::ItemWeak>,
         )> = None;
 
         if let Some(mut drop_event) = mouse_input_state.drag_data.clone() {
@@ -659,18 +660,19 @@ impl WindowInner {
                     mouse_input_state.drag_data = None;
                     let source = mouse_input_state.drag_source.take();
                     if let Some(target_weak) = mouse_input_state.drop_target.take() {
-                        // Capture the action the target chose on its last DragMove; we'll
-                        // notify the source after the Drop callback runs.
-                        let chosen = target_weak
+                        // Seed `proposed-action` for the dropped callback with the action the
+                        // target last chose during hover; the callback's return value will
+                        // become the final action reported to the source.
+                        let hovered = target_weak
                             .upgrade()
                             .and_then(|t| t.downcast::<crate::items::DropArea>())
                             .map(|d| d.as_pin_ref().current_action())
                             .unwrap_or(crate::items::DragAction::None);
-                        drop_event.proposed_action = chosen;
+                        drop_event.proposed_action = hovered;
                         drop_event.position = crate::lengths::logical_position_to_api(*position);
                         event = MouseEvent::Drop(drop_event);
                         if let Some(s) = source {
-                            pending_drag_finished = Some((s, chosen));
+                            pending_drag_finished = Some((s, Some(target_weak)));
                         }
                     } else {
                         // No DropArea accepted the most recent DragMove. Tear the drag
@@ -680,7 +682,7 @@ impl WindowInner {
                         // spurious click.
                         event = MouseEvent::Exit;
                         if let Some(s) = source {
-                            pending_drag_finished = Some((s, crate::items::DragAction::None));
+                            pending_drag_finished = Some((s, None));
                         }
                     }
                 }
@@ -717,7 +719,7 @@ impl WindowInner {
                     mouse_input_state.drag_data = None;
                     mouse_input_state.drop_target = None;
                     if let Some(s) = mouse_input_state.drag_source.take() {
-                        pending_drag_finished = Some((s, crate::items::DragAction::None));
+                        pending_drag_finished = Some((s, None));
                     }
                 }
                 _ => {}
@@ -885,10 +887,17 @@ impl WindowInner {
             window_adapter.request_redraw();
         }
 
-        if let Some((source_weak, action)) = pending_drag_finished
+        if let Some((source_weak, target_weak)) = pending_drag_finished
             && let Some(source) = source_weak.upgrade()
             && let Some(drag_area) = source.downcast::<crate::items::DragArea>()
         {
+            // The action `dropped` returned is now sitting on the target's `current_action`.
+            // For a cancelled drag (no target) we just report None.
+            let action = target_weak
+                .and_then(|w| w.upgrade())
+                .and_then(|i| i.downcast::<crate::items::DropArea>())
+                .map(|d| d.as_pin_ref().current_action())
+                .unwrap_or(crate::items::DragAction::None);
             let drag_area = drag_area.as_pin_ref();
             drag_area.dragging.set(false);
             crate::items::DragArea::FIELD_OFFSETS

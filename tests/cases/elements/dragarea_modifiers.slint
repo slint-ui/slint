@@ -31,7 +31,7 @@ export component TestCase inherits Window {
             dropper := DropArea {
                 // Echo whatever the runtime proposed from modifier state.
                 can-drop(event) => event.proposed-action;
-                dropped(event) => { }
+                dropped(event) => event.proposed-action;
             }
         }
     }

@@ -55,6 +55,7 @@ export component TestCase inherits Window {
                         result += "D[" + Api.transfer-to-string(event.data) + "];";
                     }
                     debug("dropped", event);
+                    return event.proposed-action;
                 }
 
                 TouchArea {}
