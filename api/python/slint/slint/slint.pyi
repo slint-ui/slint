@@ -79,6 +79,29 @@ class DataTransfer:
     def __repr__(self) -> str: ...
     def __eq__(self, other: object) -> bool: ...
 
+class StyledText:
+    r"""
+    Python wrapper for Slint's `styled-text` type.
+    """
+
+    def __new__(cls) -> "StyledText": ...
+    @staticmethod
+    def from_plain_text(text: str) -> "StyledText":
+        r"""
+        Creates styled text from plain text.
+        """
+        ...
+
+    @staticmethod
+    def from_markdown(markdown: str) -> "StyledText":
+        r"""
+        Parses markdown.
+        """
+        ...
+
+    def __repr__(self) -> str: ...
+    def __eq__(self, other: object) -> bool: ...
+
 class Image:
     r"""
     Image objects can be set on Slint Image elements for display. Construct Image objects from a path to an
@@ -195,6 +218,7 @@ class ValueType(Enum):
     Struct = auto()
     Brush = auto()
     Image = auto()
+    StyledText = auto()
     Keys = auto()
 
 class DiagnosticLevel(Enum):

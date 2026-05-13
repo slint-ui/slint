@@ -224,6 +224,7 @@ the mapping:
 | `color`       | `slint.Color` |     |
 | `brush`       | `slint.Brush` |     |
 | `image`       | `slint.Image` |     |
+| `styled-text` | `slint.StyledText` | `StyledText.from_markdown()` or `StyledText.from_plain_text()` |
 | `length`      | `float`     |       |
 | `physical_length` | `float` |       |
 | `duration`    | `float`     | The number of milliseconds |

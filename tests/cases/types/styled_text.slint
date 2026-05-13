@@ -1,8 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//ignore: pyi
-
 export struct TestStruct {
     label: string,
     text: styled-text,
@@ -205,5 +203,43 @@ assert(instance.foo_bar.equals(StyledText.fromPlainText("foo bar")));
 let threw = false;
 try { StyledText.fromMarkdown("# heading"); } catch(e) { threw = true; }
 assert(threw);
+```
+```python
+instance = TestCase()
+
+# Compare t1/t2/t3 content with from_markdown
+assert instance.t1 == slint.StyledText.from_markdown("Hello World")
+assert instance.t2 == slint.StyledText.from_markdown("Hello \\*World\\*")
+assert instance.t3 == slint.StyledText.from_markdown("Hello *World*")
+
+# Default styled-text is a StyledText instance
+assert isinstance(instance.default_styled_text, slint.StyledText)
+assert instance.default_styled_text == slint.StyledText()
+
+# from_plain_text round-trip
+plain = slint.StyledText.from_plain_text("Hello World")
+instance.plain_text_prop = plain
+assert instance.plain_text_prop == plain
+
+# from_markdown round-trip
+md = slint.StyledText.from_markdown("Hello *World*")
+instance.t1 = md
+assert instance.t1 == md
+
+# from_plain_text and from_markdown produce the same result for unstyled text
+plain2 = slint.StyledText.from_plain_text("plain text")
+md2 = slint.StyledText.from_markdown("plain text")
+assert plain2 == md2
+
+# @markdown("foo bar") in .slint equals from_plain_text("foo bar")
+assert instance.foo_bar == slint.StyledText.from_plain_text("foo bar")
+
+# from_markdown raises for unsupported syntax
+threw = False
+try:
+    slint.StyledText.from_markdown("# heading")
+except ValueError:
+    threw = True
+assert threw
 ```
 */

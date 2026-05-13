@@ -31,6 +31,7 @@ def test_basic_compiler() -> None:
             in property <image> imgprop;
             in property <brush> brushprop;
             in property <color> colprop;
+            in property <styled-text> styledprop;
             in property <[string]> modelprop;
 
             callback test-callback();
@@ -56,6 +57,7 @@ def test_basic_compiler() -> None:
         ("intprop", ValueType.Number),
         ("modelprop", ValueType.Model),
         ("strprop", ValueType.String),
+        ("styledprop", ValueType.StyledText),
     ]
 
     assert compdef.callbacks == ["test-callback"]
