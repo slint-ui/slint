@@ -2000,6 +2000,32 @@ pub mod ffi {
     #[allow(non_camel_case_types)]
     type c_void = ();
 
+    struct WithUserData<T> {
+        callback: T,
+        drop_user_data: extern "C" fn(*mut c_void),
+        user_data: *mut c_void,
+    }
+
+    impl<T> Drop for WithUserData<T> {
+        fn drop(&mut self) {
+            (self.drop_user_data)(self.user_data)
+        }
+    }
+
+    impl WithUserData<extern "C" fn(user_data: *mut c_void, pos: &mut LogicalPosition)> {
+        fn call(&self) -> LogicalPosition {
+            let mut logical_position = LogicalPosition::default();
+            (self.callback)(self.user_data, &mut logical_position);
+            logical_position
+        }
+    }
+
+    impl WithUserData<extern "C" fn(user_data: *mut c_void) -> CloseRequestResponse> {
+        fn call(&self) -> CloseRequestResponse {
+            (self.callback)(self.user_data)
+        }
+    }
+
     /// Same layout as WindowAdapterRc
     #[repr(C)]
     pub struct WindowAdapterRcOpaque(*const c_void, *const c_void);
@@ -2173,26 +2199,6 @@ pub mod ffi {
         is_menu: bool,
     ) -> NonZeroU32 {
         unsafe {
-            struct WithUserData {
-                callback: extern "C" fn(user_data: *mut c_void, pos: &mut LogicalPosition),
-                drop_user_data: extern "C" fn(*mut c_void),
-                user_data: *mut c_void,
-            }
-
-            impl Drop for WithUserData {
-                fn drop(&mut self) {
-                    (self.drop_user_data)(self.user_data)
-                }
-            }
-
-            impl WithUserData {
-                fn call(&self) -> LogicalPosition {
-                    let mut logical_position = LogicalPosition::default();
-                    (self.callback)(self.user_data, &mut logical_position);
-                    logical_position
-                }
-            }
-
             let with_user_data = WithUserData { callback: position, drop_user_data, user_data };
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
             WindowInner::from_pub(window_adapter.window()).show_popup(
@@ -2310,26 +2316,7 @@ pub mod ffi {
         user_data: *mut c_void,
     ) {
         unsafe {
-            struct WithUserData {
-                callback: extern "C" fn(user_data: *mut c_void) -> CloseRequestResponse,
-                drop_user_data: extern "C" fn(*mut c_void),
-                user_data: *mut c_void,
-            }
-
-            impl Drop for WithUserData {
-                fn drop(&mut self) {
-                    (self.drop_user_data)(self.user_data)
-                }
-            }
-
-            impl WithUserData {
-                fn call(&self) -> CloseRequestResponse {
-                    (self.callback)(self.user_data)
-                }
-            }
-
             let with_user_data = WithUserData { callback, drop_user_data, user_data };
-
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
             window_adapter.window().on_close_requested(move || with_user_data.call());
         }
