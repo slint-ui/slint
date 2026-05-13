@@ -447,7 +447,7 @@ impl NodeCollection {
             .active_popups()
             .iter()
             .filter_map(|popup| {
-                let PopupWindowLocation::ChildWindow(_) = popup.location else {
+                let PopupWindowLocation::ChildWindow(location) = popup.location else {
                     return None;
                 };
 
@@ -458,12 +458,7 @@ impl NodeCollection {
                     &root_item
                 });
 
-                let location = (popup.position_access)();
-                Some(AccessiblePopup {
-                    location: LogicalPoint::new(location.x, location.y),
-                    parent_node,
-                    component: popup.component.clone(),
-                })
+                Some(AccessiblePopup { location, parent_node, component: popup.component.clone() })
             })
             .collect::<Vec<_>>();
 

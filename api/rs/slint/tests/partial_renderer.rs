@@ -1344,7 +1344,7 @@ fn partial_rendering_popup_position_size_change() {
     };
 
     // For debugging. Dump pixels
-    let dump_pixels = || {
+    let _dump_pixels = || {
         for v_pixel in 0..WINDOW_HEIGHT {
             for h_pixel in 0..WINDOW_WIDTH {
                 let pixel_idx = WINDOW_WIDTH * v_pixel + h_pixel;
