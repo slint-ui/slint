@@ -461,8 +461,6 @@ pub struct WindowInner {
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<crate::input::TextCursorBlinker>>,
 
     pinned_fields: Pin<Box<WindowPinnedFields>>,
-    maximized: Cell<bool>,
-    minimized: Cell<bool>,
 
     menubar: RefCell<Option<vtable::VWeak<MenuVTable>>>,
 
@@ -524,8 +522,6 @@ impl WindowInner {
                     "i_slint_core::Window::menubar_shortcuts",
                 ),
             }),
-            maximized: Cell::new(false),
-            minimized: Cell::new(false),
             focus_item: Default::default(),
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),
@@ -1740,38 +1736,28 @@ impl WindowInner {
 
     /// Returns if the window is currently maximized
     pub fn is_maximized(&self) -> bool {
-        if let Some(window_item) = self.window_item() {
-            window_item.as_pin_ref().maximized()
-        } else {
-            self.maximized.get()
-        }
+        self.window_item().is_some_and(|window_item| window_item.as_pin_ref().maximized())
     }
 
     /// Set the window as maximized or unmaximized
     pub fn set_maximized(&self, maximized: bool) {
-        self.maximized.set(maximized);
         if let Some(window_item) = self.window_item() {
             window_item.as_pin_ref().maximized.set(maximized);
+            self.update_window_properties()
         }
-        self.update_window_properties()
     }
 
     /// Returns if the window is currently minimized
     pub fn is_minimized(&self) -> bool {
-        if let Some(window_item) = self.window_item() {
-            window_item.as_pin_ref().minimized()
-        } else {
-            self.minimized.get()
-        }
+        self.window_item().is_some_and(|window_item| window_item.as_pin_ref().minimized())
     }
 
     /// Set the window as minimized or unminimized
     pub fn set_minimized(&self, minimized: bool) {
-        self.minimized.set(minimized);
         if let Some(window_item) = self.window_item() {
             window_item.as_pin_ref().minimized.set(minimized);
+            self.update_window_properties()
         }
-        self.update_window_properties()
     }
 
     /// Returns the (context global) xdg app id for use with wayland and x11.
