@@ -54,6 +54,10 @@ component Card inherits Rectangle {
         drag-image: @image-url("card-drag.svg");
         drag-image-offset-x: 40;
         drag-image-offset-y: 28;
+        allow-copy: false;
+        allow-move: true;
+        preferred-action: DragAction.move;
+        opacity: self.dragging ? 0.4 : 1.0;
 
         Text {
             x: 12px;
@@ -109,7 +113,7 @@ component KanbanColumn inherits Rectangle {
 
         drop-area := DropArea {
             vertical-stretch: 1;
-            can-drop(event) => Api.can-drop(event.data, root.column-id);
+            can-drop(event) => Api.can-drop(event.data, root.column-id) ? DragAction.move : DragAction.none;
             dropped(event) => Api.drop-task(event.data, root.column-id);
 
             VerticalLayout {

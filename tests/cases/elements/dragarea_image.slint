@@ -33,8 +33,11 @@ export component TestCase inherits Window {
         Rectangle {
             background: blue;
             da := DropArea {
-                can-drop(event) => Api.can-drop(event.data);
-                dropped(event) => { result += "drop;"; }
+                can-drop(event) => Api.can-drop(event.data) ? DragAction.copy : DragAction.none;
+                dropped(event) => {
+                    result += "drop;";
+                    return DragAction.copy;
+                }
             }
         }
     }
