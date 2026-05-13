@@ -30,7 +30,6 @@ use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 use core::num::NonZeroU32;
 use core::pin::Pin;
-use euclid::Vector2D;
 use euclid::num::Zero;
 use vtable::{VRc, VRcMapped};
 
@@ -2165,7 +2164,7 @@ pub mod ffi {
     pub unsafe extern "C" fn slint_windowrc_show_popup(
         handle: *const WindowAdapterRcOpaque,
         popup: &ItemTreeRc,
-        position: extern "C" fn(user_data: *mut c_void, x: *mut f32, y: *mut f32),
+        position: extern "C" fn(user_data: *mut c_void, pos: &mut LogicalPosition),
         drop_user_data: extern "C" fn(user_data: *mut c_void),
         user_data: *mut c_void,
         close_policy: PopupClosePolicy,
@@ -2175,7 +2174,7 @@ pub mod ffi {
     ) -> NonZeroU32 {
         unsafe {
             struct WithUserData {
-                callback: extern "C" fn(user_data: *mut c_void, x: *mut f32, y: *mut f32),
+                callback: extern "C" fn(user_data: *mut c_void, pos: &mut LogicalPosition),
                 drop_user_data: extern "C" fn(*mut c_void),
                 user_data: *mut c_void,
             }
@@ -2188,10 +2187,9 @@ pub mod ffi {
 
             impl WithUserData {
                 fn call(&self) -> LogicalPosition {
-                    let mut x = 0.;
-                    let mut y = 0.;
-                    (self.callback)(self.user_data, (&mut x) as *mut f32, (&mut y) as *mut f32);
-                    LogicalPosition::new(x, y)
+                    let mut logical_position = LogicalPosition::default();
+                    (self.callback)(self.user_data, &mut logical_position);
+                    logical_position
                 }
             }
 
