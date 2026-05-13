@@ -49,6 +49,8 @@ fn root_dir() -> PathBuf {
 /// Configuration for a documentation generation run.
 #[derive(Clone)]
 pub struct Config {
+    /// Absolute path to the Astro project root (containing `package.json`).
+    pub astro_dir: PathBuf,
     /// Absolute path to the `reference/generated` directory to write into.
     pub generated_dir: PathBuf,
     /// Skip items that don't carry a `\sc` marker in their doc comment.
@@ -61,16 +63,20 @@ pub struct Config {
 
 impl Config {
     pub fn slint_docs(include_experimental: bool) -> Self {
+        let astro_dir = root_dir().join("docs/astro");
         Self {
-            generated_dir: root_dir().join("docs/astro/src/content/docs/reference/generated"),
+            generated_dir: astro_dir.join("src/content/docs/reference/generated"),
+            astro_dir,
             sc_only: false,
             skip_screenshots: false,
             include_experimental,
         }
     }
     pub fn safety_manual(include_experimental: bool) -> Self {
+        let astro_dir = root_dir().join("docs/safety");
         Self {
-            generated_dir: root_dir().join("docs/safety/src/content/docs/reference/generated"),
+            generated_dir: astro_dir.join("src/content/docs/reference/generated"),
+            astro_dir,
             sc_only: true,
             skip_screenshots: true,
             include_experimental,
@@ -78,13 +84,12 @@ impl Config {
     }
 }
 
-fn build_astro(include_experimental: bool) -> Result<(), Box<dyn std::error::Error>> {
-    let docs_source_dir = root_dir().join("docs/astro");
+fn build_astro(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
     let sh = Shell::new()?;
-    let _p = sh.push_dir(&docs_source_dir);
+    let _p = sh.push_dir(&cfg.astro_dir);
     cmd!(sh, "pnpm install --frozen-lockfile --ignore-scripts").run()?;
     let mut build_cmd = cmd!(sh, "pnpm run build");
-    if include_experimental {
+    if cfg.include_experimental {
         build_cmd = build_cmd.env("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1");
     }
     build_cmd.run()?;
@@ -108,13 +113,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             screenshots::run(args)?;
         }
         Some(Command::BuildAstro) => {
-            build_astro(experimental)?;
+            build_astro(&cfg)?;
         }
         None => {
             // Generate mdx first because screenshots reads them.
             mdx::generate(&cfg)?;
             if !cfg.skip_screenshots {
-                let docs_folder = root_dir().join("docs/astro/src/content");
+                let docs_folder = cfg.astro_dir.join("src/content");
                 screenshots::run(screenshots::ScreenshotsArgs {
                     include_paths: vec![],
                     library_paths: vec![],
@@ -123,8 +128,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     overwrite_files: true,
                     component: None,
                 })?;
-                build_astro(experimental)?;
             }
+            build_astro(&cfg)?;
         }
     }
 
