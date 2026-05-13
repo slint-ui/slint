@@ -54,6 +54,41 @@ const OFFSET: &str = "offset";
 const DELAY: &str = "delay";
 const TEXT: &str = "text";
 
+/// Report an error and replace any named reference that points to the tooltip element itself.
+/// References to the tooltip's *children* are caught later by `lower_popups::check_no_reference_to_popup`
+/// once the children have been moved into the generated PopupWindow component.
+fn check_no_reference_to_tooltip(
+    tooltip_element: &ElementRc,
+    parent_element: &ElementRc,
+    component: &Rc<Component>,
+    diag: &mut BuildDiagnostics,
+) {
+    let dummy_ref = NamedReference::new(parent_element, SmolStr::new_static(WIDTH));
+
+    recurse_elem_including_sub_components_no_borrow(component, &(), &mut |source_elem, _| {
+        if Rc::ptr_eq(source_elem, tooltip_element) {
+            return;
+        }
+        visit_all_named_references_in_element(source_elem, |nr| {
+            if !Rc::ptr_eq(&nr.element(), tooltip_element) {
+                return;
+            }
+            let id = tooltip_element.borrow().id.clone();
+            let prop_name = nr.name();
+            let what = if id.is_empty() {
+                format!("property or callback '{prop_name}'")
+            } else {
+                format!("property or callback '{id}.{prop_name}'")
+            };
+            diag.push_error(
+                format!("Cannot access {what} inside of a ToolTip from enclosing component"),
+                &*tooltip_element.borrow(),
+            );
+            *nr = dummy_ref.clone();
+        });
+    });
+}
+
 fn build_tooltip_content(
     popup_id: &SmolStr,
     enclosing_component: &std::rc::Weak<Component>,
@@ -450,7 +485,9 @@ fn lower_tooltips_in_component(
             return;
         }
 
-        let (tooltip_config, enclosing_component, popup_id, popup_id_for_text, custom_children) = {
+        check_no_reference_to_tooltip(&tooltip_candidate, elem, component, diag);
+
+        let (tooltip_config, enclosing_component, popup_id, custom_children) = {
             let mut elem_borrow = elem.borrow_mut();
             let tooltip_config = elem_borrow.children.remove(tooltip_child_index);
             let custom_children = if has_custom_content {
@@ -462,15 +499,13 @@ fn lower_tooltips_in_component(
             let popup_id =
                 format_smolstr!("{}{}", TOOLTIP_POPUP_ID_PREFIX, tooltip_popup_id_counter);
             tooltip_popup_id_counter += 1;
-            let popup_id_for_text = popup_id.clone();
-            (tooltip_config, enclosing_component, popup_id, popup_id_for_text, custom_children)
+            (tooltip_config, enclosing_component, popup_id, custom_children)
         };
 
         let parent_width = NamedReference::new(elem, SmolStr::new_static(WIDTH));
         let parent_height = NamedReference::new(elem, SmolStr::new_static(HEIGHT));
 
-        let tooltip_area =
-            build_tooltip_area(&popup_id_for_text, &enclosing_component, &tooltip_area_type);
+        let tooltip_area = build_tooltip_area(&popup_id, &enclosing_component, &tooltip_area_type);
         let copied_binding = |source_property: &str, target_property: &str| {
             if let Some(binding) = tooltip_config.borrow().bindings.get(source_property) {
                 tooltip_area
@@ -493,7 +528,7 @@ fn lower_tooltips_in_component(
         let tooltip_text = (!has_custom_content)
             .then(|| NamedReference::new(&tooltip_area, SmolStr::new_static(TEXT)));
         let tooltip_content = build_tooltip_content(
-            &popup_id_for_text,
+            &popup_id,
             &enclosing_component,
             tooltip_impl_type,
             tooltip_text,
@@ -526,6 +561,9 @@ fn lower_tooltips_in_component(
             )]
             .into_iter()
             .collect(),
+            // Carry the ToolTip's source location so diagnostics from
+            // lower_popups point back to the original ToolTip element.
+            debug: tooltip_config.borrow().debug.clone(),
             ..Default::default()
         };
         let popup_window_rc = popup_window.make_rc();
