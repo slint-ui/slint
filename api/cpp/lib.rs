@@ -276,6 +276,11 @@ pub unsafe extern "C" fn slint_open_url(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn slint_bring_all_to_front() {
+    i_slint_core::bring_all_to_front()
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_string_to_styled_text(text: &SharedString, out: &mut StyledText) {
     *out = i_slint_core::styled_text::string_to_styled_text(text.to_string());
 }
