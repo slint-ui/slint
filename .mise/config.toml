@@ -17,7 +17,7 @@
 node = "24"
 pnpm = "10.29.3"
 taplo = "0.9.3"
-"ubi:drager/wasm-pack" = "0.13.1"
+"ubi:wasm-bindgen/wasm-pack" = "0.13.1"
 uv = "0.10.4"
 
 [task_config]

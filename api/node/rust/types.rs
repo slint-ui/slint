@@ -4,6 +4,9 @@
 mod brush;
 pub use brush::*;
 
+mod data_transfer;
+pub use data_transfer::*;
+
 mod image_data;
 pub use image_data::*;
 

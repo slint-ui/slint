@@ -6,13 +6,14 @@
 
 import builtins
 import datetime
+import gettext
 import os
 import pathlib
 import typing
-from typing import Any, List
-from collections.abc import Callable, Buffer, Coroutine
+from collections.abc import Buffer, Callable, Coroutine
 from enum import Enum, auto
-import gettext
+from typing import Any, List
+
 from . import language as language
 
 class RgbColor:
@@ -75,6 +76,32 @@ class DataTransfer:
     Used for accessing the platform clipboard and drag-and-drop APIs. Currently
     there is no way to interact with this from Python code.
     """
+
+    def __repr__(self) -> str: ...
+    def __eq__(self, other: object) -> bool: ...
+
+class StyledText:
+    r"""
+    Python wrapper for Slint's `styled-text` type.
+    """
+
+    def __new__(cls) -> "StyledText": ...
+    @staticmethod
+    def from_plain_text(text: str) -> "StyledText":
+        r"""
+        Creates styled text from plain text.
+        """
+        ...
+
+    @staticmethod
+    def from_markdown(markdown: str) -> "StyledText":
+        r"""
+        Parses markdown and returns a StyledText object.
+
+        Raises:
+            ValueError: If the markdown contains unsupported syntax.
+        """
+        ...
 
     def __repr__(self) -> str: ...
     def __eq__(self, other: object) -> bool: ...
@@ -195,6 +222,7 @@ class ValueType(Enum):
     Struct = auto()
     Brush = auto()
     Image = auto()
+    StyledText = auto()
     Keys = auto()
 
 class DiagnosticLevel(Enum):

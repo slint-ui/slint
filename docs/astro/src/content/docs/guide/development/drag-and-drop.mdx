@@ -83,7 +83,22 @@ fn main() {
 <TabItem label="NodeJS">
 
 ```js
-// `DataTransfer` is currently not fully implemented in NodeJS
+import * as slint from "slint-ui";
+
+const ui = slint.loadFile(new URL("example.slint", import.meta.url));
+const window = new ui.Example();
+
+window.Api.string_to_transfer = (text) => {
+    const transfer = new slint.DataTransfer();
+    transfer.setPlaintext(text);
+    return transfer;
+};
+
+// A helper for reading plaintext from a `DataTransfer` is also supplied.
+window.Api.transfer_to_string = (data) => data.fetchPlaintext() ?? "";
+
+// This helper abstracts over various "plaintext" MIME types
+window.Api.can_drop = (data) => data.hasPlaintext;
 ```
 </TabItem>
 <TabItem label="Python">

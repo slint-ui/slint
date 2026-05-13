@@ -243,15 +243,16 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
         }
         Expression::Cast { from, to } => {
-            match try_cast(eval_expression(from, local_context), to.clone()) {
-                Ok(value) => value,
-                Err(value) => {
-                    let actual_ty = value.value_type();
-                    eprintln!(
-                        "Encountered `Expression::Cast`, but could not cast from {actual_ty:?} to {to}"
-                    );
-                    value
+            let value = eval_expression(from, local_context);
+            match (value, to) {
+                (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
+                (Value::Number(n), Type::String) => {
+                    Value::String(i_slint_core::string::shared_string_from_number(n))
                 }
+                (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
+                (Value::Brush(brush), Type::Color) => brush.color().into(),
+                (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
+                (v, _) => v,
             }
         }
         Expression::CodeBlock(sub) => {
@@ -671,21 +672,6 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::EmptyDataTransfer => Value::DataTransfer(Default::default()),
         Expression::DebugHook { expression, .. } => eval_expression(expression, local_context),
     }
-}
-
-/// Try to convert the type to `to`, or return the value unmodified as an error if
-/// casting is not possible.
-fn try_cast(value: Value, to: Type) -> Result<Value, Value> {
-    Ok(match (value, to) {
-        (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
-        (Value::Number(n), Type::String) => {
-            Value::String(i_slint_core::string::shared_string_from_number(n))
-        }
-        (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
-        (Value::Brush(brush), Type::Color) => brush.color().into(),
-        (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
-        (v, _) => return Err(v),
-    })
 }
 
 fn call_builtin_function(

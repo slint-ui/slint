@@ -331,7 +331,7 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.3
+            - uses: pnpm/action-setup@v6.0.6
               with:
                 version: 10.29.3
             - uses: Swatinem/rust-cache@v2
@@ -449,8 +449,6 @@ jobs:
         uses: ./.github/workflows/build_docs.yaml
         secrets:
           READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
-          CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
-          CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
         with:
           release: false
           app-id: ${{ vars.READ_WRITE_APP_ID }}
@@ -459,9 +457,6 @@ jobs:
         needs: files-changed
         if: ${{ !inputs.full && needs.files-changed.outputs.slintpad == 'true' }}
         uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
-        secrets:
-          CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
-          CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
 
     wasm_demo:
         needs: files-changed
@@ -691,7 +686,7 @@ jobs:
                 node-version: 24
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v6.0.3
+            - uses: pnpm/action-setup@v6.0.6
               with:
                 version: 10.29.3
             - name: Run pnpm install
@@ -734,9 +729,6 @@ jobs:
       needs: files-changed
       if: ${{ needs.files-changed.outputs.safety_docs == 'true' }}
       uses: ./.github/workflows/safety_docs.yaml
-      secrets:
-        CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
-        CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
 
     servo_example:
         needs: files-changed
@@ -875,7 +867,7 @@ jobs:
                 components: rust-src
                 target: ${{matrix.target}}
           - name: Setup Zephyr project
-            uses: zephyrproject-rtos/action-zephyr-setup@v1.0.13
+            uses: zephyrproject-rtos/action-zephyr-setup@v1.0.14
             with:
                 app-path: slint
                 manifest-file-name: demos/zephyr-common/west.yaml

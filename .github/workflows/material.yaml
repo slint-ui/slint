@@ -87,7 +87,7 @@ jobs:
         shell: bash
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-      - uses: pnpm/action-setup@v6.0.3
+      - uses: pnpm/action-setup@v6.0.6
         with:
           version: 10.29.3
       - uses: actions/setup-node@v6
@@ -146,9 +146,9 @@ jobs:
           packageManager: pnpm
           workingDirectory: ui-libraries/material/docs
 
-      - uses: ./.github/actions/cloudflare-preview-deploy
+      - name: Upload preview artifact
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v7
         with:
-          working-directory: ui-libraries/material/docs
-          environment: material-staging
-          cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
-          cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
+          name: preview-material
+          path: ui-libraries/material/docs/dist/

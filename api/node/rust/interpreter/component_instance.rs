@@ -7,32 +7,32 @@ use napi::bindgen_prelude::*;
 use napi::{Env, Result};
 use slint_interpreter::{ComponentHandle, ComponentInstance, Value};
 
-use crate::{JsWindow, ModelOwner};
+use crate::{JsAnchorOwner, JsWindow};
 
 use super::JsComponentDefinition;
 
 #[napi(js_name = "ComponentInstance")]
 pub struct JsComponentInstance {
-    /// Per-instance model-ID counter, shared with [`ModelOwner`] via `Rc`.
+    /// Per-instance anchor-ID counter, shared with [`JsAnchorOwner`] via `Rc`.
     /// Declared before `inner` so it's dropped first:
-    /// when `inner` drops its models,
-    /// `Weak::upgrade()` already returns `None` and `JsModel::Drop`
-    /// skips NAPI calls.
-    model_seq: std::rc::Rc<std::cell::Cell<u32>>,
+    /// when `inner` drops its models and DataTransfer values,
+    /// `Weak::upgrade()` already returns `None` and the pinned side's
+    /// `Drop` skips NAPI calls.
+    anchor_seq: std::rc::Rc<std::cell::Cell<u32>>,
     inner: ComponentInstance,
 }
 
 impl From<ComponentInstance> for JsComponentInstance {
     fn from(instance: ComponentInstance) -> Self {
-        Self { inner: instance, model_seq: std::rc::Rc::new(std::cell::Cell::new(0)) }
+        Self { inner: instance, anchor_seq: std::rc::Rc::new(std::cell::Cell::new(0)) }
     }
 }
 
 impl JsComponentInstance {
-    fn model_owner(&self, env: &Env, this: &This<Object<'_>>) -> Result<ModelOwner> {
-        Ok(ModelOwner {
+    fn anchor_owner(&self, env: &Env, this: &This<Object<'_>>) -> Result<JsAnchorOwner> {
+        Ok(JsAnchorOwner {
             owner_weak: crate::weak_ref::weak_ref_from_object(env, &this.object)?,
-            seq: std::rc::Rc::downgrade(&self.model_seq),
+            seq: std::rc::Rc::downgrade(&self.anchor_seq),
         })
     }
 
@@ -42,12 +42,12 @@ impl JsComponentInstance {
     /// The closure holds a weak reference and looks the function up at call time.
     fn make_callback_handler(
         env: Env,
-        mo: ModelOwner,
+        owner: JsAnchorOwner,
         prop_key: String,
         return_type: Type,
         callback_name: String,
     ) -> impl Fn(&[Value]) -> Value {
-        let weak_this = mo.owner_weak.clone();
+        let weak_this = owner.owner_weak.clone();
         move |args: &[Value]| {
             let Some(obj) = crate::weak_ref::weak_ref_get_object(&weak_this, env) else {
                 return Value::Void;
@@ -76,7 +76,7 @@ impl JsComponentInstance {
 
             if matches!(return_type, Type::Void) {
                 Value::Void
-            } else if let Ok(value) = super::to_value(&env, result, &return_type, &mo) {
+            } else if let Ok(value) = super::to_value(&env, result, &return_type, &owner) {
                 value
             } else {
                 eprintln!("Node.js: cannot convert return type of callback {callback_name}");
@@ -127,9 +127,9 @@ impl JsComponentInstance {
                 napi::Error::from_reason(format!("Property {prop_name} not found in the component"))
             })?;
 
-        let mo = self.model_owner(env, &this)?;
+        let owner = self.anchor_owner(env, &this)?;
         self.inner
-            .set_property(&prop_name, super::value::to_value(env, js_value, &ty, &mo)?)
+            .set_property(&prop_name, super::value::to_value(env, js_value, &ty, &owner)?)
             .map_err(|e| napi::Error::from_reason(format!("{e}")))?;
 
         Ok(())
@@ -174,12 +174,12 @@ impl JsComponentInstance {
                 ))
             })?;
 
-        let mo = self.model_owner(env, &this)?;
+        let owner = self.anchor_owner(env, &this)?;
         self.inner
             .set_global_property(
                 global_name.as_str(),
                 &prop_name,
-                super::value::to_value(env, js_value, &ty, &mo)?,
+                super::value::to_value(env, js_value, &ty, &owner)?,
             )
             .map_err(|e| napi::Error::from_reason(format!("{e}")))?;
 
@@ -210,10 +210,10 @@ impl JsComponentInstance {
             let prop_key = format!("__slint_cb_{callback_name}");
             crate::set_hidden_property(&mut this.object, &prop_key, &callback)?;
 
-            let mo = self.model_owner(env, &this)?;
+            let owner = self.anchor_owner(env, &this)?;
             let handler = Self::make_callback_handler(
                 *env,
-                mo,
+                owner,
                 prop_key,
                 cb_type.return_type.clone(),
                 callback_name.clone(),
@@ -254,10 +254,10 @@ impl JsComponentInstance {
             let prop_key = format!("__slint_gcb_{global_name}_{callback_name}");
             crate::set_hidden_property(&mut this.object, &prop_key, &callback)?;
 
-            let mo = self.model_owner(env, &this)?;
+            let owner = self.anchor_owner(env, &this)?;
             let handler = Self::make_callback_handler(
                 *env,
-                mo,
+                owner,
                 prop_key,
                 cb_type.return_type.clone(),
                 callback_name.clone(),
@@ -274,7 +274,7 @@ impl JsComponentInstance {
 
     fn invoke_args(
         env: &Env,
-        model_owner: &ModelOwner,
+        anchor_owner: &JsAnchorOwner,
         callback_name: &String,
         arguments: Vec<Unknown<'_>>,
         args: &[Type],
@@ -283,7 +283,7 @@ impl JsComponentInstance {
         let args = arguments
             .into_iter()
             .zip(args)
-            .map(|(a, ty)| super::value::to_value(env, a, ty, model_owner))
+            .map(|(a, ty)| super::value::to_value(env, a, ty, anchor_owner))
             .collect::<Result<Vec<_>, _>>()?;
         if args.len() != count {
             return Err(napi::Error::from_reason(
@@ -319,10 +319,10 @@ impl JsComponentInstance {
                 )
             })?;
 
-        let mo = self.model_owner(env, &this)?;
+        let owner = self.anchor_owner(env, &this)?;
         let args = match ty {
             Type::Callback(function) | Type::Function(function) => {
-                Self::invoke_args(env, &mo, &callback_name, callback_arguments, &function.args)?
+                Self::invoke_args(env, &owner, &callback_name, callback_arguments, &function.args)?
             }
             _ => {
                 return Err(napi::Error::from_reason(
@@ -363,10 +363,10 @@ impl JsComponentInstance {
                 )
             })?;
 
-        let mo = self.model_owner(env, &this)?;
+        let owner = self.anchor_owner(env, &this)?;
         let args = match ty {
             Type::Callback(function) | Type::Function(function) => {
-                Self::invoke_args(env, &mo, &callback_name, callback_arguments, &function.args)?
+                Self::invoke_args(env, &owner, &callback_name, callback_arguments, &function.args)?
             }
             _ => {
                 return Err(napi::Error::from_reason(
