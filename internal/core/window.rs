@@ -649,10 +649,19 @@ impl WindowInner {
         if let Some(mut drop_event) = mouse_input_state.drag_data.clone() {
             match &event {
                 MouseEvent::Released { position, button: PointerEventButton::Left, .. } => {
-                    drop_event.position = crate::lengths::logical_position_to_api(*position);
-                    event = MouseEvent::Drop(drop_event);
                     mouse_input_state.drag_data = None;
                     mouse_input_state.drag_source = None;
+                    if mouse_input_state.drop_target.take().is_some() {
+                        drop_event.position = crate::lengths::logical_position_to_api(*position);
+                        event = MouseEvent::Drop(drop_event);
+                    } else {
+                        // No DropArea accepted the most recent DragMove. Tear the drag
+                        // down via Exit instead of converting to Drop so a non-accepting
+                        // DropArea under the cursor doesn't fire `dropped`, and so the
+                        // underlying Release doesn't reach hit-tested items as a
+                        // spurious click.
+                        event = MouseEvent::Exit;
+                    }
                 }
                 MouseEvent::Moved { position, .. } => {
                     drop_event.position = crate::lengths::logical_position_to_api(*position);
@@ -667,6 +676,7 @@ impl WindowInner {
                 MouseEvent::Exit => {
                     mouse_input_state.drag_data = None;
                     mouse_input_state.drag_source = None;
+                    mouse_input_state.drop_target = None;
                 }
                 _ => {}
             }
