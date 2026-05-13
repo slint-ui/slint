@@ -1188,10 +1188,8 @@ pub fn process_mouse_input(
     if matches!(mouse_event, MouseEvent::DragMove(_)) {
         // Remember the accepting DropArea (or forget if none did) so the subsequent
         // Release knows whether to deliver a Drop.
-        result.drop_target = r
-            .has_aborted()
-            .then(|| result.item_stack.last().map(|(w, _)| w.clone()))
-            .flatten();
+        result.drop_target =
+            r.has_aborted().then(|| result.item_stack.last().map(|(w, _)| w.clone())).flatten();
     }
     if mouse_input_state.delayed.is_some()
         && (!r.has_aborted()
