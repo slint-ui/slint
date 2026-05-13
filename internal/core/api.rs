@@ -598,6 +598,13 @@ impl Window {
         self.0.set_minimized(minimized);
     }
 
+    /// Bring all application windows to the front of the screen.
+    ///
+    /// On macOS this calls `[NSApp arrangeInFront:]`. On other platforms this is a no-op.
+    pub fn bring_all_to_front(&self) {
+        self.0.bring_all_to_front();
+    }
+
     /// The area of the window covered by the software keyboard is changing (animated).
     #[doc(hidden)]
     pub fn set_virtual_keyboard(

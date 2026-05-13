@@ -1053,7 +1053,7 @@ fn call_builtin_function(
             compiled
                 .set_callback_handler(
                     inst_ref.borrow(),
-                    "close",
+                    "close-popup",
                     Box::new(move |_args: &[Value]| -> Value {
                         let Some(item_rc) = item_weak.upgrade() else { return Value::Void };
                         if let Some(id) = item_rc
@@ -1789,6 +1789,7 @@ fn call_item_member_function(nr: &NamedReference, local_context: &mut EvalLocalC
     } else if let Some(s) = ItemRef::downcast_pin::<corelib::items::WindowItem>(item_ref) {
         match name {
             "hide" => s.hide(&window_adapter),
+            "close" => s.close(&window_adapter),
             _ => {
                 panic!("internal: Unknown member function {name} called on WindowItem")
             }

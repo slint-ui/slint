@@ -604,6 +604,7 @@ fn gen_corelib(
             "slint_windowrc_create_popup_window_adapter",
             "slint_windowrc_set_rendering_notifier",
             "slint_windowrc_request_redraw",
+            "slint_windowrc_bring_all_to_front",
             "slint_windowrc_on_close_requested",
             "slint_windowrc_position",
             "slint_windowrc_set_logical_position",

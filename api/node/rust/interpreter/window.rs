@@ -159,4 +159,10 @@ impl JsWindow {
     pub fn set_minimized(&self, minimized: bool) {
         self.inner.window().set_minimized(minimized)
     }
+
+    /// Bring all application windows to the front of the screen.
+    #[napi(js_name = "bringAllToFront")]
+    pub fn bring_all_to_front(&self) {
+        self.inner.window().bring_all_to_front()
+    }
 }

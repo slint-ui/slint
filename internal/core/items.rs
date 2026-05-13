@@ -1262,6 +1262,8 @@ pub struct WindowItem {
     pub default_font_family: Property<SharedString>,
     pub default_font_size: Property<LogicalLength>,
     pub default_font_weight: Property<i32>,
+    pub minimized: Property<bool>,
+    pub maximized: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -1472,6 +1474,14 @@ impl WindowItem {
         }
     }
 
+    pub fn close(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
+        close_window(window_adapter.window());
+    }
+
+    pub fn bring_all_to_front(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
+        WindowInner::from_pub(window_adapter.window()).bring_all_to_front();
+    }
+
     pub fn hide(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
         let _ = WindowInner::from_pub(window_adapter.window()).hide();
     }
@@ -1480,6 +1490,43 @@ impl WindowItem {
 impl ItemConsts for WindowItem {
     const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
         Self::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
+}
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_windowitem_close(
+    _window_item: Pin<&WindowItem>,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    _self_index: u32,
+) {
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        close_window(window_adapter.window());
+    }
+}
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_windowitem_bring_all_to_front(
+    _window_item: Pin<&WindowItem>,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    _self_index: u32,
+) {
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        window_adapter.window().bring_all_to_front();
+    }
+}
+
+fn close_window(window: &crate::api::Window) {
+    let inner = WindowInner::from_pub(window);
+    if inner.request_close()
+        && let Err(err) = inner.hide()
+    {
+        crate::debug_log!("Slint: Failed to hide window after close request: {err}");
+    }
 }
 
 #[cfg(feature = "ffi")]

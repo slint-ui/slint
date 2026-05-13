@@ -123,6 +123,10 @@ pub trait WindowAdapter {
     /// See also [`Window::request_redraw()`]
     fn request_redraw(&self) {}
 
+    /// Bring all application windows to the front of the screen.
+    /// On macOS this calls `[NSApp arrangeInFront:]`. On other platforms this is a no-op.
+    fn bring_all_to_front(&self) {}
+
     /// Return the renderer.
     ///
     /// The `Renderer` trait is an internal trait that you are not expected to implement.
@@ -357,12 +361,12 @@ impl WindowProperties<'_> {
 
     /// true if the window is in a maximized state, otherwise false
     pub fn is_maximized(&self) -> bool {
-        self.0.maximized.get()
+        self.0.is_maximized()
     }
 
     /// true if the window is in a minimized state, otherwise false
     pub fn is_minimized(&self) -> bool {
-        self.0.minimized.get()
+        self.0.is_minimized()
     }
 }
 
@@ -1524,6 +1528,11 @@ impl WindowInner {
         }
     }
 
+    /// Bring all application windows to the front of the screen.
+    pub fn bring_all_to_front(&self) {
+        self.window_adapter().bring_all_to_front();
+    }
+
     // Close the popup associated with the given popup window.
     fn close_popup_impl(&self, current_popup: &PopupWindow) {
         match &current_popup.location {
@@ -1721,7 +1730,7 @@ impl WindowInner {
         }
     }
 
-    /// Returns if the window is currently maximized
+    /// Returns if the window is currently in fullscreen mode
     pub fn is_fullscreen(&self) -> bool {
         if let Some(window_item) = self.window_item() {
             window_item.as_pin_ref().full_screen()
@@ -1740,23 +1749,37 @@ impl WindowInner {
 
     /// Returns if the window is currently maximized
     pub fn is_maximized(&self) -> bool {
-        self.maximized.get()
+        if let Some(window_item) = self.window_item() {
+            window_item.as_pin_ref().maximized()
+        } else {
+            self.maximized.get()
+        }
     }
 
     /// Set the window as maximized or unmaximized
     pub fn set_maximized(&self, maximized: bool) {
         self.maximized.set(maximized);
+        if let Some(window_item) = self.window_item() {
+            window_item.as_pin_ref().maximized.set(maximized);
+        }
         self.update_window_properties()
     }
 
     /// Returns if the window is currently minimized
     pub fn is_minimized(&self) -> bool {
-        self.minimized.get()
+        if let Some(window_item) = self.window_item() {
+            window_item.as_pin_ref().minimized()
+        } else {
+            self.minimized.get()
+        }
     }
 
     /// Set the window as minimized or unminimized
     pub fn set_minimized(&self, minimized: bool) {
         self.minimized.set(minimized);
+        if let Some(window_item) = self.window_item() {
+            window_item.as_pin_ref().minimized.set(minimized);
+        }
         self.update_window_properties()
     }
 
@@ -2157,6 +2180,17 @@ pub mod ffi {
         unsafe {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
             window_adapter.request_redraw();
+        }
+    }
+
+    /// Bring all application windows to the front of the screen.
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn slint_windowrc_bring_all_to_front(
+        handle: *const WindowAdapterRcOpaque,
+    ) {
+        unsafe {
+            let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+            window_adapter.bring_all_to_front();
         }
     }
 

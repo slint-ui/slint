@@ -507,6 +507,15 @@ public:
         cbindgen_private::slint_windowrc_set_minimized(&inner.handle(), minimized);
     }
 
+    /// Bring all application windows to the front of the screen.
+    ///
+    /// On macOS this calls `[NSApp arrangeInFront:]`. On other platforms this is a no-op.
+    void bring_all_to_front()
+    {
+        private_api::assert_main_thread();
+        cbindgen_private::slint_windowrc_bring_all_to_front(&inner.handle());
+    }
+
     /// Dispatch a key press event to the scene.
     ///
     /// Use this when you're implementing your own backend and want to forward user input events.

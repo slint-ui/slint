@@ -1395,6 +1395,15 @@ impl WindowAdapter for WinitWindowAdapter {
     fn internal(&self, _: corelib::InternalToken) -> Option<&dyn WindowAdapterInternal> {
         Some(self)
     }
+
+    #[cfg(target_os = "macos")]
+    fn bring_all_to_front(&self) {
+        use objc2::MainThreadMarker;
+        use objc2_app_kit::NSApplication;
+        if let Some(mtm) = MainThreadMarker::new() {
+            NSApplication::sharedApplication(mtm).arrangeInFront(None);
+        }
+    }
 }
 
 impl WindowAdapterInternal for WinitWindowAdapter {

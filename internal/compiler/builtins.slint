@@ -1434,6 +1434,20 @@ component WindowItem {
     out property <Point> virtual-keyboard-position;
     /// On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the width and height of the rectangle covered by it in window coordinates.
     out property <Size> virtual-keyboard-size;
+    /// Whether the window is minimized. Setting this to true minimizes the window.
+    /// \default false
+    in-out property <bool> minimized;
+    /// Whether the window is maximized. Setting this to true maximizes the window.
+    /// \default false
+    in-out property <bool> maximized;
+    /// Request that the window be closed. This triggers the `close-requested` callback,
+    /// giving the application a chance to cancel the close.
+    function close() {
+    }
+    /// Bring all application windows to the front of the screen.
+    /// On macOS this calls `[NSApp arrangeInFront:]`. On other platforms this is a no-op.
+    function bring-all-to-front() {
+    }
     /// Hide this window.
     function hide() {
     }
