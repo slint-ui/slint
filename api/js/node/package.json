@@ -50,5 +50,8 @@
     "lint": "biome lint",
     "lint:fix": "biome lint --fix",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "slint-js-common": "workspace:*"
   }
 }

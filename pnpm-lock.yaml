@@ -95,7 +95,17 @@ importers:
         specifier: 6.24.0
         version: 6.24.0
 
+  api/js/common:
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
   api/js/node:
+    dependencies:
+      slint-js-common:
+        specifier: workspace:*
+        version: link:../common
     devDependencies:
       '@biomejs/biome':
         specifier: 'catalog:'
