@@ -240,6 +240,25 @@ assert_eq!(instance.get_result(), "");
 assert_eq!(instance.get_contains_drag(), false);
 assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::Default);
 
+// When `can-drop` returns false, releasing over the DropArea must not invoke `dropped`.
+instance.set_use_image(false);
+instance.set_result("".into());
+instance.on_can_drop(|_, _| false);
+
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(20.0, 25.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(21.0, 40.0) });
+slint_testing::mock_elapsed_time(20);
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(22.0, 120.0) });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_contains_drag(), false);
+assert_eq!(slint_testing::access_testing_window(instance.window(), |window| window.mouse_cursor()), MouseCursor::NoDrop);
+
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(22.0, 120.0), button: PointerEventButton::Left });
+slint_testing::mock_elapsed_time(20);
+assert_eq!(instance.get_result(), "");
+assert_eq!(instance.get_contains_drag(), false);
+
 ```
 
 */
