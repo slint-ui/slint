@@ -200,7 +200,7 @@ pub struct StructDoc {
 }
 
 pub fn extract_builtin_structs(
-    include_experimental: bool,
+    _include_experimental: bool,
 ) -> std::collections::BTreeMap<String, StructDoc> {
     // `Point` should be in the documentation, but it's not inside of `for_each_builtin_structs`,
     // so we manually create its entry first.
@@ -307,10 +307,6 @@ pub fn extract_builtin_structs(
 
     // Internal type
     structs.remove("MenuEntry");
-    if !include_experimental {
-        // Experimental type
-        structs.remove("DropEvent");
-    }
 
     structs
 }

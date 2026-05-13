@@ -1030,6 +1030,7 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<BasicBorderRectangle>(),
             rtti_for::<BorderRectangle>(),
             rtti_for::<TouchArea>(),
+            rtti_for::<TooltipArea>(),
             rtti_for::<FocusScope>(),
             rtti_for::<KeyBinding>(),
             rtti_for::<SwipeGestureHandler>(),
@@ -2780,8 +2781,11 @@ pub fn show_popup(
 
     let extra_data = instance.description.extra_data_offset.apply(instance.as_ref());
     // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one.
-    let globals = if let Some(window_adapter) =
-        WindowInner::from_pub(parent_window_adapter.window()).create_popup_window_adapter()
+    // Tooltips skip this to share the parent's adapter, ensuring they use the ChildWindow path
+    // and renderer caches stay consistent.
+    let globals = if !popup.is_tooltip
+        && let Some(window_adapter) =
+            WindowInner::from_pub(parent_window_adapter.window()).create_popup_window_adapter()
     {
         extra_data.globals.get().unwrap().clone_with_window_adapter(window_adapter)
     } else {
@@ -2815,6 +2819,7 @@ pub fn show_popup(
             access_position,
             close_policy,
             parent_item,
+            popup.is_tooltip,
             false,
         ),
     );

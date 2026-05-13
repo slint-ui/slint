@@ -150,12 +150,15 @@ public:
     template<typename Component, typename Parent, typename PosGetter>
     uint32_t show_popup(const Parent *parent_component, PosGetter pos,
                         cbindgen_private::PopupClosePolicy close_policy,
-                        cbindgen_private::ItemRc parent_item) const
+                        cbindgen_private::ItemRc parent_item, bool is_tooltip = false) const
     {
         using SharedGlobals = decltype(parent_component->globals);
         SharedGlobals _own_globals = nullptr;
-        if (auto _popup_adapter = create_popup_window_adapter()) {
-            _own_globals = parent_component->globals->clone_with_window_adapter(*_popup_adapter);
+        if (!is_tooltip) {
+            if (auto _popup_adapter = create_popup_window_adapter()) {
+                _own_globals =
+                        parent_component->globals->clone_with_window_adapter(*_popup_adapter);
+            }
         }
         if (!_own_globals) {
             _own_globals = parent_component->globals;
@@ -178,7 +181,7 @@ public:
                     return data->pos(data->popup_component);
                 },
                 [](void *user_data) { delete reinterpret_cast<PopupPositionData *>(user_data); },
-                position_data, close_policy, &parent_item, false);
+                position_data, close_policy, &parent_item, is_tooltip, false);
         popup->user_init();
         return id;
     }
@@ -226,7 +229,7 @@ public:
                 [](void *user_data) { return *reinterpret_cast<LogicalPosition *>(user_data); },
                 [](void *user_data) { delete reinterpret_cast<LogicalPosition *>(user_data); },
                 position_data, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
-                &context_menu_rc, true);
+                &context_menu_rc, false, true);
         popup->user_init();
         return id;
     }

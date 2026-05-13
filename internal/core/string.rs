@@ -75,6 +75,17 @@ impl SharedString {
         }
     }
 
+    /// Replace in this string characters equal to `from` with the character `to` `count` times
+    pub(crate) fn replace_characters(&mut self, from: char, to: char, count: usize) {
+        let mut from_buffer = [0u8; 4];
+        let mut to_buffer = [0u8; 4];
+        self.inner.replace_range(
+            from.encode_utf8(&mut from_buffer).as_bytes(),
+            to.encode_utf8(&mut to_buffer).as_bytes(),
+            count,
+        );
+    }
+
     /// Append a string to this string
     ///
     /// ```
@@ -328,15 +339,38 @@ where
     }
 }
 
-/// Convert a f62 to a SharedString
+/// Convert a f64 to a SharedString
 pub fn shared_string_from_number(n: f64) -> SharedString {
-    // Number from which the increment of f32 is 1, so that we print enough precision to be able to represent all integers
-    if n < 16777216. { crate::format!("{}", n as f32) } else { crate::format!("{}", n) }
+    crate::context::GLOBAL_CONTEXT.with(|ctx| {
+        // Number from which the increment of f32 is 1, so that we print enough precision to be able to represent all integers
+        let mut result =
+            if n < 16777216. { crate::format!("{}", n as f32) } else { crate::format!("{}", n) };
+
+        if let Some(ctx) = ctx.get() {
+            let pinned = ctx.0.as_ref().project_ref();
+            let decimal_separator = pinned.locale_decimal_separator.get();
+            if decimal_separator != i_slint_common::DEFAULT_DECIMAL_SEPARATOR {
+                result.replace_characters('.', decimal_separator, 1);
+            }
+        }
+        result
+    })
 }
 
 /// Convert a f64 to a SharedString with a fixed number of digits after the decimal point
 pub fn shared_string_from_number_fixed(n: f64, digits: usize) -> SharedString {
-    crate::format!("{number:.digits$}", number = n, digits = digits)
+    crate::context::GLOBAL_CONTEXT.with(|ctx| {
+        let mut result = crate::format!("{number:.digits$}", number = n, digits = digits);
+
+        if let Some(ctx) = ctx.get() {
+            let pinned = ctx.0.as_ref().project_ref();
+            let decimal_separator = pinned.locale_decimal_separator.get();
+            if decimal_separator != i_slint_common::DEFAULT_DECIMAL_SEPARATOR {
+                result.replace_characters('.', decimal_separator, 1);
+            }
+        }
+        result
+    })
 }
 
 /// Convert a f64 to a SharedString following a similar logic as JavaScript's Number.toPrecision()
@@ -352,6 +386,43 @@ pub fn shared_string_from_number_precision(n: f64, precision: usize) -> SharedSt
         )
     } else {
         shared_string_from_number_fixed(n, precision.saturating_add_signed(-(exponent + 1)))
+    }
+}
+
+/// Convert a string to a float
+pub fn string_to_float(string: &str) -> Option<f32> {
+    crate::context::GLOBAL_CONTEXT.with(|ctx| {
+        let sep = ctx.get().map(|ctx| ctx.locale_decimal_separator()).unwrap_or('.');
+
+        if sep == '.' {
+            string.parse::<f32>().ok()
+        } else {
+            if string.contains('.') {
+                return None;
+            }
+            // Normalize locale separator to '.' because f64::parse only accepts '.'
+            string.replace(sep, ".").parse::<f32>().ok()
+        }
+    })
+}
+
+#[test]
+fn test_string_to_float() {
+    const TEST: &[(&str, Option<f32>)] = &[
+        ("-", None),
+        (".", None),
+        ("-.", None),
+        ("-.5", Some(-0.5)),
+        ("--", None),
+        ("..", None),
+        ("5.5.", None),
+        ("231.435", Some(231.435)),
+        ("-0.007", Some(-0.007)),
+        ("10e6", Some(10e6)),
+    ];
+
+    for (test_string, result) in TEST {
+        assert_eq!(string_to_float(test_string), *result);
     }
 }
 
@@ -416,6 +487,14 @@ fn to_shared_string() {
     let five = SharedString::from("5.1");
 
     assert_eq!(five, i.to_shared_string());
+}
+
+#[test]
+fn test_replace_characters() {
+    let mut value = SharedString::from("5.1");
+    value.replace_characters('.', ',', 1);
+
+    assert_eq!(value, "5,1".to_shared_string());
 }
 
 #[cfg(feature = "ffi")]

@@ -552,16 +552,21 @@ impl TypeRegister {
         match &mut register.elements.get_mut("Timer").unwrap() {
             ElementType::Builtin(b) => {
                 let timer = Rc::get_mut(b).unwrap();
-                timer
-                    .properties
-                    .insert("start".into(), BuiltinPropertyInfo::from(BuiltinFunction::StartTimer));
-                timer
-                    .properties
-                    .insert("stop".into(), BuiltinPropertyInfo::from(BuiltinFunction::StopTimer));
-                timer.properties.insert(
-                    "restart".into(),
-                    BuiltinPropertyInfo::from(BuiltinFunction::RestartTimer),
-                );
+                // `start` / `stop` / `restart` are declared as stub
+                // functions in `builtins.slint` so their doc comments get
+                // picked up, then replaced here with the real builtin
+                // implementations. Carry the docs over onto the
+                // replacements.
+                for (name, func) in [
+                    ("start", BuiltinFunction::StartTimer),
+                    ("stop", BuiltinFunction::StopTimer),
+                    ("restart", BuiltinFunction::RestartTimer),
+                ] {
+                    let existing_docs = timer.properties.get(name).and_then(|p| p.docs.clone());
+                    let mut info = BuiltinPropertyInfo::from(func);
+                    info.docs = existing_docs;
+                    timer.properties.insert(name.into(), info);
+                }
             }
             _ => unreachable!(),
         }
@@ -578,15 +583,32 @@ impl TypeRegister {
                     source_location: None,
                 }
             }),
+            docs: None,
         };
 
         match &mut register.elements.get_mut("TextInput").unwrap() {
             ElementType::Builtin(b) => {
                 let text_input = Rc::get_mut(b).unwrap();
-                text_input.properties.insert(
-                    "set-selection-offsets".into(),
-                    BuiltinPropertyInfo::from(BuiltinFunction::SetSelectionOffsets),
-                );
+                // Replace the stub function with the real builtin
+                // implementation, carrying over docs and arg names.
+                let existing = text_input.properties.get("set-selection-offsets");
+                let existing_docs = existing.and_then(|p| p.docs.clone());
+                let arg_names = existing.and_then(|p| {
+                    if let Type::Function(f) = &p.ty { Some(f.arg_names.clone()) } else { None }
+                });
+                let mut info = BuiltinPropertyInfo::from(BuiltinFunction::SetSelectionOffsets);
+                info.docs = existing_docs;
+                if let (Some(names), Type::Function(f)) = (arg_names, &info.ty) {
+                    let mut func = (**f).clone();
+                    // The BuiltinFunction type includes an implicit ElementReference
+                    // first arg; skip it to match the public-facing arg names.
+                    func.arg_names =
+                        std::iter::repeat_n(SmolStr::default(), func.args.len() - names.len())
+                            .chain(names)
+                            .collect();
+                    info.ty = Type::Function(Rc::new(func));
+                }
+                text_input.properties.insert("set-selection-offsets".into(), info);
                 text_input.properties.insert("font-metrics".into(), font_metrics_prop.clone());
             }
 
@@ -636,11 +658,6 @@ impl TypeRegister {
 
         register.elements.remove("ComponentContainer").unwrap();
         register.types.remove("component-factory").unwrap();
-
-        register.types.remove("data-transfer").unwrap();
-        register.elements.remove("DragArea").unwrap();
-        register.elements.remove("DropArea").unwrap();
-        register.types.remove("DropEvent").unwrap(); // Also removed in docs/slint-doc-generator
 
         register.elements.remove("FlexboxLayout").unwrap();
         register.types.remove("FlexboxLayoutDirection").unwrap();

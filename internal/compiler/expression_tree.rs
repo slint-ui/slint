@@ -125,6 +125,7 @@ pub enum BuiltinFunction {
     OpenUrl,
     ParseMarkdown,
     StringToStyledText,
+    DecimalSeparator,
 }
 
 #[derive(Debug, Clone)]
@@ -200,6 +201,7 @@ declare_builtin_function_types!(
     ASin: (Type::Float32) -> Type::Angle,
     ATan: (Type::Float32) -> Type::Angle,
     ATan2: (Type::Float32, Type::Float32) -> Type::Angle,
+    DecimalSeparator: () -> Type::String,
     Log: (Type::Float32, Type::Float32) -> Type::Float32,
     Ln: (Type::Float32) -> Type::Float32,
     Pow: (Type::Float32, Type::Float32) -> Type::Float32,
@@ -340,6 +342,7 @@ impl BuiltinFunction {
             BuiltinFunction::DateNow => false,
             BuiltinFunction::ValidDate => false,
             BuiltinFunction::ParseDate => false,
+            BuiltinFunction::DecimalSeparator => false,
             // Even if it is not pure, we optimize it away anyway
             BuiltinFunction::Debug => true,
             BuiltinFunction::Mod
@@ -432,6 +435,7 @@ impl BuiltinFunction {
             BuiltinFunction::DateNow => true,
             BuiltinFunction::ValidDate => true,
             BuiltinFunction::ParseDate => true,
+            BuiltinFunction::DecimalSeparator => true,
             // Even if it has technically side effect, we still consider it as pure for our purpose
             BuiltinFunction::Debug => true,
             BuiltinFunction::Mod

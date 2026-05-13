@@ -42,6 +42,7 @@ mod lower_states;
 mod lower_tabwidget;
 mod lower_text_input_interface;
 mod lower_timers;
+mod lower_tooltips;
 pub mod materialize_fake_properties;
 pub mod move_declarations;
 mod optimize_useless_rectangles;
@@ -111,6 +112,7 @@ pub async fn run_passes(
     collect_libraries::collect_libraries(doc);
     collect_subcomponents::collect_subcomponents(doc);
     lower_tabwidget::lower_tabwidget(doc, type_loader, diag).await;
+    lower_tooltips::lower_tooltips(doc, type_loader, diag).await;
     lower_menus::lower_menus(doc, type_loader, diag).await;
     lower_component_container::lower_component_container(doc, type_loader, diag);
     collect_subcomponents::collect_subcomponents(doc);

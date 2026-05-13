@@ -2,6 +2,6 @@
     "root": true,
     "extends": ["../../biome.json", "../common/biome-starlight-shared.json"],
     "files": {
-        "includes": ["**", "!**/.astro/**"]
+        "includes": ["src/**/*.ts", "biome.json", "tsconfig.json"]
     }
 }

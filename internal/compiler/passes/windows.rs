@@ -58,6 +58,7 @@ pub fn ensure_window(
         accessibility_props: Default::default(),
         geometry_props: Default::default(),
         is_flickable_viewport: false,
+        is_tooltip: false,
         item_index: Default::default(),
         item_index_of_first_children: Default::default(),
         grid_layout_cell: None,

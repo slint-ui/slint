@@ -2819,6 +2819,7 @@ mod tests {
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(parent.clone()),
             false,
+            false,
         );
 
         let root = ItemRc::new_root(popup_component);
@@ -2856,6 +2857,7 @@ mod tests {
             alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(item_tree.clone()),
+            false,
             false,
         );
 
@@ -2956,6 +2958,7 @@ mod tests {
             alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(parent.clone()),
+            false,
             false,
         );
 

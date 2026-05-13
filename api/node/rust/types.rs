@@ -18,3 +18,6 @@ pub use point::*;
 
 mod size;
 pub use size::*;
+
+mod styled_text;
+pub use styled_text::*;
