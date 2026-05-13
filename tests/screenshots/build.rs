@@ -5,14 +5,16 @@ use std::io::{BufWriter, Write};
 use std::path::Path;
 
 fn main() -> std::io::Result<()> {
-    let default_font_path: std::path::PathBuf =
-        [env!("CARGO_MANIFEST_DIR"), "fonts"].iter().collect();
+    let fonts_dir: std::path::PathBuf = [env!("CARGO_MANIFEST_DIR"), "fonts"].iter().collect();
+    let primary_font = fonts_dir.join("NotoSans-Regular.ttf");
 
     // Safety: there are no other threads at this point
     unsafe {
-        std::env::set_var("SLINT_DEFAULT_FONT", default_font_path.clone());
+        std::env::set_var("SLINT_DEFAULT_FONT", &primary_font);
+        std::env::set_var("SLINT_FONT_PATH", &fonts_dir);
     }
-    println!("cargo:rustc-env=SLINT_DEFAULT_FONT={}", default_font_path.display());
+    println!("cargo:rustc-env=SLINT_DEFAULT_FONT={}", primary_font.display());
+    println!("cargo:rustc-env=SLINT_FONT_PATH={}", fonts_dir.display());
     println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
 
     let mut generated_file = BufWriter::new(std::fs::File::create(
