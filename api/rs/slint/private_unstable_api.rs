@@ -174,6 +174,7 @@ pub mod re_exports {
     };
     pub use i_slint_core::animations::{EasingCurve, animation_tick, current_tick};
     pub use i_slint_core::api::LogicalPosition;
+    pub use i_slint_core::bring_all_to_front;
     pub use i_slint_core::callbacks::Callback;
     pub use i_slint_core::context::SlintContext;
     pub use i_slint_core::data_transfer::DataTransfer;
@@ -199,7 +200,6 @@ pub mod re_exports {
     };
     pub use i_slint_core::menus::{Menu, MenuFromItemTree, MenuVTable};
     pub use i_slint_core::model::*;
-    pub use i_slint_core::bring_all_to_front;
     pub use i_slint_core::open_url;
     pub use i_slint_core::properties::{
         ChangeTracker, Property, PropertyTracker, StateInfo, set_state_binding,
