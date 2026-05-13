@@ -686,10 +686,10 @@ impl FlickableData {
                 inner.velocity_rb = VelocityRingBuffer::default();
                 inner.pressed_mouse_state = Some((crate::animations::current_tick(), *position));
                 inner.last_mouse_position = *position;
-                let x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
-                x.remove_binding(); // Stop animation by removing the binding
-                let y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
-                y.remove_binding(); // Stop animation by removing the binding
+                let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
+                viewport_x.remove_binding(); // Stop animation by removing the binding
+                let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
+                viewport_y.remove_binding(); // Stop animation by removing the binding
 
                 if inner.capture_events.is_some() {
                     InputEventFilterResult::Intercept
@@ -709,26 +709,10 @@ impl FlickableData {
                 let do_intercept = inner.capture_events.is_some()
                     || inner.pressed_mouse_state.is_some_and(
                         |(pressed_time, pressed_mouse_position)| {
-                            if crate::animations::current_tick() - pressed_time > DURATION_THRESHOLD
-                            {
-                                return false;
-                            }
-                            // Check if the mouse was moved more than the DISTANCE_THRESHOLD in a
-                            // direction in which the flickable can flick
-                            let diff = *position - pressed_mouse_position;
-                            let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
-                            let w = geo.width_length();
-                            let h = geo.height_length();
-                            let vw =
-                                (Flickable::FIELD_OFFSETS.viewport_width()).apply_pin(flick).get();
-                            let vh =
-                                (Flickable::FIELD_OFFSETS.viewport_height()).apply_pin(flick).get();
-                            let x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick).get();
-                            let y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick).get();
-                            let zero = LogicalLength::zero();
-                            ((vw > w || x != zero) && abs(diff.x_length()) > DISTANCE_THRESHOLD)
-                                || ((vh > h || y != zero)
-                                    && abs(diff.y_length()) > DISTANCE_THRESHOLD)
+                            let mouse_delta = *position - pressed_mouse_position;
+
+                            crate::animations::current_tick() - pressed_time <= DURATION_THRESHOLD
+                                && self.should_capture_mouse_direction(mouse_delta, flick, flick_rc)
                         },
                     );
                 if do_intercept {
@@ -796,6 +780,27 @@ impl FlickableData {
         }
     }
 
+    fn should_capture_mouse_direction(
+        &self,
+        mouse_delta: LogicalVector,
+        flick: Pin<&Flickable>,
+        flick_rc: &ItemRc,
+    ) -> bool {
+        let flickable_geometry = Flickable::geometry_without_virtual_keyboard(flick_rc);
+        let flickable_width = flickable_geometry.width_length();
+        let flickable_height = flickable_geometry.height_length();
+        let viewport_width = flick.viewport_width();
+        let viewport_height = flick.viewport_height();
+        let zero = LogicalLength::zero();
+
+        // We should capture the mouse movement, if the flickable can move in this
+        // axis, and the mouse has moved more than the threshold in this axis.
+        ((viewport_width > flickable_width || flick.viewport_x() != zero)
+            && abs(mouse_delta.x_length()) > DISTANCE_THRESHOLD)
+            || ((viewport_height > flickable_height || flick.viewport_y() != zero)
+                && abs(mouse_delta.y_length()) > DISTANCE_THRESHOLD)
+    }
+
     fn handle_mouse(
         &self,
         flick: Pin<&Flickable>,
@@ -837,67 +842,67 @@ impl FlickableData {
                 // So to correctly calculate the mouse delta, we need to use the position of
                 // the mouse in the flickables coordinate system and never the viewport coordinate
                 // system.
-                if let Some((_pressed_time, pressed_mouse_position)) = inner.pressed_mouse_state {
+                if let Some((_pressed_time, _pressed_mouse_position)) = inner.pressed_mouse_state {
                     let mouse_delta = *position - inner.last_mouse_position;
-                    let total_mouse_delta = *position - pressed_mouse_position;
-                    inner.last_mouse_position = *position;
-
                     inner.velocity_rb.push(crate::animations::current_tick(), mouse_delta);
 
-                    let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
-                    let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
-                    let current_viewport_position =
-                        LogicalPoint::from_lengths(viewport_x.get(), viewport_y.get());
-
-                    // We calculate the new viewport position by adding the mouse delta in the flickable
-                    // coordinate system to the current viewport position.
-                    // Do not rely on the existing viewport position to be stable, as e.g. the
-                    // ListView will continuously update it.
-                    // So we cannot calculate the delta in viewport coordinates.
-                    let new_viewport_position = current_viewport_position + mouse_delta;
-
-                    let should_capture = || {
-                        let flickable_geometry =
-                            Flickable::geometry_without_virtual_keyboard(flick_rc);
-                        let flickable_width = flickable_geometry.width_length();
-                        let flickable_height = flickable_geometry.height_length();
-                        let viewport_width =
-                            (Flickable::FIELD_OFFSETS.viewport_width()).apply_pin(flick).get();
-                        let viewport_height =
-                            (Flickable::FIELD_OFFSETS.viewport_height()).apply_pin(flick).get();
-                        let zero = LogicalLength::zero();
-
-                        // We should capture the mouse movement, if the flickable can move in this
-                        // axis, and the mouse has moved more than the threshold in this axis.
-                        ((viewport_width > flickable_width || viewport_x.get() != zero)
-                            && abs(total_mouse_delta.x_length()) > DISTANCE_THRESHOLD)
-                            || ((viewport_height > flickable_height || viewport_y.get() != zero)
-                                && abs(total_mouse_delta.y_length()) > DISTANCE_THRESHOLD)
-                    };
-
-                    if inner.capture_events.is_some_and(|f| f == CaptureEvents::MouseOrTouchScreen)
-                        || should_capture()
+                    let is_capturing = inner
+                        .capture_events
+                        .is_some_and(|f| f == CaptureEvents::MouseOrTouchScreen);
+                    if is_capturing
+                        || self.should_capture_mouse_direction(mouse_delta, flick, flick_rc)
                     {
                         // The drag event is meant to move the viewport, set it to the new position
                         // and start capturing mouse events.
-                        let new_pos = ensure_in_bound(flick, new_viewport_position, flick_rc);
+                        let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
+                        let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
+                        let current_viewport_position =
+                            LogicalPoint::from_lengths(viewport_x.get(), viewport_y.get());
 
-                        viewport_x.set(new_pos.x_length());
-                        viewport_y.set(new_pos.y_length());
-                        if current_viewport_position != new_pos {
+                        // We calculate the new viewport position by adding the mouse delta in the flickable
+                        // coordinate system to the current viewport position.
+                        // Do not rely on the existing viewport position to be stable, as e.g. the
+                        // ListView will continuously update it.
+                        // So we cannot calculate the delta in viewport coordinates.
+                        let new_viewport_position = current_viewport_position + mouse_delta;
+                        let new_viewport_position =
+                            ensure_in_bound(flick, new_viewport_position, flick_rc);
+
+                        viewport_x.set(new_viewport_position.x_length());
+                        viewport_y.set(new_viewport_position.y_length());
+                        if current_viewport_position != new_viewport_position {
                             (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
                         }
 
+                        // Only update the mouse position if we are actually applying the delta.
+                        // When the drag starts, there is a short dead zone that is determined by the
+                        // DISTANCE_THRESHOLD. We want to apply that threshold to the
+                        // delta once we've overcome it, so we need to update the position that we
+                        // calculate the delta from only after we've cleared the deadzone and are
+                        // actually moving.
+                        //
+                        // Note: As an alternative to updating the last_mouse_position to the new mouse position,
+                        // we could also update it by the amount that the viewport actually moved.
+                        // This would cause the mouse to stick to a given position in the viewport
+                        // instead of starting to drift if the drag goes into the viewport limits.
+                        // Then this code would need to be:
+                        //
+                        //  inner.last_mouse_position += new_viewport_position - current_viewport_position;
+                        //
+                        // But at least for a touchscreen, the current behavior is more intuitive.
+                        inner.last_mouse_position = *position;
+
                         inner.capture_events = Some(CaptureEvents::MouseOrTouchScreen);
+
                         InputEventResult::GrabMouse
-                    } else if abs(viewport_x.get() - new_viewport_position.x_length())
-                        > DISTANCE_THRESHOLD
-                        || abs(viewport_y.get() - new_viewport_position.y_length())
-                            > DISTANCE_THRESHOLD
+                    } else if abs(mouse_delta.x_length()) > DISTANCE_THRESHOLD
+                        || abs(mouse_delta.y_length()) > DISTANCE_THRESHOLD
                     {
                         // drag in a unsupported direction gives up the grab
                         InputEventResult::EventIgnored
                     } else {
+                        // the mouse was moved, but not enough to start the drag, we still want to accept further events
+                        // so that we may pass the threshold at some point
                         InputEventResult::EventAccepted
                     }
                 } else {
