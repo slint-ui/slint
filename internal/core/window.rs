@@ -703,7 +703,9 @@ impl WindowInner {
                         preferred,
                     );
                     // Mirror the position and proposed action into the persistent state so the
-                    // renderer can place the drag-image overlay without re-deriving the cursor location.
+                    // renderer can place the drag-image overlay without re-deriving the cursor
+                    // location, and so a subsequent synthetic Moved (e.g. fired from a modifier
+                    // key press) starts from the right position.
                     if let Some(d) = mouse_input_state.drag_data.as_mut() {
                         d.position = drop_event.position;
                         d.proposed_action = drop_event.proposed_action;
@@ -955,6 +957,23 @@ impl WindowInner {
         ) {
             // Updates the key modifiers depending on the key code and pressed state.
             self.context().0.modifiers.set(updated_modifier);
+
+            // If a drag is in flight, synthesize a Moved at the last drag position so
+            // the new modifier state flows into `event.proposed-action` and the target's
+            // `can-drop` re-runs — letting the user change copy/move/link with Ctrl/Shift
+            // without having to move the mouse first.
+            let drag_pos = {
+                let state = self.mouse_input_state.take();
+                let pos = state.drag_data.as_ref().map(|d| d.position);
+                self.mouse_input_state.replace(state);
+                pos
+            };
+            if let Some(pos) = drag_pos {
+                self.process_mouse_input(MouseEvent::Moved {
+                    position: crate::lengths::logical_point_from_api(pos),
+                    touch_finger_id: 0,
+                });
+            }
         }
 
         internal_key_event.key_event.modifiers =
