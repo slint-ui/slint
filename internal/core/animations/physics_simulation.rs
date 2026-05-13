@@ -59,10 +59,12 @@ impl ConstantDecelerationParameters {
     // * `distance` - the distance to cover with this animation
     // * `duration_secs` - the duration of the animation in seconds
     pub fn new_with_distance(distance: f32, duration_secs: f32) -> Self {
+        debug_assert!(duration_secs > 0., "Duration must be greater than zero");
+
         // The initial velocity and deceleration are calculated based on the distance and duration to cover the given distance in the given time.
         //
         // The calculation is based on the equations of motion for constant acceleration:
-        //      - v0 * t + 0.5 * a * t^2 = d
+        //      => v0 * t + 0.5 * a * t^2 = d
         //
         //
         // Where t = duration_secs, d = distance, v0 = initial_velocity and a = -deceleration
@@ -91,6 +93,12 @@ impl ConstantDecelerationParameters {
 
     /// Calculates the remaining distance to the limit value at a given time based on the initial velocity and deceleration.
     pub fn remaining_distance(&self, time_elapsed: core::time::Duration) -> f32 {
+        debug_assert!(self.deceleration != 0., "deceleration must not be zero");
+        debug_assert!(
+            self.deceleration.signum() == self.initial_velocity.signum(),
+            "deceleration must actually decelerate the velocity"
+        );
+
         // The animation stops if the velocity becomes zero.
         // Therefore we can calculate the animation duration based on the initial velocity and deceleration:
         //          v0 + a * t = 0
