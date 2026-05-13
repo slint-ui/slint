@@ -159,5 +159,4 @@ impl JsWindow {
     pub fn set_minimized(&self, minimized: bool) {
         self.inner.window().set_minimized(minimized)
     }
-
 }
