@@ -129,16 +129,16 @@ jobs:
 
                 LINKS=""
 
-                # Assemble docs from sub-artifacts into docs/
+                # Assemble docs from sub-artifacts into master/docs/
                 if [ "$DL_DOCS" = "success" ]; then
-                  mkdir -p "$DIST/docs"
-                  cp -R artifacts/docs-parts/docs/. "$DIST/docs/"
+                  mkdir -p "$DIST/master/docs"
+                  cp -R artifacts/docs-parts/docs/. "$DIST/master/docs/"
                   LINKS="$LINKS<li>Documentation: "
-                  LINKS="$LINKS<a href=\"/docs/slint/\">Slint</a>"
-                  LINKS="$LINKS · <a href=\"/docs/rust/slint/\">Rust</a>"
-                  LINKS="$LINKS · <a href=\"/docs/cpp/\">C++</a>"
-                  LINKS="$LINKS · <a href=\"/docs/node/\">Node</a>"
-                  LINKS="$LINKS · <a href=\"/docs/python/\">Python</a>"
+                  LINKS="$LINKS<a href=\"/master/docs/slint/\">Slint</a>"
+                  LINKS="$LINKS · <a href=\"/master/docs/rust/slint/\">Rust</a>"
+                  LINKS="$LINKS · <a href=\"/master/docs/cpp/\">C++</a>"
+                  LINKS="$LINKS · <a href=\"/master/docs/node/\">Node</a>"
+                  LINKS="$LINKS · <a href=\"/master/docs/python/\">Python</a>"
                   LINKS="$LINKS</li>"
                 fi
                 if [ "$DL_SLINTPAD" = "success" ]; then
