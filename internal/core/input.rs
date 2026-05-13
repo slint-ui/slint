@@ -994,6 +994,10 @@ pub struct MouseInputState {
     /// When this is Some, it means we are in the middle of a drag-drop operation and it contains the dragged data.
     /// The `position` field has no signification
     pub(crate) drag_data: Option<DropEvent>,
+    /// The DropArea that accepted the most recent DragMove, if any. On release we use
+    /// this to decide whether to deliver a Drop — matching OS DnD pipelines, where a
+    /// target that didn't previously accept never receives a drop.
+    pub(crate) drop_target: Option<ItemWeak>,
     delayed: Option<(crate::timers::Timer, MouseEvent)>,
     delayed_exit_items: Vec<ItemWeak>,
     pub(crate) cursor: MouseCursor,
@@ -1169,6 +1173,7 @@ pub fn process_mouse_input(
 ) -> MouseInputState {
     let mut result = MouseInputState {
         drag_data: mouse_input_state.drag_data.clone(),
+        drop_target: mouse_input_state.drop_target.clone(),
         cursor: mouse_input_state.cursor,
         ..Default::default()
     };
@@ -1180,6 +1185,14 @@ pub fn process_mouse_input(
         mouse_input_state.top_item().as_ref(),
         false,
     );
+    if matches!(mouse_event, MouseEvent::DragMove(_)) {
+        // Remember the accepting DropArea (or forget if none did) so the subsequent
+        // Release knows whether to deliver a Drop.
+        result.drop_target = r
+            .has_aborted()
+            .then(|| result.item_stack.last().map(|(w, _)| w.clone()))
+            .flatten();
+    }
     if mouse_input_state.delayed.is_some()
         && (!r.has_aborted()
             || Option::zip(result.item_stack.last(), mouse_input_state.item_stack.last())
