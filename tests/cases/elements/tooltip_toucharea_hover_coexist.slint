@@ -5,7 +5,7 @@ export component TestCase {
     width: 200px;
     height: 120px;
 
-    in-out property <bool> tooltip-created;
+    in-out property <int> init-count;
     out property <bool> touch-hover <=> ta.has-hover;
 
     ta := TouchArea {
@@ -15,7 +15,7 @@ export component TestCase {
         ToolTip {
             placement: above-element;
             Rectangle {
-                init => { root.tooltip-created = true; }
+                init => { root.init-count += 1; }
             }
         }
     }
@@ -28,16 +28,20 @@ use slint::{platform::WindowEvent, LogicalPosition};
 
 let instance = TestCase::new().unwrap();
 assert!(!instance.get_touch_hover());
-assert!(!instance.get_tooltip_created());
+assert_eq!(instance.get_init_count(), 0);
 
+// Hover enters: TouchArea gets hover, but tooltip init has not fired yet (delay pending).
 instance.window().dispatch_event(WindowEvent::PointerMoved {
     position: LogicalPosition::new(20.0, 20.0),
 });
 assert!(instance.get_touch_hover());
+assert_eq!(instance.get_init_count(), 0);
 
+// After the delay, the tooltip popup is shown and init fires.
 slint_testing::mock_elapsed_time(600);
-assert!(instance.get_tooltip_created());
+assert_eq!(instance.get_init_count(), 1);
 
+// Moving out hides the tooltip and clears hover.
 instance.window().dispatch_event(WindowEvent::PointerMoved {
     position: LogicalPosition::new(250.0, 250.0),
 });

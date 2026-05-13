@@ -4,7 +4,7 @@
 export component TestCase {
     width: 200phx;
     height: 200phx;
-    in-out property <bool> tooltip-created;
+    in-out property <int> init-count;
     Rectangle {
         x: 0px;
         y: 0px;
@@ -15,7 +15,7 @@ export component TestCase {
             placement: below-element;
             Rectangle {
                 init => {
-                    root.tooltip-created = true;
+                    root.init-count += 1;
                 }
             }
         }
@@ -28,8 +28,9 @@ export component TestCase {
 use slint::{platform::WindowEvent, LogicalPosition};
 
 let instance = TestCase::new().unwrap();
-assert!(!instance.get_tooltip_created());
+assert_eq!(instance.get_init_count(), 0);
 
+// Hover then leave before the delay fires: tooltip must not appear.
 instance.window().dispatch_event(WindowEvent::PointerMoved {
     position: LogicalPosition::new(50.0, 50.0),
 });
@@ -37,14 +38,15 @@ instance.window().dispatch_event(WindowEvent::PointerMoved {
     position: LogicalPosition::new(250.0, 250.0),
 });
 slint_testing::mock_elapsed_time(600);
-assert!(!instance.get_tooltip_created());
+assert_eq!(instance.get_init_count(), 0);
 
+// Hover and stay: tooltip appears after the delay.
 instance.window().dispatch_event(WindowEvent::PointerMoved {
     position: LogicalPosition::new(50.0, 50.0),
 });
-assert!(!instance.get_tooltip_created());
+assert_eq!(instance.get_init_count(), 0);
 slint_testing::mock_elapsed_time(600);
-assert!(instance.get_tooltip_created());
+assert_eq!(instance.get_init_count(), 1);
 ```
 
 */

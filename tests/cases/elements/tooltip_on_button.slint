@@ -6,7 +6,7 @@ import { Button } from "std-widgets.slint";
 export component TestCase {
     width: 220px;
     height: 120px;
-    in-out property <bool> tooltip-created;
+    in-out property <int> init-count;
 
     Button {
         x: 30px;
@@ -18,7 +18,7 @@ export component TestCase {
         ToolTip {
             placement: above-element;
             Rectangle {
-                init => { root.tooltip-created = true; }
+                init => { root.init-count += 1; }
             }
         }
     }
@@ -30,14 +30,17 @@ export component TestCase {
 use slint::{platform::WindowEvent, LogicalPosition};
 
 let instance = TestCase::new().unwrap();
-assert!(!instance.get_tooltip_created());
+assert_eq!(instance.get_init_count(), 0);
 
+// Hover over the button; tooltip init has not fired yet.
 instance.window().dispatch_event(WindowEvent::PointerMoved {
     position: LogicalPosition::new(80.0, 58.0),
 });
-assert!(!instance.get_tooltip_created());
+assert_eq!(instance.get_init_count(), 0);
+
+// After the delay, the tooltip is shown and init fires exactly once.
 slint_testing::mock_elapsed_time(600);
-assert!(instance.get_tooltip_created());
+assert_eq!(instance.get_init_count(), 1);
 ```
 
 */
