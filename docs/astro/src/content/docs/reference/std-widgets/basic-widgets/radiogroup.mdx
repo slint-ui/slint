@@ -21,12 +21,15 @@ export component Example inherits Window {
             { label: "Embedded", value: "embedded", enabled: true },
         ];
         value: "desktop";
+        changed(value) => {
+            debug("Selected: ", value);
+        }
     }
 }
 ```
 </CodeSnippetMD>
 
-Use a `RadioGroup` to let the user select exactly one option from a mutually exclusive list. The `options` property takes an array of [`RadioOption`](#radiooption).
+Use a `RadioGroup` to let the user select exactly one option from a mutually exclusive list. The `options` property takes an array of [`RadioOption`](#radiooption). Bind `value` to the selected option's `value` string, and handle updates in the `changed` callback (see the example above).
 
 ## RadioOption
 
@@ -55,80 +58,24 @@ Set to `true` when any radio button inside the group has keyboard focus.
 ### options
 <SlintProperty propName="options" typeName="[struct]" structName="RadioOption" defaultValue="[]">
 The list of options to display. Each entry has a `label`, a stable `value`, and an `enabled` flag.
-
-```slint 'options: [{ label: "A", value: "a", enabled: true }];'
-RadioGroup {
-    options: [
-        { label: "Desktop", value: "desktop", enabled: true },
-        { label: "Mobile", value: "mobile", enabled: true },
-        { label: "Embedded", value: "embedded", enabled: true },
-    ];
-}
-```
 </SlintProperty>
 
 ### title
 <SlintProperty propName="title" typeName="string" defaultValue='""'>
 An optional label rendered above the group. When empty, no title is shown.
-
-```slint 'title: "Target Platform";'
-RadioGroup {
-    title: "Target Platform";
-    options: [
-        { label: "Desktop", value: "desktop", enabled: true },
-        { label: "Mobile", value: "mobile", enabled: true },
-        { label: "Embedded", value: "embedded", enabled: true },
-    ];
-}
-```
 </SlintProperty>
 
 ### value
 <SlintProperty propName="value" typeName="string" defaultValue='""' propertyVisibility="in-out">
 The `value` field of the currently selected `RadioOption`. Setting this property programmatically updates which radio button appears checked. Each option's `value` must be unique within the group.
-
-```slint 'value: "desktop";'
-RadioGroup {
-    options: [
-        { label: "Desktop", value: "desktop", enabled: true },
-        { label: "Mobile", value: "mobile", enabled: true },
-        { label: "Embedded", value: "embedded", enabled: true },
-    ];
-    value: "desktop";
-}
-```
 </SlintProperty>
 
 ### vertical
 <SlintProperty propName="vertical" typeName="bool" defaultValue="true">
-When `true` (default), radio buttons are stacked vertically. Set to `false` to arrange them horizontally.
-
-```slint 'vertical: false;'
-RadioGroup {
-    vertical: false;
-    options: [
-        { label: "Desktop", value: "desktop", enabled: true },
-        { label: "Mobile", value: "mobile", enabled: true },
-        { label: "Embedded", value: "embedded", enabled: true },
-    ];
-}
-```
+When `true` (default), radio buttons are stacked vertically. Set to `false` to arrange them in a single horizontal row.
 </SlintProperty>
 
 ## Callbacks
 
 ### changed(string)
 Invoked when the user selects a different option. The argument is the `value` of the newly selected `RadioOption`.
-
-```slint {7-9}
-RadioGroup {
-    options: [
-        { label: "Desktop", value: "desktop", enabled: true },
-        { label: "Mobile", value: "mobile", enabled: true },
-        { label: "Embedded", value: "embedded", enabled: true },
-    ];
-    changed(value) => {
-        debug("Selected platform: ", value);
-    }
-}
-```
