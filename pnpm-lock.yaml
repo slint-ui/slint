@@ -80,6 +80,12 @@ importers:
 
   .:
     devDependencies:
+      '@cspell/dict-fr-fr':
+        specifier: 2.3.2
+        version: 2.3.2
+      cspell:
+        specifier: 'catalog:'
+        version: 10.0.0
       knip:
         specifier: 6.12.2
         version: 6.12.2(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)
@@ -1098,6 +1104,9 @@ packages:
 
   '@cspell/dict-fonts@4.0.6':
     resolution: {integrity: sha512-aR/0csY01dNb0A1tw/UmN9rKgHruUxsYsvXu6YlSBJFu60s26SKr/k1o4LavpHTQ+lznlYMqAvuxGkE4Flliqw==}
+
+  '@cspell/dict-fr-fr@2.3.2':
+    resolution: {integrity: sha512-cPNjlavSiMfH/bB/Zl5GEF+94s6C77mdvghvVsclco1Ly0VWN3EpH5L9EE3bDGLDpE7m9EnYfRs8TOfZugGrUg==}
 
   '@cspell/dict-fsharp@1.1.1':
     resolution: {integrity: sha512-imhs0u87wEA4/cYjgzS0tAyaJpwG7vwtC8UyMFbwpmtw+/bgss+osNfyqhYRyS/ehVCWL17Ewx2UPkexjKyaBA==}
@@ -8237,6 +8246,8 @@ snapshots:
   '@cspell/dict-flutter@1.1.1': {}
 
   '@cspell/dict-fonts@4.0.6': {}
+
+  '@cspell/dict-fr-fr@2.3.2': {}
 
   '@cspell/dict-fsharp@1.1.1': {}
 
