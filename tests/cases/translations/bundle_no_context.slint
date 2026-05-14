@@ -33,9 +33,9 @@ export component TestCase inherits Window {
 
     out property <string> same: @tr("Same");
     out property <string> diff: @tr("Diff");
-    out property <string> same_or_diff: "\{root.same}|\{my-component.same}|\{MyGlobal.same} || \{root.diff}|\{my-component.diff}|\{MyGlobal.diff}";
+    out property <string> same_or_diff: "\{same}|\{my-component.same}|\{MyGlobal.same} || \{diff}|\{my-component.diff}|\{MyGlobal.diff}";
 
-    out property <bool> test: root.same_or_diff == "Same|Same|Same || Diff|Diff|Diff";
+    out property <bool> test: same_or_diff == "Same|Same|Same || Diff|Diff|Diff";
 }
 /*
 ```cpp

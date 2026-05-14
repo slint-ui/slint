@@ -9,7 +9,7 @@ struct S { val: string }
 
 component Shared {
     in property <string> n;
-    out property <S> out: {  val: G.global-property + " " + root.n };
+    out property <S> out: {  val: G.global-property + " " + n };
     for xx in 2 : Rectangle {}
     out property <bool> test: false;
 }
@@ -52,7 +52,7 @@ export component SecondTest inherits Window {
         n: "Sim";
     }
 
-    out property <bool> test: root.out == "Hello Sim";
+    out property <bool> test: out == "Hello Sim";
 }
 
 
