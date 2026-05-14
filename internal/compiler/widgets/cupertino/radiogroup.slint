@@ -75,7 +75,7 @@ export component RadioButton {
 export component RadioGroup {
     in property <string> title;
     in property <bool> enabled: true;
-    in property <bool> vertical: true;
+    in property <Orientation> orientation: Orientation.vertical;
 
     in property <[RadioOption]> options: [];
     in-out property <string> value;
@@ -94,7 +94,6 @@ export component RadioGroup {
         spacing: 8px;
 
         if root.title != "": Text {
-            vertical-stretch: 0;
             color: root.enabled ? CupertinoPalette.foreground : CupertinoPalette.foreground-secondary;
             font-size: CupertinoFontSettings.body-strong.font-size;
             font-weight: CupertinoFontSettings.body-strong.font-weight;
@@ -102,12 +101,11 @@ export component RadioGroup {
         }
 
         GridLayout {
-            vertical-stretch: 1;
             spacing: 8px;
 
             for option[index] in root.options: RadioButton {
-                row: root.vertical ? index : 0;
-                col: root.vertical ? 0 : index;
+                row: root.orientation == Orientation.vertical ? index : 0;
+                col: root.orientation == Orientation.vertical ? 0 : index;
                 label: option.label;
                 enabled: root.enabled && option.enabled;
                 checked: root.value == option.value;

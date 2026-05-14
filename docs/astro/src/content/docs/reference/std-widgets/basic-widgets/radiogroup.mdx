@@ -70,9 +70,9 @@ An optional label rendered above the group. When empty, no title is shown.
 The `value` field of the currently selected `RadioOption`. Setting this property programmatically updates which radio button appears checked. Each option's `value` must be unique within the group.
 </SlintProperty>
 
-### vertical
-<SlintProperty propName="vertical" typeName="bool" defaultValue="true">
-When `true` (default), radio buttons are stacked vertically. Set to `false` to arrange them in a single horizontal row.
+### orientation
+<SlintProperty propName="orientation" typeName="enum" enumName="Orientation" defaultValue="vertical">
+Use `Orientation.vertical` (default) to stack options, or `Orientation.horizontal` for a single row—the same enum as `TabWidget` and `Slider`.
 </SlintProperty>
 
 ## Callbacks

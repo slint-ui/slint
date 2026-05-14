@@ -196,9 +196,10 @@ export component ControlsPage inherits Page {
             padding: 0px;
             spacing: 50px;
             alignment: start;
+            align-items: start;
 
             RadioGroup {
-                title: @tr("Orientation");
+                title: @tr("Vertical Orientation");
                 enabled: GallerySettings.widgets-enabled;
                 options: [
                     { label: @tr("Portrait"), value: "portrait", enabled: true },
@@ -209,10 +210,9 @@ export component ControlsPage inherits Page {
             }
 
             RadioGroup {
-                title: @tr("Alignment");
+                title: @tr("Horizontal Orientation");
                 enabled: GallerySettings.widgets-enabled;
-                vertical: false;
-                height: self.preferred-height;
+                orientation: Orientation.horizontal;
                 options: [
                     { label: @tr("Start"), value: "start", enabled: true },
                     { label: @tr("Center"), value: "center", enabled: true },
