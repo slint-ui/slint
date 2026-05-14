@@ -40,7 +40,7 @@ jobs:
               id: node-install
             - uses: pnpm/action-setup@v6.0.6
               with:
-                version: 10.29.3
+                version: 11.1.2
             - uses: ./.github/actions/setup-rust
               with:
                   key: x-napi-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.

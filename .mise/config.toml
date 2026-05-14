@@ -15,7 +15,7 @@
 "ubi:sharkdp/fd" = "10.2.0"
 "rust" = { version = "stable", profile = "default" }
 node = "24"
-pnpm = "10.29.3"
+pnpm = "11.1.2"
 taplo = "0.9.3"
 "ubi:wasm-bindgen/wasm-pack" = "0.13.1"
 uv = "0.10.4"

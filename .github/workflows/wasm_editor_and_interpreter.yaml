@@ -18,7 +18,7 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - uses: pnpm/action-setup@v6.0.6
               with:
-                version: 10.29.3
+                version: 11.1.2
             - uses: actions/setup-node@v6
               with:
                 node-version: 24
@@ -58,7 +58,7 @@ jobs:
                 package-manager-cache: false
             - uses: pnpm/action-setup@v6.0.6
               with:
-                version: 10.29.3
+                version: 11.1.2
             - name: Download wasm_lsp Artifacts
               uses: actions/download-artifact@v8
               with:

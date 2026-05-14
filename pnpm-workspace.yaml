@@ -1,6 +1,10 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+nodeLinker: hoisted
+
+savePrefix: ""
+
 packages:
   - api/node
   - editors/vscode
@@ -28,7 +32,7 @@ catalog:
   '@expressive-code/plugin-line-numbers': 0.42.0
   '@playwright/test': 1.59.1
   '@types/node': 24.12.0
-  astro: 6.3.1
+  astro: 6.3.3
   astro-embed: 0.13.0
   cspell: 10.0.0
   playwright-ctrf-json-reporter: 0.0.29
@@ -41,3 +45,14 @@ catalog:
   unist-util-visit: 5.1.0
   vite: 8.0.11
   vitest: 4.1.5
+
+allowBuilds:
+  esbuild: true
+  sharp: true
+  skia-canvas: true
+
+overrides:
+  yaml@>=2.0.0 <2.8.3: ^2.8.3
+
+minimumReleaseAgeExclude:
+  - yaml@2.8.3

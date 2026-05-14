@@ -89,7 +89,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - uses: pnpm/action-setup@v6.0.6
         with:
-          version: 10.29.3
+          version: 11.1.2
       - uses: actions/setup-node@v6
         with:
           node-version: 24
