@@ -224,6 +224,7 @@
         "examples/*/lang/**",
         "pnpm-lock.yaml",
         "**/Cargo.lock",
+        "docs/common/src/utils/slint.tmLanguage.json",
         "ui-libraries/material/docs/vendor/**",
         ".cspell/slint-project-words.txt",
         ".cspell/slint-project-words-audit.tsv",

@@ -1,6 +1,7 @@
 #!/bin/bash -e
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+# cspell:ignore skyblue
 
 if [ $# -lt 1 ]; then
     echo "usage: $0 path/to/target/binary_package"
