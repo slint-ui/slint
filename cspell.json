@@ -212,13 +212,14 @@
     ],
     "ignorePaths": [
         "api/cpp/docs/conf.py",
-        "Cargo.toml",
         "CHANGELOG.md",
         "cspell.json",
         "LICENSES",
         "examples/*/lang/**",
-        ".github/workflows/*.yaml",
-        "**/package.json"
+        "pnpm-lock.yaml",
+        "**/Cargo.lock",
+        "ui-libraries/material/docs/vendor/**",
+        ".cspell/slint-project-words.txt"
     ],
     "ignoreRegExpList": [
         // Color encodings in all languages:
@@ -226,8 +227,29 @@
     ],
     "overrides": [
         {
+            "filename": "demos/printerdemo/lang/fr/**",
+            "language": "en,fr",
+            "import": ["@cspell/dict-fr-fr/cspell-ext.json"]
+        },
+        {
+            "filename": "demos/printerdemo/ui/pages/printer_queue.slint",
+            "language": "en,fr",
+            "languageId": "rust",
+            "import": ["@cspell/dict-fr-fr/cspell-ext.json"]
+        },
+        {
+            "filename": "demos/printerdemo_mcu/ui/pages/printer_queue.slint",
+            "language": "en,fr",
+            "languageId": "rust",
+            "import": ["@cspell/dict-fr-fr/cspell-ext.json"]
+        },
+        {
             "filename": "**/*.rst",
             "languageId": "restructuredtext"
+        },
+        {
+            "filename": "**/*.slint",
+            "languageId": "rust"
         }
     ]
 }
