@@ -32,7 +32,6 @@ pub fn call_focus_on_init(component: &Rc<Component>) {
 
 /// Remove any `forward-focus` bindings, resolve any local '.focus()' calls and create a 'focus()'
 /// function on the root element if necessary.
-
 pub fn replace_forward_focus_bindings_with_focus_functions(
     doc: &Document,
     diag: &mut BuildDiagnostics,
