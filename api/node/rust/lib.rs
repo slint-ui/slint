@@ -94,6 +94,11 @@ pub fn invoke_from_event_loop(env: &Env, callback: DynFunction<'_>) -> napi::Res
 }
 
 #[napi]
+pub fn quit_event_loop() -> napi::Result<()> {
+    i_slint_core::api::quit_event_loop().map_err(|e| napi::Error::from_reason(e.to_string()))
+}
+
+#[napi]
 pub fn set_quit_on_last_window_closed(quit_on_last_window_closed: bool) -> napi::Result<()> {
     if !quit_on_last_window_closed {
         i_slint_backend_selector::with_platform(|b| {
