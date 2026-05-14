@@ -412,7 +412,7 @@ fn rename_local_symbols(
     }
 }
 
-/// Rename an InternalName in an impoort statement
+/// Rename an InternalName in an import statement
 ///
 /// The ExternalName is different from our name, which is why we ended up here.
 ///

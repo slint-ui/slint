@@ -871,7 +871,7 @@ fn drop_document_impl(ctx: &mut Context, url: lsp_types::Url) -> common::Result<
 
     #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
     if let Some(preview_url) = ctx.to_show.as_ref().map(|c| c.url.clone()) {
-        // The external preview only has access to the files the LSP recompiles, so we need to
+        // The external preview only has access to the files the LSP recompiled, so we need to
         // ensure the preview file is recompiled if anything it depends on changes, even if it's
         // not in the open_urls.
         if preview_url == url || dependencies.contains(&preview_url) {

@@ -311,7 +311,7 @@ impl BackendBuilder {
     /// Configures this builder to enable or disable the default menu bar.
     /// By default, the menu bar is provided by Slint. Set this to false
     /// if you're providing your own menu bar.
-    /// Note that an application provided menu bar will be overriden by a `MenuBar`
+    /// Note that an application provided menu bar will be overridden by a `MenuBar`
     /// declared in Slint code.
     #[must_use]
     #[cfg(all(muda, target_os = "macos"))]

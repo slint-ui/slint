@@ -44,7 +44,7 @@ fn main() {
     config.flag_if_supported("-Wno-template-id-cdtor");
     // On some systems, the header GL/gl.h (included by some Qt headers) is not
     // in the compilers default include path, which makes the build fail due to
-    // this header not beeing found. As we don't need OpenGL, we explicitly
+    // this header not being found. As we don't need OpenGL, we explicitly
     // disable it with this define. See issue #10989.
     config.define("QT_NO_OPENGL", None);
     config.include(std::env::var("DEP_QT_INCLUDE_PATH").unwrap()).build("lib.rs");

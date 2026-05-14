@@ -184,7 +184,7 @@ fn invalidate_contents(url: &lsp_types::Url) {
             // Do not reset the code: We can check once the LSP has re-read it from disk
             // whether we need to refresh the preview or not.
             //
-            // We should get an updated version of the file from the LSP when it recompiles, so
+            // We should get an updated version of the file from the LSP when it recompiled, so
             // no reload needed at the moment.
             cache_entry.version = None;
         }

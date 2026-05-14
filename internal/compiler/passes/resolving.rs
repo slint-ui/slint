@@ -2194,7 +2194,7 @@ fn maybe_lookup_object(
     Some(base)
 }
 
-/// Resolve all two way bindings on `elem`, and finalise the type of any
+/// Resolve all two way bindings on `elem`, and finalize the type of any
 /// `property foo <=> ...` declared without an explicit type. Run after any
 /// enclosing `for` model expression has been resolved.
 fn resolve_two_way_bindings_for_element(

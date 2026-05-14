@@ -56,5 +56,5 @@ xbuild-tools = ["rustc", "cargo", "rustup", "cc", "ar"]
 
 [tool.maturin]
 editable-profile = "dev"
-# added so it includes in wheel build to overrite the default behavior of not including untracked files
+# added so it includes in wheel build to overwrite the default behavior of not including untracked files
 include = ["slint/language.pyi"]

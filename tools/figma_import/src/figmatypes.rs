@@ -75,7 +75,7 @@ impl Color {
     }
 }
 
-// Sometimes figma is having null for coordinate for some reason, just ignore that and consider it is tempty
+// Sometimes figma is having null for coordinate for some reason, just ignore that and consider it is the empty value
 fn deserialize_or_default<'de, T: Default + Deserialize<'de>, D: serde::Deserializer<'de>>(
     de: D,
 ) -> Result<T, D::Error> {

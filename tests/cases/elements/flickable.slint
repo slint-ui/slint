@@ -81,7 +81,7 @@ assert!(instance.get_offset_y() > 100., "Expected > 100, Received: {}", instance
 assert!(instance.get_offset_x() < 400., "Expected < 400, Received: {}", instance.get_offset_x());
 assert!(instance.get_offset_y() < 150., "Expected <= 150, Received: {}", instance.get_offset_y());
 
-slint_testing::mock_elapsed_time(2000); // Let it run until the animation is finshed
+slint_testing::mock_elapsed_time(2000); // Let it run until the animation is finished
 // end of the animation
 let end_x = instance.get_offset_x();
 let end_y = instance.get_offset_y();
@@ -132,7 +132,7 @@ instance.set_clicked(-1);
 
 slint_testing::mock_elapsed_time(1000);
 
-// - Press, move a triny, then release quickly:  should click
+// - Press, move a tiny, then release quickly:  should click
 // Start a press
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(165.0, 175.0), button: PointerEventButton::Left });
 assert!(!instance.get_inner_ta_pressed());
@@ -285,19 +285,19 @@ assert_eq!(instance.get_flicked(), 0);
 
 ```rust
 // Test3
-// Test flicked-Callback behaviour
+// Test flicked-Callback behavior
 // The pointer will be released after a short time after the last move event, so we start the animation
 use slint::{LogicalPosition, platform::{WindowEvent, PointerEventButton} };
 let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_flicked(), 0);
 
-// test scrolling behaviour
+// test scrolling behavior
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: -30.0, delta_y: -50.0 });
 dbg!(instance.get_flicked());
 assert_eq!(instance.get_flicked(), -3000050); // flicked got called after scrolling
 instance.set_flicked(0);
 
-// test dragging bevaviour
+// test dragging behavior
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(175.0, 175.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(175.0, 175.0) });
 slint_testing::mock_elapsed_time(300);
@@ -314,19 +314,19 @@ instance.set_flicked(0);
 
 ```rust
 // Test4
-// Test flicked-Callback behaviour
+// Test flicked-Callback behavior
 // The pointer will be released long after the last move event, so we don't start the animation
 use slint::{LogicalPosition, platform::{WindowEvent, PointerEventButton} };
 let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_flicked(), 0);
 
-// test scrolling behaviour
+// test scrolling behavior
 instance.window().dispatch_event(WindowEvent::PointerScrolled { position: LogicalPosition::new(175.0, 175.0), delta_x: -30.0, delta_y: -50.0 });
 dbg!(instance.get_flicked());
 assert_eq!(instance.get_flicked(), -3000050); // flicked got called after scrolling
 instance.set_flicked(0);
 
-// test dragging bevaviour
+// test dragging behavior
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(175.0, 175.0), button: PointerEventButton::Left });
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(175.0, 175.0) });
 slint_testing::mock_elapsed_time(300);

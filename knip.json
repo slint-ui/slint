@@ -4,6 +4,7 @@
   "workspaces": {
     ".": {
       "ignoreBinaries": ["github-actions-ctrf", "local-package", "test_grammar", "build", "check", "biome"],
+      "ignoreDependencies": ["@cspell/dict-fr-fr"],
       "ignoreFiles": ["editors/tree-sitter-slint/grammar.js"]
     },
     "api/node": {

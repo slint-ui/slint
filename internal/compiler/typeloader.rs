@@ -1251,7 +1251,7 @@ impl TypeLoader {
         }
     }
 
-    /// Returns whether the file was succesfully loaded.
+    /// Returns whether the file was successfully loaded.
     /// If not, the path that was attempted to be loaded is returned (if any).
     #[allow(clippy::await_holding_refcell_ref)] // false positive: explicit drop() before await
     async fn ensure_document_loaded<'a: 'b, 'b>(

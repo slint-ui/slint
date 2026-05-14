@@ -373,7 +373,7 @@ pub struct UsedSubTypes {
     /// All the sub components use by this components and its children,
     /// and the amount of time it is used
     pub sub_components: Vec<Rc<Component>>,
-    /// All types, structs, enums, that orignates from an
+    /// All types, structs, enums, that originates from an
     /// external library
     pub library_types_imports: Vec<(SmolStr, LibraryInfo)>,
     /// All global components that originates from an

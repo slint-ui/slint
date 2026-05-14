@@ -158,7 +158,7 @@ impl LinuxFBDisplay {
             memmap2::MmapOptions::new()
                 .len(fb_size_bytes)
                 .map_mut(&fd)
-                .map_err(|err| format!("Error mmapping framebuffer: {err}"))?
+                .map_err(|err| format!("Error mapping framebuffer: {err}"))?
         };
 
         // Try to hide cursor by setting graphics mode on tty

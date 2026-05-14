@@ -393,7 +393,7 @@ component.position = ui.Position.bottom;
 
 You can declare [globally available singletons](http://slint.dev/docs/slint/guide/language/coding/globals) in your
 `.slint` files. If exported, these singletons are accessible as properties on your main
-componen instance. Each global singleton is represented by an object with properties and callbacks,
+component instance. Each global singleton is represented by an object with properties and callbacks,
 similar to API that's created for your `.slint` component.
 
 For example the following `.slint` markup defines a global `Logic` singleton that's also exported:

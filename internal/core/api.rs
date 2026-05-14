@@ -1231,7 +1231,7 @@ pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) -> Result<()
 /// This function can be called from any thread
 ///
 /// Any previously queued events may or may not be processed before the loop terminates.
-/// This is platform dependent behaviour.
+/// This is platform dependent behavior.
 pub fn quit_event_loop() -> Result<(), EventLoopError> {
     crate::platform::with_event_loop_proxy(|proxy| {
         proxy.ok_or(EventLoopError::NoEventLoopProvider)?.quit_event_loop()

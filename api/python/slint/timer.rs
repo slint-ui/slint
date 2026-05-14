@@ -73,7 +73,7 @@ impl PyTimer {
     ///
     /// Arguments:
     /// * `mode`: The timer mode to apply, i.e. whether to repeatedly fire the timer or just once.
-    /// * `interval`: The duration from now until when the timer should firethe first time, and subsequently
+    /// * `interval`: The duration from now until when the timer should fire the first time, and subsequently
     ///    for `TimerMode.Repeated` timers.
     /// * `callback`: The function to call when the time has been reached or exceeded.
     fn start(

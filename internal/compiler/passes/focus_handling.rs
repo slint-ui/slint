@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore uncallable
+
 //! This pass follows the forward-focus property on the root element to determine the initial focus item
 //! as well as handle the forward for `focus()` calls in code.
 
@@ -30,6 +32,7 @@ pub fn call_focus_on_init(component: &Rc<Component>) {
 
 /// Remove any `forward-focus` bindings, resolve any local '.focus()' calls and create a 'focus()'
 /// function on the root element if necessary.
+
 pub fn replace_forward_focus_bindings_with_focus_functions(
     doc: &Document,
     diag: &mut BuildDiagnostics,

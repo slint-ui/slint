@@ -361,7 +361,7 @@ impl InternalKeyboardModifierState {
         // In that case the `text_without_modifiers` is also not set.
         //
         // ## Winit
-        // Winit sends the actual Ctrl/Alt/AltGr keypresses correctly.
+        // Winit sends the actual Ctrl/Alt/AltGr keypress correctly.
         // With winit we can detect whether ctrl+alt actually caused a AltGr conversion or not,
         // by checking whether the text_without_modifiers is different from the event text.
         //
@@ -374,7 +374,7 @@ impl InternalKeyboardModifierState {
             // Non-web windows (Usually winit or Qt)
             if !self.altgr && self.control() && self.alt() {
                 // AltGr is not pressed, but Ctrl+Alt is pressed.
-                // Try to detect if an AltGr conversion occured.
+                // Try to detect if an AltGr conversion occurred.
                 // If so, disable Ctrl and Alt
                 //
                 // On platforms that don't provide text_without_modifiers, fall back to a simple

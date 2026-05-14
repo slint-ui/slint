@@ -973,7 +973,7 @@ impl Item for TextInput {
         }
         match event.event_type {
             KeyEventType::KeyPressed => {
-                // invoke first key_pressed callback to give the developer/designer the possibility to implement a custom behaviour
+                // invoke first key_pressed callback to give the developer/designer the possibility to implement a custom behavior
                 if Self::FIELD_OFFSETS
                     .key_pressed()
                     .apply_pin(self)

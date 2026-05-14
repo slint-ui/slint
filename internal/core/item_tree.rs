@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore xffff
+// cSpell: ignore xffff unclipped
 
 //! This module contains the ItemTree and code that helps navigating it
 
@@ -2101,7 +2101,7 @@ mod tests {
                     item_array_index: 0,
                 },
                 // First child
-                // Relates to the first subtree in this component (sub_compnent2, added below)
+                // Relates to the first subtree in this component (sub_component2, added below)
                 ItemTreeNode::DynamicTree { index: 0, parent_index: 0 },
             ],
             subtrees: std::cell::RefCell::new(Vec::new()),

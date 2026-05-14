@@ -431,7 +431,7 @@ pub struct PopupWindow {
     pub location: PopupWindowLocation,
     /// The component that is responsible for providing the popup content.
     pub component: ItemTreeRc,
-    /// Defines the close behaviour of the popup.
+    /// Defines the close behavior of the popup.
     pub close_policy: PopupClosePolicy,
     /// the item that had the focus in the parent window when the popup was opened
     focus_item_in_parent: ItemWeak,

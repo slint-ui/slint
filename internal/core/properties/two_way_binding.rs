@@ -622,7 +622,7 @@ fn test_two_way_with_map() {
 
 /// Regression test for use-after-free in `link_two_way_with_map_to_common_property`.
 ///
-/// When a property already has a binding with dependants and is then linked
+/// When a property already has a binding with dependant properties and is then linked
 /// via `link_two_way_with_map`, the old binding's dependency list must be
 /// transferred to the new `TwoWayBindingWithMap` binding. Without this
 /// transfer, dependency nodes would point into freed memory, causing

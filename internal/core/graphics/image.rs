@@ -560,7 +560,7 @@ impl ImageInner {
     /// Internal helper to abstract over either loading from a file or parsing internal data.
     ///
     /// This can create an `ImageInner` with a dangling cache key reference if used incorrectly,
-    /// which could lead to bad behaviour. This constructor should be called from within
+    /// which could lead to bad behavior. This constructor should be called from within
     /// `ImageCache::lookup_image_in_cache_or_create`, or `ImageCacheKey::Invalid` should be
     /// supplied.
     #[cfg(feature = "image-decoders")]

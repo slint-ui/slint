@@ -661,7 +661,7 @@ public:
     /// Representation of a texture to blend in the destination buffer.
     // (FIXME: this is currently opaque, but should be exposed)
     using DrawTextureArgs = cbindgen_private::DrawTextureArgs;
-    /// Arguments for draw_rectagle
+    /// Arguments for draw_rectangle
     using DrawRectangleArgs = cbindgen_private::DrawRectangleArgs;
 
     /// Abstract base class for a target pixel buffer where certain drawing operations can be

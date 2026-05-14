@@ -53,7 +53,7 @@ path = "src/lib.rs"
 name = "weather-demo"
 path = "src/main.rs"
 
-# Andoroid settings
+# Android settings
 # See more: https://github.com/rust-mobile/cargo-apk?tab=readme-ov-file#manifest
 [package.metadata.android]
 package = "dev.slint.examples.weatherdemo"

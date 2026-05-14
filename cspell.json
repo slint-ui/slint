@@ -9,6 +9,7 @@
                 "astrojs",
                 "bbox",
                 "bindgen",
+                "boxshadowcache",
                 "builtins",
                 "canonicalize", // std::path::Path::canonicalize
                 "codemap",
@@ -96,7 +97,7 @@
                 "ὀδυσσεύς",
                 "commonmark",
                 "strikethroughs"
-            ],
+            ]
         }
     ],
     "words": [
@@ -112,10 +113,13 @@
         "cmake",
         "colspan",
         "combobox",
+        "contexte",
         "cupertino",
         "datastructures",
         "dealloc",
         "distros",
+        "embedders",
+        "espflash",
         "Femto",
         "femtovg",
         "flexboxlayout",
@@ -137,22 +141,24 @@
         "layouting",
         "linebreak",
         "lineedit",
-        "listview",
         "LINUXFB",
+        "listview",
         "lvalue",
         "microcontroller",
         "microcontrollers",
-        "muda",
         "MSVC",
+        "muda",
         "napi",
-        "Oooops",
         "ogoffart",
+        "Oooops",
         "opengl",
         "opengles",
+        "pico",
         "pixmap",
         "prestart",
         "printerdemo",
         "pythonw",
+        "replacen",
         "riscv",
         "rowspan",
         "rustc",
@@ -182,6 +188,7 @@
         "tmpobj",
         "toolchain",
         "toolkit",
+        "Toradex",
         "touchpad",
         "trackpad",
         "trackpads",
@@ -193,22 +200,20 @@
         "unmapping",
         "untracked",
         "viewbox",
+        "virtualizes",
+        "Vivante",
         "vtable",
         "vulkan",
         "wasm",
         "webassembly",
-        "windowrc",
-        "winit",
-        "xtask",
-        "xtensa",
-        "Toradex",
-        "Vivante",
-        "espflash",
-        "pico",
         "wgpu",
         "WGPU",
+        "windowrc",
+        "winit",
         "Xcodegen",
         "Xcodeproj",
+        "xtask",
+        "xtensa"
     ],
     "ignorePaths": [
         "api/cpp/docs/conf.py",
@@ -219,7 +224,9 @@
         "pnpm-lock.yaml",
         "**/Cargo.lock",
         "ui-libraries/material/docs/vendor/**",
-        ".cspell/slint-project-words.txt"
+        ".cspell/slint-project-words.txt",
+        "**/*.gltf",
+        "**/*.svg"
     ],
     "ignoreRegExpList": [
         // Color encodings in all languages:
@@ -229,19 +236,18 @@
         {
             "filename": "demos/printerdemo/lang/fr/**",
             "language": "en,fr",
-            "import": ["@cspell/dict-fr-fr/cspell-ext.json"]
-        },
-        {
-            "filename": "demos/printerdemo/ui/pages/printer_queue.slint",
-            "language": "en,fr",
-            "languageId": "rust",
-            "import": ["@cspell/dict-fr-fr/cspell-ext.json"]
-        },
-        {
-            "filename": "demos/printerdemo_mcu/ui/pages/printer_queue.slint",
-            "language": "en,fr",
-            "languageId": "rust",
-            "import": ["@cspell/dict-fr-fr/cspell-ext.json"]
+            "dictionaries": [
+                "slint-project-words",
+                "fr-fr-printerdemo"
+            ],
+            "words": [
+                "Lokalize",
+                "msgctxt",
+                "msgid",
+                "msgstr",
+                "nplurals",
+                "YCMB"
+            ]
         },
         {
             "filename": "**/*.rst",
@@ -251,5 +257,20 @@
             "filename": "**/*.slint",
             "languageId": "rust"
         }
+    ],
+    "dictionaryDefinitions": [
+        {
+            "name": "slint-project-words",
+            "path": "./.cspell/slint-project-words.txt",
+            "addWords": true
+        },
+        {
+            "name": "fr-fr-printerdemo",
+            "path": "./node_modules/@cspell/dict-fr-fr/fr-fr.trie.gz",
+            "ignoreForbiddenWords": true
+        }
+    ],
+    "dictionaries": [
+        "slint-project-words"
     ]
 }

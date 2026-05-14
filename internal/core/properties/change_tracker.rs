@@ -328,7 +328,7 @@ fn delete_from_eval_fn() {
     let xyz = RefCell::new(String::from("*"));
     let result = Rc::new(RefCell::new(String::new()));
     let result2 = result.clone();
-    // The change event are run in reverse order as they are created, so this one shouldn't be ever called as it is being detroyed from `change`
+    // The change event are run in reverse order as they are created, so this one shouldn't be ever called as it is being destroyed from `change`
     let another = Rc::<RefCell<Option<ChangeTracker>>>::new(Some(ChangeTracker::default()).into());
     another.borrow().as_ref().unwrap().init_delayed(
         (),
@@ -359,7 +359,7 @@ fn delete_from_eval_fn() {
 }
 
 #[test]
-fn change_mutliple_dependencies() {
+fn change_multiple_dependencies() {
     use super::Property;
     use std::cell::RefCell;
     use std::rc::Rc;

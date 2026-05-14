@@ -39,7 +39,7 @@ sdf-fonts = ["dep:fdsm", "dep:fdsm-ttf-parser", "dep:nalgebra", "dep:rayon"]
 # Translation bundler
 bundle-translations = ["dep:rspolib", "i-slint-common/locale-decimal-separator"]
 
-# Enable expermental library module support
+# Enable experimental library module support
 experimental-library-module = []
 
 default = []

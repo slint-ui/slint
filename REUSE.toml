@@ -56,6 +56,7 @@ path = [
   "biome.json",
   "knip.json",
   "cspell.json",
+  ".cspell/**",
   "docs/search/scraper-config.json",
   "internal/core-macros/link-data.json",
   "internal/**.md",

@@ -112,7 +112,7 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     );
 
-    fn fill_rectange_with_color(&mut self, physical_rect: PhysicalRect, color: Color) {
+    fn fill_rectangle_with_color(&mut self, physical_rect: PhysicalRect, color: Color) {
         if let Some(platform_brush) = self.platform_brush_for_color(&color) {
             self.fill_rectangle(physical_rect, platform_brush);
         }
@@ -443,7 +443,7 @@ fn layout(
     let max_physical_width = options.max_width.map(|max_width| max_width * scale_factor);
     let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
 
-    // Returned None if failed to get the elipsis glyph for some rare reason.
+    // Returned None if failed to get the ellipsis glyph for some rare reason.
     let get_elipsis_glyph = |font_context: &mut parley::FontContext| {
         let mut layout = layout_builder.build(font_context, "…", None, None, None);
         layout.break_all_lines(None);
@@ -1271,7 +1271,7 @@ pub fn draw_text_input(
 
     layout.selection_geometry(selection_range, |selection_rect| {
         item_renderer
-            .fill_rectange_with_color(selection_rect, text_input.selection_background_color());
+            .fill_rectangle_with_color(selection_rect, text_input.selection_background_color());
     });
 
     item_renderer.save_state();
@@ -1312,7 +1312,7 @@ pub fn draw_text_input(
                 cursor_pos,
                 text_input.text_cursor_width() * scale_factor,
             );
-            item_renderer.fill_rectange_with_color(cursor_rect, visual_representation.cursor_color);
+            item_renderer.fill_rectangle_with_color(cursor_rect, visual_representation.cursor_color);
         }
     }
 

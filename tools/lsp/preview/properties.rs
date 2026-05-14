@@ -878,7 +878,7 @@ pub fn remove_binding(
                 prop_decl.BindingExpression().ok_or("property declaration has no binding")?;
             let colon = ancestor
                 .child_token(SyntaxKind::Colon)
-                .ok_or("property peclaration has no colon")?;
+                .ok_or("property declaration has no colon")?;
             let start = colon.text_range().start();
             if let Some(semi_colon) = binding.child_token(SyntaxKind::Semicolon) {
                 let end = semi_colon.text_range().start();

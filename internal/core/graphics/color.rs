@@ -366,7 +366,7 @@ impl Color {
     /// assert_eq!(red.mix(&black, 0.5), Color::from_rgb_f32(0.5, 0.0, 0.0));
     /// ```
     ///
-    /// Mix Purple with OrangeRed,  with `75%` purpe and `25%` orange red ratio:
+    /// Mix Purple with OrangeRed,  with `75%` purple and `25%` orange red ratio:
     /// ```
     /// # use i_slint_core::graphics::{Color, RgbaColor};
     /// let purple = Color::from_rgb_u8(128, 0, 128);

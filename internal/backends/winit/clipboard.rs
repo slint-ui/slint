@@ -3,7 +3,7 @@
 
 use copypasta::ClipboardProvider;
 
-/// The Default, and the selection clippoard
+/// The Default, and the selection clipboard
 pub type ClipboardPair = (Box<dyn ClipboardProvider>, Box<dyn ClipboardProvider>);
 
 pub fn select_clipboard(

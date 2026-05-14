@@ -396,7 +396,7 @@ inline float get_resolved_default_font_size(const Component &component)
 // Translator API is currently considered experimental due to discussions
 // about the returned string type (SharedString vs. Cow<str> etc.). Also it
 // is not available with no_std due to the tr crate.
-// See dicussion in https://github.com/slint-ui/slint/pull/10979.
+// See discussion in https://github.com/slint-ui/slint/pull/10979.
 #if defined(SLINT_FEATURE_EXPERIMENTAL) && !defined(SLINT_FEATURE_FREESTANDING)
 /// Interface for an external translator.
 struct Translator
