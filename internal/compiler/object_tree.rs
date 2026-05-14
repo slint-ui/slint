@@ -3074,6 +3074,23 @@ impl Exports {
         }
     }
 
+    #[cfg(feature = "experimental-library-module")]
+    pub fn add_library_reexport(
+        &mut self,
+        export_name: ExportedName,
+        comp_or_type: Either<Rc<Component>, Type>,
+    ) {
+        let export = (export_name, comp_or_type);
+
+        // If export is already added, just ignore it. We don't want to report a warning in this case,
+        // because it's expected that multiple library modules re-export the same component or type.
+        if let Err(insert_pos) =
+            self.components_or_types.binary_search_by(|entry| entry.0.cmp(&export.0))
+        {
+            self.components_or_types.insert(insert_pos, export);
+        }
+    }
+
     pub fn find(&self, name: &str) -> Option<Either<Rc<Component>, Type>> {
         self.components_or_types
             .binary_search_by(|(exported_name, _)| exported_name.as_str().cmp(name))
