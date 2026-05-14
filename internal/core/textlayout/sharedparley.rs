@@ -1312,7 +1312,8 @@ pub fn draw_text_input(
                 cursor_pos,
                 text_input.text_cursor_width() * scale_factor,
             );
-            item_renderer.fill_rectangle_with_color(cursor_rect, visual_representation.cursor_color);
+            item_renderer
+                .fill_rectangle_with_color(cursor_rect, visual_representation.cursor_color);
         }
     }
 
