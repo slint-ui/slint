@@ -276,24 +276,7 @@ pub enum GraphicsAPI<'a> {
         /// `getContext` function on the HTML Canvas element.
         context_type: &'a str,
     },
-    /// The rendering is based on WGPU 27.x. Use the provided fields to submit commits to the provided
-    /// WGPU command queue.
-    ///
-    /// *Note*: This function is behind the [`unstable-wgpu-27` feature flag](slint:rust:slint/docs/cargo_features/#backends)
-    ///         and may be removed or changed in future minor releases, as new major WGPU releases become available.
-    ///
-    /// See also the [`slint::wgpu_27`](slint:rust:slint/wgpu_27) module.
-    #[cfg(feature = "unstable-wgpu-27")]
-    #[non_exhaustive]
-    WGPU27 {
-        /// The WGPU instance used for rendering.
-        instance: wgpu_27::Instance,
-        /// The WGPU device used for rendering.
-        device: wgpu_27::Device,
-        /// The WGPU queue for used for command submission.
-        queue: wgpu_27::Queue,
-    },
-    /// The rendering is based on WGPU 28.x. Use the provided fields to submit commits to the provided
+    /// The rendering is based on WGPU 29.x. Use the provided fields to submit commits to the provided
     /// WGPU command queue.
     ///
     /// *Note*: This function is behind the [`unstable-wgpu-28` feature flag](slint:rust:slint/docs/cargo_features/#backends)
@@ -310,6 +293,22 @@ pub enum GraphicsAPI<'a> {
         /// The WGPU queue for used for command submission.
         queue: wgpu_28::Queue,
     },
+    /// WGPU command queue.
+    ///
+    /// *Note*: This function is behind the [`unstable-wgpu-29` feature flag](slint:rust:slint/docs/cargo_features/#backends)
+    ///         and may be removed or changed in future minor releases, as new major WGPU releases become available.
+    ///
+    /// See also the [`slint::wgpu_29`](slint:rust:slint/wgpu_29) module.
+    #[cfg(feature = "unstable-wgpu-29")]
+    #[non_exhaustive]
+    WGPU29 {
+        /// The WGPU instance used for rendering.
+        instance: wgpu_29::Instance,
+        /// The WGPU device used for rendering.
+        device: wgpu_29::Device,
+        /// The WGPU queue for used for command submission.
+        queue: wgpu_29::Queue,
+    },
 }
 
 impl core::fmt::Debug for GraphicsAPI<'_> {
@@ -319,10 +318,10 @@ impl core::fmt::Debug for GraphicsAPI<'_> {
             GraphicsAPI::WebGL { context_type, .. } => {
                 write!(f, "GraphicsAPI::WebGL(context_type = {context_type})")
             }
-            #[cfg(feature = "unstable-wgpu-27")]
-            GraphicsAPI::WGPU27 { .. } => write!(f, "GraphicsAPI::WGPU27"),
             #[cfg(feature = "unstable-wgpu-28")]
             GraphicsAPI::WGPU28 { .. } => write!(f, "GraphicsAPI::WGPU28"),
+            #[cfg(feature = "unstable-wgpu-29")]
+            GraphicsAPI::WGPU29 { .. } => write!(f, "GraphicsAPI::WGPU29"),
         }
     }
 }

@@ -88,6 +88,9 @@ impl WGPUSurface {
         })
     }
 
+    // Only used by SkiaWGPURenderer, which is gated on wgpu-29 — the wgpu-28
+    // path doesn't currently expose an offscreen renderer publicly.
+    #[allow(dead_code)]
     pub(crate) fn new_offscreen(
         instance: wgpu::Instance,
         device: wgpu::Device,
@@ -255,17 +258,17 @@ impl crate::Surface for WGPUSurface {
         callback(api)
     }
 
-    #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
+    #[cfg(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29"))]
     fn import_wgpu_texture(
         &self,
         canvas: &skia_safe::Canvas,
         any_wgpu_texture: &i_slint_core::graphics::WGPUTexture,
     ) -> Option<skia_safe::Image> {
         let texture = match any_wgpu_texture {
-            #[cfg(feature = "unstable-wgpu-27")]
-            i_slint_core::graphics::WGPUTexture::WGPU27Texture(..) => return None,
             #[cfg(feature = "unstable-wgpu-28")]
             i_slint_core::graphics::WGPUTexture::WGPU28Texture(texture) => texture.clone(),
+            #[cfg(feature = "unstable-wgpu-29")]
+            i_slint_core::graphics::WGPUTexture::WGPU29Texture(..) => return None,
         };
 
         // Skia won't submit commands right away, so remember the texture and transition before
