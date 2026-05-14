@@ -4069,13 +4069,13 @@ fn compile_builtin_function_call(
                     }
                 }))
             } else {
-                quote!(sp::Option::None)
+                quote!(sp::Option::None::<fn() -> bool>)
             };
 
             let menu_from_item_tree = quote!(sp::MenuFromItemTree::new(
                 sp::VRc::into_dyn(menu_item_tree_instance),
                 #condition_tokens,
-                sp::Option::None,
+                sp::Option::None::<fn() -> bool>,
             ));
 
             quote!({
