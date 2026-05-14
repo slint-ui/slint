@@ -1443,7 +1443,9 @@ component WindowItem {
     /// that is not the application's top-level window is a no-op.
     function close() {
     }
-    /// Hide this window.
+    /// Hide this window. The window is made invisible but the application remains running.
+    /// Use `show()` to make the window visible again. Calling this function on a `Window`
+    /// that is not the application's top-level window is a no-op.
     function hide() {
     }
 }

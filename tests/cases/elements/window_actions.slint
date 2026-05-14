@@ -6,6 +6,12 @@ export component TestCase inherits Window {
     in-out property <bool> win-maximized <=> self.maximized;
     in-out property <bool> win-full-screen <=> self.full-screen;
 
+    public function do-hide() { self.hide(); }
+    public function do-close() { self.close(); }
+    public function should-do-nothing() { inner.hide(); inner.close(); }
+
+    inner := Window { }
+
     MenuBar {
         Menu {
             title: "Window";
@@ -62,6 +68,22 @@ instance.window().set_minimized(false);
 assert!(!instance.get_win_minimized());
 instance.window().set_fullscreen(false);
 assert!(!instance.get_win_full_screen());
+
+// close() triggers the close-requested callback on the top-level window.
+use std::cell::Cell;
+use std::rc::Rc;
+let close_count = Rc::new(Cell::new(0u32));
+let close_count_clone = close_count.clone();
+instance.window().on_close_requested(move || {
+    close_count_clone.set(close_count_clone.get() + 1);
+    slint::CloseRequestResponse::KeepWindowShown
+});
+instance.invoke_do_close();
+assert_eq!(close_count.get(), 1);
+
+// Calling close/hide on an embedded sub-window is a no-op: no close-requested fires.
+instance.invoke_should_do_nothing();
+assert_eq!(close_count.get(), 1);
 ```
 
 ```cpp
@@ -89,6 +111,19 @@ instance.window().set_minimized(false);
 assert(!instance.get_win_minimized());
 instance.window().set_fullscreen(false);
 assert(!instance.get_win_full_screen());
+
+// close() triggers the close-requested callback on the top-level window.
+int close_count = 0;
+instance.window().on_close_requested([&close_count]() {
+    ++close_count;
+    return slint::CloseRequestResponse::KeepWindowShown;
+});
+instance.invoke_do_close();
+assert_eq(close_count, 1);
+
+// Calling close/hide on an embedded sub-window is a no-op: no close-requested fires.
+instance.invoke_should_do_nothing();
+assert_eq(close_count, 1);
 ```
 
 ```js
