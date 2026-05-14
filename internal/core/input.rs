@@ -643,7 +643,7 @@ impl core::fmt::Debug for Keys {
     /// Formats the keyboard shortcut so that the output would be accepted by the @keys macro in Slint.
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let inner = &self.inner;
-        // Make sure to keep this in sync with the implemenation in compiler/langtype.rs
+        // Make sure to keep this in sync with the implementation in compiler/langtype.rs
         if inner.key.is_empty() {
             write!(f, "")
         } else {

@@ -28,7 +28,7 @@ https://github.com/orgs/slint-ui/packages?q=torizon&tab=packages&q=torizon
 
 ### Running with Docker Compose
 
-Deply the following `docker-compose.yaml` to launch the home-automation demo.
+Deploy the following `docker-compose.yaml` to launch the home-automation demo.
 
 **Note**:
 Change the `image` to match your hardware platform:

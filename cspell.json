@@ -198,6 +198,7 @@
         "uncompiled",
         "unerase",
         "unmapping",
+        "unminimize",
         "untracked",
         "viewbox",
         "virtualizes",
@@ -225,6 +226,7 @@
         "**/Cargo.lock",
         "ui-libraries/material/docs/vendor/**",
         ".cspell/slint-project-words.txt",
+        ".cspell/slint-project-words-audit.tsv",
         "**/*.gltf",
         "**/*.svg"
     ],

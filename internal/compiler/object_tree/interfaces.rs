@@ -42,7 +42,7 @@ impl UsesStatement {
         self.node.DeclaredIdentifier()
     }
 
-    /// Lookup the interface component for this uses statement. Emits an error if the iterface could not be found, or
+    /// Lookup the interface component for this uses statement. Emits an error if the interface could not be found, or
     /// was not actually an interface.
     fn lookup_interface(
         &self,

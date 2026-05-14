@@ -3,7 +3,7 @@
 
 // cSpell: ignore unclipped
 
-//! Pupup window handling helpers
+//! Popup window handling helpers
 
 use crate::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 

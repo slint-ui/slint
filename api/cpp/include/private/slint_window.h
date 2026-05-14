@@ -519,7 +519,7 @@ public:
         private_api::assert_main_thread();
         return cbindgen_private::slint_windowrc_is_minimized(&inner.handle());
     }
-    /// Minimize or unminimze the window.
+    /// Minimize or unminimize the window.
     void set_minimized(bool minimized)
     {
         private_api::assert_main_thread();

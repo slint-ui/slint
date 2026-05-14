@@ -593,7 +593,7 @@ impl Window {
         self.0.is_minimized()
     }
 
-    /// Minimize or unminimze the window.
+    /// Minimize or unminimize the window.
     pub fn set_minimized(&self, minimized: bool) {
         self.0.set_minimized(minimized);
     }

@@ -83,7 +83,7 @@ pub struct VulkanSurface {
 }
 
 impl VulkanSurface {
-    /// Creates a Skia Vulkan rendering surface from the given Vukano device, queue family index, surface,
+    /// Creates a Skia Vulkan rendering surface from the given Vulkano device, queue family index, surface,
     /// and size.
     pub fn from_surface(
         physical_device: Arc<PhysicalDevice>,

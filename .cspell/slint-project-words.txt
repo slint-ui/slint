@@ -76,7 +76,6 @@ DYLD
 Datakonsult
 Datas
 Datelike
-Deply
 Deque
 Deutsch
 Dexer
@@ -105,14 +104,12 @@ Edelhirsch
 Eeprom
 Eingang
 Eisu
-Emtpy
 Endcall
 Englisch
 Entwürfe
 Envoyer
 Espressif
 Excepteur
-Excuting
 Exti
 FBIOGET
 FEFF
@@ -123,7 +120,6 @@ FONTCONFIG
 FOURCC
 FOXFO
 FSCREENINFO
-Fanncy
 Farbfeld
 Fcntl
 Felgo
@@ -309,7 +305,6 @@ Propert
 Propriétaire
 Pseudonymized
 Punct
-Pupup
 QTBUG
 QXGA
 Qualité
@@ -331,7 +326,6 @@ Rathmann
 Relaod
 Renderable
 Resizer
-Retart
 Rgbx
 Ringbuffer
 Rippl
@@ -352,7 +346,6 @@ SRGBA
 STOOQ
 STREQUAL
 SYSCFG
-Sacle
 Schalte
 Schukat
 Segoe
@@ -361,7 +354,6 @@ Senden
 Sfixed
 Shaderiv
 Shmelt
-Simliar
 Slintcomponents
 Smartwin
 Smol
@@ -436,7 +428,6 @@ Uyvy
 VGWGPU
 VSCREENINFO
 Vermillion
-Vukano
 Vyuy
 WAWA
 WNDCLASS
@@ -446,7 +437,6 @@ WQXGA
 WRONLY
 Waitable
 Wakeup
-Warker
 Waveshare
 Werror
 Wextra
@@ -454,7 +444,6 @@ Wgsl
 Widtht
 Wohoo
 Worktree
-Wraper
 Wöchentlich
 XBUTTON
 XBUTTONDOWN
@@ -781,7 +770,6 @@ espidf
 esplash
 espressif
 espup
-ename
 euvx
 evenodd
 eventloop
@@ -945,7 +933,6 @@ imageval
 imgarray
 imgprop
 imgref
-implemenation
 impls
 importident
 incdir
@@ -976,7 +963,6 @@ isinstance
 isize
 itemrenderer
 itemvtable
-iterface
 itertools
 iure
 ivars
@@ -1240,7 +1226,6 @@ orangered
 orld
 ospi
 othercomp
-outpuf
 ovmf
 pagecheckerboard
 pagecolor
@@ -1343,7 +1328,6 @@ relpath
 repr
 reprehenderit
 representiation
-reprositories
 reqwest
 resampler
 rescope
@@ -1532,7 +1516,6 @@ toolkits
 torizon
 toucharea
 toupper
-tracweswo
 tranlations
 treq
 truevar
@@ -1557,7 +1540,6 @@ uninit
 unmaximize
 unmaximized
 unminimized
-unminimze
 unpadded
 unpark
 unpic
