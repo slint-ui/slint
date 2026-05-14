@@ -3658,7 +3658,7 @@ fn compile_builtin_function_call(
                 quote! {{
                     #common_init
                     let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
-                    let context_menu_item_tree = sp::VRc::new(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance), sp::Option::None, sp::Option::None));
+                    let context_menu_item_tree = sp::VRc::new(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance), sp::Option::None::<fn() -> bool>, sp::Option::None::<fn() -> bool>));
                     let context_menu_item_tree_ = context_menu_item_tree.clone();
                     {
                         let mut entries = sp::SharedVector::default();
