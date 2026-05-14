@@ -38,7 +38,7 @@ impl RenderableGlyph {
     }
 }
 
-// Subset of `RenderableGlyph`, specfically for VectorFonts.
+// Subset of `RenderableGlyph`, specifically for VectorFonts.
 #[cfg(feature = "systemfonts")]
 #[derive(Clone)]
 pub struct RenderableVectorGlyph {

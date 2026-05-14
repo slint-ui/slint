@@ -1308,7 +1308,7 @@ impl Expression {
             },
             Expression::EmptyDataTransfer => true,
             Expression::StoreLocalVariable { value, .. } => value.is_constant(ga),
-            // We only load what we store, and stores are alredy checked
+            // We only load what we store, and stores are already checked
             Expression::ReadLocalVariable { .. } => true,
             Expression::EasingCurve(_) => true,
             Expression::LinearGradient { angle, stops } => {

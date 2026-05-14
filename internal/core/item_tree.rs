@@ -2700,7 +2700,7 @@ mod tests {
     }
 
     #[test]
-    fn test_map_to_anchestor() {
+    fn test_map_to_ancestor() {
         let item_tree = create_subsubtree_items(None).1;
         let root = ItemRc::new_root(item_tree);
         let first_child = root.first_child().unwrap();

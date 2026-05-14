@@ -70,7 +70,7 @@ impl<T: Tree> TreeAdapterModel<T> {
         self.model_tracker.row_added(row + 1, count);
     }
 
-    /// Internal function for `expand` and return the amound of rows added
+    /// Internal function for `expand` and return the amount of rows added
     fn expand_recursive(source: &T, cached_layout: &mut Vec<T::Id>, row: usize) -> usize {
         let mut count = 0;
         let parent = cached_layout[row].clone();

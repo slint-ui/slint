@@ -281,7 +281,7 @@ model.push(4); // this works
 
 ### structs
 
-An exported struct can be created either by defing of an object literal or by using the new keyword.
+An exported struct can be created either by defining an object literal or by using the new keyword.
 
 **`my-component.slint`**
 

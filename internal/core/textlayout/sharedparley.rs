@@ -444,7 +444,7 @@ fn layout(
     let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
 
     // Returned None if failed to get the ellipsis glyph for some rare reason.
-    let get_elipsis_glyph = |font_context: &mut parley::FontContext| {
+    let get_ellipsis_glyph = |font_context: &mut parley::FontContext| {
         let mut layout = layout_builder.build(font_context, "…", None, None, None);
         layout.break_all_lines(None);
         let line = layout.lines().next()?;
@@ -457,16 +457,15 @@ fn layout(
         Some((glyph, run.run().font().clone()))
     };
 
-    let elision_info =
-        if let (TextOverflow::Elide, Some(max_physical_width)) =
-            (options.text_overflow, max_physical_width)
-        {
-            get_elipsis_glyph(font_context).map(|(elipsis_glyph, font_for_elipsis_glyph)| {
-                ElisionInfo { elipsis_glyph, font_for_elipsis_glyph, max_physical_width }
-            })
-        } else {
-            None
-        };
+    let elision_info = if let (TextOverflow::Elide, Some(max_physical_width)) =
+        (options.text_overflow, max_physical_width)
+    {
+        get_ellipsis_glyph(font_context).map(|(ellipsis_glyph, font_for_ellipsis_glyph)| {
+            ElisionInfo { ellipsis_glyph, font_for_ellipsis_glyph, max_physical_width }
+        })
+    } else {
+        None
+    };
 
     let mut para_y = 0.0;
     for para in paragraphs.iter_mut() {
@@ -491,10 +490,10 @@ fn layout(
     let max_width = paragraphs
         .iter()
         .map(|p| {
-            // The max width is used for the elipsis computation when eliding text. We *want* to exclude whitespace
+            // The max width is used for the ellipsis computation when eliding text. We *want* to exclude whitespace
             // for that, but we can't at the glyph run level, so the glyph runs always *do* include whitespace glyphs,
             // and as such we must also accept the full width here including trailing whitespace, otherwise text with
-            // trailing whitespace will assigned a smaller width for rendering and thus the elipsis will be placed.
+            // trailing whitespace will assigned a smaller width for rendering and thus the ellipsis will be placed.
             PhysicalLength::new(p.layout.full_width())
         })
         .fold(PhysicalLength::zero(), PhysicalLength::max);
@@ -566,8 +565,8 @@ fn get_or_create_text_paragraphs<'a>(
 }
 
 struct ElisionInfo {
-    elipsis_glyph: parley::layout::Glyph,
-    font_for_elipsis_glyph: parley::FontData,
+    ellipsis_glyph: parley::layout::Glyph,
+    font_for_ellipsis_glyph: parley::FontData,
     max_physical_width: PhysicalLength,
 }
 
@@ -605,7 +604,7 @@ impl TextParagraph {
                 let metrics = line.metrics();
                 match layout.max_physical_height {
                     // If overflow: clip is set, we apply a hard pixel clip, but with overflow: elide,
-                    // we want to place an elipsis on the last line and not draw any lines beyond the
+                    // we want to place an ellipsis on the last line and not draw any lines beyond the
                     // given max height.
                     Some(max_physical_height) if layout.elision_info.is_some() => {
                         max_physical_height.get().ceil() >= metrics.block_max_coord
@@ -620,8 +619,8 @@ impl TextParagraph {
             for item in line.items() {
                 match item {
                     parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
-                        let elipsis = if last_line {
-                            let (truncated_glyphs, elipsis) =
+                        let ellipsis = if last_line {
+                            let (truncated_glyphs, ellipsis) =
                                 layout.glyphs_with_elision(&glyph_run);
 
                             Self::draw_glyph_run(
@@ -633,7 +632,7 @@ impl TextParagraph {
                                 &mut truncated_glyphs.into_iter(),
                                 draw_glyphs,
                             );
-                            elipsis
+                            ellipsis
                         } else {
                             Self::draw_glyph_run(
                                 &glyph_run,
@@ -647,17 +646,17 @@ impl TextParagraph {
                             None
                         };
 
-                        if let Some((elipsis_glyph, elipsis_font, font_size)) = elipsis {
+                        if let Some((ellipsis_glyph, ellipsis_font, font_size)) = ellipsis {
                             let run = glyph_run.run();
                             draw_glyphs(
                                 item_renderer,
-                                &elipsis_font,
+                                &ellipsis_font,
                                 font_size,
                                 run.normalized_coords(),
                                 &run.synthesis(),
                                 default_fill_brush.clone(),
                                 para_y,
-                                &mut core::iter::once(elipsis_glyph),
+                                &mut core::iter::once(ellipsis_glyph),
                             );
                         }
                     }
@@ -925,7 +924,7 @@ impl Layout {
     }
 
     /// Returns an iterator over the run's glyphs, truncated if necessary to fit within the max width,
-    /// plus an optional elipsis glyph with its font and size to be drawn separately.
+    /// plus an optional ellipsis glyph with its font and size to be drawn separately.
     /// Call this function only for the last line of the layout.
     fn glyphs_with_elision<'a>(
         &'a self,
@@ -934,8 +933,8 @@ impl Layout {
         impl Iterator<Item = parley::layout::Glyph> + Clone + 'a,
         Option<(parley::layout::Glyph, parley::FontData, PhysicalLength)>,
     ) {
-        let elipsis_advance =
-            self.elision_info.as_ref().map(|info| info.elipsis_glyph.advance).unwrap_or(0.0);
+        let ellipsis_advance =
+            self.elision_info.as_ref().map(|info| info.ellipsis_glyph.advance).unwrap_or(0.0);
         let max_width = self
             .elision_info
             .as_ref()
@@ -945,39 +944,39 @@ impl Layout {
         let run_start = PhysicalLength::new(glyph_run.offset());
         let run_end = PhysicalLength::new(glyph_run.offset() + glyph_run.advance());
 
-        // Run starts after where the elipsis would go - skip entirely
+        // Run starts after where the ellipsis would go - skip entirely
         let run_beyond_elision = run_start > max_width;
-        // Run extends beyond max width and needs truncation + elipsis
+        // Run extends beyond max width and needs truncation + ellipsis
         let needs_elision = !run_beyond_elision && run_end.get().floor() > max_width.get().ceil();
 
         let truncated_glyphs = glyph_run.positioned_glyphs().take_while(move |glyph| {
             !run_beyond_elision
                 && (!needs_elision
-                    || PhysicalLength::new(glyph.x + glyph.advance + elipsis_advance) <= max_width)
+                    || PhysicalLength::new(glyph.x + glyph.advance + ellipsis_advance) <= max_width)
         });
 
-        let elipsis = if needs_elision {
+        let ellipsis = if needs_elision {
             self.elision_info.as_ref().map(|info| {
-                let elipsis_x = glyph_run
+                let ellipsis_x = glyph_run
                     .positioned_glyphs()
                     .find(|glyph| {
-                        PhysicalLength::new(glyph.x + glyph.advance + info.elipsis_glyph.advance)
+                        PhysicalLength::new(glyph.x + glyph.advance + info.ellipsis_glyph.advance)
                             > info.max_physical_width
                     })
                     .map(|g| g.x)
                     .unwrap_or(0.0);
 
-                let mut elipsis_glyph = info.elipsis_glyph;
-                elipsis_glyph.x = elipsis_x;
+                let mut ellipsis_glyph = info.ellipsis_glyph;
+                ellipsis_glyph.x = ellipsis_x;
 
                 let font_size = PhysicalLength::new(glyph_run.run().font_size());
-                (elipsis_glyph, info.font_for_elipsis_glyph.clone(), font_size)
+                (ellipsis_glyph, info.font_for_ellipsis_glyph.clone(), font_size)
             })
         } else {
             None
         };
 
-        (truncated_glyphs, elipsis)
+        (truncated_glyphs, ellipsis)
     }
 
     fn draw<R: GlyphRenderer>(

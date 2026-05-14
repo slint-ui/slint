@@ -476,7 +476,7 @@ fn process_window(
     let item_tree_root = Expression::ElementReference(Rc::downgrade(&c.root_element));
 
     if !no_native_menu {
-        let supportes_native_menu_bar = Expression::UnaryOp {
+        let supports_native_menu_bar = Expression::UnaryOp {
             op: '!',
             sub: Expression::FunctionCall {
                 function: BuiltinFunction::SupportsNativeMenuBar.into(),
@@ -488,10 +488,10 @@ fn process_window(
         condition = match condition {
             Some(condition) => Some(Expression::BinaryExpression {
                 lhs: condition.into(),
-                rhs: supportes_native_menu_bar.into(),
+                rhs: supports_native_menu_bar.into(),
                 op: '&',
             }),
-            None => Some(supportes_native_menu_bar),
+            None => Some(supports_native_menu_bar),
         };
     }
 

@@ -156,7 +156,7 @@ impl DataTransfer {
     /// If you only need the [`DataTransfer`] to have a plaintext representation,
     /// use [`From<SharedString>`](SharedString).
     ///
-    /// Each [`DataTransfer`] can only have a single plaintext representiation
+    /// Each [`DataTransfer`] can only have a single plaintext representation
     /// set at once. If this method is called multiple times, the previous text
     /// will be overwritten. However, you can have, for example, both an image
     /// representation and a plaintext representation set simultaneously on the

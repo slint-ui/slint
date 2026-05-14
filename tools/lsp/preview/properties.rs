@@ -99,7 +99,7 @@ const HIGH_PRIORITY: u32 = 100;
 const DEFAULT_PRIORITY: u32 = 1000;
 
 // This returns defined reserved properties such as x, y, width, height,
-// accessiblity properties or layout properties
+// accessibility properties or layout properties
 fn get_reserved_properties<'a>(
     group: &'a str,
     group_priority: u32,

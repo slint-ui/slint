@@ -1157,7 +1157,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     // In some cases (e.g. when rendering text), the canvas needs to be aligned to the pixel grid.
     // Otherwise, even with nearest-neighbor scaling, the glyphs can have strange artifacts, as
     // the nearest-neighbor algorithm is unstable if the pixel coordinate is at exactly 0.5px,
-    // which is very noticable with text.
+    // which is very noticeable with text.
     //
     // Note that this will currently only align the canvas if it is not rotated and not scaled.
     fn align_canvas_during<Result>(

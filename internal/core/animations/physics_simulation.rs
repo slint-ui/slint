@@ -330,7 +330,7 @@ pub struct ConstantDecelerationSpringDamperParameters {
 #[cfg(test)]
 impl ConstantDecelerationSpringDamperParameters {
     /// Creates a new `ConstantDecelerationSpringDamperParameters` parameter object
-    /// It is more comfortable to use than specifiying the parameters manually because here the parameter calculation
+    /// It is more comfortable to use than specifying the parameters manually because here the parameter calculation
     /// is done based on the `half_period_time` parameter
     ///
     /// * `initial_velocity` - the initial velocity of the point

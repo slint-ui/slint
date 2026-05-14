@@ -1036,7 +1036,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 
     fn save_state(&mut self) {
-        // Don't add any additinoal calls here without adjusting `save_state_and_pixel_align_origin()`.
+        // Don't add any additional calls here without adjusting `save_state_and_pixel_align_origin()`.
         self.painter.save()
     }
 
