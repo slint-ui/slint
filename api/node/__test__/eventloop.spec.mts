@@ -164,4 +164,3 @@ test.sequential("js and slint timers fire in order", async () => {
         expect(firstSlint).toBeLessThan(firstJs100);
     }
 });
-
