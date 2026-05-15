@@ -1804,8 +1804,7 @@ impl Item for BoxShadow {
             // Inset shadow paints inside the geometry; never extends outside.
             geometry
         } else {
-            let pad =
-                self.blur() + LogicalLength::new(self.spread().get().max(0.));
+            let pad = self.blur() + LogicalLength::new(self.spread().get().max(0.));
             geometry
                 .outer_rect(euclid::SideOffsets2D::from_length_all_same(pad))
                 .translate(LogicalVector::from_lengths(self.offset_x(), self.offset_y()))

@@ -100,8 +100,7 @@ impl<'a> SkiaItemRenderer<'a> {
         // CSS rule: outer corner radius after spread = max(0, r + spread).
         let shape_radius = (shadow_options.radius.get() + spread).max(0.);
 
-        let canvas_size: skia_safe::Size =
-            (shape_w + 2. * blur, shape_h + 2. * blur).into();
+        let canvas_size: skia_safe::Size = (shape_w + 2. * blur, shape_h + 2. * blur).into();
 
         let image_info = skia_safe::ImageInfo::new(
             canvas_size.to_ceil(),
@@ -180,12 +179,8 @@ impl<'a> SkiaItemRenderer<'a> {
 
         // Outer rect inflated well beyond the geometry so its blurred edge falls outside the clip.
         let inflate = blur + spread.abs() + offset_x.abs() + offset_y.abs() + 16.;
-        let outer_rect = skia_safe::Rect::new(
-            -inflate,
-            -inflate,
-            width + inflate,
-            height + inflate,
-        );
+        let outer_rect =
+            skia_safe::Rect::new(-inflate, -inflate, width + inflate, height + inflate);
 
         let mut path = skia_safe::Path::new();
         path.set_fill_type(skia_safe::PathFillType::EvenOdd);

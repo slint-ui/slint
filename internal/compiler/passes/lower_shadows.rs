@@ -96,8 +96,26 @@ fn create_box_shadow_element(
     Some(element)
 }
 
+fn prepend_inset_shadow_child(parent: &ElementRc, inset_elem: Element) {
+    let inset_rc = ElementRc::new(inset_elem.into());
+    inset_rc.borrow_mut().geometry_props = Some(GeometryProps::new(&inset_rc));
+    for property_name in ["width", "height"] {
+        inset_rc.borrow_mut().bindings.insert(
+            property_name.into(),
+            RefCell::new(
+                Expression::PropertyReference(NamedReference::new(
+                    parent,
+                    SmolStr::new_static(property_name),
+                ))
+                .into(),
+            ),
+        );
+    }
+    parent.borrow_mut().children.insert(0, inset_rc);
+}
+
 // For a repeated element with a drop shadow, the shadow becomes the new root so it renders below the repeated
-// element. This is only used for drop shadows; inset shadows on a repeated root are appended as a child instead.
+// element. This is only used for drop shadows; inset shadows on a repeated root are prepended as a child instead.
 fn inject_shadow_element_in_repeated_element(
     shadow_property_bindings: HashMap<SmolStr, BindingExpression>,
     repeated_element: &ElementRc,
@@ -160,8 +178,8 @@ pub fn lower_shadow_properties(
 
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
         // Repeater handling: drop shadow becomes the new root (so it renders underneath); inset
-        // shadow is appended as a child of the repeater's root rectangle (so it renders on top
-        // via child draw order).
+        // shadow is prepended as a child of the repeater's root rectangle (so it renders above
+        // the background but below the rectangle's original children).
         if elem.borrow().repeated.is_some() {
             // Take both binding sets up front, then release every Rc clone before
             // `inject_element_as_repeated_element`, which asserts the component has strong_count == 2.
@@ -181,7 +199,7 @@ pub fn lower_shadow_properties(
                     diag,
                 );
                 // After injection the original rectangle is a child of the new shadow root.
-                // Append the inset BoxShadow as a child of that rectangle.
+                // Prepend the inset BoxShadow as a child of that rectangle.
                 if !inset_shadow_properties.is_empty() {
                     let rect_child = elem
                         .borrow()
@@ -201,14 +219,11 @@ pub fn lower_shadow_properties(
                             diag,
                         )
                     {
-                        rect_child
-                            .borrow_mut()
-                            .children
-                            .push(ElementRc::new(inset_elem.into()));
+                        prepend_inset_shadow_child(&rect_child, inset_elem);
                     }
                 }
             } else if !inset_shadow_properties.is_empty() {
-                // No drop shadow: append inset shadow as a child of the repeater root rectangle.
+                // No drop shadow: prepend inset shadow as a child of the repeater root rectangle.
                 let root = elem.borrow().base_type.as_component().root_element.clone();
                 if let Some(inset_elem) = create_box_shadow_element(
                     inset_shadow_properties,
@@ -217,7 +232,7 @@ pub fn lower_shadow_properties(
                     type_register,
                     diag,
                 ) {
-                    root.borrow_mut().children.push(ElementRc::new(inset_elem.into()));
+                    prepend_inset_shadow_child(&root, inset_elem);
                 }
             }
         }
@@ -228,7 +243,8 @@ pub fn lower_shadow_properties(
             std::mem::replace(&mut elem.children, new_children)
         };
 
-        // For each child: drop shadow renders BEFORE (underneath); inset shadow renders AFTER (on top).
+        // For each child: drop shadow renders BEFORE (underneath); inset shadow is prepended as
+        // the child's first child (above background, below the original child content).
         for child in old_children {
             let drop_shadow_properties = take_shadow_property_bindings(&child, ShadowKind::Drop);
             let inset_shadow_properties = take_shadow_property_bindings(&child, ShadowKind::Inset);
@@ -246,20 +262,19 @@ pub fn lower_shadow_properties(
                 }
             }
 
-            elem.borrow_mut().children.push(child.clone());
-
             if !inset_shadow_properties.is_empty() {
-                if let Some(mut shadow_elem) = create_box_shadow_element(
+                if let Some(shadow_elem) = create_box_shadow_element(
                     inset_shadow_properties,
                     &child,
                     ShadowKind::Inset,
                     type_register,
                     diag,
                 ) {
-                    shadow_elem.geometry_props.clone_from(&child.borrow().geometry_props);
-                    elem.borrow_mut().children.push(ElementRc::new(shadow_elem.into()));
+                    prepend_inset_shadow_child(&child, shadow_elem);
                 }
             }
+
+            elem.borrow_mut().children.push(child);
         }
     });
 }
