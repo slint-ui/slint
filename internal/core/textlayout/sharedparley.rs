@@ -443,18 +443,35 @@ fn layout(
     let max_physical_width = options.max_width.map(|max_width| max_width * scale_factor);
     let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
 
-    // Returned None if failed to get the elipsis glyph for some rare reason.
+    // Returns None if failed to get a truncation-indicator glyph.
+    //
+    // Tries U+2026 (HORIZONTAL ELLIPSIS, `…`) first. If parley's font
+    // resolution returns a notdef glyph (id 0 — the OpenType missing-glyph
+    // indicator), this happens because the resolved font lacks `…` in its
+    // cmap. Several common Arabic fonts (e.g. Noto Sans Arabic, Noto Naskh
+    // Arabic, Noto Kufi Arabic) ship without U+2026, and without a fallback
+    // the elision silently noops: text gets clipped at max_width with no
+    // visible truncation indicator.
+    //
+    // Falls back to U+002E (FULL STOP, `.`) — universally present in
+    // any font with the ASCII range. The single-dot indicator is less
+    // conventional than `…` but unambiguously communicates truncation.
     let get_elipsis_glyph = |font_context: &mut parley::FontContext| {
-        let mut layout = layout_builder.build(font_context, "…", None, None, None);
-        layout.break_all_lines(None);
-        let line = layout.lines().next()?;
-        let item = line.items().next()?;
-        let run = match item {
-            parley::layout::PositionedLayoutItem::GlyphRun(run) => Some(run),
-            _ => return None,
-        }?;
-        let glyph = run.positioned_glyphs().next()?;
-        Some((glyph, run.run().font().clone()))
+        for &candidate in &["…", "."] {
+            let mut layout = layout_builder.build(font_context, candidate, None, None, None);
+            layout.break_all_lines(None);
+            let Some(line) = layout.lines().next() else { continue };
+            let Some(item) = line.items().next() else { continue };
+            let run = match item {
+                parley::layout::PositionedLayoutItem::GlyphRun(run) => run,
+                _ => continue,
+            };
+            let Some(glyph) = run.positioned_glyphs().next() else { continue };
+            if glyph.id != 0 {
+                return Some((glyph, run.run().font().clone()));
+            }
+        }
+        None
     };
 
     let elision_info =
