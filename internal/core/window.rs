@@ -893,9 +893,11 @@ impl WindowInner {
         {
             // The action `dropped` returned is now sitting on the target's `current_action`.
             // For a cancelled drag (no target) we just report None.
-            let action = target_weak
+            let target = target_weak
                 .and_then(|w| w.upgrade())
-                .and_then(|i| i.downcast::<crate::items::DropArea>())
+                .and_then(|i| i.downcast::<crate::items::DropArea>());
+            let action = target
+                .as_ref()
                 .map(|d| d.as_pin_ref().current_action())
                 .unwrap_or(crate::items::DragAction::None);
             let drag_area = drag_area.as_pin_ref();
@@ -904,6 +906,11 @@ impl WindowInner {
                 .drag_finished()
                 .apply_pin(drag_area)
                 .call(&(action,));
+            // The drag is over: reset the target's `current_action` so it matches
+            // `contains_drag` and the docstring ("none when no drag is hovering").
+            if let Some(target) = target {
+                target.as_pin_ref().current_action.set(crate::items::DragAction::None);
+            }
         }
 
         if let Some(popup_id) = popup_to_close {
