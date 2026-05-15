@@ -1180,6 +1180,15 @@ export component DragArea {
     //out property <bool> dragging;
     /// The payload that's transferred to a <Link type="DropArea" /> when a drop happens.
     in property <data-transfer> data;
+    /// Bitmap drawn under the cursor while a drag is in flight.
+    /// When unset (the default empty image), no overlay is drawn.
+    in property <image> drag-image;
+    /// Horizontal hotspot within `drag-image` that aligns with the cursor, in image pixel coordinates.
+    /// `0` puts the image's left edge at the cursor; following HTML5's `setDragImage(image, x, y)` convention.
+    in property <int> drag-image-offset-x;
+    /// Vertical hotspot within `drag-image` that aligns with the cursor, in image pixel coordinates.
+    /// `0` puts the image's top edge at the cursor.
+    in property <int> drag-image-offset-y;
     //-default_size_binding:expands_to_parent_geometry
 }
 
