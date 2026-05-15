@@ -1180,6 +1180,15 @@ export component DragArea {
     //out property <bool> dragging;
     /// The payload that's transferred to a <Link type="DropArea" /> when a drop happens.
     in property <data-transfer> data;
+    /// Bitmap drawn under the cursor while a drag is in flight.
+    /// When unset (the default empty image), no overlay is drawn.
+    in property <image> drag-image;
+    /// Horizontal hotspot within `drag-image` that aligns with the cursor, in image pixel coordinates.
+    /// `0` puts the image's left edge at the cursor; following HTML5's `setDragImage(image, x, y)` convention.
+    in property <int> drag-image-offset-x;
+    /// Vertical hotspot within `drag-image` that aligns with the cursor, in image pixel coordinates.
+    /// `0` puts the image's top edge at the cursor.
+    in property <int> drag-image-offset-y;
     //-default_size_binding:expands_to_parent_geometry
 }
 
@@ -1462,13 +1471,11 @@ component WindowItem {
     out property <Size> virtual-keyboard-size;
     /// Request that the window be closed. This triggers the `close-requested` callback,
     /// giving the application a chance to cancel the close. Returns `true` if the close
-    /// was dispatched, or `false` if the call was ignored because this `Window` is not
-    /// the application's top-level window.
+    /// was dispatched, or `false` if the application declined.
     function close() -> bool {
     }
-    /// Hide this window. The window is made invisible but the application remains running.
-    /// Use `show()` to make the window visible again. Calling this function on a `Window`
-    /// that is not the application's top-level window is a no-op.
+    /// Hide this window. This also drops the strong reference on the window, so if this was
+    /// the last reference, the event loop will quit.
     function hide() {
     }
 }

@@ -19,7 +19,7 @@ use crate::item_tree::{
     ParentItemTraversalMode,
 };
 use crate::items::{InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
-use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
+use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalVector, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
@@ -643,6 +643,7 @@ impl WindowInner {
         let window_adapter = self.window_adapter();
         let mut mouse_input_state = self.mouse_input_state.take();
 
+        let was_dragging = mouse_input_state.drag_data.is_some();
         let old_cursor = core::mem::replace(&mut mouse_input_state.cursor, MouseCursor::Default);
 
         if let Some(mut drop_event) = mouse_input_state.drag_data.clone() {
@@ -651,14 +652,21 @@ impl WindowInner {
                     drop_event.position = crate::lengths::logical_position_to_api(*position);
                     event = MouseEvent::Drop(drop_event);
                     mouse_input_state.drag_data = None;
+                    mouse_input_state.drag_source = None;
                 }
                 MouseEvent::Moved { position, .. } => {
                     drop_event.position = crate::lengths::logical_position_to_api(*position);
+                    // Mirror the position into the persistent state so the renderer can
+                    // place the drag-image overlay without re-deriving the cursor location.
+                    if let Some(d) = mouse_input_state.drag_data.as_mut() {
+                        d.position = drop_event.position;
+                    }
                     mouse_input_state.cursor = MouseCursor::NoDrop;
                     event = MouseEvent::DragMove(drop_event);
                 }
                 MouseEvent::Exit => {
                     mouse_input_state.drag_data = None;
+                    mouse_input_state.drag_source = None;
                 }
                 _ => {}
             }
@@ -814,7 +822,16 @@ impl WindowInner {
             window_adapter.set_mouse_cursor(mouse_input_state.cursor);
         }
 
+        let is_dragging = mouse_input_state.drag_data.is_some();
         self.mouse_input_state.set(mouse_input_state);
+
+        // The drag-image overlay follows the cursor and lives outside any item tree, so
+        // partial renderers won't otherwise know to repaint it on mouse motion or after
+        // the drag ends. `render_drag_image_overlay` marks its painted rect dirty itself,
+        // we just need to schedule the redraw.
+        if was_dragging || is_dragging {
+            window_adapter.request_redraw();
+        }
 
         if let Some(popup_id) = popup_to_close {
             WindowInner::from_pub(parent_adapter.window()).close_popup(popup_id);
@@ -1341,13 +1358,25 @@ impl WindowInner {
 
     /// Calls the render_components to render the main component and any sub-window components, tracked by a
     /// property dependency tracker.
+    ///
+    /// The closure also receives a `post_render` callback. The renderer must invoke it
+    /// once with its `ItemRenderer` after walking the components but before flushing,
+    /// so the runtime can draw overlays that sit on top of the scene without being part
+    /// of any item tree.
+    ///
     /// Returns None if no component is set yet.
     pub fn draw_contents<T>(
         &self,
-        render_components: impl FnOnce(&[(ItemTreeWeak, LogicalPoint)]) -> T,
+        render_components: impl FnOnce(
+            &[(ItemTreeWeak, LogicalPoint)],
+            &dyn Fn(&mut dyn crate::item_rendering::ItemRenderer),
+        ) -> T,
     ) -> Option<T> {
         crate::properties::evaluate_no_tracking(|| self.ensure_tree_instantiated());
         let component_weak = ItemTreeRc::downgrade(&self.try_component()?);
+        let post_render = |renderer: &mut dyn crate::item_rendering::ItemRenderer| {
+            self.render_drag_image_overlay(renderer);
+        };
         Some(self.pinned_fields.as_ref().project_ref().redraw_tracker.evaluate_as_dependency_root(
             || {
                 if !self
@@ -1356,7 +1385,7 @@ impl WindowInner {
                     .iter()
                     .any(|p| matches!(p.location, PopupWindowLocation::ChildWindow(..)))
                 {
-                    render_components(&[(component_weak, LogicalPoint::default())])
+                    render_components(&[(component_weak, LogicalPoint::default())], &post_render)
                 } else {
                     let borrow = self.active_popups.borrow();
                     let mut item_trees = Vec::with_capacity(borrow.len() + 1);
@@ -1370,10 +1399,47 @@ impl WindowInner {
                         }
                     }
                     drop(borrow);
-                    render_components(&item_trees)
+                    render_components(&item_trees, &post_render)
                 }
             },
         ))
+    }
+
+    /// Draws the source `DragArea`'s `drag-image` under the cursor when a drag is in flight.
+    /// No-op when no drag is active or the source has no image set.
+    ///
+    /// Marks the painted rect dirty for partial renderers, so the next frame clears the area
+    /// before redrawing — same trick the linuxkms cursor injection uses, no per-frame state needed.
+    fn render_drag_image_overlay(
+        &self,
+        item_renderer: &mut dyn crate::item_rendering::ItemRenderer,
+    ) {
+        let state = self.mouse_input_state.take();
+        let cursor = state.drag_data.as_ref().map(|d| d.position);
+        let source = state.drag_source.as_ref().and_then(|w| w.upgrade());
+        self.mouse_input_state.set(state);
+
+        let (Some(cursor), Some(source)) = (cursor, source) else { return };
+        let Some(drag_area) = source.downcast::<crate::items::DragArea>() else { return };
+        let drag_area = drag_area.as_pin_ref();
+        let image = drag_area.drag_image();
+        let size = crate::lengths::LogicalSize::from_untyped(image.size().cast());
+        if size.is_empty() {
+            return;
+        }
+        let cursor = crate::lengths::logical_point_from_api(cursor);
+        let offset = LogicalVector::new(
+            drag_area.drag_image_offset_x() as Coord,
+            drag_area.drag_image_offset_y() as Coord,
+        );
+        let top_left = cursor - offset;
+
+        item_renderer.save_state();
+        item_renderer.translate(top_left.to_vector());
+        item_renderer.draw_image_direct(image);
+        item_renderer.restore_state();
+
+        self.window_adapter().renderer().mark_dirty_region(LogicalRect::new(top_left, size).into());
     }
 
     /// Registers the window with the windowing system, in order to render the component's items and react
