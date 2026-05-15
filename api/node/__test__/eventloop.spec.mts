@@ -148,5 +148,12 @@ test.sequential("js and slint timers fire in order", async () => {
         }, 250);
     });
 
-    expect(events).toEqual(["slint", "js-100", "slint", "js-175", "slint", "js-250"]);
+    expect(events).toEqual([
+        "slint",
+        "js-100",
+        "slint",
+        "js-175",
+        "slint",
+        "js-250",
+    ]);
 });
