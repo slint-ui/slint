@@ -425,6 +425,12 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             return;
         }
 
+        // Save the original element bounds for gradient positioning. The CSS model positions
+        // gradients relative to the border box (full element), but adjust_rect_and_border_for_inner_drawing
+        // shrinks geometry before we create the paint, which would shift the gradient center inward.
+        let original_width = geometry.width_length();
+        let original_height = geometry.height_length();
+
         let border_color = rect.border_color();
         let opaque_border = border_color.is_opaque();
         let mut border_width = if border_color.is_transparent() {
@@ -464,11 +470,9 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             (background_rect, border_rect)
         };
 
-        if let Some(mut fill_paint) = self.brush_to_paint(
-            rect.background(),
-            geometry.width_length(),
-            geometry.height_length(),
-        ) {
+        if let Some(mut fill_paint) =
+            self.brush_to_paint(rect.background(), original_width, original_height)
+        {
             fill_paint.set_style(skia_safe::PaintStyle::Fill);
             if !background_rect.is_rect() {
                 fill_paint.set_anti_alias(true);
@@ -478,7 +482,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
 
         if border_width.get() > 0.0
             && let Some(mut border_paint) =
-                self.brush_to_paint(border_color, geometry.width_length(), geometry.height_length())
+                self.brush_to_paint(border_color, original_width, original_height)
         {
             border_paint.set_style(skia_safe::PaintStyle::Stroke);
             border_paint.set_stroke_width(border_width.get());

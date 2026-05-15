@@ -2782,7 +2782,7 @@ mod tests {
             create_subsubtree_items(Some(window_adapter_weak.upgrade().unwrap())).1;
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
             &popup_component,
-            POPUP_LOCATION,
+            alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(parent.clone()),
             false,
@@ -2821,7 +2821,7 @@ mod tests {
         let (window_adapter_weak, item_tree) = create_subsubtree_items(None);
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
             &item_tree,
-            POPUP_LOCATION,
+            alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(item_tree.clone()),
             false,
@@ -2922,7 +2922,7 @@ mod tests {
             create_subsubtree_items_dynamic_elements(window_adapter_weak.upgrade().unwrap());
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
             &popup_component,
-            POPUP_LOCATION,
+            alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(parent.clone()),
             false,
@@ -2993,7 +2993,7 @@ mod tests {
         }
 
         fn mark_dirty_region(&self, _region: crate::partial_renderer::DirtyRegion) {
-            unimplemented!("Not required in this test");
+            // Will be called when showing a popup to mark the previous position dirty
         }
 
         fn register_bitmap_font(&self, _font_data: &'static crate::graphics::BitmapFont) {

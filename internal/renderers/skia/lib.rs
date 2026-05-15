@@ -635,7 +635,7 @@ impl SkiaRenderer {
         let window_inner = WindowInner::from_pub(window);
 
         let dirty_region = window_inner
-            .draw_contents(|components| {
+            .draw_contents(|components, post_render| {
                 self.render_components_to_canvas(
                     skia_canvas,
                     gr_context,
@@ -644,6 +644,7 @@ impl SkiaRenderer {
                     window,
                     post_render_cb,
                     components,
+                    post_render,
                 )
             })
             .unwrap_or_default();
@@ -667,6 +668,7 @@ impl SkiaRenderer {
         window: &i_slint_core::api::Window,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
         components: &[(ItemTreeWeak, LogicalPoint)],
+        post_render: &dyn Fn(&mut dyn ItemRenderer),
     ) -> Option<DirtyRegion> {
         let window_inner = WindowInner::from_pub(window);
         let window_adapter = window_inner.window_adapter();
@@ -799,6 +801,8 @@ impl SkiaRenderer {
                     );
                 }
             }
+
+            post_render(item_renderer);
 
             if let Some(path) = dirty_region_to_visualize {
                 let mut paint = skia_safe::Paint::new(

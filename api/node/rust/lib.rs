@@ -94,6 +94,14 @@ pub fn invoke_from_event_loop(env: &Env, callback: DynFunction<'_>) -> napi::Res
 }
 
 #[napi]
+pub fn quit_event_loop() -> napi::Result<()> {
+    // Don't call core's quit_event_loop — that permanently terminates the winit event loop.
+    // Set a flag so process_slint_events returns Exited on the next iteration.
+    uv_event_loop::request_quit();
+    Ok(())
+}
+
+#[napi]
 pub fn set_quit_on_last_window_closed(quit_on_last_window_closed: bool) -> napi::Result<()> {
     if !quit_on_last_window_closed {
         i_slint_backend_selector::with_platform(|b| {
