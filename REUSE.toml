@@ -163,7 +163,9 @@ path = [
   "ui-libraries/material/examples/gallery/ui/themes/**.json",
 
   ".claude-plugin/*.json",
+  ".cursor-plugin/*.json",
   "skills/.claude-plugin/*.json",
+  "skills/.cursor-plugin/*.json",
   "skills/**/SKILL.md",
 ]
 precedence = "aggregate"
