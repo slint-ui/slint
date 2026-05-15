@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+ - FemtoVG/Skia (parley): Fixed `TextOverflow::Elide` not rendering a truncation indicator
+   for right-aligned text whose natural width exceeds the available width — including
+   RTL scripts such as Arabic and Hebrew. The elipsis now appears at the leading (left)
+   edge of the visible truncated text.
+
 ## [1.16.1] - 2026-04-23
 
  - `ListView`: Fixed compiler panic with a graceful fallback in the dirty region computation.
