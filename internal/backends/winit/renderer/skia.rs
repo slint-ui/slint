@@ -7,6 +7,7 @@ use std::sync::Arc;
 use crate::winitwindowadapter::physical_size_to_slint;
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::platform::PlatformError;
+use i_slint_core::renderer::DrawOutcome;
 use i_slint_renderer_skia::SkiaRenderer;
 
 pub struct WinitSkiaRenderer {
@@ -152,7 +153,7 @@ impl WinitSkiaRenderer {
 }
 
 impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
-    fn render(&self, _window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
+    fn render(&self, _window: &i_slint_core::api::Window) -> Result<DrawOutcome, PlatformError> {
         self.renderer.render()
     }
 

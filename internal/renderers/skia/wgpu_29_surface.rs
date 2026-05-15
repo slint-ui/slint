@@ -7,6 +7,7 @@ use i_slint_core::api::{PhysicalSize as PhysicalWindowSize, Window};
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::partial_renderer::DirtyRegion;
 use i_slint_core::platform::PlatformError;
+use i_slint_core::renderer::DrawOutcome;
 
 use std::cell::RefCell;
 use std::sync::Arc;
@@ -190,7 +191,7 @@ impl crate::Surface for WGPUSurface {
             u8,
         ) -> Option<DirtyRegion>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
-    ) -> Result<(), PlatformError> {
+    ) -> Result<DrawOutcome, PlatformError> {
         let (Some(surface), Some(surface_config)) = (&self.surface, &*self.surface_config.borrow())
         else {
             return Err("WGPUSurface::render() called on offscreen surface".into());
@@ -198,25 +199,21 @@ impl crate::Surface for WGPUSurface {
 
         let gr_context = &mut self.gr_context.borrow_mut();
 
-        let acquire = |s: &wgpu::Surface<'static>| -> Result<wgpu::SurfaceTexture, PlatformError> {
-            match s.get_current_texture() {
-                wgpu::CurrentSurfaceTexture::Success(t)
-                | wgpu::CurrentSurfaceTexture::Suboptimal(t) => Ok(t),
-                other => Err(format!("Error obtaining current surface texture: {other:?}").into()),
-            }
-        };
         let frame = match surface.get_current_texture() {
-            wgpu::CurrentSurfaceTexture::Success(t)
-            | wgpu::CurrentSurfaceTexture::Suboptimal(t) => t,
-            wgpu::CurrentSurfaceTexture::Timeout => acquire(surface).map_err(|e| {
-                format!("Error obtaining current surface texture after timeout: {e}")
-            })?,
-            // Outdated or lost: re-configure and try again
-            _ => {
+            wgpu::CurrentSurfaceTexture::Success(t) => t,
+            wgpu::CurrentSurfaceTexture::Occluded => return Ok(DrawOutcome::Occluded),
+            wgpu::CurrentSurfaceTexture::Timeout => return Ok(DrawOutcome::Timeout),
+            wgpu::CurrentSurfaceTexture::Validation => {
+                return Err("WGPU surface validation error in get_current_texture".into());
+            }
+            wgpu::CurrentSurfaceTexture::Outdated
+            | wgpu::CurrentSurfaceTexture::Suboptimal(_)
+            | wgpu::CurrentSurfaceTexture::Lost => {
                 surface.configure(&self.device, surface_config);
-                acquire(surface).map_err(|e| {
-                    format!("Error obtaining current surface texture after initial error: {e}")
-                })?
+                match surface.get_current_texture() {
+                    wgpu::CurrentSurfaceTexture::Success(t) => t,
+                    _ => return Ok(DrawOutcome::Occluded),
+                }
             }
         };
 
@@ -235,7 +232,7 @@ impl crate::Surface for WGPUSurface {
 
         frame.present();
 
-        Ok(())
+        Ok(DrawOutcome::Success)
     }
 
     fn bits_per_pixel(&self) -> Result<u8, PlatformError> {

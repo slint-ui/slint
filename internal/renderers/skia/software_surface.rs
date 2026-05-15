@@ -4,6 +4,7 @@
 use i_slint_core::api::{PhysicalSize as PhysicalWindowSize, Window};
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::partial_renderer::DirtyRegion;
+use i_slint_core::renderer::DrawOutcome;
 
 use std::cell::RefCell;
 use std::num::NonZeroU32;
@@ -187,7 +188,7 @@ impl super::Surface for SoftwareSurface {
             u8,
         ) -> Option<DirtyRegion>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
+    ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         self.render_buffer.with_buffer(
             window,
             size,
@@ -215,7 +216,8 @@ impl super::Surface for SoftwareSurface {
 
                 Ok(dirty_region)
             },
-        )
+        )?;
+        Ok(DrawOutcome::Success)
     }
 
     fn bits_per_pixel(&self) -> Result<u8, i_slint_core::platform::PlatformError> {

@@ -8,7 +8,9 @@ use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::{api::PhysicalSize as PhysicalWindowSize, graphics::RequestedGraphicsAPI};
 
-use crate::{FemtoVGRenderer, GraphicsBackend, WindowSurface};
+use i_slint_core::renderer::DrawOutcome;
+
+use crate::{BeginRendering, FemtoVGRenderer, GraphicsBackend, WindowSurface};
 
 use wgpu_29 as wgpu;
 
@@ -176,38 +178,36 @@ impl GraphicsBackend for WGPUBackend {
 
     fn begin_surface_rendering(
         &self,
-    ) -> Result<Self::WindowSurface, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<BeginRendering<Self::WindowSurface>, Box<dyn std::error::Error + Send + Sync>> {
         if let Some(snapshot_output) = self.snapshot_output.borrow().clone() {
-            return Ok(WGPUWindowSurface::Snapshot(snapshot_output));
+            return Ok(BeginRendering::Acquired(WGPUWindowSurface::Snapshot(snapshot_output)));
         }
         let surface = self.surface.borrow();
         let surface = surface.as_ref().unwrap();
-        let acquire = |s: &wgpu::Surface<'static>| -> Result<
-            wgpu::SurfaceTexture,
-            Box<dyn std::error::Error + Send + Sync>,
-        > {
-            match s.get_current_texture() {
-                wgpu::CurrentSurfaceTexture::Success(t)
-                | wgpu::CurrentSurfaceTexture::Suboptimal(t) => Ok(t),
-                other => {
-                    Err(format!("Failed to acquire current surface texture: {other:?}").into())
+        let frame = match surface.get_current_texture() {
+            wgpu::CurrentSurfaceTexture::Success(t) => t,
+            wgpu::CurrentSurfaceTexture::Occluded => {
+                return Ok(BeginRendering::Skipped(DrawOutcome::Occluded));
+            }
+            wgpu::CurrentSurfaceTexture::Timeout => {
+                return Ok(BeginRendering::Skipped(DrawOutcome::Timeout));
+            }
+            wgpu::CurrentSurfaceTexture::Validation => {
+                return Err("WGPU surface validation error in get_current_texture".into());
+            }
+            wgpu::CurrentSurfaceTexture::Outdated
+            | wgpu::CurrentSurfaceTexture::Suboptimal(_)
+            | wgpu::CurrentSurfaceTexture::Lost => {
+                let mut device = self.device.borrow_mut();
+                let device = device.as_mut().unwrap();
+                surface.configure(device, self.surface_config.borrow().as_ref().unwrap());
+                match surface.get_current_texture() {
+                    wgpu::CurrentSurfaceTexture::Success(t) => t,
+                    _ => return Ok(BeginRendering::Skipped(DrawOutcome::Occluded)),
                 }
             }
         };
-        let frame = match surface.get_current_texture() {
-            wgpu::CurrentSurfaceTexture::Success(t)
-            | wgpu::CurrentSurfaceTexture::Suboptimal(t) => t,
-            wgpu::CurrentSurfaceTexture::Timeout => acquire(surface)?,
-            // Outdated or lost: re-configure and try again
-            _ => {
-                let mut device = self.device.borrow_mut();
-                let device = device.as_mut().unwrap();
-
-                surface.configure(device, self.surface_config.borrow().as_ref().unwrap());
-                acquire(surface)?
-            }
-        };
-        Ok(WGPUWindowSurface::Surface(frame))
+        Ok(BeginRendering::Acquired(WGPUWindowSurface::Surface(frame)))
     }
 
     fn submit_commands(&self, commands: <Self::Renderer as femtovg::Renderer>::CommandBuffer) {
@@ -377,10 +377,10 @@ impl GraphicsBackend for WgpuTextureBackend {
 
     fn begin_surface_rendering(
         &self,
-    ) -> Result<Self::WindowSurface, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<BeginRendering<Self::WindowSurface>, Box<dyn std::error::Error + Send + Sync>> {
         let render_output =
             self.render_output.borrow().clone().ok_or("No texture set for rendering")?;
-        Ok(TextureWindowSurface { render_output })
+        Ok(BeginRendering::Acquired(TextureWindowSurface { render_output }))
     }
 
     fn submit_commands(&self, commands: <Self::Renderer as femtovg::Renderer>::CommandBuffer) {

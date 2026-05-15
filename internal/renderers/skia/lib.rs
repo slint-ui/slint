@@ -30,6 +30,7 @@ use i_slint_core::lengths::{
 };
 use i_slint_core::partial_renderer::{DirtyRegion, PartialRenderingState};
 use i_slint_core::platform::PlatformError;
+use i_slint_core::renderer::DrawOutcome;
 use i_slint_core::textlayout::sharedparley;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 
@@ -560,7 +561,7 @@ impl SkiaRenderer {
     }
 
     /// Render the scene in the previously associated window.
-    pub fn render(&self) -> Result<(), i_slint_core::platform::PlatformError> {
+    pub fn render(&self) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         let window_adapter = self.window_adapter()?;
         let size = window_adapter.window().size();
         self.internal_render_with_post_callback(0., (0., 0.), size, None)
@@ -593,9 +594,9 @@ impl SkiaRenderer {
         translation: (f32, f32),
         surface_size: PhysicalWindowSize,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
+    ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         let surface = self.surface.borrow();
-        let Some(surface) = surface.as_ref() else { return Ok(()) };
+        let Some(surface) = surface.as_ref() else { return Ok(DrawOutcome::Success) };
         self.invoke_rendering_notifier_setup(surface.as_ref())?;
 
         let window_adapter = self.window_adapter()?;
@@ -1078,7 +1079,8 @@ pub trait Surface {
         Ok(())
     }
     /// Prepares the surface for rendering and invokes the provided callback with access to a Skia canvas and
-    /// rendering context.
+    /// rendering context. Returning `DrawOutcome::Occluded` or `Timeout` lets the caller
+    /// re-arm its redraw flag without rendering.
     fn render(
         &self,
         window: &Window,
@@ -1089,7 +1091,7 @@ pub trait Surface {
             u8,
         ) -> Option<DirtyRegion>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
-    ) -> Result<(), i_slint_core::platform::PlatformError>;
+    ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError>;
     /// Called when the surface should be resized.
     fn resize_event(
         &self,
@@ -1131,7 +1133,7 @@ pub trait SkiaRendererExt {
         translation: (f32, f32),
         surface_size: PhysicalWindowSize,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
-    ) -> Result<(), i_slint_core::platform::PlatformError>;
+    ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError>;
 }
 
 impl SkiaRendererExt for SkiaRenderer {
@@ -1141,7 +1143,7 @@ impl SkiaRendererExt for SkiaRenderer {
         translation: (f32, f32),
         surface_size: PhysicalWindowSize,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
+    ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         self.internal_render_with_post_callback(
             rotation_angle_degrees,
             translation,
