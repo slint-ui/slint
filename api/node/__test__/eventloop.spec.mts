@@ -129,7 +129,7 @@ test.sequential("js and slint timers fire in order", async () => {
         `export component App inherits Window {
             callback timer_fired();
             timer := Timer {
-                interval: 50ms;
+                interval: 80ms;
                 triggered => { timer_fired(); }
             }
         }`,
@@ -141,26 +141,12 @@ test.sequential("js and slint timers fire in order", async () => {
 
     await runEventLoop(() => {
         setTimeout(() => events.push("js-100"), 100);
+        setTimeout(() => events.push("js-175"), 175);
         setTimeout(() => {
-            events.push("js-200");
+            events.push("js-250");
             quitEventLoop();
-        }, 200);
+        }, 250);
     });
 
-    // JS timers must fire in order.
-    const firstJs100 = events.indexOf("js-100");
-    const firstJs200 = events.indexOf("js-200");
-    expect(firstJs100).toBeGreaterThanOrEqual(0);
-    expect(firstJs200).toBeGreaterThanOrEqual(0);
-    expect(firstJs100).toBeLessThan(firstJs200);
-
-    // With the integrated event loop (unix), the Slint 50ms timer
-    // fires before the JS 100ms timer.  With the polling fallback
-    // (testing backend / Windows), mock time isn't advanced so the
-    // Slint timer may not fire at all — only assert ordering when
-    // it did fire.
-    const firstSlint = events.indexOf("slint");
-    if (firstSlint >= 0) {
-        expect(firstSlint).toBeLessThan(firstJs100);
-    }
+    expect(events).toEqual(["slint", "js-100", "slint", "js-175", "slint", "js-250"]);
 });
