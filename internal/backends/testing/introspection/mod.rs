@@ -314,6 +314,7 @@ impl IntrospectionState {
         });
     }
 
+    #[cfg(feature = "system-testing")]
     pub fn query_event_log(
         &self,
         window_index: Option<ArenaIndex>,
@@ -772,6 +773,7 @@ pub(crate) mod dispatch {
         state.take_snapshot_response(window, image_mime_type)
     }
 
+    #[cfg(feature = "system-testing")]
     pub(crate) fn event_log(
         state: &IntrospectionState,
         window: Option<ArenaIndex>,
@@ -782,6 +784,7 @@ pub(crate) mod dispatch {
         state.query_event_log(window, since_sequence, max_events, clear_after_read)
     }
 
+    #[cfg(feature = "system-testing")]
     pub(crate) fn clear_event_log(state: &IntrospectionState) -> proto::ClearEventLogResponse {
         state.clear_event_log();
         proto::ClearEventLogResponse {}
