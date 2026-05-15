@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell:ignore oklab unquantize cbrt
+
 /*!
 This module contains color related types for the run-time library.
 */
@@ -754,7 +756,7 @@ fn test_transparent_transition() {
 
 #[test]
 fn test_oklch_roundtrip() {
-    // Test that Oklch roundtrips correctly through RGB
+    // Test that Oklch round trips correctly through RGB
     // Use colors with low chroma that are definitely within sRGB gamut
     let test_colors = [
         OklchColor { lightness: 0.5, chroma: 0.08, hue: 30.0, alpha: 1.0 },

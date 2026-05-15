@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell:ignore mmap fbnum vinfo screeninfo errno fbioget vscreeninfo xres yres mmio finfo fscreeninfo GETSTATE KDGETMODE KDSETMODE xoffset yoffset bitfield nonstd pixclock vmode smem xpanstep ypanstep ywrapstep
+
 use std::cell::{Cell, RefCell};
 use std::fs::OpenOptions;
 use std::io::Write;
