@@ -236,6 +236,7 @@ pub(crate) fn solve_flexbox_layout(
         &expr_eval,
         local_context,
         container_width_for_cells,
+        None,
     );
 
     let alignment = flexbox_layout
@@ -286,24 +287,53 @@ pub(crate) fn solve_flexbox_layout(
     };
     let ri = Slice::from(repeated_indices.as_slice());
 
-    // Collect element info for measure callbacks (height-for-width support).
     let window_adapter = component.window_adapter();
-    let mut child_elem_ids: Vec<Option<smol_str::SmolStr>> = Vec::new();
+
+    // Build measure callback that computes constrained layout_info for items
+    // that support height-for-width (Text with wrap, Image with aspect ratio,
+    // and component instances with a synthesized
+    // `layoutinfo-{v,h}-with-constraint`).
+    //
+    // Collect `(element, has_constrained_layoutinfo_{v,h})` so we can
+    // dispatch component instances through the parametrized layout-info
+    // function rather than through the Item vtable (which returns trivial
+    // info for the Empty wrapper of a sub-component instance).
+    struct ChildElem {
+        elem: ElementRc,
+        has_constrained_layoutinfo_v: bool,
+        has_constrained_layoutinfo_h: bool,
+        /// True when the cell aggregates layoutinfo from its own subtree
+        /// (set by `default_geometry::gen_layout_info_prop`) — typical for
+        /// component-wrappers like a Rectangle containing a layout. In
+        /// that case the Item vtable's `layout_info` on the wrapper item
+        /// returns trivial info that doesn't reflect the aggregated
+        /// constraints; we read the aggregated property directly.
+        has_aggregated_info: bool,
+    }
+    let mut child_elems: Vec<Option<ChildElem>> = Vec::new();
     for layout_elem in &flexbox_layout.elems {
         if layout_elem.item.element.borrow().repeated.is_some() {
             let component_vec = repeater_instances(component, &layout_elem.item.element);
             for _ in 0..component_vec.len() {
-                child_elem_ids.push(None);
+                child_elems.push(None);
             }
         } else {
-            child_elem_ids.push(Some(layout_elem.item.element.borrow().id.clone()));
+            let elem_b = layout_elem.item.element.borrow();
+            let has_constrained_layoutinfo_v =
+                elem_b.inherited_layout_info_v_with_constraint().is_some();
+            let has_constrained_layoutinfo_h =
+                elem_b.inherited_layout_info_h_with_constraint().is_some();
+            let has_aggregated_info = elem_b.layout_info_prop.is_some();
+            drop(elem_b);
+            child_elems.push(Some(ChildElem {
+                elem: layout_elem.item.element.clone(),
+                has_constrained_layoutinfo_v,
+                has_constrained_layoutinfo_h,
+                has_aggregated_info,
+            }));
         }
     }
 
-    // Build measure callback that computes constrained layout_info for items
-    // that support height-for-width (Text with wrap, Image with aspect ratio).
-    // This avoids the circular dependency where layout_info reads the item's
-    // width property, which itself comes from the layout cache being computed.
     let mut measure = |child_index: usize,
                        known_w: Option<f32>,
                        known_h: Option<f32>|
@@ -313,39 +343,75 @@ pub(crate) fn solve_flexbox_layout(
         let w = known_w.unwrap_or(default_w);
         let h = known_h.unwrap_or(default_h);
 
-        let elem_id = match child_elem_ids.get(child_index) {
-            Some(Some(id)) => id,
+        let ce = match child_elems.get(child_index) {
+            Some(Some(c)) => c,
             _ => return (w, h),
         };
-        let item_within = match component.description.items.get(elem_id.as_str()) {
-            Some(i) => i,
-            None => return (w, h),
-        };
 
-        // Call layout_info with cross-axis constraint through the VTable
+        // Cells whose layoutinfo aggregates from a sub-tree (set by
+        // default_geometry) or that have a parametrized layout-info
+        // function need to be queried by NamedReference. The Item
+        // vtable's `layout_info` on the wrapper item returns trivial
+        // info that ignores the aggregated children.
+        let use_property_lookup = ce.has_aggregated_info
+            || ce.has_constrained_layoutinfo_v
+            || ce.has_constrained_layoutinfo_h;
+
         if known_w.is_some() && known_h.is_none() {
-            let item_comp = component.self_weak().get().unwrap().upgrade().unwrap();
-            let item_rc = ItemRc::new(vtable::VRc::into_dyn(item_comp), item_within.item_index());
-            let item = unsafe { item_within.item_from_item_tree(component.as_ptr()) };
-            let v_info = item.as_ref().layout_info(
-                to_runtime(Orientation::Vertical),
-                w,
-                &window_adapter,
-                &item_rc,
-            );
-            return (w, v_info.preferred_bounded());
+            if use_property_lookup {
+                let v_info = get_layout_info_with_constraint(
+                    &ce.elem,
+                    component,
+                    &window_adapter,
+                    Orientation::Vertical,
+                    ce.has_constrained_layoutinfo_v.then_some(w),
+                );
+                return (w, v_info.preferred_bounded());
+            }
+            // Builtin path (Text, Image): use the Item vtable's
+            // layout_info, which honors the cross-axis constraint.
+            let elem_id = ce.elem.borrow().id.clone();
+            if let Some(item_within) = component.description.items.get(elem_id.as_str()) {
+                let item_comp = component.self_weak().get().unwrap().upgrade().unwrap();
+                let item_rc =
+                    ItemRc::new(vtable::VRc::into_dyn(item_comp), item_within.item_index());
+                let item = unsafe { item_within.item_from_item_tree(component.as_ptr()) };
+                let v_info = item.as_ref().layout_info(
+                    to_runtime(Orientation::Vertical),
+                    w,
+                    &window_adapter,
+                    &item_rc,
+                );
+                return (w, v_info.preferred_bounded());
+            }
+            return (w, h);
         }
         if known_h.is_some() && known_w.is_none() {
-            let item_comp = component.self_weak().get().unwrap().upgrade().unwrap();
-            let item_rc = ItemRc::new(vtable::VRc::into_dyn(item_comp), item_within.item_index());
-            let item = unsafe { item_within.item_from_item_tree(component.as_ptr()) };
-            let h_info = item.as_ref().layout_info(
-                to_runtime(Orientation::Horizontal),
-                h,
-                &window_adapter,
-                &item_rc,
-            );
-            return (h_info.preferred_bounded(), h);
+            if use_property_lookup {
+                let h_info = get_layout_info_with_constraint(
+                    &ce.elem,
+                    component,
+                    &window_adapter,
+                    Orientation::Horizontal,
+                    ce.has_constrained_layoutinfo_h.then_some(h),
+                );
+                return (h_info.preferred_bounded(), h);
+            }
+            let elem_id = ce.elem.borrow().id.clone();
+            if let Some(item_within) = component.description.items.get(elem_id.as_str()) {
+                let item_comp = component.self_weak().get().unwrap().upgrade().unwrap();
+                let item_rc =
+                    ItemRc::new(vtable::VRc::into_dyn(item_comp), item_within.item_index());
+                let item = unsafe { item_within.item_from_item_tree(component.as_ptr()) };
+                let h_info = item.as_ref().layout_info(
+                    to_runtime(Orientation::Horizontal),
+                    h,
+                    &window_adapter,
+                    &item_rc,
+                );
+                return (h_info.preferred_bounded(), h);
+            }
+            return (w, h);
         }
         (w, h)
     };
@@ -390,8 +456,22 @@ pub(crate) fn compute_flexbox_layout_info(
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     };
 
-    let (cells_h, cells_v, _repeated_indices) =
-        flexbox_layout_data(flexbox_layout, component, &expr_eval, local_context, cross_axis_size);
+    // `cross_axis_size` carries a width when called from a
+    // `layoutinfo-v-with-constraint` body, a height from a
+    // `layoutinfo-h-with-constraint` body. Route it to the matching
+    // cell-list so cells don't receive a dimension on the wrong axis.
+    let (width_override, height_override) = match orientation {
+        Orientation::Vertical => (cross_axis_size, None),
+        Orientation::Horizontal => (None, cross_axis_size),
+    };
+    let (cells_h, cells_v, _repeated_indices) = flexbox_layout_data(
+        flexbox_layout,
+        component,
+        &expr_eval,
+        local_context,
+        width_override,
+        height_override,
+    );
 
     // Get the direction from the property binding
     let direction = flexbox_layout_direction(flexbox_layout, local_context);
@@ -431,10 +511,10 @@ pub(crate) fn compute_flexbox_layout_info(
         )
         .into()
     } else {
-        // Read the perpendicular (main-axis) dimension as constraint for cross-axis info.
-        // For row flex, cross-axis is vertical, perpendicular is width.
-        // For column flex, cross-axis is horizontal, perpendicular is height.
-        let constraint_size = match orientation {
+        // Override when set (e.g., from a `layoutinfo-h-with-constraint`
+        // body); otherwise self's perpendicular dimension. The override
+        // path breaks the cycle for nested perpendicular flexboxes.
+        let constraint_size = cross_axis_size.unwrap_or_else(|| match orientation {
             Orientation::Horizontal => {
                 let height_ref = &flexbox_layout.geometry.rect.height_reference;
                 height_ref.as_ref().map(&expr_eval).unwrap_or(0.)
@@ -443,7 +523,7 @@ pub(crate) fn compute_flexbox_layout_info(
                 let width_ref = &flexbox_layout.geometry.rect.width_reference;
                 width_ref.as_ref().map(&expr_eval).unwrap_or(0.)
             }
-        };
+        });
         core_layout::flexbox_layout_info_cross_axis(
             Slice::from(cells_h.as_slice()),
             Slice::from(cells_v.as_slice()),
@@ -464,7 +544,8 @@ fn flexbox_layout_data(
     component: InstanceRef,
     expr_eval: &impl Fn(&NamedReference) -> f32,
     _local_context: &mut EvalLocalContext,
-    container_width: Option<f32>,
+    width_override: Option<f32>,
+    height_override: Option<f32>,
 ) -> (Vec<core_layout::FlexboxLayoutItemInfo>, Vec<core_layout::FlexboxLayoutItemInfo>, Vec<u32>) {
     let window_adapter = component.window_adapter();
     let mut cells_h = Vec::with_capacity(flexbox_layout.elems.len());
@@ -497,11 +578,24 @@ fn flexbox_layout_data(
                 static_children.push(None);
             }
         } else {
-            let mut layout_info_h = get_layout_info(
+            // Dispatch via `layoutinfo-h-with-constraint` for cells that
+            // have one, avoiding the `self.height` read that would cycle.
+            // Use the height-override when set, else `f32::MAX` so the
+            // runtime treats it as "no wrap needed" — gives the natural
+            // max-cell-width result rather than the heuristic.
+            let h_constraint = layout_elem
+                .item
+                .element
+                .borrow()
+                .inherited_layout_info_h_with_constraint()
+                .is_some()
+                .then(|| height_override.unwrap_or(f32::MAX));
+            let mut layout_info_h = get_layout_info_with_constraint(
                 &layout_elem.item.element,
                 component,
                 &window_adapter,
                 Orientation::Horizontal,
+                h_constraint,
             );
             fill_layout_info_constraints(
                 &mut layout_info_h,
@@ -557,7 +651,7 @@ fn flexbox_layout_data(
             // repeater cells_v already filled in first pass
         } else {
             let width_constraint =
-                container_width.unwrap_or_else(|| cells_h[cell_idx].constraint.preferred_bounded());
+                width_override.unwrap_or_else(|| cells_h[cell_idx].constraint.preferred_bounded());
             let mut layout_info_v = get_layout_info_with_constraint(
                 &layout_elem.item.element,
                 component,
@@ -1076,25 +1170,28 @@ pub(crate) fn get_layout_info_with_constraint(
     orientation: Orientation,
     cross_axis_constraint: Option<f32>,
 ) -> core_layout::LayoutInfo {
-    // Components with a synthesized `layoutinfo-v-with-constraint`
-    // function: call it when the parent has supplied a cross-axis width
-    // and we are asking for vertical info. This breaks the recursion that
-    // would otherwise occur via the descendant's `width` property read.
-    let constrained_nr = if orientation == Orientation::Vertical && cross_axis_constraint.is_some()
-    {
-        elem.borrow().layout_info_v_with_constraint.clone()
+    // With a constraint and a parameterized layout-info function on the
+    // cell, call it instead of reading the cell's perpendicular property.
+    // Use the inherited lookup so component-instance cells pick up a
+    // `layoutinfo-{v,h}-with-constraint` declared on the base component's
+    // root_element (the cell itself doesn't carry the binding).
+    let parameterized_nr = if cross_axis_constraint.is_some() {
+        match orientation {
+            Orientation::Vertical => elem.borrow().inherited_layout_info_v_with_constraint(),
+            Orientation::Horizontal => elem.borrow().inherited_layout_info_h_with_constraint(),
+        }
     } else {
         None
     };
-    if let Some(constrained_nr) = constrained_nr {
-        let width = cross_axis_constraint.unwrap();
+    if let Some(nr) = parameterized_nr {
+        let arg = cross_axis_constraint.unwrap();
         let v = eval::call_function(
             &eval::ComponentInstance::InstanceRef(component),
-            &constrained_nr.element(),
-            constrained_nr.name(),
-            vec![Value::Number(width as f64)],
+            &nr.element(),
+            nr.name(),
+            vec![Value::Number(arg as f64)],
         )
-        .expect("layoutinfo-v-with-constraint is a synthesized pure function");
+        .expect("layoutinfo-{h,v}-with-constraint is a synthesized pure function");
         return v.try_into().unwrap();
     }
 

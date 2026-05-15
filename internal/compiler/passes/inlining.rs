@@ -299,6 +299,13 @@ fn inline_element(
             elem_mut.layout_info_v_with_constraint = Some(orig.clone());
         }
     }
+    if let Some(orig) = &inlined_component.root_element.borrow().layout_info_h_with_constraint {
+        if let Some(_new) = &mut elem_mut.layout_info_h_with_constraint {
+            todo!("Merge layout infos");
+        } else {
+            elem_mut.layout_info_h_with_constraint = Some(orig.clone());
+        }
+    }
 
     core::mem::drop(elem_mut);
 
@@ -401,6 +408,7 @@ fn duplicate_element_with_mapping(
         child_of_layout: elem.child_of_layout,
         layout_info_prop: elem.layout_info_prop.clone(),
         layout_info_v_with_constraint: elem.layout_info_v_with_constraint.clone(),
+        layout_info_h_with_constraint: elem.layout_info_h_with_constraint.clone(),
         default_fill_parent: elem.default_fill_parent,
         accessibility_props: elem.accessibility_props.clone(),
         geometry_props: elem.geometry_props.clone(),

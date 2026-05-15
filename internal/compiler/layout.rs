@@ -744,19 +744,25 @@ pub fn implicit_layout_info_call(
     loop {
         return match &elem_it.clone().borrow().base_type {
             ElementType::Component(base_comp) => {
-                // Flexbox supplies a width constraint to break its h/v
-                // cache cycle; call the base component's
-                // `layoutinfo-v-with-constraint` when present.
-                if orientation == Orientation::Vertical
-                    && let Some(c) = &constraint
-                    && let Some(constrained_nr) =
+                // Flexbox supplies a cross-axis constraint to break its
+                // h/v cache cycle; call the base component's parametrized
+                // layout-info function when present.
+                let parametrized_nr = constraint.as_ref().and_then(|_| match orientation {
+                    Orientation::Vertical => {
                         base_comp.root_element.borrow().layout_info_v_with_constraint.clone()
+                    }
+                    Orientation::Horizontal => {
+                        base_comp.root_element.borrow().layout_info_h_with_constraint.clone()
+                    }
+                });
+                if let Some(nr) = parametrized_nr
+                    && let Some(c) = &constraint
                 {
-                    debug_assert!(Rc::ptr_eq(&constrained_nr.element(), &base_comp.root_element));
+                    debug_assert!(Rc::ptr_eq(&nr.element(), &base_comp.root_element));
                     return Some(Expression::FunctionCall {
                         function: crate::expression_tree::Callable::Function(NamedReference::new(
                             elem,
-                            constrained_nr.name().clone(),
+                            nr.name().clone(),
                         )),
                         arguments: vec![c.clone()],
                         source_location: None,

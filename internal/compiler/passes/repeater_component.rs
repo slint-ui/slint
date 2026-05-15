@@ -55,6 +55,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 child_of_layout: original_elem.child_of_layout || is_listview.is_some(),
                 layout_info_prop: original_elem.layout_info_prop.take(),
                 layout_info_v_with_constraint: original_elem.layout_info_v_with_constraint.take(),
+                layout_info_h_with_constraint: original_elem.layout_info_h_with_constraint.take(),
                 default_fill_parent: original_elem.default_fill_parent,
                 accessibility_props: std::mem::take(&mut original_elem.accessibility_props),
                 geometry_props: original_elem.geometry_props.clone(),
