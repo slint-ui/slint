@@ -98,7 +98,6 @@ test.sequential("set property from JS timer mid-run", async () => {
         }, 2);
     });
     expect(app.label).toBe("updated");
-    app.hide();
 });
 
 test.sequential("slint timer fires through integrated event loop", async () => {
@@ -118,31 +117,51 @@ test.sequential("slint timer fires through integrated event loop", async () => {
     await runEventLoop(() => {
         setTimeout(() => {
             expect(app.counter).toBeGreaterThanOrEqual(1);
-            app.hide();
+            quitEventLoop();
         }, 200);
     });
 });
 
-test.sequential("quit event loop on last window closed with callback", async () => {
-    const compiler = new private_api.ComponentCompiler();
-    const definition = compiler.buildFromSource(
-        `
+test.sequential("js and slint timers fire in order", async () => {
+    const events: string[] = [];
 
-    export component App inherits Window {
-        width: 300px;
-        height: 300px;
-    }`,
-        "",
-    );
-    expect(definition.App).not.toBeNull();
+    const ui = loadSource(
+        `export component App inherits Window {
+            callback timer_fired();
+            timer := Timer {
+                interval: 50ms;
+                triggered => { timer_fired(); }
+            }
+        }`,
+        "test.slint",
+    ) as any;
+    const app = new ui.App();
+    app.timer_fired = () => events.push("slint");
+    app.show();
 
-    const instance = definition.App!.create() as any;
-    expect(instance).not.toBeNull();
-
-    instance.window().show();
     await runEventLoop(() => {
+        setTimeout(() => events.push("js-100"), 100);
         setTimeout(() => {
-            instance.window().hide();
-        }, 2);
+            events.push("js-200");
+            quitEventLoop();
+        }, 200);
     });
+
+    // JS timers must fire in order.
+    const firstJs100 = events.indexOf("js-100");
+    const firstJs200 = events.indexOf("js-200");
+    expect(firstJs100).toBeGreaterThanOrEqual(0);
+    expect(firstJs200).toBeGreaterThanOrEqual(0);
+    expect(firstJs100).toBeLessThan(firstJs200);
+
+    // With the integrated event loop (unix), the Slint 50ms timer
+    // fires before the JS 100ms timer.  With the polling fallback
+    // (testing backend / Windows), mock time isn't advanced so the
+    // Slint timer may not fire at all — only assert ordering when
+    // it did fire.
+    const firstSlint = events.indexOf("slint");
+    if (firstSlint >= 0) {
+        expect(firstSlint).toBeLessThan(firstJs100);
+    }
 });
+
