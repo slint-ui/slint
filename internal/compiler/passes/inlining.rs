@@ -663,6 +663,7 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
         // The passes that dp the drop shadow or the opacity currently won't allow this property
         // on the top level of a component. This could be changed in the future.
         if prop.starts_with("drop-shadow-")
+            || prop.starts_with("inset-shadow-")
             || prop == "opacity"
             || prop == "cache-rendering-hint"
             || prop == "visible"

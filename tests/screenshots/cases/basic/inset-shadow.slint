@@ -1,0 +1,50 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=160x160
+// BASE_THRESHOLD=3
+//ignore: software
+
+export component TestCase inherits Window {
+    width: 160px;
+    height: 160px;
+    background: white;
+
+    GridLayout {
+        spacing: 8px;
+        padding: 12px;
+        Row {
+            // Simple inset shadow with blur
+            Rectangle {
+                background: lightyellow;
+                inset-shadow-color: #000000c0;
+                inset-shadow-blur: 8px;
+            }
+            // Inset shadow with offset (shadow appears stronger on the bottom-right interior)
+            Rectangle {
+                background: lightyellow;
+                inset-shadow-color: #000000c0;
+                inset-shadow-blur: 6px;
+                inset-shadow-offset-x: 4px;
+                inset-shadow-offset-y: 4px;
+            }
+        }
+        Row {
+            // Inset shadow with rounded corners
+            Rectangle {
+                background: lightyellow;
+                border-radius: 12px;
+                inset-shadow-color: #000000c0;
+                inset-shadow-blur: 8px;
+            }
+            // Inset shadow with positive spread (makes the shadow band thicker)
+            Rectangle {
+                background: lightyellow;
+                border-radius: 8px;
+                inset-shadow-color: #000000c0;
+                inset-shadow-blur: 6px;
+                inset-shadow-spread: 5px;
+            }
+        }
+    }
+}
