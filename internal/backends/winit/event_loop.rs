@@ -204,7 +204,7 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
         }
 
         let runtime_window = WindowInner::from_pub(window.window());
-        if !matches!(event, WindowEvent::CursorMoved { .. }) {
+        if !matches!(event, WindowEvent::CursorMoved { .. } | WindowEvent::AxisMotion { .. }) {
             self.flush_pending_mouse_move();
         }
 
