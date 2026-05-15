@@ -864,7 +864,7 @@ pub(crate) struct PropertyInfoResult<'a> {
 }
 
 /// Maps between two evaluation context.
-/// This allows to go from the current subcomponent's context, to the context
+/// This allows to go from the current subcomponents context, to the context
 /// relative to the binding we want to inline
 #[derive(Debug, Clone)]
 pub(crate) enum ContextMap {

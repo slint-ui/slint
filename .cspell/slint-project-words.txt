@@ -50,13 +50,10 @@ CRTC
 CTED
 Capa
 Celestis
-Chaîne
 Checkmark
 Chulak
 Constexpr
 Conv
-Couleur
-Couleurs
 Cpolygon
 Csvg
 DBUILD
@@ -73,7 +70,6 @@ Datakonsult
 Datas
 Datelike
 Deque
-Deutsch
 Dexer
 Digitall
 Doctests
@@ -82,9 +78,6 @@ Dosis
 Downcasting
 Dunkelmodus
 Duplicat
-Démarrer
-Démo
-Détails
 EABI
 EABIHF
 EEPROM
@@ -95,13 +88,7 @@ EVENTLOOP
 EVKB
 EXTI
 EXTRAVERSION
-Edelhirsch
-Eingang
-Eisu
 Endcall
-Englisch
-Entwürfe
-Envoyer
 Espressif
 Excepteur
 FBIOGET
@@ -127,7 +114,6 @@ Foooooooooooooooooooooooooo
 Foooooooooooooooooooooooooooooooo
 Fooooooooooooooooooooooooooooooooooooooooooooooooo
 Foren
-Français
 Fsvg
 Fullwidth
 Fwww
@@ -154,7 +140,6 @@ Ginnivan
 Globus
 Grimme
 Grotesk
-Général
 HARDABI
 HDMIPI
 HINSTANCE
@@ -234,7 +219,6 @@ Muhenkan
 Musterfrau
 Mustermann
 Même
-Mülleimer
 NDEBUG
 NOCTTY
 NOLOAD
@@ -274,7 +258,6 @@ PYTHONPATH
 Pantone
 Parameteri
 Parameteriv
-Paramètres
 Paweł
 Paysage
 Picotool
@@ -284,12 +267,10 @@ Poedit
 Preedit
 Programiv
 Propert
-Propriétaire
 Pseudonymized
 Punct
 QTBUG
 QXGA
-Qualité
 Quis
 RAII
 RBUTTONDOWN
@@ -365,14 +346,12 @@ Surfman's
 Swapchain
 Sysclk
 Sysrq
-Sélectionnez
 TABLER
 THUMBV
 TIMG
 TOPLEVEL
 TOUPPER
 TRAYICON
-TSCHÜSS
 TXFF
 TYPESENSE
 Tatta
@@ -391,7 +370,6 @@ Toolkits
 Torizon
 Treq
 Tzimabazafi
-Täglich
 UART
 UNORM
 Unapply
@@ -422,7 +400,6 @@ Wgsl
 Widtht
 Wohoo
 Worktree
-Wöchentlich
 XBUTTON
 XBUTTONDOWN
 XRGB
@@ -487,7 +464,6 @@ badcolor
 bapp
 baudrate
 bdata
-bewölkt
 bhal
 bidi
 bigobj
@@ -652,8 +628,6 @@ dustypurpledirt
 dustypurplelight
 dustyshadow
 dwidth
-défaut
-démonstration
 eeid
 efgh
 egui
@@ -857,7 +831,6 @@ keyup
 kitware
 kqueue
 kwargs
-l'énergie
 labore
 laboris
 laborum
@@ -1203,7 +1176,6 @@ sphinxcontrib
 spinboxes
 splitn
 spyro
-spécial
 ssvg
 stackview
 standardbutton
@@ -1234,7 +1206,6 @@ stylemetrics
 subchildren
 subcomp
 subcompo
-subcomponent's
 subcomponents
 subelement
 subelements
@@ -1407,7 +1378,4 @@ zeilenzahl
 zephyrproject
 zorder
 zstd
-Übersicht
 தோசை
-ὀδυσσεύς
-tschüß

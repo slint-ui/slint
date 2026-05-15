@@ -229,6 +229,7 @@
         ".cspell/slint-project-words.txt",
         ".cspell/slint-project-words-audit.tsv",
         "**/*.gltf",
+        "**/*.po",
         "**/*.svg"
     ],
     "ignoreRegExpList": [
@@ -266,11 +267,6 @@
             "name": "slint-project-words",
             "path": "./.cspell/slint-project-words.txt",
             "addWords": true
-        },
-        {
-            "name": "fr-fr-printerdemo",
-            "path": "./node_modules/@cspell/dict-fr-fr/fr-fr.trie.gz",
-            "ignoreForbiddenWords": true
         }
     ],
     "dictionaries": [
