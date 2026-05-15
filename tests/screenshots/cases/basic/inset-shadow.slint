@@ -16,13 +16,12 @@ export component TestCase inherits Window {
         Row {
             // Simple inset shadow with blur. The shadow must stay below child content.
             Rectangle {
+                height: 64px;
                 background: lightyellow;
                 inset-shadow-color: #000000c0;
                 inset-shadow-blur: 8px;
 
                 Text {
-                    width: parent.width;
-                    height: parent.height;
                     text: "TEXT";
                     color: black;
                     font-size: 12px;
@@ -32,6 +31,7 @@ export component TestCase inherits Window {
             }
             // Inset shadow with offset (shadow appears stronger on the bottom-right interior)
             Rectangle {
+                height: 64px;
                 background: lightyellow;
                 inset-shadow-color: #000000c0;
                 inset-shadow-blur: 6px;
@@ -42,6 +42,7 @@ export component TestCase inherits Window {
         Row {
             // Inset shadow with rounded corners
             Rectangle {
+                height: 64px;
                 background: lightyellow;
                 border-radius: 12px;
                 inset-shadow-color: #000000c0;
@@ -49,6 +50,7 @@ export component TestCase inherits Window {
             }
             // Inset shadow with positive spread (makes the shadow band thicker)
             Rectangle {
+                height: 64px;
                 background: lightyellow;
                 border-radius: 8px;
                 inset-shadow-color: #000000c0;
