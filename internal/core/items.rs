@@ -1526,7 +1526,6 @@ pub unsafe extern "C" fn slint_windowitem_close(
     }
 }
 
-
 #[cfg(feature = "ffi")]
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_windowitem_hide(
