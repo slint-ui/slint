@@ -5,7 +5,7 @@
 import * as slint from "slint-ui";
 
 const ui = slint.loadFile(new URL("kanban.slint", import.meta.url));
-const window = new ui.MainWindow();
+const appWindow = new ui.MainWindow();
 
 // What we attach to each `DataTransfer` via the `userData` property. A copy of
 // the `TaskData` plus where it came from, so the drop handler can move the row
@@ -31,24 +31,24 @@ const done = new slint.ArrayModel([
     { id: 6, title: "Set up project skeleton" },
 ]);
 
-window.todo = todo;
-window.doing = doing;
-window.done = done;
+appWindow.todo = todo;
+appWindow.doing = doing;
+appWindow.done = done;
 
 const columns = [todo, doing, done];
 
-window.Api.make_data = (task, sourceColumn, sourceIndex) => {
+appWindow.Api.make_data = (task, sourceColumn, sourceIndex) => {
     const transfer = new slint.DataTransfer();
     transfer.userData = new DragPayload(task, sourceColumn, sourceIndex);
     return transfer;
 };
 
-window.Api.can_drop = (data, targetColumn) => {
+appWindow.Api.can_drop = (data, targetColumn) => {
     const payload = data.userData;
     return payload instanceof DragPayload && payload.sourceColumn !== targetColumn;
 };
 
-window.Api.drop_task = (data, targetColumn) => {
+appWindow.Api.drop_task = (data, targetColumn) => {
     const payload = data.userData;
     if (!(payload instanceof DragPayload)) return;
     if (targetColumn < 0 || targetColumn >= columns.length) return;
@@ -58,4 +58,4 @@ window.Api.drop_task = (data, targetColumn) => {
     columns[targetColumn].push(payload.task);
 };
 
-await window.run();
+await appWindow.run();

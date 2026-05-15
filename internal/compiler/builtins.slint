@@ -1426,6 +1426,10 @@ component WindowItem {
     /// Whether to display the Window in full-screen mode. In full-screen mode the Window will occupy the entire screen, it will not be resizable, and it will not display the title bar.
     /// \default true if 'SLINT_FULLSCREEN' environment variable is set, otherwise false
     in-out property <bool> full-screen;
+    /// Whether the window is minimized. Setting this to true minimizes the window.
+    in-out property <bool> minimized;
+    /// Whether the window is maximized. Setting this to true maximizes the window.
+    in-out property <bool> maximized;
     /// The background brush of the `Window`.
     /// \default depends on the style
     in property <brush> background; // StyleMetrics.background  set in apply_default_properties_from_style
@@ -1456,7 +1460,15 @@ component WindowItem {
     out property <Point> virtual-keyboard-position;
     /// On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the width and height of the rectangle covered by it in window coordinates.
     out property <Size> virtual-keyboard-size;
-    /// Hide this window.
+    /// Request that the window be closed. This triggers the `close-requested` callback,
+    /// giving the application a chance to cancel the close. Returns `true` if the close
+    /// was dispatched, or `false` if the call was ignored because this `Window` is not
+    /// the application's top-level window.
+    function close() -> bool {
+    }
+    /// Hide this window. The window is made invisible but the application remains running.
+    /// Use `show()` to make the window visible again. Calling this function on a `Window`
+    /// that is not the application's top-level window is a no-op.
     function hide() {
     }
 }

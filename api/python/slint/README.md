@@ -225,6 +225,7 @@ the mapping:
 | `brush`       | `slint.Brush` |     |
 | `image`       | `slint.Image` |     |
 | `styled-text` | `slint.StyledText` | |
+| `data-transfer` | `slint.DataTransfer` | |
 | `length`      | `float`     |       |
 | `physical_length` | `float` |       |
 | `duration`    | `float`     | The number of milliseconds |

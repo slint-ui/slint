@@ -12,6 +12,7 @@ import {
     quitEventLoop,
     private_api,
 } from "../dist/index.js";
+import { hasIntegratedEventLoop } from "../rust-module.cjs";
 
 afterEach(() => {
     quitEventLoop();
@@ -98,29 +99,67 @@ test.sequential("set property from JS timer mid-run", async () => {
         }, 2);
     });
     expect(app.label).toBe("updated");
-    app.hide();
 });
 
-test.sequential("quit event loop on last window closed with callback", async () => {
-    const compiler = new private_api.ComponentCompiler();
-    const definition = compiler.buildFromSource(
-        `
+test.sequential("slint timer fires through integrated event loop", async () => {
+    const ui = loadSource(
+        `export component App inherits Window {
+            in-out property <int> counter: 0;
+            timer := Timer {
+                interval: 50ms;
+                triggered => { counter += 1; }
+            }
+        }`,
+        "test.slint",
+    ) as any;
+    const app = new ui.App();
+    app.show();
 
-    export component App inherits Window {
-        width: 300px;
-        height: 300px;
-    }`,
-        "",
-    );
-    expect(definition.App).not.toBeNull();
-
-    const instance = definition.App!.create() as any;
-    expect(instance).not.toBeNull();
-
-    instance.window().show();
     await runEventLoop(() => {
         setTimeout(() => {
-            instance.window().hide();
-        }, 2);
+            expect(app.counter).toBeGreaterThanOrEqual(1);
+            quitEventLoop();
+        }, 200);
     });
+});
+
+test.sequential("js and slint timers fire in order", async () => {
+    const events: string[] = [];
+
+    const ui = loadSource(
+        `export component App inherits Window {
+            callback timer_fired();
+            timer := Timer {
+                interval: 80ms;
+                triggered => { timer_fired(); }
+            }
+        }`,
+        "test.slint",
+    ) as any;
+    const app = new ui.App();
+    app.timer_fired = () => events.push("slint");
+    app.show();
+
+    // JS timers are placed midway between 80ms Slint firings
+    // (80, 160, 240) so there's ≥40ms margin on each side.
+    await runEventLoop(() => {
+        setTimeout(() => events.push("js-120"), 120);
+        setTimeout(() => events.push("js-200"), 200);
+        setTimeout(() => {
+            events.push("js-280");
+            quitEventLoop();
+        }, 280);
+    });
+
+    // Both Slint and JS timers must fire, and JS timers must keep
+    // their relative order.  Exact interleaving depends on OS timer
+    // granularity and CI load, so we don't assert a strict sequence.
+    expect(events.filter((e) => e === "slint").length).toBeGreaterThanOrEqual(
+        hasIntegratedEventLoop() ? 3 : 1,
+    );
+    expect(events).toContain("js-120");
+    expect(events).toContain("js-200");
+    expect(events).toContain("js-280");
+    expect(events.indexOf("js-120")).toBeLessThan(events.indexOf("js-200"));
+    expect(events.indexOf("js-200")).toBeLessThan(events.indexOf("js-280"));
 });

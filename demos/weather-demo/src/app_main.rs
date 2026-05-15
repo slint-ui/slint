@@ -9,8 +9,8 @@ use crate::weather;
 use weather::DummyWeatherController;
 use weather::{WeatherControllerPointer, WeatherControllerSharedPointer, WeatherDisplayController};
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "open_weather"))]
-use weather::OpenWeatherController;
+#[cfg(all(not(target_arch = "wasm32"), feature = "open_meteo"))]
+use weather::OpenMeteoController;
 
 pub struct AppHandler {
     weather_controller: WeatherControllerSharedPointer,
@@ -21,24 +21,24 @@ pub struct AppHandler {
 
 impl AppHandler {
     pub fn new() -> Self {
-        #[cfg_attr(any(target_arch = "wasm32", not(feature = "open_weather")), allow(unused_mut))]
+        #[cfg_attr(any(target_arch = "wasm32", not(feature = "open_meteo")), allow(unused_mut))]
+        #[allow(unused_assignments)]
         let mut support_add_city = false;
 
-        #[cfg_attr(any(target_arch = "wasm32", not(feature = "open_weather")), allow(unused_mut))]
+        #[cfg_attr(any(target_arch = "wasm32", not(feature = "open_meteo")), allow(unused_mut))]
+        #[allow(unused_assignments)]
         let mut data_controller_opt: Option<WeatherControllerPointer> = None;
 
-        #[cfg(all(not(target_arch = "wasm32"), feature = "open_weather"))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "open_meteo"))]
         {
-            if let Some(api_key) = std::option_env!("OPEN_WEATHER_API_KEY") {
-                data_controller_opt = Some(Box::new(OpenWeatherController::new(api_key.into())));
-                support_add_city = true;
-            }
+            data_controller_opt = Some(Box::new(OpenMeteoController::new()));
+            support_add_city = true;
         }
 
         let data_controller = match data_controller_opt {
             Some(data_controller_some) => data_controller_some,
             None => {
-                log::info!("Weather API key not provided. Using dummy data.");
+                log::info!("Open-Meteo not available on this target. Using dummy data.");
                 Box::new(DummyWeatherController::new())
             }
         };

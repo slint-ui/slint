@@ -104,7 +104,26 @@ window.Api.can_drop = (data) => data.hasPlaintext;
 <TabItem label="Python">
 
 ```python
-# `DataTransfer` is currently not fully implemented in Python
+import slint
+from slint import DataTransfer
+
+class App(slint.loader.example.Example):
+
+    @slint.callback(global_name="Api", name="string-to-transfer")
+    def string_to_transfer(self, text: str) -> DataTransfer:
+        transfer = DataTransfer()
+        transfer.set_plaintext(text)
+        return transfer
+
+    # A helper for reading plaintext from a `DataTransfer` is also supplied.
+    @slint.callback(global_name="Api", name="transfer-to-string")
+    def transfer_to_string(self, data: DataTransfer) -> str:
+        return data.fetch_plaintext() or ""
+
+    # This helper abstracts over various "plaintext" MIME types
+    @slint.callback(global_name="Api", name="can-drop")
+    def can_drop(self, data: DataTransfer) -> bool:
+        return data.has_plaintext
 ```
 </TabItem>
 </Tabs>
