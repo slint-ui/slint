@@ -63,6 +63,7 @@ jobs:
         qt: ${{ inputs.full || steps.filter.outputs.qt == 'true' }}
         docs_build: ${{ inputs.full || steps.filter.outputs.docs_build == 'true' }}
         tree_sitter: ${{ inputs.full || steps.filter.outputs.tree_sitter == 'true' }}
+        slint_sc: ${{ inputs.full || steps.filter.outputs.slint_sc == 'true' }}
       steps:
         - uses: actions/checkout@v6
           if: ${{ !inputs.full }}
@@ -742,6 +743,42 @@ jobs:
             # but don't save the cache (would trash it for the next PR run).
             update: ${{ inputs.full == true }}
             save_if: ${{ inputs.full != true }}
+
+    slint_sc:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.slint_sc == 'true' }}
+        env:
+            CARGO_INCREMENTAL: false
+            CARGO_PROFILE_DEV_DEBUG: 0
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/setup-rust
+              with:
+                  components: llvm-tools-preview
+            - name: Install cargo-llvm-cov
+              uses: taiki-e/install-action@cargo-llvm-cov
+            - name: Test compiler with slint-sc feature
+              run: cargo llvm-cov --no-report -p i-slint-compiler --features slint-sc --no-default-features
+            - name: Test slint-compiler binary with slint-sc feature
+              run: cargo llvm-cov --no-report -p slint-compiler --features slint-sc --no-default-features
+            - name: Test slint-sc runtime
+              run: cargo llvm-cov --no-report -p slint-sc
+            - name: Generate coverage report
+              run: |
+                  cargo llvm-cov report --html --output-dir coverage
+                  cargo llvm-cov report --lcov --output-path coverage/lcov.info
+            - name: Upload coverage report
+              uses: actions/upload-artifact@v4
+              with:
+                  name: slint-sc-coverage
+                  path: coverage
+            - name: Upload to Codecov
+              uses: codecov/codecov-action@v5
+              with:
+                  files: coverage/lcov.info
+                  flags: slint-sc
+              continue-on-error: true
 
     clippy:
         needs: files-changed
