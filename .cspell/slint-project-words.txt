@@ -6,7 +6,6 @@ AMOLED
 ANOTHERSTRUCT
 ARCHS
 ARGN
-ATTENTE
 AUTOSAR
 AUTOUIC
 Adressliste
@@ -76,7 +75,6 @@ Doctests
 Dont
 Dosis
 Downcasting
-Dunkelmodus
 Duplicat
 EABI
 EABIHF
@@ -113,7 +111,6 @@ Fontique
 Foooooooooooooooooooooooooo
 Foooooooooooooooooooooooooooooooo
 Fooooooooooooooooooooooooooooooooooooooooooooooooo
-Foren
 Fsvg
 Fullwidth
 Fwww
@@ -134,8 +131,6 @@ GPIOH
 GWLP
 GXDI
 Gandy
-Gesendet
-Gestion
 Ginnivan
 Globus
 Grimme
@@ -165,8 +160,6 @@ IMMEDIATES
 IMPLIB
 IRAM
 IRQS
-Imprimante
-Imprimer
 Inconsolata
 Integerv
 Ista
@@ -193,7 +186,6 @@ LSHIFT
 LTDC
 LUID
 LVGL
-Lettre
 Libinput
 Limon
 Linuxkms
@@ -214,7 +206,6 @@ Macronix
 Mbyte
 Midlight
 Mmap
-Moyenne
 Muhenkan
 Musterfrau
 Mustermann
@@ -230,14 +221,10 @@ NUMS
 NVIC
 Nagle
 Nesw
-Neuigkeiten
-Niveau
-Nombre
 Nord
 Noto
 Numpad
 Nunito
-Nutzung
 OCTA
 OCTO
 OCTOSPI
@@ -246,7 +233,6 @@ OVERLAPPEDWINDOW
 OVMF
 Oklab
 Oklch
-Ordinateur
 PAINTSTRUCT
 PATCHLEVEL
 PCLK
@@ -259,11 +245,9 @@ Pantone
 Parameteri
 Parameteriv
 Paweł
-Paysage
 Picotool
 Pictsymbols
 Plouf
-Poedit
 Preedit
 Programiv
 Propert
@@ -309,11 +293,8 @@ SRGBA
 STOOQ
 STREQUAL
 SYSCFG
-Schalte
 Schukat
 Segoe
-Sehr
-Senden
 Sfixed
 Shaderiv
 Shmelt
@@ -326,8 +307,6 @@ Snorm
 Softbuffer
 Sometype
 Sorkin
-Soumission
-Soziales
 Spannable
 Spinelli
 Spritesheet
@@ -340,7 +319,6 @@ Strin
 Structalias
 Subview
 Superview
-Supprimer
 Surfman
 Surfman's
 Swapchain
@@ -598,7 +576,6 @@ devcode
 devenv
 dfaure
 dgettext
-diesen
 directx
 divp
 divq
@@ -735,7 +712,6 @@ getrandom
 gitk
 glcontext
 gloabls
-globale
 globalfun
 globallogic
 glsink
@@ -790,7 +766,6 @@ importident
 incdir
 incididunt
 incidunt
-inconnu
 incpath
 indexmap
 indice
@@ -1197,7 +1172,6 @@ structurize
 structval
 strvalue
 stuct
-stumm
 styledprop
 styledtext
 styledtextprop

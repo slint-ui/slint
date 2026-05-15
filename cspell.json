@@ -230,6 +230,7 @@
         ".cspell/slint-project-words-audit.tsv",
         "**/*.gltf",
         "**/*.po",
+        "**/*.pot",
         "**/*.svg"
     ],
     "ignoreRegExpList": [
