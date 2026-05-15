@@ -723,12 +723,12 @@ class EventLoop {
             });
         }
 
-        if (napi.hasIntegratedEventLoop?.()) {
+        if (napi.hasIntegratedEventLoop()) {
             try {
                 // Register a uv_prepare handle that pumps Slint events
                 // on every libuv iteration.  The callback fires when the
                 // Slint event loop terminates.
-                napi.runIntegratedEventLoop(() => this.#resolve());
+                napi.startIntegratedEventLoop(() => this.#resolve());
                 return this.#terminationPromise;
             } catch {
                 // process_events not supported (e.g. testing backend) —
@@ -765,7 +765,7 @@ class EventLoop {
 
     quit() {
         this.#quit_loop = true;
-        napi.quitEventLoop?.();
+        napi.quitEventLoop();
     }
 }
 

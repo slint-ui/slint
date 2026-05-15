@@ -326,7 +326,7 @@ mod platform {
     /// Register a `uv_prepare_t` that pumps Slint events on every
     /// libuv iteration.
     /// Returns immediately; calls `on_exit` when the loop terminates.
-    pub(crate) fn run_integrated_event_loop_impl(
+    pub(crate) fn start_integrated_event_loop_impl(
         env: &Env,
         on_exit: crate::DynFunction<'_>,
     ) -> napi::Result<()> {
@@ -358,7 +358,7 @@ mod platform {
         false
     }
 
-    pub(crate) fn run_integrated_event_loop_impl(
+    pub(crate) fn start_integrated_event_loop_impl(
         _env: &Env,
         _on_exit: crate::DynFunction<'_>,
     ) -> napi::Result<()> {
@@ -374,6 +374,6 @@ pub fn has_integrated_event_loop(env: Env) -> bool {
 }
 
 #[napi]
-pub fn run_integrated_event_loop(env: &Env, on_exit: crate::DynFunction<'_>) -> napi::Result<()> {
-    platform::run_integrated_event_loop_impl(env, on_exit)
+pub fn start_integrated_event_loop(env: &Env, on_exit: crate::DynFunction<'_>) -> napi::Result<()> {
+    platform::start_integrated_event_loop_impl(env, on_exit)
 }

@@ -101,6 +101,28 @@ test.sequential("set property from JS timer mid-run", async () => {
     app.hide();
 });
 
+test.sequential("slint timer fires through integrated event loop", async () => {
+    const ui = loadSource(
+        `export component App inherits Window {
+            in-out property <int> counter: 0;
+            timer := Timer {
+                interval: 50ms;
+                triggered => { counter += 1; }
+            }
+        }`,
+        "test.slint",
+    ) as any;
+    const app = new ui.App();
+    app.show();
+
+    await runEventLoop(() => {
+        setTimeout(() => {
+            expect(app.counter).toBeGreaterThanOrEqual(1);
+            app.hide();
+        }, 200);
+    });
+});
+
 test.sequential("quit event loop on last window closed with callback", async () => {
     const compiler = new private_api.ComponentCompiler();
     const definition = compiler.buildFromSource(
