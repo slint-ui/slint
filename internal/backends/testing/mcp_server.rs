@@ -115,15 +115,15 @@ const TOOLS: &[ToolDef] = &[
         optional_fields: &["eventType"],
     },
     ToolDef {
-        name: "get_event_log",
-        description: "Read the bounded event log for dispatched window/input events. Pass the nextSequence value from the previous response as sinceSequence to poll incrementally. The response includes nextSequence (use as sinceSequence on the next call), droppedCount (events evicted when the 1024-entry cap was reached), and an events array. Omit maxEvents for the default page size. Use after interactions to verify that Slint received and processed pointer, key, resize, scale, close, and active-state events.",
-        request_type: "RequestEventLog",
-        optional_fields: &["windowHandle", "sinceSequence", "maxEvents", "clearAfterRead"],
+        name: "start_event_recording",
+        description: "Clear the event log and begin recording window/input events. Call this before the interaction you want to observe, then call stop_event_recording when done.",
+        request_type: "RequestStartEventRecording",
+        optional_fields: &[],
     },
     ToolDef {
-        name: "clear_event_log",
-        description: "Clear the event log and reset the dropped-event counter. Useful before performing an interaction whose processed events should be verified.",
-        request_type: "RequestClearEventLog",
+        name: "stop_event_recording",
+        description: "Stop recording and return all events collected since the last start_event_recording call. The response includes an events array and droppedCount (events evicted when the 1024-entry cap was reached). Use to verify that Slint received and processed pointer, key, resize, scale, close, and active-state events.",
+        request_type: "RequestStopEventRecording",
         optional_fields: &[],
     },
 ];
@@ -378,22 +378,14 @@ async fn handle_tool_call(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
         }
-        "get_event_log" => {
-            let p: proto::RequestEventLog = deserialize_params(args)?;
-            let window_index = p.window_handle.map(handle_to_index).transpose()?;
-            let response = dispatch::event_log(
-                state,
-                window_index,
-                p.since_sequence,
-                p.max_events,
-                p.clear_after_read,
-            );
+        "start_event_recording" => {
+            let response = dispatch::start_event_recording(state);
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
         }
-        "clear_event_log" => {
-            let response = dispatch::clear_event_log(state);
+        "stop_event_recording" => {
+            let response = dispatch::stop_event_recording(state);
             Ok(ToolResult::Json(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
@@ -464,7 +456,7 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "5. get_element_properties → full details on a specific element\n",
                     "6. take_screenshot → visual snapshot (returned as inline image)\n",
                     "7. Interact: click_element, drag_element, set_element_value, invoke_accessibility_action, dispatch_key_event\n",
-                    "8. get_event_log → verify the runtime received and processed expected input/window events\n",
+                    "8. start_event_recording → then interact → stop_event_recording to verify the runtime received and processed expected input/window events\n",
                     "9. take_screenshot again to verify the visual effect\n\n",
 
                     "# Handle format\n\n",
@@ -481,7 +473,7 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "- ElementAccessibilityAction: Default_, Increment, Decrement, Expand\n",
                     "- KeyEventType: PressAndRelease, Press, Release\n",
                     "- RecordedEventSource: Runtime\n",
-                    "- RecordedEventResult: Processed, Accepted, Ignored\n",
+                    "- RecordedEventResult: Processed, Ignored\n",
                     "- LayoutKind: NotALayout, HorizontalLayout, VerticalLayout, GridLayout, FlexboxLayout\n",
                     "Omitted enum fields default to the first value (e.g. Left, SingleClick, PressAndRelease).\n\n",
 

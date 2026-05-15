@@ -83,11 +83,10 @@ fn ensure_event_tracking() -> Result<(), i_slint_core::api::EventLoopError> {
         let state = shared_state();
         let previous_hook = i_slint_core::context::set_window_event_hook(None)
             .map_err(|_| i_slint_core::api::EventLoopError::NoEventLoopProvider)?;
-        let previous_hook = RefCell::new(previous_hook);
 
         i_slint_core::context::set_window_event_hook(Some(Box::new(
             move |adapter, event, result| {
-                if let Some(prev) = previous_hook.borrow_mut().as_mut() {
+                if let Some(prev) = previous_hook.as_ref() {
                     prev(adapter, event, result);
                 }
                 state.record_window_event(adapter, event, result);
@@ -123,6 +122,7 @@ pub(crate) struct IntrospectionState {
     event_log: RefCell<VecDeque<proto::RecordedEvent>>,
     next_event_sequence: Cell<u64>,
     dropped_event_count: Cell<u64>,
+    recording_enabled: Cell<bool>,
 }
 
 impl IntrospectionState {
@@ -134,6 +134,7 @@ impl IntrospectionState {
             event_log: Default::default(),
             next_event_sequence: Default::default(),
             dropped_event_count: Default::default(),
+            recording_enabled: Cell::new(false),
         }
     }
 
@@ -287,6 +288,9 @@ impl IntrospectionState {
         event: &i_slint_core::platform::WindowEvent,
         result: i_slint_core::context::WindowEventDispatchResult,
     ) {
+        if !self.recording_enabled.get() {
+            return;
+        }
         let sequence = self.next_event_sequence.get();
         self.next_event_sequence.set(sequence.saturating_add(1));
 
@@ -357,6 +361,19 @@ impl IntrospectionState {
     pub fn clear_event_log(&self) {
         self.event_log.borrow_mut().clear();
         self.dropped_event_count.set(0);
+    }
+
+    pub fn start_recording(&self) {
+        self.clear_event_log();
+        self.recording_enabled.set(true);
+    }
+
+    pub fn stop_recording(&self) -> proto::StopEventRecordingResponse {
+        self.recording_enabled.set(false);
+        let events: Vec<_> = self.event_log.borrow().iter().cloned().collect();
+        let dropped_count = self.dropped_event_count.get();
+        self.clear_event_log();
+        proto::StopEventRecordingResponse { events, dropped_count }
     }
 
     pub fn window_properties(
@@ -475,9 +492,6 @@ fn convert_event_dispatch_result(
     match result {
         i_slint_core::context::WindowEventDispatchResult::Processed => {
             proto::RecordedEventResult::Processed
-        }
-        i_slint_core::context::WindowEventDispatchResult::Accepted => {
-            proto::RecordedEventResult::Accepted
         }
         i_slint_core::context::WindowEventDispatchResult::Ignored => {
             proto::RecordedEventResult::Ignored
@@ -773,6 +787,19 @@ pub(crate) mod dispatch {
         proto::ClearEventLogResponse {}
     }
 
+    pub(crate) fn start_event_recording(
+        state: &IntrospectionState,
+    ) -> proto::StartEventRecordingResponse {
+        state.start_recording();
+        proto::StartEventRecordingResponse {}
+    }
+
+    pub(crate) fn stop_event_recording(
+        state: &IntrospectionState,
+    ) -> proto::StopEventRecordingResponse {
+        state.stop_recording()
+    }
+
     pub(crate) fn invoke_accessibility_action(
         state: &IntrospectionState,
         element: ArenaIndex,
@@ -891,7 +918,7 @@ fn test_event_log_filters_since_sequence_and_window() {
             sequence: 1,
             window_handle: Some(index_to_handle(second_window)),
             source: proto::RecordedEventSource::Runtime.into(),
-            result: proto::RecordedEventResult::Accepted.into(),
+            result: proto::RecordedEventResult::Processed.into(),
             ..Default::default()
         },
         proto::RecordedEvent {

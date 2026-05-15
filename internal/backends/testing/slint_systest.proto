@@ -147,8 +147,7 @@ enum RecordedEventSource {
 
 enum RecordedEventResult {
     Processed = 0;
-    Accepted = 1;
-    Ignored = 2;
+    Ignored = 1;
 }
 
 message ElementQueryInstruction {
@@ -238,6 +237,12 @@ message RequestEventLog {
 message RequestClearEventLog {
 }
 
+message RequestStartEventRecording {
+}
+
+message RequestStopEventRecording {
+}
+
 message RequestToAUT {
     oneof msg {
         RequestWindowListMessage request_window_list = 1;
@@ -255,6 +260,8 @@ message RequestToAUT {
         RequestGetElementTree request_get_element_tree = 13;
         RequestEventLog request_event_log = 14;
         RequestClearEventLog request_clear_event_log = 15;
+        RequestStartEventRecording request_start_event_recording = 16;
+        RequestStopEventRecording request_stop_event_recording = 17;
     }
 }
 
@@ -375,6 +382,14 @@ message EventLogResponse {
 message ClearEventLogResponse {
 }
 
+message StartEventRecordingResponse {
+}
+
+message StopEventRecordingResponse {
+    repeated RecordedEvent events = 1;
+    uint64 dropped_count = 2;
+}
+
 message AUTResponse {
     oneof msg {
         ErrorResponse error = 1;
@@ -393,5 +408,7 @@ message AUTResponse {
         GetElementTreeResponse get_element_tree_response = 14;
         EventLogResponse event_log_response = 15;
         ClearEventLogResponse clear_event_log_response = 16;
+        StartEventRecordingResponse start_event_recording_response = 17;
+        StopEventRecordingResponse stop_event_recording_response = 18;
     }
 }

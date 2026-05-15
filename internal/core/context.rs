@@ -7,19 +7,20 @@ use crate::graphics::Color;
 use crate::input::InternalKeyboardModifierState;
 use crate::item_tree::{ItemRc, ItemTreeRc};
 use crate::items::ColorScheme;
-use crate::platform::{EventLoopProxy, Platform};
+use crate::platform::{EventLoopProxy, Platform, WindowAdapter, WindowEvent};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::Cell;
 use pin_weak::rc::PinWeak;
 
+pub(crate) type WindowEventHook =
+    Box<dyn Fn(&Rc<dyn WindowAdapter>, &WindowEvent, WindowEventDispatchResult)>;
+
 /// Result of dispatching a window event through Slint's runtime.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WindowEventDispatchResult {
-    /// The event was processed, but the runtime does not expose a more specific result.
+    /// The event was processed by the runtime.
     Processed,
-    /// The event was accepted by an item or runtime handler.
-    Accepted,
     /// The event was ignored by the item tree.
     Ignored,
 }
@@ -58,17 +59,7 @@ pub(crate) struct SlintContextInner {
     pub(crate) accent_color: Property<Color>,
     pub(crate) window_shown_hook:
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
-    pub(crate) window_event_hook: core::cell::RefCell<
-        Option<
-            Box<
-                dyn FnMut(
-                    &Rc<dyn crate::platform::WindowAdapter>,
-                    &crate::platform::WindowEvent,
-                    WindowEventDispatchResult,
-                ),
-            >,
-        >,
-    >,
+    pub(crate) window_event_hook: core::cell::RefCell<Option<WindowEventHook>>,
     #[cfg(all(unix, not(target_os = "macos")))]
     xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "shared-parley")]
@@ -321,29 +312,17 @@ pub fn set_window_shown_hook(
 /// Internal function to set a hook that's invoked after a window event was dispatched.
 /// This is used by the system testing module. Returns a previously set hook, if any.
 pub fn set_window_event_hook(
-    hook: Option<
-        Box<
-            dyn FnMut(
-                &Rc<dyn crate::platform::WindowAdapter>,
-                &crate::platform::WindowEvent,
-                WindowEventDispatchResult,
-            ),
-        >,
-    >,
-) -> Result<
-    Option<
-        Box<
-            dyn FnMut(
-                &Rc<dyn crate::platform::WindowAdapter>,
-                &crate::platform::WindowEvent,
-                WindowEventDispatchResult,
-            ),
-        >,
-    >,
-    PlatformError,
-> {
+    hook: Option<WindowEventHook>,
+) -> Result<Option<WindowEventHook>, PlatformError> {
     GLOBAL_CONTEXT.with(|p| match p.get() {
-        Some(ctx) => Ok(ctx.0.window_event_hook.replace(hook)),
+        Some(ctx) => {
+            let mut slot = ctx.0.window_event_hook.try_borrow_mut().map_err(|_| {
+                PlatformError::Other(
+                    alloc::string::String::from("event hook is currently in use"),
+                )
+            })?;
+            Ok(core::mem::replace(&mut *slot, hook))
+        }
         None => Err(PlatformError::NoPlatform),
     })
 }

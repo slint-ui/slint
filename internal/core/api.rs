@@ -27,7 +27,7 @@ pub use crate::{format, string::SharedString, string::ToSharedString};
 impl From<crate::input::KeyEventResult> for WindowEventDispatchResult {
     fn from(value: crate::input::KeyEventResult) -> Self {
         match value {
-            crate::input::KeyEventResult::EventAccepted => Self::Accepted,
+            crate::input::KeyEventResult::EventAccepted => Self::Processed,
             crate::input::KeyEventResult::EventIgnored => Self::Ignored,
         }
     }
@@ -734,7 +734,7 @@ impl Window {
             crate::platform::WindowEvent::CloseRequested => {
                 if self.0.request_close() {
                     self.hide()?;
-                    WindowEventDispatchResult::Accepted
+                    WindowEventDispatchResult::Processed
                 } else {
                     WindowEventDispatchResult::Ignored
                 }
@@ -745,15 +745,8 @@ impl Window {
             }
         };
         if let Some(event_for_hook) = event_for_hook {
-            // Take the hook out before calling to allow re-entrant dispatch without a BorrowMutError.
-            let hook = self.0.context().0.window_event_hook.borrow_mut().take();
-            if let Some(mut hook) = hook {
+            if let Some(hook) = self.0.context().0.window_event_hook.borrow().as_ref() {
                 hook(&self.0.window_adapter(), &event_for_hook, dispatch_result);
-                // Restore only if nothing replaced it during the call.
-                let mut slot = self.0.context().0.window_event_hook.borrow_mut();
-                if slot.is_none() {
-                    *slot = Some(hook);
-                }
             }
         }
         Ok(())
