@@ -7,8 +7,9 @@ export component TestCase inherits Window {
     in-out property <bool> win-full-screen <=> self.full-screen;
 
     public function do-hide() { self.hide(); }
-    public function do-close() { self.close(); }
-    public function should-do-nothing() { inner.hide(); inner.close(); }
+    public function do-close() -> bool { return self.close(); }
+    public function hide-inner() { inner.hide(); }
+    public function close-inner() -> bool { return inner.close(); }
 
     inner := Window { }
 
@@ -78,12 +79,14 @@ instance.window().on_close_requested(move || {
     close_count_clone.set(close_count_clone.get() + 1);
     slint::CloseRequestResponse::KeepWindowShown
 });
-instance.invoke_do_close();
+assert!(instance.invoke_do_close());
 assert_eq!(close_count.get(), 1);
 
-// Calling close/hide on an embedded sub-window is a no-op: no close-requested fires.
-instance.invoke_should_do_nothing();
+// close() returns false and fires no close-requested when called on a sub-window.
+assert!(!instance.invoke_close_inner());
 assert_eq!(close_count.get(), 1);
+// hide() on a sub-window is also a no-op.
+instance.invoke_hide_inner();
 ```
 
 ```cpp
@@ -118,12 +121,14 @@ instance.window().on_close_requested([&close_count]() {
     ++close_count;
     return slint::CloseRequestResponse::KeepWindowShown;
 });
-instance.invoke_do_close();
+assert_eq(instance.invoke_do_close(), true);
 assert_eq(close_count, 1);
 
-// Calling close/hide on an embedded sub-window is a no-op: no close-requested fires.
-instance.invoke_should_do_nothing();
+// close() returns false and fires no close-requested when called on a sub-window.
+assert_eq(instance.invoke_close_inner(), false);
 assert_eq(close_count, 1);
+// hide() on a sub-window is also a no-op.
+instance.invoke_hide_inner();
 ```
 
 ```js

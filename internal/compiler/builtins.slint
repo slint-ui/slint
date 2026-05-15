@@ -1439,9 +1439,10 @@ component WindowItem {
     /// On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the width and height of the rectangle covered by it in window coordinates.
     out property <Size> virtual-keyboard-size;
     /// Request that the window be closed. This triggers the `close-requested` callback,
-    /// giving the application a chance to cancel the close. Calling this function on a `Window`
-    /// that is not the application's top-level window is a no-op.
-    function close() {
+    /// giving the application a chance to cancel the close. Returns `true` if the close
+    /// was dispatched, or `false` if the call was ignored because this `Window` is not
+    /// the application's top-level window.
+    function close() -> bool {
     }
     /// Hide this window. The window is made invisible but the application remains running.
     /// Use `show()` to make the window visible again. Calling this function on a `Window`

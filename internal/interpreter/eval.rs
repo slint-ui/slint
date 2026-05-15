@@ -1789,7 +1789,7 @@ fn call_item_member_function(nr: &NamedReference, local_context: &mut EvalLocalC
     } else if let Some(s) = ItemRef::downcast_pin::<corelib::items::WindowItem>(item_ref) {
         match name {
             "hide" => s.hide(&window_adapter, &item_rc),
-            "close" => s.close(&window_adapter, &item_rc),
+            "close" => return Value::Bool(s.close(&window_adapter, &item_rc)),
             _ => {
                 panic!("internal: Unknown member function {name} called on WindowItem")
             }

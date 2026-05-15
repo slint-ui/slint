@@ -1474,9 +1474,9 @@ impl WindowItem {
         }
     }
 
-    pub fn close(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+    pub fn close(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) -> bool {
         if !is_root_window_item(window_adapter, self_rc) {
-            return;
+            return false;
         }
         let inner = WindowInner::from_pub(window_adapter.window());
         if inner.request_close()
@@ -1484,6 +1484,7 @@ impl WindowItem {
         {
             crate::debug_log!("Slint: Failed to hide window after close request: {err}");
         }
+        true
     }
 
     pub fn hide(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
@@ -1518,11 +1519,11 @@ pub unsafe extern "C" fn slint_windowitem_close(
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
     self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
     self_index: u32,
-) {
+) -> bool {
     unsafe {
         let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
         let item_rc = ItemRc::new(self_component.clone(), self_index);
-        window_item.close(window_adapter, &item_rc);
+        window_item.close(window_adapter, &item_rc)
     }
 }
 
