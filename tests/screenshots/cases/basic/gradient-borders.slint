@@ -5,8 +5,8 @@
 // ROTATION_THRESHOLD=100  - the border radius algorithm don't give the same result from every rotation
 
 export component TestCase inherits Window {
-    width: 64px;
-    height: 64px;
+    width: 128px;
+    height: 128px;
     background: black;
 
     GridLayout {
@@ -14,14 +14,14 @@ export component TestCase inherits Window {
             // Linear gradient border, sharp corners
             Rectangle {
                 background: white;
-                border-width: 4px;
+                border-width: 8px;
                 border-color: @linear-gradient(0deg, red, blue);
             }
             // Linear gradient border, rounded corners
             Rectangle {
                 background: white;
-                border-width: 4px;
-                border-radius: 8px;
+                border-width: 8px;
+                border-radius: 16px;
                 border-color: @linear-gradient(90deg, red, yellow, blue);
             }
         }
@@ -29,15 +29,15 @@ export component TestCase inherits Window {
             // Conic gradient border
             Rectangle {
                 background: white;
-                border-width: 4px;
-                border-radius: 8px;
+                border-width: 8px;
+                border-radius: 16px;
                 border-color: @conic-gradient(red 0deg, green 120deg, blue 240deg, red 360deg);
             }
             // Radial gradient border
             Rectangle {
                 background: white;
-                border-width: 4px;
-                border-radius: 16px;
+                border-width: 8px;
+                border-radius: 32px;
                 border-color: @radial-gradient(circle, cyan, red);
             }
         }
