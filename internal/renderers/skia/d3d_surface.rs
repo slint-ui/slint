@@ -6,6 +6,7 @@ use i_slint_core::api::{PhysicalSize as PhysicalWindowSize, Window};
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::partial_renderer::DirtyRegion;
 use i_slint_core::platform::PlatformError;
+use i_slint_core::renderer::DrawOutcome;
 use std::cell::RefCell;
 use std::sync::Arc;
 use windows::Win32::Graphics::Direct3D::D3D_FEATURE_LEVEL_11_0;
@@ -419,13 +420,14 @@ impl super::Surface for D3DSurface {
             u8,
         ) -> Option<DirtyRegion>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
+    ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         self.swap_chain.borrow_mut().render_and_present(
             |surface, gr_context, buffer_age| {
                 callback(surface.canvas(), Some(gr_context), buffer_age);
             },
             pre_present_callback,
-        )
+        )?;
+        Ok(DrawOutcome::Success)
     }
 
     fn bits_per_pixel(&self) -> Result<u8, i_slint_core::platform::PlatformError> {

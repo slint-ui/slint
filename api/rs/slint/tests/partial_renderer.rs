@@ -97,7 +97,7 @@ impl SkiaTestWindow {
 
     fn draw_if_needed(&self) -> bool {
         if self.needs_redraw.replace(false) {
-            self.renderer.render().unwrap();
+            let _ = self.renderer.render().unwrap();
             true
         } else {
             false

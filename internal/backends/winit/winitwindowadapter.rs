@@ -17,6 +17,7 @@ use euclid::approxeq::ApproxEq;
 #[cfg(muda)]
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
+use i_slint_core::renderer::DrawOutcome;
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
@@ -680,7 +681,11 @@ impl WinitWindowAdapter {
         }
 
         let renderer = self.renderer();
-        renderer.render(self.window())?;
+        if !matches!(renderer.render(self.window())?, DrawOutcome::Success) {
+            // Frame was skipped (e.g. surface occluded). pending_redraw was already
+            // cleared above, so re-arm it so we try again.
+            self.request_redraw();
+        }
 
         Ok(())
     }

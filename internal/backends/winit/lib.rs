@@ -64,10 +64,11 @@ mod renderer {
     use std::sync::Arc;
 
     use i_slint_core::platform::PlatformError;
+    use i_slint_core::renderer::DrawOutcome;
     use winit::event_loop::ActiveEventLoop;
 
     pub trait WinitCompatibleRenderer: std::any::Any {
-        fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError>;
+        fn render(&self, window: &i_slint_core::api::Window) -> Result<DrawOutcome, PlatformError>;
 
         fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
         // Got WindowEvent::Occluded

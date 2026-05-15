@@ -12,6 +12,17 @@ use crate::items::{ItemRc, TextWrap};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
 use crate::window::WindowAdapter;
 
+/// Result of a single rendering attempt. WGPU-backed renderers can report `Occluded` or
+/// `Timeout` instead of rendering a frame; in those cases the caller should re-arm a
+/// redraw rather than wait for the next external event.
+#[must_use]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DrawOutcome {
+    Success,
+    Occluded,
+    Timeout,
+}
+
 /// This trait represents a Renderer that can render a slint scene.
 ///
 /// This trait is [sealed](https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed),
