@@ -744,10 +744,10 @@ impl Window {
                 WindowEventDispatchResult::Processed
             }
         };
-        if let Some(event_for_hook) = event_for_hook {
-            if let Some(hook) = self.0.context().0.window_event_hook.borrow().as_ref() {
-                hook(&self.0.window_adapter(), &event_for_hook, dispatch_result);
-            }
+        if let Some(event_for_hook) = event_for_hook
+            && let Some(hook) = self.0.context().0.window_event_hook.borrow().as_ref()
+        {
+            hook(&self.0.window_adapter(), &event_for_hook, dispatch_result);
         }
         Ok(())
     }
