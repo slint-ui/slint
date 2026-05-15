@@ -9,7 +9,6 @@ ARGN
 AUTOSAR
 AUTOUIC
 Adressliste
-Archiv
 Arunning
 Asuras
 Auri
@@ -75,7 +74,6 @@ Doctests
 Dont
 Dosis
 Downcasting
-Duplicat
 EABI
 EABIHF
 EEPROM
