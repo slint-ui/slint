@@ -772,6 +772,21 @@ pub(crate) mod dispatch {
         state.take_snapshot_response(window, image_mime_type)
     }
 
+    pub(crate) fn event_log(
+        state: &IntrospectionState,
+        window: Option<ArenaIndex>,
+        since_sequence: u64,
+        max_events: u32,
+        clear_after_read: bool,
+    ) -> proto::EventLogResponse {
+        state.query_event_log(window, since_sequence, max_events, clear_after_read)
+    }
+
+    pub(crate) fn clear_event_log(state: &IntrospectionState) -> proto::ClearEventLogResponse {
+        state.clear_event_log();
+        proto::ClearEventLogResponse {}
+    }
+
     pub(crate) fn start_event_recording(
         state: &IntrospectionState,
     ) -> proto::StartEventRecordingResponse {
