@@ -1475,14 +1475,19 @@ impl WindowItem {
     }
 
     pub fn close(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
-        if !is_adapter_root_window_item(window_adapter, self_rc) {
+        if !is_root_window_item(window_adapter, self_rc) {
             return;
         }
-        close_window(window_adapter.window());
+        let inner = WindowInner::from_pub(window_adapter.window());
+        if inner.request_close()
+            && let Err(err) = inner.hide()
+        {
+            crate::debug_log!("Slint: Failed to hide window after close request: {err}");
+        }
     }
 
     pub fn hide(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
-        if !is_adapter_root_window_item(window_adapter, self_rc) {
+        if !is_root_window_item(window_adapter, self_rc) {
             return;
         }
         let _ = WindowInner::from_pub(window_adapter.window()).hide();
@@ -1491,7 +1496,7 @@ impl WindowItem {
 
 /// A `WindowItem` is considered the adapter's root window only when it is at index 0 of
 /// the component item tree currently bound to the adapter.
-fn is_adapter_root_window_item(window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) -> bool {
+fn is_root_window_item(window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) -> bool {
     if !self_rc.is_root() {
         return false;
     }
@@ -1521,14 +1526,6 @@ pub unsafe extern "C" fn slint_windowitem_close(
     }
 }
 
-fn close_window(window: &crate::api::Window) {
-    let inner = WindowInner::from_pub(window);
-    if inner.request_close()
-        && let Err(err) = inner.hide()
-    {
-        crate::debug_log!("Slint: Failed to hide window after close request: {err}");
-    }
-}
 
 #[cfg(feature = "ffi")]
 #[unsafe(no_mangle)]
