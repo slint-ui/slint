@@ -1597,21 +1597,14 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         self.winit_window_or_none
             .borrow()
             .as_window()
-            .and_then(|window| {
-                let outer_position = window.outer_position().ok()?;
-                let inner_position = window.inner_position().ok()?;
-                let outer_size = window.outer_size();
-                let surface_size = window.surface_size();
-                Some(i_slint_core::lengths::PhysicalEdges::new(
-                    inner_position.y - outer_position.y,
-                    outer_size.height as i32
-                        - (surface_size.height as i32)
-                        - (inner_position.y - outer_position.y),
-                    inner_position.x - outer_position.x,
-                    outer_size.width as i32
-                        - (surface_size.width as i32)
-                        - (inner_position.x - outer_position.x),
-                ))
+            .map(|window| {
+                let insets = window.safe_area();
+                i_slint_core::lengths::PhysicalEdges::new(
+                    insets.top as i32,
+                    insets.bottom as i32,
+                    insets.left as i32,
+                    insets.right as i32,
+                )
             })
             .unwrap_or_default()
     }
