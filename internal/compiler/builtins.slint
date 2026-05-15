@@ -1219,10 +1219,10 @@ export component DragArea {
     /// Bitmap drawn under the cursor while a drag is in flight.
     /// When unset (the default empty image), no overlay is drawn.
     in property <image> drag-image;
-    /// Horizontal hotspot within `drag-image` that aligns with the cursor, in image pixel coordinates.
+    /// Horizontal hot spot within `drag-image` that aligns with the cursor, in image pixel coordinates.
     /// `0` puts the image's left edge at the cursor; following HTML5's `setDragImage(image, x, y)` convention.
     in property <int> drag-image-offset-x;
-    /// Vertical hotspot within `drag-image` that aligns with the cursor, in image pixel coordinates.
+    /// Vertical hot spot within `drag-image` that aligns with the cursor, in image pixel coordinates.
     /// `0` puts the image's top edge at the cursor.
     in property <int> drag-image-offset-y;
     /// Whether the source allows the drop to copy the data. The source retains the data.

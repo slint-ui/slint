@@ -1084,7 +1084,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let scale_factor = ScaleFactor::new(self.scale_factor());
         let target_size = LogicalSize::from_untyped(source_size.cast()) * scale_factor;
         let image_inner: &ImageInner = (&image).into();
-        // Rasterise scalable sources at scale_factor so SVGs are crisp on high-DPI displays
+        // Rasterize scalable sources at scale_factor so SVGs are crisp on high-DPI displays
         // (matches femtovg/skia draw_image_direct).
         let pixmap_size = image_inner.is_svg().then(|| target_size.cast());
         let Some(pixmap) = image_to_pixmap(image_inner, pixmap_size) else { return };
