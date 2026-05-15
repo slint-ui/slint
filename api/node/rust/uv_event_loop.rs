@@ -1,102 +1,249 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Integrated event loop for Node.js, replacing 16ms setInterval polling.
+//! Integrated event loop for Node.js.
 //!
-//! On Unix, a persistent future watches libuv's backend fd (epoll/kqueue)
-//! for readability via `async-io`.  The wake chain:
+//! Replaces the 16ms `setInterval` polling with a `uv_prepare_t`
+//! callback that pumps Slint events on every libuv iteration.
 //!
-//! 1. `Platform::process_events(timeout)` blocks waiting for events.
-//! 2. async-io's reactor thread polls the libuv fd.
-//! 3. When readable, the reactor wakes the future's `Waker`.
-//! 4. `Waker::wake` calls `invoke_from_event_loop`,
-//!    posting an event to the platform backend.
-//! 5. `run_integrated_event_loop` sees the flag and breaks out of its loop.
-//! 6. Control returns to JS; Node's `uv_run` picks up the pending I/O.
-//! 7. JS re-enters via `setTimeout(pump, 0)`.
-//!
-//! The loop in step 5 is key: `process_events` returns on any platform event
-//! (mouse moves, repaints, etc.), but we only return to JS when the libuv fd
-//! signals readiness or the uv timeout elapses.
+//! Prepare callbacks run after the timer phase but before I/O poll,
+//! so `uv_backend_timeout()` returns an accurate next-timer deadline.
 //!
 //! On Windows/Deno the JS side falls back to 16ms polling.
 
+/// Safe wrappers around the libuv C API.
+/// Symbols are resolved at runtime so the addon also loads in
+/// non-libuv runtimes (e.g. Deno).
 #[cfg(unix)]
-mod platform {
-    use super::super::ProcessEventsResult;
+mod uv {
     use napi::Env;
-    use std::cell::{Cell, OnceCell};
     use std::os::fd::BorrowedFd;
     use std::os::raw::c_int;
-    use std::rc::Rc;
-    use std::time::Duration;
 
+    type UvHandleSizeFn = unsafe extern "C" fn(c_int) -> usize;
     type UvBackendFdFn = unsafe extern "C" fn(*mut napi::sys::uv_loop_s) -> c_int;
     type UvBackendTimeoutFn = unsafe extern "C" fn(*mut napi::sys::uv_loop_s) -> c_int;
+    type UvPrepareInitFn = unsafe extern "C" fn(*mut napi::sys::uv_loop_s, *mut u8) -> c_int;
+    type UvPrepareStartFn = unsafe extern "C" fn(*mut u8, unsafe extern "C" fn(*mut u8)) -> c_int;
+    type UvPrepareStopFn = unsafe extern "C" fn(*mut u8) -> c_int;
+    type UvCloseFn = unsafe extern "C" fn(*mut u8, Option<unsafe extern "C" fn(*mut u8)>);
+    type UvUpdateTimeFn = unsafe extern "C" fn(*mut napi::sys::uv_loop_s);
 
+    /// Resolved libuv function pointers and loop handle.
+    /// Valid for the process lifetime (Node.js owns the loop).
     #[derive(Clone, Copy)]
-    struct UvFunctions {
+    pub(super) struct Functions {
         backend_fd: UvBackendFdFn,
         backend_timeout: UvBackendTimeoutFn,
+        prepare_init: UvPrepareInitFn,
+        prepare_start: UvPrepareStartFn,
+        prepare_stop: UvPrepareStopFn,
+        uv_close: UvCloseFn,
+        update_time: UvUpdateTimeFn,
         uv_loop: *mut napi::sys::uv_loop_s,
+        prepare_layout: std::alloc::Layout,
     }
 
-    impl UvFunctions {
-        /// Looks up libuv symbols at runtime so this addon also works in
-        /// non-libuv runtimes (e.g. Deno), where these symbols are absent.
-        fn try_new(env: &Env) -> Option<Self> {
+    impl Functions {
+        /// Resolve libuv symbols from the host process.
+        /// Returns `None` if any symbol is missing or the fd is invalid.
+        pub(super) fn try_new(env: &Env) -> Option<Self> {
+            // SAFETY: loading from the current process is always valid.
             let lib = libloading::os::unix::Library::this();
-            // SAFETY: These symbols are exported by the Node.js binary with
-            // stable C signatures matching the type aliases above.
-            let backend_fd: UvBackendFdFn =
-                *unsafe { lib.get::<UvBackendFdFn>(b"uv_backend_fd").ok()? };
-            let backend_timeout: UvBackendTimeoutFn =
+            // SAFETY: stable C signatures exported by the Node.js binary.
+            let handle_size = *unsafe { lib.get::<UvHandleSizeFn>(b"uv_handle_size").ok()? };
+            let backend_fd = *unsafe { lib.get::<UvBackendFdFn>(b"uv_backend_fd").ok()? };
+            let backend_timeout =
                 *unsafe { lib.get::<UvBackendTimeoutFn>(b"uv_backend_timeout").ok()? };
+            let prepare_init = *unsafe { lib.get::<UvPrepareInitFn>(b"uv_prepare_init").ok()? };
+            let prepare_start = *unsafe { lib.get::<UvPrepareStartFn>(b"uv_prepare_start").ok()? };
+            let prepare_stop = *unsafe { lib.get::<UvPrepareStopFn>(b"uv_prepare_stop").ok()? };
+            let uv_close = *unsafe { lib.get::<UvCloseFn>(b"uv_close").ok()? };
+            let update_time = *unsafe { lib.get::<UvUpdateTimeFn>(b"uv_update_time").ok()? };
 
             let uv_loop = env.get_uv_event_loop().ok()?;
             if uv_loop.is_null() {
                 return None;
             }
 
-            // SAFETY: uv_loop validated non-null above.
+            // SAFETY: uv_loop is non-null.
             let fd = unsafe { backend_fd(uv_loop) };
             if fd < 0 {
                 return None;
             }
 
-            Some(Self { backend_fd, backend_timeout, uv_loop })
+            /// `UV_PREPARE` value from the `uv_handle_type` enum.
+            const UV_PREPARE: c_int = 9;
+            let size = unsafe { handle_size(UV_PREPARE) };
+            let prepare_layout = std::alloc::Layout::from_size_align(size, 8).ok()?;
+
+            Some(Self {
+                backend_fd,
+                backend_timeout,
+                prepare_init,
+                prepare_start,
+                prepare_stop,
+                uv_close,
+                update_time,
+                uv_loop,
+                prepare_layout,
+            })
         }
 
-        fn fd(&self) -> c_int {
-            // SAFETY: uv_loop validated in try_new, owned by Node.js for the process lifetime.
+        /// Backend fd (epoll/kqueue) for the libuv event loop.
+        pub(super) fn backend_fd(&self) -> c_int {
+            // SAFETY: uv_loop is valid for the process lifetime.
             unsafe { (self.backend_fd)(self.uv_loop) }
         }
 
-        fn timeout_ms(&self) -> c_int {
-            // SAFETY: same as fd().
+        /// Milliseconds until the next libuv timer, or -1 if none.
+        pub(super) fn backend_timeout_ms(&self) -> c_int {
+            // SAFETY: same as backend_fd.
             unsafe { (self.backend_timeout)(self.uv_loop) }
+        }
+
+        /// Refresh libuv's cached clock so `backend_timeout_ms` returns
+        /// an up-to-date value after blocking in `process_events`.
+        pub(super) fn update_time(&self) {
+            unsafe { (self.update_time)(self.uv_loop) }
         }
     }
 
-    /// Wrapper that borrows libuv's backend fd without closing it on drop.
-    struct UvFdWrapper(c_int);
+    /// Heap-allocated `uv_prepare_t` handle.
+    ///
+    /// Heap-allocated (not embedded in a struct) because `uv_close`
+    /// is async — libuv accesses the handle after close returns.
+    /// The close callback deallocates the buffer.
+    pub(super) struct PrepareHandle {
+        ptr: *mut u8,
+        fns: Functions,
+    }
 
-    impl std::os::fd::AsFd for UvFdWrapper {
+    impl PrepareHandle {
+        /// Allocate and initialize a prepare handle on the loop.
+        pub(super) fn new(fns: Functions) -> napi::Result<Self> {
+            let layout = fns.prepare_layout;
+            let ptr = unsafe { std::alloc::alloc(layout) };
+            assert!(!ptr.is_null(), "failed to allocate uv_prepare_t");
+
+            let rc = unsafe { (fns.prepare_init)(fns.uv_loop, ptr) };
+            if rc != 0 {
+                unsafe { std::alloc::dealloc(ptr, layout) };
+                return Err(napi::Error::from_reason("uv_prepare_init failed"));
+            }
+
+            Ok(Self { ptr, fns })
+        }
+
+        /// Start the prepare handle with the given callback.
+        /// The callback is stored in the handle's `data` field and
+        /// invoked from an internal `extern "C"` trampoline.
+        pub(super) fn start(&mut self, cb: fn()) -> napi::Result<()> {
+            // SAFETY: libuv handles have `void* data` at offset 0.
+            unsafe { *(self.ptr as *mut usize) = cb as usize };
+
+            unsafe extern "C" fn trampoline(handle: *mut u8) {
+                // SAFETY: `data` was set to a fn() pointer in start().
+                let cb: fn() = unsafe { std::mem::transmute(*(handle as *const usize)) };
+                cb();
+            }
+
+            let rc = unsafe { (self.fns.prepare_start)(self.ptr, trampoline) };
+            if rc != 0 {
+                return Err(napi::Error::from_reason("uv_prepare_start failed"));
+            }
+            Ok(())
+        }
+
+        /// Milliseconds until the next libuv timer, or -1 if none.
+        pub(super) fn backend_timeout_ms(&self) -> std::os::raw::c_int {
+            self.fns.backend_timeout_ms()
+        }
+
+        /// Refresh libuv's cached clock.
+        pub(super) fn update_time(&self) {
+            self.fns.update_time()
+        }
+
+        /// Stop the prepare handle.
+        pub(super) fn stop(&self) {
+            unsafe { (self.fns.prepare_stop)(self.ptr) };
+        }
+    }
+
+    impl Drop for PrepareHandle {
+        fn drop(&mut self) {
+            if !self.ptr.is_null() {
+                // Must go through uv_close — libuv may still reference
+                // the handle after uv_prepare_stop returns.
+                // Store the layout in the data field so close_cb can
+                // recover it for deallocation.
+                let layout = self.fns.prepare_layout;
+                unsafe {
+                    *(self.ptr as *mut usize) = layout.size();
+                    unsafe extern "C" fn close_cb(handle: *mut u8) {
+                        let size = unsafe { *(handle as *const usize) };
+                        let layout =
+                            unsafe { std::alloc::Layout::from_size_align_unchecked(size, 8) };
+                        unsafe { std::alloc::dealloc(handle, layout) };
+                    }
+                    (self.fns.uv_close)(self.ptr, Some(close_cb));
+                }
+            }
+        }
+    }
+
+    /// Borrows libuv's backend fd without closing it on drop.
+    pub(super) struct FdWrapper(pub(super) c_int);
+
+    impl std::os::fd::AsFd for FdWrapper {
         fn as_fd(&self) -> BorrowedFd<'_> {
             // SAFETY: libuv owns this fd for the process lifetime.
             unsafe { BorrowedFd::borrow_raw(self.0) }
         }
     }
+}
 
-    thread_local! {
-        static CACHED_UV: OnceCell<Option<UvFunctions>> = const { OnceCell::new() };
-        static WATCHER_FLAG: OnceCell<Rc<Cell<bool>>> = const { OnceCell::new() };
+#[cfg(unix)]
+mod platform {
+    use super::super::ProcessEventsResult;
+    use super::uv;
+    use napi::Env;
+    use napi::bindgen_prelude::*;
+    use std::cell::{Cell, OnceCell, RefCell};
+    use std::rc::Rc;
+    use std::time::Duration;
+
+    struct PrepareState {
+        fd_ready: Rc<Cell<bool>>,
+        prepare_handle: uv::PrepareHandle,
+        env: Env,
+        on_exit: FunctionRef<crate::DynArgs, Unknown<'static>>,
     }
 
-    fn get_uv(env: &Env) -> napi::Result<UvFunctions> {
-        CACHED_UV.with(|cell| {
-            cell.get_or_init(|| UvFunctions::try_new(env))
-                .ok_or_else(|| napi::Error::from_reason("integrated event loop not available"))
+    struct ThreadState {
+        uv: OnceCell<Option<uv::Functions>>,
+        watcher_flag: OnceCell<Rc<Cell<bool>>>,
+        prepare: RefCell<Option<Box<PrepareState>>>,
+        quit_requested: Cell<bool>,
+    }
+
+    thread_local! {
+        static TLS: ThreadState = const {
+            ThreadState {
+                uv: OnceCell::new(),
+                watcher_flag: OnceCell::new(),
+                prepare: RefCell::new(None),
+                quit_requested: Cell::new(false),
+            }
+        };
+    }
+
+    fn get_uv(env: &Env) -> napi::Result<uv::Functions> {
+        TLS.with(|tls| {
+            tls.uv
+                .get_or_init(|| uv::Functions::try_new(env))
+                .ok_or_else(|| napi::Error::from_reason("integrated event loop isn't available"))
         })
     }
 
@@ -104,26 +251,29 @@ mod platform {
         get_uv(env).is_ok()
     }
 
-    /// Spawns a persistent future watching the libuv fd and returns
-    /// the flag it sets when the fd becomes readable.
-    fn ensure_watcher_spawned(uv: &UvFunctions) -> napi::Result<Rc<Cell<bool>>> {
-        WATCHER_FLAG.with(|cell| {
-            if let Some(flag) = cell.get() {
+    /// Request the integrated event loop to exit.
+    pub(crate) fn request_quit() {
+        TLS.with(|tls| tls.quit_requested.set(true));
+    }
+
+    /// Spawn a future that watches the libuv fd for readability and
+    /// sets the returned flag when I/O arrives.
+    fn ensure_watcher_spawned(uv: &uv::Functions) -> napi::Result<Rc<Cell<bool>>> {
+        TLS.with(|tls| {
+            if let Some(flag) = tls.watcher_flag.get() {
                 return Ok(flag.clone());
             }
 
-            // new_nonblocking: the fd is a kqueue/epoll handle, not a real I/O
-            // fd — setting non-blocking mode via ioctl fails on macOS kqueue.
-            let async_fd = async_io::Async::new_nonblocking(UvFdWrapper(uv.fd())).map_err(|e| {
-                napi::Error::from_reason(format!("failed to create async fd watcher: {e}"))
-            })?;
+            // new_nonblocking: ioctl to set non-blocking fails on macOS kqueue fds.
+            let async_fd = async_io::Async::new_nonblocking(uv::FdWrapper(uv.backend_fd()))
+                .map_err(|e| {
+                    napi::Error::from_reason(format!("failed to create async fd watcher: {e}"))
+                })?;
 
             let flag = Rc::new(Cell::new(false));
             let flag_for_future = flag.clone();
             slint_interpreter::spawn_local(async move {
                 loop {
-                    // readable() completing means FutureRunner::wake called
-                    // invoke_from_event_loop, which made process_events return.
                     if async_fd.readable().await.is_err() {
                         break;
                     }
@@ -132,53 +282,126 @@ mod platform {
             })
             .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
-            cell.set(flag.clone()).ok();
+            tls.watcher_flag.set(flag.clone()).ok();
             Ok(flag)
         })
     }
 
-    /// Keeps processing platform events until the libuv fd becomes readable
-    /// (JS has pending work) or the uv timeout elapses (JS timer is due).
-    /// This avoids returning to JS unnecessarily on every mouse move or
-    /// window event that only concerns the platform backend.
-    pub(crate) fn run_integrated_event_loop_impl(env: &Env) -> napi::Result<ProcessEventsResult> {
-        let uv = get_uv(env)?;
-        let fd_ready = ensure_watcher_spawned(&uv)?;
+    /// Call the JS on_exit callback.
+    /// Uses `run_in_scope` because the prepare callback has no HandleScope.
+    /// Silently skipped if V8 is already torn down.
+    fn call_on_exit(state: &PrepareState) {
+        let _ = state.env.run_in_scope(|| {
+            let f = state.on_exit.borrow_back(&state.env)?;
+            f.call(crate::DynArgs(vec![]))
+        });
+    }
 
+    /// Libuv prepare callback — runs after timers, before I/O poll.
+    /// Wrapped in `run_in_scope` to provide V8 with a HandleScope,
+    /// since Slint event processing may invoke JS callbacks.
+    fn prepare_cb() {
+        TLS.with(|tls| {
+            let borrow = tls.prepare.borrow();
+            let Some(state) = borrow.as_deref() else { return };
+            let env = state.env;
+            let result = env
+                .run_in_scope(|| Ok(process_slint_events(state)))
+                .unwrap_or(ProcessEventsResult::Exited);
+            drop(borrow);
+            if matches!(result, ProcessEventsResult::Exited) {
+                if let Some(state) = tls.prepare.borrow_mut().take() {
+                    cleanup_on_exit(state);
+                }
+            }
+        });
+    }
+
+    /// Process Slint events, blocking up to `uv_backend_timeout()` ms.
+    fn process_slint_events(state: &PrepareState) -> ProcessEventsResult {
         loop {
-            let uv_timeout = uv.timeout_ms();
+            let uv_timeout = state.prepare_handle.backend_timeout_ms();
             let timeout = if uv_timeout < 0 {
                 Duration::MAX
             } else {
                 Duration::from_millis(uv_timeout as u64)
             };
 
-            if let ProcessEventsResult::Exited = crate::process_events_with_timeout(timeout)? {
-                return Ok(ProcessEventsResult::Exited);
+            match crate::process_events_with_timeout(timeout) {
+                Ok(ProcessEventsResult::Exited) | Err(_) => return ProcessEventsResult::Exited,
+                Ok(ProcessEventsResult::Continue) => {}
             }
 
-            if uv_timeout == 0 || fd_ready.replace(false) {
-                return Ok(ProcessEventsResult::Continue);
+            if TLS.with(|tls| tls.quit_requested.replace(false)) {
+                return ProcessEventsResult::Exited;
+            }
+
+            state.prepare_handle.update_time();
+            if state.fd_ready.replace(false) || uv_timeout == 0 {
+                return ProcessEventsResult::Continue;
             }
         }
+    }
+
+    /// Stop the prepare handle and notify JS.
+    /// The handle is deallocated via `uv_close` when `state` drops.
+    fn cleanup_on_exit(state: Box<PrepareState>) {
+        state.prepare_handle.stop();
+        call_on_exit(&state);
+    }
+
+    /// Register a `uv_prepare_t` that pumps Slint events on every
+    /// libuv iteration.
+    /// Returns immediately; calls `on_exit` when the loop terminates.
+    pub(crate) fn start_integrated_event_loop_impl(
+        env: &Env,
+        on_exit: crate::DynFunction<'_>,
+    ) -> napi::Result<()> {
+        let uv = get_uv(env)?;
+
+        // Check that the backend supports process_events
+        // (the testing backend doesn't).
+        crate::process_events_with_timeout(Duration::ZERO)?;
+
+        let fd_ready = ensure_watcher_spawned(&uv)?;
+        let on_exit = on_exit.create_ref()?;
+        let mut prepare_handle = uv::PrepareHandle::new(uv)?;
+        prepare_handle.start(prepare_cb)?;
+
+        let state = Box::new(PrepareState { fd_ready, prepare_handle, env: *env, on_exit });
+
+        // Ref'd handle keeps Node.js alive until on_exit fires.
+        // Clear stale quit request from a previous run.
+        TLS.with(|tls| {
+            tls.quit_requested.set(false);
+            *tls.prepare.borrow_mut() = Some(state);
+        });
+
+        Ok(())
     }
 }
 
 #[cfg(not(unix))]
 mod platform {
-    use super::super::ProcessEventsResult;
     use napi::Env;
 
     pub(crate) fn has_integrated_event_loop_impl(_env: &Env) -> bool {
         false
     }
 
-    pub(crate) fn run_integrated_event_loop_impl(_env: &Env) -> napi::Result<ProcessEventsResult> {
-        Err(napi::Error::from_reason("integrated event loop not available on this platform"))
+    pub(crate) fn start_integrated_event_loop_impl(
+        _env: &Env,
+        _on_exit: crate::DynFunction<'_>,
+    ) -> napi::Result<()> {
+        Err(napi::Error::from_reason("integrated event loop isn't available on this platform"))
     }
+
+    pub(crate) fn request_quit() {}
 }
 
 use napi::Env;
+
+pub(crate) use platform::request_quit;
 
 #[napi]
 pub fn has_integrated_event_loop(env: Env) -> bool {
@@ -186,6 +409,6 @@ pub fn has_integrated_event_loop(env: Env) -> bool {
 }
 
 #[napi]
-pub fn run_integrated_event_loop(env: Env) -> napi::Result<super::ProcessEventsResult> {
-    platform::run_integrated_event_loop_impl(&env)
+pub fn start_integrated_event_loop(env: &Env, on_exit: crate::DynFunction<'_>) -> napi::Result<()> {
+    platform::start_integrated_event_loop_impl(env, on_exit)
 }

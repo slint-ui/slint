@@ -175,7 +175,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
         let scale = window_inner.scale_factor().ceil();
 
         window_inner
-            .draw_contents(|components| -> Result<(), PlatformError> {
+            .draw_contents(|components, post_render| -> Result<(), PlatformError> {
                 // self.canvas is checked for being Some(...) at the beginning of this function
                 let canvas = self.canvas.borrow().as_ref().unwrap().clone();
 
@@ -268,6 +268,8 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                         );
                     }
                 }
+
+                post_render(&mut item_renderer);
 
                 if let Some(cb) = post_render_cb.as_ref() {
                     cb(&mut item_renderer)

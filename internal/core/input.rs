@@ -994,6 +994,9 @@ pub struct MouseInputState {
     /// When this is Some, it means we are in the middle of a drag-drop operation and it contains the dragged data.
     /// The `position` field has no signification
     pub(crate) drag_data: Option<DropEvent>,
+    /// The `DragArea` that initiated the in-flight drag.
+    /// `None` for drags coming from outside (native cross-window/cross-process DnD).
+    pub(crate) drag_source: Option<ItemWeak>,
     delayed: Option<(crate::timers::Timer, MouseEvent)>,
     delayed_exit_items: Vec<ItemWeak>,
     pub(crate) cursor: MouseCursor,
@@ -1095,8 +1098,14 @@ pub(crate) fn handle_mouse_grab(
             mouse_input_state.grabbed = false;
             let drag_area_item = grabber.downcast::<crate::items::DragArea>().unwrap();
             let data = drag_area_item.as_pin_ref().data().clone();
-
-            mouse_input_state.drag_data = Some(DropEvent { data, position: Default::default() });
+            // Seed the drag position from the event that crossed the drag threshold so
+            // the renderer can place the drag-image overlay before the first DragMove.
+            let position = mouse_event
+                .position()
+                .map(crate::lengths::logical_position_to_api)
+                .unwrap_or_default();
+            mouse_input_state.drag_data = Some(DropEvent { data, position });
+            mouse_input_state.drag_source = Some(grabber.downgrade());
             None
         }
         _ => {
@@ -1169,6 +1178,7 @@ pub fn process_mouse_input(
 ) -> MouseInputState {
     let mut result = MouseInputState {
         drag_data: mouse_input_state.drag_data.clone(),
+        drag_source: mouse_input_state.drag_source.clone(),
         cursor: mouse_input_state.cursor,
         ..Default::default()
     };
@@ -1361,8 +1371,17 @@ fn send_mouse_event_to_item(
             result.grabbed = false;
             let drag_area_item = item_rc.downcast::<crate::items::DragArea>().unwrap();
             let data = drag_area_item.as_pin_ref().data().clone();
-
-            result.drag_data = Some(DropEvent { data, position: Default::default() });
+            // `mouse_event` here is in the parent item's coords (this function is called
+            // recursively); translate into the DragArea's local coords, then map back to
+            // window coords so the drag-image overlay places at the right spot from the start.
+            let position = mouse_event
+                .position()
+                .map(|p| p - geom.origin.to_vector())
+                .map(|p| item_rc.map_to_window(p))
+                .map(crate::lengths::logical_position_to_api)
+                .unwrap_or_default();
+            result.drag_data = Some(DropEvent { data, position });
+            result.drag_source = Some(item_rc.downgrade());
             VisitChildrenResult::abort(item_rc.index(), 0)
         }
     }

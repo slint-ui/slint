@@ -1259,6 +1259,8 @@ pub struct WindowItem {
     pub resize_border_width: Property<LogicalLength>,
     pub always_on_top: Property<bool>,
     pub full_screen: Property<bool>,
+    pub minimized: Property<bool>,
+    pub maximized: Property<bool>,
     pub icon: Property<crate::graphics::Image>,
     pub default_font_family: Property<SharedString>,
     pub default_font_size: Property<LogicalLength>,
@@ -1473,9 +1475,41 @@ impl WindowItem {
         }
     }
 
-    pub fn hide(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
+    pub fn close(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) -> bool {
+        if !is_root_window_item(window_adapter, self_rc) {
+            return false;
+        }
+        let inner = WindowInner::from_pub(window_adapter.window());
+        if inner.request_close()
+            && let Err(err) = inner.hide()
+        {
+            crate::debug_log!("Slint: Failed to hide window after close request: {err}");
+        }
+        true
+    }
+
+    pub fn hide(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+        if !is_root_window_item(window_adapter, self_rc) {
+            return;
+        }
         let _ = WindowInner::from_pub(window_adapter.window()).hide();
     }
+}
+
+/// A `WindowItem` is considered the adapter's root window only when it is at index 0 of
+/// the component item tree currently bound to the adapter.
+fn is_root_window_item(window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) -> bool {
+    if !self_rc.is_root() {
+        return false;
+    }
+
+    WindowInner::from_pub(window_adapter.window())
+        .try_component()
+        .is_some_and(|component| VRc::ptr_eq(&component, self_rc.item_tree()))
 }
 
 impl ItemConsts for WindowItem {
@@ -1485,15 +1519,31 @@ impl ItemConsts for WindowItem {
 
 #[cfg(feature = "ffi")]
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_windowitem_close(
+    window_item: Pin<&WindowItem>,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+) -> bool {
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let item_rc = ItemRc::new(self_component.clone(), self_index);
+        window_item.close(window_adapter, &item_rc)
+    }
+}
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_windowitem_hide(
     window_item: Pin<&WindowItem>,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    _self_index: u32,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
 ) {
     unsafe {
         let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-        window_item.hide(window_adapter);
+        let item_rc = ItemRc::new(self_component.clone(), self_index);
+        window_item.hide(window_adapter, &item_rc);
     }
 }
 
