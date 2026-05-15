@@ -3234,8 +3234,24 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         }
     }
 
-    fn draw_image_direct(&mut self, _image: i_slint_core::graphics::Image) {
-        todo!()
+    fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
+        let image_inner: &ImageInner = (&image).into();
+        let source_size = image.size();
+        if source_size.is_empty() {
+            return;
+        }
+        let target_size = euclid::Size2D::<f32, i_slint_core::lengths::LogicalPx>::from_untyped(
+            source_size.cast(),
+        ) * self.scale_factor;
+        let fit = i_slint_core::graphics::fit(
+            i_slint_core::items::ImageFit::Fill,
+            target_size,
+            i_slint_core::graphics::IntRect::from_size(source_size.cast()),
+            self.scale_factor,
+            Default::default(),
+            Default::default(),
+        );
+        self.draw_image_impl(image_inner, fit, i_slint_core::Color::default());
     }
 
     fn window(&self) -> &i_slint_core::window::WindowInner {
