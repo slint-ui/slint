@@ -1474,7 +1474,11 @@ impl WindowItem {
         }
     }
 
-    pub fn close(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) -> bool {
+    pub fn close(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) -> bool {
         if !is_root_window_item(window_adapter, self_rc) {
             return false;
         }
