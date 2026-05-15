@@ -249,29 +249,29 @@ pub fn lower_shadow_properties(
             let drop_shadow_properties = take_shadow_property_bindings(&child, ShadowKind::Drop);
             let inset_shadow_properties = take_shadow_property_bindings(&child, ShadowKind::Inset);
 
-            if !drop_shadow_properties.is_empty() {
-                if let Some(mut shadow_elem) = create_box_shadow_element(
+            if !drop_shadow_properties.is_empty()
+                && let Some(mut shadow_elem) = create_box_shadow_element(
                     drop_shadow_properties,
                     &child,
                     ShadowKind::Drop,
                     type_register,
                     diag,
-                ) {
-                    shadow_elem.geometry_props.clone_from(&child.borrow().geometry_props);
-                    elem.borrow_mut().children.push(ElementRc::new(shadow_elem.into()));
-                }
+                )
+            {
+                shadow_elem.geometry_props.clone_from(&child.borrow().geometry_props);
+                elem.borrow_mut().children.push(ElementRc::new(shadow_elem.into()));
             }
 
-            if !inset_shadow_properties.is_empty() {
-                if let Some(shadow_elem) = create_box_shadow_element(
+            if !inset_shadow_properties.is_empty()
+                && let Some(shadow_elem) = create_box_shadow_element(
                     inset_shadow_properties,
                     &child,
                     ShadowKind::Inset,
                     type_register,
                     diag,
-                ) {
-                    prepend_inset_shadow_child(&child, shadow_elem);
-                }
+                )
+            {
+                prepend_inset_shadow_child(&child, shadow_elem);
             }
 
             elem.borrow_mut().children.push(child);
