@@ -4,6 +4,7 @@ ABGR
 AFAICT
 AMOLED
 ANOTHERSTRUCT
+appbar
 ARCHS
 ARGN
 AUTOSAR
@@ -913,6 +914,7 @@ namedreference
 namedtuple
 namedview
 nativegestures
+navigationbar
 navigationdrawer
 navigationrail
 navitem
@@ -1202,6 +1204,7 @@ thumbsup
 tikv
 timedelta
 timerpickerpopup
+titlebar
 tinybmp
 tmax
 tmgrammar

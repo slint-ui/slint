@@ -102,8 +102,10 @@
     ],
     "words": [
         "aarch",
+        "AARRGGBB",
         "accesskit",
         "antialiasing",
+        "Argb",
         "armv",
         "astrojs",
         "Bezier",
@@ -159,8 +161,11 @@
         "printerdemo",
         "pythonw",
         "replacen",
+        "Rgba",
         "riscv",
         "rowspan",
+        "RRGGBB",
+        "RRGGBBAA",
         "rustc",
         "rustdoc",
         "rustdocs",
@@ -178,6 +183,7 @@
         "slintpad",
         "spdx",
         "spinbox",
+        "Srgb",
         "streetsidesoftware",
         "struct",
         "structs",
@@ -211,6 +217,7 @@
         "WGPU",
         "windowrc",
         "winit",
+        "xaarrggbb",
         "Xcodegen",
         "Xcodeproj",
         "xtask",
@@ -232,10 +239,6 @@
         "**/*.po",
         "**/*.pot",
         "**/*.svg"
-    ],
-    "ignoreRegExpList": [
-        // Color encodings in all languages:
-        "/(\\b|0x|#|_)?[argbARGB][argbARGB][argbARGB]+(\\b|_|Color)/"
     ],
     "overrides": [
         {
