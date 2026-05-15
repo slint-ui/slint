@@ -48,4 +48,17 @@ export component TestCase inherits Window {
         font-size: 9px;
         color: magenta;
     }
+
+    // RTL overflow: a long string with `horizontal-alignment: right` whose
+    // natural width exceeds the box. The elipsis should appear on the LEFT
+    // (where the truncation visually occurs in a right-aligned RTL layout).
+    Text {
+        text: "RTL elision test with overflowing right-aligned text";
+        y: 21px;
+        width: 100%;
+        overflow: elide;
+        font-size: 9px;
+        color: black;
+        horizontal-alignment: right;
+    }
 }

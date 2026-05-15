@@ -947,25 +947,56 @@ impl Layout {
 
         // Run starts after where the elipsis would go - skip entirely
         let run_beyond_elision = run_start > max_width;
-        // Run extends beyond max width and needs truncation + elipsis
-        let needs_elision = !run_beyond_elision && run_end.get().floor() > max_width.get().ceil();
+        // Run extends beyond max_width on the RIGHT — the LTR/start-aligned
+        // overflow case.
+        let overflow_right = run_end.get().floor() > max_width.get().ceil();
+        // Run starts BEFORE x=0 — the RTL/end-aligned overflow case. When
+        // parley aligns a too-wide line to `Alignment::Right`, the run's
+        // offset is negative because the text extends past the left edge
+        // of the available width. Without this branch, RTL elision silently
+        // no-ops and Arabic / Hebrew text clips on the leading edge with no
+        // truncation indicator.
+        let overflow_left = run_start.get() < 0.0;
+        let needs_elision = !run_beyond_elision && (overflow_right || overflow_left);
 
-        let truncated_glyphs = glyph_run.positioned_glyphs().take_while(move |glyph| {
-            !run_beyond_elision
-                && (!needs_elision
-                    || PhysicalLength::new(glyph.x + glyph.advance + elipsis_advance) <= max_width)
+        // For LTR overflow: keep leftmost glyphs that fit before max_width,
+        // dropping the trailing glyphs that don't fit.
+        // For RTL overflow: keep rightmost glyphs (those with x >= elipsis_advance),
+        // dropping the leading glyphs that fall in the negative-x region.
+        // Both cases reserve `elipsis_advance` worth of space for the indicator.
+        let truncated_glyphs = glyph_run.positioned_glyphs().filter(move |glyph| {
+            if run_beyond_elision {
+                return false;
+            }
+            if !needs_elision {
+                return true;
+            }
+            if overflow_right {
+                PhysicalLength::new(glyph.x + glyph.advance + elipsis_advance) <= max_width
+            } else {
+                // overflow_left (RTL): drop glyphs whose right edge would
+                // overlap the elipsis (which sits at x=0).
+                glyph.x >= elipsis_advance
+            }
         });
 
         let elipsis = if needs_elision {
             self.elision_info.as_ref().map(|info| {
-                let elipsis_x = glyph_run
-                    .positioned_glyphs()
-                    .find(|glyph| {
-                        PhysicalLength::new(glyph.x + glyph.advance + info.elipsis_glyph.advance)
-                            > info.max_physical_width
-                    })
-                    .map(|g| g.x)
-                    .unwrap_or(0.0);
+                let elipsis_x = if overflow_right {
+                    glyph_run
+                        .positioned_glyphs()
+                        .find(|glyph| {
+                            PhysicalLength::new(
+                                glyph.x + glyph.advance + info.elipsis_glyph.advance,
+                            ) > info.max_physical_width
+                        })
+                        .map(|g| g.x)
+                        .unwrap_or(0.0)
+                } else {
+                    // RTL: place the elipsis at the leftmost edge (x = 0),
+                    // where the visible portion of the truncated run begins.
+                    0.0
+                };
 
                 let mut elipsis_glyph = info.elipsis_glyph;
                 elipsis_glyph.x = elipsis_x;
