@@ -2,6 +2,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell:ignore dummyweather
+
 import * as slint from "slint-ui";
 import { readFileSync } from "node:fs";
 

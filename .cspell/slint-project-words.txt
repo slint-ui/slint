@@ -355,6 +355,7 @@ MCUX
 mdbook
 memsize
 menuconfig
+Meteo
 millihertz
 mimxrt
 minmax
@@ -488,6 +489,7 @@ rsvg
 rtti
 rustattr
 rustembedded
+rustls
 rustup
 Rustybuzz
 safeui
