@@ -400,6 +400,7 @@ setattr
 SETFL
 Shaderiv
 sharedfontique
+sharedstring
 sharedvector
 shiki
 singlefile

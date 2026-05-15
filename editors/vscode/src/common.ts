@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore codespaces
+// cSpell: ignore codespaces aboutslint cmakelists datepickerpopup gridbox standardlistview standardtableview timerpickerpopup
 
 // This file is common code shared by both vscode plugin entry points
 

@@ -1,4 +1,4 @@
-<!-- cSpell: ignore frontends -->
+<!-- cSpell: ignore frontends gitk
 # Slint development guide
 
 The build instructions are in the [building.md](./building.md) file.

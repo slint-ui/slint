@@ -1185,10 +1185,10 @@ pub use weak_handle::*;
 ///
 /// This trait is implemented by the [generated component](index.html#generated-components)
 /// Adds the specified function to an internal queue, notifies the event loop to wake up.
-/// Once woken up, any queued up functors will be invoked.
+/// Once woken up, any queued up functions will be invoked.
 ///
 /// This function is thread-safe and can be called from any thread, including the one
-/// running the event loop. The provided functors will only be invoked from the thread
+/// running the event loop. The provided functions will only be invoked from the thread
 /// that started the event loop.
 ///
 /// You can use this to set properties or use any other Slint APIs from other threads,

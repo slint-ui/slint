@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore backtab
+// cSpell: ignore backtab componentrc datastructure subelements unmaximized unminimized
 
 #![warn(missing_docs)]
 //! Exposed Window API
