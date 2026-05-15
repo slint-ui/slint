@@ -150,6 +150,12 @@ bevy_examples:
  - 'examples/bevy/**'
  - *ci_config
 
+slint_sc:
+ - 'internal/compiler/**'
+ - 'api/slint-sc/**'
+ - 'tools/compiler/**'
+ - *ci_config
+
 rust_files:
  - '**/*.rs'
  - '**/Cargo.toml'
