@@ -27,6 +27,7 @@ mod uv {
     type UvPrepareStartFn = unsafe extern "C" fn(*mut u8, unsafe extern "C" fn(*mut u8)) -> c_int;
     type UvPrepareStopFn = unsafe extern "C" fn(*mut u8) -> c_int;
     type UvCloseFn = unsafe extern "C" fn(*mut u8, Option<unsafe extern "C" fn(*mut u8)>);
+    type UvUpdateTimeFn = unsafe extern "C" fn(*mut napi::sys::uv_loop_s);
 
     /// Resolved libuv function pointers and loop handle.
     /// Valid for the process lifetime (Node.js owns the loop).
@@ -38,6 +39,7 @@ mod uv {
         prepare_start: UvPrepareStartFn,
         prepare_stop: UvPrepareStopFn,
         uv_close: UvCloseFn,
+        update_time: UvUpdateTimeFn,
         uv_loop: *mut napi::sys::uv_loop_s,
         prepare_layout: std::alloc::Layout,
     }
@@ -57,6 +59,7 @@ mod uv {
             let prepare_start = *unsafe { lib.get::<UvPrepareStartFn>(b"uv_prepare_start").ok()? };
             let prepare_stop = *unsafe { lib.get::<UvPrepareStopFn>(b"uv_prepare_stop").ok()? };
             let uv_close = *unsafe { lib.get::<UvCloseFn>(b"uv_close").ok()? };
+            let update_time = *unsafe { lib.get::<UvUpdateTimeFn>(b"uv_update_time").ok()? };
 
             let uv_loop = env.get_uv_event_loop().ok()?;
             if uv_loop.is_null() {
@@ -81,6 +84,7 @@ mod uv {
                 prepare_start,
                 prepare_stop,
                 uv_close,
+                update_time,
                 uv_loop,
                 prepare_layout,
             })
@@ -96,6 +100,12 @@ mod uv {
         pub(super) fn backend_timeout_ms(&self) -> c_int {
             // SAFETY: same as backend_fd.
             unsafe { (self.backend_timeout)(self.uv_loop) }
+        }
+
+        /// Refresh libuv's cached clock so `backend_timeout_ms` returns
+        /// an up-to-date value after blocking in `process_events`.
+        pub(super) fn update_time(&self) {
+            unsafe { (self.update_time)(self.uv_loop) }
         }
     }
 
@@ -148,6 +158,11 @@ mod uv {
         /// Milliseconds until the next libuv timer, or -1 if none.
         pub(super) fn backend_timeout_ms(&self) -> std::os::raw::c_int {
             self.fns.backend_timeout_ms()
+        }
+
+        /// Refresh libuv's cached clock.
+        pub(super) fn update_time(&self) {
+            self.fns.update_time()
         }
 
         /// Stop the prepare handle.
@@ -310,6 +325,7 @@ mod platform {
                 Ok(ProcessEventsResult::Continue) => {}
             }
 
+            state.prepare_handle.update_time();
             if state.fd_ready.replace(false) || uv_timeout == 0 {
                 return ProcessEventsResult::Continue;
             }
