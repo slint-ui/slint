@@ -21,17 +21,11 @@ pub struct AppHandler {
 
 impl AppHandler {
     pub fn new() -> Self {
-        #[cfg_attr(
-            any(target_arch = "wasm32", not(feature = "open_meteo")),
-            allow(unused_mut)
-        )]
+        #[cfg_attr(any(target_arch = "wasm32", not(feature = "open_meteo")), allow(unused_mut))]
         #[allow(unused_assignments)]
         let mut support_add_city = false;
 
-        #[cfg_attr(
-            any(target_arch = "wasm32", not(feature = "open_meteo")),
-            allow(unused_mut)
-        )]
+        #[cfg_attr(any(target_arch = "wasm32", not(feature = "open_meteo")), allow(unused_mut))]
         #[allow(unused_assignments)]
         let mut data_controller_opt: Option<WeatherControllerPointer> = None;
 

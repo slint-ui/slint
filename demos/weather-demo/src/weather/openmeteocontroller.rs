@@ -254,8 +254,7 @@ impl OpenMeteoController {
 
             for (i, date_str) in daily.time.iter().enumerate() {
                 let day_name = if let Ok(date) = NaiveDate::parse_from_str(date_str, "%Y-%m-%d") {
-                    let datetime: DateTime<Utc> =
-                        date.and_hms_opt(0, 0, 0).unwrap().and_utc();
+                    let datetime: DateTime<Utc> = date.and_hms_opt(0, 0, 0).unwrap().and_utc();
                     get_day_from_datetime(datetime)
                 } else {
                     date_str.clone()
@@ -288,10 +287,8 @@ impl OpenMeteoController {
                     uv_index: daily.uv_index_max[i],
                 };
 
-                forecast_weather_info.push(ForecastWeatherData {
-                    day_name,
-                    weather_data: day_weather_info,
-                });
+                forecast_weather_info
+                    .push(ForecastWeatherData { day_name, weather_data: day_weather_info });
             }
         }
 
@@ -314,7 +311,9 @@ impl OpenMeteoController {
         match serde_json::from_str::<Vec<CityWeatherData>>(json_data) {
             Ok(data) => data
                 .into_iter()
-                .map(|c| WeatherClient::new(c.city_data.lat, c.city_data.lon, &c.city_data.city_name))
+                .map(|c| {
+                    WeatherClient::new(c.city_data.lat, c.city_data.lon, &c.city_data.city_name)
+                })
                 .collect(),
             Err(e) => {
                 log::warn!("Cannot parse default city list: {e}");
@@ -392,7 +391,10 @@ impl WeatherController for OpenMeteoController {
             for (client, result) in city_clients.iter_mut().zip(results) {
                 match result {
                     Ok(data) => client.weather_data = Some(data),
-                    Err(e) => { error_count += 1; last_error = Some(e); }
+                    Err(e) => {
+                        error_count += 1;
+                        last_error = Some(e);
+                    }
                 }
             }
             log::debug!("Refreshing weather finished!");
