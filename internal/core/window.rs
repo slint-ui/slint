@@ -357,12 +357,12 @@ impl WindowProperties<'_> {
 
     /// true if the window is in a maximized state, otherwise false
     pub fn is_maximized(&self) -> bool {
-        self.0.maximized.get()
+        self.0.is_maximized()
     }
 
     /// true if the window is in a minimized state, otherwise false
     pub fn is_minimized(&self) -> bool {
-        self.0.minimized.get()
+        self.0.is_minimized()
     }
 }
 
@@ -487,8 +487,6 @@ pub struct WindowInner {
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<crate::input::TextCursorBlinker>>,
 
     pinned_fields: Pin<Box<WindowPinnedFields>>,
-    maximized: Cell<bool>,
-    minimized: Cell<bool>,
 
     menubar: RefCell<Option<vtable::VWeak<MenuVTable>>>,
 
@@ -550,8 +548,6 @@ impl WindowInner {
                     "i_slint_core::Window::menubar_shortcuts",
                 ),
             }),
-            maximized: Cell::new(false),
-            minimized: Cell::new(false),
             focus_item: Default::default(),
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),
@@ -1872,7 +1868,7 @@ impl WindowInner {
         }
     }
 
-    /// Returns if the window is currently maximized
+    /// Returns if the window is currently in fullscreen mode
     pub fn is_fullscreen(&self) -> bool {
         if let Some(window_item) = self.window_item() {
             window_item.as_pin_ref().full_screen()
@@ -1891,24 +1887,28 @@ impl WindowInner {
 
     /// Returns if the window is currently maximized
     pub fn is_maximized(&self) -> bool {
-        self.maximized.get()
+        self.window_item().is_some_and(|window_item| window_item.as_pin_ref().maximized())
     }
 
     /// Set the window as maximized or unmaximized
     pub fn set_maximized(&self, maximized: bool) {
-        self.maximized.set(maximized);
-        self.update_window_properties()
+        if let Some(window_item) = self.window_item() {
+            window_item.as_pin_ref().maximized.set(maximized);
+            self.update_window_properties()
+        }
     }
 
     /// Returns if the window is currently minimized
     pub fn is_minimized(&self) -> bool {
-        self.minimized.get()
+        self.window_item().is_some_and(|window_item| window_item.as_pin_ref().minimized())
     }
 
     /// Set the window as minimized or unminimized
     pub fn set_minimized(&self, minimized: bool) {
-        self.minimized.set(minimized);
-        self.update_window_properties()
+        if let Some(window_item) = self.window_item() {
+            window_item.as_pin_ref().minimized.set(minimized);
+            self.update_window_properties()
+        }
     }
 
     /// Returns the (context global) xdg app id for use with wayland and x11.

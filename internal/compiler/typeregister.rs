@@ -665,17 +665,6 @@ impl TypeRegister {
         register.types.remove("FlexboxLayoutWrap").unwrap();
         register.types.remove("FlexboxLayoutAlignSelf").unwrap();
 
-        match register.elements.get_mut("Window").unwrap() {
-            ElementType::Builtin(b) => {
-                Rc::get_mut(b)
-                    .expect("Should not be shared at this point")
-                    .properties
-                    .remove("hide")
-                    .unwrap();
-            }
-            _ => unreachable!(),
-        }
-
         Rc::new(RefCell::new(register))
     }
 

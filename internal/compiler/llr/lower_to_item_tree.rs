@@ -80,7 +80,7 @@ pub fn lower_to_item_tree(
             &state,
         );
         let close = sc.mapping.map_property_reference(
-            &NamedReference::new(&c.root_element, SmolStr::new_static("close")),
+            &NamedReference::new(&c.root_element, SmolStr::new_static("close-popup")),
             &state,
         );
         let entries = sc.mapping.map_property_reference(
