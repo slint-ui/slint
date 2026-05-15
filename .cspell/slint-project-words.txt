@@ -459,7 +459,6 @@ qtbase
 qtsvg
 qttypes
 qtwayland
-quartiary
 Quis
 qwidget
 QXGA
