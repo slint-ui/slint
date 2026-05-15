@@ -8,11 +8,15 @@ packages:
   - tools/slintpad
   - demos/printerdemo/node
   - demos/home-automation/node
+  - demos/energy-monitor
+  - demos/weather-demo
   - examples/imagefilter/node
   - examples/carousel/node
   - examples/todo/node
   - examples/dnd-kanban
+  - examples/maps
   - examples/memory
+  - examples/slide_puzzle
   - examples/system_tray
   - docs/astro
   - docs/common

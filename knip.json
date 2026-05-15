@@ -62,12 +62,16 @@
       ]
     },
     "demos/printerdemo/node": { "ignoreBinaries": ["compile"] },
+    "demos/energy-monitor": { "ignoreBinaries": ["compile"] },
     "demos/home-automation/node": { "ignoreBinaries": ["compile"] },
+    "demos/weather-demo": { "ignoreBinaries": ["compile"] },
     "examples/imagefilter/node": { "ignoreBinaries": ["compile"] },
     "examples/carousel/node": { "ignoreBinaries": ["compile"] },
     "examples/todo/node": { "ignoreBinaries": ["compile"] },
     "examples/dnd-kanban": { "ignoreBinaries": ["compile"] },
+    "examples/maps": { "ignoreBinaries": ["compile"] },
     "examples/memory": { "ignoreBinaries": ["compile"] },
+    "examples/slide_puzzle": { "ignoreBinaries": ["compile"] },
     "examples/system_tray": { "ignoreBinaries": ["compile"] },
     "docs/common": {
       "ignoreFiles": [

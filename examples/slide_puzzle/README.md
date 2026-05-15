@@ -6,9 +6,9 @@ https://flutter.github.io/samples/slide_puzzle
 
 This will allow to compare Slint and Flutter.
 
-| `.slint` Design | Rust Source | Online wasm Preview | Open in SlintPad |
-| --- | --- | --- | --- |
-| [`slide_puzzle.slint`](./slide_puzzle.slint) | [`main.rs`](./main.rs) | [Online simulation](https://slint.dev/snapshots/master/demos/slide_puzzle/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/slide_puzzle/slide_puzzle.slint) |
+| `.slint` Design | Rust Source | Node Source | Online wasm Preview | Open in SlintPad |
+| --- | --- | --- | --- | --- |
+| [`slide_puzzle.slint`](./slide_puzzle.slint) | [`main.rs`](./main.rs) | [`main.js`](./main.js) | [Online simulation](https://slint.dev/snapshots/master/demos/slide_puzzle/) | [Preview in Online Code Editor](https://slint.dev/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/slide_puzzle/slide_puzzle.slint) |
 
 ![Screenshot of the Slide Puzzle](https://slint.dev/resources/puzzle_screenshot.png "Slide Puzzle")
 

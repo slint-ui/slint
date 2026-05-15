@@ -24,11 +24,12 @@ env_logger = "0.11.3"
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_logger = "0.14.1"
-openssl = { version = "0.10", features = ["vendored"], optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-openweather_sdk = { version = "0.1.8", optional = true }
-tokio = "1.37.0"
+futures = { version = "0.3", optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
+urlencoding = { version = "2", optional = true }
+tokio = { version = "1.37.0", features = ["rt-multi-thread"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_log = "1.0"
@@ -40,8 +41,8 @@ wasm-bindgen-futures = "0.4"
 slint-build = { path = "../../api/rs/build" }
 
 [features]
-default = ["chrono"]
-open_weather = ["dep:openweather_sdk", "dep:openssl"]
+default = ["chrono", "open_meteo"]
+open_meteo = ["dep:futures", "dep:reqwest", "dep:urlencoding"]
 
 # Android-activity / wasm support
 [lib]
