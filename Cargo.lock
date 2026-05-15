@@ -10805,6 +10805,7 @@ dependencies = [
  "css-color-parser2",
  "i-slint-backend-selector",
  "i-slint-backend-testing",
+ "i-slint-backend-winit",
  "i-slint-common",
  "i-slint-compiler",
  "i-slint-core",

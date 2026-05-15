@@ -104,6 +104,7 @@ jobs:
         with:
           name: "Node.js Linux"
           os: "ubuntu-22.04"
+          node_slint: true
 
     node_test_macos:
         needs: files-changed

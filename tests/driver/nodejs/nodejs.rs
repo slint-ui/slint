@@ -18,6 +18,27 @@ fn check_output(o: std::process::Output) {
     }
 }
 
+/// Returns the path to the JS runtime binary.
+///
+/// Search order:
+///   1. `SLINT_NODE_RUNNER` env var — explicit runner (`node`, `node-slint`,
+///      or a path to any compatible binary)
+///   2. `node-slint` on PATH
+///   3. `node`
+fn node_command() -> &'static str {
+    static CMD: LazyLock<&str> = LazyLock::new(|| {
+        if let Ok(runner) = std::env::var("SLINT_NODE_RUNNER") {
+            return Box::leak(runner.into_boxed_str());
+        }
+        if which::which("node-slint").is_ok() {
+            "node-slint"
+        } else {
+            "node"
+        }
+    });
+    *CMD
+}
+
 static NODE_API_JS_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
     let node_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../api/node");
 
@@ -86,17 +107,18 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         write!(main_js, "{{\n    {}\n}}\n", x.source.replace("\n", "\n    "))?;
     }
 
-    let output = std::process::Command::new("node")
+    let cmd_name = node_command();
+    let output = std::process::Command::new(cmd_name)
         .arg(dir.path().join("main.js"))
         .current_dir(dir.path())
         .env("SLINT_INCLUDE_PATH", std::env::join_paths(include_paths).unwrap())
         .env("SLINT_LIBRARY_PATH", std::env::join_paths(library_paths).unwrap())
-        .env("SLINT_SCALE_FACTOR", "1") // We don't have a testing backend, but we can try to force a SF1 as the tests expect.
+        .env("SLINT_SCALE_FACTOR", "1")
         .env("SLINT_ENABLE_EXPERIMENTAL_FEATURES", "1")
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .output()
-        .map_err(|err| format!("Could not launch node main.js: {err}"))?;
+        .map_err(|err| format!("Could not launch {cmd_name} main.js: {err}"))?;
 
     if !output.status.success() {
         print!("{}", String::from_utf8_lossy(output.stdout.as_ref()));

@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 mod interpreter;
+#[cfg(unix)]
+mod native_event_loop;
 mod weak_ref;
 use std::path::PathBuf;
 

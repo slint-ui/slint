@@ -49,6 +49,90 @@ without pre-built binaries, you need to install additional software:
   * Depending on your operating system, you may need additional components. For a list of required system libraries,
     see <https://github.com/slint-ui/slint/blob/master/docs/building.md#prerequisites>.
 
+## Event Loop Integration
+
+Node.js and Slint both run their own event loops: Node.js uses libuv for I/O
+and timers, while Slint uses winit for windowing and input. The `slint-ui`
+package bridges these two loops automatically, but the quality of integration
+depends on your platform and runner.
+
+### Plain `node` (Default)
+
+When you run `node my-app.js`, the NAPI addon integrates with libuv directly:
+
+- **Linux and macOS**: The addon watches libuv's backend file descriptor and
+  pumps Slint events via a `uv_prepare` callback. This achieves zero idle CPU
+  and near-instant response to both UI and JavaScript events.
+- **Windows**: libuv uses IOCP, which doesn't expose a pollable file descriptor.
+  The addon falls back to polling at 16 ms intervals, which consumes a small
+  amount of CPU when idle.
+
+### `node-slint` Runner
+
+`node-slint` is an alternative runner that embeds Node.js (via libnode) inside
+a Slint-native binary. Winit owns the event loop and ticks libuv on every
+iteration via a `CustomApplicationHandler`. This provides the best possible
+integration on all platforms — zero idle CPU, zero-latency event delivery, and
+correct timer interleaving between JavaScript and Slint.
+
+Use `node-slint` as a drop-in replacement for `node`:
+
+```sh
+node-slint my-app.js
+```
+
+Your application code doesn't need any changes. The `slint-ui` package detects
+the `node-slint` runner automatically and uses the native event loop path.
+
+#### Building `node-slint`
+
+`node-slint` requires `libnode`, which isn't distributed as a prebuilt library.
+Build it from source:
+
+```sh
+cd api/node/node-slint
+./build-libnode.sh --prefix ./libnode-install --jobs 20
+```
+
+Then build the `node-slint` binary:
+
+```sh
+cmake -B build -DNODE_DIR="$PWD/libnode-install"
+cmake --build build
+```
+
+The CMake build searches for Node.js headers and libraries in this order:
+1. `NODE_DIR` variable (CMake or environment) — the path you built above
+2. `pkg-config libnode` — for system-installed packages
+3. `ExternalProject_Add` — downloads and builds from source automatically
+
+#### Running the Test Suite with `node-slint`
+
+Set the `SLINT_NODE_RUNNER` environment variable to choose the runner for the
+test driver:
+
+```sh
+# Run with plain node (default)
+SLINT_NODE_RUNNER=node cargo test -p test-driver-nodejs
+
+# Run with node-slint
+SLINT_NODE_RUNNER=node-slint cargo test -p test-driver-nodejs
+```
+
+### When to Use Which
+
+| | `node` (default) | `node-slint` |
+|---|---|---|
+| Installation | `npm install slint-ui` | Build libnode + `node-slint` binary |
+| Idle CPU (Linux/macOS) | Zero | Zero |
+| Idle CPU (Windows) | ~60 wakes/sec | Zero |
+| Timer precision | Good (< 1 ms) | Native |
+| Requires libnode | No | Yes |
+
+For most development, plain `node` works well. Use `node-slint` when you
+need zero-latency integration on Windows or when building a production
+application that benefits from native timer precision.
+
 ## Getting Started (Node.js)
 
 1. In a new directory, create a new Node.js project by calling [`npm init`](https://docs.npmjs.com/cli/v10/commands/npm-init).

@@ -47,7 +47,8 @@ napi = { version = "3", default-features = false, features = ["napi8"] }
 napi-derive = "3"
 i-slint-compiler = { workspace = true, features = ["default"] }
 i-slint-core = { workspace = true, features = ["default", "gettext-rs"] }
-i-slint-backend-selector = { workspace = true }
+i-slint-backend-selector = { workspace = true, features = ["unstable-winit-030"] }
+i-slint-backend-winit = { workspace = true }
 slint-interpreter = { workspace = true, default-features = false, features = ["display-diagnostics", "internal", "compat-1-2"] }
 spin_on = { workspace = true }
 css-color-parser2 = { workspace = true }

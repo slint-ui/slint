@@ -14,6 +14,11 @@ on:
             description: 'Operating system to run on'
             required: true
             type: string
+        node_slint:
+            description: 'Also run tests with the node-slint runner (builds libnode from source)'
+            required: false
+            type: boolean
+            default: false
 
 env:
     RUSTFLAGS: -D warnings
@@ -57,6 +62,38 @@ jobs:
               # Release is only applied to the harness that drives the node.js invocations, but needed
               # to avoid crashing on Windows with what looks like an out of stack exception.
               run: cargo test --verbose --release --all-features -p test-driver-nodejs
+              env:
+                SLINT_NODE_RUNNER: node
+
+            # --- node-slint runner (optional) ------------------------------------
+            - name: Cache libnode
+              if: inputs.node_slint
+              id: cache-libnode
+              uses: actions/cache@v4
+              with:
+                path: api/node/node-slint/libnode-install
+                key: libnode-${{ inputs.os }}-v22.22.2
+            - name: Build libnode
+              if: inputs.node_slint && steps.cache-libnode.outputs.cache-hit != 'true'
+              working-directory: api/node/node-slint
+              run: ./build-libnode.sh --prefix "$PWD/libnode-install"
+            - name: Build node-slint
+              if: inputs.node_slint
+              working-directory: api/node/node-slint
+              run: |
+                cmake -B build -DNODE_DIR="$PWD/libnode-install"
+                cmake --build build
+            - name: Add node-slint to PATH
+              if: inputs.node_slint
+              run: |
+                echo "${{ github.workspace }}/api/node/node-slint/build" >> "$GITHUB_PATH"
+                echo "LD_LIBRARY_PATH=${{ github.workspace }}/api/node/node-slint/libnode-install/lib" >> "$GITHUB_ENV"
+            - name: Run test-driver-nodejs (node-slint)
+              if: inputs.node_slint
+              run: cargo test --verbose --release --all-features -p test-driver-nodejs
+              env:
+                SLINT_NODE_RUNNER: node-slint
+
             - name: Check image-filter example
               working-directory: examples/imagefilter/node
               run: pnpm check

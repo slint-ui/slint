@@ -725,7 +725,13 @@ class EventLoop {
             });
         }
 
-        if (napi.hasIntegratedEventLoop()) {
+        if ((globalThis as any).__slint_native_loop) {
+            // Running under node-slint: winit owns the event loop and ticks
+            // libuv via CustomApplicationHandler::about_to_wait().
+            napi.runEventLoopNative();
+            this.#resolve();
+            return Promise.resolve();
+        } else if (napi.hasIntegratedEventLoop()) {
             try {
                 // Register a uv_prepare handle that pumps Slint events
                 // on every libuv iteration.  The callback fires when the
@@ -788,13 +794,17 @@ var globalEventLoop: EventLoop = new EventLoop();
  *                          on its own under the default, so set this to `false` only when an
  *                          application must run without any visible UI. (default true).
  *
- * On Linux and macOS with Node.js,
+ * When running under the `node-slint` runner, winit owns the event loop and
+ * libuv is ticked natively on each iteration. This provides proper event loop
+ * integration with zero idle CPU usage on all platforms.
+ *
+ * On Linux and macOS with plain `node`,
  * Slint uses an efficient event loop integration that watches libuv's backend
  * file descriptor from a background thread.
  * This provides zero idle CPU usage and near-instant response to both UI and
  * JavaScript events.
  *
- * On Windows and other runtimes (Deno),
+ * On Windows with plain `node`,
  * the integration falls back to polling at 16 millisecond intervals,
  * which consumes a small amount of CPU when idle.
  */
