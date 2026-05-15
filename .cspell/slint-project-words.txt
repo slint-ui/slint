@@ -31,7 +31,6 @@ Baselining
 Belappetit
 Blit
 Boing
-Bubuntu
 CDPATH
 CFCG
 CFLAGS
@@ -69,7 +68,6 @@ Datas
 Datelike
 Deque
 Dexer
-Digitall
 Doctests
 Dont
 Dosis
@@ -145,7 +143,6 @@ HVAC
 Hani
 Hankaku
 Headsethook
-Hellow
 Henkan
 Hira
 Hotspot
@@ -248,7 +245,6 @@ Pictsymbols
 Plouf
 Preedit
 Programiv
-Propert
 Pseudonymized
 Punct
 QTBUG
@@ -268,7 +264,6 @@ RUSTUP
 Raleway
 Randriana
 Rathmann
-Relaod
 Renderable
 Resizer
 Rgbx
@@ -313,7 +308,6 @@ Storei
 Streamable
 Strikethrough
 Strikethroughs
-Strin
 Structalias
 Subview
 Superview
@@ -359,7 +353,6 @@ Usecases
 Uyvy
 VGWGPU
 VSCREENINFO
-Vermillion
 Vyuy
 WAWA
 WNDCLASS
@@ -373,8 +366,6 @@ Waveshare
 Werror
 Wextra
 Wgsl
-Widtht
-Wohoo
 Worktree
 XBUTTON
 XBUTTONDOWN
@@ -418,7 +409,6 @@ amdgpu
 amet
 androideabi
 androidwindowadapter
-anunimate
 appkit
 appmain
 appsink
@@ -482,7 +472,6 @@ cfgs
 charmap
 checkboxtile
 checkstate
-childrens
 chipset
 chiptrack
 chrono
@@ -585,7 +574,6 @@ doesnotexist
 dolore
 dontcrash
 dontexist
-dowcast
 downcasted
 dpkg
 dragarea
@@ -709,7 +697,6 @@ getpid
 getrandom
 gitk
 glcontext
-gloabls
 globalfun
 globallogic
 glsink
@@ -808,9 +795,7 @@ labore
 laboris
 laborum
 langtype
-laptopa
 layoutinfo
-lefti
 lerp
 libasound
 libav
@@ -868,12 +853,10 @@ lumino
 lunwind
 luts
 machdep
-maching
 macrotask
 madsmtm
 mainwidget
 mainwindow
-manipulationsand
 materialui
 matplot
 matplotlib
@@ -925,7 +908,7 @@ myimage
 mylibrary
 mymodule
 mypy
-nalge
+nalgebra
 namedreference
 namedtuple
 namedview
@@ -989,7 +972,6 @@ openweathercontroller
 opsom
 opsz
 optim
-orld
 othercomp
 pagecheckerboard
 pagecolor
@@ -1082,7 +1064,6 @@ resampler
 rescope
 respawn
 resvg
-rewquest
 rfind
 rgbpix
 ringbuf
@@ -1169,7 +1150,6 @@ structty
 structurize
 structval
 strvalue
-stuct
 styledprop
 styledtext
 styledtextprop
@@ -1255,7 +1235,6 @@ unraisable
 unsel
 unsendable
 unwatch
-upate
 upcasting
 updt
 uppercased

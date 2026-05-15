@@ -35,7 +35,7 @@ export component BooleanWidget inherits GridLayout {
             toggled() => {
                 root.property-value.value-bool = self.checked;
                 // This needs o happen first, or the PropertyValueWidget will not
-                // trigger anything in upate-display-string-impl().
+                // trigger anything in update-display-string-impl().
                 root.update-display-string(self.display-string());
                 root.set-bool-binding(self.checked);
             }

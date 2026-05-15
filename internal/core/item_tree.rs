@@ -1512,7 +1512,7 @@ mod tests {
 
     struct TestItemTree {
         parent_component: Option<ItemTreeRc>,
-        /// First item is always the root, the next ones are the childrens and subchildren and so on
+        /// First item is always the root, the next ones are the children and subchildren and so on
         item_tree: Vec<ItemTreeNode>,
         /// Contains the trees of the dynamic components
         subtrees: std::cell::RefCell<Vec<Vec<vtable::VRc<ItemTreeVTable, TestItemTree>>>>,

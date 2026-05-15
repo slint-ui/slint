@@ -2219,7 +2219,7 @@ export component Tester {{
     }
 
     #[test]
-    fn test_table_row_to_stuct() {
+    fn test_table_row_to_struct() {
         fn bool_pv(value: bool, accessor_path: &str) -> PropertyValue {
             PropertyValue {
                 accessor_path: SharedString::from(accessor_path),

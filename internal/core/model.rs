@@ -178,7 +178,7 @@ pub trait Model {
     /// ```
     ///
     /// ## Troubleshooting
-    /// A common reason why the dowcast fails at run-time is because of a type-mismatch
+    /// A common reason why the downcast fails at run-time is because of a type-mismatch
     /// between the model created and the model downcasted. To debug this at compile time,
     /// try matching the model type used for the downcast explicitly at model creation time.
     /// In the following example, the downcast fails at run-time:

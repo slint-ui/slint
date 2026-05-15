@@ -71,7 +71,7 @@ component IncorrectPropertyType {
     }
 }
 
-export component ChildDoesNotImplementInterfacePropert2 uses { ValidInterface from impl } {
+export component ChildDoesNotImplementInterfaceProperty2 uses { ValidInterface from impl } {
 //                                                                                 >  <error{'impl' does not implement 'value' from 'ValidInterface' - expected type: 'int'}
     impl := IncorrectPropertyType { }
 }

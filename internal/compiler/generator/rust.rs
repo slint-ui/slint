@@ -566,7 +566,7 @@ fn generate_shared_globals(
             let shared_globals_type_name = if let Some(module) = library_info.module {
                 let package = ident(&library_info.package);
                 let module = ident(&module);
-                //(quote!(#shared_gloabls_var_name),quote!(let #shared_globals_var_name = #package::#module::#shared_globals_type_name::new(root_item_tree_weak.clone());))
+                //(quote!(#shared_globals_var_name),quote!(let #shared_globals_var_name = #package::#module::#shared_globals_type_name::new(root_item_tree_weak.clone());))
                 quote!(#package::#module::#struct_name)
             } else {
                 let package = ident(&library_info.package);
