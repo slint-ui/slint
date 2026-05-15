@@ -6,6 +6,7 @@ use super::{
 };
 use crate::Coord;
 use crate::data_transfer::DataTransfer;
+use crate::graphics::Image;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
     KeyEventResult, MouseEvent,
@@ -32,6 +33,9 @@ pub type DropEventArg = (DropEvent,);
 pub struct DragArea {
     pub enabled: Property<bool>,
     pub data: Property<DataTransfer>,
+    pub drag_image: Property<Image>,
+    pub drag_image_offset_x: Property<i32>,
+    pub drag_image_offset_y: Property<i32>,
     pressed: Cell<bool>,
     pressed_position: Cell<LogicalPoint>,
     pub cached_rendering_data: CachedRenderingData,

@@ -613,7 +613,7 @@ impl SoftwareRenderer {
         let window_adapter = renderer.window_adapter.clone();
 
         window_inner
-            .draw_contents(|components| {
+            .draw_contents(|components, post_render| {
                 let logical_size = (size.cast() / factor).cast();
 
                 match self.repaint_buffer_type.get() {
@@ -686,6 +686,12 @@ impl SoftwareRenderer {
                             &window_adapter,
                         );
                     }
+                }
+
+                if partial {
+                    post_render(&mut renderer);
+                } else {
+                    post_render(&mut renderer.actual_renderer);
                 }
 
                 self.measure_frame_rendered(&mut renderer);
@@ -1408,7 +1414,7 @@ fn prepare_scene(
     let window_adapter = renderer.window_adapter.clone();
 
     let mut dirty_region = PhysicalRegion::default();
-    window.draw_contents(|components| {
+    window.draw_contents(|components, post_render| {
         let logical_size = (size.cast() / factor).cast();
 
         match software_renderer.repaint_buffer_type.get() {
@@ -1466,6 +1472,12 @@ fn prepare_scene(
                     &window_adapter,
                 );
             }
+        }
+
+        if partial {
+            post_render(&mut renderer);
+        } else {
+            post_render(&mut renderer.actual_renderer);
         }
     });
 
