@@ -317,9 +317,7 @@ pub fn set_window_event_hook(
     GLOBAL_CONTEXT.with(|p| match p.get() {
         Some(ctx) => {
             let mut slot = ctx.0.window_event_hook.try_borrow_mut().map_err(|_| {
-                PlatformError::Other(
-                    alloc::string::String::from("event hook is currently in use"),
-                )
+                PlatformError::Other(alloc::string::String::from("event hook is currently in use"))
             })?;
             Ok(core::mem::replace(&mut *slot, hook))
         }
