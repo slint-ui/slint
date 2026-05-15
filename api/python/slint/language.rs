@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore kwargs namedtuple
 //! This module generates Python `typing.NamedTuple` bindings for public Slint
 //! structs using the `for_each_builtin_structs` macro, reusing documentation
 //! from `builtin_structs.rs`.

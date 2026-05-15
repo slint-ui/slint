@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore Luid
 use std::{cell::Cell, rc::Rc, sync::Arc};
 
 use euclid::default::Size2D;

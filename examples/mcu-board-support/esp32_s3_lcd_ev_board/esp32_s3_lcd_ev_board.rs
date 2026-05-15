@@ -1,5 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
+// cSpell: ignore reborrow regs
 //! Board support for ESP32-S3-LCD-EV-Board with display and touch controller support.
 
 extern crate alloc;

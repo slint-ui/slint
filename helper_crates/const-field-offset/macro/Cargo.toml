@@ -1,6 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT OR Apache-2.0
 
+# cSpell: ignore memoffset
 [package]
 name = "const-field-offset-macro"
 version = "0.2.0"

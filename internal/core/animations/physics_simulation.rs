@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore signum underdamped
 //! This module contains various physics simulations which can be used as animation (internally only yet).
 //! Currently it is used in the flickable to animate the viewport position
 //!

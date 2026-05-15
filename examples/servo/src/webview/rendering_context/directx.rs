@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore comptr NTHANDLE
 use euclid::default::Size2D;
 use glow::HasContext;
 use std::cell::RefCell;

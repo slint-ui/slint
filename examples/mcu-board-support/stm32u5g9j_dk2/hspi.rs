@@ -1,6 +1,7 @@
 // Copyright © 2024 William Spinelli <174336620+williams-one@users.noreply.github.com>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore addtr adsize adwidth comandi ddtr dwidth entrambi Hspisel idtr iwidth OCTO servono Spinelli
 // from embassy/examples/stm32u5/src/bin/hspi_memory_mapped.rs
 
 use defmt::info;

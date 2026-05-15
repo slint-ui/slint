@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore hinst hprev OVERLAPPEDWINDOW WNDPROC
 #include <windows.h>
 #include "appview.h"
 #include <memory>

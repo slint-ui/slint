@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore menulayout
 //! This pass lowers the `MenuBar` and `ContextMenuArea` as well as all their contents
 //!
 //! We can't have properties of type Model because that is not binary compatible with C++,

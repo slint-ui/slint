@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore FOXFO héllo Xyzabc
 use core::cell::RefCell;
 use slint::{FilterModel, Model, SharedString};
 use std::rc::{Rc, Weak};

@@ -230,6 +230,8 @@
         "LICENSES",
         "examples/*/lang/**",
         "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "REUSE.toml",
         "**/Cargo.lock",
         "docs/common/src/utils/slint.tmLanguage.json",
         "ui-libraries/material/docs/vendor/**",

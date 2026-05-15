@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore Barramundi despawn
 use bevy::prelude::*;
 use slint::{Model, SharedString};
 

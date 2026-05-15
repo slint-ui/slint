@@ -1,6 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
+# cSpell: ignore luts tonemapping
 [package]
 name = "bevy-example"
 version = "1.17.0"

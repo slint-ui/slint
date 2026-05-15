@@ -72,7 +72,7 @@ impl ChangeTracker {
     ///
     /// Same as [`Self::init`], but the first eval function is called in a future evaluation of the event loop.
     /// This means that the change tracker will consider the value as default initialized, and the eval function will
-    /// be called the firs ttime if the initial value is not equal to the default constructed value.
+    /// be called the first time if the initial value is not equal to the default constructed value.
     pub fn init_delayed<
         Data: 'static,
         T: Default + PartialEq,

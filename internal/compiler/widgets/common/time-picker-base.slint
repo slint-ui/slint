@@ -354,7 +354,7 @@ export component TimePickerBase {
 
     property <bool> minutes-selected;
     property <bool> am-selected: true;
-    property <[int]> twelf-hour-model: [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    property <[int]> twelfth-hour-model: [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
     property <[int]> use-24-hour-format-model: [
         12,
         1,
@@ -561,6 +561,6 @@ export component TimePickerBase {
         if root.use-24-hour-format {
             return root.use-24-hour-format-model;
         }
-        root.twelf-hour-model;
+        root.twelfth-hour-model;
     }
 }

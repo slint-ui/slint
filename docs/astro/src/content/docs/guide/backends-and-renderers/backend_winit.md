@@ -1,5 +1,5 @@
 ---
-// cSpell: ignore libx libxcursor libxkbcommon
+// cSpell:ignore libx libxcursor libxkbcommon
 title: Winit Backend
 description: Winit Backend
 next: false

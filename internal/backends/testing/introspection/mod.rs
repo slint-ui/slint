@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore slotmap's
 //! Shared introspection state and logic used by both the systest (protobuf) and
 //! MCP (HTTP/JSON-RPC) transports.
 
