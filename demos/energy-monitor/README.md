@@ -6,7 +6,7 @@ This is a demonstration of the Slint toolkit. This demo can be executed on vario
 
 ## Displaying Real-Time Weather Data
 
-To showcase real-time weather data, you will need an application key from https://www.weatherapi.com/. You can inject the API key by setting the `WEATHER_API` environment variable. The geographical location for the weather data can be set using the `WEATHER_LAT` and `WEATHER_LONG` variables. By default, the location is set to Berlin.
+Real-time weather data is fetched from [Open-Meteo](https://open-meteo.com/). No API key is required. The geographical location can be set using the `WEATHER_LAT` and `WEATHER_LONG` environment variables. By default, the location is set to Berlin.
 
 ## Platform Compatibility
 
@@ -44,7 +44,7 @@ pnpm install
 pnpm start
 ```
 
-The same `WEATHER_API`, `WEATHER_LAT`, and `WEATHER_LONG` environment variables apply.
+Set `WEATHER_LAT` and `WEATHER_LONG` to change the location (defaults to Berlin).
 
 ### Web
 

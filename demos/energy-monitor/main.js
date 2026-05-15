@@ -47,31 +47,39 @@ const kioskTimer = setInterval(() => {
         current >= count - 1 ? 0 : current + 1;
 }, 4000);
 
-// --- Weather data (fetch from weatherapi.com if API key is set) ---
+// --- Weather data (fetched from Open-Meteo, no API key required) ---
 
-const WEATHER_API_KEY = process.env.WEATHER_API;
 const WEATHER_LAT = parseFloat(process.env.WEATHER_LAT) || 52.520008;
 const WEATHER_LONG = parseFloat(process.env.WEATHER_LONG) || 13.404954;
 
-function iconFromConditionCode(code) {
-    if (code === 1003) return appWindow.Images.cloudy;
-    if (code === 1006) return appWindow.Images.cloud;
+function iconFromWmo(code) {
+    if (code === 2) return appWindow.Images.cloudy;
+    if (code >= 3) return appWindow.Images.cloud;
     return appWindow.Images.sunny;
 }
 
-async function fetchWeather() {
-    if (!WEATHER_API_KEY) return;
+const wmoDescriptions = {
+    0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
+    45: "Fog", 48: "Depositing rime fog",
+    51: "Light drizzle", 53: "Moderate drizzle", 55: "Dense drizzle",
+    61: "Slight rain", 63: "Moderate rain", 65: "Heavy rain",
+    71: "Slight snowfall", 73: "Moderate snowfall", 75: "Heavy snowfall",
+    80: "Slight rain showers", 81: "Moderate rain showers",
+    95: "Thunderstorm",
+};
 
+async function fetchWeather() {
     try {
         const url =
-            `https://api.weatherapi.com/v1/forecast.json` +
-            `?key=${WEATHER_API_KEY}` +
-            `&q=${WEATHER_LAT},${WEATHER_LONG}` +
-            `&days=3`;
+            `https://api.open-meteo.com/v1/forecast` +
+            `?latitude=${WEATHER_LAT}&longitude=${WEATHER_LONG}` +
+            `&current=temperature_2m,weather_code` +
+            `&daily=temperature_2m_max,temperature_2m_min,weather_code` +
+            `&timezone=auto&forecast_days=3`;
 
         const response = await fetch(url);
         if (!response.ok) {
-            console.error(`Weather API error: ${response.status}`);
+            console.error(`Open-Meteo API error: ${response.status}`);
             return;
         }
 
@@ -79,27 +87,23 @@ async function fetchWeather() {
         const now = new Date();
 
         appWindow.WeatherAdapter.current_temperature =
-            `${Math.round(data.current.temp_c)}°`;
+            `${Math.round(data.current.temperature_2m)}°`;
         appWindow.WeatherAdapter.current_day =
             `${now.getDate()} ${monthFmt.format(now)} ${now.getFullYear()}`;
         appWindow.WeatherAdapter.current_weather_description =
-            data.current.condition.text;
+            wmoDescriptions[data.current.weather_code] ?? "Unknown";
         appWindow.WeatherAdapter.current_temperature_icon =
-            iconFromConditionCode(data.current.condition.code);
+            iconFromWmo(data.current.weather_code);
 
-        const forecasts = data.forecast.forecastday;
-        const absoluteMax = Math.round(
-            Math.max(...forecasts.map((d) => d.day.maxtemp_c)),
-        );
-        const absoluteMin = Math.round(
-            Math.min(...forecasts.map((d) => d.day.mintemp_c)),
-        );
+        const daily = data.daily;
+        const absoluteMax = Math.round(Math.max(...daily.temperature_2m_max));
+        const absoluteMin = Math.round(Math.min(...daily.temperature_2m_min));
 
-        appWindow.WeatherAdapter.week_model = forecasts.map((day) => ({
-            title: shortDayFmt.format(new Date(day.date)),
-            icon: iconFromConditionCode(day.day.condition.code),
-            max: Math.round(day.day.maxtemp_c),
-            min: Math.round(day.day.mintemp_c),
+        appWindow.WeatherAdapter.week_model = daily.time.map((date, i) => ({
+            title: shortDayFmt.format(new Date(date)),
+            icon: iconFromWmo(daily.weather_code[i]),
+            max: Math.round(daily.temperature_2m_max[i]),
+            min: Math.round(daily.temperature_2m_min[i]),
             absolute_max: absoluteMax,
             absolute_min: absoluteMin,
             unit: "°",

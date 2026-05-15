@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 const ui = slint.loadFile(new URL("ui/main.slint", import.meta.url));
 const appWindow = new ui.AppWindow();
 
-// --- Dummy weather data (used when no API key is provided) ---
+// --- Dummy weather data (provides initial city list) ---
 
 const dummyData = JSON.parse(
     readFileSync(
@@ -138,73 +138,101 @@ function updateCities(data) {
     for (let i = shared; i < items.length; i++) cityModel.push(items[i]);
 }
 
-// --- OpenWeather API (One Call 3.0) ---
+// --- Open-Meteo API (no API key required) ---
 
-const API_KEY = process.env.OPEN_WEATHER_API_KEY;
+function conditionFromWmo(code) {
+    if (code === 0 || code === 1) return "Sunny";
+    if (code === 2) return "PartiallyCloudy";
+    if (code === 3) return "Cloudy";
+    if (code === 45 || code === 48) return "Foggy";
+    if (code >= 51 && code <= 55) return "SunnyRainy";
+    if (code >= 56 && code <= 67) return "Rainy";
+    if (code >= 71 && code <= 77) return "Snowy";
+    if (code >= 80 && code <= 82) return "Rainy";
+    if (code >= 85 && code <= 86) return "Snowy";
+    if (code >= 95) return "Stormy";
+    return "Unknown";
+}
 
-function conditionFromId(id) {
-    if (id >= 200 && id < 300) return "Stormy";
-    if (id >= 300 && id < 400) return "SunnyRainy";
-    if (id >= 500 && id < 600) return "Rainy";
-    if (id >= 600 && id < 700) return "Snowy";
-    if (id >= 700 && id < 800) return "Foggy";
-    if (id === 800) return "Sunny";
-    if (id === 801) return "PartiallyCloudy";
-    if (id === 802) return "MostlyCloudy";
-    return "Cloudy";
+const wmoDescriptions = {
+    0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
+    45: "Fog", 48: "Depositing rime fog",
+    51: "Light drizzle", 53: "Moderate drizzle", 55: "Dense drizzle",
+    56: "Light freezing drizzle", 57: "Dense freezing drizzle",
+    61: "Slight rain", 63: "Moderate rain", 65: "Heavy rain",
+    66: "Light freezing rain", 67: "Heavy freezing rain",
+    71: "Slight snowfall", 73: "Moderate snowfall", 75: "Heavy snowfall",
+    77: "Snow grains",
+    80: "Slight rain showers", 81: "Moderate rain showers", 82: "Violent rain showers",
+    85: "Slight snow showers", 86: "Heavy snow showers",
+    95: "Thunderstorm", 96: "Thunderstorm with slight hail",
+    99: "Thunderstorm with heavy hail",
+};
+
+function descriptionFromWmo(code) {
+    return wmoDescriptions[code] ?? "Unknown";
 }
 
 async function fetchCityWeather(city, signal) {
     const url =
-        `https://api.openweathermap.org/data/3.0/onecall` +
-        `?lat=${city.city_data.lat}&lon=${city.city_data.lon}` +
-        `&exclude=minutely,hourly,alerts` +
-        `&units=metric&appid=${API_KEY}`;
+        `https://api.open-meteo.com/v1/forecast` +
+        `?latitude=${city.city_data.lat}&longitude=${city.city_data.lon}` +
+        `&current=temperature_2m,weather_code,uv_index` +
+        `&daily=temperature_2m_max,temperature_2m_min,weather_code,` +
+        `precipitation_probability_max,rain_sum,snowfall_sum,uv_index_max` +
+        `&hourly=temperature_2m` +
+        `&timezone=auto&forecast_days=8`;
 
     const resp = await fetch(url, { signal });
-    if (!resp.ok) throw new Error(`OpenWeather API: ${resp.status}`);
+    if (!resp.ok) throw new Error(`Open-Meteo API: ${resp.status}`);
     const data = await resp.json();
 
     const current = data.current;
-    const daily = data.daily || [];
-    const todayTemp = daily[0]?.temp;
-    const fallback = current.temp ?? 0;
+    const daily = data.daily;
+    const hourly = data.hourly.temperature_2m;
+    const fallback = current.temperature_2m ?? 0;
+
+    // Extract morning/day/evening/night temps from hourly data (hours 6, 12, 18, 0).
+    function hourlyTemp(dayIndex, hour) {
+        const i = dayIndex * 24 + hour;
+        return i < hourly.length ? hourly[i] : fallback;
+    }
 
     const currentData = {
-        condition: conditionFromId(current.weather?.[0]?.id ?? 0),
-        description: current.weather?.[0]?.description || "",
-        current_temperature: todayTemp?.day ?? fallback,
+        condition: conditionFromWmo(current.weather_code ?? 0),
+        description: descriptionFromWmo(current.weather_code ?? 0),
+        current_temperature: fallback,
         detailed_temperature: {
-            min: todayTemp?.min ?? fallback,
-            max: todayTemp?.max ?? fallback,
-            morning: todayTemp?.morn ?? fallback,
-            day: todayTemp?.day ?? fallback,
-            evening: todayTemp?.eve ?? fallback,
-            night: todayTemp?.night ?? fallback,
+            min: daily.temperature_2m_min[0] ?? fallback,
+            max: daily.temperature_2m_max[0] ?? fallback,
+            morning: hourlyTemp(0, 6),
+            day: hourlyTemp(0, 12),
+            evening: hourlyTemp(0, 18),
+            night: hourlyTemp(0, 0),
         },
         precipitation: { probability: 0, rain_volume: 0, snow_volume: 0 },
-        uv_index: current.uvi ?? 0,
+        uv_index: current.uv_index ?? 0,
     };
 
-    const forecastData = daily.map((d) => ({
+    const forecastData = daily.time.map((_, i) => ({
         weather_data: {
-            condition: conditionFromId(d.weather?.[0]?.id ?? 0),
-            description: d.weather?.[0]?.description || "",
-            current_temperature: d.temp?.day ?? 0,
+            condition: conditionFromWmo(daily.weather_code[i] ?? 0),
+            description: descriptionFromWmo(daily.weather_code[i] ?? 0),
+            current_temperature: hourlyTemp(i, 12),
             detailed_temperature: {
-                min: d.temp?.min ?? 0,
-                max: d.temp?.max ?? 0,
-                morning: d.temp?.morn ?? 0,
-                day: d.temp?.day ?? 0,
-                evening: d.temp?.eve ?? 0,
-                night: d.temp?.night ?? 0,
+                min: daily.temperature_2m_min[i] ?? 0,
+                max: daily.temperature_2m_max[i] ?? 0,
+                morning: hourlyTemp(i, 6),
+                day: hourlyTemp(i, 12),
+                evening: hourlyTemp(i, 18),
+                night: hourlyTemp(i, 0),
             },
             precipitation: {
-                probability: d.pop ?? 0,
-                rain_volume: d.rain ?? 0,
-                snow_volume: d.snow ?? 0,
+                probability: (daily.precipitation_probability_max[i] ?? 0) / 100,
+                rain_volume: daily.rain_sum[i] ?? 0,
+                snow_volume: daily.snowfall_sum[i] ?? 0,
             },
-            uv_index: d.uvi ?? 0,
+            uv_index: daily.uv_index_max[i] ?? 0,
         },
     }));
 
@@ -216,27 +244,25 @@ async function fetchCityWeather(city, signal) {
 
 async function searchLocationApi(query, signal) {
     const url =
-        `https://api.openweathermap.org/geo/1.0/direct` +
-        `?q=${encodeURIComponent(query)}&limit=5&appid=${API_KEY}`;
+        `https://geocoding-api.open-meteo.com/v1/search` +
+        `?name=${encodeURIComponent(query)}&count=5&language=en`;
     const resp = await fetch(url, { signal });
     if (!resp.ok) return [];
-    const results = await resp.json();
+    const data = await resp.json();
+    const results = data.results || [];
 
-    const unique = [];
-    for (const loc of results) {
-        const name = loc.name;
-        const country = loc.country;
-        const state = loc.state || "";
-        if (!unique.some((u) => u.name === name && u.country === country && u.state === state)) {
-            unique.push({ name, state, country, lat: loc.lat, lon: loc.lon });
-        }
-    }
-    return unique;
+    return results.map((loc) => ({
+        name: loc.name,
+        state: loc.admin1 || "",
+        country: loc.country || "",
+        lat: loc.latitude,
+        lon: loc.longitude,
+    }));
 }
 
 // --- Wire up callbacks ---
 
-appWindow.CityWeather.can_add_city = !!API_KEY;
+appWindow.CityWeather.can_add_city = true;
 
 appWindow.CityWeather.get_forecast_graph_command = forecastGraphCommand;
 
@@ -247,12 +273,10 @@ appWindow.CityWeather.refresh_all = async function () {
     refreshController = new AbortController();
     const { signal } = refreshController;
     try {
-        if (API_KEY) {
-            const refreshed = await Promise.all(
-                cities.map((c) => fetchCityWeather(c, signal).catch(() => c)),
-            );
-            if (!signal.aborted) updateCities(refreshed);
-        }
+        const refreshed = await Promise.all(
+            cities.map((c) => fetchCityWeather(c, signal).catch(() => c)),
+        );
+        if (!signal.aborted) updateCities(refreshed);
     } finally {
         appWindow.BusyLayerController.unset_busy();
     }
@@ -275,7 +299,7 @@ appWindow.CityWeather.reorder = function (from, to) {
 let searchController = null;
 
 appWindow.GeoLocation.search_location = async function (query) {
-    if (!API_KEY || !query) return;
+    if (!query) return;
     if (searchController) searchController.abort();
     searchController = new AbortController();
     const { signal } = searchController;
@@ -302,11 +326,9 @@ appWindow.GeoLocation.add_location = async function (location) {
             weather_data: null,
         };
 
-        if (API_KEY) {
-            const fetched = await fetchCityWeather(newCity);
-            cities.push(fetched);
-            cityModel.push(cityWeatherInfoFromData(fetched));
-        }
+        const fetched = await fetchCityWeather(newCity);
+        cities.push(fetched);
+        cityModel.push(cityWeatherInfoFromData(fetched));
     } catch (err) {
         console.error("Failed to add city:", err.message);
     } finally {
@@ -319,14 +341,10 @@ appWindow.GeoLocation.add_location = async function (location) {
 async function load() {
     appWindow.BusyLayerController.set_busy();
     try {
-        if (API_KEY) {
-            const refreshed = await Promise.all(
-                dummyData.map((c) => fetchCityWeather(c).catch(() => c)),
-            );
-            updateCities(refreshed);
-        } else {
-            updateCities(dummyData);
-        }
+        const refreshed = await Promise.all(
+            dummyData.map((c) => fetchCityWeather(c).catch(() => c)),
+        );
+        updateCities(refreshed);
     } finally {
         appWindow.BusyLayerController.unset_busy();
     }
