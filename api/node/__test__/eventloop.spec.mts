@@ -154,9 +154,9 @@ test.sequential("js and slint timers fire in order", async () => {
     // Both Slint and JS timers must fire, and JS timers must keep
     // their relative order.  Exact interleaving depends on OS timer
     // granularity and CI load, so we don't assert a strict sequence.
-    expect(
-        events.filter((e) => e === "slint").length,
-    ).toBeGreaterThanOrEqual(hasIntegratedEventLoop() ? 3 : 1);
+    expect(events.filter((e) => e === "slint").length).toBeGreaterThanOrEqual(
+        hasIntegratedEventLoop() ? 3 : 1,
+    );
     expect(events).toContain("js-120");
     expect(events).toContain("js-200");
     expect(events).toContain("js-280");
