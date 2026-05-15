@@ -470,11 +470,9 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             (background_rect, border_rect)
         };
 
-        if let Some(mut fill_paint) = self.brush_to_paint(
-            rect.background(),
-            original_width,
-            original_height,
-        ) {
+        if let Some(mut fill_paint) =
+            self.brush_to_paint(rect.background(), original_width, original_height)
+        {
             fill_paint.set_style(skia_safe::PaintStyle::Fill);
             if !background_rect.is_rect() {
                 fill_paint.set_anti_alias(true);
