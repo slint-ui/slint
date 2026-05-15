@@ -15,35 +15,39 @@ export component Example inherits Window {
     RadioGroup {
         x: 5px; y: 5px;
         title: "Target Platform";
-        options: [
-            { label: "Desktop", value: "desktop", enabled: true },
-            { label: "Mobile", value: "mobile", enabled: true },
-            { label: "Embedded", value: "embedded", enabled: true },
+        model: [
+            { text: "Desktop", enabled: true },
+            { text: "Mobile", enabled: true },
+            { text: "Embedded", enabled: true },
         ];
-        value: "desktop";
-        changed(value) => {
-            debug("Selected: ", value);
-        }
+        current-index: 0;
     }
 }
 ```
 </CodeSnippetMD>
 
-Use a `RadioGroup` to let the user select exactly one option from a mutually exclusive list. The `options` property takes an array of [`RadioOption`](#radiooption). Bind `value` to the selected option's `value` string, and handle updates in the `changed` callback (see the example above).
-
-## RadioOption
-
-`RadioOption` defines one entry in a `RadioGroup`.
-
-- **`label`** (`string`) - text shown next to the radio button.
-- **`value`** (`string`) - stable programmatic id used for the group `value` and in `changed(value)`.
-- **`enabled`** (`bool`) - when `false`, this specific option is visible but not selectable.
-
-```
-{ label: "Desktop", value: "desktop", enabled: true }
-```
+A group of radio buttons where the user can select exactly one option.
 
 ## Properties
+
+### current-index
+<SlintProperty propName="current-index" typeName="int" defaultValue="0" propertyVisibility="in-out">
+The index of the selected entry in `model`.
+```slint "current-index: 1;"
+RadioGroup {
+    model: [
+        { text: "Desktop", enabled: true },
+        { text: "Mobile", enabled: true },
+    ];
+    current-index: 1;
+}
+```
+</SlintProperty>
+
+### current-value
+<SlintProperty propName="current-value" typeName="string" defaultValue='""' propertyVisibility="in-out">
+The `text` of the currently selected entry.
+</SlintProperty>
 
 ### enabled
 <SlintProperty propName="enabled" typeName="bool" defaultValue="true">
@@ -55,9 +59,23 @@ When `false`, the entire group and all its radio buttons cannot be interacted wi
 Set to `true` when any radio button inside the group has keyboard focus.
 </SlintProperty>
 
-### options
-<SlintProperty propName="options" typeName="[struct]" structName="RadioOption" defaultValue="[]">
-The list of options to display. Each entry has a `label`, a stable `value`, and an `enabled` flag.
+### model
+<SlintProperty propName="model" typeName="[struct]" structName="RadioEntry" defaultValue="[]">
+The list of options to display.
+
+```slint 'model: [{ text: "Desktop", enabled: true }, { text: "Mobile", enabled: true }];'
+RadioGroup {
+    model: [
+        { text: "Desktop", enabled: true },
+        { text: "Mobile", enabled: true },
+    ];
+}
+```
+
+:::note[Note]
+When setting this property, the `RadioGroup` preserves `current-index` when possible. If the `current-index` is larger than the new model length, it is clamped to the last item in the model.
+:::
+
 </SlintProperty>
 
 ### title
@@ -65,17 +83,7 @@ The list of options to display. Each entry has a `label`, a stable `value`, and 
 An optional label rendered above the group. When empty, no title is shown.
 </SlintProperty>
 
-### value
-<SlintProperty propName="value" typeName="string" defaultValue='""' propertyVisibility="in-out">
-The `value` field of the currently selected `RadioOption`. Setting this property programmatically updates which radio button appears checked. Each option's `value` must be unique within the group.
-</SlintProperty>
-
 ### orientation
-<SlintProperty propName="orientation" typeName="enum" enumName="Orientation" defaultValue="vertical">
-Use `Orientation.vertical` (default) to stack options, or `Orientation.horizontal` for a single row—the same enum as `TabWidget` and `Slider`.
+<SlintProperty propName="orientation" typeName="enum" enumName="Orientation" defaultValue="vertical" inlineReferenceDocs={false}>
+Use `Orientation.vertical` (default) to stack options, or `Orientation.horizontal` for a single row.
 </SlintProperty>
-
-## Callbacks
-
-### changed(string)
-Invoked when the user selects a different option. The argument is the `value` of the newly selected `RadioOption`.

@@ -201,24 +201,24 @@ export component ControlsPage inherits Page {
             RadioGroup {
                 title: @tr("Vertical Orientation");
                 enabled: GallerySettings.widgets-enabled;
-                options: [
-                    { label: @tr("Portrait"), value: "portrait", enabled: true },
-                    { label: @tr("Landscape"), value: "landscape", enabled: true },
-                    { label: @tr("Auto"), value: "auto", enabled: false },
+                model: [
+                    { text: @tr("Portrait"), enabled: true },
+                    { text: @tr("Landscape"), enabled: true },
+                    { text: @tr("Auto"), enabled: false },
                 ];
-                value: "portrait";
+                current-index: 0;
             }
 
             RadioGroup {
                 title: @tr("Horizontal Orientation");
                 enabled: GallerySettings.widgets-enabled;
                 orientation: Orientation.horizontal;
-                options: [
-                    { label: @tr("Start"), value: "start", enabled: true },
-                    { label: @tr("Center"), value: "center", enabled: true },
-                    { label: @tr("End"), value: "end", enabled: true },
+                model: [
+                    { text: @tr("Start"), enabled: true },
+                    { text: @tr("Center"), enabled: true },
+                    { text: @tr("End"), enabled: true },
                 ];
-                value: "center";
+                current-index: 1;
             }
         }
     }
