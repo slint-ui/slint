@@ -11,6 +11,7 @@ pub use i_slint_core::input::TouchPhase;
 use i_slint_core::item_tree::ItemTreeVTable;
 pub use i_slint_core::lengths::LogicalPoint;
 use i_slint_core::platform::WindowEvent;
+pub use i_slint_core::window::PopupWindowLocation;
 pub use i_slint_core::window::WindowInner;
 
 /// Simulate a mouse click at `(x, y)` and release after a while at the same position
@@ -115,6 +116,18 @@ pub fn set_window_scale_factor<
     factor: f32,
 ) {
     component.window().dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor: factor });
+}
+
+/// Override the locale used for decimal separator detection in the given component's window.
+pub fn set_locale<
+    X: vtable::HasStaticVTable<ItemTreeVTable>,
+    Component: Into<vtable::VRc<ItemTreeVTable, X>> + ComponentHandle,
+>(
+    component: &Component,
+    locale: &str,
+) {
+    let inner = WindowInner::from_pub(component.window());
+    inner.context().set_locale(locale);
 }
 
 /// Send a platform pinch gesture event to the component's window.

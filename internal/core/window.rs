@@ -381,6 +381,27 @@ impl crate::properties::PropertyDirtyHandler for WindowPropertiesTracker {
     }
 }
 
+pub(crate) struct PopupWindowPropertiesTracker {
+    /// Weak reference to the parent window that owns the active_popups list
+    parent_window_adapter_weak: Weak<dyn WindowAdapter>,
+    /// ID of the popup this tracker belongs to, used to re-evaluate after notification
+    popup_id: NonZeroU32,
+}
+
+impl crate::properties::PropertyDirtyHandler for PopupWindowPropertiesTracker {
+    fn notify(self: Pin<&Self>) {
+        let parent = self.parent_window_adapter_weak.clone();
+        let popup_id = self.popup_id;
+        // Use a timer here, so if we change multiple properties at the same time not multiple notifications are send
+        // This timer will delay for the next evaluation
+        crate::timers::Timer::single_shot(Default::default(), move || {
+            if let Some(parent_adapter) = parent.upgrade() {
+                WindowInner::from_pub(parent_adapter.window()).update_popup_properties(popup_id);
+            }
+        });
+    }
+}
+
 struct WindowRedrawTracker {
     window_adapter_weak: Weak<dyn WindowAdapter>,
 }
@@ -394,7 +415,6 @@ impl crate::properties::PropertyDirtyHandler for WindowRedrawTracker {
 }
 
 /// This enum describes the different ways a popup can be rendered by the back-end.
-#[derive(Clone)]
 pub enum PopupWindowLocation {
     /// The popup is rendered in its own top-level window that is know to the windowing system.
     TopLevel(Rc<dyn WindowAdapter>),
@@ -404,7 +424,6 @@ pub enum PopupWindowLocation {
 
 /// This structure defines a graphical element that is designed to pop up from the surrounding
 /// UI content, for example to show a context menu.
-#[derive(Clone)]
 pub struct PopupWindow {
     /// The ID of the associated popup.
     pub popup_id: NonZeroU32,
@@ -418,9 +437,16 @@ pub struct PopupWindow {
     focus_item_in_parent: ItemWeak,
     /// The item from where the Popup was invoked from
     pub parent_item: ItemWeak,
-    /// Whether the popup is a popup menu.
-    /// Popup menu allow the mouse event to be propagated on their parent menu/menubar
+    /// Overlay tooltip: no focus steal, unclamped placement, skipped in main mouse routing.
+    pub is_tooltip: bool,
+    /// Context / popup menu: participates in menu-chain hit testing and cascading close.
     is_menu: bool,
+    /// Callback that returns the current desired logical position of the popup.
+    /// Called during re-evaluation of the position tracker to re-subscribe to dependencies.
+    /// IMPORTANT: This position is relative to the parent
+    position_access: Box<dyn Fn() -> LogicalPosition>,
+    // tracks all relevant properties and reacts on changes
+    properties_tracker: Pin<Box<PropertyTracker<true, PopupWindowPropertiesTracker>>>,
 }
 
 #[pin_project::pin_project]
@@ -467,7 +493,7 @@ pub struct WindowInner {
     menubar: RefCell<Option<vtable::VWeak<MenuVTable>>>,
 
     /// Stack of currently active popups
-    active_popups: RefCell<Vec<PopupWindow>>,
+    pub active_popups: RefCell<Vec<PopupWindow>>,
     next_popup_id: Cell<NonZeroU32>,
     had_popup_on_press: Cell<bool>,
     close_requested: Callback<(), CloseRequestResponse>,
@@ -711,6 +737,9 @@ impl WindowInner {
             let mut offset = LogicalPoint::default();
             let mut menubar_item = None;
             for (idx, popup) in active_popups.borrow().iter().enumerate().rev() {
+                if popup.is_tooltip {
+                    continue;
+                }
                 item_tree = None;
                 menubar_item = None;
                 if let PopupWindowLocation::ChildWindow(coordinates) = &popup.location {
@@ -1225,6 +1254,95 @@ impl WindowInner {
             });
     }
 
+    /// Re-evaluates the position tracker for the popup with the given ID, re-subscribing to its
+    /// property dependencies so subsequent changes continue to trigger notifications.
+    fn update_popup_properties(&self, popup_id: NonZeroU32) {
+        let offset = {
+            let active_popups = self.active_popups.borrow();
+            let Some(popup) = active_popups.iter().find(|p| p.popup_id == popup_id) else { return };
+            if let Some(parent) = popup.parent_item.clone().upgrade() {
+                parent.map_to_native_window(
+                    parent.geometry().origin + (popup.position_access)().to_euclid().to_vector(),
+                )
+            } else {
+                LogicalPoint::zero()
+            }
+        };
+        let mut active_popups = self.active_popups.borrow_mut();
+        let Some(popup) = active_popups.iter_mut().find(|p| p.popup_id == popup_id) else { return };
+        match &mut popup.location {
+            PopupWindowLocation::ChildWindow(old_location) => {
+                let (old_popup_region, new_popup_region) =
+                    popup.properties_tracker.as_ref().evaluate_as_dependency_root(|| {
+                        let component = ItemTreeRc::borrow_pin(&popup.component);
+                        let root_item = component.as_ref().get_item_ref(0);
+                        let window_item =
+                            ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
+                                .expect("Popup component is a Window item");
+                        // Access the properties to set them as dependencies
+                        let old_popup_region = LogicalRect::new(
+                            *old_location,
+                            crate::lengths::LogicalSize::new(
+                                window_item.width().0,
+                                window_item.height().0,
+                            ),
+                        );
+
+                        let width = {
+                            let layout_info_h = component
+                                .as_ref()
+                                .layout_info(crate::layout::Orientation::Horizontal);
+                            let w = layout_info_h.min.min(layout_info_h.max);
+                            window_item.width.set(LogicalLength::new(w));
+                            w
+                        };
+
+                        let height = {
+                            let layout_info_v = component
+                                .as_ref()
+                                .layout_info(crate::layout::Orientation::Vertical);
+                            let h = layout_info_v.min.min(layout_info_v.max);
+                            window_item.height.set(LogicalLength::new(h));
+                            h
+                        };
+
+                        (
+                            old_popup_region,
+                            LogicalRect::new(
+                                (popup.position_access)().to_euclid(),
+                                crate::lengths::LogicalSize::new(width, height),
+                            ),
+                        )
+                    });
+
+                // Set new location
+                *old_location = offset;
+
+                if let Some(adapter) = self.window_adapter_weak.upgrade() {
+                    if !old_popup_region.is_empty() {
+                        adapter.renderer().mark_dirty_region(old_popup_region.into());
+                    }
+
+                    if !new_popup_region.is_empty() {
+                        adapter.renderer().mark_dirty_region(new_popup_region.into());
+                    }
+                    adapter.request_redraw();
+                }
+            }
+            PopupWindowLocation::TopLevel(adapter) => {
+                // The size is already tracked in the windowadapter
+                let mut new_position: Option<LogicalPosition> = None;
+                popup.properties_tracker.as_ref().evaluate_as_dependency_root(|| {
+                    (popup.position_access)(); // Dummy access to track position changes
+                    new_position = Some(LogicalPosition::from_euclid(offset));
+                });
+                if let Some(pos) = new_position {
+                    adapter.window().set_position(pos);
+                }
+            }
+        }
+    }
+
     /// Calls the render_components to render the main component and any sub-window components, tracked by a
     /// property dependency tracker.
     /// Returns None if no component is set yet.
@@ -1359,20 +1477,21 @@ impl WindowInner {
 
     /// Show a popup at the given position relative to the `parent_item` and returns its ID.
     /// The returned ID will always be non-zero.
-    /// `is_menu` specifies whether the popup is a popup menu.
     pub fn show_popup(
         &self,
         popup_componentrc: &ItemTreeRc,
-        position: LogicalPosition,
+        popup_access_position: Box<dyn Fn() -> LogicalPosition>,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
+        is_tooltip: bool,
         is_menu: bool,
     ) -> NonZeroU32 {
         // Popups live in their own ItemTree, which was invisible to any
         // earlier instantiation pass; materialize it before the layout queries below.
         crate::item_tree::ensure_item_tree_instantiated(popup_componentrc);
-        let position = parent_item
-            .map_to_native_window(parent_item.geometry().origin + position.to_euclid().to_vector());
+        let position = parent_item.map_to_native_window(
+            parent_item.geometry().origin + popup_access_position().to_euclid().to_vector(),
+        );
         let popup_component = ItemTreeRc::borrow_pin(popup_componentrc);
         let popup_root = popup_component.as_ref().get_item_ref(0);
 
@@ -1410,7 +1529,8 @@ impl WindowInner {
         };
 
         let popup_id = self.next_popup_id.get();
-        self.next_popup_id.set(self.next_popup_id.get().checked_add(1).unwrap());
+        self.next_popup_id.set(popup_id.checked_add(1).unwrap());
+        let parent_window_adapter_weak = Rc::downgrade(&self.window_adapter());
 
         // Close active popups before creating a new one.
         let siblings: Vec<_> = self
@@ -1454,40 +1574,66 @@ impl WindowInner {
             self.window_adapter()
         };
 
-        let mut popup_window_adapter = None;
-        ItemTreeRc::borrow_pin(popup_componentrc)
-            .as_ref()
-            .window_adapter(false, &mut popup_window_adapter);
-        let popup_window_adapter =
-            popup_window_adapter.expect("It must be there because we set the global");
-
-        // If the window adapter of the popup window and the parent window are equal means that a ChildWindow shall be created
-        // because we weren't able to create a window adapter for the popup window (for example if the backend does not support it)
-        let location = if Rc::ptr_eq(&parent_window_adapter, &popup_window_adapter) {
-            let clip = LogicalRect::new(
-                LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
-                self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
-            );
-            let rect = popup::place_popup(
-                popup::Placement::Fixed(LogicalRect::new(position, size)),
-                &Some(clip),
-            );
-            self.window_adapter().request_redraw();
-            PopupWindowLocation::ChildWindow(rect.origin)
-        } else {
-            let popup_window = popup_window_adapter.window();
-            WindowInner::from_pub(popup_window).set_component(popup_componentrc);
-            popup_window.set_position(LogicalPosition::from_euclid(position));
-            popup_window.set_size(WindowSize::Logical(LogicalSize::from_euclid(size)));
-
-            popup_window_adapter.set_visible(true).expect("Unable to show popup");
-            PopupWindowLocation::TopLevel(popup_window_adapter)
+        let popup_window_adapter = {
+            let mut popup_window_adapter = None;
+            ItemTreeRc::borrow_pin(popup_componentrc)
+                .as_ref()
+                .window_adapter(false, &mut popup_window_adapter);
+            popup_window_adapter.expect("It must be there because we set the global")
         };
 
-        let focus_item = self
-            .take_focus_item(&FocusEvent::FocusOut(FocusReason::PopupActivation))
-            .map(|item| item.downgrade())
-            .unwrap_or_default();
+        // If the window adapter of the popup window and the parent window are equal, create a ChildWindow
+        // because we weren't able to create a dedicated popup adapter (for example if the backend does not support it).
+        let (location, properties_tracker) =
+            if Rc::ptr_eq(&parent_window_adapter, &popup_window_adapter) {
+                // Tooltips may extend past the window (e.g. above/left of the anchor); do not clamp.
+                let clip_region = if is_tooltip {
+                    None
+                } else {
+                    Some(LogicalRect::new(
+                        LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
+                        self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
+                    ))
+                };
+                let rect = popup::place_popup(
+                    popup::Placement::Fixed(LogicalRect::new(position, size)),
+                    &clip_region,
+                );
+                self.window_adapter().request_redraw();
+                (
+                    PopupWindowLocation::ChildWindow(rect.origin),
+                    Box::pin(PropertyTracker::new_with_dirty_handler(
+                        PopupWindowPropertiesTracker {
+                            parent_window_adapter_weak: parent_window_adapter_weak.clone(),
+                            popup_id,
+                        },
+                    )),
+                )
+            } else {
+                let popup_window = popup_window_adapter.window();
+                WindowInner::from_pub(popup_window).set_component(popup_componentrc);
+                popup_window.set_position(LogicalPosition::from_euclid(position));
+                popup_window.set_size(WindowSize::Logical(LogicalSize::from_euclid(size)));
+
+                popup_window_adapter.set_visible(true).expect("unable to show popup window");
+                (
+                    PopupWindowLocation::TopLevel(popup_window_adapter),
+                    Box::pin(PropertyTracker::new_with_dirty_handler(
+                        PopupWindowPropertiesTracker {
+                            parent_window_adapter_weak: parent_window_adapter_weak.clone(),
+                            popup_id,
+                        },
+                    )),
+                )
+            };
+
+        let focus_item = if is_tooltip {
+            Default::default()
+        } else {
+            self.take_focus_item(&FocusEvent::FocusOut(FocusReason::PopupActivation))
+                .map(|item| item.downgrade())
+                .unwrap_or_default()
+        };
 
         self.active_popups.borrow_mut().push(PopupWindow {
             popup_id,
@@ -1496,8 +1642,13 @@ impl WindowInner {
             close_policy,
             focus_item_in_parent: focus_item,
             parent_item: parent_item.downgrade(),
+            is_tooltip,
             is_menu,
+            position_access: popup_access_position,
+            properties_tracker,
         });
+
+        self.update_popup_properties(popup_id);
 
         popup_id
     }
@@ -1841,6 +1992,32 @@ pub mod ffi {
     #[allow(non_camel_case_types)]
     type c_void = ();
 
+    struct WithUserData<T> {
+        callback: T,
+        drop_user_data: extern "C" fn(*mut c_void),
+        user_data: *mut c_void,
+    }
+
+    impl<T> Drop for WithUserData<T> {
+        fn drop(&mut self) {
+            (self.drop_user_data)(self.user_data)
+        }
+    }
+
+    impl WithUserData<extern "C" fn(user_data: *mut c_void, pos: &mut LogicalPosition)> {
+        fn call(&self) -> LogicalPosition {
+            let mut logical_position = LogicalPosition::default();
+            (self.callback)(self.user_data, &mut logical_position);
+            logical_position
+        }
+    }
+
+    impl WithUserData<extern "C" fn(user_data: *mut c_void) -> CloseRequestResponse> {
+        fn call(&self) -> CloseRequestResponse {
+            (self.callback)(self.user_data)
+        }
+    }
+
     /// Same layout as WindowAdapterRc
     #[repr(C)]
     pub struct WindowAdapterRcOpaque(*const c_void, *const c_void);
@@ -2005,18 +2182,23 @@ pub mod ffi {
     pub unsafe extern "C" fn slint_windowrc_show_popup(
         handle: *const WindowAdapterRcOpaque,
         popup: &ItemTreeRc,
-        position: LogicalPosition,
+        position: extern "C" fn(user_data: *mut c_void, pos: &mut LogicalPosition),
+        drop_user_data: extern "C" fn(user_data: *mut c_void),
+        user_data: *mut c_void,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
+        is_tooltip: bool,
         is_menu: bool,
     ) -> NonZeroU32 {
         unsafe {
+            let with_user_data = WithUserData { callback: position, drop_user_data, user_data };
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
             WindowInner::from_pub(window_adapter.window()).show_popup(
                 popup,
-                position,
+                Box::new(move || with_user_data.call()),
                 close_policy,
                 parent_item,
+                is_tooltip,
                 is_menu,
             )
         }
@@ -2126,26 +2308,7 @@ pub mod ffi {
         user_data: *mut c_void,
     ) {
         unsafe {
-            struct WithUserData {
-                callback: extern "C" fn(user_data: *mut c_void) -> CloseRequestResponse,
-                drop_user_data: extern "C" fn(*mut c_void),
-                user_data: *mut c_void,
-            }
-
-            impl Drop for WithUserData {
-                fn drop(&mut self) {
-                    (self.drop_user_data)(self.user_data)
-                }
-            }
-
-            impl WithUserData {
-                fn call(&self) -> CloseRequestResponse {
-                    (self.callback)(self.user_data)
-                }
-            }
-
             let with_user_data = WithUserData { callback, drop_user_data, user_data };
-
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
             window_adapter.window().on_close_requested(move || with_user_data.call());
         }

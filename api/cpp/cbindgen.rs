@@ -316,6 +316,8 @@ fn gen_corelib(
         "ImageItem",
         "ClippedImage",
         "TouchArea",
+        "TooltipArea",
+        "ToolTip",
         "FocusScope",
         "KeyBinding",
         "SwipeGestureHandler",
@@ -396,6 +398,19 @@ fn gen_corelib(
         "PathElement",
         "Brush",
         "DataTransfer",
+        "slint_data_transfer_init_default",
+        "slint_data_transfer_drop",
+        "slint_data_transfer_clone",
+        "slint_data_transfer_eq",
+        "slint_data_transfer_set_plaintext",
+        "slint_data_transfer_set_image",
+        "slint_data_transfer_has_plaintext",
+        "slint_data_transfer_has_image",
+        "slint_data_transfer_fetch_plaintext",
+        "slint_data_transfer_fetch_image",
+        "slint_data_transfer_set_user_data",
+        "slint_data_transfer_user_data",
+        "slint_data_transfer_clear_user_data",
         "slint_new_path_elements",
         "slint_new_path_events",
         "Property",
@@ -447,7 +462,7 @@ fn gen_corelib(
         .with_src(crate_dir.join("string.rs"))
         .with_src(crate_dir.join("styled_text.rs"))
         .with_src(crate_dir.join("slice.rs"))
-        .with_after_include("namespace slint { struct SharedString; namespace private_api { struct StyledText; } namespace cbindgen_private { using private_api::StyledText; }}")
+        .with_after_include("namespace slint { struct SharedString; struct StyledText; }")
         .generate()
         .context("Unable to generate bindings for slint_string_internal.h")?
         .write_to_file(include_dir.join("slint_string_internal.h"));
@@ -552,9 +567,24 @@ fn gen_corelib(
             "",
         ),
         (
-            vec!["DataTransferOpaque"],
+            vec![
+                "DataTransferOpaque",
+                "slint_data_transfer_init_default",
+                "slint_data_transfer_drop",
+                "slint_data_transfer_clone",
+                "slint_data_transfer_eq",
+                "slint_data_transfer_set_plaintext",
+                "slint_data_transfer_set_image",
+                "slint_data_transfer_has_plaintext",
+                "slint_data_transfer_has_image",
+                "slint_data_transfer_fetch_plaintext",
+                "slint_data_transfer_fetch_image",
+                "slint_data_transfer_set_user_data",
+                "slint_data_transfer_user_data",
+                "slint_data_transfer_clear_user_data",
+            ],
             "slint_data_transfer_internal.h",
-            "",
+            "namespace slint { struct DataTransfer; struct SharedString; }",
         ),
         (
             vec!["MouseEvent", "TouchPhase"],

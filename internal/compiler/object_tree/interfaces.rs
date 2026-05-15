@@ -144,6 +144,9 @@ pub(super) fn get_implemented_interface(
 
     let implements_specifier = parent.ImplementsSpecifier()?;
 
+    #[cfg(feature = "slint-sc")]
+    diag.slint_sc_error("'implements' is", &implements_specifier);
+
     if !diag.enable_experimental && !tr.expose_internal_types {
         diag.push_error("'implements' is an experimental feature".into(), &implements_specifier);
         return None;
@@ -494,6 +497,9 @@ pub(super) fn apply_uses_statement(
     let Some(uses_specifier) = uses_specifier else {
         return;
     };
+
+    #[cfg(feature = "slint-sc")]
+    diag.slint_sc_error("'uses' is", &uses_specifier);
 
     if !diag.enable_experimental && !tr.expose_internal_types {
         diag.push_error("'uses' is an experimental feature".into(), &uses_specifier);

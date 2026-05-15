@@ -20,7 +20,7 @@
    otherwise it is assumed the native item don't write to that property.
  */
 
-component Empty {
+ component Empty {
     //-is_internal
 }
 
@@ -47,6 +47,7 @@ component Rectangle inherits Empty {
     ///     background: rainbow-gradient;
     /// }
     /// ```
+    /// \sc
     /// \default transparent
     in property <brush> background;
     in property <brush> color <=> background;
@@ -181,6 +182,7 @@ component BasicBorderRectangle inherits Rectangle {
 ///     }
 /// }
 /// ```
+/// \sc
 /// \group:elements
 component BorderRectangle inherits BasicBorderRectangle {
     //! To target specific corners with different values use the following properties:
@@ -1160,18 +1162,46 @@ export component ScaleRotateGestureHandler {
     //-default_size_binding:expands_to_parent_geometry
 }
 
+/// Use `DragArea` to make any part of the UI draggable.
+/// A drag starts when the user presses the mouse inside the area and moves past a small threshold,
+/// and the value bound to `data` becomes the drag payload delivered to a <Link type="DropArea" />.
+/// A click doesn't start a drag, so child elements like <Link type="TouchArea" /> stay interactive.
+///
+/// The payload is a `data-transfer` value, which abstracts over the file-type transfer mechanisms supported by each platform.
+/// `data-transfer` values are opaque in Slint code:
+/// construct and read them via callbacks implemented in the host language.
+///
+/// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
+/// \group:drag-and-drop
 export component DragArea {
+    /// Set to `false` to stop the `DragArea` from starting drags.
+    /// Events still reach the child elements.
     in property <bool> enabled: true;
     //out property <bool> dragging;
+    /// The payload that's transferred to a <Link type="DropArea" /> when a drop happens.
     in property <data-transfer> data;
     //-default_size_binding:expands_to_parent_geometry
-
 }
 
+/// Use `DropArea` to accept drops coming from a <Link type="DragArea" />, or from another application on platforms that support it.
+/// The `can-drop` callback runs while the cursor moves over the area to decide whether to accept the drag.
+/// The `dropped` callback runs when the user releases the mouse inside the area after `can-drop` returned `true`.
+///
+/// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
+/// \group:drag-and-drop
 export component DropArea {
+    /// Set to `false` to stop the `DropArea` from accepting any drops.
     in property <bool> enabled: true;
+    /// Return `true` from this callback to accept the drag, or `false` to reject it.
+    /// While the drag is accepted, `contains-drag` is `true` and the cursor changes to a "copy" shape.
+    /// The argument is a <Link type="DropEvent" /> describing the drag.
     callback can-drop(event: DropEvent) -> bool;
+    /// Invoked when the user releases the mouse over the area after `can-drop` returned `true`.
+    /// Use this callback to read `event.data` and apply the drop.
+    /// The argument is a <Link type="DropEvent" /> describing the drop.
     callback dropped(event: DropEvent);
+    /// `true` while an accepted drag hovers over the area, `false` otherwise.
+    /// Bind it to a visual property to give the user feedback, for example a background color.
     out property <bool> contains-drag;
     //-default_size_binding:expands_to_parent_geometry
 }
@@ -1292,7 +1322,6 @@ component Menu {
 /// }
 /// ```
 /// \skip_children
-/// \group:window
 component MenuBar {
     //-is_non_item_type
     //-disallow_global_types_as_child_elements
@@ -1388,13 +1417,6 @@ export component ContextMenuArea inherits Empty {
     in property <bool> enabled: true;
 }
 
-/// `Window` is the root of the tree of elements that are visible on the screen.
-///
-/// The `Window` geometry will be restricted by its layout constraints: Setting the `width` will result in a fixed width,
-/// and the window manager will respect the `min-width` and `max-width` so the window can't be resized bigger
-/// or smaller. The initial width can be controlled with the `preferred-width` property. The same applies to the `Window`s height.
-///
-/// Use the <Link type="MenuBar" /> element to declare a menu bar for the window.
 component WindowItem {
     in-out property <length> width;
     in-out property <length> height;
@@ -1439,6 +1461,13 @@ component WindowItem {
     }
 }
 
+/// `Window` is the root of the tree of elements that are visible on the screen.
+///
+/// The `Window` geometry will be restricted by its layout constraints: Setting the `width` will result in a fixed width,
+/// and the window manager will respect the `min-width` and `max-width` so the window can't be resized bigger
+/// or smaller. The initial width can be controlled with the `preferred-width` property. The same applies to the `Window`s height.
+///
+/// Use the <Link type="MenuBar" /> element to declare a menu bar for the window.
 /// \group:window
 export component Window inherits WindowItem {
     MenuBar { }
@@ -2346,6 +2375,134 @@ export component PopupWindow {
     //! Closes the popup. Use this if you set the `close-policy` property to `no-auto-close`.
 }
 
+// Internal hover tracker used with `ToolTip` lowering (the compiler inserts `TooltipArea` so `ToolTip` can react to hover and pointer position).
+export component TooltipArea inherits Empty {
+    // Set when the mouse is over the parent's region while this area is expanded to fill it during lowering.
+    out property <bool> has-hover;
+    // Pointer x within this area during hover.
+    out property <length> mouse-x;
+    // Pointer y within this area during hover.
+    out property <length> mouse-y;
+    // Tooltip configuration folded from the user-facing ToolTip element during lowering.
+    in property <string> text;
+    in property <ToolTipPlacement> placement;
+    in property <duration> delay: 500ms;
+    in property <length> offset: 8px;
+    callback show();
+    callback hide();
+    //-default_size_binding:expands_to_parent_geometry
+    //-is_internal
+}
+
+/// ```slint playground
+/// import { Button } from "std-widgets.slint";
+///
+/// export component Example inherits Window {
+///     width: 280px;
+///     height: 160px;
+///
+///     VerticalLayout {
+///         alignment: center;
+///
+///         Button {
+///             text: "Hover me";
+///
+///             ToolTip {
+///                 text: "This is a tooltip";
+///             }
+///         }
+///     }
+/// }
+/// ```
+///
+/// Place a `ToolTip` inside any element to show helpful information when hovering over it.
+/// The tooltip appears after a short delay and hides when the pointer leaves.
+///
+/// Set the `text` property for a simple text tooltip,
+/// or add a child element instead for custom content.
+///
+/// Each element can contain at most one `ToolTip`.
+///
+/// \footer
+/// ## Custom Content
+///
+/// For richer tooltips, omit `text` and provide your own layout inside a single child element.
+///
+///
+/// ```slint playground
+/// import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+///
+/// export component Example inherits Window {
+///     width: 320px;
+///     height: 200px;
+///
+///     VerticalLayout {
+///         alignment: center;
+///
+///         Button {
+///             text: "Custom tooltip";
+///
+///             ToolTip {
+///                 placement: above-element;
+///
+///                 VerticalBox {
+///                     padding: 10px;
+///                     spacing: 6px;
+///
+///                     Text {
+///                         text: "Quick Actions";
+///                         font-weight: 700;
+///                         color: #fff;
+///                     }
+///
+///                     Text {
+///                         text: "Open command palette and search settings.";
+///                         color: #d1d5db;
+///                         wrap: word-wrap;
+///                     }
+///
+///                     HorizontalBox {
+///                         spacing: 6px;
+///
+///                         Rectangle {
+///                             border-radius: 4px;
+///                             background: #374151;
+///                             HorizontalBox {
+///                                 padding: 4px;
+///                                 Text { text: "Ctrl"; color: #fff; }
+///                             }
+///                         }
+///
+///                         Rectangle {
+///                             border-radius: 4px;
+///                             background: #374151;
+///                             HorizontalBox {
+///                                 padding: 4px;
+///                                 Text { text: "K"; color: #fff; }
+///                             }
+///                         }
+///                     }
+///                 }
+///             }
+///         }
+///     }
+/// }
+/// ```
+/// \group:window
+export component ToolTip inherits Empty {
+    /// The text to display in the tooltip.
+    /// Don't set this property when using custom content.
+    in property <string> text;
+    /// Position relative to the hovered element or pointer.
+    in property <ToolTipPlacement> placement;
+    /// How long to wait before showing the tooltip after hover begins.
+    in property <duration> delay: 500ms;
+    /// Space between the tooltip and the pointer or hovered element.
+    in property <length> offset: 8px;
+    //-can_be_declared_without_children_slot
+    //-is_non_item_type
+}
+
 /// :::note[Note]
 /// Timer is not an actual element visible in the tree, therefore it doesn't have the common properties such as `x`, `y`, `width`, `height`, etc. It also doesn't take room in a layout and cannot have any children or be inherited from.
 /// :::
@@ -2561,7 +2718,12 @@ export global Platform {
     ///     }
     /// }
     /// ```
-    function open-url(url: string) -> bool { return false; }
+    function open-url(url: string) -> bool {
+        return false;
+    }
+    /// The decimal separator currently used for localized float to string and vice versa conversions
+    /// For more information about localization and how to change the decimal separator see <Link type="translations" label="translations page"/>.
+    out property <string> decimal-separator;
 }
 
 export component NativeButton {

@@ -6,6 +6,7 @@ use i_slint_core::SharedString;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
 use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
+use i_slint_core::item_rendering::HasFont;
 use i_slint_core::items::{ColorScheme, InputType};
 use i_slint_core::lengths::PhysicalEdges;
 use i_slint_core::platform::WindowAdapter;

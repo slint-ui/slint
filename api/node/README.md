@@ -190,12 +190,14 @@ The types used for properties in .slint design markup each translate to specific
 | `color` | `RgbaColor` |  |
 | `brush` | `Brush` |  |
 | `image` | `ImageData` |  |
+| `data-transfer` | `DataTransfer` | Drag-and-drop and clipboard payload; usually obtained from a callback parameter. See [Drag and Drop](https://docs.slint.dev/latest/docs/guide/development/drag-and-drop/). |
 | `length` | `Number` | |
 | `physical_length` | `Number` | |
 | `duration` | `Number` | The number of milliseconds |
 | `angle` | `Number` | The angle in degrees |
 | structure | `Object` | Structures are mapped to JavaScript objects where each structure field is a property. |
 | array | `Array` or any implementation of Model | |
+| `styled-text` | `StyledText` | Use `StyledText.fromMarkdown()` or `StyledText.fromPlainText()` to create. |
 | enumeration | `String` | The value of an enum |
 
 ### Arrays and Models

@@ -66,6 +66,7 @@
     "examples/imagefilter/node": { "ignoreBinaries": ["compile"] },
     "examples/carousel/node": { "ignoreBinaries": ["compile"] },
     "examples/todo/node": { "ignoreBinaries": ["compile"] },
+    "examples/dnd-kanban": { "ignoreBinaries": ["compile"] },
     "examples/memory": { "ignoreBinaries": ["compile"] },
     "examples/system_tray": { "ignoreBinaries": ["compile"] },
     "docs/common": {
@@ -107,6 +108,7 @@
     "ui-libraries/material/docs/src/utils/images-optimization.ts": ["exports", "types"],
     "ui-libraries/material/docs/vendor/integration/utils/configBuilder.ts": ["types"],
     "docs/common/src/utils/site-config.ts": ["exports"],
-    "docs/common/src/utils/utils.ts": ["exports", "types"]
+    "docs/common/src/utils/utils.ts": ["exports", "types"],
+    "docs/common/src/utils/generated-reference-markdown.ts": ["exports"]
   }
 }

@@ -2,6 +2,8 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
 ## [1.16.1] - 2026-04-23
 
  - `ListView`: Fixed compiler panic with a graceful fallback in the dirty region computation.

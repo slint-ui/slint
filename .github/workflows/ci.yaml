@@ -60,6 +60,9 @@ jobs:
         servo_example: ${{ inputs.full || steps.filter.outputs.servo_example == 'true' }}
         bevy_examples: ${{ inputs.full || steps.filter.outputs.bevy_examples == 'true' }}
         rust_files: ${{ inputs.full || steps.filter.outputs.rust_files == 'true' }}
+        qt: ${{ inputs.full || steps.filter.outputs.qt == 'true' }}
+        docs_build: ${{ inputs.full || steps.filter.outputs.docs_build == 'true' }}
+        tree_sitter: ${{ inputs.full || steps.filter.outputs.tree_sitter == 'true' }}
       steps:
         - uses: actions/checkout@v6
           if: ${{ !inputs.full }}
@@ -94,6 +97,7 @@ jobs:
             name: ${{ matrix.name }}
             rust_version: ${{ matrix.rust_version }}
             extra_args: ${{ matrix.extra_args }}
+            run_qt: ${{ needs.files-changed.outputs.qt == 'true' }}
             save_if: ${{ github.ref == 'refs/heads/master' }}
 
     # For changes to Slint internals, do a quick test on Linux for Node.js only.
@@ -157,12 +161,11 @@ jobs:
         strategy:
             matrix:
                 include:
-                    - os: ubuntu-22.04
-                      rust_version: "1.92"
+                    # Linux C++ is covered by cpp_test_driver_32bit
                     - os: macos-14
                       rust_version: beta
                     - os: windows-2022
-                      rust_version: stable
+                      rust_version: "1.92"
         runs-on: ${{ matrix.os }}
 
         steps:
@@ -170,12 +173,6 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
               with:
                   force-gcc-10: true
-            - name: Install Qt
-              if: runner.os == 'Linux'
-              uses: jurplel/install-qt-action@v4
-              with:
-                  version: "5.15.2"
-                  cache: true
             - name: Set default style
               if: runner.os != 'Windows'
               run: echo "SLINT_STYLE=native" >> $GITHUB_ENV
@@ -331,7 +328,7 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.3
+            - uses: pnpm/action-setup@v6.0.6
               with:
                 version: 10.29.3
             - uses: Swatinem/rust-cache@v2
@@ -445,12 +442,10 @@ jobs:
 
     docs:
         needs: files-changed
-        if: ${{ !inputs.full && needs.files-changed.outputs.slint == 'true' }}
+        if: ${{ !inputs.full && needs.files-changed.outputs.docs_build == 'true' }}
         uses: ./.github/workflows/build_docs.yaml
         secrets:
           READ_WRITE_PRIVATE_KEY: ${{ secrets.READ_WRITE_PRIVATE_KEY }}
-          CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
-          CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
         with:
           release: false
           app-id: ${{ vars.READ_WRITE_APP_ID }}
@@ -459,9 +454,6 @@ jobs:
         needs: files-changed
         if: ${{ !inputs.full && needs.files-changed.outputs.slintpad == 'true' }}
         uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
-        secrets:
-          CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
-          CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
 
     wasm_demo:
         needs: files-changed
@@ -472,7 +464,7 @@ jobs:
 
     tree-sitter:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.slint == 'true' }}
+        if: ${{ needs.files-changed.outputs.tree_sitter == 'true' }}
         uses: ./.github/workflows/tree_sitter.yaml
         with:
             latest: false
@@ -611,6 +603,8 @@ jobs:
           matrix: ${{ fromJSON(needs.esp-idf-matrix.outputs.matrix) }}
         runs-on: ubuntu-22.04
         container: espressif/idf:${{ matrix.esp-idf-version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         steps:
             - name: Fix up pydantic regression (https://github.com/espressif/idf-component-manager/issues/97#issuecomment-3380777944)
               run: |
@@ -689,7 +683,7 @@ jobs:
                 node-version: 24
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v6.0.3
+            - uses: pnpm/action-setup@v6.0.6
               with:
                 version: 10.29.3
             - name: Run pnpm install
@@ -732,9 +726,6 @@ jobs:
       needs: files-changed
       if: ${{ needs.files-changed.outputs.safety_docs == 'true' }}
       uses: ./.github/workflows/safety_docs.yaml
-      secrets:
-        CLOUDFLARE_API_TOKEN_2: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
-        CLOUDFLARE_ACCOUNT_ID_2: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
 
     servo_example:
         needs: files-changed
@@ -873,7 +864,7 @@ jobs:
                 components: rust-src
                 target: ${{matrix.target}}
           - name: Setup Zephyr project
-            uses: zephyrproject-rtos/action-zephyr-setup@v1.0.13
+            uses: zephyrproject-rtos/action-zephyr-setup@v1.0.14
             with:
                 app-path: slint
                 manifest-file-name: demos/zephyr-common/west.yaml

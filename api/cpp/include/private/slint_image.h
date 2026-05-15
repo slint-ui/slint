@@ -273,6 +273,7 @@ public:
     explicit Image(cbindgen_private::types::Image inner) : data(inner) { }
 
 private:
+    friend struct DataTransfer;
     using Tag = cbindgen_private::types::ImageInner::Tag;
     using Data = cbindgen_private::types::Image;
     Data data;

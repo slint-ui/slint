@@ -6,11 +6,6 @@ name: Safety Docs
 on:
     workflow_dispatch:
     workflow_call:
-      secrets:
-        CLOUDFLARE_ACCOUNT_ID_2:
-          required: true
-        CLOUDFLARE_API_TOKEN_2:
-          required: true
 
 jobs:
     build:
@@ -18,21 +13,27 @@ jobs:
         runs-on: ubuntu-24.04
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.3
+            - uses: pnpm/action-setup@v6.0.6
               with:
                 version: 10.29.3
             - uses: actions/setup-node@v6
               with:
                 node-version: 24
                 package-manager-cache: false
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  toolchain: stable
             - name: "Install Node dependencies"
               run: pnpm i --frozen-lockfile
+            - name: "Generate SC API reference"
+              run: cargo run --release -p slint-doc-generator -- --slint-sc generate-mdx
             - name: "Build Safety Manual"
               working-directory: docs/safety
               run: pnpm build
-            - uses: ./.github/actions/cloudflare-preview-deploy
+            - name: Upload preview artifact
+              if: github.event_name == 'pull_request'
+              uses: actions/upload-artifact@v7
               with:
-                working-directory: docs/safety
-                environment: safety-docs-staging
-                cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
-                cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
+                name: preview-safety-docs
+                path: docs/safety/dist/

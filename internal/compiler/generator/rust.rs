@@ -365,10 +365,11 @@ fn generate_public_component(
     };
 
     #[cfg(feature = "bundle-translations")]
-    let init_bundle_translations = unit
-        .translations
-        .as_ref()
-        .map(|_| quote!(sp::set_bundled_languages(_SLINT_BUNDLED_LANGUAGES);));
+    let init_bundle_translations = unit.translations.as_ref().map(|_| {
+        quote!(
+            sp::set_bundled_languages(_SLINT_BUNDLED_TRANSLATIONS);
+        )
+    });
     #[cfg(not(feature = "bundle-translations"))]
     let init_bundle_translations = quote!();
 
@@ -1384,6 +1385,8 @@ fn generate_sub_component(
         init.push(quote!(#r;))
     }
 
+    // Initialize all properties which have an initial value in the slint file
+    // This sets up also the callback handler and bindings
     for (prop, expression) in &component.property_init {
         handle_property_init(prop, expression, &mut init, &ctx)
     }
@@ -3511,7 +3514,7 @@ fn compile_builtin_function_call(
                     Some(&parent_ctx),
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
-
+                let is_tooltip = popup.is_tooltip;
                 let close_policy = compile_expression(close_policy, ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
                 component_access_tokens.then(|component_access_tokens| quote!({
@@ -3520,7 +3523,9 @@ fn compile_builtin_function_call(
                     let shared_global = #component_access_tokens.globals.get().unwrap();
                     let window_adapter = shared_global.window_adapter_impl();
                     let window = sp::WindowInner::from_pub(window_adapter.window());
-                    let globals = if let Some(popup_window_adapter) = window.create_popup_window_adapter() {
+                    let globals = if !#is_tooltip
+                        && let Some(popup_window_adapter) = window.create_popup_window_adapter()
+                    {
                         shared_global.clone_with_window_adapter(popup_window_adapter)
                     } else {
                         shared_global.clone()
@@ -3528,17 +3533,23 @@ fn compile_builtin_function_call(
 
                     let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone(), globals).unwrap();
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
-                    let position = { let _self = popup_instance_vrc.as_pin_ref(); #position };
                     if let Some(current_id) = #component_access_tokens.#popup_id_name.take() {
                         window.close_popup(current_id);
                     }
+
+                    let popup_instance_vrc_for_position = popup_instance_vrc.clone();
+                    let access_position = sp::Box::new(move || {
+                        let _self = popup_instance_vrc_for_position.as_pin_ref(); #position
+                    });
+
                     #component_access_tokens.#popup_id_name.set(Some(
                         window.show_popup(
                             &sp::VRc::into_dyn(popup_instance.into()),
-                            position,
+                            access_position,
                             #close_policy,
                             parent_item,
-                            false, // is_menu
+                            #is_tooltip,
+                            false,
                         ))
                     );
                     #popup_window_id::user_init(popup_instance_vrc.clone());
@@ -3627,14 +3638,17 @@ fn compile_builtin_function_call(
             let set_id = context_menu
                 .clone()
                 .then(|context_menu| quote!(#context_menu.popup_id.set(Some(id))));
+
             let slint_show = quote! {
                 #close_popup
+                let access_position = sp::Box::new(move || position);
                 let id = sp::WindowInner::from_pub(window_adapter.window()).show_popup(
                     &sp::VRc::into_dyn(popup_instance.into()),
-                    position,
+                    access_position,
                     sp::PopupClosePolicy::CloseOnClickOutside,
                     #context_menu_rc,
-                    true, // is_menu
+                    false,
+                    true,
                 );
                 #set_id;
                 #popup_id::user_init(popup_instance_vrc);
@@ -3817,6 +3831,14 @@ fn compile_builtin_function_call(
             quote!(sp::animation_tick())
         }
         BuiltinFunction::Debug => quote!(slint::private_unstable_api::debug(#(#a)*)),
+        BuiltinFunction::DecimalSeparator => {
+            let window_adapter_tokens = access_window_adapter_field(ctx);
+            quote!(sp::SharedString::from(
+                sp::WindowInner::from_pub(#window_adapter_tokens.window())
+                    .context()
+                    .locale_decimal_separator()
+            ))
+        }
         BuiltinFunction::Mod => {
             let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
             quote!(sp::Euclid::rem_euclid(&(#a1 as f64), &(#a2 as f64)))
@@ -3855,9 +3877,9 @@ fn compile_builtin_function_call(
             quote!(sp::shared_string_from_number_precision(#a1 as f64, (#a2 as i32).max(0) as usize))
         }
         BuiltinFunction::StringToFloat => {
-            quote!(#(#a)*.as_str().parse::<f64>().unwrap_or_default())
+            quote!(sp::string_to_float(#(#a)*.as_str()).unwrap_or_default())
         }
-        BuiltinFunction::StringIsFloat => quote!(#(#a)*.as_str().parse::<f64>().is_ok()),
+        BuiltinFunction::StringIsFloat => quote!(sp::string_to_float(#(#a)*.as_str()).is_some()),
         BuiltinFunction::StringIsEmpty => quote!(#(#a)*.is_empty()),
         BuiltinFunction::StringCharacterCount => {
             quote!( sp::UnicodeSegmentation::graphemes(#(#a)*.as_str(), true).count() as i32 )
@@ -4145,7 +4167,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::ParseMarkdown => {
             let format_string = a.next().unwrap();
             let args = a.next().unwrap();
-            quote!(sp::parse_markdown::<sp::StyledText>(&#format_string, &#args))
+            quote!(sp::parse_markdown(&#format_string, &#args))
         }
         BuiltinFunction::StringToStyledText => {
             let string = a.next().unwrap();
@@ -4887,13 +4909,22 @@ fn generate_translations(
         };
         quote!(#rule)
     });
-    let lang = translations.languages.iter().map(SmolStr::as_str).map(|lang| quote!(#lang));
+
+    let lang = translations.languages.iter().map(|(lang, separator)| {
+        let lang = lang.as_str();
+        quote!(
+            sp::TranslationsBundled {
+                language: #lang,
+                decimal_separator: #separator
+            }
+        )
+    });
 
     quote!(
         const _SLINT_TRANSLATED_STRINGS: &[&[sp::Option<&str>]] = &[#(#strings),*];
         const _SLINT_TRANSLATED_STRINGS_PLURALS: &[&[sp::Option<&[&str]>]] = &[#(#plurals),*];
         #[allow(unused)]
         const _SLINT_TRANSLATED_PLURAL_RULES: &[sp::Option<fn(i32) -> usize>] = &[#(#rules),*];
-        const _SLINT_BUNDLED_LANGUAGES: &[&str] = &[#(#lang),*];
+        const _SLINT_BUNDLED_TRANSLATIONS: &[sp::TranslationsBundled] = &[#(#lang),*];
     )
 }

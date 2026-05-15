@@ -373,70 +373,133 @@ impl Expression {
             .find_map(|child| match child {
                 NodeOrToken::Node(node) => match node.kind() {
                     SyntaxKind::Expression => Some(Self::from_expression_node(node.into(), ctx)),
-                    SyntaxKind::AtImageUrl => Some(Self::from_at_image_url_node(node.into(), ctx)),
-                    SyntaxKind::AtGradient => Some(Self::from_at_gradient(node.into(), ctx)),
-                    SyntaxKind::AtTr => Some(Self::from_at_tr(node.into(), ctx)),
-                    SyntaxKind::AtMarkdown => Some(Self::from_at_markdown(node.into(), ctx)),
-                    SyntaxKind::AtKeys => Some(Self::from_at_keys_node(node.into(), ctx)),
+                    SyntaxKind::AtImageUrl => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("@image-url() expressions are", &node);
+                        Some(Self::from_at_image_url_node(node.into(), ctx))
+                    }
+                    SyntaxKind::AtGradient => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("@gradient expressions are", &node);
+                        Some(Self::from_at_gradient(node.into(), ctx))
+                    }
+                    SyntaxKind::AtTr => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("@tr() expressions are", &node);
+                        Some(Self::from_at_tr(node.into(), ctx))
+                    }
+                    SyntaxKind::AtMarkdown => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("@markdown() expressions are", &node);
+                        Some(Self::from_at_markdown(node.into(), ctx))
+                    }
+                    SyntaxKind::AtKeys => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("@keys() expressions are", &node);
+                        Some(Self::from_at_keys_node(node.into(), ctx))
+                    }
                     SyntaxKind::QualifiedName => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Identifier references are", &node);
                         Some(Self::from_qualified_name_node(node.clone().into(), ctx))
                     }
                     SyntaxKind::FunctionCallExpression => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Function calls are", &node);
                         Some(Self::from_function_call_node(node.into(), ctx))
                     }
                     SyntaxKind::MemberAccess => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Member access expressions are", &node);
                         Some(Self::from_member_access_node(node.into(), ctx))
                     }
                     SyntaxKind::IndexExpression => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Index expressions are", &node);
                         Some(Self::from_index_expression_node(node.into(), ctx))
                     }
                     SyntaxKind::SelfAssignment => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Self-assignment expressions are", &node);
                         Some(Self::from_self_assignment_node(node.into(), ctx))
                     }
                     SyntaxKind::BinaryExpression => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Binary expressions are", &node);
                         Some(Self::from_binary_expression_node(node.into(), ctx))
                     }
                     SyntaxKind::UnaryOpExpression => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Unary expressions are", &node);
                         Some(Self::from_unaryop_expression_node(node.into(), ctx))
                     }
                     SyntaxKind::ConditionalExpression => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Conditional expressions are", &node);
                         Some(Self::from_conditional_expression_node(node.into(), ctx))
                     }
                     SyntaxKind::ObjectLiteral => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Object literal expressions are", &node);
                         Some(Self::from_object_literal_node(node.into(), ctx))
                     }
-                    SyntaxKind::Array => Some(Self::from_array_node(node.into(), ctx)),
-                    SyntaxKind::CodeBlock => Some(Self::from_codeblock_node(node.into(), ctx)),
+                    SyntaxKind::Array => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Array expressions are", &node);
+                        Some(Self::from_array_node(node.into(), ctx))
+                    }
+                    SyntaxKind::CodeBlock => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Code blocks are", &node);
+                        Some(Self::from_codeblock_node(node.into(), ctx))
+                    }
                     SyntaxKind::StringTemplate => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("String interpolation expressions are", &node);
                         Some(Self::from_string_template_node(node.into(), ctx))
                     }
                     _ => None,
                 },
                 NodeOrToken::Token(token) => match token.kind() {
-                    SyntaxKind::StringLiteral => Some(
-                        crate::literals::unescape_string_reporting(Some(&token), ctx.diag, &token)
+                    SyntaxKind::StringLiteral => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("String literals are", &token);
+                        Some(
+                            crate::literals::unescape_string_reporting(
+                                Some(&token),
+                                ctx.diag,
+                                &token,
+                            )
                             .map(Self::StringLiteral)
                             .unwrap_or(Self::Invalid),
-                    ),
-                    SyntaxKind::NumberLiteral => Some(
-                        crate::literals::parse_number_literal(token.text().into()).unwrap_or_else(
-                            |e| {
-                                ctx.diag.push_error(e.to_string(), &node);
-                                Self::Invalid
-                            },
-                        ),
-                    ),
-                    SyntaxKind::ColorLiteral => Some(
-                        i_slint_common::color_parsing::parse_color_literal(token.text())
-                            .map(|i| Expression::Cast {
-                                from: Box::new(Expression::NumberLiteral(i as _, Unit::None)),
-                                to: Type::Color,
-                            })
-                            .unwrap_or_else(|| {
-                                ctx.diag.push_error("Invalid color literal".into(), &node);
-                                Self::Invalid
-                            }),
-                    ),
+                        )
+                    }
+                    SyntaxKind::NumberLiteral => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Number literals are", &token);
+                        Some(
+                            crate::literals::parse_number_literal(token.text().into())
+                                .unwrap_or_else(|e| {
+                                    ctx.diag.push_error(e.to_string(), &node);
+                                    Self::Invalid
+                                }),
+                        )
+                    }
+                    SyntaxKind::ColorLiteral => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Color literals are", &token);
+                        Some(
+                            i_slint_common::color_parsing::parse_color_literal(token.text())
+                                .map(|i| Expression::Cast {
+                                    from: Box::new(Expression::NumberLiteral(i as _, Unit::None)),
+                                    to: Type::Color,
+                                })
+                                .unwrap_or_else(|| {
+                                    ctx.diag.push_error("Invalid color literal".into(), &node);
+                                    Self::Invalid
+                                }),
+                        )
+                    }
 
                     _ => None,
                 },
@@ -1276,6 +1339,13 @@ impl Expression {
         };
 
         arguments.extend(sub_expr);
+
+        if matches!(&function, Callable::Callback(nr) if nr.name() == "init") {
+            ctx.diag.push_warning(
+                "Calling 'init' explicitly does nothing and is deprecated".into(),
+                &node,
+            );
+        }
 
         let arguments = match function.ty() {
             Type::Function(function) | Type::Callback(function) => {

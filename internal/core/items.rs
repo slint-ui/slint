@@ -45,6 +45,7 @@ use const_field_offset::FieldOffsets;
 use core::cell::Cell;
 use core::num::NonZeroU32;
 use core::pin::Pin;
+use core::time::Duration;
 use i_slint_core_macros::*;
 pub use system_tray::SystemTrayIcon;
 use vtable::*;
@@ -1879,6 +1880,198 @@ macro_rules! declare_enums {
 }
 
 i_slint_common::for_each_enums!(declare_enums);
+
+/// Internal transparent hover tracker synthesized by tooltip lowering.
+#[repr(C)]
+#[derive(FieldOffsets, Default, SlintElement)]
+#[pin]
+pub struct TooltipArea {
+    pub has_hover: Property<bool>,
+    pub mouse_x: Property<LogicalLength>,
+    pub mouse_y: Property<LogicalLength>,
+    pub text: Property<SharedString>,
+    pub placement: Property<ToolTipPlacement>,
+    pub delay: Property<i64>,
+    pub offset: Property<LogicalLength>,
+    pub show: Callback<VoidArg>,
+    pub hide: Callback<VoidArg>,
+    pub cached_rendering_data: CachedRenderingData,
+    popup_visible: Cell<bool>,
+    timer: crate::timers::Timer,
+}
+
+impl Item for TooltipArea {
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
+    fn layout_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _cross_axis_constraint: Coord,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> LayoutInfo {
+        LayoutInfo::default()
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        event: &MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+        _: &mut MouseCursor,
+    ) -> InputEventFilterResult {
+        // Track hover in the filter stage so enter/leave transitions are reliable,
+        // independent of later input handling.
+        if matches!(event, MouseEvent::DragMove(..) | MouseEvent::Drop(..)) {
+            self.set_hover_state(false, self_rc);
+            return InputEventFilterResult::ForwardAndIgnore;
+        }
+
+        if let Some(pos) = event.position() {
+            Self::FIELD_OFFSETS.mouse_x().apply_pin(self).set(pos.x_length());
+            Self::FIELD_OFFSETS.mouse_y().apply_pin(self).set(pos.y_length());
+        }
+
+        let next_hover = !matches!(event, MouseEvent::Exit);
+        self.set_hover_state(next_hover, self_rc);
+
+        if next_hover && !self.popup_visible.get() && matches!(event, MouseEvent::Moved { .. }) {
+            self.schedule_show(self_rc);
+        }
+
+        InputEventFilterResult::ForwardAndInterceptGrab
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        event: &MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut MouseCursor,
+    ) -> InputEventResult {
+        match event {
+            // Accept move/exit so this passive tracker stays in the routing lifecycle and
+            // continues receiving leave transitions, but ignore other interaction semantics.
+            MouseEvent::Moved { .. } => InputEventResult::EventAccepted,
+            MouseEvent::Exit => {
+                self.set_hover_state(false, _self_rc);
+                InputEventResult::EventAccepted
+            }
+            _ => InputEventResult::EventIgnored,
+        }
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &InternalKeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn key_event(
+        self: Pin<&Self>,
+        _: &InternalKeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(
+        self: Pin<&Self>,
+        _: &FocusEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> FocusEventResult {
+        FocusEventResult::FocusIgnored
+    }
+
+    fn render(
+        self: Pin<&Self>,
+        _backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
+        RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect(
+        self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
+}
+
+impl TooltipArea {
+    fn schedule_show(self: Pin<&Self>, self_rc: &ItemRc) {
+        let delay_ms = self.delay().max(0) as u64;
+        if delay_ms == 0 {
+            if self.has_hover() {
+                self.show.call(&());
+                self.popup_visible.set(true);
+            }
+            return;
+        }
+
+        let self_weak = self_rc.downgrade();
+        self.timer.start(
+            crate::timers::TimerMode::SingleShot,
+            Duration::from_millis(delay_ms),
+            move || {
+                let Some(self_rc) = self_weak.upgrade() else { return };
+                let Some(tooltip_area) = self_rc.downcast::<TooltipArea>() else { return };
+                let tooltip_area = tooltip_area.as_pin_ref();
+                if tooltip_area.has_hover() {
+                    tooltip_area.show.call(&());
+                    tooltip_area.popup_visible.set(true);
+                }
+            },
+        );
+    }
+
+    fn hide_now(self: Pin<&Self>) {
+        self.timer.stop();
+        if self.popup_visible.replace(false) {
+            self.hide.call(&());
+        }
+    }
+
+    fn set_hover_state(self: Pin<&Self>, new_hover: bool, self_rc: &ItemRc) {
+        let old_hover = self.has_hover();
+        if old_hover == new_hover {
+            return;
+        }
+
+        Self::FIELD_OFFSETS.has_hover().apply_pin(self).set(new_hover);
+        if new_hover {
+            self.schedule_show(self_rc);
+        } else {
+            self.hide_now();
+        }
+    }
+}
+
+impl ItemConsts for TooltipArea {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        TooltipArea,
+        CachedRenderingData,
+    > = TooltipArea::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
+}
+
+declare_item_vtable! {
+    fn slint_get_TooltipAreaVTable() -> TooltipAreaVTable for TooltipArea
+}
 
 macro_rules! declare_builtin_structs {
     ($(

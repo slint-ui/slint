@@ -22,6 +22,9 @@ cpp = []
 rust = ["quote", "proc-macro2"]
 python = ["dep:pathdiff", "dep:serde", "smol_str/serde", "dep:serde_json", "dep:flate2", "dep:base64"]
 
+# Safety-critical subset: enables the SlintSc output format and compile-time checks
+slint-sc = ["quote", "proc-macro2"]
+
 # Support for proc_macro spans in the token (only useful for use within a proc macro)
 proc_macro_span = ["quote", "proc-macro2"]
 
@@ -34,7 +37,7 @@ software-renderer = ["image", "dep:resvg", "dep:swash", "dep:skrifa", "i-slint-c
 sdf-fonts = ["dep:fdsm", "dep:fdsm-ttf-parser", "dep:nalgebra", "dep:rayon"]
 
 # Translation bundler
-bundle-translations = ["dep:rspolib"]
+bundle-translations = ["dep:rspolib", "i-slint-common/locale-decimal-separator"]
 
 # Enable expermental library module support
 experimental-library-module = []

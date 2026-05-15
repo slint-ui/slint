@@ -3,10 +3,12 @@
 // SPDX-License-Identifier: MIT
 import "@astrojs/starlight/style/markdown.css";
 import {
-    type KnownType,
-    type PropertyVisibility,
     getEnumContent,
     getStructContent,
+} from "../utils/generated-reference-markdown.ts";
+import {
+    type KnownType,
+    type PropertyVisibility,
     getTypeInfo,
 } from "../utils/utils.ts";
 

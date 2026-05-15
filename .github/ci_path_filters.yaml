@@ -23,23 +23,38 @@ slint:
  - 'api/**'
  - 'cmake/**'
  - 'demos/**'
- - 'docker/**'
- - 'docs/**'
- - 'editors/**'
  - 'helper_crates/**'
  - 'internal/**'
- - 'logo/**'
  - 'scripts/**'
  - 'tests/**'
  - 'tools/compiler/**'
  - 'tools/figma_import/**'
  - 'tools/lsp/**'
- - 'tools/slintpad/**'
  - 'tools/tr-extractor/**'
  - 'tools/updater/**'
  - 'tools/viewer/**'
  - 'xtask/**'
  - *files_in_root
+ - *ci_config
+
+# Qt backend and widget definitions — gates the Qt test step in build_and_test
+qt:
+ - 'internal/backends/qt/**'
+ - 'internal/compiler/widgets/qt/**'
+ - 'tests/cases/widgets/**'
+
+# Docs build needs most Rust code because it also checks for doc warnings
+docs_build:
+ - 'docs/**'
+ - 'api/**'
+ - 'internal/**'
+ - 'helper_crates/**'
+ - 'tools/lsp/**'
+ - *ci_config
+
+# Tree-sitter grammar
+tree_sitter:
+ - 'editors/tree-sitter-slint/**'
  - *ci_config
 
 figma_inspector:
@@ -56,6 +71,10 @@ material_components:
 safety_docs:
  - 'docs/safety/**'
  - 'docs/common/**'
+ - 'docs/slint-doc-generator/**'
+ - 'internal/compiler/builtins.slint'
+ - 'internal/common/enums.rs'
+ - 'internal/common/builtin_structs.rs'
  - *js_config
  - *ci_config
 

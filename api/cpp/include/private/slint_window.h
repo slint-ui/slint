@@ -79,10 +79,7 @@ auto optional_and_then(const std::optional<T> &o, F &&f) -> decltype(f(*o))
 template<typename T>
 T optional_or_default(const std::optional<T> &o)
 {
-    if (o) {
-        return *o;
-    }
-    return {};
+    return o.value_or(T {});
 }
 
 class WindowAdapterRc
@@ -153,22 +150,38 @@ public:
     template<typename Component, typename Parent, typename PosGetter>
     uint32_t show_popup(const Parent *parent_component, PosGetter pos,
                         cbindgen_private::PopupClosePolicy close_policy,
-                        cbindgen_private::ItemRc parent_item) const
+                        cbindgen_private::ItemRc parent_item, bool is_tooltip = false) const
     {
         using SharedGlobals = decltype(parent_component->globals);
         SharedGlobals _own_globals = nullptr;
-        if (auto _popup_adapter = create_popup_window_adapter()) {
-            _own_globals = parent_component->globals->clone_with_window_adapter(*_popup_adapter);
+        if (!is_tooltip) {
+            if (auto _popup_adapter = create_popup_window_adapter()) {
+                _own_globals =
+                        parent_component->globals->clone_with_window_adapter(*_popup_adapter);
+            }
         }
         if (!_own_globals) {
             _own_globals = parent_component->globals;
         }
 
         auto popup = Component::create(parent_component, _own_globals);
-        auto p = pos(popup);
         auto popup_dyn = popup.into_dyn();
-        auto id = cbindgen_private::slint_windowrc_show_popup(&inner, &popup_dyn, p, close_policy,
-                                                              &parent_item, false);
+
+        struct PopupPositionData
+        {
+            PosGetter pos;
+            decltype(popup) popup_component;
+        };
+
+        auto position_data = new PopupPositionData { std::move(pos), popup };
+        auto id = cbindgen_private::slint_windowrc_show_popup(
+                &inner, &popup_dyn,
+                [](void *user_data, LogicalPosition *pos) {
+                    auto data = reinterpret_cast<PopupPositionData *>(user_data);
+                    *pos = data->pos(data->popup_component);
+                },
+                [](void *user_data) { delete reinterpret_cast<PopupPositionData *>(user_data); },
+                position_data, close_policy, &parent_item, is_tooltip, false);
         popup->user_init();
         return id;
     }
@@ -210,9 +223,15 @@ public:
         auto popup = Component::create(globals);
         init(&*popup);
         auto popup_dyn = popup.into_dyn();
+        auto position_data = new LogicalPosition(pos);
         auto id = cbindgen_private::slint_windowrc_show_popup(
-                &inner, &popup_dyn, pos, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
-                &context_menu_rc, true);
+                &inner, &popup_dyn,
+                [](void *user_data, LogicalPosition *pos) {
+                    *pos = *reinterpret_cast<LogicalPosition *>(user_data);
+                },
+                [](void *user_data) { delete reinterpret_cast<LogicalPosition *>(user_data); },
+                position_data, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
+                &context_menu_rc, false, true);
         popup->user_init();
         return id;
     }

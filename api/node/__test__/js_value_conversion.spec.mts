@@ -8,6 +8,7 @@ import { read, ImageColorModel } from "image-js";
 import { captureAsyncStderr } from "./helpers/utils.js";
 import {
     private_api,
+    StyledText,
     type ImageData,
     ArrayModel,
     type Model,
@@ -1076,4 +1077,55 @@ test("throw exception set color", () => {
         expect(thrownError.code).toBe("GenericFailure");
         expect(thrownError.message).toBe("Property red is missing");
     }
+});
+
+test("StyledText from plain text", () => {
+    const st = StyledText.fromPlainText("hello world");
+    expect(st).toBeDefined();
+});
+
+test("StyledText from markdown", () => {
+    const st = StyledText.fromMarkdown("**bold** text");
+    expect(st).toBeDefined();
+});
+
+test("StyledText equality", () => {
+    const a = StyledText.fromPlainText("hello");
+    const b = StyledText.fromPlainText("hello");
+    const c = StyledText.fromPlainText("world");
+    expect(a.equals(b)).toBe(true);
+    expect(a.equals(c)).toBe(false);
+});
+
+test("get/set styled-text properties", () => {
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
+        `export component App { in-out property <styled-text> content; }`,
+        "",
+    );
+    const instance = createNonNullInstance(definition);
+
+    const st = StyledText.fromPlainText("hello");
+    instance.setProperty("content", st);
+
+    const result = instance.getProperty("content");
+    expect(result).toBeDefined();
+    expect(result).toBeInstanceOf(StyledText);
+    expect((result as InstanceType<typeof StyledText>).equals(st)).toBe(true);
+});
+
+test("get/set styled-text from markdown property", () => {
+    const compiler = new private_api.ComponentCompiler();
+    const definition = compiler.buildFromSource(
+        `export component App { in-out property <styled-text> content; }`,
+        "",
+    );
+    const instance = createNonNullInstance(definition);
+
+    const st = StyledText.fromMarkdown("**bold** text");
+    instance.setProperty("content", st);
+
+    const result = instance.getProperty("content");
+    expect(result).toBeInstanceOf(StyledText);
+    expect((result as InstanceType<typeof StyledText>).equals(st)).toBe(true);
 });

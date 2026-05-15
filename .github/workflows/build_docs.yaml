@@ -14,10 +14,6 @@ on:
       secrets:
         READ_WRITE_PRIVATE_KEY:
           required: true
-        CLOUDFLARE_API_TOKEN_2:
-          required: false
-        CLOUDFLARE_ACCOUNT_ID_2:
-          required: false
       inputs:
         release:
           type: string
@@ -102,7 +98,7 @@ jobs:
             BRANCH_NAME: ${{ github.ref_name }}
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.3
+            - uses: pnpm/action-setup@v6.0.6
               with:
                 version: 10.29.3
             - uses: actions/setup-node@v6
@@ -189,51 +185,6 @@ jobs:
                 name: docs-astro
                 path: artifact
 
-    docs-preview:
-        needs: [rust-cpp-docs, astro-docs-tests, node-python-docs]
-        # Forks don't have access to repository secrets; skip the preview job entirely so no runner is allocated.
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        runs-on: ubuntu-24.04
-        permissions:
-            contents: read
-            deployments: write
-        steps:
-            - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.3
-              with:
-                version: 10.29.3
-            - uses: actions/setup-node@v6
-              with:
-                node-version: 24
-                package-manager-cache: false
-            - name: Download all docs artifacts
-              uses: actions/download-artifact@v8
-              with:
-                pattern: docs-*
-                path: restored-docs
-                merge-multiple: true
-            - name: Lay out docs under cf-assets
-              id: repack
-              working-directory: docs/astro
-              run: |
-                set -euo pipefail
-                rm -rf cf-assets
-                if [ "${{ inputs.release }}" != "true" ]; then
-                  prefix="master/docs"
-                else
-                  prefix="${{ needs.astro-docs-tests.outputs.version }}/docs"
-                fi
-                mkdir -p "cf-assets/${prefix}"
-                cp -R "${GITHUB_WORKSPACE}/restored-docs/docs/." "cf-assets/${prefix}/"
-                echo "site_prefix=${prefix}/slint" >> "${GITHUB_OUTPUT}"
-            - uses: ./.github/actions/cloudflare-preview-deploy
-              with:
-                working-directory: docs/astro
-                environment: docs-staging
-                path-suffix: ${{ steps.repack.outputs.site_prefix }}
-                cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
-                cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
-
     # Job 3: Build Node and Python documentation
     node-python-docs:
         runs-on: ubuntu-24.04
@@ -241,7 +192,7 @@ jobs:
             RELEASE_INPUT: ${{ inputs.release }}
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.3
+            - uses: pnpm/action-setup@v6.0.6
               with:
                 version: 10.29.3
             - uses: actions/setup-node@v6
@@ -289,21 +240,6 @@ jobs:
             - name: "Node.js API Starlight site"
               run: pnpm run build
               working-directory: docs/nodejs
-            - name: "Repack Node docs for Cloudflare preview (PR)"
-              if: github.event_name == 'pull_request'
-              id: node_pr_repack
-              working-directory: docs/nodejs
-              run: |
-                  set -euo pipefail
-                  rm -rf cf-assets
-                  if [ "${{ inputs.release }}" != "true" ]; then
-                    prefix="master/docs"
-                  else
-                    prefix="${{ steps.version.outputs.VERSION }}/docs"
-                  fi
-                  mkdir -p "cf-assets/${prefix}/node"
-                  cp -R dist/. "cf-assets/${prefix}/node/"
-                  echo "site_prefix=${prefix}/node" >> "${GITHUB_OUTPUT}"
             - name: Setup headless display
               uses: pyvista/setup-headless-display-action@v4
             - name: "Python docs"

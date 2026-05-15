@@ -10,7 +10,8 @@
             "!**/archive/**",
             "!**/.astro",
             "!**/dist",
-            "!**/codemirror.js"
+            "!**/codemirror.js",
+            "!**/playwright-report/**"
         ],
         "enabled": true,
         "formatWithErrors": false,
@@ -25,7 +26,8 @@
             "!**/archive/**",
             "!**/.astro",
             "!**/dist",
-            "!**/codemirror.js"
+            "!**/codemirror.js",
+            "!**/playwright-report/**"
         ],
         "rules": {
             "recommended": false,

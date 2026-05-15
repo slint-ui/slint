@@ -629,11 +629,6 @@ impl ItemRc {
         self.map_to_item_tree_impl(p, |_| false)
     }
 
-    /// Maps a position in window coordinates to the item coordinates
-    pub(crate) fn map_from_window(&self, p: LogicalPoint) -> LogicalPoint {
-        self.map_from_item_tree_impl(p, |_| false)
-    }
-
     /// Returns an absolute position of `p` in the `ItemTree`'s coordinate system
     /// (does not add this item's x and y)
     pub fn map_to_item_tree(
@@ -660,32 +655,6 @@ impl ItemRc {
             return p;
         }
         self.local_to_window_transform(stop_condition).transform_point(p.cast()).cast()
-    }
-
-    fn map_from_item_tree_impl(
-        &self,
-        p: LogicalPoint,
-        stop_condition: impl Fn(&Self) -> bool,
-    ) -> LogicalPoint {
-        if stop_condition(self) {
-            return p;
-        }
-
-        if let Some(transform) = self.local_to_window_transform(&stop_condition).inverse() {
-            return transform.transform_point(p.cast()).cast();
-        }
-
-        let mut current = self.clone();
-        let mut offset = euclid::Vector2D::zero();
-        while let Some(parent) = current.parent_item(ParentItemTraversalMode::StopAtPopups) {
-            if stop_condition(&parent) {
-                break;
-            }
-            offset += parent.geometry().origin.to_vector();
-            current = parent;
-        }
-
-        p - offset
     }
 
     /// Return the index of the item within the ItemTree
@@ -2783,7 +2752,6 @@ mod tests {
         let local_point = Point2D::new(4., 5.);
         let window_point = leaf.map_to_window(local_point);
         assert_point_approx_eq(window_point, Point2D::new(28., 53.));
-        assert_point_approx_eq(leaf.map_from_window(window_point), local_point);
     }
 
     #[test]
@@ -2814,9 +2782,10 @@ mod tests {
             create_subsubtree_items(Some(window_adapter_weak.upgrade().unwrap())).1;
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
             &popup_component,
-            POPUP_LOCATION,
+            alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(parent.clone()),
+            false,
             false,
         );
 
@@ -2852,9 +2821,10 @@ mod tests {
         let (window_adapter_weak, item_tree) = create_subsubtree_items(None);
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
             &item_tree,
-            POPUP_LOCATION,
+            alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(item_tree.clone()),
+            false,
             false,
         );
 
@@ -2952,9 +2922,10 @@ mod tests {
             create_subsubtree_items_dynamic_elements(window_adapter_weak.upgrade().unwrap());
         window_adapter_weak.upgrade().unwrap().window.0.show_popup(
             &popup_component,
-            POPUP_LOCATION,
+            alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(parent.clone()),
+            false,
             false,
         );
 
@@ -3022,7 +2993,7 @@ mod tests {
         }
 
         fn mark_dirty_region(&self, _region: crate::partial_renderer::DirtyRegion) {
-            unimplemented!("Not required in this test");
+            // Will be called when showing a popup to mark the previous position dirty
         }
 
         fn register_bitmap_font(&self, _font_data: &'static crate::graphics::BitmapFont) {

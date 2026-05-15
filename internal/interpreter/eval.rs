@@ -243,15 +243,16 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
         }
         Expression::Cast { from, to } => {
-            match try_cast(eval_expression(from, local_context), to.clone()) {
-                Ok(value) => value,
-                Err(value) => {
-                    let actual_ty = value.value_type();
-                    eprintln!(
-                        "Encountered `Expression::Cast`, but could not cast from {actual_ty:?} to {to}"
-                    );
-                    value
+            let value = eval_expression(from, local_context);
+            match (value, to) {
+                (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
+                (Value::Number(n), Type::String) => {
+                    Value::String(i_slint_core::string::shared_string_from_number(n))
                 }
+                (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
+                (Value::Brush(brush), Type::Color) => brush.color().into(),
+                (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
+                (v, _) => v,
             }
         }
         Expression::CodeBlock(sub) => {
@@ -673,21 +674,6 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
     }
 }
 
-/// Try to convert the type to `to`, or return the value unmodified as an error if
-/// casting is not possible.
-fn try_cast(value: Value, to: Type) -> Result<Value, Value> {
-    Ok(match (value, to) {
-        (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
-        (Value::Number(n), Type::String) => {
-            Value::String(i_slint_core::string::shared_string_from_number(n))
-        }
-        (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
-        (Value::Brush(brush), Type::Color) => brush.color().into(),
-        (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
-        (v, _) => return Err(v),
-    })
-}
-
 fn call_builtin_function(
     f: BuiltinFunction,
     arguments: &[Expression],
@@ -715,6 +701,12 @@ fn call_builtin_function(
             );
             Value::Void
         }
+        BuiltinFunction::DecimalSeparator => Value::String(
+            local_context
+                .component_instance
+                .access_window(|window| window.context().locale_decimal_separator())
+                .into(),
+        ),
         BuiltinFunction::Mod => {
             let mut to_num = |e| -> f64 { eval_expression(e, local_context).try_into().unwrap() };
             Value::Number(to_num(&arguments[0]).rem_euclid(to_num(&arguments[1])))
@@ -898,16 +890,18 @@ fn call_builtin_function(
                 )
                 .try_into()
                 .expect("Invalid internal enumeration representation for close policy");
+                let popup_x = popup.x.clone();
+                let popup_y = popup.y.clone();
 
                 crate::dynamic_item_tree::show_popup(
                     popup_window,
                     enclosing_component,
                     popup,
-                    |instance_ref| {
+                    move |instance_ref| {
                         let comp = ComponentInstance::InstanceRef(instance_ref);
-                        let x = load_property_helper(&comp, &popup.x.element(), popup.x.name())
+                        let x = load_property_helper(&comp, &popup_x.element(), popup_x.name())
                             .unwrap();
-                        let y = load_property_helper(&comp, &popup.y.element(), popup.y.name())
+                        let y = load_property_helper(&comp, &popup_y.element(), popup_y.name())
                             .unwrap();
                         corelib::api::LogicalPosition::new(
                             x.try_into().unwrap(),
@@ -915,7 +909,7 @@ fn call_builtin_function(
                         )
                     },
                     close_policy,
-                    enclosing_component.self_weak().get().unwrap().clone(),
+                    (*enclosing_component.self_weak().get().unwrap()).clone(),
                     component.window_adapter(),
                     &parent_item,
                 );
@@ -977,7 +971,7 @@ fn call_builtin_function(
                 .apply(enclosing_component.as_ref());
             let inst = crate::dynamic_item_tree::instantiate(
                 compiled.clone(),
-                Some(enclosing_component.self_weak().get().unwrap().clone()),
+                Some((*enclosing_component.self_weak().get().unwrap()).clone()),
                 None,
                 Some(&crate::dynamic_item_tree::WindowOptions::UseExistingWindow(
                     component.window_adapter(),
@@ -1076,9 +1070,10 @@ fn call_builtin_function(
                 }
                 let id = window.show_popup(
                     &vtable::VRc::into_dyn(inst.clone()),
-                    position,
+                    Box::new(move || position),
                     corelib::items::PopupClosePolicy::CloseOnClickOutside,
                     &item_rc,
+                    false,
                     true,
                 );
                 context_menu_elem.popup_id.set(Some(id));

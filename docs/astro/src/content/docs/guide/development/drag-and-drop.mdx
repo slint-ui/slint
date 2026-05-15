@@ -1,0 +1,110 @@
+---
+title: Drag and Drop
+description: DragArea and DropArea elements.
+---
+import Link from '@slint/common-files/src/components/Link.astro';
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Use <Link type="DragArea" /> and <Link type="DropArea" /> to move data between parts of the UI with a drag-and-drop gesture.
+On platforms that support it, a <Link type="DropArea" /> also accepts drops from other applications.
+
+The payload is a `data-transfer` value, which abstracts over the file-type transfer mechanisms supported by each platform.
+`data-transfer` values are opaque in Slint code:
+construct and read them via callbacks implemented in the host language.
+
+## Example
+
+```slint
+export global Api {
+    pure callback string-to-transfer(string) -> data-transfer;
+    pure callback transfer-to-string(data-transfer) -> string;
+    pure callback can-drop(data-transfer) -> bool;
+}
+
+export component Example inherits Window {
+    width: 300px;
+    height: 200px;
+
+    VerticalLayout {
+        spacing: 8px;
+        padding: 8px;
+
+        Rectangle {
+            background: #f0c000;
+            DragArea {
+                data: Api.string-to-transfer("Hello World");
+            }
+            Text { text: "Drag me"; }
+        }
+
+        Rectangle {
+            background: drop.contains-drag ? #80e080 : #a0a0a0;
+            drop := DropArea {
+                can-drop(event) => {
+                    Api.can-drop(event.data)
+                }
+                dropped(event) => {
+                    debug("Got: ", Api.transfer-to-string(event.data));
+                }
+            }
+            Text { text: "Drop here"; }
+        }
+    }
+}
+```
+
+<Tabs syncKey="dev-language">
+<TabItem label="Rust">
+
+```rust
+fn main() {
+    let app = Example::new();
+    // For simple plaintext and image transfers, a simple conversion is supplied
+    // which handles the common case.
+    let api = app.global::<Api>();
+    api.on_string_to_transfer(Into::into);
+    // A helper for reading plaintext from a `DataTransfer` is also supplied.
+    api.on_transfer_to_string(|data| data.fetch_plaintext().unwrap_or_default());
+    api.on_can_drop(|data| {
+        // This helper abstracts over various "plaintext" MIME types
+        data.has_plaintext()
+    });
+    // ...
+}
+```
+
+</TabItem>
+<TabItem label="C++">
+
+```cpp
+// `DataTransfer` is currently not fully implemented in C++
+```
+</TabItem>
+<TabItem label="NodeJS">
+
+```js
+import * as slint from "slint-ui";
+
+const ui = slint.loadFile(new URL("example.slint", import.meta.url));
+const window = new ui.Example();
+
+window.Api.string_to_transfer = (text) => {
+    const transfer = new slint.DataTransfer();
+    transfer.setPlaintext(text);
+    return transfer;
+};
+
+// A helper for reading plaintext from a `DataTransfer` is also supplied.
+window.Api.transfer_to_string = (data) => data.fetchPlaintext() ?? "";
+
+// This helper abstracts over various "plaintext" MIME types
+window.Api.can_drop = (data) => data.hasPlaintext;
+```
+</TabItem>
+<TabItem label="Python">
+
+```python
+# `DataTransfer` is currently not fully implemented in Python
+```
+</TabItem>
+</Tabs>

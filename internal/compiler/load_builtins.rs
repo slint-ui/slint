@@ -93,6 +93,8 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
                         }
                     }
 
+                    info.docs = docs::doc_comment(&p);
+
                     if let Some(e) = p.BindingExpression() {
                         let ty = info.ty.clone();
                         info.default_value = BuiltinPropertyDefault::Expr(compiled(e, register, ty));
@@ -101,28 +103,27 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
                     (prop_name, info)
                 })
                 .chain(e.CallbackDeclaration().map(|s| {
-                    (
-                        identifier_text(&s.DeclaredIdentifier()).unwrap(),
-                        BuiltinPropertyInfo::new(Type::Callback(Rc::new(Function{
-                            args: s
-                                .CallbackDeclarationParameter()
-                                .map(|a| {
-                                    object_tree::type_from_node(a.Type(), *diag.borrow_mut(), register)
-                                })
-                                .collect(),
-                            return_type: s.ReturnType().map(|a| {
-                                object_tree::type_from_node(
-                                    a.Type(),
-                                    *diag.borrow_mut(),
-                                    register,
-                                )
-                            }).unwrap_or(Type::Void),
-                            arg_names: s
-                                .CallbackDeclarationParameter()
-                                .map(|a| a.DeclaredIdentifier().and_then(|x| identifier_text(&x)).unwrap_or_default())
-                                .collect()
-                        }))),
-                    )
+                    let mut info = BuiltinPropertyInfo::new(Type::Callback(Rc::new(Function{
+                        args: s
+                            .CallbackDeclarationParameter()
+                            .map(|a| {
+                                object_tree::type_from_node(a.Type(), *diag.borrow_mut(), register)
+                            })
+                            .collect(),
+                        return_type: s.ReturnType().map(|a| {
+                            object_tree::type_from_node(
+                                a.Type(),
+                                *diag.borrow_mut(),
+                                register,
+                            )
+                        }).unwrap_or(Type::Void),
+                        arg_names: s
+                            .CallbackDeclarationParameter()
+                            .map(|a| a.DeclaredIdentifier().and_then(|x| identifier_text(&x)).unwrap_or_default())
+                            .collect()
+                    })));
+                    info.docs = docs::doc_comment(&s);
+                    (identifier_text(&s.DeclaredIdentifier()).unwrap(), info)
                 }))
         );
         n.deprecated_aliases = e
@@ -173,12 +174,11 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
                 args.push(object_tree::type_from_node(a.Type(), *diag.borrow_mut(), register));
                 arg_names.push(identifier_text(&a.DeclaredIdentifier()).unwrap_or_default());
             }
-            (
-                name,
-                BuiltinPropertyInfo::new(Type::Function(
-                    Function { return_type, args, arg_names }.into(),
-                )),
-            )
+            let mut info = BuiltinPropertyInfo::new(Type::Function(
+                Function { return_type, args, arg_names }.into(),
+            ));
+            info.docs = docs::doc_comment(&f);
+            (name, info)
         }));
 
         let mut builtin = BuiltinElement::new(Rc::new(n));
@@ -189,11 +189,22 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
         }
         properties
             .extend(builtin.native_class.properties.iter().map(|(k, v)| (k.clone(), v.clone())));
+        let entries = docs::element_doc_entries(&c, &e, &mut diag.borrow_mut());
+        let parent_builtin = match &base {
+            Base::NativeParent(p) => Some(p.as_ref()),
+            _ => None,
+        };
+        // Assemble docs as [description, inherited parent body, own body].
+        // docs[0] is always the description so children can skip it
+        // with `parent.docs[1..]`.
+        builtin.docs = docs::assemble(entries, parent_builtin);
 
         builtin.disallow_global_types_as_child_elements =
             parse_annotation("disallow_global_types_as_child_elements", &e).is_some();
         builtin.is_non_item_type = parse_annotation("is_non_item_type", &e).is_some();
         builtin.is_internal = parse_annotation("is_internal", &e).is_some();
+        builtin.can_be_declared_without_children_slot =
+            parse_annotation("can_be_declared_without_children_slot", &e).is_some();
         builtin.accepts_focus = parse_annotation("accepts_focus", &e).is_some();
         builtin.default_size_binding = parse_annotation("default_size_binding", &e)
             .map(|size_type| match size_type.as_deref() {
@@ -292,3 +303,5 @@ fn parse_annotation(key: &str, node: &SyntaxNode) -> Option<Option<SmolStr>> {
     }
     None
 }
+
+use crate::doc_comments as docs;

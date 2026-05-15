@@ -59,6 +59,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 geometry_props: original_elem.geometry_props.clone(),
                 is_flickable_viewport: original_elem.is_flickable_viewport,
                 has_popup_child: original_elem.has_popup_child,
+                is_tooltip: original_elem.is_tooltip,
                 item_index: Default::default(), // Not determined yet
                 item_index_of_first_children: Default::default(),
                 is_legacy_syntax: original_elem.is_legacy_syntax,
