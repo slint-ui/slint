@@ -12,6 +12,7 @@ import {
     quitEventLoop,
     private_api,
 } from "../dist/index.js";
+import { hasIntegratedEventLoop } from "../rust-module.cjs";
 
 afterEach(() => {
     quitEventLoop();
@@ -139,21 +140,38 @@ test.sequential("js and slint timers fire in order", async () => {
     app.timer_fired = () => events.push("slint");
     app.show();
 
+    // JS timers are placed midway between 80ms Slint firings
+    // (80, 160, 240) so there's ≥40ms margin on each side.
     await runEventLoop(() => {
-        setTimeout(() => events.push("js-100"), 100);
-        setTimeout(() => events.push("js-175"), 175);
+        setTimeout(() => events.push("js-120"), 120);
+        setTimeout(() => events.push("js-200"), 200);
         setTimeout(() => {
-            events.push("js-250");
+            events.push("js-280");
             quitEventLoop();
-        }, 250);
+        }, 280);
     });
 
-    expect(events).toEqual([
-        "slint",
-        "js-100",
-        "slint",
-        "js-175",
-        "slint",
-        "js-250",
-    ]);
+    if (hasIntegratedEventLoop()) {
+        // With the integrated event loop, Slint and JS timers
+        // interleave precisely.
+        expect(events).toEqual([
+            "slint",
+            "js-120",
+            "slint",
+            "js-200",
+            "slint",
+            "js-280",
+        ]);
+    } else {
+        // Polling fallback (Windows / Deno): ordering between Slint
+        // and JS timers isn't guaranteed, just check both fired.
+        expect(
+            events.filter((e) => e === "slint").length,
+        ).toBeGreaterThanOrEqual(1);
+        expect(events).toContain("js-120");
+        expect(events).toContain("js-200");
+        expect(events).toContain("js-280");
+        expect(events.indexOf("js-120")).toBeLessThan(events.indexOf("js-200"));
+        expect(events.indexOf("js-200")).toBeLessThan(events.indexOf("js-280"));
+    }
 });
