@@ -13,12 +13,11 @@ export component Example inherits Window {
     width: 200px;
     height: 150px;
     RadioGroup {
-        x: 5px; y: 5px;
         title: "Target Platform";
         model: [
-            { text: "Desktop", enabled: true },
-            { text: "Mobile", enabled: true },
-            { text: "Embedded", enabled: true },
+            { text: "Desktop" },
+            { text: "Mobile" },
+            { text: "Embedded" },
         ];
         current-index: 0;
     }
@@ -36,8 +35,8 @@ The index of the selected entry in `model`.
 ```slint "current-index: 1;"
 RadioGroup {
     model: [
-        { text: "Desktop", enabled: true },
-        { text: "Mobile", enabled: true },
+        { text: "Desktop" },
+        { text: "Mobile" },
     ];
     current-index: 1;
 }
@@ -61,13 +60,13 @@ Set to `true` when any radio button inside the group has keyboard focus.
 
 ### model
 <SlintProperty propName="model" typeName="[struct]" structName="RadioEntry" defaultValue="[]">
-The list of options to display.
+The list of options to display. Each entry has `text` and an optional `disabled` flag.
 
-```slint 'model: [{ text: "Desktop", enabled: true }, { text: "Mobile", enabled: true }];'
+```slint 'model: [{ text: "Desktop" }, { text: "Mobile", disabled: true }];'
 RadioGroup {
     model: [
-        { text: "Desktop", enabled: true },
-        { text: "Mobile", enabled: true },
+        { text: "Desktop" },
+        { text: "Mobile", disabled: true },
     ];
 }
 ```
@@ -87,3 +86,20 @@ An optional label rendered above the group. When empty, no title is shown.
 <SlintProperty propName="orientation" typeName="enum" enumName="Orientation" defaultValue="vertical" inlineReferenceDocs={false}>
 Use `Orientation.vertical` (default) to stack options, or `Orientation.horizontal` for a single row.
 </SlintProperty>
+
+## Callbacks
+
+### selected(string)
+Invoked when the user selects a different option. The argument is the `text` of the newly selected entry.
+
+```slint {6-8}
+RadioGroup {
+    model: [
+        { text: "Desktop" },
+        { text: "Mobile" },
+    ];
+    selected(value) => {
+        debug("Selected: ", value);
+    }
+}
+```

@@ -3,7 +3,7 @@
 
 export struct RadioEntry {
     text: string,
-    enabled: bool,
+    disabled: bool,
 }
 
 export component RadioGroupBase {
@@ -12,10 +12,13 @@ export component RadioGroupBase {
     in-out property <int> current-index: 0;
     in-out property <string> current-value: root.model[root.current-index].text;
 
+    callback selected(string);
+
     public function select(index: int) {
-        if root.enabled && index >= 0 && index < root.model.length && root.model[index].enabled {
+        if root.enabled && index >= 0 && index < root.model.length && !root.model[index].disabled {
             root.current-index = index;
             root.update-current-value();
+            root.selected(root.current-value);
         }
     }
 

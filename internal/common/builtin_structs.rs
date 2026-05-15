@@ -156,8 +156,8 @@ macro_rules! for_each_builtin_structs {
                 export {
                     /// Label shown next to the radio button.
                     text: SharedString,
-                    /// When `false`, this option is visible but not selectable.
-                    enabled: bool,
+                    /// When `true`, this option is visible but not selectable.
+                    disabled: bool,
                 }
                 private {
                 }
