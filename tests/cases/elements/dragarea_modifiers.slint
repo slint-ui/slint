@@ -73,6 +73,8 @@ assert_eq!(instance.get_current_action(), DragAction::Move);
 
 instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(22.0, 120.0), button: PointerEventButton::Left });
 slint_testing::mock_elapsed_time(20);
+// Drag is over: `current-action` resets to `None` (no drag is hovering anywhere).
+assert_eq!(instance.get_current_action(), DragAction::None);
 
 ```
 
