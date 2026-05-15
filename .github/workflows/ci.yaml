@@ -764,12 +764,20 @@ jobs:
             - name: Test slint-sc runtime
               run: cargo llvm-cov --no-report -p slint-sc
             - name: Generate coverage report
-              run: cargo llvm-cov report --lcov --output-path lcov.info
+              run: |
+                  cargo llvm-cov report --html --output-dir coverage
+                  cargo llvm-cov report --lcov --output-path coverage/lcov.info
             - name: Upload coverage report
               uses: actions/upload-artifact@v4
               with:
                   name: slint-sc-coverage
-                  path: lcov.info
+                  path: coverage
+            - name: Upload to Codecov
+              uses: codecov/codecov-action@v5
+              with:
+                  files: coverage/lcov.info
+                  flags: slint-sc
+              continue-on-error: true
 
     clippy:
         needs: files-changed
