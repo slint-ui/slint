@@ -50,9 +50,10 @@ export interface TestCase {
     test_global_prop_value: boolean;
     readonly GlobalAlias: GlobalAlias;
     readonly MyGlobal: GlobalAlias;
+    readonly [slint.globalsSymbol]: { readonly GlobalAlias: GlobalAlias; readonly MyGlobal: GlobalAlias; };
 }
 
-export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & slint.ComponentHandle };
+export declare const TestCase: { new(properties?: Partial<TestCase>): TestCase & Omit<slint.ComponentHandle, keyof TestCase> };
 ```
 
 ```js
@@ -64,6 +65,9 @@ instance.MyGlobal.hello = 100;
 assert(instance.test_global_prop_value);
 assert.equal(instance.MyGlobal.hello, 100);
 assert.equal(instance.GlobalAlias.hello, 100);
+
+assert.equal(instance[slintlib.globalsSymbol].MyGlobal, instance.MyGlobal);
+assert.equal(instance[slintlib.globalsSymbol].GlobalAlias.hello, 100);
 ```
 
 */

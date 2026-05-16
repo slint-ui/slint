@@ -70,7 +70,7 @@ export interface Test {
     readonly test_rgb: boolean;
 }
 
-export declare const Test: { new(properties?: Partial<Test>): Test & slint.ComponentHandle };
+export declare const Test: { new(properties?: Partial<Test>): Test & Omit<slint.ComponentHandle, keyof Test> };
 ```
 
 ```js

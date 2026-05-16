@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore fileloader notacolor
-import { test, expect } from "vitest";
+import { test, expect, vi } from "vitest";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,6 +13,8 @@ import {
     CompileError,
     StyledText,
     private_api,
+    windowSymbol,
+    globalsSymbol,
 } from "../dist/index.js";
 
 private_api.initTesting();
@@ -211,7 +213,75 @@ test("accessing `window` on non-windowed components throws", () => {
     const tray = new mod.Tray();
 
     expect(win.window).toBeDefined();
+    expect(win[windowSymbol].visible).toBe(false);
     expect(() => tray.window).toThrow();
+    expect(() => tray[windowSymbol]).toThrow();
+});
+
+test("properties, callbacks, and functions hide built-ins", () => {
+    const warn = vi.spyOn(process, "emitWarning").mockImplementation(() => {});
+    const source = `
+        export component HidesBuiltins inherits Window {
+            in-out property <int> window: 3;
+            in-out property <int> run: 4;
+            callback show() -> int;
+            public function hide() -> int { return 2; }
+        }`;
+    const mod = loadSource(source, "api.spec.ts") as any;
+    loadSource(source, "api.spec.ts");
+    const app = new mod.HidesBuiltins({ show: () => 1 });
+
+    expect(app.window).toBe(3);
+    expect(app.run).toBe(4);
+    expect(app.show()).toBe(1);
+    expect(app.hide()).toBe(2);
+    expect(app[windowSymbol].maximized).toBe(false);
+
+    // Once per hidden built-in, though the source was loaded twice.
+    expect(warn.mock.calls).toStrictEqual(
+        ["run", "window", "show", "hide"].map((name) => [
+            `HidesBuiltins: '${name}' hides the built-in ${name}`,
+            { code: "SLINT_SHADOWED_BUILTIN" },
+        ]),
+    );
+    warn.mockRestore();
+});
+
+test("a property hides a global of the same name", () => {
+    const warn = vi.spyOn(process, "emitWarning").mockImplementation(() => {});
+    const mod = loadSource(
+        `export global settings {
+            in-out property <int> val: 99;
+        }
+        export component HidesGlobal {
+            in-out property <int> settings: 42;
+        }`,
+        "api.spec.ts",
+    ) as any;
+    const app = new mod.HidesGlobal();
+
+    expect(app.settings).toBe(42);
+    expect(app[globalsSymbol].settings.val).toBe(99);
+    expect(warn).toHaveBeenCalledWith(
+        "HidesGlobal: 'settings' hides the global settings",
+        { code: "SLINT_SHADOWED_BUILTIN" },
+    );
+    warn.mockRestore();
+});
+
+test("quiet doesn't warn about hidden built-ins", () => {
+    const warn = vi.spyOn(process, "emitWarning").mockImplementation(() => {});
+    const mod = loadSource(
+        `export component QuietTray inherits SystemTrayIcon {
+            in-out property <int> window: 3;
+        }`,
+        "api.spec.ts",
+        { quiet: true },
+    ) as any;
+
+    expect(new mod.QuietTray().window).toBe(3);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
 });
 
 test("loadSource constructor parameters", () => {

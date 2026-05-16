@@ -284,8 +284,8 @@ Use this when you need to:
 With both approaches,
 the exported component is available as a constructor function.
 The constructor takes an optional object to set initial property values and callbacks.
-The returned instance implements the `ComponentHandle` interface
-for showing, hiding, and accessing the window.
+The returned instance implements the `ComponentHandle` interface:
+`show()`, `hide()`, `run()`, and `window`.
 
 Given this `.slint` file:
 
@@ -312,6 +312,10 @@ let component = new MainWindow({
     clicked: function() { console.log("hello"); }
 });
 ```
+
+If a property, callback, or function of the component is called `window`, `show`, `hide`, or `run`, it takes that name,
+and `component[slint.windowSymbol]` still reaches the window.
+Loading such a component emits a `SLINT_SHADOWED_BUILTIN` warning, unless the `quiet` option of `loadFile()` is set.
 
 ### Accessing Properties
 
@@ -504,6 +508,13 @@ let component = new ui.MyComponent();
 component.Logic.to_uppercase = (str) => {
     return str.toUpperCase();
 };
+```
+
+Alternatively, reach the global through `slint.globalsSymbol`.
+It's always there, even when a property of the component has the same name as the global:
+
+```js
+component[slint.globalsSymbol].Logic.to_uppercase = (str) => str.toUpperCase();
 ```
 
 **Note**: Global singletons are instantiated once per component.
