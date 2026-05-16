@@ -319,7 +319,7 @@ pub mod ffi {
                         let Some(menu_rc) = menu_weak.upgrade() else { return false };
                         condition(&menu_rc)
                     }),
-                    core::option::Option::None,
+                    core::option::Option::None::<fn() -> bool>,
                 )
             }
             None => MenuFromItemTree::new(
