@@ -1,6 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
+# cSpell: ignore AUTOUIC
 cmake_minimum_required(VERSION 3.21)
 project(qt_viewer LANGUAGES CXX)
 

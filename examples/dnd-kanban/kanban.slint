@@ -50,7 +50,7 @@ component Card inherits Rectangle {
         data: Api.make-data(root.task, root.source-column, root.source-index);
         // Show a card-shaped preview under the cursor while dragging. The offsets are
         // half the SVG's 80x56 viewBox so the image centres on the cursor (the offset
-        // names the hotspot inside the image, not a displacement from the cursor).
+        // names the hot spot inside the image, not a displacement from the cursor).
         drag-image: @image-url("card-drag.svg");
         drag-image-offset-x: 40;
         drag-image-offset-y: 28;

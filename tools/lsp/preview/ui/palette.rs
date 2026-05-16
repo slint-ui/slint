@@ -676,12 +676,14 @@ export component Main { }
         assert!(reds.row_count() >= 6);
         assert!(reds.row_count() <= 12);
 
+        // cspell:disable - CSS color names in string literals
         assert_eq!(reds.row_data(0).unwrap().name, "Colors.red");
         assert_eq!(reds.row_data(1).unwrap().name, "Colors.darkred");
         assert_eq!(reds.row_data(2).unwrap().name, "Colors.indianred");
         assert_eq!(reds.row_data(3).unwrap().name, "Colors.mediumvioletred");
         assert_eq!(reds.row_data(4).unwrap().name, "Colors.orangered");
         assert_eq!(reds.row_data(5).unwrap().name, "Colors.palevioletred");
+        // cspell:enable
     }
 
     #[test]

@@ -1,4 +1,4 @@
-<!-- cSpell: ignore frontends -->
+<!-- cSpell: ignore gitk
 # Slint development guide
 
 The build instructions are in the [building.md](./building.md) file.
@@ -59,7 +59,7 @@ The library crates that are used at runtime.
 
 ### `api`
 
-Here one can find the frontends for different languages.
+Here one can find the frontend for different languages.
 
 ### `tests`
 

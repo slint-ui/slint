@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore autocapitalize compositionend compositionupdate keyup
 //! Helper for wasm that adds a hidden `<input>`  and process its events
 //!
 //! Without it, the key event are sent to the canvas and processed by winit.

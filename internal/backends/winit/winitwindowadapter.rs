@@ -1299,7 +1299,7 @@ impl WindowAdapter for WinitWindowAdapter {
             // size we've been assigned to from the windowing system. Weston/Wayland don't like it
             // when we create a surface that's bigger than the screen due to constraints (#532).
             if winit_window_or_none.fullscreen().is_none() {
-                // TODO: don't ignore error, propgate to caller
+                // TODO: don't ignore error, propagate to caller
                 let immediately_resized = self
                     .resize_window(winit::dpi::LogicalSize::new(width, height).into())
                     .unwrap_or_default();
@@ -1384,7 +1384,7 @@ impl WindowAdapter for WinitWindowAdapter {
             if is_preferred_sized_canvas(&canvas) {
                 let pref = new_constraints.preferred;
                 if pref.width > 0 as Coord || pref.height > 0 as Coord {
-                    // TODO: don't ignore error, propgate to caller
+                    // TODO: don't ignore error, propagate to caller
                     self.resize_window(logical_size_to_winit(pref).into()).ok();
                 };
             }
@@ -1664,7 +1664,7 @@ fn adjust_window_size_to_satisfy_constraints(
     }
 
     if window_size != current_size {
-        // TODO: don't ignore error, propgate to caller
+        // TODO: don't ignore error, propagate to caller
         adapter.resize_window(window_size.into()).ok();
     }
 }

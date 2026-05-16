@@ -4,7 +4,7 @@
 /*! module for the C++ code generator
 */
 
-// cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals
+// cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals compl consteval constinit glyphset glyphsets reflexpr
 
 use crate::fileaccess;
 use std::collections::HashSet;
@@ -759,7 +759,7 @@ fn handle_property_init(
                     Some(llr::Animation::Static(anim)) => {
                         let anim = compile_expression(anim, ctx);
                         // Note: The start_time defaults to the current tick, so doesn't need to be
-                        // udpated here.
+                        // updated here.
                         format!("{prop_access}.set_animated_binding({binding_code},
                                 [this](uint64_t **start_time) -> slint::cbindgen_private::PropertyAnimation {{
                                     [[maybe_unused]] auto self = this;
@@ -3603,7 +3603,7 @@ enum MemberAccess {
     /// The string is a an expression to an `std::optional`
     Option(String),
     /// The first string is an expression to an `std::optional`,
-    /// the second is a string to be appended after dereferncing the optional
+    /// the second is a string to be appended after dereferencing the optional
     /// like so: `<1>.transform([](auto &&x) { return x<2>; })`
     OptionWithMember(String, String),
 }
@@ -4924,7 +4924,7 @@ fn compile_builtin_function_call(
             if let [llr::Expression::NumberLiteral(timer_index)] = arguments {
                 format!("const_cast<slint::Timer&>(self->timer{}).restart()", timer_index)
             } else {
-                panic!("internal error: invalid args to RetartTimer {arguments:?}")
+                panic!("internal error: invalid args to RestartTimer {arguments:?}")
             }
         }
         BuiltinFunction::OpenUrl => {

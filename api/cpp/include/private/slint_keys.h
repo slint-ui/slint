@@ -59,7 +59,7 @@ public:
 
 private:
     // Use only one instance of the actual Rust struct as the inner data.
-    // This way this class has the same binary representation and can be used interchangibly
+    // This way this class has the same binary representation and can be used interchangeably
     cbindgen_private::types::Keys data;
 
     /// \private

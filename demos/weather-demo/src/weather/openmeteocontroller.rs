@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell:ignore dummyweather
+
 #![cfg(all(not(target_arch = "wasm32"), feature = "open_meteo"))]
 
 use chrono::{DateTime, NaiveDate, Utc};

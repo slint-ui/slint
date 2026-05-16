@@ -1,6 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell: ignore bigobj buildroot CLANGCC CLANGCXX CROSSCOMPILING dlopening hostbuild IMPLIB libslint mbig MINSIZEREL NSIS RELWITHDEBINFO SONAME Yocto
 cmake_minimum_required(VERSION 3.21)
 # Select C++ and C as languages, as Corrosion needs ${CMAKE_C_COMPILER}
 # for linking

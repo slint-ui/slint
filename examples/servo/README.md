@@ -4,7 +4,7 @@
 
 > Disclaimer: Servo is still experimental and not ready for production use.
 
-Integrate [Servo](https://github.com/servo/servo) Web Engine as WebView Component for Slint to render websites using hardware rendring on Linux, MacOS, Windows and Android.
+Integrate [Servo](https://github.com/servo/servo) Web Engine as WebView Component for Slint to render websites using hardware rendering on Linux, MacOS, Windows and Android.
 
 ![Preview](https://github.com/user-attachments/assets/a7259d9c-2d3a-4f7c-9f48-8fb852f6c5be)
 
@@ -110,7 +110,7 @@ To build on Windows, you will need Visual Studio installed. Cargo requires the `
 - Install [Android Studio](https://developer.android.com/studio).
 - Install [Android Command Line Tools](https://developer.android.com/studio#command-tools).
 
-### Install platofrm-tools
+### Install platform-tools
 
 ```bash
 ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"

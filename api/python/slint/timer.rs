@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore timedelta
 use pyo3::prelude::*;
 use pyo3_stub_gen::{
     derive::gen_stub_pyclass, derive::gen_stub_pyclass_enum, derive::gen_stub_pymethods,
@@ -73,7 +74,7 @@ impl PyTimer {
     ///
     /// Arguments:
     /// * `mode`: The timer mode to apply, i.e. whether to repeatedly fire the timer or just once.
-    /// * `interval`: The duration from now until when the timer should firethe first time, and subsequently
+    /// * `interval`: The duration from now until when the timer should fire the first time, and subsequently
     ///    for `TimerMode.Repeated` timers.
     /// * `callback`: The function to call when the time has been reached or exceeded.
     fn start(

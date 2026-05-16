@@ -143,7 +143,7 @@ pub const FALLBACK_FAMILIES: [fontique::GenericFamily; 2] = [
     fontique::GenericFamily::SystemUi,
 ];
 
-/// Wraper around fontique::Blob to permit use of the blob as a key in the cache in the different renderers,
+/// Wrapper around fontique::Blob to permit use of the blob as a key in the cache in the different renderers,
 /// to map the blob to the native type face representation (skia_safe::Typeface, femtovg::FontId, QRawFont, etc.).
 /// The use as key also ensures the blob remains strongly referenced, so that it doesn't vanish from the
 /// shared SourceCache (parley prunes it).

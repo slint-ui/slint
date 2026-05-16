@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore binfmt testui
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![warn(missing_docs)]
@@ -311,7 +312,7 @@ impl BackendBuilder {
     /// Configures this builder to enable or disable the default menu bar.
     /// By default, the menu bar is provided by Slint. Set this to false
     /// if you're providing your own menu bar.
-    /// Note that an application provided menu bar will be overriden by a `MenuBar`
+    /// Note that an application provided menu bar will be overridden by a `MenuBar`
     /// declared in Slint code.
     #[must_use]
     #[cfg(all(muda, target_os = "macos"))]

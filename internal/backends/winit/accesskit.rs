@@ -795,7 +795,7 @@ impl DeferredAccessKitAction {
     pub fn invoke(&self, window: &Window) {
         match self {
             DeferredAccessKitAction::SetFocus(item) => {
-                // pretend this event was caused by a mouse for compatability purposes
+                // pretend this event was caused by a mouse for compatibility purposes
                 WindowInner::from_pub(window).set_focus_item(item, true, FocusReason::PointerClick);
             }
             DeferredAccessKitAction::InvokeAccessibleAction(item, accessibility_action) => {

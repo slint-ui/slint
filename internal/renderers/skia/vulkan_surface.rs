@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore madsmtm
 use std::cell::{Cell, RefCell};
 use std::sync::Arc;
 
@@ -83,7 +84,7 @@ pub struct VulkanSurface {
 }
 
 impl VulkanSurface {
-    /// Creates a Skia Vulkan rendering surface from the given Vukano device, queue family index, surface,
+    /// Creates a Skia Vulkan rendering surface from the given Vulkano device, queue family index, surface,
     /// and size.
     pub fn from_surface(
         physical_device: Arc<PhysicalDevice>,

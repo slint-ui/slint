@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell:ignore dummyweathercontroller weathercontroller weatherdisplaycontroller openmeteocontroller
 mod weathercontroller;
 mod weatherdisplaycontroller;
 

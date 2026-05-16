@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore pixelfont vectorfont
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use core::cell::RefCell;
@@ -38,7 +39,7 @@ impl RenderableGlyph {
     }
 }
 
-// Subset of `RenderableGlyph`, specfically for VectorFonts.
+// Subset of `RenderableGlyph`, specifically for VectorFonts.
 #[cfg(feature = "systemfonts")]
 #[derive(Clone)]
 pub struct RenderableVectorGlyph {

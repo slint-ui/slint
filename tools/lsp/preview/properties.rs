@@ -99,7 +99,7 @@ const HIGH_PRIORITY: u32 = 100;
 const DEFAULT_PRIORITY: u32 = 1000;
 
 // This returns defined reserved properties such as x, y, width, height,
-// accessiblity properties or layout properties
+// accessibility properties or layout properties
 fn get_reserved_properties<'a>(
     group: &'a str,
     group_priority: u32,
@@ -878,7 +878,7 @@ pub fn remove_binding(
                 prop_decl.BindingExpression().ok_or("property declaration has no binding")?;
             let colon = ancestor
                 .child_token(SyntaxKind::Colon)
-                .ok_or("property peclaration has no colon")?;
+                .ok_or("property declaration has no colon")?;
             let start = colon.text_range().start();
             if let Some(semi_colon) = binding.child_token(SyntaxKind::Semicolon) {
                 let end = semi_colon.text_range().start();

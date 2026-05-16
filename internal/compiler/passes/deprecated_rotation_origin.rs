@@ -87,7 +87,7 @@ fn is_image_or_text(e: &ElementRc) -> bool {
     e.borrow().builtin_type().is_some_and(|bt| matches!(bt.name.as_str(), "Image" | "Text"))
 }
 
-/// Returns true if the property is set by a biinding or an assignment expression
+/// Returns true if the property is set by a binding or an assignment expression
 fn is_property_set(e: &Element, property_name: &str) -> bool {
     e.bindings.contains_key(property_name)
         || e.property_analysis.borrow().get(property_name).is_some_and(|a| a.is_set || a.is_linked)

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore pycol
 use pyo3::prelude::*;
 use pyo3_stub_gen::{derive::gen_stub_pyclass, derive::gen_stub_pymethods, impl_stub_type};
 
@@ -182,7 +183,7 @@ impl_stub_type!(PyBrushInput = PyColor);
 ///
 /// Brushes can only be constructed from solid colors.
 ///
-/// **Note:** In future, we plan to reduce this constraint and allow for declaring graidient brushes programmatically.
+/// **Note:** In future, we plan to reduce this constraint and allow for declaring gradient brushes programmatically.
 #[gen_stub_pyclass]
 #[pyclass(name = "Brush")]
 pub struct PyBrush {

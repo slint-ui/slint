@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore iosurface multisampled
 //! Metal-specific WGPU integration for IOSurface textures.
 //!
 //! This module provides functionality to create WGPU textures from Metal IOSurfaces,

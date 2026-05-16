@@ -71,8 +71,8 @@ component IncorrectPropertyType {
     }
 }
 
-export component ChildDoesNotImplementInterfacePropert2 uses { ValidInterface from impl } {
-//                                                                                 >  <error{'impl' does not implement 'value' from 'ValidInterface' - expected type: 'int'}
+export component ChildDoesNotImplementInterfaceProperty2 uses { ValidInterface from impl } {
+//                                                                                  >  <error{'impl' does not implement 'value' from 'ValidInterface' - expected type: 'int'}
     impl := IncorrectPropertyType { }
 }
 
@@ -174,10 +174,10 @@ component BaseWithConflicts {
     @children
 }
 
-export component DuplicatPropertyOnBase uses { ValidInterface from base } inherits BaseWithConflicts {
-//                                             >             <error{Cannot use interface 'ValidInterface' because 'reset' conflicts with an existing function in 'BaseWithConflicts'}
-//                                             >             <^error{Cannot use interface 'ValidInterface' because 'speak' conflicts with an existing callback in 'BaseWithConflicts'}
-//                                             >             <^^error{Cannot use interface 'ValidInterface' because 'value' conflicts with an existing property in 'BaseWithConflicts'}
+export component DuplicatePropertyOnBase uses { ValidInterface from base } inherits BaseWithConflicts {
+//                                              >             <error{Cannot use interface 'ValidInterface' because 'reset' conflicts with an existing function in 'BaseWithConflicts'}
+//                                              >             <^error{Cannot use interface 'ValidInterface' because 'speak' conflicts with an existing callback in 'BaseWithConflicts'}
+//                                              >             <^^error{Cannot use interface 'ValidInterface' because 'value' conflicts with an existing property in 'BaseWithConflicts'}
     base := ValidBase { }
 }
 

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore BITMAPINFO BITMAPINFOHEADER BOTTOMALIGN Hotspot HSTRING ICONINFO LEFTALIGN NOTIFYICONDATAW PCWSTR RETURNCMD TRAYICON WNDCLASSW
 //! Windows system tray backend using the `Shell_NotifyIconW` API directly.
 //!
 //! Everything here runs on the Slint event-loop thread, which on Windows is the

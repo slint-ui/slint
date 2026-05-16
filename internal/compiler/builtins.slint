@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore langtype typeregister
+// cSpell: ignore langtype typeregister borderless commonmark Strikethroughs
 
 /**
    This file contains the definition off all builtin items
@@ -1096,8 +1096,8 @@ export component SwipeGestureHandler {
     // For the future
     //in property <length> swipe-distance-threshold: 8px;
     //in property <duration> swipe-duration-threshold: 500ms;
-    // in property <bool> delays-propgataion;
-    //in property <duration> propgataion-delay: 100ms;
+    // in property <bool> delays-propagation;
+    //in property <duration> propagation-delay: 100ms;
     // in property <int> required-touch-points: 1;
     //callback swipe-recognized();
 
@@ -1219,10 +1219,10 @@ export component DragArea {
     /// Bitmap drawn under the cursor while a drag is in flight.
     /// When unset (the default empty image), no overlay is drawn.
     in property <image> drag-image;
-    /// Horizontal hotspot within `drag-image` that aligns with the cursor, in image pixel coordinates.
+    /// Horizontal hot spot within `drag-image` that aligns with the cursor, in image pixel coordinates.
     /// `0` puts the image's left edge at the cursor; following HTML5's `setDragImage(image, x, y)` convention.
     in property <int> drag-image-offset-x;
-    /// Vertical hotspot within `drag-image` that aligns with the cursor, in image pixel coordinates.
+    /// Vertical hot spot within `drag-image` that aligns with the cursor, in image pixel coordinates.
     /// `0` puts the image's top edge at the cursor.
     in property <int> drag-image-offset-y;
     /// Whether the source allows the drop to copy the data. The source retains the data.

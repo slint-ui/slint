@@ -96,7 +96,7 @@ impl SlintServoAdapter {
         self.waker_sender.clone()
     }
 
-    pub fn waker_reciver(&self) -> Receiver<()> {
+    pub fn waker_receiver(&self) -> Receiver<()> {
         self.waker_receiver.clone()
     }
 

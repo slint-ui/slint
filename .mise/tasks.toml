@@ -96,6 +96,11 @@ description = "Run knip"
 run = "pnpm knip"
 depends = ["prepare:pnpm-install"]
 
+["lint:cspell"]
+description = "Run cSpell on the repository (respects .gitignore)"
+run = "pnpm exec cspell --no-progress --gitignore ."
+depends = ["prepare:pnpm-install"]
+
 ### Build
 
 ["build:lsp:wasm"]
@@ -143,4 +148,4 @@ depends = [
 
 ["ci:autofix:lint"]
 description = "CI autofix job -- lint steps"
-depends = ["lint:legal:reuse", "lint:ts:typecheck", "lint:ts:knip"]
+depends = ["lint:legal:reuse", "lint:ts:typecheck", "lint:ts:knip", "lint:cspell"]

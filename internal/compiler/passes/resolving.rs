@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore depr descr idents shiftbehavior unaryop Unshiftable uppercased
 //! This pass resolves the property binding expressions.
 //!
 //! Before this pass, all the expression are of type Expression::Uncompiled,
@@ -2194,7 +2195,7 @@ fn maybe_lookup_object(
     Some(base)
 }
 
-/// Resolve all two way bindings on `elem`, and finalise the type of any
+/// Resolve all two way bindings on `elem`, and finalize the type of any
 /// `property foo <=> ...` declared without an explicit type. Run after any
 /// enclosing `for` model expression has been resolved.
 fn resolve_two_way_bindings_for_element(

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore newtype
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -412,7 +413,7 @@ fn rename_local_symbols(
     }
 }
 
-/// Rename an InternalName in an impoort statement
+/// Rename an InternalName in an import statement
 ///
 /// The ExternalName is different from our name, which is why we ended up here.
 ///

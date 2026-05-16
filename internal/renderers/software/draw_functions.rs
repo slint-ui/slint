@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore premultiply
 #![allow(clippy::identity_op)] // We use x + 0 a lot here for symmetry
 
 //! This is the module for the functions that are drawing the pixels

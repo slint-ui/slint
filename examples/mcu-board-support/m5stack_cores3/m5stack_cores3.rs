@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore datasheet
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     esp_println::println!("Panic: {:?}", info);

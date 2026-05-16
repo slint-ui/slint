@@ -39,7 +39,7 @@ let instance = TestCase::new().unwrap();
 let window = instance.window();
 let inner =  slint_testing::WindowInner::from_pub(&window);
 
-assert!(instance.get_viewport_height() > instance.get_height_(), "{} > {} not fullfilled", instance.get_viewport_height(), instance.get_height_());
+assert!(instance.get_viewport_height() > instance.get_height_(), "{} > {} not fulfilled", instance.get_viewport_height(), instance.get_height_());
 
 // // Scroll down
 let pressed_position = LogicalPoint::new(0., 0.);
@@ -84,7 +84,7 @@ let instance = TestCase::new().unwrap();
 let window = instance.window();
 let inner =  slint_testing::WindowInner::from_pub(&window);
 
-assert!(instance.get_viewport_height() > instance.get_height_(), "{} > {} not fullfilled", instance.get_viewport_height(), instance.get_height_());
+assert!(instance.get_viewport_height() > instance.get_height_(), "{} > {} not fulfilled", instance.get_viewport_height(), instance.get_height_());
 
 // Scroll down
 let pressed_position = LogicalPoint::new(0., 0.);

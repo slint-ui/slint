@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore altgr rpos Unapply
 /*! Module handling mouse events
 */
 #![warn(missing_docs)]
@@ -361,7 +362,7 @@ impl InternalKeyboardModifierState {
         // In that case the `text_without_modifiers` is also not set.
         //
         // ## Winit
-        // Winit sends the actual Ctrl/Alt/AltGr keypresses correctly.
+        // Winit sends the actual Ctrl/Alt/AltGr keypress correctly.
         // With winit we can detect whether ctrl+alt actually caused a AltGr conversion or not,
         // by checking whether the text_without_modifiers is different from the event text.
         //
@@ -374,7 +375,7 @@ impl InternalKeyboardModifierState {
             // Non-web windows (Usually winit or Qt)
             if !self.altgr && self.control() && self.alt() {
                 // AltGr is not pressed, but Ctrl+Alt is pressed.
-                // Try to detect if an AltGr conversion occured.
+                // Try to detect if an AltGr conversion occurred.
                 // If so, disable Ctrl and Alt
                 //
                 // On platforms that don't provide text_without_modifiers, fall back to a simple
@@ -643,7 +644,7 @@ impl core::fmt::Debug for Keys {
     /// Formats the keyboard shortcut so that the output would be accepted by the @keys macro in Slint.
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let inner = &self.inner;
-        // Make sure to keep this in sync with the implemenation in compiler/langtype.rs
+        // Make sure to keep this in sync with the implementation in compiler/langtype.rs
         if inner.key.is_empty() {
             write!(f, "")
         } else {

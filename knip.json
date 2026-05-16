@@ -3,7 +3,8 @@
   "ignoreExportsUsedInFile": { "interface": true, "type": true },
   "workspaces": {
     ".": {
-      "ignoreBinaries": ["spellcheck", "github-actions-ctrf", "local-package", "test_grammar", "build", "check", "biome"],
+      "ignoreBinaries": ["github-actions-ctrf", "local-package", "test_grammar", "build", "check", "biome"],
+      "ignoreDependencies": ["@cspell/dict-fr-fr"],
       "ignoreFiles": ["editors/tree-sitter-slint/grammar.js"]
     },
     "api/node": {
@@ -34,7 +35,7 @@
       "vite": false,
       "entry": ["src/main.tsx", "src/index-react.tsx", "backend/code.ts", "vite.config.ts", "figma.config.ts"],
       "project": ["src/**/*.{ts,tsx}", "backend/**/*.ts", "tests/**/*.ts"],
-      "ignoreBinaries": ["biome", "cspell"],
+      "ignoreBinaries": ["biome"],
       "ignoreUnresolved": ["plugin-typings"],
       "ignoreDependencies": ["@figma/plugin-typings", "@types/jszip", "@shikijs/types"]
     },

@@ -11,7 +11,7 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
-links = "i_slint_backend_qt"                   # just so we can pass metadata to the dependee's build script
+links = "i_slint_backend_qt"                   # just so we can pass metadata to the dependencies's build script
 
 [features]
 rtti = ["i-slint-core/rtti"]

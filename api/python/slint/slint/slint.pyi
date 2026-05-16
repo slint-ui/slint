@@ -184,7 +184,7 @@ class Image:
         Creates a new image from an array-like object that implements the [Buffer Protocol](https://docs.python.org/3/c-api/buffer.html).
         Use this function to import images created by third-party modules such as matplotlib or Pillow.
 
-        The array must satisfy certain contraints to represent an image:
+        The array must satisfy certain constraints to represent an image:
 
          - The buffer's format needs to be `B` (unsigned char)
          - The shape must be a tuple of (height, width, bytes-per-pixel)
