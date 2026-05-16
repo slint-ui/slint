@@ -14,19 +14,19 @@ export component TestCase inherits Window {
         spacing: 8px;
         padding: 12px;
         Row {
-            // Simple inset shadow with blur. The shadow must stay below child content.
+            // Simple inset shadow with blur. The red child proves the shadow stays below.
             Rectangle {
                 height: 64px;
                 background: lightyellow;
                 inset-shadow-color: #000000c0;
                 inset-shadow-blur: 8px;
 
-                Text {
-                    text: "TEXT";
-                    color: black;
-                    font-size: 12px;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
+                Rectangle {
+                    width: 16px;
+                    height: 16px;
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    background: red;
                 }
             }
             // Inset shadow with offset (shadow appears stronger on the bottom-right interior)
