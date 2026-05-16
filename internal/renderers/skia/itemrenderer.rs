@@ -85,6 +85,127 @@ impl<'a> SkiaItemRenderer<'a> {
         }
     }
 
+    fn render_drop_shadow_image(
+        canvas: &skia_safe::Canvas,
+        shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
+    ) -> Option<skia_safe::Image> {
+        let blur = shadow_options.blur.get();
+        let spread = shadow_options.spread.get();
+
+        let shape_w = (shadow_options.width.get() + 2. * spread).max(0.);
+        let shape_h = (shadow_options.height.get() + 2. * spread).max(0.);
+        if shape_w <= 0. || shape_h <= 0. {
+            return None;
+        }
+        // CSS rule: outer corner radius after spread = max(0, r + spread).
+        let shape_radius = (shadow_options.radius.get() + spread).max(0.);
+
+        let canvas_size: skia_safe::Size = (shape_w + 2. * blur, shape_h + 2. * blur).into();
+
+        let image_info = skia_safe::ImageInfo::new(
+            canvas_size.to_ceil(),
+            skia_safe::ColorType::RGBA8888,
+            skia_safe::AlphaType::Premul,
+            None,
+        );
+
+        // The shape is centered in the canvas with `blur` padding on all sides so the Gaussian blur
+        // has room to fade out into transparency.
+        let rounded_rect = skia_safe::RRect::new_rect_xy(
+            skia_safe::Rect::from_xywh(blur, blur, shape_w, shape_h),
+            shape_radius,
+            shape_radius,
+        );
+
+        let mut paint = skia_safe::Paint::default();
+        paint.set_color(to_skia_color(&shadow_options.color));
+        paint.set_anti_alias(true);
+        if blur > 0. {
+            paint.set_mask_filter(skia_safe::MaskFilter::blur(
+                skia_safe::BlurStyle::Normal,
+                blur / 2.,
+                None,
+            ));
+        }
+
+        let mut surface = canvas.new_surface(&image_info, None)?;
+        let surface_canvas = surface.canvas();
+        surface_canvas.clear(skia_safe::Color::TRANSPARENT);
+        surface_canvas.draw_rrect(rounded_rect, &paint);
+        Some(surface.image_snapshot())
+    }
+
+    fn render_inset_shadow_image(
+        canvas: &skia_safe::Canvas,
+        shadow_options: &i_slint_core::graphics::boxshadowcache::BoxShadowOptions,
+    ) -> Option<skia_safe::Image> {
+        let width = shadow_options.width.get();
+        let height = shadow_options.height.get();
+        if width < 1. || height < 1. {
+            return None;
+        }
+        let blur = shadow_options.blur.get();
+        let spread = shadow_options.spread.get();
+        let radius = shadow_options.radius.get();
+        let offset_x = shadow_options.offset_x_inset;
+        let offset_y = shadow_options.offset_y_inset;
+
+        // Image is sized to the rectangle's geometry; the geometry rrect serves as the clip so the
+        // outer blurred edge stays hidden.
+        let canvas_size = skia_safe::ISize::new(width.ceil() as i32, height.ceil() as i32);
+        let image_info = skia_safe::ImageInfo::new(
+            canvas_size,
+            skia_safe::ColorType::RGBA8888,
+            skia_safe::AlphaType::Premul,
+            None,
+        );
+
+        let geometry_rrect = skia_safe::RRect::new_rect_xy(
+            skia_safe::Rect::from_xywh(0., 0., width, height),
+            radius,
+            radius,
+        );
+
+        // Inner "hole" rrect: geometry inset by spread on each side, translated by offset.
+        // CSS: inner radius = max(0, radius - spread).
+        let inner_rect = skia_safe::Rect::new(
+            spread + offset_x,
+            spread + offset_y,
+            width - spread + offset_x,
+            height - spread + offset_y,
+        );
+        let inner_radius = (radius - spread).max(0.);
+        let inner_rrect = skia_safe::RRect::new_rect_xy(inner_rect, inner_radius, inner_radius);
+
+        // Outer rect inflated well beyond the geometry so its blurred edge falls outside the clip.
+        let inflate = blur + spread.abs() + offset_x.abs() + offset_y.abs() + 16.;
+        let outer_rect =
+            skia_safe::Rect::new(-inflate, -inflate, width + inflate, height + inflate);
+
+        let mut path = skia_safe::Path::new();
+        path.set_fill_type(skia_safe::PathFillType::EvenOdd);
+        path.add_rect(outer_rect, None);
+        path.add_rrect(inner_rrect, None);
+
+        let mut paint = skia_safe::Paint::default();
+        paint.set_color(to_skia_color(&shadow_options.color));
+        paint.set_anti_alias(true);
+        if blur > 0. {
+            paint.set_mask_filter(skia_safe::MaskFilter::blur(
+                skia_safe::BlurStyle::Normal,
+                blur / 2.,
+                None,
+            ));
+        }
+
+        let mut surface = canvas.new_surface(&image_info, None)?;
+        let surface_canvas = surface.canvas();
+        surface_canvas.clear(skia_safe::Color::TRANSPARENT);
+        surface_canvas.clip_rrect(geometry_rrect, None, true);
+        surface_canvas.draw_path(&path, &paint);
+        Some(surface.image_snapshot())
+    }
+
     fn brush_to_paint(
         &self,
         brush: Brush,
@@ -668,8 +789,16 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
     ) {
         let offset = LogicalPoint::from_lengths(box_shadow.offset_x(), box_shadow.offset_y())
             * self.scale_factor;
+        let inset = box_shadow.inset();
+        let spread = box_shadow.spread() * self.scale_factor;
 
-        if offset.x == 0. && offset.y == 0. && box_shadow.blur() == LogicalLength::zero() {
+        // Drop shadow with no offset / blur / spread is invisible.
+        if !inset
+            && offset.x == 0.
+            && offset.y == 0.
+            && box_shadow.blur() == LogicalLength::zero()
+            && spread == PhysicalLength::zero()
+        {
             return;
         }
 
@@ -679,44 +808,11 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             box_shadow,
             self.scale_factor,
             |shadow_options| {
-                let shadow_size: skia_safe::Size = (
-                    shadow_options.width.get() + shadow_options.blur.get() * 2.,
-                    shadow_options.height.get() + shadow_options.blur.get() * 2.,
-                )
-                    .into();
-
-                let image_info = skia_safe::ImageInfo::new(
-                    shadow_size.to_ceil(),
-                    skia_safe::ColorType::RGBA8888,
-                    skia_safe::AlphaType::Premul,
-                    None,
-                );
-
-                let rounded_rect = skia_safe::RRect::new_rect_xy(
-                    skia_safe::Rect::from_xywh(
-                        shadow_options.blur.get(),
-                        shadow_options.blur.get(),
-                        shadow_options.width.get(),
-                        shadow_options.height.get(),
-                    ),
-                    shadow_options.radius.get(),
-                    shadow_options.radius.get(),
-                );
-
-                let mut paint = skia_safe::Paint::default();
-                paint.set_color(to_skia_color(&shadow_options.color));
-                paint.set_anti_alias(true);
-                paint.set_mask_filter(skia_safe::MaskFilter::blur(
-                    skia_safe::BlurStyle::Normal,
-                    shadow_options.blur.get() / 2.,
-                    None,
-                ));
-
-                let mut surface = self.canvas.new_surface(&image_info, None)?;
-                let canvas = surface.canvas();
-                canvas.clear(skia_safe::Color::TRANSPARENT);
-                canvas.draw_rrect(rounded_rect, &paint);
-                Some(surface.image_snapshot())
+                if shadow_options.inset {
+                    Self::render_inset_shadow_image(self.canvas, shadow_options)
+                } else {
+                    Self::render_drop_shadow_image(self.canvas, shadow_options)
+                }
             },
         );
 
@@ -725,12 +821,22 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
             None => return,
         };
 
-        let blur = box_shadow.blur() * self.scale_factor;
-        self.canvas.draw_image(
-            cached_shadow_image,
-            to_skia_point(offset - PhysicalPoint::from_lengths(blur, blur).to_vector()),
-            self.default_paint().as_ref(),
-        );
+        if inset {
+            // Inset image is sized exactly to the geometry; blit at origin.
+            self.canvas.draw_image(
+                cached_shadow_image,
+                skia_safe::Point::new(0., 0.),
+                self.default_paint().as_ref(),
+            );
+        } else {
+            let blur = box_shadow.blur() * self.scale_factor;
+            let pad = blur.get() + spread.get().max(0.);
+            self.canvas.draw_image(
+                cached_shadow_image,
+                to_skia_point(offset - PhysicalPoint::new(pad, pad).to_vector()),
+                self.default_paint().as_ref(),
+            );
+        }
     }
 
     fn combine_clip(

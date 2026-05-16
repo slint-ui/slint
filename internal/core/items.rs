@@ -1768,6 +1768,8 @@ pub struct BoxShadow {
     pub offset_y: Property<LogicalLength>,
     pub color: Property<Color>,
     pub blur: Property<LogicalLength>,
+    pub spread: Property<LogicalLength>,
+    pub inset: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -1849,9 +1851,15 @@ impl Item for BoxShadow {
         _self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
-        geometry
-            .outer_rect(euclid::SideOffsets2D::from_length_all_same(self.blur()))
-            .translate(LogicalVector::from_lengths(self.offset_x(), self.offset_y()))
+        if self.inset() {
+            // Inset shadow paints inside the geometry; never extends outside.
+            geometry
+        } else {
+            let pad = self.blur() + LogicalLength::new(self.spread().get().max(0 as crate::Coord));
+            geometry
+                .outer_rect(euclid::SideOffsets2D::from_length_all_same(pad))
+                .translate(LogicalVector::from_lengths(self.offset_x(), self.offset_y()))
+        }
     }
 
     fn clips_children(self: core::pin::Pin<&Self>) -> bool {

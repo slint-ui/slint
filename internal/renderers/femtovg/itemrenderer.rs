@@ -501,6 +501,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         {
             return;
         }
+        // TODO: implement inset shadows and spread for femtovg. Until then, skip rendering inset
+        // shadows entirely (otherwise they'd render incorrectly as a drop shadow). Spread is
+        // silently ignored.
+        if box_shadow.inset() {
+            return;
+        }
 
         let cache_entry = self.box_shadow_cache.get_box_shadow(
             item_rc,
