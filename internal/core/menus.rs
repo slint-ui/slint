@@ -184,7 +184,7 @@ impl Menu for MenuFromItemTree {
     }
 
     fn visible(&self) -> bool {
-        self.visible.as_ref().map_or(true, |v| v.as_ref().get())
+        self.visible.as_ref().is_none_or(|v| v.as_ref().get())
     }
 }
 
