@@ -828,8 +828,8 @@ export function runEventLoop(
 }
 
 /**
- * Stops a spinning event loop. This function returns immediately, and the promise returned
- from run_event_loop() will resolve in a later tick of the nodejs event loop.
+ * Stops the event loop. This function returns immediately, and the promise returned
+ * from {@link runEventLoop} resolves in a later tick of the Node.js event loop.
  */
 export function quitEventLoop() {
     globalEventLoop.quit();
