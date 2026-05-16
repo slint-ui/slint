@@ -13,8 +13,22 @@ export struct TaskData {
 // The implementations live in the host language.
 export global Api {
     pure callback make-data(task: TaskData, source-column: int, source-index: int) -> data-transfer;
-    pure callback can-drop(data: data-transfer, target-column: int) -> bool;
-    callback drop-task(data: data-transfer, target-column: int);
+    // Returns the source column for a payload produced by `make-data`, or -1 for foreign payloads.
+    pure callback source-column-of(data: data-transfer) -> int;
+    // Copy the payload's task into `target-column` at `target-index` (clamped to [0, len]).
+    callback add-task(data: data-transfer, target-column: int, target-index: int);
+    // Move the payload's task to `target-column` at `target-index`. Handles same-column
+    // reorder atomically.
+    callback move-task(data: data-transfer, target-column: int, target-index: int);
+}
+
+// Card geometry, used by both `Card` itself and the column's insertion-index
+// math.
+global Layout {
+    out property <length> card-height: 56px;
+    out property <length> card-spacing: 8px;
+    // Distance from one card's top edge to the next card's top edge.
+    out property <length> card-stride: card-height + card-spacing;
 }
 
 // Color palette that follows the system color scheme via `Palette`
@@ -37,7 +51,7 @@ component Card inherits Rectangle {
     in property <int> source-column;
     in property <int> source-index;
 
-    height: 56px;
+    height: Layout.card-height;
     background: Theme.card-bg;
     border-radius: 6px;
     border-width: 1px;
@@ -54,7 +68,7 @@ component Card inherits Rectangle {
         drag-image: @image-url("card-drag.svg");
         drag-image-offset-x: 40;
         drag-image-offset-y: 28;
-        allow-copy: false;
+        allow-copy: true;
         allow-move: true;
         preferred-action: DragAction.move;
         opacity: self.dragging ? 0.4 : 1.0;
@@ -75,6 +89,16 @@ component KanbanColumn inherits Rectangle {
     in property <int> column-id;
     in property <[TaskData]> tasks;
     in property <color> accent;
+
+    // Cursor y inside the DropArea, refreshed on every drag move via `can-drop`.
+    property <length> hover-y;
+
+    // Insertion index implied by `hover-y`: 0 means "before card 0", `tasks.length`
+    // means "after the last card". The boundary between index N and N+1 is the
+    // centre of card N, i.e. `N * card-stride + card-height/2`.
+    property <int> drop-index: clamp(
+        floor((hover-y - Layout.card-height / 2) / Layout.card-stride) + 1,
+        0, root.tasks.length);
 
     background: drop-area.contains-drag ? Theme.column-drop-bg : Theme.column-bg;
     border-radius: 10px;
@@ -113,20 +137,44 @@ component KanbanColumn inherits Rectangle {
 
         drop-area := DropArea {
             vertical-stretch: 1;
-            can-drop(event) => Api.can-drop(event.data, root.column-id) ? DragAction.move : DragAction.none;
+            can-drop(event) => {
+                // Reject payloads from outside this app.
+                if Api.source-column-of(event.data) < 0 {
+                    return DragAction.none;
+                }
+                // Track the cursor so the drop indicator can follow it.
+                root.hover-y = event.position.y;
+                return event.proposed-action;
+            }
             dropped(event) => {
-                Api.drop-task(event.data, root.column-id);
-                return DragAction.move;
+                if event.proposed-action == DragAction.move {
+                    Api.move-task(event.data, root.column-id, root.drop-index);
+                } else {
+                    Api.add-task(event.data, root.column-id, root.drop-index);
+                }
+                return event.proposed-action;
             }
 
             VerticalLayout {
-                spacing: 8px;
+                spacing: Layout.card-spacing;
                 alignment: start;
                 for task[i] in root.tasks: Card {
                     task: task;
                     source-column: root.column-id;
                     source-index: i;
                 }
+            }
+
+            // Drop indicator: a 3px line centred in the gap above card `drop-index`
+            // (or at the top / below the last card for the boundary positions).
+            if drop-area.contains-drag: Rectangle {
+                x: 0;
+                width: parent.width;
+                y: max(0px, root.drop-index * Layout.card-stride
+                            - Layout.card-spacing / 2 - 1.5px);
+                height: 3px;
+                background: root.accent;
+                border-radius: 1.5px;
             }
         }
     }
@@ -147,7 +195,7 @@ export component MainWindow inherits Window {
         spacing: 12px;
 
         Text {
-            text: "Drag a card between columns";
+            text: "Drag a card between columns — hold the copy modifier to duplicate";
             font-size: 18px;
             font-weight: 700;
             color: Theme.text-primary;

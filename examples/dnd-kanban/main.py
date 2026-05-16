@@ -10,8 +10,8 @@ TaskData = slint.loader.kanban.TaskData
 
 
 # What we attach to each `DataTransfer` via `set_user_data`. A copy of the
-# `TaskData` plus where it came from, so the drop handler can move the row
-# without searching the source column by id.
+# `TaskData` plus the row it came from, so `source-column-of` can answer the
+# .slint side and `move-task` knows what to remove on a move.
 @dataclass
 class DragPayload:
     task: TaskData
@@ -50,25 +50,49 @@ class MainWindow(slint.loader.kanban.MainWindow):
         transfer.user_data = DragPayload(task, source_column, source_index)
         return transfer
 
-    @slint.callback(global_name="Api", name="can-drop")
-    def can_drop(self, data: DataTransfer, target_column: int) -> bool:
+    @slint.callback(global_name="Api", name="source-column-of")
+    def source_column_of(self, data: DataTransfer) -> int:
         payload = data.user_data
-        return (
-            isinstance(payload, DragPayload) and payload.source_column != target_column
-        )
+        return payload.source_column if isinstance(payload, DragPayload) else -1
 
-    @slint.callback(global_name="Api", name="drop-task")
-    def drop_task(self, data: DataTransfer, target_column: int) -> None:
+    @slint.callback(global_name="Api", name="add-task")
+    def add_task(
+        self, data: DataTransfer, target_column: int, target_index: int
+    ) -> None:
         payload = data.user_data
         if not isinstance(payload, DragPayload):
             return
         if not 0 <= target_column < len(self._columns):
             return
-        if payload.source_column == target_column:
+        self._columns[target_column].insert(target_index, payload.task)
+
+    @slint.callback(global_name="Api", name="move-task")
+    def move_task(
+        self, data: DataTransfer, target_column: int, target_index: int
+    ) -> None:
+        payload = data.user_data
+        if not isinstance(payload, DragPayload):
             return
-        # The copy we put in `user_data` is what we move; we just delete the source row.
-        del self._columns[payload.source_column][payload.source_index]
-        self._columns[target_column].append(payload.task)
+        if not 0 <= target_column < len(self._columns):
+            return
+        source = payload.source_column
+        source_index = payload.source_index
+
+        if source == target_column:
+            # Same-column reorder. Drops at the source slot or immediately
+            # after it are no-ops; otherwise remove the source first and
+            # adjust the target index for the shift that the removal causes.
+            if target_index == source_index or target_index == source_index + 1:
+                return
+            task = payload.task
+            del self._columns[source][source_index]
+            adjusted = target_index - 1 if target_index > source_index else target_index
+            self._columns[target_column].insert(adjusted, task)
+        else:
+            # Cross-column move. Source and target are independent models, so
+            # the order of operations doesn't affect index stability.
+            del self._columns[source][source_index]
+            self._columns[target_column].insert(target_index, payload.task)
 
 
 main_window = MainWindow()

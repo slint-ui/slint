@@ -8,8 +8,8 @@ use slint::{DataTransfer, VecModel};
 slint::include_modules!();
 
 // What we attach to each `DataTransfer` via `set_user_data`. A clone of
-// the `TaskData` plus where it came from, so the drop handler can move
-// it without searching the source column by id.
+// the `TaskData` plus the row it came from, so `source-column-of` can
+// answer the .slint side and `move-task` knows what to remove on a move.
 #[derive(Clone)]
 struct DragPayload {
     task: TaskData,
@@ -49,27 +49,60 @@ fn main() -> Result<(), slint::PlatformError> {
         transfer
     });
 
-    api.on_can_drop(|data, target| {
+    api.on_source_column_of(|data| {
         data.user_data()
             .and_then(|rc| rc.downcast::<DragPayload>().ok())
-            .is_some_and(|p| p.source_column != target as usize)
+            .map_or(-1, |p| p.source_column as i32)
     });
 
-    api.on_drop_task({
+    api.on_add_task({
         let columns = columns.clone();
-        move |data, target| {
+        move |data, target, target_index| {
             let target = target as usize;
             let Some(payload) = data.user_data().and_then(|rc| rc.downcast::<DragPayload>().ok())
             else {
                 return;
             };
-            if target >= columns.len() || payload.source_column == target {
+            if target < columns.len() {
+                columns[target].insert(target_index as usize, payload.task.clone());
+            }
+        }
+    });
+
+    api.on_move_task({
+        let columns = columns.clone();
+        move |data, target, target_index| {
+            let target = target as usize;
+            let Some(payload) = data.user_data().and_then(|rc| rc.downcast::<DragPayload>().ok())
+            else {
+                return;
+            };
+            if target >= columns.len() {
                 return;
             }
-            // The clone we put in `user_data` is what we move; we just delete
-            // the source row.
-            columns[payload.source_column].remove(payload.source_index);
-            columns[target].push(payload.task.clone());
+            let source = payload.source_column;
+            let source_index = payload.source_index;
+            let mut target_index = target_index as usize;
+
+            if source == target {
+                // Same-column reorder. Dropping at the source's own slot, or
+                // immediately after it, is a no-op.
+                if target_index == source_index || target_index == source_index + 1 {
+                    return;
+                }
+                // Removing the source shifts later rows up by one, so the
+                // target index needs to be decremented in that case.
+                let task = columns[source].remove(source_index);
+                if target_index > source_index {
+                    target_index -= 1;
+                }
+                columns[target].insert(target_index, task);
+            } else {
+                // Cross-column move. Source and target are independent models,
+                // so order doesn't matter for index stability.
+                columns[source].remove(source_index);
+                columns[target].insert(target_index, payload.task.clone());
+            }
         }
     });
 
