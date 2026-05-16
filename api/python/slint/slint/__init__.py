@@ -14,7 +14,7 @@ import types
 import logging
 import copy
 import typing
-from typing import Any
+from typing import Any, Dict
 import pathlib
 from .models import ListModel, Model
 from .slint import Image, Color, Brush, Keys, DataTransfer, StyledText, Timer, TimerMode
@@ -73,12 +73,15 @@ def _normalize_prop(name: str) -> str:
     return name.replace("-", "_")
 
 
-def _build_global_class(compdef: native.ComponentDefinition, global_name: str) -> Any:
-    properties_and_callbacks: dict[str, str | ComponentDefinition | property] = {
+def _build_global_class(compdef: Any, global_name: str) -> Any:
+    """Build a wrapper class for a Slint global singleton."""
+
+    properties_and_callbacks: Dict[str, Any] = {
         "__slint_global_name__": global_name,
         "__slint_component_definition__": compdef,
     }
 
+    # Add global properties
     for prop_name in compdef.global_properties(global_name).keys():
         python_prop = _normalize_prop(prop_name)
         if python_prop in properties_and_callbacks:
@@ -100,51 +103,45 @@ def _build_global_class(compdef: native.ComponentDefinition, global_name: str) -
 
         properties_and_callbacks[python_prop] = mk_setter_getter(prop_name)
 
+    # Add global callbacks
     for callback_name in compdef.global_callbacks(global_name):
         python_prop = _normalize_prop(callback_name)
         if python_prop in properties_and_callbacks:
-            logging.warning(f"Duplicated property {prop_name}")
+            logging.warning(f"Duplicated property {callback_name}")
             continue
 
         def mk_setter_getter(prop_or_callback_name: str) -> property:
-            def getter(self: Component) -> typing.Callable[..., Any]:
+            def getter(self: Component) -> Any:
                 def call(*args: Any) -> Any:
                     return self.__instance__.invoke_global(
                         global_name, prop_or_callback_name, *args
                     )
-
                 return call
 
-            def setter(self: Component, value: typing.Callable[..., Any]) -> None:
-                self.__instance__.set_global_callback(
-                    global_name, prop_or_callback_name, value
-                )
+            def setter(self: Component, value: Any) -> None:
+                self.__instance__.set_global_callback(global_name, prop_or_callback_name, value)
 
             return property(getter, setter)
 
         properties_and_callbacks[python_prop] = mk_setter_getter(callback_name)
 
+    # Add global functions
     for function_name in compdef.global_functions(global_name):
         python_prop = _normalize_prop(function_name)
         if python_prop in properties_and_callbacks:
-            logging.warning(f"Duplicated function {prop_name}")
+            logging.warning(f"Duplicated function {function_name}")
             continue
 
         def mk_getter(function_name: str) -> property:
-            def getter(self: Component) -> typing.Callable[..., Any]:
+            def getter(self: Component) -> Any:
                 def call(*args: Any) -> Any:
-                    return self.__instance__.invoke_global(
-                        global_name, function_name, *args
-                    )
-
+                    return self.__instance__.invoke_global(global_name, function_name, *args)
                 return call
-
             return property(getter)
 
         properties_and_callbacks[python_prop] = mk_getter(function_name)
 
     return type("SlintGlobalClassWrapper", (), properties_and_callbacks)
-
 
 def _build_class(
     compdef: native.ComponentDefinition,
