@@ -324,8 +324,8 @@ pub mod ffi {
             }
             None => MenuFromItemTree::new(
                 menu_tree.clone(),
-                core::option::Option::None,
-                core::option::Option::None,
+                core::option::Option::None::<fn() -> bool>,
+                core::option::Option::None::<fn() -> bool>,
             ),
         };
 
