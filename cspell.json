@@ -5,8 +5,6 @@
         {
             "languageId": "rust",
             "words": [
-                "ARGB",
-                "astrojs",
                 "bbox",
                 "bindgen",
                 "boxshadowcache",
@@ -17,7 +15,6 @@
                 "Consts",
                 "evenodd",
                 "FBOs", // plural of FBO (frame buffer object)
-                "femtovg",
                 "fontdb",
                 "fullscreen",
                 "glutin",
@@ -29,7 +26,6 @@
                 "peekable",
                 "Realloc",
                 "refcell",
-                "Rgba",
                 "rtti",
                 "Smol",
                 "smolstr",
@@ -52,9 +48,7 @@
         {
             "languageId": "restructuredtext",
             "words": [
-                "genindex",
-                "modindex",
-                "toctree"
+                "genindex"
             ],
             "ignoreRegExpList": [
                 "/:.+:/"
