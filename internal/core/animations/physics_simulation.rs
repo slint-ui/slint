@@ -171,6 +171,12 @@ mod tests {
     use super::*;
     use core::time::Duration;
 
+    macro_rules! assert_approx_eq {
+        ($a:expr, $b:expr) => {
+            assert!(($a - $b).abs() < 1e-4, "{} != {}", $a, $b);
+        };
+    }
+
     #[test]
     fn constant_deceleration_start_eq_limit() {
         const START_VALUE: f32 = 10.;
@@ -208,7 +214,7 @@ mod tests {
         time += duration;
         let (res, finished) = simulation.step(time);
         assert_eq!(finished, false);
-        assert_eq!(
+        assert_approx_eq!(
             res,
             START_VALUE + INITIAL_VELOCITY * duration.as_secs_f32()
                 - 0.5 * DECELERATION * duration.as_secs_f32().powi(2)
@@ -220,7 +226,7 @@ mod tests {
         time += duration;
         let (res, finished) = simulation.step(time);
         assert_eq!(finished, true);
-        assert_eq!(
+        assert_approx_eq!(
             res,
             START_VALUE + INITIAL_VELOCITY * INITIAL_VELOCITY / DECELERATION
                 - 0.5 * DECELERATION * (INITIAL_VELOCITY / DECELERATION).powi(2)
@@ -594,6 +600,12 @@ mod tests_spring_damper {
     use super::*;
     use core::{f32::consts::PI, time::Duration};
 
+    macro_rules! assert_approx_eq {
+        ($a:expr, $b:expr) => {
+            assert!(($a - $b).abs() < 1e-4, "{} != {}", $a, $b);
+        };
+    }
+
     #[test]
     fn calculate_parameters() {
         const INITIAL_VELOCITY: f32 = 50.;
@@ -608,7 +620,7 @@ mod tests_spring_damper {
         let w_n = f32::sqrt(res.spring_constant * res.mass) / res.mass;
         let damping_ratio = res.damping_coefficient / (2. * res.mass * w_n);
         let w_d = w_n * f32::sqrt(1. - damping_ratio.powi(2));
-        assert_eq!(w_d, 2. * PI * 1. / (2. * HALF_PERIOD_TIME));
+        assert_approx_eq!(w_d, 2. * PI * 1. / (2. * HALF_PERIOD_TIME));
     }
 
     #[test]
@@ -661,7 +673,7 @@ mod tests_spring_damper {
         time += duration;
         let (res, finished) = simulation.step(time);
         assert_eq!(finished, false);
-        assert_eq!(
+        assert_approx_eq!(
             res,
             10. + 50. * duration.as_secs_f32()
                 - 0.5 * DECELERATION * duration.as_secs_f32().powi(2)
@@ -673,7 +685,7 @@ mod tests_spring_damper {
         time += duration;
         let (res, finished) = simulation.step(time);
         assert_eq!(finished, true);
-        assert_eq!(
+        assert_approx_eq!(
             res,
             10. + 50. * INITIAL_VELOCITY / DECELERATION
                 - 0.5 * DECELERATION * (INITIAL_VELOCITY / DECELERATION).powi(2)
