@@ -337,8 +337,8 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
                     (alloc_binding_holder(move |val: &mut T| {
                         *val = binding.evaluate(val);
                         BindingResult::KeepBinding
-                    }) as usize)
-                        | 0b10,
+                    }) as *mut ())
+                        .map_addr(|a| a | 0b10),
                 ),
             },
             state: Cell::new(properties_animations::AnimatedBindingState::NotAnimating),

@@ -5580,7 +5580,6 @@ dependencies = [
  "raw-window-handle",
  "resvg",
  "rgb",
- "scoped-tls-hkt",
  "scopeguard",
  "skrifa 0.42.1",
  "slab",

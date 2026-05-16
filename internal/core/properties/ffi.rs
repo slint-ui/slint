@@ -299,8 +299,8 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
                     drop_user_data,
                     None,
                     None,
-                )) as usize)
-                    | 0b10,
+                )) as *mut ())
+                    .map_addr(|a| a | 0b10),
             ),
         };
         let animation_data = RefCell::new(properties_animations::PropertyValueAnimationData::new(
@@ -537,11 +537,12 @@ pub unsafe extern "C" fn slint_change_tracker_init(
     }
 
     unsafe fn evaluate(_self: *const BindingHolder, _value: *mut c_void) -> BindingResult {
-        let pinned_holder = unsafe { Pin::new_unchecked(&*_self) };
+        let _self_raw = _self;
         let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
         let inner = unsafe { core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap() };
-        let notify =
-            super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(inner.user_data));
+        let notify = super::current_binding_storage::set(Some(_self_raw), || {
+            (inner.eval_fn)(inner.user_data)
+        });
         if notify {
             (inner.notify_fn)(inner.user_data);
         }
@@ -561,7 +562,7 @@ pub unsafe extern "C" fn slint_change_tracker_init(
     let inner = C_ChangeTrackerInner { user_data, drop_user_data, eval_fn, notify_fn };
 
     let holder = BindingHolder {
-        dependencies: Cell::new(0),
+        dependencies: Cell::new(core::ptr::null_mut()),
         dep_nodes: Default::default(),
         vtable: VT,
         dirty: Cell::new(false),
@@ -575,9 +576,10 @@ pub unsafe extern "C" fn slint_change_tracker_init(
     let raw = Box::into_raw(Box::new(holder));
     unsafe { ct.set_internal(raw as *mut BindingHolder) };
 
-    let pinned_holder = unsafe { Pin::new_unchecked(&*(raw as *mut BindingHolder)) };
     let inner = unsafe { core::ptr::addr_of_mut!((*raw).binding).as_mut().unwrap() };
-    super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(inner.user_data));
+    super::current_binding_storage::set(Some(raw as *const BindingHolder), || {
+        (inner.eval_fn)(inner.user_data)
+    });
 }
 
 /// return the current animation tick for the `animation-tick` function
