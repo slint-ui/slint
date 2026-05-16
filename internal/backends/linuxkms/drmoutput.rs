@@ -297,6 +297,7 @@ impl DrmOutput {
     /// Returns the refresh rate in millihertz, computed from the mode's pixel clock
     /// and timing parameters. This matches the precision used by Vulkan's
     /// VkDisplayModeParametersKHR::refreshRate.
+    #[cfg(wgpu_surface)]
     pub fn refresh_rate_millihertz(&self) -> u32 {
         let clock = self.mode.clock() as u64; // in kHz
         let (_, _, htotal) = self.mode.hsync();
@@ -360,6 +361,7 @@ impl DrmOutput {
     }
 
     // Iterate through all planes and collect formats from compatible ones
+    #[cfg(wgpu_surface)]
     pub fn find_compatible_plane(&self) -> Result<drm::control::plane::Info, PlatformError> {
         let _ = self.drm_device.set_client_capability(drm::ClientCapability::UniversalPlanes, true);
         let plane_handles = self
