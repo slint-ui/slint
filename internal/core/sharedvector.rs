@@ -602,6 +602,7 @@ fn push_test() {
 
 #[test]
 #[should_panic]
+#[cfg_attr(miri, ignore)] // Miri aborts on large allocations before the panic can fire
 fn invalid_capacity_test() {
     let _: SharedVector<u8> = SharedVector::with_capacity(usize::MAX / 2 - 1000);
 }
