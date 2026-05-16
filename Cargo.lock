@@ -5391,7 +5391,6 @@ dependencies = [
  "resvg",
  "rgb",
  "rustybuzz",
- "scoped-tls-hkt",
  "scopeguard",
  "serde",
  "serde_json",
