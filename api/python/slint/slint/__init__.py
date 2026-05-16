@@ -116,10 +116,13 @@ def _build_global_class(compdef: Any, global_name: str) -> Any:
                     return self.__instance__.invoke_global(
                         global_name, prop_or_callback_name, *args
                     )
+
                 return call
 
             def setter(self: Component, value: Any) -> None:
-                self.__instance__.set_global_callback(global_name, prop_or_callback_name, value)
+                self.__instance__.set_global_callback(
+                    global_name, prop_or_callback_name, value
+                )
 
             return property(getter, setter)
 
@@ -135,13 +138,18 @@ def _build_global_class(compdef: Any, global_name: str) -> Any:
         def mk_getter(function_name: str) -> property:
             def getter(self: Component) -> Any:
                 def call(*args: Any) -> Any:
-                    return self.__instance__.invoke_global(global_name, function_name, *args)
+                    return self.__instance__.invoke_global(
+                        global_name, function_name, *args
+                    )
+
                 return call
+
             return property(getter)
 
         properties_and_callbacks[python_prop] = mk_getter(function_name)
 
     return type("SlintGlobalClassWrapper", (), properties_and_callbacks)
+
 
 def _build_class(
     compdef: native.ComponentDefinition,
