@@ -28,5 +28,10 @@ fn main() {
             any(feature = "renderer-skia-vulkan", feature = "unstable-wgpu-28"),
             not(feature = "unstable-wgpu-27")
         ) },
+        wgpu_surface: { any(
+            feature = "unstable-wgpu-28",
+            feature = "renderer-femtovg-wgpu",
+            feature = "unstable-wgpu-27"
+        ) },
     }
 }
