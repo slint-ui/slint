@@ -212,8 +212,13 @@ impl<'a> SkiaItemRenderer<'a> {
         width: PhysicalLength,
         height: PhysicalLength,
     ) -> Option<skia_safe::Paint> {
-        let (mut paint, shader) =
-            Self::brush_to_shader(self.default_paint().unwrap_or_default(), brush, width, height)?;
+        let (mut paint, shader) = Self::brush_to_shader(
+            self.default_paint().unwrap_or_default(),
+            brush,
+            width,
+            height,
+            self.scale_factor.get(),
+        )?;
         paint.set_shader(Some(shader));
 
         Some(paint)
@@ -224,6 +229,7 @@ impl<'a> SkiaItemRenderer<'a> {
         brush: Brush,
         width: PhysicalLength,
         height: PhysicalLength,
+        scale_factor: f32,
     ) -> Option<(skia_safe::Paint, skia_safe::Shader)> {
         if brush.is_transparent() {
             return None;
@@ -254,8 +260,9 @@ impl<'a> SkiaItemRenderer<'a> {
             Brush::RadialGradient(g) => {
                 let (colors, pos): (Vec<_>, Vec<_>) =
                     g.stops().map(|s| (to_skia_color(&s.color), s.position)).unzip();
+                let (cx, cy) = g.center_or_default_scaled(width.get(), height.get(), scale_factor);
                 let circle_scale =
-                    0.5 * (width.get() * width.get() + height.get() * height.get()).sqrt();
+                    g.radius_or_default_scaled(width.get(), height.get(), scale_factor);
 
                 paint.set_dither(true);
 
@@ -266,20 +273,20 @@ impl<'a> SkiaItemRenderer<'a> {
                     Some(&*pos),
                     TileMode::Clamp,
                     skia_safe::gradient_shader::Flags::INTERPOLATE_COLORS_IN_PREMUL,
-                    skia_safe::Matrix::scale((circle_scale, circle_scale))
-                        .post_translate((width.get() / 2., height.get() / 2.))
+                    skia_safe::Matrix::scale((circle_scale, circle_scale)).post_translate((cx, cy))
                         as &skia_safe::Matrix,
                 )
             }
             Brush::ConicGradient(g) => {
                 let (colors, pos): (Vec<_>, Vec<_>) =
                     g.stops().map(|s| (to_skia_color(&s.color), s.position)).unzip();
+                let (cx, cy) = g.center_or_default_scaled(width.get(), height.get(), scale_factor);
 
                 paint.set_dither(true);
 
                 // Skia's sweep gradient uses 0 degrees at 3 o'clock (east)
                 // We want 0 degrees at 12 o'clock (north), so we need to rotate by -90 degrees
-                let center = skia_safe::Point::new(width.get() / 2., height.get() / 2.);
+                let center = skia_safe::Point::new(cx, cy);
                 skia_safe::gradient_shader::sweep(
                     center,
                     skia_safe::gradient_shader::GradientShaderColors::Colors(&colors),
@@ -312,6 +319,7 @@ impl<'a> SkiaItemRenderer<'a> {
             colorize_brush,
             PhysicalLength::new(image.width() as f32),
             PhysicalLength::new(image.height() as f32),
+            self.scale_factor.get(),
         )
         .map(|(mut paint, colorize_shader)| {
             let mut surface = self.canvas.new_surface(&image_info, None)?;
@@ -744,6 +752,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
                 path.fill(),
                 PhysicalLength::new(viewbox_width),
                 PhysicalLength::new(viewbox_height),
+                1.0,
             ) {
                 // Apply the viewbox transformation to the shader
                 let transform = skia_safe::Matrix::scale((scale_x, scale_y));

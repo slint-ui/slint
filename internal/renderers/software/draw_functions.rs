@@ -669,28 +669,22 @@ pub(super) fn draw_radial_gradient(
         return;
     }
 
-    let center_x = (rect.min_x() + g.center_x.get()) as i32;
-    let center_y = (rect.min_y() + g.center_y.get()) as i32;
+    let center_x = rect.min_x() as f32 + g.center_x;
+    let center_y = rect.min_y() as f32 + g.center_y;
 
-    // Calculate the maximum radius (distance from center to corner)
-    let max_radius = {
-        let dx1 = ((rect.min_x() as i32) - center_x).abs();
-        let dx2 = ((rect.max_x() as i32) - center_x).abs();
-        let dy1 = ((rect.min_y() as i32) - center_y).abs();
-        let dy2 = ((rect.max_y() as i32) - center_y).abs();
-        let max_dx = dx1.max(dx2) as f32;
-        let max_dy = dy1.max(dy2) as f32;
-        (max_dx * max_dx + max_dy * max_dy).sqrt()
-    };
+    debug_assert!(
+        g.radius >= 0.0,
+        "radius must be resolved before constructing RadialGradientCommand"
+    );
+    let max_radius = g.radius.max(f32::EPSILON);
 
     let start_x = rect.min_x() + extra_left_clip;
-    // Use the absolute line position for distance calculation
-    let dy = (line.get() as i32 - center_y) as f32;
+    let dy = line.get() as f32 - center_y;
     let dy_squared = dy * dy;
 
     for (i, pixel) in buffer.iter_mut().enumerate() {
         let x = start_x + i as i16;
-        let dx = (x as i32 - center_x) as f32;
+        let dx = x as f32 - center_x;
         let distance = (dx * dx + dy_squared).sqrt();
         let position = (distance / max_radius).clamp(0.0, 1.0);
 
@@ -741,9 +735,8 @@ pub(super) fn draw_conic_gradient(
         return;
     }
 
-    // Center is always the center of the rectangle
-    let center_x = (rect.min_x() + rect.width() / 2) as f32;
-    let center_y = (rect.min_y() + rect.height() / 2) as f32;
+    let center_x = rect.min_x() as f32 + g.center_x;
+    let center_y = rect.min_y() as f32 + g.center_y;
 
     let start_x = rect.min_x() + extra_left_clip;
     let y = line.get() as f32;

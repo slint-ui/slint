@@ -237,19 +237,30 @@ pub fn lower_expression(
                 .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
                 .collect::<_>(),
         },
-        tree_Expression::RadialGradient { stops } => llr_Expression::RadialGradient {
-            stops: stops
-                .iter()
-                .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
-                .collect::<_>(),
-        },
-        tree_Expression::ConicGradient { from_angle, stops } => llr_Expression::ConicGradient {
-            from_angle: Box::new(lower_expression(from_angle, ctx)),
-            stops: stops
-                .iter()
-                .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
-                .collect::<_>(),
-        },
+        tree_Expression::RadialGradient { center, radius, stops } => {
+            llr_Expression::RadialGradient {
+                center: center.as_ref().map(|(cx, cy)| {
+                    (Box::new(lower_expression(cx, ctx)), Box::new(lower_expression(cy, ctx)))
+                }),
+                radius: radius.as_ref().map(|r| Box::new(lower_expression(r, ctx))),
+                stops: stops
+                    .iter()
+                    .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
+                    .collect::<_>(),
+            }
+        }
+        tree_Expression::ConicGradient { from_angle, center, stops } => {
+            llr_Expression::ConicGradient {
+                from_angle: Box::new(lower_expression(from_angle, ctx)),
+                center: center.as_ref().map(|(cx, cy)| {
+                    (Box::new(lower_expression(cx, ctx)), Box::new(lower_expression(cy, ctx)))
+                }),
+                stops: stops
+                    .iter()
+                    .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
+                    .collect::<_>(),
+            }
+        }
         tree_Expression::EnumerationValue(e) => llr_Expression::EnumerationValue(e.clone()),
         tree_Expression::Keys(ks) => llr_Expression::KeysLiteral(ks.clone()),
         tree_Expression::ReturnStatement(..) => {

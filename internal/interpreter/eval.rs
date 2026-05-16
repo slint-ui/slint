@@ -456,23 +456,36 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 }),
             )))
         }
-        Expression::RadialGradient { stops } => Value::Brush(Brush::RadialGradient(
-            RadialGradientBrush::new_circle(stops.iter().map(|(color, stop)| {
+        Expression::RadialGradient { stops, center, radius } => {
+            let mut g = RadialGradientBrush::new_circle(stops.iter().map(|(color, stop)| {
                 let color = eval_expression(color, local_context).try_into().unwrap();
                 let position = eval_expression(stop, local_context).try_into().unwrap();
                 GradientStop { color, position }
-            })),
-        )),
-        Expression::ConicGradient { from_angle, stops } => {
+            }));
+            if let Some((cx, cy)) = center {
+                g.center_x = eval_expression(cx, local_context).try_into().unwrap();
+                g.center_y = eval_expression(cy, local_context).try_into().unwrap();
+            }
+            if let Some(r) = radius {
+                g.radius = eval_expression(r, local_context).try_into().unwrap();
+            }
+            Value::Brush(Brush::RadialGradient(g))
+        }
+        Expression::ConicGradient { from_angle, stops, center } => {
             let from_angle: f32 = eval_expression(from_angle, local_context).try_into().unwrap();
-            Value::Brush(Brush::ConicGradient(ConicGradientBrush::new(
+            let mut g = ConicGradientBrush::new(
                 from_angle,
                 stops.iter().map(|(color, stop)| {
                     let color = eval_expression(color, local_context).try_into().unwrap();
                     let position = eval_expression(stop, local_context).try_into().unwrap();
                     GradientStop { color, position }
                 }),
-            )))
+            );
+            if let Some((cx, cy)) = center {
+                g.center_x = eval_expression(cx, local_context).try_into().unwrap();
+                g.center_y = eval_expression(cy, local_context).try_into().unwrap();
+            }
+            Value::Brush(Brush::ConicGradient(g))
         }
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())

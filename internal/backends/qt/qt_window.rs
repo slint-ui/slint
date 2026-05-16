@@ -617,9 +617,12 @@ fn into_qbrush(
         }
         i_slint_core::Brush::RadialGradient(g) => {
             cpp_class!(unsafe struct QRadialGradient as "QRadialGradient");
+            let (cx, cy) = g.center_or_default(width as f32, height as f32);
+            let (cx, cy) = (cx as qttypes::qreal, cy as qttypes::qreal);
+            let radius = g.radius_or_default(width as f32, height as f32) as qttypes::qreal;
             let mut qrg = cpp! {
-                unsafe [width as "qreal", height as "qreal"] -> QRadialGradient as "QRadialGradient" {
-                    QRadialGradient qrg(width / 2, height / 2, sqrt(width * width + height * height) / 2);
+                unsafe [cx as "qreal", cy as "qreal", radius as "qreal"] -> QRadialGradient as "QRadialGradient" {
+                    QRadialGradient qrg(cx, cy, radius);
                     return qrg;
                 }
             };
@@ -639,9 +642,11 @@ fn into_qbrush(
             cpp_class!(unsafe struct QConicalGradient as "QConicalGradient");
             // QConicalGradient uses angles where 0 degrees is at 3 o'clock (east)
             // We want gradient position 0 at 12 o'clock (north), so start at -90°
+            let (cx, cy) = g.center_or_default(width as f32, height as f32);
+            let (cx, cy) = (cx as qttypes::qreal, cy as qttypes::qreal);
             let mut qcg = cpp! {
-                unsafe [width as "qreal", height as "qreal"] -> QConicalGradient as "QConicalGradient" {
-                    QConicalGradient qcg(width / 2, height / 2, 90);
+                unsafe [cx as "qreal", cy as "qreal"] -> QConicalGradient as "QConicalGradient" {
+                    QConicalGradient qcg(cx, cy, 90);
                     return qcg;
                 }
             };

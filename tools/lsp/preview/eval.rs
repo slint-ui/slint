@@ -229,19 +229,30 @@ fn eval_expression(
                 ),
             ))
         }
-        Expression::RadialGradient { stops } => Value::Brush(slint::Brush::RadialGradient(
-            i_slint_core::graphics::RadialGradientBrush::new_circle(stops.iter().map(
-                |(color, stop)| {
+        Expression::RadialGradient { stops, center, radius } => {
+            let mut gradient = i_slint_core::graphics::RadialGradientBrush::new_circle(
+                stops.iter().map(|(color, stop)| {
                     let color =
                         eval_expression(color, local_context, None).try_into().unwrap_or_default();
                     let position =
                         eval_expression(stop, local_context, None).try_into().unwrap_or_default();
                     i_slint_core::graphics::GradientStop { color, position }
-                },
-            )),
-        )),
-        Expression::ConicGradient { from_angle, stops } => Value::Brush(
-            slint::Brush::ConicGradient(i_slint_core::graphics::ConicGradientBrush::new(
+                }),
+            );
+            if let Some((cx, cy)) = center {
+                gradient.center_x =
+                    eval_expression(cx, local_context, None).try_into().unwrap_or_default();
+                gradient.center_y =
+                    eval_expression(cy, local_context, None).try_into().unwrap_or_default();
+            }
+            if let Some(radius) = radius {
+                gradient.radius =
+                    eval_expression(radius, local_context, None).try_into().unwrap_or_default();
+            }
+            Value::Brush(slint::Brush::RadialGradient(gradient))
+        }
+        Expression::ConicGradient { from_angle, stops, center } => {
+            let mut gradient = i_slint_core::graphics::ConicGradientBrush::new(
                 eval_expression(from_angle, local_context, None).try_into().unwrap_or_default(),
                 stops.iter().map(|(color, stop)| {
                     let color =
@@ -250,8 +261,15 @@ fn eval_expression(
                         eval_expression(stop, local_context, None).try_into().unwrap_or_default();
                     i_slint_core::graphics::GradientStop { color, position }
                 }),
-            )),
-        ),
+            );
+            if let Some((cx, cy)) = center {
+                gradient.center_x =
+                    eval_expression(cx, local_context, None).try_into().unwrap_or_default();
+                gradient.center_y =
+                    eval_expression(cy, local_context, None).try_into().unwrap_or_default();
+            }
+            Value::Brush(slint::Brush::ConicGradient(gradient))
+        }
         Expression::EnumerationValue(value) => {
             Value::EnumerationValue(value.enumeration.name.to_string(), value.to_string())
         }
