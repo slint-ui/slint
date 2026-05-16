@@ -14,7 +14,8 @@ export component TestCase inherits Window {
         spacing: 8px;
         padding: 12px;
         Row {
-            // Simple inset shadow with blur. The red child proves the shadow stays below.
+            // Simple inset shadow with blur. The red child overlaps the shadow edge on
+            // one side, proving the inset shadow is rendered below children.
             Rectangle {
                 height: 64px;
                 background: lightyellow;
@@ -24,8 +25,8 @@ export component TestCase inherits Window {
                 Rectangle {
                     width: 16px;
                     height: 16px;
-                    x: (parent.width - self.width) / 2;
-                    y: (parent.height - self.height) / 2;
+                    x: 4px;
+                    y: 4px;
                     background: red;
                 }
             }
