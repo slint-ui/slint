@@ -23,7 +23,7 @@ public:
     /// Constructs an empty linear gradient with no color stops.
     LinearGradientBrush() = default;
     /// Constructs a new linear gradient with the specified \a angle. The color stops will be
-    /// constructed from the stops array pointed to be \a firstStop, with the length \a stopCount.
+    /// constructed from the stops array pointed to by \a firstStop, with the length \a stopCount.
     LinearGradientBrush(float angle, const GradientStop *firstStop, int stopCount)
         : inner(make_linear_gradient(angle, firstStop, stopCount))
     {
@@ -62,13 +62,14 @@ private:
 };
 
 /// \private
-/// RadialGradientBrush represents a circular gradient centered in the middle
+/// RadialGradientBrush represents a circular gradient.
 class RadialGradientBrush
 {
 public:
     /// Constructs an empty radial gradient with no color stops.
     RadialGradientBrush() = default;
-    /// Constructs a new circular radial gradient. The color stops will be
+    /// Constructs a new circular radial gradient centered in the bounding box.
+    /// The color stops will be
     /// constructed from the stops array pointed to be \a firstStop, with the length \a stopCount.
     RadialGradientBrush(const GradientStop *firstStop, int stopCount)
     {

@@ -11,7 +11,7 @@ All notable changes to this project are documented in this file.
 
 ### Slint
 
- - `@radial-gradient` and `@conic-gradient` now support an explicit `at <x> <y>` center position and `@radial-gradient` supports a `size <r>` radius.
+ - `@radial-gradient` and `@conic-gradient` now support explicit `at <x> <y>` centers in local coordinates. `@radial-gradient` also supports `size <radius>`.
 
 ### Breaking changes
 

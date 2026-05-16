@@ -1,53 +1,33 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Tests for the explicit `at <x> <y>` center syntax in radial and conic gradients
-
 component TestCase inherits Rectangle {
     width: 200px;
     height: 200px;
 
-    // Radial gradient with explicit center
+    // Accepted syntax forms.
     property <brush> radial_at_center: @radial-gradient(circle at 50px 50px, red, blue);
-
-    // Radial gradient with explicit center and radius
     property <brush> radial_at_size: @radial-gradient(circle at 100px 100px size 80px, red, green, blue);
-
-    // Radial gradient with explicit radius and default center
     property <brush> radial_size_only: @radial-gradient(circle size 80px, red, green, blue);
-
-    // Conic gradient with explicit center
     property <brush> conic_at_center: @conic-gradient(at 100px 50px, red 0deg, blue 180deg, red 360deg);
-
-    // Conic gradient with `from` angle and explicit center
     property <brush> conic_from_at: @conic-gradient(from 45deg at 150px 150px, red 0deg, blue 180deg, red 360deg);
 
-    // Dynamic center coordinates
+    // Dynamic coordinates and outside-bounds centers.
     property <length> cx: 100px;
     property <length> cy: 75px;
     property <brush> radial_dynamic: @radial-gradient(circle at cx cy, red, blue);
     property <brush> conic_dynamic: @conic-gradient(at cx cy, red 0deg, blue 360deg);
 
-    // Center outside the bounding box (primary use-case for shared bloom).
-    // Note: negative literal coordinates like -50px require parentheses because the parser
-    // would otherwise interpret `at -50px` as a binary expression `(at) - 50px`.
-    // Use variables or expressions: `0px - 50px`, or parenthesise.
     property <length> neg_offset: 0px - 50px;
     property <brush> radial_outside: @radial-gradient(circle at neg_offset neg_offset size 200px, yellow, transparent);
 
-    // Runtime assertions: explicit center/radius changes the brush value
+    // Brush equality semantics.
     out property <bool> test:
-        // Explicit center differs from default-centered gradient
         @radial-gradient(circle at 50px 50px, red, blue) != @radial-gradient(circle, red, blue)
-        // Same explicit center produces equal gradients
         && @radial-gradient(circle at 50px 50px, red, blue) == @radial-gradient(circle at 50px 50px, red, blue)
-        // Explicit radius distinguishes from default-radius gradient
         && @radial-gradient(circle at 100px 100px size 80px, red, green, blue) != @radial-gradient(circle, red, green, blue)
-        // Radius-only syntax keeps the default center but still distinguishes the brush
         && @radial-gradient(circle size 80px, red, green, blue) != @radial-gradient(circle, red, green, blue)
-        // Conic with explicit center differs from default
         && @conic-gradient(at 100px 50px, red 0deg, blue 180deg, red 360deg) != @conic-gradient(red 0deg, blue 180deg, red 360deg)
-        // Dynamic center: gradient using cx/cy differs from default-centered
         && radial_dynamic != @radial-gradient(circle, red, blue);
 }
 

@@ -26,8 +26,8 @@ pub enum Brush {
     /// The linear gradient variant of a brush describes the gradient stops for a fill
     /// where all color stops are along a line that's rotated by the specified angle.
     LinearGradient(LinearGradientBrush),
-    /// The radial gradient variant of a brush describes a circle variant centered
-    /// in the middle
+    /// The radial gradient variant of a brush describes a circular gradient.
+    /// The center defaults to the middle of the bounding box.
     RadialGradient(RadialGradientBrush),
     /// The conical gradient variant of a brush describes a gradient that rotates around
     /// a center point, like the hands of a clock
@@ -259,7 +259,7 @@ fn nan_eq(a: f32, b: f32) -> bool {
     a == b || (a.is_nan() && b.is_nan())
 }
 
-/// Shared center resolution for all four resolution methods (logical/scaled × radial/conic).
+/// Shared center resolution for the logical and scaled radial/conic methods.
 /// When `scale_factor` is 1.0 this is identical to the unscaled case.
 #[inline]
 fn center_or_bbox(cx: f32, cy: f32, width: f32, height: f32, scale_factor: f32) -> (f32, f32) {
@@ -268,26 +268,26 @@ fn center_or_bbox(cx: f32, cy: f32, width: f32, height: f32, scale_factor: f32) 
 
 /// The RadialGradientBrush describes a way of filling a shape with a circular gradient.
 ///
-/// When `center_x` / `center_y` are `f32::NAN` the gradient is centered at the element's
-/// bbox centre (`width/2`, `height/2`). When `radius` is negative the radius defaults to the
-/// half-diagonal of the element's bbox.
+/// When `center_x` / `center_y` are `f32::NAN` the gradient is centered in the element's
+/// bounding box (`width / 2`, `height / 2`). When `radius` is negative the radius defaults
+/// to half of the element's bounding box diagonal.
 #[derive(Clone, Debug)]
 #[repr(C)]
 pub struct RadialGradientBrush {
     stops: SharedVector<GradientStop>,
     /// Explicit horizontal center in the element's local coordinate space.
-    /// `f32::NAN` means "use the element's bbox center (width / 2)".
+    /// `f32::NAN` means "use the element's bounding box center (width / 2)".
     pub center_x: f32,
     /// Explicit vertical center in the element's local coordinate space.
-    /// `f32::NAN` means "use the element's bbox center (height / 2)".
+    /// `f32::NAN` means "use the element's bounding box center (height / 2)".
     pub center_y: f32,
     /// Explicit radius in the element's local coordinate space.
-    /// A negative value means "use the element's bbox half-diagonal".
+    /// A negative value means "use half of the element's bounding box diagonal".
     pub radius: f32,
 }
 
-/// Equality is render-equivalence: two NaN center fields compare equal (both render to bbox
-/// center); any two negative radii compare equal (both render to the bbox half-diagonal).
+/// Equality is render-equivalence: two NaN center fields compare equal because both use the
+/// bounding box center. Any two negative radii compare equal because both use the default radius.
 impl PartialEq for RadialGradientBrush {
     fn eq(&self, other: &Self) -> bool {
         self.stops == other.stops
@@ -298,7 +298,7 @@ impl PartialEq for RadialGradientBrush {
 }
 
 impl RadialGradientBrush {
-    /// Creates a new circle radial gradient centered at the element's bbox center,
+    /// Creates a new circle radial gradient centered in the element's bounding box,
     /// described by the provided color stops.
     pub fn new_circle(stops: impl IntoIterator<Item = GradientStop>) -> Self {
         Self {
@@ -329,7 +329,7 @@ impl RadialGradientBrush {
         self
     }
 
-    /// Returns the gradient center, falling back to the bbox center when not explicitly set.
+    /// Returns the gradient center, falling back to the bounding box center when not explicitly set.
     ///
     /// `width` and `height` are the element's logical dimensions.
     pub fn center_or_default(&self, width: f32, height: f32) -> (f32, f32) {
@@ -340,11 +340,11 @@ impl RadialGradientBrush {
         center_or_bbox(self.center_x, self.center_y, width, height, 1.0)
     }
 
-    /// Returns the gradient center in physical coordinates.
+    /// Returns the gradient center in a scaled coordinate space.
     ///
-    /// `width` and `height` are physical dimensions. Explicit center values are logical
-    /// lengths and are multiplied by `scale_factor`; default centers are derived from the
-    /// physical dimensions directly.
+    /// `width` and `height` are the dimensions in the target coordinate space. Explicit center
+    /// values are local logical lengths and are multiplied by `scale_factor`; default centers are
+    /// derived from the dimensions directly.
     pub fn center_or_default_scaled(
         &self,
         width: f32,
@@ -358,18 +358,19 @@ impl RadialGradientBrush {
         center_or_bbox(self.center_x, self.center_y, width, height, scale_factor)
     }
 
-    /// Returns the gradient radius, falling back to the bbox half-diagonal when not explicitly set.
+    /// Returns the gradient radius, falling back to half of the bounding box diagonal when not
+    /// explicitly set.
     ///
     /// `width` and `height` are the element's logical dimensions.
     pub fn radius_or_default(&self, width: f32, height: f32) -> f32 {
         if self.radius < 0.0 { 0.5 * (width * width + height * height).sqrt() } else { self.radius }
     }
 
-    /// Returns the gradient radius in physical coordinates.
+    /// Returns the gradient radius in a scaled coordinate space.
     ///
-    /// `width` and `height` are physical dimensions. Explicit radius values are logical lengths
-    /// and are multiplied by `scale_factor`; the default radius is derived from the physical
-    /// dimensions directly.
+    /// `width` and `height` are the dimensions in the target coordinate space. Explicit radius
+    /// values are local logical lengths and are multiplied by `scale_factor`; the default radius is
+    /// derived from the dimensions directly.
     pub fn radius_or_default_scaled(&self, width: f32, height: f32, scale_factor: f32) -> f32 {
         if self.radius < 0.0 {
             0.5 * (width * width + height * height).sqrt()
@@ -382,8 +383,8 @@ impl RadialGradientBrush {
 /// The ConicGradientBrush describes a way of filling a shape with a gradient
 /// that rotates around a center point.
 ///
-/// When `center_x` / `center_y` are `f32::NAN` the gradient is centered at the element's
-/// bbox centre (`width/2`, `height/2`).
+/// When `center_x` / `center_y` are `f32::NAN` the gradient is centered in the element's
+/// bounding box (`width / 2`, `height / 2`).
 #[derive(Clone, Debug)]
 #[repr(C)]
 pub struct ConicGradientBrush {
@@ -391,14 +392,15 @@ pub struct ConicGradientBrush {
     /// angle in degrees (CSS `from <angle>` syntax).
     stops: SharedVector<GradientStop>,
     /// Explicit horizontal center in the element's local coordinate space.
-    /// `f32::NAN` means "use the element's bbox center (width / 2)".
+    /// `f32::NAN` means "use the element's bounding box center (width / 2)".
     pub center_x: f32,
     /// Explicit vertical center in the element's local coordinate space.
-    /// `f32::NAN` means "use the element's bbox center (height / 2)".
+    /// `f32::NAN` means "use the element's bounding box center (height / 2)".
     pub center_y: f32,
 }
 
-/// Equality is render-equivalence: two NaN center fields compare equal (both render to bbox center).
+/// Equality is render-equivalence: two NaN center fields compare equal because both use the
+/// bounding box center.
 impl PartialEq for ConicGradientBrush {
     fn eq(&self, other: &Self) -> bool {
         self.stops == other.stops
@@ -599,7 +601,7 @@ impl ConicGradientBrush {
         self
     }
 
-    /// Returns the gradient center, falling back to the bbox center when not explicitly set.
+    /// Returns the gradient center, falling back to the bounding box center when not explicitly set.
     ///
     /// `width` and `height` are the element's logical dimensions.
     pub fn center_or_default(&self, width: f32, height: f32) -> (f32, f32) {
@@ -610,11 +612,11 @@ impl ConicGradientBrush {
         center_or_bbox(self.center_x, self.center_y, width, height, 1.0)
     }
 
-    /// Returns the gradient center in physical coordinates.
+    /// Returns the gradient center in a scaled coordinate space.
     ///
-    /// `width` and `height` are physical dimensions. Explicit center values are logical
-    /// lengths and are multiplied by `scale_factor`; default centers are derived from the
-    /// physical dimensions directly.
+    /// `width` and `height` are the dimensions in the target coordinate space. Explicit center
+    /// values are local logical lengths and are multiplied by `scale_factor`; default centers are
+    /// derived from the dimensions directly.
     pub fn center_or_default_scaled(
         &self,
         width: f32,

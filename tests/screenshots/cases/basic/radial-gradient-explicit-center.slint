@@ -4,10 +4,8 @@
 // BASE_THRESHOLD=3
 // ROTATION_THRESHOLD=600
 
-// Test that explicit `at <cx> <cy>` center is respected for radial and conic gradients.
-// Each row shows: default center, explicit center at top-left (5px,5px), explicit center at bottom-right (17px,17px).
-// The three tiles must look visually distinct — any renderer that ignores center_x/y will produce
-// three identical tiles.
+// Rows cover radial centers, conic centers, and radial radius.
+// Each row starts with the default case, followed by explicit top-left and bottom-right centers.
 
 export component TestCase inherits Window {
     width:  64px;
@@ -17,27 +15,27 @@ export component TestCase inherits Window {
 
     GridLayout {
         Row {
-            // Radial: default center (bbox center ≈ 10px,10px for a 21px tile)
+            // Radial: default center.
             Rectangle { background: @radial-gradient(circle, red, blue); }
-            // Radial: explicit center at top-left corner → red patch is top-left
+            // Radial: explicit top-left center.
             Rectangle { background: @radial-gradient(circle at 5px 5px, red, blue); }
-            // Radial: explicit center at bottom-right corner → red patch is bottom-right
+            // Radial: explicit bottom-right center.
             Rectangle { background: @radial-gradient(circle at 17px 17px, red, blue); }
         }
         Row {
-            // Conic: default center
+            // Conic: default center.
             Rectangle { background: @conic-gradient(red 0deg, blue 180deg, red 360deg); }
-            // Conic: explicit center at top-left
+            // Conic: explicit top-left center.
             Rectangle { background: @conic-gradient(at 5px 5px, red 0deg, blue 180deg, red 360deg); }
-            // Conic: explicit center at bottom-right
+            // Conic: explicit bottom-right center.
             Rectangle { background: @conic-gradient(at 17px 17px, red 0deg, blue 180deg, red 360deg); }
         }
         Row {
-            // Radial with explicit radius: small radius (fully red inside, blue outside)
+            // Radial with explicit radius.
             Rectangle { background: @radial-gradient(circle size 4px, red, blue); }
-            // Radial with explicit center and radius
+            // Radial with explicit center and radius.
             Rectangle { background: @radial-gradient(circle at 5px 5px size 4px, red, blue); }
-            // Default (for visual reference)
+            // Default for visual reference.
             Rectangle { background: @radial-gradient(circle, red, blue); }
         }
     }
