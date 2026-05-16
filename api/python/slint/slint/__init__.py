@@ -74,7 +74,10 @@ def _normalize_prop(name: str) -> str:
 
 
 def _build_global_class(compdef: native.ComponentDefinition, global_name: str) -> Any:
-    properties_and_callbacks = {}
+    properties_and_callbacks = {
+        "__slint_global_name__": global_name,
+        "__slint_component_definition__": compdef,
+    }
 
     for prop_name in compdef.global_properties(global_name).keys():
         python_prop = _normalize_prop(prop_name)
@@ -531,6 +534,61 @@ def callback(
         return lambda callback: _callback_decorator(callback, info)
 
 
+def _decorated_callbacks(
+    instance: Any,
+) -> typing.Iterator[
+    tuple[str, typing.Dict[str, Any], bool, typing.Callable[..., Any]]
+]:
+    callbacks: dict[str, tuple[typing.Dict[str, Any], bool]] = {}
+
+    for cls in reversed(type(instance).__mro__):
+        for attr_name, attr in cls.__dict__.items():
+            if hasattr(attr, "slint.callback"):
+                callbacks[attr_name] = (
+                    getattr(attr, "slint.callback"),
+                    getattr(attr, "slint.async", False),
+                )
+            elif attr_name in callbacks:
+                del callbacks[attr_name]
+
+    for attr_name, (callback_info, is_async) in callbacks.items():
+        yield attr_name, callback_info, is_async, getattr(instance, attr_name)
+
+
+def connect_callbacks(global_singleton: Any, instance: Any) -> None:
+    """Connect decorated callbacks from ``instance`` to ``global_singleton``."""
+
+    global_name = getattr(global_singleton, "__slint_global_name__", None)
+    compdef = getattr(global_singleton, "__slint_component_definition__", None)
+    slint_instance = getattr(global_singleton, "__instance__", None)
+
+    if global_name is None or compdef is None or slint_instance is None:
+        raise TypeError(
+            "connect_callbacks() expects a Slint global singleton as first argument"
+        )
+
+    for attr_name, callback_info, is_async, callback in _decorated_callbacks(instance):
+        callback_name = callback_info["name"]
+        callback_global_name = callback_info.get("global_name")
+        if callback_global_name is not None and callback_global_name != global_name:
+            raise ValueError(
+                f"Callback '{callback_name}' is declared for global '{callback_global_name}', not '{global_name}'"
+            )
+
+        if is_async:
+            is_void = compdef.global_callback_returns_void(global_name, callback_name)
+            if is_void is None:
+                raise AttributeError(
+                    f"Callback '{callback_name}' in global '{global_name}' cannot be used with a callback decorator for an async function, as it is not declared in Slint component"
+                )
+            if not is_void:
+                raise RuntimeError(
+                    f"Callback '{callback_name}' in global '{global_name}' cannot be used with a callback decorator for an async function, as it doesn't return void"
+                )
+
+        slint_instance.set_global_callback(global_name, callback_name, callback)
+
+
 def set_xdg_app_id(app_id: str) -> None:
     """Sets the application id for use on Wayland or X11 with [xdg](https://specifications.freedesktop.org/desktop-entry-spec/latest/)
     compliant window managers. This id must be set before the window is shown; it only applies to Wayland or X11."""
@@ -637,6 +695,7 @@ __all__ = [
     "TimerMode",
     "set_xdg_app_id",
     "callback",
+    "connect_callbacks",
     "run_event_loop",
     "quit_event_loop",
     "init_translations",
