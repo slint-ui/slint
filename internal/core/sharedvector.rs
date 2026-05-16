@@ -203,8 +203,10 @@ impl<T: Clone> SharedVector<T> {
     /// Ensure that the reference count is 1 so the array can be changed.
     /// If that's not the case, the array will be cloned
     fn detach(&mut self, new_capacity: usize) {
+        // Acquire: if refcount == 1, synchronize with the Release in the last Drop to
+        // ensure prior writes to size/data are visible before we mutate.
         let is_shared =
-            unsafe { (*self.inner.as_ptr()).header.refcount.load(atomic::Ordering::Relaxed) } != 1;
+            unsafe { (*self.inner.as_ptr()).header.refcount.load(atomic::Ordering::Acquire) } != 1;
         if !is_shared && new_capacity <= self.capacity() {
             return;
         }
@@ -315,7 +317,7 @@ impl<T: Clone> SharedVector<T> {
     /// Clears the vector and removes all elements.
     pub fn clear(&mut self) {
         let is_shared =
-            unsafe { (*self.inner.as_ptr()).header.refcount.load(atomic::Ordering::Relaxed) } != 1;
+            unsafe { (*self.inner.as_ptr()).header.refcount.load(atomic::Ordering::Acquire) } != 1;
         if is_shared {
             *self = SharedVector::default();
         } else {
@@ -467,7 +469,7 @@ impl<T: Clone> IntoIterator for SharedVector<T> {
     type IntoIter = IntoIter<T>;
     fn into_iter(self) -> Self::IntoIter {
         IntoIter(unsafe {
-            if (*self.inner.as_ptr()).header.refcount.load(atomic::Ordering::Relaxed) == 1 {
+            if (*self.inner.as_ptr()).header.refcount.load(atomic::Ordering::Acquire) == 1 {
                 let inner = self.inner;
                 core::mem::forget(self);
                 (*inner.as_ptr()).header.refcount.store(0, atomic::Ordering::Relaxed);
