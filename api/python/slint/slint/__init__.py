@@ -74,7 +74,7 @@ def _normalize_prop(name: str) -> str:
 
 
 def _build_global_class(compdef: native.ComponentDefinition, global_name: str) -> Any:
-    properties_and_callbacks = {
+    properties_and_callbacks: dict[str, str | ComponentDefinition | property] = {
         "__slint_global_name__": global_name,
         "__slint_component_definition__": compdef,
     }
