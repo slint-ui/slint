@@ -125,6 +125,20 @@ Rust (`rs/slint/`, `rs/macros/` for `slint!`, `rs/build/`), C++ (`cpp/`, CMake),
 - C++ headers generated automatically during the build via `cbindgen` (invoked by `slint-cpp/build.rs`).
 - Extensive Cargo features control renderers (`renderer-femtovg`, `renderer-skia`, `renderer-software`) and backends (`backend-winit`, `backend-qt`)
 
+## Language Design Principles
+
+### CSS Alignment
+
+Slint's `.slint` language intentionally stays close to CSS syntax for visual properties. When adding or extending language features, prefer CSS-compatible syntax and naming so that web developers find familiar patterns and the learning curve stays low.
+
+Examples already in place:
+- **Color literals** follow CSS syntax (`#rrggbb`, `#rgb`, named colors, `rgb()`, `rgba()`, `hsl()`, `hsla()`).
+- **Gradient syntax** mirrors CSS: `@linear-gradient(angle, color stop, ...)`, `@radial-gradient(...)`.
+- **FlexboxLayout** implements the CSS flexbox model (via the `taffy` crate); property names map closely to their CSS counterparts.
+- **Filter/shadow properties** (`drop-shadow`, `box-shadow`, `blur`) follow CSS conventions.
+
+When this principle applies: any time you design syntax for a new visual or layout property, check how CSS spells it first. Deviate only when Slint's type system or consistency with existing Slint naming requires it, and document the divergence.
+
 ## Version Control (Git)
 
 - The default git branch is `master`.
