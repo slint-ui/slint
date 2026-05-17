@@ -1077,6 +1077,8 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
+            - name: Install system dependencies
+              run: sudo apt-get update && sudo apt-get install -y libfontconfig-dev
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: nightly
