@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::{
-    ReadOnlyRustModel, RgbaColor, SlintBrush, SlintImageData, SlintKeys, js_into_rust_model,
-    rust_into_js_model,
+    ReadOnlyRustModel, RgbaColor, SlintBrush, SlintDataTransfer, SlintImageData, SlintKeys,
+    SlintStyledText, js_into_rust_model, rust_into_js_model,
 };
 use i_slint_compiler::langtype::Type;
 use i_slint_core::graphics::{Image, Rgba8Pixel, SharedPixelBuffer};
@@ -117,6 +117,12 @@ pub fn to_js_unknown<'a>(env: &'a Env, value: &Value) -> Result<Unknown<'a>> {
         Value::Brush(brush) => {
             SlintBrush::from(brush.clone()).into_instance(env)?.as_object(env).into_unknown(env)
         }
+        Value::DataTransfer(data) => {
+            let instance = SlintDataTransfer::from(data.clone()).into_instance(env)?;
+            let mut obj = instance.as_object(env);
+            instance.anchor_js_user_data(&mut obj)?;
+            obj.into_unknown(env)
+        }
         Value::Model(model) => {
             if let Some(maybe_js_model) = rust_into_js_model(env, model) {
                 maybe_js_model
@@ -126,11 +132,55 @@ pub fn to_js_unknown<'a>(env: &'a Env, value: &Value) -> Result<Unknown<'a>> {
             }
         }
         Value::EnumerationValue(_, value) => value.as_str().into_unknown(env),
+        Value::StyledText(styled_text) => SlintStyledText::from(styled_text.clone())
+            .into_instance(env)?
+            .as_object(env)
+            .into_unknown(env),
         _ => ().into_unknown(env),
     }
 }
 
-pub fn to_value(env: &Env, unknown: Unknown<'_>, typ: &Type) -> Result<Value> {
+/// A capability handle for installing hidden anchor properties on an owning
+/// JS object (currently always a [`JsComponentInstance`](crate::JsComponentInstance)).
+///
+/// Used by both JS-backed models and `DataTransfer` user_data to keep their
+/// JS values reachable from V8 (instead of via hidden NAPI strong refs that
+/// V8 can't trace), so cycles can be collected.
+///
+/// The `seq` field doubles as a finalization guard:
+/// when the instance is dropped its `Rc` goes away,
+/// so `seq.upgrade()` returns `None` and the pinned side's `Drop`
+/// implementation knows that NAPI calls are no longer safe.
+#[derive(Clone)]
+pub struct JsAnchorOwner {
+    /// Weak ref to the JS wrapper object — used to get/set properties.
+    pub owner_weak: WeakReference<crate::JsComponentInstance>,
+    /// Per-instance anchor-ID counter (shared via `Rc`).
+    /// Also used as a finalization guard (`Weak::upgrade` → `None`).
+    pub seq: std::rc::Weak<std::cell::Cell<u32>>,
+}
+
+impl JsAnchorOwner {
+    /// Allocate the next anchor ID from the owning instance.
+    pub fn next_anchor_id(&self) -> u32 {
+        let Some(cell) = self.seq.upgrade() else { return 0 };
+        let id = cell.get();
+        cell.set(id + 1);
+        id
+    }
+}
+
+/// Convert a JS value to a Slint [`Value`].
+///
+/// Model values and `DataTransfer` user_data encountered during conversion
+/// are anchored as hidden properties on the `anchor_owner` so V8 keeps
+/// them alive.
+pub fn to_value(
+    env: &Env,
+    unknown: Unknown<'_>,
+    typ: &Type,
+    anchor_owner: &JsAnchorOwner,
+) -> Result<Value> {
     match typ {
         Type::Float32
         | Type::Int32
@@ -271,7 +321,7 @@ pub fn to_value(env: &Env, unknown: Unknown<'_>, typ: &Type) -> Result<Value> {
                         let prop_value = if prop.get_type()? == napi::ValueType::Undefined {
                             slint_interpreter::default_value_for_type(pro_ty)
                         } else {
-                            to_value(env, prop, pro_ty)?
+                            to_value(env, prop, pro_ty, anchor_owner)?
                         };
                         Ok((pro_name.to_string(), prop_value))
                     })
@@ -290,6 +340,7 @@ pub fn to_value(env: &Env, unknown: Unknown<'_>, typ: &Type) -> Result<Value> {
                             "Cannot access array element at index {i}"
                         )))?,
                         a,
+                        anchor_owner,
                     )?);
                 }
                 Ok(Value::Model(ModelRc::new(SharedVectorModel::from(SharedVector::from_slice(
@@ -297,7 +348,7 @@ pub fn to_value(env: &Env, unknown: Unknown<'_>, typ: &Type) -> Result<Value> {
                 )))))
             } else {
                 let obj = unknown.coerce_to_object()?;
-                let rust_model = js_into_rust_model(env, &obj, a)?;
+                let rust_model = js_into_rust_model(env, &obj, a, anchor_owner)?;
                 Ok(Value::Model(rust_model))
             }
         }
@@ -315,10 +366,13 @@ pub fn to_value(env: &Env, unknown: Unknown<'_>, typ: &Type) -> Result<Value> {
             Ok(Value::EnumerationValue(e.name.to_string(), value.to_string()))
         }
         Type::Keys => {
-            let obj = unknown.coerce_to_object()?;
-            let keys_instance: ClassInstance<SlintKeys> =
-                ClassInstance::from_unknown(obj.into_unknown(env)?)?;
+            let keys_instance: ClassInstance<SlintKeys> = ClassInstance::from_unknown(unknown)?;
             Ok(Value::Keys(keys_instance.inner.clone()))
+        }
+        Type::DataTransfer => {
+            let instance: ClassInstance<SlintDataTransfer> = ClassInstance::from_unknown(unknown)?;
+            instance.pin_user_data_on(env, anchor_owner)?;
+            Ok(Value::DataTransfer(instance.inner.clone()))
         }
         Type::Invalid
         | Type::Model
@@ -332,9 +386,13 @@ pub fn to_value(env: &Env, unknown: Unknown<'_>, typ: &Type) -> Result<Value> {
         | Type::PathData
         | Type::LayoutCache
         | Type::ArrayOfU16
-        | Type::ElementReference
-        | Type::StyledText
-        | Type::DataTransfer => Err(napi::Error::from_reason("reason")),
+        | Type::ElementReference => Err(napi::Error::from_reason("reason")),
+        Type::StyledText => {
+            let obj = unknown.coerce_to_object()?;
+            let styled_instance: ClassInstance<SlintStyledText> =
+                ClassInstance::from_unknown(obj.into_unknown(env)?)?;
+            Ok(Value::StyledText(styled_instance.inner.clone()))
+        }
     }
 }
 

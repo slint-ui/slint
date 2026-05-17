@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore frameless qbrush qpointf qreal qwidgetsize svgz
+// cSpell: ignore frameless qbrush qpointf qreal qwidgetsize svgz Nesw qsize qstring
 
 use cpp::*;
 use i_slint_common::sharedfontique::HashedBlob;
@@ -1036,7 +1036,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 
     fn save_state(&mut self) {
-        // Don't add any additinoal calls here without adjusting `save_state_and_pixel_align_origin()`.
+        // Don't add any additional calls here without adjusting `save_state_and_pixel_align_origin()`.
         self.painter.save()
     }
 
@@ -1076,8 +1076,43 @@ impl ItemRenderer for QtItemRenderer<'_> {
         );
     }
 
-    fn draw_image_direct(&mut self, _image: i_slint_core::graphics::Image) {
-        todo!()
+    fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
+        let source_size = image.size();
+        if source_size.is_empty() {
+            return;
+        }
+        let scale_factor = ScaleFactor::new(self.scale_factor());
+        let target_size = LogicalSize::from_untyped(source_size.cast()) * scale_factor;
+        let image_inner: &ImageInner = (&image).into();
+        // Rasterize scalable sources at scale_factor so SVGs are crisp on high-DPI displays
+        // (matches femtovg/skia draw_image_direct).
+        let pixmap_size = image_inner.is_svg().then(|| target_size.cast());
+        let Some(pixmap) = image_to_pixmap(image_inner, pixmap_size) else { return };
+
+        let pixmap_size = pixmap.size();
+        let source_rect = qttypes::QRectF {
+            x: 0.,
+            y: 0.,
+            width: pixmap_size.width as _,
+            height: pixmap_size.height as _,
+        };
+        let dest_rect = qttypes::QRectF {
+            x: 0.,
+            y: 0.,
+            width: target_size.width as _,
+            height: target_size.height as _,
+        };
+        let painter: &mut QPainterPtr = &mut self.painter;
+        cpp! { unsafe [
+                painter as "QPainterPtr*",
+                pixmap as "QPixmap",
+                source_rect as "QRectF",
+                dest_rect as "QRectF"] {
+            (*painter)->save();
+            (*painter)->setRenderHint(QPainter::SmoothPixmapTransform, true);
+            (*painter)->drawPixmap(dest_rect, pixmap, source_rect);
+            (*painter)->restore();
+        }};
     }
 
     fn window(&self) -> &i_slint_core::window::WindowInner {
@@ -1853,7 +1888,7 @@ impl QtWindow {
     fn paint_event(&self, painter: QPainterPtr) {
         let runtime_window = WindowInner::from_pub(&self.window);
         let window_adapter = runtime_window.window_adapter();
-        runtime_window.draw_contents(|components| {
+        runtime_window.draw_contents(|components, post_render| {
             i_slint_core::animations::update_animations();
             self.text_layout_cache.clear_cache_if_scale_factor_changed(&self.window);
 
@@ -1875,6 +1910,8 @@ impl QtWindow {
                     );
                 }
             }
+
+            post_render(&mut renderer);
 
             if let Some(collector) = &*self.rendering_metrics_collector.borrow() {
                 let metrics = renderer.metrics.clone();

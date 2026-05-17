@@ -1,6 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell: ignore bigobj buildroot CLANGCC CLANGCXX CROSSCOMPILING dlopening hostbuild IMPLIB libslint mbig MINSIZEREL NSIS RELWITHDEBINFO SONAME Yocto
 cmake_minimum_required(VERSION 3.21)
 # Select C++ and C as languages, as Corrosion needs ${CMAKE_C_COMPILER}
 # for linking
@@ -146,7 +147,7 @@ if(SLINT_FEATURE_COMPILER AND NOT SLINT_COMPILER)
         PROPERTY CORROSION_NO_DEFAULT_FEATURES
         ON
     )
-    list(APPEND slint_compiler_features "software-renderer")
+    list(APPEND slint_compiler_features "software-renderer" "bundle-translations" "cpp")
 
     # Switch to dlopening fontconfig in the slint-compiler to avoid the issue that
     # for example in Yocto environments, PKG_CONFIG_PATH will be set to the target only

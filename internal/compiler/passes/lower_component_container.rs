@@ -7,7 +7,7 @@
 //!
 //! ```slint
 //!     ComponentContainer {
-//!         if false: Emtpy {}
+//!         if false: Empty {}
 //!     }
 //! ```
 //!

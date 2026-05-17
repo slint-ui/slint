@@ -29,8 +29,8 @@ pub struct Translations {
     /// Only builtin math functions, and its first argument
     pub plural_rules: Vec<Option<Expression>>,
 
-    /// The "names" of the languages
-    pub languages: Vec<SmolStr>,
+    /// The "names" of the languages and the decimal separator
+    pub languages: Vec<(SmolStr, char)>,
 }
 
 #[derive(Clone)]
@@ -46,7 +46,7 @@ pub struct TranslationsBuilder {
 
 impl TranslationsBuilder {
     pub fn load_translations(path: &Path, domain: &str) -> std::io::Result<Self> {
-        let mut languages = vec!["".into()];
+        let mut languages = vec![("".into(), i_slint_common::DEFAULT_DECIMAL_SEPARATOR)];
         let mut catalogs = Vec::new();
         let mut plural_rules =
             vec![Some(plural_rule_parser::parse_rule_expression("n!=1").unwrap())];
@@ -59,7 +59,11 @@ impl TranslationsBuilder {
                 let catalog = rspolib::pofile(path.as_path()).map_err(|e| {
                     std::io::Error::other(format!("Error parsing {}: {e}", path.display()))
                 })?;
-                languages.push(l.file_name().to_string_lossy().into());
+                let language_name = l.file_name().to_string_lossy().to_smolstr();
+                languages.push((
+                    language_name.clone(),
+                    i_slint_common::decimal_separator_for_locale(language_name.as_str()),
+                ));
 
                 let expr = if let Some(header) = catalog.metadata.get("Plural-Forms") {
                     let plural_expr = header.split(';').find_map(|sub_entry| {
@@ -170,6 +174,7 @@ impl TranslationsBuilder {
         self.result
     }
 
+    /// Add all characters in any po file to `characters_seen` if they are not yet there
     pub fn collect_characters_seen(&self, characters_seen: &mut impl Extend<char>) {
         characters_seen.extend(
             self.catalogs

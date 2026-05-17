@@ -3,10 +3,13 @@
   "version": "1.17.0",
   "description": "",
   "devDependencies": {
-    "knip": "6.11.0"
+    "@cspell/dict-fr-fr": "2.3.2",
+    "cspell": "catalog:",
+    "knip": "6.12.2"
   },
   "scripts": {
     "knip": "knip",
+    "spellcheck": "cspell --no-progress --gitignore .",
     "format": "biome format biome.json && pnpm --stream -r format",
     "format:fix": "biome format biome.json --write && pnpm --stream -r format:fix",
     "lint": "pnpm --stream -r lint",

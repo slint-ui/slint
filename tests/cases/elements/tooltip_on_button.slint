@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button } from "std-widgets.slint";
+
+export component TestCase {
+    width: 220px;
+    height: 120px;
+    in-out property <int> init-count;
+
+    Button {
+        x: 30px;
+        y: 40px;
+        width: 160px;
+        height: 36px;
+        text: "Save";
+
+        ToolTip {
+            placement: above-element;
+            Rectangle {
+                init => { root.init-count += 1; }
+            }
+        }
+    }
+}
+
+/*
+
+```rust
+use slint::{platform::WindowEvent, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_init_count(), 0);
+
+// Hover over the button; tooltip init has not fired yet.
+instance.window().dispatch_event(WindowEvent::PointerMoved {
+    position: LogicalPosition::new(80.0, 58.0),
+});
+assert_eq!(instance.get_init_count(), 0);
+
+// After the delay, the tooltip is shown and init fires exactly once.
+slint_testing::mock_elapsed_time(600);
+assert_eq!(instance.get_init_count(), 1);
+```
+
+*/

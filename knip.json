@@ -3,7 +3,8 @@
   "ignoreExportsUsedInFile": { "interface": true, "type": true },
   "workspaces": {
     ".": {
-      "ignoreBinaries": ["spellcheck", "github-actions-ctrf", "local-package", "test_grammar", "build", "check", "biome"],
+      "ignoreBinaries": ["github-actions-ctrf", "local-package", "test_grammar", "build", "check", "biome"],
+      "ignoreDependencies": ["@cspell/dict-fr-fr"],
       "ignoreFiles": ["editors/tree-sitter-slint/grammar.js"]
     },
     "api/node": {
@@ -34,7 +35,7 @@
       "vite": false,
       "entry": ["src/main.tsx", "src/index-react.tsx", "backend/code.ts", "vite.config.ts", "figma.config.ts"],
       "project": ["src/**/*.{ts,tsx}", "backend/**/*.ts", "tests/**/*.ts"],
-      "ignoreBinaries": ["biome", "cspell"],
+      "ignoreBinaries": ["biome"],
       "ignoreUnresolved": ["plugin-typings"],
       "ignoreDependencies": ["@figma/plugin-typings", "@types/jszip", "@shikijs/types"]
     },
@@ -62,11 +63,16 @@
       ]
     },
     "demos/printerdemo/node": { "ignoreBinaries": ["compile"] },
+    "demos/energy-monitor": { "ignoreBinaries": ["compile"] },
     "demos/home-automation/node": { "ignoreBinaries": ["compile"] },
+    "demos/weather-demo": { "ignoreBinaries": ["compile"] },
     "examples/imagefilter/node": { "ignoreBinaries": ["compile"] },
     "examples/carousel/node": { "ignoreBinaries": ["compile"] },
     "examples/todo/node": { "ignoreBinaries": ["compile"] },
+    "examples/dnd-kanban": { "ignoreBinaries": ["compile"] },
+    "examples/maps": { "ignoreBinaries": ["compile"] },
     "examples/memory": { "ignoreBinaries": ["compile"] },
+    "examples/slide_puzzle": { "ignoreBinaries": ["compile"] },
     "examples/system_tray": { "ignoreBinaries": ["compile"] },
     "docs/common": {
       "ignoreFiles": [
@@ -107,6 +113,7 @@
     "ui-libraries/material/docs/src/utils/images-optimization.ts": ["exports", "types"],
     "ui-libraries/material/docs/vendor/integration/utils/configBuilder.ts": ["types"],
     "docs/common/src/utils/site-config.ts": ["exports"],
-    "docs/common/src/utils/utils.ts": ["exports", "types"]
+    "docs/common/src/utils/utils.ts": ["exports", "types"],
+    "docs/common/src/utils/generated-reference-markdown.ts": ["exports"]
   }
 }

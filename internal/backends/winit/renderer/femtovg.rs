@@ -1,12 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore glcontext webglcontextlost webglcontextrestored
 use std::rc::Rc;
 #[cfg(supports_opengl)]
 use std::rc::Weak;
 use std::sync::Arc;
 
-use i_slint_core::renderer::Renderer;
+use i_slint_core::renderer::{DrawOutcome, Renderer};
 use i_slint_core::{graphics::RequestedGraphicsAPI, platform::PlatformError};
 #[cfg(supports_opengl)]
 use i_slint_renderer_femtovg::{FemtoVGOpenGLRendererExt, opengl};
@@ -43,8 +44,8 @@ impl GlutinFemtoVGRenderer {
 
 #[cfg(supports_opengl)]
 impl super::WinitCompatibleRenderer for GlutinFemtoVGRenderer {
-    fn render(&self, _window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
-        self.renderer.render()
+    fn render(&self, _window: &i_slint_core::api::Window) -> Result<DrawOutcome, PlatformError> {
+        self.renderer.render().map(|()| DrawOutcome::Success)
     }
 
     fn as_core_renderer(&self) -> &dyn Renderer {
@@ -177,7 +178,7 @@ impl WGPUFemtoVGRenderer {
     pub fn new_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
-        if !i_slint_core::graphics::wgpu_28::any_wgpu28_adapters_with_gpu(
+        if !i_slint_core::graphics::wgpu_29::any_wgpu29_adapters_with_gpu(
             shared_backend_data.requested_graphics_api.clone(),
         ) {
             return Err(PlatformError::from("WGPU: No GPU adapters found"));
@@ -192,8 +193,10 @@ impl WGPUFemtoVGRenderer {
 
 #[cfg(all(feature = "renderer-femtovg-wgpu", not(target_family = "wasm")))]
 impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
-    fn render(&self, _window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
-        self.renderer.render()
+    fn render(&self, window: &i_slint_core::api::Window) -> Result<DrawOutcome, PlatformError> {
+        // Use the Ext entry point so we get the `DrawOutcome` back without changing
+        // `FemtoVGRenderer::render`'s public `Result<(), _>` signature.
+        self.renderer.render_transformed_with_post_callback(0., (0., 0.), window.size(), None)
     }
 
     fn as_core_renderer(&self) -> &dyn Renderer {
@@ -222,7 +225,7 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
 
         self.renderer.set_surface(
             Box::new(winit_window.clone())
-                as Box<dyn i_slint_core::graphics::wgpu_28::wgpu::WindowHandle>,
+                as Box<dyn i_slint_core::graphics::wgpu_29::wgpu::DisplayAndWindowHandle>,
             crate::winitwindowadapter::physical_size_to_slint(&size),
             self.requested_graphics_api.clone(),
         )?;

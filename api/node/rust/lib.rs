@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 mod interpreter;
+mod weak_ref;
 use std::path::PathBuf;
 
 pub use interpreter::*;
@@ -14,6 +15,24 @@ pub use uv_event_loop::*;
 
 use napi::Env;
 use napi::bindgen_prelude::*;
+
+/// Set a non-enumerable property on a JS object.
+///
+/// Properties set this way don't appear in `console.log`, `Object.keys`,
+/// or `for…in` loops, keeping internal bookkeeping hidden from users.
+pub(crate) fn set_hidden_property<'a, V: napi::JsValue<'a>>(
+    obj: &mut Object<'_>,
+    key: &str,
+    value: &V,
+) -> napi::Result<()> {
+    let prop = napi::Property::new()
+        .with_utf8_name(key)?
+        .with_property_attributes(
+            napi::PropertyAttributes::Writable | napi::PropertyAttributes::Configurable,
+        )
+        .with_value(value);
+    JsObjectValue::define_properties(obj, &[prop])
+}
 
 #[macro_use]
 extern crate napi_derive;
@@ -62,16 +81,24 @@ pub fn invoke_from_event_loop(env: &Env, callback: DynFunction<'_>) -> napi::Res
     })
     .map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
-    let stored_fn = StoredFunction::new(&callback)?;
+    let func_ref = callback.create_ref()?;
     let env = *env;
-    let wrapper = send_wrapper::SendWrapper::new((stored_fn, env));
+    let wrapper = send_wrapper::SendWrapper::new((func_ref, env));
     i_slint_core::api::invoke_from_event_loop(move || {
-        let (stored_fn, env) = wrapper.take();
-        if stored_fn.call(&env, vec![]).is_err() {
+        let (func_ref, env) = wrapper.take();
+        if func_ref.borrow_back(&env).and_then(|f| f.call(DynArgs(vec![]))).is_err() {
             eprintln!("Node.js: JavaScript invoke_from_event_loop threw an exception");
         }
     })
     .map_err(|e| napi::Error::from_reason(e.to_string()))
+}
+
+#[napi]
+pub fn quit_event_loop() -> napi::Result<()> {
+    // Don't call core's quit_event_loop — that permanently terminates the winit event loop.
+    // Set a flag so process_slint_events returns Exited on the next iteration.
+    uv_event_loop::request_quit();
+    Ok(())
 }
 
 #[napi]

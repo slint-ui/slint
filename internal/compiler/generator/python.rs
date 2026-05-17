@@ -4,7 +4,7 @@
 /*! module for the C++ code generator
 */
 
-// cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals
+// cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals enumty fundecl pycompo pyenum structty
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -669,6 +669,7 @@ fn python_type_name(ty: &Type) -> SmolStr {
         Type::Image => SmolStr::new_static("slint.Image"),
         Type::Bool => SmolStr::new_static("bool"),
         Type::Brush => SmolStr::new_static("slint.Brush"),
+        Type::StyledText => SmolStr::new_static("slint.StyledText"),
         Type::Array(elem_type) => format_smolstr!("slint.Model[{}]", python_type_name(elem_type)),
         Type::Struct(s) => match &s.name {
             StructName::User { name, .. } => ident(name),

@@ -31,16 +31,28 @@ fn compute_inner_layout<T>(capacity: usize) -> core::alloc::Layout {
         .0
 }
 
-unsafe fn drop_inner<T>(mut inner: NonNull<SharedVectorInner<T>>) {
+/// Returns a raw pointer to the data with full allocation provenance.
+///
+/// Must not go through `&SharedVectorInner<T>` or `&mut SharedVectorInner<T>` because
+/// the declared struct size is smaller than the actual allocation.
+fn data_ptr<T>(inner: NonNull<SharedVectorInner<T>>) -> *mut T {
+    // Safety: inner.as_ptr() is a valid raw pointer; &raw mut avoids creating a reference.
+    unsafe { &raw mut (*inner.as_ptr()).data as *mut T }
+}
+
+/// # Safety
+/// Caller must ensure refcount is 0 and no other references to `inner` exist.
+unsafe fn drop_inner<T>(inner: NonNull<SharedVectorInner<T>>) {
     unsafe {
-        debug_assert_eq!(inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed), 0);
-        let data_ptr = inner.as_mut().data.as_mut_ptr();
-        for x in 0..inner.as_ref().header.size {
-            core::ptr::drop_in_place(data_ptr.add(x));
+        debug_assert_eq!((*inner.as_ptr()).header.refcount.load(atomic::Ordering::Relaxed), 0);
+        let data = data_ptr(inner);
+        let size = (*inner.as_ptr()).header.size;
+        for x in 0..size {
+            core::ptr::drop_in_place(data.add(x));
         }
         alloc::alloc::dealloc(
             inner.as_ptr() as *mut u8,
-            compute_inner_layout::<T>(inner.as_ref().header.capacity),
+            compute_inner_layout::<T>((*inner.as_ptr()).header.capacity),
         )
     }
 }
@@ -88,18 +100,13 @@ unsafe impl<T: Send + Sync> Sync for SharedVector<T> {}
 
 impl<T> Drop for SharedVector<T> {
     fn drop(&mut self) {
+        // Safety: inner is always a valid pointer (either a real allocation or SHARED_NULL).
         unsafe {
-            if self
-                .inner
-                .cast::<SharedVectorHeader>()
-                .as_ref()
-                .refcount
-                .load(atomic::Ordering::Relaxed)
-                < 0
-            {
+            let header = &raw const (*self.inner.as_ptr()).header;
+            if (*header).refcount.load(atomic::Ordering::Relaxed) < 0 {
                 return;
             }
-            if self.inner.as_ref().header.refcount.fetch_sub(1, atomic::Ordering::SeqCst) == 1 {
+            if (*header).refcount.fetch_sub(1, atomic::Ordering::SeqCst) == 1 {
                 drop_inner(self.inner)
             }
         }
@@ -108,16 +115,11 @@ impl<T> Drop for SharedVector<T> {
 
 impl<T> Clone for SharedVector<T> {
     fn clone(&self) -> Self {
+        // Safety: inner is always a valid pointer (either a real allocation or SHARED_NULL).
         unsafe {
-            if self
-                .inner
-                .cast::<SharedVectorHeader>()
-                .as_ref()
-                .refcount
-                .load(atomic::Ordering::Relaxed)
-                > 0
-            {
-                self.inner.as_ref().header.refcount.fetch_add(1, atomic::Ordering::SeqCst);
+            let header = &raw const (*self.inner.as_ptr()).header;
+            if (*header).refcount.load(atomic::Ordering::Relaxed) > 0 {
+                (*header).refcount.fetch_add(1, atomic::Ordering::SeqCst);
             }
             SharedVector { inner: self.inner }
         }
@@ -131,12 +133,13 @@ impl<T> SharedVector<T> {
     }
 
     fn as_ptr(&self) -> *const T {
-        unsafe { self.inner.as_ref().data.as_ptr() }
+        data_ptr(self.inner)
     }
 
     /// Number of elements in the array
     pub fn len(&self) -> usize {
-        unsafe { self.inner.cast::<SharedVectorHeader>().as_ref().size }
+        // Safety: header is always fully allocated (even for SHARED_NULL).
+        unsafe { (*self.inner.as_ptr()).header.size }
     }
 
     /// Return true if the SharedVector is empty
@@ -149,14 +152,45 @@ impl<T> SharedVector<T> {
         if self.is_empty() {
             &[]
         } else {
-            // Safety: When len > 0, we know that the pointer holds an array of the size of len
+            // Safety: len > 0 ensures data_ptr is valid for len elements.
             unsafe { core::slice::from_raw_parts(self.as_ptr(), self.len()) }
         }
     }
 
     /// Returns the number of elements the vector can hold without reallocating, when not shared
     fn capacity(&self) -> usize {
-        unsafe { self.inner.cast::<SharedVectorHeader>().as_ref().capacity }
+        // Safety: header is always fully allocated (even for SHARED_NULL).
+        unsafe { (*self.inner.as_ptr()).header.capacity }
+    }
+}
+
+impl<T: Clone + PartialEq> SharedVector<T> {
+    /// Replaces `from` by `to` in `self` `count` times
+    /// `count` - number of times to do the replacements
+    pub(crate) fn replace_range(&mut self, from: &[T], to: &[T], mut count: usize) {
+        if from.is_empty() || count == 0 || from.len() != to.len() {
+            return;
+        }
+        let s = self.make_mut_slice();
+        if s.len() < from.len() {
+            return;
+        }
+
+        let mut index = 0;
+        let from_len = from.len();
+        let max_start = s.len() - from_len;
+
+        while index <= max_start && count > 0 {
+            if s[index..index + from_len] == *from {
+                for (dst, src) in s[index..index + from_len].iter_mut().zip(to.iter()) {
+                    *dst = src.clone();
+                }
+                count -= 1;
+                index += from_len;
+            } else {
+                index += 1;
+            }
+        }
     }
 }
 
@@ -169,8 +203,10 @@ impl<T: Clone> SharedVector<T> {
     /// Ensure that the reference count is 1 so the array can be changed.
     /// If that's not the case, the array will be cloned
     fn detach(&mut self, new_capacity: usize) {
+        // Acquire: if refcount == 1, synchronize with the Release in the last Drop to
+        // ensure prior writes to size/data are visible before we mutate.
         let is_shared =
-            unsafe { self.inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed) } != 1;
+            unsafe { (*self.inner.as_ptr()).header.refcount.load(atomic::Ordering::Acquire) } != 1;
         if !is_shared && new_capacity <= self.capacity() {
             return;
         }
@@ -180,9 +216,9 @@ impl<T: Clone> SharedVector<T> {
         for x in new_array.into_iter() {
             assert_ne!(size, new_capacity);
             unsafe {
-                core::ptr::write(self.inner.as_mut().data.as_mut_ptr().add(size), x);
+                core::ptr::write(data_ptr(self.inner).add(size), x);
                 size += 1;
-                self.inner.as_mut().header.size = size;
+                (*self.inner.as_ptr()).header.size = size;
             }
             if size == new_capacity {
                 break;
@@ -199,12 +235,11 @@ impl<T: Clone> SharedVector<T> {
     /// Add an element to the array. If the array was shared, this will make a copy of the array.
     pub fn push(&mut self, value: T) {
         self.detach(capacity_for_grow(self.capacity(), self.len() + 1, core::mem::size_of::<T>()));
+        // Safety: detach ensures exclusive ownership and sufficient capacity.
         unsafe {
-            core::ptr::write(
-                self.inner.as_mut().data.as_mut_ptr().add(self.inner.as_mut().header.size),
-                value,
-            );
-            self.inner.as_mut().header.size += 1;
+            let size = (*self.inner.as_ptr()).header.size;
+            core::ptr::write(data_ptr(self.inner).add(size), value);
+            (*self.inner.as_ptr()).header.size = size + 1;
         }
     }
 
@@ -215,9 +250,11 @@ impl<T: Clone> SharedVector<T> {
             None
         } else {
             self.detach(self.len());
+            // Safety: detach ensures exclusive ownership; len > 0 guarantees an element exists.
             unsafe {
-                self.inner.as_mut().header.size -= 1;
-                Some(core::ptr::read(self.inner.as_mut().data.as_mut_ptr().add(self.len())))
+                let size = (*self.inner.as_ptr()).header.size - 1;
+                (*self.inner.as_ptr()).header.size = size;
+                Some(core::ptr::read(data_ptr(self.inner).add(size)))
             }
         }
     }
@@ -240,17 +277,18 @@ impl<T: Clone> SharedVector<T> {
         }
         self.detach(new_len);
         // Safety: detach ensured that the array is not shared.
-        let inner = unsafe { self.inner.as_mut() };
+        let header = unsafe { &mut (*self.inner.as_ptr()).header };
 
-        if inner.header.size >= new_len {
+        if header.size >= new_len {
             self.shrink(new_len);
         } else {
-            while inner.header.size < new_len {
+            let data_ptr = data_ptr(self.inner);
+            while header.size < new_len {
                 // Safety: The array must have a capacity of at least new_len because of the detach call earlier
                 unsafe {
-                    core::ptr::write(inner.data.as_mut_ptr().add(inner.header.size), value.clone());
+                    core::ptr::write(data_ptr.add(header.size), value.clone());
                 }
-                inner.header.size += 1;
+                header.size += 1;
             }
         }
     }
@@ -261,16 +299,17 @@ impl<T: Clone> SharedVector<T> {
         }
 
         assert!(
-            unsafe { self.inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed) } == 1
+            unsafe { (*self.inner.as_ptr()).header.refcount.load(atomic::Ordering::Relaxed) } == 1
         );
-        // Safety: caller (and above debug_assert) must ensure that the array is not shared.
-        let inner = unsafe { self.inner.as_mut() };
+        // Safety: caller (and above assert) must ensure that the array is not shared.
+        let header = unsafe { &mut (*self.inner.as_ptr()).header };
+        let data_ptr = data_ptr(self.inner);
 
-        while inner.header.size > new_len {
-            inner.header.size -= 1;
-            // Safety: The array was of size inner.header.size, so there should be an element there
+        while header.size > new_len {
+            header.size -= 1;
+            // Safety: The array was of size header.size, so there should be an element there
             unsafe {
-                core::ptr::drop_in_place(inner.data.as_mut_ptr().add(inner.header.size));
+                core::ptr::drop_in_place(data_ptr.add(header.size));
             }
         }
     }
@@ -278,7 +317,7 @@ impl<T: Clone> SharedVector<T> {
     /// Clears the vector and removes all elements.
     pub fn clear(&mut self) {
         let is_shared =
-            unsafe { self.inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed) } != 1;
+            unsafe { (*self.inner.as_ptr()).header.refcount.load(atomic::Ordering::Acquire) } != 1;
         if is_shared {
             *self = SharedVector::default();
         } else {
@@ -309,14 +348,12 @@ impl<T> DerefMut for SharedVector<T> {
 impl<T: Clone> From<&[T]> for SharedVector<T> {
     fn from(slice: &[T]) -> Self {
         let capacity = slice.len();
-        let mut result = Self::with_capacity(capacity);
+        let result = Self::with_capacity(capacity);
         for x in slice {
             unsafe {
-                core::ptr::write(
-                    result.inner.as_mut().data.as_mut_ptr().add(result.inner.as_mut().header.size),
-                    x.clone(),
-                );
-                result.inner.as_mut().header.size += 1;
+                let size = (*result.inner.as_ptr()).header.size;
+                core::ptr::write(data_ptr(result.inner).add(size), x.clone());
+                (*result.inner.as_ptr()).header.size = size + 1;
             }
         }
         result
@@ -343,20 +380,21 @@ impl<T> FromIterator<T> for SharedVector<T> {
                     core::mem::size_of::<T>(),
                 );
                 unsafe {
-                    result.inner.as_ref().header.refcount.store(0, atomic::Ordering::Relaxed)
+                    (*result.inner.as_ptr()).header.refcount.store(0, atomic::Ordering::Relaxed)
                 };
                 let mut iter = IntoIter(IntoIterInner::UnShared(result.inner, 0));
                 result.inner = alloc_with_capacity::<T>(capacity);
                 match &mut iter.0 {
                     IntoIterInner::UnShared(old_inner, begin) => {
+                        let old_data = data_ptr(*old_inner);
                         while *begin < size {
                             unsafe {
                                 core::ptr::write(
-                                    result.inner.as_mut().data.as_mut_ptr().add(*begin),
-                                    core::ptr::read(old_inner.as_ref().data.as_ptr().add(*begin)),
+                                    data_ptr(result.inner).add(*begin),
+                                    core::ptr::read(old_data.add(*begin)),
                                 );
                                 *begin += 1;
-                                result.inner.as_mut().header.size = *begin;
+                                (*result.inner.as_ptr()).header.size = *begin;
                             }
                         }
                     }
@@ -366,9 +404,9 @@ impl<T> FromIterator<T> for SharedVector<T> {
             debug_assert_eq!(result.len(), size);
             debug_assert!(result.capacity() > size);
             unsafe {
-                core::ptr::write(result.inner.as_mut().data.as_mut_ptr().add(size), x);
+                core::ptr::write(data_ptr(result.inner).add(size), x);
                 size += 1;
-                result.inner.as_mut().header.size = size;
+                (*result.inner.as_ptr()).header.size = size;
             }
         }
         result
@@ -431,10 +469,10 @@ impl<T: Clone> IntoIterator for SharedVector<T> {
     type IntoIter = IntoIter<T>;
     fn into_iter(self) -> Self::IntoIter {
         IntoIter(unsafe {
-            if self.inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed) == 1 {
+            if (*self.inner.as_ptr()).header.refcount.load(atomic::Ordering::Acquire) == 1 {
                 let inner = self.inner;
                 core::mem::forget(self);
-                inner.as_ref().header.refcount.store(0, atomic::Ordering::Relaxed);
+                (*inner.as_ptr()).header.refcount.store(0, atomic::Ordering::Relaxed);
                 IntoIterInner::UnShared(inner, 0)
             } else {
                 IntoIterInner::Shared(self, 0)
@@ -491,14 +529,17 @@ impl<T> Drop for IntoIterInner<T> {
         match self {
             IntoIterInner::Shared(..) => { /* drop of SharedVector takes care of it */ }
             IntoIterInner::UnShared(inner, begin) => unsafe {
-                debug_assert_eq!(inner.as_ref().header.refcount.load(atomic::Ordering::Relaxed), 0);
-                let data_ptr = inner.as_mut().data.as_mut_ptr();
-                for x in (*begin)..inner.as_ref().header.size {
+                debug_assert_eq!(
+                    (*inner.as_ptr()).header.refcount.load(atomic::Ordering::Relaxed),
+                    0
+                );
+                let data_ptr = data_ptr(*inner);
+                for x in (*begin)..(*inner.as_ptr()).header.size {
                     core::ptr::drop_in_place(data_ptr.add(x));
                 }
                 ::alloc::alloc::dealloc(
                     inner.as_ptr() as *mut u8,
-                    compute_inner_layout::<T>(inner.as_ref().header.capacity),
+                    compute_inner_layout::<T>((*inner.as_ptr()).header.capacity),
                 )
             },
         }
@@ -522,8 +563,9 @@ impl<T: Clone> Iterator for IntoIter<T> {
                 result
             }
             IntoIterInner::UnShared(inner, begin) => unsafe {
-                if *begin < inner.as_ref().header.size {
-                    let r = core::ptr::read(inner.as_ref().data.as_ptr().add(*begin));
+                if *begin < (*inner.as_ptr()).header.size {
+                    let data_ptr = data_ptr(*inner);
+                    let r = core::ptr::read(data_ptr.add(*begin));
                     *begin += 1;
                     Some(r)
                 } else {
@@ -562,6 +604,7 @@ fn push_test() {
 
 #[test]
 #[should_panic]
+#[cfg_attr(miri, ignore)] // Miri aborts on large allocations before the panic can fire
 fn invalid_capacity_test() {
     let _: SharedVector<u8> = SharedVector::with_capacity(usize::MAX / 2 - 1000);
 }
@@ -699,4 +742,32 @@ fn test_reserve() {
     v.reserve(8);
     assert_eq!(v.len(), 5);
     assert_eq!(v.capacity(), 13);
+}
+
+#[test]
+fn test_replace_range_all_matches() {
+    let mut v = SharedVector::from([1, 2, 3, 1, 2, 3, 1, 2, 3]);
+    v.replace_range(&[1, 2, 3], &[4, 5, 6], usize::MAX);
+    assert_eq!(v.as_slice(), &[4, 5, 6, 4, 5, 6, 4, 5, 6]);
+}
+
+#[test]
+fn test_replace_range_count_limit() {
+    let mut v = SharedVector::from([1, 2, 3, 1, 2, 3, 1, 2, 3]);
+    v.replace_range(&[1, 2, 3], &[4, 5, 6], 2);
+    assert_eq!(v.as_slice(), &[4, 5, 6, 4, 5, 6, 1, 2, 3]);
+}
+
+#[test]
+fn test_replace_range_non_overlapping() {
+    let mut v = SharedVector::from([1, 1, 1]);
+    v.replace_range(&[1, 1], &[2, 2], usize::MAX);
+    assert_eq!(v.as_slice(), &[2, 2, 1]);
+}
+
+#[test]
+fn test_replace_range() {
+    let mut v = SharedVector::from([1, 2, 3, 4]);
+    v.replace_range(&[2, 3, 4, 5], &[7, 8, 9, 9], 1);
+    assert_eq!(v.as_slice(), &[1, 2, 3, 4]);
 }

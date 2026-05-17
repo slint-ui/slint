@@ -401,6 +401,7 @@ fn duplicate_element_with_mapping(
         item_index_of_first_children: Default::default(),
         is_flickable_viewport: elem.is_flickable_viewport,
         has_popup_child: elem.has_popup_child,
+        is_tooltip: elem.is_tooltip,
         is_legacy_syntax: elem.is_legacy_syntax,
         inline_depth: elem.inline_depth + 1,
         // Deep-clone grid_layout_cell to avoid sharing between original and inlined copies.
@@ -522,6 +523,7 @@ fn duplicate_popup(p: &PopupWindow, mapping: &mut Mapping, priority_delta: i32) 
             .get(&element_key(p.parent_element.clone()))
             .expect("Parent element must be in the mapping")
             .clone(),
+        is_tooltip: p.is_tooltip,
     }
 }
 
@@ -661,6 +663,7 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
         // The passes that dp the drop shadow or the opacity currently won't allow this property
         // on the top level of a component. This could be changed in the future.
         if prop.starts_with("drop-shadow-")
+            || prop.starts_with("inset-shadow-")
             || prop == "opacity"
             || prop == "cache-rendering-hint"
             || prop == "visible"

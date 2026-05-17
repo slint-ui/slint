@@ -147,11 +147,11 @@ backend-qt = ["i-slint-backend-selector/backend-qt", "std", "i-slint-backend-qt"
 ## For a smaller build, omit this feature and select one of the other specific `backend-winit-XX` features.
 backend-winit = ["i-slint-backend-selector/backend-winit", "std"]
 
-## Simliar to `backend-winit` this enables the winit based event loop but only
+## Similar to `backend-winit` this enables the winit based event loop but only
 ## with support for the X Window System on Unix.
 backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
 
-## Simliar to `backend-winit` this enables the winit based event loop but only
+## Similar to `backend-winit` this enables the winit based event loop but only
 ## with support for the Wayland window system on Unix.
 backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
 
@@ -204,25 +204,6 @@ backend-android-activity-05 = [
   "i-slint-backend-android-activity/aa-05",
 ]
 
-## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 27.x.
-##
-## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because WGPU releases new major
-## versions frequently. This feature as well as the APIs changed or removed in future minor releases of Slint, likely to be replaced
-## by a feature with a similar name but the WGPU version suffix being bumped.
-##
-## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
-## in your `Cargo.toml` when enabling this feature:
-##
-## ```toml
-## slint = { version = "~1.17", features = ["unstable-wgpu-27"] }
-## ```
-unstable-wgpu-27 = [
-  "i-slint-core/unstable-wgpu-27",
-  "i-slint-backend-selector/unstable-wgpu-27",
-  "i-slint-backend-android-activity?/unstable-wgpu-27",
-  "dep:wgpu-27",
-]
-
 ## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 28.x.
 ##
 ## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because WGPU releases new major
@@ -240,6 +221,25 @@ unstable-wgpu-28 = [
   "i-slint-backend-selector/unstable-wgpu-28",
   "i-slint-backend-android-activity?/unstable-wgpu-28",
   "dep:wgpu-28",
+]
+
+## Enable support for [WGPU](http://wgpu.rs) based rendering and expose WGPU based APIs based on WGPU version 29.x.
+##
+## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because WGPU releases new major
+## versions frequently. This feature as well as the APIs changed or removed in future minor releases of Slint, likely to be replaced
+## by a feature with a similar name but the WGPU version suffix being bumped.
+##
+## To avoid unintended compilation failures, we recommend to use the [tilde requirement](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#tilde-requirements)
+## in your `Cargo.toml` when enabling this feature:
+##
+## ```toml
+## slint = { version = "~1.17", features = ["unstable-wgpu-29"] }
+## ```
+unstable-wgpu-29 = [
+  "i-slint-core/unstable-wgpu-29",
+  "i-slint-backend-selector/unstable-wgpu-29",
+  "i-slint-backend-android-activity?/unstable-wgpu-29",
+  "dep:wgpu-29",
 ]
 
 ## APIs guarded with this feature are *NOT* subject to the usual Slint API stability guarantees, because winit releases new major
@@ -304,8 +304,8 @@ raw-window-handle-06 = { workspace = true, optional = true }
 
 unicode-segmentation = { workspace = true }
 
-wgpu-27 = { workspace = true, optional = true }
 wgpu-28 = { workspace = true, optional = true }
+wgpu-29 = { workspace = true, optional = true }
 
 i-slint-backend-winit = { workspace = true, optional = true }
 
@@ -342,7 +342,7 @@ features = [
   "renderer-software",
   "renderer-femtovg",
   "raw-window-handle-06",
-  "unstable-wgpu-28",
+  "unstable-wgpu-29",
   "unstable-winit-030",
   "unstable-libinput-09",
   "unstable-fontique-09",

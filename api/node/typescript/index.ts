@@ -7,6 +7,8 @@ export {
     DiagnosticLevel,
     RgbaColor,
     Brush,
+    DataTransfer,
+    StyledText,
 } from "../rust-module.cjs";
 
 import { Model } from "./models";
@@ -721,32 +723,21 @@ class EventLoop {
             });
         }
 
-        if (napi.hasIntegratedEventLoop?.()) {
-            // Winit blocks on native events while a background thread watches
-            // the libuv fd. On activity, winit yields and setImmediate
-            // reschedules so V8 can run JS callbacks before re-entering.
-            const enqueue =
-                typeof setImmediate === "function"
-                    ? setImmediate
-                    : (fn: () => void) => setTimeout(fn, 0);
-            const pump = () => {
-                if (this.#quit_loop) {
-                    this.#resolve();
-                    return;
-                }
-                const result = napi.runIntegratedEventLoop();
-                if (
-                    result === napi.ProcessEventsResult.Exited ||
-                    this.#quit_loop
-                ) {
-                    this.#resolve();
-                    return;
-                }
-                enqueue(pump);
-            };
-            enqueue(pump);
-        } else {
-            // Fallback for Windows, Deno, and runtimes without uv_backend_fd().
+        if (napi.hasIntegratedEventLoop()) {
+            try {
+                // Register a uv_prepare handle that pumps Slint events
+                // on every libuv iteration.  The callback fires when the
+                // Slint event loop terminates.
+                napi.startIntegratedEventLoop(() => this.#resolve());
+                return this.#terminationPromise;
+            } catch {
+                // process_events not supported (e.g. testing backend) —
+                // fall through to the polling fallback.
+            }
+        }
+
+        // Fallback for Windows, Deno, and runtimes without uv_backend_fd().
+        {
             const nodejsPollInterval = 16;
             const id = setInterval(() => {
                 if (
@@ -774,6 +765,7 @@ class EventLoop {
 
     quit() {
         this.#quit_loop = true;
+        napi.quitEventLoop();
     }
 }
 

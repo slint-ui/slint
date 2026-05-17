@@ -13,6 +13,7 @@ use i_slint_core::graphics::{Image, euclid};
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::lengths::LogicalRect;
 use i_slint_core::platform::WindowEvent;
+use i_slint_core::renderer::DrawOutcome;
 use i_slint_core::slice::Slice;
 use i_slint_core::{platform::PlatformError, window::WindowAdapter};
 
@@ -24,7 +25,7 @@ pub trait FullscreenRenderer {
         &self,
         rotation: RenderingRotation,
         draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
-    ) -> Result<(), PlatformError>;
+    ) -> Result<DrawOutcome, PlatformError>;
     fn size(&self) -> PhysicalWindowSize;
 }
 
@@ -102,7 +103,7 @@ impl FullscreenWindowAdapter {
         mouse_position: Pin<&Property<Option<LogicalPosition>>>,
     ) -> Result<(), PlatformError> {
         if self.redraw_requested.replace(false) {
-            self.renderer.render_and_present(self.rotation, &|item_renderer| {
+            let outcome = self.renderer.render_and_present(self.rotation, &|item_renderer| {
                 if let Some(mouse_position) = mouse_position.get() {
                     let cursor_image = mouse_cursor_image();
                     item_renderer.save_state();
@@ -118,6 +119,9 @@ impl FullscreenWindowAdapter {
                     self.renderer.as_core_renderer().mark_dirty_region(cursor_rect.into());
                 }
             })?;
+            if !matches!(outcome, DrawOutcome::Success) {
+                self.redraw_requested.set(true);
+            }
             // Check once after rendering if we have running animations and
             // remember that to trigger a redraw after the frame is on the screen.
             // Timers might have been updated if the event loop is woken up

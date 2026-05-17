@@ -329,7 +329,7 @@ Cross-platform backend using the winit library:
 
 ```rust
 pub trait WinitCompatibleRenderer {
-    fn render(&self, window: &Window) -> Result<(), PlatformError>;
+    fn render(&self, window: &Window) -> Result<DrawOutcome, PlatformError>;
     fn as_core_renderer(&self) -> &dyn Renderer;
     fn suspend(&self) -> Result<(), PlatformError>;
     fn resume(&self, ...) -> Result<Arc<winit::window::Window>, PlatformError>;

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore vecmodel
+// cSpell: ignore vecmodel doesnt downcasted modeliter modelrc
 
 //! Model and Repeater
 
@@ -178,7 +178,7 @@ pub trait Model {
     /// ```
     ///
     /// ## Troubleshooting
-    /// A common reason why the dowcast fails at run-time is because of a type-mismatch
+    /// A common reason why the downcast fails at run-time is because of a type-mismatch
     /// between the model created and the model downcasted. To debug this at compile time,
     /// try matching the model type used for the downcast explicitly at model creation time.
     /// In the following example, the downcast fails at run-time:

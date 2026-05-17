@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore uncallable
+
 //! This pass follows the forward-focus property on the root element to determine the initial focus item
 //! as well as handle the forward for `focus()` calls in code.
 

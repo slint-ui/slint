@@ -75,6 +75,23 @@ export default defineConfig({
                     ],
                 },
                 { label: "Using Slint SC", slug: "using-slint-sc" },
+                {
+                    label: "Reference",
+                    items: [
+                        { label: "Overview", slug: "reference" },
+                        {
+                            label: "Elements",
+                            items: [
+                                {
+                                    autogenerate: {
+                                        directory:
+                                            "reference/generated/elements",
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
                 { label: "Development Process", slug: "development-process" },
                 { label: "Development Phases", slug: "development-phases" },
                 {

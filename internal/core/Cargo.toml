@@ -1,6 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell: ignore bitflags
 [package]
 name = "i-slint-core"
 description = "Internal Slint Runtime Library."
@@ -39,6 +40,7 @@ std = [
   "chrono/clock",
   "dep:sys-locale",
   "shared-fontique",
+  "i-slint-common/locale-decimal-separator",
   "i-slint-common/color-parsing",
   "i-slint-common/markdown",
   "taffy/std",
@@ -64,15 +66,14 @@ shared-fontique = ["i-slint-common/shared-fontique"]
 
 raw-window-handle-06 = ["dep:raw-window-handle-06"]
 
-# The wgpu-{27,28} features enable the internal wgpu module (SurfaceTarget, init helpers)
+# The wgpu-{28,29} feature enables the internal wgpu module (SurfaceTarget, init helpers)
 # without exposing public API types (GraphicsAPI::WGPU*, WGPUTexture, WGPUConfiguration).
-# The unstable-wgpu-* features additionally enable those public API types.
-wgpu-27 = ["dep:wgpu-27"]
-
-unstable-wgpu-27 = ["wgpu-27"]
+# The unstable-wgpu-{28,29} feature additionally enables those public API types.
 wgpu-28 = ["dep:wgpu-28"]
+wgpu-29 = ["dep:wgpu-29"]
 
 unstable-wgpu-28 = ["wgpu-28"]
+unstable-wgpu-29 = ["wgpu-29"]
 
 tr = ["dep:tr"]
 
@@ -136,8 +137,8 @@ chrono = { version = "0.4", default-features = false, features = ["alloc"] }
 skrifa = { workspace = true, optional = true }
 swash = { workspace = true, optional = true, features = ["scale"] }
 
-wgpu-27 = { workspace = true, optional = true }
 wgpu-28 = { workspace = true, optional = true }
+wgpu-29 = { workspace = true, optional = true }
 
 tr = { workspace = true, optional = true }
 
@@ -176,6 +177,7 @@ tokio = { version = "1.35", features = ["rt-multi-thread", "macros", "time", "ne
 async-compat = { version = "0.2.4" }
 tempfile = { version = "3.12.0" }
 fontique = { workspace = true }
+criterion = "0.8"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_debug_property)", "cfg(cbindgen)", "cfg(slint_int_coord)", "cfg(slint_nightly_test)"] }
@@ -187,3 +189,7 @@ unnecessary_cast = { level = "allow" }
 
 [package.metadata.docs.rs]
 rustdoc-args = ["--generate-link-to-definition"]
+
+[[bench]]
+name = "string"
+harness = false

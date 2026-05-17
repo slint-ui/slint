@@ -1,9 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore autoreleasepool drawables Snorm
 use i_slint_core::api::{PhysicalSize as PhysicalWindowSize, Window};
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::partial_renderer::DirtyRegion;
+use i_slint_core::renderer::DrawOutcome;
 use objc2::rc::autoreleasepool;
 use objc2::{rc::Retained, runtime::ProtocolObject};
 use objc2_core_foundation::CGSize;
@@ -145,7 +147,7 @@ impl super::Surface for MetalSurface {
             u8,
         ) -> Option<DirtyRegion>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
+    ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         autoreleasepool(|_| {
             // SAFETY: The pointer is a valid `CAMetalLayer`.
             let ca_layer: &CAMetalLayer = unsafe { self.layer.as_ptr().cast().as_ref() };
@@ -225,7 +227,7 @@ impl super::Surface for MetalSurface {
                 true
             });
 
-            Ok(())
+            Ok(DrawOutcome::Success)
         })
     }
 

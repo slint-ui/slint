@@ -27,18 +27,45 @@ pub struct BoxShadowOptions {
     pub blur: euclid::Length<f32, PhysicalPx>,
     /// The radius of the box shadow.
     pub radius: euclid::Length<f32, PhysicalPx>,
+    /// The spread radius in physical pixels. Positive grows the shadow shape, negative shrinks it.
+    pub spread: euclid::Length<f32, PhysicalPx>,
+    /// Whether the shadow is rendered inside the element's geometry.
+    pub inset: bool,
+    /// Horizontal offset in physical pixels. Only used by inset shadows (drop-shadow offset is
+    /// applied at blit time and is not part of the cached image).
+    pub offset_x_inset: f32,
+    /// Vertical offset in physical pixels. Only used by inset shadows.
+    pub offset_y_inset: f32,
 }
 
 impl Eq for BoxShadowOptions {}
 impl Ord for BoxShadowOptions {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        if (other.width, other.height, other.color, other.blur, other.radius)
-            < (self.width, self.height, self.color, self.blur, self.radius)
-        {
+        let lhs = (
+            self.width,
+            self.height,
+            self.color,
+            self.blur,
+            self.radius,
+            self.spread,
+            self.inset,
+            self.offset_x_inset.to_bits(),
+            self.offset_y_inset.to_bits(),
+        );
+        let rhs = (
+            other.width,
+            other.height,
+            other.color,
+            other.blur,
+            other.radius,
+            other.spread,
+            other.inset,
+            other.offset_x_inset.to_bits(),
+            other.offset_y_inset.to_bits(),
+        );
+        if rhs < lhs {
             std::cmp::Ordering::Less
-        } else if (self.width, self.height, self.color, self.blur, self.radius)
-            < (other.width, other.height, other.color, other.blur, other.radius)
-        {
+        } else if lhs < rhs {
             std::cmp::Ordering::Greater
         } else {
             std::cmp::Ordering::Equal
@@ -71,12 +98,25 @@ impl BoxShadowOptions {
         if width.get() < 1. || height.get() < 1. {
             return None;
         }
+        let inset = box_shadow.inset();
+        let (offset_x_inset, offset_y_inset) = if inset {
+            (
+                (box_shadow.offset_x() * scale_factor).get(),
+                (box_shadow.offset_y() * scale_factor).get(),
+            )
+        } else {
+            (0., 0.)
+        };
         Some(Self {
             width,
             height,
             color,
             blur: box_shadow.blur() * scale_factor, // This effectively becomes the blur radius, so scale to physical pixels
             radius: box_shadow.border_radius() * scale_factor,
+            spread: box_shadow.spread() * scale_factor,
+            inset,
+            offset_x_inset,
+            offset_y_inset,
         })
     }
 }

@@ -37,11 +37,11 @@
     "vitest": "catalog:"
   },
   "dependencies": {
-    "figma-kit": "1.0.0-beta.22",
-    "html-react-parser": "6.0.1",
-    "react": "19.2.5",
-    "react-dom": "19.2.5",
+    "figma-kit": "1.0.0-beta.23",
+    "html-react-parser": "6.1.0",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
     "react-rnd": "10.5.3",
-    "zustand": "5.0.12"
+    "zustand": "5.0.13"
   }
 }

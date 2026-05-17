@@ -470,7 +470,10 @@ impl LookupObject for ElementRc {
             _ => false,
         };
         if !is_global {
-            for (name, ty, _) in crate::typeregister::reserved_properties() {
+            for (name, ty, visibility) in crate::typeregister::reserved_properties() {
+                if visibility == PropertyVisibility::Private {
+                    continue;
+                }
                 let name = SmolStr::new_static(name);
                 let e =
                     expression_from_reference(NamedReference::new(self, name.clone()), &ty, None);

@@ -8,6 +8,7 @@ members = [
   'api/rs/build',
   'api/rs/macros',
   'api/rs/slint',
+  'api/slint-sc',
   'api/python/slint',
   'api/wasm-interpreter',
   'editors/zed',
@@ -37,6 +38,7 @@ members = [
   'examples/mcu-embassy',
   'examples/uefi-demo',
   'examples/async-io',
+  'examples/dnd-kanban',
   'examples/system_tray',
   'demos/weather-demo',
   'demos/usecases/rust',
@@ -190,8 +192,8 @@ icu_normalizer = { version = "2", default-features = false, features = ["compile
 
 glow = { version = "0.17" }
 tikv-jemallocator = { version = "0.6" }
-wgpu-27 = { package = "wgpu", version = "27", default-features = false }
 wgpu-28 = { package = "wgpu", version = "28", default-features = false }
+wgpu-29 = { package = "wgpu", version = "29", default-features = false }
 input = { version = "0.9.0", default-features = false }
 tr = { version = "0.1", default-features = false }
 fontique = { version = "0.9.0" }

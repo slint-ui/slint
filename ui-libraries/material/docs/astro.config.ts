@@ -71,7 +71,7 @@ export default defineConfig({
                 { label: "Getting Started", link: "getting-started" },
                 {
                     label: "Components",
-                    autogenerate: { directory: "components" },
+                    items: [{ autogenerate: { directory: "components" } }],
                 },
             ],
             plugins: [

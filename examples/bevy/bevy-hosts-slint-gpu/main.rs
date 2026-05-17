@@ -68,7 +68,7 @@ use std::{
     rc::{Rc, Weak},
     sync::{Arc, Mutex},
 };
-use wgpu_28 as wgpu;
+use wgpu_29 as wgpu;
 
 const UI_WIDTH: u32 = 800;
 const UI_HEIGHT: u32 = 600;

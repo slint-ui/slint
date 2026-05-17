@@ -34,6 +34,7 @@ use fixed::Fixed;
 use i_slint_core::api::PlatformError;
 use i_slint_core::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
 use i_slint_core::graphics::{BorderRadius, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer};
+use i_slint_core::item_rendering::HasFont;
 use i_slint_core::item_rendering::{
     CachedRenderingData, ItemRenderer, PlainOrStyledText, RenderBorderRectangle, RenderImage,
     RenderRectangle,
@@ -612,7 +613,7 @@ impl SoftwareRenderer {
         let window_adapter = renderer.window_adapter.clone();
 
         window_inner
-            .draw_contents(|components| {
+            .draw_contents(|components, post_render| {
                 let logical_size = (size.cast() / factor).cast();
 
                 match self.repaint_buffer_type.get() {
@@ -685,6 +686,12 @@ impl SoftwareRenderer {
                             &window_adapter,
                         );
                     }
+                }
+
+                if partial {
+                    post_render(&mut renderer);
+                } else {
+                    post_render(&mut renderer.actual_renderer);
                 }
 
                 self.measure_frame_rendered(&mut renderer);
@@ -1407,7 +1414,7 @@ fn prepare_scene(
     let window_adapter = renderer.window_adapter.clone();
 
     let mut dirty_region = PhysicalRegion::default();
-    window.draw_contents(|components| {
+    window.draw_contents(|components, post_render| {
         let logical_size = (size.cast() / factor).cast();
 
         match software_renderer.repaint_buffer_type.get() {
@@ -1465,6 +1472,12 @@ fn prepare_scene(
                     &window_adapter,
                 );
             }
+        }
+
+        if partial {
+            post_render(&mut renderer);
+        } else {
+            post_render(&mut renderer.actual_renderer);
         }
     });
 
@@ -3221,8 +3234,24 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         }
     }
 
-    fn draw_image_direct(&mut self, _image: i_slint_core::graphics::Image) {
-        todo!()
+    fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
+        let image_inner: &ImageInner = (&image).into();
+        let source_size = image.size();
+        if source_size.is_empty() {
+            return;
+        }
+        let target_size = euclid::Size2D::<f32, i_slint_core::lengths::LogicalPx>::from_untyped(
+            source_size.cast(),
+        ) * self.scale_factor;
+        let fit = i_slint_core::graphics::fit(
+            i_slint_core::items::ImageFit::Fill,
+            target_size,
+            i_slint_core::graphics::IntRect::from_size(source_size.cast()),
+            self.scale_factor,
+            Default::default(),
+            Default::default(),
+        );
+        self.draw_image_impl(image_inner, fit, i_slint_core::Color::default());
     }
 
     fn window(&self) -> &i_slint_core::window::WindowInner {

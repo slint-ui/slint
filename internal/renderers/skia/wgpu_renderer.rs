@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore rasterizers
 use std::pin::Pin;
 use std::rc::Rc;
 
@@ -8,9 +9,9 @@ use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::RendererSealed;
 use i_slint_core::window::WindowAdapter;
 
-use wgpu_28 as wgpu;
+use wgpu_29 as wgpu;
 
-use crate::wgpu_28_surface::{Backend, WGPUSurface};
+use crate::wgpu_29_surface::{Backend, WGPUSurface};
 use crate::{SkiaRenderer, SkiaSharedContext};
 
 /// Use the Skia renderer with WGPU when implementing a custom Slint platform where you want the
@@ -22,7 +23,7 @@ use crate::{SkiaRenderer, SkiaSharedContext};
 ///
 /// Rendering notifier callbacks registered via
 /// [`Window::set_rendering_notifier()`](i_slint_core::api::Window::set_rendering_notifier)
-/// will receive [`GraphicsAPI::WGPU28`](i_slint_core::api::GraphicsAPI::WGPU28) with the
+/// will receive [`GraphicsAPI::WGPU29`](i_slint_core::api::GraphicsAPI::WGPU29) with the
 /// renderer's instance, device, and queue.
 pub struct SkiaWGPURenderer {
     renderer: SkiaRenderer,
@@ -36,7 +37,7 @@ impl SkiaWGPURenderer {
     /// The `adapter` is needed to determine the GPU backend and create the Skia graphics context.
     ///
     /// The wgpu resources are also provided to rendering notifier callbacks via
-    /// [`GraphicsAPI::WGPU28`](i_slint_core::api::GraphicsAPI::WGPU28).
+    /// [`GraphicsAPI::WGPU29`](i_slint_core::api::GraphicsAPI::WGPU29).
     pub fn new(
         instance: wgpu::Instance,
         adapter: wgpu::Adapter,

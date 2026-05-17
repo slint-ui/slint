@@ -1,4 +1,4 @@
-<!-- cSpell: ignore Torizon Toradex imx8 am62 imx95 -->
+<!-- cSpell: ignore Torizon Toradex imx8 am62 imx95 Autorun sota
 # Running Slint Demos on Torizon OS
 
 Toradex provides [Torizon OS](https://developer.toradex.com/torizon/) a Linux based platform for its embedded devices that packages applications in docker containers.
@@ -28,7 +28,7 @@ https://github.com/orgs/slint-ui/packages?q=torizon&tab=packages&q=torizon
 
 ### Running with Docker Compose
 
-Deply the following `docker-compose.yaml` to launch the home-automation demo.
+Deploy the following `docker-compose.yaml` to launch the home-automation demo.
 
 **Note**:
 Change the `image` to match your hardware platform:

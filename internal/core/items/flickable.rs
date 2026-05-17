@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore tmax tmin
 //! The implementation details behind the Flickable
 
 //! The `Flickable` item
@@ -326,9 +327,12 @@ impl Flickable {
         if let Some(keyboard_rect) = self_rc.window_adapter().and_then(|window_adapter| {
             window_adapter.window().virtual_keyboard(crate::InternalToken)
         }) {
-            let keyboard_top_left = self_rc.map_from_window(keyboard_rect.0.to_euclid());
-            if keyboard_top_left.y > geometry.origin.y {
-                geometry.size.height = keyboard_top_left.y - geometry.origin.y;
+            let keyboard_pos = keyboard_rect.0;
+
+            let self_in_window_coordinates = self_rc.map_to_native_window(geometry.origin);
+            if (keyboard_pos.y as Coord) < (self_in_window_coordinates.y + geometry.height()) {
+                // Keyboard is below the flickable and overlapping
+                geometry.size.height = keyboard_pos.y as Coord - self_in_window_coordinates.y;
             }
         }
         geometry
@@ -395,7 +399,7 @@ struct FlickableDataInner {
     /// Heuristics for filtering scroll events from children after we have scrolled ourselves.
     /// We want to filter those to prevent the case where the user scrolls with the mouse wheel,
     /// but the mouse now moves over a child item, and that item captures the scroll event.
-    /// We use two heurstics: First, a timeout after we received a scroll event, and second, if the mouse moves we
+    /// We use two heuristics: First, a timeout after we received a scroll event, and second, if the mouse moves we
     /// stop filtering scroll event until the next scroll event.
     last_scroll_event: Option<(Instant, LogicalPoint)>,
 
@@ -432,8 +436,9 @@ impl FlickableDataInner {
         flick_rc: &ItemRc,
     ) -> bool {
         let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
-        !(delta.x == 0 as Coord && flick.viewport_height() <= geo.height_length())
-            && !(delta.y == 0 as Coord && flick.viewport_width() <= geo.width_length())
+
+        (delta.y != 0 as Coord && flick.viewport_height() > geo.height_length())
+            || (delta.x != 0 as Coord && flick.viewport_width() > geo.width_length())
     }
 
     fn process_wheel_event(

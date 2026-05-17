@@ -353,7 +353,7 @@ fn load(args: &Cli, file_watcher: Option<&mut FileWatcher>) -> CompilationResult
 
 /// Extract the component to show from the compilation result, and print an error if it cannot be found
 fn extract_component(result: &CompilationResult, args: &Cli) -> Option<ComponentDefinition> {
-    // If --component is used, result.compents contains only one element (filtered out in init_compiler())
+    // If --component is used, result.components contains only one element (filtered out in init_compiler())
     // If no component name is specified, the last defined component is shown
     let component = result.components().next();
     if component.is_none() {

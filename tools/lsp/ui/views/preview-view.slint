@@ -397,10 +397,11 @@ export component PreviewView inherits Rectangle {
 
                     DropArea {
                         can-drop(event) => {
-                            return Api.can-drop(event.data, event.position.x, event.position.y, true);
+                            return Api.can-drop(event.data, event.position.x, event.position.y, true) ? DragAction.copy : DragAction.none;
                         }
                         dropped(event) => {
                             Api.drop(event.data, event.position.x, event.position.y);
+                            return event.proposed-action;
                         }
                     }
 
