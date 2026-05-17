@@ -232,7 +232,7 @@ jobs:
                   sed -i "s|export const NODE_DOCS_BASE_URL = \".*\"|export const NODE_DOCS_BASE_URL = \"$base_url\"|" docs/nodejs/src/node-site-config.mjs
                   sed -i "s|export const NODE_DOCS_BASE_PATH = \".*\"|export const NODE_DOCS_BASE_PATH = \"$base_path\"|" docs/nodejs/src/node-site-config.mjs
             - name: "Build NAPI and TypeScript (api/node)"
-              run: pnpm run build
+              run: pnpm run build:minimal
               working-directory: api/node
             - name: "Node.js API Starlight site"
               run: pnpm run build
@@ -240,7 +240,7 @@ jobs:
             - name: Setup headless display
               uses: pyvista/setup-headless-display-action@v4
             - name: "Python docs"
-              run: uv run build_docs.py
+              run: uv run --config-setting build-args='--no-default-features' build_docs.py
               working-directory: api/python/slint
             - name: "Prepare docs for website structure"
               run: |
