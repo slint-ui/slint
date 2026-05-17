@@ -158,17 +158,17 @@ export component Example inherits Window {
 Radial gradients are like linear gradients but the colors are interpolated circularly instead of
 along a line. To describe a radial gradient, use the `@radial-gradient` macro with the following signature:
 
-### @radial-gradient(circle [at x y] [size radius], color percentage, color percentage, ...)
+### @radial-gradient(circle [radius] [at x y], color percentage, color percentage, ...)
 
 The first parameter to the macro is always `circle` because only circular gradients are supported.
+The optional `radius` value sets the circle radius in the element's local coordinate space.
+The `radius` value is a length expression.
+If omitted, the radius is half of the element's bounding box diagonal.
+
 The optional `at` parameter sets the gradient center in the element's local coordinate space.
 The `x` and `y` values are length expressions.
 If omitted, the gradient is centered in the element's bounding box.
-
-The optional `size` parameter sets the circle radius in the element's local coordinate space.
-The `radius` value is a length expression.
-If omitted, the radius is half of the element's bounding box diagonal.
-You can use `size` without `at` to keep the default center with an explicit radius.
+You can use a radius without `at` to keep the default center with an explicit radius.
 
 Example:
 
@@ -188,7 +188,7 @@ You can set a center and radius explicitly:
 
 ```slint
 export component Example inherits Rectangle {
-    background: @radial-gradient(circle at 25px 25px size 60px, #f00 0%, #00f 100%);
+    background: @radial-gradient(circle 60px at 25px 25px, #f00 0%, #00f 100%);
 }
 ```
 

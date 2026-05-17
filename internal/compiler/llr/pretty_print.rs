@@ -391,11 +391,10 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                     .as_ref()
                     .map(|(cx, cy)| format!(" at {} {}", e(cx), e(cy)))
                     .unwrap_or_default();
-                let radius_str =
-                    radius.as_ref().map(|r| format!(" size {}", e(r))).unwrap_or_default();
+                let radius_str = radius.as_ref().map(|r| format!(" {}", e(r))).unwrap_or_default();
                 write!(
                     f,
-                    "@radial-gradient(circle{center_str}{radius_str}, {})",
+                    "@radial-gradient(circle{radius_str}{center_str}, {})",
                     stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
                 )
             }

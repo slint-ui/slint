@@ -793,7 +793,7 @@ pub enum Expression {
         /// Explicit gradient center in the element's local coordinate space (`at <x> <y>`).
         /// `None` means use the element's bbox centre.
         center: Option<(Box<Expression>, Box<Expression>)>,
-        /// Explicit radius in the element's local coordinate space (`size <r>`).
+        /// Explicit radius in the element's local coordinate space (`circle <r>`).
         /// `None` means use the element's bbox half-diagonal.
         radius: Option<Box<Expression>>,
         /// First expression in the tuple is a color, second expression is the stop position
@@ -2053,15 +2053,15 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         }
         Expression::RadialGradient { center, radius, stops } => {
             write!(f, "@radial-gradient(circle")?;
+            if let Some(r) = radius {
+                write!(f, " ")?;
+                pretty_print(f, r)?;
+            }
             if let Some((cx, cy)) = center {
                 write!(f, " at ")?;
                 pretty_print(f, cx)?;
                 write!(f, " ")?;
                 pretty_print(f, cy)?;
-            }
-            if let Some(r) = radius {
-                write!(f, " size ")?;
-                pretty_print(f, r)?;
             }
             for (c, s) in stops {
                 write!(f, ", ")?;

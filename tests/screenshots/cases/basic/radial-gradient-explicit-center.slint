@@ -32,9 +32,9 @@ export component TestCase inherits Window {
         }
         Row {
             // Radial with explicit radius.
-            Rectangle { background: @radial-gradient(circle size 4px, red, blue); }
-            // Radial with explicit center and radius.
-            Rectangle { background: @radial-gradient(circle at 5px 5px size 4px, red, blue); }
+            Rectangle { background: @radial-gradient(circle 4px, red, blue); }
+            // Radial with explicit center and radius (CSS order: radius before at).
+            Rectangle { background: @radial-gradient(circle 4px at 5px 5px, red, blue); }
             // Default for visual reference.
             Rectangle { background: @radial-gradient(circle, red, blue); }
         }

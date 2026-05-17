@@ -672,8 +672,33 @@ impl Expression {
                 ctx.diag.push_error("Expected 'circle': currently, only @radial-gradient(circle, ...) are supported".into(), &node);
                 return Expression::Invalid;
             }
-            // Parse optional "at <x> <y>" and/or "size <r>" after "circle"
+            // CSS syntax: `circle [<radius>] [at <x> <y>]` — radius before center, no keyword.
             let mut idx = 1;
+
+            // Parse optional radius (a length expression that is not the "at" keyword).
+            // Only consume the node when it actually resolves to a length-compatible type;
+            // a colour keyword like `blue` must not silently become a failed conversion.
+            let radius = if all_subs.get(idx).is_some_and(|n| {
+                n.kind() == SyntaxKind::Expression
+                    && !matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "at")
+            }) {
+                let r = all_subs.get(idx).unwrap();
+                let r_syn = syntax_nodes::Expression::from(r.as_node().unwrap().clone());
+                let expr = Expression::from_expression_node(r_syn.clone(), ctx);
+                if matches!(expr.ty(), Type::LogicalLength | Type::Float32 | Type::Int32) {
+                    let radius = Box::new(
+                        expr.maybe_convert_to(Type::LogicalLength, &r_syn, ctx.diag),
+                    );
+                    idx += 1;
+                    Some(radius)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            // Parse optional "at <x> <y>".
             let center = if all_subs.get(idx).is_some_and(
                 |n| matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "at"),
             ) {
@@ -685,34 +710,8 @@ impl Expression {
                     );
                     return Expression::Invalid;
                 }
-                idx += 3; // after "at x y"
+                idx += 3; // consumed "at x y"
                 center
-            } else {
-                None
-            };
-
-            let radius = if all_subs.get(idx).is_some_and(|n| {
-                matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "size")
-            }) {
-                let r_node = all_subs.get(idx + 1);
-                match r_node {
-                    Some(r) if r.kind() == SyntaxKind::Expression => {
-                        let r_syn = syntax_nodes::Expression::from(r.as_node().unwrap().clone());
-                        let radius = Box::new(
-                            Expression::from_expression_node(r_syn.clone(), ctx)
-                                .maybe_convert_to(Type::LogicalLength, &r_syn, ctx.diag),
-                        );
-                        idx += 2;
-                        Some(radius)
-                    }
-                    _ => {
-                        ctx.diag.push_error(
-                            "Expected length after 'size'".into(),
-                            all_subs.get(idx).unwrap(),
-                        );
-                        return Expression::Invalid;
-                    }
-                }
             } else {
                 None
             };
@@ -723,7 +722,7 @@ impl Expression {
                 idx + 1
             } else {
                 if idx == 1 {
-                    let message = "'circle' must be followed by a comma, 'at', or 'size'".into();
+                    let message = "'circle' must be followed by a comma, a radius, or 'at'".into();
                     if let Some(error_node) = all_subs.get(idx) {
                         ctx.diag.push_error(message, error_node);
                     } else {
