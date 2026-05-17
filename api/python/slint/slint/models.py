@@ -107,6 +107,13 @@ class ListModel[T](Model[T]):
         self.list.append(value)
         super().notify_row_added(index, 1)
 
+    def insert(self, index: int, value: T) -> None:
+        """Inserts the value at the given index. Negative indices and indices
+        past the end of the list behave like `list.insert`."""
+        clamped = max(0, min(index, len(self.list)))
+        self.list.insert(clamped, value)
+        super().notify_row_added(clamped, 1)
+
 
 class ModelIterator[T](Iterator[T]):
     def __init__(self, model: Model[T]):
