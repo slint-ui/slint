@@ -23,6 +23,7 @@
                 "maxy",
                 "minx",
                 "miny",
+                "miri",
                 "peekable",
                 "Realloc",
                 "refcell",
