@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore backtab
+// cSpell: ignore backtab componentrc datastructure subelements unmaximized unminimized
 
 #![warn(missing_docs)]
 //! Exposed Window API
@@ -431,7 +431,7 @@ pub struct PopupWindow {
     pub location: PopupWindowLocation,
     /// The component that is responsible for providing the popup content.
     pub component: ItemTreeRc,
-    /// Defines the close behaviour of the popup.
+    /// Defines the close behavior of the popup.
     pub close_policy: PopupClosePolicy,
     /// the item that had the focus in the parent window when the popup was opened
     focus_item_in_parent: ItemWeak,

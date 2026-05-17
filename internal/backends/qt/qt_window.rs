@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore frameless qbrush qpointf qreal qwidgetsize svgz
+// cSpell: ignore frameless qbrush qpointf qreal qwidgetsize svgz Nesw qsize qstring
 
 use cpp::*;
 use i_slint_common::sharedfontique::HashedBlob;
@@ -1036,7 +1036,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 
     fn save_state(&mut self) {
-        // Don't add any additinoal calls here without adjusting `save_state_and_pixel_align_origin()`.
+        // Don't add any additional calls here without adjusting `save_state_and_pixel_align_origin()`.
         self.painter.save()
     }
 
@@ -1084,7 +1084,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let scale_factor = ScaleFactor::new(self.scale_factor());
         let target_size = LogicalSize::from_untyped(source_size.cast()) * scale_factor;
         let image_inner: &ImageInner = (&image).into();
-        // Rasterise scalable sources at scale_factor so SVGs are crisp on high-DPI displays
+        // Rasterize scalable sources at scale_factor so SVGs are crisp on high-DPI displays
         // (matches femtovg/skia draw_image_direct).
         let pixmap_size = image_inner.is_svg().then(|| target_size.cast());
         let Some(pixmap) = image_to_pixmap(image_inner, pixmap_size) else { return };

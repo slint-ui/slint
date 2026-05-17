@@ -206,7 +206,7 @@ impl WebView {
                         None => break,
                     };
 
-                    let _ = state.waker_reciver().recv().await;
+                    let _ = state.waker_receiver().recv().await;
                     state.servo().spin_event_loop();
                 }
             }

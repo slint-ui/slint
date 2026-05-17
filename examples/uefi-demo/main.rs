@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore cntfrq cntvct conpointer inited mpointer
 #![no_main]
 #![no_std]
 #![cfg(target_os = "uefi")]

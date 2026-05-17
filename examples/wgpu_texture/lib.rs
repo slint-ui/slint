@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore immediates rpass
 slint::include_modules!();
 
 use slint::wgpu_28::{WGPUConfiguration, WGPUSettings, wgpu};

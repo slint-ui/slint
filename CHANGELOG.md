@@ -1187,7 +1187,7 @@ All notable changes to this project are documented in this file.
  - Added `set-selection-offsets(int, int)` to `TextInput`, `LineEdit`, and `TextEdit`.
  - Added `Palette` global singleton.
  - Added `Cosmic` style.
- - Improved `Slider` drag and click behaviour.
+ - Improved `Slider` drag and click behavior.
 
 ### C++
 

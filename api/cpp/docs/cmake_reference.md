@@ -41,7 +41,7 @@ Compiling multiple .slint files with the same namespace may create conflicting s
 
 ## Resource Embedding
 
-By default, images from {{ '[`@image-url()`]({})'.format(slint_href_ImageType) }} or fonts that your Slint files reference are loaded from disk at run-time. This minimises build times, but requires that the directory structure with the files remains stable. If you want to build a program that runs anywhere, then you can configure the Slint compiler to embed such sources into the binary.
+By default, images from {{ '[`@image-url()`]({})'.format(slint_href_ImageType) }} or fonts that your Slint files reference are loaded from disk at run-time. This minimizes build times, but requires that the directory structure with the files remains stable. If you want to build a program that runs anywhere, then you can configure the Slint compiler to embed such sources into the binary.
 
 Set the `SLINT_EMBED_RESOURCES` target property on your CMake target to one of the following values:
 
@@ -52,7 +52,7 @@ Set the `SLINT_EMBED_RESOURCES` target property on your CMake target to one of t
   (Requires the `SLINT_FEATURE_SDF_FONTS` feature to be enabled.)
 * `as-absolute-path`: The paths of files are made absolute and will be used at run-time to load the resources from the file system. This is the default.
 
-This target property is initialised from the global `DEFAULT_SLINT_EMBED_RESOURCES` cache variable. Set it to configure the default for all CMake targets.
+This target property is initialized from the global `DEFAULT_SLINT_EMBED_RESOURCES` cache variable. Set it to configure the default for all CMake targets.
 
 ```cmake
 # Example: when building my_application, specify that the compiler should embed the resources in the binary

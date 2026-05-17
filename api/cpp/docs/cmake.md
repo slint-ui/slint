@@ -1,4 +1,4 @@
-<!-- cSpell: ignore ccmake -->
+<!-- cSpell: ignore ccmake iconfigure
 
 # Set Up Development Environment
 

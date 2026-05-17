@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore conv gdata powf punct vref
+// cSpell: ignore conv gdata powf punct vref rescope updt
 
 /*! module for the Rust code generator
 
@@ -566,7 +566,7 @@ fn generate_shared_globals(
             let shared_globals_type_name = if let Some(module) = library_info.module {
                 let package = ident(&library_info.package);
                 let module = ident(&module);
-                //(quote!(#shared_gloabls_var_name),quote!(let #shared_globals_var_name = #package::#module::#shared_globals_type_name::new(root_item_tree_weak.clone());))
+                //(quote!(#shared_globals_var_name),quote!(let #shared_globals_var_name = #package::#module::#shared_globals_type_name::new(root_item_tree_weak.clone());))
                 quote!(#package::#module::#struct_name)
             } else {
                 let package = ident(&library_info.package);
@@ -4163,6 +4163,9 @@ fn compile_builtin_function_call(
             let url = a.next().unwrap();
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(sp::open_url(&#url, #window_adapter_tokens.window()).is_ok())
+        }
+        BuiltinFunction::BringAllToFront => {
+            quote!(sp::bring_all_to_front())
         }
         BuiltinFunction::ParseMarkdown => {
             let format_string = a.next().unwrap();

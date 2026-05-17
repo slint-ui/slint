@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore listviewitem stylemetrics
+// cSpell: ignore listviewitem stylemetrics cdtor QTBUG
 
 #[cfg(feature = "enable")]
 fn main() {
@@ -44,7 +44,7 @@ fn main() {
     config.flag_if_supported("-Wno-template-id-cdtor");
     // On some systems, the header GL/gl.h (included by some Qt headers) is not
     // in the compilers default include path, which makes the build fail due to
-    // this header not beeing found. As we don't need OpenGL, we explicitly
+    // this header not being found. As we don't need OpenGL, we explicitly
     // disable it with this define. See issue #10989.
     config.define("QT_NO_OPENGL", None);
     config.include(std::env::var("DEP_QT_INCLUDE_PATH").unwrap()).build("lib.rs");

@@ -42,7 +42,7 @@ impl UsesStatement {
         self.node.DeclaredIdentifier()
     }
 
-    /// Lookup the interface component for this uses statement. Emits an error if the iterface could not be found, or
+    /// Lookup the interface component for this uses statement. Emits an error if the interface could not be found, or
     /// was not actually an interface.
     fn lookup_interface(
         &self,
@@ -547,7 +547,7 @@ pub(super) fn apply_uses_statement(
                 continue;
             }
 
-            let exisitng_binding = match &prop_decl.property_type {
+            let existing_binding = match &prop_decl.property_type {
                 Type::Function(func) => {
                     apply_uses_statement_function_binding(e, &child, name, func)
                 }
@@ -560,7 +560,7 @@ pub(super) fn apply_uses_statement(
                 ),
             };
 
-            if let Some(existing_binding) = exisitng_binding {
+            if let Some(existing_binding) = existing_binding {
                 let message = format!(
                     "Cannot override binding for '{}' from interface '{}'",
                     name, uses_statement.interface_name

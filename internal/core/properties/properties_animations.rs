@@ -571,7 +571,7 @@ mod animation_tests {
     }
 
     #[test]
-    fn properties_test_delayed_animation_fractual_iteration_triggered_by_set() {
+    fn properties_test_delayed_animation_fractal_iteration_triggered_by_set() {
         let compo = Component::new_test_component();
 
         let animation_details = PropertyAnimation {
@@ -613,7 +613,7 @@ mod animation_tests {
         assert_eq!(get_prop_value(&compo.width), 100);
         assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
-        // (fractual) end of animation
+        // (fractal) end of animation
         crate::animations::CURRENT_ANIMATION_DRIVER
             .with(|driver| driver.update_animations(start_time + DELAY + DURATION + DURATION / 4));
         assert_eq!(get_prop_value(&compo.width), 125);

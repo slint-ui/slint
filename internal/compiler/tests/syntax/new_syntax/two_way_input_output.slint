@@ -305,8 +305,8 @@ export component C12 {
     in property <bool> in5 <=> inout1;
 //                         >         <error{Cannot link input property}
 
-    in property <bool> boggus1 <=> btn.internal;
-//                                     >      <error{The property 'internal' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
+    in property <bool> bogus1 <=> btn.internal;
+//                                    >      <error{The property 'internal' is private. Annotate it with 'in', 'out' or 'in-out' to make it accessible from other components}
 
     in-out property <bool> inout1;
 

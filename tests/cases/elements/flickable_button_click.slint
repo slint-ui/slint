@@ -38,7 +38,7 @@ use slint::*;
 let instance = TestCase::new().unwrap();
 let window = instance.window();
 
-assert!(instance.get_viewport_height() > instance.get_height_(), "{} > {} not fullfilled", instance.get_viewport_height(), instance.get_height_());
+assert!(instance.get_viewport_height() > instance.get_height_(), "{} > {} not fulfilled", instance.get_viewport_height(), instance.get_height_());
 
 let pressed_position = LogicalPosition::new(250., 10.);
 window.dispatch_event(platform::WindowEvent::PointerPressed { position: pressed_position, button: platform::PointerEventButton::Left });

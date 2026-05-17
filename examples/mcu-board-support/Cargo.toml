@@ -1,6 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
+# cSpell: ignore framebuf sitronix xspi
 [package]
 name = "mcu-board-support"
 version = "1.17.0"

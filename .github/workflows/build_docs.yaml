@@ -148,9 +148,6 @@ jobs:
                   EXTRA_FLAGS="--experimental"
                 fi
                 cargo run --release -p slint-doc-generator -- $EXTRA_FLAGS
-            - name: Spellcheck
-              working-directory: docs/astro
-              run: pnpm spellcheck
             - name: Install Playwright
               working-directory: docs/astro
               run: pnpm exec playwright install --with-deps

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore GPDMA
 use alloc::boxed::Box;
 pub use cortex_m_rt::entry;
 use defmt_rtt as _;

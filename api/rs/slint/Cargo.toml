@@ -147,11 +147,11 @@ backend-qt = ["i-slint-backend-selector/backend-qt", "std", "i-slint-backend-qt"
 ## For a smaller build, omit this feature and select one of the other specific `backend-winit-XX` features.
 backend-winit = ["i-slint-backend-selector/backend-winit", "std"]
 
-## Simliar to `backend-winit` this enables the winit based event loop but only
+## Similar to `backend-winit` this enables the winit based event loop but only
 ## with support for the X Window System on Unix.
 backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
 
-## Simliar to `backend-winit` this enables the winit based event loop but only
+## Similar to `backend-winit` this enables the winit based event loop but only
 ## with support for the Wayland window system on Unix.
 backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
 

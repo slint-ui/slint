@@ -374,7 +374,7 @@ export component Foo {
     }
     let out3_binding = bindings.get("out3").unwrap().borrow().expression.clone();
     match &out3_binding {
-        // We have a code block because the first entry stores the value of `intput` in a local variable
+        // We have a code block because the first entry stores the value of `input` in a local variable
         Expression::CodeBlock(stmts) => match &stmts[1] {
             Expression::Condition { condition: _, true_expr: _, false_expr } => match &**false_expr
             {

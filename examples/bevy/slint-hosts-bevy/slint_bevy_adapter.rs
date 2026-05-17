@@ -230,7 +230,7 @@ impl render_graph::Node for SlintSwapChainDriver {
         let back_buffer = world.get_resource::<BackBuffer>().unwrap();
 
         if let Some(bb) = &back_buffer.0 {
-            // silently ignore errors when the sender is closed. Reporting an error would just result in bevy panicing,
+            // silently ignore errors when the sender is closed. Reporting an error would just result in bevy panicking,
             // while a closed channel is indicating a shutdown condition.
             front_buffer_sender.0.send_blocking(bb.clone()).ok();
         }

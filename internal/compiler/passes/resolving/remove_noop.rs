@@ -51,7 +51,7 @@ fn without_side_effects(expression: &Expression) -> bool {
         Expression::CodeBlock(expressions) => expressions.iter().all(without_side_effects),
         Expression::FunctionParameterReference { .. } => true,
         // Invalid and uncompiled expressions are unknown at this point, so default to
-        // `false`, because they may have side-efffects.
+        // `false`, because they may have side-effects.
         Expression::Invalid => false,
         Expression::Uncompiled(_) => false,
         // A property reference may cause re-evaluation of a property, which may result in

@@ -276,6 +276,11 @@ pub unsafe extern "C" fn slint_open_url(
 }
 
 #[unsafe(no_mangle)]
+pub extern "C" fn slint_bring_all_to_front() {
+    i_slint_core::bring_all_to_front()
+}
+
+#[unsafe(no_mangle)]
 pub extern "C" fn slint_string_to_styled_text(text: &SharedString, out: &mut StyledText) {
     *out = i_slint_core::styled_text::string_to_styled_text(text.to_string());
 }
@@ -283,7 +288,7 @@ pub extern "C" fn slint_string_to_styled_text(text: &SharedString, out: &mut Sty
 // Translator API is currently considered experimental due to discussions
 // about the returned string type (SharedString vs. Cow<str> etc.). Also it
 // is not available with no_std due to the tr crate.
-// See dicussion in https://github.com/slint-ui/slint/pull/10979.
+// See discussion in https://github.com/slint-ui/slint/pull/10979.
 #[cfg(all(feature = "experimental", feature = "std"))]
 mod translator {
     use crate::SharedString;

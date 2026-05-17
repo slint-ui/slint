@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! This module contains varios physics simulations which can be used as animation (internally only yet).
+// cSpell: ignore signum underdamped
+//! This module contains various physics simulations which can be used as animation (internally only yet).
 //! Currently it is used in the flickable to animate the viewport position
 //!
 //! Currently it contains two simulations:
@@ -330,7 +331,7 @@ pub struct ConstantDecelerationSpringDamperParameters {
 #[cfg(test)]
 impl ConstantDecelerationSpringDamperParameters {
     /// Creates a new `ConstantDecelerationSpringDamperParameters` parameter object
-    /// It is more comfortable to use than specifiying the parameters manually because here the parameter calculation
+    /// It is more comfortable to use than specifying the parameters manually because here the parameter calculation
     /// is done based on the `half_period_time` parameter
     ///
     /// * `initial_velocity` - the initial velocity of the point
@@ -559,11 +560,11 @@ impl ConstantDecelerationSpringDamper {
         let current_val = self.curr_value();
         let finished = match self.direction {
             Direction::Increasing => {
-                // We are comming back from a value higher than the limit
+                // We are coming back from a value higher than the limit
                 current_val < self.limit_value || t > max_time
             }
             Direction::Decreasing => {
-                // We are comming back from a value lower than the limit
+                // We are coming back from a value lower than the limit
                 current_val > self.limit_value || t > max_time
             }
         };

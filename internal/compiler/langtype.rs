@@ -1072,7 +1072,7 @@ pub struct Keys {
 }
 
 impl std::fmt::Display for Keys {
-    // Make sure to keep this in sync with the implemenation in core/input.rs
+    // Make sure to keep this in sync with the implementation in core/input.rs
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.key.is_empty() {
             write!(f, "")

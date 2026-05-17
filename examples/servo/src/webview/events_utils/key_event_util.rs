@@ -18,9 +18,9 @@ pub fn convert_slint_key_event_to_servo_input_event(
     let code = Code::Unidentified; // Slint doesn't provide physical key code
     let location = Location::Standard; // Slint doesn't provide key location
     let modifiers = get_modifiers(&key_event.modifiers);
-    let keybord_event =
+    let keyboard_event =
         KeyboardEvent::new_without_event(state, key, code, location, modifiers, false, false);
-    InputEvent::Keyboard(keybord_event)
+    InputEvent::Keyboard(keyboard_event)
 }
 
 fn key_from_text(text: &str) -> Key {

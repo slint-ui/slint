@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore rfind
+// cSpell: ignore rfind barbar funi
 
 use crate::common::component_catalog::all_exported_components;
 use crate::common::{self, DocumentCache};

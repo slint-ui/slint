@@ -1,6 +1,7 @@
 // Copyright © 2025 David Haig
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore heapsize
 // A demo for stm32u5g9j-dk2
 // The application renders a simple Slint screen to the display and the user can interact with it
 // by toggling the green led on and off as well as pushing the blue button on the dk which should
