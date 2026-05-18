@@ -336,7 +336,11 @@ pub mod ffi {
             (condition, visible) => {
                 let condition = condition.unwrap_or(true);
                 let visible = visible.unwrap_or(true);
-                MenuFromItemTree::new_with_condition_and_visible(menu_tree.clone(), || condition, || visible)
+                MenuFromItemTree::new_with_condition_and_visible(
+                    menu_tree.clone(),
+                    || condition,
+                    || visible,
+                )
             }
         };
 
