@@ -12,9 +12,6 @@ repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
-[lib]
-path = "lib.rs"
-
 [dependencies]
 clap = { workspace = true, features = ["derive"] }
 i-slint-compiler = { workspace = true }
