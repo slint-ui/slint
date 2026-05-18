@@ -630,11 +630,12 @@ impl WindowInner {
     }
 
     /// Receive a mouse event and pass it to the items of the component to
-    /// change their state.
-    pub fn process_mouse_input(&self, mut event: MouseEvent) {
+    /// change their state. For `DragMove`/`Drop`, returns the negotiated
+    /// [`DragAction`](crate::items::DragAction), or `None` if no `DropArea` accepted.
+    pub fn process_mouse_input(&self, mut event: MouseEvent) -> Option<crate::items::DragAction> {
         crate::animations::update_animations();
 
-        let Some(item_tree) = self.try_component() else { return };
+        let item_tree = self.try_component()?;
         self.ensure_tree_instantiated();
 
         // handle multiple press release
@@ -877,6 +878,7 @@ impl WindowInner {
         }
 
         let is_dragging = mouse_input_state.drag_data.is_some();
+        let drop_target_action = mouse_input_state.drop_target_action();
         self.mouse_input_state.set(mouse_input_state);
 
         // The drag-image overlay follows the cursor and lives outside any item tree, so
@@ -918,6 +920,8 @@ impl WindowInner {
         }
 
         self.ensure_tree_instantiated();
+
+        drop_target_action
     }
 
     /// Receive a raw touch event from a backend and either forward it as a mouse

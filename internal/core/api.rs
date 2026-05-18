@@ -674,7 +674,7 @@ impl Window {
                 });
             }
             crate::platform::WindowEvent::PointerExited => {
-                self.0.process_mouse_input(MouseEvent::Exit)
+                self.0.process_mouse_input(MouseEvent::Exit);
             }
 
             crate::platform::WindowEvent::KeyPressed { text } => {
