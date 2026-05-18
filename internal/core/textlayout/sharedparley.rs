@@ -1330,17 +1330,17 @@ pub fn text_size(
 ) -> Option<LogicalSize> {
     let scale_factor = renderer.scale_factor()?;
 
+    // Evaluate properties before borrowing font_context: both font_request()
+    // and text() can trigger property bindings that re-enter text_size for
+    // other elements, which would panic on a second borrow_mut().
+    let font_request = text_item.font_request(item_rc);
+    let text = text_item.text();
+
     let ctx = renderer.slint_context()?;
     let mut font_ctx = ctx.font_context().borrow_mut();
 
-    let layout_builder = LayoutWithoutLineBreaksBuilder::new(
-        Some(text_item.font_request(item_rc)),
-        text_wrap,
-        None,
-        scale_factor,
-    );
-
-    let text = text_item.text();
+    let layout_builder =
+        LayoutWithoutLineBreaksBuilder::new(Some(font_request), text_wrap, None, scale_factor);
 
     let paragraphs_without_linebreaks =
         create_text_paragraphs(&layout_builder, &mut font_ctx, text, None, Color::default());
@@ -1443,19 +1443,19 @@ pub fn text_input_byte_offset_for_position(
         return 0;
     }
 
-    let Some(ctx) = renderer.slint_context() else {
-        return 0;
-    };
-    let mut font_ctx = ctx.font_context().borrow_mut();
-
     let layout_builder = LayoutWithoutLineBreaksBuilder::new(
         Some(text_input.font_request(item_rc)),
         text_input.wrap(),
         None,
         scale_factor,
     );
-
     let visual_representation = text_input.visual_representation(None);
+
+    let Some(ctx) = renderer.slint_context() else {
+        return 0;
+    };
+    let mut font_ctx = ctx.font_context().borrow_mut();
+
     let paragraphs_without_linebreaks = create_text_paragraphs(
         &layout_builder,
         &mut font_ctx,
@@ -1501,13 +1501,15 @@ pub fn text_input_cursor_rect_for_byte_offset(
         );
     }
 
+    let visual_representation = text_input.visual_representation(None);
+    let cursor_width = text_input.text_cursor_width() * scale_factor;
+
     let Some(ctx) = renderer.slint_context() else {
         return LogicalRect::default();
     };
 
     let mut font_ctx = ctx.font_context().borrow_mut();
 
-    let visual_representation = text_input.visual_representation(None);
     let byte_offset = visual_representation.map_byte_offset_from_actual_to_visual_text(byte_offset);
 
     let paragraphs_without_linebreaks = create_text_paragraphs(
@@ -1525,7 +1527,6 @@ pub fn text_input_cursor_rect_for_byte_offset(
         scale_factor,
         LayoutOptions::new_from_textinput(text_input, Some(width), Some(height)),
     );
-    let cursor_rect = layout
-        .cursor_rect_for_byte_offset(byte_offset, text_input.text_cursor_width() * scale_factor);
+    let cursor_rect = layout.cursor_rect_for_byte_offset(byte_offset, cursor_width);
     cursor_rect / scale_factor
 }
