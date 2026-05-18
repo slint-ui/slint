@@ -338,8 +338,8 @@ pub mod ffi {
                 let visible = visible.unwrap_or(true);
                 MenuFromItemTree::new_with_condition_and_visible(
                     menu_tree.clone(),
-                    || condition,
-                    || visible,
+                    move || condition,
+                    move || visible,
                 )
             }
         };
