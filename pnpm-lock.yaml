@@ -361,6 +361,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.12.0
+      tsx:
+        specifier: ^4
+        version: 4.20.5
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -397,6 +400,22 @@ importers:
       slint-ui:
         specifier: workspace:*
         version: link:../../../api/node
+
+  examples/todo/node-typescript:
+    dependencies:
+      slint-ui:
+        specifier: workspace:*
+        version: link:../../../api/node
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.12.0
+      tsx:
+        specifier: ^4
+        version: 4.20.5
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
 
   tools/figma-inspector:
     dependencies:
@@ -11774,7 +11793,6 @@ snapshots:
       '@esbuild/win32-arm64': 0.25.12
       '@esbuild/win32-ia32': 0.25.12
       '@esbuild/win32-x64': 0.25.12
-    optional: true
 
   esbuild@0.27.7:
     optionalDependencies:
@@ -14591,7 +14609,6 @@ snapshots:
       get-tsconfig: 4.14.0
     optionalDependencies:
       fsevents: 2.3.3
-    optional: true
 
   two-product@1.0.2: {}
 

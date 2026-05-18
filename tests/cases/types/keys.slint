@@ -57,6 +57,17 @@ export component TestCase inherits Window {
 
 /*
 
+```d.ts
+export interface TestCase {
+    first_shortcut: string;
+    readonly matches: number;
+    readonly shortcut_a_as_string: string;
+    readonly shortcut_as_string: string;
+    readonly shortcut_plus_as_string: string;
+    shortcuts: slint.Model<string>;
+}
+```
+
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;

@@ -209,6 +209,71 @@ assert!(t.get_test());
 
 ```
 
+```d.ts
+export interface Test {
+    b1: slint.RgbaColor;
+    b1bri: number;
+    b1hue: number;
+    b1sat: number;
+    b2: slint.RgbaColor;
+    b3: slint.RgbaColor;
+    b4: slint.RgbaColor;
+    b5: slint.RgbaColor;
+    bwood: slint.RgbaColor;
+    bwood_bri: number;
+    bwood_hue: number;
+    bwood_sat: number;
+    c1: slint.RgbaColor;
+    c2: slint.RgbaColor;
+    c3: slint.RgbaColor;
+    g1: slint.RgbaColor;
+    gr1: slint.RgbaColor;
+    gr1bri: number;
+    gr1hue: number;
+    gr1sat: number;
+    hsv_angle1: slint.RgbaColor;
+    hsv_angle2: slint.RgbaColor;
+    i1: slint.RgbaColor;
+    invisible: slint.Brush;
+    new_green: slint.RgbaColor;
+    oklch_angle1: slint.RgbaColor;
+    oklch_angle2: slint.RgbaColor;
+    oklch_angle3: slint.RgbaColor;
+    oklch_pct1: slint.RgbaColor;
+    oklch_pct2: slint.RgbaColor;
+    oklch1: slint.RgbaColor;
+    oklch2: slint.RgbaColor;
+    p1: slint.RgbaColor;
+    r1: slint.RgbaColor;
+    r1bri: number;
+    r1hue: number;
+    r1sat: number;
+    r2: slint.RgbaColor;
+    r3: slint.RgbaColor;
+    r4: slint.RgbaColor;
+    r5: slint.RgbaColor;
+    test: boolean;
+    readonly test_hsv: boolean;
+    readonly test_hsv_angle: boolean;
+    readonly test_hsv_bri: boolean;
+    readonly test_hsv_hue: boolean;
+    readonly test_hsv_sat: boolean;
+    readonly test_hsv_wrap: boolean;
+    readonly test_oklch_angle: boolean;
+    readonly test_oklch_blue: boolean;
+    readonly test_oklch_create: boolean;
+    readonly test_oklch_percent: boolean;
+    readonly test_oklch_red: boolean;
+    readonly test_oklch_white: boolean;
+    readonly test_rgb: boolean;
+    y1: slint.RgbaColor;
+    y1bri: number;
+    y1hue: number;
+    y1sat: number;
+    y2: slint.RgbaColor;
+}
+```
+
 ```js
 var t = new slint.Test({});
 assert(t.r1.toString() == t.r2.toString());

@@ -209,6 +209,18 @@ instance.window.hide();
 assert(!instance.window.visible);
 ```
 
+```d.ts
+export interface Hello {
+    arrow_down_commands: string;
+    counter: number;
+    foobar: () => void;
+    funky_shape_commands: string;
+    minus_clicked: () => void;
+    plus_clicked: () => void;
+    width2: number;
+}
+```
+
 ```pyi
 class Hello(slint.Component):
     arrow_down_commands: str

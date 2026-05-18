@@ -64,6 +64,22 @@ assert_eq(instance.get_foo_b(), 33);
 ```
 
 
+```d.ts
+export interface TestCase {
+    change_foo: () => void;
+    foo: { a: string; b: number };
+    foo_a: string;
+    foo_b: number;
+    obj_binop_merge: boolean;
+    obj_cond: { a: string; b: number };
+    obj_cond_merge: { a: number; b: number };
+    obj_cond_merge_b: number;
+    obj_conversion: { a: string; b: number };
+    obj_conversion2: { a: string; b: number };
+    test: boolean;
+}
+```
+
 ```js
 var instance = new slint.TestCase({});
 assert.equal(instance.foo_a, ("444"));

@@ -87,6 +87,33 @@ assert.equal(instance.player_2_score, 99);
 assert.equal(instance.player_2.energy_level, 0.4);
 ```
 
+```d.ts
+export interface Player {
+    energy_level: number;
+    name: string;
+    score: number;
+}
+
+export interface Unused {
+    foo: number;
+}
+
+export interface With_Dash_And_underscore {
+    foo_bar: number;
+}
+
+export interface TestCase {
+    player_1: Player;
+    player_2: Player;
+    player_2_alias: Player;
+    player_2_score: number;
+    player_list: slint.Model<Player>;
+    players: slint.Model<Player>;
+    test: boolean;
+    underscore: With_Dash_And_underscore;
+}
+```
+
 ```pyi
 class Player:
     energy_level: float

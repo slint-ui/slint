@@ -68,6 +68,7 @@ members = [
   'tests/driver/nodejs',
   'tests/driver/python',
   'tests/driver/rust',
+  'tests/driver/typescript',
   'tests/screenshots',
   'tests/manual/windowattributes',
   'tests/manual/module-builds/blogica',

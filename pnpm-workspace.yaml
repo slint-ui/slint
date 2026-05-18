@@ -13,6 +13,7 @@ packages:
   - examples/imagefilter/node
   - examples/carousel/node
   - examples/todo/node
+  - examples/todo/node-typescript
   - examples/dnd-kanban
   - examples/maps
   - examples/memory

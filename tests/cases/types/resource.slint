@@ -34,6 +34,18 @@ assert_eq!(instance.get_cat_width(), 320);
 assert_eq!(instance.get_cat_height(), 480);
 ```
 
+```d.ts
+export interface TestCase {
+    cat: slint.ImageData;
+    cat_height: number;
+    cat_width: number;
+    empty_height: number;
+    empty_image: slint.ImageData;
+    empty_width: number;
+    test: boolean;
+}
+```
+
 ```js
 var instance = new slint.TestCase();
 assert.equal(instance.empty_width, 0);
