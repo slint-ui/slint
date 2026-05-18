@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import {
     loadFile,
     loadSource,
+    language,
     CompileError,
     StyledText,
 } from "../dist/index.js";
@@ -321,6 +322,27 @@ test("loadFile enum", () => {
     test.check = demo.TestEnum.c;
 
     expect(test.check).toStrictEqual("c");
+});
+
+test("language builtin enums: values and round-trip", () => {
+    expect(language.ColorScheme.Dark).toStrictEqual("dark");
+    expect(language.ColorScheme.Light).toStrictEqual("light");
+    expect(language.ColorScheme.Unknown).toStrictEqual("unknown");
+    expect(language.PointerEventButton.Left).toStrictEqual("left");
+    expect(language.PointerEventKind.Down).toStrictEqual("down");
+
+    // Round-trip a builtin enum value through a Slint property.
+    const source = `export component App {
+        in-out property <ColorScheme> scheme: ColorScheme.unknown;
+    }`;
+    const demo = loadSource(source, "language.spec.ts") as any;
+    const app = new demo.App();
+    app.scheme = language.ColorScheme.Dark;
+    expect(app.scheme).toStrictEqual("dark");
+
+    // Type-position usage compiles: language.ColorScheme is also a type.
+    const scheme: language.ColorScheme = language.ColorScheme.Light;
+    expect(scheme).toStrictEqual("light");
 });
 
 test("loadSource styled-text property get/set", () => {

@@ -65,7 +65,16 @@ export default defineConfig({
                     exclude: ({ link }) => {
                         const p = (link.split("?")[0] ?? "").trim();
                         return (
-                            p.startsWith("/#") || p.startsWith("/thirdparty/")
+                            p.startsWith("/#") ||
+                            p.startsWith("/thirdparty/") ||
+                            // starlight-typedoc deletes every subdirectory README.md but
+                            // typedoc-plugin-markdown still emits a "Namespaces" link to
+                            // the deleted file in the parent README. The namespace's
+                            // type-alias sub-pages and the language variable page at
+                            // /api/variables/language/ cover the same content.
+                            p.endsWith(
+                                "/api/slint-ui/namespaces/language/readme/",
+                            )
                         );
                     },
                 }),
