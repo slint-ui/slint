@@ -1889,7 +1889,7 @@ mod tests {
         res.iter().find(|ci| ci.label == "direction").unwrap();
         res.iter().find(|ci| ci.label == "iteration-count").unwrap();
         res.iter().find(|ci| ci.label == "easing").unwrap();
-        res.iter().find(|ci| ci.label == "interpolation").unwrap();
+        res.iter().find(|ci| ci.label == "angle-interpolation").unwrap();
     }
 
     #[test]
@@ -1954,7 +1954,7 @@ mod tests {
                 Text {
                     width: 20px;
                     animate width {
-                        interpolation: 🔺;
+                        angle-interpolation: 🔺;
                     }
                 }
             }

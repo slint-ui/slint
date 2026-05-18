@@ -4,7 +4,7 @@
 use super::*;
 use crate::{
     animations::physics_simulation,
-    items::{AnimationDirection, Interpolation, PropertyAnimation},
+    items::{AngleInterpolation, AnimationDirection, PropertyAnimation},
     lengths::LogicalLength,
 };
 use euclid::Length;
@@ -142,7 +142,7 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                     let val = self.from_value.interpolate_with_mode(
                         &self.to_value,
                         t,
-                        self.details.interpolation,
+                        self.details.angle_interpolation,
                     );
 
                     (val, false)
@@ -261,7 +261,12 @@ pub trait InterpolatedPropertyValue: PartialEq + Default + 'static {
     /// This is particularly useful for angle values where the interpolation path matters.
     /// The default implementation ignores the mode and uses linear interpolation.
     #[must_use]
-    fn interpolate_with_mode(&self, target_value: &Self, t: f32, _mode: Interpolation) -> Self {
+    fn interpolate_with_mode(
+        &self,
+        target_value: &Self,
+        t: f32,
+        _mode: AngleInterpolation,
+    ) -> Self {
         self.interpolate(target_value, t)
     }
 }
@@ -271,14 +276,14 @@ impl InterpolatedPropertyValue for f32 {
         self + t * (target_value - self)
     }
 
-    fn interpolate_with_mode(&self, target_value: &Self, t: f32, mode: Interpolation) -> Self {
+    fn interpolate_with_mode(&self, target_value: &Self, t: f32, mode: AngleInterpolation) -> Self {
         // Slint stores angles in DEGREES (not radians), so we use 180° and 360° as constants
         const HALF_ROTATION: f32 = 180.0;
         const FULL_ROTATION: f32 = 360.0;
 
         match mode {
-            Interpolation::Linear => self.interpolate(target_value, t),
-            Interpolation::AngleShorter => {
+            AngleInterpolation::Linear => self.interpolate(target_value, t),
+            AngleInterpolation::AngleShorter => {
                 // Normalize the difference to find the shorter arc
                 let mut diff = target_value - self;
                 // Normalize diff to be within [-180, 180]
@@ -290,7 +295,7 @@ impl InterpolatedPropertyValue for f32 {
                 }
                 self + t * diff
             }
-            Interpolation::AngleLonger => {
+            AngleInterpolation::AngleLonger => {
                 // Normalize the difference to find the longer arc
                 let mut diff = target_value - self;
                 // Normalize diff to be within [-180, 180] first
@@ -309,7 +314,7 @@ impl InterpolatedPropertyValue for f32 {
                 // If diff is exactly 0, no rotation needed
                 self + t * diff
             }
-            Interpolation::AngleClockwise => {
+            AngleInterpolation::AngleClockwise => {
                 // Always rotate clockwise (positive direction)
                 let mut diff = target_value - self;
                 // First normalize to [-180, 180]
@@ -325,7 +330,7 @@ impl InterpolatedPropertyValue for f32 {
                 }
                 self + t * diff
             }
-            Interpolation::AngleCounterclockwise => {
+            AngleInterpolation::AngleCounterclockwise => {
                 // Always rotate counterclockwise (negative direction)
                 let mut diff = target_value - self;
                 // First normalize to [-180, 180]
@@ -1167,7 +1172,7 @@ mod animation_tests {
         assert_eq!(get_prop_value(&compo.width), 300);
     }
 
-    // Tests for Interpolation modes (angle interpolation)
+    // Tests for AngleInterpolation modes (angle interpolation)
     // Note: Slint stores angles in DEGREES (not radians)
     mod interpolation_tests {
         use super::*;
@@ -1184,7 +1189,7 @@ mod animation_tests {
             let from = 10.0_f32;
             let to = 350.0_f32;
 
-            let mid = from.interpolate_with_mode(&to, 0.5, Interpolation::Linear);
+            let mid = from.interpolate_with_mode(&to, 0.5, AngleInterpolation::Linear);
             let expected = 180.0_f32;
             assert!(approx_eq(mid, expected), "Linear: expected {}°, got {}°", expected, mid);
         }
@@ -1196,7 +1201,7 @@ mod animation_tests {
             let from = 10.0_f32;
             let to = 350.0_f32;
 
-            let mid = from.interpolate_with_mode(&to, 0.5, Interpolation::AngleShorter);
+            let mid = from.interpolate_with_mode(&to, 0.5, AngleInterpolation::AngleShorter);
             let expected = 0.0_f32;
             assert!(
                 approx_eq(mid, expected),
@@ -1206,7 +1211,7 @@ mod animation_tests {
             );
 
             // At t=1.0, we should be at -10° (equivalent to 350°)
-            let end = from.interpolate_with_mode(&to, 1.0, Interpolation::AngleShorter);
+            let end = from.interpolate_with_mode(&to, 1.0, AngleInterpolation::AngleShorter);
             let expected_end = -10.0_f32;
             assert!(
                 approx_eq(end, expected_end),
@@ -1224,7 +1229,7 @@ mod animation_tests {
             let to = 100.0_f32;
 
             // At t=0.5, we should be at 10° - 135° = -125°
-            let mid = from.interpolate_with_mode(&to, 0.5, Interpolation::AngleLonger);
+            let mid = from.interpolate_with_mode(&to, 0.5, AngleInterpolation::AngleLonger);
             let expected = -125.0_f32;
             assert!(
                 approx_eq(mid, expected),
@@ -1241,7 +1246,7 @@ mod animation_tests {
             let from = 350.0_f32;
             let to = 10.0_f32;
 
-            let mid = from.interpolate_with_mode(&to, 0.5, Interpolation::AngleClockwise);
+            let mid = from.interpolate_with_mode(&to, 0.5, AngleInterpolation::AngleClockwise);
             // Mid should be at 360°
             let expected = 360.0_f32;
             assert!(
@@ -1252,7 +1257,7 @@ mod animation_tests {
             );
 
             // At t=1.0, we should be at 370° (which is 10° + 360°)
-            let end = from.interpolate_with_mode(&to, 1.0, Interpolation::AngleClockwise);
+            let end = from.interpolate_with_mode(&to, 1.0, AngleInterpolation::AngleClockwise);
             let expected_end = 370.0_f32;
             assert!(
                 approx_eq(end, expected_end),
@@ -1269,7 +1274,8 @@ mod animation_tests {
             let from = 10.0_f32;
             let to = 350.0_f32;
 
-            let mid = from.interpolate_with_mode(&to, 0.5, Interpolation::AngleCounterclockwise);
+            let mid =
+                from.interpolate_with_mode(&to, 0.5, AngleInterpolation::AngleCounterclockwise);
             // Mid should be at 0°
             let expected = 0.0_f32;
             assert!(
@@ -1280,7 +1286,8 @@ mod animation_tests {
             );
 
             // At t=1.0, we should be at -10° (which is 350° - 360°)
-            let end = from.interpolate_with_mode(&to, 1.0, Interpolation::AngleCounterclockwise);
+            let end =
+                from.interpolate_with_mode(&to, 1.0, AngleInterpolation::AngleCounterclockwise);
             let expected_end = -10.0_f32;
             assert!(
                 approx_eq(end, expected_end),
@@ -1296,8 +1303,9 @@ mod animation_tests {
             let from = 10.0_f32;
             let to = 100.0_f32;
 
-            let mid_linear = from.interpolate_with_mode(&to, 0.5, Interpolation::Linear);
-            let mid_shorter = from.interpolate_with_mode(&to, 0.5, Interpolation::AngleShorter);
+            let mid_linear = from.interpolate_with_mode(&to, 0.5, AngleInterpolation::Linear);
+            let mid_shorter =
+                from.interpolate_with_mode(&to, 0.5, AngleInterpolation::AngleShorter);
 
             assert!(
                 approx_eq(mid_linear, mid_shorter),

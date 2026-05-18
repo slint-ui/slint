@@ -2334,15 +2334,15 @@ fn animation_element_from_node(
         );
         None
     } else {
-        // The `interpolation` property is only meaningful for angle properties
+        // The `angle-interpolation` property is only meaningful for angle properties
         if prop_type != Type::Angle {
             for binding in anim.Binding() {
                 let Some(ident) = binding.child_token(SyntaxKind::Identifier) else {
                     continue;
                 };
-                if parser::normalize_identifier(ident.text()) == "interpolation" {
+                if parser::normalize_identifier(ident.text()) == "angle-interpolation" {
                     diag.push_error(
-                        "The 'interpolation' property is only allowed when animating angle properties".into(),
+                        "The 'angle-interpolation' property is only allowed when animating angle properties".into(),
                         &ident,
                     );
                 }

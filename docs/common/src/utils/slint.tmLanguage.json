@@ -692,7 +692,7 @@
                     },
                     "patterns": [
                         {
-                            "match": "(?<!-)\\b(delay|duration|iteration-count|easing|direction|interpolation)\\s*:",
+                            "match": "(?<!-)\\b(delay|duration|iteration-count|easing|direction|angle-interpolation)\\s*:",
                             "captures": {
                                 "1": {
                                     "name": "keyword.other.animate.setting.slint"
