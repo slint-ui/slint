@@ -141,6 +141,18 @@ cpp! {{
             });
         }
 
+        void contextMenuEvent(QContextMenuEvent * event) override {
+            if (!rust_window)
+                return;
+
+            // we already handle right-click events for the context menu
+            if (event->reason() != QContextMenuEvent::Reason::Mouse) {
+                rust!(Slint_contextMenuEvent [rust_window: &QtWindow as "void*"] {
+                    rust_window.context_menu_event();
+                });
+            }
+        }
+
         void resizeEvent(QResizeEvent *) override {
             if (!rust_window)
                 return;
@@ -2002,6 +2014,17 @@ impl QtWindow {
     /// Return the QWidget*
     pub fn widget_ptr(&self) -> NonNull<()> {
         unsafe { std::mem::transmute_copy::<QWidgetPtr, NonNull<_>>(&self.widget_ptr) }
+    }
+
+    // A context menu event was delivered by Qt that was not caused by a mouse input.
+    // The closest equivalent we have in Slint is a KeyEvent with the `Menu` key.
+    //
+    // Note that Qt also sends this event if the user presses Shift+F10 on Windows, but that
+    // information is lost at this point, so we still map it to the menu key (see #11591).
+    fn context_menu_event(&self) {
+        let menu_key: SharedString = i_slint_core::platform::Key::Menu.into();
+        self.window.dispatch_event(WindowEvent::KeyPressed { text: menu_key.clone() });
+        self.window.dispatch_event(WindowEvent::KeyReleased { text: menu_key });
     }
 
     fn paint_event(&self, painter: QPainterPtr) {
