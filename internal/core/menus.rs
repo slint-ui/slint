@@ -309,25 +309,17 @@ pub mod ffi {
         menu_tree: &ItemTreeRc,
         result: *mut vtable::VRc<MenuVTable>,
         condition: Option<extern "C" fn(menu_tree: &ItemTreeRc) -> bool>,
+        visible: Option<extern "C" fn(menu_tree: &ItemTreeRc) -> bool>
     ) {
-        let menu = match condition {
-            Some(condition) => {
-                let menu_weak = ItemTreeRc::downgrade(menu_tree);
-                MenuFromItemTree::new(
-                    menu_tree.clone(),
-                    core::option::Option::Some(move || {
-                        let Some(menu_rc) = menu_weak.upgrade() else { return false };
-                        condition(&menu_rc)
-                    }),
-                    core::option::Option::None::<fn() -> bool>,
-                )
-            }
-            None => MenuFromItemTree::new(
-                menu_tree.clone(),
-                core::option::Option::None::<fn() -> bool>,
-                core::option::Option::None::<fn() -> bool>,
-            ),
-        };
+        let condition = condition.map(|x| {
+            let menu_weak = ItemTreeRc::downgrade(menu_tree);
+            menu_weak.upgrade().map(|menu_rc| { x(&menu_rc) }).unwrap_or(false)
+        });
+        let visible = visible.map(|x| {
+            let menu_weak = ItemTreeRc::downgrade(menu_tree);
+            menu_weak.upgrade().map(|menu_rc| { x(&menu_rc) }).unwrap_or(false)
+        });
+        let menu = MenuFromItemTree::new(menu_tree.clone(), condition, visible);
 
         let vrc = vtable::VRc::into_dyn(vtable::VRc::new(menu));
         unsafe { core::ptr::write(result, vrc) };

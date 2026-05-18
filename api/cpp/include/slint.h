@@ -289,10 +289,11 @@ union MaybeUninitialized {
 
 inline vtable::VRc<cbindgen_private::MenuVTable>
 create_menu_wrapper(const ItemTreeRc &menu_item_tree,
-                    bool (*condition)(const ItemTreeRc *menu_tree) = nullptr)
+                    bool (*condition)(const ItemTreeRc *menu_tree) = nullptr,
+                    bool (*visible)(const ItemTreeRc *menu_tree) = nullptr)
 {
     MaybeUninitialized<vtable::VRc<cbindgen_private::MenuVTable>> maybe;
-    cbindgen_private::slint_menus_create_wrapper(&menu_item_tree, &maybe.value, condition);
+    cbindgen_private::slint_menus_create_wrapper(&menu_item_tree, &maybe.value, condition, visible);
     return maybe.take();
 }
 

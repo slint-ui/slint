@@ -4569,7 +4569,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::SetupMenuBar => {
             let window = access_window_field(ctx);
-            let [llr::Expression::PropertyReference(entries_r), llr::Expression::PropertyReference(sub_menu_r), llr::Expression::PropertyReference(activated_r), llr::Expression::NumberLiteral(tree_index), llr::Expression::BoolLiteral(no_native), rest @ ..] = arguments
+            let [llr::Expression::PropertyReference(entries_r), llr::Expression::PropertyReference(sub_menu_r), llr::Expression::PropertyReference(activated_r), llr::Expression::NumberLiteral(tree_index), llr::Expression::BoolLiteral(no_native), condition, visible, ..] = arguments
             else {
                 panic!("internal error: incorrect argument count to SetupMenuBar")
             };
@@ -4588,21 +4588,25 @@ fn compile_builtin_function_call(
                     slint::private_api::setup_popup_menu_from_menu_item_tree(menu_wrapper, {access_entries}, {access_sub_menu}, {access_activated});
                 }}")
             } else {
-                let condition = if let [condition] = &rest {
-                    let condition = compile_expression(condition, ctx);
+                let compile_prop = |prop_expr: &llr::Expression| {
+                    if let llr::Expression::BoolLiteral(true) = prop_expr {
+                        return "nullptr".to_string();
+                    }
+                    let binding = compile_expression(prop_expr, ctx);
                     format!(r"[](auto menu_tree) {{
                                 auto self_mapped = reinterpret_cast<const {item_tree_id} *>(menu_tree->operator->())->parent.lock();
                                 [[maybe_unused]] auto self = &**self_mapped;
-                                return {condition};
+                                return {binding};
                             }}")
-                } else {
-                    "nullptr".to_string()
                 };
+
+                let condition = compile_prop(condition);
+                let visible = compile_prop(visible);
 
                 format!(r"{{
                     auto item_tree = {item_tree_id}::create(self);
                     auto item_tree_dyn = item_tree.into_dyn();
-                    auto menu_wrapper = slint::private_api::create_menu_wrapper(item_tree_dyn, {condition});
+                    auto menu_wrapper = slint::private_api::create_menu_wrapper(item_tree_dyn, {condition}, {visible});
                     slint::private_api::slint_windowrc_setup_menu_bar_shortcuts(&{window}.handle(), &menu_wrapper);
                     if ({window}.supports_native_menu_bar()) {{
                         slint::cbindgen_private::slint_windowrc_setup_native_menu_bar(&{window}.handle(), &menu_wrapper);
