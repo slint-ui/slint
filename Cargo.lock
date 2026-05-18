@@ -5221,6 +5221,8 @@ dependencies = [
 name = "i-slint-formatter"
 version = "1.17.0"
 dependencies = [
+ "clap",
+ "i-slint-compiler",
  "i-tree-sitter-slint",
  "topiary-core",
  "topiary-tree-sitter-facade",

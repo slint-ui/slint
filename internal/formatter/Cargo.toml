@@ -16,6 +16,8 @@ version.workspace = true
 path = "lib.rs"
 
 [dependencies]
+clap = { workspace = true, features = ["derive"] }
+i-slint-compiler = { workspace = true }
 topiary-core = { workspace = true }
 topiary-tree-sitter-facade = { workspace = true }
 i-tree-sitter-slint = { workspace = true }
