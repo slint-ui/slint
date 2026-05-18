@@ -1361,6 +1361,10 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
     fold.min += extra_w;
     fold.max = Saturating::add(fold.max, extra_w);
     fold.preferred += extra_w;
+    // Don't propagate children's percentage constraints to the parent.
+    // Percentages are relative to the layout's own size, not the grandparent's.
+    fold.min_percent = 0 as _;
+    fold.max_percent = 100 as _;
     fold
 }
 
