@@ -756,13 +756,13 @@ impl i_slint_core::platform::Platform for Backend {
     #[cfg(all(not(target_arch = "wasm32"), not(ios_and_friends)))]
     fn process_events(
         &self,
-        timeout: core::time::Duration,
+        timeout: Option<core::time::Duration>,
         _: i_slint_core::InternalToken,
     ) -> Result<core::ops::ControlFlow<()>, PlatformError> {
         let loop_state = self.event_loop_state.borrow_mut().take().unwrap_or_else(|| {
             EventLoopState::new(self.shared_data.clone(), self.custom_application_handler.take())
         });
-        let (new_state, status) = loop_state.pump_events(Some(timeout))?;
+        let (new_state, status) = loop_state.pump_events(timeout)?;
         *self.event_loop_state.borrow_mut() = Some(new_state);
         match status {
             winit::platform::pump_events::PumpStatus::Continue => {

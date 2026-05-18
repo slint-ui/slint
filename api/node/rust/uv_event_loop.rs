@@ -322,11 +322,8 @@ mod platform {
     fn process_slint_events(state: &PrepareState) -> ProcessEventsResult {
         loop {
             let uv_timeout = state.prepare_handle.backend_timeout_ms();
-            let timeout = if uv_timeout < 0 {
-                Duration::MAX
-            } else {
-                Duration::from_millis(uv_timeout as u64)
-            };
+            let timeout =
+                if uv_timeout < 0 { None } else { Some(Duration::from_millis(uv_timeout as u64)) };
 
             match crate::process_events_with_timeout(timeout) {
                 Ok(ProcessEventsResult::Exited) | Err(_) => return ProcessEventsResult::Exited,
@@ -362,7 +359,7 @@ mod platform {
 
         // Check that the backend supports process_events
         // (the testing backend doesn't).
-        crate::process_events_with_timeout(Duration::ZERO)?;
+        crate::process_events_with_timeout(Some(Duration::ZERO))?;
 
         let fd_ready = ensure_watcher_spawned(&uv)?;
         let on_exit = on_exit.create_ref()?;
