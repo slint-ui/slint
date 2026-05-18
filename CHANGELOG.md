@@ -9,14 +9,6 @@ All notable changes to this project are documented in this file.
    `unstable-wgpu-27`/`unstable-wgpu-28` features need to migrate to `unstable-wgpu-29` and update their code to use
    `slint::wgpu_29`, `GraphicsAPI::WGPU29`, `BackendSelector::require_wgpu_29()`, and `Image::to_wgpu_29_texture()`.
 
-### Slint
-
- - `@radial-gradient` and `@conic-gradient` now support explicit `at <x> <y>` centers in local coordinates. `@radial-gradient` also supports `circle <radius>`.
-
-### Breaking changes
-
- - **ABI break**: `RadialGradientBrush` and `ConicGradientBrush` gained new `center_x`, `center_y`, and (for radial) `radius` fields. Binaries compiled against a previous version of `i-slint-core` must be recompiled.
-
 ## [1.16.1] - 2026-04-23
 
  - `ListView`: Fixed compiler panic with a graceful fallback in the dirty region computation.

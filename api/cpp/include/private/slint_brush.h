@@ -219,12 +219,17 @@ public:
     /// color that is identical to \a a's color. If it holds a gradient, then the gradients must be
     /// identical. Returns false if the brushes differ in what they hold or their respective color
     /// or gradient are not equal.
+    ///
+    /// \note Gradient center and radius fields use NaN as a sentinel for "use the bounding box
+    /// default". Two brushes whose center or radius are both the default (NaN / negative) compare
+    /// equal, matching the Rust \c PartialEq semantics. A plain struct comparison would treat
+    /// NaN != NaN and give incorrect results, hence this custom function.
     friend bool operator==(const Brush &a, const Brush &b)
     {
         return cbindgen_private::types::slint_brush_compare_equal(&a.data, &b.data);
     }
-    /// Returns false if \a is not equal to \a b; true otherwise.
-    friend bool operator!=(const Brush &a, const Brush &b) { return a.data != b.data; }
+    /// Returns true if \a a is not equal to \a b; false otherwise.
+    friend bool operator!=(const Brush &a, const Brush &b) { return !(a == b); }
 
 private:
     using Tag = cbindgen_private::types::Brush::Tag;
