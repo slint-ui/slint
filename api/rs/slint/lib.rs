@@ -483,7 +483,29 @@ pub mod language {
 
     i_slint_common::for_each_builtin_structs!(export_builtin_structs);
 
-    pub use i_slint_core::items::{ColorScheme, PointerEventButton, PointerEventKind};
+    // tt-muncher: `pub enum` arms re-export, `enum` arms drop the entry. Can't use a
+    // `$vis:vis` capture re-matched by `[pub]` because `vis` fragments are not re-matchable
+    // as token trees after being captured.
+    macro_rules! export_builtin_enums {
+        () => {};
+        (
+            $(#[$attr:meta])*
+            pub enum $Name:ident { $($_body:tt)* }
+            $($rest:tt)*
+        ) => {
+            pub use i_slint_core::items::$Name;
+            export_builtin_enums!($($rest)*);
+        };
+        (
+            $(#[$attr:meta])*
+            enum $Name:ident { $($_body:tt)* }
+            $($rest:tt)*
+        ) => {
+            export_builtin_enums!($($rest)*);
+        };
+    }
+
+    i_slint_common::for_each_enums!(export_builtin_enums);
 }
 
 #[cfg(any(
