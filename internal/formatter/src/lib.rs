@@ -114,6 +114,54 @@ mod tests {
         let result = formatter.format_str(input).expect("formatting should succeed");
 
         assert!(result.changed);
-        assert_eq!(result.text, "export component TestCase inherits Rectangle { x: 42px; }\n");
+        assert_eq!(
+            result.text,
+            "export component TestCase inherits Rectangle {\n    x: 42px;\n}\n"
+        );
+    }
+
+    #[test]
+    fn keeps_simple_callback_blocks_inline() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input = "export component TestCase inherits Rectangle {\n    clicked=>{ foo(); }\n}";
+        let result = formatter.format_str(input).expect("formatting should succeed");
+
+        assert_eq!(
+            result.text,
+            "export component TestCase inherits Rectangle {\n    clicked => { foo(); }\n}\n"
+        );
+    }
+
+    #[test]
+    fn separates_top_level_definitions_with_a_blank_line() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input = "component First inherits Rectangle {}\ncomponent Second inherits Rectangle {}";
+        let result = formatter.format_str(input).expect("formatting should succeed");
+
+        assert_eq!(
+            result.text,
+            "component First inherits Rectangle {}\n\ncomponent Second inherits Rectangle {}\n"
+        );
+    }
+
+    #[test]
+    fn formatted_output_has_no_trailing_spaces() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input = "component First inherits Rectangle {}\ncomponent Second inherits Rectangle {}";
+        let result = formatter.format_str(input).expect("formatting should succeed");
+
+        assert!(result.text.lines().all(|line| !line.ends_with(' ')));
+    }
+
+    #[test]
+    fn keeps_unit_suffixed_literals_intact() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input = "export component TestCase inherits Rectangle { property <color> base: #00007F; background: base.brighter(50%); width: 50%; height: 12px; }";
+        let result = formatter.format_str(input).expect("formatting should succeed");
+
+        assert_eq!(
+            result.text,
+            "export component TestCase inherits Rectangle { property <color> base: #00007F; background: base.brighter(50%); width: 50%; height: 12px; }\n"
+        );
     }
 }
