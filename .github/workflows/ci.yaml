@@ -773,12 +773,6 @@ jobs:
               with:
                   name: slint-sc-coverage
                   path: coverage
-            - name: Upload to Codecov
-              uses: codecov/codecov-action@v6
-              with:
-                  files: coverage/lcov.info
-                  flags: slint-sc
-              continue-on-error: true
 
     clippy:
         needs: files-changed
