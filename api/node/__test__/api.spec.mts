@@ -345,6 +345,27 @@ test("language builtin enums: values and round-trip", () => {
     expect(scheme).toStrictEqual("light");
 });
 
+test("language builtin structs: type-position usage", () => {
+    // The struct types are type-only — values come from the runtime.
+    // Compiling this test exercises the type definitions; the runtime
+    // assertion just confirms the literal we constructed matches the shape.
+    const mods: language.KeyboardModifiers = {
+        alt: false,
+        control: true,
+        shift: false,
+        meta: false,
+    };
+    const evt: language.PointerEvent = {
+        button: language.PointerEventButton.Left,
+        kind: language.PointerEventKind.Down,
+        modifiers: mods,
+        touch_finger_id: 0,
+    };
+    expect(evt.button).toStrictEqual("left");
+    expect(evt.kind).toStrictEqual("down");
+    expect(evt.modifiers.control).toStrictEqual(true);
+});
+
 test("loadSource styled-text property get/set", () => {
     const source = `export component App {
         in-out property <styled-text> content;
