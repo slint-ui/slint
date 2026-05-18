@@ -11,7 +11,7 @@
 // after deletion) breaks any citation; collisions across the corpus
 // fail the build.
 
-const ID_MARKER = /\s*\{#(sls_[a-z0-9_]+)\}\s*$/;
+const ID_MARKER = /\s*\{#(sls\.[a-z0-9.\-_]+)\}\s*$/;
 
 function walk(node, fn) {
     if (node.type === "element") fn(node);
