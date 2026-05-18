@@ -1286,7 +1286,7 @@ pub(crate) fn generate_item_tree<'id>(
             Type::Percent => animated_property_info::<f32>(),
             Type::Enumeration(e) => {
                 macro_rules! match_enum_type {
-                    ($( $(#[$enum_doc:meta])* enum $Name:ident { $($body:tt)* })*) => {
+                    ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $($body:tt)* })*) => {
                         match e.name.as_str() {
                             $(
                                 stringify!($Name) => property_info::<i_slint_core::items::$Name>(),

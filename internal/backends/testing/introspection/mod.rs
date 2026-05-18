@@ -645,7 +645,7 @@ fn test_accessibility_role_mapping_complete() {
     }
 
     macro_rules! test_accessibility_enum_mapping {
-        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
             $(
                 test_accessibility_enum_mapping_inner!($Name, $($Value,)*);
             )*

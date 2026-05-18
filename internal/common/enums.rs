@@ -7,11 +7,15 @@
 
 /// Call a macro with every enum exposed in the .slint language
 ///
+/// Each enum is declared with `pub enum` if it should be re-exported in a public
+/// language-binding module (e.g. `slint::language` in the Rust crate), or plain `enum`
+/// to stay private. Consumers can dispatch on `$vis:vis`.
+///
 /// ## Example
 /// ```rust
 /// macro_rules! print_enums {
-///     ($( $(#[$enum_doc:meta])* enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
-///         $(println!("{} => [{}]", stringify!($Name), stringify!($($Value),*));)*
+///     ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
+///         $(println!("{} ({}) => [{}]", stringify!($Name), stringify!($vis), stringify!($($Value),*));)*
 ///     }
 /// }
 /// i_slint_common::for_each_enums!(print_enums);
@@ -163,7 +167,7 @@ macro_rules! for_each_enums {
 
             /// The enum reports what happened to the `PointerEventButton` in the event
             #[non_exhaustive]
-            enum PointerEventKind {
+            pub enum PointerEventKind {
                 /// The action was cancelled.
                 Cancel,
                 /// The button was pressed.
@@ -177,7 +181,7 @@ macro_rules! for_each_enums {
             /// This enum describes the different types of buttons for a pointer event,
             /// typically on a mouse or a pencil.
             #[non_exhaustive]
-            enum PointerEventButton {
+            pub enum PointerEventButton {
                 /// A button that is none of left, right, middle, back or forward. For example,
                 /// this is used for the task button on a mouse with many buttons.
                 Other,
@@ -539,7 +543,7 @@ macro_rules! for_each_enums {
             /// This enum indicates the color scheme used by the widget style. Use this to explicitly switch
             /// between dark and light schemes, or choose Unknown to fall back to the system default.
             #[non_exhaustive]
-            enum ColorScheme {
+            pub enum ColorScheme {
                 /// The scheme is not known and a system wide setting configures this. This could mean that
                 /// the widgets are shown in a dark or light scheme, but it could also be a custom color scheme.
                 Unknown,

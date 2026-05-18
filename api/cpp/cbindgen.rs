@@ -55,7 +55,7 @@ fn enums(path: &Path) -> anyhow::Result<()> {
         };
     }
     macro_rules! print_enums {
-         ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+         ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
              $(
                 let file = enum_file!($Name);
                 let namespace: Option<&'static str> = enum_sub_namespace!($Name);
