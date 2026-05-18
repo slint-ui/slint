@@ -3939,9 +3939,7 @@ fn compile_builtin_function_call(
                 let model = &#model;
                 let index = #index as usize;
 
-                if index < model.row_count() {
-                    model.remove_row(index);
-                }
+                model.remove_row(index);
             })
         }
         BuiltinFunction::ArrayInsert => {
@@ -3953,9 +3951,7 @@ fn compile_builtin_function_call(
                 let index = #index as usize;
                 let value = #value;
 
-                if index <= model.row_count() {
-                    model.insert_row(index, value);
-                }
+                model.insert_row(index, value);
             })
         }
         BuiltinFunction::Rgb => {

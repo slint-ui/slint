@@ -535,11 +535,15 @@ impl<T: Clone + 'static> Model for VecModel<T> {
     }
 
     fn remove_row(&self, row: usize) {
-        self.remove(row);
+        if row < self.row_count() {
+            self.remove(row);
+        }
     }
 
     fn insert_row(&self, row: usize, data: Self::Data) {
-        self.insert(row, data);
+        if row <= self.row_count() {
+            self.insert(row, data);
+        }
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {
@@ -601,6 +605,9 @@ impl<T: Clone + 'static> Model for SharedVectorModel<T> {
     }
 
     fn remove_row(&self, row: usize) {
+        if row >= self.array.borrow().len() {
+            return;
+        }
         let mut array = self.array.borrow_mut();
         array.make_mut_slice()[row..].rotate_left(1);
         array.pop();
@@ -608,6 +615,9 @@ impl<T: Clone + 'static> Model for SharedVectorModel<T> {
     }
 
     fn insert_row(&self, row: usize, data: Self::Data) {
+        if row > self.array.borrow().len() {
+            return;
+        }
         let mut array = self.array.borrow_mut();
         array.push(data);
         array.make_mut_slice()[row..].rotate_right(1);
