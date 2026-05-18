@@ -263,8 +263,7 @@ export class ArrayModel<T> extends Model<T> {
      * @param data new data item to store in a new row.
      */
     pushRow(data: T) {
-        this.#array.push(data);
-        this.notifyRowAdded(this.#array.length - 1, 1);
+        this.push(data);
     }
 
     /**
@@ -272,8 +271,7 @@ export class ArrayModel<T> extends Model<T> {
      * @param _index index of the row to remove.
      */
     removeRow(_index: number) {
-        this.#array.splice(_index, 1);
-        this.notifyRowRemoved(_index, 1);
+        this.remove(_index, 1);
     }
 
     /**
@@ -282,8 +280,7 @@ export class ArrayModel<T> extends Model<T> {
      * @param _data data item to store in the new row.
      */
     insertRow(_index: number, _data: T) {
-        this.#array.splice(_index, 0, _data);
-        this.notifyRowAdded(_index, 1);
+        this.insert(_index, _data);
     }
 
     /**

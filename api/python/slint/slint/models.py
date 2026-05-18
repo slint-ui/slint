@@ -107,16 +107,14 @@ class ListModel[T](Model[T]):
         super().notify_row_changed(row)
 
     def push_row(self, value: T) -> None:
-        self.list.append(value)
-        super().notify_row_added(len(self.list) - 1, 1)
+        self.append(value)
 
     def remove_row(self, row: int) -> None:
         del self.list[row]
         super().notify_row_removed(row, 1)
 
     def insert_row(self, row: int, value: T) -> None:
-        self.list.insert(row, value)
-        self.notify_row_added(row, 1)
+        self.insert(row, value)
 
     def __delitem__(self, key: int | slice) -> None:
         if isinstance(key, slice):
