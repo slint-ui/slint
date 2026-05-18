@@ -1,6 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell: ignore generativity
 [package]
 name = "slint-interpreter"
 description = "Interpreter library for Slint"
@@ -60,11 +61,11 @@ backend-qt = ["i-slint-backend-selector/backend-qt", "std"]
 ## this feature and select one of the other specific `backend-winit-XX` features.
 backend-winit = ["i-slint-backend-selector/backend-winit", "std"]
 
-## Simliar to `backend-winit` this enables the winit based event loop but only
+## Similar to `backend-winit` this enables the winit based event loop but only
 ## with support for the X Window System on Unix.
 backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
 
-## Simliar to `backend-winit` this enables the winit based event loop but only
+## Similar to `backend-winit` this enables the winit based event loop but only
 ## with support for the Wayland window system on Unix.
 backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
 
@@ -122,6 +123,10 @@ raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/ra
 ## any stability guarantees whatsoever.
 internal = []
 
+# (internal) Expose the native file watcher for other Slint tooling.
+# NOTE: this is not a semver compatible feature
+internal-file-watcher = ["dep:notify"]
+
 # (internal) Draw an highlight on a specified element
 # NOTE: this is not a semver compatible feature
 internal-highlight = []
@@ -131,7 +136,7 @@ internal-highlight = []
 internal-json = ["dep:serde_json"]
 
 # (internal)
-internal-live-preview = ["dep:notify", "display-diagnostics"]
+internal-live-preview = ["internal-file-watcher", "display-diagnostics"]
 
 
 [dependencies]

@@ -72,7 +72,7 @@ impl ChangeTracker {
     ///
     /// Same as [`Self::init`], but the first eval function is called in a future evaluation of the event loop.
     /// This means that the change tracker will consider the value as default initialized, and the eval function will
-    /// be called the firs ttime if the initial value is not equal to the default constructed value.
+    /// be called the first time if the initial value is not equal to the default constructed value.
     pub fn init_delayed<
         Data: 'static,
         T: Default + PartialEq,
@@ -219,29 +219,37 @@ impl ChangeTracker {
         }
     }
 
-    /// Run all the change handler that were queued.
+    /// Run all the change handlers that were queued, looping until no more
+    /// handlers are pending (up to an internal limit).
     pub fn run_change_handlers() {
+        for _ in 0..10 {
+            if !Self::run_change_handlers_once() {
+                return;
+            }
+        }
+        crate::debug_log!("Slint: long changed callback chain detected");
+    }
+
+    /// Run one round of pending change handlers.
+    /// Returns `true` if any handler was executed.
+    pub fn run_change_handlers_once() -> bool {
         CHANGED_NODES.with(|list| {
+            if list.is_empty() {
+                return false;
+            }
             let old_list = DependencyListHead::default();
             let old_list = core::pin::pin!(old_list);
-            let mut count = 0;
-            while !list.is_empty() {
-                count += 1;
-                if count > 9 {
-                    crate::debug_log!("Slint: long changed callback chain detected");
-                    return;
-                }
-                DependencyListHead::swap(list.as_ref(), old_list.as_ref());
-                while let Some(node) = old_list.take_head() {
-                    unsafe {
-                        ((*addr_of!((*node).vtable)).evaluate)(
-                            node as *mut BindingHolder,
-                            core::ptr::null_mut(),
-                        );
-                    }
+            DependencyListHead::swap(list.as_ref(), old_list.as_ref());
+            while let Some(node) = old_list.take_head() {
+                unsafe {
+                    ((*addr_of!((*node).vtable)).evaluate)(
+                        node as *mut BindingHolder,
+                        core::ptr::null_mut(),
+                    );
                 }
             }
-        });
+            true
+        })
     }
 
     pub(super) unsafe fn mark_dirty(_self: *const BindingHolder, _was_dirty: bool) {
@@ -320,7 +328,7 @@ fn delete_from_eval_fn() {
     let xyz = RefCell::new(String::from("*"));
     let result = Rc::new(RefCell::new(String::new()));
     let result2 = result.clone();
-    // The change event are run in reverse order as they are created, so this one shouldn't be ever called as it is being detroyed from `change`
+    // The change event are run in reverse order as they are created, so this one shouldn't be ever called as it is being destroyed from `change`
     let another = Rc::<RefCell<Option<ChangeTracker>>>::new(Some(ChangeTracker::default()).into());
     another.borrow().as_ref().unwrap().init_delayed(
         (),
@@ -351,7 +359,7 @@ fn delete_from_eval_fn() {
 }
 
 #[test]
-fn change_mutliple_dependencies() {
+fn change_multiple_dependencies() {
     use super::Property;
     use std::cell::RefCell;
     use std::rc::Rc;

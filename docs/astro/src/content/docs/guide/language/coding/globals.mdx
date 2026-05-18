@@ -108,8 +108,8 @@ app.Logic.the_value = 42
 </Tabs>
 
 :::note[Note]
-Global singletons are not shared between windows.
-This means you may need to initialize the global callback and properties for each window instance you create in your application.
+Global singletons aren't shared between separate windows, or between a window and a <Link type="SystemTrayIcon" /> exported alongside it.
+You may need to initialize the global callbacks and properties for each instance you create.
 :::
 
 It's possible to re-expose a callback or properties from a global using the two way binding syntax.

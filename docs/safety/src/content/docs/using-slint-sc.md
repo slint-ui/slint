@@ -87,7 +87,7 @@ flowchart TD
 
 In addition, the software architectural design should have a dynamic design part which addresses:
 
-- the functional chain of events and behaviour;
+- the functional chain of events and behavior;
 - the logical sequence of data processing;
 - the control flow and concurrency of processes;
 - the data flow through interfaces and global variables; and

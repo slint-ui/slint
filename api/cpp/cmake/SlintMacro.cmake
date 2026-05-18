@@ -1,6 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell: ignore AFAICT ARGN endwhile GENEX REALPATH
 # Set up machinery to handle SLINT_EMBED_RESOURCES target property
 set(DEFAULT_SLINT_EMBED_RESOURCES as-absolute-path CACHE STRING
     "The default resource embedding option to pass to the Slint compiler")

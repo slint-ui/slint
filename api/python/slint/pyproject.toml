@@ -1,6 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell: ignore cibuildwheel
 [build-system]
 requires = ["maturin>=1,<2"]
 build-backend = "maturin"
@@ -56,5 +57,5 @@ xbuild-tools = ["rustc", "cargo", "rustup", "cc", "ar"]
 
 [tool.maturin]
 editable-profile = "dev"
-# added so it includes in wheel build to overrite the default behavior of not including untracked files
+# added so it includes in wheel build to overwrite the default behavior of not including untracked files
 include = ["slint/language.pyi"]

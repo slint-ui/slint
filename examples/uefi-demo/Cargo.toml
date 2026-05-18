@@ -1,6 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
+# cSpell: ignore minipng
 [package]
 name = "uefi-demo"
 version = "1.17.0"

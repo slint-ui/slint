@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore elemrc
 //! Make sure that the top level element of the component is always a Window
 
 use crate::diagnostics::BuildDiagnostics;
@@ -58,6 +59,7 @@ pub fn ensure_window(
         accessibility_props: Default::default(),
         geometry_props: Default::default(),
         is_flickable_viewport: false,
+        is_tooltip: false,
         item_index: Default::default(),
         item_index_of_first_children: Default::default(),
         grid_layout_cell: None,
@@ -143,7 +145,10 @@ pub fn ensure_window(
 
 pub fn inherits_window(component: &Rc<Component>) -> bool {
     component.root_element.borrow().builtin_type().is_none_or(|b| {
-        matches!(b.name.as_str(), "Window" | "Dialog" | "WindowItem" | "PopupWindow")
+        matches!(
+            b.name.as_str(),
+            "Window" | "Dialog" | "WindowItem" | "PopupWindow" | "SystemTrayIcon"
+        )
     })
 }
 
@@ -164,17 +169,28 @@ pub fn warn_about_child_windows(doc: &crate::object_tree::Document, diag: &mut B
                 let Some(builtin) = elem.builtin_type() else {
                     return;
                 };
+                let inheritance_hint = if let ElementType::Component(component) = &elem.base_type {
+                    format!("\n(Note: {} inherits {})", component.id, builtin.name)
+                } else {
+                    "".to_owned()
+                };
                 if matches!(builtin.name.as_str(), "Window" | "WindowItem") {
-                    let inheritance_hint =
-                        if let ElementType::Component(component) = &elem.base_type {
-                            format!("\n(Note: {} inherits Window)", component.id)
-                        } else {
-                            "".to_owned()
-                        };
                     diag.push_warning(
                         format!(
                             "Window elements as children do not create separate windows (this may change in the future)\n\
                             Consider using a PopupWindow instead\
+                            {inheritance_hint}"
+                        ),
+                        &*elem,
+                    );
+                } else if builtin.name.as_str() == "SystemTrayIcon" {
+                    // Unlike Window children (which become inert sub-windows), a
+                    // SystemTrayIcon inside another element has no meaningful lowering:
+                    // the platform tray APIs only know how to bind to a top-level
+                    // SystemTrayIcon-rooted component. Reject at compile time.
+                    diag.push_error(
+                        format!(
+                            "SystemTrayIcon must be the root of an exported component, not a child element\
                             {inheritance_hint}"
                         ),
                         &*elem,

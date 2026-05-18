@@ -70,4 +70,8 @@ runs:
           if: inputs.cache == 'true'
           with:
               key: ${{ inputs.key }}-1
+              # Workaround for https://github.com/Swatinem/rust-cache/issues/341:
+              # on the updated macOS runner image, cache-bin's restored cargo/rustc
+              # dispatches as rustup-init and fails with "unexpected argument".
+              cache-bin: ${{ runner.os == 'macOS' && 'false' || 'true' }}
               save-if: ${{ inputs.save_if }}

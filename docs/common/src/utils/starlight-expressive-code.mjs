@@ -98,6 +98,28 @@ function languageLabel() {
     });
 }
 
+function hideHashLines() {
+    return definePlugin({
+        name: "Hide lines starting with '# ' (rustdoc-style hidden lines)",
+        hooks: {
+            preprocessCode: (context) => {
+                if (context.codeBlock.language !== "slint") {
+                    return;
+                }
+                const lines = context.codeBlock.getLines();
+                for (let i = lines.length - 1; i >= 0; i--) {
+                    if (
+                        lines[i].text.startsWith("# ") ||
+                        lines[i].text === "#"
+                    ) {
+                        context.codeBlock.deleteLine(i);
+                    }
+                }
+            },
+        },
+    });
+}
+
 function workersPlaygroundButton() {
     return definePlugin({
         name: "Adds 'Run in SlintPad' button to slint codeblocks",
@@ -172,6 +194,7 @@ function workersPlaygroundButton() {
 export default function starlightExpressiveCode() {
     return {
         plugins: [
+            hideHashLines(),
             workersPlaygroundButton(),
             sideBorder(),
             languageLabel(),

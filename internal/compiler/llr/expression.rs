@@ -255,6 +255,8 @@ pub enum Expression {
 
     EmptyComponentFactory,
 
+    EmptyDataTransfer,
+
     /// A reference to bundled translated string
     TranslationReference {
         /// An expression of type array of strings
@@ -319,8 +321,12 @@ impl Expression {
                 Expression::EnumerationValue(enumeration.clone().default_value())
             }
             Type::Keys => Expression::KeysLiteral(Keys::default()),
+            Type::DataTransfer => Expression::EmptyDataTransfer,
             Type::ComponentFactory => Expression::EmptyComponentFactory,
-            Type::StyledText => return None,
+            Type::StyledText => Expression::BuiltinFunctionCall {
+                function: BuiltinFunction::StringToStyledText,
+                arguments: vec![Expression::StringLiteral(SmolStr::default())],
+            },
         })
     }
 
@@ -383,6 +389,7 @@ impl Expression {
             Self::WithGridInputData { sub_expression, .. } => sub_expression.ty(ctx),
             Self::MinMax { ty, .. } => ty.clone(),
             Self::EmptyComponentFactory => Type::ComponentFactory,
+            Self::EmptyDataTransfer => Type::DataTransfer,
             Self::TranslationReference { .. } => Type::String,
         }
     }
@@ -497,6 +504,7 @@ macro_rules! visit_impl {
                 $visitor(rhs);
             }
             Expression::EmptyComponentFactory => {}
+            Expression::EmptyDataTransfer => {}
             Expression::TranslationReference { format_args, plural, string_index: _ } => {
                 $visitor(format_args);
                 if let Some(plural) = plural {
@@ -856,7 +864,7 @@ pub(crate) struct PropertyInfoResult<'a> {
 }
 
 /// Maps between two evaluation context.
-/// This allows to go from the current subcomponent's context, to the context
+/// This allows to go from the current subcomponents context, to the context
 /// relative to the binding we want to inline
 #[derive(Debug, Clone)]
 pub(crate) enum ContextMap {

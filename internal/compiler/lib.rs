@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore inlines namedreference pathutils
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
@@ -19,6 +20,7 @@ use std::rc::Rc;
 pub mod builtin_macros;
 pub mod data_uri;
 pub mod diagnostics;
+pub mod doc_comments;
 pub mod embedded_resources;
 pub mod expression_tree;
 pub mod fileaccess;
@@ -183,6 +185,12 @@ pub struct CompilerConfiguration {
 
     /// Specify the Rust module to place the generated code in.
     pub rust_module: Option<String>,
+
+    /// Set automatically when the output format is `SlintSc`.
+    /// The compiler rejects all features not supported by the
+    /// safety-critical subset.
+    #[cfg(feature = "slint-sc")]
+    pub(crate) slint_sc: bool,
 }
 
 impl CompilerConfiguration {
@@ -232,6 +240,9 @@ impl CompilerConfiguration {
 
         let debug_info = std::env::var_os("SLINT_EMIT_DEBUG_INFO").is_some();
 
+        #[cfg(feature = "slint-sc")]
+        let slint_sc = matches!(output_format, OutputFormat::SlintSc);
+
         let cpp_namespace = match output_format {
             #[cfg(feature = "cpp")]
             OutputFormat::Cpp(config) => match config.namespace {
@@ -270,6 +281,8 @@ impl CompilerConfiguration {
                 .map(|x| x.into()),
             library_name: None,
             rust_module: None,
+            #[cfg(feature = "slint-sc")]
+            slint_sc,
         }
     }
 }
@@ -289,6 +302,10 @@ fn prepare_for_compile(
     }
 
     diagnostics.enable_experimental = compiler_config.enable_experimental;
+    #[cfg(feature = "slint-sc")]
+    {
+        diagnostics.slint_sc = compiler_config.slint_sc;
+    }
 
     typeloader::TypeLoader::new(compiler_config, diagnostics)
 }

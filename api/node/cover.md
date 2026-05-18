@@ -299,6 +299,7 @@ The types used for properties in .slint design markup each translate to specific
 | `angle` | `Number` | The angle in degrees |
 | `relative-font-size` | `Number` | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`. |
 | structure | `Object` | Structures are mapped to JavaScript objects where each structure field is a property. |
+| `styled-text` | `StyledText` | Use `StyledText.fromMarkdown()` or `StyledText.fromPlainText()` to create. |
 | array | {@link Model} | |
 
 ### Arrays and Models
@@ -321,7 +322,7 @@ Another option is to set an object that implements the {@link Model} interface.
 
 ### structs
 
-An exported struct can be created either by defing of an object literal or by using the new keyword.
+An exported struct can be created either by defining an object literal or by using the new keyword.
 
 **`my-component.slint`**
 
@@ -392,7 +393,7 @@ component.position = ui.Position.bottom;
 
 You can declare [globally available singletons](http://slint.dev/docs/slint/guide/language/coding/globals) in your
 `.slint` files. If exported, these singletons are accessible as properties on your main
-componen instance. Each global singleton is represented by an object with properties and callbacks,
+component instance. Each global singleton is represented by an object with properties and callbacks,
 similar to API that's created for your `.slint` component.
 
 For example the following `.slint` markup defines a global `Logic` singleton that's also exported:

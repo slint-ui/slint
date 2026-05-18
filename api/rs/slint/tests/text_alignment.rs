@@ -7,34 +7,18 @@
 //! to `break_all_lines` was filtered to pass `None` for no-wrap text, leaving no container
 //! width for alignment to work against.
 
-use slint::PhysicalSize;
+mod common;
+
 use slint::platform::software_renderer::{
-    MinimalSoftwareWindow, PremultipliedRgbaColor, RepaintBufferType, TargetPixel,
+    MinimalSoftwareWindow, PremultipliedRgbaColor, TargetPixel,
 };
-use slint::platform::{PlatformError, WindowAdapter};
 use std::rc::Rc;
 
 const WIDTH: u32 = 300;
 const HEIGHT: u32 = 30;
 
-thread_local! {
-    static WINDOW: Rc<MinimalSoftwareWindow> =
-        MinimalSoftwareWindow::new(RepaintBufferType::ReusedBuffer);
-}
-
-struct TestPlatform;
-
-impl slint::platform::Platform for TestPlatform {
-    fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-        Ok(WINDOW.with(|x| x.clone()))
-    }
-}
-
 fn setup() -> Rc<MinimalSoftwareWindow> {
-    slint::platform::set_platform(Box::new(TestPlatform)).ok();
-    let window = WINDOW.with(|x| x.clone());
-    window.set_size(PhysicalSize::new(WIDTH, HEIGHT));
-    window
+    common::setup(WIDTH, HEIGHT)
 }
 
 /// A pixel that blends RGBA colors so we can inspect the resulting color.

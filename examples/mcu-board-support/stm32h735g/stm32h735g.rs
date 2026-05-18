@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore tracweswo ccdr CPUID gpioa gpiob GPIOC gpiod gpioe gpiof GPIOG GPIOH GXDI hclk hyperbus hyperram Mbyte octospi pwrcfg smps SYSCFG
+
 extern crate alloc;
 
 use alloc::boxed::Box;

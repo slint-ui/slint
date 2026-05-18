@@ -1,6 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell: ignore libtest linkme
 [package]
 name = "test-backends"
 description = "Tests that are shared between the different backends"
@@ -11,6 +12,7 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
+publish = false
 
 [dependencies]
 # This disables the default feature selection so that each test binary is forced to set up

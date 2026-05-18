@@ -1,4 +1,4 @@
-<!-- cSpell: ignore xkbcommon fontconfig vcpkg DCMAKE RUSTDOCFLAGS cppdocs frontends -->
+<!-- cSpell: ignore xkbcommon fontconfig vcpkg DCMAKE RUSTDOCFLAGS cppdocs pyslint TYPESENSE winget xcbcommon
 # Slint Build Guide
 
 This page explains how to build and test Slint.

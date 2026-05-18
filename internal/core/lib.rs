@@ -35,6 +35,7 @@ pub mod api;
 pub mod callbacks;
 pub mod component_factory;
 pub mod context;
+pub mod data_transfer;
 pub mod date_time;
 pub mod debug_log;
 pub mod future;
@@ -94,7 +95,10 @@ pub use graphics::PathData;
 #[doc(inline)]
 pub use graphics::BorderRadius;
 
-pub use context::{SlintContext, with_global_context};
+#[doc(inline)]
+pub use data_transfer::DataTransfer;
+
+pub use context::{SlintContext, SlintContextWeak, with_global_context};
 
 #[cfg(not(slint_int_coord))]
 pub type Coord = f32;
@@ -171,3 +175,14 @@ pub fn is_apple_platform() -> bool {
 pub fn open_url(url: &str, window: &crate::api::Window) -> Result<(), crate::api::PlatformError> {
     crate::window::WindowInner::from_pub(window).context().platform().open_url(url)
 }
+
+#[cfg(target_os = "macos")]
+pub fn bring_all_to_front() {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::NSApplication;
+    let Some(mtm) = MainThreadMarker::new() else { return };
+    NSApplication::sharedApplication(mtm).arrangeInFront(None);
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn bring_all_to_front() {}

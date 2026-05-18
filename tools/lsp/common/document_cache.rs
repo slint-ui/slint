@@ -268,6 +268,14 @@ impl DocumentCache {
         self.type_loader.all_files().filter_map(|p| file_to_uri(p))
     }
 
+    pub fn all_urls_to_watch(&self) -> HashSet<Url> {
+        self.type_loader
+            .all_files_to_watch()
+            .into_iter()
+            .filter_map(|path| file_to_uri(&path))
+            .collect()
+    }
+
     pub fn global_type_registry(&self) -> std::cell::Ref<'_, TypeRegister> {
         self.type_loader.global_type_registry.borrow()
     }
@@ -357,7 +365,7 @@ impl DocumentCache {
     /// Returns the list of dependencies that were invalidated.
     ///
     /// Compared to [Self::invalidate_url], this actually causes the document to be reloaded from
-    /// disk, not just reparsed.
+    /// disk, not just reparse.
     pub fn drop_document(&mut self, url: &Url) -> Result<HashSet<Url>> {
         let Some(path) = uri_to_file(url) else {
             // This isn't fatal, but we might want to learn about paths/schemes to support in the future.

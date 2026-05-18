@@ -125,7 +125,7 @@ struct Timer
     }
 
 private:
-    uint64_t id = 0;
+    uintptr_t id = 0;
 };
 
 } // namespace slint

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore slintfoo
 use i_slint_compiler::ComponentSelection;
 use slint_interpreter::ComponentHandle;
 
@@ -265,7 +266,16 @@ fn extract_code_from_text(text: &str, size: Option<(usize, usize)>) -> Result<St
         );
     };
 
-    let code = if code.contains("component") { code.to_string() } else { wrap_code(code, size) };
+    // Strip `# ` prefix from lines (like rustdoc): these lines are included in
+    // the compiled code for screenshots but hidden in the rendered documentation.
+    // A bare `#` line becomes an empty line.
+    let code: String = code
+        .split('\n')
+        .map(|line| if line == "#" { "" } else { line.strip_prefix("# ").unwrap_or(line) })
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let code = if code.contains("component") { code } else { wrap_code(&code, size) };
 
     Ok(code)
 }
@@ -340,6 +350,13 @@ Some text"#,
             None
         )
         .is_err()
+    );
+
+    // Lines starting with `# ` have the prefix stripped (rustdoc-style hidden lines).
+    assert_eq!(
+        extract_code_from_text("```slint\nRectangle {\n# Text { text: \"hello\"; }\n}\n```", None)
+            .unwrap(),
+        wrap_code("\nRectangle {\nText { text: \"hello\"; }\n}\n", None)
     );
 }
 

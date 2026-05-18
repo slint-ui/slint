@@ -1,32 +1,37 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use crate::Config;
 use anyhow::Context;
 use std::fs::create_dir_all;
 use std::io::{BufWriter, Write};
-use std::path::Path;
 
 /// Generate all markdown/mdx documentation files.
-pub fn generate(include_experimental: bool) -> Result<(), Box<dyn std::error::Error>> {
-    generate_enum_docs(include_experimental)?;
-    generate_builtin_struct_docs(include_experimental)?;
-    generate_keys_docs()?;
-    crate::element_docs::generate()?;
+pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
+    generate_enum_docs(cfg)?;
+    generate_builtin_struct_docs(cfg)?;
+    if !cfg.sc_only {
+        generate_keys_docs(cfg)?;
+    }
+    crate::element_docs::generate(cfg)?;
 
-    let root = crate::root_dir();
-    let enums = extract_enum_docs(include_experimental);
-    let structs = extract_builtin_structs(include_experimental);
-    write_global_structs_enums_index(&root, &structs, &enums)?;
+    let enums = extract_enum_docs(cfg.include_experimental, cfg.sc_only);
+    let structs = extract_builtin_structs(cfg.include_experimental, cfg.sc_only);
+    if !cfg.sc_only || !enums.is_empty() || !structs.is_empty() {
+        write_global_structs_enums_index(cfg, &structs, &enums)?;
+    }
 
     Ok(())
 }
 
 fn write_global_structs_enums_index(
-    root_dir: &Path,
+    cfg: &Config,
     structs: &std::collections::BTreeMap<String, StructDoc>,
     enums: &std::collections::BTreeMap<String, EnumDoc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let path = root_dir.join("docs/astro/src/content/docs/reference/global-structs-enums.mdx");
+    let generated_dir = &cfg.generated_dir;
+    create_dir_all(generated_dir)?;
+    let path = generated_dir.join("global-structs-enums.mdx");
     let mut file =
         BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
 
@@ -35,12 +40,17 @@ fn write_global_structs_enums_index(
         r#"---
 title: Global Structs and Enums
 description: Global Structs and Enums
+slug: reference/global-structs-enums
 ---
 "#
     )?;
 
     for name in structs.keys() {
-        writeln!(file, "import {0} from \"../../collections/structs/{0}.md\"", name)?;
+        writeln!(
+            file,
+            "import {0} from \"/src/content/docs/reference/generated/structs/{0}.md\"",
+            name
+        )?;
     }
 
     if !structs.is_empty() {
@@ -52,7 +62,11 @@ description: Global Structs and Enums
         if name == "keys" {
             continue;
         }
-        writeln!(file, "import {0} from \"../../collections/enums/{0}.md\"", name)?;
+        writeln!(
+            file,
+            "import {0} from \"/src/content/docs/reference/generated/enums/{0}.md\"",
+            name
+        )?;
     }
 
     writeln!(file)?;
@@ -83,10 +97,10 @@ description: Global Structs and Enums
 }
 
 fn write_individual_enum_files(
-    root_dir: &Path,
+    cfg: &Config,
     enums: &std::collections::BTreeMap<String, EnumDoc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let enums_dir = root_dir.join("docs/astro/src/content/collections/enums");
+    let enums_dir = cfg.generated_dir.join("enums");
     create_dir_all(&enums_dir).context(format!(
         "Failed to create folder holding individual enum doc files {enums_dir:?}"
     ))?;
@@ -102,6 +116,7 @@ fn write_individual_enum_files(
             r#"---
 title: {0}
 description: {0} content
+slug: reference/enums/{0}
 ---
 
 <!-- Generated with slint-doc-generator from internal/commons/enums.rs -->
@@ -133,6 +148,7 @@ pub struct EnumDoc {
 
 pub fn extract_enum_docs(
     include_experimental: bool,
+    sc_only: bool,
 ) -> std::collections::BTreeMap<String, EnumDoc> {
     let mut enums: std::collections::BTreeMap<String, EnumDoc> = std::collections::BTreeMap::new();
 
@@ -167,12 +183,30 @@ pub fn extract_enum_docs(
         enums.retain(|name, _| !name.starts_with("FlexboxLayout"));
     }
 
+    if sc_only {
+        enums.retain(|_, e| crate::element_docs::is_sc_covered(&e.description));
+        for e in enums.values_mut() {
+            e.description = crate::element_docs::strip_sc(&e.description);
+            for v in &mut e.values {
+                v.description = crate::element_docs::strip_sc(&v.description);
+            }
+        }
+    } else {
+        // Even outside SC mode, the marker should never leak into output.
+        for e in enums.values_mut() {
+            e.description = crate::element_docs::strip_sc(&e.description);
+            for v in &mut e.values {
+                v.description = crate::element_docs::strip_sc(&v.description);
+            }
+        }
+    }
+
     enums
 }
 
-pub fn generate_enum_docs(include_experimental: bool) -> Result<(), Box<dyn std::error::Error>> {
-    let enums = extract_enum_docs(include_experimental);
-    write_individual_enum_files(&crate::root_dir(), &enums)?;
+pub fn generate_enum_docs(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
+    let enums = extract_enum_docs(cfg.include_experimental, cfg.sc_only);
+    write_individual_enum_files(cfg, &enums)?;
     Ok(())
 }
 
@@ -188,7 +222,8 @@ pub struct StructDoc {
 }
 
 pub fn extract_builtin_structs(
-    include_experimental: bool,
+    _include_experimental: bool,
+    sc_only: bool,
 ) -> std::collections::BTreeMap<String, StructDoc> {
     // `Point` should be in the documentation, but it's not inside of `for_each_builtin_structs`,
     // so we manually create its entry first.
@@ -248,6 +283,9 @@ pub fn extract_builtin_structs(
         (Image) => {
             "image"
         };
+        (DataTransfer) => {
+            "data-transfer"
+        };
         ($pub_type:ident) => {
             stringify!($pub_type)
         };
@@ -292,19 +330,25 @@ pub fn extract_builtin_structs(
 
     // Internal type
     structs.remove("MenuEntry");
-    if !include_experimental {
-        // Experimental type
-        structs.remove("DropEvent");
+
+    if sc_only {
+        structs.retain(|_, s| crate::element_docs::is_sc_covered(&s.description));
+    }
+    for s in structs.values_mut() {
+        s.description = crate::element_docs::strip_sc(&s.description);
+        for f in &mut s.fields {
+            f.description = crate::element_docs::strip_sc(&f.description);
+        }
     }
 
     structs
 }
 
 fn write_individual_struct_files(
-    root_dir: &Path,
+    cfg: &Config,
     structs: std::collections::BTreeMap<String, StructDoc>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let structs_dir = root_dir.join("docs/astro/src/content/collections/structs");
+    let structs_dir = cfg.generated_dir.join("structs");
     create_dir_all(&structs_dir).context(format!(
         "Failed to create folder holding individual structs doc files {structs_dir:?}"
     ))?;
@@ -320,6 +364,7 @@ fn write_individual_struct_files(
             r#"---
 title: {0}
 description: {0} content
+slug: reference/structs/{0}
 ---
 
 <!-- Generated with slint-doc-generator from internal/common/builtin_structs.rs -->
@@ -341,11 +386,9 @@ description: {0} content
     Ok(())
 }
 
-pub fn generate_builtin_struct_docs(
-    include_experimental: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let structs = extract_builtin_structs(include_experimental);
-    write_individual_struct_files(&crate::root_dir(), structs)
+pub fn generate_builtin_struct_docs(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
+    let structs = extract_builtin_structs(cfg.include_experimental, cfg.sc_only);
+    write_individual_struct_files(cfg, structs)
 }
 
 /// Convert a ascii pascal case string to kebab case.
@@ -364,9 +407,8 @@ pub fn to_kebab_case(str: &str) -> String {
     String::from_utf8(result).unwrap()
 }
 
-fn generate_keys_docs() -> Result<(), Box<dyn std::error::Error>> {
-    let root_dir = &crate::root_dir();
-    let enums_dir = root_dir.join("docs/astro/src/content/collections/enums");
+fn generate_keys_docs(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
+    let enums_dir = cfg.generated_dir.join("enums");
     create_dir_all(&enums_dir).context(format!(
         "Failed to create folder holding individual enum doc files {enums_dir:?}"
     ))?;
@@ -374,6 +416,12 @@ fn generate_keys_docs() -> Result<(), Box<dyn std::error::Error>> {
     let path = enums_dir.join("keys.md");
     let mut file =
         BufWriter::new(std::fs::File::create(&path).context(format!("error creating {path:?}"))?);
+
+    writeln!(file, "---")?;
+    writeln!(file, "title: keys")?;
+    writeln!(file, "slug: reference/enums/keys")?;
+    writeln!(file, "---")?;
+    writeln!(file)?;
 
     macro_rules! collect_special_key {
         ($($char:literal # $name:ident # $($shifted:ident)? $(=> $($_muda:ident)? # $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($_xkb:ident)|*)?;)*) => {

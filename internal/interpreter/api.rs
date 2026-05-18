@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore theproperty underscoresanddashespreserved xreadonly
 use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::PathData;
@@ -135,6 +136,8 @@ pub enum Value {
     ArrayOfU16(SharedVector<u16>) = 14,
     /// Correspond to the `keys` type in .slint
     Keys(Keys) = 15,
+    /// Correspond to the `data-transfer` type in .slint
+    DataTransfer(DataTransfer) = 16,
 }
 
 impl Value {
@@ -187,6 +190,9 @@ impl PartialEq for Value {
             Value::Keys(lhs) => {
                 matches!(other, Value::Keys(rhs) if lhs == rhs)
             }
+            Value::DataTransfer(lhs) => {
+                matches!(other, Value::DataTransfer(rhs) if lhs == rhs)
+            }
         }
     }
 }
@@ -216,6 +222,7 @@ impl std::fmt::Debug for Value {
                 write!(f, "Value::ArrayOfU16({data:?})")
             }
             Value::Keys(ks) => write!(f, "Value::Keys({ks:?})"),
+            Value::DataTransfer(cd) => write!(f, "Value::DataTransfer({cd:?})"),
         }
     }
 }
@@ -261,6 +268,7 @@ declare_value_conversion!(ComponentFactory => [ComponentFactory] );
 declare_value_conversion!(StyledText => [StyledText] );
 declare_value_conversion!(ArrayOfU16 => [SharedVector<u16>] );
 declare_value_conversion!(Keys => [Keys]);
+declare_value_conversion!(DataTransfer => [DataTransfer]);
 
 /// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Struct`
 macro_rules! declare_value_struct_conversion {
@@ -844,6 +852,14 @@ impl Compiler {
         Self::default()
     }
 
+    #[cfg(feature = "internal-live-preview")]
+    pub(crate) fn set_embed_resources(
+        &mut self,
+        embed_resources: i_slint_compiler::EmbedResourcesKind,
+    ) {
+        self.config.embed_resources = embed_resources;
+    }
+
     /// Allow access to the underlying `CompilerConfiguration`
     ///
     /// This is an internal function without and ABI or API stability guarantees.
@@ -959,6 +975,8 @@ impl Compiler {
                 return CompilationResult {
                     components: HashMap::new(),
                     diagnostics: diagnostics.into_iter().collect(),
+                    #[cfg(feature = "internal-file-watcher")]
+                    watch_paths: vec![i_slint_compiler::pathutils::clean_path(path)],
                     #[cfg(feature = "internal")]
                     structs_and_enums: Vec::new(),
                     #[cfg(feature = "internal")]
@@ -997,6 +1015,8 @@ impl Compiler {
 pub struct CompilationResult {
     pub(crate) components: HashMap<String, ComponentDefinition>,
     pub(crate) diagnostics: Vec<Diagnostic>,
+    #[cfg(feature = "internal-file-watcher")]
+    pub(crate) watch_paths: Vec<PathBuf>,
     #[cfg(feature = "internal")]
     pub(crate) structs_and_enums: Vec<LangType>,
     /// For `export { Foo as Bar }` this vec contains tuples of (`Foo`, `Bar`)
@@ -1055,6 +1075,13 @@ impl CompilationResult {
 
     /// This is an internal function without API stability guarantees.
     #[doc(hidden)]
+    #[cfg(feature = "internal-file-watcher")]
+    pub fn watch_paths(&self, _: i_slint_core::InternalToken) -> &[PathBuf] {
+        &self.watch_paths
+    }
+
+    /// This is an internal function without API stability guarantees.
+    #[doc(hidden)]
     #[cfg(feature = "internal")]
     pub fn structs_and_enums(
         &self,
@@ -1104,8 +1131,16 @@ impl ComponentDefinition {
     /// Creates a new instance of the component and returns a shared handle to it.
     pub fn create(&self) -> Result<ComponentInstance, PlatformError> {
         let instance = self.create_with_options(Default::default())?;
-        // Make sure the window adapter is created so call to `window()` do not panic later.
-        instance.inner.window_adapter_ref()?;
+        // SystemTrayIcon-rooted components don't have a real WindowAdapter.
+        // Skip the eager window creation and tree instantiation for them.
+        if !instance.is_system_tray_rooted() {
+            // Make sure the window adapter is created so call to `window()` do not panic later.
+            instance.inner.window_adapter_ref()?;
+            // Eagerly instantiate repeaters and conditionals so that layout
+            // bindings can see all instances without calling ensure_updated.
+            i_slint_core::window::WindowInner::from_pub(instance.window())
+                .ensure_tree_instantiated();
+        }
         Ok(instance)
     }
 
@@ -1300,6 +1335,16 @@ impl ComponentDefinition {
         self.inner.unerase(guard).id()
     }
 
+    /// True if instances of this component expose a `slint::Window`-shaped API
+    /// (i.e. calling [`ComponentInstance::window`] is meaningful). False for
+    /// non-windowed roots such as `SystemTrayIcon`, where `window()` would panic.
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn is_window(&self) -> bool {
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        !self.inner.unerase(guard).original.inherits_system_tray_icon()
+    }
+
     /// This gives access to the tree of Elements.
     #[cfg(feature = "internal")]
     #[doc(hidden)]
@@ -1368,6 +1413,11 @@ impl ComponentInstance {
     pub fn definition(&self) -> ComponentDefinition {
         generativity::make_guard!(guard);
         ComponentDefinition { inner: self.inner.unerase(guard).description().into() }
+    }
+
+    fn is_system_tray_rooted(&self) -> bool {
+        let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
+        self.inner.unerase(guard).description().original.inherits_system_tray_icon()
     }
 
     /// Return the value for a public property of this component.
@@ -1689,10 +1739,25 @@ impl ComponentHandle for ComponentInstance {
     }
 
     fn show(&self) -> Result<(), PlatformError> {
+        if self.is_system_tray_rooted() {
+            // Mirror what the Rust/C++ generators emit for tray-rooted public
+            // components: toggle the `visible` property; the change-tracker on
+            // the SystemTrayIcon native item dispatches to the platform handle.
+            self.set_property("visible", Value::Bool(true)).expect(
+                "setting `visible` on a SystemTrayIcon-rooted component should always succeed",
+            );
+            return Ok(());
+        }
         self.inner.window_adapter_ref()?.window().show()
     }
 
     fn hide(&self) -> Result<(), PlatformError> {
+        if self.is_system_tray_rooted() {
+            self.set_property("visible", Value::Bool(false)).expect(
+                "setting `visible` on a SystemTrayIcon-rooted component should always succeed",
+            );
+            return Ok(());
+        }
         self.inner.window_adapter_ref()?.window().hide()
     }
 

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore BBBX Sometype structurize
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
@@ -8,13 +9,14 @@ use std::{collections::HashMap, iter::once, rc::Rc};
 use i_slint_compiler::parser::TextRange;
 use i_slint_compiler::{expression_tree, langtype};
 
+use i_slint_core::DataTransfer;
 use itertools::Itertools;
 use slint::{Model, ModelRc, SharedString, ToSharedString, VecModel};
 use slint_interpreter::{DiagnosticLevel, PlatformError};
 use smol_str::SmolStr;
 
 use crate::common::{self, ComponentInformation};
-use crate::preview::{self, SelectionNotification, preview_data, properties};
+use crate::preview::{self, DragItem, SelectionNotification, preview_data, properties};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -51,6 +53,7 @@ impl AppWindow {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn run(&self) -> Result<(), PlatformError> {
         match self {
             AppWindow::Preview(ui) => ui.run(),
@@ -166,13 +169,29 @@ pub fn create_ui(
     api.on_highlight_positions(super::element_selection::highlight_positions);
     let lsp = to_lsp.clone();
     api.on_can_drop(super::can_drop_component);
-    api.on_drop(move |component_index: i32, x: f32, y: f32| {
+    api.on_new_component_data(|index: i32| -> DataTransfer {
+        let Ok(index) = index.try_into() else {
+            return Default::default();
+        };
+        let mut transfer = DataTransfer::default();
+        transfer.set_user_data(Rc::new(DragItem::NewComponent { index }));
+        transfer
+    });
+    api.on_move_element_instance_data(|uri: SharedString, offset: i32| -> DataTransfer {
+        let Ok(offset) = offset.try_into() else {
+            return Default::default();
+        };
+        let mut transfer = DataTransfer::default();
+        transfer.set_user_data(Rc::new(DragItem::MoveElementInstance { uri, offset }));
+        transfer
+    });
+    api.on_drop(move |data: DataTransfer, x: f32, y: f32| {
         lsp.send_telemetry(&mut [(
             "type".to_string(),
             serde_json::to_value("component_dropped").unwrap(),
         )])
         .unwrap();
-        super::drop_component(component_index, x, y)
+        super::drop_component(data, x, y)
     });
     api.on_selected_element_resize(super::resize_selected_element);
     api.on_selected_element_can_move_to(super::can_move_selected_element);
@@ -2201,7 +2220,7 @@ export component Tester {{
     }
 
     #[test]
-    fn test_table_row_to_stuct() {
+    fn test_table_row_to_struct() {
         fn bool_pv(value: bool, accessor_path: &str) -> PropertyValue {
             PropertyValue {
                 accessor_path: SharedString::from(accessor_path),

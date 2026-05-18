@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore langtype typeregister
+// cSpell: ignore langtype typeregister borderless commonmark Strikethroughs
 
 /**
    This file contains the definition off all builtin items
@@ -20,7 +20,7 @@
    otherwise it is assumed the native item don't write to that property.
  */
 
-component Empty {
+ component Empty {
     //-is_internal
 }
 
@@ -47,6 +47,7 @@ component Rectangle inherits Empty {
     ///     background: rainbow-gradient;
     /// }
     /// ```
+    /// \sc
     /// \default transparent
     in property <brush> background;
     in property <brush> color <=> background;
@@ -80,18 +81,18 @@ component BasicBorderRectangle inherits Rectangle {
     in property <length> border-width;
     //! ### clip
     //! <SlintProperty propName="clip" typeName="bool" defaultValue="false">
-    //! ```slint imageAlt="rectangle clip" width="200" height="400" skip
+    //! ```slint imageAlt="rectangle clip" width="200" height="400"
     //! // clip: false; the default
     //! Rectangle {
     //!     x: 50px; y: 50px;
     //!     width: 150px;
     //!     height: 150px;
     //!     background: darkslategray;
-    //!     Text {
-    //!         text: "clip: false";
-    //!         font-size: 20pt;
-    //!         color: white;
-    //!     }
+    //! # Text {
+    //! #     text: "clip: false";
+    //! #     font-size: 20pt;
+    //! #     color: white;
+    //! # }
     //!     Rectangle {
     //!         x: -40px; y: -40px;
     //!         width: 100px;
@@ -107,43 +108,11 @@ component BasicBorderRectangle inherits Rectangle {
     //!     height: 150px;
     //!     background: darkslategray;
     //!     clip: true;
-    //!     Text {
-    //!         text: "clip: true";
-    //!         font-size: 20pt;
-    //!         color: white;
-    //!     }
-    //!     Rectangle {
-    //!         x: -40px; y: -40px;
-    //!         width: 100px;
-    //!         height: 100px;
-    //!         background: lightslategray;
-    //!     }
-    //! }
-    //!
-    //! ```
-    //!
-    //! ```slint imageAlt="rectangle clip" width="200" height="400" noScreenShot
-    //! // clip: false; the default
-    //! Rectangle {
-    //!     x: 50px; y: 50px;
-    //!     width: 150px;
-    //!     height: 150px;
-    //!     background: darkslategray;
-    //!     Rectangle {
-    //!         x: -40px; y: -40px;
-    //!         width: 100px;
-    //!         height: 100px;
-    //!         background: lightslategray;
-    //!     }
-    //! }
-    //!
-    //! // clip: true; Clips the children of this Rectangle
-    //! Rectangle {
-    //!     x: 50px; y: 250px;
-    //!     width: 150px;
-    //!     height: 150px;
-    //!     background: darkslategray;
-    //!     clip: true;
+    //! # Text {
+    //! #     text: "clip: true";
+    //! #     font-size: 20pt;
+    //! #     color: white;
+    //! # }
     //!     Rectangle {
     //!         x: -40px; y: -40px;
     //!         width: 100px;
@@ -213,7 +182,8 @@ component BasicBorderRectangle inherits Rectangle {
 ///     }
 /// }
 /// ```
-/// \doc-file:elements/rectangle.mdx
+/// \sc
+/// \group:elements
 component BorderRectangle inherits BasicBorderRectangle {
     //! To target specific corners with different values use the following properties:
     ///
@@ -245,6 +215,38 @@ component BorderRectangle inherits BasicBorderRectangle {
     //! ### drop-shadow-offset-y
     //! <SlintProperty propName="drop-shadow-offset-y" typeName="length"/>
     //! The vertical distance of the shadow from the element's frame.
+    //!
+    //! ### drop-shadow-spread
+    //! <SlintProperty propName="drop-shadow-spread" typeName="length"/>
+    //! Grows (positive) or shrinks (negative) the shadow shape on all sides before the blur is applied.
+    //! Equivalent to the spread radius in CSS `box-shadow`. Currently only supported by the Skia renderer.
+    //!
+    //! ## Inset Shadows
+    //!
+    //! Inset shadows are rendered inside the element's geometry (inverted from drop shadows), giving
+    //! the appearance of an inwards-cast shadow. They follow the same parameters as drop shadows.
+    //! Currently only supported by the Skia renderer.
+    //!
+    //! ### inset-shadow-blur
+    //! <SlintProperty propName="inset-shadow-blur" typeName="length"/>
+    //! The blur radius of the inset shadow.
+    //!
+    //! ### inset-shadow-color
+    //! <SlintProperty propName="inset-shadow-color" typeName="color"/>
+    //! The base color of the inset shadow.
+    //!
+    //! ### inset-shadow-offset-x
+    //! <SlintProperty propName="inset-shadow-offset-x" typeName="length"/>
+    //! Horizontal offset of the inset shadow inside the element.
+    //!
+    //! ### inset-shadow-offset-y
+    //! <SlintProperty propName="inset-shadow-offset-y" typeName="length"/>
+    //! Vertical offset of the inset shadow inside the element.
+    //!
+    //! ### inset-shadow-spread
+    //! <SlintProperty propName="inset-shadow-spread" typeName="length"/>
+    //! Positive spread thickens the shadow band along the element's interior boundary; negative spread
+    //! thins it.
     //-default_size_binding:expands_to_parent_geometry
 }
 
@@ -392,7 +394,7 @@ component ImageItem inherits Empty {
 ///     accessible-role: none;
 /// }
 /// ```
-/// \doc-file:elements/image.mdx
+/// \group:elements
 export component ClippedImage inherits ImageItem {
     /// The horizontal alignment of the image within the element.
     /// \default center
@@ -579,7 +581,7 @@ component SimpleText inherits Empty {
 ///
 ///  - `accessible-role: text;`
 ///  - `accessible-label: text;`
-/// \doc-file:elements/text.mdx
+/// \group:elements
 component ComplexText inherits SimpleText {
     /// The name of the font family selected for rendering the text.
     ///
@@ -708,7 +710,7 @@ export { ComplexText as Text }
 /// Footnotes        |
 /// Math expressions |
 /// Other HTML tags  |
-/// \doc-file:elements/styled-text.mdx
+/// \group:elements
 component StyledTextItem inherits Empty {
     in property <length> width;
     in property <length> height;
@@ -764,7 +766,7 @@ export { StyledTextItem as StyledText }
 ///     }
 /// }
 /// ```
-/// \doc-file:gestures/toucharea.mdx
+/// \group:gestures
 export component TouchArea {
     /// When disabled, the `TouchArea` doesn't recognize any touch or mouse events and they are
     /// passed through to elements underneath.
@@ -877,7 +879,7 @@ export component TouchArea {
 /// If no element captures the `KeyEvent`, then the `KeyEvent` is delivered to the focused element by calling `key-pressed` or `key-released`.
 /// If these callbacks return `EventResult::accept`, then event delivery is finished and the event has been handled. Otherwise, (recursively) try
 /// to deliver the key event to the parent element.
-/// \doc-file:keyboard-input/focusscope.mdx
+/// \group:keyboard-input
 export component FocusScope {
     /// Is `true` when the element has keyboard focus.
     out property <bool> has-focus;
@@ -999,7 +1001,7 @@ component KeyBinding {
 /// It will scroll regardless of the `interactive` property.
 /// If the `Flickable` can scroll in the event's direction, the event will be intercepted.
 /// If the Flickable can't scroll in the direction of the event, the event will be forwarded to the parent.
-/// \doc-file:gestures/flickable.mdx
+/// \group:gestures
 export component Flickable inherits Empty {
     /// ```slint imageAlt="flickable interactive" width="200" height="200"
     /// Flickable {
@@ -1071,7 +1073,7 @@ export component Flickable inherits Empty {
 ///
 /// Pointer press events on the recognizer's area are forwarded to the children with a small delay.
 /// If the pointer moves by more than 8 logical pixels in one of the enabled swipe directions, the gesture is recognized, and events are no longer forwarded to the children.
-/// \doc-file:gestures/swipegesturehandler.mdx
+/// \group:gestures
 export component SwipeGestureHandler {
     /// When disabled, the `SwipeGestureHandler` doesn't recognize any gestures.
     in property <bool> enabled: true;
@@ -1094,8 +1096,8 @@ export component SwipeGestureHandler {
     // For the future
     //in property <length> swipe-distance-threshold: 8px;
     //in property <duration> swipe-duration-threshold: 500ms;
-    // in property <bool> delays-propgataion;
-    //in property <duration> propgataion-delay: 100ms;
+    // in property <bool> delays-propagation;
+    //in property <duration> propagation-delay: 100ms;
     // in property <int> required-touch-points: 1;
     //callback swipe-recognized();
 
@@ -1159,7 +1161,7 @@ export component SwipeGestureHandler {
 /// The `scale` property provides a cumulative scale factor relative to the start of the gesture (starting at `1.0`).
 /// The `rotation` property provides a cumulative rotation angle (starting at `0deg`).
 /// Use the `started` callback to capture your initial state, then multiply by `scale` and add `rotation` in the `updated` callback to apply the gesture.
-/// \doc-file:gestures/scalerotategesturehandler.mdx
+/// \group:gestures
 export component ScaleRotateGestureHandler {
     /// When disabled, the `ScaleRotateGestureHandler` doesn't recognize any gestures and any on-going gesture is cancelled.
     in property <bool> enabled: true;
@@ -1192,20 +1194,84 @@ export component ScaleRotateGestureHandler {
     //-default_size_binding:expands_to_parent_geometry
 }
 
+/// Use `DragArea` to make any part of the UI draggable.
+/// A drag starts when the user presses the mouse inside the area and moves past a small threshold,
+/// and the value bound to `data` becomes the drag payload delivered to a <Link type="DropArea" />.
+/// A click doesn't start a drag, so child elements like <Link type="TouchArea" /> stay interactive.
+///
+/// The payload is a `data-transfer` value, which abstracts over the file-type transfer mechanisms supported by each platform.
+/// `data-transfer` values are opaque in Slint code:
+/// construct and read them via callbacks implemented in the host language.
+///
+/// The source declares which actions it permits via `allow-copy`, `allow-move`, and `allow-link`,
+/// and a `preferred-action` that applies when no modifier key is pressed. The target picks the final
+/// action from this set in its `can-drop` callback. Once a drop completes (or the drag is cancelled),
+/// `drag-finished(action)` fires so a "move" source can remove the original data.
+///
+/// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
+/// \group:drag-and-drop
 export component DragArea {
+    /// Set to `false` to stop the `DragArea` from starting drags.
+    /// Events still reach the child elements.
     in property <bool> enabled: true;
-    //out property <bool> dragging;
-    in property <string> mime-type;
-    in property <string> data;
+    /// The payload that's transferred to a <Link type="DropArea" /> when a drop happens.
+    in property <data-transfer> data;
+    /// Bitmap drawn under the cursor while a drag is in flight.
+    /// When unset (the default empty image), no overlay is drawn.
+    in property <image> drag-image;
+    /// Horizontal hot spot within `drag-image` that aligns with the cursor, in image pixel coordinates.
+    /// `0` puts the image's left edge at the cursor; following HTML5's `setDragImage(image, x, y)` convention.
+    in property <int> drag-image-offset-x;
+    /// Vertical hot spot within `drag-image` that aligns with the cursor, in image pixel coordinates.
+    /// `0` puts the image's top edge at the cursor.
+    in property <int> drag-image-offset-y;
+    /// Whether the source allows the drop to copy the data. The source retains the data.
+    in property <bool> allow-copy: true;
+    /// Whether the source allows the drop to move the data. The source should remove the
+    /// original from its model in the `drag-finished` callback when the action is `move`.
+    in property <bool> allow-move: false;
+    /// Whether the source allows the drop to link to the data. Neither side gives up ownership.
+    in property <bool> allow-link: false;
+    /// The action used when no modifier key is pressed. The runtime clamps it to the allowed set;
+    /// if the named action isn't allowed, falls back to the first allowed of move, copy, link.
+    in property <DragAction> preferred-action: DragAction.copy;
+    /// `true` once the press has crossed the drag threshold and a drag is in flight,
+    /// `false` once the drop completes or the drag is cancelled.
+    out property <bool> dragging;
+    /// Fires when the drag ends: with the chosen action on a successful drop, or with
+    /// `DragAction.none` if the drag was cancelled.
+    callback drag-finished(action: DragAction);
     //-default_size_binding:expands_to_parent_geometry
-
 }
 
+/// Use `DropArea` to accept drops coming from a <Link type="DragArea" />, or from another application on platforms that support it.
+/// The `can-drop` callback runs while the cursor moves over the area to decide whether to accept the drag,
+/// and which action (copy/move/link) to perform.
+/// The `dropped` callback runs when the user releases the mouse inside the area after `can-drop` returned
+/// a non-`none` action.
+///
+/// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
+/// \group:drag-and-drop
 export component DropArea {
+    /// Set to `false` to stop the `DropArea` from accepting any drops.
     in property <bool> enabled: true;
-    callback can-drop(event: DropEvent) -> bool;
-    callback dropped(event: DropEvent);
+    /// Return the action this target wants to perform with the drag, or `DragAction.none` to reject.
+    /// The runtime clamps the returned value to the source's allowed set: anything the source did not
+    /// allow is treated as `none`.
+    /// The argument is a <Link type="DropEvent" /> describing the drag.
+    callback can-drop(event: DropEvent) -> DragAction;
+    /// Invoked when the user releases the mouse over the area after `can-drop` returned a non-`none`
+    /// action. Use this callback to read `event.data` and apply the drop. The returned
+    /// `DragAction` is reported to the source via `drag-finished`; return `event.proposed-action`
+    /// to mirror what was negotiated during hover, or a different action to refine the choice at
+    /// drop time. The runtime clamps the return value against the source's allowed set.
+    callback dropped(event: DropEvent) -> DragAction;
+    /// `true` while an accepted drag hovers over the area, `false` otherwise.
+    /// Bind it to a visual property to give the user feedback, for example a background color.
     out property <bool> contains-drag;
+    /// The action the runtime is currently negotiating with the source: `none` when no drag is hovering,
+    /// or `copy`/`move`/`link` once a concrete action is settled.
+    out property <DragAction> current-action;
     //-default_size_binding:expands_to_parent_geometry
 }
 
@@ -1325,7 +1391,6 @@ component Menu {
 /// }
 /// ```
 /// \skip_children
-/// \doc-file:window/menubar.mdx
 component MenuBar {
     //-is_non_item_type
     //-disallow_global_types_as_child_elements
@@ -1395,7 +1460,7 @@ export component ContextMenuInternal inherits ContextMenu {
 ///     }
 /// }
 /// ```
-/// \doc-file:window/contextmenuarea.mdx
+/// \group:window
 export component ContextMenuArea inherits Empty {
     //! ## Function
     //!
@@ -1421,13 +1486,6 @@ export component ContextMenuArea inherits Empty {
     in property <bool> enabled: true;
 }
 
-/// `Window` is the root of the tree of elements that are visible on the screen.
-///
-/// The `Window` geometry will be restricted by its layout constraints: Setting the `width` will result in a fixed width,
-/// and the window manager will respect the `min-width` and `max-width` so the window can't be resized bigger
-/// or smaller. The initial width can be controlled with the `preferred-width` property. The same applies to the `Window`s height.
-///
-/// Use the <Link type="MenuBar" /> element to declare a menu bar for the window.
 component WindowItem {
     in-out property <length> width;
     in-out property <length> height;
@@ -1437,6 +1495,10 @@ component WindowItem {
     /// Whether to display the Window in full-screen mode. In full-screen mode the Window will occupy the entire screen, it will not be resizable, and it will not display the title bar.
     /// \default true if 'SLINT_FULLSCREEN' environment variable is set, otherwise false
     in-out property <bool> full-screen;
+    /// Whether the window is minimized. Setting this to true minimizes the window.
+    in-out property <bool> minimized;
+    /// Whether the window is maximized. Setting this to true maximizes the window.
+    in-out property <bool> maximized;
     /// The background brush of the `Window`.
     /// \default depends on the style
     in property <brush> background; // StyleMetrics.background  set in apply_default_properties_from_style
@@ -1467,12 +1529,25 @@ component WindowItem {
     out property <Point> virtual-keyboard-position;
     /// On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the width and height of the rectangle covered by it in window coordinates.
     out property <Size> virtual-keyboard-size;
-    /// Hide this window.
+    /// Request that the window be closed. This triggers the `close-requested` callback,
+    /// giving the application a chance to cancel the close. Returns `true` if the close
+    /// was dispatched, or `false` if the application declined.
+    function close() -> bool {
+    }
+    /// Hide this window. This also drops the strong reference on the window, so if this was
+    /// the last reference, the event loop will quit.
     function hide() {
     }
 }
 
-/// \doc-file:window/window.mdx
+/// `Window` is the root of the tree of elements that are visible on the screen.
+///
+/// The `Window` geometry will be restricted by its layout constraints: Setting the `width` will result in a fixed width,
+/// and the window manager will respect the `min-width` and `max-width` so the window can't be resized bigger
+/// or smaller. The initial width can be controlled with the `preferred-width` property. The same applies to the `Window`s height.
+///
+/// Use the <Link type="MenuBar" /> element to declare a menu bar for the window.
+/// \group:window
 export component Window inherits WindowItem {
     MenuBar { }
 }
@@ -1483,6 +1558,8 @@ export component BoxShadow inherits Empty {
     in property <length> offset_y;
     in property <color> color;
     in property <length> blur;
+    in property <length> spread;
+    in property <bool> inset;
     //-default_size_binding:expands_to_parent_geometry
     //-is_internal
 }
@@ -1531,7 +1608,7 @@ export component BoxShadow inherits Empty {
 ///  - `accessible-value: text;`
 ///  - `accessible-enabled: enabled;`
 ///  - `accessible-read-only: read-only; `
-/// \doc-file:keyboard-input/textinput.mdx
+/// \group:keyboard-input
 export component TextInput {
     /// The text rendered and editable by the user.
     /// \default ""
@@ -1759,7 +1836,7 @@ component Row {
 ///     }
 /// }
 /// ```
-/// \doc-file:layouts/gridlayout.mdx
+/// \group:layouts
 export component GridLayout {
     //! ## Spacing Properties
     /// The distance between the elements in the layout. This single value is applied to both horizontal and vertical spacing.
@@ -1811,7 +1888,7 @@ export component GridLayout {
 /// Places its children next to each other vertically.
 /// The size of elements can either be fixed with the `width` or `height` property, or if they aren't set
 /// they will be computed by the layout respecting the minimum and maximum sizes and the stretch factor.
-/// \doc-file:layouts/verticallayout.mdx
+/// \group:layouts
 export component VerticalLayout {
     //! ## Spacing Properties
     /// The distance between the elements in the layout.
@@ -1876,7 +1953,7 @@ export component VerticalLayout {
 /// Places its children next to each other horizontally.
 /// The size of elements can either be fixed with the `width` or `height` property, or if they aren't set
 /// they will be computed by the layout respecting the minimum and maximum sizes and the stretch factor.
-/// \doc-file:layouts/horizontallayout.mdx
+/// \group:layouts
 export component HorizontalLayout {
     //! ## Spacing Properties
     /// The distance between the elements in the layout.
@@ -2014,7 +2091,7 @@ export component HorizontalLayout {
 /// - <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/Guides/Flexible_box_layout/Basic_concepts">the Mozilla developer website</a>
 /// - <a href="https://css-tricks.com/snippets/css/a-guide-to-flexbox/">A Complete Guide To Flexbox by CSS Tricks</a>. This is detailed guide with illustrations and comprehensive written explanation of the different Flexbox properties and how they work.
 /// \draft
-/// \doc-file:layouts/flexboxlayout.mdx
+/// \group:layouts
 export component FlexboxLayout {
     //! ## Spacing Properties
     /// The distance between the elements in the layout. CSS Flexbox usually calls this "gap", but "spacing" is used in Slint for consistency with other layout types.
@@ -2172,7 +2249,7 @@ component Close {
 /// When rendering on the screen, the shape is drawn relative to the `x` and `y` properties. If the `width`
 /// and `height` properties are non-zero, then the entire shape is fit into these bounds - by scaling
 /// accordingly.
-/// \doc-file:elements/path.mdx
+/// \group:elements
 export component Path {
     /// The color for filling the shape of the path.
     in property <brush> fill;
@@ -2356,7 +2433,7 @@ export component TabWidget {
 /// :::note{Note}
 /// It isn't allowed to access properties of elements within the popup from outside of the `PopupWindow`. See [#4438](https://github.com/slint-ui/slint/issues/4438).
 /// :::
-/// \doc-file:window/popupwindow.mdx
+/// \group:window
 export component PopupWindow {
     //property <length> x;
     //property <length> y;
@@ -2377,6 +2454,134 @@ export component PopupWindow {
     //!
     //! ### close()
     //! Closes the popup. Use this if you set the `close-policy` property to `no-auto-close`.
+}
+
+// Internal hover tracker used with `ToolTip` lowering (the compiler inserts `TooltipArea` so `ToolTip` can react to hover and pointer position).
+export component TooltipArea inherits Empty {
+    // Set when the mouse is over the parent's region while this area is expanded to fill it during lowering.
+    out property <bool> has-hover;
+    // Pointer x within this area during hover.
+    out property <length> mouse-x;
+    // Pointer y within this area during hover.
+    out property <length> mouse-y;
+    // Tooltip configuration folded from the user-facing ToolTip element during lowering.
+    in property <string> text;
+    in property <ToolTipPlacement> placement;
+    in property <duration> delay: 500ms;
+    in property <length> offset: 8px;
+    callback show();
+    callback hide();
+    //-default_size_binding:expands_to_parent_geometry
+    //-is_internal
+}
+
+/// ```slint playground
+/// import { Button } from "std-widgets.slint";
+///
+/// export component Example inherits Window {
+///     width: 280px;
+///     height: 160px;
+///
+///     VerticalLayout {
+///         alignment: center;
+///
+///         Button {
+///             text: "Hover me";
+///
+///             ToolTip {
+///                 text: "This is a tooltip";
+///             }
+///         }
+///     }
+/// }
+/// ```
+///
+/// Place a `ToolTip` inside any element to show helpful information when hovering over it.
+/// The tooltip appears after a short delay and hides when the pointer leaves.
+///
+/// Set the `text` property for a simple text tooltip,
+/// or add a child element instead for custom content.
+///
+/// Each element can contain at most one `ToolTip`.
+///
+/// \footer
+/// ## Custom Content
+///
+/// For richer tooltips, omit `text` and provide your own layout inside a single child element.
+///
+///
+/// ```slint playground
+/// import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+///
+/// export component Example inherits Window {
+///     width: 320px;
+///     height: 200px;
+///
+///     VerticalLayout {
+///         alignment: center;
+///
+///         Button {
+///             text: "Custom tooltip";
+///
+///             ToolTip {
+///                 placement: above-element;
+///
+///                 VerticalBox {
+///                     padding: 10px;
+///                     spacing: 6px;
+///
+///                     Text {
+///                         text: "Quick Actions";
+///                         font-weight: 700;
+///                         color: #fff;
+///                     }
+///
+///                     Text {
+///                         text: "Open command palette and search settings.";
+///                         color: #d1d5db;
+///                         wrap: word-wrap;
+///                     }
+///
+///                     HorizontalBox {
+///                         spacing: 6px;
+///
+///                         Rectangle {
+///                             border-radius: 4px;
+///                             background: #374151;
+///                             HorizontalBox {
+///                                 padding: 4px;
+///                                 Text { text: "Ctrl"; color: #fff; }
+///                             }
+///                         }
+///
+///                         Rectangle {
+///                             border-radius: 4px;
+///                             background: #374151;
+///                             HorizontalBox {
+///                                 padding: 4px;
+///                                 Text { text: "K"; color: #fff; }
+///                             }
+///                         }
+///                     }
+///                 }
+///             }
+///         }
+///     }
+/// }
+/// ```
+/// \group:window
+export component ToolTip inherits Empty {
+    /// The text to display in the tooltip.
+    /// Don't set this property when using custom content.
+    in property <string> text;
+    /// Position relative to the hovered element or pointer.
+    in property <ToolTipPlacement> placement;
+    /// How long to wait before showing the tooltip after hover begins.
+    in property <duration> delay: 500ms;
+    /// Space between the tooltip and the pointer or hovered element.
+    in property <length> offset: 8px;
+    //-can_be_declared_without_children_slot
+    //-is_non_item_type
 }
 
 /// :::note[Note]
@@ -2433,7 +2638,6 @@ export component PopupWindow {
 ///     }
 /// }
 /// ```
-/// \doc-file:timer.mdx
 export component Timer {
     /// The interval between timer ticks. This property is mandatory.
     /// ```slint "interval: 250ms;"
@@ -2521,7 +2725,7 @@ export component Timer {
 ///
 /// Same as <Link type="Window"/>.
 /// \skip_inherited
-/// \doc-file:window/dialog.mdx
+/// \group:window
 export component Dialog inherits WindowItem { }
 
 component PropertyAnimation {
@@ -2551,7 +2755,7 @@ component PropertyAnimation {
 /// }
 /// ```
 ///
-/// \doc-file:keyboard-input/textinputinterface.mdx
+/// \group:keyboard-input
 export global TextInputInterface {
     //! ## Properties
     //!
@@ -2562,7 +2766,6 @@ export global TextInputInterface {
 }
 
 /// The **Platform** namespace contains properties that help deal with platform specific differences.
-/// \doc-file:global-namespaces/platform.mdx
 export global Platform {
     /// This property holds the type of the operating system detected at run-time.
     ///
@@ -2596,7 +2799,19 @@ export global Platform {
     ///     }
     /// }
     /// ```
-    function open-url(url: string) -> bool { return false; }
+    function open-url(url: string) -> bool {
+        return false;
+    }
+    /// Brings all application windows to the front of the screen.
+    ///
+    /// On macOS this invokes `[NSApp arrangeInFront:]`, which raises every application window
+    /// to the top of the window stack. On other platforms this function is a no-op.
+    ///
+    /// This corresponds to the standard macOS **Window › Bring All to Front** menu item.
+    function bring-all-to-front() { }
+    /// The decimal separator currently used for localized float to string and vice versa conversions
+    /// For more information about localization and how to change the decimal separator see <Link type="translations" label="translations page"/>.
+    out property <string> decimal-separator;
 }
 
 export component NativeButton {
@@ -2809,4 +3024,197 @@ export global NativePalette {
 
     //-is_non_item_type
     //-is_internal
+}
+
+// Lowered in lower_menus pass. See that pass documentation for more info.
+// The optional Menu child is lifted into a separate item tree and wired via
+// the `SetupSystemTrayIcon` builtin.
+
+/// Use the `SystemTrayIcon` element to add an icon and menu to the desktop's system tray,
+/// also known as the notification area, status area, or menu bar extras, depending on the platform.
+///
+/// `SystemTrayIcon` is a top-level component: derive your own component
+/// from it with `inherits SystemTrayIcon` instead of placing it inside a <Link type="Window" />.
+/// A `SystemTrayIcon` component has no window of its own — the icon lives in the tray, and the only UI
+/// it presents is the menu.
+///
+/// ```slint
+/// export component ExampleTray inherits SystemTrayIcon {
+///     icon: @image-url("tray-icon.png");
+///     tooltip: "My App";
+///
+///     Menu {
+///         MenuItem {
+///             title: "Quit";
+///             activated => { quit(); }
+///         }
+///     }
+///
+///     callback quit();
+/// }
+/// ```
+///
+/// Create the component from your language binding as you would any other Slint component;
+/// the tray icon appears as soon as the instance is created and an event loop is running,
+/// and disappears when the instance is dropped.
+///
+/// :::note{Note}
+/// A `SystemTrayIcon` exported alongside a `Window` doesn't share <Link type="Globals" label="globals" /> with that window — each instance gets its own copy.
+/// You may need to initialize the relevant globals on each instance, the same way you would across multiple windows.
+/// :::
+///
+/// :::note{Note}
+/// A `SystemTrayIcon` must contain exactly one <Link type="Menu" /> child, and that `Menu` must not
+/// be inside an `if` or a `for`. No other child element types are permitted. The menu itself may
+/// use `if` / `for` to build its entries dynamically.
+/// :::
+///
+/// \skip_children
+/// \footer
+/// ## Menu
+///
+/// The child `Menu` defines the menu that is shown when the user clicks or right-clicks the tray
+/// icon. Its structure is the same as for <Link type="MenuBar" /> and `ContextMenuArea`: use
+/// `MenuItem` for entries, nested `Menu` elements for sub-menus, and `MenuSeparator` for
+/// separators. See <Link type="Menu" /> for the properties and callbacks available on those
+/// elements.
+///
+/// The menu tree is reactive: when any property the menu reads changes (for example the `title`,
+/// `enabled`, or `checked` binding of a `MenuItem`), Slint rebuilds the platform menu so the tray
+/// reflects the new state on its next open.
+///
+/// Keyboard `shortcut` bindings on `MenuItem`s within a `SystemTrayIcon` are ignored — tray menus are
+/// not attached to a focused window, so there is nothing for the shortcut to fire against.
+///
+/// ## Language Bindings
+///
+/// The generated public API for a `SystemTrayIcon`-rooted component is smaller than the one
+/// for a `Window`-rooted component. Construction, property and callback accessors, and global
+/// access work the same way. Two things are missing:
+///
+/// | Operation              | Window-rooted | SystemTrayIcon-rooted |
+/// | ---------------------- | :-----------: | :---------------: |
+/// | access the window      | yes           | **no**            |
+/// | run the event loop     | yes           | **no**            |
+///
+/// `show` and `hide` exist on both, but on a `SystemTrayIcon` they set the `visible` property,
+/// and the platform backend translates that into the native tray API.
+/// A visible `SystemTrayIcon` keeps the event loop alive the same way a visible window does.
+///
+/// A typical app instantiates both a main window and a tray, shows them, and runs the event loop.
+/// The snippets below also wire the built-in `activated` callback so a click on the tray icon
+/// brings the window back if the user has hidden it.
+///
+/// <Tabs syncKey="dev-language">
+/// <TabItem label="Rust">
+/// ```rust
+/// fn main() -> Result<(), slint::PlatformError> {
+///     let window = MainWindow::new()?;
+///     let tray = ExampleTray::new()?;
+///
+///     let window_weak = window.as_weak();
+///     tray.on_activated(move || {
+///         if let Some(w) = window_weak.upgrade() {
+///             let _ = w.show();
+///         }
+///     });
+///
+///     window.show()?;
+///     tray.show()?;
+///     slint::run_event_loop()
+/// }
+/// ```
+/// </TabItem>
+/// <TabItem label="C++">
+/// ```cpp
+/// int main() {
+///     auto window = MainWindow::create();
+///     auto tray = ExampleTray::create();
+///
+///     auto window_weak = slint::ComponentWeakHandle(window);
+///     tray->on_activated([window_weak] {
+///         if (auto w = window_weak.lock()) {
+///             (*w)->show();
+///         }
+///     });
+///
+///     window->show();
+///     tray->show();
+///     slint::run_event_loop();
+/// }
+/// ```
+/// </TabItem>
+/// <TabItem label="NodeJS">
+/// ```js
+/// const window = new ui.MainWindow();
+/// const tray = new ui.ExampleTray();
+/// tray.activated = () => window.show();
+/// window.show();
+/// tray.show();
+/// await slint.runEventLoop();
+/// ```
+/// </TabItem>
+/// <TabItem label="Python">
+/// ```python
+/// window = module.MainWindow()
+/// tray = module.ExampleTray()
+/// tray.activated = lambda: window.show()
+/// window.show()
+/// tray.show()
+/// slint.run_event_loop()
+/// ```
+/// </TabItem>
+/// </Tabs>
+///
+/// A program that exposes only a `SystemTrayIcon` and no window is also valid: skip the
+/// `MainWindow` instance, and the loop quits once the tray is hidden (or `slint::quit_event_loop`
+/// is called). No `WindowAdapter` is created in that case — the platform backend is still
+/// selected the usual way, but no window opens.
+///
+/// ## Platform Support
+///
+/// | Platform      | Mechanism                                             |
+/// | ------------- | ----------------------------------------------------- |
+/// | Linux, \*BSD  | `StatusNotifierItem` / `AppIndicator` on D-Bus        |
+/// | macOS         | `NSStatusItem` in the menu bar                        |
+/// | Windows       | Shell notification area icon (`Shell_NotifyIcon`)     |
+///
+/// On Linux, a desktop environment or shell extension that implements the `StatusNotifierItem`
+/// specification is required; plain X11 system trays are not supported. GNOME, for example,
+/// needs an extension such as *AppIndicator and KStatusNotifierItem Support*.
+///
+/// \group:window
+export component SystemTrayIcon {
+    /// The icon shown in the system tray. The image is scaled by the platform to the size expected
+    /// for tray icons. Use `@image-url(...)` to embed an icon asset, or bind to an `image` property
+    /// fed from your code. The tray icon is only created once a non-empty image has been assigned.
+    in property <image> icon;
+    /// The hover text shown over the tray icon.
+    /// Typically the application name or a short status message.
+    in property <string> tooltip;
+    /// Whether the tray icon is registered with the OS.
+    /// Set it to `false` to hide the icon without dropping the component instance, and back to `true` to show it again.
+    /// The `show()` and `hide()` methods on the language-binding side are convenience aliases that set this property.
+    in property <bool> visible: true;
+    /// A descriptive name for the tray entry, separate from the hover tooltip.
+    /// Where it actually shows up depends on the platform:
+    ///
+    /// | Platform      | Where `title` appears                                                                            |
+    /// | ------------- | ------------------------------------------------------------------------------------------------ |
+    /// | Linux, \*BSD  | Used by accessibility tools and shown by some desktops when listing tray icons (e.g. an overflow menu). Set as the [StatusNotifierItem `Title`](https://www.freedesktop.org/wiki/Specifications/StatusNotifierItem/StatusNotifierItem/) property. |
+    /// | macOS         | The visible text label rendered next to the icon in the menu bar (think battery percent, clock). |
+    /// | Windows       | Has no visible effect; the notification area renders only the icon.                              |
+    in property <string> title;
+    /// Invoked when the user activates the tray icon itself, as opposed to picking an entry from its menu.
+    /// What counts as activation, and whether it's invoked at all, depends on the platform:
+    ///
+    /// | Platform      | Activation behavior                                                                   |
+    /// | ------------- | ------------------------------------------------------------------------------------- |
+    /// | Linux, \*BSD  | Invoked on a left-click of the icon. The exact gesture is decided by the desktop environment or shell extension hosting the tray. |
+    /// | macOS         | Invoked on a click when no `Menu` is attached (or when an `if cond : Menu { ... }`'s condition is currently false). When a populated menu is attached, AppKit pops it open instead and `activated` doesn't fire. |
+    /// | Windows       | Invoked on a left-click of the icon. Right-click opens the menu.                      |
+    callback activated();
+    Menu { }
+    //-disallow_global_types_as_child_elements
+    //-is_non_item_type
 }

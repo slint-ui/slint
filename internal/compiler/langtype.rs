@@ -55,6 +55,9 @@ pub enum Type {
     Struct(Rc<Struct>),
     Enumeration(Rc<Enumeration>),
     Keys,
+    /// `data-transfer` - a special type that handles reading a value from the system with
+    /// some set of available MIME types.
+    DataTransfer,
 
     /// A type made up of the product of several "unit" types.
     /// The first parameter is the unit, and the second parameter is the power.
@@ -112,6 +115,7 @@ impl core::cmp::PartialEq for Type {
             Type::LayoutCache => matches!(other, Type::LayoutCache),
             Type::ArrayOfU16 => matches!(other, Type::ArrayOfU16),
             Type::StyledText => matches!(other, Type::StyledText),
+            Type::DataTransfer => matches!(other, Type::DataTransfer),
         }
     }
 }
@@ -169,6 +173,7 @@ impl Display for Type {
             Type::Brush => write!(f, "brush"),
             Type::Enumeration(enumeration) => write!(f, "enum {}", enumeration.name),
             Type::Keys => write!(f, "keys"),
+            Type::DataTransfer => write!(f, "data-transfer"),
             Type::UnitProduct(vec) => {
                 const POWERS: &[char] = &['⁰', '¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹'];
                 let mut x = vec.iter().map(|(unit, power)| {
@@ -220,6 +225,7 @@ impl Type {
                 | Self::Easing
                 | Self::Enumeration(_)
                 | Self::Keys
+                | Self::DataTransfer
                 | Self::ElementReference
                 | Self::Struct { .. }
                 | Self::Array(_)
@@ -325,6 +331,7 @@ impl Type {
             Type::Struct { .. } => None,
             Type::Enumeration(_) => None,
             Type::Keys => None,
+            Type::DataTransfer => None,
             Type::UnitProduct(_) => None,
             Type::ElementReference => None,
             Type::LayoutCache => None,
@@ -375,6 +382,8 @@ pub struct BuiltinPropertyInfo {
     /// When != None, this is the initial value that we will have to set if no other binding were specified
     pub default_value: BuiltinPropertyDefault,
     pub property_visibility: PropertyVisibility,
+    /// Raw `///` doc comment from builtins.slint, if any.
+    pub docs: Option<String>,
 }
 
 impl BuiltinPropertyInfo {
@@ -383,6 +392,7 @@ impl BuiltinPropertyInfo {
             ty,
             default_value: BuiltinPropertyDefault::None,
             property_visibility: PropertyVisibility::InOut,
+            docs: None,
         }
     }
 
@@ -397,6 +407,7 @@ impl From<BuiltinFunction> for BuiltinPropertyInfo {
             ty: Type::Function(function.ty()),
             default_value: BuiltinPropertyDefault::BuiltinFunction(function),
             property_visibility: PropertyVisibility::Public,
+            docs: None,
         }
     }
 }
@@ -528,6 +539,9 @@ impl ElementType {
                     None => {
                         let base_type = component.root_element.borrow().base_type.clone();
                         if base_type == tr.empty_type() {
+                            if Self::can_be_special_child_element(name, tr) {
+                                return tr.lookup_element(name);
+                            }
                             return Err(format!("'{}' cannot have children. Only components with @children can have children", component.id));
                         }
                         base_type
@@ -536,6 +550,9 @@ impl ElementType {
                 base_type.lookup_type_for_child_element(name, tr)
             }
             Self::Builtin(builtin) => {
+                if Self::can_be_special_child_element(name, tr) {
+                    return tr.lookup_element(name);
+                }
                 if builtin.disallow_global_types_as_child_elements {
                     if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
                         return Ok(child_type.clone().into());
@@ -591,6 +608,14 @@ impl ElementType {
                 }
             })
         }
+    }
+
+    fn can_be_special_child_element(name: &str, tr: &TypeRegister) -> bool {
+        let is_special_builtin = matches!(
+            tr.lookup_element(name),
+            Ok(ElementType::Builtin(b)) if b.can_be_declared_without_children_slot
+        );
+        is_special_builtin
     }
 
     /// Assume this is a builtin type, panic if it isn't
@@ -670,8 +695,6 @@ pub enum BuiltinPrivateStruct {
     LayoutInfo,
     FontMetrics,
     PathElement,
-    PointerEvent,
-    PointerScrollEvent,
     DropEvent,
     TableColumn,
     MenuEntry,
@@ -697,10 +720,9 @@ impl BuiltinPrivateStruct {
             | Self::FontMetrics
             | Self::TableColumn
             | Self::MenuEntry
-            | Self::PointerEvent
             | Self::InternalKeyEvent
-            | Self::PointerScrollEvent
-            | Self::Edges => {
+            | Self::Edges
+            | Self::DropEvent => {
                 let name: &'static str = self.into();
                 Some(SmolStr::new_static(name))
             }
@@ -718,6 +740,8 @@ pub enum BuiltinPublicStruct {
     Keys,
     KeyEvent,
     KeyboardModifiers,
+    PointerEvent,
+    PointerScrollEvent,
 }
 
 impl BuiltinPublicStruct {
@@ -730,6 +754,8 @@ impl BuiltinPublicStruct {
             Self::Keys => Some(SmolStr::new_static("Keys")),
             Self::KeyEvent => Some(SmolStr::new_static("KeyEvent")),
             Self::KeyboardModifiers => Some(SmolStr::new_static("KeyboardModifiers")),
+            Self::PointerEvent => Some(SmolStr::new_static("PointerEvent")),
+            Self::PointerScrollEvent => Some(SmolStr::new_static("PointerScrollEvent")),
         }
     }
 }
@@ -837,6 +863,13 @@ pub struct BuiltinElement {
     pub default_size_binding: DefaultSizeBinding,
     /// When true this is an internal type not shown in the auto-completion
     pub is_internal: bool,
+    /// Documentation sections from builtins.slint, preserving source order.
+    /// `Text` entries come from `///` (element-level) and `//!` (section) comments;
+    /// `Member` entries reference a property, callback, or function by name.
+    pub docs: Vec<crate::doc_comments::ElementDocEntry>,
+    /// When true this builtin can be declared as a child even if the parent element
+    /// does not expose an explicit @children insertion slot.
+    pub can_be_declared_without_children_slot: bool,
 }
 
 impl BuiltinElement {
@@ -1039,7 +1072,7 @@ pub struct Keys {
 }
 
 impl std::fmt::Display for Keys {
-    // Make sure to keep this in sync with the implemenation in core/input.rs
+    // Make sure to keep this in sync with the implementation in core/input.rs
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.key.is_empty() {
             write!(f, "")

@@ -28,8 +28,20 @@ fn enums(path: &Path) -> anyhow::Result<()> {
             writeln!(enums_priv, "using slint::PointerEventButton;")?;
             &mut enums_pub
         }};
+        (PointerEventKind) => {{
+            writeln!(enums_priv, "using slint::PointerEventKind;")?;
+            &mut enums_pub
+        }};
         (AccessibleRole) => {{
             writeln!(enums_priv, "using slint::testing::AccessibleRole;")?;
+            &mut enums_pub
+        }};
+        (Orientation) => {{
+            writeln!(enums_priv, "using slint::Orientation;")?;
+            &mut enums_pub
+        }};
+        (AccessibleLive) => {{
+            writeln!(enums_priv, "using slint::AccessibleLive;")?;
             &mut enums_pub
         }};
         ($_:ident) => {
@@ -109,6 +121,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     );
     writeln!(structs_pub, "#pragma once")?;
     writeln!(structs_pub, "// This file is auto-generated from {}", file!())?;
+    writeln!(structs_pub, "#include \"private/slint_enums.h\"")?;
     writeln!(structs_pub, "namespace slint::language {{")?;
 
     let mut structs_priv = BufWriter::new(
@@ -121,6 +134,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_priv, "#include \"private/slint_enums_internal.h\"")?;
     writeln!(structs_priv, "#include \"private/slint_point.h\"")?;
     writeln!(structs_priv, "#include \"private/slint_image.h\"")?;
+    writeln!(structs_priv, "#include \"private/slint_data_transfer.h\"")?;
     writeln!(structs_priv, "#include \"private/slint_keys.h\"")?;
     writeln!(structs_priv, "namespace slint::cbindgen_private {{")?;
     writeln!(structs_priv, "enum class KeyEventType : uint8_t;")?;
@@ -226,6 +240,7 @@ fn default_config() -> cbindgen::Config {
             ("KeyEventArg".into(), "KeyEvent".into()),
             ("PointerEventArg".into(), "PointerEvent".into()),
             ("DropEventArg".into(), "DropEvent".into()),
+            ("DragActionArg".into(), "DragAction".into()),
             ("PointerScrollEventArg".into(), "PointerScrollEvent".into()),
             ("PointArg".into(), "slint::LogicalPosition".into()),
             ("FloatArg".into(), "float".into()),
@@ -250,8 +265,8 @@ fn default_config() -> cbindgen::Config {
         ("target_arch = wasm32".into(), "SLINT_TARGET_WASM".into()),
         ("target_os = android".into(), "__ANDROID__".into()),
         // Disable Rust WGPU specific API feature
-        ("feature = unstable-wgpu-27".into(), "SLINT_DISABLED_CODE".into()),
         ("feature = unstable-wgpu-28".into(), "SLINT_DISABLED_CODE".into()),
+        ("feature = unstable-wgpu-29".into(), "SLINT_DISABLED_CODE".into()),
     ]
     .iter()
     .cloned()
@@ -302,6 +317,8 @@ fn gen_corelib(
         "ImageItem",
         "ClippedImage",
         "TouchArea",
+        "TooltipArea",
+        "ToolTip",
         "FocusScope",
         "KeyBinding",
         "SwipeGestureHandler",
@@ -320,6 +337,7 @@ fn gen_corelib(
         "Layer",
         "ContextMenu",
         "MenuItem",
+        "SystemTrayIcon",
     ];
 
     config.export.include = [
@@ -341,6 +359,7 @@ fn gen_corelib(
         "StandardButtonKind",
         "DialogButtonRole",
         "FocusReason",
+        "DragAction",
         "PointerEventKind",
         "PointerEventButton",
         "PointerEvent",
@@ -348,6 +367,7 @@ fn gen_corelib(
         "Rect",
         "SortOrder",
         "BitmapFont",
+        "DataTransferOpaque",
     ]
     .iter()
     .chain(items.iter())
@@ -379,6 +399,20 @@ fn gen_corelib(
         "PathData",
         "PathElement",
         "Brush",
+        "DataTransfer",
+        "slint_data_transfer_init_default",
+        "slint_data_transfer_drop",
+        "slint_data_transfer_clone",
+        "slint_data_transfer_eq",
+        "slint_data_transfer_set_plaintext",
+        "slint_data_transfer_set_image",
+        "slint_data_transfer_has_plaintext",
+        "slint_data_transfer_has_image",
+        "slint_data_transfer_fetch_plaintext",
+        "slint_data_transfer_fetch_image",
+        "slint_data_transfer_set_user_data",
+        "slint_data_transfer_user_data",
+        "slint_data_transfer_clear_user_data",
         "slint_new_path_elements",
         "slint_new_path_events",
         "Property",
@@ -395,6 +429,7 @@ fn gen_corelib(
         "StringArg",
         "DropEventArg",
         "FocusReasonArg",
+        "DragActionArg",
         "KeyEventArg",
         "PointerEventArg",
         "PointerScrollEventArg",
@@ -430,7 +465,7 @@ fn gen_corelib(
         .with_src(crate_dir.join("string.rs"))
         .with_src(crate_dir.join("styled_text.rs"))
         .with_src(crate_dir.join("slice.rs"))
-        .with_after_include("namespace slint { struct SharedString; namespace private_api { struct StyledText; } namespace cbindgen_private { using private_api::StyledText; }}")
+        .with_after_include("namespace slint { struct SharedString; struct StyledText; }")
         .generate()
         .context("Unable to generate bindings for slint_string_internal.h")?
         .write_to_file(include_dir.join("slint_string_internal.h"));
@@ -535,12 +570,31 @@ fn gen_corelib(
             "",
         ),
         (
+            vec![
+                "DataTransferOpaque",
+                "slint_data_transfer_init_default",
+                "slint_data_transfer_drop",
+                "slint_data_transfer_clone",
+                "slint_data_transfer_eq",
+                "slint_data_transfer_set_plaintext",
+                "slint_data_transfer_set_image",
+                "slint_data_transfer_has_plaintext",
+                "slint_data_transfer_has_image",
+                "slint_data_transfer_fetch_plaintext",
+                "slint_data_transfer_fetch_image",
+                "slint_data_transfer_set_user_data",
+                "slint_data_transfer_user_data",
+                "slint_data_transfer_clear_user_data",
+            ],
+            "slint_data_transfer_internal.h",
+            "namespace slint { struct DataTransfer; struct SharedString; }",
+        ),
+        (
             vec!["MouseEvent", "TouchPhase"],
             "slint_events_internal.h",
             "#include \"private/slint_point.h\"
             #include \"private/slint_builtin_structs_internal.h\"
             namespace slint::cbindgen_private {
-                struct PointerEvent;
                 struct Rect;
                 using LogicalRect = Rect;
                 using LogicalPoint = Point2D<float>;
@@ -568,6 +622,7 @@ fn gen_corelib(
             "slint_visit_item_tree",
             "slint_windowrc_drop",
             "slint_windowrc_clone",
+            "slint_windowrc_ensure_tree_instantiated",
             "slint_windowrc_show",
             "slint_windowrc_hide",
             "slint_windowrc_is_visible",
@@ -589,8 +644,6 @@ fn gen_corelib(
             "slint_windowrc_size",
             "slint_windowrc_set_logical_size",
             "slint_windowrc_set_physical_size",
-            "slint_windowrc_color_scheme",
-            "slint_windowrc_accent_color",
             "slint_windowrc_supports_native_menu_bar",
             "slint_windowrc_setup_native_menu_bar",
             "slint_windowrc_setup_menu_bar_shortcuts",
@@ -652,6 +705,7 @@ fn gen_corelib(
             .with_src(crate_dir.join("graphics/brush.rs"))
             .with_src(crate_dir.join("graphics/image.rs"))
             .with_src(crate_dir.join("graphics/image/cache.rs"))
+            .with_src(crate_dir.join("data_transfer/ffi.rs"))
             .with_src(crate_dir.join("animations.rs"))
             .with_src(crate_dir.join("input.rs"))
             .with_src(crate_dir.join("item_rendering.rs"))
@@ -757,6 +811,14 @@ fn gen_corelib(
         .body
         .insert("Flickable".to_owned(), "    inline Flickable(); inline ~Flickable();".into());
     config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
+    config.export.body.insert(
+        "SystemTrayIcon".to_owned(),
+        "    inline SystemTrayIcon(); inline ~SystemTrayIcon();".into(),
+    );
+    config
+        .export
+        .pre_body
+        .insert("SystemTrayIconDataBox".to_owned(), "struct SystemTrayIconData;".into());
 
     cbindgen::Builder::new()
         .with_config(config)
@@ -778,6 +840,8 @@ fn gen_corelib(
         .with_include("private/slint_timer.h")
         .with_include("private/slint_builtin_structs_internal.h")
         .with_include("private/slint_events_internal.h")
+        .with_include("private/slint_data_transfer_internal.h")
+        .with_include("private/slint_data_transfer.h")
         .with_after_include(
             r"
 namespace slint {

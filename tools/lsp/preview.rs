@@ -16,13 +16,14 @@ use crate::util;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
+use i_slint_core::DataTransfer;
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_preview_protocol::{
     PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
 };
 use lsp_types::Url;
-use slint::PlatformError;
+use slint::{PlatformError, SharedString};
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
@@ -183,7 +184,7 @@ fn invalidate_contents(url: &lsp_types::Url) {
             // Do not reset the code: We can check once the LSP has re-read it from disk
             // whether we need to refresh the preview or not.
             //
-            // We should get an updated version of the file from the LSP when it recompiles, so
+            // We should get an updated version of the file from the LSP when it recompiled, so
             // no reload needed at the moment.
             cache_entry.version = None;
         }
@@ -741,7 +742,50 @@ fn show_preview_for(name: slint::SharedString, url: slint::SharedString) {
     load_preview(current, LoadBehavior::Load);
 }
 
-fn can_drop_component(component_index: i32, x: f32, y: f32, on_drop_area: bool) -> bool {
+/// An item in the preview UI being dragged.
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+enum DragItem {
+    /// An existing element instance to be moved.
+    MoveElementInstance { uri: SharedString, offset: u32 },
+    /// A new component from the palette to be instantiated.
+    NewComponent { index: usize },
+}
+
+/// Tried to convert a [`DataTransfer`] to a [`DragItem`], but the data transfer's user data
+/// was of the wrong type.
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash, Default)]
+pub struct InvalidDataTransferForDragItem;
+
+impl std::fmt::Display for InvalidDataTransferForDragItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "`DataTransfer` user data was not `DropCommand`")
+    }
+}
+
+impl TryFrom<DataTransfer> for DragItem {
+    type Error = InvalidDataTransferForDragItem;
+
+    fn try_from(value: DataTransfer) -> Result<Self, Self::Error> {
+        value
+            .user_data()
+            .and_then(|any| any.downcast::<Self>().ok().as_deref().cloned())
+            .ok_or(InvalidDataTransferForDragItem)
+    }
+}
+
+impl From<DragItem> for DataTransfer {
+    fn from(value: DragItem) -> Self {
+        let mut out = DataTransfer::default();
+        out.set_user_data(Rc::new(value));
+        out
+    }
+}
+
+fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) -> bool {
+    let Ok(DragItem::NewComponent { index: component_index }) = data.try_into() else {
+        return false;
+    };
+
     if !on_drop_area {
         set_drop_mark(&None);
         return false;
@@ -753,9 +797,8 @@ fn can_drop_component(component_index: i32, x: f32, y: f32, on_drop_area: bool) 
 
     let position = LogicalPoint::new(x, y);
 
-    let component = PREVIEW_STATE.with_borrow(|preview_state| {
-        preview_state.known_components.get(component_index as usize).cloned()
-    });
+    let component = PREVIEW_STATE
+        .with_borrow(|preview_state| preview_state.known_components.get(component_index).cloned());
 
     let Some(component) = component else {
         return false;
@@ -764,16 +807,20 @@ fn can_drop_component(component_index: i32, x: f32, y: f32, on_drop_area: bool) 
     drop_location::can_drop_at(&document_cache, position, &component)
 }
 
-fn drop_component(component_index: i32, x: f32, y: f32) {
+fn drop_component(data: DataTransfer, x: f32, y: f32) {
+    let Ok(DragItem::NewComponent { index: component_index }) = data.try_into() else {
+        return;
+    };
+
     let Some(document_cache) = document_cache() else {
         return;
     };
 
     let position = LogicalPoint::new(x, y);
 
-    let Some(component) = PREVIEW_STATE.with_borrow(|preview_state| {
-        preview_state.known_components.get(component_index as usize).cloned()
-    }) else {
+    let Some(component) = PREVIEW_STATE
+        .with_borrow(|preview_state| preview_state.known_components.get(component_index).cloned())
+    else {
         return;
     };
 
@@ -1579,9 +1626,10 @@ fn set_preview_factory(
 }
 
 /// Highlight the element pointed at the offset in the path.
-/// When path is None, remove the highlight.
+/// When the URL is None, remove the highlight.
 pub fn highlight(url: Option<Url>, offset: TextSize) {
     let Some(path) = url.as_ref().and_then(|u| Url::to_file_path(u).ok()) else {
+        element_selection::unselect_element();
         return;
     };
 
@@ -1883,7 +1931,7 @@ fn update_preview_area(
     source_file_versions: Rc<RefCell<common::document_cache::SourceFileVersionMap>>,
     format: common::ByteFormat,
 ) -> Result<(), PlatformError> {
-    PREVIEW_STATE.with_borrow_mut(move |preview_state| {
+    let app_window = PREVIEW_STATE.with_borrow_mut(move |preview_state| {
         preview_state.workspace_edit_sent = false;
 
         let app_window = preview_state.app_window.as_ref().unwrap();
@@ -1917,18 +1965,20 @@ fn update_preview_area(
             );
         }
 
-        app_window.show().and_then(|_| {
-            if matches!(behavior, LoadBehavior::BringWindowToFront) {
-                let window_inner = i_slint_core::window::WindowInner::from_pub(app_window.window());
-                if let Some(window_adapter_internal) =
-                    window_inner.window_adapter().internal(i_slint_core::InternalToken)
-                {
-                    window_adapter_internal.bring_to_front()?;
-                }
-            }
+        app_window.clone_strong()
+    });
 
-            Ok(())
-        })
+    app_window.show().and_then(|_| {
+        if matches!(behavior, LoadBehavior::BringWindowToFront) {
+            let window_inner = i_slint_core::window::WindowInner::from_pub(app_window.window());
+            if let Some(window_adapter_internal) =
+                window_inner.window_adapter().internal(i_slint_core::InternalToken)
+            {
+                window_adapter_internal.bring_to_front()?;
+            }
+        }
+
+        Ok(())
     })?;
 
     element_selection::reselect_element();

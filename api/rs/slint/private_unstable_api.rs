@@ -168,13 +168,16 @@ pub mod re_exports {
     pub use euclid::approxeq::ApproxEq;
     #[allow(unused_imports)]
     pub use i_slint_backend_selector::native_widgets::*;
+    pub use i_slint_common::TranslationsBundled;
     pub use i_slint_core::accessibility::{
         AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
     };
     pub use i_slint_core::animations::{EasingCurve, animation_tick, current_tick};
     pub use i_slint_core::api::LogicalPosition;
+    pub use i_slint_core::bring_all_to_front;
     pub use i_slint_core::callbacks::Callback;
     pub use i_slint_core::context::SlintContext;
+    pub use i_slint_core::data_transfer::DataTransfer;
     pub use i_slint_core::date_time::*;
     pub use i_slint_core::detect_operating_system;
     pub use i_slint_core::graphics::*;
@@ -183,8 +186,8 @@ pub mod re_exports {
         Keys, MouseEvent, key_codes::Key, make_keys,
     };
     pub use i_slint_core::item_tree::{
-        IndexRange, ItemTree, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, register_item_tree,
-        unregister_item_tree,
+        IndexRange, ItemTree, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak,
+        ensure_item_tree_instantiated, register_item_tree, unregister_item_tree,
     };
     pub use i_slint_core::item_tree::{
         ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,
@@ -210,10 +213,12 @@ pub mod re_exports {
         set_bundled_languages, translate_from_bundle, translate_from_bundle_with_plural,
     };
     pub use i_slint_core::window::{
-        InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner,
+        InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner, accent_color,
+        context_for_root,
     };
     pub use i_slint_core::{
         Color, Coord, SharedString, SharedVector, format, string::ToSharedString,
+        string::string_to_float,
     };
     pub use i_slint_core::{ItemTreeVTable_static, MenuVTable_static};
     pub use num_traits::float::Float;

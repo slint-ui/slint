@@ -231,7 +231,7 @@ export component PreviewUi inherits Window {
                 HorizontalLayout {
                     spacing: 0px;
 
-                    if  root.library-widget: LibraryView {
+                    if root.library-widget: LibraryView {
                         known-components: Api.known-components;
                         library-visible <=> root.library-widget;
 

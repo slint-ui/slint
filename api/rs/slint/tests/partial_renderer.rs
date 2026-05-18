@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore doesnt
+
 use i_slint_renderer_skia::SkiaRenderer;
 use i_slint_renderer_skia::SkiaSharedContext;
 use i_slint_renderer_skia::skia_safe;
@@ -27,6 +29,8 @@ impl slint::platform::Platform for TestPlatform {
         }))
     }
 }
+
+const BYTES_PER_PIXEL: usize = 4;
 
 #[derive(Clone, Copy, Default)]
 struct TestPixel(bool);
@@ -93,7 +97,7 @@ impl SkiaTestWindow {
 
     fn draw_if_needed(&self) -> bool {
         if self.needs_redraw.replace(false) {
-            self.renderer.render().unwrap();
+            let _ = self.renderer.render().unwrap();
             true
         } else {
             false
@@ -753,8 +757,10 @@ fn nowrap_text_change_doesnt_change_height() {
 
 #[test]
 fn create_item_tree_during_rendering() {
-    // This test has a `init` callback which will cause item tree to be changed during rendeiring,
-    // between the compute dirty region and the actual rendering.
+    // This test has `init` callbacks that cascade: cond1's init sets cond2=true,
+    // cond2-red's init sets cond3=true. The ensure_tree_instantiated loop
+    // materializes all three levels before rendering, so every rectangle
+    // lands in the first draw's dirty region.
     slint::slint! {
         export component Ui inherits Window {
             in property <bool> cond1: false;
@@ -808,16 +814,17 @@ fn create_item_tree_during_rendering() {
     ui.set_cond1(true);
 
     assert!(window.draw_if_needed(|renderer| {
-        do_test_render_region(renderer, 10, 15, 22, 25);
+        // All three cascaded conditionals are instantiated before rendering:
+        // cond3's rect is at y=5 (foo), so the region starts at y=5.
+        do_test_render_region(renderer, 10, 5, 22, 25);
     }));
-    // FIXME: in this case, there is nothing done to trigger any redraw. Ideally this call shouldn't be necessary.
-    assert!(!window.draw_if_needed(|_| ()));
-    // So therefore force a redraw
+
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
 
     ui.set_foo(4.0);
 
     assert!(window.draw_if_needed(|renderer| {
-        do_test_render_region(renderer, 10, 4, 22, 25);
+        do_test_render_region(renderer, 12, 4, 22, 25);
     }));
 
     assert!(!window.draw_if_needed(|_| { unreachable!() }));
@@ -825,6 +832,55 @@ fn create_item_tree_during_rendering() {
     ui.set_foo(3.0);
     assert!(window.draw_if_needed(|renderer| {
         do_test_render_region(renderer, 12, 3, 22, 24);
+    }));
+}
+
+#[test]
+fn init_property_read_does_not_trigger_redraw() {
+    slint::slint! {
+        export component Ui inherits Window {
+            width: 100px;
+            height: 100px;
+
+            in property <bool> cond: false;
+            in property <length> unrelated: 10px;
+            property <length> stash;
+
+            if cond: Rectangle {
+                x: 5px;
+                y: 5px;
+                width: 20px;
+                height: 20px;
+                background: red;
+                // The init callback reads `unrelated`.  That read must NOT
+                // register as a dependency of the redraw tracker.
+                init => { stash = unrelated; }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let ui = Ui::new().unwrap();
+    let window = WINDOW.with(|x| x.clone());
+    window.set_size(slint::PhysicalSize::new(100, 100));
+    ui.show().unwrap();
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 0, 0, 100, 100);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // Activate the conditional — the rectangle appears and init runs.
+    ui.set_cond(true);
+    assert!(window.draw_if_needed(|renderer| {
+        do_test_render_region(renderer, 5, 5, 25, 25);
+    }));
+    assert!(!window.draw_if_needed(|_| { unreachable!() }));
+
+    // Change the property that the init callback read.
+    // This must NOT trigger a redraw because init reads should be untracked.
+    ui.set_unrelated(42.0);
+    assert!(!window.draw_if_needed(|_| {
+        unreachable!("changing a property only read by init must not trigger a redraw")
     }));
 }
 
@@ -1197,4 +1253,183 @@ fn layer_visible_after_becoming_non_zero_sized() {
         r > 200 && g < 50 && b < 50,
         "Layer pixel at (16,16) should be red after content-height grew, got rgb=({r},{g},{b})"
     );
+}
+
+#[test]
+fn partial_rendering_popup_position_size_change() {
+    slint::slint! {
+        global MyProperty {
+            in-out property<length> popup-x: 0px;
+            in-out property<length> popup-y: 0px;
+            in-out property<length> popup-width: 100px;
+            in-out property<length> popup-height: 200px;
+        }
+
+        export component Ui inherits Window {
+            width: 600px;
+            height: 600px;
+            background: red;
+
+            TouchArea {
+                property<bool> was-clicked: false;
+                clicked => {
+                    if !was-clicked {
+                        was-clicked = true;
+                        show_popup();
+                    }
+                }
+            }
+
+            callback show_popup();
+            show_popup() => {
+                popup.show();
+            }
+
+            callback change_popup();
+            change_popup() => {
+                debug("Changing popup properties");
+                MyProperty.popup-x = 10px;
+                MyProperty.popup-y = 20px;
+                MyProperty.popup-width = 150px;
+                MyProperty.popup-height = 30px;
+            }
+
+            popup:= PopupWindow {
+                x: MyProperty.popup-x;
+                y: MyProperty.popup-y;
+                width: MyProperty.popup-width;
+                height: MyProperty.popup-height;
+                close-policy: PopupClosePolicy.no-auto-close;
+
+                TouchArea {
+                    clicked => {
+                        change_popup();
+                    }
+                }
+
+                changed width => {
+                    debug("Width changed");
+                }
+
+                Rectangle {
+                    background: blue;
+                }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    const WINDOW_WIDTH: usize = 600;
+    const WINDOW_HEIGHT: usize = 600;
+    const POPUP_WIDTH: usize = 100;
+    const POPUP_HEIGHT: usize = 200;
+    const RGB_COLOR_WINDOW: (u8, u8, u8) = (255, 0, 0);
+    const RGB_COLOR_POPUP: (u8, u8, u8) = (0, 0, 255);
+
+    let ui = Ui::new().unwrap();
+    // Required otherwise the buffer gets not initialized
+    window.set_size(slint::PhysicalSize::new(WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32).into());
+    ui.show().unwrap();
+
+    assert!(window.draw_if_needed());
+
+    let get_pixel_values = |pixel_index: usize| {
+        let pixels = window.render_buffer.pixels.borrow();
+        let buf = pixels.as_ref().expect("render buffer should contain pixels");
+        let data = buf.as_bytes();
+        let offset = pixel_index * BYTES_PER_PIXEL;
+        (data[offset], data[offset + 1], data[offset + 2])
+    };
+
+    // For debugging. Dump pixels
+    let _dump_pixels = || {
+        for v_pixel in 0..WINDOW_HEIGHT {
+            for h_pixel in 0..WINDOW_WIDTH {
+                let pixel_idx = WINDOW_WIDTH * v_pixel + h_pixel;
+                let rgb = get_pixel_values(pixel_idx);
+                // print!("{r:02x}{g:02x}{b:02x} ", r = rgb.0, g = rgb.1, b = rgb.2);
+                if rgb.0 > 0 {
+                    print!("r");
+                } else if rgb.2 > 0 {
+                    print!("b");
+                } else {
+                    print!("g")
+                }
+            }
+            print!("\n");
+        }
+    };
+
+    {
+        let pixels = window.render_buffer.pixels.borrow();
+        let buf = pixels.as_ref().expect("render buffer should contain pixels");
+        assert_eq!(buf.as_bytes().len(), WINDOW_WIDTH * WINDOW_HEIGHT * BYTES_PER_PIXEL);
+        for pixel_idx in 0..(WINDOW_WIDTH * WINDOW_HEIGHT) {
+            let rgb = get_pixel_values(pixel_idx);
+            assert_eq!(rgb, RGB_COLOR_WINDOW, "Wrong color at pixel index pixel_idx");
+        }
+    }
+
+    ui.invoke_show_popup();
+    assert!(window.draw_if_needed());
+
+    {
+        for v_pixel in 0..WINDOW_HEIGHT {
+            for h_pixel in 0..WINDOW_WIDTH {
+                let pixel_idx = WINDOW_WIDTH * v_pixel + h_pixel;
+
+                if h_pixel < POPUP_WIDTH && v_pixel < POPUP_HEIGHT {
+                    let rgb = get_pixel_values(pixel_idx);
+                    assert_eq!(rgb, RGB_COLOR_POPUP, "Wrong color at pixel ({h_pixel}, {v_pixel})");
+                } else {
+                    let rgb = get_pixel_values(pixel_idx);
+                    assert_eq!(
+                        rgb, RGB_COLOR_WINDOW,
+                        "Wrong color at pixel ({h_pixel}, {v_pixel})"
+                    );
+                }
+            }
+        }
+    }
+
+    ui.invoke_change_popup();
+    // The popup properties change trigger a tracker with a timer we have to process before the next draw.
+    slint::platform::update_timers_and_animations();
+
+    assert!(window.draw_if_needed());
+
+    {
+        // New popup properties
+        const POPUP_POS_X: usize = 10;
+        const POPUP_POS_Y: usize = 20;
+        const POPUP_WIDTH: usize = 150;
+        const POPUP_HEIGHT: usize = 30;
+        for v_pixel in 0..WINDOW_HEIGHT {
+            for h_pixel in 0..WINDOW_WIDTH {
+                let pixel_idx = WINDOW_WIDTH * v_pixel + h_pixel;
+
+                if h_pixel >= POPUP_POS_X
+                    && h_pixel < POPUP_POS_X + POPUP_WIDTH
+                    && v_pixel >= POPUP_POS_Y
+                    && v_pixel < POPUP_POS_Y + POPUP_HEIGHT
+                {
+                    let rgb = get_pixel_values(pixel_idx);
+                    assert_eq!(
+                        rgb, RGB_COLOR_POPUP,
+                        "Wrong color at pixel ({h_pixel}, {v_pixel}). Expected popup color."
+                    );
+                } else {
+                    let rgb = get_pixel_values(pixel_idx);
+                    assert_eq!(
+                        rgb, RGB_COLOR_WINDOW,
+                        "Wrong color at pixel ({h_pixel}, {v_pixel}). Expected window color"
+                    );
+                }
+            }
+        }
+    }
 }

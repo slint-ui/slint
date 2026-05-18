@@ -500,6 +500,19 @@ macro_rules! for_each_enums {
                 RadioButton,
             }
 
+            /// This enum represents the different values of the `accessible-live` property.
+            /// It indicates that an element is a live region whose content changes should be
+            /// announced by assistive technologies.
+            #[non_exhaustive]
+            enum AccessibleLive {
+                /// The element is not a live region.
+                Off,
+                /// Updates are announced when the user is idle.
+                Polite,
+                /// Updates are announced as soon as possible.
+                Assertive,
+            }
+
             /// This enum represents the different values of the `sort-order` property.
             /// It's used to sort a `StandardTableView` by a column.
             #[non_exhaustive]
@@ -573,6 +586,21 @@ macro_rules! for_each_enums {
                 NoAutoClose,
             }
 
+            /// This enum describes where a `ToolTip` is placed relative to the hovered element.
+            #[non_exhaustive]
+            enum ToolTipPlacement {
+                /// Place the tooltip at the current mouse pointer position.
+                Pointer,
+                /// Place the tooltip centered above the hovered element.
+                AboveElement,
+                /// Place the tooltip centered below the hovered element.
+                BelowElement,
+                /// Place the tooltip centered left of the hovered element.
+                LeftElement,
+                /// Place the tooltip centered right of the hovered element.
+                RightElement,
+            }
+
             /// This enum describes the appearance of the ends of stroked paths.
             #[non_exhaustive]
             enum LineCap {
@@ -593,6 +621,27 @@ macro_rules! for_each_enums {
                 Round,
                 /// The stroke joins with a beveled (flattened) corner.
                 Bevel,
+            }
+
+            /// This enum describes the action negotiated between the source of a drag (`DragArea`)
+            /// and its target (`DropArea`) during a drag-and-drop operation. The source declares
+            /// which actions it permits, the target picks one in its `can-drop` callback, and the
+            /// chosen action is reported back to the source via `drag-finished` so that, for
+            /// example, a `move` source can remove the original data. The same enum is used for
+            /// drags that come from another application or window once native drag-and-drop is
+            /// in play.
+            #[non_exhaustive]
+            enum DragAction {
+                /// No action: the drag is rejected, no drop will be delivered.
+                None,
+                /// The data is copied to the target; the source retains it.
+                Copy,
+                /// The data is moved to the target; the source should remove it once the
+                /// operation completes.
+                Move,
+                /// A link to the source data is created at the target; neither side gives
+                /// up ownership.
+                Link,
             }
 
             /// This enum describes the detected operating system types.

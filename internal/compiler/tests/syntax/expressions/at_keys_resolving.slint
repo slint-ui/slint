@@ -28,5 +28,9 @@ export component SuperSimple {
 //            >  <error{Key string literal must contain exactly one grapheme cluster, found 2}
         @keys(Control + "xy"),
 //                      >  <error{Key string literal must contain exactly one grapheme cluster, found 2}
+
+        // Bad escape in key string literal
+        @keys("\xz"),
+//             ><error{Unknown escape sequence. Use '\\' to escape a literal backslash}
     ];
     }

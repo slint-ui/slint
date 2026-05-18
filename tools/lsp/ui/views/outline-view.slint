@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore hier
+
 import { Palette, VerticalBox, ListView }  from "std-widgets.slint";
 import { ConsoleStyles, EditorSizeSettings, Icons, EditorFontSettings, EditorSpaceSettings,  } from "../components/styling.slint";
 import { Api, OutlineTreeNode, DropLocation } from "../api.slint";
@@ -55,26 +57,23 @@ export component OutlineView inherits VerticalLayout {
     lv := ListView {
         for item[idx] in outline-data: DragArea {
             height: 38px;
-            mime-type: "application/x-slint-component-move";
-            data: item.uri + ":" + item.offset;
+            data: Api.move-element-instance-data(item.uri, item.offset);
 
             property <bool> selected: item.uri == Api.current-element.source-uri && item.offset == Api.current-element.offset;
 
             drop-as-child := DropArea {
                 can-drop(event) => {
-                    if event.mime-type != "application/x-slint-component" && event.mime-type != "application/x-slint-component-move" {
-                        return false;
-                    }
                     if !item.is-expanded && item.has-children {
                         if !open-timer.running {
                             open-timer.running = true;
                         }
-                        return false;
+                        return DragAction.none;
                     }
-                    return Api.outline-can-drop(event.data, item.uri, item.offset, DropLocation.onto);
+                    return Api.outline-can-drop(event.data, item.uri, item.offset, DropLocation.onto) ? DragAction.copy : DragAction.none;
                 }
                 dropped(event) => {
                     Api.outline-drop(event.data, item.uri, item.offset, DropLocation.onto);
+                    return event.proposed-action;
                 }
             }
 
@@ -87,14 +86,11 @@ export component OutlineView inherits VerticalLayout {
                 width: parent.width - self.x;
 
                 can-drop(event) => {
-                    if event.mime-type != "application/x-slint-component" && event.mime-type != "application/x-slint-component-move" {
-                        return false;
-                    }
-                    //return Api.outline-can-drop(event.data, item.uri, item.offset, -1);
-                    true;
+                    return Api.outline-can-drop(event.data, item.uri, item.offset, DropLocation.before) ? DragAction.copy : DragAction.none;
                 }
                 dropped(event) => {
                     Api.outline-drop(event.data, item.uri, item.offset, DropLocation.before);
+                    return event.proposed-action;
                 }
                 Rectangle {
                     height: 1px;
@@ -112,14 +108,11 @@ export component OutlineView inherits VerticalLayout {
                 enabled: item.indent-level > 0;
 
                 can-drop(event) => {
-                    if event.mime-type != "application/x-slint-component" && event.mime-type != "application/x-slint-component-move" {
-                        return false;
-                    }
-                    //return Api.outline-can-drop(event.data, item.uri, item.offset, 1);
-                    true;
+                    return Api.outline-can-drop(event.data, item.uri, item.offset, DropLocation.after) ? DragAction.copy : DragAction.none;
                 }
                 dropped(event) => {
                     Api.outline-drop(event.data, item.uri, item.offset, DropLocation.after);
+                    return event.proposed-action;
                 }
                 Rectangle {
                     height: 1px;
@@ -155,7 +148,7 @@ export component OutlineView inherits VerticalLayout {
                     }
                     ta := TouchArea {
                         clicked => {
-                            Api.outline-select-element(item.uri, item.offset);
+                            Api.outline-select-element(item.uri, item.offset, true);
                         }
                         double-clicked => {
                             item.is-expanded = !item.is-expanded;
@@ -163,6 +156,16 @@ export component OutlineView inherits VerticalLayout {
                         pointer-event(event) => {
                             if event.kind == PointerEventKind.cancel {
                                 open-timer.running = false;
+                            }
+                            if self.has-hover {
+                                // On hover, only update the outline selection in the
+                                // preview, but not in the editor, as that might cause too
+                                // many jumps in the editor.
+                                // Helix also has a bug, where updating the selection by the LSP
+                                // will cause a new split to appear, which we want to avoid doing just
+                                // by hovering.
+                                // See: https://github.com/helix-editor/helix/issues/15429
+                                Api.outline-select-element(item.uri, item.offset, false);
                             }
                         }
                     }

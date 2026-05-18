@@ -6,7 +6,13 @@
 import { test, expect, afterEach } from "vitest";
 import * as http from "node:http";
 
-import { runEventLoop, quitEventLoop, private_api } from "../dist/index.js";
+import {
+    loadSource,
+    runEventLoop,
+    quitEventLoop,
+    private_api,
+} from "../dist/index.js";
+import { hasIntegratedEventLoop } from "../rust-module.cjs";
 
 afterEach(() => {
     quitEventLoop();
@@ -55,26 +61,64 @@ test.sequential("merged event loops with networking", async () => {
     expect(received_response).toBe("Hello World");
 });
 
-test.sequential("quit event loop on last window closed with callback", async () => {
-    const compiler = new private_api.ComponentCompiler();
-    const definition = compiler.buildFromSource(
-        `
+test.sequential("event loop restart", async () => {
+    let first_run = false;
+    let second_run = false;
 
-    export component App inherits Window {
-        width: 300px;
-        height: 300px;
-    }`,
-        "",
-    );
-    expect(definition.App).not.toBeNull();
-
-    const instance = definition.App!.create() as any;
-    expect(instance).not.toBeNull();
-
-    instance.window().show();
     await runEventLoop(() => {
         setTimeout(() => {
-            instance.window().hide();
+            first_run = true;
+            quitEventLoop();
         }, 2);
+    });
+    expect(first_run).toBe(true);
+
+    await runEventLoop(() => {
+        setTimeout(() => {
+            second_run = true;
+            quitEventLoop();
+        }, 2);
+    });
+    expect(second_run).toBe(true);
+});
+
+test.sequential("set property from JS timer mid-run", async () => {
+    const ui = loadSource(
+        `export component App inherits Window {
+            in-out property <string> label: "initial";
+        }`,
+        "test.slint",
+    ) as any;
+    const app = new ui.App();
+    app.show();
+
+    await runEventLoop(() => {
+        setTimeout(() => {
+            app.label = "updated";
+            quitEventLoop();
+        }, 2);
+    });
+    expect(app.label).toBe("updated");
+});
+
+test.sequential("slint timer fires through integrated event loop", async () => {
+    const ui = loadSource(
+        `export component App inherits Window {
+            in-out property <int> counter: 0;
+            timer := Timer {
+                interval: 50ms;
+                triggered => { counter += 1; }
+            }
+        }`,
+        "test.slint",
+    ) as any;
+    const app = new ui.App();
+    app.show();
+
+    await runEventLoop(() => {
+        setTimeout(() => {
+            expect(app.counter).toBeGreaterThanOrEqual(1);
+            quitEventLoop();
+        }, 200);
     });
 });

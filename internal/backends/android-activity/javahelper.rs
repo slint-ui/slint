@@ -1,11 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore dalvik jboolean jint
 use super::*;
 use i_slint_core::SharedString;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
 use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
+use i_slint_core::item_rendering::HasFont;
 use i_slint_core::items::{ColorScheme, InputType};
 use i_slint_core::lengths::PhysicalEdges;
 use i_slint_core::platform::WindowAdapter;
@@ -559,12 +561,17 @@ fn callback_set_night_mode<'local>(
 ) -> Result<(), jni::errors::Error> {
     i_slint_core::api::invoke_from_event_loop(move || {
         if let Some(w) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
-            w.color_scheme.as_ref().set(match night_mode {
+            let scheme = match night_mode {
                 0x10 => ColorScheme::Light,  // UI_MODE_NIGHT_NO(0x10)
                 0x20 => ColorScheme::Dark,   // UI_MODE_NIGHT_YES(0x20)
                 0x0 => ColorScheme::Unknown, // UI_MODE_NIGHT_UNDEFINED
                 _ => ColorScheme::Unknown,
-            });
+            };
+            let ctx = i_slint_core::window::WindowInner::from_pub(&w.window).context();
+            ctx.set_color_scheme(scheme);
+            if let Ok(accent) = w.java_helper.accent_color() {
+                ctx.set_accent_color(accent);
+            }
         }
     })
     .unwrap();

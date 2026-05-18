@@ -188,6 +188,7 @@ component CosmicTabBarBase inherits TabBarBase {
 }
 
 export component TabBarHorizontalImpl inherits CosmicTabBarBase {
+    accessible-orientation: Orientation.horizontal;
     Flickable {
         HorizontalLayout {
             @children
@@ -196,6 +197,7 @@ export component TabBarHorizontalImpl inherits CosmicTabBarBase {
 }
 
 export component TabBarVerticalImpl inherits CosmicTabBarBase {
+    accessible-orientation: Orientation.vertical;
     Flickable {
         VerticalLayout {
             @children

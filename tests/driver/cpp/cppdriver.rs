@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore exitcode lldb lslint NDEBUG
 use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
 use std::error::Error;
 use std::io::Write;
@@ -172,6 +173,14 @@ namespace slint_testing = slint::private_api::testing;
         cmd.arg("--exit-on-first-error=yes");
         cmd.arg("--error-exitcode=1");
         cmd.arg("--num-callers=50");
+        cmd.arg(binary_path.deref());
+    } else if std::env::var("USE_LLDB").is_ok() {
+        cmd = std::process::Command::new("rust-lldb");
+        cmd.args(["--one-line-on-crash", "bt\nexit 1"]);
+        cmd.args(["--one-line", "run"]);
+        cmd.arg("-Q");
+        cmd.arg("-b");
+        cmd.arg("-f");
         cmd.arg(binary_path.deref());
     } else {
         cmd = std::process::Command::new(binary_path.deref());

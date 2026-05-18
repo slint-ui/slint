@@ -46,6 +46,11 @@ pub fn lower_to_item_tree(
     let public_components = document
         .exported_roots()
         .map(|component| {
+            let top_level_type = if component.inherits_system_tray_icon() {
+                TopLevelComponentType::SystemTrayIcon
+            } else {
+                TopLevelComponentType::Window
+            };
             let mut sc = lower_sub_component(&component, &mut state, None, compiler_config);
             let public_properties = public_properties(&component, &sc.mapping, &state);
             sc.sub_component.name = component.id.clone();
@@ -59,6 +64,7 @@ pub fn lower_to_item_tree(
                 public_properties,
                 private_properties: component.private_properties.borrow().clone(),
                 name: component.id.clone(),
+                top_level_type,
             }
         })
         .collect();
@@ -74,7 +80,7 @@ pub fn lower_to_item_tree(
             &state,
         );
         let close = sc.mapping.map_property_reference(
-            &NamedReference::new(&c.root_element, SmolStr::new_static("close")),
+            &NamedReference::new(&c.root_element, SmolStr::new_static("close-popup")),
             &state,
         );
         let entries = sc.mapping.map_property_reference(
@@ -696,9 +702,13 @@ fn lower_sub_component(
                     to: Type::String,
                 },
                 Type::String => super::Expression::PropertyReference(prop),
-                Type::Enumeration(e) if e.name == "AccessibleRole" => {
+                Type::Enumeration(ref e) if e.name == "AccessibleRole" => {
                     super::Expression::PropertyReference(prop)
                 }
+                Type::Enumeration(_) => super::Expression::Cast {
+                    from: super::Expression::PropertyReference(prop).into(),
+                    to: Type::String,
+                },
                 Type::Callback(callback) => super::Expression::CallBackCall {
                     callback: prop,
                     arguments: (0..callback.args.len())
@@ -848,7 +858,7 @@ fn lower_popup_component(
         tree: make_tree(ctx.state, &popup.component.root_element, &sc, &[]),
         root: ctx.state.push_sub_component(sc),
     };
-    PopupWindow { item_tree, position: position.into() }
+    PopupWindow { item_tree, position: position.into(), is_tooltip: popup.is_tooltip }
 }
 
 fn lower_timer(timer: &object_tree::Timer, ctx: &ExpressionLoweringCtx) -> Timer {

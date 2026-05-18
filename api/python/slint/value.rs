@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore asdict hasattr pybrush pycolor pyimg pymodel pyval rustmodel slintval strongrefs
 use i_slint_compiler::generator::python::ident;
 use pyo3::types::PyDict;
 use pyo3::{IntoPyObjectExt, PyTraverseError};
@@ -60,10 +61,16 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
                 type_collection.struct_to_py(structval, struct_type).into_bound_py_any(py)
             }
             Value::Brush(brush) => crate::brush::PyBrush::from(brush).into_bound_py_any(py),
+            Value::StyledText(styled_text) => {
+                crate::styled_text::PyStyledText::from(styled_text).into_bound_py_any(py)
+            }
             Value::EnumerationValue(enum_name, enum_value) => {
                 type_collection.enum_to_py(&enum_name, &enum_value, py)?.into_bound_py_any(py)
             }
             Value::Keys(keys) => crate::keys::PyKeys::from(keys).into_bound_py_any(py),
+            Value::DataTransfer(data) => {
+                crate::data_transfer::PyDataTransfer::from(data).into_bound_py_any(py)
+            }
             v @ _ => {
                 eprintln!(
                     "Python: conversion from slint to python needed for {v:#?} and not implemented yet"
@@ -355,8 +362,17 @@ impl TypeCollection {
                     .map(|pybrush| slint_interpreter::Value::Brush(pybrush.brush.clone()))
             })
             .or_else(|_| {
+                ob.extract::<PyRef<'_, crate::styled_text::PyStyledText>>().map(|styled_text| {
+                    slint_interpreter::Value::StyledText(styled_text.styled_text.clone())
+                })
+            })
+            .or_else(|_| {
                 ob.extract::<PyRef<'_, PyKeys>>()
                     .map(|keys| slint_interpreter::Value::Keys(keys.keys.clone()))
+            })
+            .or_else(|_| {
+                ob.extract::<PyRef<'_, crate::data_transfer::PyDataTransfer>>()
+                    .map(|data| slint_interpreter::Value::DataTransfer(data.data_transfer.clone()))
             })
             .or_else(|_| {
                 ob.extract::<PyRef<'_, crate::brush::PyColor>>()

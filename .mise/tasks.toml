@@ -96,6 +96,11 @@ description = "Run knip"
 run = "pnpm knip"
 depends = ["prepare:pnpm-install"]
 
+["lint:cspell"]
+description = "Run cSpell on the repository (respects .gitignore)"
+run = "pnpm exec cspell --no-progress --gitignore ."
+depends = ["prepare:pnpm-install"]
+
 ### Build
 
 ["build:lsp:wasm"]
@@ -104,7 +109,7 @@ dir = "editors/vscode"
 sources = ["tools/lsp/Cargo.toml", "tools/lsp/**/*.rs", "tools/lsp/ui/**/*.slint"]
 outputs = ["tools/lsp/pkg/*"]
 run = "pnpm run build:wasm_lsp"
-tools = { "ubi:drager/wasm-pack" = "0.13.1" }
+tools = { "ubi:wasm-bindgen/wasm-pack" = "0.13.1" }
 depends = ["prepare:pnpm-install"]
 
 ["build:interpreter:wasm"]
@@ -113,7 +118,7 @@ dir = "tools/slintpad"
 sources = ["api/wasm-interpreter/Cargo.toml", "api/wasm-interpreter/src/**/*.rs"]
 outputs = ["api/wasm-interpreter/pkg/*"]
 run = "pnpm run build:wasm_interpreter"
-tools = { "ubi:drager/wasm-pack" = "0.13.1" }
+tools = { "ubi:wasm-bindgen/wasm-pack" = "0.13.1" }
 depends = ["prepare:pnpm-install"]
 
 ["prepare:pnpm-install"]
@@ -143,4 +148,4 @@ depends = [
 
 ["ci:autofix:lint"]
 description = "CI autofix job -- lint steps"
-depends = ["lint:legal:reuse", "lint:ts:typecheck", "lint:ts:knip"]
+depends = ["lint:legal:reuse", "lint:ts:typecheck", "lint:ts:knip", "lint:cspell"]

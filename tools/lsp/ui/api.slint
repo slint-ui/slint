@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore dataonly
 /// Basic information on a known component
 export struct ComponentItem {
     name: string,
@@ -129,7 +130,7 @@ export struct GradientStop {
 
 /// Data about the property value for use in "simple" mode
 export struct PropertyValue {
-    display-string: string, // ALLWAYS, its a string description of what is there
+    display-string: string, // ALWAYS, its a string description of what is there
     value-bool: bool, // boolean
     is-translatable: bool, // string
     kind: PropertyValueKind, // Defines what to display this as
@@ -302,6 +303,9 @@ export global Api {
     // The actual preview
     in-out property <component-factory> preview-area;
 
+    pure callback new-component-data(index: int) -> data-transfer;
+    pure callback move-element-instance-data(component-uri: string, offset: int) -> data-transfer;
+
     // set to true to resize
     in property <bool> resize-to-preferred-size: false;
 
@@ -467,10 +471,10 @@ export global Api {
 
     // ## Outline
     in-out property <[OutlineTreeNode]> outline;
-    callback outline-select-element(uri: string, offset: int);
+    callback outline-select-element(uri: string, offset: int, notify_editor: bool);
     // Data is either a "file:offset" for an element to move, or just a component index.
-    callback outline-drop(data: string, uri: string, offset: int, location: DropLocation);
-    callback outline-can-drop(data: string, uri: string, offset: int, location: DropLocation) -> bool;
+    callback outline-drop(data: data-transfer, uri: string, offset: int, location: DropLocation);
+    callback outline-can-drop(data: data-transfer, uri: string, offset: int, location: DropLocation) -> bool;
 
     // ## preview data
 
@@ -493,8 +497,8 @@ export global Api {
     callback add-new-component();
 
     // Add an existing component
-    pure callback can-drop(component-index: int, x: length, y: length, on-drop-area: bool) -> bool;
-    callback drop(component-index: int, x: length, y: length);
+    pure callback can-drop(data: data-transfer, x: length, y: length, on-drop-area: bool) -> bool;
+    callback drop(data: data-transfer, x: length, y: length);
 
     callback rename-component(old-name: string, defined-at: string, new-name: string);
 
@@ -592,10 +596,10 @@ export global Api {
         { url: "examples/todo/ui/todo.slint", title: "Todo Demo" },
         { url: "examples/iot-dashboard/main.slint", title: "IOT Dashboard" },
         { url: "examples/fancy-switches/demo.slint", title: "Fancy Switches" },
-        { url: "examples/dial/dial.slint", title: "Fanncy Dial" },
+        { url: "examples/dial/dial.slint", title: "Fancy Dial" },
         { url: "examples/orbit-animation/demo.slint", title: "Fancy Animations" },
         { url: "examples/repeater/demo.slint", title: "Fancy Repeater" },
-        { url: "examples/sprite-sheet/demo.slint", title: "Spritesheet Demo" },
+        { url: "examples/sprite-sheet/demo.slint", title: "Sprite sheet Demo" },
     ];
     callback new-file();
     callback share-permalink-to-clipboard();

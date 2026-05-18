@@ -38,6 +38,11 @@ on:
                 required: false
                 type: boolean
                 default: true
+            run_qt:
+                description: 'Run Qt widget tests'
+                required: false
+                type: boolean
+                default: true
             timeout_minutes:
                 description: 'Timeout in minutes'
                 required: false
@@ -114,10 +119,11 @@ jobs:
                   SLINT_CREATE_SCREENSHOTS: 1
               shell: bash
             - name: Run tests (qt)
-              if: runner.os != 'Windows'
+              if: runner.os != 'Windows' && inputs.run_qt
               run: "cargo test --locked --verbose --all-features --workspace ${{ inputs.extra_args }} --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude slint-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python qt:: -- --test-threads=1"
               shell: bash
             - name: live-preview for rust test
+              if: runner.os == 'Linux'
               env:
                 SLINT_LIVE_PREVIEW: 1
               run: cargo test --locked --verbose --all-features --features slint/live-preview -p test-driver-rust -- --skip=_qt::t

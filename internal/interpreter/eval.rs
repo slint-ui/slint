@@ -8,7 +8,7 @@ use corelib::graphics::{
     ConicGradientBrush, GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush,
 };
 use corelib::input::FocusReason;
-use corelib::items::{ColorScheme, ItemRc, ItemRef, PropertyAnimation, WindowItem};
+use corelib::items::{ItemRc, ItemRef, PropertyAnimation, WindowItem};
 use corelib::menus::{Menu, MenuFromItemTree};
 use corelib::model::{Model, ModelExt, ModelRc, VecModel};
 use corelib::rtti::AnimatedBindingKind;
@@ -21,8 +21,8 @@ use i_slint_compiler::expression_tree::{
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::namedreference::NamedReference;
 use i_slint_compiler::object_tree::ElementRc;
-use i_slint_core as corelib;
 use i_slint_core::api::ToSharedString;
+use i_slint_core::{self as corelib};
 use smol_str::SmolStr;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -243,8 +243,8 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
         }
         Expression::Cast { from, to } => {
-            let v = eval_expression(from, local_context);
-            match (v, to) {
+            let value = eval_expression(from, local_context);
+            match (value, to) {
                 (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
                 (Value::Number(n), Type::String) => {
                     Value::String(i_slint_core::string::shared_string_from_number(n))
@@ -362,7 +362,8 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                         i_slint_compiler::data_uri::decode_data_uri(path)
                             .ok()
                             .and_then(|(data, extension)| {
-                                corelib::graphics::decode_image_data(&data, &extension)
+                                corelib::graphics::load_image_from_dynamic_data(&data, &extension)
+                                    .ok()
                             })
                             .ok_or_else(Default::default)
                     } else {
@@ -668,6 +669,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
         }
         Expression::EmptyComponentFactory => Value::ComponentFactory(Default::default()),
+        Expression::EmptyDataTransfer => Value::DataTransfer(Default::default()),
         Expression::DebugHook { expression, .. } => eval_expression(expression, local_context),
     }
 }
@@ -699,6 +701,12 @@ fn call_builtin_function(
             );
             Value::Void
         }
+        BuiltinFunction::DecimalSeparator => Value::String(
+            local_context
+                .component_instance
+                .access_window(|window| window.context().locale_decimal_separator())
+                .into(),
+        ),
         BuiltinFunction::Mod => {
             let mut to_num = |e| -> f64 { eval_expression(e, local_context).try_into().unwrap() };
             Value::Number(to_num(&arguments[0]).rem_euclid(to_num(&arguments[1])))
@@ -882,16 +890,18 @@ fn call_builtin_function(
                 )
                 .try_into()
                 .expect("Invalid internal enumeration representation for close policy");
+                let popup_x = popup.x.clone();
+                let popup_y = popup.y.clone();
 
                 crate::dynamic_item_tree::show_popup(
                     popup_window,
                     enclosing_component,
                     popup,
-                    |instance_ref| {
+                    move |instance_ref| {
                         let comp = ComponentInstance::InstanceRef(instance_ref);
-                        let x = load_property_helper(&comp, &popup.x.element(), popup.x.name())
+                        let x = load_property_helper(&comp, &popup_x.element(), popup_x.name())
                             .unwrap();
-                        let y = load_property_helper(&comp, &popup.y.element(), popup.y.name())
+                        let y = load_property_helper(&comp, &popup_y.element(), popup_y.name())
                             .unwrap();
                         corelib::api::LogicalPosition::new(
                             x.try_into().unwrap(),
@@ -899,7 +909,7 @@ fn call_builtin_function(
                         )
                     },
                     close_policy,
-                    enclosing_component.self_weak().get().unwrap().clone(),
+                    (*enclosing_component.self_weak().get().unwrap()).clone(),
                     component.window_adapter(),
                     &parent_item,
                 );
@@ -961,7 +971,7 @@ fn call_builtin_function(
                 .apply(enclosing_component.as_ref());
             let inst = crate::dynamic_item_tree::instantiate(
                 compiled.clone(),
-                Some(enclosing_component.self_weak().get().unwrap().clone()),
+                Some((*enclosing_component.self_weak().get().unwrap()).clone()),
                 None,
                 Some(&crate::dynamic_item_tree::WindowOptions::UseExistingWindow(
                     component.window_adapter(),
@@ -1037,7 +1047,7 @@ fn call_builtin_function(
             compiled
                 .set_callback_handler(
                     inst_ref.borrow(),
-                    "close",
+                    "close-popup",
                     Box::new(move |_args: &[Value]| -> Value {
                         let Some(item_rc) = item_weak.upgrade() else { return Value::Void };
                         if let Some(id) = item_rc
@@ -1060,9 +1070,10 @@ fn call_builtin_function(
                 }
                 let id = window.show_popup(
                     &vtable::VRc::into_dyn(inst.clone()),
-                    position,
+                    Box::new(move || position),
                     corelib::items::PopupClosePolicy::CloseOnClickOutside,
                     &item_rc,
+                    false,
                     true,
                 );
                 context_menu_elem.popup_id.set(Some(id));
@@ -1480,19 +1491,19 @@ fn call_builtin_function(
             let a = a.clamp(0., 1.);
             Value::Brush(Brush::SolidColor(Color::from_oklch(l, c, h, a)))
         }
-        BuiltinFunction::ColorScheme => local_context
-            .component_instance
-            .window_adapter()
-            .internal(corelib::InternalToken)
-            .map_or(ColorScheme::Unknown, |x| x.color_scheme())
-            .into(),
+        BuiltinFunction::ColorScheme => {
+            let root_weak =
+                vtable::VWeak::into_dyn(local_context.component_instance.root_weak().clone());
+            let root = root_weak.upgrade().unwrap();
+            corelib::window::context_for_root(&root)
+                .map_or(corelib::items::ColorScheme::Unknown, |ctx| ctx.color_scheme(Some(&root)))
+                .into()
+        }
         BuiltinFunction::AccentColor => {
-            let color = local_context
-                .component_instance
-                .window_adapter()
-                .internal(corelib::InternalToken)
-                .map_or(corelib::Color::default(), |x| x.accent_color());
-            Value::Brush(corelib::Brush::SolidColor(color))
+            let root_weak =
+                vtable::VWeak::into_dyn(local_context.component_instance.root_weak().clone());
+            let root = root_weak.upgrade().unwrap();
+            Value::Brush(corelib::Brush::SolidColor(corelib::window::accent_color(&root)))
         }
         BuiltinFunction::SupportsNativeMenuBar => local_context
             .component_instance
@@ -1548,6 +1559,40 @@ fn call_builtin_function(
             set_callback_handler(i, &sub_menu_nr.element(), sub_menu_nr.name(), sub_menu).unwrap();
             set_callback_handler(i, &activated_nr.element(), activated_nr.name(), activated)
                 .unwrap();
+
+            Value::Void
+        }
+        BuiltinFunction::SetupSystemTrayIcon => {
+            let [
+                Expression::ElementReference(system_tray_elem),
+                Expression::ElementReference(item_tree_root),
+                rest @ ..,
+            ] = arguments
+            else {
+                panic!("internal error: incorrect argument count to SetupSystemTrayIcon")
+            };
+
+            let component = local_context.component_instance;
+            let elem = system_tray_elem.upgrade().unwrap();
+            generativity::make_guard!(guard);
+            let enclosing_component = enclosing_component_for_element(&elem, component, guard);
+            let description = enclosing_component.description;
+            let item_info = &description.items[elem.borrow().id.as_str()];
+            let item_comp = enclosing_component.self_weak().get().unwrap().upgrade().unwrap();
+            let item_tree = vtable::VRc::into_dyn(item_comp);
+            let item_rc = corelib::items::ItemRc::new(item_tree.clone(), item_info.item_index());
+
+            let menu_item_tree_component =
+                item_tree_root.upgrade().unwrap().borrow().enclosing_component.upgrade().unwrap();
+            let menu_vrc = crate::dynamic_item_tree::make_menu_item_tree(
+                &menu_item_tree_component,
+                &enclosing_component,
+                rest.first(),
+            );
+
+            let system_tray =
+                item_rc.downcast::<corelib::items::SystemTrayIcon>().expect("SystemTrayIcon item");
+            system_tray.as_pin_ref().set_menu(&item_rc, vtable::VRc::into_dyn(menu_vrc));
 
             Value::Void
         }
@@ -1738,6 +1783,10 @@ fn call_builtin_function(
             let window_adapter = local_context.component_instance.window_adapter();
             Value::Bool(corelib::open_url(&url, window_adapter.window()).is_ok())
         }
+        BuiltinFunction::BringAllToFront => {
+            corelib::bring_all_to_front();
+            Value::Void
+        }
         BuiltinFunction::ParseMarkdown => {
             let format_string: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
@@ -1797,7 +1846,8 @@ fn call_item_member_function(nr: &NamedReference, local_context: &mut EvalLocalC
         }
     } else if let Some(s) = ItemRef::downcast_pin::<corelib::items::WindowItem>(item_ref) {
         match name {
-            "hide" => s.hide(&window_adapter),
+            "hide" => s.hide(&window_adapter, &item_rc),
+            "close" => return Value::Bool(s.close(&window_adapter, &item_rc)),
             _ => {
                 panic!("internal: Unknown member function {name} called on WindowItem")
             }
@@ -2093,6 +2143,7 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
         Type::ArrayOfU16 => matches!(value, Value::ArrayOfU16(_)),
         Type::ComponentFactory => matches!(value, Value::ComponentFactory(_)),
         Type::StyledText => matches!(value, Value::StyledText(_)),
+        Type::DataTransfer => matches!(value, Value::DataTransfer(_)),
     }
 }
 
@@ -2384,6 +2435,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
             e.values.get(e.default_value).unwrap().to_string(),
         ),
         Type::Keys => Value::Keys(Default::default()),
+        Type::DataTransfer => Value::DataTransfer(Default::default()),
         Type::Easing => Value::EasingCurve(Default::default()),
         Type::Void | Type::Invalid => Value::Void,
         Type::UnitProduct(_) => Value::Number(0.),

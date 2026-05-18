@@ -8,6 +8,7 @@ members = [
   'api/rs/build',
   'api/rs/macros',
   'api/rs/slint',
+  'api/slint-sc',
   'api/python/slint',
   'api/wasm-interpreter',
   'editors/zed',
@@ -37,6 +38,8 @@ members = [
   'examples/mcu-embassy',
   'examples/uefi-demo',
   'examples/async-io',
+  'examples/dnd-kanban',
+  'examples/system_tray',
   'demos/weather-demo',
   'demos/usecases/rust',
   'helper_crates/const-field-offset',
@@ -93,6 +96,7 @@ default-members = [
   'examples/todo/rust',
   'examples/virtual_keyboard/rust',
   'examples/carousel/rust',
+  'examples/system_tray',
   'demos/energy-monitor',
   'internal/backends/winit',
   'internal/backends/qt',
@@ -160,6 +164,7 @@ glutin = { version = "0.32.0", default-features = false }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 itertools = { version = "0.14" }
 log = { version = "0.4.17" }
+notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"] }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
 resvg = { version = "0.47.0", default-features = false, features = ["text", "raster-images"] }
@@ -187,8 +192,8 @@ icu_normalizer = { version = "2", default-features = false, features = ["compile
 
 glow = { version = "0.17" }
 tikv-jemallocator = { version = "0.6" }
-wgpu-27 = { package = "wgpu", version = "27", default-features = false }
 wgpu-28 = { package = "wgpu", version = "28", default-features = false }
+wgpu-29 = { package = "wgpu", version = "29", default-features = false }
 input = { version = "0.9.0", default-features = false }
 tr = { version = "0.1", default-features = false }
 fontique = { version = "0.9.0" }

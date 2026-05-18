@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell:ignore Snaf Tatta
+
 use super::writer::TokenWriter;
 use i_slint_compiler::parser::{NodeOrToken, SyntaxKind, SyntaxNode, syntax_nodes};
 
@@ -2920,6 +2922,7 @@ export component MainWindow2 inherits Rectangle {
         );
     }
 
+    // cspell:disable
     #[test]
     fn import_line_too_long() {
         assert_formatting(
@@ -2978,6 +2981,8 @@ export component MainWindow2 inherits Rectangle {
 } from "./here.slint";"#,
         );
     }
+
+    // cspell:enable
 
     #[test]
     /// format_import_identifier

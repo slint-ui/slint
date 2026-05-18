@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore callbackiter functioniter propiter
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -416,6 +417,7 @@ pub enum PyValueType {
     Struct,
     Brush,
     Image,
+    StyledText,
     Enumeration,
     Keys,
 }
@@ -441,6 +443,7 @@ impl From<i_slint_compiler::langtype::Type> for PyValueType {
             Type::Brush => PyValueType::Brush,
             Type::Color => PyValueType::Brush,
             Type::Image => PyValueType::Image,
+            Type::StyledText => PyValueType::StyledText,
             Type::Enumeration(..) => PyValueType::Enumeration,
             Type::Keys => PyValueType::Keys,
             _ => unimplemented!(),
@@ -582,6 +585,12 @@ impl ComponentInstance {
             })
             .register(callback_name.to_string(), callable, signature);
         Ok(self.instance.set_global_callback(global_name, callback_name, rust_cb)?.into())
+    }
+
+    fn _process_pending_events(&self) {
+        i_slint_core::properties::ChangeTracker::run_change_handlers();
+        i_slint_core::window::WindowInner::from_pub(self.instance.window())
+            .ensure_tree_instantiated();
     }
 
     fn show(&self) -> Result<(), PyPlatformError> {

@@ -19,6 +19,16 @@ use std::rc::Rc;
 use std::sync::{Arc, atomic::AtomicUsize};
 
 #[cfg(not(no_qt))]
+thread_local! {
+    /// Set once by [`Backend::bind_context`]; read from rust!() callbacks fired by the
+    /// Qt event filter installed on `qApp` so palette/theme changes can push the new
+    /// values onto the process-wide [`i_slint_core::SlintContext`] without going through
+    /// any specific [`qt_window::QtWindow`].
+    static QT_CONTEXT: std::cell::OnceCell<i_slint_core::SlintContextWeak> =
+        const { std::cell::OnceCell::new() };
+}
+
+#[cfg(not(no_qt))]
 mod qt_accessible;
 #[cfg(not(no_qt))]
 mod qt_widgets;
@@ -165,6 +175,20 @@ impl Backend {
 }
 
 impl i_slint_core::platform::Platform for Backend {
+    #[cfg(not(no_qt))]
+    fn bind_context(&self, ctx: i_slint_core::SlintContextWeak, _: i_slint_core::InternalToken) {
+        QT_CONTEXT.with(|cell| {
+            let _ = cell.set(ctx);
+        });
+        // Read the host shell's current values once and push them to the context, then
+        // install an `qApp`-level event filter that re-pushes whenever Qt reports a
+        // theme/palette change. The previous design did the read in `QtWindow::new` and
+        // the change-tracking in each window's `changeEvent`, which is wasteful when
+        // there are multiple windows and outright broken when there are zero windows.
+        update_palette_state();
+        install_palette_observer();
+    }
+
     fn create_window_adapter(
         &self,
     ) -> Result<Rc<dyn i_slint_core::window::WindowAdapter>, PlatformError> {
@@ -196,7 +220,7 @@ impl i_slint_core::platform::Platform for Backend {
 
     fn process_events(
         &self,
-        _timeout: core::time::Duration,
+        _timeout: Option<core::time::Duration>,
         _: i_slint_core::InternalToken,
     ) -> Result<core::ops::ControlFlow<()>, PlatformError> {
         #[cfg(not(no_qt))]
@@ -204,7 +228,7 @@ impl i_slint_core::platform::Platform for Backend {
             // Schedule any timers with Qt that were set up before this event loop start.
             crate::qt_window::timer_event();
             use cpp::cpp;
-            let timeout_ms: i32 = _timeout.as_millis() as _;
+            let timeout_ms: i32 = _timeout.map_or(-1, |d| d.as_millis() as i32);
             let loop_was_quit = cpp! {unsafe [timeout_ms as "int"] -> bool as "bool" {
                 ensure_initialized(true);
                 qApp->processEvents(QEventLoop::AllEvents, timeout_ms);
@@ -368,6 +392,64 @@ impl i_slint_core::platform::Platform for Backend {
             Err(i_slint_core::platform::PlatformError::Other("Failed to open URL".into()))
         }
     }
+}
+
+#[cfg(not(no_qt))]
+fn update_palette_state() {
+    use cpp::cpp;
+    let dark = cpp! {unsafe [] -> bool as "bool" {
+        return qApp->palette().color(QPalette::Window).valueF() < 0.5;
+    }};
+    let argb = cpp! {unsafe [] -> u32 as "QRgb" {
+        #if QT_VERSION >= QT_VERSION_CHECK(6, 6, 0)
+            return qApp->palette().color(QPalette::Accent).rgba();
+        #else
+            return qApp->palette().color(QPalette::Highlight).rgba();
+        #endif
+    }};
+    let scheme = if dark {
+        i_slint_core::items::ColorScheme::Dark
+    } else {
+        i_slint_core::items::ColorScheme::Light
+    };
+    let accent = i_slint_core::graphics::Color::from_argb_encoded(argb);
+    QT_CONTEXT.with(|cell| {
+        if let Some(ctx) = cell.get().and_then(|w| w.upgrade()) {
+            ctx.set_color_scheme(scheme);
+            ctx.set_accent_color(accent);
+        }
+    });
+}
+
+#[cfg(not(no_qt))]
+fn install_palette_observer() {
+    use cpp::cpp;
+    cpp! {{
+        #include <QtCore/QEvent>
+        #include <QtCore/QObject>
+        #include <QtWidgets/QApplication>
+
+        struct SlintPaletteObserver : QObject {
+            using QObject::QObject;
+            bool eventFilter(QObject *watched, QEvent *event) override {
+                if (watched == qApp
+                    && (event->type() == QEvent::ApplicationPaletteChange
+                        || event->type() == QEvent::ThemeChange)) {
+                    rust!(Slint_qt_palette_changed [] {
+                        crate::update_palette_state();
+                    });
+                }
+                return false;
+            }
+        };
+    }};
+    cpp! {unsafe [] {
+        ensure_initialized(true);
+        // Parented to qApp so it lives as long as the application and is cleaned up
+        // automatically on exit. installEventFilter doesn't take ownership.
+        auto *observer = new SlintPaletteObserver(qApp);
+        qApp->installEventFilter(observer);
+    }};
 }
 
 /// This helper trait can be used to obtain access to a pointer to a QtWidget for a given

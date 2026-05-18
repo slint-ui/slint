@@ -28,7 +28,7 @@ pub mod api {
         pub backends: wgpu_28::Backends,
         /// The different options that are given to the selected backends.
         pub backend_options: wgpu_28::BackendOptions,
-        /// The flags to fine-tune behaviour of the WGPU instance.
+        /// The flags to fine-tune behavior of the WGPU instance.
         pub instance_flags: wgpu_28::InstanceFlags,
         /// Memory budget thresholds used by some backends.
         pub instance_memory_budget_thresholds: wgpu_28::MemoryBudgetThresholds,

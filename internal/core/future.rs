@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-#![cfg(target_has_atomic = "ptr")] // Arc is not available. TODO: implement using RawWarker
+#![cfg(target_has_atomic = "ptr")] // Arc is not available. TODO: implement using RawWaker
 #![warn(missing_docs)]
 
 //! This module contains the code that runs futures

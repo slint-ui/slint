@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore depr descr idents shiftbehavior unaryop Unshiftable uppercased
 //! This pass resolves the property binding expressions.
 //!
 //! Before this pass, all the expression are of type Expression::Uncompiled,
@@ -373,73 +374,133 @@ impl Expression {
             .find_map(|child| match child {
                 NodeOrToken::Node(node) => match node.kind() {
                     SyntaxKind::Expression => Some(Self::from_expression_node(node.into(), ctx)),
-                    SyntaxKind::AtImageUrl => Some(Self::from_at_image_url_node(node.into(), ctx)),
-                    SyntaxKind::AtGradient => Some(Self::from_at_gradient(node.into(), ctx)),
-                    SyntaxKind::AtTr => Some(Self::from_at_tr(node.into(), ctx)),
-                    SyntaxKind::AtMarkdown => Some(Self::from_at_markdown(node.into(), ctx)),
-                    SyntaxKind::AtKeys => Some(Self::from_at_keys_node(node.into(), ctx)),
+                    SyntaxKind::AtImageUrl => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("@image-url() expressions are", &node);
+                        Some(Self::from_at_image_url_node(node.into(), ctx))
+                    }
+                    SyntaxKind::AtGradient => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("@gradient expressions are", &node);
+                        Some(Self::from_at_gradient(node.into(), ctx))
+                    }
+                    SyntaxKind::AtTr => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("@tr() expressions are", &node);
+                        Some(Self::from_at_tr(node.into(), ctx))
+                    }
+                    SyntaxKind::AtMarkdown => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("@markdown() expressions are", &node);
+                        Some(Self::from_at_markdown(node.into(), ctx))
+                    }
+                    SyntaxKind::AtKeys => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("@keys() expressions are", &node);
+                        Some(Self::from_at_keys_node(node.into(), ctx))
+                    }
                     SyntaxKind::QualifiedName => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Identifier references are", &node);
                         Some(Self::from_qualified_name_node(node.clone().into(), ctx))
                     }
                     SyntaxKind::FunctionCallExpression => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Function calls are", &node);
                         Some(Self::from_function_call_node(node.into(), ctx))
                     }
                     SyntaxKind::MemberAccess => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Member access expressions are", &node);
                         Some(Self::from_member_access_node(node.into(), ctx))
                     }
                     SyntaxKind::IndexExpression => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Index expressions are", &node);
                         Some(Self::from_index_expression_node(node.into(), ctx))
                     }
                     SyntaxKind::SelfAssignment => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Self-assignment expressions are", &node);
                         Some(Self::from_self_assignment_node(node.into(), ctx))
                     }
                     SyntaxKind::BinaryExpression => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Binary expressions are", &node);
                         Some(Self::from_binary_expression_node(node.into(), ctx))
                     }
                     SyntaxKind::UnaryOpExpression => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Unary expressions are", &node);
                         Some(Self::from_unaryop_expression_node(node.into(), ctx))
                     }
                     SyntaxKind::ConditionalExpression => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Conditional expressions are", &node);
                         Some(Self::from_conditional_expression_node(node.into(), ctx))
                     }
                     SyntaxKind::ObjectLiteral => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Object literal expressions are", &node);
                         Some(Self::from_object_literal_node(node.into(), ctx))
                     }
-                    SyntaxKind::Array => Some(Self::from_array_node(node.into(), ctx)),
-                    SyntaxKind::CodeBlock => Some(Self::from_codeblock_node(node.into(), ctx)),
+                    SyntaxKind::Array => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Array expressions are", &node);
+                        Some(Self::from_array_node(node.into(), ctx))
+                    }
+                    SyntaxKind::CodeBlock => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Code blocks are", &node);
+                        Some(Self::from_codeblock_node(node.into(), ctx))
+                    }
                     SyntaxKind::StringTemplate => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("String interpolation expressions are", &node);
                         Some(Self::from_string_template_node(node.into(), ctx))
                     }
                     _ => None,
                 },
                 NodeOrToken::Token(token) => match token.kind() {
-                    SyntaxKind::StringLiteral => Some(
-                        crate::literals::unescape_string(token.text())
+                    SyntaxKind::StringLiteral => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("String literals are", &token);
+                        Some(
+                            crate::literals::unescape_string_reporting(
+                                Some(&token),
+                                ctx.diag,
+                                &token,
+                            )
                             .map(Self::StringLiteral)
-                            .unwrap_or_else(|| {
-                                ctx.diag.push_error("Cannot parse string literal".into(), &token);
-                                Self::Invalid
-                            }),
-                    ),
-                    SyntaxKind::NumberLiteral => Some(
-                        crate::literals::parse_number_literal(token.text().into()).unwrap_or_else(
-                            |e| {
-                                ctx.diag.push_error(e.to_string(), &node);
-                                Self::Invalid
-                            },
-                        ),
-                    ),
-                    SyntaxKind::ColorLiteral => Some(
-                        i_slint_common::color_parsing::parse_color_literal(token.text())
-                            .map(|i| Expression::Cast {
-                                from: Box::new(Expression::NumberLiteral(i as _, Unit::None)),
-                                to: Type::Color,
-                            })
-                            .unwrap_or_else(|| {
-                                ctx.diag.push_error("Invalid color literal".into(), &node);
-                                Self::Invalid
-                            }),
-                    ),
+                            .unwrap_or(Self::Invalid),
+                        )
+                    }
+                    SyntaxKind::NumberLiteral => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Number literals are", &token);
+                        Some(
+                            crate::literals::parse_number_literal(token.text().into())
+                                .unwrap_or_else(|e| {
+                                    ctx.diag.push_error(e.to_string(), &node);
+                                    Self::Invalid
+                                }),
+                        )
+                    }
+                    SyntaxKind::ColorLiteral => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("Color literals are", &token);
+                        Some(
+                            i_slint_common::color_parsing::parse_color_literal(token.text())
+                                .map(|i| Expression::Cast {
+                                    from: Box::new(Expression::NumberLiteral(i as _, Unit::None)),
+                                    to: Type::Color,
+                                })
+                                .unwrap_or_else(|| {
+                                    ctx.diag.push_error("Invalid color literal".into(), &node);
+                                    Self::Invalid
+                                }),
+                        )
+                    }
 
                     _ => None,
                 },
@@ -448,15 +509,12 @@ impl Expression {
     }
 
     fn from_at_image_url_node(node: syntax_nodes::AtImageUrl, ctx: &mut LookupCtx) -> Self {
-        let s = match node
-            .child_text(SyntaxKind::StringLiteral)
-            .and_then(|x| crate::literals::unescape_string(&x))
-        {
-            Some(s) => s,
-            None => {
-                ctx.diag.push_error("Cannot parse string literal".into(), &node);
-                return Self::Invalid;
-            }
+        let Some(s) = crate::literals::unescape_string_reporting(
+            node.child_token(SyntaxKind::StringLiteral).as_ref(),
+            ctx.diag,
+            &node,
+        ) else {
+            return Self::Invalid;
         };
 
         if s.is_empty() {
@@ -766,55 +824,16 @@ impl Expression {
     }
 
     fn from_at_markdown(node: syntax_nodes::AtMarkdown, ctx: &mut LookupCtx) -> Expression {
-        let mut markdown = String::new();
         let mut values = Vec::new();
-        // Maps byte ranges in the markdown format string to source locations,
-        // sorted by range start. Used to report parse errors at the correct
-        // position in the .slint source.
-        let mut source_map: Vec<(std::ops::Range<usize>, crate::diagnostics::SourceLocation)> =
-            Vec::new();
-
-        fn record_string_literal(
-            markdown: &mut String,
-            source_map: &mut Vec<(std::ops::Range<usize>, crate::diagnostics::SourceLocation)>,
-            s: &str,
-            loc: crate::diagnostics::SourceLocation,
-        ) {
-            let start = markdown.len();
-            markdown.push_str(s);
-            let end = markdown.len();
-            if end > start {
-                source_map.push((start..end, loc));
-            }
-        }
+        let mut source_map = crate::literals::StringLiteralSourceMap::new();
 
         for n in node.children_with_tokens() {
             if n.kind() == SyntaxKind::StringLiteral {
-                if let Some(s) = crate::literals::unescape_string(n.as_token().unwrap().text()) {
-                    record_string_literal(
-                        &mut markdown,
-                        &mut source_map,
-                        &s,
-                        n.to_source_location(),
-                    );
-                } else {
-                    ctx.diag.push_error("Cannot parse string literal".into(), &n);
-                }
+                source_map.push(n.as_token().unwrap(), ctx.diag);
             } else if n.kind() == SyntaxKind::StringTemplate {
                 for n in n.as_node().unwrap().children_with_tokens() {
                     if n.kind() == SyntaxKind::StringLiteral {
-                        if let Some(s) =
-                            crate::literals::unescape_string(n.as_token().unwrap().text())
-                        {
-                            record_string_literal(
-                                &mut markdown,
-                                &mut source_map,
-                                &s,
-                                n.to_source_location(),
-                            );
-                        } else {
-                            ctx.diag.push_error("Cannot parse string literal".into(), &n);
-                        }
+                        source_map.push(n.as_token().unwrap(), ctx.diag);
                     } else if n.kind() == SyntaxKind::Expression {
                         let node = n.into_node().unwrap();
                         let expr = Expression::from_expression_node(node.clone().into(), ctx);
@@ -832,20 +851,21 @@ impl Expression {
                             }
                         };
                         values.push(expr);
-                        let start = markdown.len();
-                        markdown
-                            .push(i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER);
-                        source_map.push((start..markdown.len(), node.to_source_location()));
+                        source_map.push_raw_char(
+                            i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER,
+                            node.to_source_location(),
+                        );
                     }
                 }
             }
         }
 
         let dummy_paragraph = i_slint_common::styled_text::paragraph_from_plain_text("".into());
+        let markdown = source_map.as_str();
 
         // Validate the markdown format string with dummy values
         let (_, parse_errors) = i_slint_common::styled_text::parse_interpolated(
-            &markdown,
+            markdown,
             &vec![&[dummy_paragraph]; values.len()],
         );
         for e in &parse_errors {
@@ -861,32 +881,8 @@ impl Expression {
             {
                 continue;
             }
-            // Look up the source location from the error's byte range.
-            // Compute sub-literal precision: adjust the source span to point
-            // at the specific position within the string literal.
-            let loc = e.range().and_then(|r| {
-                // partition_point returns the first index where range.start > r.start,
-                // so idx - 1 is the last entry whose range could contain r.start.
-                let idx = source_map.partition_point(|(range, _)| range.start <= r.start);
-                if idx > 0 {
-                    let (fmt_range, loc) = &source_map[idx - 1];
-                    if fmt_range.contains(&r.start) {
-                        let delta = r.start - fmt_range.start;
-                        let err_len = r.len().min(loc.span.length.saturating_sub(delta));
-                        // +1 to skip the opening quote of the string literal
-                        return Some(crate::diagnostics::SourceLocation {
-                            source_file: loc.source_file.clone(),
-                            span: crate::diagnostics::Span::new(
-                                loc.span.offset + 1 + delta,
-                                err_len,
-                            ),
-                        });
-                    }
-                }
-                None
-            });
-            if let Some(loc) = loc {
-                ctx.diag.push_error_with_span(e.to_string(), loc);
+            if let Some(r) = e.range() {
+                source_map.report(ctx.diag, e.to_string(), r, &node);
             } else {
                 ctx.diag.push_error(e.to_string(), &node);
             }
@@ -895,7 +891,7 @@ impl Expression {
         Expression::FunctionCall {
             function: BuiltinFunction::ParseMarkdown.into(),
             arguments: vec![
-                Expression::StringLiteral(markdown.into()),
+                Expression::StringLiteral(source_map.into_string().into()),
                 Expression::Array { element_ty: Type::StyledText, values },
             ],
             source_location: Some(node.to_source_location()),
@@ -903,29 +899,30 @@ impl Expression {
     }
 
     fn from_at_tr(node: syntax_nodes::AtTr, ctx: &mut LookupCtx) -> Expression {
-        let Some(string) = node
-            .child_text(SyntaxKind::StringLiteral)
-            .and_then(|s| crate::literals::unescape_string(&s))
-        else {
+        let mut source_map = crate::literals::StringLiteralSourceMap::new();
+        let Some(string_token) = node.child_token(SyntaxKind::StringLiteral) else {
             ctx.diag.push_error("Cannot parse string literal".into(), &node);
             return Expression::Invalid;
         };
+        if !source_map.push(&string_token, ctx.diag) {
+            return Expression::Invalid;
+        }
+        let string: SmolStr = source_map.as_str().into();
         let context = node.TrContext().map(|n| {
-            n.child_text(SyntaxKind::StringLiteral)
-                .and_then(|s| crate::literals::unescape_string(&s))
-                .unwrap_or_else(|| {
-                    ctx.diag.push_error("Cannot parse string literal".into(), &n);
-                    Default::default()
-                })
+            crate::literals::unescape_string_reporting(
+                n.child_token(SyntaxKind::StringLiteral).as_ref(),
+                ctx.diag,
+                &n,
+            )
+            .unwrap_or_default()
         });
         let plural = node.TrPlural().map(|pl| {
-            let s = pl
-                .child_text(SyntaxKind::StringLiteral)
-                .and_then(|s| crate::literals::unescape_string(&s))
-                .unwrap_or_else(|| {
-                    ctx.diag.push_error("Cannot parse string literal".into(), &pl);
-                    Default::default()
-                });
+            let s = crate::literals::unescape_string_reporting(
+                pl.child_token(SyntaxKind::StringLiteral).as_ref(),
+                ctx.diag,
+                &pl,
+            )
+            .unwrap_or_default();
             let n = pl.Expression();
             let expr = Expression::from_expression_node(n.clone(), ctx).maybe_convert_to(
                 Type::Int32,
@@ -957,8 +954,11 @@ impl Expression {
             let mut has_n = false;
             while let Some(mut p) = string[pos..].find(['{', '}']) {
                 if string.len() - pos < p + 1 {
-                    ctx.diag.push_error(
+                    p += pos;
+                    source_map.report(
+                        ctx.diag,
                         "Unescaped trailing '{' in format string. Escape '{' with '{{'".into(),
+                        p..p + 1,
                         &node,
                     );
                     break;
@@ -971,8 +971,10 @@ impl Expression {
                         pos = p + 2;
                         continue;
                     } else {
-                        ctx.diag.push_error(
+                        source_map.report(
+                            ctx.diag,
                             "Unescaped '}' in format string. Escape '}' with '}}'".into(),
+                            p..p + 1,
                             &node,
                         );
                         break;
@@ -989,9 +991,11 @@ impl Expression {
                 let end = if let Some(end) = string[p..].find('}') {
                     end + p
                 } else {
-                    ctx.diag.push_error(
+                    source_map.report(
+                        ctx.diag,
                         "Unterminated placeholder in format string. '{' must be escaped with '{{'"
                             .into(),
+                        p..string.len(),
                         &node,
                     );
                     break;
@@ -1004,14 +1008,20 @@ impl Expression {
                 } else if argument == "n" {
                     has_n = true;
                     if plural.is_none() {
-                        ctx.diag.push_error(
+                        source_map.report(
+                            ctx.diag,
                             "`{n}` placeholder can only be found in plural form".into(),
+                            p..end + 1,
                             &node,
                         );
                     }
                 } else {
-                    ctx.diag
-                        .push_error("Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'".into(), &node);
+                    source_map.report(
+                        ctx.diag,
+                        "Invalid '{...}' placeholder in format string. The placeholder must be a number, or braces must be escaped with '{{' and '}}'".into(),
+                        p..end + 1,
+                        &node,
+                    );
                     break;
                 };
                 pos = end + 1;
@@ -1175,7 +1185,8 @@ impl Expression {
 
         // If there is a string literal, use it as the key
         if let Some(token) = node.child_token(SyntaxKind::StringLiteral)
-            && let Some(key) = crate::literals::unescape_string(token.text())
+            && let Some(key) =
+                crate::literals::unescape_string_reporting(Some(&token), ctx.diag, &token)
         {
             // NFC-normalize the key string for consistent matching
             let normalizer = icu_normalizer::ComposingNormalizer::new_nfc();
@@ -1329,6 +1340,13 @@ impl Expression {
         };
 
         arguments.extend(sub_expr);
+
+        if matches!(&function, Callable::Callback(nr) if nr.name() == "init") {
+            ctx.diag.push_warning(
+                "Calling 'init' explicitly does nothing and is deprecated".into(),
+                &node,
+            );
+        }
 
         let arguments = match function.ty() {
             Type::Function(function) | Type::Callback(function) => {
@@ -1658,12 +1676,9 @@ impl Expression {
         for n in node.children_with_tokens() {
             let expr = if n.kind() == SyntaxKind::StringLiteral {
                 let token = n.as_token().unwrap();
-                crate::literals::unescape_string(token.text())
+                crate::literals::unescape_string_reporting(Some(token), ctx.diag, token)
                     .map(Self::StringLiteral)
-                    .unwrap_or_else(|| {
-                        ctx.diag.push_error("Cannot parse string literal".into(), token);
-                        Self::Invalid
-                    })
+                    .unwrap_or(Self::Invalid)
             } else if n.kind() == SyntaxKind::Expression {
                 let node = n.into_node().unwrap();
                 let expr = Expression::from_expression_node(node.clone().into(), ctx);
@@ -2180,7 +2195,7 @@ fn maybe_lookup_object(
     Some(base)
 }
 
-/// Resolve all two way bindings on `elem`, and finalise the type of any
+/// Resolve all two way bindings on `elem`, and finalize the type of any
 /// `property foo <=> ...` declared without an explicit type. Run after any
 /// enclosing `for` model expression has been resolved.
 fn resolve_two_way_bindings_for_element(

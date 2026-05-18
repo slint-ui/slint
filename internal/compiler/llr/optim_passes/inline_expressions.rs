@@ -74,6 +74,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::WithGridInputData { .. } => return isize::MAX,
         Expression::MinMax { .. } => 10,
         Expression::EmptyComponentFactory => 10,
+        Expression::EmptyDataTransfer => 10,
         Expression::TranslationReference { .. } => PROPERTY_ACCESS_COST + 2 * ALLOC_COST,
     };
 
@@ -92,6 +93,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::GetWindowScaleFactor => PROPERTY_ACCESS_COST,
         BuiltinFunction::GetWindowDefaultFontSize => PROPERTY_ACCESS_COST,
         BuiltinFunction::AnimationTick => PROPERTY_ACCESS_COST,
+        BuiltinFunction::DecimalSeparator => PROPERTY_ACCESS_COST,
         BuiltinFunction::Debug => isize::MAX,
         BuiltinFunction::Mod => 10,
         BuiltinFunction::Round => 10,
@@ -123,8 +125,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::StringIsFloat => 50,
         BuiltinFunction::StringIsEmpty => 50,
         BuiltinFunction::StringCharacterCount => 50,
-        BuiltinFunction::StringToLowercase => ALLOC_COST,
-        BuiltinFunction::StringToUppercase => ALLOC_COST,
+        BuiltinFunction::StringToLowercase | BuiltinFunction::StringToUppercase => ALLOC_COST,
         BuiltinFunction::KeysToString => ALLOC_COST,
         BuiltinFunction::ColorRgbaStruct => 50,
         BuiltinFunction::ColorHsvaStruct => 50,
@@ -151,6 +152,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::AccentColor => PROPERTY_ACCESS_COST,
         BuiltinFunction::SupportsNativeMenuBar => 10,
         BuiltinFunction::SetupMenuBar => isize::MAX,
+        BuiltinFunction::SetupSystemTrayIcon => isize::MAX,
         BuiltinFunction::MonthDayCount => isize::MAX,
         BuiltinFunction::MonthOffset => isize::MAX,
         BuiltinFunction::FormatDate => isize::MAX,
@@ -169,6 +171,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ParseMarkdown => isize::MAX,
         BuiltinFunction::StringToStyledText => ALLOC_COST,
         BuiltinFunction::OpenUrl => isize::MAX,
+        BuiltinFunction::BringAllToFront => isize::MAX,
     }
 }
 

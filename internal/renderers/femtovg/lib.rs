@@ -21,7 +21,7 @@ use i_slint_core::item_tree::ItemTreeWeak;
 use i_slint_core::items::{ItemRc, TextWrap};
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx};
 use i_slint_core::platform::PlatformError;
-use i_slint_core::renderer::RendererSealed;
+use i_slint_core::renderer::{DrawOutcome, RendererSealed};
 use i_slint_core::textlayout::sharedparley;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use images::TextureImporter;
@@ -39,13 +39,21 @@ mod images;
 mod itemrenderer;
 #[cfg(feature = "opengl")]
 pub mod opengl;
-#[cfg(feature = "wgpu-28")]
+#[cfg(feature = "wgpu-29")]
 pub mod wgpu;
-#[cfg(feature = "wgpu-28")]
+#[cfg(feature = "wgpu-29")]
 pub use wgpu::FemtoVGWGPURenderer;
 
 pub trait WindowSurface<R: femtovg::Renderer> {
     fn render_output(&self) -> impl Into<R::RenderOutput>;
+}
+
+/// Result of [`GraphicsBackend::begin_surface_rendering`]. `Skipped` carries the reason,
+/// which propagates to the caller so it can decide whether to re-arm a redraw.
+pub enum BeginRendering<S> {
+    Acquired(S),
+    /// Always [`DrawOutcome::Occluded`] or [`DrawOutcome::Timeout`].
+    Skipped(DrawOutcome),
 }
 
 pub trait GraphicsBackend {
@@ -56,7 +64,7 @@ pub trait GraphicsBackend {
     fn clear_graphics_context(&self);
     fn begin_surface_rendering(
         &self,
-    ) -> Result<Self::WindowSurface, Box<dyn std::error::Error + Send + Sync>>;
+    ) -> Result<BeginRendering<Self::WindowSurface>, Box<dyn std::error::Error + Send + Sync>>;
     fn submit_commands(&self, commands: <Self::Renderer as femtovg::Renderer>::CommandBuffer);
     fn present_surface(
         &self,
@@ -108,7 +116,7 @@ pub struct FemtoVGRenderer<B: GraphicsBackend> {
 }
 
 impl<B: GraphicsBackend> FemtoVGRenderer<B> {
-    #[cfg(feature = "wgpu-28")]
+    #[cfg(feature = "wgpu-29")]
     pub(crate) fn new_internal(graphics_backend: B) -> Self {
         Self {
             maybe_window_adapter: Default::default(),
@@ -132,6 +140,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
             self.window_adapter()?.window().size(),
             None,
         )
+        .map(|_| ())
     }
 
     fn internal_render_with_post_callback(
@@ -140,8 +149,11 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
         translation: (f32, f32),
         surface_size: i_slint_core::api::PhysicalSize,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
-        let surface = self.graphics_backend.begin_surface_rendering()?;
+    ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
+        let surface = match self.graphics_backend.begin_surface_rendering()? {
+            BeginRendering::Acquired(s) => s,
+            BeginRendering::Skipped(outcome) => return Ok(outcome),
+        };
 
         if self.rendering_first_time.take() {
             *self.rendering_metrics_collector.borrow_mut() = RenderingMetricsCollector::new(
@@ -163,19 +175,19 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
             window_size.width.try_into().ok().zip(window_size.height.try_into().ok())
         else {
             // Nothing to render
-            return Ok(());
+            return Ok(DrawOutcome::Success);
         };
 
         if self.canvas.borrow().is_none() {
             // Nothing to render
-            return Ok(());
+            return Ok(DrawOutcome::Success);
         }
 
         let window_inner = WindowInner::from_pub(window);
         let scale = window_inner.scale_factor().ceil();
 
         window_inner
-            .draw_contents(|components| -> Result<(), PlatformError> {
+            .draw_contents(|components, post_render| -> Result<(), PlatformError> {
                 // self.canvas is checked for being Some(...) at the beginning of this function
                 let canvas = self.canvas.borrow().as_ref().unwrap().clone();
 
@@ -269,6 +281,8 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
                     }
                 }
 
+                post_render(&mut item_renderer);
+
                 if let Some(cb) = post_render_cb.as_ref() {
                     cb(&mut item_renderer)
                 }
@@ -294,7 +308,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
         }
 
         self.graphics_backend.present_surface(surface)?;
-        Ok(())
+        Ok(DrawOutcome::Success)
     }
 
     fn with_graphics_api(
@@ -310,7 +324,7 @@ impl<B: GraphicsBackend> FemtoVGRenderer<B> {
         })
     }
 
-    #[cfg(any(feature = "wgpu-28", feature = "opengl"))]
+    #[cfg(any(feature = "wgpu-29", feature = "opengl"))]
     pub(crate) fn reset_canvas(&self, canvas: CanvasRc<B::Renderer>) {
         *self.canvas.borrow_mut() = canvas.into();
         self.rendering_first_time.set(true);
@@ -496,7 +510,7 @@ pub trait FemtoVGRendererExt {
         translation: (f32, f32),
         surface_size: i_slint_core::api::PhysicalSize,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
-    ) -> Result<(), i_slint_core::platform::PlatformError>;
+    ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError>;
 }
 
 /// The purpose of this trait is to add internal API specific to the OpenGL renderer that's accessed from the winit
@@ -570,7 +584,7 @@ impl<B: GraphicsBackend> FemtoVGRendererExt for FemtoVGRenderer<B> {
         translation: (f32, f32),
         surface_size: i_slint_core::api::PhysicalSize,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
+    ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         self.internal_render_with_post_callback(
             rotation_angle_degrees,
             translation,
