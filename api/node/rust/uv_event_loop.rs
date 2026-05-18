@@ -323,9 +323,9 @@ mod platform {
         loop {
             let uv_timeout = state.prepare_handle.backend_timeout_ms();
             let timeout = if uv_timeout < 0 {
-                Duration::MAX
+                None
             } else {
-                Duration::from_millis(uv_timeout as u64)
+                Some(Duration::from_millis(uv_timeout as u64))
             };
 
             match crate::process_events_with_timeout(timeout) {
@@ -362,7 +362,7 @@ mod platform {
 
         // Check that the backend supports process_events
         // (the testing backend doesn't).
-        crate::process_events_with_timeout(Duration::ZERO)?;
+        crate::process_events_with_timeout(Some(Duration::ZERO))?;
 
         let fd_ready = ensure_watcher_spawned(&uv)?;
         let on_exit = on_exit.create_ref()?;

@@ -220,7 +220,7 @@ impl i_slint_core::platform::Platform for Backend {
 
     fn process_events(
         &self,
-        _timeout: core::time::Duration,
+        _timeout: Option<core::time::Duration>,
         _: i_slint_core::InternalToken,
     ) -> Result<core::ops::ControlFlow<()>, PlatformError> {
         #[cfg(not(no_qt))]
@@ -228,7 +228,7 @@ impl i_slint_core::platform::Platform for Backend {
             // Schedule any timers with Qt that were set up before this event loop start.
             crate::qt_window::timer_event();
             use cpp::cpp;
-            let timeout_ms: i32 = _timeout.as_millis() as _;
+            let timeout_ms: i32 = _timeout.map_or(-1, |d| d.as_millis() as i32);
             let loop_was_quit = cpp! {unsafe [timeout_ms as "int"] -> bool as "bool" {
                 ensure_initialized(true);
                 qApp->processEvents(QEventLoop::AllEvents, timeout_ms);
