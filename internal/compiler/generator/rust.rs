@@ -3672,7 +3672,7 @@ fn compile_builtin_function_call(
                 quote! {{
                     #common_init
                     let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
-                    let context_menu_item_tree = sp::VRc::new(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance), sp::Option::None::<fn() -> bool>, sp::Option::None::<fn() -> bool>));
+                    let context_menu_item_tree = sp::VRc::new(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)));
                     let context_menu_item_tree_ = context_menu_item_tree.clone();
                     {
                         let mut entries = sp::SharedVector::default();
@@ -4002,25 +4002,22 @@ fn compile_builtin_function_call(
             let access_activated = access_member(activated_r, ctx).unwrap();
 
             let compile_prop = |prop_expr: &Expression| {
-                if let Expression::BoolLiteral(true) = prop_expr {
-                    return quote!(sp::Option::None::<fn() -> bool>);
-                }
                 let binding = compile_expression(prop_expr, ctx);
-                quote!(sp::Option::Some({
+                quote!({
                     let self_weak = _self.self_weak.get().unwrap().clone();
                     move || {
                         let Some(self_rc) = self_weak.upgrade() else { return false };
                         let _self = self_rc.as_pin_ref();
                         #binding
                     }
-                }))
+                })
             };
 
             let condition_tokens = compile_prop(condition);
             let visible_tokens = compile_prop(visible);
 
             let native_impl = {
-                let menu_from_item_tree = quote!(sp::VRc::new(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance), #condition_tokens, #visible_tokens)));
+                let menu_from_item_tree = quote!(sp::VRc::new(sp::MenuFromItemTree::new_with_condition_and_visible(sp::VRc::into_dyn(menu_item_tree_instance), #condition_tokens, #visible_tokens)));
                 if *no_native {
                     quote!(let menu_item_tree = #menu_from_item_tree;)
                 } else {
@@ -4082,22 +4079,22 @@ fn compile_builtin_function_call(
             // gates the menu's shadow tree.
             let condition_tokens = if let Some(condition) = rest.first() {
                 let binding = compile_expression(condition, ctx);
-                quote!(sp::Option::Some({
+                quote!({
                     let self_weak = _self.self_weak.get().unwrap().clone();
                     move || {
                         let Some(self_rc) = self_weak.upgrade() else { return false };
                         let _self = self_rc.as_pin_ref();
                         #binding
                     }
-                }))
+                })
             } else {
-                quote!(sp::Option::None::<fn() -> bool>)
+                quote!(|| true)
             };
 
-            let menu_from_item_tree = quote!(sp::MenuFromItemTree::new(
+            let menu_from_item_tree = quote!(sp::MenuFromItemTree::new_with_condition_and_visible(
                 sp::VRc::into_dyn(menu_item_tree_instance),
                 #condition_tokens,
-                sp::Option::None::<fn() -> bool>,
+                || true
             ));
 
             quote!({

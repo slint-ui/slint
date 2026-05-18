@@ -4589,9 +4589,6 @@ fn compile_builtin_function_call(
                 }}")
             } else {
                 let compile_prop = |prop_expr: &llr::Expression| {
-                    if let llr::Expression::BoolLiteral(true) = prop_expr {
-                        return "nullptr".to_string();
-                    }
                     let binding = compile_expression(prop_expr, ctx);
                     format!(r"[](auto menu_tree) {{
                                 auto self_mapped = reinterpret_cast<const {item_tree_id} *>(menu_tree->operator->())->parent.lock();

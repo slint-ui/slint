@@ -2873,7 +2873,12 @@ pub fn make_menu_item_tree(
         let binding = make_binding_eval_closure(visible.clone(), enclosing_component_weak.clone());
         move || binding().try_into().unwrap()
     });
-    let menu = MenuFromItemTree::new(item_tree, condition, visible);
+    let menu = match (condition, visible) {
+        (None, None) => MenuFromItemTree::new(item_tree),
+        (None, Some(visible)) => MenuFromItemTree::new_with_condition_and_visible(item_tree, || true, visible),
+        (Some(condition), None) => MenuFromItemTree::new_with_condition_and_visible(item_tree, condition, || true),
+        (Some(condition), Some(visible)) => MenuFromItemTree::new_with_condition_and_visible(item_tree, condition, visible),
+    };
     vtable::VRc::new(menu)
 }
 

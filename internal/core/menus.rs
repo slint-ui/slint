@@ -56,29 +56,42 @@ pub struct MenuFromItemTree {
 }
 
 impl MenuFromItemTree {
-    pub fn new(
+    pub fn new(item_tree: ItemTreeRc) -> Self {
+        Self::new_internal(
+            item_tree,
+            None,
+            None,
+        )
+    }
+
+    pub fn new_with_condition_and_visible(
         item_tree: ItemTreeRc,
-        condition: Option<impl Fn() -> bool + 'static>,
-        visible: Option<impl Fn() -> bool + 'static>,
+        condition: impl Fn() -> bool + 'static,
+        visible: impl Fn() -> bool + 'static,
     ) -> Self {
-        let cond_prop = condition.map(|cond| {
-            let prop = Box::pin(Property::new_named(true, "MenuFromItemTree::condition"));
-            prop.as_ref().set_binding(cond);
-            prop
-        });
-        let visible_prop = visible.map(|vis| {
-            let prop = Box::pin(Property::new_named(true, "MenuFromItemTree::visible"));
-            prop.as_ref().set_binding(vis);
-            prop
-        });
+        fn make_prop(f: impl Fn() -> bool + 'static, name: &'static str) -> Option<Pin<Box<Property<bool>>>> {
+            let prop = Box::pin(Property::new_named(true, name));
+            prop.as_ref().set_binding(f);
+            Some(prop)
+        }
+        let condition = make_prop(condition, "MenuFromItemTree::condition");
+        let visible = make_prop(visible, "MenuFromItemTree::visible");
+        Self::new_internal(item_tree, condition, visible)
+    }
+
+    fn new_internal(
+        item_tree: ItemTreeRc,
+        condition: Option<Pin<Box<Property<bool>>>>,
+        visible: Option<Pin<Box<Property<bool>>>>,
+    ) -> Self {
         Self {
             item_tree,
             item_cache: Default::default(),
             root: Default::default(),
             tracker: Box::pin(PropertyTracker::default()),
             next_id: 0.into(),
-            condition: cond_prop,
-            visible: visible_prop,
+            condition,
+            visible,
         }
     }
 
@@ -319,7 +332,14 @@ pub mod ffi {
             let menu_weak = ItemTreeRc::downgrade(menu_tree);
             menu_weak.upgrade().map(|menu_rc| x(&menu_rc)).unwrap_or(false)
         });
-        let menu = MenuFromItemTree::new(menu_tree.clone(), condition, visible);
+        let menu = match (condition, visible) {
+            (None, None) => MenuFromItemTree::new(menu_tree.clone()),
+            (None, Some(visible)) => MenuFromItemTree::new_with_condition_and_visibility(item_tree, |_| true, visible),
+            (Some(condition), None) => MenuFromItemTree::new_with_condition_and_visibility(item_tree, condition, |_| true),
+            (Some(condition), Some(visible)) => {
+                MenuFromItemTree::new_with_condition_and_visible(menu_tree.clone(), condition, visible)
+            }
+        };
 
         let vrc = vtable::VRc::into_dyn(vtable::VRc::new(menu));
         unsafe { core::ptr::write(result, vrc) };
