@@ -193,7 +193,7 @@ assert.throws(() => slintlib.private_api.SlintKeys.fromParts(["Control"]));
 
 const KEY_CONTROL = "\u0011";
 const KEY_SHIFT   = "\u0010";
-const KEY_F5      = "\u0094";
+const KEY_F5      = "\uF708";
 
 let send = (keys) => slintlib.private_api.send_key_combo(instance, keys);
 let assert_matches = (expected) => assert.equal(instance.matches, expected);
