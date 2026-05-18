@@ -25,7 +25,7 @@ component Name inherits Base { /* component body */ }
 The identifier following the `component` keyword is the *name* of the component. {#sls.file.component.name}
 
 The first form defines a component with no explicit base; the second form defines a component that inherits from the element type named by `Base`.
-The identifier `Base` shall resolve to a built-in element or to a component previously defined in the same source file. {#sls.file.component.inherits}
+The identifier `Base` shall resolve to a built-in element or to a component previously defined. {#sls.file.component.inherits}
 
 The braces `{` and `}` delimit the *component body*. {#sls.file.component.body-braces}
 
