@@ -1392,6 +1392,8 @@ component Menu {
 /// ```
 /// \skip_children
 component MenuBar {
+    /// Whether this menu bar should be visible.  If the menu bar is not visible, the menu bar will not take up any space but shortcuts will still function.
+    /// \default true
     in property <bool> visible: true;
     //-is_non_item_type
     //-disallow_global_types_as_child_elements
