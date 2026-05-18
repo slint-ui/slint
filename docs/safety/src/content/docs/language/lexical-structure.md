@@ -33,9 +33,3 @@ The kebab-case form (with `U+002D`) is the canonical written form. {#sls.lex.ide
 
 Slint has no globally reserved words.
 Each language construct is introduced by a *contextual keyword*: an identifier that has a special meaning only when it appears in a position where the grammar expects that construct. {#sls.lex.contextual-keywords}
-
-## Element Type Names
-
-An element type name is an identifier that, in the contexts described in [File Structure](/language/file-structure/), resolves to a built-in or user-defined component. {#sls.lex.element-type-name}
-
-Element type names are matched against their normalized form as defined in [Identifier Normalization](#identifier-normalization). {#sls.lex.element-type-name.normalization}

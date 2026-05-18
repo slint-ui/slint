@@ -43,7 +43,7 @@ An element instantiation has the form: {#sls.file.element.instantiation-form}
 TypeName { /* element body */ }
 ```
 
-The identifier `TypeName` shall be an element type name as defined in [Element Type Names](/language/lexical-structure/#element-type-names). {#sls.file.element.instantiation-typename}
+The identifier `TypeName` shall resolve to a built-in or user-defined component. {#sls.file.element.instantiation-typename}
 
 The braces delimit the *element body*.
 An element body is a sequence of zero or more nested element instantiations, separated only by whitespace and comments. {#sls.file.element.body}
