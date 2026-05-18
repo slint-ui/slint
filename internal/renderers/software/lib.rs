@@ -794,22 +794,27 @@ impl RendererSealed for SoftwareRenderer {
             return LogicalSize::default();
         };
         let font_request = text_item.font_request(item_rc);
+        // Evaluate text() before borrowing font_context: the binding can
+        // re-enter text_size for other elements and would panic on a second
+        // borrow_mut().
+        let content = text_item.text();
         #[cfg(feature = "systemfonts")]
         let Some(slint_ctx) = self.slint_context() else {
             return Default::default();
         };
-        #[cfg(feature = "systemfonts")]
-        let mut font_ctx = slint_ctx.font_context().borrow_mut();
-        let font = fonts::match_font(
-            &font_request,
-            scale_factor,
+        let font = {
             #[cfg(feature = "systemfonts")]
-            &mut font_ctx,
-        );
+            let mut font_ctx = slint_ctx.font_context().borrow_mut();
+            fonts::match_font(
+                &font_request,
+                scale_factor,
+                #[cfg(feature = "systemfonts")]
+                &mut font_ctx,
+            )
+        };
 
         #[cfg(feature = "systemfonts")]
         if matches!(font, fonts::Font::VectorFont(_)) && !parley_disabled() {
-            drop(font_ctx);
             return sharedparley::text_size(
                 self,
                 text_item,
@@ -821,7 +826,6 @@ impl RendererSealed for SoftwareRenderer {
             .unwrap_or_default();
         }
 
-        let content = text_item.text();
         let string = match &content {
             PlainOrStyledText::Plain(string) => alloc::borrow::Cow::Borrowed(string.as_str()),
             PlainOrStyledText::Styled(styled_text) => {
@@ -864,18 +868,21 @@ impl RendererSealed for SoftwareRenderer {
         let Some(slint_ctx) = self.slint_context() else {
             return Default::default();
         };
-        #[cfg(feature = "systemfonts")]
-        let mut font_ctx = slint_ctx.font_context().borrow_mut();
-        let font = fonts::match_font(
-            &font_request,
-            scale_factor,
+        let font = {
             #[cfg(feature = "systemfonts")]
-            &mut font_ctx,
-        );
+            let mut font_ctx = slint_ctx.font_context().borrow_mut();
+            fonts::match_font(
+                &font_request,
+                scale_factor,
+                #[cfg(feature = "systemfonts")]
+                &mut font_ctx,
+            )
+        };
 
         match (font, parley_disabled()) {
             #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
+                let mut font_ctx = slint_ctx.font_context().borrow_mut();
                 sharedparley::char_size(&mut font_ctx, text_item, item_rc, ch).unwrap_or_default()
             }
             #[cfg(feature = "systemfonts")]
