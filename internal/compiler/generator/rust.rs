@@ -3517,19 +3517,24 @@ fn compile_builtin_function_call(
                 let is_tooltip = popup.is_tooltip;
                 let close_policy = compile_expression(close_policy, ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
+                let globals_init = if !is_tooltip {
+                    quote! {
+                        if let Some(popup_window_adapter) = window.create_popup_window_adapter() {
+                            shared_global.clone_with_window_adapter(popup_window_adapter)
+                        } else {
+                            shared_global.clone()
+                        }
+                    }
+                } else {
+                    quote! { shared_global.clone() }
+                };
                 component_access_tokens.then(|component_access_tokens| quote!({
                     let parent_item = #parent_item;
                     // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one
                     let shared_global = #component_access_tokens.globals.get().unwrap();
                     let window_adapter = shared_global.window_adapter_impl();
                     let window = sp::WindowInner::from_pub(window_adapter.window());
-                    let globals = if !#is_tooltip
-                        && let Some(popup_window_adapter) = window.create_popup_window_adapter()
-                    {
-                        shared_global.clone_with_window_adapter(popup_window_adapter)
-                    } else {
-                        shared_global.clone()
-                    };
+                    let globals = #globals_init;
 
                     let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone(), globals).unwrap();
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
