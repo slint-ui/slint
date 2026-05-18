@@ -322,11 +322,8 @@ mod platform {
     fn process_slint_events(state: &PrepareState) -> ProcessEventsResult {
         loop {
             let uv_timeout = state.prepare_handle.backend_timeout_ms();
-            let timeout = if uv_timeout < 0 {
-                None
-            } else {
-                Some(Duration::from_millis(uv_timeout as u64))
-            };
+            let timeout =
+                if uv_timeout < 0 { None } else { Some(Duration::from_millis(uv_timeout as u64)) };
 
             match crate::process_events_with_timeout(timeout) {
                 Ok(ProcessEventsResult::Exited) | Err(_) => return ProcessEventsResult::Exited,
