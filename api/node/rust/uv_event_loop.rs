@@ -225,25 +225,26 @@ mod uv {
         }
     }
 
-    /// Heap-allocated `uv_async_t` handle used to wake libuv's poll.
+    /// Heap-allocated `uv_async_t` handle.
     ///
-    /// Calling `send()` ensures the next `uv_run` iteration fires
-    /// without blocking in I/O poll.  The handle is unref'd so it
-    /// doesn't keep the Node.js process alive on its own.
+    /// Wraps a libuv async handle that invokes a C callback when
+    /// `send()` is called.  The handle is unref'd so it doesn't
+    /// keep the Node.js process alive on its own.
     pub(super) struct AsyncHandle {
         ptr: *mut u8,
         fns: Functions,
     }
 
     impl AsyncHandle {
-        pub(super) fn new(fns: Functions) -> napi::Result<Self> {
+        pub(super) fn new(
+            fns: Functions,
+            cb: unsafe extern "C" fn(*mut u8),
+        ) -> napi::Result<Self> {
             let layout = fns.async_layout;
             let ptr = unsafe { std::alloc::alloc(layout) };
             assert!(!ptr.is_null(), "failed to allocate uv_async_t");
 
-            unsafe extern "C" fn noop_cb(_handle: *mut u8) {}
-
-            let rc = unsafe { (fns.async_init)(fns.uv_loop, ptr, noop_cb) };
+            let rc = unsafe { (fns.async_init)(fns.uv_loop, ptr, cb) };
             if rc != 0 {
                 unsafe { std::alloc::dealloc(ptr, layout) };
                 return Err(napi::Error::from_reason("uv_async_init failed"));
@@ -255,7 +256,7 @@ mod uv {
             Ok(Self { ptr, fns })
         }
 
-        /// Wake libuv so it re-enters its loop promptly.
+        /// Signal the async handle, waking libuv's event loop.
         pub(super) fn send(&self) {
             unsafe { (self.fns.async_send)(self.ptr) };
         }
@@ -447,7 +448,8 @@ mod platform {
         let on_exit = on_exit.create_ref()?;
         let mut prepare_handle = uv::PrepareHandle::new(uv)?;
         prepare_handle.start(prepare_cb)?;
-        let async_handle = uv::AsyncHandle::new(uv)?;
+        unsafe extern "C" fn noop_cb(_handle: *mut u8) {}
+        let async_handle = uv::AsyncHandle::new(uv, noop_cb)?;
 
         let state =
             Box::new(PrepareState { fd_ready, prepare_handle, async_handle, env: *env, on_exit });
