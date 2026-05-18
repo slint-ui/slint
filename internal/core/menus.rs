@@ -57,11 +57,7 @@ pub struct MenuFromItemTree {
 
 impl MenuFromItemTree {
     pub fn new(item_tree: ItemTreeRc) -> Self {
-        Self::new_internal(
-            item_tree,
-            None,
-            None,
-        )
+        Self::new_internal(item_tree, None, None)
     }
 
     pub fn new_with_condition_and_visible(
@@ -69,7 +65,10 @@ impl MenuFromItemTree {
         condition: impl Fn() -> bool + 'static,
         visible: impl Fn() -> bool + 'static,
     ) -> Self {
-        fn make_prop(f: impl Fn() -> bool + 'static, name: &'static str) -> Option<Pin<Box<Property<bool>>>> {
+        fn make_prop(
+            f: impl Fn() -> bool + 'static,
+            name: &'static str,
+        ) -> Option<Pin<Box<Property<bool>>>> {
             let prop = Box::pin(Property::new_named(true, name));
             prop.as_ref().set_binding(f);
             Some(prop)
@@ -334,11 +333,17 @@ pub mod ffi {
         });
         let menu = match (condition, visible) {
             (None, None) => MenuFromItemTree::new(menu_tree.clone()),
-            (None, Some(visible)) => MenuFromItemTree::new_with_condition_and_visibility(item_tree, |_| true, visible),
-            (Some(condition), None) => MenuFromItemTree::new_with_condition_and_visibility(item_tree, condition, |_| true),
-            (Some(condition), Some(visible)) => {
-                MenuFromItemTree::new_with_condition_and_visible(menu_tree.clone(), condition, visible)
+            (None, Some(visible)) => {
+                MenuFromItemTree::new_with_condition_and_visibility(item_tree, |_| true, visible)
             }
+            (Some(condition), None) => {
+                MenuFromItemTree::new_with_condition_and_visibility(item_tree, condition, |_| true)
+            }
+            (Some(condition), Some(visible)) => MenuFromItemTree::new_with_condition_and_visible(
+                menu_tree.clone(),
+                condition,
+                visible,
+            ),
         };
 
         let vrc = vtable::VRc::into_dyn(vtable::VRc::new(menu));
