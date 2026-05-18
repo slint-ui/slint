@@ -236,10 +236,7 @@ mod uv {
     }
 
     impl AsyncHandle {
-        pub(super) fn new(
-            fns: Functions,
-            cb: unsafe extern "C" fn(*mut u8),
-        ) -> napi::Result<Self> {
+        pub(super) fn new(fns: Functions, cb: unsafe extern "C" fn(*mut u8)) -> napi::Result<Self> {
             let layout = fns.async_layout;
             let ptr = unsafe { std::alloc::alloc(layout) };
             assert!(!ptr.is_null(), "failed to allocate uv_async_t");
