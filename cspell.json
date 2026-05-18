@@ -308,6 +308,7 @@
     ],
     "ignorePaths": [
         ".github/**",
+        ".mise/**",
         "api/cpp/docs/conf.py",
         "CHANGELOG.md",
         "cspell.json",
