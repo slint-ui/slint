@@ -35,7 +35,7 @@ Block comments nest: an inner `/*` inside a block comment increments the nesting
 
 Comments are equivalent to whitespace; they have no other semantic effect. {#sls.source.comment.whitespace-equivalent}
 
-The token sequences `///` and `/**` are recognized as ordinary line and block comments, respectively, and carry no special meaning. {#sls.source.comment.doc-unspecial}
+The token sequences `///` and `/**` are recognized as ordinary line and block comments, respectively, and carry no special meaning. {#sls.source.comment.no-doc-comments}
 
 ```slint
 // A line comment.
