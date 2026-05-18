@@ -309,15 +309,15 @@ pub mod ffi {
         menu_tree: &ItemTreeRc,
         result: *mut vtable::VRc<MenuVTable>,
         condition: Option<extern "C" fn(menu_tree: &ItemTreeRc) -> bool>,
-        visible: Option<extern "C" fn(menu_tree: &ItemTreeRc) -> bool>
+        visible: Option<extern "C" fn(menu_tree: &ItemTreeRc) -> bool>,
     ) {
         let condition = condition.map(|x| {
             let menu_weak = ItemTreeRc::downgrade(menu_tree);
-            menu_weak.upgrade().map(|menu_rc| { x(&menu_rc) }).unwrap_or(false)
+            menu_weak.upgrade().map(|menu_rc| x(&menu_rc)).unwrap_or(false)
         });
         let visible = visible.map(|x| {
             let menu_weak = ItemTreeRc::downgrade(menu_tree);
-            menu_weak.upgrade().map(|menu_rc| { x(&menu_rc) }).unwrap_or(false)
+            menu_weak.upgrade().map(|menu_rc| x(&menu_rc)).unwrap_or(false)
         });
         let menu = MenuFromItemTree::new(menu_tree.clone(), condition, visible);
 
