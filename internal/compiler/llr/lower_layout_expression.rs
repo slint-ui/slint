@@ -1178,22 +1178,22 @@ fn generate_layout_padding_and_spacing(
 /// be supplied to get a meaningful answer.
 ///
 /// Two cases qualify:
-/// - Builtin h-for-w items (Text with `wrap != no-wrap`, Image with
-///   aspect-ratio sizing).
-/// - Components whose subtree contains a h-for-w descendant — recognized
-///   by the presence of `Element::layout_info_v_with_constraint`.
+/// - Builtin height-for-width items (Text with `wrap != no-wrap`, Image
+///   with aspect-ratio sizing).
+/// - Components whose subtree contains a height-for-width descendant —
+///   recognized by the presence of `Element::layout_info_v_with_constraint`.
 fn is_height_for_width_cell(elem: &ElementRc) -> bool {
     let elem_b = elem.borrow();
 
-    // Component path: LIVC may live on `elem` itself or on the base
-    // component's root_element.
-    let has_livc = elem_b.layout_info_v_with_constraint.is_some()
+    // Component path: `layoutinfo-v-with-constraint` may live on `elem`
+    // itself or on the base component's root_element.
+    let has_constrained_v = elem_b.layout_info_v_with_constraint.is_some()
         || matches!(
             &elem_b.base_type,
             crate::langtype::ElementType::Component(base_comp)
                 if base_comp.root_element.borrow().layout_info_v_with_constraint.is_some()
         );
-    if has_livc {
+    if has_constrained_v {
         return true;
     }
 
@@ -1223,9 +1223,10 @@ fn is_height_for_width_cell(elem: &ElementRc) -> bool {
 /// received the width as a parameter).
 ///
 /// Precondition: `is_height_for_width_cell(elem)` is true. After the
-/// LIVC synthesis pass, any element with `layout_info_v_with_constraint`
-/// also has `layout_info_prop` set (LIVC is synthesized from the existing
-/// `layoutinfo-v` binding), so the `layout_info_prop` branch covers it.
+/// `layoutinfo-v-with-constraint` synthesis pass, any element with
+/// `layout_info_v_with_constraint` also has `layout_info_prop` set (the
+/// constrained function is synthesized from the existing `layoutinfo-v`
+/// binding), so the `layout_info_prop` branch covers it.
 fn default_cross_axis_constraint(elem: &ElementRc) -> Option<crate::expression_tree::Expression> {
     let elem_b = elem.borrow();
 
@@ -1277,10 +1278,10 @@ pub fn get_layout_info(
     // descendant.
     let layout_info = if orientation == Orientation::Vertical
         && let Some(c) = &constraint
-        && let Some(livc_nr) = elem.borrow().layout_info_v_with_constraint.clone()
+        && let Some(constrained_nr) = elem.borrow().layout_info_v_with_constraint.clone()
     {
         let call = crate::expression_tree::Expression::FunctionCall {
-            function: crate::expression_tree::Callable::Function(livc_nr),
+            function: crate::expression_tree::Callable::Function(constrained_nr),
             arguments: vec![c.clone()],
             source_location: None,
         };

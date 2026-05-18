@@ -745,17 +745,18 @@ pub fn implicit_layout_info_call(
         return match &elem_it.clone().borrow().base_type {
             ElementType::Component(base_comp) => {
                 // Flexbox supplies a width constraint to break its h/v
-                // cache cycle; call the base component's LIVC when present.
+                // cache cycle; call the base component's
+                // `layoutinfo-v-with-constraint` when present.
                 if orientation == Orientation::Vertical
                     && let Some(c) = &constraint
-                    && let Some(livc_nr) =
+                    && let Some(constrained_nr) =
                         base_comp.root_element.borrow().layout_info_v_with_constraint.clone()
                 {
-                    debug_assert!(Rc::ptr_eq(&livc_nr.element(), &base_comp.root_element));
+                    debug_assert!(Rc::ptr_eq(&constrained_nr.element(), &base_comp.root_element));
                     return Some(Expression::FunctionCall {
                         function: crate::expression_tree::Callable::Function(NamedReference::new(
                             elem,
-                            livc_nr.name().clone(),
+                            constrained_nr.name().clone(),
                         )),
                         arguments: vec![c.clone()],
                         source_location: None,
