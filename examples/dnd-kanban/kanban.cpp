@@ -23,16 +23,16 @@ int main()
     auto window = MainWindow::create();
 
     auto todo = std::make_shared<slint::VectorModel<TaskData>>(std::vector<TaskData> {
-            { 1, "Write release notes" },
-            { 2, "Reply to mailing list" },
-            { 3, "Triage open issues" },
+            { "Write release notes" },
+            { "Reply to mailing list" },
+            { "Triage open issues" },
     });
     auto doing = std::make_shared<slint::VectorModel<TaskData>>(std::vector<TaskData> {
-            { 4, "Polish drag-and-drop example" },
-            { 5, "Review kanban PR" },
+            { "Polish drag-and-drop example" },
+            { "Review kanban PR" },
     });
     auto done = std::make_shared<slint::VectorModel<TaskData>>(std::vector<TaskData> {
-            { 6, "Set up project skeleton" },
+            { "Set up project skeleton" },
     });
 
     window->set_todo(todo);

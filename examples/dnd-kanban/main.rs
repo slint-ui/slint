@@ -21,16 +21,15 @@ fn main() -> Result<(), slint::PlatformError> {
     let window = MainWindow::new()?;
 
     let todo = Rc::new(VecModel::from(vec![
-        TaskData { id: 1, title: "Write release notes".into() },
-        TaskData { id: 2, title: "Reply to mailing list".into() },
-        TaskData { id: 3, title: "Triage open issues".into() },
+        TaskData { title: "Write release notes".into() },
+        TaskData { title: "Reply to mailing list".into() },
+        TaskData { title: "Triage open issues".into() },
     ]));
     let doing = Rc::new(VecModel::from(vec![
-        TaskData { id: 4, title: "Polish drag-and-drop example".into() },
-        TaskData { id: 5, title: "Review kanban PR".into() },
+        TaskData { title: "Polish drag-and-drop example".into() },
+        TaskData { title: "Review kanban PR".into() },
     ]));
-    let done =
-        Rc::new(VecModel::from(vec![TaskData { id: 6, title: "Set up project skeleton".into() }]));
+    let done = Rc::new(VecModel::from(vec![TaskData { title: "Set up project skeleton".into() }]));
 
     window.set_todo(todo.clone().into());
     window.set_doing(doing.clone().into());

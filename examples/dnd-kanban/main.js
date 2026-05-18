@@ -19,16 +19,16 @@ class DragPayload {
 }
 
 const todo = new slint.ArrayModel([
-    { id: 1, title: "Write release notes" },
-    { id: 2, title: "Reply to mailing list" },
-    { id: 3, title: "Triage open issues" },
+    { title: "Write release notes" },
+    { title: "Reply to mailing list" },
+    { title: "Triage open issues" },
 ]);
 const doing = new slint.ArrayModel([
-    { id: 4, title: "Polish drag-and-drop example" },
-    { id: 5, title: "Review kanban PR" },
+    { title: "Polish drag-and-drop example" },
+    { title: "Review kanban PR" },
 ]);
 const done = new slint.ArrayModel([
-    { id: 6, title: "Set up project skeleton" },
+    { title: "Set up project skeleton" },
 ]);
 
 appWindow.todo = todo;
