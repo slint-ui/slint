@@ -1022,6 +1022,18 @@ impl MouseInputState {
     pub fn has_delayed_event(&self) -> bool {
         self.delayed.is_some()
     }
+
+    /// The action negotiated with the `DropArea` that accepted the most recent
+    /// `DragMove`/`Drop`, or `None` if none accepted.
+    pub fn drop_target_action(&self) -> Option<crate::items::DragAction> {
+        let action = self
+            .drop_target
+            .as_ref()
+            .and_then(|t| t.upgrade())
+            .and_then(|i| i.downcast::<crate::items::DropArea>())
+            .map(|d| d.as_pin_ref().current_action())?;
+        (action != crate::items::DragAction::None).then_some(action)
+    }
 }
 
 /// Try to handle the mouse grabber. Return None if the event has been handled, otherwise
