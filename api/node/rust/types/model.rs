@@ -245,7 +245,7 @@ impl Model for JsModel {
     }
 
     fn push_row(&self, data: Self::Data) {
-        let Ok(model_unknown) = self.js_impl.get_unknown() else {
+        let Some(model_unknown) = self.js_impl.get_unknown() else {
             eprintln!("Node.js: JavaScript Model<T>'s pushRow threw an exception");
             return;
         };
@@ -282,7 +282,7 @@ impl Model for JsModel {
     }
 
     fn remove_row(&self, row: usize) {
-        let Ok(model_unknown) = self.js_impl.get_unknown() else {
+        let Some(model_unknown) = self.js_impl.get_unknown() else {
             eprintln!("Node.js: JavaScript Model<T>'s removeRow threw an exception");
             return;
         };
@@ -311,7 +311,7 @@ impl Model for JsModel {
     }
 
     fn insert_row(&self, row: usize, data: Self::Data) {
-        let Ok(model_unknown) = self.js_impl.get_unknown() else {
+        let Some(model_unknown) = self.js_impl.get_unknown() else {
             eprintln!("Node.js: JavaScript Model<T>'s insertRow threw an exception");
             return;
         };
