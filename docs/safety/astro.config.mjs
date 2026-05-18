@@ -7,13 +7,14 @@ import mermaid from "astro-mermaid";
 import {
     SLINT_STARLIGHT_TRAILING_SLASH,
     slintStarlightLinksValidatorPlugin,
-    slintStarlightMarkdownRehypeExternalLinksOnly,
 } from "@slint/common-files/src/utils/starlight-site-defaults";
+import { rehypeExternalLinksSlint } from "@slint/common-files/src/utils/rehype-external-links-preset";
 import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
 import {
     SAFETY_DOCS_BASE_URL,
     SAFETY_DOCS_BASE_PATH,
 } from "./src/safety-site-config.mjs";
+import rehypeSlsIds from "./src/rehype-sls-ids.mjs";
 
 const _safetyOrigin = String(SAFETY_DOCS_BASE_URL).replace(/\/+$/, "");
 const _safetyAtRoot = SAFETY_DOCS_BASE_PATH === "/";
@@ -29,11 +30,14 @@ export default defineConfig({
     site: _safetySite,
     ...(_safetyBase ? { base: _safetyBase } : {}),
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
-    markdown: slintStarlightMarkdownRehypeExternalLinksOnly(),
+    markdown: {
+        rehypePlugins: [rehypeExternalLinksSlint, rehypeSlsIds],
+    },
     integrations: [
         mermaid(),
         starlight({
             title: "Slint SC Safety Manual",
+            customCss: ["./src/styles/sls-ids.css"],
             components: {
                 Footer: "@slint/common-files/src/components/Footer.astro",
                 Header: "@slint/common-files/src/components/Header.astro",
@@ -131,6 +135,24 @@ export default defineConfig({
                         {
                             label: "Validation",
                             slug: "qualification-plan/validation",
+                        },
+                    ],
+                },
+                {
+                    label: "Language Specification",
+                    items: [
+                        { label: "Introduction", slug: "language" },
+                        {
+                            label: "Source Files",
+                            slug: "language/source-files",
+                        },
+                        {
+                            label: "Lexical Structure",
+                            slug: "language/lexical-structure",
+                        },
+                        {
+                            label: "File Structure",
+                            slug: "language/file-structure",
                         },
                     ],
                 },
