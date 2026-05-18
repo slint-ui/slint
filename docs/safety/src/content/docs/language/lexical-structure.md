@@ -5,7 +5,7 @@ description: Identifiers, contextual keywords, and element type names in the Sli
 
 ## Tokens
 
-After whitespace and comments are removed (see [Source Files](/language/source-files/)), the remaining input is a sequence of tokens. {#sls.lex.tokens}
+After whitespace and comments are removed (see [Source Files](../source-files/)), the remaining input is a sequence of tokens. {#sls.lex.tokens}
 
 ## Identifiers
 
