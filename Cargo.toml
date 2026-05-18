@@ -11,6 +11,7 @@ members = [
   'api/slint-sc',
   'api/python/slint',
   'api/wasm-interpreter',
+  'editors/tree-sitter-slint',
   'editors/zed',
   'examples/7guis',
   'examples/gallery',
@@ -60,6 +61,7 @@ members = [
   'internal/core',
   'internal/core-macros',
   'internal/interpreter',
+  'internal/formatter',
   'internal/preview-protocol',
   'tests/doctests',
   'tests/driver/cpp',
@@ -78,6 +80,7 @@ members = [
   'docs/slint-doc-generator',
   'tools/figma_import',
   'tools/lsp',
+  'tools/formatter',
   'tools/updater',
   'tools/viewer',
   'tools/tr-extractor',
@@ -139,6 +142,8 @@ i-slint-common = { version = "=1.17.0", path = "internal/common", default-featur
 i-slint-compiler = { version = "=1.17.0", path = "internal/compiler", default-features = false }
 i-slint-core = { version = "=1.17.0", path = "internal/core", default-features = false }
 i-slint-core-macros = { version = "=1.17.0", path = "internal/core-macros", default-features = false }
+i-slint-formatter = { version = "=1.17.0", path = "internal/formatter", default-features = false }
+i-tree-sitter-slint = { version = "=1.17.0", path = "editors/tree-sitter-slint" }
 i-slint-renderer-femtovg = { version = "=1.17.0", path = "internal/renderers/femtovg", default-features = false }
 i-slint-renderer-skia = { version = "=1.17.0", path = "internal/renderers/skia", default-features = false }
 i-slint-renderer-software = { version = "=1.17.0", path = "internal/renderers/software", default-features = false }
@@ -175,6 +180,8 @@ serde = { version = "1.0.163", default-features = false, features = ["derive"] }
 serde_json = { version = "1.0.96" }
 softbuffer = { version = "0.4.4", default-features = false }
 spin_on = { version = "0.1" }
+topiary-core = { version = "0.7.3" }
+topiary-tree-sitter-facade = { version = "0.7.3" }
 strum = { version = "0.28", default-features = false, features = ["derive"] }
 toml_edit = { version = "0.25.0" }
 ttf-parser = { version = "0.25" }
@@ -212,6 +219,10 @@ lsp-types = "0.95.0"
 [profile.release]
 lto = true
 panic = "abort"
+
+[patch.crates-io]
+topiary-tree-sitter-facade = { path = "helper_crates/topiary-tree-sitter-facade" }
+topiary-web-tree-sitter-sys = { path = "helper_crates/topiary-web-tree-sitter-sys" }
 
 [profile.dev]
 panic = "abort"

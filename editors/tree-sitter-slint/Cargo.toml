@@ -1,0 +1,27 @@
+[package]
+name = "i-tree-sitter-slint"
+description = "Tree-sitter grammar for the Slint language"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+readme = "README.md"
+keywords = ["incremental", "parsing", "slint", "tree-sitter"]
+categories = ["parsing", "text-editors"]
+autoexamples = false
+build = "bindings/rust/build.rs"
+include = ["bindings/rust/*", "grammar.js", "README.md", "src/**/*", "tree-sitter.json"]
+
+[lib]
+path = "bindings/rust/lib.rs"
+
+[dependencies]
+tree-sitter-language = "0.1"
+
+[build-dependencies]
+cc = "1.1"
+
+[dev-dependencies]
+tree-sitter = "0.26"
