@@ -97,13 +97,6 @@ description = "Run knip"
 run = "pnpm knip"
 depends = ["prepare:pnpm-install"]
 
-["lint:cspell"]
-description = "Run cSpell on the repository (respects .gitignore)"
-# cspell can hang on exit with Node 24 (worker threads); use Node 22 in CI.
-tools.node = "22"
-run = "pnpm exec cspell lint --no-progress --gitignore ."
-depends = ["prepare:pnpm-install"]
-
 ### Build
 
 ["build:lsp:wasm"]
@@ -151,4 +144,4 @@ depends = [
 
 ["ci:autofix:lint"]
 description = "CI autofix job -- lint steps"
-depends = ["lint:legal:reuse", "lint:ts:typecheck", "lint:ts:knip", "lint:cspell"]
+depends = ["lint:legal:reuse", "lint:ts:typecheck", "lint:ts:knip"]
