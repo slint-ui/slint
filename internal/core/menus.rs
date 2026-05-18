@@ -333,12 +333,16 @@ pub mod ffi {
         });
         let menu = match (condition, visible) {
             (None, None) => MenuFromItemTree::new(menu_tree.clone()),
-            (None, Some(visible)) => {
-                MenuFromItemTree::new_with_condition_and_visible(menu_tree.clone(), |_| true, visible)
-            }
-            (Some(condition), None) => {
-                MenuFromItemTree::new_with_condition_and_visible(menu_tree.clone(), condition, |_| true)
-            }
+            (None, Some(visible)) => MenuFromItemTree::new_with_condition_and_visible(
+                menu_tree.clone(),
+                |_| true,
+                visible,
+            ),
+            (Some(condition), None) => MenuFromItemTree::new_with_condition_and_visible(
+                menu_tree.clone(),
+                condition,
+                |_| true,
+            ),
             (Some(condition), Some(visible)) => MenuFromItemTree::new_with_condition_and_visible(
                 menu_tree.clone(),
                 condition,
