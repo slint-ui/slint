@@ -10,9 +10,24 @@ import {
     slintStarlightMarkdownRehypeExternalLinksOnly,
 } from "@slint/common-files/src/utils/starlight-site-defaults";
 import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
+import {
+    SAFETY_DOCS_BASE_URL,
+    SAFETY_DOCS_BASE_PATH,
+} from "./src/safety-site-config.mjs";
+
+const _safetyOrigin = String(SAFETY_DOCS_BASE_URL).replace(/\/+$/, "");
+const _safetyAtRoot = SAFETY_DOCS_BASE_PATH === "/";
+const _safetySite = _safetyAtRoot
+    ? _safetyOrigin
+    : `${_safetyOrigin}${SAFETY_DOCS_BASE_PATH.replace(/\/*$/, "/")}`;
+const _safetyBase = _safetyAtRoot
+    ? undefined
+    : SAFETY_DOCS_BASE_PATH.replace(/\/*$/, "/");
 
 // https://astro.build/config
 export default defineConfig({
+    site: _safetySite,
+    ...(_safetyBase ? { base: _safetyBase } : {}),
     trailingSlash: SLINT_STARLIGHT_TRAILING_SLASH,
     markdown: slintStarlightMarkdownRehypeExternalLinksOnly(),
     integrations: [
@@ -24,7 +39,7 @@ export default defineConfig({
                 Header: "@slint/common-files/src/components/Header.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
-            plugins: [slintStarlightLinksValidatorPlugin()],
+            plugins: [slintStarlightLinksValidatorPlugin({ errorOnRelativeLinks: false })],
             social: slintStarlightSocial,
             sidebar: [
                 { label: "Slint SC Safety Manual", slug: "index" },

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore epoll libuv libuv's nonblocking
+// cSpell: ignore epoll libuv libuv's nonblocking unref
 //! Integrated event loop for Node.js.
 //!
 //! Replaces the 16ms `setInterval` polling with a `uv_prepare_t`
@@ -27,6 +27,13 @@ mod uv {
     type UvPrepareInitFn = unsafe extern "C" fn(*mut napi::sys::uv_loop_s, *mut u8) -> c_int;
     type UvPrepareStartFn = unsafe extern "C" fn(*mut u8, unsafe extern "C" fn(*mut u8)) -> c_int;
     type UvPrepareStopFn = unsafe extern "C" fn(*mut u8) -> c_int;
+    type UvAsyncInitFn = unsafe extern "C" fn(
+        *mut napi::sys::uv_loop_s,
+        *mut u8,
+        unsafe extern "C" fn(*mut u8),
+    ) -> c_int;
+    type UvAsyncSendFn = unsafe extern "C" fn(*mut u8) -> c_int;
+    type UvUnrefFn = unsafe extern "C" fn(*mut u8);
     type UvCloseFn = unsafe extern "C" fn(*mut u8, Option<unsafe extern "C" fn(*mut u8)>);
     type UvUpdateTimeFn = unsafe extern "C" fn(*mut napi::sys::uv_loop_s);
 
@@ -39,10 +46,14 @@ mod uv {
         prepare_init: UvPrepareInitFn,
         prepare_start: UvPrepareStartFn,
         prepare_stop: UvPrepareStopFn,
+        async_init: UvAsyncInitFn,
+        async_send: UvAsyncSendFn,
+        uv_unref: UvUnrefFn,
         uv_close: UvCloseFn,
         update_time: UvUpdateTimeFn,
         uv_loop: *mut napi::sys::uv_loop_s,
         prepare_layout: std::alloc::Layout,
+        async_layout: std::alloc::Layout,
     }
 
     impl Functions {
@@ -59,6 +70,9 @@ mod uv {
             let prepare_init = *unsafe { lib.get::<UvPrepareInitFn>(b"uv_prepare_init").ok()? };
             let prepare_start = *unsafe { lib.get::<UvPrepareStartFn>(b"uv_prepare_start").ok()? };
             let prepare_stop = *unsafe { lib.get::<UvPrepareStopFn>(b"uv_prepare_stop").ok()? };
+            let async_init = *unsafe { lib.get::<UvAsyncInitFn>(b"uv_async_init").ok()? };
+            let async_send = *unsafe { lib.get::<UvAsyncSendFn>(b"uv_async_send").ok()? };
+            let uv_unref = *unsafe { lib.get::<UvUnrefFn>(b"uv_unref").ok()? };
             let uv_close = *unsafe { lib.get::<UvCloseFn>(b"uv_close").ok()? };
             let update_time = *unsafe { lib.get::<UvUpdateTimeFn>(b"uv_update_time").ok()? };
 
@@ -75,8 +89,12 @@ mod uv {
 
             /// `UV_PREPARE` value from the `uv_handle_type` enum.
             const UV_PREPARE: c_int = 9;
-            let size = unsafe { handle_size(UV_PREPARE) };
-            let prepare_layout = std::alloc::Layout::from_size_align(size, 8).ok()?;
+            /// `UV_ASYNC` value from the `uv_handle_type` enum.
+            const UV_ASYNC: c_int = 1;
+            let prepare_size = unsafe { handle_size(UV_PREPARE) };
+            let prepare_layout = std::alloc::Layout::from_size_align(prepare_size, 8).ok()?;
+            let async_size = unsafe { handle_size(UV_ASYNC) };
+            let async_layout = std::alloc::Layout::from_size_align(async_size, 8).ok()?;
 
             Some(Self {
                 backend_fd,
@@ -84,10 +102,14 @@ mod uv {
                 prepare_init,
                 prepare_start,
                 prepare_stop,
+                async_init,
+                async_send,
+                uv_unref,
                 uv_close,
                 update_time,
                 uv_loop,
                 prepare_layout,
+                async_layout,
             })
         }
 
@@ -172,24 +194,75 @@ mod uv {
         }
     }
 
+    /// Close a libuv handle and schedule deallocation.
+    ///
+    /// Must go through `uv_close` — libuv may still reference the
+    /// handle after the stop call returns.  The layout size is stashed
+    /// in the handle's `data` field so `close_cb` can recover it.
+    ///
+    /// # Safety
+    /// `ptr` must be a valid, initialized libuv handle allocated with
+    /// the given `layout`, and `uv_close` must be the matching fn ptr.
+    unsafe fn uv_close_and_dealloc(ptr: *mut u8, layout: std::alloc::Layout, uv_close: UvCloseFn) {
+        unsafe extern "C" fn close_cb(handle: *mut u8) {
+            let size = unsafe { *(handle as *const usize) };
+            let layout = unsafe { std::alloc::Layout::from_size_align_unchecked(size, 8) };
+            unsafe { std::alloc::dealloc(handle, layout) };
+        }
+        unsafe {
+            *(ptr as *mut usize) = layout.size();
+            uv_close(ptr, Some(close_cb));
+        }
+    }
+
     impl Drop for PrepareHandle {
         fn drop(&mut self) {
             if !self.ptr.is_null() {
-                // Must go through uv_close — libuv may still reference
-                // the handle after uv_prepare_stop returns.
-                // Store the layout in the data field so close_cb can
-                // recover it for deallocation.
-                let layout = self.fns.prepare_layout;
                 unsafe {
-                    *(self.ptr as *mut usize) = layout.size();
-                    unsafe extern "C" fn close_cb(handle: *mut u8) {
-                        let size = unsafe { *(handle as *const usize) };
-                        let layout =
-                            unsafe { std::alloc::Layout::from_size_align_unchecked(size, 8) };
-                        unsafe { std::alloc::dealloc(handle, layout) };
-                    }
-                    (self.fns.uv_close)(self.ptr, Some(close_cb));
-                }
+                    uv_close_and_dealloc(self.ptr, self.fns.prepare_layout, self.fns.uv_close)
+                };
+            }
+        }
+    }
+
+    /// Heap-allocated `uv_async_t` handle.
+    ///
+    /// Wraps a libuv async handle that invokes a C callback when
+    /// `send()` is called.  The handle is unref'd so it doesn't
+    /// keep the Node.js process alive on its own.
+    pub(super) struct AsyncHandle {
+        ptr: *mut u8,
+        fns: Functions,
+    }
+
+    impl AsyncHandle {
+        pub(super) fn new(fns: Functions, cb: unsafe extern "C" fn(*mut u8)) -> napi::Result<Self> {
+            let layout = fns.async_layout;
+            let ptr = unsafe { std::alloc::alloc(layout) };
+            assert!(!ptr.is_null(), "failed to allocate uv_async_t");
+
+            let rc = unsafe { (fns.async_init)(fns.uv_loop, ptr, cb) };
+            if rc != 0 {
+                unsafe { std::alloc::dealloc(ptr, layout) };
+                return Err(napi::Error::from_reason("uv_async_init failed"));
+            }
+
+            // Don't let this handle keep Node.js alive.
+            unsafe { (fns.uv_unref)(ptr) };
+
+            Ok(Self { ptr, fns })
+        }
+
+        /// Signal the async handle, waking libuv's event loop.
+        pub(super) fn send(&self) {
+            unsafe { (self.fns.async_send)(self.ptr) };
+        }
+    }
+
+    impl Drop for AsyncHandle {
+        fn drop(&mut self) {
+            if !self.ptr.is_null() {
+                unsafe { uv_close_and_dealloc(self.ptr, self.fns.async_layout, self.fns.uv_close) };
             }
         }
     }
@@ -218,6 +291,7 @@ mod platform {
     struct PrepareState {
         fd_ready: Rc<Cell<bool>>,
         prepare_handle: uv::PrepareHandle,
+        async_handle: uv::AsyncHandle,
         env: Env,
         on_exit: FunctionRef<crate::DynArgs, Unknown<'static>>,
     }
@@ -336,6 +410,9 @@ mod platform {
 
             state.prepare_handle.update_time();
             if state.fd_ready.replace(false) || uv_timeout == 0 {
+                // Wake libuv so it doesn't sleep in its I/O poll and
+                // the prepare callback fires again on the next iteration.
+                state.async_handle.send();
                 return ProcessEventsResult::Continue;
             }
         }
@@ -365,8 +442,11 @@ mod platform {
         let on_exit = on_exit.create_ref()?;
         let mut prepare_handle = uv::PrepareHandle::new(uv)?;
         prepare_handle.start(prepare_cb)?;
+        unsafe extern "C" fn noop_cb(_handle: *mut u8) {}
+        let async_handle = uv::AsyncHandle::new(uv, noop_cb)?;
 
-        let state = Box::new(PrepareState { fd_ready, prepare_handle, env: *env, on_exit });
+        let state =
+            Box::new(PrepareState { fd_ready, prepare_handle, async_handle, env: *env, on_exit });
 
         // Ref'd handle keeps Node.js alive until on_exit fires.
         // Clear stale quit request from a previous run.

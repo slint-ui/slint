@@ -126,6 +126,10 @@ pub enum BuiltinFunction {
     BringAllToFront,
     ParseMarkdown,
     StringToStyledText,
+    /// Converts a color to a hex string wrapped in StyledText.
+    /// Used for `<font color='\{expr}'>` interpolation in `@markdown`,
+    /// because `parse_interpolated` takes `StyledText` arguments.
+    ColorToStyledText,
     DecimalSeparator,
 }
 
@@ -304,7 +308,8 @@ declare_builtin_function_types!(
     StopTimer: (Type::ElementReference) -> Type::Void,
     RestartTimer: (Type::ElementReference) -> Type::Void,
     ParseMarkdown: (Type::String, Type::Array(Type::StyledText.into())) -> Type::StyledText,
-    StringToStyledText: (Type::String) -> Type::StyledText
+    StringToStyledText: (Type::String) -> Type::StyledText,
+    ColorToStyledText: (Type::Color) -> Type::StyledText
     OpenUrl: (Type::String) -> Type::Bool,
     BringAllToFront: () -> Type::Void,
 );
@@ -416,6 +421,7 @@ impl BuiltinFunction {
             BuiltinFunction::RestartTimer => false,
             BuiltinFunction::ParseMarkdown => false,
             BuiltinFunction::StringToStyledText => true,
+            BuiltinFunction::ColorToStyledText => true,
             BuiltinFunction::OpenUrl => false,
             BuiltinFunction::BringAllToFront => false,
         }
@@ -503,6 +509,7 @@ impl BuiltinFunction {
             BuiltinFunction::RestartTimer => false,
             BuiltinFunction::ParseMarkdown => true,
             BuiltinFunction::StringToStyledText => true,
+            BuiltinFunction::ColorToStyledText => true,
             BuiltinFunction::OpenUrl => false,
             BuiltinFunction::BringAllToFront => false,
         }

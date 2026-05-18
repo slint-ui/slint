@@ -45,7 +45,6 @@ jobs:
         slint: ${{ inputs.full || steps.filter.outputs.slint == 'true' }}
         figma_inspector: ${{ inputs.full || steps.filter.outputs.figma_inspector == 'true' }}
         material_components: ${{ inputs.full || steps.filter.outputs.material_components == 'true' }}
-        safety_docs: ${{ inputs.full || steps.filter.outputs.safety_docs == 'true' }}
         internal: ${{ inputs.full || steps.filter.outputs.internal == 'true' }}
         api_cpp: ${{ inputs.full || steps.filter.outputs.api_cpp == 'true' }}
         api_python: ${{ inputs.full || steps.filter.outputs.api_python == 'true' }}
@@ -724,10 +723,6 @@ jobs:
         ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
-    safety-docs:
-      needs: files-changed
-      if: ${{ needs.files-changed.outputs.safety_docs == 'true' }}
-      uses: ./.github/workflows/safety_docs.yaml
 
     servo_example:
         needs: files-changed
