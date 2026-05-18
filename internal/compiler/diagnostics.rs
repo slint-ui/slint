@@ -102,7 +102,10 @@ impl SourceFileInner {
             if format == ByteFormat::Utf16
                 && let Some(source) = &self.source
             {
-                return i_slint_common::unicode_utils::byte_offset_to_utf16_offset(&source[line_begin..], col);
+                return i_slint_common::unicode_utils::byte_offset_to_utf16_offset(
+                    &source[line_begin..],
+                    col,
+                );
             }
             col
         };
@@ -137,7 +140,10 @@ impl SourceFileInner {
             if format == ByteFormat::Utf16
                 && let Some(source) = &self.source
             {
-                return i_slint_common::unicode_utils::utf16_offset_to_byte_offset_clamped(&source[line_begin..], col);
+                return i_slint_common::unicode_utils::utf16_offset_to_byte_offset_clamped(
+                    &source[line_begin..],
+                    col,
+                );
             }
             col
         };
