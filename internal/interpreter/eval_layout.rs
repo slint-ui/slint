@@ -1080,17 +1080,18 @@ pub(crate) fn get_layout_info_with_constraint(
     // function: call it when the parent has supplied a cross-axis width
     // and we are asking for vertical info. This breaks the recursion that
     // would otherwise occur via the descendant's `width` property read.
-    let livc_nr = if orientation == Orientation::Vertical && cross_axis_constraint.is_some() {
+    let constrained_nr = if orientation == Orientation::Vertical && cross_axis_constraint.is_some()
+    {
         elem.borrow().layout_info_v_with_constraint.clone()
     } else {
         None
     };
-    if let Some(livc_nr) = livc_nr {
+    if let Some(constrained_nr) = constrained_nr {
         let width = cross_axis_constraint.unwrap();
         let v = eval::call_function(
             &eval::ComponentInstance::InstanceRef(component),
-            &livc_nr.element(),
-            livc_nr.name(),
+            &constrained_nr.element(),
+            constrained_nr.name(),
             vec![Value::Number(width as f64)],
         )
         .expect("layoutinfo-v-with-constraint is a synthesized pure function");
@@ -1137,7 +1138,7 @@ fn cross_axis_size_for_cell(
     if elem_b.layout_info_v_with_constraint.is_some() {
         return Some(width);
     }
-    // For builtin h-for-w items, the existing VTable cross_axis_constraint
+    // For builtin height-for-width items, the existing VTable cross_axis_constraint
     // parameter mechanism is what consumes the value; conservatively
     // forward it for any element without its own layoutinfo-v property
     // (i.e. anything that ends up calling the builtin VTable).

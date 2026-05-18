@@ -4,8 +4,8 @@
 // Two-level nesting: a FlexboxLayout containing an Outer component,
 // which in turn contains an Inner component, which contains a
 // word-wrapping Text. The synthesized layoutinfo-v-with-constraint
-// must chain through both component boundaries — Outer.LIVC must call
-// Inner.LIVC, which evaluates the inner VerticalLayout body with the
+// must chain through both component boundaries — Outer's function
+// must call Inner's, which evaluates the inner VerticalLayout body with the
 // width parameter.
 
 component Inner inherits Rectangle {

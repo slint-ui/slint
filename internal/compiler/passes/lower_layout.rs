@@ -21,7 +21,7 @@ use std::rc::Rc;
 /// Add a `pure function layoutinfo-v-with-constraint(width: length) -> LayoutInfo`
 /// to `elem` with the given `body`. The body reads
 /// `FunctionParameterReference { index: 0 }` for the width.
-fn synthesize_livc_on(
+fn synthesize_layoutinfo_v_with_constraint_on(
     elem: &ElementRc,
     span: crate::diagnostics::SourceLocation,
     body: Expression,
@@ -81,12 +81,15 @@ fn rewrite_layoutinfo_v_for_constraint(expr: &mut Expression, width_param: &Expr
                 _ => None,
             };
             if let Some(target) = target {
-                // Target reachable via LIVC: swap for the LIVC call.
-                if let Some(livc_nr) = target.borrow().inherited_layout_info_v_with_constraint() {
+                // Target has the parametrized function: swap for the
+                // function call.
+                if let Some(constrained_nr) =
+                    target.borrow().inherited_layout_info_v_with_constraint()
+                {
                     *sub = Expression::FunctionCall {
                         function: Callable::Function(crate::namedreference::NamedReference::new(
                             &target,
-                            livc_nr.name().clone(),
+                            constrained_nr.name().clone(),
                         )),
                         arguments: vec![width_param.clone()],
                         source_location: None,
@@ -106,7 +109,8 @@ fn rewrite_layoutinfo_v_for_constraint(expr: &mut Expression, width_param: &Expr
         }
         Expression::PropertyReference(nr) => {
             // PropertyReference to an element's vertical layout-info prop
-            // reachable via LIVC: swap for the LIVC call.
+            // whose target has the parametrized function: swap for the
+            // function call.
             let target = nr.element();
             let is_vertical_layout_info = target
                 .borrow()
@@ -118,11 +122,12 @@ fn rewrite_layoutinfo_v_for_constraint(expr: &mut Expression, width_param: &Expr
             if !is_vertical_layout_info {
                 return;
             }
-            if let Some(livc_nr) = target.borrow().inherited_layout_info_v_with_constraint() {
+            if let Some(constrained_nr) = target.borrow().inherited_layout_info_v_with_constraint()
+            {
                 *sub = Expression::FunctionCall {
                     function: Callable::Function(crate::namedreference::NamedReference::new(
                         &target,
-                        livc_nr.name().clone(),
+                        constrained_nr.name().clone(),
                     )),
                     arguments: vec![width_param.clone()],
                     source_location: None,
@@ -142,36 +147,36 @@ pub fn synthesize_layoutinfo_v_with_constraint(component: &Rc<Component>) {
     fn walk(elem: &ElementRc) -> bool {
         // Recurse into children first (releasing any borrow of `elem`).
         let children = elem.borrow().children.clone();
-        let mut has_hforw = false;
+        let mut has_height_for_width = false;
         for c in &children {
-            has_hforw |= walk(c);
+            has_height_for_width |= walk(c);
         }
 
-        let (already_synthesized, base_has_livc, v_nr_clone) = {
+        let (already_synthesized, base_has_constraint, v_nr_clone) = {
             let elem_b = elem.borrow();
-            has_hforw |= elem_b.is_builtin_height_for_width();
-            let base_has_livc = matches!(
+            has_height_for_width |= elem_b.is_builtin_height_for_width();
+            let base_has_constraint = matches!(
                 &elem_b.base_type,
                 ElementType::Component(base_comp)
                     if base_comp.root_element.borrow().layout_info_v_with_constraint.is_some()
             );
             (
                 elem_b.layout_info_v_with_constraint.is_some(),
-                base_has_livc,
+                base_has_constraint,
                 elem_b.layout_info_prop(Orientation::Vertical).cloned(),
             )
         };
-        has_hforw |= base_has_livc;
+        has_height_for_width |= base_has_constraint;
 
-        if !has_hforw || already_synthesized {
-            return has_hforw;
+        if !has_height_for_width || already_synthesized {
+            return has_height_for_width;
         }
-        let Some(v_nr) = v_nr_clone else { return has_hforw };
+        let Some(v_nr) = v_nr_clone else { return has_height_for_width };
         let body_elem = v_nr.element();
         let Some(v_binding) =
             body_elem.borrow().bindings.get(v_nr.name()).map(|b| b.borrow().clone())
         else {
-            return has_hforw;
+            return has_height_for_width;
         };
 
         let span = v_binding.span.clone().unwrap_or_else(|| elem.borrow().to_source_location());
@@ -180,8 +185,8 @@ pub fn synthesize_layoutinfo_v_with_constraint(component: &Rc<Component>) {
             Expression::FunctionParameterReference { index: 0, ty: Type::LogicalLength };
         rewrite_layoutinfo_v_for_constraint(&mut body, &width_param);
 
-        synthesize_livc_on(elem, span, body);
-        has_hforw
+        synthesize_layoutinfo_v_with_constraint_on(elem, span, body);
+        has_height_for_width
     }
     walk(&component.root_element);
 }
