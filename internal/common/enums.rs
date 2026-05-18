@@ -635,7 +635,7 @@ macro_rules! for_each_enums {
             /// drags that come from another application or window once native drag-and-drop is
             /// in play.
             #[non_exhaustive]
-            enum DragAction {
+            pub enum DragAction {
                 /// No action: the drag is rejected, no drop will be delivered.
                 None,
                 /// The data is copied to the target; the source retains it.
