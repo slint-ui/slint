@@ -4176,6 +4176,10 @@ fn compile_builtin_function_call(
             let string = a.next().unwrap();
             quote!(sp::string_to_styled_text(#string.to_string()))
         }
+        BuiltinFunction::ColorToStyledText => {
+            let color = a.next().unwrap();
+            quote!(sp::color_to_styled_text(#color))
+        }
     }
 }
 

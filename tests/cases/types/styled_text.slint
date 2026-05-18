@@ -44,19 +44,23 @@ export component TestCase inherits Window {
         s9 := StyledText {
             text: @markdown("<font color=\"red\">colored</font>");
         }
-        // Color with an interpolated value
+        // Color with an interpolated color property
         s10 := StyledText {
             text: @markdown("<font color=\"\{my-color}\">colored</font>");
         }
-        // Invalid color at runtime (should still render text, just without color)
+        // Brush converts to color for font color interpolation
         s11 := StyledText {
-            text: @markdown("<font color=\"\{bad-color}\">still visible</font>");
+            text: @markdown("<font color=\"\{my-brush}\">brushed</font>");
+        }
+        // Color interpolation mixed with text interpolation
+        s12 := StyledText {
+            text: @markdown("hello \{world} <font color=\"\{my-color}\">colored \{world}</font>");
         }
     }
 
     property <string> my-url: "https://slint.dev";
-    property <string> my-color: "blue";
-    property <string> bad-color: "not-a-color";
+    property <color> my-color: blue;
+    property <brush> my-brush: green;
 
     in-out property<styled-text> t1: s1.text;
     in-out property<styled-text> t2: s2.text;
@@ -82,8 +86,9 @@ export component TestCase inherits Window {
     out property<length> w9: s9.preferred-width;
     out property<length> w10: s10.preferred-width;
     out property<length> w11: s11.preferred-width;
+    out property<length> w12: s12.preferred-width;
 
-    out property<bool> test: w1 == 66px && w2 == 80px && w3 == 64px && w4 == 64px && w5 == 65px && w6 > 0px && w7 > w1 && w8 > 0px && w9 > 0px && w10 > 0px && w11 > 0px;
+    out property<bool> test: w1 == 66px && w2 == 80px && w3 == 64px && w4 == 64px && w5 == 65px && w6 > 0px && w7 > w1 && w8 > 0px && w9 > 0px && w10 > 0px && w11 > 0px && w12 > 0px;
 }
 
 /*
@@ -123,11 +128,6 @@ assert_eq!(instance.get_foo_bar(), StyledText::from_plain_text("foo bar"));
 
 // Public API: from_markdown rejects unsupported syntax
 assert!(StyledText::from_markdown("# heading").is_err());
-
-// s11 uses an invalid interpolated color — check that it logged a debug_log error
-let logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
-let has_color_error = logs.iter().any(|l| l.contains("Invalid color value") && l.contains("not-a-color"));
-assert!(has_color_error, "Expected debug_log about invalid color, got: {logs:?}");
 ```
 ```cpp
 auto handle = TestCase::create();

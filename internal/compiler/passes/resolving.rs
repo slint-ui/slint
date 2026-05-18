@@ -824,69 +824,122 @@ impl Expression {
     }
 
     fn from_at_markdown(node: syntax_nodes::AtMarkdown, ctx: &mut LookupCtx) -> Expression {
-        let mut values = Vec::new();
+        let mut raw_exprs: Vec<(Expression, crate::parser::SyntaxNode)> = Vec::new();
         let mut source_map = crate::literals::StringLiteralSourceMap::new();
+        use i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER as PLACEHOLDER;
+
+        let push_and_check =
+            |token: &crate::parser::SyntaxToken,
+             source_map: &mut crate::literals::StringLiteralSourceMap,
+             diag: &mut crate::diagnostics::BuildDiagnostics| {
+                let before = source_map.as_str().len();
+                source_map.push(token, diag);
+                for (offset, _) in source_map.as_str()[before..].match_indices(PLACEHOLDER) {
+                    source_map.report(
+                        diag,
+                        "\\u{e541} is reserved for @markdown interpolation".into(),
+                        (before + offset)..(before + offset + PLACEHOLDER.len_utf8()),
+                        &node,
+                    );
+                }
+            };
 
         for n in node.children_with_tokens() {
             if n.kind() == SyntaxKind::StringLiteral {
-                source_map.push(n.as_token().unwrap(), ctx.diag);
+                push_and_check(n.as_token().unwrap(), &mut source_map, ctx.diag);
             } else if n.kind() == SyntaxKind::StringTemplate {
                 for n in n.as_node().unwrap().children_with_tokens() {
                     if n.kind() == SyntaxKind::StringLiteral {
-                        source_map.push(n.as_token().unwrap(), ctx.diag);
+                        push_and_check(n.as_token().unwrap(), &mut source_map, ctx.diag);
                     } else if n.kind() == SyntaxKind::Expression {
-                        let node = n.into_node().unwrap();
-                        let expr = Expression::from_expression_node(node.clone().into(), ctx);
-                        let expr = if expr.ty() == Type::StyledText {
-                            expr
-                        } else {
-                            Expression::FunctionCall {
-                                function: BuiltinFunction::StringToStyledText.into(),
-                                arguments: vec![expr.maybe_convert_to(
-                                    Type::String,
-                                    &node,
-                                    ctx.diag,
-                                )],
-                                source_location: Some(node.to_source_location()),
-                            }
-                        };
-                        values.push(expr);
-                        source_map.push_raw_char(
-                            i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER,
-                            node.to_source_location(),
-                        );
+                        let expr_node = n.into_node().unwrap();
+                        let expr = Expression::from_expression_node(expr_node.clone().into(), ctx);
+                        source_map.push_raw_char(PLACEHOLDER, expr_node.to_source_location());
+                        raw_exprs.push((expr, expr_node));
                     }
                 }
             }
         }
 
-        let dummy_paragraph = i_slint_common::styled_text::paragraph_from_plain_text("".into());
         let markdown = source_map.as_str();
+        let placeholder_positions: Vec<usize> =
+            markdown.match_indices(PLACEHOLDER).map(|(pos, _)| pos).collect();
 
-        // Validate the markdown format string with dummy values
-        let (_, parse_errors) = i_slint_common::styled_text::parse_interpolated(
-            markdown,
-            &vec![&[dummy_paragraph]; values.len()],
-        );
+        // Replace each placeholder with an ASCII string of the same byte length
+        // and re-parse.
+        // pulldown_cmark treats `<zzz>` as inline HTML (unlike the private-use char),
+        // so errors reveal interpolations inside HTML tag structure.
+        const PROBE: &str = "zzz";
+        const _: () = assert!(PROBE.len() == PLACEHOLDER.len_utf8());
+        let probe = markdown.replace(PLACEHOLDER, PROBE);
+
+        let (_, parse_errors) = i_slint_common::styled_text::parse_interpolated::<
+            &[i_slint_common::styled_text::StyledTextParagraph],
+        >(&probe, &[]);
+
+        let mut color_indices = std::collections::BTreeSet::new();
+
         for e in &parse_errors {
-            // Skip InvalidColor when the color value came from interpolation
-            // (dummy values resolve to empty strings during compile-time validation)
-            if i_slint_common::styled_text::is_invalid_color(e)
-                && e.range().is_some_and(|r| {
-                    r.end <= markdown.len()
-                        && markdown[r.start..r.end].contains(
-                            i_slint_common::styled_text::MARKDOWN_INTERPOLATION_PLACEHOLDER,
-                        )
-                })
-            {
-                continue;
-            }
+            let placeholders_in_range = |r: &core::ops::Range<usize>| -> Vec<usize> {
+                placeholder_positions
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, pos)| **pos >= r.start && **pos < r.end)
+                    .map(|(idx, _)| idx)
+                    .collect()
+            };
+
             if let Some(r) = e.range() {
-                source_map.report(ctx.diag, e.to_string(), r, &node);
+                let hits = placeholders_in_range(&r);
+
+                // InvalidColor("zzz") at a placeholder position →
+                // this interpolation is a color attribute value.
+                if i_slint_common::styled_text::invalid_color_value(e) == Some(PROBE)
+                    && !hits.is_empty()
+                {
+                    color_indices.extend(hits);
+                    continue;
+                }
+
+                // Other errors overlapping a placeholder mean interpolation
+                // inside HTML tag structure.
+                if !hits.is_empty() {
+                    source_map.report(
+                        ctx.diag,
+                        "Interpolation (`\\{}`) is not allowed inside HTML tags".into(),
+                        r,
+                        &node,
+                    );
+                } else {
+                    source_map.report(ctx.diag, e.to_string(), r, &node);
+                }
             } else {
                 ctx.diag.push_error(e.to_string(), &node);
             }
         }
+
+        let values = raw_exprs
+            .into_iter()
+            .enumerate()
+            .map(|(idx, (expr, expr_node))| {
+                if color_indices.contains(&idx) {
+                    // Color placeholder: require Color type
+                    Expression::FunctionCall {
+                        function: BuiltinFunction::ColorToStyledText.into(),
+                        arguments: vec![expr.maybe_convert_to(Type::Color, &expr_node, ctx.diag)],
+                        source_location: Some(expr_node.to_source_location()),
+                    }
+                } else if expr.ty() == Type::StyledText {
+                    expr
+                } else {
+                    Expression::FunctionCall {
+                        function: BuiltinFunction::StringToStyledText.into(),
+                        arguments: vec![expr.maybe_convert_to(Type::String, &expr_node, ctx.diag)],
+                        source_location: Some(expr_node.to_source_location()),
+                    }
+                }
+            })
+            .collect();
 
         Expression::FunctionCall {
             function: BuiltinFunction::ParseMarkdown.into(),
