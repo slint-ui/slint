@@ -68,15 +68,6 @@ material_components:
  - *js_config
  - *ci_config
 
-safety_docs:
- - 'docs/safety/**'
- - 'docs/common/**'
- - 'docs/slint-doc-generator/**'
- - 'internal/compiler/builtins.slint'
- - 'internal/common/enums.rs'
- - 'internal/common/builtin_structs.rs'
- - *js_config
- - *ci_config
 
 internal: &internal
  # The API specific tests don't depends on renderer or backend, but they do depend on the Qt widgets and the testing backend
