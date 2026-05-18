@@ -345,25 +345,44 @@ test("language builtin enums: values and round-trip", () => {
     expect(scheme).toStrictEqual("light");
 });
 
-test("language builtin structs: type-position usage", () => {
-    // The struct types are type-only — values come from the runtime.
-    // Compiling this test exercises the type definitions; the runtime
-    // assertion just confirms the literal we constructed matches the shape.
-    const mods: language.KeyboardModifiers = {
+test("language builtin structs: factory defaults", () => {
+    // Calling a factory with no args must produce a fully-populated value with
+    // the Slint-documented defaults for each field.
+    const mods = language.KeyboardModifiers();
+    expect(mods).toStrictEqual({
         alt: false,
-        control: true,
+        control: false,
         shift: false,
         meta: false,
-    };
-    const evt: language.PointerEvent = {
+    });
+
+    const evt = language.PointerEvent();
+    // PointerEventButton's first variant is `Other`, PointerEventKind's is `Cancel` —
+    // these match the Rust `Default` impl for the enums.
+    expect(evt.button).toStrictEqual("other");
+    expect(evt.kind).toStrictEqual("cancel");
+    expect(evt.touch_finger_id).toStrictEqual(0);
+    expect(evt.modifiers).toStrictEqual(language.KeyboardModifiers());
+});
+
+test("language builtin structs: factory overrides", () => {
+    // Overriding selected fields keeps the defaults for the rest. The factory
+    // accepts `Partial<T>` and returns the strict `T`, so consumers can rely on
+    // every field being present when reading.
+    const evt = language.PointerEvent({
         button: language.PointerEventButton.Left,
         kind: language.PointerEventKind.Down,
-        modifiers: mods,
-        touch_finger_id: 0,
-    };
+        modifiers: language.KeyboardModifiers({ control: true }),
+    });
     expect(evt.button).toStrictEqual("left");
     expect(evt.kind).toStrictEqual("down");
     expect(evt.modifiers.control).toStrictEqual(true);
+    expect(evt.modifiers.alt).toStrictEqual(false);
+    expect(evt.touch_finger_id).toStrictEqual(0);
+
+    // Type-position usage: the type alias is the strict shape.
+    const typed: language.PointerEvent = evt;
+    expect(typed.button).toStrictEqual("left");
 });
 
 test("loadSource styled-text property get/set", () => {
