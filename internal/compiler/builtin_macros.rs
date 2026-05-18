@@ -398,12 +398,10 @@ fn array_push_macro(
         return Expression::Invalid;
     }
 
-    let element_type = match args[0].0.ty() {
-        Type::Array(t) => (*t).clone(),
-        _ => {
-            diag.push_error(format!("push() was called on a non-array: {:?}", args[0].0), node);
-            return Expression::Invalid;
-        }
+    let element_type = if let Type::Array(t) = args[0].0.ty() {
+        (*t).clone()
+    } else {
+        Type::Invalid
     };
 
     let (model_expr, _) = args.remove(0);
@@ -429,11 +427,6 @@ fn array_remove_macro(
             ),
             node,
         );
-        return Expression::Invalid;
-    }
-
-    if !matches!(args[0].0.ty(), Type::Array(_)) {
-        diag.push_error(format!("remove() was called on a non-array: {:?}", args[0].0), node);
         return Expression::Invalid;
     }
 
@@ -463,12 +456,10 @@ fn array_insert_macro(
         return Expression::Invalid;
     }
 
-    let element_type = match args[0].0.ty() {
-        Type::Array(t) => (*t).clone(),
-        _ => {
-            diag.push_error(format!("push() was called on a non-array: {:?}", args[0].0), node);
-            return Expression::Invalid;
-        }
+    let element_type = if let Type::Array(t) = args[0].0.ty() {
+        (*t).clone()
+    } else {
+        Type::Invalid
     };
 
     let (model_expr, _) = args.remove(0);
