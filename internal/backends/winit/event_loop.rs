@@ -508,6 +508,9 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
                 });
             }
 
+            WindowEvent::AxisMotion { .. } => {
+                // Ignored, but happens often and is also ignored for the purpose of bundling CursorMoved.
+            }
             _ => {}
         }
 
