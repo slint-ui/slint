@@ -307,6 +307,7 @@
         "yellowgreen"
     ],
     "ignorePaths": [
+        ".github/**",
         "api/cpp/docs/conf.py",
         "CHANGELOG.md",
         "cspell.json",

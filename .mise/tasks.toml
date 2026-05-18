@@ -98,7 +98,9 @@ depends = ["prepare:pnpm-install"]
 
 ["lint:cspell"]
 description = "Run cSpell on the repository (respects .gitignore)"
-run = "pnpm exec cspell --no-progress --gitignore ."
+# cspell can hang on exit with Node 24 (worker threads); use Node 22 in CI.
+tools.node = "22"
+run = "pnpm exec cspell lint --no-progress --gitignore ."
 depends = ["prepare:pnpm-install"]
 
 ### Build
