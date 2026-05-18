@@ -14,11 +14,69 @@ use tokio::sync::mpsc;
 use tokio::{sync::RwLock, task::JoinHandle};
 use tokio_tungstenite_wasm::{Message, WebSocketStream};
 
+use crate::language::{LspError, LspErrorCode};
 use crate::preview::connector::remote::remote_notifications::{
     ConnectionState, RemoteViewerConnectionState,
 };
 
 mod remote_notifications;
+
+pub fn connect_remote_preview_command(
+    params: &[serde_json::Value],
+    ctx: &crate::language::Context,
+) -> Result<Option<serde_json::Value>, LspError> {
+    let addresses = params.first().and_then(serde_json::Value::as_array).map(|addresses| {
+        addresses.iter().filter_map(serde_json::Value::as_str).map(String::from).collect::<Vec<_>>()
+    });
+    let port = params.get(1).and_then(serde_json::Value::as_u64);
+
+    if let Some(addresses) = addresses {
+        if let Some(port) = port {
+            let _ =
+                ctx.to_preview.set_preview_target(i_slint_preview_protocol::PreviewTarget::Remote);
+            ctx.to_preview.with_preview_target::<RemoteLspToPreview, Result<Option<serde_json::Value>, LspError>>(
+                |remote| {
+                    let preview_to_lsp_sender = ctx.preview_to_lsp_sender.clone();
+                    let future = remote.connect(addresses, port as u16);
+                    crate::common::spawn_local(async move {
+                        if let Err(err) = future.await {
+                            let _ = preview_to_lsp_sender.send(
+                                PreviewToLspMessage::SendShowMessage {
+                                    message: lsp_types::ShowMessageParams {
+                                        typ: lsp_types::MessageType::ERROR,
+                                        message: format!(
+                                            "Failed to connect to remote preview: {err}"
+                                        ),
+                                    },
+                                },
+                            );
+                        } else {
+                            let _ = preview_to_lsp_sender.send(PreviewToLspMessage::RequestState { files: Vec::new() });
+                        }
+                    });
+                    Ok(None)
+                }).unwrap()
+        } else {
+            Err(LspError {
+                code: LspErrorCode::InvalidParameter,
+                message: "Need number as the second parameter".to_owned(),
+            })
+        }
+    } else {
+        Err(LspError {
+            code: LspErrorCode::InvalidParameter,
+            message: "Need array of string as the first parameter".to_owned(),
+        })
+    }
+}
+
+pub fn disconnect_remote_preview_command(ctx: &crate::language::Context) {
+    let to_preview = ctx.to_preview.clone();
+    tracing::debug!("disconnect_remote_preview_command");
+    to_preview.with_preview_target::<RemoteLspToPreview, _>(|remote| {
+        crate::common::spawn_local(remote.disconnect());
+    });
+}
 
 struct RemoteLspConnection {
     sender: SplitSink<WebSocketStream, Message>,

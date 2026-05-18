@@ -8,13 +8,9 @@ use crate::SourceFileVersion;
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum PreviewTarget {
-    #[allow(dead_code)]
     ChildProcess,
-    #[allow(dead_code)]
     EmbeddedWasm,
-    #[allow(dead_code)]
     Remote,
-    #[allow(dead_code)]
     Dummy,
 }
 

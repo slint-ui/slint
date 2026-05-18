@@ -126,6 +126,16 @@ pub fn send_state_to_preview(ctx: &Context) {
 #[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
 pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
     for url in files {
+        if let Some(node) = ctx.document_cache.get_document(url).and_then(|doc| doc.node.as_ref()) {
+            let version = ctx.document_cache.document_version_by_path(node.source_file.path());
+            let contents = node.text().to_string().into();
+            tracing::debug!("Sending cached file {} to preview", url);
+            ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::SetContents {
+                url: i_slint_preview_protocol::VersionedUrl::new(url.clone(), version),
+                contents,
+            });
+            continue;
+        }
         let Some(path) = url.to_file_path().ok() else {
             tracing::warn!("Cannot convert URL to file path: {url}");
             continue;
@@ -439,11 +449,14 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             }
             #[cfg(feature = "preview-remote")]
             CONNECT_REMOTE_PREVIEW_COMMAND => {
-                return connect_remote_preview_command(&params.arguments, ctx);
+                return crate::preview::connector::remote::connect_remote_preview_command(
+                    &params.arguments,
+                    ctx,
+                );
             }
             #[cfg(feature = "preview-remote")]
             DISCONNECT_REMOTE_PREVIEW_COMMAND => {
-                disconnect_remote_preview_command(ctx);
+                crate::preview::connector::remote::disconnect_remote_preview_command(ctx);
             }
             _ => {
                 tracing::error!("Received unknown command {}", params.command.as_str());
@@ -671,61 +684,6 @@ pub fn show_preview(component: i_slint_preview_protocol::PreviewComponent, ctx: 
     ctx.pending_recompile.insert(component.url.clone());
     ctx.to_show = Some(component.clone());
     ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::ShowPreview(component));
-}
-
-#[cfg(feature = "preview-remote")]
-pub fn connect_remote_preview_command(
-    params: &[serde_json::Value],
-    ctx: &Context,
-) -> Result<Option<serde_json::Value>, LspError> {
-    let addresses = params.first().and_then(serde_json::Value::as_array).map(|addresses| {
-        addresses.iter().filter_map(serde_json::Value::as_str).map(String::from).collect::<Vec<_>>()
-    });
-    let port = params.get(1).and_then(serde_json::Value::as_u64);
-
-    if let Some(addresses) = addresses {
-        if let Some(port) = port {
-            use crate::preview::connector::remote::RemoteLspToPreview;
-
-            let _ =
-                ctx.to_preview.set_preview_target(i_slint_preview_protocol::PreviewTarget::Remote);
-            ctx.to_preview.with_preview_target::<RemoteLspToPreview, Result<Option<serde_json::Value>, LspError>>(
-                |remote| {
-                    let preview_to_lsp_sender = ctx.preview_to_lsp_sender.clone();
-                    let future = remote.connect(addresses, port as u16);
-                    crate::common::spawn_local(async move {
-                        if let Err(err) = future.await {
-                            LspError {
-                                code: LspErrorCode::RequestFailed,
-                                message: format!("Failed to connect to remote preview: {err}"),
-                            };
-                        } else {
-                            let _ = preview_to_lsp_sender.send(PreviewToLspMessage::RequestState { files: Vec::new() });
-                        }
-                    });
-                    Ok(None)
-                }).unwrap()
-        } else {
-            Err(LspError {
-                code: LspErrorCode::InvalidParameter,
-                message: "Need number as the second parameter".to_owned(),
-            })
-        }
-    } else {
-        Err(LspError {
-            code: LspErrorCode::InvalidParameter,
-            message: "Need array of string as the first parameter".to_owned(),
-        })
-    }
-}
-
-#[cfg(feature = "preview-remote")]
-pub fn disconnect_remote_preview_command(ctx: &Context) {
-    let to_preview = ctx.to_preview.clone();
-    tracing::debug!("disconnect_remote_preview_command");
-    to_preview.with_preview_target::<crate::preview::connector::RemoteLspToPreview, _>(|remote| {
-        crate::common::spawn_local(remote.disconnect());
-    });
 }
 
 fn populate_command_range(
