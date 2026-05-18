@@ -329,7 +329,7 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.6
+            - uses: pnpm/action-setup@v6.0.8
               with:
                 version: 10.29.3
             - uses: Swatinem/rust-cache@v2
@@ -685,7 +685,7 @@ jobs:
                 node-version: 24
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v6.0.6
+            - uses: pnpm/action-setup@v6.0.8
               with:
                 version: 10.29.3
             - name: Run pnpm install
@@ -769,12 +769,12 @@ jobs:
                   cargo llvm-cov report --html --output-dir coverage
                   cargo llvm-cov report --lcov --output-path coverage/lcov.info
             - name: Upload coverage report
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                   name: slint-sc-coverage
                   path: coverage
             - name: Upload to Codecov
-              uses: codecov/codecov-action@v5
+              uses: codecov/codecov-action@v6
               with:
                   files: coverage/lcov.info
                   flags: slint-sc
