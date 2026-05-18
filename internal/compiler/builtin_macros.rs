@@ -398,11 +398,8 @@ fn array_push_macro(
         return Expression::Invalid;
     }
 
-    let element_type = if let Type::Array(t) = args[0].0.ty() {
-        (*t).clone()
-    } else {
-        Type::Invalid
-    };
+    let element_type =
+        if let Type::Array(t) = args[0].0.ty() { (*t).clone() } else { Type::Invalid };
 
     let (model_expr, _) = args.remove(0);
     let (value_expr, value_node) = args.remove(0);
@@ -456,11 +453,8 @@ fn array_insert_macro(
         return Expression::Invalid;
     }
 
-    let element_type = if let Type::Array(t) = args[0].0.ty() {
-        (*t).clone()
-    } else {
-        Type::Invalid
-    };
+    let element_type =
+        if let Type::Array(t) = args[0].0.ty() { (*t).clone() } else { Type::Invalid };
 
     let (model_expr, _) = args.remove(0);
     let (index_expr, index_node) = args.remove(0);
