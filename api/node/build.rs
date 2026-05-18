@@ -146,7 +146,33 @@ fn generate_language_module() {
     ts.push_str("// biome-ignore lint/style/useConst: declaration-merging namespace, type-only.\n");
     ts.push_str("export namespace language {\n");
     for entry in &enums {
-        write_jsdoc(&mut ts, "    ", &entry.docs);
+        // The TS type alias is a computed union, so TypeDoc can't list "members" from it
+        // the way it would for a TS `enum`. Append each variant (with its kebab-case value
+        // and first-line description) to the JSDoc body so the type's documentation page
+        // explains what the variants are.
+        let mut docs: Vec<String> = entry.docs.iter().map(|s| s.to_string()).collect();
+        if !entry.values.is_empty() {
+            if !docs.is_empty() {
+                docs.push(String::new());
+            }
+            docs.push(" Variants:".to_string());
+            for (variant, value_docs) in &entry.values {
+                let kebab = to_kebab_case(variant);
+                let desc = value_docs
+                    .iter()
+                    .map(|s| s.trim())
+                    .collect::<Vec<_>>()
+                    .join(" ")
+                    .trim()
+                    .to_string();
+                let sep = if desc.is_empty() { "" } else { " — " };
+                docs.push(format!(
+                    " - `language.{enum_name}.{variant}` (`\"{kebab}\"`){sep}{desc}",
+                    enum_name = entry.name,
+                ));
+            }
+        }
+        write_jsdoc(&mut ts, "    ", &docs);
         ts.push_str(&format!(
             "    export type {name} = (typeof _data.{name})[keyof typeof _data.{name}];\n",
             name = entry.name
@@ -265,7 +291,7 @@ struct StructEntry {
 /// Emit the rustdoc lines as a JSDoc block at the given indent. No-op if `docs` is empty.
 /// Each Rust `///` line carries a leading space; we keep it (it's how the original prose is
 /// formatted) and just wrap with `/**` … `*/`.
-fn write_jsdoc(out: &mut String, indent: &str, docs: &[&str]) {
+fn write_jsdoc<S: AsRef<str>>(out: &mut String, indent: &str, docs: &[S]) {
     if docs.is_empty() {
         return;
     }
@@ -274,7 +300,7 @@ fn write_jsdoc(out: &mut String, indent: &str, docs: &[&str]) {
     for line in docs {
         out.push_str(indent);
         out.push_str(" *");
-        out.push_str(line);
+        out.push_str(line.as_ref());
         out.push('\n');
     }
     out.push_str(indent);
