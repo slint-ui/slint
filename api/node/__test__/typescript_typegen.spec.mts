@@ -38,7 +38,9 @@ function setupTypeCheckDir(): string {
                 strict: true,
                 noEmit: true,
                 skipLibCheck: true,
-                paths: { "slint-ui": [join(__dirname, "..", "dist", "index.d.ts")] },
+                paths: {
+                    "slint-ui": [join(__dirname, "..", "dist", "index.d.ts")],
+                },
             },
         }),
     );
@@ -46,7 +48,10 @@ function setupTypeCheckDir(): string {
     return dir;
 }
 
-function tscCheck(dir: string, code: string): { success: boolean; output: string } {
+function tscCheck(
+    dir: string,
+    code: string,
+): { success: boolean; output: string } {
     writeFileSync(join(dir, "check.ts"), code);
     try {
         execSync(`${TSC} --noEmit`, { cwd: dir, stdio: "pipe" });
