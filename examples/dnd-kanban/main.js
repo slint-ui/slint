@@ -48,11 +48,18 @@ appWindow.Api.source_column_of = (data) => {
     return payload instanceof DragPayload ? payload.sourceColumn : -1;
 };
 
+appWindow.Api.has_plaintext = (data) => data.hasPlaintext;
+
 appWindow.Api.add_task = (data, targetColumn, targetIndex) => {
-    const payload = data.userData;
-    if (!(payload instanceof DragPayload)) return;
     if (targetColumn < 0 || targetColumn >= columns.length) return;
-    columns[targetColumn].insert(targetIndex, payload.task);
+    const payload = data.userData;
+    if (payload instanceof DragPayload) {
+        columns[targetColumn].insert(targetIndex, payload.task);
+        return;
+    }
+    if (data.hasPlaintext) {
+        columns[targetColumn].insert(targetIndex, { title: data.fetchPlaintext() });
+    }
 };
 
 appWindow.Api.move_task = (data, targetColumn, targetIndex) => {

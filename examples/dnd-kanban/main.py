@@ -55,16 +55,23 @@ class MainWindow(slint.loader.kanban.MainWindow):
         payload = data.user_data
         return payload.source_column if isinstance(payload, DragPayload) else -1
 
+    @slint.callback(global_name="Api", name="has-plaintext")
+    def has_plaintext(self, data: DataTransfer) -> bool:
+        return data.has_plaintext
+
     @slint.callback(global_name="Api", name="add-task")
     def add_task(
         self, data: DataTransfer, target_column: int, target_index: int
     ) -> None:
-        payload = data.user_data
-        if not isinstance(payload, DragPayload):
-            return
         if not 0 <= target_column < len(self._columns):
             return
-        self._columns[target_column].insert(target_index, payload.task)
+        payload = data.user_data
+        if isinstance(payload, DragPayload):
+            self._columns[target_column].insert(target_index, payload.task)
+            return
+        text = data.fetch_plaintext()
+        if text is not None:
+            self._columns[target_column].insert(target_index, TaskData(title=text))
 
     @slint.callback(global_name="Api", name="move-task")
     def move_task(
