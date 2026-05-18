@@ -65,37 +65,6 @@ pub trait Spanned {
     }
 }
 
-/// Converts a UTF-8 byte column offset to a UTF-16 code unit column offset.
-/// `line_text` must start at the beginning of the line; `byte_col` must be
-/// on a valid UTF-8 character boundary within `line_text`.
-fn byte_col_to_utf16_col(line_text: &str, byte_col: usize) -> usize {
-    debug_assert!(
-        line_text.is_char_boundary(byte_col),
-        "byte_col {byte_col} is not on a UTF-8 character boundary"
-    );
-    line_text[..byte_col].encode_utf16().count()
-}
-
-/// Converts a UTF-16 code unit column offset to a UTF-8 byte column offset.
-/// `line_text` must start at the beginning of the line.
-/// If `utf16_col` equals the total UTF-16 length of `line_text`, returns
-/// `line_text.len()`. If it is beyond that, returns `utf16_col` unchanged
-/// (same graceful-degradation behaviour as the original inline loop).
-fn utf16_col_to_byte_col(line_text: &str, utf16_col: usize) -> usize {
-    let mut counter = 0;
-    for (idx, c) in line_text.char_indices() {
-        if counter >= utf16_col {
-            return idx;
-        }
-        counter += c.len_utf16();
-    }
-    if counter >= utf16_col {
-        line_text.len() // utf16_col is exactly at end of string
-    } else {
-        utf16_col // truly out of range: preserve original fallback
-    }
-}
-
 #[derive(Default)]
 pub struct SourceFileInner {
     path: PathBuf,
@@ -133,7 +102,7 @@ impl SourceFileInner {
             if format == ByteFormat::Utf16
                 && let Some(source) = &self.source
             {
-                return byte_col_to_utf16_col(&source[line_begin..], col);
+                return i_slint_common::unicode_utils::byte_offset_to_utf16_offset(&source[line_begin..], col);
             }
             col
         };
@@ -168,7 +137,7 @@ impl SourceFileInner {
             if format == ByteFormat::Utf16
                 && let Some(source) = &self.source
             {
-                return utf16_col_to_byte_col(&source[line_begin..], col);
+                return i_slint_common::unicode_utils::utf16_offset_to_byte_offset_clamped(&source[line_begin..], col);
             }
             col
         };
@@ -705,47 +674,5 @@ component MainWindow inherits Window {
                 column += 1;
             }
         }
-    }
-
-    #[test]
-    fn test_byte_col_to_utf16_col() {
-        assert_eq!(byte_col_to_utf16_col("hello", 0), 0);
-        assert_eq!(byte_col_to_utf16_col("hello", 3), 3); // ASCII: byte == UTF-16
-        assert_eq!(byte_col_to_utf16_col("hello", 5), 5);
-        assert_eq!(byte_col_to_utf16_col("日本語", 0), 0);
-        assert_eq!(byte_col_to_utf16_col("日本語", 3), 1); // BMP: 3 bytes → 1 code unit
-        assert_eq!(byte_col_to_utf16_col("日本語", 6), 2);
-        assert_eq!(byte_col_to_utf16_col("a😀b", 1), 1);
-        assert_eq!(byte_col_to_utf16_col("a😀b", 5), 3); // emoji: 4 bytes → 2 code units
-        assert_eq!(byte_col_to_utf16_col("a😀b", 6), 4);
-        assert_eq!(byte_col_to_utf16_col("", 0), 0);
-    }
-
-    #[test]
-    fn test_utf16_col_to_byte_col() {
-        assert_eq!(utf16_col_to_byte_col("hello", 0), 0);
-        assert_eq!(utf16_col_to_byte_col("hello", 3), 3); // ASCII
-        assert_eq!(utf16_col_to_byte_col("hello", 5), 5);
-        assert_eq!(utf16_col_to_byte_col("日本語", 0), 0);
-        assert_eq!(utf16_col_to_byte_col("日本語", 1), 3); // BMP
-        assert_eq!(utf16_col_to_byte_col("日本語", 2), 6);
-        assert_eq!(utf16_col_to_byte_col("a😀b", 1), 1);
-        assert_eq!(utf16_col_to_byte_col("a😀b", 2), 5); // mid-surrogate → after emoji
-        assert_eq!(utf16_col_to_byte_col("a😀b", 3), 5);
-        assert_eq!(utf16_col_to_byte_col("a😀b", 4), 6);
-        // Out-of-range: returns utf16_col unchanged (graceful degradation)
-        assert_eq!(utf16_col_to_byte_col("hello", 100), 100);
-    }
-
-    #[test]
-    fn test_col_roundtrip() {
-        let text = "héllo 日本語 😀 world";
-        for (byte_idx, _) in text.char_indices() {
-            let utf16 = byte_col_to_utf16_col(text, byte_idx);
-            assert_eq!(utf16_col_to_byte_col(text, utf16), byte_idx);
-        }
-        // Also check end of string
-        let utf16 = byte_col_to_utf16_col(text, text.len());
-        assert_eq!(utf16_col_to_byte_col(text, utf16), text.len());
     }
 }
