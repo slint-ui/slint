@@ -54,17 +54,25 @@ fn main() -> Result<(), slint::PlatformError> {
             .map_or(-1, |p| p.source_column as i32)
     });
 
+    api.on_has_plaintext(|data| data.fetch_plaintext().is_ok());
+
     api.on_add_task({
         let columns = columns.clone();
         move |data, target, target_index| {
             let target = target as usize;
-            let Some(payload) = data.user_data().and_then(|rc| rc.downcast::<DragPayload>().ok())
-            else {
+            if target >= columns.len() {
+                return;
+            }
+            let task = if let Some(payload) =
+                data.user_data().and_then(|rc| rc.downcast::<DragPayload>().ok())
+            {
+                payload.task.clone()
+            } else if let Ok(text) = data.fetch_plaintext() {
+                TaskData { title: text }
+            } else {
                 return;
             };
-            if target < columns.len() {
-                columns[target].insert(target_index as usize, payload.task.clone());
-            }
+            columns[target].insert(target_index as usize, task);
         }
     });
 

@@ -14,6 +14,8 @@ export global Api {
     pure callback make-data(task: TaskData, source-column: int, source-index: int) -> data-transfer;
     // Returns the source column for a payload produced by `make-data`, or -1 for foreign payloads.
     pure callback source-column-of(data: data-transfer) -> int;
+    // Whether the payload carries plaintext we can turn into a new task title.
+    pure callback has-plaintext(data: data-transfer) -> bool;
     // Copy the payload's task into `target-column` at `target-index` (clamped to [0, len]).
     callback add-task(data: data-transfer, target-column: int, target-index: int);
     // Move the payload's task to `target-column` at `target-index`. Handles same-column
@@ -137,8 +139,8 @@ component KanbanColumn inherits Rectangle {
         drop-area := DropArea {
             vertical-stretch: 1;
             can-drop(event) => {
-                // Reject payloads from outside this app.
-                if Api.source-column-of(event.data) < 0 {
+                // Reject foreign payloads that aren't our own card and aren't plaintext.
+                if Api.source-column-of(event.data) < 0 && !Api.has-plaintext(event.data) {
                     return DragAction.none;
                 }
                 // Track the cursor so the drop indicator can follow it.
@@ -194,7 +196,7 @@ export component MainWindow inherits Window {
         spacing: 12px;
 
         Text {
-            text: "Drag a card between columns — hold the copy modifier to duplicate";
+            text: "Drag a card between columns — hold the copy modifier to duplicate. Drop plain text from another app to add a new card.";
             font-size: 18px;
             font-weight: 700;
             color: Theme.text-primary;
