@@ -22,8 +22,48 @@ use alloc::vec::Vec;
 use core::ops::Range;
 use core::pin::Pin;
 use euclid::num::Zero;
+use i_slint_common::sharedfontique;
 use skrifa::MetadataProvider as _;
 use std::cell::RefCell;
+use std::collections::HashSet;
+use std::sync::Arc;
+
+pub struct FontContext {
+    pub inner: parley::FontContext,
+    /// `(ptr, len)` of each `&'static [u8]` already handed to fontique, so repeat
+    /// `register_static_font` calls for the same embedded font are skipped.
+    registered_static_fonts: HashSet<(usize, usize)>,
+}
+
+impl FontContext {
+    pub fn new(inner: parley::FontContext) -> Self {
+        Self { inner, registered_static_fonts: HashSet::default() }
+    }
+
+    pub fn register_static_font(&mut self, data: &'static [u8]) {
+        let key = (data.as_ptr() as usize, data.len());
+        if self.registered_static_fonts.insert(key) {
+            self.inner.collection.register_fonts(fontique::Blob::new(Arc::new(data)), None);
+        }
+    }
+
+    pub fn clear_registered_static_fonts(&mut self) {
+        self.registered_static_fonts.clear();
+    }
+}
+
+impl core::ops::Deref for FontContext {
+    type Target = parley::FontContext;
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl core::ops::DerefMut for FontContext {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
 
 type InnerTextLayoutCache = crate::item_rendering::ItemCache<Vec<TextParagraph>>;
 
@@ -71,8 +111,6 @@ pub type PhysicalLength = euclid::Length<f32, PhysicalPx>;
 pub type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
 type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
 type PhysicalPoint = euclid::Point2D<f32, PhysicalPx>;
-
-use i_slint_common::sharedfontique;
 
 /// Trait used for drawing text and text input elements with parley, where parley does the
 /// shaping and positioning, and the renderer is responsible for drawing just the glyphs.
