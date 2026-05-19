@@ -17,7 +17,7 @@ A *top-level item* is a *component definition*. {#sls.file.top-level-item}
 
 A component definition has one of the following two forms: {#sls.file.component.definition-forms}
 
-```slint
+```slint no-test
 component Name { /* component body */ }
 component Name inherits Base { /* component body */ }
 ```
@@ -39,7 +39,7 @@ A component body that contains no element instantiations is well-formed. {#sls.f
 
 An element instantiation has the form: {#sls.file.element.instantiation-form}
 
-```slint
+```slint no-test
 TypeName { /* element body */ }
 ```
 
