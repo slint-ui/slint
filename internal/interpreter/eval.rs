@@ -463,11 +463,13 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 GradientStop { color, position }
             }));
             if let Some((cx, cy)) = center {
-                g.center_x = eval_expression(cx, local_context).try_into().unwrap();
-                g.center_y = eval_expression(cy, local_context).try_into().unwrap();
+                let cx: f32 = eval_expression(cx, local_context).try_into().unwrap();
+                let cy: f32 = eval_expression(cy, local_context).try_into().unwrap();
+                g = g.with_center(cx, cy);
             }
             if let Some(r) = radius {
-                g.radius = eval_expression(r, local_context).try_into().unwrap();
+                let r: f32 = eval_expression(r, local_context).try_into().unwrap();
+                g = g.with_radius(r);
             }
             Value::Brush(Brush::RadialGradient(g))
         }
@@ -482,8 +484,9 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 }),
             );
             if let Some((cx, cy)) = center {
-                g.center_x = eval_expression(cx, local_context).try_into().unwrap();
-                g.center_y = eval_expression(cy, local_context).try_into().unwrap();
+                let cx: f32 = eval_expression(cx, local_context).try_into().unwrap();
+                let cy: f32 = eval_expression(cy, local_context).try_into().unwrap();
+                g = g.with_center(cx, cy);
             }
             Value::Brush(Brush::ConicGradient(g))
         }
