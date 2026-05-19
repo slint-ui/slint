@@ -110,7 +110,7 @@ macro_rules! for_each_builtin_structs {
 
             /// This structure is passed to the callbacks of the `DropArea` element
             struct DropEvent {
-                @name = BuiltinPrivateStruct::DropEvent,
+                @name = BuiltinPublicStruct::DropEvent,
                 export {
                     /// The payload set on the source `DragArea`.
                     data: DataTransfer,

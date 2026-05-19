@@ -695,7 +695,6 @@ pub enum BuiltinPrivateStruct {
     LayoutInfo,
     FontMetrics,
     PathElement,
-    DropEvent,
     TableColumn,
     MenuEntry,
     Edges,
@@ -721,8 +720,7 @@ impl BuiltinPrivateStruct {
             | Self::TableColumn
             | Self::MenuEntry
             | Self::InternalKeyEvent
-            | Self::Edges
-            | Self::DropEvent => {
+            | Self::Edges => {
                 let name: &'static str = self.into();
                 Some(SmolStr::new_static(name))
             }
@@ -743,6 +741,7 @@ pub enum BuiltinPublicStruct {
     KeyboardModifiers,
     PointerEvent,
     PointerScrollEvent,
+    DropEvent,
 }
 
 impl BuiltinPublicStruct {
@@ -758,6 +757,7 @@ impl BuiltinPublicStruct {
             Self::KeyboardModifiers => Some(SmolStr::new_static("KeyboardModifiers")),
             Self::PointerEvent => Some(SmolStr::new_static("PointerEvent")),
             Self::PointerScrollEvent => Some(SmolStr::new_static("PointerScrollEvent")),
+            Self::DropEvent => Some(SmolStr::new_static("DropEvent")),
         }
     }
 }

@@ -10,6 +10,12 @@ fn map_type(ty: &str) -> &str {
         "SharedString" => "str",
         "i32" => "int",
         "f32" | "Coord" => "float",
+        // Types exposed by the binding outside the `language` submodule.
+        "DataTransfer" => "DataTransfer | None",
+        "LogicalPosition" => "LogicalPosition | None",
+        // Enums in the same submodule; resolved as forward references via
+        // `from __future__ import annotations`.
+        "DragAction" => "DragAction | None",
         _ => "typing.Any",
     }
 }
@@ -45,7 +51,9 @@ macro_rules! generate_builtin_structs_pyi {
             writeln!(writer, "# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0").unwrap();
             // REUSE-IgnoreEnd
             writeln!(writer, "").unwrap();
+            writeln!(writer, "from __future__ import annotations").unwrap();
             writeln!(writer, "import typing").unwrap();
+            writeln!(writer, "from slint import DataTransfer, LogicalPosition").unwrap();
 
             $(
                 generate_builtin_structs_pyi!(@check writer, $NameTy, $Name,

@@ -150,6 +150,8 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_pub, "#pragma once")?;
     writeln!(structs_pub, "// This file is auto-generated from {}", file!())?;
     writeln!(structs_pub, "#include \"private/slint_enums.h\"")?;
+    writeln!(structs_pub, "#include \"private/slint_point.h\"")?;
+    writeln!(structs_pub, "#include \"private/slint_data_transfer.h\"")?;
     writeln!(structs_pub, "namespace slint::language {{")?;
 
     let mut structs_priv = BufWriter::new(
