@@ -10,10 +10,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut tests_file = BufWriter::new(std::fs::File::create(&tests_file_path)?);
 
     let prefix = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").canonicalize()?;
-    for entry in walkdir::WalkDir::new(&prefix)
-        .follow_links(false)
-        .into_iter()
-        .filter_entry(|entry| entry.file_name() != "target")
+    for entry in
+        walkdir::WalkDir::new(&prefix).follow_links(false).into_iter().filter_entry(|entry| {
+            !matches!(entry.file_name().to_str(), Some("target" | "dist" | "node_modules"))
+        })
     {
         let entry = entry?;
         let path = entry.path();
