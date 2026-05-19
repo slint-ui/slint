@@ -45,6 +45,12 @@ pub fn ident(ident: &str) -> proc_macro2::Ident {
     }
 }
 
+/// Returns the identifier used for the Property<()> that tracks when a
+/// callback handler is changed from native code.
+fn callback_tracker_ident(callback_name: &str) -> proc_macro2::Ident {
+    format_ident!("callback_tracker_{}", callback_name.replace('-', "_"))
+}
+
 impl quote::ToTokens for Orientation {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let tks = match self {
@@ -898,6 +904,67 @@ fn handle_property_init(
     }
 }
 
+/// Returns the code to access the change-tracker `Property<()>` for an exported callback.
+/// Returns `None` if the callback doesn't have a tracker.
+fn access_callback_tracker(
+    reference: &llr::MemberReference,
+    ctx: &EvaluationContext,
+) -> Option<TokenStream> {
+    fn in_global(
+        g: &llr::GlobalComponent,
+        callback_idx: &llr::CallbackIdx,
+        _self: TokenStream,
+    ) -> Option<TokenStream> {
+        if !g.callbacks[*callback_idx].needs_tracker {
+            return None;
+        }
+        let tracker_name = callback_tracker_ident(&g.callbacks[*callback_idx].name);
+        let global_name = global_inner_name(g);
+        let tracker_field = quote!({ *&#global_name::FIELD_OFFSETS.#tracker_name() });
+        Some(quote!(#tracker_field.apply_pin(#_self)))
+    }
+
+    match reference {
+        llr::MemberReference::Global {
+            global_index,
+            member: llr::LocalMemberIndex::Callback(callback_idx),
+        } => {
+            let global = &ctx.compilation_unit.globals[*global_index];
+            let s = if matches!(ctx.current_scope, EvaluationScope::Global(i) if i == *global_index)
+            {
+                quote!(_self)
+            } else {
+                let global_access = &ctx.generator_state.global_access;
+                let global_id = format_ident!("global_{}", ident(&global.name));
+                quote!(#global_access.#global_id.as_ref())
+            };
+            in_global(global, callback_idx, s)
+        }
+        llr::MemberReference::Relative { parent_level: 0, local_reference } => {
+            if let llr::LocalMemberIndex::Callback(callback_idx) = &local_reference.reference {
+                if let Some(current_global) = ctx.current_global() {
+                    return in_global(current_global, callback_idx, quote!(_self));
+                }
+                if local_reference.sub_component_path.is_empty()
+                    && let Some(sc_idx) = ctx.parent_sub_component_idx(0)
+                {
+                    let sc = &ctx.compilation_unit.sub_components[sc_idx];
+                    if sc.callbacks[*callback_idx].needs_tracker {
+                        let tracker_name =
+                            callback_tracker_ident(&sc.callbacks[*callback_idx].name);
+                        let component_id = inner_component_id(sc);
+                        let tracker_field =
+                            access_component_field_offset(&component_id, &tracker_name);
+                        return Some(quote!((#tracker_field).apply_pin(_self)));
+                    }
+                }
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
 /// Public API for Global and root component
 fn public_api(
     public_properties: &llr::PublicProperties,
@@ -926,6 +993,8 @@ fn public_api(
             ));
             let on_ident = format_ident!("on_{}", prop_ident);
             let args_index = (0..callback_args.len()).map(proc_macro2::Literal::usize_unsuffixed);
+            let tracker_access = access_callback_tracker(&p.prop, ctx);
+            let set_dirty = tracker_access.map(|t| quote!(#t.mark_dirty();));
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #on_ident(&self, mut f: impl FnMut(#(#callback_args),*) -> #return_type + 'static) {
@@ -934,7 +1003,8 @@ fn public_api(
                     #prop.set_handler(
                         // FIXME: why do i need to clone here?
                         move |args| f(#(args.#args_index.clone()),*)
-                    )
+                    );
+                    #set_dirty
                 }
             ));
         } else if let Type::Function(function) = &p.ty {
@@ -1052,6 +1122,8 @@ fn generate_sub_component(
         declared_property_vars.push(prop_ident.clone());
         declared_property_types.push(rust_property_type.clone());
     }
+    let mut callback_tracker_names = Vec::new();
+
     for callback in component.callbacks.iter() {
         let cb_ident = ident(&callback.name);
         let callback_args =
@@ -1060,6 +1132,9 @@ fn generate_sub_component(
         declared_callbacks.push(cb_ident.clone());
         declared_callbacks_types.push(callback_args);
         declared_callbacks_ret.push(return_type);
+        if callback.needs_tracker {
+            callback_tracker_names.push(callback_tracker_ident(&callback.name));
+        }
     }
 
     let change_tracker_names = component
@@ -1519,6 +1594,7 @@ fn generate_sub_component(
             #(#popup_id_names : ::core::cell::Cell<sp::Option<::core::num::NonZeroU32>>,)*
             #(#declared_property_vars : sp::Property<#declared_property_types>,)*
             #(#declared_callbacks : sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
+            #(#callback_tracker_names : sp::Property<()>,)*
             #(#repeated_element_components,)*
             #(#change_tracker_names : sp::ChangeTracker,)*
             #(#timer_names : sp::Timer,)*
@@ -1730,12 +1806,17 @@ fn generate_global(
         declared_property_vars.push(ident(&property.name));
         declared_property_types.push(rust_property_type(&property.ty).unwrap());
     }
+    let mut callback_tracker_names = Vec::new();
+
     for callback in &global.callbacks {
         let callback_args =
             callback.args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
         declared_callbacks.push(ident(&callback.name));
         declared_callbacks_types.push(callback_args);
         declared_callbacks_ret.push(rust_primitive_type(&callback.ret_ty));
+        if callback.needs_tracker {
+            callback_tracker_names.push(callback_tracker_ident(&callback.name));
+        }
     }
 
     let mut init = Vec::new();
@@ -1852,6 +1933,7 @@ fn generate_global(
             pub struct #inner_component_id {
                 #(#pub_token  #declared_property_vars: sp::Property<#declared_property_types>,)*
                 #(#pub_token  #declared_callbacks: sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
+                #(#pub_token  #callback_tracker_names : sp::Property<()>,)*
                 #(#pub_token  #change_tracker_names : sp::ChangeTracker,)*
                 globals : sp::OnceCell<sp::Weak<SharedGlobals>>,
             }
@@ -2984,11 +3066,15 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
         Expression::CallBackCall { callback, arguments } => {
             let f = access_member(callback, ctx);
+            let tracker = access_callback_tracker(callback, ctx);
+            let register_dep = tracker.map(|t| {
+                quote!(#t.get();)
+            });
             let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
             if expr.ty(ctx) == Type::Void {
-                f.then(|f| quote!(#f.call(&(#(#a as _,)*))))
+                f.then(|f| quote!({ #register_dep #f.call(&(#(#a as _,)*)); }))
             } else {
-                f.map_or_default(|f| quote!(#f.call(&(#(#a as _,)*))))
+                f.map_or_default(|f| quote!({ #register_dep #f.call(&(#(#a as _,)*)) }))
             }
         }
         Expression::FunctionCall { function, arguments } => {

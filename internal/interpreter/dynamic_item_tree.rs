@@ -462,6 +462,10 @@ pub struct ItemTreeDescription<'id> {
     pub(crate) items: HashMap<SmolStr, ItemWithinItemTree>,
     pub(crate) custom_properties: HashMap<SmolStr, PropertiesWithinComponent>,
     pub(crate) custom_callbacks: HashMap<SmolStr, FieldOffset<Instance<'id>, Callback>>,
+    /// For each exported callback, a `Property<()>` that tracks when the handler changes.
+    /// Calling `get()` before invoking a callback registers a dependency; calling `mark_dirty()`
+    /// after setting a handler triggers re-evaluation of dependent bindings.
+    pub(crate) callback_trackers: HashMap<SmolStr, FieldOffset<Instance<'id>, Property<()>>>,
     repeater: Vec<ErasedRepeaterWithinComponent<'id>>,
     /// Map the Element::id of the repeater to the index in the `repeater` vec
     pub repeater_names: HashMap<SmolStr, usize>,
@@ -733,8 +737,12 @@ impl ItemTreeDescription<'_> {
             eval::set_callback_handler(&inst, &alias.element(), alias.name(), handler)?
         } else {
             let x = self.custom_callbacks.get(name).ok_or(())?;
-            let sig = x.apply(unsafe { &*(component.as_ptr() as *const dynamic_type::Instance) });
+            let inst = unsafe { &*(component.as_ptr() as *const dynamic_type::Instance) };
+            let sig = x.apply(inst);
             sig.set_handler(handler);
+            if let Some(tracker_offset) = self.callback_trackers.get(name) {
+                tracker_offset.apply_pin(unsafe { Pin::new_unchecked(inst) }).mark_dirty();
+            }
         }
         Ok(())
     }
@@ -1225,6 +1233,7 @@ pub(crate) fn generate_item_tree<'id>(
 
     let mut custom_properties = HashMap::new();
     let mut custom_callbacks = HashMap::new();
+    let mut callback_trackers = HashMap::new();
     fn property_info<T>() -> (Box<dyn PropertyInfo<u8, Value>>, dynamic_type::StaticTypeInfo)
     where
         T: PartialEq + Clone + Default + std::convert::TryInto<Value> + 'static,
@@ -1328,6 +1337,10 @@ pub(crate) fn generate_item_tree<'id>(
         if matches!(&decl.property_type, Type::Callback { .. }) {
             custom_callbacks
                 .insert(name.clone(), builder.type_builder.add_field_type::<Callback>());
+            if decl.expose_in_public_api {
+                callback_trackers
+                    .insert(name.clone(), builder.type_builder.add_field_type::<Property<()>>());
+            }
             continue;
         }
         let Some((prop, type_info)) = property_info_for_type(&decl.property_type, name) else {
@@ -1418,6 +1431,7 @@ pub(crate) fn generate_item_tree<'id>(
         items: builder.items_types,
         custom_properties,
         custom_callbacks,
+        callback_trackers,
         original: component.clone(),
         original_elements: builder.original_elements,
         repeater: builder.repeater,

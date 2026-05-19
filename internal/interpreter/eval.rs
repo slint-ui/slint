@@ -2108,6 +2108,9 @@ pub(crate) fn invoke_callback(
             if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
             {
                 if let Some(callback_offset) = description.custom_callbacks.get(callback_name) {
+                    if let Some(tracker_offset) = description.callback_trackers.get(callback_name) {
+                        tracker_offset.apply_pin(enclosing_component.instance).get();
+                    }
                     let callback = callback_offset.apply(&*enclosing_component.instance);
                     let res = callback.call(args);
                     return Some(if res != Value::Void {
@@ -2161,6 +2164,9 @@ pub(crate) fn set_callback_handler(
                 if let Some(callback_offset) = description.custom_callbacks.get(callback_name) {
                     let callback = callback_offset.apply(&*enclosing_component.instance);
                     callback.set_handler(handler);
+                    if let Some(tracker_offset) = description.callback_trackers.get(callback_name) {
+                        tracker_offset.apply_pin(enclosing_component.instance).mark_dirty();
+                    }
                     return Ok(());
                 } else if enclosing_component.description.original.is_global() {
                     return Err(());
