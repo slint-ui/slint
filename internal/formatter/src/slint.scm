@@ -71,43 +71,37 @@
 ; simple one-liners to stay inline.
 (block
   "{" @prepend_space @append_indent_start
-  (_)*
-  (_) @prepend_spaced_softline
+  (_)+ @prepend_spaced_softline
   "}" @prepend_spaced_softline @prepend_indent_end
 )
 
 (imperative_block
   "{" @prepend_space @append_indent_start
-  (_)*
-  (_) @prepend_spaced_softline
+  (_)+ @prepend_spaced_softline
   "}" @prepend_spaced_softline @prepend_indent_end
 )
 
 (global_block
   "{" @prepend_space @append_indent_start
-  (_)*
-  (_) @prepend_spaced_softline
+  (_)+ @prepend_spaced_softline
   "}" @prepend_spaced_softline @prepend_indent_end
 )
 
 (struct_block
   "{" @prepend_space @append_indent_start
-  (_)*
-  (_) @prepend_spaced_softline
+  (_)+ @prepend_spaced_softline
   "}" @prepend_spaced_softline @prepend_indent_end
 )
 
 (enum_block
   "{" @prepend_space @append_indent_start
-  (_)*
-  (_) @prepend_spaced_softline
+  (_)+ @prepend_spaced_softline
   "}" @prepend_spaced_softline @prepend_indent_end
 )
 
 (animate_body
   "{" @prepend_space @append_indent_start
-  (_)*
-  (_) @prepend_spaced_softline
+  (_)+ @prepend_spaced_softline
   "}" @prepend_spaced_softline @prepend_indent_end
 )
 
@@ -115,8 +109,7 @@
 ; they should not force a space before the opening brace in expression position.
 (anon_struct_block
   "{" @append_indent_start
-  (_)*
-  (_) @prepend_spaced_softline
+  (_)+ @prepend_spaced_softline
   "}" @prepend_spaced_softline @prepend_indent_end
 )
 

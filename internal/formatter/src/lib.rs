@@ -133,6 +133,42 @@ mod tests {
     }
 
     #[test]
+    fn formats_multiline_block_with_two_sibling_statements() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input = "export component TestCase inherits Rectangle {\n    x: 42px;\n    y: 12px;\n}";
+        let result = formatter.format_str(input).expect("formatting should succeed");
+
+        assert_eq!(
+            result.text,
+            "export component TestCase inherits Rectangle {\n    x: 42px;\n    y: 12px;\n}\n"
+        );
+    }
+
+    #[test]
+    fn formats_nested_multiline_block_with_two_sibling_elements() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input = "export component TestCase inherits Rectangle {\n    GridLayout {\n        a := Rectangle {\n            x: 1px;\n            y: 2px;\n        }\n        b := Rectangle {\n            x: 3px;\n            y: 4px;\n        }\n    }\n}";
+        let result = formatter.format_str(input).expect("formatting should succeed");
+
+        assert_eq!(
+            result.text,
+            "export component TestCase inherits Rectangle {\n    GridLayout {\n        a := Rectangle {\n            x: 1px;\n            y: 2px;\n        }\n        b := Rectangle {\n            x: 3px;\n            y: 4px;\n        }\n    }\n}\n"
+        );
+    }
+
+    #[test]
+    fn keeps_color_example_block_indentation_stable() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input = include_str!("../../../tests/cases/examples/color.slint");
+        let result = formatter.format_str(input).expect("formatting should succeed");
+
+        assert_eq!(
+            result.text,
+            "// Copyright © SixtyFPS GmbH <info@slint.dev>\n// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0\nWin := Window {\n    property <color> base: #00007F;\n    GridLayout {\n        r := Rectangle {\n            background: base;\n        }\n        Rectangle {\n            background: base.brighter(50%);\n        }\n        Rectangle {\n            background: base.darker(50%);\n        }\n    }\n}\n"
+        );
+    }
+
+    #[test]
     fn separates_top_level_definitions_with_a_blank_line() {
         let formatter = Formatter::new().expect("formatter should initialize");
         let input = "component First inherits Rectangle {}\ncomponent Second inherits Rectangle {}";
@@ -164,4 +200,24 @@ mod tests {
             "export component TestCase inherits Rectangle { property <color> base: #00007F; background: base.brighter(50%); width: 50%; height: 12px; }\n"
         );
     }
+}
+
+#[test]
+fn handles_empty_element_block() {
+    let formatter = Formatter::new().expect("formatter should initialize");
+    let input = "export component EmptyBlock { Rectangle {} }";
+    let result = formatter.format_str(input).expect("formatting should succeed");
+
+    // Empty blocks should remain inline
+    assert_eq!(result.text, "export component EmptyBlock { Rectangle {} }\n");
+}
+
+#[test]
+fn handles_empty_callback_block() {
+    let formatter = Formatter::new().expect("formatter should initialize");
+    let input = "export component TestCallback { callback foo; foo => {} }";
+    let result = formatter.format_str(input).expect("formatting should succeed");
+
+    // Empty callback blocks should remain inline
+    assert!(result.text.contains("foo => {}"));
 }

@@ -22,6 +22,13 @@ pub enum StyleDecisionKind {
     TopLevelBlankLines,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum IndentationDecisionKind {
+    MultilineBlockChildIndentation,
+    MultilineBlockClosingBraceAlignment,
+    MultilineBlockSiblingIndentSpread,
+}
+
 impl StyleDecisionKind {
     pub const ALL: [Self; 9] = [
         Self::BindingColonSpacing,
@@ -76,6 +83,22 @@ impl StyleDecisionKind {
     }
 }
 
+impl IndentationDecisionKind {
+    pub const ALL: [Self; 3] = [
+        Self::MultilineBlockChildIndentation,
+        Self::MultilineBlockClosingBraceAlignment,
+        Self::MultilineBlockSiblingIndentSpread,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::MultilineBlockChildIndentation => "multiline block direct-child indentation",
+            Self::MultilineBlockClosingBraceAlignment => "multiline block closing-brace alignment",
+            Self::MultilineBlockSiblingIndentSpread => "multiline block sibling indent spread",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum StyleChoice {
     NoSpaces,
@@ -109,10 +132,17 @@ pub struct StyleDecision {
     pub choice: StyleChoice,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct IndentationObservation {
+    pub kind: IndentationDecisionKind,
+    pub delta: isize,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileStyleProfile {
     pub path: Option<PathBuf>,
     pub decisions: Vec<StyleDecision>,
+    pub indentation_observations: Vec<IndentationObservation>,
     pub diagnostics: Vec<String>,
     pub has_parse_errors: bool,
 }
@@ -135,14 +165,34 @@ pub struct StyleDecisionComparison {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IndentationObservationSummary {
+    pub kind: IndentationDecisionKind,
+    pub total_observations: usize,
+    pub dominant_delta: isize,
+    pub dominant_count: usize,
+    pub counts: Vec<(isize, usize)>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IndentationObservationComparison {
+    pub kind: IndentationDecisionKind,
+    pub reference: IndentationObservationSummary,
+    pub candidate: Option<IndentationObservationSummary>,
+    pub candidate_matches_reference_dominant: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RepositoryStyleComparison {
     pub reference_file_count: usize,
     pub candidate_file_count: usize,
     pub reference_files_with_parse_errors: usize,
     pub candidate_files_with_parse_errors: usize,
     pub decisions: Vec<StyleDecisionComparison>,
+    pub indentation_observations: Vec<IndentationObservationComparison>,
     pub total_candidate_observations: usize,
     pub total_candidate_matches_reference_dominant: usize,
+    pub total_candidate_indentation_observations: usize,
+    pub total_candidate_matches_reference_indentation_dominant: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -150,6 +200,7 @@ pub struct RepositoryStyleProfile {
     pub file_count: usize,
     pub files_with_parse_errors: usize,
     pub decision_counts: BTreeMap<StyleDecisionKind, BTreeMap<StyleChoice, usize>>,
+    pub indentation_counts: BTreeMap<IndentationDecisionKind, BTreeMap<isize, usize>>,
 }
 
 impl RepositoryStyleProfile {
@@ -179,6 +230,33 @@ impl RepositoryStyleProfile {
             })
             .collect()
     }
+
+    pub fn indentation_summaries(&self) -> Vec<IndentationObservationSummary> {
+        IndentationDecisionKind::ALL
+            .into_iter()
+            .filter_map(|kind| {
+                let counts = self.indentation_counts.get(&kind)?;
+                let total_observations = counts.values().sum();
+                let mut dominant_delta = None;
+                let mut dominant_count = 0;
+
+                for (&delta, &count) in counts {
+                    if count > dominant_count {
+                        dominant_delta = Some(delta);
+                        dominant_count = count;
+                    }
+                }
+
+                Some(IndentationObservationSummary {
+                    kind,
+                    total_observations,
+                    dominant_delta: dominant_delta.expect("counts should not be empty"),
+                    dominant_count,
+                    counts: counts.iter().map(|(&delta, &count)| (delta, count)).collect(),
+                })
+            })
+            .collect()
+    }
 }
 
 pub fn profile_source(source: &str) -> FileStyleProfile {
@@ -194,10 +272,12 @@ pub fn profile_source_with_path(source: &str, path: Option<&Path>) -> FileStyleP
     decisions.extend(extract_element_brace_placement(source, &document));
     decisions.extend(extract_simple_block_layouts(source, &document));
     decisions.extend(extract_top_level_blank_lines(source, &document));
+    let indentation_observations = extract_indentation_observations(source, &document);
 
     FileStyleProfile {
         path: path.map(Path::to_owned),
         decisions,
+        indentation_observations,
         diagnostics: diagnostics.to_string_vec(),
         has_parse_errors: diagnostics.has_errors(),
     }
@@ -211,6 +291,7 @@ pub fn profile_file(path: impl AsRef<Path>) -> io::Result<FileStyleProfile> {
 
 pub fn aggregate_repository_profile(files: &[FileStyleProfile]) -> RepositoryStyleProfile {
     let mut decision_counts = BTreeMap::<StyleDecisionKind, BTreeMap<StyleChoice, usize>>::new();
+    let mut indentation_counts = BTreeMap::<IndentationDecisionKind, BTreeMap<isize, usize>>::new();
 
     for file in files {
         for decision in &file.decisions {
@@ -220,12 +301,20 @@ pub fn aggregate_repository_profile(files: &[FileStyleProfile]) -> RepositorySty
                 .entry(decision.choice)
                 .or_default() += 1;
         }
+        for observation in &file.indentation_observations {
+            *indentation_counts
+                .entry(observation.kind)
+                .or_default()
+                .entry(observation.delta)
+                .or_default() += 1;
+        }
     }
 
     RepositoryStyleProfile {
         file_count: files.len(),
         files_with_parse_errors: files.iter().filter(|file| file.has_parse_errors).count(),
         decision_counts,
+        indentation_counts,
     }
 }
 
@@ -240,21 +329,38 @@ pub fn format_repository_style_report(profile: &RepositoryStyleProfile) -> Strin
     let summaries = profile.summaries();
     if summaries.is_empty() {
         report.push("No style decisions observed.".into());
-        return report.join("\n");
+    } else {
+        for summary in summaries {
+            report.push(String::new());
+            report.push(summary.kind.label().to_string());
+            report.push(format!(
+                "  dominant: {} ({}/{})",
+                summary.kind.choice_label(summary.dominant_choice),
+                summary.dominant_count,
+                summary.total_observations
+            ));
+
+            for (choice, count) in summary.counts {
+                report.push(format!("  - {}: {count}", summary.kind.choice_label(choice)));
+            }
+        }
     }
 
-    for summary in summaries {
-        report.push(String::new());
-        report.push(summary.kind.label().to_string());
-        report.push(format!(
-            "  dominant: {} ({}/{})",
-            summary.kind.choice_label(summary.dominant_choice),
-            summary.dominant_count,
-            summary.total_observations
-        ));
+    let indentation_summaries = profile.indentation_summaries();
+    if !indentation_summaries.is_empty() {
+        for summary in indentation_summaries {
+            report.push(String::new());
+            report.push(summary.kind.label().to_string());
+            report.push(format!(
+                "  dominant: {} ({}/{})",
+                format_indent_delta(summary.dominant_delta),
+                summary.dominant_count,
+                summary.total_observations
+            ));
 
-        for (choice, count) in summary.counts {
-            report.push(format!("  - {}: {count}", summary.kind.choice_label(choice)));
+            for (delta, count) in summary.counts {
+                report.push(format!("  - {}: {count}", format_indent_delta(delta)));
+            }
         }
     }
 
@@ -270,10 +376,18 @@ pub fn compare_repository_profiles(
         .into_iter()
         .map(|summary| (summary.kind, summary))
         .collect::<BTreeMap<_, _>>();
+    let candidate_indentation_summaries = candidate
+        .indentation_summaries()
+        .into_iter()
+        .map(|summary| (summary.kind, summary))
+        .collect::<BTreeMap<_, _>>();
 
     let mut decisions = Vec::new();
+    let mut indentation_observations = Vec::new();
     let mut total_candidate_observations = 0;
     let mut total_candidate_matches_reference_dominant = 0;
+    let mut total_candidate_indentation_observations = 0;
+    let mut total_candidate_matches_reference_indentation_dominant = 0;
 
     for reference_summary in reference.summaries() {
         let candidate_summary = candidate_summaries.get(&reference_summary.kind).cloned();
@@ -300,14 +414,44 @@ pub fn compare_repository_profiles(
         });
     }
 
+    for reference_summary in reference.indentation_summaries() {
+        let candidate_summary =
+            candidate_indentation_summaries.get(&reference_summary.kind).cloned();
+        let candidate_matches_reference_dominant = candidate_summary
+            .as_ref()
+            .and_then(|summary| {
+                summary
+                    .counts
+                    .iter()
+                    .find(|(delta, _)| *delta == reference_summary.dominant_delta)
+                    .map(|(_, count)| *count)
+            })
+            .unwrap_or(0);
+
+        total_candidate_indentation_observations +=
+            candidate_summary.as_ref().map_or(0, |summary| summary.total_observations);
+        total_candidate_matches_reference_indentation_dominant +=
+            candidate_matches_reference_dominant;
+
+        indentation_observations.push(IndentationObservationComparison {
+            kind: reference_summary.kind,
+            reference: reference_summary,
+            candidate: candidate_summary,
+            candidate_matches_reference_dominant,
+        });
+    }
+
     RepositoryStyleComparison {
         reference_file_count: reference.file_count,
         candidate_file_count: candidate.file_count,
         reference_files_with_parse_errors: reference.files_with_parse_errors,
         candidate_files_with_parse_errors: candidate.files_with_parse_errors,
         decisions,
+        indentation_observations,
         total_candidate_observations,
         total_candidate_matches_reference_dominant,
+        total_candidate_indentation_observations,
+        total_candidate_matches_reference_indentation_dominant,
     }
 }
 
@@ -334,22 +478,47 @@ pub fn format_repository_style_comparison_report(comparison: &RepositoryStyleCom
         ));
     }
 
-    if comparison.decisions.is_empty() {
+    if comparison.decisions.is_empty() && comparison.indentation_observations.is_empty() {
         report.push("No comparable style decisions observed.".into());
         return report.join("\n");
     }
 
-    report.push(format!("Reference observations: {total_reference_observations}"));
-    report.push(format!("Formatter observations: {}", comparison.total_candidate_observations));
-    report.push(format!(
-        "Overall formatter alignment with reference dominant choices: {}",
-        format_fraction(
-            comparison.total_candidate_matches_reference_dominant,
-            comparison.total_candidate_observations
-        )
-    ));
-    if comparison.total_candidate_observations == 0 && total_reference_observations > 0 {
-        report.push("Formatter output produced no comparable observations.".into());
+    if !comparison.decisions.is_empty() {
+        report.push(format!("Reference observations: {total_reference_observations}"));
+        report.push(format!("Formatter observations: {}", comparison.total_candidate_observations));
+        report.push(format!(
+            "Overall formatter alignment with reference dominant choices: {}",
+            format_fraction(
+                comparison.total_candidate_matches_reference_dominant,
+                comparison.total_candidate_observations
+            )
+        ));
+        if comparison.total_candidate_observations == 0 && total_reference_observations > 0 {
+            report.push("Formatter output produced no comparable observations.".into());
+        }
+    }
+
+    if !comparison.indentation_observations.is_empty() {
+        let total_reference_indentation_observations: usize = comparison
+            .indentation_observations
+            .iter()
+            .map(|decision| decision.reference.total_observations)
+            .sum();
+        report.push(format!(
+            "Reference indentation observations: {total_reference_indentation_observations}"
+        ));
+        report.push(format!(
+            "Formatter indentation observations: {}",
+            comparison.total_candidate_indentation_observations
+        ));
+        report.push(format!(
+            "Overall formatter alignment with reference dominant indentation deltas: {}",
+            format_fraction(
+                comparison.total_candidate_matches_reference_indentation_dominant,
+                comparison.total_candidate_indentation_observations
+            )
+        ));
+        report.push("indentation observations:".into());
     }
 
     for decision in &comparison.decisions {
@@ -380,6 +549,42 @@ pub fn format_repository_style_comparison_report(comparison: &RepositoryStyleCom
         if let Some(candidate) = &decision.candidate {
             for (choice, count) in &candidate.counts {
                 report.push(format!("    - {}: {count}", decision.kind.choice_label(*choice)));
+            }
+        } else {
+            report.push("    - not observed".into());
+        }
+    }
+
+    for decision in &comparison.indentation_observations {
+        report.push(String::new());
+        report.push(decision.kind.label().to_string());
+        report.push(format!("  reference observations: {}", decision.reference.total_observations));
+        report.push(format!(
+            "  formatter observations: {}",
+            decision.candidate.as_ref().map_or(0, |summary| summary.total_observations)
+        ));
+        report.push(format!(
+            "  reference dominant: {}",
+            format_indentation_summary_choice(&decision.reference)
+        ));
+        report
+            .push(format!("  formatter dominant: {}", format_candidate_indent_dominant(decision)));
+        report.push(format!(
+            "  formatter matches reference dominant: {}",
+            format_fraction(
+                decision.candidate_matches_reference_dominant,
+                decision.candidate.as_ref().map_or(0, |summary| summary.total_observations)
+            )
+        ));
+        report.push("  reference counts:".into());
+        for (delta, count) in &decision.reference.counts {
+            report.push(format!("    - {}: {count}", format_indent_delta(*delta)));
+        }
+
+        report.push("  formatter counts:".into());
+        if let Some(candidate) = &decision.candidate {
+            for (delta, count) in &candidate.counts {
+                report.push(format!("    - {}: {count}", format_indent_delta(*delta)));
             }
         } else {
             report.push("    - not observed".into());
@@ -535,6 +740,70 @@ fn extract_top_level_blank_lines(source: &str, document: &SyntaxNode) -> Vec<Sty
     decisions
 }
 
+fn extract_indentation_observations(
+    source: &str,
+    document: &SyntaxNode,
+) -> Vec<IndentationObservation> {
+    let mut observations = Vec::new();
+
+    for node in document.descendants() {
+        match node.kind() {
+            SyntaxKind::CodeBlock | SyntaxKind::ObjectLiteral | SyntaxKind::Element => {}
+            _ => continue,
+        }
+
+        let Some(opening_brace) = first_token_of_kind(&node, SyntaxKind::LBrace) else {
+            continue;
+        };
+        let Some(closing_brace) = last_token_of_kind(&node, SyntaxKind::RBrace) else {
+            continue;
+        };
+
+        let opening_line = line_number(source, opening_brace.text_range().start());
+        let closing_line = line_number(source, closing_brace.text_range().start());
+        if opening_line == closing_line {
+            continue;
+        }
+
+        let block_indent = line_indent_width(source, opening_brace.text_range().start()) as isize;
+        let mut child_indents = Vec::new();
+
+        for child in node.children() {
+            let Some(first_token) = child.first_token() else {
+                continue;
+            };
+
+            let child_line = line_number(source, first_token.text_range().start());
+            if child_line <= opening_line || child_line >= closing_line {
+                continue;
+            }
+
+            let child_indent = line_indent_width(source, first_token.text_range().start()) as isize;
+            child_indents.push(child_indent);
+            observations.push(IndentationObservation {
+                kind: IndentationDecisionKind::MultilineBlockChildIndentation,
+                delta: child_indent - block_indent,
+            });
+        }
+
+        observations.push(IndentationObservation {
+            kind: IndentationDecisionKind::MultilineBlockClosingBraceAlignment,
+            delta: line_indent_width(source, closing_brace.text_range().start()) as isize
+                - block_indent,
+        });
+
+        if child_indents.len() >= 2 {
+            let spread = child_indents.iter().max().unwrap() - child_indents.iter().min().unwrap();
+            observations.push(IndentationObservation {
+                kind: IndentationDecisionKind::MultilineBlockSiblingIndentSpread,
+                delta: spread,
+            });
+        }
+    }
+
+    observations
+}
+
 fn operator_spacing_choice(source: &str, token: &SyntaxToken) -> Option<StyleChoice> {
     let previous = previous_non_trivia_token(token)?;
     let next = next_non_trivia_token(token)?;
@@ -679,6 +948,16 @@ fn count_blank_lines_between(text: &str) -> usize {
     parts[1..parts.len() - 1].iter().filter(|part| part.trim().is_empty()).count()
 }
 
+fn line_indent_width(source: &str, offset: i_slint_compiler::parser::TextSize) -> usize {
+    let offset = offset_from_text_size(offset);
+    let line_start = source[..offset].rfind('\n').map_or(0, |index| index + 1);
+    source[line_start..offset]
+        .chars()
+        .take_while(|character| matches!(character, ' ' | '\t'))
+        .map(|character| if character == '\t' { 4 } else { 1 })
+        .sum()
+}
+
 fn line_number(source: &str, offset: i_slint_compiler::parser::TextSize) -> usize {
     let offset = offset_from_text_size(offset);
     source.as_bytes()[..offset].iter().filter(|byte| **byte == b'\n').count() + 1
@@ -705,6 +984,28 @@ fn format_candidate_dominant_choice(decision: &StyleDecisionComparison) -> Strin
     format_dominant_choice(candidate)
 }
 
+fn format_candidate_indent_dominant(decision: &IndentationObservationComparison) -> String {
+    let Some(candidate) = &decision.candidate else {
+        return "not observed".into();
+    };
+
+    format!(
+        "{} ({}/{})",
+        format_indent_delta(candidate.dominant_delta),
+        candidate.dominant_count,
+        candidate.total_observations
+    )
+}
+
+fn format_indentation_summary_choice(summary: &IndentationObservationSummary) -> String {
+    format!(
+        "{} ({}/{})",
+        format_indent_delta(summary.dominant_delta),
+        summary.dominant_count,
+        summary.total_observations
+    )
+}
+
 fn format_fraction(count: usize, total: usize) -> String {
     if total == 0 {
         return "0/0 (n/a)".into();
@@ -719,6 +1020,14 @@ fn format_ratio(count: usize, total: usize) -> String {
 
 fn percentage(count: usize, total: usize) -> f64 {
     if total == 0 { 0.0 } else { (count as f64 / total as f64) * 100.0 }
+}
+
+fn format_indent_delta(delta: isize) -> String {
+    match delta {
+        0 => "aligned".into(),
+        delta if delta > 0 => format!("+{} spaces", delta),
+        delta => format!("{delta} spaces"),
+    }
 }
 
 #[cfg(test)]
@@ -777,6 +1086,34 @@ export component Example inherits Window {
     }
 
     #[test]
+    fn profiles_multiline_block_indentation_observations() {
+        let source = r#"
+export component Example inherits Window {
+    ping => {
+            foo();
+            bar();
+    }
+}
+"#;
+
+        let profile = profile_source(source);
+
+        assert!(!profile.has_parse_errors, "{:?}", profile.diagnostics);
+        assert!(profile.indentation_observations.contains(&IndentationObservation {
+            kind: IndentationDecisionKind::MultilineBlockChildIndentation,
+            delta: 8,
+        }));
+        assert!(profile.indentation_observations.contains(&IndentationObservation {
+            kind: IndentationDecisionKind::MultilineBlockClosingBraceAlignment,
+            delta: 0,
+        }));
+        assert!(profile.indentation_observations.contains(&IndentationObservation {
+            kind: IndentationDecisionKind::MultilineBlockSiblingIndentSpread,
+            delta: 0,
+        }));
+    }
+
+    #[test]
     fn profiles_blank_lines_between_top_level_definitions() {
         let source = r#"
 import { Button } from "std-widgets.slint";
@@ -808,6 +1145,7 @@ export component Second inherits Rectangle {}
                 path: None,
                 diagnostics: Vec::new(),
                 has_parse_errors: false,
+                indentation_observations: Vec::new(),
                 decisions: vec![
                     StyleDecision {
                         kind: StyleDecisionKind::BindingColonSpacing,
@@ -823,6 +1161,7 @@ export component Second inherits Rectangle {}
                 path: None,
                 diagnostics: Vec::new(),
                 has_parse_errors: true,
+                indentation_observations: Vec::new(),
                 decisions: vec![StyleDecision {
                     kind: StyleDecisionKind::BindingColonSpacing,
                     choice: StyleChoice::NoSpaces,
@@ -851,6 +1190,7 @@ export component Second inherits Rectangle {}
                 path: None,
                 diagnostics: Vec::new(),
                 has_parse_errors: false,
+                indentation_observations: Vec::new(),
                 decisions: vec![
                     StyleDecision {
                         kind: StyleDecisionKind::BindingColonSpacing,
@@ -870,6 +1210,7 @@ export component Second inherits Rectangle {}
                 path: None,
                 diagnostics: Vec::new(),
                 has_parse_errors: false,
+                indentation_observations: Vec::new(),
                 decisions: vec![StyleDecision {
                     kind: StyleDecisionKind::ElementBracePlacement,
                     choice: StyleChoice::SameLine,
@@ -881,6 +1222,7 @@ export component Second inherits Rectangle {}
                 path: None,
                 diagnostics: Vec::new(),
                 has_parse_errors: false,
+                indentation_observations: Vec::new(),
                 decisions: vec![
                     StyleDecision {
                         kind: StyleDecisionKind::BindingColonSpacing,
@@ -896,6 +1238,7 @@ export component Second inherits Rectangle {}
                 path: None,
                 diagnostics: Vec::new(),
                 has_parse_errors: false,
+                indentation_observations: Vec::new(),
                 decisions: vec![StyleDecision {
                     kind: StyleDecisionKind::ElementBracePlacement,
                     choice: StyleChoice::NextLine,
@@ -926,5 +1269,52 @@ export component Second inherits Rectangle {}
         assert!(report.contains("reference dominant: space after only (2/3, 66.7%)"));
         assert!(report.contains("formatter dominant: next line (1/1, 100.0%)"));
         assert!(report.contains("formatter matches reference dominant: 0/1 (0.0%)"));
+    }
+
+    #[test]
+    fn compares_indentation_observations_with_reference_dominant_deltas() {
+        let reference = aggregate_repository_profile(&[FileStyleProfile {
+            path: None,
+            diagnostics: Vec::new(),
+            has_parse_errors: false,
+            indentation_observations: vec![
+                IndentationObservation {
+                    kind: IndentationDecisionKind::MultilineBlockChildIndentation,
+                    delta: 4,
+                },
+                IndentationObservation {
+                    kind: IndentationDecisionKind::MultilineBlockClosingBraceAlignment,
+                    delta: 0,
+                },
+            ],
+            decisions: Vec::new(),
+        }]);
+        let candidate = aggregate_repository_profile(&[FileStyleProfile {
+            path: None,
+            diagnostics: Vec::new(),
+            has_parse_errors: false,
+            indentation_observations: vec![
+                IndentationObservation {
+                    kind: IndentationDecisionKind::MultilineBlockChildIndentation,
+                    delta: 8,
+                },
+                IndentationObservation {
+                    kind: IndentationDecisionKind::MultilineBlockClosingBraceAlignment,
+                    delta: 0,
+                },
+            ],
+            decisions: Vec::new(),
+        }]);
+
+        let comparison = compare_repository_profiles(&reference, &candidate);
+        let report = format_repository_style_comparison_report(&comparison);
+
+        assert!(report.contains(
+            "Overall formatter alignment with reference dominant indentation deltas: 1/2 (50.0%)"
+        ));
+        assert!(report.contains("indentation observations:"));
+        assert!(report.contains("multiline block direct-child indentation"));
+        assert!(report.contains("reference dominant: +4 spaces (1/1)"));
+        assert!(report.contains("formatter dominant: +8 spaces (1/1)"));
     }
 }
