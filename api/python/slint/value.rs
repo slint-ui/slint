@@ -278,8 +278,7 @@ impl TypeCollection {
             }
         }
 
-        let enum_classes = Rc::new(enum_classes);
-        Self { enum_classes }
+        Self { enum_classes: Rc::new(enum_classes) }
     }
 
     pub fn to_py_value(
@@ -304,12 +303,12 @@ impl TypeCollection {
         enum_value: &str,
         py: Python<'_>,
     ) -> Result<Py<PyAny>, PyErr> {
-        let enum_cls = self.enum_classes.get(ident(enum_name).as_str()).ok_or_else(|| {
-            PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
-                "Slint provided enum {enum_name} is unknown"
-            ))
-        })?;
-        enum_cls.getattr(py, enum_value)
+        let key = ident(enum_name);
+        if let Some(cls) = self.enum_classes.get(key.as_str()) {
+            return cls.getattr(py, enum_value);
+        }
+        // Built-in language enums live on the `slint.language` module.
+        py.import("slint.language")?.getattr(key.as_str())?.getattr(enum_value).map(|v| v.unbind())
     }
 
     pub fn model_to_py(

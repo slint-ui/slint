@@ -10304,6 +10304,7 @@ dependencies = [
  "css-color-parser2",
  "i-slint-backend-selector",
  "i-slint-backend-testing",
+ "i-slint-common",
  "i-slint-compiler",
  "i-slint-core",
  "itertools 0.14.0",

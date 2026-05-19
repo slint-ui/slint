@@ -26,7 +26,7 @@ macro_rules! declare_ValueType {
 }
 
 macro_rules! declare_ValueType_2 {
-    ($( $(#[$enum_doc:meta])* enum $Name:ident { $($body:tt)* })*) => {
+    ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $($body:tt)* })*) => {
         declare_ValueType![
             (),
             bool,

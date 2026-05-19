@@ -5,3 +5,4 @@ docs/
 npm/
 dist/
 build/
+typescript/generated/

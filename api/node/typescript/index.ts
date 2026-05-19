@@ -16,6 +16,8 @@ export { Model };
 
 export { ArrayModel } from "./models";
 
+export { language } from "./generated/language";
+
 import { Diagnostic } from "../rust-module.cjs";
 
 import { fileURLToPath } from "node:url";

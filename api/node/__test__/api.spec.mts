@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import {
     loadFile,
     loadSource,
+    language,
     CompileError,
     StyledText,
 } from "../dist/index.js";
@@ -321,6 +322,67 @@ test("loadFile enum", () => {
     test.check = demo.TestEnum.c;
 
     expect(test.check).toStrictEqual("c");
+});
+
+test("language builtin enums: values and round-trip", () => {
+    expect(language.ColorScheme.Dark).toStrictEqual("dark");
+    expect(language.ColorScheme.Light).toStrictEqual("light");
+    expect(language.ColorScheme.Unknown).toStrictEqual("unknown");
+    expect(language.PointerEventButton.Left).toStrictEqual("left");
+    expect(language.PointerEventKind.Down).toStrictEqual("down");
+
+    // Round-trip a builtin enum value through a Slint property.
+    const source = `export component App {
+        in-out property <ColorScheme> scheme: ColorScheme.unknown;
+    }`;
+    const demo = loadSource(source, "language.spec.ts") as any;
+    const app = new demo.App();
+    app.scheme = language.ColorScheme.Dark;
+    expect(app.scheme).toStrictEqual("dark");
+
+    // Type-position usage compiles: language.ColorScheme is also a type.
+    const scheme: language.ColorScheme = language.ColorScheme.Light;
+    expect(scheme).toStrictEqual("light");
+});
+
+test("language builtin structs: factory defaults", () => {
+    // Calling a factory with no args must produce a fully-populated value with
+    // the Slint-documented defaults for each field.
+    const mods = language.KeyboardModifiers();
+    expect(mods).toStrictEqual({
+        alt: false,
+        control: false,
+        shift: false,
+        meta: false,
+    });
+
+    const evt = language.PointerEvent();
+    // PointerEventButton's first variant is `Other`, PointerEventKind's is `Cancel` —
+    // these match the Rust `Default` impl for the enums.
+    expect(evt.button).toStrictEqual("other");
+    expect(evt.kind).toStrictEqual("cancel");
+    expect(evt.touch_finger_id).toStrictEqual(0);
+    expect(evt.modifiers).toStrictEqual(language.KeyboardModifiers());
+});
+
+test("language builtin structs: factory overrides", () => {
+    // Overriding selected fields keeps the defaults for the rest. The factory
+    // accepts `Partial<T>` and returns the strict `T`, so consumers can rely on
+    // every field being present when reading.
+    const evt = language.PointerEvent({
+        button: language.PointerEventButton.Left,
+        kind: language.PointerEventKind.Down,
+        modifiers: language.KeyboardModifiers({ control: true }),
+    });
+    expect(evt.button).toStrictEqual("left");
+    expect(evt.kind).toStrictEqual("down");
+    expect(evt.modifiers.control).toStrictEqual(true);
+    expect(evt.modifiers.alt).toStrictEqual(false);
+    expect(evt.touch_finger_id).toStrictEqual(0);
+
+    // Type-position usage: the type alias is the strict shape.
+    const typed: language.PointerEvent = evt;
+    expect(typed.button).toStrictEqual("left");
 });
 
 test("loadSource styled-text property get/set", () => {
