@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore frameless qbrush qpointf qreal qvariant qwidgetsize svgz Nesw qsize qstring
+// cSpell: ignore frameless qbrush qimage qpointf qreal qvariant qwidgetsize svgz Nesw qsize qstring
 
 use cpp::*;
 use i_slint_common::sharedfontique::HashedBlob;
@@ -266,23 +266,7 @@ cpp! {{
                 return Qt::IgnoreAction;
             const QMimeData *mime = event->mimeData();
             QString text = mime->hasText() ? mime->text() : QString();
-            QSize image_size;
-            QByteArray image_bytes;
-            if (mime->hasImage()) {
-                QImage image = qvariant_cast<QImage>(mime->imageData());
-                if (!image.isNull()) {
-                    image.convertTo(QImage::Format_RGBA8888);
-                    image_size = image.size();
-                    const int row_bytes = image.width() * 4;
-                    image_bytes.resize(row_bytes * image.height());
-                    // QImage may pad scan lines for alignment, so we can't just copy
-                    // sizeInBytes() — pack row-by-row into a tight width*height*4 buffer.
-                    for (int y = 0; y < image.height(); ++y) {
-                        memcpy(image_bytes.data() + y * row_bytes,
-                               image.constScanLine(y), row_bytes);
-                    }
-                }
-            }
+            QImage image = mime->hasImage() ? qvariant_cast<QImage>(mime->imageData()) : QImage();
     #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
             QPoint pos = event->position().toPoint();
     #else
@@ -294,21 +278,12 @@ cpp! {{
                 rust_window: &QtWindow as "void*",
                 pos: qttypes::QPoint as "QPoint",
                 text: qttypes::QString as "QString",
-                image_bytes: qttypes::QByteArray as "QByteArray",
-                image_size: qttypes::QSize as "QSize",
+                image: qttypes::QImage as "QImage",
                 allowed: u32 as "int",
                 proposed: u32 as "int",
                 is_drop: bool as "bool"
             ] -> u32 as "int" {
-                rust_window.drag_event(
-                    pos,
-                    text.clone(),
-                    image_bytes.clone(),
-                    image_size,
-                    allowed,
-                    proposed,
-                    is_drop,
-                )
+                rust_window.drag_event(pos, text.clone(), image.clone(), allowed, proposed, is_drop)
             });
             return Qt::DropAction(chosen);
         }
@@ -1587,6 +1562,34 @@ pub(crate) fn image_to_pixmap(
     shared_image_buffer_to_pixmap(&image.render_to_buffer(source_size)?)
 }
 
+/// Converts a Qt image to a Slint `SharedPixelBuffer<Rgba8Pixel>`, repacking each
+/// scan line so the result has no row padding. Returns `None` for empty images.
+pub(crate) fn qimage_to_shared_pixel_buffer(
+    mut image: qttypes::QImage,
+) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
+    let size = image.size();
+    if size.width == 0 || size.height == 0 {
+        return None;
+    }
+    let bytes = cpp!(unsafe [mut image as "QImage"] -> qttypes::QByteArray as "QByteArray" {
+        image.convertTo(QImage::Format_RGBA8888);
+        const int row_bytes = image.width() * 4;
+        QByteArray packed;
+        packed.resize(row_bytes * image.height());
+        // QImage may pad scan lines for alignment, so we can't just copy sizeInBytes()
+        // — pack row-by-row into a tight width*height*4 buffer.
+        for (int y = 0; y < image.height(); ++y) {
+            memcpy(packed.data() + y * row_bytes, image.constScanLine(y), row_bytes);
+        }
+        return packed;
+    });
+    Some(SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
+        bytes.to_slice(),
+        size.width,
+        size.height,
+    ))
+}
+
 impl QtItemRenderer<'_> {
     fn draw_image_impl(
         &mut self,
@@ -2062,18 +2065,16 @@ impl QtWindow {
 
     /// Dispatch a Qt drag/drop event. `allowed` is `event->possibleActions()` and
     /// `proposed` is `event->proposedAction()` as `Qt::DropAction` bitmask values
-    /// (see `key_generated::Qt_DropAction_*`). `image_bytes` must be in
-    /// `QImage::Format_RGBA8888` layout (row-major, 4 bytes per pixel, straight
-    /// alpha) so they map directly onto `SharedPixelBuffer<Rgba8Pixel>`; an empty
-    /// buffer means no image is offered. Returns the negotiated `Qt::DropAction`
-    /// (`Qt_DropAction_IgnoreAction` when no `DropArea` accepted) for the caller
-    /// to feed back into `QDropEvent::setDropAction` + `accept()`.
+    /// (see `key_generated::Qt_DropAction_*`). `image` is the source's image payload
+    /// when one is offered, or a default (null) `QImage` otherwise. Returns the
+    /// negotiated `Qt::DropAction` (`Qt_DropAction_IgnoreAction` when no `DropArea`
+    /// accepted) for the caller to feed back into `QDropEvent::setDropAction` +
+    /// `accept()`.
     fn drag_event(
         &self,
         pos: qttypes::QPoint,
         text: qttypes::QString,
-        image_bytes: qttypes::QByteArray,
-        image_size: qttypes::QSize,
+        image: qttypes::QImage,
         allowed: u32,
         proposed: u32,
         is_drop: bool,
@@ -2090,13 +2091,7 @@ impl QtWindow {
         if !text.is_empty() {
             data.set_plaintext(text);
         }
-        let image_bytes = image_bytes.to_slice();
-        if image_size.width > 0 && image_size.height > 0 && !image_bytes.is_empty() {
-            let buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
-                image_bytes,
-                image_size.width,
-                image_size.height,
-            );
+        if let Some(buffer) = qimage_to_shared_pixel_buffer(image) {
             data.set_image(i_slint_core::graphics::Image::from_rgba8(buffer).into());
         }
         let drop_event = DropEvent {
@@ -2663,24 +2658,10 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
 
     fn take_snapshot(&self) -> Result<SharedPixelBuffer<Rgba8Pixel>, PlatformError> {
         let widget_ptr = self.widget_ptr();
-
-        let size = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QSize as "QSize" {
-            return widget_ptr->size();
+        let image = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QImage as "QImage" {
+            return widget_ptr->grab().toImage();
         }};
-
-        let rgba8_data = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QByteArray as "QByteArray" {
-            QPixmap pixmap = widget_ptr->grab();
-            QImage image = pixmap.toImage();
-            image.convertTo(QImage::Format_ARGB32);
-            return QByteArray(reinterpret_cast<const char *>(image.constBits()), image.sizeInBytes());
-        }};
-
-        let buffer = i_slint_core::graphics::SharedPixelBuffer::<i_slint_core::graphics::Rgba8Pixel>::clone_from_slice(
-            rgba8_data.to_slice(),
-            size.width,
-            size.height,
-        );
-        Ok(buffer)
+        qimage_to_shared_pixel_buffer(image).ok_or_else(|| "widget has zero size".into())
     }
 
     fn supports_transformations(&self) -> bool {
