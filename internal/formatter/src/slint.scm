@@ -16,6 +16,20 @@
 
 (comment) @multi_line_indent_all
 (comment) @prepend_input_softline @append_input_softline
+; Allow top-level comments to be seperated from the following item by a blank line (e.g. for license headers)
+(sourcefile
+  . (comment)+
+  . (_) @allow_blank_line_before
+ )
+
+; Add a special case for single-line comments that end with the ignore directive,
+; so that they can be used to disable formatting for the following item without forcing a blank line.
+;
+; Note: We must use a topiary-compatible capture name for the comment, otherwise topariy rejects the query.
+((comment) @prepend_input_softline
+  . (_) @leaf
+  (#eq? @prepend_input_softline "// slint-fmt:ignore"))
+ 
 
 ; Round one focuses on the highest-signal spacing choices first.
 (export) @append_space
