@@ -1,24 +1,89 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell:ignore proptype
 use i_slint_compiler::langtype::Type;
 use i_slint_core::window::WindowInner;
 use napi::bindgen_prelude::*;
 use napi::{Env, Result};
 use slint_interpreter::{ComponentHandle, ComponentInstance, Value};
 
-use crate::JsWindow;
+use crate::{JsAnchorOwner, JsWindow};
 
 use super::JsComponentDefinition;
 
 #[napi(js_name = "ComponentInstance")]
 pub struct JsComponentInstance {
+    /// Per-instance anchor-ID counter, shared with [`JsAnchorOwner`] via `Rc`.
+    /// Declared before `inner` so it's dropped first:
+    /// when `inner` drops its models and DataTransfer values,
+    /// `Weak::upgrade()` already returns `None` and the pinned side's
+    /// `Drop` skips NAPI calls.
+    anchor_seq: std::rc::Rc<std::cell::Cell<u32>>,
     inner: ComponentInstance,
 }
 
 impl From<ComponentInstance> for JsComponentInstance {
     fn from(instance: ComponentInstance) -> Self {
-        Self { inner: instance }
+        Self { inner: instance, anchor_seq: std::rc::Rc::new(std::cell::Cell::new(0)) }
+    }
+}
+
+impl JsComponentInstance {
+    fn anchor_owner(&self, env: &Env, this: &This<Object<'_>>) -> Result<JsAnchorOwner> {
+        Ok(JsAnchorOwner {
+            owner_weak: crate::weak_ref::weak_ref_from_object(env, &this.object)?,
+            seq: std::rc::Rc::downgrade(&self.anchor_seq),
+        })
+    }
+
+    /// Build the Rust closure for `set_callback` / `set_global_callback`.
+    ///
+    /// The JS function is stored as a property on `this` (not as a NAPI GC root).
+    /// The closure holds a weak reference and looks the function up at call time.
+    fn make_callback_handler(
+        env: Env,
+        owner: JsAnchorOwner,
+        prop_key: String,
+        return_type: Type,
+        callback_name: String,
+    ) -> impl Fn(&[Value]) -> Value {
+        let weak_this = owner.owner_weak.clone();
+        move |args: &[Value]| {
+            let Some(obj) = crate::weak_ref::weak_ref_get_object(&weak_this, env) else {
+                return Value::Void;
+            };
+            let Ok(func) =
+                obj.get_named_property::<Function<'_, crate::DynArgs, Unknown<'_>>>(&prop_key)
+            else {
+                return Value::Void;
+            };
+
+            let js_args: Vec<napi::sys::napi_value> = args
+                .iter()
+                .filter_map(|v| Some(super::value::to_js_unknown(&env, v).ok()?.raw()))
+                .collect();
+
+            let result = match func.call(crate::DynArgs(js_args)) {
+                Ok(result) => result,
+                Err(err) => {
+                    crate::console_err!(
+                        env,
+                        "Node.js: Invoking callback '{callback_name}' failed: {err}"
+                    );
+                    return Value::Void;
+                }
+            };
+
+            if matches!(return_type, Type::Void) {
+                Value::Void
+            } else if let Ok(value) = super::to_value(&env, result, &return_type, &owner) {
+                value
+            } else {
+                eprintln!("Node.js: cannot convert return type of callback {callback_name}");
+                slint_interpreter::default_value_for_type(&return_type)
+            }
+        }
     }
 }
 
@@ -46,7 +111,13 @@ impl JsComponentInstance {
     }
 
     #[napi]
-    pub fn set_property(&self, env: &Env, prop_name: String, js_value: Unknown<'_>) -> Result<()> {
+    pub fn set_property(
+        &self,
+        env: &Env,
+        this: This<Object<'_>>,
+        prop_name: String,
+        js_value: Unknown<'_>,
+    ) -> Result<()> {
         let (ty, _) = self
             .inner
             .definition()
@@ -57,8 +128,9 @@ impl JsComponentInstance {
                 napi::Error::from_reason(format!("Property {prop_name} not found in the component"))
             })?;
 
+        let owner = self.anchor_owner(env, &this)?;
         self.inner
-            .set_property(&prop_name, super::value::to_value(env, js_value, &ty)?)
+            .set_property(&prop_name, super::value::to_value(env, js_value, &ty, &owner)?)
             .map_err(|e| napi::Error::from_reason(format!("{e}")))?;
 
         Ok(())
@@ -85,6 +157,7 @@ impl JsComponentInstance {
     pub fn set_global_property(
         &self,
         env: &Env,
+        this: This<Object<'_>>,
         global_name: String,
         prop_name: String,
         js_value: Unknown<'_>,
@@ -102,11 +175,12 @@ impl JsComponentInstance {
                 ))
             })?;
 
+        let owner = self.anchor_owner(env, &this)?;
         self.inner
             .set_global_property(
                 global_name.as_str(),
                 &prop_name,
-                super::value::to_value(env, js_value, &ty)?,
+                super::value::to_value(env, js_value, &ty, &owner)?,
             )
             .map_err(|e| napi::Error::from_reason(format!("{e}")))?;
 
@@ -117,12 +191,10 @@ impl JsComponentInstance {
     pub fn set_callback(
         &self,
         env: &Env,
+        mut this: This<Object<'_>>,
         callback_name: String,
         callback: DynFunction<'_>,
     ) -> Result<()> {
-        let function_ref = StoredFunction::new(&callback)?;
-        let env = *env;
-
         let (ty, _) = self
             .inner
             .definition()
@@ -135,41 +207,20 @@ impl JsComponentInstance {
                 ))
             })?;
 
-        if let Type::Callback(callback) = ty {
+        if let Type::Callback(cb_type) = ty {
+            let prop_key = format!("__slint_cb_{callback_name}");
+            crate::set_hidden_property(&mut this.object, &prop_key, &callback)?;
+
+            let owner = self.anchor_owner(env, &this)?;
+            let handler = Self::make_callback_handler(
+                *env,
+                owner,
+                prop_key,
+                cb_type.return_type.clone(),
+                callback_name.clone(),
+            );
             self.inner
-                .set_callback(callback_name.as_str(), {
-                    let return_type = callback.return_type.clone();
-                    let callback_name = callback_name.clone();
-
-                    move |args| {
-                        let js_args: Vec<napi::sys::napi_value> = args
-                            .iter()
-                            .filter_map(|v| Some(super::value::to_js_unknown(&env, v).ok()?.raw()))
-                            .collect();
-
-                        let result = match function_ref.call(&env, js_args) {
-                            Ok(result) => result,
-                            Err(err) => {
-                                crate::console_err!(
-                                    env,
-                                    "Node.js: Invoking callback '{callback_name}' failed: {err}"
-                                );
-                                return Value::Void;
-                            }
-                        };
-
-                        if matches!(return_type, Type::Void) {
-                            Value::Void
-                        } else if let Ok(value) = super::to_value(&env, result, &return_type) {
-                            value
-                        } else {
-                            eprintln!(
-                                "Node.js: cannot convert return type of callback {callback_name}"
-                            );
-                            slint_interpreter::default_value_for_type(&return_type)
-                        }
-                    }
-                })
+                .set_callback(callback_name.as_str(), handler)
                 .map_err(|_| napi::Error::from_reason("Cannot set callback."))?;
 
             return Ok(());
@@ -182,13 +233,11 @@ impl JsComponentInstance {
     pub fn set_global_callback(
         &self,
         env: &Env,
+        mut this: This<Object<'_>>,
         global_name: String,
         callback_name: String,
         callback: DynFunction<'_>,
     ) -> Result<()> {
-        let function_ref = StoredFunction::new(&callback)?;
-        let env = *env;
-
         let (ty, _) = self
             .inner
             .definition()
@@ -202,37 +251,20 @@ impl JsComponentInstance {
                 ))
             })?;
 
-        if let Type::Callback(callback) = ty {
+        if let Type::Callback(cb_type) = ty {
+            let prop_key = format!("__slint_gcb_{global_name}_{callback_name}");
+            crate::set_hidden_property(&mut this.object, &prop_key, &callback)?;
+
+            let owner = self.anchor_owner(env, &this)?;
+            let handler = Self::make_callback_handler(
+                *env,
+                owner,
+                prop_key,
+                cb_type.return_type.clone(),
+                callback_name.clone(),
+            );
             self.inner
-                .set_global_callback(global_name.as_str(), callback_name.as_str(), {
-                    let return_type = callback.return_type.clone();
-                    let _global_name = global_name.clone();
-                    let callback_name = callback_name.clone();
-
-                    move |args| {
-                        let js_args: Vec<napi::sys::napi_value> = args
-                            .iter()
-                            .filter_map(|v| Some(super::value::to_js_unknown(&env, v).ok()?.raw()))
-                            .collect();
-
-                        let result = match function_ref.call(&env, js_args) {
-                            Ok(result) => result,
-                            Err(err) => {
-                                crate::console_err!(env, "Node.js: Invoking global callback '{callback_name}' failed: {err}");
-                                return Value::Void;
-                            }
-                        };
-
-                        if matches!(return_type, Type::Void) {
-                            Value::Void
-                        } else if let Ok(value) = super::to_value(&env, result, &return_type) {
-                            value
-                        } else {
-                            eprintln!("Node.js: cannot convert return type of callback {callback_name}");
-                            slint_interpreter::default_value_for_type(&return_type)
-                        }
-                    }
-                })
+                .set_global_callback(global_name.as_str(), callback_name.as_str(), handler)
                 .map_err(|_| napi::Error::from_reason("Cannot set callback."))?;
 
             return Ok(());
@@ -243,6 +275,7 @@ impl JsComponentInstance {
 
     fn invoke_args(
         env: &Env,
+        anchor_owner: &JsAnchorOwner,
         callback_name: &String,
         arguments: Vec<Unknown<'_>>,
         args: &[Type],
@@ -251,7 +284,7 @@ impl JsComponentInstance {
         let args = arguments
             .into_iter()
             .zip(args)
-            .map(|(a, ty)| super::value::to_value(env, a, ty))
+            .map(|(a, ty)| super::value::to_value(env, a, ty, anchor_owner))
             .collect::<Result<Vec<_>, _>>()?;
         if args.len() != count {
             return Err(napi::Error::from_reason(
@@ -271,6 +304,7 @@ impl JsComponentInstance {
     pub fn invoke<'a>(
         &self,
         env: &'a Env,
+        this: This<Object<'_>>,
         callback_name: String,
         callback_arguments: Vec<Unknown<'_>>,
     ) -> Result<Unknown<'a>> {
@@ -286,9 +320,10 @@ impl JsComponentInstance {
                 )
             })?;
 
+        let owner = self.anchor_owner(env, &this)?;
         let args = match ty {
             Type::Callback(function) | Type::Function(function) => {
-                Self::invoke_args(env, &callback_name, callback_arguments, &function.args)?
+                Self::invoke_args(env, &owner, &callback_name, callback_arguments, &function.args)?
             }
             _ => {
                 return Err(napi::Error::from_reason(
@@ -308,6 +343,7 @@ impl JsComponentInstance {
     pub fn invoke_global<'a>(
         &self,
         env: &'a Env,
+        this: This<Object<'_>>,
         global_name: String,
         callback_name: String,
         callback_arguments: Vec<Unknown<'_>>,
@@ -328,9 +364,10 @@ impl JsComponentInstance {
                 )
             })?;
 
+        let owner = self.anchor_owner(env, &this)?;
         let args = match ty {
             Type::Callback(function) | Type::Function(function) => {
-                Self::invoke_args(env, &callback_name, callback_arguments, &function.args)?
+                Self::invoke_args(env, &owner, &callback_name, callback_arguments, &function.args)?
             }
             _ => {
                 return Err(napi::Error::from_reason(
@@ -392,53 +429,5 @@ impl JsComponentInstance {
     }
 }
 
-/// A reference-counted handle to a JS object, for storing object references
-/// that outlive the current scope (e.g. model implementations).
-pub struct RefCountedReference {
-    inner: Option<napi::UnknownRef>,
-    env: Env,
-}
-
-impl RefCountedReference {
-    pub fn new(env: &Env, value: &Object) -> Result<Self> {
-        let unknown = (*value).into_unknown(env)?;
-        Ok(Self { inner: Some(unknown.create_ref()?), env: *env })
-    }
-
-    pub fn get_unknown(&self) -> Result<Unknown<'_>> {
-        self.inner
-            .as_ref()
-            .ok_or_else(|| napi::Error::from_reason("Reference already dropped"))?
-            .get_value(&self.env)
-    }
-}
-
-impl Drop for RefCountedReference {
-    fn drop(&mut self) {
-        if let Some(r) = self.inner.take() {
-            let _: napi::Result<()> = r.unref(&self.env);
-        }
-    }
-}
-
-/// A stored reference to a JS function that can be called with dynamic arguments.
-/// Uses `FunctionRef` for lifecycle management and compat `JsFunction::call` for invocation.
-/// Type alias for a JS function that accepts dynamic arguments.
+/// A JS function that accepts a dynamic number of arguments.
 pub type DynFunction<'a> = Function<'a, crate::DynArgs, Unknown<'static>>;
-
-/// A stored reference to a JS function that can be called with dynamic arguments.
-pub struct StoredFunction {
-    func_ref: FunctionRef<crate::DynArgs, Unknown<'static>>,
-}
-
-impl StoredFunction {
-    pub fn new(func: &DynFunction<'_>) -> Result<Self> {
-        Ok(Self { func_ref: func.create_ref()? })
-    }
-
-    /// Call the function with dynamic raw JS values.
-    pub fn call(&self, env: &Env, args: Vec<napi::sys::napi_value>) -> Result<Unknown<'_>> {
-        let func = self.func_ref.borrow_back(env)?;
-        func.call(crate::DynArgs(args))
-    }
-}

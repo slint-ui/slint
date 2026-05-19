@@ -3,6 +3,7 @@
 
 use crate::api::{SetPropertyError, Struct, Value};
 use crate::dynamic_item_tree::{CallbackHandler, InstanceRef};
+use core::ffi::c_void;
 use core::pin::Pin;
 use corelib::graphics::{
     ConicGradientBrush, GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush,
@@ -48,7 +49,7 @@ pub trait ErasedPropertyInfo {
 
     /// Safety: Property2 must be a (pinned) pointer to a `Property<T>`
     /// where T is the same T as the one represented by this property.
-    unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const ());
+    unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const c_void);
 
     fn prepare_for_two_way_binding(&self, item: Pin<ItemRef>) -> Pin<Rc<corelib::Property<Value>>>;
 
@@ -96,7 +97,7 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyIn
     fn set_debug_name(&self, item: Pin<ItemRef>, name: String) {
         (*self).set_debug_name(ItemRef::downcast_pin(item).unwrap(), name);
     }
-    unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const ()) {
+    unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const c_void) {
         // Safety: ErasedPropertyInfo::link_two_ways and PropertyInfo::link_two_ways have the same safety requirement
         unsafe { (*self).link_two_ways(ItemRef::downcast_pin(item).unwrap(), property2) }
     }
@@ -182,6 +183,15 @@ impl<'a, 'id> EvalLocalContext<'a, 'id> {
     }
 }
 
+/// Evaluate `expression` as a length / number and return the resulting f32.
+/// Caller's responsibility to only pass length-typed expressions.
+fn eval_to_f32(expression: &Expression, local_context: &mut EvalLocalContext) -> f32 {
+    match eval_expression(expression, local_context) {
+        Value::Number(n) => n as f32,
+        other => unreachable!("expected length-typed expression; got {other:?} for {expression:?}"),
+    }
+}
+
 /// Evaluate an expression and return a Value as the result of this expression
 pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalContext) -> Value {
     if let Some(r) = &local_context.return_value {
@@ -243,15 +253,16 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
         }
         Expression::Cast { from, to } => {
-            match try_cast(eval_expression(from, local_context), to.clone()) {
-                Ok(value) => value,
-                Err(value) => {
-                    let actual_ty = value.value_type();
-                    eprintln!(
-                        "Encountered `Expression::Cast`, but could not cast from {actual_ty:?} to {to}"
-                    );
-                    value
+            let value = eval_expression(from, local_context);
+            match (value, to) {
+                (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
+                (Value::Number(n), Type::String) => {
+                    Value::String(i_slint_core::string::shared_string_from_number(n))
                 }
+                (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
+                (Value::Brush(brush), Type::Color) => brush.color().into(),
+                (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
+                (v, _) => v,
             }
         }
         Expression::CodeBlock(sub) => {
@@ -598,10 +609,17 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 panic!("invalid layout cache")
             }
         }
-        Expression::ComputeBoxLayoutInfo(lay, o) => {
-            crate::eval_layout::compute_box_layout_info(lay, *o, local_context)
+        Expression::ComputeBoxLayoutInfo { layout, orientation, cross_axis_size } => {
+            let cross = cross_axis_size.as_deref().map(|e| eval_to_f32(e, local_context));
+            crate::eval_layout::compute_box_layout_info(layout, *orientation, local_context, cross)
         }
-        Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, orientation } => {
+        Expression::ComputeGridLayoutInfo {
+            layout_organized_data_prop,
+            layout,
+            orientation,
+            cross_axis_size,
+        } => {
+            let cross = cross_axis_size.as_deref().map(|e| eval_to_f32(e, local_context));
             let cache = load_property_helper(
                 &ComponentInstance::InstanceRef(local_context.component_instance),
                 &layout_organized_data_prop.element(),
@@ -614,6 +632,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     &organized_data,
                     *orientation,
                     local_context,
+                    cross,
                 )
             } else {
                 panic!("invalid layout organized data cache")
@@ -646,8 +665,14 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::SolveFlexboxLayout(layout) => {
             crate::eval_layout::solve_flexbox_layout(layout, local_context)
         }
-        Expression::ComputeFlexboxLayoutInfo(layout, orientation) => {
-            crate::eval_layout::compute_flexbox_layout_info(layout, *orientation, local_context)
+        Expression::ComputeFlexboxLayoutInfo { layout, orientation, cross_axis_size } => {
+            let cross = cross_axis_size.as_deref().map(|e| eval_to_f32(e, local_context));
+            crate::eval_layout::compute_flexbox_layout_info(
+                layout,
+                *orientation,
+                local_context,
+                cross,
+            )
         }
         Expression::MinMax { ty: _, op, lhs, rhs } => {
             let Value::Number(lhs) = eval_expression(lhs, local_context) else {
@@ -671,21 +696,6 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::EmptyDataTransfer => Value::DataTransfer(Default::default()),
         Expression::DebugHook { expression, .. } => eval_expression(expression, local_context),
     }
-}
-
-/// Try to convert the type to `to`, or return the value unmodified as an error if
-/// casting is not possible.
-fn try_cast(value: Value, to: Type) -> Result<Value, Value> {
-    Ok(match (value, to) {
-        (Value::Number(n), Type::Int32) => Value::Number(n.trunc()),
-        (Value::Number(n), Type::String) => {
-            Value::String(i_slint_core::string::shared_string_from_number(n))
-        }
-        (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
-        (Value::Brush(brush), Type::Color) => brush.color().into(),
-        (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),
-        (v, _) => return Err(v),
-    })
 }
 
 fn call_builtin_function(
@@ -715,6 +725,12 @@ fn call_builtin_function(
             );
             Value::Void
         }
+        BuiltinFunction::DecimalSeparator => Value::String(
+            local_context
+                .component_instance
+                .access_window(|window| window.context().locale_decimal_separator())
+                .into(),
+        ),
         BuiltinFunction::Mod => {
             let mut to_num = |e| -> f64 { eval_expression(e, local_context).try_into().unwrap() };
             Value::Number(to_num(&arguments[0]).rem_euclid(to_num(&arguments[1])))
@@ -898,16 +914,18 @@ fn call_builtin_function(
                 )
                 .try_into()
                 .expect("Invalid internal enumeration representation for close policy");
+                let popup_x = popup.x.clone();
+                let popup_y = popup.y.clone();
 
                 crate::dynamic_item_tree::show_popup(
                     popup_window,
                     enclosing_component,
                     popup,
-                    |instance_ref| {
+                    move |instance_ref| {
                         let comp = ComponentInstance::InstanceRef(instance_ref);
-                        let x = load_property_helper(&comp, &popup.x.element(), popup.x.name())
+                        let x = load_property_helper(&comp, &popup_x.element(), popup_x.name())
                             .unwrap();
-                        let y = load_property_helper(&comp, &popup.y.element(), popup.y.name())
+                        let y = load_property_helper(&comp, &popup_y.element(), popup_y.name())
                             .unwrap();
                         corelib::api::LogicalPosition::new(
                             x.try_into().unwrap(),
@@ -915,7 +933,7 @@ fn call_builtin_function(
                         )
                     },
                     close_policy,
-                    enclosing_component.self_weak().get().unwrap().clone(),
+                    (*enclosing_component.self_weak().get().unwrap()).clone(),
                     component.window_adapter(),
                     &parent_item,
                 );
@@ -977,7 +995,7 @@ fn call_builtin_function(
                 .apply(enclosing_component.as_ref());
             let inst = crate::dynamic_item_tree::instantiate(
                 compiled.clone(),
-                Some(enclosing_component.self_weak().get().unwrap().clone()),
+                Some((*enclosing_component.self_weak().get().unwrap()).clone()),
                 None,
                 Some(&crate::dynamic_item_tree::WindowOptions::UseExistingWindow(
                     component.window_adapter(),
@@ -1053,7 +1071,7 @@ fn call_builtin_function(
             compiled
                 .set_callback_handler(
                     inst_ref.borrow(),
-                    "close",
+                    "close-popup",
                     Box::new(move |_args: &[Value]| -> Value {
                         let Some(item_rc) = item_weak.upgrade() else { return Value::Void };
                         if let Some(id) = item_rc
@@ -1076,9 +1094,10 @@ fn call_builtin_function(
                 }
                 let id = window.show_popup(
                     &vtable::VRc::into_dyn(inst.clone()),
-                    position,
+                    Box::new(move || position),
                     corelib::items::PopupClosePolicy::CloseOnClickOutside,
                     &item_rc,
+                    false,
                     true,
                 );
                 context_menu_elem.popup_id.set(Some(id));
@@ -1729,6 +1748,10 @@ fn call_builtin_function(
             let window_adapter = local_context.component_instance.window_adapter();
             Value::Bool(corelib::open_url(&url, window_adapter.window()).is_ok())
         }
+        BuiltinFunction::BringAllToFront => {
+            corelib::bring_all_to_front();
+            Value::Void
+        }
         BuiltinFunction::ParseMarkdown => {
             let format_string: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
@@ -1743,6 +1766,11 @@ fn call_builtin_function(
             let string: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
             Value::StyledText(corelib::styled_text::string_to_styled_text(string.to_string()))
+        }
+        BuiltinFunction::ColorToStyledText => {
+            let color: corelib::Color =
+                eval_expression(&arguments[0], local_context).try_into().unwrap();
+            Value::StyledText(corelib::styled_text::color_to_styled_text(color))
         }
     }
 }
@@ -1788,7 +1816,8 @@ fn call_item_member_function(nr: &NamedReference, local_context: &mut EvalLocalC
         }
     } else if let Some(s) = ItemRef::downcast_pin::<corelib::items::WindowItem>(item_ref) {
         match name {
-            "hide" => s.hide(&window_adapter),
+            "hide" => s.hide(&window_adapter, &item_rc),
+            "close" => return Value::Bool(s.close(&window_adapter, &item_rc)),
             _ => {
                 panic!("internal: Unknown member function {name} called on WindowItem")
             }

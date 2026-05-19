@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore tArunning ABAAB BAAB
 export global G {
     in-out property <bool> tArunning: true;
 }
@@ -33,7 +34,7 @@ component SubCompo {
         }
     }
     init => {
-        // instentiate the repeater
+        // instantiate the repeater
         debug(root.preferred-height);
     }
 }
@@ -89,9 +90,9 @@ assert_eq!(instance.get_result(), "1");
 instance.set_tm2running(true);
 assert_eq!(instance.get_result(), "1");
 slint_testing::mock_elapsed_time(500);
-// despite we say to ellapse 500ms, the changed callback is only called once
+// despite we say to elapse 500ms, the changed callback is only called once
 slint_testing::mock_elapsed_time(510);
-// Same, the timer event are only called onced
+// Same, the timer event are only called once
 assert_eq!(instance.get_result(), "121");
 slint_testing::mock_elapsed_time(0);
 assert_eq!(instance.get_result(), "1212");
@@ -136,9 +137,9 @@ assert_eq(instance.get_result(), "1");
 instance.set_tm2running(true);
 assert_eq(instance.get_result(), "1");
 slint_testing::mock_elapsed_time(500);
-// despite we say to ellapse 500ms, the changed callback is only called once
+// despite we say to elapse 500ms, the changed callback is only called once
 slint_testing::mock_elapsed_time(510);
-// Same, the timer event are only called onced
+// Same, the timer event are only called once
 assert_eq(instance.get_result(), "121");
 slint_testing::mock_elapsed_time(0);
 assert_eq(instance.get_result(), "1212");
@@ -183,9 +184,9 @@ assert.equal(instance.result, "1");
 instance.tm2running = true;
 assert.equal(instance.result, "1");
 slintlib.private_api.mock_elapsed_time(500);
-// despite we say to ellapse 500ms, the changed callback is only called once
+// despite we say to elapse 500ms, the changed callback is only called once
 slintlib.private_api.mock_elapsed_time(510);
-// Same, the timer event are only called onced
+// Same, the timer event are only called once
 assert.equal(instance.result, "121");
 slintlib.private_api.mock_elapsed_time(0);
 assert.equal(instance.result, "1212");

@@ -80,7 +80,7 @@ pub fn lower_to_item_tree(
             &state,
         );
         let close = sc.mapping.map_property_reference(
-            &NamedReference::new(&c.root_element, SmolStr::new_static("close")),
+            &NamedReference::new(&c.root_element, SmolStr::new_static("close-popup")),
             &state,
         );
         let entries = sc.mapping.map_property_reference(
@@ -604,6 +604,7 @@ fn lower_sub_component(
         &mut ctx,
         &component.root_constraints.borrow(),
         crate::layout::Orientation::Horizontal,
+        None,
     )
     .into();
     sub_component.layout_info_v = super::lower_layout_expression::get_layout_info(
@@ -611,6 +612,7 @@ fn lower_sub_component(
         &mut ctx,
         &component.root_constraints.borrow(),
         crate::layout::Orientation::Vertical,
+        None,
     )
     .into();
     // For repeated elements in a FlexboxLayout, generate code to read flex properties
@@ -651,12 +653,14 @@ fn lower_sub_component(
                             &mut ctx,
                             &layout_item.constraints,
                             crate::layout::Orientation::Horizontal,
+                            None,
                         );
                         let layout_info_v = super::lower_layout_expression::get_layout_info(
                             &layout_item.element,
                             &mut ctx,
                             &layout_item.constraints,
                             crate::layout::Orientation::Vertical,
+                            None,
                         );
                         let child_index = sub_component.grid_layout_children.push_and_get_key(
                             super::GridLayoutChildLayoutInfo {
@@ -858,7 +862,7 @@ fn lower_popup_component(
         tree: make_tree(ctx.state, &popup.component.root_element, &sc, &[]),
         root: ctx.state.push_sub_component(sc),
     };
-    PopupWindow { item_tree, position: position.into() }
+    PopupWindow { item_tree, position: position.into(), is_tooltip: popup.is_tooltip }
 }
 
 fn lower_timer(timer: &object_tree::Timer, ctx: &ExpressionLoweringCtx) -> Timer {

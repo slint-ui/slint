@@ -20,26 +20,42 @@ js_config: &js_config
  - 'pnpm-lock.yaml'
 
 slint:
- - 'api/**'
+ - 'api/rs/**'
  - 'cmake/**'
  - 'demos/**'
- - 'docker/**'
- - 'docs/**'
- - 'editors/**'
  - 'helper_crates/**'
  - 'internal/**'
- - 'logo/**'
- - 'scripts/**'
  - 'tests/**'
  - 'tools/compiler/**'
  - 'tools/figma_import/**'
  - 'tools/lsp/**'
- - 'tools/slintpad/**'
  - 'tools/tr-extractor/**'
  - 'tools/updater/**'
  - 'tools/viewer/**'
  - 'xtask/**'
- - *files_in_root
+ - 'Cargo.toml'
+ - '.cargo/**'
+ - *ci_config
+
+# Qt backend and widget definitions — gates the Qt test step in build_and_test
+qt:
+ - 'internal/backends/qt/**'
+ - 'internal/compiler/widgets/qt/**'
+ - 'tests/cases/widgets/**'
+
+# Docs build needs most Rust code because it also checks for doc warnings
+docs_build:
+ - 'docs/**'
+ - 'api/**'
+ - 'internal/**'
+ - 'helper_crates/**'
+ - 'tools/lsp/**'
+ - 'tests/doctests/**'
+ - *ci_config
+
+# Tree-sitter grammar
+tree_sitter:
+ - 'editors/tree-sitter-slint/**'
  - *ci_config
 
 figma_inspector:
@@ -53,11 +69,6 @@ material_components:
  - *js_config
  - *ci_config
 
-safety_docs:
- - 'docs/safety/**'
- - 'docs/common/**'
- - *js_config
- - *ci_config
 
 internal: &internal
  # The API specific tests don't depends on renderer or backend, but they do depend on the Qt widgets and the testing backend
@@ -131,8 +142,13 @@ bevy_examples:
  - 'examples/bevy/**'
  - *ci_config
 
+slint_sc:
+ - 'internal/compiler/**'
+ - 'api/slint-sc/**'
+ - 'tools/compiler/**'
+ - *ci_config
+
 rust_files:
  - '**/*.rs'
  - '**/Cargo.toml'
- - 'Cargo.lock'
- - *ci_config
+ - '.clippy.toml'

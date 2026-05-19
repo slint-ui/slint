@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore hier
+
 import { Palette, VerticalBox, ListView }  from "std-widgets.slint";
 import { ConsoleStyles, EditorSizeSettings, Icons, EditorFontSettings, EditorSpaceSettings,  } from "../components/styling.slint";
 import { Api, OutlineTreeNode, DropLocation } from "../api.slint";
@@ -65,12 +67,13 @@ export component OutlineView inherits VerticalLayout {
                         if !open-timer.running {
                             open-timer.running = true;
                         }
-                        return false;
+                        return DragAction.none;
                     }
-                    return Api.outline-can-drop(event.data, item.uri, item.offset, DropLocation.onto);
+                    return Api.outline-can-drop(event.data, item.uri, item.offset, DropLocation.onto) ? DragAction.copy : DragAction.none;
                 }
                 dropped(event) => {
                     Api.outline-drop(event.data, item.uri, item.offset, DropLocation.onto);
+                    return event.proposed-action;
                 }
             }
 
@@ -83,10 +86,11 @@ export component OutlineView inherits VerticalLayout {
                 width: parent.width - self.x;
 
                 can-drop(event) => {
-                    return Api.outline-can-drop(event.data, item.uri, item.offset, DropLocation.before);
+                    return Api.outline-can-drop(event.data, item.uri, item.offset, DropLocation.before) ? DragAction.copy : DragAction.none;
                 }
                 dropped(event) => {
                     Api.outline-drop(event.data, item.uri, item.offset, DropLocation.before);
+                    return event.proposed-action;
                 }
                 Rectangle {
                     height: 1px;
@@ -104,10 +108,11 @@ export component OutlineView inherits VerticalLayout {
                 enabled: item.indent-level > 0;
 
                 can-drop(event) => {
-                    return Api.outline-can-drop(event.data, item.uri, item.offset, DropLocation.after);
+                    return Api.outline-can-drop(event.data, item.uri, item.offset, DropLocation.after) ? DragAction.copy : DragAction.none;
                 }
                 dropped(event) => {
                     Api.outline-drop(event.data, item.uri, item.offset, DropLocation.after);
+                    return event.proposed-action;
                 }
                 Rectangle {
                     height: 1px;

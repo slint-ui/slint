@@ -732,18 +732,9 @@ pub enum BuiltinFilter {
 }
 
 /// Get the implicit layout info of a particular element.
+/// When `constraint` is `Some`, it's passed as the `cross_axis_constraint`
+/// parameter to `Item::layout_info` for height-for-width support.
 pub fn implicit_layout_info_call(
-    elem: &ElementRc,
-    orientation: Orientation,
-    filter: BuiltinFilter,
-) -> Option<Expression> {
-    implicit_layout_info_call_with_constraint(elem, orientation, filter, None)
-}
-
-/// Like `implicit_layout_info_call`, but with an optional cross-axis constraint.
-/// When `constraint` is Some, it's passed as the cross_axis_constraint parameter
-/// to Item::layout_info for height-for-width support.
-pub fn implicit_layout_info_call_with_constraint(
     elem: &ElementRc,
     orientation: Orientation,
     filter: BuiltinFilter,
@@ -753,6 +744,24 @@ pub fn implicit_layout_info_call_with_constraint(
     loop {
         return match &elem_it.clone().borrow().base_type {
             ElementType::Component(base_comp) => {
+                // Flexbox supplies a width constraint to break its h/v
+                // cache cycle; call the base component's
+                // `layoutinfo-v-with-constraint` when present.
+                if orientation == Orientation::Vertical
+                    && let Some(c) = &constraint
+                    && let Some(constrained_nr) =
+                        base_comp.root_element.borrow().layout_info_v_with_constraint.clone()
+                {
+                    debug_assert!(Rc::ptr_eq(&constrained_nr.element(), &base_comp.root_element));
+                    return Some(Expression::FunctionCall {
+                        function: crate::expression_tree::Callable::Function(NamedReference::new(
+                            elem,
+                            constrained_nr.name().clone(),
+                        )),
+                        arguments: vec![c.clone()],
+                        source_location: None,
+                    });
+                }
                 match base_comp.root_element.borrow().layout_info_prop(orientation) {
                     Some(nr) => {
                         // We cannot take nr as is because it is relative to the elem's component. We therefore need to

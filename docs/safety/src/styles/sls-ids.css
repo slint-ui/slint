@@ -1,0 +1,25 @@
+/* Copyright © SixtyFPS GmbH <info@slint.dev> */
+/* SPDX-License-Identifier: MIT */
+
+/* Inline paragraph-identifier badges emitted by rehype-sls-ids. */
+
+.sls-id {
+    margin-left: 0.4em;
+    font-family: var(--__sl-font-mono, monospace);
+    font-size: 0.75em;
+    color: var(--sl-color-gray-3);
+    text-decoration: none;
+    vertical-align: baseline;
+    user-select: all;
+}
+
+.sls-id:hover {
+    color: var(--sl-color-text-accent);
+    text-decoration: underline;
+}
+
+/* Highlight the targeted paragraph when navigating via #sls_xxxxxx. */
+p[id^="sls_"]:target {
+    background-color: var(--sl-color-accent-low);
+    border-radius: 2px;
+}

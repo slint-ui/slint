@@ -93,6 +93,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::GetWindowScaleFactor => PROPERTY_ACCESS_COST,
         BuiltinFunction::GetWindowDefaultFontSize => PROPERTY_ACCESS_COST,
         BuiltinFunction::AnimationTick => PROPERTY_ACCESS_COST,
+        BuiltinFunction::DecimalSeparator => PROPERTY_ACCESS_COST,
         BuiltinFunction::Debug => isize::MAX,
         BuiltinFunction::Mod => 10,
         BuiltinFunction::Round => 10,
@@ -166,7 +167,9 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::RestartTimer => 10,
         BuiltinFunction::ParseMarkdown => isize::MAX,
         BuiltinFunction::StringToStyledText => ALLOC_COST,
+        BuiltinFunction::ColorToStyledText => ALLOC_COST,
         BuiltinFunction::OpenUrl => isize::MAX,
+        BuiltinFunction::BringAllToFront => isize::MAX,
     }
 }
 

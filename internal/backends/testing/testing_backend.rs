@@ -3,6 +3,7 @@
 
 use i_slint_core::api::PhysicalSize;
 use i_slint_core::graphics::euclid::{Point2D, Size2D};
+use i_slint_core::item_rendering::HasFont;
 use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::{Renderer, RendererSealed};
@@ -473,7 +474,7 @@ impl RendererSealed for TestingWindow {
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
         let ctx = self.slint_context().ok_or("slint platform not initialized")?;
-        ctx.font_context().borrow_mut().collection.register_fonts(data.to_vec().into(), None);
+        ctx.font_context().borrow_mut().register_static_font(data);
         Ok(())
     }
 

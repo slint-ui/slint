@@ -4,6 +4,7 @@
 use crate::api::{CompilationResult, ComponentDefinition, Value};
 use crate::global_component::CompiledGlobalCollection;
 use crate::{dynamic_type, eval};
+use core::ffi::c_void;
 use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use i_slint_compiler::expression_tree::{Expression, NamedReference, TwoWayBinding};
@@ -1030,6 +1031,7 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<BasicBorderRectangle>(),
             rtti_for::<BorderRectangle>(),
             rtti_for::<TouchArea>(),
+            rtti_for::<TooltipArea>(),
             rtti_for::<FocusScope>(),
             rtti_for::<KeyBinding>(),
             rtti_for::<SwipeGestureHandler>(),
@@ -1285,7 +1287,7 @@ pub(crate) fn generate_item_tree<'id>(
             Type::Percent => animated_property_info::<f32>(),
             Type::Enumeration(e) => {
                 macro_rules! match_enum_type {
-                    ($( $(#[$enum_doc:meta])* enum $Name:ident { $($body:tt)* })*) => {
+                    ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $($body:tt)* })*) => {
                         match e.name.as_str() {
                             $(
                                 stringify!($Name) => property_info::<i_slint_core::items::$Name>(),
@@ -1294,6 +1296,7 @@ pub(crate) fn generate_item_tree<'id>(
                         }
                     }
                 }
+
                 if e.node.is_some() {
                     property_info::<Value>()
                 } else {
@@ -2019,7 +2022,7 @@ fn walk_struct_field_path_mut<'a>(
     Some(value)
 }
 
-pub(crate) fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *const () {
+pub(crate) fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *const c_void {
     let element = nr.element();
     generativity::make_guard!(guard);
     let enclosing_component = eval::enclosing_component_instance_for_element(
@@ -2754,12 +2757,12 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
     }
 }
 
-/// Show the popup at the given location
+/// Show the popup with a lazily evaluated location.
 pub fn show_popup(
     element: ElementRc,
     instance: InstanceRef,
     popup: &object_tree::PopupWindow,
-    pos_getter: impl FnOnce(InstanceRef<'_, '_>) -> LogicalPosition,
+    pos_getter: impl Fn(InstanceRef<'_, '_>) -> LogicalPosition + 'static,
     close_policy: PopupClosePolicy,
     parent_comp: ErasedItemTreeBoxWeak,
     parent_window_adapter: WindowAdapterRc,
@@ -2780,8 +2783,11 @@ pub fn show_popup(
 
     let extra_data = instance.description.extra_data_offset.apply(instance.as_ref());
     // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one.
-    let globals = if let Some(window_adapter) =
-        WindowInner::from_pub(parent_window_adapter.window()).create_popup_window_adapter()
+    // Tooltips skip this to share the parent's adapter, ensuring they use the ChildWindow path
+    // and renderer caches stay consistent.
+    let globals = if !popup.is_tooltip
+        && let Some(window_adapter) =
+            WindowInner::from_pub(parent_window_adapter.window()).create_popup_window_adapter()
     {
         extra_data.globals.get().unwrap().clone_with_window_adapter(window_adapter)
     } else {
@@ -2800,20 +2806,22 @@ pub fn show_popup(
         Some(&WindowOptions::UseExistingWindow(popup_window_adapter)),
         globals,
     );
-    let pos = {
+    let inst_for_position = inst.clone();
+    let access_position = Box::new(move || {
         generativity::make_guard!(guard);
-        let compo_box = inst.unerase(guard);
+        let compo_box = inst_for_position.unerase(guard);
         let instance_ref = compo_box.borrow_instance();
         pos_getter(instance_ref)
-    };
+    });
     close_popup(element.clone(), instance, parent_window_adapter.clone());
     instance.description.popup_ids.borrow_mut().insert(
         element.borrow().id.clone(),
         WindowInner::from_pub(parent_window_adapter.window()).show_popup(
             &vtable::VRc::into_dyn(inst.clone()),
-            pos,
+            access_position,
             close_policy,
             parent_item,
+            popup.is_tooltip,
             false,
         ),
     );

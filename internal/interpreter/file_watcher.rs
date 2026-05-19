@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore inotify unwatch
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
@@ -346,7 +347,11 @@ fn worker_loop(
                     on_error(err);
                 }
             }
-            WorkerMessage::RawEvent(Err(err)) => on_error(err),
+            WorkerMessage::RawEvent(Err(err)) => {
+                if !is_transient_watch_error(&err) {
+                    on_error(err);
+                }
+            }
             WorkerMessage::Shutdown => break,
         }
     }
@@ -402,12 +407,13 @@ fn nearest_existing_ancestor(path: &Path) -> Option<PathBuf> {
 }
 
 fn is_transient_watch_error(err: &notify::Error) -> bool {
-    matches!(
-        err.kind,
+    match &err.kind {
         notify::ErrorKind::PathNotFound
-            | notify::ErrorKind::WatchNotFound
-            | notify::ErrorKind::Generic(_)
-    )
+        | notify::ErrorKind::WatchNotFound
+        | notify::ErrorKind::Generic(_) => true,
+        notify::ErrorKind::Io(e) => e.kind() == std::io::ErrorKind::NotFound,
+        _ => false,
+    }
 }
 
 fn worker_stopped_error() -> notify::Error {
@@ -706,5 +712,17 @@ mod tests {
 
         ctx.write("thing/thing.slint", "export component Thing { in property<string> x; }");
         ctx.expect_event(&watched_nested, FileChangeKind::Created);
+    }
+
+    #[test]
+    fn removing_watched_directory_does_not_report_spurious_errors() {
+        let mut ctx = TestContext::new();
+        let watched = ctx.write("project/src/main.slint", "export component App { }");
+
+        ctx.watch(&["project/src/main.slint"]);
+        ctx.remove_dir_all("project");
+        ctx.expect_event(&watched, FileChangeKind::Deleted);
+        ctx.settle();
+        ctx.assert_no_errors();
     }
 }

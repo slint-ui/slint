@@ -1,10 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore cntr demangle indice
 use crate::SharedString;
 use core::fmt::Display;
 pub use formatter::FormatArgs;
-
+use i_slint_common::TranslationsBundled;
 #[cfg(feature = "tr")]
 pub use tr::Translator;
 
@@ -296,7 +297,16 @@ pub fn mark_all_translations_dirty() {
 
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else { return };
-        ctx.0.as_ref().project_ref().translations_dirty.mark_dirty();
+        let pinned = ctx.0.as_ref().project_ref();
+        pinned.translations_dirty.mark_dirty();
+
+        // Update the decimal separator
+        #[cfg(all(feature = "gettext-rs", target_family = "unix"))]
+        if let Some(locale) = sys_locale::get_locale() {
+            pinned
+                .locale_decimal_separator
+                .set(i_slint_common::decimal_separator_for_locale(&locale))
+        }
     })
 }
 
@@ -310,11 +320,16 @@ pub fn gettext_bindtextdomain(_domain: &str, _dirname: std::path::PathBuf) -> st
         START.call_once(|| {
             gettextrs::setlocale(gettextrs::LocaleCategory::LcAll, "");
         });
+
         mark_all_translations_dirty();
     }
     Ok(())
 }
 
+/// Translate the strings bundled into the applications. If the desired language is not available, use the default
+///
+/// `strs` - the string which should be translated. The slice contains the string in multiple languages
+/// `arguments` - arguments for the translation
 pub fn translate_from_bundle(
     strs: &[Option<&str>],
     arguments: &(impl FormatArgs + ?Sized),
@@ -330,6 +345,11 @@ pub fn translate_from_bundle(
     output
 }
 
+/// Translate the strings bundled into the applications with plurals. If the desired language is not available, use the default
+///
+/// `strs` - the string which should be translated
+/// `plural_rules` - the rules to create the plurals
+/// `arguments` - arguments for the translation
 pub fn translate_from_bundle_with_plural(
     strs: &[Option<&[&str]>],
     plural_rules: &[Option<fn(i32) -> usize>],
@@ -355,34 +375,37 @@ pub fn translate_from_bundle_with_plural(
     output
 }
 
-/// This function is called by the generated code to assign the list of bundled languages.
+/// This function is called by the generated code to assign the list of bundled languages
+/// and decimal separators.
 /// Do nothing if the list is already assigned.
-pub fn set_bundled_languages(languages: &[&'static str]) {
+/// It selects also the language based on the system locale as default
+pub fn set_bundled_languages(translations: &[TranslationsBundled]) {
     crate::context::GLOBAL_CONTEXT.with(|ctx| {
         let Some(ctx) = ctx.get() else { return };
-        if ctx.0.translations_bundle_languages.borrow().is_none() {
-            ctx.0.translations_bundle_languages.replace(Some(languages.to_vec()));
+
+        if ctx.0.translations_bundle.borrow().is_none() {
+            ctx.0.translations_bundle.replace(Some(translations.to_vec()));
             #[cfg(feature = "std")]
-            if let Some(idx) = index_for_locale(languages) {
+            if let Some(idx) = language_index_from_sys_locale(translations) {
                 ctx.0.as_ref().project_ref().translations_dirty.set(idx);
             }
         }
     });
 }
 
-/// attempt to select the right bundled translation based on the current locale
+/// attempt to select the right bundled translation based on the current system locale
 #[cfg(feature = "std")]
-fn index_for_locale(languages: &[&'static str]) -> Option<usize> {
+fn language_index_from_sys_locale(languages: &[TranslationsBundled]) -> Option<usize> {
     let locale = sys_locale::get_locale()?;
     // first, try an exact match
-    let idx = languages.iter().position(|x| *x == locale);
+    let idx = languages.iter().position(|x| *x.language == locale);
     // else, only match the language part
     fn base(l: &str) -> &str {
         l.find(['-', '_', '@']).map_or(l, |i| &l[..i])
     }
     idx.or_else(|| {
         let locale = base(&locale);
-        languages.iter().position(|x| base(x) == locale)
+        languages.iter().position(|x| base(x.language) == locale)
     })
 }
 
@@ -403,21 +426,25 @@ pub fn select_bundled_translation(language: &str) -> Result<(), SelectBundledTra
         let Some(ctx) = ctx.get() else {
             return Err(SelectBundledTranslationError::NoTranslationsBundled);
         };
-        let languages = ctx.0.translations_bundle_languages.borrow();
-        let Some(languages) = &*languages else {
+        let translations = ctx.0.translations_bundle.borrow();
+        let Some(translations) = &*translations else {
             return Err(SelectBundledTranslationError::NoTranslationsBundled);
         };
-        let idx = languages.iter().position(|x| *x == language);
         let pinned = ctx.0.as_ref().project_ref();
-        if let Some(idx) = idx {
-            pinned.translations_dirty.set(idx);
+        if let Some((idx, translation_bundle)) =
+            translations.iter().enumerate().find(|(_i, x)| x.language == language)
+        {
+            pinned.translations_dirty.as_ref().set(idx);
+            // Update the decimal separator
+            pinned.locale_decimal_separator.as_ref().set(translation_bundle.decimal_separator);
             Ok(())
         } else if language.is_empty() || language == "en" {
-            pinned.translations_dirty.set(0);
+            pinned.translations_dirty.as_ref().set(0);
+            pinned.locale_decimal_separator.as_ref().set(i_slint_common::DEFAULT_DECIMAL_SEPARATOR);
             Ok(())
         } else {
             Err(SelectBundledTranslationError::LanguageNotFound {
-                available_languages: languages.iter().map(|x| (*x).into()).collect(),
+                available_languages: translations.iter().map(|x| (*x.language).into()).collect(),
             })
         }
     })
@@ -460,6 +487,19 @@ mod ffi {
     #![allow(unsafe_code)]
     use super::*;
     use crate::slice::Slice;
+
+    /// return the current decimal-separator for the `Platform.decimal-separator` property
+    #[unsafe(no_mangle)]
+    pub extern "C" fn slint_decimal_separator(out: &mut SharedString) {
+        crate::context::GLOBAL_CONTEXT.with(|ctx| {
+            let separator = if let Some(ctx) = ctx.get() {
+                ctx.0.as_ref().project_ref().locale_decimal_separator.get()
+            } else {
+                i_slint_common::DEFAULT_DECIMAL_SEPARATOR
+            };
+            *out = crate::SharedString::from(separator)
+        })
+    }
 
     /// Perform the translation and formatting.
     #[unsafe(no_mangle)]
@@ -543,12 +583,20 @@ mod ffi {
     }
 
     #[unsafe(no_mangle)]
-    pub extern "C" fn slint_translate_set_bundled_languages(languages: Slice<Slice<'static, u8>>) {
-        let languages = languages
+    pub extern "C" fn slint_translate_set_bundled_languages(
+        languages: Slice<Slice<'static, u8>>,
+        separators: Slice<u32>,
+    ) {
+        let translations = languages
             .iter()
-            .map(|x| core::str::from_utf8(x.as_slice()).unwrap())
+            .zip(separators.as_slice().iter())
+            .map(|(language, separator)| TranslationsBundled {
+                language: core::str::from_utf8(language.as_slice()).unwrap(),
+                decimal_separator: core::char::from_u32(*separator)
+                    .unwrap_or(i_slint_common::DEFAULT_DECIMAL_SEPARATOR),
+            })
             .collect::<alloc::vec::Vec<_>>();
-        set_bundled_languages(&languages);
+        set_bundled_languages(&translations);
     }
 
     #[unsafe(no_mangle)]

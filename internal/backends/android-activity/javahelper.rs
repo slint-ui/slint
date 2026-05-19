@@ -1,11 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore dalvik jboolean jint
 use super::*;
 use i_slint_core::SharedString;
 use i_slint_core::api::{PhysicalPosition, PhysicalSize};
 use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
+use i_slint_core::item_rendering::HasFont;
 use i_slint_core::items::{ColorScheme, InputType};
 use i_slint_core::lengths::PhysicalEdges;
 use i_slint_core::platform::WindowAdapter;

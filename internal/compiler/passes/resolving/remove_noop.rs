@@ -51,7 +51,7 @@ fn without_side_effects(expression: &Expression) -> bool {
         Expression::CodeBlock(expressions) => expressions.iter().all(without_side_effects),
         Expression::FunctionParameterReference { .. } => true,
         // Invalid and uncompiled expressions are unknown at this point, so default to
-        // `false`, because they may have side-efffects.
+        // `false`, because they may have side-effects.
         Expression::Invalid => false,
         Expression::Uncompiled(_) => false,
         // A property reference may cause re-evaluation of a property, which may result in
@@ -104,13 +104,13 @@ fn without_side_effects(expression: &Expression) -> bool {
         Expression::ReturnStatement(_) => false,
         Expression::LayoutCacheAccess { .. } => false,
         Expression::GridRepeaterCacheAccess { .. } => false,
-        Expression::ComputeBoxLayoutInfo(_, _) => false,
+        Expression::ComputeBoxLayoutInfo { .. } => false,
         Expression::ComputeGridLayoutInfo { .. } => false,
         Expression::OrganizeGridLayout(_) => false,
         Expression::SolveBoxLayout(_, _) => false,
         Expression::SolveGridLayout { .. } => false,
         Expression::SolveFlexboxLayout(..) => false,
-        Expression::ComputeFlexboxLayoutInfo(..) => false,
+        Expression::ComputeFlexboxLayoutInfo { .. } => false,
         Expression::MinMax { ty: _, op: _, lhs, rhs } => {
             without_side_effects(lhs) && without_side_effects(rhs)
         }

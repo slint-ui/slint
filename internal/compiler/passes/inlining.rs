@@ -292,6 +292,13 @@ fn inline_element(
             elem_mut.layout_info_prop = Some(orig.clone());
         }
     }
+    if let Some(orig) = &inlined_component.root_element.borrow().layout_info_v_with_constraint {
+        if let Some(_new) = &mut elem_mut.layout_info_v_with_constraint {
+            todo!("Merge layout infos");
+        } else {
+            elem_mut.layout_info_v_with_constraint = Some(orig.clone());
+        }
+    }
 
     core::mem::drop(elem_mut);
 
@@ -393,6 +400,7 @@ fn duplicate_element_with_mapping(
             .collect(),
         child_of_layout: elem.child_of_layout,
         layout_info_prop: elem.layout_info_prop.clone(),
+        layout_info_v_with_constraint: elem.layout_info_v_with_constraint.clone(),
         default_fill_parent: elem.default_fill_parent,
         accessibility_props: elem.accessibility_props.clone(),
         geometry_props: elem.geometry_props.clone(),
@@ -401,6 +409,7 @@ fn duplicate_element_with_mapping(
         item_index_of_first_children: Default::default(),
         is_flickable_viewport: elem.is_flickable_viewport,
         has_popup_child: elem.has_popup_child,
+        is_tooltip: elem.is_tooltip,
         is_legacy_syntax: elem.is_legacy_syntax,
         inline_depth: elem.inline_depth + 1,
         // Deep-clone grid_layout_cell to avoid sharing between original and inlined copies.
@@ -522,6 +531,7 @@ fn duplicate_popup(p: &PopupWindow, mapping: &mut Mapping, priority_delta: i32) 
             .get(&element_key(p.parent_element.clone()))
             .expect("Parent element must be in the mapping")
             .clone(),
+        is_tooltip: p.is_tooltip,
     }
 }
 
@@ -599,23 +609,45 @@ fn fixup_element_references(expr: &mut Expression, mapping: &Mapping) {
     };
     match expr {
         Expression::ElementReference(element) => fx(element),
-        Expression::SolveBoxLayout(l, _) | Expression::ComputeBoxLayoutInfo(l, _) => {
-            for e in &mut l.elems {
+        Expression::SolveBoxLayout(layout, _) => {
+            for e in &mut layout.elems {
                 fxe(&mut e.element);
             }
         }
-        Expression::SolveGridLayout { layout, .. }
-        | Expression::OrganizeGridLayout(layout)
-        | Expression::ComputeGridLayoutInfo { layout, .. } => {
+        Expression::ComputeBoxLayoutInfo { layout, cross_axis_size, .. } => {
+            for e in &mut layout.elems {
+                fxe(&mut e.element);
+            }
+            if let Some(cas) = cross_axis_size {
+                fixup_element_references(cas, mapping);
+            }
+        }
+        Expression::SolveGridLayout { layout, .. } | Expression::OrganizeGridLayout(layout) => {
             for e in &mut layout.elems {
                 fxe(&mut e.item.element);
             }
             layout.clone_cells();
         }
-        Expression::SolveFlexboxLayout(layout)
-        | Expression::ComputeFlexboxLayoutInfo(layout, _) => {
+        Expression::ComputeGridLayoutInfo { layout, cross_axis_size, .. } => {
             for e in &mut layout.elems {
                 fxe(&mut e.item.element);
+            }
+            layout.clone_cells();
+            if let Some(cas) = cross_axis_size {
+                fixup_element_references(cas, mapping);
+            }
+        }
+        Expression::SolveFlexboxLayout(layout) => {
+            for e in &mut layout.elems {
+                fxe(&mut e.item.element);
+            }
+        }
+        Expression::ComputeFlexboxLayoutInfo { layout, cross_axis_size, .. } => {
+            for e in &mut layout.elems {
+                fxe(&mut e.item.element);
+            }
+            if let Some(cas) = cross_axis_size {
+                fixup_element_references(cas, mapping);
             }
         }
         Expression::RepeaterModelReference { element }
@@ -661,6 +693,7 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
         // The passes that dp the drop shadow or the opacity currently won't allow this property
         // on the top level of a component. This could be changed in the future.
         if prop.starts_with("drop-shadow-")
+            || prop.starts_with("inset-shadow-")
             || prop == "opacity"
             || prop == "cache-rendering-hint"
             || prop == "visible"

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore importident incdir splitn
 use smol_str::{SmolStr, ToSmolStr};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -677,6 +678,7 @@ impl Snapshotter {
             y: popup_window.y.snapshot(self),
             close_policy: popup_window.close_policy.clone(),
             parent_element: self.use_element(&popup_window.parent_element),
+            is_tooltip: popup_window.is_tooltip,
         }
     }
 
@@ -1250,7 +1252,7 @@ impl TypeLoader {
         }
     }
 
-    /// Returns whether the file was succesfully loaded.
+    /// Returns whether the file was successfully loaded.
     /// If not, the path that was attempted to be loaded is returned (if any).
     #[allow(clippy::await_holding_refcell_ref)] // false positive: explicit drop() before await
     async fn ensure_document_loaded<'a: 'b, 'b>(

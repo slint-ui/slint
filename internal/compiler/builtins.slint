@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore langtype typeregister
+// cSpell: ignore langtype typeregister borderless commonmark Strikethroughs
 
 /**
    This file contains the definition off all builtin items
@@ -20,7 +20,7 @@
    otherwise it is assumed the native item don't write to that property.
  */
 
-component Empty {
+ component Empty {
     //-is_internal
 }
 
@@ -47,6 +47,7 @@ component Rectangle inherits Empty {
     ///     background: rainbow-gradient;
     /// }
     /// ```
+    /// \sc
     /// \default transparent
     in property <brush> background;
     in property <brush> color <=> background;
@@ -181,6 +182,7 @@ component BasicBorderRectangle inherits Rectangle {
 ///     }
 /// }
 /// ```
+/// \sc
 /// \group:elements
 component BorderRectangle inherits BasicBorderRectangle {
     //! To target specific corners with different values use the following properties:
@@ -213,6 +215,38 @@ component BorderRectangle inherits BasicBorderRectangle {
     //! ### drop-shadow-offset-y
     //! <SlintProperty propName="drop-shadow-offset-y" typeName="length"/>
     //! The vertical distance of the shadow from the element's frame.
+    //!
+    //! ### drop-shadow-spread
+    //! <SlintProperty propName="drop-shadow-spread" typeName="length"/>
+    //! Grows (positive) or shrinks (negative) the shadow shape on all sides before the blur is applied.
+    //! Equivalent to the spread radius in CSS `box-shadow`. Currently only supported by the Skia renderer.
+    //!
+    //! ## Inset Shadows
+    //!
+    //! Inset shadows are rendered inside the element's geometry (inverted from drop shadows), giving
+    //! the appearance of an inwards-cast shadow. They follow the same parameters as drop shadows.
+    //! Currently only supported by the Skia renderer.
+    //!
+    //! ### inset-shadow-blur
+    //! <SlintProperty propName="inset-shadow-blur" typeName="length"/>
+    //! The blur radius of the inset shadow.
+    //!
+    //! ### inset-shadow-color
+    //! <SlintProperty propName="inset-shadow-color" typeName="color"/>
+    //! The base color of the inset shadow.
+    //!
+    //! ### inset-shadow-offset-x
+    //! <SlintProperty propName="inset-shadow-offset-x" typeName="length"/>
+    //! Horizontal offset of the inset shadow inside the element.
+    //!
+    //! ### inset-shadow-offset-y
+    //! <SlintProperty propName="inset-shadow-offset-y" typeName="length"/>
+    //! Vertical offset of the inset shadow inside the element.
+    //!
+    //! ### inset-shadow-spread
+    //! <SlintProperty propName="inset-shadow-spread" typeName="length"/>
+    //! Positive spread thickens the shadow band along the element's interior boundary; negative spread
+    //! thins it.
     //-default_size_binding:expands_to_parent_geometry
 }
 
@@ -923,18 +957,21 @@ component KeyBinding {
 /// ```
 ///
 /// The `Flickable` is a low-level element that is the base for scrollable
-/// widgets, such as the <Link type="ScrollView"/>. When the `viewport-width` or the
-/// `viewport-height` is greater than the parent's `width` or `height`
-/// respectively, the element becomes scrollable. Note that the `Flickable`
-/// doesn't create a scrollbar. When unset, the `viewport-width` and `viewport-height` are
+/// widgets, such as the <Link type="ScrollView"/> or <Link type="ListView"/>.
+/// When the `viewport-width` or the `viewport-height` is greater than the parent's `width` or `height`
+/// respectively, the element becomes scrollable.
+///
+/// When unset, the `viewport-width` and `viewport-height` are
 /// calculated automatically based on the `Flickable`'s children. This isn't the
 /// case when using a `for` loop to populate the elements. This is a bug tracked in
 /// issue [#407](https://github.com/slint-ui/slint/issues/407).
 /// The maximum and preferred size of the `Flickable` are based on the viewport.
 ///
+/// Note that the `Flickable` doesn't create a scrollbar.
+/// You can use a <Link type="ScrollView"/> instead or add your own scroll bars.
+///
 /// When not part of a layout, its width or height defaults to 100% of the parent
 /// element when not specified.
-///
 ///
 /// ## Pointer Event Interaction
 ///
@@ -1062,8 +1099,8 @@ export component SwipeGestureHandler {
     // For the future
     //in property <length> swipe-distance-threshold: 8px;
     //in property <duration> swipe-duration-threshold: 500ms;
-    // in property <bool> delays-propgataion;
-    //in property <duration> propgataion-delay: 100ms;
+    // in property <bool> delays-propagation;
+    //in property <duration> propagation-delay: 100ms;
     // in property <int> required-touch-points: 1;
     //callback swipe-recognized();
 
@@ -1160,19 +1197,84 @@ export component ScaleRotateGestureHandler {
     //-default_size_binding:expands_to_parent_geometry
 }
 
+/// Use `DragArea` to make any part of the UI draggable.
+/// A drag starts when the user presses the mouse inside the area and moves past a small threshold,
+/// and the value bound to `data` becomes the drag payload delivered to a <Link type="DropArea" />.
+/// A click doesn't start a drag, so child elements like <Link type="TouchArea" /> stay interactive.
+///
+/// The payload is a `data-transfer` value, which abstracts over the file-type transfer mechanisms supported by each platform.
+/// `data-transfer` values are opaque in Slint code:
+/// construct and read them via callbacks implemented in the host language.
+///
+/// The source declares which actions it permits via `allow-copy`, `allow-move`, and `allow-link`,
+/// and a `preferred-action` that applies when no modifier key is pressed. The target picks the final
+/// action from this set in its `can-drop` callback. Once a drop completes (or the drag is cancelled),
+/// `drag-finished(action)` fires so a "move" source can remove the original data.
+///
+/// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
+/// \group:drag-and-drop
 export component DragArea {
+    /// Set to `false` to stop the `DragArea` from starting drags.
+    /// Events still reach the child elements.
     in property <bool> enabled: true;
-    //out property <bool> dragging;
+    /// The payload that's transferred to a <Link type="DropArea" /> when a drop happens.
     in property <data-transfer> data;
+    /// Bitmap drawn under the cursor while a drag is in flight.
+    /// When unset (the default empty image), no overlay is drawn.
+    in property <image> drag-image;
+    /// Horizontal hot spot within `drag-image` that aligns with the cursor, in image pixel coordinates.
+    /// `0` puts the image's left edge at the cursor; following HTML5's `setDragImage(image, x, y)` convention.
+    in property <int> drag-image-offset-x;
+    /// Vertical hot spot within `drag-image` that aligns with the cursor, in image pixel coordinates.
+    /// `0` puts the image's top edge at the cursor.
+    in property <int> drag-image-offset-y;
+    /// Whether the source allows the drop to copy the data. The source retains the data.
+    in property <bool> allow-copy: true;
+    /// Whether the source allows the drop to move the data. The source should remove the
+    /// original from its model in the `drag-finished` callback when the action is `move`.
+    in property <bool> allow-move: false;
+    /// Whether the source allows the drop to link to the data. Neither side gives up ownership.
+    in property <bool> allow-link: false;
+    /// The action used when no modifier key is pressed. The runtime clamps it to the allowed set;
+    /// if the named action isn't allowed, falls back to the first allowed of move, copy, link.
+    in property <DragAction> preferred-action: DragAction.copy;
+    /// `true` once the press has crossed the drag threshold and a drag is in flight,
+    /// `false` once the drop completes or the drag is cancelled.
+    out property <bool> dragging;
+    /// Fires when the drag ends: with the chosen action on a successful drop, or with
+    /// `DragAction.none` if the drag was cancelled.
+    callback drag-finished(action: DragAction);
     //-default_size_binding:expands_to_parent_geometry
-
 }
 
+/// Use `DropArea` to accept drops coming from a <Link type="DragArea" />, or from another application on platforms that support it.
+/// The `can-drop` callback runs while the cursor moves over the area to decide whether to accept the drag,
+/// and which action (copy/move/link) to perform.
+/// The `dropped` callback runs when the user releases the mouse inside the area after `can-drop` returned
+/// a non-`none` action.
+///
+/// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
+/// \group:drag-and-drop
 export component DropArea {
+    /// Set to `false` to stop the `DropArea` from accepting any drops.
     in property <bool> enabled: true;
-    callback can-drop(event: DropEvent) -> bool;
-    callback dropped(event: DropEvent);
+    /// Return the action this target wants to perform with the drag, or `DragAction.none` to reject.
+    /// The runtime clamps the returned value to the source's allowed set: anything the source did not
+    /// allow is treated as `none`.
+    /// The argument is a <Link type="DropEvent" /> describing the drag.
+    callback can-drop(event: DropEvent) -> DragAction;
+    /// Invoked when the user releases the mouse over the area after `can-drop` returned a non-`none`
+    /// action. Use this callback to read `event.data` and apply the drop. The returned
+    /// `DragAction` is reported to the source via `drag-finished`; return `event.proposed-action`
+    /// to mirror what was negotiated during hover, or a different action to refine the choice at
+    /// drop time. The runtime clamps the return value against the source's allowed set.
+    callback dropped(event: DropEvent) -> DragAction;
+    /// `true` while an accepted drag hovers over the area, `false` otherwise.
+    /// Bind it to a visual property to give the user feedback, for example a background color.
     out property <bool> contains-drag;
+    /// The action the runtime is currently negotiating with the source: `none` when no drag is hovering,
+    /// or `copy`/`move`/`link` once a concrete action is settled.
+    out property <DragAction> current-action;
     //-default_size_binding:expands_to_parent_geometry
 }
 
@@ -1292,7 +1394,6 @@ component Menu {
 /// }
 /// ```
 /// \skip_children
-/// \group:window
 component MenuBar {
     //-is_non_item_type
     //-disallow_global_types_as_child_elements
@@ -1388,13 +1489,6 @@ export component ContextMenuArea inherits Empty {
     in property <bool> enabled: true;
 }
 
-/// `Window` is the root of the tree of elements that are visible on the screen.
-///
-/// The `Window` geometry will be restricted by its layout constraints: Setting the `width` will result in a fixed width,
-/// and the window manager will respect the `min-width` and `max-width` so the window can't be resized bigger
-/// or smaller. The initial width can be controlled with the `preferred-width` property. The same applies to the `Window`s height.
-///
-/// Use the <Link type="MenuBar" /> element to declare a menu bar for the window.
 component WindowItem {
     in-out property <length> width;
     in-out property <length> height;
@@ -1404,6 +1498,10 @@ component WindowItem {
     /// Whether to display the Window in full-screen mode. In full-screen mode the Window will occupy the entire screen, it will not be resizable, and it will not display the title bar.
     /// \default true if 'SLINT_FULLSCREEN' environment variable is set, otherwise false
     in-out property <bool> full-screen;
+    /// Whether the window is minimized. Setting this to true minimizes the window.
+    in-out property <bool> minimized;
+    /// Whether the window is maximized. Setting this to true maximizes the window.
+    in-out property <bool> maximized;
     /// The background brush of the `Window`.
     /// \default depends on the style
     in property <brush> background; // StyleMetrics.background  set in apply_default_properties_from_style
@@ -1434,11 +1532,24 @@ component WindowItem {
     out property <Point> virtual-keyboard-position;
     /// On mobile devices, virtual keyboards (aka software keyboards or onscreen keyboards) are displayed on top of the application. When such a keyboard is shown, this property denotes the width and height of the rectangle covered by it in window coordinates.
     out property <Size> virtual-keyboard-size;
-    /// Hide this window.
+    /// Request that the window be closed. This triggers the `close-requested` callback,
+    /// giving the application a chance to cancel the close. Returns `true` if the close
+    /// was dispatched, or `false` if the application declined.
+    function close() -> bool {
+    }
+    /// Hide this window. This also drops the strong reference on the window, so if this was
+    /// the last reference, the event loop will quit.
     function hide() {
     }
 }
 
+/// `Window` is the root of the tree of elements that are visible on the screen.
+///
+/// The `Window` geometry will be restricted by its layout constraints: Setting the `width` will result in a fixed width,
+/// and the window manager will respect the `min-width` and `max-width` so the window can't be resized bigger
+/// or smaller. The initial width can be controlled with the `preferred-width` property. The same applies to the `Window`s height.
+///
+/// Use the <Link type="MenuBar" /> element to declare a menu bar for the window.
 /// \group:window
 export component Window inherits WindowItem {
     MenuBar { }
@@ -1450,6 +1561,8 @@ export component BoxShadow inherits Empty {
     in property <length> offset_y;
     in property <color> color;
     in property <length> blur;
+    in property <length> spread;
+    in property <bool> inset;
     //-default_size_binding:expands_to_parent_geometry
     //-is_internal
 }
@@ -2346,6 +2459,134 @@ export component PopupWindow {
     //! Closes the popup. Use this if you set the `close-policy` property to `no-auto-close`.
 }
 
+// Internal hover tracker used with `ToolTip` lowering (the compiler inserts `TooltipArea` so `ToolTip` can react to hover and pointer position).
+export component TooltipArea inherits Empty {
+    // Set when the mouse is over the parent's region while this area is expanded to fill it during lowering.
+    out property <bool> has-hover;
+    // Pointer x within this area during hover.
+    out property <length> mouse-x;
+    // Pointer y within this area during hover.
+    out property <length> mouse-y;
+    // Tooltip configuration folded from the user-facing ToolTip element during lowering.
+    in property <string> text;
+    in property <ToolTipPlacement> placement;
+    in property <duration> delay: 500ms;
+    in property <length> offset: 8px;
+    callback show();
+    callback hide();
+    //-default_size_binding:expands_to_parent_geometry
+    //-is_internal
+}
+
+/// ```slint playground
+/// import { Button } from "std-widgets.slint";
+///
+/// export component Example inherits Window {
+///     width: 280px;
+///     height: 160px;
+///
+///     VerticalLayout {
+///         alignment: center;
+///
+///         Button {
+///             text: "Hover me";
+///
+///             ToolTip {
+///                 text: "This is a tooltip";
+///             }
+///         }
+///     }
+/// }
+/// ```
+///
+/// Place a `ToolTip` inside any element to show helpful information when hovering over it.
+/// The tooltip appears after a short delay and hides when the pointer leaves.
+///
+/// Set the `text` property for a simple text tooltip,
+/// or add a child element instead for custom content.
+///
+/// Each element can contain at most one `ToolTip`.
+///
+/// \footer
+/// ## Custom Content
+///
+/// For richer tooltips, omit `text` and provide your own layout inside a single child element.
+///
+///
+/// ```slint playground
+/// import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+///
+/// export component Example inherits Window {
+///     width: 320px;
+///     height: 200px;
+///
+///     VerticalLayout {
+///         alignment: center;
+///
+///         Button {
+///             text: "Custom tooltip";
+///
+///             ToolTip {
+///                 placement: above-element;
+///
+///                 VerticalBox {
+///                     padding: 10px;
+///                     spacing: 6px;
+///
+///                     Text {
+///                         text: "Quick Actions";
+///                         font-weight: 700;
+///                         color: #fff;
+///                     }
+///
+///                     Text {
+///                         text: "Open command palette and search settings.";
+///                         color: #d1d5db;
+///                         wrap: word-wrap;
+///                     }
+///
+///                     HorizontalBox {
+///                         spacing: 6px;
+///
+///                         Rectangle {
+///                             border-radius: 4px;
+///                             background: #374151;
+///                             HorizontalBox {
+///                                 padding: 4px;
+///                                 Text { text: "Ctrl"; color: #fff; }
+///                             }
+///                         }
+///
+///                         Rectangle {
+///                             border-radius: 4px;
+///                             background: #374151;
+///                             HorizontalBox {
+///                                 padding: 4px;
+///                                 Text { text: "K"; color: #fff; }
+///                             }
+///                         }
+///                     }
+///                 }
+///             }
+///         }
+///     }
+/// }
+/// ```
+/// \group:window
+export component ToolTip inherits Empty {
+    /// The text to display in the tooltip.
+    /// Don't set this property when using custom content.
+    in property <string> text;
+    /// Position relative to the hovered element or pointer.
+    in property <ToolTipPlacement> placement;
+    /// How long to wait before showing the tooltip after hover begins.
+    in property <duration> delay: 500ms;
+    /// Space between the tooltip and the pointer or hovered element.
+    in property <length> offset: 8px;
+    //-can_be_declared_without_children_slot
+    //-is_non_item_type
+}
+
 /// :::note[Note]
 /// Timer is not an actual element visible in the tree, therefore it doesn't have the common properties such as `x`, `y`, `width`, `height`, etc. It also doesn't take room in a layout and cannot have any children or be inherited from.
 /// :::
@@ -2561,7 +2802,19 @@ export global Platform {
     ///     }
     /// }
     /// ```
-    function open-url(url: string) -> bool { return false; }
+    function open-url(url: string) -> bool {
+        return false;
+    }
+    /// Brings all application windows to the front of the screen.
+    ///
+    /// On macOS this invokes `[NSApp arrangeInFront:]`, which raises every application window
+    /// to the top of the window stack. On other platforms this function is a no-op.
+    ///
+    /// This corresponds to the standard macOS **Window › Bring All to Front** menu item.
+    function bring-all-to-front() { }
+    /// The decimal separator currently used for localized float to string and vice versa conversions
+    /// For more information about localization and how to change the decimal separator see <Link type="translations" label="translations page"/>.
+    out property <string> decimal-separator;
 }
 
 export component NativeButton {

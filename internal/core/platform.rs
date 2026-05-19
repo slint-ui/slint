@@ -43,7 +43,9 @@ pub trait Platform {
     ///   if the loop was terminated via `quit_event_loop()`,
     ///   or through a last-window-closed mechanism.
     ///   Callers shouldn't assume the full timeout has elapsed when the function returns.
-    /// * If the timeout is zero,
+    /// * If the timeout is `None`, the implementation should wait
+    ///   indefinitely for events.
+    /// * If the timeout is `Some(Duration::ZERO)`,
     ///   the implementation should merely peek and process any pending events,
     ///   then return immediately.
     ///
@@ -57,7 +59,7 @@ pub trait Platform {
     #[doc(hidden)]
     fn process_events(
         &self,
-        _timeout: core::time::Duration,
+        _timeout: Option<core::time::Duration>,
         _: crate::InternalToken,
     ) -> Result<core::ops::ControlFlow<()>, PlatformError> {
         Err(PlatformError::NoEventLoopProvider)

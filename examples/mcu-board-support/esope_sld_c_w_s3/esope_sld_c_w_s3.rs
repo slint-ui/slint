@@ -1,5 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
+// cSpell: ignore eeid multicore TIMG
 //! Board support for ESoPe-SLD-C-W-S3 board with display and touch controller support.
 
 extern crate alloc;

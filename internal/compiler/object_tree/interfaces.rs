@@ -42,7 +42,7 @@ impl UsesStatement {
         self.node.DeclaredIdentifier()
     }
 
-    /// Lookup the interface component for this uses statement. Emits an error if the iterface could not be found, or
+    /// Lookup the interface component for this uses statement. Emits an error if the interface could not be found, or
     /// was not actually an interface.
     fn lookup_interface(
         &self,
@@ -143,6 +143,9 @@ pub(super) fn get_implemented_interface(
         node.parent().filter(|p| p.kind() == SyntaxKind::Component)?.into();
 
     let implements_specifier = parent.ImplementsSpecifier()?;
+
+    #[cfg(feature = "slint-sc")]
+    diag.slint_sc_error("'implements' is", &implements_specifier);
 
     if !diag.enable_experimental && !tr.expose_internal_types {
         diag.push_error("'implements' is an experimental feature".into(), &implements_specifier);
@@ -495,6 +498,9 @@ pub(super) fn apply_uses_statement(
         return;
     };
 
+    #[cfg(feature = "slint-sc")]
+    diag.slint_sc_error("'uses' is", &uses_specifier);
+
     if !diag.enable_experimental && !tr.expose_internal_types {
         diag.push_error("'uses' is an experimental feature".into(), &uses_specifier);
         return;
@@ -541,7 +547,7 @@ pub(super) fn apply_uses_statement(
                 continue;
             }
 
-            let exisitng_binding = match &prop_decl.property_type {
+            let existing_binding = match &prop_decl.property_type {
                 Type::Function(func) => {
                     apply_uses_statement_function_binding(e, &child, name, func)
                 }
@@ -554,7 +560,7 @@ pub(super) fn apply_uses_statement(
                 ),
             };
 
-            if let Some(existing_binding) = exisitng_binding {
+            if let Some(existing_binding) = existing_binding {
                 let message = format!(
                     "Cannot override binding for '{}' from interface '{}'",
                     name, uses_statement.interface_name

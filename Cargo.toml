@@ -8,6 +8,7 @@ members = [
   'api/rs/build',
   'api/rs/macros',
   'api/rs/slint',
+  'api/slint-sc',
   'api/python/slint',
   'api/wasm-interpreter',
   'editors/zed',
@@ -30,6 +31,7 @@ members = [
   'examples/todo/rust',
   'examples/todo-mvc/rust',
   'examples/virtual_keyboard/rust',
+  'examples/runtime_key_bindings/rust',
   'examples/carousel/rust',
   'demos/energy-monitor',
   'demos/home-automation/rust',
@@ -37,6 +39,7 @@ members = [
   'examples/mcu-embassy',
   'examples/uefi-demo',
   'examples/async-io',
+  'examples/dnd-kanban',
   'examples/system_tray',
   'demos/weather-demo',
   'demos/usecases/rust',
@@ -81,6 +84,7 @@ members = [
   'tools/tr-extractor',
   "ui-libraries/material/examples/gallery",
   'xtask',
+  'tools/remote-viewer',
 ]
 
 default-members = [
@@ -137,6 +141,7 @@ i-slint-common = { version = "=1.17.0", path = "internal/common", default-featur
 i-slint-compiler = { version = "=1.17.0", path = "internal/compiler", default-features = false }
 i-slint-core = { version = "=1.17.0", path = "internal/core", default-features = false }
 i-slint-core-macros = { version = "=1.17.0", path = "internal/core-macros", default-features = false }
+i-slint-preview-protocol = { version = "=1.17.0", path = "internal/preview-protocol" }
 i-slint-renderer-femtovg = { version = "=1.17.0", path = "internal/renderers/femtovg", default-features = false }
 i-slint-renderer-skia = { version = "=1.17.0", path = "internal/renderers/skia", default-features = false }
 i-slint-renderer-software = { version = "=1.17.0", path = "internal/renderers/software", default-features = false }
@@ -190,8 +195,8 @@ icu_normalizer = { version = "2", default-features = false, features = ["compile
 
 glow = { version = "0.17" }
 tikv-jemallocator = { version = "0.6" }
-wgpu-27 = { package = "wgpu", version = "27", default-features = false }
 wgpu-28 = { package = "wgpu", version = "28", default-features = false }
+wgpu-29 = { package = "wgpu", version = "29", default-features = false }
 input = { version = "0.9.0", default-features = false }
 tr = { version = "0.1", default-features = false }
 fontique = { version = "0.9.0" }

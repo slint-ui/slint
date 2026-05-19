@@ -6,7 +6,6 @@
 // cspell:ignore accesskit borderless corelib nesw webgl winit winsys xlib
 
 use core::cell::{Cell, RefCell};
-use core::pin::Pin;
 #[cfg(target_os = "macos")]
 use std::cell::OnceCell;
 use std::rc::Rc;
@@ -18,6 +17,7 @@ use euclid::approxeq::ApproxEq;
 #[cfg(muda)]
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
+use i_slint_core::renderer::DrawOutcome;
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
@@ -681,7 +681,11 @@ impl WinitWindowAdapter {
         }
 
         let renderer = self.renderer();
-        renderer.render(self.window())?;
+        if !matches!(renderer.render(self.window())?, DrawOutcome::Success) {
+            // Frame was skipped (e.g. surface occluded). pending_redraw was already
+            // cleared above, so re-arm it so we try again.
+            self.request_redraw();
+        }
 
         Ok(())
     }
@@ -1300,7 +1304,7 @@ impl WindowAdapter for WinitWindowAdapter {
             // size we've been assigned to from the windowing system. Weston/Wayland don't like it
             // when we create a surface that's bigger than the screen due to constraints (#532).
             if winit_window_or_none.fullscreen().is_none() {
-                // TODO: don't ignore error, propgate to caller
+                // TODO: don't ignore error, propagate to caller
                 let immediately_resized = self
                     .resize_window(winit::dpi::LogicalSize::new(width, height).into())
                     .unwrap_or_default();
@@ -1385,7 +1389,7 @@ impl WindowAdapter for WinitWindowAdapter {
             if is_preferred_sized_canvas(&canvas) {
                 let pref = new_constraints.preferred;
                 if pref.width > 0 as Coord || pref.height > 0 as Coord {
-                    // TODO: don't ignore error, propgate to caller
+                    // TODO: don't ignore error, propagate to caller
                     self.resize_window(logical_size_to_winit(pref).into()).ok();
                 };
             }
@@ -1555,7 +1559,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     fn unregister_item_tree(
         &self,
         component: ItemTreeRef,
-        _: &mut dyn Iterator<Item = Pin<ItemRef<'_>>>,
+        _: &mut dyn Iterator<Item = core::pin::Pin<ItemRef<'_>>>,
     ) {
         let Some(accesskit_adapter_cell) = self.accesskit_adapter() else { return };
         if let Ok(mut a) = accesskit_adapter_cell.try_borrow_mut() {
@@ -1665,7 +1669,7 @@ fn adjust_window_size_to_satisfy_constraints(
     }
 
     if window_size != current_size {
-        // TODO: don't ignore error, propgate to caller
+        // TODO: don't ignore error, propagate to caller
         adapter.resize_window(window_size.into()).ok();
     }
 }

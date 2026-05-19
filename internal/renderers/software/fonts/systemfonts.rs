@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore fallbackfont
 use core::cell::RefCell;
 
 use alloc::boxed::Box;
@@ -71,14 +72,6 @@ pub fn fallbackfont(
     let font = font_request.query_fontique(collection, source_cache).unwrap();
     let (swash_key, swash_offset) = get_swash_font_info_for_query_font(&font);
     VectorFont::new(font, swash_key, swash_offset, requested_pixel_size)
-}
-
-pub fn register_font_from_memory(
-    collection: &mut fontique::Collection,
-    data: &'static [u8],
-) -> Result<(), Box<dyn std::error::Error>> {
-    collection.register_fonts(data.to_vec().into(), None);
-    Ok(())
 }
 
 #[cfg(not(target_family = "wasm"))]

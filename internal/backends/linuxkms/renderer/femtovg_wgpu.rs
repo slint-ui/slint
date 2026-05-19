@@ -3,6 +3,7 @@
 
 use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::platform::PlatformError;
+use i_slint_core::renderer::DrawOutcome;
 use i_slint_renderer_femtovg::FemtoVGRendererExt;
 
 use crate::display::RenderingRotation;
@@ -23,7 +24,7 @@ impl FemtoVGWgpuRendererAdapter {
         requested_graphics_api: Option<&i_slint_core::graphics::RequestedGraphicsAPI>,
     ) -> Result<Box<dyn crate::fullscreenwindowadapter::FullscreenRenderer>, PlatformError> {
         let drm_output = DrmOutput::new(device_opener)?;
-        let (surface_target, size) = drm_output.wgpu_28_surface_target()?;
+        let (surface_target, size) = drm_output.wgpu_29_surface_target()?;
 
         let renderer = i_slint_renderer_femtovg::FemtoVGRenderer::new_suspended();
         renderer
@@ -47,7 +48,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGWgpuRendererA
         &self,
         rotation: RenderingRotation,
         draw_mouse_cursor_callback: &dyn Fn(&mut dyn ItemRenderer),
-    ) -> Result<(), PlatformError> {
+    ) -> Result<DrawOutcome, PlatformError> {
         self.renderer.render_transformed_with_post_callback(
             rotation.degrees(),
             rotation.translation_after_rotation(self.size),
@@ -55,8 +56,7 @@ impl crate::fullscreenwindowadapter::FullscreenRenderer for FemtoVGWgpuRendererA
             Some(&|item_renderer| {
                 draw_mouse_cursor_callback(item_renderer);
             }),
-        )?;
-        Ok(())
+        )
     }
 
     fn size(&self) -> i_slint_core::api::PhysicalSize {

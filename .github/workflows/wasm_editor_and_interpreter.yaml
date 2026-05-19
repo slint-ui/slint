@@ -7,11 +7,6 @@ name: Build and test the slintpad and required WASM binaries
 on:
     workflow_dispatch:
     workflow_call:
-      secrets:
-        CLOUDFLARE_ACCOUNT_ID_2:
-          required: true
-        CLOUDFLARE_API_TOKEN_2:
-          required: true
 jobs:
     wasm:
         env:
@@ -21,7 +16,7 @@ jobs:
         steps:
             - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
-            - uses: pnpm/action-setup@v6.0.3
+            - uses: pnpm/action-setup@v6.0.8
               with:
                 version: 10.29.3
             - uses: actions/setup-node@v6
@@ -61,7 +56,7 @@ jobs:
               with:
                 node-version: 24
                 package-manager-cache: false
-            - uses: pnpm/action-setup@v6.0.3
+            - uses: pnpm/action-setup@v6.0.8
               with:
                 version: 10.29.3
             - name: Download wasm_lsp Artifacts
@@ -97,12 +92,6 @@ jobs:
               with:
                   name: slintpad
                   path: tools/slintpad/dist/
-            - uses: ./.github/actions/cloudflare-preview-deploy
-              with:
-                working-directory: tools/slintpad
-                environment: slintpad-staging
-                cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN_2 }}
-                cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID_2 }}
 
     # test-slintpad-ff:
     #   needs: [wasm, build-slintpad]

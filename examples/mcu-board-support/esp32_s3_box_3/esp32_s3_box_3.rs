@@ -1,9 +1,3 @@
-#[panic_handler]
-fn panic(info: &core::panic::PanicInfo) -> ! {
-    esp_println::println!("Panic: {:?}", info);
-    loop {}
-}
-
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
@@ -34,6 +28,12 @@ use log::{error, info, warn};
 use mipidsi::options::{ColorOrder, Orientation, Rotation};
 use slint::platform::PointerEventButton;
 use slint::platform::WindowEvent;
+
+#[panic_handler]
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    esp_println::println!("Panic: {:?}", info);
+    loop {}
+}
 
 struct EspBackend {
     window: RefCell<Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow>>>,

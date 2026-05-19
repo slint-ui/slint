@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 # Use https://mise.jdx.dev/schema/mise-task.json for validation.
+# cspell:ignore pipx taplo dedupe
 
 ### fixes
 
@@ -12,13 +13,13 @@ tools = { "pipx:clang-format" = "20.1.3" }
 
 ["fix:rust:lockfile:root"]
 description = "Update the main lockfile (if absolutely necessary)"
-# Use cargo build -p xtask to test if the lockfile needs upating.
+# Use cargo build -p xtask to test if the lockfile needs updating.
 # The fix:legal:copyright task needs the xtask anyhow, so this has a double use.
 run = "cargo build --locked -p xtask || (echo \"### Updating Main Lockfile! ###\" && cargo update)"
 
 ["fix:rust:lockfile:bevy"]
 description = "Update the bevy example lockfile (if absolutely necessary)"
-# Use cargo metadata to test if the lockfile needs upating.
+# Use cargo metadata to test if the lockfile needs updating.
 # --format-version suppresses "warning: please specify `--format-version` flag explicitly to avoid compatibility problems"
 run = "cargo metadata --locked --format-version=1 > /dev/null || (echo \"### Updating Main Lockfile! ###\" && cargo update)"
 dir = "examples/bevy"
@@ -104,16 +105,16 @@ dir = "editors/vscode"
 sources = ["tools/lsp/Cargo.toml", "tools/lsp/**/*.rs", "tools/lsp/ui/**/*.slint"]
 outputs = ["tools/lsp/pkg/*"]
 run = "pnpm run build:wasm_lsp"
-tools = { "ubi:drager/wasm-pack" = "0.13.1" }
+tools = { "ubi:wasm-bindgen/wasm-pack" = "0.13.1" }
 depends = ["prepare:pnpm-install"]
 
 ["build:interpreter:wasm"]
-description = "Build the Slint interpreteer (WASM)"
+description = "Build the Slint interpreter (WASM)"
 dir = "tools/slintpad"
 sources = ["api/wasm-interpreter/Cargo.toml", "api/wasm-interpreter/src/**/*.rs"]
 outputs = ["api/wasm-interpreter/pkg/*"]
 run = "pnpm run build:wasm_interpreter"
-tools = { "ubi:drager/wasm-pack" = "0.13.1" }
+tools = { "ubi:wasm-bindgen/wasm-pack" = "0.13.1" }
 depends = ["prepare:pnpm-install"]
 
 ["prepare:pnpm-install"]

@@ -10,5 +10,6 @@ export default defineConfig({
         pool: "forks", // Use process forks (required for native modules that need main thread)
         teardownTimeout: 5000, // Force teardown after 5s to prevent hanging processes
         reporters: ["verbose"], // Show individual test names
+        execArgv: ["--expose-gc"], // Enable global.gc() for GC tests
     },
 });

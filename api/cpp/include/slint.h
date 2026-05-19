@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell:ignore itemvtable
 #pragma once
 
 #include "private/slint_internal.h"
@@ -329,6 +330,13 @@ inline SharedString translate(const SharedString &original, const SharedString &
     return result;
 }
 
+inline SharedString decimal_separator()
+{
+    SharedString out;
+    cbindgen_private::slint_decimal_separator(&out);
+    return out;
+}
+
 inline StyledText parse_markdown(const SharedString &format_string,
                                  cbindgen_private::Slice<StyledText> args)
 {
@@ -344,9 +352,21 @@ inline StyledText string_to_styled_text(const SharedString &text)
     return result;
 }
 
+inline StyledText color_to_styled_text(const Color &color)
+{
+    StyledText result;
+    cbindgen_private::slint_color_to_styled_text(&color, &result);
+    return result;
+}
+
 inline bool open_url(const SharedString &url, const WindowAdapterRc &window_adapter)
 {
     return cbindgen_private::slint_open_url(&url, &window_adapter.handle());
+}
+
+inline void bring_all_to_front()
+{
+    cbindgen_private::slint_bring_all_to_front();
 }
 
 inline SharedString translate_from_bundle(std::span<const char8_t *const> strs,
@@ -389,7 +409,7 @@ inline float get_resolved_default_font_size(const Component &component)
 // Translator API is currently considered experimental due to discussions
 // about the returned string type (SharedString vs. Cow<str> etc.). Also it
 // is not available with no_std due to the tr crate.
-// See dicussion in https://github.com/slint-ui/slint/pull/10979.
+// See discussion in https://github.com/slint-ui/slint/pull/10979.
 #if defined(SLINT_FEATURE_EXPERIMENTAL) && !defined(SLINT_FEATURE_FREESTANDING)
 /// Interface for an external translator.
 struct Translator

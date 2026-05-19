@@ -637,6 +637,7 @@ static LICENSE_FOR_FILE: LazyLock<Vec<(regex::Regex, &'static str)>> = LazyLock:
         ("^ui-libraries/material", MIT_LICENSE),
         ("^tests/manual/module-builds/", MIT_LICENSE),
         ("^tools/figma-inspector/", MIT_LICENSE),
+        ("^api/slint-sc/", DUAL_LICENSE_NO_ROYALTY_FREE),
         ("(^|/)(README|CONTRIBUTING|CHANGELOG|LICENSE)\\.md", TRIPLE_LICENSE),
         (".*\\.md$", MIT_LICENSE),
         (".*", TRIPLE_LICENSE),
@@ -649,6 +650,7 @@ static LICENSE_FOR_FILE: LazyLock<Vec<(regex::Regex, &'static str)>> = LazyLock:
 
 const TRIPLE_LICENSE: &str =
     "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0";
+const DUAL_LICENSE_NO_ROYALTY_FREE: &str = "GPL-3.0-only OR LicenseRef-Slint-Software-3.0";
 const MIT_LICENSE: &str = "MIT";
 const MIT_OR_APACHE2_LICENSE: &str = "MIT OR Apache-2.0";
 

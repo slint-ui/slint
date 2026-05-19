@@ -34,6 +34,7 @@ use fixed::Fixed;
 use i_slint_core::api::PlatformError;
 use i_slint_core::graphics::rendering_metrics_collector::{RefreshMode, RenderingMetricsCollector};
 use i_slint_core::graphics::{BorderRadius, Rgba8Pixel, SharedImageBuffer, SharedPixelBuffer};
+use i_slint_core::item_rendering::HasFont;
 use i_slint_core::item_rendering::{
     CachedRenderingData, ItemRenderer, PlainOrStyledText, RenderBorderRectangle, RenderImage,
     RenderRectangle,
@@ -612,7 +613,7 @@ impl SoftwareRenderer {
         let window_adapter = renderer.window_adapter.clone();
 
         window_inner
-            .draw_contents(|components| {
+            .draw_contents(|components, post_render| {
                 let logical_size = (size.cast() / factor).cast();
 
                 match self.repaint_buffer_type.get() {
@@ -685,6 +686,12 @@ impl SoftwareRenderer {
                             &window_adapter,
                         );
                     }
+                }
+
+                if partial {
+                    post_render(&mut renderer);
+                } else {
+                    post_render(&mut renderer.actual_renderer);
                 }
 
                 self.measure_frame_rendered(&mut renderer);
@@ -786,22 +793,27 @@ impl RendererSealed for SoftwareRenderer {
             return LogicalSize::default();
         };
         let font_request = text_item.font_request(item_rc);
+        // Evaluate text() before borrowing font_context: the binding can
+        // re-enter text_size for other elements and would panic on a second
+        // borrow_mut().
+        let content = text_item.text();
         #[cfg(feature = "systemfonts")]
         let Some(slint_ctx) = self.slint_context() else {
             return Default::default();
         };
-        #[cfg(feature = "systemfonts")]
-        let mut font_ctx = slint_ctx.font_context().borrow_mut();
-        let font = fonts::match_font(
-            &font_request,
-            scale_factor,
+        let font = {
             #[cfg(feature = "systemfonts")]
-            &mut font_ctx,
-        );
+            let mut font_ctx = slint_ctx.font_context().borrow_mut();
+            fonts::match_font(
+                &font_request,
+                scale_factor,
+                #[cfg(feature = "systemfonts")]
+                &mut font_ctx,
+            )
+        };
 
         #[cfg(feature = "systemfonts")]
         if matches!(font, fonts::Font::VectorFont(_)) && !parley_disabled() {
-            drop(font_ctx);
             return sharedparley::text_size(
                 self,
                 text_item,
@@ -813,7 +825,6 @@ impl RendererSealed for SoftwareRenderer {
             .unwrap_or_default();
         }
 
-        let content = text_item.text();
         let string = match &content {
             PlainOrStyledText::Plain(string) => alloc::borrow::Cow::Borrowed(string.as_str()),
             PlainOrStyledText::Styled(styled_text) => {
@@ -856,18 +867,21 @@ impl RendererSealed for SoftwareRenderer {
         let Some(slint_ctx) = self.slint_context() else {
             return Default::default();
         };
-        #[cfg(feature = "systemfonts")]
-        let mut font_ctx = slint_ctx.font_context().borrow_mut();
-        let font = fonts::match_font(
-            &font_request,
-            scale_factor,
+        let font = {
             #[cfg(feature = "systemfonts")]
-            &mut font_ctx,
-        );
+            let mut font_ctx = slint_ctx.font_context().borrow_mut();
+            fonts::match_font(
+                &font_request,
+                scale_factor,
+                #[cfg(feature = "systemfonts")]
+                &mut font_ctx,
+            )
+        };
 
         match (font, parley_disabled()) {
             #[cfg(feature = "systemfonts")]
             (fonts::Font::VectorFont(_), false) => {
+                let mut font_ctx = slint_ctx.font_context().borrow_mut();
                 sharedparley::char_size(&mut font_ctx, text_item, item_rc, ch).unwrap_or_default()
             }
             #[cfg(feature = "systemfonts")]
@@ -1167,10 +1181,8 @@ impl RendererSealed for SoftwareRenderer {
         data: &'static [u8],
     ) -> Result<(), std::boxed::Box<dyn std::error::Error>> {
         let ctx = self.slint_context().ok_or("slint platform not initialized")?;
-        self::fonts::systemfonts::register_font_from_memory(
-            &mut ctx.font_context().borrow_mut().collection,
-            data,
-        )
+        ctx.font_context().borrow_mut().register_static_font(data);
+        Ok(())
     }
 
     #[cfg(all(feature = "systemfonts", not(target_arch = "wasm32")))]
@@ -1407,7 +1419,7 @@ fn prepare_scene(
     let window_adapter = renderer.window_adapter.clone();
 
     let mut dirty_region = PhysicalRegion::default();
-    window.draw_contents(|components| {
+    window.draw_contents(|components, post_render| {
         let logical_size = (size.cast() / factor).cast();
 
         match software_renderer.repaint_buffer_type.get() {
@@ -1465,6 +1477,12 @@ fn prepare_scene(
                     &window_adapter,
                 );
             }
+        }
+
+        if partial {
+            post_render(&mut renderer);
+        } else {
+            post_render(&mut renderer.actual_renderer);
         }
     });
 
@@ -3221,8 +3239,24 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
         }
     }
 
-    fn draw_image_direct(&mut self, _image: i_slint_core::graphics::Image) {
-        todo!()
+    fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
+        let image_inner: &ImageInner = (&image).into();
+        let source_size = image.size();
+        if source_size.is_empty() {
+            return;
+        }
+        let target_size = euclid::Size2D::<f32, i_slint_core::lengths::LogicalPx>::from_untyped(
+            source_size.cast(),
+        ) * self.scale_factor;
+        let fit = i_slint_core::graphics::fit(
+            i_slint_core::items::ImageFit::Fill,
+            target_size,
+            i_slint_core::graphics::IntRect::from_size(source_size.cast()),
+            self.scale_factor,
+            Default::default(),
+            Default::default(),
+        );
+        self.draw_image_impl(image_inner, fit, i_slint_core::Color::default());
     }
 
     fn window(&self) -> &i_slint_core::window::WindowInner {

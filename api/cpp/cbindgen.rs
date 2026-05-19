@@ -23,60 +23,88 @@ fn enums(path: &Path) -> anyhow::Result<()> {
     writeln!(enums_pub, "#pragma once")?;
     writeln!(enums_pub, "// This file is auto-generated from {}", file!())?;
     writeln!(enums_pub, "namespace slint {{")?;
-    macro_rules! enum_file {
-        (PointerEventButton) => {{
-            writeln!(enums_priv, "using slint::PointerEventButton;")?;
-            &mut enums_pub
-        }};
-        (PointerEventKind) => {{
-            writeln!(enums_priv, "using slint::PointerEventKind;")?;
-            &mut enums_pub
-        }};
-        (AccessibleRole) => {{
-            writeln!(enums_priv, "using slint::testing::AccessibleRole;")?;
-            &mut enums_pub
-        }};
-        (Orientation) => {{
-            writeln!(enums_priv, "using slint::Orientation;")?;
-            &mut enums_pub
-        }};
-        (AccessibleLive) => {{
-            writeln!(enums_priv, "using slint::AccessibleLive;")?;
-            &mut enums_pub
-        }};
-        ($_:ident) => {
-            &mut enums_priv
+
+    // In-memory section buffers composing the inside of `namespace slint { … }` in
+    // slint_enums.h. We assemble them after the iteration so `namespace language { … }`
+    // can come first, with the source-compat aliases referring back to it.
+    let mut lang_section: Vec<u8> = Vec::new();
+    let mut slint_compat: Vec<u8> = Vec::new();
+    let mut slint_other: Vec<u8> = Vec::new();
+
+    // For PrivateEnum entries whose body must NOT live in `slint::cbindgen_private`
+    // (historical C++ public surface that isn't part of `slint::language`).
+    // Returns the optional sub-namespace under `slint::`.
+    macro_rules! priv_routing {
+        (Orientation) => {
+            Some(None)
         };
-    }
-    macro_rules! enum_sub_namespace {
-        (AccessibleRole) => {{ Some("testing") }};
+        (AccessibleLive) => {
+            Some(None)
+        };
+        (AccessibleRole) => {
+            Some(Some("testing"))
+        };
         ($_:ident) => {
             None
         };
     }
+
     macro_rules! print_enums {
-         ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
-             $(
-                let file = enum_file!($Name);
-                let namespace: Option<&'static str> = enum_sub_namespace!($Name);
-                if let Some(ns) = namespace {
-                    writeln!(file, "namespace {} {{", ns)?;
+         ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+             $({
+                #[allow(unused_assignments)]
+                let mut sub_namespace: Option<&'static str> = None;
+                let target: &mut dyn Write = match (stringify!($vis), stringify!($Name)) {
+                    ("pub", _) => {
+                        // body lives in `slint::language`; alias into `cbindgen_private`,
+                        // and (for enums that historically lived in `slint::`) also into `slint::`.
+                        writeln!(enums_priv, "using slint::language::{};", stringify!($Name))?;
+                        if matches!(stringify!($Name), "PointerEventButton" | "PointerEventKind") {
+                            writeln!(slint_compat, "using slint::language::{};", stringify!($Name))?;
+                        }
+                        &mut lang_section
+                    }
+                    ("", _) => {
+                        // Private enums mostly live in `cbindgen_private`. A handful keep their
+                        // historical `slint::` (or `slint::testing`) home for source compatibility.
+                        match priv_routing!($Name) {
+                            Some(ns) => {
+                                sub_namespace = ns;
+                                let qualified = match ns {
+                                    Some(ns) => format!("slint::{}::{}", ns, stringify!($Name)),
+                                    None => format!("slint::{}", stringify!($Name)),
+                                };
+                                writeln!(enums_priv, "using {};", qualified)?;
+                                &mut slint_other
+                            }
+                            None => &mut enums_priv as &mut dyn Write,
+                        }
+                    }
+                    _ => unreachable!(),
+                };
+                if let Some(ns) = sub_namespace {
+                    writeln!(target, "namespace {} {{", ns)?;
                 }
-                $(writeln!(file, "///{}", $enum_doc)?;)*
-                writeln!(file, "enum class {} {{", stringify!($Name))?;
+                $(writeln!(target, "///{}", $enum_doc)?;)*
+                writeln!(target, "enum class {} {{", stringify!($Name))?;
                 $(
-                    $(writeln!(file, "    ///{}", $value_doc)?;)*
-                    writeln!(file, "    {},", stringify!($Value).trim_start_matches("r#"))?;
+                    $(writeln!(target, "    ///{}", $value_doc)?;)*
+                    writeln!(target, "    {},", stringify!($Value).trim_start_matches("r#"))?;
                 )*
-                writeln!(file, "}};")?;
-                if namespace.is_some() {
-                    writeln!(file, "}}")?;
+                writeln!(target, "}};")?;
+                if sub_namespace.is_some() {
+                    writeln!(target, "}}")?;
                 }
-             )*
+             })*
          }
     }
     i_slint_common::for_each_enums!(print_enums);
 
+    writeln!(enums_pub, "namespace language {{")?;
+    enums_pub.write_all(&lang_section)?;
+    writeln!(enums_pub, "}} // namespace language")?;
+    enums_pub.write_all(&slint_compat)?;
+    enums_pub.write_all(&slint_other)?;
     writeln!(enums_pub, "}}")?;
     writeln!(enums_priv, "}}")?;
 
@@ -240,6 +268,7 @@ fn default_config() -> cbindgen::Config {
             ("KeyEventArg".into(), "KeyEvent".into()),
             ("PointerEventArg".into(), "PointerEvent".into()),
             ("DropEventArg".into(), "DropEvent".into()),
+            ("DragActionArg".into(), "DragAction".into()),
             ("PointerScrollEventArg".into(), "PointerScrollEvent".into()),
             ("PointArg".into(), "slint::LogicalPosition".into()),
             ("FloatArg".into(), "float".into()),
@@ -264,8 +293,8 @@ fn default_config() -> cbindgen::Config {
         ("target_arch = wasm32".into(), "SLINT_TARGET_WASM".into()),
         ("target_os = android".into(), "__ANDROID__".into()),
         // Disable Rust WGPU specific API feature
-        ("feature = unstable-wgpu-27".into(), "SLINT_DISABLED_CODE".into()),
         ("feature = unstable-wgpu-28".into(), "SLINT_DISABLED_CODE".into()),
+        ("feature = unstable-wgpu-29".into(), "SLINT_DISABLED_CODE".into()),
     ]
     .iter()
     .cloned()
@@ -316,6 +345,8 @@ fn gen_corelib(
         "ImageItem",
         "ClippedImage",
         "TouchArea",
+        "TooltipArea",
+        "ToolTip",
         "FocusScope",
         "KeyBinding",
         "SwipeGestureHandler",
@@ -356,6 +387,7 @@ fn gen_corelib(
         "StandardButtonKind",
         "DialogButtonRole",
         "FocusReason",
+        "DragAction",
         "PointerEventKind",
         "PointerEventButton",
         "PointerEvent",
@@ -396,6 +428,19 @@ fn gen_corelib(
         "PathElement",
         "Brush",
         "DataTransfer",
+        "slint_data_transfer_init_default",
+        "slint_data_transfer_drop",
+        "slint_data_transfer_clone",
+        "slint_data_transfer_eq",
+        "slint_data_transfer_set_plaintext",
+        "slint_data_transfer_set_image",
+        "slint_data_transfer_has_plaintext",
+        "slint_data_transfer_has_image",
+        "slint_data_transfer_fetch_plaintext",
+        "slint_data_transfer_fetch_image",
+        "slint_data_transfer_set_user_data",
+        "slint_data_transfer_user_data",
+        "slint_data_transfer_clear_user_data",
         "slint_new_path_elements",
         "slint_new_path_events",
         "Property",
@@ -412,6 +457,7 @@ fn gen_corelib(
         "StringArg",
         "DropEventArg",
         "FocusReasonArg",
+        "DragActionArg",
         "KeyEventArg",
         "PointerEventArg",
         "PointerScrollEventArg",
@@ -447,7 +493,7 @@ fn gen_corelib(
         .with_src(crate_dir.join("string.rs"))
         .with_src(crate_dir.join("styled_text.rs"))
         .with_src(crate_dir.join("slice.rs"))
-        .with_after_include("namespace slint { struct SharedString; namespace private_api { struct StyledText; } namespace cbindgen_private { using private_api::StyledText; }}")
+        .with_after_include("namespace slint { struct SharedString; struct StyledText; }")
         .generate()
         .context("Unable to generate bindings for slint_string_internal.h")?
         .write_to_file(include_dir.join("slint_string_internal.h"));
@@ -552,9 +598,24 @@ fn gen_corelib(
             "",
         ),
         (
-            vec!["DataTransferOpaque"],
+            vec![
+                "DataTransferOpaque",
+                "slint_data_transfer_init_default",
+                "slint_data_transfer_drop",
+                "slint_data_transfer_clone",
+                "slint_data_transfer_eq",
+                "slint_data_transfer_set_plaintext",
+                "slint_data_transfer_set_image",
+                "slint_data_transfer_has_plaintext",
+                "slint_data_transfer_has_image",
+                "slint_data_transfer_fetch_plaintext",
+                "slint_data_transfer_fetch_image",
+                "slint_data_transfer_set_user_data",
+                "slint_data_transfer_user_data",
+                "slint_data_transfer_clear_user_data",
+            ],
             "slint_data_transfer_internal.h",
-            "",
+            "namespace slint { struct DataTransfer; struct SharedString; }",
         ),
         (
             vec!["MouseEvent", "TouchPhase"],
@@ -569,13 +630,13 @@ fn gen_corelib(
             }",
         ),
         (
-            vec!["Keys", "KeysInner", "slint_keys_to_string", "slint_keys"],
+            vec!["Keys", "KeysInner", "slint_keys_to_string", "slint_keys", "slint_keys_from_parts"],
             "slint_keys_internal.h",
             "#include \"private/slint_builtin_structs.h\"\n\
             namespace slint::cbindgen_private::types {\n\
                 using KeyboardModifiers = ::slint::language::KeyboardModifiers;\n\
             }"
-        )
+        ),
 
     ]
     .iter()
@@ -586,6 +647,7 @@ fn gen_corelib(
             "slint_keys_debug_string",
             "slint_keys_to_string",
             "slint_keys",
+            "slint_keys_from_parts",
             "slint_visit_item_tree",
             "slint_windowrc_drop",
             "slint_windowrc_clone",

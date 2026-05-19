@@ -2,6 +2,13 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## [Unreleased]
+
+ - Upgraded WGPU dependency to version 29: The `unstable-wgpu-27` and `unstable-wgpu-28` Cargo features have been replaced
+   by a single `unstable-wgpu-29` feature, alongside the new `slint::wgpu_29` module. Existing users of the
+   `unstable-wgpu-27`/`unstable-wgpu-28` features need to migrate to `unstable-wgpu-29` and update their code to use
+   `slint::wgpu_29`, `GraphicsAPI::WGPU29`, `BackendSelector::require_wgpu_29()`, and `Image::to_wgpu_29_texture()`.
+
 ## [1.16.1] - 2026-04-23
 
  - `ListView`: Fixed compiler panic with a graceful fallback in the dirty region computation.
@@ -1185,7 +1192,7 @@ All notable changes to this project are documented in this file.
  - Added `set-selection-offsets(int, int)` to `TextInput`, `LineEdit`, and `TextEdit`.
  - Added `Palette` global singleton.
  - Added `Cosmic` style.
- - Improved `Slider` drag and click behaviour.
+ - Improved `Slider` drag and click behavior.
 
 ### C++
 

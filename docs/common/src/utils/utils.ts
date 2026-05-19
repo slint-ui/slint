@@ -13,75 +13,28 @@ export type LinkMapType = {
 
 export const linkMap: Readonly<LinkMapType> = linkMapData;
 
-export async function getEnumContent(enumName: string | undefined) {
-    if (enumName) {
-        try {
-            const module = await import(
-                `../../../astro/src/content/collections/enums/${enumName}.md`
-            );
-            return module.compiledContent();
-        } catch (error) {
-            console.error(`Failed to load enum file for ${enumName}:`, error);
-            return "";
-        }
-    }
-    return "";
-}
-
-export async function getStructContent(
-    structName: string | undefined,
-): Promise<string> {
-    if (structName === undefined) {
-        return "";
-    }
-    const baseStruct = structName.replace(/[\[\]]/g, "");
-
-    if (baseStruct === "Time" || baseStruct === "Date") {
-        try {
-            const module = await import(
-                `../../../astro/src/content/collections/std-widgets/${baseStruct}.md`
-            );
-            return module.compiledContent();
-        } catch (error) {
-            console.error(`Failed to load enum file for ${baseStruct}:`, error);
-            return "";
-        }
-    }
-
-    if (baseStruct) {
-        try {
-            const module = await import(
-                `../../../astro/src/content/collections/structs/${baseStruct}.md`
-            );
-            return module.compiledContent();
-        } catch (error) {
-            console.error(
-                `Failed to load struct file for ${baseStruct}:`,
-                error,
-            );
-            return "";
-        }
-    }
-    return "";
-}
-
 export type KnownType =
     | "angle"
     | "bool"
     | "brush"
+    | "callback"
     | "color"
+    | "data-transfer"
     | "duration"
     | "easing"
     | "enum"
     | "float"
+    | "function"
     | "image"
     | "int"
+    | "keys"
     | "length"
     | "percent"
     | "physical-length"
     | "Edges"
     | "Point"
     | "Size"
+    | "styled-text"
     | "relative-font-size"
     | "string"
     | "struct";
@@ -115,6 +68,11 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
             return {
                 href: linkMap.color.href,
                 defaultValue: "a transparent color",
+            };
+        case "data-transfer":
+            return {
+                href: linkMap.data_transfer.href,
+                defaultValue: "an empty data-transfer",
             };
         case "duration":
             return {

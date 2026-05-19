@@ -4,6 +4,9 @@
 mod brush;
 pub use brush::*;
 
+mod data_transfer;
+pub use data_transfer::*;
+
 mod image_data;
 pub use image_data::*;
 
@@ -18,3 +21,6 @@ pub use point::*;
 
 mod size;
 pub use size::*;
+
+mod styled_text;
+pub use styled_text::*;

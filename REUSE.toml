@@ -56,6 +56,7 @@ path = [
   "biome.json",
   "knip.json",
   "cspell.json",
+  ".cspell/**",
   "docs/search/scraper-config.json",
   "internal/core-macros/link-data.json",
   "internal/**.md",
@@ -163,6 +164,10 @@ path = [
   "ui-libraries/material/examples/gallery/ui/themes/**.json",
 
   ".claude-plugin/*.json",
+  ".cursor-plugin/*.json",
+  "skills/.claude-plugin/*.json",
+  "skills/.cursor-plugin/*.json",
+  "skills/**/SKILL.md",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"

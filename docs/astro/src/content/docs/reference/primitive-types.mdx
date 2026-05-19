@@ -1,8 +1,8 @@
 ---
 title: Types
 description: All Slint types
-// cSpell: ignore Farbfeld
 ---
+{/* cSpell: ignore Farbfeld */}
 
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import Link from '@slint/common-files/src/components/Link.astro';
@@ -105,6 +105,12 @@ Create styled text with the `@markdown()` macro. For example: `@markdown("Hello 
 Any text passed as an argument to the macro will be escaped, for example `@markdown("Hello \{"*World*"}")` will become `"Hello \*World\*"`.
 
 If multiple string literal are used, they are concatenated.
+
+Use `<font color='...'>` to apply colors.
+Literal color names and hex values work directly: `@markdown("<font color='red'>warning</font>")`.
+To interpolate a dynamic color, the expression must be of type `color`:
+`@markdown("<font color='\{self.my-color}'>colored</font>")`.
+Interpolation inside HTML tags is only allowed in the color attribute value.
 
 </SlintProperty>
 
@@ -282,6 +288,18 @@ export component Example inherits Window {
 ```
 
 See also the <Link type="Image" label="Image element"/>.
+
+</SlintProperty>
+
+### data-transfer
+<SlintProperty propName="data" typeName="data-transfer" defaultValue='an empty data-transfer'>
+
+A `data-transfer` value is the payload carried by drag-and-drop and clipboard operations.
+It abstracts over the file-type transfer mechanisms supported by each platform.
+
+The type is opaque in Slint code:
+construct a `data-transfer` value and read its content via callbacks implemented in the host language.
+See <Link type="DragAndDrop" /> for an end-to-end example.
 
 </SlintProperty>
 

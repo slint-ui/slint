@@ -28,7 +28,7 @@
 //! The newlines are replaced by `↵` in the error message. Also the manifest dir (CARGO_MANIFEST_DIR) is replaced by `📂`.
 //!
 //! When the env variable `SLINT_SYNTAX_TEST_UPDATE` is set to `1`, the source code will be modified to add the comments
-//! The env variable `SLINT_TEST_FILTER` accepts a regexp and will filter out tests not maching that pattern
+//! The env variable `SLINT_TEST_FILTER` accepts a regexp and will filter out tests not matching that pattern
 
 use i_slint_compiler::ComponentSelection;
 use i_slint_compiler::diagnostics::{
@@ -61,6 +61,11 @@ fn syntax_tests() -> std::io::Result<()> {
         let entry = entry?;
         if entry.file_type().is_ok_and(|f| f.is_dir()) {
             let path = entry.path();
+            // Skip slint-sc tests when the feature is not enabled
+            #[cfg(not(feature = "slint-sc"))]
+            if path.file_name().is_some_and(|n| n == "slint-sc") {
+                continue;
+            }
             for test_entry in path.read_dir()? {
                 let test_entry = test_entry?;
                 let path = test_entry.path();
@@ -423,9 +428,15 @@ fn process_file_source(
         i_slint_compiler::parser::parse(source.clone(), Some(path), &mut parse_diagnostics);
 
     let has_parse_error = parse_diagnostics.has_errors();
-    let mut compiler_config = i_slint_compiler::CompilerConfiguration::new(
-        i_slint_compiler::generator::OutputFormat::Interpreter,
-    );
+    #[cfg(feature = "slint-sc")]
+    let output_format = if path.to_str().unwrap_or("").contains("slint-sc") {
+        i_slint_compiler::generator::OutputFormat::SlintSc
+    } else {
+        i_slint_compiler::generator::OutputFormat::Interpreter
+    };
+    #[cfg(not(feature = "slint-sc"))]
+    let output_format = i_slint_compiler::generator::OutputFormat::Interpreter;
+    let mut compiler_config = i_slint_compiler::CompilerConfiguration::new(output_format);
     compiler_config.library_paths = [(
         "test-lib".into(),
         concat!(env!("CARGO_MANIFEST_DIR"), "/tests/typeloader/library").into(),

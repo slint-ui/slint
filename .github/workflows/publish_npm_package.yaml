@@ -31,7 +31,7 @@ jobs:
             PKG_VERSION: ${{ steps.mkversion.outputs.PKG_VERSION }}
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.3
+            - uses: pnpm/action-setup@v6.0.8
               with:
                 version: 10.29.3
             - uses: actions/setup-node@v6
@@ -91,7 +91,7 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{ matrix.rust-target }}
-            - uses: pnpm/action-setup@v6.0.3
+            - uses: pnpm/action-setup@v6.0.8
               with:
                 version: 10.29.3
             # Setup .npmrc file to publish to npm
@@ -100,7 +100,7 @@ jobs:
                   node-version: "24"
                   registry-url: "https://registry.npmjs.org"
                   package-manager-cache: false
-            - uses: pnpm/action-setup@v6.0.3
+            - uses: pnpm/action-setup@v6.0.8
               with:
                 version: 10.29.3
             - name: Set version
@@ -110,19 +110,6 @@ jobs:
                   if [ "$RELEASE_INPUT" != "true" ]; then
                       pnpm version $PKG_VERSION
                   fi
-            - uses: baptiste0928/cargo-install@v3
-              with:
-                  crate: taplo-cli
-            - name: Prepare feature config for binaries
-              working-directory: api/node
-              shell: bash
-              run: |
-                cat Cargo.toml | taplo format --option column_width=100000 --stdin-filepath=Cargo.toml - | \
-                  perl -p -e 's,^\s*default\s*=.*,,' | \
-                  perl -p -e 's,# binaries:\s?,,' > Cargo.toml.new
-                cat Cargo.toml.new | taplo format --stdin-filepath=Cargo.toml - > Cargo.toml
-                rm Cargo.toml.new
-                taplo get -f Cargo.toml features.default
             - name: Build binary
               shell: bash
               working-directory: api/node
@@ -155,7 +142,7 @@ jobs:
             - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
-            - uses: pnpm/action-setup@v6.0.3
+            - uses: pnpm/action-setup@v6.0.8
               with:
                 version: 10.29.3
             # Setup .npmrc file to publish to npm

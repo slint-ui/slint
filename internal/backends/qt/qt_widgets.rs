@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore imgarray listviewitem
 /*!
 
 This module contains all the native Qt widget implementation that forwards to QStyle.
@@ -161,7 +162,7 @@ cpp! {{
 
     using QPainterPtr = std::unique_ptr<QPainter>;
 
-    static bool g_lastWindowClosed = false; // Wohoo, global to track window closure when using processEvents().
+    static bool g_lastWindowClosed = false; // global to track window closure when using processEvents().
 
     /// Make sure there is an instance of QApplication.
     /// The `from_qt_backend` argument specifies if we know that we are running

@@ -22,6 +22,8 @@ The follow table summarizes the entire mapping:
  structure                   A :code:`class` of the same name     The order of the data member are in the same as in the slint declaration
  anonymous object            A :code:`std::tuple`                 The fields are in alphabetical order.
  enum                        An :code:`enum class`                The values are always converted to CamelCase. The order of the values is the same as in the declaration.
+ :code:`data-transfer`       :cpp:class:`slint::DataTransfer`      Data associated with a drag-drop transfer.
+ :code:`styled-text`         :cpp:class:`slint::StyledText`       Styled text parsed from markdown or plain text. Use :code:`StyledText::from_markdown()` or :code:`StyledText::from_plain_text()` to create.
  :code:`Point`               :cpp:class:`slint::LogicalPosition`  A struct with :code:`x` and :code:`y` fields, representing logical coordinates.
 ===========================  ===================================  =======================================================================================================================================
 ```

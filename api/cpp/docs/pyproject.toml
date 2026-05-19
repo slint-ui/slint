@@ -1,6 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
+# cSpell: ignore furo jquery sphinxcontrib
 [project]
 name = "slint-cppdocs"
 version = "0.1"

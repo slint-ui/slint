@@ -1,6 +1,7 @@
 # Copyright © 2025 David Haig
 # SPDX-License-Identifier: MIT
 
+# cSpell: ignore tinybmp
 [package]
 name = "mcu-embassy"
 version = "1.17.0"

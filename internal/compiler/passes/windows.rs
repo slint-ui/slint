@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore elemrc
 //! Make sure that the top level element of the component is always a Window
 
 use crate::diagnostics::BuildDiagnostics;
@@ -54,10 +55,12 @@ pub fn ensure_window(
         child_of_layout: false,
         has_popup_child: false,
         layout_info_prop: Default::default(),
+        layout_info_v_with_constraint: Default::default(),
         default_fill_parent: Default::default(),
         accessibility_props: Default::default(),
         geometry_props: Default::default(),
         is_flickable_viewport: false,
+        is_tooltip: false,
         item_index: Default::default(),
         item_index_of_first_children: Default::default(),
         grid_layout_cell: None,

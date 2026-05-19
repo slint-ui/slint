@@ -175,3 +175,14 @@ pub fn is_apple_platform() -> bool {
 pub fn open_url(url: &str, window: &crate::api::Window) -> Result<(), crate::api::PlatformError> {
     crate::window::WindowInner::from_pub(window).context().platform().open_url(url)
 }
+
+#[cfg(target_os = "macos")]
+pub fn bring_all_to_front() {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::NSApplication;
+    let Some(mtm) = MainThreadMarker::new() else { return };
+    NSApplication::sharedApplication(mtm).arrangeInFront(None);
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn bring_all_to_front() {}

@@ -4,7 +4,7 @@
 /*! module for the C++ code generator
 */
 
-// cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals
+// cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals compl consteval constinit glyphset glyphsets reflexpr
 
 use crate::fileaccess;
 use std::collections::HashSet;
@@ -566,7 +566,7 @@ impl CppType for Type {
             Type::LayoutCache => Some("slint::SharedVector<float>".into()),
             Type::ArrayOfU16 => Some("slint::SharedVector<uint16_t>".into()),
             Type::Easing => Some("slint::cbindgen_private::EasingCurve".into()),
-            Type::StyledText => Some("slint::private_api::StyledText".into()),
+            Type::StyledText => Some("slint::StyledText".into()),
             _ => None,
         }
     }
@@ -759,7 +759,7 @@ fn handle_property_init(
                     Some(llr::Animation::Static(anim)) => {
                         let anim = compile_expression(anim, ctx);
                         // Note: The start_time defaults to the current tick, so doesn't need to be
-                        // udpated here.
+                        // updated here.
                         format!("{prop_access}.set_animated_binding({binding_code},
                                 [this](uint64_t **start_time) -> slint::cbindgen_private::PropertyAnimation {{
                                     [[maybe_unused]] auto self = this;
@@ -2038,10 +2038,12 @@ fn generate_item_tree(
                 translations
                     .languages
                     .iter()
-                    .map(|l| format!("slint::private_api::string_to_slice({l:?})"))
+                    .map(|(l, _)| format!("slint::private_api::string_to_slice({l:?})"))
                     .join(", ")
             ));
-            create_code.push("slint::cbindgen_private::slint_translate_set_bundled_languages(slint::private_api::make_slice(std::span(languages)));".to_string());
+            create_code.push(format!("slint::cbindgen_private::slint_translate_set_bundled_languages(slint::private_api::make_slice(std::span(languages)), \
+                                                                                                     slint::private_api::make_slice(reinterpret_cast<uint32_t *>(slint_translation_bundle_decimal_separators), {}));",
+                                                                                                     translations.languages.len()));
         }
 
         create_code.push("self->globals = &self->m_globals;".into());
@@ -2382,6 +2384,7 @@ fn generate_sub_component(
         properties_init_code.push(format!("{p}.set_constant();"));
     }
 
+    // Create all member components for the header
     for item in &component.items {
         target_struct.members.push((
             field_access,
@@ -3600,7 +3603,7 @@ enum MemberAccess {
     /// The string is a an expression to an `std::optional`
     Option(String),
     /// The first string is an expression to an `std::optional`,
-    /// the second is a string to be appended after dereferncing the optional
+    /// the second is a string to be appended after dereferencing the optional
     /// like so: `<1>.transform([](auto &&x) { return x<2>; })`
     OptionWithMember(String, String),
 }
@@ -4362,6 +4365,7 @@ fn compile_builtin_function_call(
             ctx.generator_state.conditional_includes.iostream.set(true);
             format!("slint::private_api::debug({});", a.join(","))
         }
+        BuiltinFunction::DecimalSeparator => "slint::private_api::decimal_separator()".into(),
         BuiltinFunction::Mod => {
             ctx.generator_state.conditional_includes.cmath.set(true);
             format!("([](float a, float b) {{ auto r = std::fmod(a, b); return r >= 0 ? r : r + std::abs(b); }})({},{})", a.next().unwrap(), a.next().unwrap())
@@ -4712,6 +4716,7 @@ fn compile_builtin_function_call(
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
                 let close_policy = compile_expression(close_policy, ctx);
+                let is_tooltip = if popup.is_tooltip { "true" } else { "false" };
                 component_access.then(|component_access| format!(
                     // Use a block statement to create own globals and popup instance
                     "{window}.close_popup({component_access}->popup_id_{popup_index}); \
@@ -4719,7 +4724,8 @@ fn compile_builtin_function_call(
                         {window}.template show_popup<{popup_window_id}>(&*({component_access}),  \
                                                                         [=](auto self) {{ return {position}; }},  \
                                                                         {close_policy},  \
-                                                                        {{ {parent_component} }})"
+                                                                        {{ {parent_component} }},  \
+                                                                        {is_tooltip})"
                 ))
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")
@@ -4918,13 +4924,16 @@ fn compile_builtin_function_call(
             if let [llr::Expression::NumberLiteral(timer_index)] = arguments {
                 format!("const_cast<slint::Timer&>(self->timer{}).restart()", timer_index)
             } else {
-                panic!("internal error: invalid args to RetartTimer {arguments:?}")
+                panic!("internal error: invalid args to RestartTimer {arguments:?}")
             }
         }
         BuiltinFunction::OpenUrl => {
             let url = a.next().unwrap();
             let window = access_window_field(ctx);
             format!("slint::private_api::open_url({url}, {window})")
+        }
+        BuiltinFunction::BringAllToFront => {
+            "slint::private_api::bring_all_to_front()".to_owned()
         }
         BuiltinFunction::ParseMarkdown => {
             let format_string = a.next().unwrap();
@@ -4934,6 +4943,10 @@ fn compile_builtin_function_call(
         BuiltinFunction::StringToStyledText => {
             let string = a.next().unwrap();
             format!("slint::private_api::string_to_styled_text({})", string)
+        }
+        BuiltinFunction::ColorToStyledText => {
+            let color = a.next().unwrap();
+            format!("slint::private_api::color_to_styled_text({})", color)
         }
     }
 }
@@ -5363,6 +5376,20 @@ fn generate_translation(
             ..Default::default()
         }));
     }
+    declarations.push(Declaration::Var(Var {
+        ty: "uint32_t".into(),
+        name: "slint_translation_bundle_decimal_separators".into(),
+        array_size: Some(translations.languages.len()),
+        init: Some(format!(
+            "{{ {} }}",
+            translations
+                .languages
+                .iter()
+                .map(|(_, s)| format_smolstr!("{}", *s as u32),)
+                .join(", ")
+        )),
+        ..Default::default()
+    }));
     for (idx, ms) in translations.plurals.iter().enumerate() {
         let all_strs = ms.iter().flatten().flatten();
         let all_strs_len = all_strs.clone().count();

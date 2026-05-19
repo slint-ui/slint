@@ -7,8 +7,6 @@
 use crate::common;
 use crate::preview::{self, connector, ui};
 
-use slint_interpreter::ComponentHandle;
-
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -258,12 +256,8 @@ impl common::LspToPreview for WasmLspToPreview {
             .send_notification::<i_slint_preview_protocol::LspToPreviewMessage>(message.clone());
     }
 
-    fn preview_target(&self) -> common::PreviewTarget {
-        common::PreviewTarget::EmbeddedWasm
-    }
-
-    fn set_preview_target(&self, _: common::PreviewTarget) -> common::Result<()> {
-        Err("Can not change the preview target".into())
+    fn preview_target(&self) -> i_slint_preview_protocol::PreviewTarget {
+        i_slint_preview_protocol::PreviewTarget::EmbeddedWasm
     }
 }
 

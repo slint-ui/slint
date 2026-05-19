@@ -3,23 +3,33 @@
 
 //! Try to simplify property bindings by propagating constant expressions
 
+use std::collections::HashMap;
+
 use super::GlobalAnalysis;
 use crate::expression_tree::*;
 use crate::langtype::{BuiltinPrivateStruct, ElementType, StructName, Type};
+use crate::namedreference::NamedReference;
 use crate::object_tree::*;
 use smol_str::{ToSmolStr, format_smolstr};
 
+type ConstPropCache = HashMap<NamedReference, Option<Expression>>;
+
 pub fn const_propagation(component: &Component, global_analysis: &GlobalAnalysis) {
+    let mut cache = ConstPropCache::new();
     visit_all_expressions(component, |expr, ty| {
         if matches!(ty(), Type::Callback { .. }) {
             return;
         }
-        simplify_expression(expr, global_analysis);
+        simplify_expression(expr, global_analysis, &mut cache);
     });
 }
 
 /// Returns false if the expression still contains a reference to an element
-fn simplify_expression(expr: &mut Expression, ga: &GlobalAnalysis) -> bool {
+fn simplify_expression(
+    expr: &mut Expression,
+    ga: &GlobalAnalysis,
+    cache: &mut ConstPropCache,
+) -> bool {
     match expr {
         Expression::PropertyReference(nr) => {
             if nr.is_constant()
@@ -34,7 +44,7 @@ fn simplify_expression(expr: &mut Expression, ga: &GlobalAnalysis) -> bool {
                 }
             {
                 // Inline the constant value
-                if let Some(result) = extract_constant_property_reference(nr, ga) {
+                if let Some(result) = extract_constant_property_reference(nr, ga, cache) {
                     *expr = result;
                     return true;
                 }
@@ -42,8 +52,8 @@ fn simplify_expression(expr: &mut Expression, ga: &GlobalAnalysis) -> bool {
             false
         }
         Expression::BinaryExpression { lhs, op, rhs } => {
-            let mut can_inline = simplify_expression(lhs, ga);
-            can_inline &= simplify_expression(rhs, ga);
+            let mut can_inline = simplify_expression(lhs, ga, cache);
+            can_inline &= simplify_expression(rhs, ga, cache);
 
             let new = match (*op, &mut **lhs, &mut **rhs) {
                 ('+', Expression::StringLiteral(a), Expression::StringLiteral(b)) => {
@@ -119,7 +129,7 @@ fn simplify_expression(expr: &mut Expression, ga: &GlobalAnalysis) -> bool {
             can_inline
         }
         Expression::UnaryOp { sub, op } => {
-            let can_inline = simplify_expression(sub, ga);
+            let can_inline = simplify_expression(sub, ga, cache);
             let new = match (*op, &mut **sub) {
                 ('!', Expression::BoolLiteral(b)) => Some(Expression::BoolLiteral(!*b)),
                 ('-', Expression::NumberLiteral(n, u)) => Some(Expression::NumberLiteral(-*n, *u)),
@@ -132,17 +142,24 @@ fn simplify_expression(expr: &mut Expression, ga: &GlobalAnalysis) -> bool {
             can_inline
         }
         Expression::StructFieldAccess { base, name } => {
-            let r = simplify_expression(base, ga);
+            if let Expression::PropertyReference(nr) = &**base
+                && nr.is_constant()
+                && let Some(field_expr) = extract_struct_field_from_constant(nr, name, ga, cache)
+            {
+                *expr = field_expr;
+                return simplify_expression(expr, ga, cache);
+            }
+            let r = simplify_expression(base, ga, cache);
             if let Expression::Struct { values, .. } = &mut **base
                 && let Some(e) = values.remove(name)
             {
                 *expr = e;
-                return simplify_expression(expr, ga);
+                return simplify_expression(expr, ga, cache);
             }
             r
         }
         Expression::Cast { from, to } => {
-            let can_inline = simplify_expression(from, ga);
+            let can_inline = simplify_expression(from, ga, cache);
             let new = if from.ty() == *to {
                 Some(std::mem::take(&mut **from))
             } else {
@@ -162,7 +179,8 @@ fn simplify_expression(expr: &mut Expression, ga: &GlobalAnalysis) -> bool {
             can_inline
         }
         Expression::MinMax { op, lhs, rhs, ty: _ } => {
-            let can_inline = simplify_expression(lhs, ga) & simplify_expression(rhs, ga);
+            let can_inline =
+                simplify_expression(lhs, ga, cache) & simplify_expression(rhs, ga, cache);
             if let (Expression::NumberLiteral(lhs, u), Expression::NumberLiteral(rhs, _)) =
                 (&**lhs, &**rhs)
             {
@@ -175,17 +193,20 @@ fn simplify_expression(expr: &mut Expression, ga: &GlobalAnalysis) -> bool {
             can_inline
         }
         Expression::Condition { condition, true_expr, false_expr } => {
-            let mut can_inline = simplify_expression(condition, ga);
+            let mut can_inline = simplify_expression(condition, ga, cache);
             can_inline &= match &**condition {
                 Expression::BoolLiteral(true) => {
                     *expr = *true_expr.clone();
-                    simplify_expression(expr, ga)
+                    simplify_expression(expr, ga, cache)
                 }
                 Expression::BoolLiteral(false) => {
                     *expr = *false_expr.clone();
-                    simplify_expression(expr, ga)
+                    simplify_expression(expr, ga, cache)
                 }
-                _ => simplify_expression(true_expr, ga) & simplify_expression(false_expr, ga),
+                _ => {
+                    simplify_expression(true_expr, ga, cache)
+                        & simplify_expression(false_expr, ga, cache)
+                }
             };
             can_inline
         }
@@ -194,14 +215,16 @@ fn simplify_expression(expr: &mut Expression, ga: &GlobalAnalysis) -> bool {
             if stmts.len() == 1 && !matches!(stmts[0], Expression::StoreLocalVariable { .. }) =>
         {
             *expr = stmts[0].clone();
-            simplify_expression(expr, ga)
+            simplify_expression(expr, ga, cache)
         }
         Expression::FunctionCall { function, arguments, .. } => {
             let mut args_can_inline = true;
             for arg in arguments.iter_mut() {
-                args_can_inline &= simplify_expression(arg, ga);
+                args_can_inline &= simplify_expression(arg, ga, cache);
             }
-            if args_can_inline && let Some(inlined) = try_inline_function(function, arguments, ga) {
+            if args_can_inline
+                && let Some(inlined) = try_inline_function(function, arguments, ga, cache)
+            {
                 *expr = inlined;
                 return true;
             }
@@ -211,10 +234,14 @@ fn simplify_expression(expr: &mut Expression, ga: &GlobalAnalysis) -> bool {
         Expression::LayoutCacheAccess { .. } => false,
         Expression::OrganizeGridLayout { .. } => false,
         Expression::SolveBoxLayout { .. } => false,
+        Expression::SolveGridLayout { .. } => false,
+        Expression::SolveFlexboxLayout { .. } => false,
         Expression::ComputeBoxLayoutInfo { .. } => false,
+        Expression::ComputeGridLayoutInfo { .. } => false,
+        Expression::ComputeFlexboxLayoutInfo { .. } => false,
         _ => {
             let mut result = true;
-            expr.visit_mut(|expr| result &= simplify_expression(expr, ga));
+            expr.visit_mut(|expr| result &= simplify_expression(expr, ga, cache));
             result
         }
     }
@@ -222,12 +249,43 @@ fn simplify_expression(expr: &mut Expression, ga: &GlobalAnalysis) -> bool {
 
 /// Will extract the property binding from the given named reference
 /// and propagate constant expression within it. If that's possible,
-/// return the new expression
+/// return the new expression. Results are cached per NamedReference.
 fn extract_constant_property_reference(
     nr: &NamedReference,
     ga: &GlobalAnalysis,
+    cache: &mut ConstPropCache,
 ) -> Option<Expression> {
     debug_assert!(nr.is_constant());
+    if let Some(cached) = cache.get(nr) {
+        return cached.clone();
+    }
+    let result = extract_constant_property_reference_impl(nr, ga, cache);
+    cache.insert(nr.clone(), result.clone());
+    result
+}
+
+/// Extract just one field from a constant struct property, cloning only that
+/// field instead of the entire struct expression.
+fn extract_struct_field_from_constant(
+    nr: &NamedReference,
+    field_name: &str,
+    ga: &GlobalAnalysis,
+    cache: &mut ConstPropCache,
+) -> Option<Expression> {
+    // Populate the cache via the canonical path (result itself is discarded)
+    let _ = extract_constant_property_reference(nr, ga, cache);
+    if let Some(Some(Expression::Struct { values, .. })) = cache.get(nr) {
+        values.get(field_name).cloned()
+    } else {
+        None
+    }
+}
+
+fn extract_constant_property_reference_impl(
+    nr: &NamedReference,
+    ga: &GlobalAnalysis,
+    cache: &mut ConstPropCache,
+) -> Option<Expression> {
     // find the binding.
     let mut element = nr.element();
     let mut expression = loop {
@@ -244,7 +302,7 @@ fn extract_constant_property_reference(
         };
         if let Some(decl) = element.clone().borrow().property_declarations.get(nr.name()) {
             if let Some(alias) = &decl.is_alias {
-                return extract_constant_property_reference(alias, ga);
+                return extract_constant_property_reference(alias, ga, cache);
             }
         } else if let ElementType::Component(c) = &element.clone().borrow().base_type {
             element = c.root_element.clone();
@@ -256,7 +314,7 @@ fn extract_constant_property_reference(
         debug_assert!(!matches!(ty, Type::Invalid));
         return Some(Expression::default_value_for_type(&ty));
     };
-    if !(simplify_expression(&mut expression, ga)) {
+    if !(simplify_expression(&mut expression, ga, cache)) {
         return None;
     }
     Some(expression)
@@ -266,6 +324,7 @@ fn try_inline_function(
     function: &Callable,
     arguments: &[Expression],
     ga: &GlobalAnalysis,
+    cache: &mut ConstPropCache,
 ) -> Option<Expression> {
     let function = match function {
         Callable::Function(function) => function,
@@ -275,7 +334,7 @@ fn try_inline_function(
     if !function.is_constant() {
         return None;
     }
-    let mut body = extract_constant_property_reference(function, ga)?;
+    let mut body = extract_constant_property_reference(function, ga, cache)?;
 
     fn substitute_arguments_recursive(e: &mut Expression, arguments: &[Expression]) {
         if let Expression::FunctionParameterReference { index, ty } = e {
@@ -288,7 +347,7 @@ fn try_inline_function(
     }
     substitute_arguments_recursive(&mut body, arguments);
 
-    if simplify_expression(&mut body, ga) { Some(body) } else { None }
+    if simplify_expression(&mut body, ga, cache) { Some(body) } else { None }
 }
 
 fn try_inline_builtin_function(
@@ -374,7 +433,7 @@ export component Foo {
     }
     let out3_binding = bindings.get("out3").unwrap().borrow().expression.clone();
     match &out3_binding {
-        // We have a code block because the first entry stores the value of `intput` in a local variable
+        // We have a code block because the first entry stores the value of `input` in a local variable
         Expression::CodeBlock(stmts) => match &stmts[1] {
             Expression::Condition { condition: _, true_expr: _, false_expr } => match &**false_expr
             {

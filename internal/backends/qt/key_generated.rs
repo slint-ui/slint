@@ -1,11 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore qnamespace
 /*! Generated with Qt6 and
 ```sh
 cargo install bindgen-cli
 export QT_INCLUDE_PATH="/usr/include/x86_64-linux-gnu/qt6"
-bindgen $QT_INCLUDE_PATH/QtCore/qnamespace.h --allowlist-type Qt::Key --allowlist-type Qt::KeyboardModifier --allowlist-type Qt::AlignmentFlag --allowlist-type Qt::TextFlag --allowlist-type Qt::FillRule --allowlist-type Qt::CursorShape --allowlist-type Qt::ScrollPhase -o internal/backends/qt/key_generated.rs -- -I $QT_INCLUDE_PATH -xc++
+bindgen $QT_INCLUDE_PATH/QtCore/qnamespace.h --allowlist-type Qt::Key --allowlist-type Qt::KeyboardModifier --allowlist-type Qt::AlignmentFlag --allowlist-type Qt::TextFlag --allowlist-type Qt::FillRule --allowlist-type Qt::CursorShape --allowlist-type Qt::ScrollPhase --allowlist-type Qt::DropAction -o internal/backends/qt/key_generated.rs -- -I $QT_INCLUDE_PATH -xc++
 ```
 then add license header and this doc
 */
@@ -553,6 +554,13 @@ pub type Qt_CursorShape = ::std::os::raw::c_uint;
 pub const Qt_FillRule_OddEvenFill: Qt_FillRule = 0;
 pub const Qt_FillRule_WindingFill: Qt_FillRule = 1;
 pub type Qt_FillRule = ::std::os::raw::c_uint;
+pub const Qt_DropAction_CopyAction: Qt_DropAction = 1;
+pub const Qt_DropAction_MoveAction: Qt_DropAction = 2;
+pub const Qt_DropAction_LinkAction: Qt_DropAction = 4;
+pub const Qt_DropAction_ActionMask: Qt_DropAction = 255;
+pub const Qt_DropAction_TargetMoveAction: Qt_DropAction = 32770;
+pub const Qt_DropAction_IgnoreAction: Qt_DropAction = 0;
+pub type Qt_DropAction = ::std::os::raw::c_uint;
 pub const Qt_ScrollPhase_NoScrollPhase: Qt_ScrollPhase = 0;
 pub const Qt_ScrollPhase_ScrollBegin: Qt_ScrollPhase = 1;
 pub const Qt_ScrollPhase_ScrollUpdate: Qt_ScrollPhase = 2;

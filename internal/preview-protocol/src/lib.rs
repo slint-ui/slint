@@ -8,9 +8,12 @@ mod preview_to_lsp;
 mod versioned_url;
 
 pub use lsp_to_preview::{LspToPreviewMessage, PreviewComponent, PreviewConfig};
-pub use preview_to_lsp::PreviewToLspMessage;
+pub use preview_to_lsp::{PreviewTarget, PreviewToLspMessage};
 pub use versioned_url::VersionedUrl;
 
 pub use lsp_types;
 
 pub type SourceFileVersion = Option<i32>;
+pub const SERVICE_TYPE: &str = "_slint-preview._tcp.local.";
+pub const SERVICE_TYPE_NAME: &str = "slint-preview";
+pub const SERVICE_TYPE_PROTOCOL: &str = "tcp";

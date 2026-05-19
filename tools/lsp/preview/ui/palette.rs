@@ -610,8 +610,11 @@ export component Main { }
                 init_param: Default::default(),
                 to_show: None,
                 open_urls: Default::default(),
-                to_preview: Rc::new(crate::common::DummyLspToPreview::default()),
+                to_preview: Rc::new(crate::common::SwitchableLspToPreview::with_one(
+                    crate::common::DummyLspToPreview::default(),
+                )),
                 pending_recompile: Default::default(),
+                preview_to_lsp_sender: tokio::sync::mpsc::unbounded_channel().0,
             };
             let (url, _) = crate::language::test::load(
                 &mut ctx,
@@ -676,12 +679,14 @@ export component Main { }
         assert!(reds.row_count() >= 6);
         assert!(reds.row_count() <= 12);
 
+        // cspell:disable - CSS color names in string literals
         assert_eq!(reds.row_data(0).unwrap().name, "Colors.red");
         assert_eq!(reds.row_data(1).unwrap().name, "Colors.darkred");
         assert_eq!(reds.row_data(2).unwrap().name, "Colors.indianred");
         assert_eq!(reds.row_data(3).unwrap().name, "Colors.mediumvioletred");
         assert_eq!(reds.row_data(4).unwrap().name, "Colors.orangered");
         assert_eq!(reds.row_data(5).unwrap().name, "Colors.palevioletred");
+        // cspell:enable
     }
 
     #[test]

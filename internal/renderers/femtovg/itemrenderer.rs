@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore blitting
 use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -501,6 +502,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
         {
             return;
         }
+        // TODO: implement inset shadows and spread for femtovg. Until then, skip rendering inset
+        // shadows entirely (otherwise they'd render incorrectly as a drop shadow). Spread is
+        // silently ignored.
+        if box_shadow.inset() {
+            return;
+        }
 
         let cache_entry = self.box_shadow_cache.get_box_shadow(
             item_rc,
@@ -822,45 +829,41 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
     }
 
     fn draw_image_direct(&mut self, image: i_slint_core::graphics::Image) {
-        let image_size = image.size();
-        let target_width = LogicalLength::new(image_size.width as _);
-        let target_height = LogicalLength::new(image_size.height as _);
-
-        let target_w = target_width * self.scale_factor;
-        let target_h = target_height * self.scale_factor;
-
-        if target_w.get() <= 0. || target_h.get() <= 0. {
+        let target_size = LogicalSize::from_untyped(image.size().cast()) * self.scale_factor;
+        if target_size.is_empty() {
             return;
         }
 
         let image_inner: &ImageInner = (&image).into();
 
-        let Some(cached_image) =
-            TextureCacheKey::new(image_inner, None, Default::default(), Default::default())
-                .and_then(|cache_key| {
-                    self.texture_cache.borrow_mut().lookup_image_in_cache_or_create(
-                        cache_key,
-                        || {
-                            Texture::new_from_image(
-                                image_inner,
-                                &self.canvas,
-                                None,
-                                Default::default(),
-                                Default::default(),
-                            )
-                        },
-                    )
-                })
-                .or_else(|| {
-                    Texture::new_from_image(
-                        image_inner,
-                        &self.canvas,
-                        None,
-                        Default::default(),
-                        Default::default(),
-                    )
-                })
-        else {
+        let target_size_for_scalable_source = image_inner.is_svg().then(|| target_size.cast());
+
+        let Some(cached_image) = TextureCacheKey::new(
+            image_inner,
+            target_size_for_scalable_source,
+            Default::default(),
+            Default::default(),
+        )
+        .and_then(|cache_key| {
+            self.texture_cache.borrow_mut().lookup_image_in_cache_or_create(cache_key, || {
+                Texture::new_from_image(
+                    image_inner,
+                    &self.canvas,
+                    target_size_for_scalable_source,
+                    Default::default(),
+                    Default::default(),
+                )
+            })
+        })
+        .or_else(|| {
+            Texture::new_from_image(
+                image_inner,
+                &self.canvas,
+                target_size_for_scalable_source,
+                Default::default(),
+                Default::default(),
+            )
+        }) else {
             return;
         };
 
@@ -1155,7 +1158,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
     // In some cases (e.g. when rendering text), the canvas needs to be aligned to the pixel grid.
     // Otherwise, even with nearest-neighbor scaling, the glyphs can have strange artifacts, as
     // the nearest-neighbor algorithm is unstable if the pixel coordinate is at exactly 0.5px,
-    // which is very noticable with text.
+    // which is very noticeable with text.
     //
     // Note that this will currently only align the canvas if it is not rotated and not scaled.
     fn align_canvas_during<Result>(

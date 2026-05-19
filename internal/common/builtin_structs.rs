@@ -112,11 +112,26 @@ macro_rules! for_each_builtin_structs {
             struct DropEvent {
                 @name = BuiltinPrivateStruct::DropEvent,
                 export {
-                    /// The data to be accessed.
+                    /// The payload set on the source `DragArea`.
                     data: DataTransfer,
 
-                    /// The current mouse position in coordinates of the `DropArea` element
+                    /// The cursor position in the `DropArea`'s local coordinates.
                     position: LogicalPosition,
+
+                    /// Mirrors `DragArea.allow-copy`: true if the source allows the drop to copy the data.
+                    allow_copy: bool,
+
+                    /// Mirrors `DragArea.allow-move`: true if the source allows the drop to move the data.
+                    allow_move: bool,
+
+                    /// Mirrors `DragArea.allow-link`: true if the source allows the drop to link to the data.
+                    allow_link: bool,
+
+                    /// The action negotiated from current modifier state and the source's `preferred-action`,
+                    /// clamped to the allowed set. Updated on every `DragMove`. The target's `can-drop`
+                    /// callback can return this to honor the user's modifier choice, or override with
+                    /// any other allowed action.
+                    proposed_action: DragAction,
                 }
                 private {
                 }

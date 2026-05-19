@@ -1,20 +1,22 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore iosurface multisampled
 //! Metal-specific WGPU integration for IOSurface textures.
 //!
 //! This module provides functionality to create WGPU textures from Metal IOSurfaces,
 //! which is essential for efficient GPU memory sharing on macOS. It includes texture
 //! flipping operations to handle coordinate system differences between Metal and other APIs.
 
-use objc2::runtime::NSObject;
-use objc2::{msg_send, rc::Retained};
-use objc2_metal::{MTLPixelFormat, MTLTextureDescriptor, MTLTextureType, MTLTextureUsage};
+use objc2::rc::Retained;
+use objc2::runtime::ProtocolObject;
+use objc2_metal::{
+    MTLDevice, MTLPixelFormat, MTLTexture, MTLTextureDescriptor, MTLTextureType, MTLTextureUsage,
+};
 
-use foreign_types_shared::ForeignType;
 use winit::dpi::PhysicalSize;
 
-use slint::wgpu_28::wgpu::{
+use slint::wgpu_29::wgpu::{
     self, BindGroupEntry, BindGroupLayoutEntry, BindingResource, BindingType, Device, FilterMode,
     Queue, ShaderStages, Texture, TextureFormat, TextureUsages,
 };
@@ -82,14 +84,14 @@ fn objc2_metal_texture_from_iosurface(
     wgpu_device: &Device,
     surfman_device: &surfman::Device,
     surfman_surface: &surfman::Surface,
-) -> Result<Retained<NSObject>, MetalTextureError> {
+) -> Result<Retained<ProtocolObject<dyn MTLTexture>>, MetalTextureError> {
     // SAFETY: We're working with WGPU Metal backend, so the device extraction
-    // and pointer manipulations are safe within this controlled context.
+    // is safe within this controlled context.
     unsafe {
         let metal_device =
             wgpu_device.as_hal::<wgpu::wgc::api::Metal>().ok_or(MetalTextureError::WgpuNotMetal)?;
 
-        let device_raw = metal_device.raw_device().clone();
+        let metal_device_raw: &Retained<ProtocolObject<dyn MTLDevice>> = metal_device.raw_device();
 
         let descriptor = MTLTextureDescriptor::new();
         descriptor.setDepth(1);
@@ -104,16 +106,9 @@ fn objc2_metal_texture_from_iosurface(
         let native_surface = surfman_device.native_surface(surfman_surface);
         let io_surface = native_surface.0;
 
-        let device_ns = &*(device_raw.as_ptr() as *mut NSObject);
-
-        let texture: Option<Retained<NSObject>> = msg_send![
-            device_ns,
-            newTextureWithDescriptor: &*descriptor,
-            iosurface: &*io_surface,
-            plane: 0usize
-        ];
-
-        texture.ok_or(MetalTextureError::TextureCreation)
+        metal_device_raw
+            .newTextureWithDescriptor_iosurface_plane(&descriptor, &io_surface, 0)
+            .ok_or(MetalTextureError::TextureCreation)
     }
 }
 
@@ -129,17 +124,13 @@ fn objc2_metal_texture_from_iosurface(
 fn wgpu_hal_texture(
     size: PhysicalSize<u32>,
     wgpu_device: &Device,
-    metal_texture: Retained<NSObject>,
+    metal_texture: Retained<ProtocolObject<dyn MTLTexture>>,
 ) -> Texture {
     unsafe {
-        let ptr: *mut objc2_foundation::NSObject = Retained::into_raw(metal_texture);
-
-        let metal_texture = metal::Texture::from_ptr(ptr as *mut _);
-
         let hal_texture = wgpu::hal::metal::Device::texture_from_raw(
             metal_texture,
             TextureFormat::Bgra8Unorm,
-            metal::MTLTextureType::D2,
+            MTLTextureType::Type2D,
             0,
             0,
             wgpu::hal::CopyExtent { width: size.width, height: size.height, depth: 0 },
@@ -274,7 +265,7 @@ fn create_flip_pipeline_resources(
 
     let layout = wgpu_device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("Metal Texture Flip Pipeline Layout"),
-        bind_group_layouts: &[&bind_group_layout],
+        bind_group_layouts: &[Some(&bind_group_layout)],
         immediate_size: 0,
     });
 

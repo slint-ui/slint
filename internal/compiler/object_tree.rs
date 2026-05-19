@@ -92,10 +92,25 @@ impl Document {
         let mut inner_components = Vec::new();
         let mut inner_types = Vec::new();
 
+        #[cfg(feature = "slint-sc")]
+        for import in &imports {
+            if matches!(
+                import.import_kind,
+                ImportKind::ImportList(_) | ImportKind::ModuleReexport(_)
+            ) {
+                diag.slint_sc_error("Imports are", &import.import_uri_token);
+            }
+        }
+
         let mut process_component =
             |n: syntax_nodes::Component,
              diag: &mut BuildDiagnostics,
              local_registry: &mut TypeRegister| {
+                // Globals already get their own "Globals are not supported" message
+                #[cfg(feature = "slint-sc")]
+                if n.child_text(SyntaxKind::Identifier).as_deref() != Some("global") {
+                    diag.slint_sc_error("Component declarations are", &n.DeclaredIdentifier());
+                }
                 let compo = Component::from_node(n, diag, local_registry);
                 if !local_registry.add(compo.clone()) {
                     diag.push_warning(format!("Component '{}' is replacing a previously defined component with the same name", compo.id), &compo.node.clone().unwrap().DeclaredIdentifier());
@@ -106,6 +121,8 @@ impl Document {
                               diag: &mut BuildDiagnostics,
                               local_registry: &mut TypeRegister,
                               inner_types: &mut Vec<Type>| {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Struct declarations are", &n.DeclaredIdentifier());
             let ty = type_struct_from_node(
                 n.ObjectType(),
                 diag,
@@ -127,6 +144,8 @@ impl Document {
                             diag: &mut BuildDiagnostics,
                             local_registry: &mut TypeRegister,
                             inner_types: &mut Vec<Type>| {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Enum declarations are", &n.DeclaredIdentifier());
             let Some(name) = parser::identifier_text(&n.DeclaredIdentifier()) else {
                 assert!(diag.has_errors());
                 return;
@@ -170,7 +189,9 @@ impl Document {
 
         for n in node.children() {
             match n.kind() {
-                SyntaxKind::Component => process_component(n.into(), diag, &mut local_registry),
+                SyntaxKind::Component => {
+                    process_component(n.into(), diag, &mut local_registry);
+                }
                 SyntaxKind::StructDeclaration => {
                     process_struct(n.into(), diag, &mut local_registry, &mut inner_types)
                 }
@@ -324,6 +345,7 @@ pub struct PopupWindow {
     pub y: NamedReference,
     pub close_policy: EnumerationValue,
     pub parent_element: ElementRc,
+    pub is_tooltip: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -351,7 +373,7 @@ pub struct UsedSubTypes {
     /// All the sub components use by this components and its children,
     /// and the amount of time it is used
     pub sub_components: Vec<Rc<Component>>,
-    /// All types, structs, enums, that orignates from an
+    /// All types, structs, enums, that originates from an
     /// external library
     pub library_types_imports: Vec<(SmolStr, LibraryInfo)>,
     /// All global components that originates from an
@@ -451,7 +473,11 @@ impl Component {
                 node.Element(),
                 "root".into(),
                 match node.child_text(SyntaxKind::Identifier) {
-                    Some(t) if t == "global" => ElementType::Global,
+                    Some(t) if t == "global" => {
+                        #[cfg(feature = "slint-sc")]
+                        diag.slint_sc_error("Globals are", &node.DeclaredIdentifier());
+                        ElementType::Global
+                    }
                     Some(t) if t == "interface" => {
                         if !diag.enable_experimental && !tr.expose_internal_types {
                             diag.push_error("'interface' is an experimental feature".into(), &node);
@@ -819,6 +845,11 @@ pub struct Element {
     pub child_of_layout: bool,
     /// The property pointing to the layout info. `(horizontal, vertical)`
     pub layout_info_prop: Option<(NamedReference, NamedReference)>,
+    /// `pure function layoutinfo-v-with-constraint(width: length) -> LayoutInfo`
+    /// synthesized for elements whose vertical layout info depends on
+    /// their width — lets the parent supply the width and avoid the
+    /// recursion that would happen via the descendants' width property.
+    pub layout_info_v_with_constraint: Option<NamedReference>,
     /// Whether we have `preferred-{width,height}: 100%`
     pub default_fill_parent: (bool, bool),
 
@@ -834,6 +865,9 @@ pub struct Element {
     /// true if this Element may have a popup as child meaning it cannot be optimized
     /// because the popup references it.
     pub has_popup_child: bool,
+
+    /// True for compiler-generated tooltip `PopupWindow` instances (see `lower_tooltips`).
+    pub is_tooltip: bool,
 
     /// This is the component-local index of this item in the item tree array.
     /// It is generated after the last pass and before the generators run.
@@ -1077,7 +1111,25 @@ impl Element {
                     );
                     ElementType::Error
                 }
-                Ok(ty) => ty,
+                Ok(ty) => {
+                    #[cfg(feature = "slint-sc")]
+                    match &ty {
+                        ElementType::Builtin(b) => {
+                            diag.slint_sc_error(
+                                &format!("The builtin element '{}' is", b.name),
+                                &base_node,
+                            );
+                        }
+                        ElementType::Component(_) => {
+                            diag.slint_sc_error(
+                                "Inheriting from user-defined components is",
+                                &base_node,
+                            );
+                        }
+                        _ => {}
+                    }
+                    ty
+                }
                 Err(err) => {
                     diag.push_error(err, &base_node);
                     ElementType::Error
@@ -1158,6 +1210,8 @@ impl Element {
         )> = Vec::new();
 
         for prop_decl in node.PropertyDeclaration() {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Property declarations are", &prop_decl);
             let prop_type = prop_decl
                 .Type()
                 .map(|type_node| type_from_node(type_node, diag, tr))
@@ -1254,6 +1308,8 @@ impl Element {
             }
 
             if let Some(csn) = prop_decl.TwoWayBinding() {
+                #[cfg(feature = "slint-sc")]
+                diag.slint_sc_error("Two-way bindings are", &csn);
                 two_way_bindings.push((prop_name.into(), csn, prop_decl.DeclaredIdentifier()));
             }
         }
@@ -1298,6 +1354,8 @@ impl Element {
         apply_default_type_properties(&mut r);
 
         for sig_decl in node.CallbackDeclaration() {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Callback declarations are", &sig_decl);
             let name =
                 unwrap_or_continue!(parser::identifier_text(&sig_decl.DeclaredIdentifier()); diag);
 
@@ -1386,6 +1444,8 @@ impl Element {
         interfaces::apply_callbacks(&mut r, &implemented_interface, diag);
 
         for func in node.Function() {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Function declarations are", &func);
             let name =
                 unwrap_or_continue!(parser::identifier_text(&func.DeclaredIdentifier()); diag);
 
@@ -1494,6 +1554,8 @@ impl Element {
         }
 
         for con_node in node.CallbackConnection() {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Callback handlers are", &con_node);
             let unresolved_name = unwrap_or_continue!(parser::identifier_text(&con_node); diag);
             let PropertyLookupResult { resolved_name, property_type, .. } =
                 r.lookup_property(&unresolved_name);
@@ -1533,6 +1595,8 @@ impl Element {
         }
 
         for anim in node.PropertyAnimation() {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Animations are", &anim);
             if let Some(star) = anim.child_token(SyntaxKind::Star) {
                 diag.push_error(
                     "catch-all property is only allowed within transitions".into(),
@@ -1600,6 +1664,8 @@ impl Element {
         }
 
         for ch in node.PropertyChangedCallback() {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Change callbacks are", &ch);
             let Some(prop) = parser::identifier_text(&ch.DeclaredIdentifier()) else { continue };
             let lookup_result = r.lookup_property(&prop);
             if !lookup_result.is_valid() {
@@ -1693,6 +1759,8 @@ impl Element {
                 }
                 r.borrow_mut().children.push(rep);
             } else if se.kind() == SyntaxKind::ChildrenPlaceholder {
+                #[cfg(feature = "slint-sc")]
+                diag.slint_sc_error("The @children placeholder is", &se);
                 if children_placeholder.is_some() {
                     diag.push_error(
                         "The @children placeholder can only appear once in an element".into(),
@@ -1719,6 +1787,10 @@ impl Element {
             }
         }
 
+        #[cfg(feature = "slint-sc")]
+        for s_node in node.States() {
+            diag.slint_sc_error("States are", &s_node);
+        }
         for state in node.States().flat_map(|s| s.State()) {
             let s = State {
                 id: parser::identifier_text(&state.DeclaredIdentifier()).unwrap_or_default(),
@@ -1748,6 +1820,8 @@ impl Element {
         }
 
         for ts in node.Transitions() {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Transitions are", &ts);
             if !is_legacy_syntax {
                 diag.push_error("'transitions' block are no longer supported. Use 'in {...}' and 'out {...}' directly in the state definition".into(), &ts);
             }
@@ -1815,6 +1889,8 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
+        #[cfg(feature = "slint-sc")]
+        diag.slint_sc_error("Repeated elements (for-in) are", &node);
         let e = Element::from_sub_element_node(
             node.SubElement(),
             parent.borrow().base_type.clone(),
@@ -1869,6 +1945,8 @@ impl Element {
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
+        #[cfg(feature = "slint-sc")]
+        diag.slint_sc_error("Conditional elements (if) are", &node);
         let rei = RepeatedElementInfo {
             model: Expression::Uncompiled(node.Expression().into()),
             model_data_id: SmolStr::default(),
@@ -1918,6 +1996,8 @@ impl Element {
         diag: &mut BuildDiagnostics,
     ) {
         for (name_token, b) in bindings {
+            #[cfg(feature = "slint-sc")]
+            diag.slint_sc_error("Bindings are", &name_token);
             let unresolved_name = crate::parser::normalize_identifier(name_token.text());
             let lookup_result = self.lookup_property(&unresolved_name);
             if !lookup_result.property_type.is_property_type() {
@@ -2017,6 +2097,44 @@ impl Element {
             Orientation::Horizontal => &prop.0,
             Orientation::Vertical => &prop.1,
         })
+    }
+
+    /// Whether this element is a *builtin* whose vertical layout info
+    /// depends on its width. Returns `false` for user components — even
+    /// ones whose own bindings derive height from width (e.g.
+    /// `component Foo { height: self.width; }`); those don't carry the
+    /// information needed to detect the dependency here. The synthesis
+    /// pass catches user components by other means (descendant
+    /// height-for-width + `layoutinfo-v-with-constraint` propagation).
+    pub fn is_builtin_height_for_width(&self) -> bool {
+        let Some(builtin) = self.builtin_type() else { return false };
+        match builtin.name.as_str() {
+            // Conservatively treat any wrap binding (including a literal
+            // `no-wrap`) as height-for-width.
+            "Text" | "TextInput" => self.is_binding_set("wrap", false),
+            // `StyledText` has no `wrap` property; markdown text always
+            // wraps to fill the given width.
+            "Image" | "ClippedImage" | "StyledText" => true,
+            _ => false,
+        }
+    }
+
+    /// Returns the `layoutinfo-v-with-constraint` NamedReference reachable
+    /// from `self`, looking through the base-type chain. The NR points to
+    /// the element actually carrying the binding.
+    pub fn inherited_layout_info_v_with_constraint(&self) -> Option<NamedReference> {
+        if let Some(nr) = &self.layout_info_v_with_constraint {
+            return Some(nr.clone());
+        }
+        let mut base = self.base_type.clone();
+        while let ElementType::Component(base_comp) = base {
+            let root = base_comp.root_element.borrow();
+            if let Some(nr) = &root.layout_info_v_with_constraint {
+                return Some(nr.clone());
+            }
+            base = root.base_type.clone();
+        }
+        None
     }
 
     /// Returns the element's name as specified in the markup, not normalized.
@@ -2150,6 +2268,9 @@ pub fn type_from_node(
 
         let prop_type = tr.lookup_qualified(&qualified_type.members);
 
+        #[cfg(feature = "slint-sc")]
+        diag.slint_sc_error(&format!("The type '{qualified_type}' is"), &qualified_type_node);
+
         if prop_type == Type::Invalid && tr.lookup_element(&qualified_type.to_smolstr()).is_err() {
             diag.push_error(format!("Unknown type '{qualified_type}'"), &qualified_type_node);
         } else if !prop_type.is_property_type() {
@@ -2160,8 +2281,12 @@ pub fn type_from_node(
         }
         prop_type
     } else if let Some(object_node) = node.ObjectType() {
+        #[cfg(feature = "slint-sc")]
+        diag.slint_sc_error("Inline struct types are", &object_node);
         type_struct_from_node(object_node, diag, tr, None)
     } else if let Some(array_node) = node.ArrayType() {
+        #[cfg(feature = "slint-sc")]
+        diag.slint_sc_error("Array types are", &array_node);
         Type::Array(Rc::new(type_from_node(array_node.Type(), diag, tr)))
     } else {
         assert!(diag.has_errors());
@@ -2560,8 +2685,8 @@ pub fn visit_named_references_in_expression(
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
         Expression::GridRepeaterCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
         Expression::OrganizeGridLayout(l) => l.visit_named_references(vis),
-        Expression::ComputeBoxLayoutInfo(l, _) => l.visit_named_references(vis),
-        Expression::ComputeFlexboxLayoutInfo(l, _) => l.visit_named_references(vis),
+        Expression::ComputeBoxLayoutInfo { layout, .. } => layout.visit_named_references(vis),
+        Expression::ComputeFlexboxLayoutInfo { layout, .. } => layout.visit_named_references(vis),
         Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, .. } => {
             vis(layout_organized_data_prop);
             layout.visit_named_references(vis);
@@ -2624,6 +2749,11 @@ pub fn visit_all_named_references_in_element(
     let mut layout_info_prop = std::mem::take(&mut elem.borrow_mut().layout_info_prop);
     layout_info_prop.as_mut().map(|(h, b)| (vis(h), vis(b)));
     elem.borrow_mut().layout_info_prop = layout_info_prop;
+    let mut constrained_v = std::mem::take(&mut elem.borrow_mut().layout_info_v_with_constraint);
+    if let Some(nr) = constrained_v.as_mut() {
+        vis(nr);
+    }
+    elem.borrow_mut().layout_info_v_with_constraint = constrained_v;
     let mut debug = std::mem::take(&mut elem.borrow_mut().debug);
     for d in debug.iter_mut() {
         if let Some(l) = d.layout.as_mut() {
@@ -2861,6 +2991,8 @@ impl Exports {
                 .filter(|exports| exports.ExportModule().is_none())
                 .flat_map(|exports| exports.ExportSpecifier())
                 .filter_map(|export_specifier| {
+                    #[cfg(feature = "slint-sc")]
+                    diag.slint_sc_error("Export specifiers are", &export_specifier);
                     let (internal_name, exported_name) =
                         ExportedName::from_export_specifier(&export_specifier);
                     Some((
@@ -3079,12 +3211,14 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
             old_root,
             Orientation::Horizontal,
             crate::layout::BuiltinFilter::All,
+            None,
         )
         .unwrap();
         let expr_v = crate::layout::implicit_layout_info_call(
             old_root,
             Orientation::Vertical,
             crate::layout::BuiltinFilter::All,
+            None,
         )
         .unwrap();
         let expr_v =
