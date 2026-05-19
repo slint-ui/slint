@@ -31,6 +31,7 @@ use i_slint_core::lengths::{
     PhysicalPx, ScaleFactor, logical_size_from_api,
 };
 use i_slint_core::platform::{PlatformError, WindowEvent};
+use i_slint_core::string::ToSharedString;
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
 use i_slint_core::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
 use i_slint_core::{ImageInner, SharedString};
@@ -2085,9 +2086,9 @@ impl QtWindow {
             != 0;
         let allow_link = allowed & key_generated::Qt_DropAction_LinkAction != 0;
         let mut data = DataTransfer::default();
-        let text: String = text.into();
+        let text = text.to_shared_string();
         if !text.is_empty() {
-            data.set_plaintext(text.into());
+            data.set_plaintext(text);
         }
         let image_bytes = image_bytes.to_slice();
         if image_size.width > 0 && image_size.height > 0 && !image_bytes.is_empty() {
