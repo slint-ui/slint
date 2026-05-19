@@ -858,7 +858,57 @@ fn visit_layout_items_layoutinfo_cross_axis_dependencies<'a>(
                 &PropertyPath { elements: vec![ByAddress(element.clone())], prop: nr.clone() },
                 ReadType::PropertyRead,
             );
+        } else {
+            visit_cell_cross_axis_implicit_dependency(cross_axis, &element, vis);
         }
+    }
+}
+
+/// Cross-axis variant of [`visit_implicit_layout_info_dependencies`]: only
+/// declare deps that actually exist on the cross-axis path. Image/Text and
+/// other h-for-w builtins receive the cross-axis size via the item VTable's
+/// `cross_axis_constraint`, so they don't read `self.{w,h}` here. For other
+/// items (user components, plain builtins), the native `ImplicitLayoutInfo`
+/// reads `preferred-{w,h}` — declare it when the user has bound it to read
+/// the opposite-axis dim on the same element. That catches cycles like
+/// `preferred-height: self.width` at compile time instead of panicking at
+/// runtime.
+fn visit_cell_cross_axis_implicit_dependency(
+    cross_axis: Orientation,
+    item: &ElementRc,
+    vis: &mut impl FnMut(&PropertyPath, ReadType),
+) {
+    let base_type = item.borrow().base_type.to_smolstr();
+    if matches!(base_type.as_str(), "Image" | "ClippedImage" | "Text" | "TextInput" | "StyledText")
+    {
+        return;
+    }
+    let (prop, opposite_dim) = match cross_axis {
+        Orientation::Horizontal => ("preferred-width", "height"),
+        Orientation::Vertical => ("preferred-height", "width"),
+    };
+    if !item.borrow().is_binding_set(prop, false) {
+        return;
+    }
+    let reads_opposite = item
+        .borrow()
+        .bindings
+        .get(prop)
+        .map(|b| {
+            let mut seen = false;
+            b.borrow().expression.visit_recursive(&mut |sub| {
+                if let Expression::PropertyReference(nr) = sub
+                    && nr.name() == opposite_dim
+                    && Rc::ptr_eq(&nr.element(), item)
+                {
+                    seen = true;
+                }
+            });
+            seen
+        })
+        .unwrap_or(false);
+    if reads_opposite {
+        vis(&NamedReference::new(item, SmolStr::new_static(prop)).into(), ReadType::NativeRead);
     }
 }
 
