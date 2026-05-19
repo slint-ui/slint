@@ -80,10 +80,10 @@ public:
     RadialGradientBrush(const GradientStop *firstStop, int stopCount)
     {
         // Header: center_x (NaN=bbox), center_y (NaN=bbox), radius (negative=bbox diagonal/2)
-        inner.push_back({ Color::from_argb_encoded(0).inner,
-                          std::numeric_limits<float>::quiet_NaN() });
-        inner.push_back({ Color::from_argb_encoded(0).inner,
-                          std::numeric_limits<float>::quiet_NaN() });
+        inner.push_back(
+                { Color::from_argb_encoded(0).inner, std::numeric_limits<float>::quiet_NaN() });
+        inner.push_back(
+                { Color::from_argb_encoded(0).inner, std::numeric_limits<float>::quiet_NaN() });
         inner.push_back({ Color::from_argb_encoded(0).inner, -1.0f });
         for (int i = 0; i < stopCount; ++i, ++firstStop)
             inner.push_back(*firstStop);
@@ -133,10 +133,10 @@ public:
     {
         // Header: angle, center_x (NaN=bbox), center_y (NaN=bbox)
         inner.push_back({ Color::from_argb_encoded(0).inner, angle });
-        inner.push_back({ Color::from_argb_encoded(0).inner,
-                          std::numeric_limits<float>::quiet_NaN() });
-        inner.push_back({ Color::from_argb_encoded(0).inner,
-                          std::numeric_limits<float>::quiet_NaN() });
+        inner.push_back(
+                { Color::from_argb_encoded(0).inner, std::numeric_limits<float>::quiet_NaN() });
+        inner.push_back(
+                { Color::from_argb_encoded(0).inner, std::numeric_limits<float>::quiet_NaN() });
         for (int i = 0; i < stopCount; ++i, ++firstStop)
             inner.push_back(*firstStop);
 
@@ -309,16 +309,14 @@ inline Brush Brush::brighter(float factor) const
         break;
     case Tag::RadialGradient:
         for (std::size_t i = 3; i < data.radial_gradient._0.size(); ++i) {
-            cbindgen_private::types::slint_color_brighter(
-                    &data.radial_gradient._0[i].color, factor,
-                    &result.data.radial_gradient._0[i].color);
+            cbindgen_private::types::slint_color_brighter(&data.radial_gradient._0[i].color, factor,
+                                                          &result.data.radial_gradient._0[i].color);
         }
         break;
     case Tag::ConicGradient:
         for (std::size_t i = 3; i < data.conic_gradient._0.size(); ++i) {
-            cbindgen_private::types::slint_color_brighter(
-                    &data.conic_gradient._0[i].color, factor,
-                    &result.data.conic_gradient._0[i].color);
+            cbindgen_private::types::slint_color_brighter(&data.conic_gradient._0[i].color, factor,
+                                                          &result.data.conic_gradient._0[i].color);
         }
         break;
     }
@@ -341,16 +339,14 @@ inline Brush Brush::darker(float factor) const
         break;
     case Tag::RadialGradient:
         for (std::size_t i = 3; i < data.radial_gradient._0.size(); ++i) {
-            cbindgen_private::types::slint_color_darker(
-                    &data.radial_gradient._0[i].color, factor,
-                    &result.data.radial_gradient._0[i].color);
+            cbindgen_private::types::slint_color_darker(&data.radial_gradient._0[i].color, factor,
+                                                        &result.data.radial_gradient._0[i].color);
         }
         break;
     case Tag::ConicGradient:
         for (std::size_t i = 3; i < data.conic_gradient._0.size(); ++i) {
-            cbindgen_private::types::slint_color_darker(
-                    &data.conic_gradient._0[i].color, factor,
-                    &result.data.conic_gradient._0[i].color);
+            cbindgen_private::types::slint_color_darker(&data.conic_gradient._0[i].color, factor,
+                                                        &result.data.conic_gradient._0[i].color);
         }
         break;
     }

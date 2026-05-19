@@ -292,11 +292,17 @@ impl RadialGradientBrush {
     }
 
     #[inline]
-    fn center_x(&self) -> f32 { self.0[0].position }
+    fn center_x(&self) -> f32 {
+        self.0[0].position
+    }
     #[inline]
-    fn center_y(&self) -> f32 { self.0[1].position }
+    fn center_y(&self) -> f32 {
+        self.0[1].position
+    }
     #[inline]
-    fn radius(&self) -> f32 { self.0[2].position }
+    fn radius(&self) -> f32 {
+        self.0[2].position
+    }
 
     /// Returns the color stops of the radial gradient.
     pub fn stops(&self) -> impl Iterator<Item = &GradientStop> {
@@ -364,11 +370,7 @@ impl RadialGradientBrush {
     /// derived from the dimensions directly.
     pub fn radius_or_default_scaled(&self, width: f32, height: f32, scale_factor: f32) -> f32 {
         let r = self.radius();
-        if r < 0.0 {
-            0.5 * (width * width + height * height).sqrt()
-        } else {
-            r * scale_factor
-        }
+        if r < 0.0 { 0.5 * (width * width + height * height).sqrt() } else { r * scale_factor }
     }
 }
 
@@ -531,8 +533,7 @@ impl ConicGradientBrush {
         self.0.make_mut_slice()[0].position = from_angle;
 
         // Need to rotate, so copy
-        let mut stops: alloc::vec::Vec<_> =
-            self.0.iter().skip(Self::HEADER).copied().collect();
+        let mut stops: alloc::vec::Vec<_> = self.0.iter().skip(Self::HEADER).copied().collect();
 
         // Adjust first stop (at 0.0) to avoid duplicate with stop at 1.0
         if let Some(first) = stops.first_mut()
@@ -603,9 +604,13 @@ impl ConicGradientBrush {
     }
 
     #[inline]
-    fn center_x(&self) -> f32 { self.0[1].position }
+    fn center_x(&self) -> f32 {
+        self.0[1].position
+    }
     #[inline]
-    fn center_y(&self) -> f32 { self.0[2].position }
+    fn center_y(&self) -> f32 {
+        self.0[2].position
+    }
 
     /// Returns the color stops of the conic gradient.
     /// The stops are already rotated according to the `from_angle` specified in `new()`.
