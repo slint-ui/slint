@@ -28,7 +28,10 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::Arc;
 
+#[derive(derive_more::Deref, derive_more::DerefMut)]
 pub struct FontContext {
+    #[deref]
+    #[deref_mut]
     pub inner: parley::FontContext,
     /// `(ptr, len)` of each `&'static [u8]` already handed to fontique, so repeat
     /// `register_static_font` calls for the same embedded font are skipped.
@@ -49,19 +52,6 @@ impl FontContext {
 
     pub fn clear_registered_static_fonts(&mut self) {
         self.registered_static_fonts.clear();
-    }
-}
-
-impl core::ops::Deref for FontContext {
-    type Target = parley::FontContext;
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
-impl core::ops::DerefMut for FontContext {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
     }
 }
 
