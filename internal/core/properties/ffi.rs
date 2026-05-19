@@ -289,7 +289,7 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
     unsafe {
         let binding = core::mem::transmute::<
             extern "C" fn(*mut c_void, *mut T),
-            extern "C" fn(*mut c_void, *mut ()),
+            extern "C" fn(*mut c_void, *mut c_void),
         >(binding);
         let original_binding = PropertyHandle {
             handle: Cell::new(

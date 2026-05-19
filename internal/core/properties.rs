@@ -292,9 +292,9 @@ enum BindingResult {
 
 struct BindingVTable {
     drop: unsafe fn(_self: *mut BindingHolder),
-    evaluate: unsafe fn(_self: *const BindingHolder, value: *mut ()) -> BindingResult,
+    evaluate: unsafe fn(_self: *const BindingHolder, value: *mut c_void) -> BindingResult,
     mark_dirty: unsafe fn(_self: *const BindingHolder, was_dirty: bool),
-    intercept_set: unsafe fn(_self: *const BindingHolder, value: *const ()) -> bool,
+    intercept_set: unsafe fn(_self: *const BindingHolder, value: *const c_void) -> bool,
     intercept_set_binding:
         unsafe fn(_self: *const BindingHolder, new_binding: *mut BindingHolder) -> bool,
 }

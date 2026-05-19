@@ -83,10 +83,10 @@ pub(crate) mod ffi {
     /// Has the same layout as Callback<_>
     pub struct CallbackOpaque(*const c_void, *const c_void);
 
-    static_assertions::assert_eq_align!(CallbackOpaque, Callback<()>);
-    static_assertions::assert_eq_size!(CallbackOpaque, Callback<()>);
-    static_assertions::assert_eq_align!(CallbackOpaque, Callback<(alloc::string::String,)>);
-    static_assertions::assert_eq_size!(CallbackOpaque, Callback<(alloc::string::String,)>);
+    static_assertions::assert_eq_align!(CallbackOpaque, Callback<(), c_void>);
+    static_assertions::assert_eq_size!(CallbackOpaque, Callback<(), c_void>);
+    static_assertions::assert_eq_align!(CallbackOpaque, Callback<(alloc::string::String,), c_void>);
+    static_assertions::assert_eq_size!(CallbackOpaque, Callback<(alloc::string::String,), c_void>);
 
     /// Initialize the callback.
     /// slint_callback_drop must be called.
@@ -104,9 +104,9 @@ pub(crate) mod ffi {
         ret: *mut c_void,
     ) {
         unsafe {
-            let sig = &*(sig as *const Callback<c_void>);
+            let sig = &*(sig as *const Callback<c_void, c_void>);
             if let Some(mut h) = sig.handler.take() {
-                h(&*arg, &mut *ret);
+                h(arg.as_ref_unchecked(), ret.as_mut_unchecked());
                 assert!(sig.handler.take().is_none(), "Callback Handler set while called");
                 sig.handler.set(Some(h));
             }
@@ -124,7 +124,7 @@ pub(crate) mod ffi {
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
     ) {
         unsafe {
-            let sig = &mut *(sig as *mut Callback<c_void>);
+            let sig = &mut *(sig as *mut Callback<c_void, c_void>);
 
             struct UserData {
                 user_data: *mut c_void,
@@ -149,15 +149,13 @@ pub(crate) mod ffi {
             }
 
             let ud = UserData { user_data, drop_user_data, binding };
-            sig.handler.set(Some(Box::new(move |a: &(), r: &mut ()| {
-                ud.call(a as *const c_void, r as *mut c_void)
-            })));
+            sig.handler.set(Some(Box::new(move |a, r| ud.call(a, r))));
         }
     }
 
     /// Destroy callback
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_callback_drop(handle: *mut CallbackOpaque) {
-        unsafe { core::ptr::drop_in_place(handle as *mut Callback<()>) };
+        unsafe { core::ptr::drop_in_place(handle as *mut Callback<c_void, c_void>) };
     }
 }
