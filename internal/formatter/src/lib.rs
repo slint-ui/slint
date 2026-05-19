@@ -36,7 +36,7 @@ pub enum FormatError {
 
 impl Formatter {
     pub fn new() -> Result<Self, FormatError> {
-        Ok(Self { language: load_slint_language()? })
+        Ok(Self { language: slint_language()? })
     }
 
     pub fn format_str(&self, source: &str) -> Result<FormatResult, FormatError> {
@@ -58,7 +58,7 @@ impl Formatter {
     }
 }
 
-fn load_slint_language() -> Result<Language, FormatError> {
+pub fn slint_language() -> Result<Language, FormatError> {
     let grammar = topiary_tree_sitter_facade::Language::from(i_tree_sitter_slint::LANGUAGE);
     let query = TopiaryQuery::new(&grammar, include_str!("slint.scm"))?;
 
@@ -162,10 +162,7 @@ mod tests {
         let input = include_str!("../../../tests/cases/examples/color.slint");
         let result = formatter.format_str(input).expect("formatting should succeed");
 
-        assert_eq!(
-            result.text,
-            "// Copyright © SixtyFPS GmbH <info@slint.dev>\n// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0\nWin := Window {\n    property <color> base: #00007F;\n    GridLayout {\n        r := Rectangle {\n            background: base;\n        }\n        Rectangle {\n            background: base.brighter(50%);\n        }\n        Rectangle {\n            background: base.darker(50%);\n        }\n    }\n}\n"
-        );
+        assert_eq!(result.text, input);
     }
 
     #[test]
