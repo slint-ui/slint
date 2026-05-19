@@ -717,10 +717,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     /// The index should be within [`Self::range()`]
     pub fn instance_at(&self, index: usize) -> Option<ItemTreeRc<C>> {
         let inner = self.0.inner.borrow();
-        inner
-            .instances
-            .get(index.checked_sub(inner.layout_state.offset)?)
-            .and_then(|c| c.1.clone())
+        inner.instances.get(index.checked_sub(inner.layout_state.offset)?).and_then(|c| c.1.clone())
     }
 
     /// Return true if the Repeater as empty
@@ -899,8 +896,7 @@ mod ffi {
             unsafe { (self.splice)(self.user_data, position, remove, add) }
         }
         fn ensure_updated(&mut self, instance_idx: usize, row: usize) -> bool {
-            let created =
-                unsafe { (self.ensure_updated)(self.user_data, instance_idx, row) };
+            let created = unsafe { (self.ensure_updated)(self.user_data, instance_idx, row) };
             if created {
                 unsafe { (self.init)(self.user_data, instance_idx) };
             }
