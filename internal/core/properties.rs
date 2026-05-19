@@ -273,6 +273,7 @@ type DependencyNode = dependency_tracker::DependencyNode<*const BindingHolder>;
 
 use alloc::boxed::Box;
 use core::cell::{Cell, RefCell, UnsafeCell};
+use core::ffi::c_void;
 use core::marker::PhantomPinned;
 use core::pin::Pin;
 
@@ -438,7 +439,7 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
     /// and value must be a pointer to T
     unsafe fn evaluate<T, B: BindingCallable<T>>(
         _self: *const BindingHolder,
-        value: *mut (),
+        value: *mut c_void,
     ) -> BindingResult {
         unsafe {
             Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding))
@@ -454,7 +455,7 @@ fn alloc_binding_holder<T, B: BindingCallable<T> + 'static>(binding: B) -> *mut 
     /// Safety: _self must be a pointer to a `BindingHolder<B>`
     unsafe fn intercept_set<T, B: BindingCallable<T>>(
         _self: *const BindingHolder,
-        value: *const (),
+        value: *const c_void,
     ) -> bool {
         unsafe {
             Pin::new_unchecked(&((*(_self as *const BindingHolder<B>)).binding))
@@ -692,20 +693,21 @@ impl PropertyHandle {
                 && binding.dirty.get()
             {
                 unsafe fn evaluate_as_current_binding(
-                    value: *mut (),
+                    value: *mut c_void,
                     binding: Pin<&BindingHolder>,
                 ) -> BindingResult {
                     CURRENT_BINDING.set(Some(binding), || unsafe {
                         (binding.vtable.evaluate)(
                             binding.get_ref() as *const BindingHolder,
-                            value as *mut (),
+                            value as *mut c_void,
                         )
                     })
                 }
 
                 // clear all the nodes so that we can start from scratch
                 binding.dep_nodes.set(Default::default());
-                let r = unsafe { evaluate_as_current_binding(value as *mut (), binding.as_ref()) };
+                let r =
+                    unsafe { evaluate_as_current_binding(value as *mut c_void, binding.as_ref()) };
                 binding.dirty.set(false);
                 if r == BindingResult::RemoveBinding {
                     return true;
@@ -986,7 +988,10 @@ impl<T: Clone> Property<T> {
         let previous_binding_intercepted = self.handle.access(|b| {
             b.is_some_and(|b| unsafe {
                 // Safety: b is a BindingHolder<T>
-                (b.vtable.intercept_set)(&*b as *const BindingHolder, &t as *const T as *const ())
+                (b.vtable.intercept_set)(
+                    &*b as *const BindingHolder,
+                    (&t as *const T).cast::<c_void>(),
+                )
             })
         });
         if !previous_binding_intercepted {

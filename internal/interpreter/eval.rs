@@ -3,6 +3,7 @@
 
 use crate::api::{SetPropertyError, Struct, Value};
 use crate::dynamic_item_tree::{CallbackHandler, InstanceRef};
+use core::ffi::c_void;
 use core::pin::Pin;
 use corelib::graphics::{
     ConicGradientBrush, GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush,
@@ -48,7 +49,7 @@ pub trait ErasedPropertyInfo {
 
     /// Safety: Property2 must be a (pinned) pointer to a `Property<T>`
     /// where T is the same T as the one represented by this property.
-    unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const ());
+    unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const c_void);
 
     fn prepare_for_two_way_binding(&self, item: Pin<ItemRef>) -> Pin<Rc<corelib::Property<Value>>>;
 
@@ -96,7 +97,7 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyIn
     fn set_debug_name(&self, item: Pin<ItemRef>, name: String) {
         (*self).set_debug_name(ItemRef::downcast_pin(item).unwrap(), name);
     }
-    unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const ()) {
+    unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const c_void) {
         // Safety: ErasedPropertyInfo::link_two_ways and PropertyInfo::link_two_ways have the same safety requirement
         unsafe { (*self).link_two_ways(ItemRef::downcast_pin(item).unwrap(), property2) }
     }

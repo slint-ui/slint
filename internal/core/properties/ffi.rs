@@ -536,7 +536,7 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         });
     }
 
-    unsafe fn evaluate(_self: *const BindingHolder, _value: *mut ()) -> BindingResult {
+    unsafe fn evaluate(_self: *const BindingHolder, _value: *mut c_void) -> BindingResult {
         let pinned_holder = unsafe { Pin::new_unchecked(&*_self) };
         let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
         let inner = unsafe { core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap() };
