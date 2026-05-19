@@ -326,18 +326,16 @@ pub mod ffi {
         let menu = match (condition, visible) {
             (None, None) => MenuFromItemTree::new(menu_tree.clone()),
             (condition, visible) => {
-                let menu_tree_clone = menu_tree.clone();
+                let menu_weak = ItemTreeRc::downgrade(menu_tree);
                 let condition = move || {
-                    let menu_weak = ItemTreeRc::downgrade(&menu_tree_clone);
                     menu_weak
                         .upgrade()
                         .map(|menu_rc| condition.map(|x| x(&menu_rc)).unwrap_or(true))
                         .unwrap_or(false)
                 };
 
-                let menu_tree_clone = menu_tree.clone();
+                let menu_weak = ItemTreeRc::downgrade(menu_tree);
                 let visible = move || {
-                    let menu_weak = ItemTreeRc::downgrade(&menu_tree_clone);
                     menu_weak
                         .upgrade()
                         .map(|menu_rc| visible.map(|x| x(&menu_rc)).unwrap_or(true))
