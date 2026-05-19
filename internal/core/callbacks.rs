@@ -106,7 +106,7 @@ pub(crate) mod ffi {
         unsafe {
             let sig = &*(sig as *const Callback<c_void, c_void>);
             if let Some(mut h) = sig.handler.take() {
-                h(arg.as_ref_unchecked(), ret.as_mut_unchecked());
+                h(&*arg, &mut *ret);
                 assert!(sig.handler.take().is_none(), "Callback Handler set while called");
                 sig.handler.set(Some(h));
             }
