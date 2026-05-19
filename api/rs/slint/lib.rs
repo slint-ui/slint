@@ -483,25 +483,15 @@ pub mod language {
 
     i_slint_common::for_each_builtin_structs!(export_builtin_structs);
 
-    // tt-muncher: `pub enum` arms re-export, `enum` arms drop the entry. Can't use a
-    // `$vis:vis` capture re-matched by `[pub]` because `vis` fragments are not re-matchable
-    // as token trees after being captured.
+    // `$vis use …;` propagates the enum's declared visibility: `pub enum Foo` becomes a
+    // `pub use`, plain `enum Foo` becomes a private `use` (in-scope only, suppressed by
+    // `#[allow(unused_imports)]`).
     macro_rules! export_builtin_enums {
-        () => {};
-        (
+        ($(
             $(#[$attr:meta])*
-            pub enum $Name:ident { $($_body:tt)* }
-            $($rest:tt)*
-        ) => {
-            pub use i_slint_core::items::$Name;
-            export_builtin_enums!($($rest)*);
-        };
-        (
-            $(#[$attr:meta])*
-            enum $Name:ident { $($_body:tt)* }
-            $($rest:tt)*
-        ) => {
-            export_builtin_enums!($($rest)*);
+            $vis:vis enum $Name:ident { $($_body:tt)* }
+        )*) => {
+            $( #[allow(unused_imports)] $vis use i_slint_core::items::$Name; )*
         };
     }
 
