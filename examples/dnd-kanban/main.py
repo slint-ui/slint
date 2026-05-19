@@ -5,13 +5,14 @@ from dataclasses import dataclass
 
 import slint
 from slint import DataTransfer, ListModel
+from slint.language import DragAction, DropEvent
 
 TaskData = slint.loader.kanban.TaskData
 
 
 # What we attach to each `DataTransfer` via `set_user_data`. A copy of the
-# `TaskData` plus the row it came from, so `source-column-of` can answer the
-# .slint side and `move-task` knows what to remove on a move.
+# `TaskData` plus the row it came from, so `can-drop` recognizes our own
+# payloads and `dropped` knows what to remove on a move.
 @dataclass
 class DragPayload:
     task: TaskData
@@ -50,56 +51,53 @@ class MainWindow(slint.loader.kanban.MainWindow):
         transfer.user_data = DragPayload(task, source_column, source_index)
         return transfer
 
-    @slint.callback(global_name="Api", name="source-column-of")
-    def source_column_of(self, data: DataTransfer) -> int:
-        payload = data.user_data
-        return payload.source_column if isinstance(payload, DragPayload) else -1
+    @slint.callback(global_name="Api", name="can-drop")
+    def can_drop(
+        self, event: DropEvent, target_column: int, target_index: int
+    ) -> DragAction:
+        if isinstance(event.data.user_data, DragPayload):
+            # Our own card: accept whatever modifier the user is holding.
+            return event.proposed_action
+        if event.data.has_plaintext:
+            # External plaintext drop: always treated as a copy.
+            return DragAction.copy
+        return DragAction.none
 
-    @slint.callback(global_name="Api", name="has-plaintext")
-    def has_plaintext(self, data: DataTransfer) -> bool:
-        return data.has_plaintext
-
-    @slint.callback(global_name="Api", name="add-task")
-    def add_task(
-        self, data: DataTransfer, target_column: int, target_index: int
-    ) -> None:
+    @slint.callback(global_name="Api", name="dropped")
+    def dropped(self, event: DropEvent, target_column: int, target_index: int) -> None:
         if not 0 <= target_column < len(self._columns):
             return
-        payload = data.user_data
+        payload = event.data.user_data
+
         if isinstance(payload, DragPayload):
-            self._columns[target_column].insert(target_index, payload.task)
-            return
-        text = data.fetch_plaintext()
-        if text is not None:
-            self._columns[target_column].insert(target_index, TaskData(title=text))
-
-    @slint.callback(global_name="Api", name="move-task")
-    def move_task(
-        self, data: DataTransfer, target_column: int, target_index: int
-    ) -> None:
-        payload = data.user_data
-        if not isinstance(payload, DragPayload):
-            return
-        if not 0 <= target_column < len(self._columns):
-            return
-        source = payload.source_column
-        source_index = payload.source_index
-
-        if source == target_column:
-            # Same-column reorder. Drops at the source slot or immediately
-            # after it are no-ops; otherwise remove the source first and
-            # adjust the target index for the shift that the removal causes.
-            if target_index == source_index or target_index == source_index + 1:
+            if event.proposed_action != DragAction.move:
+                # Anything that isn't an explicit move is treated as a copy.
+                self._columns[target_column].insert(target_index, payload.task)
                 return
-            task = payload.task
-            del self._columns[source][source_index]
-            adjusted = target_index - 1 if target_index > source_index else target_index
-            self._columns[target_column].insert(adjusted, task)
+            source = payload.source_column
+            source_index = payload.source_index
+
+            if source == target_column:
+                # Same-column reorder. Drops at the source slot or immediately
+                # after it are no-ops; otherwise remove the source first and
+                # adjust the target index for the shift that the removal causes.
+                if target_index == source_index or target_index == source_index + 1:
+                    return
+                task = payload.task
+                del self._columns[source][source_index]
+                adjusted = (
+                    target_index - 1 if target_index > source_index else target_index
+                )
+                self._columns[target_column].insert(adjusted, task)
+            else:
+                # Cross-column move. Source and target are independent models,
+                # so the order of operations doesn't affect index stability.
+                del self._columns[source][source_index]
+                self._columns[target_column].insert(target_index, payload.task)
         else:
-            # Cross-column move. Source and target are independent models, so
-            # the order of operations doesn't affect index stability.
-            del self._columns[source][source_index]
-            self._columns[target_column].insert(target_index, payload.task)
+            text = event.data.fetch_plaintext()
+            if text is not None:
+                self._columns[target_column].insert(target_index, TaskData(title=text))
 
 
 main_window = MainWindow()

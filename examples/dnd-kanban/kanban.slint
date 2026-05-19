@@ -12,15 +12,8 @@ export struct TaskData {
 // The implementations live in the host language.
 export global Api {
     pure callback make-data(task: TaskData, source-column: int, source-index: int) -> data-transfer;
-    // Returns the source column for a payload produced by `make-data`, or -1 for foreign payloads.
-    pure callback source-column-of(data: data-transfer) -> int;
-    // Whether the payload carries plaintext we can turn into a new task title.
-    pure callback has-plaintext(data: data-transfer) -> bool;
-    // Copy the payload's task into `target-column` at `target-index` (clamped to [0, len]).
-    callback add-task(data: data-transfer, target-column: int, target-index: int);
-    // Move the payload's task to `target-column` at `target-index`. Handles same-column
-    // reorder atomically.
-    callback move-task(data: data-transfer, target-column: int, target-index: int);
+    pure callback can-drop(event: DropEvent, target-column: int, target-index: int) -> DragAction;
+    callback dropped(event: DropEvent, target-column: int, target-index: int);
 }
 
 // Card geometry, used by both `Card` itself and the column's insertion-index
@@ -139,20 +132,12 @@ component KanbanColumn inherits Rectangle {
         drop-area := DropArea {
             vertical-stretch: 1;
             can-drop(event) => {
-                // Reject foreign payloads that aren't our own card and aren't plaintext.
-                if Api.source-column-of(event.data) < 0 && !Api.has-plaintext(event.data) {
-                    return DragAction.none;
-                }
                 // Track the cursor so the drop indicator can follow it.
                 root.hover-y = event.position.y;
-                return event.proposed-action;
+                return Api.can-drop(event, root.column-id, root.drop-index);
             }
             dropped(event) => {
-                if event.proposed-action == DragAction.move {
-                    Api.move-task(event.data, root.column-id, root.drop-index);
-                } else {
-                    Api.add-task(event.data, root.column-id, root.drop-index);
-                }
+                Api.dropped(event, root.column-id, root.drop-index);
                 return event.proposed-action;
             }
 
