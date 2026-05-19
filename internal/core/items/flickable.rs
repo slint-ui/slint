@@ -878,7 +878,7 @@ impl FlickableData {
                         // When the drag starts, there is a short dead zone that is determined by the
                         // DISTANCE_THRESHOLD. We want to apply that threshold to the
                         // delta once we've overcome it, so we need to update the position that we
-                        // calculate the delta from only after we've cleared the deadzone and are
+                        // calculate the delta from only after we've cleared the dead zone and are
                         // actually moving.
                         //
                         // Note: As an alternative to updating the last_mouse_position to the new mouse position,
