@@ -329,13 +329,19 @@ pub mod ffi {
                 let menu_tree_clone = menu_tree.clone();
                 let condition = move || {
                     let menu_weak = ItemTreeRc::downgrade(&menu_tree_clone);
-                    menu_weak.upgrade().map(|menu_rc| condition.map(|x| x(&menu_rc)).unwrap_or(true)).unwrap_or(false)
+                    menu_weak
+                        .upgrade()
+                        .map(|menu_rc| condition.map(|x| x(&menu_rc)).unwrap_or(true))
+                        .unwrap_or(false)
                 };
 
                 let menu_tree_clone = menu_tree.clone();
                 let visible = move || {
                     let menu_weak = ItemTreeRc::downgrade(&menu_tree_clone);
-                    menu_weak.upgrade().map(|menu_rc| visible.map(|x| x(&menu_rc)).unwrap_or(true)).unwrap_or(false)
+                    menu_weak
+                        .upgrade()
+                        .map(|menu_rc| visible.map(|x| x(&menu_rc)).unwrap_or(true))
+                        .unwrap_or(false)
                 };
 
                 MenuFromItemTree::new_with_condition_and_visible(
