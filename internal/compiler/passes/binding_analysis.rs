@@ -830,6 +830,12 @@ fn visit_layout_items_layoutinfo_cross_axis_dependencies<'a>(
 ) {
     for it in items {
         let element = it.element.clone();
+        // Parent dispatches via `layoutinfo-v-with-constraint(width)`, not the property.
+        if cross_axis == Orientation::Vertical
+            && element.borrow().inherited_layout_info_v_with_constraint().is_some()
+        {
+            continue;
+        }
         if let Some(nr) = element.borrow().layout_info_prop(cross_axis) {
             vis(&nr.clone().into(), ReadType::PropertyRead);
         } else if let ElementType::Component(base) = &element.borrow().base_type

@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Nested FlexboxLayout without height-for-width content: no
+// layoutinfo-v-with-constraint function is synthesized, so the parent's
+// solve really does depend on the inner flex's `layoutinfo-v` (which itself
+// reads `self.width`). The cycle must be reported by the binding-loop pass.
+
+component Inner {
+//              >error{The binding for the property 'layoutinfo-v' is part of a binding loop (layoutinfo-v -> layout-cache -> width -> width -> layoutinfo-v -> layoutinfo-v)}
+    FlexboxLayout {
+//  >            <error{The binding for the property 'width' is part of a binding loop (layoutinfo-v -> layout-cache -> width -> width -> layoutinfo-v -> layoutinfo-v)}
+//  >            <^error{The binding for the property 'layoutinfo-v' is part of a binding loop (layoutinfo-v -> layout-cache -> width -> width -> layoutinfo-v -> layoutinfo-v)}
+        Rectangle { width: 10px; height: 50px; }
+    }
+}
+//<<<error{The binding for the property 'layoutinfo-v' is part of a binding loop (layoutinfo-v -> layout-cache -> width -> width -> layoutinfo-v -> layoutinfo-v)}
+
+export component Demo inherits Window {
+    FlexboxLayout {
+//  >            <error{The binding for the property 'layout-cache' is part of a binding loop (layoutinfo-v -> layout-cache -> width -> width -> layoutinfo-v -> layoutinfo-v)}
+//  >            <^error{The binding for the property 'width' is part of a binding loop (layoutinfo-v -> layout-cache -> width -> width -> layoutinfo-v -> layoutinfo-v)}
+        Inner {}
+    }
+}
