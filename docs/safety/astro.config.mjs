@@ -154,6 +154,10 @@ export default defineConfig({
                             label: "File Structure",
                             slug: "language/file-structure",
                         },
+                        {
+                            label: "Imports and Exports",
+                            slug: "language/imports-exports",
+                        },
                     ],
                 },
             ],
