@@ -110,6 +110,7 @@ ctrf
 ctypes
 customcomponents
 darkimg
+dashmap
 Datakonsult
 Datas
 datatypes
@@ -221,6 +222,7 @@ Fullwidth
 fvar
 Fwww
 getattr
+getifs
 getpid
 getrandom
 globalfun
@@ -473,6 +475,7 @@ rects
 redoable
 REFR
 relpath
+remoteviewer
 Renderable
 repr
 reqwest
@@ -596,6 +599,7 @@ Torizon
 toucharea
 toupper
 trunc
+tungstenite
 typeregister
 Tzimabazafi
 uart
@@ -671,6 +675,7 @@ yoyo
 zaimoku
 Zbuild
 zephyrproject
+zeroconf
 Zeroable
 zstd
 தோசை
