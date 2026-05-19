@@ -10388,6 +10388,7 @@ dependencies = [
  "i-slint-common",
  "i-slint-compiler",
  "i-slint-core",
+ "i-slint-formatter",
  "i-slint-preview-protocol",
  "itertools 0.14.0",
  "js-sys",

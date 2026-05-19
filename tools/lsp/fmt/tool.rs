@@ -3,63 +3,63 @@
 
 // cSpell: ignore inplace
 /*!
-    Work in progress for a formatter.
-    Use like this to format a file:
-    ```sh
-        cargo run --bin slint-lsp -- format -i some_file.slint
-    ```
+   Command-line entry point for `slint-lsp format`.
 
-    Some code in this main.rs file is duplicated with the slint-updater, i guess it could
-    be refactored in a separate utility crate or module or something.
+   Use like this:
+   ```sh
+       cargo run --bin slint-lsp -- format -i some_file.slint
+   ```
 
-    The [`writer::TokenWriter`] trait is meant to be able to support the LSP later as the
-    LSP wants just the edits, not the full file
+   The embedded Rust/Markdown handling is still duplicated with `slint-updater`.
 */
 
-use i_slint_compiler::diagnostics::BuildDiagnostics;
-use i_slint_compiler::parser::{SyntaxNode, syntax_nodes};
+use i_slint_formatter::Formatter;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
-use super::{fmt, writer};
-
 pub fn run(files: &[std::path::PathBuf], inplace: bool) -> std::io::Result<()> {
+    let formatter = Formatter::new().map_err(formatter_error_to_io)?;
+
     for path in files {
         let source = std::fs::read_to_string(path)?;
 
         if inplace {
             let file = BufWriter::new(std::fs::File::create(path)?);
-            process_file(source, path, file)?;
+            process_file(source, path, file, &formatter)?;
         } else {
-            process_file(source, path, std::io::stdout())?
+            process_file(source, path, std::io::stdout(), &formatter)?;
         }
     }
     Ok(())
 }
 
+fn formatter_error_to_io(err: i_slint_formatter::FormatError) -> std::io::Error {
+    std::io::Error::new(std::io::ErrorKind::Other, err.to_string())
+}
+
 /// FIXME! this is duplicated with the updater
-fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()> {
+fn process_rust_file(
+    source: String,
+    mut file: impl Write,
+    formatter: &Formatter,
+) -> std::io::Result<()> {
     let mut last = 0;
     for range in i_slint_compiler::lexer::locate_slint_macro(&source) {
         file.write_all(&source.as_bytes()[last..=range.start])?;
         last = range.end;
         let code = &source[range];
-
-        let mut diag = BuildDiagnostics::default();
-        let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, &mut diag);
-        let len = syntax_node.text_range().end().into();
-        visit_node(syntax_node, &mut file)?;
-        if diag.has_errors() {
-            file.write_all(&code.as_bytes()[len..])?;
-            diag.print();
-        }
+        format_embedded_slint(code, &mut file, formatter)?;
     }
     file.write_all(&source.as_bytes()[last..])?;
     file.flush()
 }
 
 /// FIXME! this is duplicated with the updater
-fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Result<()> {
+fn process_markdown_file(
+    source: String,
+    mut file: impl Write,
+    formatter: &Formatter,
+) -> std::io::Result<()> {
     let mut source_slice = &source[..];
     const CODE_FENCE_START: &str = "```slint\n";
     const CODE_FENCE_END: &str = "```\n";
@@ -75,61 +75,97 @@ fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Resul
         source_slice = &source_slice[code_start..];
         let code = &source_slice[..code_end];
         source_slice = &source_slice[code_end..];
-
-        let mut diag = BuildDiagnostics::default();
-        let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, &mut diag);
-        let len = syntax_node.text_range().end().into();
-        visit_node(syntax_node, &mut file)?;
-        if diag.has_errors() {
-            file.write_all(&code.as_bytes()[len..])?;
-            diag.print();
-        }
+        format_embedded_slint(code, &mut file, formatter)?;
     }
     file.write_all(source_slice.as_bytes())
 }
 
 fn process_slint_file(
     source: String,
-    path: &std::path::Path,
+    _path: &std::path::Path,
     mut file: impl Write,
+    formatter: &Formatter,
 ) -> std::io::Result<()> {
-    let mut diag = BuildDiagnostics::default();
-    let syntax_node = i_slint_compiler::parser::parse(source.clone(), Some(path), &mut diag);
-    let len = syntax_node.node.text_range().end().into();
-    visit_node(syntax_node, &mut file)?;
-    if diag.has_errors() {
-        file.write_all(&source.as_bytes()[len..])?;
-        diag.print();
-    }
-    Ok(())
+    let formatted = formatter.format_str(&source).map_err(formatter_error_to_io)?;
+    file.write_all(formatted.text.as_bytes())?;
+    file.flush()
 }
 
 fn process_file(
     source: String,
     path: &std::path::Path,
-    mut file: impl Write,
+    file: impl Write,
+    formatter: &Formatter,
 ) -> std::io::Result<()> {
     match path.extension() {
-        Some(ext) if ext == "rs" => process_rust_file(source, file),
-        Some(ext) if ext == "md" => process_markdown_file(source, file),
+        Some(ext) if ext == "rs" => process_rust_file(source, file, formatter),
+        Some(ext) if ext == "md" => process_markdown_file(source, file, formatter),
         // Formatting .60 files because of backwards compatibility (project was recently renamed)
-        Some(ext) if ext == "slint" || ext == ".60" => process_slint_file(source, path, file),
+        Some(ext) if ext == "slint" || ext == ".60" => {
+            process_slint_file(source, path, file, formatter)
+        }
         _ => {
             // This allows usage like `cat x.slint | slint-lsp format /dev/stdin`
             if path == Path::new("/dev/stdin") {
-                return process_slint_file(source, path, file);
+                return process_slint_file(source, path, file, formatter);
             }
             // With other file types, we just output them in their original form.
+            let mut file = file;
             file.write_all(source.as_bytes())
         }
     }
 }
 
-fn visit_node(node: SyntaxNode, file: &mut impl Write) -> std::io::Result<()> {
-    if let Some(doc) = syntax_nodes::Document::new(node) {
-        let mut writer = writer::FileWriter { file };
-        fmt::format_document(doc, &mut writer)
-    } else {
-        Err(std::io::Error::other("Not a Document"))
+fn format_embedded_slint(
+    source: &str,
+    mut file: impl Write,
+    formatter: &Formatter,
+) -> std::io::Result<()> {
+    let formatted = formatter.format_str(source).map_err(formatter_error_to_io)?;
+    file.write_all(formatted.text.as_bytes())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[track_caller]
+    fn process(path: &str, source: &str) -> String {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let mut output = Vec::new();
+        process_file(source.into(), Path::new(path), &mut output, &formatter)
+            .expect("processing should succeed");
+        String::from_utf8(output).expect("formatter should emit valid UTF-8")
+    }
+
+    #[test]
+    fn formats_embedded_slint_in_rust_macros() {
+        let output = process(
+            "sample.rs",
+            "fn main() {\n    slint::slint! { export component Demo {x: 42px;} }\n}\n",
+        );
+
+        assert!(output.starts_with("fn main() {\n    slint::slint! {"));
+        assert!(output.contains("export component Demo { x: 42px; }\n"));
+        assert!(output.contains("export component Demo { x: 42px; }\n}\n"));
+        assert!(output.ends_with("}\n"));
+    }
+
+    #[test]
+    fn formats_embedded_slint_in_markdown_fences() {
+        let output = process(
+            "README.md",
+            "Before\n```slint\nexport component Demo {x: 42px;}\n```\nAfter\n",
+        );
+
+        assert!(output.starts_with("Before\n```slint\n"));
+        assert!(output.contains("export component Demo { x: 42px; }\n"));
+        assert!(output.ends_with("```\nAfter\n"));
+    }
+
+    #[test]
+    fn leaves_unknown_files_unchanged() {
+        let source = "not slint";
+        assert_eq!(process("notes.txt", source), source);
     }
 }

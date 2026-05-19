@@ -5,7 +5,6 @@
 #![deny(clippy::print_stderr, clippy::print_stdout, clippy::disallowed_methods)]
 
 pub mod common;
-mod fmt;
 mod language;
 #[cfg(feature = "preview-engine")]
 mod preview;

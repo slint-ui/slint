@@ -1,9 +1,11 @@
-# Slint-fmt
+# LSP formatter glue
 
-This tool for formatting .slint syntax is in a very early stage.
-There might be certain parts of the language that are not yet supported.
-If you find any such examples, please open an issue including the example and the expected output.
+The formatter implementation lives in `internal/formatter/`.
 
-## Building
+This directory now contains:
 
-This tool is part of slint-lsp. See the README file in `lsp` for building information.
+- the `slint-lsp format` command-line glue in `tool.rs`
+- temporary regression tests in `fmt.rs`
+
+The long-term plan is to move the remaining formatter regression tests into the
+shared formatter crate once that test surface stabilizes.

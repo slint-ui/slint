@@ -2,39 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use crate::common::DocumentCache;
-use crate::fmt::{fmt, writer};
 use crate::util::text_range_to_lsp_range;
 use dissimilar::Chunk;
-use i_slint_compiler::parser::{SyntaxToken, TextRange, TextSize};
+use i_slint_compiler::parser::{TextRange, TextSize};
 use lsp_types::{DocumentFormattingParams, TextEdit};
 
-struct StringWriter {
-    text: String,
-}
+#[cfg(not(target_arch = "wasm32"))]
+use i_slint_formatter::Formatter;
 
-impl writer::TokenWriter for StringWriter {
-    fn no_change(&mut self, token: SyntaxToken) -> std::io::Result<()> {
-        self.text += token.text();
-        Ok(())
-    }
-
-    fn with_new_content(&mut self, _token: SyntaxToken, contents: &str) -> std::io::Result<()> {
-        self.text += contents;
-        Ok(())
-    }
-
-    fn insert_before(&mut self, token: SyntaxToken, contents: &str) -> std::io::Result<()> {
-        self.text += contents;
-        self.text += token.text();
-        Ok(())
-    }
-
-    fn insert_content(&mut self, contents: &str) -> std::io::Result<()> {
-        self.text += contents;
-        Ok(())
-    }
-}
-
+#[cfg(not(target_arch = "wasm32"))]
 pub fn format_document(
     params: DocumentFormattingParams,
     document_cache: &DocumentCache,
@@ -42,11 +18,10 @@ pub fn format_document(
     let doc = document_cache.get_document(&params.text_document.uri)?;
     let doc = doc.node.as_ref()?;
 
-    let mut writer = StringWriter { text: String::new() };
-    fmt::format_document(doc.clone(), &mut writer).ok()?;
-
     let original: String = doc.text().into();
-    let diff = dissimilar::diff(&original, &writer.text);
+    let formatter = Formatter::new().ok()?;
+    let formatted = formatter.format_str(&original).ok()?;
+    let diff = dissimilar::diff(&original, &formatted.text);
 
     let mut pos = TextSize::default();
     let mut last_was_deleted = false;
@@ -86,10 +61,19 @@ pub fn format_document(
     Some(edits)
 }
 
-#[cfg(test)]
+#[cfg(target_arch = "wasm32")]
+pub fn format_document(
+    _params: DocumentFormattingParams,
+    _document_cache: &DocumentCache,
+) -> Option<Vec<TextEdit>> {
+    None
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
 mod tests {
     use super::*;
-    use lsp_types::{Position, Range};
+    use crate::common::text_edit::TextEditor;
+    use i_slint_formatter::Formatter;
 
     /// Given an unformatted source text, return text edits that will turn the source into formatted text
     fn get_formatting_edits(source: &str) -> Option<Vec<TextEdit>> {
@@ -105,32 +89,26 @@ mod tests {
 
     #[test]
     fn test_formatting() {
-        let edits = get_formatting_edits(
-            "component Bar inherits Text { nope := Rectangle {} property <string> red; }",
-        )
-        .unwrap();
+        let source = "component Bar inherits Text { nope := Rectangle {} property <string> red; }";
+        let edits = get_formatting_edits(source).unwrap();
 
-        macro_rules! text_edit {
-            ($start_line:literal, $start_col:literal, $end_line:literal, $end_col:literal, $text:literal) => {
-                TextEdit {
-                    range: Range {
-                        start: Position { line: $start_line, character: $start_col },
-                        end: Position { line: $end_line, character: $end_col },
-                    },
-                    new_text: $text.into(),
-                }
-            };
+        assert!(!edits.is_empty());
+
+        let (dc, uri, _) = crate::language::test::loaded_document_cache(source.into());
+        let source_file = dc
+            .get_document(&uri)
+            .and_then(|document| document.node.as_ref())
+            .unwrap()
+            .source_file
+            .clone();
+        let mut editor = TextEditor::new(source_file).unwrap();
+        for edit in &edits {
+            editor.apply(edit, dc.format).unwrap();
         }
 
-        let expected = [
-            text_edit!(0, 29, 0, 29, "\n   "),
-            text_edit!(0, 49, 0, 50, " }\n\n   "),
-            text_edit!(0, 73, 0, 75, "\n}\n"),
-        ];
+        let formatter = Formatter::new().unwrap();
+        let expected = formatter.format_str(source).unwrap().text;
 
-        assert_eq!(edits.len(), expected.len());
-        for (actual, expected) in edits.iter().zip(expected.iter()) {
-            assert_eq!(actual, expected);
-        }
+        assert_eq!(editor.finalize().unwrap().0, expected);
     }
 }
