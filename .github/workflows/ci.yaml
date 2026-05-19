@@ -1078,4 +1078,4 @@ jobs:
             - name: Run Miri on i-slint-core
               env:
                   MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-tree-borrows
-              run: cargo miri test -p i-slint-core --lib -- --skip model
+              run: cargo miri test -p i-slint-core --lib
