@@ -55,9 +55,8 @@ public:
         }
         Keys result;
         SharedString empty;
-        cbindgen_private::Slice<SharedString> slice {
-            converted.empty() ? &empty : converted.data(), converted.size()
-        };
+        cbindgen_private::Slice<SharedString> slice { converted.empty() ? &empty : converted.data(),
+                                                      converted.size() };
         if (cbindgen_private::types::slint_keys_from_parts(slice, &result.data)) {
             return result;
         }
