@@ -50,7 +50,7 @@ pub(crate) struct SlintContextInner {
     #[cfg(all(unix, not(target_os = "macos")))]
     xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "shared-parley")]
-    pub(crate) font_context: core::cell::RefCell<parley::FontContext>,
+    pub(crate) font_context: core::cell::RefCell<crate::textlayout::sharedparley::FontContext>,
     #[cfg(feature = "shared-swash")]
     pub(crate) swash_scale_context: core::cell::RefCell<swash::scale::ScaleContext>,
     pub(crate) modifiers: Cell<InternalKeyboardModifierState>,
@@ -93,7 +93,9 @@ impl SlintContext {
                     collection: collection.inner,
                     source_cache: collection.source_cache,
                 };
-                core::cell::RefCell::new(font_context)
+                core::cell::RefCell::new(crate::textlayout::sharedparley::FontContext::new(
+                    font_context,
+                ))
             },
             #[cfg(feature = "shared-swash")]
             swash_scale_context: core::cell::RefCell::new(swash::scale::ScaleContext::new()),
@@ -108,7 +110,9 @@ impl SlintContext {
 
     /// Return a reference to the font context
     #[cfg(feature = "shared-parley")]
-    pub fn font_context(&self) -> &core::cell::RefCell<parley::FontContext> {
+    pub fn font_context(
+        &self,
+    ) -> &core::cell::RefCell<crate::textlayout::sharedparley::FontContext> {
         &self.0.font_context
     }
 

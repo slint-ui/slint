@@ -1181,10 +1181,8 @@ impl RendererSealed for SoftwareRenderer {
         data: &'static [u8],
     ) -> Result<(), std::boxed::Box<dyn std::error::Error>> {
         let ctx = self.slint_context().ok_or("slint platform not initialized")?;
-        self::fonts::systemfonts::register_font_from_memory(
-            &mut ctx.font_context().borrow_mut().collection,
-            data,
-        )
+        ctx.font_context().borrow_mut().register_static_font(data);
+        Ok(())
     }
 
     #[cfg(all(feature = "systemfonts", not(target_arch = "wasm32")))]

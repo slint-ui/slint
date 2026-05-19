@@ -400,7 +400,7 @@ impl<B: GraphicsBackend> RendererSealed for FemtoVGRenderer<B> {
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
         let ctx = self.slint_context().ok_or("slint platform not initialized")?;
-        ctx.font_context().borrow_mut().collection.register_fonts(data.to_vec().into(), None);
+        ctx.font_context().borrow_mut().register_static_font(data);
         Ok(())
     }
 
