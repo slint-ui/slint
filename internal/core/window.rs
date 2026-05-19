@@ -2141,6 +2141,7 @@ pub mod ffi {
     use crate::graphics::Size;
     use crate::graphics::{IntSize, Rgba8Pixel};
     use crate::items::WindowItem;
+    use core::ffi::c_void;
 
     /// This enum describes a low-level access to specific graphics APIs used
     /// by the renderer.
@@ -2151,9 +2152,6 @@ pub mod ffi {
         /// The rendering is done using APIs inaccessible from C++, such as WGPU.
         Inaccessible,
     }
-
-    #[allow(non_camel_case_types)]
-    type c_void = ();
 
     struct WithUserData<T> {
         callback: T,

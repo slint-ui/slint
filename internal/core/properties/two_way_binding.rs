@@ -239,7 +239,10 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
                 let mut sub_value = (self.map_to)(value);
                 // Safety: `self.b` is a BindingHolder that expects a `T2`
                 unsafe {
-                    ((*self.b).vtable.evaluate)(self.b, &mut sub_value as *mut T2 as *mut ());
+                    ((*self.b).vtable.evaluate)(
+                        self.b,
+                        (&mut sub_value as *mut T2).cast::<c_void>(),
+                    );
                 }
                 (self.map_from)(value, &sub_value);
                 BindingResult::KeepBinding
@@ -249,7 +252,10 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
                 let sub_value = (self.map_to)(value);
                 // Safety: `self.b` is a BindingHolder that expects a `T2`
                 unsafe {
-                    ((*self.b).vtable.intercept_set)(self.b, &sub_value as *const T2 as *const ())
+                    ((*self.b).vtable.intercept_set)(
+                        self.b,
+                        (&sub_value as *const T2).cast::<c_void>(),
+                    )
                 }
             }
         }

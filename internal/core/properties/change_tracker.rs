@@ -7,6 +7,7 @@ use super::{
 };
 use alloc::boxed::Box;
 use core::cell::{Cell, UnsafeCell};
+use core::ffi::c_void;
 use core::marker::PhantomPinned;
 use core::pin::Pin;
 use core::ptr::addr_of;
@@ -115,7 +116,7 @@ impl ChangeTracker {
             Data: 'static,
         >(
             _self: *const BindingHolder,
-            _value: *mut (),
+            _value: *mut c_void,
         ) -> BindingResult {
             unsafe {
                 let pinned_holder = Pin::new_unchecked(&*_self);

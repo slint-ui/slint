@@ -4,9 +4,8 @@
 use super::*;
 use crate::graphics::{Brush, Color};
 use crate::items::PropertyAnimation;
+use core::ffi::c_void;
 
-#[allow(non_camel_case_types)]
-type c_void = ();
 #[repr(C)]
 /// Has the same layout as PropertyHandle
 pub struct PropertyHandleOpaque(PropertyHandle);
@@ -290,7 +289,7 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
     unsafe {
         let binding = core::mem::transmute::<
             extern "C" fn(*mut c_void, *mut T),
-            extern "C" fn(*mut c_void, *mut ()),
+            extern "C" fn(*mut c_void, *mut c_void),
         >(binding);
         let original_binding = PropertyHandle {
             handle: Cell::new(
@@ -537,7 +536,7 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         });
     }
 
-    unsafe fn evaluate(_self: *const BindingHolder, _value: *mut ()) -> BindingResult {
+    unsafe fn evaluate(_self: *const BindingHolder, _value: *mut c_void) -> BindingResult {
         let pinned_holder = unsafe { Pin::new_unchecked(&*_self) };
         let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
         let inner = unsafe { core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap() };
