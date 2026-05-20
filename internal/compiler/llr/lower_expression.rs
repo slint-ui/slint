@@ -14,7 +14,7 @@ use super::lower_layout_expression::{
 use super::lower_to_item_tree::{LoweredSubComponentMapping, LoweringState};
 use super::{Animation, LocalMemberReference, MemberReference, PropertyIdx};
 use crate::expression_tree::{BuiltinFunction, Callable, Expression as tree_Expression};
-use crate::langtype::{BuiltinPrivateStruct, Struct, StructName, Type};
+use crate::langtype::{BuiltinStruct, Struct, StructName, Type};
 use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;
 use crate::namedreference::NamedReference;
@@ -570,7 +570,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
     fn animation_ty() -> Rc<Struct> {
         Rc::new(Struct {
             fields: animation_fields().collect(),
-            name: BuiltinPrivateStruct::PropertyAnimation.into(),
+            name: BuiltinStruct::PropertyAnimation.into(),
         })
     }
 
@@ -657,7 +657,7 @@ fn compile_path(
                             .iter()
                             .map(|(k, v)| (k.clone(), v.ty.clone()))
                             .collect(),
-                        name: StructName::BuiltinPrivate(
+                        name: StructName::Builtin(
                             element
                                 .element_type
                                 .native_class

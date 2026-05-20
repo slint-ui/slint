@@ -13,7 +13,7 @@ fn main() {
     generate_language_module();
 }
 
-/// Collect the public language types (`pub enum` enums and `BuiltinPublicStruct` structs)
+/// Collect the public language types (`pub enum` enums and `pub struct` structs)
 /// and emit `typescript/generated/language.ts`. Enums become `as const` maps from the Rust
 /// variant identifier to the kebab-case string the Slint runtime accepts; structs become
 /// TS type aliases. A type-only `namespace language { … }` declaration provides the named

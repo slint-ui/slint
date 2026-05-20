@@ -9,7 +9,7 @@ use smol_str::SmolStr;
 
 use super::lower_to_item_tree::LoweredElement;
 use super::{GridLayoutRepeatedElement, LayoutRepeatedElement};
-use crate::langtype::{BuiltinPrivateStruct, EnumerationValue, Struct, Type};
+use crate::langtype::{BuiltinStruct, EnumerationValue, Struct, Type};
 use crate::layout::{GridLayoutCell, Orientation, RowColExpr};
 use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;
@@ -194,7 +194,7 @@ pub(super) fn solve_grid_layout(
         enumeration: crate::typeregister::BUILTIN.with(|b| b.enums.Orientation.clone()),
     });
     let data = make_struct(
-        BuiltinPrivateStruct::GridLayoutData,
+        BuiltinStruct::GridLayoutData,
         [
             ("size", Type::Float32, size),
             ("spacing", Type::Float32, spacing),
@@ -256,7 +256,7 @@ pub(super) fn solve_box_layout(
     let size = layout_geometry_size(&layout.geometry.rect, o, ctx);
     let (data, function) = if o == layout.orientation {
         let data = make_struct(
-            BuiltinPrivateStruct::BoxLayoutData,
+            BuiltinStruct::BoxLayoutData,
             [
                 ("size", Type::Float32, size),
                 ("spacing", Type::Float32, spacing),
@@ -284,7 +284,7 @@ pub(super) fn solve_box_layout(
             })
         };
         let data = make_struct(
-            BuiltinPrivateStruct::BoxLayoutOrthoData,
+            BuiltinStruct::BoxLayoutOrthoData,
             [
                 ("size", Type::Float32, size),
                 ("padding", padding.ty(ctx), padding),
@@ -350,7 +350,7 @@ pub(super) fn solve_flexbox_layout(
     let width = layout_geometry_size(&layout.geometry.rect, Orientation::Horizontal, ctx);
     let height = layout_geometry_size(&layout.geometry.rect, Orientation::Vertical, ctx);
     let data = make_struct(
-        BuiltinPrivateStruct::FlexboxLayoutData,
+        BuiltinStruct::FlexboxLayoutData,
         [
             ("width", Type::Float32, width),
             ("height", Type::Float32, height),
@@ -847,7 +847,7 @@ fn default_align_self() -> (Type, llr_Expression) {
 
 fn make_layout_cell_data_struct(layout_info: llr_Expression) -> llr_Expression {
     make_struct(
-        BuiltinPrivateStruct::LayoutItemInfo,
+        BuiltinStruct::LayoutItemInfo,
         [("constraint", crate::typeregister::layout_info_type().into(), layout_info)],
     )
 }
@@ -864,7 +864,7 @@ struct FlexItemProps {
 fn make_flexbox_cell_data_struct(layout_info: llr_Expression, fp: FlexItemProps) -> llr_Expression {
     let (align_self_ty, _) = default_align_self();
     make_struct(
-        BuiltinPrivateStruct::FlexboxLayoutItemInfo,
+        BuiltinStruct::FlexboxLayoutItemInfo,
         [
             ("constraint", crate::typeregister::layout_info_type().into(), layout_info),
             ("flex-grow", Type::Float32, fp.grow),
@@ -1062,7 +1062,7 @@ fn grid_layout_input_data(
         let colspan_expr = propref(&elem.cell.borrow().colspan_expr);
 
         make_struct(
-            BuiltinPrivateStruct::GridLayoutInputData,
+            BuiltinStruct::GridLayoutInputData,
             [
                 ("new_row", Type::Bool, new_row_expr),
                 ("row", Type::Float32, row_expr),
@@ -1146,7 +1146,7 @@ pub(super) fn grid_layout_input_data_ty() -> Type {
             (SmolStr::new_static("colspan"), Type::Int32),
         ])
         .collect(),
-        name: BuiltinPrivateStruct::GridLayoutInputData.into(),
+        name: BuiltinStruct::GridLayoutInputData.into(),
     }))
 }
 
@@ -1166,7 +1166,7 @@ fn generate_layout_padding_and_spacing(
     let (begin, end) = layout_geometry.padding.begin_end(orientation);
 
     let padding = make_struct(
-        BuiltinPrivateStruct::Padding,
+        BuiltinStruct::Padding,
         [("begin", Type::Float32, padding_prop(begin)), ("end", Type::Float32, padding_prop(end))],
     );
 
@@ -1362,7 +1362,7 @@ pub fn get_grid_layout_input_for_repeated(
             let rowspan = convert_row_col_expr(&grid_cell.rowspan_expr, &*ctx);
             let colspan = convert_row_col_expr(&grid_cell.colspan_expr, &*ctx);
             let value = make_struct(
-                BuiltinPrivateStruct::GridLayoutInputData,
+                BuiltinStruct::GridLayoutInputData,
                 [
                     ("new_row", Type::Bool, new_row_expr.clone()),
                     ("row", Type::Float32, row),
@@ -1449,7 +1449,7 @@ pub fn get_flexbox_layout_item_info_for_repeated(
     let order = prop_ref("flex-order").unwrap_or(llr_Expression::NumberLiteral(0.0));
 
     make_struct(
-        BuiltinPrivateStruct::FlexboxLayoutItemInfo,
+        BuiltinStruct::FlexboxLayoutItemInfo,
         [
             (
                 "constraint",

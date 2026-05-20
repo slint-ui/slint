@@ -673,7 +673,19 @@ impl Display for ElementType {
 }
 
 #[derive(Debug, Clone, PartialEq, strum::EnumString, strum::IntoStaticStr)]
-pub enum BuiltinPrivateStruct {
+pub enum BuiltinStruct {
+    // Public structs (exported to language bindings)
+    Color,
+    LogicalPosition,
+    LogicalSize,
+    StandardListViewItem,
+    RadioEntry,
+    Keys,
+    KeyEvent,
+    KeyboardModifiers,
+    PointerEvent,
+    PointerScrollEvent,
+    // Private structs (internal to the compiler/runtime)
     PathMoveTo,
     PathLineTo,
     PathArcTo,
@@ -697,11 +709,29 @@ pub enum BuiltinPrivateStruct {
     PathElement,
     TableColumn,
     MenuEntry,
+    DropEvent,
     Edges,
     InternalKeyEvent,
 }
 
-impl BuiltinPrivateStruct {
+impl BuiltinStruct {
+    pub fn is_public(&self) -> bool {
+        matches!(
+            self,
+            Self::Color
+                | Self::LogicalPosition
+                | Self::LogicalSize
+                | Self::StandardListViewItem
+                | Self::RadioEntry
+                | Self::Keys
+                | Self::KeyEvent
+                | Self::KeyboardModifiers
+                | Self::PointerEvent
+                | Self::PointerScrollEvent
+                | Self::DropEvent
+        )
+    }
+
     pub fn is_layout_data(&self) -> bool {
         matches!(
             self,
@@ -712,39 +742,7 @@ impl BuiltinPrivateStruct {
                 | Self::FlexboxLayoutData
         )
     }
-    pub fn slint_name(&self) -> Option<SmolStr> {
-        match self {
-            // These are public types in the Slint language
-            Self::Point
-            | Self::FontMetrics
-            | Self::TableColumn
-            | Self::MenuEntry
-            | Self::InternalKeyEvent
-            | Self::Edges => {
-                let name: &'static str = self.into();
-                Some(SmolStr::new_static(name))
-            }
-            _ => None,
-        }
-    }
-}
 
-#[derive(Debug, Clone, PartialEq, strum::EnumString, strum::IntoStaticStr)]
-pub enum BuiltinPublicStruct {
-    Color,
-    LogicalPosition,
-    LogicalSize,
-    StandardListViewItem,
-    RadioEntry,
-    Keys,
-    KeyEvent,
-    KeyboardModifiers,
-    PointerEvent,
-    PointerScrollEvent,
-    DropEvent,
-}
-
-impl BuiltinPublicStruct {
     pub fn slint_name(&self) -> Option<SmolStr> {
         match self {
             Self::Color => Some(SmolStr::new_static("color")),
@@ -757,7 +755,17 @@ impl BuiltinPublicStruct {
             Self::KeyboardModifiers => Some(SmolStr::new_static("KeyboardModifiers")),
             Self::PointerEvent => Some(SmolStr::new_static("PointerEvent")),
             Self::PointerScrollEvent => Some(SmolStr::new_static("PointerScrollEvent")),
-            Self::DropEvent => Some(SmolStr::new_static("DropEvent")),
+            Self::Point
+            | Self::FontMetrics
+            | Self::TableColumn
+            | Self::MenuEntry
+            | Self::InternalKeyEvent
+            | Self::Edges
+            | Self::DropEvent => {
+                let name: &'static str = self.into();
+                Some(SmolStr::new_static(name))
+            }
+            _ => None,
         }
     }
 }
@@ -771,7 +779,7 @@ pub struct NativeClass {
     pub deprecated_aliases: HashMap<SmolStr, SmolStr>,
     /// Type override if class_name is not equal to the name to be used in the
     /// target language API.
-    pub builtin_struct: Option<BuiltinPrivateStruct>,
+    pub builtin_struct: Option<BuiltinStruct>,
 }
 
 impl NativeClass {
@@ -926,8 +934,7 @@ pub enum StructName {
         /// When declared in .slint, this is the node of the declaration.
         node: syntax_nodes::ObjectType,
     },
-    BuiltinPublic(BuiltinPublicStruct),
-    BuiltinPrivate(BuiltinPrivateStruct),
+    Builtin(BuiltinStruct),
 }
 
 impl PartialEq for StructName {
@@ -937,8 +944,7 @@ impl PartialEq for StructName {
                 Self::User { name: l_user_name, node: _ },
                 Self::User { name: r_user_name, node: _ },
             ) => l_user_name == r_user_name,
-            (Self::BuiltinPublic(l0), Self::BuiltinPublic(r0)) => l0 == r0,
-            (Self::BuiltinPrivate(l0), Self::BuiltinPrivate(r0)) => l0 == r0,
+            (Self::Builtin(l0), Self::Builtin(r0)) => l0 == r0,
             _ => core::mem::discriminant(self) == core::mem::discriminant(other),
         }
     }
@@ -949,8 +955,7 @@ impl StructName {
         match self {
             StructName::None => None,
             StructName::User { name, .. } => Some(name.clone()),
-            StructName::BuiltinPublic(builtin_public) => builtin_public.slint_name(),
-            StructName::BuiltinPrivate(builtin_private) => builtin_private.slint_name(),
+            StructName::Builtin(builtin) => builtin.slint_name(),
         }
     }
 
@@ -970,15 +975,9 @@ impl StructName {
     }
 }
 
-impl From<BuiltinPrivateStruct> for StructName {
-    fn from(value: BuiltinPrivateStruct) -> Self {
-        Self::BuiltinPrivate(value)
-    }
-}
-
-impl From<BuiltinPublicStruct> for StructName {
-    fn from(value: BuiltinPublicStruct) -> Self {
-        Self::BuiltinPublic(value)
+impl From<BuiltinStruct> for StructName {
+    fn from(value: BuiltinStruct) -> Self {
+        Self::Builtin(value)
     }
 }
 

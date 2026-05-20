@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use super::GlobalAnalysis;
 use crate::expression_tree::*;
-use crate::langtype::{BuiltinPrivateStruct, ElementType, StructName, Type};
+use crate::langtype::{BuiltinStruct, ElementType, StructName, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
 use smol_str::{ToSmolStr, format_smolstr};
@@ -35,10 +35,7 @@ fn simplify_expression(
             if nr.is_constant()
                 && !match nr.ty() {
                     Type::Struct(s) => {
-                        matches!(
-                            s.name,
-                            StructName::BuiltinPrivate(BuiltinPrivateStruct::StateInfo)
-                        )
+                        matches!(s.name, StructName::Builtin(BuiltinStruct::StateInfo))
                     }
                     _ => false,
                 }
