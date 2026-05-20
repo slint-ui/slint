@@ -357,6 +357,7 @@ fn lower_sub_component(
                     args: callback.args.clone(),
                     ty: Type::Callback(callback.clone()),
                     use_count: 0.into(),
+                    needs_tracker: x.expose_in_public_api,
                 });
                 index.into()
             } else {
@@ -919,6 +920,7 @@ fn lower_global(
                 args: cb.args.clone(),
                 ty: x.property_type.clone(),
                 use_count: 0.into(),
+                needs_tracker: x.expose_in_public_api,
             });
             state.global_properties.insert(
                 nr.clone(),

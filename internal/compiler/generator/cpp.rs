@@ -2258,6 +2258,17 @@ fn generate_sub_component(
             field_access,
             Declaration::Var(Var { ty, name: cpp_name, ..Default::default() }),
         ));
+        if callback.needs_tracker {
+            let tracker_name = callback_tracker_name(&callback.name);
+            target_struct.members.push((
+                field_access,
+                Declaration::Var(Var {
+                    ty: "slint::private_api::Property<uint8_t>".into(),
+                    name: tracker_name,
+                    ..Default::default()
+                }),
+            ));
+        }
     }
 
     for (i, _) in component.change_callbacks.iter().enumerate() {
@@ -3140,6 +3151,17 @@ fn generate_global(
             Access::Public,
             Declaration::Var(Var { ty, name: cpp_name, ..Default::default() }),
         ));
+        if callback.needs_tracker {
+            let tracker_name = callback_tracker_name(&callback.name);
+            global_struct.members.push((
+                Access::Public,
+                Declaration::Var(Var {
+                    ty: "slint::private_api::Property<uint8_t>".into(),
+                    name: tracker_name,
+                    ..Default::default()
+                }),
+            ));
+        }
     }
 
     let mut init = vec!["(void)this->globals;".into()];
@@ -3344,6 +3366,15 @@ fn generate_public_api_for_properties(
                     ..Default::default()
                 }),
             ));
+            let tracker = access_callback_tracker_cpp(&p.prop, ctx);
+            let mut on_stmts = vec![
+                "slint::private_api::assert_main_thread();".into(),
+                "[[maybe_unused]] auto self = this;".into(),
+                format!("{}.set_handler(std::forward<Functor>(callback_handler));", access),
+            ];
+            if let Some(t) = &tracker {
+                on_stmts.push(format!("{t}.mark_dirty();"));
+            }
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
@@ -3353,11 +3384,7 @@ fn generate_public_api_for_properties(
                         param_types.join(", "),
                     )),
                     signature: "(Functor && callback_handler) const".into(),
-                    statements: Some(vec![
-                        "slint::private_api::assert_main_thread();".into(),
-                        "[[maybe_unused]] auto self = this;".into(),
-                        format!("{}.set_handler(std::forward<Functor>(callback_handler));", access),
-                    ]),
+                    statements: Some(on_stmts),
                     ..Default::default()
                 }),
             ));
@@ -3593,6 +3620,64 @@ fn access_local_member(reference: &llr::LocalMemberReference, ctx: &EvaluationCo
     access_member(&reference.clone().into(), ctx).unwrap()
 }
 
+/// Returns the C++ field name for the change-tracker property of a callback.
+fn callback_tracker_name(callback_name: &str) -> SmolStr {
+    format_smolstr!("callback_tracker_{}", callback_name.replace('-', "_"))
+}
+
+/// Returns the C++ code to access the change-tracker `Property<uint8_t>` for an exported callback.
+/// Returns `None` if the callback doesn't have a tracker.
+fn access_callback_tracker_cpp(
+    reference: &llr::MemberReference,
+    ctx: &EvaluationContext,
+) -> Option<String> {
+    fn in_global(
+        g: &llr::GlobalComponent,
+        callback_idx: &llr::CallbackIdx,
+        self_: &str,
+    ) -> Option<String> {
+        if !g.callbacks[*callback_idx].needs_tracker {
+            return None;
+        }
+        let tracker_name = callback_tracker_name(&g.callbacks[*callback_idx].name);
+        Some(format!("{self_}{tracker_name}"))
+    }
+
+    match reference {
+        llr::MemberReference::Global {
+            global_index,
+            member: llr::LocalMemberIndex::Callback(callback_idx),
+        } => {
+            let global = &ctx.compilation_unit.globals[*global_index];
+            if matches!(ctx.current_scope, EvaluationScope::Global(i) if i == *global_index) {
+                in_global(global, callback_idx, "this->")
+            } else {
+                let global_access = &ctx.generator_state.global_access;
+                let global_id = format!("global_{}", concatenate_ident(&global.name));
+                in_global(global, callback_idx, &format!("{global_access}->{global_id}->"))
+            }
+        }
+        llr::MemberReference::Relative { parent_level: 0, local_reference } => {
+            if let llr::LocalMemberIndex::Callback(callback_idx) = &local_reference.reference {
+                if let Some(current_global) = ctx.current_global() {
+                    return in_global(current_global, callback_idx, "this->");
+                }
+                if local_reference.sub_component_path.is_empty()
+                    && let Some(sc_idx) = ctx.parent_sub_component_idx(0)
+                {
+                    let sc = &ctx.compilation_unit.sub_components[sc_idx];
+                    if sc.callbacks[*callback_idx].needs_tracker {
+                        let tracker_name = callback_tracker_name(&sc.callbacks[*callback_idx].name);
+                        return Some(format!("self->{tracker_name}"));
+                    }
+                }
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
 /// Helper to access a member property/callback of a component.
 ///
 /// Because the parent can be deleted (issue #3464), this might be an option when accessing the parent
@@ -3745,11 +3830,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         }
         Expression::CallBackCall { callback, arguments } => {
             let f = access_member(callback, ctx);
+            let tracker_get = access_callback_tracker_cpp(callback, ctx)
+                .map(|t| format!("(void){t}.get(), "))
+                .unwrap_or_default();
             let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
             if expr.ty(ctx) == Type::Void {
-                f.then(|f| format!("{f}.call({})", a.join(",")))
+                f.then(|f| format!("{tracker_get}{f}.call({})", a.join(",")))
             } else {
-                f.map_or_default(|f| format!("{f}.call({})", a.join(",")))
+                f.map_or_default(|f| format!("({tracker_get}{f}.call({}))", a.join(",")))
             }
         }
         Expression::FunctionCall { function, arguments } => {
