@@ -2858,6 +2858,7 @@ pub fn make_menu_item_tree(
     menu_item_tree: &Rc<object_tree::Component>,
     enclosing_component: &InstanceRef,
     condition: Option<&Expression>,
+    visible: Option<&Expression>,
 ) -> vtable::VRc<i_slint_core::menus::MenuVTable, MenuFromItemTree> {
     generativity::make_guard!(guard);
     let mit_compiled = generate_item_tree(
@@ -2879,13 +2880,26 @@ pub fn make_menu_item_tree(
     );
     mit_inst.run_setup_code();
     let item_tree = vtable::VRc::into_dyn(mit_inst);
-    let menu = match condition {
-        Some(condition) => {
-            let binding =
-                make_binding_eval_closure(condition.clone(), enclosing_component_weak.clone());
-            MenuFromItemTree::new_with_condition(item_tree, move || binding().try_into().unwrap())
+    let condition = condition.map(|condition| {
+        let binding =
+            make_binding_eval_closure(condition.clone(), enclosing_component_weak.clone());
+        move || binding().try_into().unwrap()
+    });
+    let visible = visible.map(|visible| {
+        let binding = make_binding_eval_closure(visible.clone(), enclosing_component_weak.clone());
+        move || binding().try_into().unwrap()
+    });
+    let menu = match (condition, visible) {
+        (None, None) => MenuFromItemTree::new(item_tree),
+        (None, Some(visible)) => {
+            MenuFromItemTree::new_with_condition_and_visible(item_tree, || true, visible)
         }
-        None => MenuFromItemTree::new(item_tree),
+        (Some(condition), None) => {
+            MenuFromItemTree::new_with_condition_and_visible(item_tree, condition, || true)
+        }
+        (Some(condition), Some(visible)) => {
+            MenuFromItemTree::new_with_condition_and_visible(item_tree, condition, visible)
+        }
     };
     vtable::VRc::new(menu)
 }
