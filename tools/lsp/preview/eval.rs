@@ -240,14 +240,16 @@ fn eval_expression(
                 }),
             );
             if let Some((cx, cy)) = center {
-                gradient.center_x =
+                let cx: f32 =
                     eval_expression(cx, local_context, None).try_into().unwrap_or_default();
-                gradient.center_y =
+                let cy: f32 =
                     eval_expression(cy, local_context, None).try_into().unwrap_or_default();
+                gradient = gradient.with_center(cx, cy);
             }
             if let Some(radius) = radius {
-                gradient.radius =
+                let r: f32 =
                     eval_expression(radius, local_context, None).try_into().unwrap_or_default();
+                gradient = gradient.with_radius(r);
             }
             Value::Brush(slint::Brush::RadialGradient(gradient))
         }
@@ -263,10 +265,11 @@ fn eval_expression(
                 }),
             );
             if let Some((cx, cy)) = center {
-                gradient.center_x =
+                let cx: f32 =
                     eval_expression(cx, local_context, None).try_into().unwrap_or_default();
-                gradient.center_y =
+                let cy: f32 =
                     eval_expression(cy, local_context, None).try_into().unwrap_or_default();
+                gradient = gradient.with_center(cx, cy);
             }
             Value::Brush(slint::Brush::ConicGradient(gradient))
         }
