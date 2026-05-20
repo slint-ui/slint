@@ -3,8 +3,10 @@
 
 """Tests for the LogicalPosition and LogicalSize value classes."""
 
+import typing
 from pathlib import Path
 
+import pytest
 import slint
 
 
@@ -73,3 +75,26 @@ def test_round_trip_through_slint_property(tmp_path: Path) -> None:
 
     app.s = slint.LogicalSize(100.0, 50.0)
     assert app.s == slint.LogicalSize(100.0, 50.0)
+
+    # Dict writes round-trip into the pyclass on read.
+    app.p = {"x": 11.0, "y": 12.0}
+    assert app.p == slint.LogicalPosition(11.0, 12.0)
+    app.s = {"width": 13.0, "height": 14.0}
+    assert app.s == slint.LogicalSize(13.0, 14.0)
+
+    # NamedTuple writes (with matching field names) round-trip too.
+    PointNT = typing.NamedTuple("PointNT", [("x", float), ("y", float)])
+    SizeNT = typing.NamedTuple("SizeNT", [("width", float), ("height", float)])
+    app.p = PointNT(21.0, 22.0)
+    assert app.p == slint.LogicalPosition(21.0, 22.0)
+    app.s = SizeNT(23.0, 24.0)
+    assert app.s == slint.LogicalSize(23.0, 24.0)
+
+    # Plain tuples are not accepted: the runtime requires a typed value,
+    # dict, or NamedTuple. The generated `.py` annotation reflects this
+    # (slint.LogicalPosition / slint.LogicalSize), so a static type checker
+    # also flags such assignments.
+    with pytest.raises(TypeError):
+        app.p = (31.0, 32.0)  # type: ignore[assignment]
+    with pytest.raises(TypeError):
+        app.s = (33.0, 34.0)  # type: ignore[assignment]
