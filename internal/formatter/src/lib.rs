@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-pub mod profiling;
 mod input_diagnostics;
+pub mod profiling;
 mod style_profile;
 
 use std::fs;
@@ -163,7 +163,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Strict-only baseline still over-indents plain multiline block children"]
     fn formats_multiline_block_with_two_sibling_statements() {
         let formatter = Formatter::new().expect("formatter should initialize");
         let input = "export component TestCase inherits Rectangle {\n    x: 42px;\n    y: 12px;\n}";
@@ -176,7 +175,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Strict-only baseline still over-indents nested multiline block children"]
     fn formats_nested_multiline_block_with_two_sibling_elements() {
         let formatter = Formatter::new().expect("formatter should initialize");
         let input = "export component TestCase inherits Rectangle {\n    GridLayout {\n        a := Rectangle {\n            x: 1px;\n            y: 2px;\n        }\n        b := Rectangle {\n            x: 3px;\n            y: 4px;\n        }\n    }\n}";
@@ -189,7 +187,18 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Strict-only baseline no longer preserves the old post-pass indentation on color.slint"]
+    fn keeps_semicolons_at_line_end_in_multiline_callback_blocks() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input = "export component Test {\n    callback test();\n    test => {\n        self.x = 1;\n        self.y = 2;\n        self.z = 3;\n    }\n}";
+        let result = formatter.format_str(input).expect("formatting should succeed");
+
+        assert_eq!(
+            result.text,
+            "export component Test {\n    callback test();\n    test => {\n        self.x = 1;\n        self.y = 2;\n        self.z = 3;\n    }\n}\n"
+        );
+    }
+
+    #[test]
     fn keeps_color_example_block_indentation_stable() {
         let formatter = Formatter::new().expect("formatter should initialize");
         let input = include_str!("../../../tests/cases/examples/color.slint");
@@ -207,6 +216,42 @@ mod tests {
         assert_eq!(
             result.text,
             "component First inherits Rectangle {}\n\ncomponent Second inherits Rectangle {}\n"
+        );
+    }
+
+    #[test]
+    fn keeps_top_level_element_definitions_flush_left_after_blank_lines() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input = "First := Rectangle {}\n\nSecond := Rectangle {\n    x: 42px;\n}";
+        let result = formatter.format_str(input).expect("formatting should succeed");
+
+        assert_eq!(
+            result.text,
+            "First := Rectangle {}\n\nSecond := Rectangle {\n    x: 42px;\n}\n"
+        );
+    }
+
+    #[test]
+    fn preserves_blank_lines_around_top_level_section_comments() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input = "component Helper inherits Rectangle {}\n\n//------ Widgets ------\n\nexport component TestCase inherits Rectangle {}";
+        let result = formatter.format_str(input).expect("formatting should succeed");
+
+        assert_eq!(
+            result.text,
+            "component Helper inherits Rectangle {}\n\n//------ Widgets ------\n\nexport component TestCase inherits Rectangle {}\n"
+        );
+    }
+
+    #[test]
+    fn keeps_top_level_imports_on_their_own_line_after_definitions() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input = "component Helper inherits Rectangle {}\n\nimport { Button } from \"std-widgets.slint\";";
+        let result = formatter.format_str(input).expect("formatting should succeed");
+
+        assert_eq!(
+            result.text,
+            "component Helper inherits Rectangle {}\n\nimport { Button } from \"std-widgets.slint\";\n"
         );
     }
 
@@ -242,7 +287,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Strict-only baseline still over-indents callback and states block children"]
     fn preserves_blank_lines_around_states_blocks() {
         let formatter = Formatter::new().expect("formatter should initialize");
         let input = "component TestCase {\n    callback key-pressed(/* key */ string);\n\n    states [\n        pressed when touch.pressed : {\n            opacity: 0.5;\n        }\n    ]\n}";
@@ -251,6 +295,19 @@ mod tests {
         assert_eq!(
             result.text,
             "component TestCase {\n    callback key-pressed(/* key */ string);\n\n    states [\n        pressed when touch.pressed: {\n            opacity: 0.5;\n        }\n    ]\n}\n"
+        );
+        assert!(!profile_source(&result.text).has_parse_errors);
+    }
+
+    #[test]
+    fn preserves_blank_lines_before_multiline_block_closing_braces() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input = "component TestCase {\n    Rectangle {\n        x: 42px;\n    }\n\n}";
+        let result = formatter.format_str(input).expect("formatting should succeed");
+
+        assert_eq!(
+            result.text,
+            "component TestCase {\n    Rectangle {\n        x: 42px;\n    }\n\n}\n"
         );
         assert!(!profile_source(&result.text).has_parse_errors);
     }
@@ -332,6 +389,62 @@ mod tests {
             "export component TestCase inherits Rectangle { background: condition ? #373737 : #ffffff; }\n"
         );
         assert!(!profile_source(&result.text).has_parse_errors);
+    }
+
+    #[test]
+    fn strict_formatting_preserves_spaces_before_member_access_on_int_literals() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input = "export component TestCase inherits Window { out property <bool> test: 100 .sqrt() == 10 && 4 .log(2) == 2 && 0 .abs() == 0; }";
+        let strict =
+            formatter.format_with_operation(input, default_operation()).expect("strict output");
+
+        assert!(strict.contains("100 .sqrt()"));
+        assert!(strict.contains("4 .log(2)"));
+        assert!(strict.contains("0 .abs()"));
+        assert!(!profile_source(&strict).has_parse_errors);
+    }
+
+    #[test]
+    fn strict_formatting_compacts_member_access_for_non_int_expression_bases() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input = r#"export component TestCase inherits Window {
+    out property <string> keys_member: @keys(Control + A) .to-string();
+    out property <string> tr_member: @tr("hello") .to-uppercase();
+    out property <bool> markdown_member: @markdown("hello") .baz;
+    out property <brush> gradient_member: @linear-gradient(45deg, red, blue) .darker(10%);
+    out property <bool> image_member: @image-url("cat.jpg") .baz;
+    out property <int> index_member: [1, 2][0] .abs();
+    out property <int> list_member: [1, 2] .length;
+    out property <bool> struct_member: { foo: true } .foo;
+}"#;
+        let strict =
+            formatter.format_with_operation(input, default_operation()).expect("strict output");
+
+        let member_line = |name: &str| {
+            strict
+                .lines()
+                .find(|line| line.contains(&format!("{name}:")))
+                .unwrap_or_else(|| panic!("missing formatted line for {name}:\n{strict}"))
+        };
+
+        assert!(member_line("keys_member").contains(").to-string();"));
+        assert!(!member_line("keys_member").contains(") .to-string();"));
+        assert!(member_line("tr_member").contains(").to-uppercase();"));
+        assert!(!member_line("tr_member").contains(") .to-uppercase();"));
+        assert!(member_line("markdown_member").contains(").baz;"));
+        assert!(!member_line("markdown_member").contains(") .baz;"));
+        assert!(member_line("gradient_member").contains(").darker(10%);"));
+        assert!(!member_line("gradient_member").contains(") .darker(10%);"));
+        assert!(member_line("image_member").contains(").baz;"));
+        assert!(!member_line("image_member").contains(") .baz;"));
+        assert!(member_line("index_member").contains("].abs();"));
+        assert!(!member_line("index_member").contains("] .abs();"));
+        assert!(member_line("list_member").contains("].length;"));
+        assert!(!member_line("list_member").contains("] .length;"));
+        assert!(member_line("struct_member").contains("}.foo;"));
+        assert!(!member_line("struct_member").contains("} .foo;"));
+        let profile = profile_source(&strict);
+        assert!(!profile.has_parse_errors, "{:?}", profile.diagnostics);
     }
 
     #[test]
