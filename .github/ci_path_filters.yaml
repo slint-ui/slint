@@ -136,11 +136,11 @@ updater_test:
 
 servo_example:
  - 'examples/servo/**'
- - *ci_config
+ - '.github/workflows/servo_example.yaml'
 
 bevy_examples:
  - 'examples/bevy/**'
- - *ci_config
+ - '.github/workflows/bevy_examples.yaml'
 
 slint_sc:
  - 'internal/compiler/**'

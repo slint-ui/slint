@@ -111,7 +111,7 @@ jobs:
 
     node_test_macos:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true' }}
+        if: ${{ needs.files-changed.outputs.api_node == 'true' }}
         uses: ./.github/workflows/node_test_reusable.yaml
         with:
           name: "Node.js macOS"
@@ -119,7 +119,7 @@ jobs:
 
     node_test_windows:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true' }}
+        if: ${{ needs.files-changed.outputs.api_node == 'true' }}
         uses: ./.github/workflows/node_test_reusable.yaml
         with:
           name: "Node.js Windows"
@@ -135,14 +135,14 @@ jobs:
           os: "ubuntu-22.04"
     python_test_macos:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true' }}
+        if: ${{ needs.files-changed.outputs.api_python == 'true' }}
         uses: ./.github/workflows/python_test_reusable.yaml
         with:
           name: "Python macOS"
           os: "macos-14"
     python_test_windows:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true' }}
+        if: ${{ needs.files-changed.outputs.api_python == 'true' }}
         uses: ./.github/workflows/python_test_reusable.yaml
         with:
           name: "Python Windows"
@@ -551,7 +551,7 @@ jobs:
     # Test that the formater don't introduce slint compilation error
     fmt_test:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.slintpad == 'true' || needs.files-changed.outputs.tests == 'true' }}
+        if: ${{ needs.files-changed.outputs.slintpad == 'true' }}
         env:
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
