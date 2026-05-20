@@ -10,7 +10,7 @@ module.exports = grammar({
   conflicts: ($) => [[$._assignment_value_block], [$.assignment_block]],
 
   rules: {
-    sourcefile: ($) => repeat($._definition),
+    sourcefile: ($) => repeat(choice($.attribute, $.reexport_statement, $._definition)),
 
     _definition: ($) =>
       choice($.import_statement, $._exported_type, $._local_type),
@@ -22,6 +22,7 @@ module.exports = grammar({
         $.struct_definition,
         $.enum_definition,
         $.global_definition,
+        $.interface_definition,
         $.component_definition,
       ),
 
@@ -30,16 +31,30 @@ module.exports = grammar({
         seq(
           $.export,
           choice(
-            optional(seq("{", commaSep($.export_type), "}")),
+            seq("{", commaSep($.export_type), optional(","), "}"),
             $._local_type,
           ),
         ),
       ),
 
+    reexport_statement: ($) =>
+      seq(
+        $.export,
+        "{",
+        commaSep($.export_type),
+        optional(","),
+        "}",
+        "from",
+        $.string_value,
+        ";",
+      ),
+
+    attribute: (_) => token(seq("@", /[a-zA-Z0-9_-]+/, "(", /[^\n]*/, ")")),
+
     import_statement: ($) =>
       seq(
         "import",
-        optional(seq("{", commaSep($.import_type), "}", "from")),
+        optional(seq("{", commaSep($.import_type), optional(","), "}", "from")),
         $.string_value,
         ";",
       ),
@@ -70,9 +85,6 @@ module.exports = grammar({
             // new syntax
             "component",
             field("name", $.user_type_identifier),
-            optional(
-              seq("inherits", field("base_type", $.user_type_identifier)),
-            ),
           ),
           seq(
             // old syntax
@@ -81,27 +93,56 @@ module.exports = grammar({
             field("base_type", $.user_type_identifier),
           ),
         ),
+        repeat($.component_modifier),
         $.block,
       ),
+
+    component_modifier: ($) =>
+      choice(
+        $.uses_clause,
+        $.implements_clause,
+        seq("inherits", field("base_type", $.user_type_identifier)),
+      ),
+
+    uses_clause: ($) =>
+      seq(
+        "uses",
+        "{",
+        commaSep1($.used_interface),
+        optional(","),
+        "}",
+      ),
+
+    used_interface: ($) =>
+      seq(
+        field("interface", $.user_type_identifier),
+        "from",
+        field("source", $.simple_identifier),
+      ),
+
+    implements_clause: ($) => seq("implements", commaSep1($.user_type_identifier)),
 
     _property_type: ($) => seq("<", field("type", $.type), ">"),
 
     imperative_block: ($) =>
-      seq("{", repeat($._imperative_block_statement), "}"),
+      seq("{", repeat($.imperative_statement), "}"),
 
-    _imperative_block_statement: ($) =>
+    imperative_statement: ($) =>
       prec(
         1,
         choice(
           seq($.assignment_block, optional(";")),
           seq($.assignment_expr, optional(";")),
           seq($.if_expr, optional(";")),
+          $.let_statement,
           $.callback_event,
           $.binding,
           seq($.expression, optional(";")),
-          seq("return", optional($.expression), ";"),
+          $.return_statement,
         ),
       ),
+
+    return_statement: ($) => seq("return", optional($.expression), ";"),
 
     _binding: ($) =>
       field(
@@ -145,6 +186,7 @@ module.exports = grammar({
             $.binding_alias,
             $.callback,
             $.callback_event,
+            $.changed_callback,
             $.function_definition,
           ),
         ),
@@ -158,6 +200,16 @@ module.exports = grammar({
         optional(":="), // old syntax!
         $.global_block,
       ),
+
+    interface_block: ($) =>
+      seq(
+        "{",
+        repeat(choice($.property, $.callback, $.function_declaration)),
+        "}",
+      ),
+
+    interface_definition: ($) =>
+      seq("interface", field("name", $.user_type_identifier), $.interface_block),
 
     struct_block: ($) =>
       seq(
@@ -312,6 +364,16 @@ module.exports = grammar({
 
     type: ($) => choice($._type_identifier, $.type_list, $.struct_block),
 
+    let_statement: ($) =>
+      seq(
+        "let",
+        field("name", $.simple_identifier),
+        optional(seq(":", field("type", $.type))),
+        "=",
+        field("value", $.expression),
+        ";",
+      ),
+
     _assignment_setup: ($) =>
       seq(field("name", $.expression), field("op", $.assignment_prec_operator)),
 
@@ -330,10 +392,13 @@ module.exports = grammar({
           $.parens_op,
           $.index_op,
           $.tr,
+          $.markdown,
+          $.adjacent_string_expression,
           $.value,
           $.gradient_call,
           $.image_call,
           $.reference_identifier,
+          $.changed_function_call,
           $.simple_identifier,
           $.function_call,
           $.member_access,
@@ -378,6 +443,12 @@ module.exports = grammar({
         ")",
       ),
 
+    // @markdown(...)
+    markdown: ($) => seq("@markdown", $.arguments),
+
+    adjacent_string_expression: ($) =>
+      prec.left(15, seq(choice($.string_value, $.adjacent_string_expression), $.string_value)),
+
     // @keys(...)
     _keys_entry: ($) => choice(seq($.simple_identifier, optional("?")), $.string_value),
     keys: ($) =>
@@ -398,7 +469,18 @@ module.exports = grammar({
     member_access: ($) =>
       prec.left(
         17,
-        seq(field("base", $.expression), ".", field("member", $.expression)),
+        seq(
+          field("base", $.expression),
+          ".",
+          field(
+            "member",
+            choice(
+              $.changed_function_call,
+              $.expression,
+              prec(-1, alias("changed", $.simple_identifier)),
+            ),
+          ),
+        ),
       ),
 
     unary_expression: ($) =>
@@ -487,31 +569,41 @@ module.exports = grammar({
       seq(
         optional($.purity),
         "callback",
-        field("name", $.simple_identifier),
+        field("name", choice($.simple_identifier, alias("changed", $.simple_identifier))),
         optional($._callback_signature),
-        optional(seq("->", field("return_type", $._type_identifier))),
+        optional(seq("->", field("return_type", $.type))),
         ";",
       ),
 
     purity: (_) => field("value", "pure"),
 
-    function_visibility: (_) => field("value", choice("public", "private")),
+    function_visibility: (_) => field("value", choice("public", "private", "protected")),
 
     function_definition: ($) =>
       seq(
         repeat(choice($.purity, $.function_visibility)),
         "function",
-        field("name", $.simple_identifier),
+        field("name", choice($.simple_identifier, alias("changed", $.simple_identifier))),
         optional($._function_signature),
         optional(seq("->", field("return_type", $.type))),
         $.imperative_block,
+      ),
+
+    function_declaration: ($) =>
+      seq(
+        repeat(choice($.purity, $.function_visibility)),
+        "function",
+        field("name", choice($.simple_identifier, alias("changed", $.simple_identifier))),
+        optional($._function_signature),
+        optional(seq("->", field("return_type", $.type))),
+        ";",
       ),
 
     callback_alias: ($) =>
       seq(
         optional($.purity),
         "callback",
-        field("name", $.simple_identifier),
+        field("name", choice($.simple_identifier, alias("changed", $.simple_identifier))),
         "<=>",
         field("alias", $.expression),
         ";",
@@ -519,7 +611,7 @@ module.exports = grammar({
 
     callback_event: ($) =>
       seq(
-        field("name", choice($.function_call, $.simple_identifier)),
+        field("name", choice($.changed_function_call, $.function_call, $.simple_identifier)),
         "=>",
         field("action", $._binding),
       ),
@@ -541,20 +633,29 @@ module.exports = grammar({
         ),
       ),
 
+    changed_function_call: ($) =>
+      prec(
+        17,
+        seq(
+          field("name", alias("changed", $.simple_identifier)),
+          field("arguments", $.arguments),
+        ),
+      ),
+
     gradient_call: ($) =>
       choice(
         seq(
           field("name", $.linear_gradient_identifier),
-          "(",
-          field(
-            "arguments",
-            seq(
-              field("angle", choice($.angle_value, $.int_value, $.float_value)),
-              ",",
-              field("colors", commaSep2($.gradient_color)),
-              optional(","),
+            "(",
+            field(
+              "arguments",
+              seq(
+                field("angle", $.expression),
+                ",",
+                field("colors", commaSep2($.gradient_color)),
+                optional(","),
+              ),
             ),
-          ),
           ")",
         ),
         seq(
@@ -586,15 +687,15 @@ module.exports = grammar({
         ),
       ),
 
-    gradient_color: ($) => seq($.argument, optional($.percent_value)),
-    conic_gradient_color: ($) => seq($.argument, $.angle_value),
+    gradient_color: ($) => seq($.argument, optional($.expression)),
+    conic_gradient_color: ($) => seq($.argument, $.expression),
 
     image_call: ($) =>
       seq(
         field("name", "@image-url"),
         "(",
         field("image", $.string_value),
-        optional(seq(",", "nine-slice", "(", repeat($._int_number), ")")),
+        optional(seq(",", "nine-slice", "(", repeat($.int_value), ")")),
         ")",
       ),
 
@@ -663,7 +764,7 @@ module.exports = grammar({
       ),
     /////////////////////////////////////////////////////////////////////
 
-    property_visibility: (_) => choice("private", "in", "out", "in-out"),
+    property_visibility: (_) => choice("private", "in", "out", "in-out", "in_out"),
 
     _identifier: (_) => /[a-zA-Z_][a-zA-Z0-9_-]*/,
     simple_identifier: ($) => $._identifier,
@@ -681,6 +782,7 @@ module.exports = grammar({
         "string",
         "color",
         "brush",
+        "styled-text",
         "physical-length",
         "length",
         "duration",
@@ -787,11 +889,21 @@ module.exports = grammar({
         $.easing_kind_identifier,
       ),
 
-    comment: (_) =>
-      token(
-        choice(
-          seq("//", /[^\n\r]*/),
-          seq("/*", /[^*]*\*+([^/*][^*]*\*+)*/, "/"),
+    comment: ($) =>
+      choice(
+        token(seq("//", /[^\n\r]*/)),
+        seq(
+          "/*",
+          repeat(
+            choice(
+              token(prec(1, /[^/*]+/)),
+              token(prec(1, /\/[^*]/)),
+              token(prec(1, /\*+[^*/]/)),
+              token(prec(-1, /\*/)),
+              $.comment,
+            ),
+          ),
+          "*/",
         ),
       ),
   },
