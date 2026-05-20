@@ -410,11 +410,107 @@ pub(super) fn solve_flexbox_layout(
                 return_ty: Type::LayoutCache,
             }),
         },
-        None => llr_Expression::ExtraBuiltinFunctionCall {
-            function: "solve_flexbox_layout".into(),
-            arguments: vec![data, empty_int32_slice()],
-            return_ty: Type::LayoutCache,
-        },
+        None => {
+            // Only height-for-width-capable cells benefit from re-measuring;
+            // a flexbox without any keeps the cheaper plain solve.
+            let needs_measure = layout.elems.iter().any(|li| {
+                let elem = &li.item.element;
+                is_height_for_width_cell(elem)
+                    || elem.borrow().inherited_layout_info_h_with_constraint().is_some()
+            });
+            if !needs_measure {
+                return llr_Expression::ExtraBuiltinFunctionCall {
+                    function: "solve_flexbox_layout".into(),
+                    arguments: vec![data, empty_int32_slice()],
+                    return_ty: Type::LayoutCache,
+                };
+            }
+            // Static cells only: emit a generated measure callback so the
+            // cross-axis size of height-for-width cells is recomputed at the
+            // width/height taffy assigns, instead of the cell's preferred
+            // size (parity with the interpreter).
+            let measure_cells = layout
+                .elems
+                .iter()
+                .map(|li| {
+                    let elem = &li.item.element;
+                    let v_constraint = is_height_for_width_cell(elem).then(|| {
+                        crate::expression_tree::Expression::ReadLocalVariable {
+                            name: "measure_known_w".into(),
+                            ty: Type::LogicalLength,
+                        }
+                    });
+                    let v_info = get_layout_info(
+                        elem,
+                        ctx,
+                        &li.item.constraints,
+                        Orientation::Vertical,
+                        v_constraint,
+                    );
+                    let h_constraint =
+                        elem.borrow().inherited_layout_info_h_with_constraint().is_some().then(
+                            || crate::expression_tree::Expression::ReadLocalVariable {
+                                name: "measure_known_h".into(),
+                                ty: Type::LogicalLength,
+                            },
+                        );
+                    let h_info = get_layout_info(
+                        elem,
+                        ctx,
+                        &li.item.constraints,
+                        Orientation::Horizontal,
+                        h_constraint,
+                    );
+                    Either::Left((h_info, v_info))
+                })
+                .collect();
+            // Preferred (default-constraint) info per cell, matching the cells
+            // carried by `data`. Returned by the measure callback when taffy
+            // asks for a dimension without a known cross-axis size, so the
+            // both-unknown case mirrors the plain `solve_flexbox_layout`.
+            let default_cells = layout
+                .elems
+                .iter()
+                .map(|li| {
+                    let elem = &li.item.element;
+                    let v_constraint = if is_height_for_width_cell(elem) {
+                        default_cross_axis_constraint(elem)
+                    } else {
+                        None
+                    };
+                    let v_info = get_layout_info(
+                        elem,
+                        ctx,
+                        &li.item.constraints,
+                        Orientation::Vertical,
+                        v_constraint,
+                    );
+                    let h_constraint =
+                        elem.borrow().inherited_layout_info_h_with_constraint().is_some().then(
+                            || {
+                                crate::expression_tree::Expression::NumberLiteral(
+                                    f32::MAX as f64,
+                                    crate::expression_tree::Unit::Px,
+                                )
+                            },
+                        );
+                    let h_info = get_layout_info(
+                        elem,
+                        ctx,
+                        &li.item.constraints,
+                        Orientation::Horizontal,
+                        h_constraint,
+                    );
+                    Either::Left((h_info, v_info))
+                })
+                .collect();
+            llr_Expression::SolveFlexboxLayoutWithMeasure {
+                data: Box::new(data),
+                repeater_indices: Box::new(empty_int32_slice()),
+                measure_cells,
+                default_cells,
+            }
+        }
     }
 }
 
