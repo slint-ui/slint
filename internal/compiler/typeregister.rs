@@ -11,7 +11,7 @@ use std::rc::Rc;
 use crate::expression_tree::BuiltinFunction;
 use crate::langtype::{
     BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, BuiltinStruct, ElementType,
-    Enumeration, Function, PropertyLookupResult, Struct, StructName, Type,
+    Enumeration, Function, PropertyLookupResult, Struct, Type,
 };
 use crate::object_tree::{Component, PropertyVisibility};
 use crate::typeloader;
@@ -831,10 +831,6 @@ pub mod builtin_structs {
         };
     }
 
-    fn struct_name_for(name: &str) -> StructName {
-        name.parse::<BuiltinStruct>().unwrap().into()
-    }
-
     macro_rules! declare_builtin_structs {
         ($(
             $(#[$attr:meta])*
@@ -856,7 +852,7 @@ pub mod builtin_structs {
                         fields: BTreeMap::from([
                             $((stringify!($field).replace_smolstr("_", "-"), map_type!($field_type, $field_type))),*
                         ]),
-                        name: struct_name_for(stringify!($Name)),
+                        name: BuiltinStruct::$Name.into(),
                     });
                     )*
 

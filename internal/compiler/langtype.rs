@@ -672,66 +672,83 @@ impl Display for ElementType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, strum::EnumString, strum::IntoStaticStr)]
-pub enum BuiltinStruct {
-    // Public structs (exported to language bindings)
-    Color,
-    LogicalPosition,
-    LogicalSize,
-    StandardListViewItem,
-    RadioEntry,
-    Keys,
-    KeyEvent,
-    KeyboardModifiers,
-    PointerEvent,
-    PointerScrollEvent,
-    // Private structs (internal to the compiler/runtime)
-    PathMoveTo,
-    PathLineTo,
-    PathArcTo,
-    PathCubicTo,
-    PathQuadraticTo,
-    PathClose,
-    Size,
-    StateInfo,
-    Point,
-    PropertyAnimation,
-    GridLayoutData,
-    GridLayoutInputData,
-    BoxLayoutData,
-    BoxLayoutOrthoData,
-    FlexboxLayoutData,
-    LayoutItemInfo,
-    FlexboxLayoutItemInfo,
-    Padding,
-    LayoutInfo,
-    FontMetrics,
-    PathElement,
-    TableColumn,
-    MenuEntry,
-    DropEvent,
-    Edges,
-    InternalKeyEvent,
+macro_rules! define_builtin_struct_enum {
+    ($(
+        $(#[$attr:meta])*
+        $vis:vis struct $Name:ident {
+            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
+        }
+    )*) => {
+        #[derive(Debug, Clone, PartialEq, strum::EnumString, strum::IntoStaticStr)]
+        pub enum BuiltinStruct {
+            // Generated from for_each_builtin_structs
+            $($Name,)*
+            // Not in the macro (registered separately in typeregister.rs)
+            Color,
+            LogicalPosition,
+            LogicalSize,
+            Keys,
+            PathMoveTo,
+            PathLineTo,
+            PathArcTo,
+            PathCubicTo,
+            PathQuadraticTo,
+            PathClose,
+            Size,
+            StateInfo,
+            Point,
+            PropertyAnimation,
+            GridLayoutData,
+            GridLayoutInputData,
+            BoxLayoutData,
+            BoxLayoutOrthoData,
+            FlexboxLayoutData,
+            LayoutItemInfo,
+            FlexboxLayoutItemInfo,
+            Padding,
+            LayoutInfo,
+            PathElement,
+            InternalKeyEvent,
+        }
+
+        impl BuiltinStruct {
+            pub fn is_public(&self) -> bool {
+                match self {
+                    // Macro-defined structs: derived from the `pub` visibility keyword
+                    $(Self::$Name => stringify!($vis) == "pub",)*
+                    // Non-macro public structs
+                    Self::Color | Self::LogicalPosition | Self::LogicalSize | Self::Keys => true,
+                    _ => false,
+                }
+            }
+
+            /// The name of this struct in the Slint language, or None if it is
+            /// purely internal and not visible in .slint files.
+            pub fn slint_name(&self) -> Option<SmolStr> {
+                match self {
+                    // Macro-defined structs all have a slint name matching their Rust name
+                    $(Self::$Name => {
+                        Some(SmolStr::new_static(stringify!($Name)))
+                    })*
+                    // Non-macro structs with custom slint names
+                    Self::Color => Some(SmolStr::new_static("color")),
+                    Self::LogicalPosition => Some(SmolStr::new_static("Point")),
+                    Self::LogicalSize => Some(SmolStr::new_static("Size")),
+                    Self::Keys => Some(SmolStr::new_static("Keys")),
+                    Self::Point
+                    | Self::InternalKeyEvent => {
+                        let name: &'static str = self.into();
+                        Some(SmolStr::new_static(name))
+                    }
+                    _ => None,
+                }
+            }
+        }
+    };
 }
+i_slint_common::for_each_builtin_structs!(define_builtin_struct_enum);
 
 impl BuiltinStruct {
-    pub fn is_public(&self) -> bool {
-        matches!(
-            self,
-            Self::Color
-                | Self::LogicalPosition
-                | Self::LogicalSize
-                | Self::StandardListViewItem
-                | Self::RadioEntry
-                | Self::Keys
-                | Self::KeyEvent
-                | Self::KeyboardModifiers
-                | Self::PointerEvent
-                | Self::PointerScrollEvent
-                | Self::DropEvent
-        )
-    }
-
     pub fn is_layout_data(&self) -> bool {
         matches!(
             self,
@@ -741,32 +758,6 @@ impl BuiltinStruct {
                 | Self::BoxLayoutOrthoData
                 | Self::FlexboxLayoutData
         )
-    }
-
-    pub fn slint_name(&self) -> Option<SmolStr> {
-        match self {
-            Self::Color => Some(SmolStr::new_static("color")),
-            Self::LogicalPosition => Some(SmolStr::new_static("Point")),
-            Self::LogicalSize => Some(SmolStr::new_static("Size")),
-            Self::StandardListViewItem => Some(SmolStr::new_static("StandardListViewItem")),
-            Self::RadioEntry => Some(SmolStr::new_static("RadioEntry")),
-            Self::Keys => Some(SmolStr::new_static("Keys")),
-            Self::KeyEvent => Some(SmolStr::new_static("KeyEvent")),
-            Self::KeyboardModifiers => Some(SmolStr::new_static("KeyboardModifiers")),
-            Self::PointerEvent => Some(SmolStr::new_static("PointerEvent")),
-            Self::PointerScrollEvent => Some(SmolStr::new_static("PointerScrollEvent")),
-            Self::Point
-            | Self::FontMetrics
-            | Self::TableColumn
-            | Self::MenuEntry
-            | Self::InternalKeyEvent
-            | Self::Edges
-            | Self::DropEvent => {
-                let name: &'static str = self.into();
-                Some(SmolStr::new_static(name))
-            }
-            _ => None,
-        }
     }
 }
 
