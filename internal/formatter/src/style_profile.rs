@@ -13,6 +13,7 @@ use i_slint_compiler::parser::{self, SyntaxKind, SyntaxNode, SyntaxToken};
 pub enum StyleDecisionKind {
     BindingColonSpacing,
     TypeAnnotationColonSpacing,
+    ConditionalColonSpacing,
     DeclarationColonEqualSpacing,
     TwoWayBindingSpacing,
     CallbackArrowSpacing,
@@ -30,9 +31,10 @@ pub enum IndentationDecisionKind {
 }
 
 impl StyleDecisionKind {
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 10] = [
         Self::BindingColonSpacing,
         Self::TypeAnnotationColonSpacing,
+        Self::ConditionalColonSpacing,
         Self::DeclarationColonEqualSpacing,
         Self::TwoWayBindingSpacing,
         Self::CallbackArrowSpacing,
@@ -46,6 +48,7 @@ impl StyleDecisionKind {
         match self {
             Self::BindingColonSpacing => "binding ':' spacing",
             Self::TypeAnnotationColonSpacing => "type annotation ':' spacing",
+            Self::ConditionalColonSpacing => "conditional ':' spacing",
             Self::DeclarationColonEqualSpacing => "declaration ':=' spacing",
             Self::TwoWayBindingSpacing => "two-way binding '<=>' spacing",
             Self::CallbackArrowSpacing => "callback '=>' spacing",
@@ -60,6 +63,7 @@ impl StyleDecisionKind {
         match self {
             Self::BindingColonSpacing
             | Self::TypeAnnotationColonSpacing
+            | Self::ConditionalColonSpacing
             | Self::DeclarationColonEqualSpacing
             | Self::TwoWayBindingSpacing
             | Self::CallbackArrowSpacing => choice.operator_spacing_label(),
@@ -649,6 +653,7 @@ fn extract_operator_spacing(source: &str, document: &SyntaxNode) -> Vec<StyleDec
 fn classify_colon_spacing(token: &SyntaxToken) -> Option<StyleDecisionKind> {
     for ancestor in token.parent_ancestors() {
         let kind = match ancestor.kind() {
+            SyntaxKind::ConditionalExpression => StyleDecisionKind::ConditionalColonSpacing,
             SyntaxKind::Binding
             | SyntaxKind::PropertyDeclaration
             | SyntaxKind::StatePropertyChange
@@ -1044,6 +1049,7 @@ export component Example inherits Window {
     callback ping(foo : int);
     ping => { value = 1; }
     Text { text <=> value; }
+    out property <brush> accent: value ? red : blue;
     property <brush> brush: { color: red };
 }
 "#;
@@ -1061,6 +1067,10 @@ export component Example inherits Window {
         }));
         assert!(profile.decisions.contains(&StyleDecision {
             kind: StyleDecisionKind::TypeAnnotationColonSpacing,
+            choice: StyleChoice::SpacesAround,
+        }));
+        assert!(profile.decisions.contains(&StyleDecision {
+            kind: StyleDecisionKind::ConditionalColonSpacing,
             choice: StyleChoice::SpacesAround,
         }));
         assert!(profile.decisions.contains(&StyleDecision {

@@ -4,7 +4,8 @@
 use clap::{Parser, ValueEnum};
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::parser::{self, SyntaxKind, SyntaxNode, SyntaxToken, TextSize};
-use i_slint_formatter::{Formatter, collect_standalone_slint_files, profile_file};
+use i_slint_formatter::Formatter;
+use i_slint_formatter::profiling::{collect_standalone_slint_files, profile_file};
 use std::collections::BTreeSet;
 use std::fs;
 use std::io;

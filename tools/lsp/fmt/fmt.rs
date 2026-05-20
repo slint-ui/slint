@@ -419,7 +419,6 @@ component ABC {
     }
 
     #[test]
-    #[ignore = "current formatter does not yet parse compact states blocks"]
     fn state_issue_4850() {
         // #4850
         assert_formatting(
@@ -470,7 +469,6 @@ component FooBar {
     }
 
     #[test]
-    #[ignore = "current formatter does not yet parse compact state transition blocks"]
     fn compact_states_transitions() {
         assert_formatting(
             "component FooBar {states[foo:{in{animate x{duration:1ms;}}x:0;}]}",
@@ -1011,7 +1009,6 @@ export component Clock { }
     }
 
     #[test]
-    #[ignore = "current formatter does not yet parse multi-property animate blocks"]
     fn multiple_property_animation() {
         assert_formatting(
             r#"
@@ -1127,7 +1124,6 @@ export component MainWindow2 inherits Rectangle {
     }
 
     #[test]
-    #[ignore = "current formatter still fails on numeric member-access chains"]
     fn access_member() {
         assert_formatting(
             "component X { expr: 42   .log(x) + 41 . log(y) + foo . bar +  21.0.log(0) + 54.   .log(8) ; x: 42px.max(42px . min (0.px)); }",
@@ -1153,7 +1149,6 @@ export component MainWindow2 inherits Rectangle {
     }
 
     #[test]
-    #[ignore = "current formatter does not yet support typed let statements"]
     fn let_statement_type_annotation() {
         assert_formatting(
             "component X { function foo() { let bar : int=42; } }",
@@ -1166,7 +1161,6 @@ export component MainWindow2 inherits Rectangle {
         );
     }
 
-    #[ignore]
     #[test]
     fn comment_in_nest() {
         assert_formatting(
@@ -1193,7 +1187,6 @@ export component MainWindow2 inherits Rectangle {
     }
 
     #[test]
-    #[ignore = "current formatter rejects malformed import syntax"]
     fn import_line_is_too_long_because_of_trailing_spaces_but_no_format_happens() {
         // In this case the format should not happen
         assert_formatting(
@@ -1243,7 +1236,6 @@ export component MainWindow2 inherits Rectangle {
     // cspell:enable
 
     #[test]
-    #[ignore = "current formatter does not yet parse trailing-comma import inputs"]
     /// format_import_identifier
     fn import_comma_new_line() {
         // when user adds a trail comma, it goes to a new line automatically, good for git from the get go
@@ -1325,7 +1317,6 @@ export component MainWindow2 inherits Rectangle {
     }
 
     #[test]
-    #[ignore = "current formatter does not yet stabilize commented multiline imports"]
     fn import_new_line_with_comments() {
         assert_formatting(
             r#"import {
