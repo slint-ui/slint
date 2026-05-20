@@ -1,0 +1,32 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+name: Remote Slint Viewer
+options:
+  bundleIdPrefix: dev.slint
+settings:
+  ENABLE_USER_SCRIPT_SANDBOXING: NO
+targets:
+  slint-remote-viewer:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.6"
+    info:
+      path: Info.plist
+      properties:
+        UILaunchScreen:
+          - ImageRespectSafeAreaInsets: false
+        NSLocalNetworkUsageDescription: "We need to talk to editors on the local network."
+        NSBonjourServices:
+          - "_slint-preview._tcp"
+        UISupportedInterfaceOrientations:
+          [
+            UIInterfaceOrientationPortrait,
+            UIInterfaceOrientationPortraitUpsideDown,
+            UIInterfaceOrientationPortraitLandscapeLeft,
+            UIInterfaceOrientationLandscapeRight,
+          ]
+    sources: []
+    postCompileScripts:
+      - script: |
+          ../../scripts/build_for_ios_with_cargo.bash remote-viewer
+        outputFileLists: $TARGET_BUILD_DIR/$EXECUTABLE_PATH

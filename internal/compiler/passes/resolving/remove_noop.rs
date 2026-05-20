@@ -113,13 +113,13 @@ fn without_side_effects(expression: &Expression) -> bool {
         Expression::ReturnStatement(_) => false,
         Expression::LayoutCacheAccess { .. } => false,
         Expression::GridRepeaterCacheAccess { .. } => false,
-        Expression::ComputeBoxLayoutInfo(_, _) => false,
+        Expression::ComputeBoxLayoutInfo { .. } => false,
         Expression::ComputeGridLayoutInfo { .. } => false,
         Expression::OrganizeGridLayout(_) => false,
         Expression::SolveBoxLayout(_, _) => false,
         Expression::SolveGridLayout { .. } => false,
         Expression::SolveFlexboxLayout(..) => false,
-        Expression::ComputeFlexboxLayoutInfo(..) => false,
+        Expression::ComputeFlexboxLayoutInfo { .. } => false,
         Expression::MinMax { ty: _, op: _, lhs, rhs } => {
             without_side_effects(lhs) && without_side_effects(rhs)
         }

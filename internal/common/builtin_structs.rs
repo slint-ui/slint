@@ -110,7 +110,7 @@ macro_rules! for_each_builtin_structs {
 
             /// This structure is passed to the callbacks of the `DropArea` element
             struct DropEvent {
-                @name = BuiltinPrivateStruct::DropEvent,
+                @name = BuiltinPublicStruct::DropEvent,
                 export {
                     /// The payload set on the source `DragArea`.
                     data: DataTransfer,
@@ -144,6 +144,20 @@ macro_rules! for_each_builtin_structs {
                 export {
                     /// The text content of the item
                     text: SharedString,
+                }
+                private {
+                }
+            }
+
+            /// Represents one option in a `RadioGroup`.
+            #[non_exhaustive]
+            struct RadioEntry {
+                @name = BuiltinPublicStruct::RadioEntry,
+                export {
+                    /// Label shown next to the radio button.
+                    text: SharedString,
+                    /// When `true`, this option is visible but not selectable.
+                    disabled: bool,
                 }
                 private {
                 }

@@ -4,7 +4,6 @@
 import { Palette } from "std-widgets.slint";
 
 export struct TaskData {
-    id: int,
     title: string,
 }
 
@@ -13,13 +12,8 @@ export struct TaskData {
 // The implementations live in the host language.
 export global Api {
     pure callback make-data(task: TaskData, source-column: int, source-index: int) -> data-transfer;
-    // Returns the source column for a payload produced by `make-data`, or -1 for foreign payloads.
-    pure callback source-column-of(data: data-transfer) -> int;
-    // Copy the payload's task into `target-column` at `target-index` (clamped to [0, len]).
-    callback add-task(data: data-transfer, target-column: int, target-index: int);
-    // Move the payload's task to `target-column` at `target-index`. Handles same-column
-    // reorder atomically.
-    callback move-task(data: data-transfer, target-column: int, target-index: int);
+    pure callback can-drop(event: DropEvent, target-column: int, target-index: int) -> DragAction;
+    callback dropped(event: DropEvent, target-column: int, target-index: int);
 }
 
 // Card geometry, used by both `Card` itself and the column's insertion-index
@@ -138,20 +132,12 @@ component KanbanColumn inherits Rectangle {
         drop-area := DropArea {
             vertical-stretch: 1;
             can-drop(event) => {
-                // Reject payloads from outside this app.
-                if Api.source-column-of(event.data) < 0 {
-                    return DragAction.none;
-                }
                 // Track the cursor so the drop indicator can follow it.
                 root.hover-y = event.position.y;
-                return event.proposed-action;
+                return Api.can-drop(event, root.column-id, root.drop-index);
             }
             dropped(event) => {
-                if event.proposed-action == DragAction.move {
-                    Api.move-task(event.data, root.column-id, root.drop-index);
-                } else {
-                    Api.add-task(event.data, root.column-id, root.drop-index);
-                }
+                Api.dropped(event, root.column-id, root.drop-index);
                 return event.proposed-action;
             }
 
@@ -195,7 +181,7 @@ export component MainWindow inherits Window {
         spacing: 12px;
 
         Text {
-            text: "Drag a card between columns — hold the copy modifier to duplicate";
+            text: "Drag a card between columns — hold the copy modifier to duplicate. Drop plain text from another app to add a new card.";
             font-size: 18px;
             font-weight: 700;
             color: Theme.text-primary;

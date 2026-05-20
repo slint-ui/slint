@@ -1077,5 +1077,5 @@ jobs:
               run: cargo miri test -p vtable -p const-field-offset -p i-slint-common
             - name: Run Miri on i-slint-core
               env:
-                  MIRIFLAGS: -Zmiri-disable-isolation
-              run: cargo miri test -p i-slint-core --lib -- --skip properties --skip model --skip textlayout --skip physics_simulation --skip item_tree
+                  MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-tree-borrows
+              run: cargo miri test -p i-slint-core --lib -- --skip item_tree --skip model

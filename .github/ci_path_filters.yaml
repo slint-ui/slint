@@ -50,6 +50,7 @@ docs_build:
  - 'internal/**'
  - 'helper_crates/**'
  - 'tools/lsp/**'
+ - 'tests/doctests/**'
  - *ci_config
 
 # Tree-sitter grammar

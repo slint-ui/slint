@@ -357,6 +357,7 @@ fn lower_sub_component(
                     args: callback.args.clone(),
                     ty: Type::Callback(callback.clone()),
                     use_count: 0.into(),
+                    needs_tracker: x.expose_in_public_api,
                 });
                 index.into()
             } else {
@@ -604,6 +605,7 @@ fn lower_sub_component(
         &mut ctx,
         &component.root_constraints.borrow(),
         crate::layout::Orientation::Horizontal,
+        None,
     )
     .into();
     sub_component.layout_info_v = super::lower_layout_expression::get_layout_info(
@@ -611,6 +613,7 @@ fn lower_sub_component(
         &mut ctx,
         &component.root_constraints.borrow(),
         crate::layout::Orientation::Vertical,
+        None,
     )
     .into();
     // For repeated elements in a FlexboxLayout, generate code to read flex properties
@@ -651,12 +654,14 @@ fn lower_sub_component(
                             &mut ctx,
                             &layout_item.constraints,
                             crate::layout::Orientation::Horizontal,
+                            None,
                         );
                         let layout_info_v = super::lower_layout_expression::get_layout_info(
                             &layout_item.element,
                             &mut ctx,
                             &layout_item.constraints,
                             crate::layout::Orientation::Vertical,
+                            None,
                         );
                         let child_index = sub_component.grid_layout_children.push_and_get_key(
                             super::GridLayoutChildLayoutInfo {
@@ -915,6 +920,7 @@ fn lower_global(
                 args: cb.args.clone(),
                 ty: x.property_type.clone(),
                 use_count: 0.into(),
+                needs_tracker: x.expose_in_public_api,
             });
             state.global_properties.insert(
                 nr.clone(),

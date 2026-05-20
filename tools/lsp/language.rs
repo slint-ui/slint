@@ -12,6 +12,7 @@ mod signature_help;
 #[cfg(test)]
 pub mod test;
 
+use crate::common::SwitchableLspToPreview;
 use crate::common::uri_to_file;
 use crate::{common, util};
 
@@ -22,7 +23,7 @@ use i_slint_compiler::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
 use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
-use i_slint_preview_protocol::LspToPreviewMessage;
+use i_slint_preview_protocol::{LspToPreviewMessage, PreviewToLspMessage};
 use itertools::Itertools;
 use lsp_types::TextDocumentPositionParams;
 use lsp_types::{
@@ -48,12 +49,20 @@ use std::rc::Rc;
 
 const POPULATE_COMMAND: &str = "slint/populate";
 pub const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
+#[cfg(feature = "preview-remote")]
+pub const CONNECT_REMOTE_PREVIEW_COMMAND: &str = "slint/connectRemotePreview";
+#[cfg(feature = "preview-remote")]
+pub const DISCONNECT_REMOTE_PREVIEW_COMMAND: &str = "slint/disconnectRemotePreview";
 
 fn command_list() -> Vec<String> {
     vec![
         POPULATE_COMMAND.into(),
         #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
         SHOW_PREVIEW_COMMAND.into(),
+        #[cfg(feature = "preview-remote")]
+        CONNECT_REMOTE_PREVIEW_COMMAND.into(),
+        #[cfg(feature = "preview-remote")]
+        DISCONNECT_REMOTE_PREVIEW_COMMAND.into(),
     ]
 }
 
@@ -95,7 +104,7 @@ pub fn send_state_to_preview(ctx: &Context) {
 
         ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::SetContents {
             url: i_slint_preview_protocol::VersionedUrl::new(url, version),
-            contents: node.text().to_string(),
+            contents: node.text().to_string().into(),
         });
         doc_count += 1;
     }
@@ -112,6 +121,41 @@ pub fn send_state_to_preview(ctx: &Context) {
             "Sending state to preview: {} documents, showing default component",
             doc_count
         );
+    }
+}
+
+#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
+pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
+    for url in files {
+        if let Some(node) = ctx.document_cache.get_document(url).and_then(|doc| doc.node.as_ref()) {
+            let version = ctx.document_cache.document_version_by_path(node.source_file.path());
+            let contents = node.text().to_string().into();
+            tracing::debug!("Sending cached file {} to preview", url);
+            ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::SetContents {
+                url: i_slint_preview_protocol::VersionedUrl::new(url.clone(), version),
+                contents,
+            });
+            continue;
+        }
+        let Some(path) = url.to_file_path().ok() else {
+            tracing::warn!("Cannot convert URL to file path: {url}");
+            continue;
+        };
+        match std::fs::read(&path) {
+            Ok(contents) => {
+                tracing::debug!("Sending file {} ({} bytes) to preview", url, contents.len());
+                ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::SetContents {
+                    url: i_slint_preview_protocol::VersionedUrl::new(url.clone(), None),
+                    contents,
+                });
+            }
+            Err(err) => {
+                tracing::warn!("Failed to read file {}: {err}", path.display());
+                ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::ForgetFile {
+                    url: url.clone(),
+                });
+            }
+        }
     }
 }
 
@@ -164,19 +208,31 @@ pub struct Context {
     pub to_show: Option<i_slint_preview_protocol::PreviewComponent>,
     /// File currently open in the editor
     pub open_urls: HashSet<lsp_types::Url>,
-    pub to_preview: Rc<dyn common::LspToPreview>,
+    pub to_preview: Rc<SwitchableLspToPreview>,
     /// Files to recompile after all other operations are done
     /// (i.e. recompilations triggered by updates to unopened files)
     pub pending_recompile: HashSet<lsp_types::Url>,
+    #[cfg_attr(not(feature = "preview-remote"), allow(dead_code))]
+    pub preview_to_lsp_sender: tokio::sync::mpsc::UnboundedSender<PreviewToLspMessage>,
 }
 
 /// An error from a LSP request
+#[derive(Debug, Clone)]
 pub struct LspError {
     pub code: LspErrorCode,
     pub message: String,
 }
 
+impl std::fmt::Display for LspError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} ({})", self.message, self.code)
+    }
+}
+
+impl std::error::Error for LspError {}
+
 /// The code of a LspError. Correspond to the lsp_server::ErrorCode
+#[derive(Debug, Clone, Copy)]
 pub enum LspErrorCode {
     /// Invalid method parameter(s).
     InvalidParameter,
@@ -200,6 +256,17 @@ pub enum LspErrorCode {
     /// the client should cancel the request.
     #[allow(unused)]
     ContentModified = -32801,
+}
+
+impl std::fmt::Display for LspErrorCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LspErrorCode::InvalidParameter => write!(f, "Invalid Parameter"),
+            LspErrorCode::InternalError => write!(f, "Internal Error"),
+            LspErrorCode::RequestFailed => write!(f, "Request Failed"),
+            LspErrorCode::ContentModified => write!(f, "Content Modified"),
+        }
+    }
 }
 
 #[derive(Default)]
@@ -374,16 +441,37 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         Ok(result)
     });
     rh.register::<ExecuteCommand>(|params, ctx| {
-        if params.command.as_str() == SHOW_PREVIEW_COMMAND {
-            #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
-            {
-                show_preview_command(&params.arguments, ctx)?;
+        match params.command.as_str() {
+            SHOW_PREVIEW_COMMAND => {
+                #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
+                {
+                    show_preview_command(&params.arguments, ctx)?;
+                }
+                return Ok(None::<serde_json::Value>);
             }
-            return Ok(None::<serde_json::Value>);
-        }
-        if params.command.as_str() == POPULATE_COMMAND {
-            common::spawn_local(populate_command(&params.arguments, ctx)?);
-            return Ok(None::<serde_json::Value>);
+            POPULATE_COMMAND => {
+                let future = populate_command(&params.arguments, ctx)?;
+                crate::common::spawn_local(async move {
+                    if let Err(err) = future.await {
+                        tracing::error!("Error executing populate command: {err}");
+                    }
+                });
+                return Ok(None::<serde_json::Value>);
+            }
+            #[cfg(feature = "preview-remote")]
+            CONNECT_REMOTE_PREVIEW_COMMAND => {
+                return crate::preview::connector::remote::connect_remote_preview_command(
+                    &params.arguments,
+                    ctx,
+                );
+            }
+            #[cfg(feature = "preview-remote")]
+            DISCONNECT_REMOTE_PREVIEW_COMMAND => {
+                crate::preview::connector::remote::disconnect_remote_preview_command(ctx);
+            }
+            _ => {
+                tracing::error!("Received unknown command {}", params.command.as_str());
+            }
         }
         Ok(None::<serde_json::Value>)
     });
@@ -721,7 +809,7 @@ pub(crate) async fn load_document_impl(
         FileAction::ProcessContent(content) => {
             ctx.to_preview.send(&i_slint_preview_protocol::LspToPreviewMessage::SetContents {
                 url: i_slint_preview_protocol::VersionedUrl::new(url.clone(), version),
-                contents: content.clone(),
+                contents: content.clone().into(),
             });
             let dependencies: HashSet<Url> = ctx.document_cache.invalidate_url(&url);
             let _ = ctx.document_cache.load_url(&url, version, content, &mut diag).await;

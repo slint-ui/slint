@@ -63,3 +63,4 @@ async-io = "2"
 
 [build-dependencies]
 napi-build = "2"
+i-slint-common = { workspace = true }

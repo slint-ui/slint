@@ -537,7 +537,8 @@ fn recurse_expression(
         Expression::GridRepeaterCacheAccess { layout_cache_prop, .. } => {
             vis(&layout_cache_prop.clone().into(), P)
         }
-        Expression::SolveBoxLayout(l, o) | Expression::ComputeBoxLayoutInfo(l, o) => {
+        Expression::SolveBoxLayout(l, o)
+        | Expression::ComputeBoxLayoutInfo { layout: l, orientation: o, .. } => {
             // we should only visit the layout geometry for the orientation
             if matches!(expr, Expression::SolveBoxLayout(..))
                 && let Some(nr) = l.geometry.rect.size_reference(*o)
@@ -559,7 +560,7 @@ fn recurse_expression(
             g.visit_named_references(&mut |nr| vis(&nr.clone().into(), P))
         }
         Expression::SolveFlexboxLayout(layout)
-        | Expression::ComputeFlexboxLayoutInfo(layout, _) => {
+        | Expression::ComputeFlexboxLayoutInfo { layout, .. } => {
             if let Some(nr) = layout.direction.as_ref() {
                 vis(&nr.clone().into(), P);
             }
@@ -618,26 +619,27 @@ fn recurse_expression(
                         );
                     }
                 }
-            } else if let Expression::ComputeFlexboxLayoutInfo(_, orientation) = expr {
+            } else if let Expression::ComputeFlexboxLayoutInfo { orientation, .. } = expr {
+                let orientation = *orientation;
                 use crate::layout::FlexboxAxisRelation;
-                match layout.axis_relation(*orientation) {
+                match layout.axis_relation(orientation) {
                     FlexboxAxisRelation::MainAxis => {
                         // Main axis: only visit same-axis item dependencies
                         visit_layout_items_dependencies(
                             layout.elems.iter().map(|fi| &fi.item),
-                            *orientation,
+                            orientation,
                             vis,
                         );
                     }
                     FlexboxAxisRelation::CrossAxis => {
                         // Cross axis: depends on the perpendicular (main-axis) dimension
                         // for accurate wrapping.
-                        if *orientation == Orientation::Vertical
+                        if orientation == Orientation::Vertical
                             && let Some(nr) = layout.geometry.rect.width_reference.as_ref()
                         {
                             vis(&nr.clone().into(), P);
                         }
-                        if *orientation == Orientation::Horizontal
+                        if orientation == Orientation::Horizontal
                             && let Some(nr) = layout.geometry.rect.height_reference.as_ref()
                         {
                             vis(&nr.clone().into(), P);
@@ -681,7 +683,12 @@ fn recurse_expression(
             });
         }
         Expression::SolveGridLayout { layout_organized_data_prop, layout, orientation }
-        | Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, orientation } => {
+        | Expression::ComputeGridLayoutInfo {
+            layout_organized_data_prop,
+            layout,
+            orientation,
+            ..
+        } => {
             // we should only visit the layout geometry for the orientation
             if matches!(expr, Expression::SolveGridLayout { .. })
                 && let Some(nr) = layout.geometry.rect.size_reference(*orientation)
@@ -823,6 +830,12 @@ fn visit_layout_items_layoutinfo_cross_axis_dependencies<'a>(
 ) {
     for it in items {
         let element = it.element.clone();
+        // Parent dispatches via `layoutinfo-v-with-constraint(width)`, not the property.
+        if cross_axis == Orientation::Vertical
+            && element.borrow().inherited_layout_info_v_with_constraint().is_some()
+        {
+            continue;
+        }
         if let Some(nr) = element.borrow().layout_info_prop(cross_axis) {
             vis(&nr.clone().into(), ReadType::PropertyRead);
         } else if let ElementType::Component(base) = &element.borrow().base_type

@@ -312,7 +312,10 @@ impl FontMetrics<f32> for &rustybuzz::Face<'_> {
 
 #[cfg(test)]
 fn with_default_font<R>(mut callback: impl FnMut(&rustybuzz::Face<'_>) -> R) -> R {
-    let mut collection = fontique::Collection::default();
+    let mut collection = fontique::Collection::new(fontique::CollectionOptions {
+        system_fonts: false,
+        ..Default::default()
+    });
     let font_path: std::path::PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "..", "common", "sharedfontique", "Inter-VariableFont.ttf"]
             .iter()

@@ -4,7 +4,7 @@
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import sitemap from "@astrojs/sitemap";
-import starlightTypeDoc, { typeDocSidebarGroup } from "starlight-typedoc";
+import starlightTypeDoc from "starlight-typedoc";
 import { slintStarlightFaviconHead } from "@slint/common-files/src/utils/starlight-favicon-head";
 import { starlightExpandAllSidebarGroups } from "@slint/common-files/src/utils/starlight-expand-all-sidebar-groups";
 import {
@@ -65,7 +65,16 @@ export default defineConfig({
                     exclude: ({ link }) => {
                         const p = (link.split("?")[0] ?? "").trim();
                         return (
-                            p.startsWith("/#") || p.startsWith("/thirdparty/")
+                            p.startsWith("/#") ||
+                            p.startsWith("/thirdparty/") ||
+                            // starlight-typedoc deletes every subdirectory README.md but
+                            // typedoc-plugin-markdown still emits a "Namespaces" link to
+                            // the deleted file in the parent README. The namespace's
+                            // type-alias sub-pages and the language variable page at
+                            // /api/variables/language/ cover the same content.
+                            p.endsWith(
+                                "/api/slint-ui/namespaces/language/readme/",
+                            )
                         );
                     },
                 }),
@@ -73,9 +82,80 @@ export default defineConfig({
             ],
             social: slintStarlightSocial,
             head: slintStarlightFaviconHead(nodeDocsPublicAsset),
+            // starlight-typedoc's auto-sidebar drops the "Namespaces" group because
+            // typedoc-plugin-markdown nests namespaces under the parent module on disk
+            // (`api/slint-ui/namespaces/…`), not at `api/namespaces/…` where the
+            // auto-sidebar looks. We define the API sidebar manually so the `language`
+            // variable expands to its struct/enum types.
             sidebar: [
                 { label: "Overview", slug: "index" },
-                typeDocSidebarGroup,
+                {
+                    label: "API",
+                    items: [
+                        {
+                            label: "Classes",
+                            collapsed: true,
+                            items: [
+                                { autogenerate: { directory: "api/classes" } },
+                            ],
+                        },
+                        {
+                            label: "Enumerations",
+                            collapsed: true,
+                            items: [
+                                {
+                                    autogenerate: {
+                                        directory: "api/enumerations",
+                                    },
+                                },
+                            ],
+                        },
+                        {
+                            label: "Functions",
+                            collapsed: true,
+                            items: [
+                                {
+                                    autogenerate: {
+                                        directory: "api/functions",
+                                    },
+                                },
+                            ],
+                        },
+                        {
+                            label: "Interfaces",
+                            collapsed: true,
+                            items: [
+                                {
+                                    autogenerate: {
+                                        directory: "api/interfaces",
+                                    },
+                                },
+                            ],
+                        },
+                        {
+                            label: "Variables",
+                            collapsed: true,
+                            items: [
+                                {
+                                    label: "language",
+                                    collapsed: true,
+                                    items: [
+                                        {
+                                            label: "Overview",
+                                            link: "/api/variables/language/",
+                                        },
+                                        {
+                                            autogenerate: {
+                                                directory:
+                                                    "api/slint-ui/namespaces/language/type-aliases",
+                                            },
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                },
             ],
         }),
     ],

@@ -219,6 +219,7 @@ pub use i_slint_core::api::*;
 pub use i_slint_core::component_factory::ComponentFactory;
 #[cfg(not(target_arch = "wasm32"))]
 pub use i_slint_core::graphics::{BorrowedOpenGLTextureBuilder, BorrowedOpenGLTextureOrigin};
+pub use i_slint_core::input::{Keys, KeysParseError};
 pub use i_slint_core::items::{StandardListViewItem, TableColumn};
 pub use i_slint_core::model::{
     FilterModel, MapModel, Model, ModelExt, ModelNotify, ModelPeer, ModelRc, ModelTracker,
@@ -483,7 +484,19 @@ pub mod language {
 
     i_slint_common::for_each_builtin_structs!(export_builtin_structs);
 
-    pub use i_slint_core::items::{ColorScheme, PointerEventButton, PointerEventKind};
+    // `$vis use …;` propagates the enum's declared visibility: `pub enum Foo` becomes a
+    // `pub use`, plain `enum Foo` becomes a private `use` (in-scope only, suppressed by
+    // `#[allow(unused_imports)]`).
+    macro_rules! export_builtin_enums {
+        ($(
+            $(#[$attr:meta])*
+            $vis:vis enum $Name:ident { $($_body:tt)* }
+        )*) => {
+            $( #[allow(unused_imports)] $vis use i_slint_core::items::$Name; )*
+        };
+    }
+
+    i_slint_common::for_each_enums!(export_builtin_enums);
 }
 
 #[cfg(any(

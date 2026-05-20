@@ -11,6 +11,10 @@ pub mod native;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 pub use native::*;
 
+pub use crate::common::SwitchableLspToPreview;
+#[cfg(feature = "preview-remote")]
+pub mod remote;
+
 use crate::preview;
 
 pub fn lsp_to_preview(message: i_slint_preview_protocol::LspToPreviewMessage) {
@@ -19,7 +23,9 @@ pub fn lsp_to_preview(message: i_slint_preview_protocol::LspToPreviewMessage) {
         M::InvalidateContents { url } => preview::invalidate_contents(&url),
         M::ForgetFile { url } => preview::delete_document(&url),
         M::SetContents { url, contents } => {
-            preview::set_contents(&url, contents);
+            if let Ok(contents) = String::from_utf8(contents) {
+                preview::set_contents(&url, contents);
+            }
         }
         M::SetConfiguration { config } => {
             preview::config_changed(config);

@@ -9,8 +9,8 @@
 #include <vector>
 
 // What we attach to each `DataTransfer` via `set_user_data`. A copy of the
-// `TaskData` plus the row it came from, so `source-column-of` can answer the
-// .slint side and `move-task` knows what to remove on a move.
+// `TaskData` plus the row it came from, so `can-drop` recognizes our own
+// payloads and `dropped` knows what to remove on a move.
 struct DragPayload
 {
     TaskData task;
@@ -23,16 +23,16 @@ int main()
     auto window = MainWindow::create();
 
     auto todo = std::make_shared<slint::VectorModel<TaskData>>(std::vector<TaskData> {
-            { 1, "Write release notes" },
-            { 2, "Reply to mailing list" },
-            { 3, "Triage open issues" },
+            { "Write release notes" },
+            { "Reply to mailing list" },
+            { "Triage open issues" },
     });
     auto doing = std::make_shared<slint::VectorModel<TaskData>>(std::vector<TaskData> {
-            { 4, "Polish drag-and-drop example" },
-            { 5, "Review kanban PR" },
+            { "Polish drag-and-drop example" },
+            { "Review kanban PR" },
     });
     auto done = std::make_shared<slint::VectorModel<TaskData>>(std::vector<TaskData> {
-            { 6, "Set up project skeleton" },
+            { "Set up project skeleton" },
     });
 
     window->set_todo(todo);
@@ -49,52 +49,54 @@ int main()
         return transfer;
     });
 
-    api.on_source_column_of([](slint::DataTransfer data) {
-        auto user_data = data.user_data();
-        auto *payload = std::any_cast<DragPayload>(&user_data);
-        return payload ? payload->source_column : -1;
+    api.on_can_drop([](slint::language::DropEvent event, int /*target*/,
+                       int /*target_index*/) -> slint::language::DragAction {
+        auto user_data = event.data.user_data();
+        if (std::any_cast<DragPayload>(&user_data)) {
+            // Our own card: accept whatever modifier the user is holding.
+            return event.proposed_action;
+        }
+        if (event.data.has_plaintext()) {
+            // External plaintext drop: always treated as a copy.
+            return slint::language::DragAction::Copy;
+        }
+        return slint::language::DragAction::None;
     });
 
-    api.on_add_task([columns](slint::DataTransfer data, int target, int target_index) {
-        auto user_data = data.user_data();
-        auto *payload = std::any_cast<DragPayload>(&user_data);
-        if (!payload) {
-            return;
-        }
+    api.on_dropped([columns](slint::language::DropEvent event, int target, int target_index) {
         if (target < 0 || target >= static_cast<int>(columns.size())) {
             return;
         }
-        columns[target]->insert(static_cast<size_t>(target_index), payload->task);
-    });
 
-    api.on_move_task([columns](slint::DataTransfer data, int target, int target_index) {
-        auto user_data = data.user_data();
-        auto *payload = std::any_cast<DragPayload>(&user_data);
-        if (!payload) {
-            return;
-        }
-        if (target < 0 || target >= static_cast<int>(columns.size())) {
-            return;
-        }
-        int source = payload->source_column;
-        int source_index = payload->source_index;
-
-        if (source == target) {
-            // Same-column reorder. Drops at the source slot or immediately
-            // after it are no-ops; otherwise remove the source first and
-            // adjust the target index for the shift that the removal causes.
-            if (target_index == source_index || target_index == source_index + 1) {
+        auto user_data = event.data.user_data();
+        if (auto *payload = std::any_cast<DragPayload>(&user_data)) {
+            if (event.proposed_action != slint::language::DragAction::Move) {
+                // Anything that isn't an explicit move is treated as a copy.
+                columns[target]->insert(static_cast<size_t>(target_index), payload->task);
                 return;
             }
-            TaskData task = payload->task;
-            columns[source]->erase(source_index);
-            int adjusted = target_index > source_index ? target_index - 1 : target_index;
-            columns[target]->insert(static_cast<size_t>(adjusted), task);
-        } else {
-            // Cross-column move. Source and target are independent models, so
-            // the order of operations doesn't affect index stability.
-            columns[source]->erase(source_index);
-            columns[target]->insert(static_cast<size_t>(target_index), payload->task);
+            int source = payload->source_column;
+            int source_index = payload->source_index;
+
+            if (source == target) {
+                // Same-column reorder. Drops at the source slot or immediately
+                // after it are no-ops; otherwise remove the source first and
+                // adjust the target index for the shift that the removal causes.
+                if (target_index == source_index || target_index == source_index + 1) {
+                    return;
+                }
+                TaskData task = payload->task;
+                columns[source]->erase(source_index);
+                int adjusted = target_index > source_index ? target_index - 1 : target_index;
+                columns[target]->insert(static_cast<size_t>(adjusted), task);
+            } else {
+                // Cross-column move. Source and target are independent models,
+                // so the order of operations doesn't affect index stability.
+                columns[source]->erase(source_index);
+                columns[target]->insert(static_cast<size_t>(target_index), payload->task);
+            }
+        } else if (auto text = event.data.fetch_plaintext()) {
+            columns[target]->insert(static_cast<size_t>(target_index), TaskData { *text });
         }
     });
 

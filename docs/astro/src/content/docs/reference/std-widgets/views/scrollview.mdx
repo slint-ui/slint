@@ -5,6 +5,7 @@ description: ScrollView api.
 
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
+import Link from '@slint/common-files/src/components/Link.astro';
 
 <CodeSnippetMD imagePath="/src/assets/generated/std-widgets-scrollview.png"  imageWidth="200" imageHeight="200"  imageAlt='scrollview example'>
 ```slint playground
@@ -27,13 +28,18 @@ export component Example inherits Window {
 </CodeSnippetMD>
 
 A Scrollview contains a viewport that is bigger than the view and can be
-scrolled. It has scrollbar to interact with.
+scrolled. Compared to a plain <Link type="Flickable"/> it has scrollbar to interact with.
 
 The ScrollView is scrollable if the `viewport-width` and `viewport-height` properties
 are bigger than the size of the visible area.
 
 If the ScrollView contains a layout, the default value for the `viewport-width` and
 `viewport-height` is the minimum size of that layout.
+
+:::note{Note}
+A ScrollView will always instantiate all of its children, so its performance may degrade with large number of children, even if they are not visible.
+If you want to display a long list of items, use a <Link type="ListView"/> instead, which only instantiates visible children.
+:::
 
 ## Properties
 

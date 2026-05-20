@@ -297,18 +297,29 @@ pub fn lower_expression(
             entries_per_item: *entries_per_item,
         },
         tree_Expression::OrganizeGridLayout(l) => organize_grid_layout(l, ctx),
-        tree_Expression::ComputeBoxLayoutInfo(l, o) => compute_box_layout_info(l, *o, ctx),
+        tree_Expression::ComputeBoxLayoutInfo { layout, orientation, cross_axis_size } => {
+            compute_box_layout_info(layout, *orientation, ctx, cross_axis_size.as_deref())
+        }
         tree_Expression::ComputeGridLayoutInfo {
             layout_organized_data_prop,
             layout,
             orientation,
-        } => compute_grid_layout_info(layout_organized_data_prop, layout, *orientation, ctx),
+            cross_axis_size,
+        } => compute_grid_layout_info(
+            layout_organized_data_prop,
+            layout,
+            *orientation,
+            ctx,
+            cross_axis_size.as_deref(),
+        ),
         tree_Expression::SolveBoxLayout(l, o) => solve_box_layout(l, *o, ctx),
         tree_Expression::SolveGridLayout { layout_organized_data_prop, layout, orientation } => {
             solve_grid_layout(layout_organized_data_prop, layout, *orientation, ctx)
         }
         tree_Expression::SolveFlexboxLayout(l) => solve_flexbox_layout(l, ctx),
-        tree_Expression::ComputeFlexboxLayoutInfo(l, o) => compute_flexbox_layout_info(l, *o, ctx),
+        tree_Expression::ComputeFlexboxLayoutInfo { layout, orientation, cross_axis_size } => {
+            compute_flexbox_layout_info(layout, *orientation, ctx, cross_axis_size.as_deref())
+        }
         tree_Expression::MinMax { ty, op, lhs, rhs } => llr_Expression::MinMax {
             ty: ty.clone(),
             op: *op,

@@ -4,6 +4,7 @@
 use crate::api::{CompilationResult, ComponentDefinition, Value};
 use crate::global_component::CompiledGlobalCollection;
 use crate::{dynamic_type, eval};
+use core::ffi::c_void;
 use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use i_slint_compiler::expression_tree::{Expression, NamedReference, TwoWayBinding};
@@ -461,6 +462,10 @@ pub struct ItemTreeDescription<'id> {
     pub(crate) items: HashMap<SmolStr, ItemWithinItemTree>,
     pub(crate) custom_properties: HashMap<SmolStr, PropertiesWithinComponent>,
     pub(crate) custom_callbacks: HashMap<SmolStr, FieldOffset<Instance<'id>, Callback>>,
+    /// For each exported callback, a `Property<()>` that tracks when the handler changes.
+    /// Calling `get()` before invoking a callback registers a dependency; calling `mark_dirty()`
+    /// after setting a handler triggers re-evaluation of dependent bindings.
+    pub(crate) callback_trackers: HashMap<SmolStr, FieldOffset<Instance<'id>, Property<()>>>,
     repeater: Vec<ErasedRepeaterWithinComponent<'id>>,
     /// Map the Element::id of the repeater to the index in the `repeater` vec
     pub repeater_names: HashMap<SmolStr, usize>,
@@ -732,8 +737,12 @@ impl ItemTreeDescription<'_> {
             eval::set_callback_handler(&inst, &alias.element(), alias.name(), handler)?
         } else {
             let x = self.custom_callbacks.get(name).ok_or(())?;
-            let sig = x.apply(unsafe { &*(component.as_ptr() as *const dynamic_type::Instance) });
+            let inst = unsafe { &*(component.as_ptr() as *const dynamic_type::Instance) };
+            let sig = x.apply(inst);
             sig.set_handler(handler);
+            if let Some(tracker_offset) = self.callback_trackers.get(name) {
+                tracker_offset.apply_pin(unsafe { Pin::new_unchecked(inst) }).mark_dirty();
+            }
         }
         Ok(())
     }
@@ -1224,6 +1233,7 @@ pub(crate) fn generate_item_tree<'id>(
 
     let mut custom_properties = HashMap::new();
     let mut custom_callbacks = HashMap::new();
+    let mut callback_trackers = HashMap::new();
     fn property_info<T>() -> (Box<dyn PropertyInfo<u8, Value>>, dynamic_type::StaticTypeInfo)
     where
         T: PartialEq + Clone + Default + std::convert::TryInto<Value> + 'static,
@@ -1286,7 +1296,7 @@ pub(crate) fn generate_item_tree<'id>(
             Type::Percent => animated_property_info::<f32>(),
             Type::Enumeration(e) => {
                 macro_rules! match_enum_type {
-                    ($( $(#[$enum_doc:meta])* enum $Name:ident { $($body:tt)* })*) => {
+                    ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $($body:tt)* })*) => {
                         match e.name.as_str() {
                             $(
                                 stringify!($Name) => property_info::<i_slint_core::items::$Name>(),
@@ -1295,6 +1305,7 @@ pub(crate) fn generate_item_tree<'id>(
                         }
                     }
                 }
+
                 if e.node.is_some() {
                     property_info::<Value>()
                 } else {
@@ -1326,6 +1337,10 @@ pub(crate) fn generate_item_tree<'id>(
         if matches!(&decl.property_type, Type::Callback { .. }) {
             custom_callbacks
                 .insert(name.clone(), builder.type_builder.add_field_type::<Callback>());
+            if decl.expose_in_public_api {
+                callback_trackers
+                    .insert(name.clone(), builder.type_builder.add_field_type::<Property<()>>());
+            }
             continue;
         }
         let Some((prop, type_info)) = property_info_for_type(&decl.property_type, name) else {
@@ -1416,6 +1431,7 @@ pub(crate) fn generate_item_tree<'id>(
         items: builder.items_types,
         custom_properties,
         custom_callbacks,
+        callback_trackers,
         original: component.clone(),
         original_elements: builder.original_elements,
         repeater: builder.repeater,
@@ -2020,7 +2036,7 @@ fn walk_struct_field_path_mut<'a>(
     Some(value)
 }
 
-pub(crate) fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *const () {
+pub(crate) fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *const c_void {
     let element = nr.element();
     generativity::make_guard!(guard);
     let enclosing_component = eval::enclosing_component_instance_for_element(
@@ -2842,6 +2858,7 @@ pub fn make_menu_item_tree(
     menu_item_tree: &Rc<object_tree::Component>,
     enclosing_component: &InstanceRef,
     condition: Option<&Expression>,
+    visible: Option<&Expression>,
 ) -> vtable::VRc<i_slint_core::menus::MenuVTable, MenuFromItemTree> {
     generativity::make_guard!(guard);
     let mit_compiled = generate_item_tree(
@@ -2863,13 +2880,26 @@ pub fn make_menu_item_tree(
     );
     mit_inst.run_setup_code();
     let item_tree = vtable::VRc::into_dyn(mit_inst);
-    let menu = match condition {
-        Some(condition) => {
-            let binding =
-                make_binding_eval_closure(condition.clone(), enclosing_component_weak.clone());
-            MenuFromItemTree::new_with_condition(item_tree, move || binding().try_into().unwrap())
+    let condition = condition.map(|condition| {
+        let binding =
+            make_binding_eval_closure(condition.clone(), enclosing_component_weak.clone());
+        move || binding().try_into().unwrap()
+    });
+    let visible = visible.map(|visible| {
+        let binding = make_binding_eval_closure(visible.clone(), enclosing_component_weak.clone());
+        move || binding().try_into().unwrap()
+    });
+    let menu = match (condition, visible) {
+        (None, None) => MenuFromItemTree::new(item_tree),
+        (None, Some(visible)) => {
+            MenuFromItemTree::new_with_condition_and_visible(item_tree, || true, visible)
         }
-        None => MenuFromItemTree::new(item_tree),
+        (Some(condition), None) => {
+            MenuFromItemTree::new_with_condition_and_visible(item_tree, condition, || true)
+        }
+        (Some(condition), Some(visible)) => {
+            MenuFromItemTree::new_with_condition_and_visible(item_tree, condition, visible)
+        }
     };
     vtable::VRc::new(menu)
 }
