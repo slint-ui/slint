@@ -252,8 +252,7 @@ module.exports = grammar({
         repeat(
           seq(
             field("name", $.simple_identifier),
-            "when",
-            $.expression,
+            optional(seq("when", $.expression)),
             ":",
             "{",
             repeat(
@@ -270,7 +269,8 @@ module.exports = grammar({
         "]",
       ),
 
-    animate_statement: ($) => seq("animate", $.expression, $.animate_body),
+    animate_statement: ($) =>
+      seq("animate", choice("*", commaSep1($.expression)), $.animate_body),
 
     animate_option_identifier: (_) =>
       choice("delay", "duration", "iteration-count", "direction", "easing"),
