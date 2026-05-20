@@ -184,12 +184,7 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
             $(#[derive(Copy, Eq)])?
             struct $Name:ident {
                 @name = $NameTy:ident :: $NameVariant:ident,
-                export {
-                    $( $(#[doc = $pub_doc:literal])* $pub_field:ident : $pub_type:ty, )*
-                }
-                private {
-                    $( $(#[doc = $pri_doc:literal])* $pri_field:ident : $pri_type:ty, )*
-                }
+                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ty, )*
             }
         )*) => {
             $(
@@ -197,25 +192,13 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
                 $(writeln!(file, "///{}", $struct_doc)?;)*
                 writeln!(file, "struct {} {{", stringify!($Name))?;
                 $(
-                    $(writeln!(file, "    ///{}", $pub_doc)?;)*
-                    let pub_type = match stringify!($pub_type) {
+                    $(writeln!(file, "    ///{}", $field_doc)?;)*
+                    let field_type = match stringify!($field_type) {
                         "i32" => "int32_t",
                         "f32" | "Coord" => "float",
                         other => other,
                     };
-                    writeln!(file, "    {} {};", pub_type, stringify!($pub_field))?;
-                )*
-                $(
-                    $(writeln!(file, "    ///{}", $pri_doc)?;)*
-                    let pri_type = stringify!($pri_type).replace(' ', "");
-                    let pri_type = match pri_type.as_str() {
-                        "usize" => "uintptr_t",
-                        // This shouldn't be accessed by the C++ anyway, just need to have the same ABI in a struct
-                        "Option<i32>" => "std::pair<int32_t, int32_t>",
-                        "Option<core::ops::Range<i32>>" => "std::tuple<int32_t, int32_t, int32_t>",
-                        other => other,
-                    };
-                    writeln!(file, "    {} {};", pri_type, stringify!($pri_field))?;
+                    writeln!(file, "    {} {};", field_type, stringify!($field))?;
                 )*
                 writeln!(file, "    /// \\private")?;
                 writeln!(file, "    {}", format!("friend bool operator==(const {name}&, const {name}&) = default;", name = stringify!($Name)))?;

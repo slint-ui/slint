@@ -302,17 +302,14 @@ macro_rules! declare_value_struct_conversion {
         $(#[$struct_attr:meta])*
         struct $Name:ident {
             @name = $inner_name:expr,
-            export {
-                $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
-            }
-            private { $($pri:tt)* }
+            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
         }
     )*) => {
         $(
             impl From<$Name> for Value {
                 fn from(item: $Name) -> Self {
                     let mut struct_ = Struct::default();
-                    $(struct_.set_field(stringify!($pub_field).into(), item.$pub_field.into());)*
+                    $(struct_.set_field(stringify!($field).into(), item.$field.into());)*
                     Value::Struct(struct_)
                 }
             }
@@ -325,7 +322,7 @@ macro_rules! declare_value_struct_conversion {
                             type Ty = $Name;
                             #[allow(unused)]
                             let mut res: Ty = Ty::default();
-                            $(res.$pub_field = x.get_field(stringify!($pub_field)).ok_or(())?.clone().try_into().map_err(|_|())?;)*
+                            $(res.$field = x.get_field(stringify!($field)).ok_or(())?.clone().try_into().map_err(|_|())?;)*
                             Ok(res)
                         }
                         _ => Err(()),

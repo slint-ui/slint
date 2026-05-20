@@ -503,12 +503,7 @@ impl TypeRegister {
                 $(#[$attr:meta])*
                 struct $Name:ident {
                     @name = $inner_name:expr,
-                    export {
-                        $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ident, )*
-                    }
-                    private {
-                        $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
-                    }
+                    $( $(#[$field_attr:meta])* $field:ident : $field_type:ident, )*
                 }
             )*) => { $(
                 register.insert_type_with_name(Type::Struct(builtin_structs::$Name()), SmolStr::new(stringify!($Name)));
@@ -842,12 +837,7 @@ pub mod builtin_structs {
             $(#[$attr:meta])*
             struct $Name:ident {
                 @name = $inner_name:expr,
-                export {
-                    $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ident, )*
-                }
-                private {
-                    $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
-                }
+                $( $(#[$field_attr:meta])* $field:ident : $field_type:ident, )*
             }
         )*) => {
             pub struct BuiltinStructs {
@@ -862,7 +852,7 @@ pub mod builtin_structs {
                     #[allow(non_snake_case)]
                     let $Name = Rc::new(Struct{
                         fields: BTreeMap::from([
-                            $((stringify!($pub_field).replace_smolstr("_", "-"), map_type!($pub_type, $pub_type))),*
+                            $((stringify!($field).replace_smolstr("_", "-"), map_type!($field_type, $field_type))),*
                         ]),
                         name: $inner_name.into(),
                     });
