@@ -37,12 +37,7 @@ macro_rules! generate_builtin_structs_pyi {
         $(#[derive(Copy, Eq)])?
         struct $Name:ident {
             @name = $NameTy:ident :: $Variant:ident,
-            export {
-                $( $(#[doc = $pub_doc:literal])* $pub_field:ident : $pub_type:ident, )*
-            }
-            private {
-                $($private:tt)*
-            }
+            $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ident, )*
         }
     )*) => {
         fn generate_pyi(writer: &mut impl Write) {
@@ -58,14 +53,14 @@ macro_rules! generate_builtin_structs_pyi {
             $(
                 generate_builtin_structs_pyi!(@check writer, $NameTy, $Name,
                     [$($struct_doc),*],
-                    [$([$($pub_doc),*] $pub_field : $pub_type),*]
+                    [$([$($field_doc),*] $field : $field_type),*]
                 );
             )*
         }
     };
     (@check $writer:expr, BuiltinPublicStruct, $Name:ident,
         [$($struct_doc:literal),*],
-        [$([$($pub_doc:literal),*] $pub_field:ident : $pub_type:ident),*]
+        [$([$($field_doc:literal),*] $field:ident : $field_type:ident),*]
     ) => {
         writeln!($writer, "\nclass {}(typing.NamedTuple):", stringify!($Name)).unwrap();
         let struct_doc = vec![$($struct_doc),*].join("\n").trim().to_string();
@@ -82,11 +77,11 @@ macro_rules! generate_builtin_structs_pyi {
         }
         writeln!($writer, "").unwrap();
         $(
-            writeln!($writer, "    {}: {} = {}", stringify!($pub_field), map_type(stringify!($pub_type)), map_default(stringify!($pub_type))).unwrap();
-            let field_doc = vec![$($pub_doc),*].join("\n").trim().to_string();
-            if !field_doc.is_empty() {
+            writeln!($writer, "    {}: {} = {}", stringify!($field), map_type(stringify!($field_type)), map_default(stringify!($field_type))).unwrap();
+            let fd = vec![$($field_doc),*].join("\n").trim().to_string();
+            if !fd.is_empty() {
                 writeln!($writer, "    \"\"\"").unwrap();
-                for line in field_doc.lines() {
+                for line in fd.lines() {
                     if line.is_empty() {
                         writeln!($writer).unwrap();
                     } else {
@@ -99,7 +94,7 @@ macro_rules! generate_builtin_structs_pyi {
     };
     (@check $writer:expr, BuiltinPrivateStruct, $Name:ident,
         [$($struct_doc:literal),*],
-        [$([$($pub_doc:literal),*] $pub_field:ident : $pub_type:ident),*]
+        [$([$($field_doc:literal),*] $field:ident : $field_type:ident),*]
     ) => {};
 }
 

@@ -2137,12 +2137,7 @@ macro_rules! declare_builtin_structs {
         $(#[$struct_attr:meta])*
         struct $Name:ident {
             @name = $inner_name:expr,
-            export {
-                $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
-            }
-            private {
-                $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
-            }
+            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
         }
     )*) => {
         $(
@@ -2151,12 +2146,8 @@ macro_rules! declare_builtin_structs {
             $(#[$struct_attr])*
             pub struct $Name {
                 $(
-                    $(#[$pub_attr])*
-                    pub $pub_field : $pub_type,
-                )*
-                $(
-                    $(#[$pri_attr])*
-                    pub $pri_field : $pri_type,
+                    $(#[$field_attr])*
+                    pub $field : $field_type,
                 )*
             }
         )*

@@ -55,12 +55,7 @@ fn generate_language_module() {
             $(#[derive(Copy, Eq)])?
             struct $Name:ident {
                 @name = $NameTy:ident :: $NameVariant:ident,
-                export {
-                    $( $(#[doc = $pub_doc:literal])* $pub_field:ident : $pub_type:ty, )*
-                }
-                private {
-                    $( $(#[doc = $pri_doc:literal])* $pri_field:ident : $pri_type:ty, )*
-                }
+                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ty, )*
             }
         )*) => {
             $(
@@ -69,7 +64,7 @@ fn generate_language_module() {
                         name: stringify!($Name),
                         docs: vec![$($struct_doc),*],
                         fields: vec![$(
-                            (stringify!($pub_field), stringify!($pub_type), vec![$($pub_doc),*])
+                            (stringify!($field), stringify!($field_type), vec![$($field_doc),*])
                         ),*],
                     });
                 }

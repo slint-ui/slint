@@ -464,12 +464,7 @@ pub mod language {
             $(#[$attr:meta])*
             struct $Name:ident {
                 @name = $NameTy:ident :: $NameVariant:ident,
-                export {
-                    $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
-                }
-                private {
-                    $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
-                }
+                $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
             }
         )*) => {
             $(
