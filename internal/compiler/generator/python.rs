@@ -319,7 +319,7 @@ impl Default for PyModule {
             // `python_type_name` changes (e.g. Type::Int32 → "int" in 2.0).
             // A previously-generated wrapper that carries an older version
             // is treated as incompatible by `changed_version`.
-            version: SmolStr::new_static("2.0"),
+            version: SmolStr::new_static("2.1"),
             globals: Default::default(),
             components: Default::default(),
             structs_and_enums: Default::default(),
@@ -673,12 +673,13 @@ fn python_type_name(ty: &Type) -> SmolStr {
         Type::Array(elem_type) => format_smolstr!("slint.Model[{}]", python_type_name(elem_type)),
         Type::Struct(s) => match &s.name {
             StructName::User { name, .. } => ident(name),
-            StructName::Builtin(
-                crate::langtype::BuiltinStruct::Color
-                | crate::langtype::BuiltinStruct::LogicalPosition
-                | crate::langtype::BuiltinStruct::LogicalSize,
-            )
-            | StructName::None => {
+            StructName::Builtin(crate::langtype::BuiltinStruct::LogicalPosition) => {
+                SmolStr::new_static("slint.LogicalPosition")
+            }
+            StructName::Builtin(crate::langtype::BuiltinStruct::LogicalSize) => {
+                SmolStr::new_static("slint.LogicalSize")
+            }
+            StructName::Builtin(crate::langtype::BuiltinStruct::Color) | StructName::None => {
                 let tuple_types = s.fields.values().map(python_type_name).collect::<Vec<_>>();
                 format_smolstr!("typing.Tuple[{}]", tuple_types.join(", "))
             }
