@@ -762,21 +762,6 @@ impl BuiltinPublicStruct {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, derive_more::From)]
-pub enum BuiltinStruct {
-    Private(BuiltinPrivateStruct),
-    Public(BuiltinPublicStruct),
-}
-
-impl BuiltinStruct {
-    pub fn slint_name(&self) -> Option<SmolStr> {
-        match self {
-            Self::Private(native_private_type) => native_private_type.slint_name(),
-            Self::Public(native_public_type) => native_public_type.slint_name(),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Default)]
 pub struct NativeClass {
     pub parent: Option<Rc<NativeClass>>,
