@@ -2135,8 +2135,7 @@ declare_item_vtable! {
 macro_rules! declare_builtin_structs {
     ($(
         $(#[$struct_attr:meta])*
-        struct $Name:ident {
-            @name = $inner_name:expr,
+        $vis:vis struct $Name:ident {
             $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
         }
     )*) => {

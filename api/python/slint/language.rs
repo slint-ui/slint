@@ -126,44 +126,25 @@ macro_rules! declare_python_public_structs {
         $(#[doc = $struct_doc:literal])*
         $(#[non_exhaustive])?
         $(#[derive(Copy, Eq)])?
-        struct $Name:ident {
-            @name = $NameTy:ident :: $NameVariant:ident,
+        $vis:vis struct $Name:ident {
             $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ident, )*
         }
     )*) => {
         fn register_structs(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
             $(
-                declare_python_public_structs!(@register $NameTy, $Name, py, m;
-                    docs: [$(#[doc = $struct_doc])*],
-                    fields: [$( $(#[doc = $field_doc])* $field : $field_type ,)*],
-                );
+                if stringify!($vis) == "pub" {
+                    let class_doc = [ $($struct_doc),* ].join("\n");
+                    let fields = vec![
+                        $(
+                            (stringify!($field), stringify!($field_type), [ $($field_doc),* ].join("\n")),
+                        )*
+                    ];
+                    register_named_tuple(py, m, stringify!($Name), &class_doc, &fields)?;
+                }
             )*
             Ok(())
         }
     };
-
-    // Public struct arm: collects doc comments and field metadata, then calls
-    // `register_named_tuple` to create and register the NamedTuple class.
-    (@register BuiltinPublicStruct, $Name:ident, $py:ident, $m:ident;
-        docs: [$(#[doc = $struct_doc:literal])*],
-        fields: [$( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ident ,)*],
-    ) => {
-        {
-            let class_doc = [ $($struct_doc),* ].join("\n");
-            let fields = vec![
-                $(
-                    (stringify!($field), stringify!($field_type), [ $($field_doc),* ].join("\n")),
-                )*
-            ];
-            register_named_tuple($py, $m, stringify!($Name), &class_doc, &fields)?;
-        }
-    };
-
-    // Private struct arm: intentionally empty — private structs are not exposed to Python.
-    (@register BuiltinPrivateStruct, $_Name:ident, $py:ident, $m:ident;
-        docs: [$(#[$struct_meta:meta])*],
-        fields: [$( $(#[$field_meta:meta])* $field:ident : $field_type:ty ,)*],
-    ) => {};
 }
 
 i_slint_common::for_each_builtin_structs!(declare_python_public_structs);

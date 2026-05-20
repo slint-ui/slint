@@ -11,7 +11,8 @@ use std::rc::Rc;
 use crate::expression_tree::BuiltinFunction;
 use crate::langtype::{
     BuiltinElement, BuiltinPrivateStruct, BuiltinPropertyDefault, BuiltinPropertyInfo,
-    BuiltinPublicStruct, ElementType, Enumeration, Function, PropertyLookupResult, Struct, Type,
+    BuiltinPublicStruct, ElementType, Enumeration, Function, PropertyLookupResult, Struct,
+    StructName, Type,
 };
 use crate::object_tree::{Component, PropertyVisibility};
 use crate::typeloader;
@@ -501,8 +502,7 @@ impl TypeRegister {
         macro_rules! register_builtin_structs {
             ($(
                 $(#[$attr:meta])*
-                struct $Name:ident {
-                    @name = $inner_name:expr,
+                $vis:vis struct $Name:ident {
                     $( $(#[$field_attr:meta])* $field:ident : $field_type:ident, )*
                 }
             )*) => { $(
@@ -832,11 +832,18 @@ pub mod builtin_structs {
         };
     }
 
+    fn struct_name_for(vis: &str, name: &str) -> StructName {
+        if vis == "pub" {
+            name.parse::<BuiltinPublicStruct>().unwrap().into()
+        } else {
+            name.parse::<BuiltinPrivateStruct>().unwrap().into()
+        }
+    }
+
     macro_rules! declare_builtin_structs {
         ($(
             $(#[$attr:meta])*
-            struct $Name:ident {
-                @name = $inner_name:expr,
+            $vis:vis struct $Name:ident {
                 $( $(#[$field_attr:meta])* $field:ident : $field_type:ident, )*
             }
         )*) => {
@@ -854,7 +861,7 @@ pub mod builtin_structs {
                         fields: BTreeMap::from([
                             $((stringify!($field).replace_smolstr("_", "-"), map_type!($field_type, $field_type))),*
                         ]),
-                        name: $inner_name.into(),
+                        name: struct_name_for(stringify!($vis), stringify!($Name)),
                     });
                     )*
 
