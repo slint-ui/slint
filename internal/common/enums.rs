@@ -522,7 +522,7 @@ macro_rules! for_each_enums {
             /// This enum represents the different values of the `sort-order` property.
             /// It's used to sort a `StandardTableView` by a column.
             #[non_exhaustive]
-            enum SortOrder {
+            pub enum SortOrder {
                 /// The column is unsorted.
                 Unsorted,
 

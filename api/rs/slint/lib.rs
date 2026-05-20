@@ -220,7 +220,12 @@ pub use i_slint_core::component_factory::ComponentFactory;
 #[cfg(not(target_arch = "wasm32"))]
 pub use i_slint_core::graphics::{BorrowedOpenGLTextureBuilder, BorrowedOpenGLTextureOrigin};
 pub use i_slint_core::input::{Keys, KeysParseError};
-pub use i_slint_core::items::{StandardListViewItem, TableColumn};
+#[doc(hidden)]
+#[deprecated(note = "Use slint::language::StandardListViewItem instead")]
+pub use i_slint_core::items::StandardListViewItem;
+#[doc(hidden)]
+#[deprecated(note = "Use slint::language::TableColumn instead")]
+pub use i_slint_core::items::TableColumn;
 pub use i_slint_core::model::{
     FilterModel, MapModel, Model, ModelExt, ModelNotify, ModelPeer, ModelRc, ModelTracker,
     ReverseModel, SortModel, VecModel,

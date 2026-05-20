@@ -128,7 +128,7 @@ macro_rules! for_each_builtin_structs {
 
             /// This is used to define the column and the column header of a TableView
             #[non_exhaustive]
-            struct TableColumn {
+            pub struct TableColumn {
                 /// The title of the column header
                 title: SharedString,
                 /// The minimum column width (logical length)

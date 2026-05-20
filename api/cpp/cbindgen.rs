@@ -373,7 +373,6 @@ fn gen_corelib(
         "PointerEvent",
         "PointerScrollEvent",
         "Rect",
-        "SortOrder",
         "BitmapFont",
         "DataTransferOpaque",
     ]
