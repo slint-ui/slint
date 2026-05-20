@@ -35,6 +35,8 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     loop {}
 }
 
+esp_bootloader_esp_idf::esp_app_desc!();
+
 struct EspBackend {
     window: RefCell<Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow>>>,
     peripherals: RefCell<Option<Peripherals>>,
