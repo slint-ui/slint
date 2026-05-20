@@ -296,8 +296,7 @@ pub fn extract_builtin_structs(
             $(#[doc = $struct_doc:literal])*
             $(#[non_exhaustive])?
             $(#[derive(Copy, Eq)])?
-            struct $Name:ident {
-                @name = $inner_name:expr,
+            $vis:vis struct $Name:ident {
                 $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ident, )*
             }
         )*) => {

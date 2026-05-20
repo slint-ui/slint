@@ -729,7 +729,7 @@ impl BuiltinPrivateStruct {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, strum::IntoStaticStr)]
+#[derive(Debug, Clone, PartialEq, strum::EnumString, strum::IntoStaticStr)]
 pub enum BuiltinPublicStruct {
     Color,
     LogicalPosition,

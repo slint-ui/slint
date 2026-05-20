@@ -168,27 +168,22 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_priv, "#include \"private/slint_keys.h\"")?;
     writeln!(structs_priv, "namespace slint::cbindgen_private {{")?;
     writeln!(structs_priv, "enum class KeyEventType : uint8_t;")?;
-    macro_rules! struct_file {
-        (BuiltinPublicStruct, $Name:ident) => {{
-            writeln!(structs_priv, "using slint::language::{};", stringify!($Name))?;
-            &mut structs_pub
-        }};
-        (BuiltinPrivateStruct, $_:ident) => {
-            &mut structs_priv
-        };
-    }
     macro_rules! print_structs {
         ($(
             $(#[doc = $struct_doc:literal])*
             $(#[non_exhaustive])?
             $(#[derive(Copy, Eq)])?
-            struct $Name:ident {
-                @name = $NameTy:ident :: $NameVariant:ident,
+            $vis:vis struct $Name:ident {
                 $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ty, )*
             }
         )*) => {
             $(
-                let file = struct_file!($NameTy, $Name);
+                let file: &mut dyn Write = if stringify!($vis) == "pub" {
+                    writeln!(structs_priv, "using slint::language::{};", stringify!($Name))?;
+                    &mut structs_pub
+                } else {
+                    &mut structs_priv
+                };
                 $(writeln!(file, "///{}", $struct_doc)?;)*
                 writeln!(file, "struct {} {{", stringify!($Name))?;
                 $(

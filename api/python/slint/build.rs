@@ -35,8 +35,7 @@ macro_rules! generate_builtin_structs_pyi {
         $(#[doc = $struct_doc:literal])*
         $(#[non_exhaustive])?
         $(#[derive(Copy, Eq)])?
-        struct $Name:ident {
-            @name = $NameTy:ident :: $Variant:ident,
+        $vis:vis struct $Name:ident {
             $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ident, )*
         }
     )*) => {
@@ -51,51 +50,40 @@ macro_rules! generate_builtin_structs_pyi {
             writeln!(writer, "from slint import DataTransfer, LogicalPosition").unwrap();
 
             $(
-                generate_builtin_structs_pyi!(@check writer, $NameTy, $Name,
-                    [$($struct_doc),*],
-                    [$([$($field_doc),*] $field : $field_type),*]
-                );
+                if stringify!($vis) == "pub" {
+                    writeln!(writer, "\nclass {}(typing.NamedTuple):", stringify!($Name)).unwrap();
+                    let struct_doc = vec![$($struct_doc),*].join("\n").trim().to_string();
+                    if !struct_doc.is_empty() {
+                        writeln!(writer, "    \"\"\"").unwrap();
+                        for line in struct_doc.lines() {
+                            if line.is_empty() {
+                                writeln!(writer).unwrap();
+                            } else {
+                                writeln!(writer, "    {}", line).unwrap();
+                            }
+                        }
+                        writeln!(writer, "    \"\"\"").unwrap();
+                    }
+                    writeln!(writer, "").unwrap();
+                    $(
+                        writeln!(writer, "    {}: {} = {}", stringify!($field), map_type(stringify!($field_type)), map_default(stringify!($field_type))).unwrap();
+                        let field_doc_str = vec![$($field_doc),*].join("\n").trim().to_string();
+                        if !field_doc_str.is_empty() {
+                            writeln!(writer, "    \"\"\"").unwrap();
+                            for line in field_doc_str.lines() {
+                                if line.is_empty() {
+                                    writeln!(writer).unwrap();
+                                } else {
+                                    writeln!(writer, "    {}", line).unwrap();
+                                }
+                            }
+                            writeln!(writer, "    \"\"\"").unwrap();
+                        }
+                    )*
+                }
             )*
         }
     };
-    (@check $writer:expr, BuiltinPublicStruct, $Name:ident,
-        [$($struct_doc:literal),*],
-        [$([$($field_doc:literal),*] $field:ident : $field_type:ident),*]
-    ) => {
-        writeln!($writer, "\nclass {}(typing.NamedTuple):", stringify!($Name)).unwrap();
-        let struct_doc = vec![$($struct_doc),*].join("\n").trim().to_string();
-        if !struct_doc.is_empty() {
-            writeln!($writer, "    \"\"\"").unwrap();
-            for line in struct_doc.lines() {
-                if line.is_empty() {
-                    writeln!($writer).unwrap();
-                } else {
-                    writeln!($writer, "    {}", line).unwrap();
-                }
-            }
-            writeln!($writer, "    \"\"\"").unwrap();
-        }
-        writeln!($writer, "").unwrap();
-        $(
-            writeln!($writer, "    {}: {} = {}", stringify!($field), map_type(stringify!($field_type)), map_default(stringify!($field_type))).unwrap();
-            let fd = vec![$($field_doc),*].join("\n").trim().to_string();
-            if !fd.is_empty() {
-                writeln!($writer, "    \"\"\"").unwrap();
-                for line in fd.lines() {
-                    if line.is_empty() {
-                        writeln!($writer).unwrap();
-                    } else {
-                        writeln!($writer, "    {}", line).unwrap();
-                    }
-                }
-                writeln!($writer, "    \"\"\"").unwrap();
-            }
-        )*
-    };
-    (@check $writer:expr, BuiltinPrivateStruct, $Name:ident,
-        [$($struct_doc:literal),*],
-        [$([$($field_doc:literal),*] $field:ident : $field_type:ident),*]
-    ) => {};
 }
 
 i_slint_common::for_each_builtin_structs!(generate_builtin_structs_pyi);

@@ -5,17 +5,20 @@
 
 /// Call a macro with every builtin structures exposed in the .slint language
 ///
+/// Each struct is declared with `pub struct` if it should be re-exported in a public
+/// language-binding module (e.g. `slint::language` in the Rust crate), or plain `struct`
+/// to stay private. Consumers can dispatch on `$vis:vis`.
+///
 /// ## Example
 /// ```rust
 /// macro_rules! print_builtin_structs {
 ///     ($(
 ///         $(#[$struct_attr:meta])*
-///         struct $Name:ident {
-///             @name = $inner_name:expr,
+///         $vis:vis struct $Name:ident {
 ///             $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
 ///         }
 ///     )*) => {
-///         $(println!("{} => [{}]", stringify!($Name), stringify!($($field),*));)*
+///         $(println!("{} ({}) => [{}]", stringify!($Name), stringify!($vis), stringify!($($field),*));)*
 ///     };
 /// }
 /// i_slint_common::for_each_builtin_structs!(print_builtin_structs);
@@ -34,8 +37,7 @@ macro_rules! for_each_builtin_structs {
             /// On Windows, the Windows key is mapped to the meta modifier.
             #[non_exhaustive]
             #[derive(Copy, Eq)]
-            struct KeyboardModifiers {
-                @name = BuiltinPublicStruct::KeyboardModifiers,
+            pub struct KeyboardModifiers {
                 /// Indicates the Alt key on a keyboard.
                 alt: bool,
                 /// Indicates the Control key on a keyboard, except on macOS, where it is the Command key (⌘).
@@ -49,8 +51,7 @@ macro_rules! for_each_builtin_structs {
             /// Represents a Pointer event sent by the windowing system.
             /// This structure is passed to the `pointer-event` callback of the `TouchArea` element.
             #[non_exhaustive]
-            struct PointerEvent {
-                @name = BuiltinPublicStruct::PointerEvent,
+            pub struct PointerEvent {
                 /// The button that was pressed or released
                 button: PointerEventButton,
                 /// The kind of the event
@@ -64,8 +65,7 @@ macro_rules! for_each_builtin_structs {
             /// Represents a Pointer scroll (or wheel) event sent by the windowing system.
             /// This structure is passed to the `scroll-event` callback of the `TouchArea` element.
             #[non_exhaustive]
-            struct PointerScrollEvent {
-                @name = BuiltinPublicStruct::PointerScrollEvent,
+            pub struct PointerScrollEvent {
                 /// The amount of pixel in the horizontal direction
                 delta_x: Coord,
                 /// The amount of pixel in the vertical direction
@@ -76,8 +76,7 @@ macro_rules! for_each_builtin_structs {
 
             /// This structure is generated and passed to the key press and release callbacks of the `FocusScope` element.
             #[non_exhaustive]
-            struct KeyEvent {
-                @name = BuiltinPublicStruct::KeyEvent,
+            pub struct KeyEvent {
                 /// The unicode representation of the key pressed.
                 text: SharedString,
                 /// The keyboard modifiers active at the time of the key press event.
@@ -88,8 +87,7 @@ macro_rules! for_each_builtin_structs {
             }
 
             /// This structure is passed to the callbacks of the `DropArea` element
-            struct DropEvent {
-                @name = BuiltinPublicStruct::DropEvent,
+            pub struct DropEvent {
                 /// The payload set on the source `DragArea`.
                 data: DataTransfer,
 
@@ -114,16 +112,14 @@ macro_rules! for_each_builtin_structs {
 
             /// Represents an item in a StandardListView and a StandardTableView.
             #[non_exhaustive]
-            struct StandardListViewItem {
-                @name = BuiltinPublicStruct::StandardListViewItem,
+            pub struct StandardListViewItem {
                 /// The text content of the item
                 text: SharedString,
             }
 
             /// Represents one option in a `RadioGroup`.
             #[non_exhaustive]
-            struct RadioEntry {
-                @name = BuiltinPublicStruct::RadioEntry,
+            pub struct RadioEntry {
                 /// Label shown next to the radio button.
                 text: SharedString,
                 /// When `true`, this option is visible but not selectable.
@@ -133,7 +129,6 @@ macro_rules! for_each_builtin_structs {
             /// This is used to define the column and the column header of a TableView
             #[non_exhaustive]
             struct TableColumn {
-                @name = BuiltinPrivateStruct::TableColumn,
                 /// The title of the column header
                 title: SharedString,
                 /// The minimum column width (logical length)
@@ -148,7 +143,6 @@ macro_rules! for_each_builtin_structs {
 
             /// A structure to hold metrics of a font for a specified pixel size.
             struct FontMetrics {
-                @name = BuiltinPrivateStruct::FontMetrics,
                 /// The distance between the baseline and the top of the tallest glyph in the font.
                 ascent: Coord,
                 /// The distance between the baseline and the bottom of the tallest glyph in the font.
@@ -164,7 +158,6 @@ macro_rules! for_each_builtin_structs {
 
             /// An item in the menu of a menu bar or context menu
             struct MenuEntry {
-                @name = BuiltinPrivateStruct::MenuEntry,
                 /// The text of the menu entry
                 title: SharedString,
                 /// the icon associated with the menu entry
@@ -188,7 +181,6 @@ macro_rules! for_each_builtin_structs {
 
             /// A structure representing the four edges of an axis-aligned rectangle
             struct Edges {
-                @name = BuiltinPrivateStruct::Edges,
                 /// The left edge value
                 left: Coord,
                 /// The top edge value

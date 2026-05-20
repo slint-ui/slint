@@ -300,8 +300,7 @@ macro_rules! declare_value_struct_conversion {
     };
     ($(
         $(#[$struct_attr:meta])*
-        struct $Name:ident {
-            @name = $inner_name:expr,
+        $vis:vis struct $Name:ident {
             $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
         }
     )*) => {

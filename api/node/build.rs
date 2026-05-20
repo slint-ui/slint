@@ -53,13 +53,12 @@ fn generate_language_module() {
             $(#[doc = $struct_doc:literal])*
             $(#[non_exhaustive])?
             $(#[derive(Copy, Eq)])?
-            struct $Name:ident {
-                @name = $NameTy:ident :: $NameVariant:ident,
+            $vis:vis struct $Name:ident {
                 $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ty, )*
             }
         )*) => {
             $(
-                if stringify!($NameTy) == "BuiltinPublicStruct" {
+                if stringify!($vis) == "pub" {
                     structs.push(StructEntry {
                         name: stringify!($Name),
                         docs: vec![$($struct_doc),*],
