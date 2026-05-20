@@ -45,8 +45,6 @@ jobs:
         steps:
             - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
-              with:
-                  old-ubuntu: true
             - name: Install Qt (Ubuntu)
               uses: jurplel/install-qt-action@v4
               if: matrix.os == 'ubuntu-22.04'
@@ -98,8 +96,6 @@ jobs:
         steps:
             - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
-              with:
-                  old-ubuntu: true
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{ matrix.target }}
@@ -149,8 +145,6 @@ jobs:
         steps:
             - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
-              with:
-                  old-ubuntu: true
             - uses: dtolnay/rust-toolchain@stable
             - uses: cargo-bins/cargo-binstall@main
             - name: install espup
@@ -257,8 +251,6 @@ jobs:
         steps:
             - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
-              with:
-                  old-ubuntu: true
             - uses: ./.github/actions/setup-rust
             - uses: ilammy/msvc-dev-cmd@v1
               with:
