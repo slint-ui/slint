@@ -308,12 +308,12 @@ wgpu-28 = { workspace = true, optional = true }
 wgpu-29 = { workspace = true, optional = true }
 
 i-slint-backend-winit = { workspace = true, optional = true }
+i-slint-renderer-skia = { workspace = true, optional = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 # FemtoVG is disabled on android because it doesn't compile without setting RUST_FONTCONFIG_DLOPEN=on
 # end even then wouldn't work because it can't load fonts
 i-slint-renderer-femtovg = { workspace = true, optional = true }
-i-slint-renderer-skia = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 i-slint-backend-android-activity = { workspace = true, optional = true }

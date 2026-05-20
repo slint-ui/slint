@@ -81,8 +81,6 @@ jobs:
         steps:
             - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
-              with:
-                  old-ubuntu: true
             - uses: ./.github/actions/install-skia-dependencies
             - uses: ilammy/msvc-dev-cmd@v1
               if: runner.os == 'Windows'
