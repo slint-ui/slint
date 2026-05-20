@@ -14,7 +14,7 @@ version.workspace = true
 
 [dependencies]
 clap = { workspace = true, features = ["derive"] }
-i-slint-compiler = { workspace = true }
+i-slint-compiler = { workspace = true, features = ["display-diagnostics"] }
 topiary-core = { workspace = true }
 topiary-tree-sitter-facade = { workspace = true }
 i-tree-sitter-slint = { workspace = true }

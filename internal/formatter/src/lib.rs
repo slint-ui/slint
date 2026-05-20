@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 pub mod profiling;
+mod input_diagnostics;
 mod style_profile;
 
 use std::fs;
@@ -31,6 +32,7 @@ pub struct Formatter {
 #[derive(Debug)]
 pub enum FormatError {
     Io(io::Error),
+    InvalidInput { diagnostics: String, source: topiary_core::FormatterError },
     Formatter(topiary_core::FormatterError),
     UnsupportedPath(std::path::PathBuf),
 }
@@ -41,7 +43,7 @@ impl Formatter {
     }
 
     pub fn format_str(&self, source: &str) -> Result<FormatResult, FormatError> {
-        let text = self.try_safe_format(source).unwrap_or_else(|| source.to_owned());
+        let text = self.format_source(source, None)?;
         Ok(FormatResult { changed: text != source, text })
     }
 
@@ -51,8 +53,9 @@ impl Formatter {
             return Err(FormatError::UnsupportedPath(path.to_owned()));
         }
 
-        let text = fs::read_to_string(path)?;
-        self.format_str(&text)
+        let source = fs::read_to_string(path)?;
+        let text = self.format_source(&source, Some(path))?;
+        Ok(FormatResult { changed: text != source, text })
     }
 }
 
@@ -67,46 +70,30 @@ fn default_operation() -> Operation {
     Operation::Format { skip_idempotence: false, tolerate_parsing_errors: false }
 }
 
-fn tolerant_operation() -> Operation {
-    Operation::Format { skip_idempotence: true, tolerate_parsing_errors: true }
-}
-
 impl Formatter {
-    fn try_safe_format(&self, source: &str) -> Option<String> {
+    fn format_source(&self, source: &str, path: Option<&Path>) -> Result<String, FormatError> {
         match self.format_with_operation(source, default_operation()) {
-            Ok(text) if self.output_parses(&text) => self
-                .try_stable_output(&text, default_operation())
-                .or_else(|| self.try_safe_fallback(source)),
-            Ok(_) | Err(_) => self.try_safe_fallback(source),
+            Ok(text) => Ok(text),
+            Err(error) => {
+                if let Some(diagnostics) =
+                    input_diagnostics::compiler_diagnostics_for_broken_input(source, path)
+                {
+                    Err(FormatError::InvalidInput { diagnostics, source: error })
+                } else {
+                    Err(error.into())
+                }
+            }
         }
-    }
-
-    fn try_safe_fallback(&self, source: &str) -> Option<String> {
-        let text = self.format_with_operation(source, tolerant_operation()).ok()?;
-        self.try_stable_output(&text, tolerant_operation())
     }
 
     fn format_with_operation(
         &self,
         source: &str,
         operation: Operation,
-    ) -> Result<String, FormatError> {
+    ) -> Result<String, topiary_core::FormatterError> {
         let mut output = Vec::new();
         topiary_core::formatter_str(source, &mut output, &self.language, operation)?;
         Ok(String::from_utf8(output).expect("topiary should emit valid UTF-8"))
-    }
-
-    fn output_parses(&self, source: &str) -> bool {
-        !profile_source(source).has_parse_errors
-    }
-
-    fn try_stable_output(&self, source: &str, operation: Operation) -> Option<String> {
-        if !self.output_parses(source) {
-            return None;
-        }
-
-        let second_pass = self.format_with_operation(source, operation).ok()?;
-        (second_pass == source).then_some(source.to_owned())
     }
 }
 
@@ -114,6 +101,7 @@ impl std::fmt::Display for FormatError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Io(err) => err.fmt(f),
+            Self::InvalidInput { diagnostics, .. } => diagnostics.fmt(f),
             Self::Formatter(err) => err.fmt(f),
             Self::UnsupportedPath(path) => {
                 write!(f, "only standalone .slint files are supported: {}", path.display())
@@ -126,6 +114,7 @@ impl std::error::Error for FormatError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Io(err) => Some(err),
+            Self::InvalidInput { source, .. } => Some(source),
             Self::Formatter(err) => Some(err),
             Self::UnsupportedPath(_) => None,
         }
@@ -146,7 +135,7 @@ impl From<topiary_core::FormatterError> for FormatError {
 
 #[cfg(test)]
 mod tests {
-    use super::{Formatter, default_operation, profile_source};
+    use super::{FormatError, Formatter, default_operation, profile_source};
 
     #[test]
     fn formats_a_standalone_slint_component() {
@@ -343,6 +332,21 @@ mod tests {
             "export component TestCase inherits Rectangle { background: condition ? #373737 : #ffffff; }\n"
         );
         assert!(!profile_source(&result.text).has_parse_errors);
+    }
+
+    #[test]
+    fn reports_compiler_diagnostics_for_invalid_input() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input = "export component Broken inherits Rectangle { @@@ }";
+        let error = formatter.format_str(input).expect_err("invalid input should fail");
+
+        match error {
+            FormatError::InvalidInput { diagnostics, .. } => {
+                assert!(diagnostics.contains("error:"));
+                assert!(diagnostics.contains("<input>.slint"));
+            }
+            other => panic!("expected invalid input diagnostics, got {other:?}"),
+        }
     }
 
     #[test]
