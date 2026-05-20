@@ -19,8 +19,6 @@ An export statement has one of the following forms: {#sls.export.forms}
 ```slint no-test
 export component Name { /* ... */ }
 export { Name, ... }
-export { Name, ... } from "path";
-export * from "path";
 ```
 
 ## Export at the Declaration Site
@@ -39,16 +37,7 @@ The local name `Name` remains defined in the current file. {#sls.export.rename}
 
 Each identifier on the left of `as`, and each bare identifier, shall refer to a name defined in the current file. {#sls.export.left-must-exist}
 
-## Re-exports
-
-The form `export { Name, ... } from "path";` re-exports selected names from another file.
-Each identifier on the left of `as`, and each bare identifier, shall refer to a name exported by the file at `"path"`. {#sls.export.re-export-selective}
-
-The form `export * from "path";` re-exports every name exported by the file at `"path"`. {#sls.export.re-export-all}
-
-A source file shall contain at most one `export * from "path";` statement. {#sls.export.re-export-all-once}
-
 ## Duplicate Exports
 
 A source file shall not export the same external name more than once.
-This includes the combination of any declaration-site export, export-list entry, and re-export. {#sls.export.no-duplicates}
+This includes the combination of any declaration-site export and any export-list entry. {#sls.export.no-duplicates}
