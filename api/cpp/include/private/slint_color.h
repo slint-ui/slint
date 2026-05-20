@@ -9,6 +9,7 @@ namespace slint {
 
 namespace private_api {
 class LinearGradientBrush;
+class RadialGradientBrush;
 class ConicGradientBrush;
 }
 
