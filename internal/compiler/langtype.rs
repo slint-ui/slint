@@ -683,20 +683,31 @@ macro_rules! define_builtin_struct_enum {
         pub enum BuiltinStruct {
             // Generated from for_each_builtin_structs
             $($Name,)*
-            // Not in the macro (registered separately in typeregister.rs)
+
+            // Public structs not in the macro (registered in typeregister.rs)
             Color,
             LogicalPosition,
             LogicalSize,
-            Keys,
+
+            // Path element types, set via `//-builtin_struct:` annotations
+            // in builtins.slint and read through NativeClass.builtin_struct
             PathMoveTo,
             PathLineTo,
             PathArcTo,
             PathCubicTo,
             PathQuadraticTo,
             PathClose,
+            PathElement,
+
+            // Compiler-internal structs (no slint_name, not exposed to .slint)
+
+            // Internal coordinate struct for compiled SVG path data (x/y as Float32,
+            // unlike LogicalPosition which uses LogicalLength)
+            Point,
+            // Return type of ArraySize (width/height as Int32,
+            // unlike LogicalSize which uses LogicalLength)
             Size,
             StateInfo,
-            Point,
             PropertyAnimation,
             GridLayoutData,
             GridLayoutInputData,
@@ -707,8 +718,6 @@ macro_rules! define_builtin_struct_enum {
             FlexboxLayoutItemInfo,
             Padding,
             LayoutInfo,
-            PathElement,
-            InternalKeyEvent,
         }
 
         impl BuiltinStruct {
@@ -717,7 +726,7 @@ macro_rules! define_builtin_struct_enum {
                     // Macro-defined structs: derived from the `pub` visibility keyword
                     $(Self::$Name => stringify!($vis) == "pub",)*
                     // Non-macro public structs
-                    Self::Color | Self::LogicalPosition | Self::LogicalSize | Self::Keys => true,
+                    Self::Color | Self::LogicalPosition | Self::LogicalSize => true,
                     _ => false,
                 }
             }
@@ -734,12 +743,6 @@ macro_rules! define_builtin_struct_enum {
                     Self::Color => Some(SmolStr::new_static("color")),
                     Self::LogicalPosition => Some(SmolStr::new_static("Point")),
                     Self::LogicalSize => Some(SmolStr::new_static("Size")),
-                    Self::Keys => Some(SmolStr::new_static("Keys")),
-                    Self::Point
-                    | Self::InternalKeyEvent => {
-                        let name: &'static str = self.into();
-                        Some(SmolStr::new_static(name))
-                    }
                     _ => None,
                 }
             }
