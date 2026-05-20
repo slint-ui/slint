@@ -48,8 +48,8 @@ component Clock {
     callback current_index_changed(index: int);
 
     property <length> radius: max(root.width, root.height) / 2;
-    property <length> picker_ditameter: MaterialStyleMetrics.size_48;
-    property <length> center: root.radius - root.picker_ditameter / 2;
+    property <length> picker_diameter: MaterialStyleMetrics.size_48;
+    property <length> center: root.radius - root.picker_diameter / 2;
     property <length> outer_padding: 2px;
     property <length> inner_padding: 32px;
     property <length> radius_outer: root.center - root.outer_padding;
@@ -80,8 +80,8 @@ component Clock {
             }
 
             LineTo {
-                x: (root.current_x + root.picker_ditameter / 2) / 1px;
-                y: (root.current_y + root.picker_ditameter / 2) / 1px;
+                x: (root.current_x + root.picker_diameter / 2) / 1px;
+                y: (root.current_y + root.picker_diameter / 2) / 1px;
             }
         }
 
@@ -95,9 +95,9 @@ component Clock {
         if root.current_index < root.model.length: Rectangle {
             x: root.current_x;
             y: root.current_y;
-            width: root.picker_ditameter;
-            height: root.picker_ditameter;
-            border_radius: root.picker_ditameter / 2;
+            width: root.picker_diameter;
+            height: root.picker_diameter;
+            border_radius: root.picker_diameter / 2;
                 background: MaterialPalette.primary;
 
             if root.current_index < 0: Rectangle {
@@ -111,8 +111,8 @@ component Clock {
         for val[index] in root.model: TimeSelector {
             x: get_index_x(val);
             y: get_index_y(val);
-            width: root.picker_ditameter;
-            height: root.picker_ditameter;
+            width: root.picker_diameter;
+            height: root.picker_diameter;
             value: val;
             selected: index == root.current_index;
             accessible_role: button;

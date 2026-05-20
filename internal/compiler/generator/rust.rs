@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore conv gdata powf punct vref
+// cSpell: ignore conv gdata powf punct vref rescope updt
 
 /*! module for the Rust code generator
 
@@ -43,6 +43,12 @@ pub fn ident(ident: &str) -> proc_macro2::Ident {
     } else {
         format_ident!("r#{}", ident)
     }
+}
+
+/// Returns the identifier used for the Property<()> that tracks when a
+/// callback handler is changed from native code.
+fn callback_tracker_ident(callback_name: &str) -> proc_macro2::Ident {
+    format_ident!("callback_tracker_{}", callback_name.replace('-', "_"))
 }
 
 impl quote::ToTokens for Orientation {
@@ -566,7 +572,7 @@ fn generate_shared_globals(
             let shared_globals_type_name = if let Some(module) = library_info.module {
                 let package = ident(&library_info.package);
                 let module = ident(&module);
-                //(quote!(#shared_gloabls_var_name),quote!(let #shared_globals_var_name = #package::#module::#shared_globals_type_name::new(root_item_tree_weak.clone());))
+                //(quote!(#shared_globals_var_name),quote!(let #shared_globals_var_name = #package::#module::#shared_globals_type_name::new(root_item_tree_weak.clone());))
                 quote!(#package::#module::#struct_name)
             } else {
                 let package = ident(&library_info.package);
@@ -898,6 +904,67 @@ fn handle_property_init(
     }
 }
 
+/// Returns the code to access the change-tracker `Property<()>` for an exported callback.
+/// Returns `None` if the callback doesn't have a tracker.
+fn access_callback_tracker(
+    reference: &llr::MemberReference,
+    ctx: &EvaluationContext,
+) -> Option<TokenStream> {
+    fn in_global(
+        g: &llr::GlobalComponent,
+        callback_idx: &llr::CallbackIdx,
+        _self: TokenStream,
+    ) -> Option<TokenStream> {
+        if !g.callbacks[*callback_idx].needs_tracker {
+            return None;
+        }
+        let tracker_name = callback_tracker_ident(&g.callbacks[*callback_idx].name);
+        let global_name = global_inner_name(g);
+        let tracker_field = quote!({ *&#global_name::FIELD_OFFSETS.#tracker_name() });
+        Some(quote!(#tracker_field.apply_pin(#_self)))
+    }
+
+    match reference {
+        llr::MemberReference::Global {
+            global_index,
+            member: llr::LocalMemberIndex::Callback(callback_idx),
+        } => {
+            let global = &ctx.compilation_unit.globals[*global_index];
+            let s = if matches!(ctx.current_scope, EvaluationScope::Global(i) if i == *global_index)
+            {
+                quote!(_self)
+            } else {
+                let global_access = &ctx.generator_state.global_access;
+                let global_id = format_ident!("global_{}", ident(&global.name));
+                quote!(#global_access.#global_id.as_ref())
+            };
+            in_global(global, callback_idx, s)
+        }
+        llr::MemberReference::Relative { parent_level: 0, local_reference } => {
+            if let llr::LocalMemberIndex::Callback(callback_idx) = &local_reference.reference {
+                if let Some(current_global) = ctx.current_global() {
+                    return in_global(current_global, callback_idx, quote!(_self));
+                }
+                if local_reference.sub_component_path.is_empty()
+                    && let Some(sc_idx) = ctx.parent_sub_component_idx(0)
+                {
+                    let sc = &ctx.compilation_unit.sub_components[sc_idx];
+                    if sc.callbacks[*callback_idx].needs_tracker {
+                        let tracker_name =
+                            callback_tracker_ident(&sc.callbacks[*callback_idx].name);
+                        let component_id = inner_component_id(sc);
+                        let tracker_field =
+                            access_component_field_offset(&component_id, &tracker_name);
+                        return Some(quote!((#tracker_field).apply_pin(_self)));
+                    }
+                }
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
 /// Public API for Global and root component
 fn public_api(
     public_properties: &llr::PublicProperties,
@@ -926,6 +993,8 @@ fn public_api(
             ));
             let on_ident = format_ident!("on_{}", prop_ident);
             let args_index = (0..callback_args.len()).map(proc_macro2::Literal::usize_unsuffixed);
+            let tracker_access = access_callback_tracker(&p.prop, ctx);
+            let set_dirty = tracker_access.map(|t| quote!(#t.mark_dirty();));
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #on_ident(&self, mut f: impl FnMut(#(#callback_args),*) -> #return_type + 'static) {
@@ -934,7 +1003,8 @@ fn public_api(
                     #prop.set_handler(
                         // FIXME: why do i need to clone here?
                         move |args| f(#(args.#args_index.clone()),*)
-                    )
+                    );
+                    #set_dirty
                 }
             ));
         } else if let Type::Function(function) = &p.ty {
@@ -1052,6 +1122,8 @@ fn generate_sub_component(
         declared_property_vars.push(prop_ident.clone());
         declared_property_types.push(rust_property_type.clone());
     }
+    let mut callback_tracker_names = Vec::new();
+
     for callback in component.callbacks.iter() {
         let cb_ident = ident(&callback.name);
         let callback_args =
@@ -1060,6 +1132,9 @@ fn generate_sub_component(
         declared_callbacks.push(cb_ident.clone());
         declared_callbacks_types.push(callback_args);
         declared_callbacks_ret.push(return_type);
+        if callback.needs_tracker {
+            callback_tracker_names.push(callback_tracker_ident(&callback.name));
+        }
     }
 
     let change_tracker_names = component
@@ -1385,6 +1460,8 @@ fn generate_sub_component(
         init.push(quote!(#r;))
     }
 
+    // Initialize all properties which have an initial value in the slint file
+    // This sets up also the callback handler and bindings
     for (prop, expression) in &component.property_init {
         handle_property_init(prop, expression, &mut init, &ctx)
     }
@@ -1517,6 +1594,7 @@ fn generate_sub_component(
             #(#popup_id_names : ::core::cell::Cell<sp::Option<::core::num::NonZeroU32>>,)*
             #(#declared_property_vars : sp::Property<#declared_property_types>,)*
             #(#declared_callbacks : sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
+            #(#callback_tracker_names : sp::Property<()>,)*
             #(#repeated_element_components,)*
             #(#change_tracker_names : sp::ChangeTracker,)*
             #(#timer_names : sp::Timer,)*
@@ -1728,12 +1806,17 @@ fn generate_global(
         declared_property_vars.push(ident(&property.name));
         declared_property_types.push(rust_property_type(&property.ty).unwrap());
     }
+    let mut callback_tracker_names = Vec::new();
+
     for callback in &global.callbacks {
         let callback_args =
             callback.args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
         declared_callbacks.push(ident(&callback.name));
         declared_callbacks_types.push(callback_args);
         declared_callbacks_ret.push(rust_primitive_type(&callback.ret_ty));
+        if callback.needs_tracker {
+            callback_tracker_names.push(callback_tracker_ident(&callback.name));
+        }
     }
 
     let mut init = Vec::new();
@@ -1850,6 +1933,7 @@ fn generate_global(
             pub struct #inner_component_id {
                 #(#pub_token  #declared_property_vars: sp::Property<#declared_property_types>,)*
                 #(#pub_token  #declared_callbacks: sp::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
+                #(#pub_token  #callback_tracker_names : sp::Property<()>,)*
                 #(#pub_token  #change_tracker_names : sp::ChangeTracker,)*
                 globals : sp::OnceCell<sp::Weak<SharedGlobals>>,
             }
@@ -2982,11 +3066,15 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
         Expression::CallBackCall { callback, arguments } => {
             let f = access_member(callback, ctx);
+            let tracker = access_callback_tracker(callback, ctx);
+            let register_dep = tracker.map(|t| {
+                quote!(#t.get();)
+            });
             let a = arguments.iter().map(|a| compile_expression_to_value(a, ctx));
             if expr.ty(ctx) == Type::Void {
-                f.then(|f| quote!(#f.call(&(#(#a as _,)*))))
+                f.then(|f| quote!({ #register_dep #f.call(&(#(#a as _,)*)); }))
             } else {
-                f.map_or_default(|f| quote!(#f.call(&(#(#a as _,)*))))
+                f.map_or_default(|f| quote!({ #register_dep #f.call(&(#(#a as _,)*)) }))
             }
         }
         Expression::FunctionCall { function, arguments } => {
@@ -3515,30 +3603,40 @@ fn compile_builtin_function_call(
                 let is_tooltip = popup.is_tooltip;
                 let close_policy = compile_expression(close_policy, ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
+                let globals_init = if !is_tooltip {
+                    quote! {
+                        if let Some(popup_window_adapter) = window.create_popup_window_adapter() {
+                            shared_global.clone_with_window_adapter(popup_window_adapter)
+                        } else {
+                            shared_global.clone()
+                        }
+                    }
+                } else {
+                    quote! { shared_global.clone() }
+                };
                 component_access_tokens.then(|component_access_tokens| quote!({
                     let parent_item = #parent_item;
                     // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one
                     let shared_global = #component_access_tokens.globals.get().unwrap();
                     let window_adapter = shared_global.window_adapter_impl();
                     let window = sp::WindowInner::from_pub(window_adapter.window());
-                    let globals = if !#is_tooltip
-                        && let Some(popup_window_adapter) = window.create_popup_window_adapter()
-                    {
-                        shared_global.clone_with_window_adapter(popup_window_adapter)
-                    } else {
-                        shared_global.clone()
-                    };
+                    let globals = #globals_init;
 
                     let popup_instance = #popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone(), globals).unwrap();
                     let popup_instance_vrc = sp::VRc::map(popup_instance.clone(), |x| x);
-                    let position = { let _self = popup_instance_vrc.as_pin_ref(); #position };
                     if let Some(current_id) = #component_access_tokens.#popup_id_name.take() {
                         window.close_popup(current_id);
                     }
+
+                    let popup_instance_vrc_for_position = popup_instance_vrc.clone();
+                    let access_position = sp::Box::new(move || {
+                        let _self = popup_instance_vrc_for_position.as_pin_ref(); #position
+                    });
+
                     #component_access_tokens.#popup_id_name.set(Some(
                         window.show_popup(
                             &sp::VRc::into_dyn(popup_instance.into()),
-                            position,
+                            access_position,
                             #close_policy,
                             parent_item,
                             #is_tooltip,
@@ -3631,11 +3729,13 @@ fn compile_builtin_function_call(
             let set_id = context_menu
                 .clone()
                 .then(|context_menu| quote!(#context_menu.popup_id.set(Some(id))));
+
             let slint_show = quote! {
                 #close_popup
+                let access_position = sp::Box::new(move || position);
                 let id = sp::WindowInner::from_pub(window_adapter.window()).show_popup(
                     &sp::VRc::into_dyn(popup_instance.into()),
-                    position,
+                    access_position,
                     sp::PopupClosePolicy::CloseOnClickOutside,
                     #context_menu_rc,
                     false,
@@ -3973,7 +4073,9 @@ fn compile_builtin_function_call(
                 Expression::PropertyReference(activated_r),
                 Expression::NumberLiteral(tree_index),
                 Expression::BoolLiteral(no_native),
-                rest @ ..,
+                condition,
+                visible,
+                ..,
             ] = arguments
             else {
                 panic!("internal error: incorrect arguments to SetupMenuBar")
@@ -3990,28 +4092,33 @@ fn compile_builtin_function_call(
             let access_sub_menu = access_member(sub_menu_r, ctx).unwrap();
             let access_activated = access_member(activated_r, ctx).unwrap();
 
-            let native_impl = if *no_native {
-                quote!(let menu_item_tree = sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance));)
-            } else {
-                let menu_from_item_tree = if let Some(condition) = &rest.first() {
-                    let binding = compile_expression(condition, ctx);
-                    quote!(sp::MenuFromItemTree::new_with_condition(sp::VRc::into_dyn(menu_item_tree_instance), {
-                        let self_weak = _self.self_weak.get().unwrap().clone();
-                        move || {
-                            let Some(self_rc) = self_weak.upgrade() else { return false };
-                            let _self = self_rc.as_pin_ref();
-                            #binding
-                        }
-                    }))
+            let compile_prop = |prop_expr: &Expression| {
+                let binding = compile_expression(prop_expr, ctx);
+                quote!({
+                    let self_weak = _self.self_weak.get().unwrap().clone();
+                    move || {
+                        let Some(self_rc) = self_weak.upgrade() else { return false };
+                        let _self = self_rc.as_pin_ref();
+                        #binding
+                    }
+                })
+            };
+
+            let condition_tokens = compile_prop(condition);
+            let visible_tokens = compile_prop(visible);
+
+            let native_impl = {
+                let menu_from_item_tree = quote!(sp::VRc::new(sp::MenuFromItemTree::new_with_condition_and_visible(sp::VRc::into_dyn(menu_item_tree_instance), #condition_tokens, #visible_tokens)));
+                if *no_native {
+                    quote!(let menu_item_tree = #menu_from_item_tree;)
                 } else {
-                    quote!(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)))
-                };
-                quote! {
-                    let menu_item_tree = sp::VRc::new(#menu_from_item_tree);
-                    if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
-                        let menu_item_tree_dyn = sp::VRc::into_dyn(sp::VRc::clone(&menu_item_tree));
-                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(menu_item_tree_dyn);
-                    } else
+                    quote! {
+                        let menu_item_tree = #menu_from_item_tree;
+                        if sp::WindowInner::from_pub(#window_adapter_tokens.window()).supports_native_menu_bar() {
+                            let menu_item_tree_dyn = sp::VRc::into_dyn(sp::VRc::clone(&menu_item_tree));
+                            sp::WindowInner::from_pub(#window_adapter_tokens.window()).setup_menubar(menu_item_tree_dyn);
+                        } else
+                    }
                 }
             };
 
@@ -4060,24 +4167,26 @@ fn compile_builtin_function_call(
             let system_tray_rc = access_item_rc(system_tray_ref, ctx);
 
             // `if cond : Menu { ... }` lowers the condition into a closure that
-            // gates the menu's shadow tree. `MenuFromItemTree::new_with_condition`
-            // re-evaluates it through a property-tracked binding.
-            let menu_from_item_tree = if let Some(condition) = rest.first() {
+            // gates the menu's shadow tree.
+            let condition_tokens = if let Some(condition) = rest.first() {
                 let binding = compile_expression(condition, ctx);
-                quote!(sp::MenuFromItemTree::new_with_condition(
-                    sp::VRc::into_dyn(menu_item_tree_instance),
-                    {
-                        let self_weak = _self.self_weak.get().unwrap().clone();
-                        move || {
-                            let Some(self_rc) = self_weak.upgrade() else { return false };
-                            let _self = self_rc.as_pin_ref();
-                            #binding
-                        }
-                    },
-                ))
+                quote!({
+                    let self_weak = _self.self_weak.get().unwrap().clone();
+                    move || {
+                        let Some(self_rc) = self_weak.upgrade() else { return false };
+                        let _self = self_rc.as_pin_ref();
+                        #binding
+                    }
+                })
             } else {
-                quote!(sp::MenuFromItemTree::new(sp::VRc::into_dyn(menu_item_tree_instance)))
+                quote!(|| true)
             };
+
+            let menu_from_item_tree = quote!(sp::MenuFromItemTree::new_with_condition_and_visible(
+                sp::VRc::into_dyn(menu_item_tree_instance),
+                #condition_tokens,
+                || true
+            ));
 
             quote!({
                 let menu_item_tree_instance = #item_tree_id::new(_self.self_weak.get().unwrap().clone()).unwrap();
@@ -4155,6 +4264,9 @@ fn compile_builtin_function_call(
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(sp::open_url(&#url, #window_adapter_tokens.window()).is_ok())
         }
+        BuiltinFunction::BringAllToFront => {
+            quote!(sp::bring_all_to_front())
+        }
         BuiltinFunction::ParseMarkdown => {
             let format_string = a.next().unwrap();
             let args = a.next().unwrap();
@@ -4163,6 +4275,10 @@ fn compile_builtin_function_call(
         BuiltinFunction::StringToStyledText => {
             let string = a.next().unwrap();
             quote!(sp::string_to_styled_text(#string.to_string()))
+        }
+        BuiltinFunction::ColorToStyledText => {
+            let color = a.next().unwrap();
+            quote!(sp::color_to_styled_text(#color))
         }
     }
 }

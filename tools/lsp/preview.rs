@@ -66,7 +66,7 @@ pub fn run(
 
     tracing::debug!("Preview: requesting state from LSP");
     to_lsp
-        .send(&i_slint_preview_protocol::PreviewToLspMessage::RequestState { unused: true })
+        .send(&i_slint_preview_protocol::PreviewToLspMessage::RequestState { files: Vec::new() })
         .unwrap();
 
     let app_window_clone = PREVIEW_STATE.with(move |preview_state| {
@@ -184,7 +184,7 @@ fn invalidate_contents(url: &lsp_types::Url) {
             // Do not reset the code: We can check once the LSP has re-read it from disk
             // whether we need to refresh the preview or not.
             //
-            // We should get an updated version of the file from the LSP when it recompiles, so
+            // We should get an updated version of the file from the LSP when it recompiled, so
             // no reload needed at the moment.
             cache_entry.version = None;
         }

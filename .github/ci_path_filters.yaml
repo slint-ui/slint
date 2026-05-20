@@ -20,12 +20,11 @@ js_config: &js_config
  - 'pnpm-lock.yaml'
 
 slint:
- - 'api/**'
+ - 'api/rs/**'
  - 'cmake/**'
  - 'demos/**'
  - 'helper_crates/**'
  - 'internal/**'
- - 'scripts/**'
  - 'tests/**'
  - 'tools/compiler/**'
  - 'tools/figma_import/**'
@@ -34,7 +33,8 @@ slint:
  - 'tools/updater/**'
  - 'tools/viewer/**'
  - 'xtask/**'
- - *files_in_root
+ - 'Cargo.toml'
+ - '.cargo/**'
  - *ci_config
 
 # Qt backend and widget definitions — gates the Qt test step in build_and_test
@@ -50,6 +50,7 @@ docs_build:
  - 'internal/**'
  - 'helper_crates/**'
  - 'tools/lsp/**'
+ - 'tests/doctests/**'
  - *ci_config
 
 # Tree-sitter grammar
@@ -68,15 +69,6 @@ material_components:
  - *js_config
  - *ci_config
 
-safety_docs:
- - 'docs/safety/**'
- - 'docs/common/**'
- - 'docs/slint-doc-generator/**'
- - 'internal/compiler/builtins.slint'
- - 'internal/common/enums.rs'
- - 'internal/common/builtin_structs.rs'
- - *js_config
- - *ci_config
 
 internal: &internal
  # The API specific tests don't depends on renderer or backend, but they do depend on the Qt widgets and the testing backend
@@ -150,8 +142,13 @@ bevy_examples:
  - 'examples/bevy/**'
  - *ci_config
 
+slint_sc:
+ - 'internal/compiler/**'
+ - 'api/slint-sc/**'
+ - 'tools/compiler/**'
+ - *ci_config
+
 rust_files:
  - '**/*.rs'
  - '**/Cargo.toml'
- - 'Cargo.lock'
- - *ci_config
+ - '.clippy.toml'

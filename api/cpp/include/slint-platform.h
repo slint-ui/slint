@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore visualid
 #pragma once
 
 #include "slint.h"
@@ -661,7 +662,7 @@ public:
     /// Representation of a texture to blend in the destination buffer.
     // (FIXME: this is currently opaque, but should be exposed)
     using DrawTextureArgs = cbindgen_private::DrawTextureArgs;
-    /// Arguments for draw_rectagle
+    /// Arguments for draw_rectangle
     using DrawRectangleArgs = cbindgen_private::DrawRectangleArgs;
 
     /// Abstract base class for a target pixel buffer where certain drawing operations can be

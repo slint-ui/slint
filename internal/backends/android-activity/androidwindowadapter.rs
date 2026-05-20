@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell:ignore Eisu Endcall Hankaku Headsethook Henkan Muhenkan Numpad Pictsymbols Sysrq teriary Thumbl Thumbr Zenkaku
+
 use super::*;
 use crate::javahelper::{JavaHelper, print_jni_error};
 use android_activity::input::{
@@ -186,12 +188,12 @@ impl AndroidWindowAdapter {
         let rc = Rc::<Self>::new_cyclic(|w| Self {
             app,
             window: Window::new(w.clone()),
-            #[cfg(not(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28")))]
+            #[cfg(not(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29")))]
             renderer: SkiaRenderer::default(&SkiaSharedContext::default()),
-            #[cfg(feature = "unstable-wgpu-28")]
+            #[cfg(all(feature = "unstable-wgpu-28", not(feature = "unstable-wgpu-29")))]
             renderer: SkiaRenderer::default_wgpu_28(&SkiaSharedContext::default()),
-            #[cfg(all(feature = "unstable-wgpu-27", not(feature = "unstable-wgpu-28")))]
-            renderer: SkiaRenderer::default_wgpu_27(&SkiaSharedContext::default()),
+            #[cfg(feature = "unstable-wgpu-29")]
+            renderer: SkiaRenderer::default_wgpu_29(&SkiaSharedContext::default()),
             requested_graphics_api: RefCell::new(None),
             event_queue: Default::default(),
             pending_redraw: Default::default(),

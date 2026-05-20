@@ -4,7 +4,7 @@
 /*! module for the C++ code generator
 */
 
-// cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals
+// cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals compl consteval constinit glyphset glyphsets reflexpr
 
 use crate::fileaccess;
 use std::collections::HashSet;
@@ -759,7 +759,7 @@ fn handle_property_init(
                     Some(llr::Animation::Static(anim)) => {
                         let anim = compile_expression(anim, ctx);
                         // Note: The start_time defaults to the current tick, so doesn't need to be
-                        // udpated here.
+                        // updated here.
                         format!("{prop_access}.set_animated_binding({binding_code},
                                 [this](uint64_t **start_time) -> slint::cbindgen_private::PropertyAnimation {{
                                     [[maybe_unused]] auto self = this;
@@ -2258,6 +2258,17 @@ fn generate_sub_component(
             field_access,
             Declaration::Var(Var { ty, name: cpp_name, ..Default::default() }),
         ));
+        if callback.needs_tracker {
+            let tracker_name = callback_tracker_name(&callback.name);
+            target_struct.members.push((
+                field_access,
+                Declaration::Var(Var {
+                    ty: "slint::private_api::Property<uint8_t>".into(),
+                    name: tracker_name,
+                    ..Default::default()
+                }),
+            ));
+        }
     }
 
     for (i, _) in component.change_callbacks.iter().enumerate() {
@@ -2384,6 +2395,7 @@ fn generate_sub_component(
         properties_init_code.push(format!("{p}.set_constant();"));
     }
 
+    // Create all member components for the header
     for item in &component.items {
         target_struct.members.push((
             field_access,
@@ -3139,6 +3151,17 @@ fn generate_global(
             Access::Public,
             Declaration::Var(Var { ty, name: cpp_name, ..Default::default() }),
         ));
+        if callback.needs_tracker {
+            let tracker_name = callback_tracker_name(&callback.name);
+            global_struct.members.push((
+                Access::Public,
+                Declaration::Var(Var {
+                    ty: "slint::private_api::Property<uint8_t>".into(),
+                    name: tracker_name,
+                    ..Default::default()
+                }),
+            ));
+        }
     }
 
     let mut init = vec!["(void)this->globals;".into()];
@@ -3343,6 +3366,15 @@ fn generate_public_api_for_properties(
                     ..Default::default()
                 }),
             ));
+            let tracker = access_callback_tracker_cpp(&p.prop, ctx);
+            let mut on_stmts = vec![
+                "slint::private_api::assert_main_thread();".into(),
+                "[[maybe_unused]] auto self = this;".into(),
+                format!("{}.set_handler(std::forward<Functor>(callback_handler));", access),
+            ];
+            if let Some(t) = &tracker {
+                on_stmts.push(format!("{t}.mark_dirty();"));
+            }
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
@@ -3352,11 +3384,7 @@ fn generate_public_api_for_properties(
                         param_types.join(", "),
                     )),
                     signature: "(Functor && callback_handler) const".into(),
-                    statements: Some(vec![
-                        "slint::private_api::assert_main_thread();".into(),
-                        "[[maybe_unused]] auto self = this;".into(),
-                        format!("{}.set_handler(std::forward<Functor>(callback_handler));", access),
-                    ]),
+                    statements: Some(on_stmts),
                     ..Default::default()
                 }),
             ));
@@ -3592,6 +3620,64 @@ fn access_local_member(reference: &llr::LocalMemberReference, ctx: &EvaluationCo
     access_member(&reference.clone().into(), ctx).unwrap()
 }
 
+/// Returns the C++ field name for the change-tracker property of a callback.
+fn callback_tracker_name(callback_name: &str) -> SmolStr {
+    format_smolstr!("callback_tracker_{}", callback_name.replace('-', "_"))
+}
+
+/// Returns the C++ code to access the change-tracker `Property<uint8_t>` for an exported callback.
+/// Returns `None` if the callback doesn't have a tracker.
+fn access_callback_tracker_cpp(
+    reference: &llr::MemberReference,
+    ctx: &EvaluationContext,
+) -> Option<String> {
+    fn in_global(
+        g: &llr::GlobalComponent,
+        callback_idx: &llr::CallbackIdx,
+        self_: &str,
+    ) -> Option<String> {
+        if !g.callbacks[*callback_idx].needs_tracker {
+            return None;
+        }
+        let tracker_name = callback_tracker_name(&g.callbacks[*callback_idx].name);
+        Some(format!("{self_}{tracker_name}"))
+    }
+
+    match reference {
+        llr::MemberReference::Global {
+            global_index,
+            member: llr::LocalMemberIndex::Callback(callback_idx),
+        } => {
+            let global = &ctx.compilation_unit.globals[*global_index];
+            if matches!(ctx.current_scope, EvaluationScope::Global(i) if i == *global_index) {
+                in_global(global, callback_idx, "this->")
+            } else {
+                let global_access = &ctx.generator_state.global_access;
+                let global_id = format!("global_{}", concatenate_ident(&global.name));
+                in_global(global, callback_idx, &format!("{global_access}->{global_id}->"))
+            }
+        }
+        llr::MemberReference::Relative { parent_level: 0, local_reference } => {
+            if let llr::LocalMemberIndex::Callback(callback_idx) = &local_reference.reference {
+                if let Some(current_global) = ctx.current_global() {
+                    return in_global(current_global, callback_idx, "this->");
+                }
+                if local_reference.sub_component_path.is_empty()
+                    && let Some(sc_idx) = ctx.parent_sub_component_idx(0)
+                {
+                    let sc = &ctx.compilation_unit.sub_components[sc_idx];
+                    if sc.callbacks[*callback_idx].needs_tracker {
+                        let tracker_name = callback_tracker_name(&sc.callbacks[*callback_idx].name);
+                        return Some(format!("self->{tracker_name}"));
+                    }
+                }
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
 /// Helper to access a member property/callback of a component.
 ///
 /// Because the parent can be deleted (issue #3464), this might be an option when accessing the parent
@@ -3602,7 +3688,7 @@ enum MemberAccess {
     /// The string is a an expression to an `std::optional`
     Option(String),
     /// The first string is an expression to an `std::optional`,
-    /// the second is a string to be appended after dereferncing the optional
+    /// the second is a string to be appended after dereferencing the optional
     /// like so: `<1>.transform([](auto &&x) { return x<2>; })`
     OptionWithMember(String, String),
 }
@@ -3744,11 +3830,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         }
         Expression::CallBackCall { callback, arguments } => {
             let f = access_member(callback, ctx);
+            let tracker_get = access_callback_tracker_cpp(callback, ctx)
+                .map(|t| format!("(void){t}.get(), "))
+                .unwrap_or_default();
             let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
             if expr.ty(ctx) == Type::Void {
-                f.then(|f| format!("{f}.call({})", a.join(",")))
+                f.then(|f| format!("{tracker_get}{f}.call({})", a.join(",")))
             } else {
-                f.map_or_default(|f| format!("{f}.call({})", a.join(",")))
+                f.map_or_default(|f| format!("({tracker_get}{f}.call({}))", a.join(",")))
             }
         }
         Expression::FunctionCall { function, arguments } => {
@@ -4568,7 +4657,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::SetupMenuBar => {
             let window = access_window_field(ctx);
-            let [llr::Expression::PropertyReference(entries_r), llr::Expression::PropertyReference(sub_menu_r), llr::Expression::PropertyReference(activated_r), llr::Expression::NumberLiteral(tree_index), llr::Expression::BoolLiteral(no_native), rest @ ..] = arguments
+            let [llr::Expression::PropertyReference(entries_r), llr::Expression::PropertyReference(sub_menu_r), llr::Expression::PropertyReference(activated_r), llr::Expression::NumberLiteral(tree_index), llr::Expression::BoolLiteral(no_native), condition, visible, ..] = arguments
             else {
                 panic!("internal error: incorrect argument count to SetupMenuBar")
             };
@@ -4587,21 +4676,22 @@ fn compile_builtin_function_call(
                     slint::private_api::setup_popup_menu_from_menu_item_tree(menu_wrapper, {access_entries}, {access_sub_menu}, {access_activated});
                 }}")
             } else {
-                let condition = if let [condition] = &rest {
-                    let condition = compile_expression(condition, ctx);
+                let compile_prop = |prop_expr: &llr::Expression| {
+                    let binding = compile_expression(prop_expr, ctx);
                     format!(r"[](auto menu_tree) {{
                                 auto self_mapped = reinterpret_cast<const {item_tree_id} *>(menu_tree->operator->())->parent.lock();
                                 [[maybe_unused]] auto self = &**self_mapped;
-                                return {condition};
+                                return {binding};
                             }}")
-                } else {
-                    "nullptr".to_string()
                 };
+
+                let condition = compile_prop(condition);
+                let visible = compile_prop(visible);
 
                 format!(r"{{
                     auto item_tree = {item_tree_id}::create(self);
                     auto item_tree_dyn = item_tree.into_dyn();
-                    auto menu_wrapper = slint::private_api::create_menu_wrapper(item_tree_dyn, {condition});
+                    auto menu_wrapper = slint::private_api::create_menu_wrapper(item_tree_dyn, {condition}, {visible});
                     slint::private_api::slint_windowrc_setup_menu_bar_shortcuts(&{window}.handle(), &menu_wrapper);
                     if ({window}.supports_native_menu_bar()) {{
                         slint::cbindgen_private::slint_windowrc_setup_native_menu_bar(&{window}.handle(), &menu_wrapper);
@@ -4923,13 +5013,16 @@ fn compile_builtin_function_call(
             if let [llr::Expression::NumberLiteral(timer_index)] = arguments {
                 format!("const_cast<slint::Timer&>(self->timer{}).restart()", timer_index)
             } else {
-                panic!("internal error: invalid args to RetartTimer {arguments:?}")
+                panic!("internal error: invalid args to RestartTimer {arguments:?}")
             }
         }
         BuiltinFunction::OpenUrl => {
             let url = a.next().unwrap();
             let window = access_window_field(ctx);
             format!("slint::private_api::open_url({url}, {window})")
+        }
+        BuiltinFunction::BringAllToFront => {
+            "slint::private_api::bring_all_to_front()".to_owned()
         }
         BuiltinFunction::ParseMarkdown => {
             let format_string = a.next().unwrap();
@@ -4939,6 +5032,10 @@ fn compile_builtin_function_call(
         BuiltinFunction::StringToStyledText => {
             let string = a.next().unwrap();
             format!("slint::private_api::string_to_styled_text({})", string)
+        }
+        BuiltinFunction::ColorToStyledText => {
+            let color = a.next().unwrap();
+            format!("slint::private_api::color_to_styled_text({})", color)
         }
     }
 }

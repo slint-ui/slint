@@ -1,7 +1,7 @@
 
 # Weather Demo
 
-A simple, cross-platform (Desktop, Android, Wasm) weather application using real weather data from the [OpenWeather](https://openweathermap.org/) API.
+A simple, cross-platform (Desktop, Android, Wasm) weather application using real weather data from the [Open-Meteo](https://open-meteo.com/) API.
 
 | `.slint` Design | Rust Source (Desktop) | Rust Source (Android / Wasm) | Online wasm Preview | Open in SlintPad |
 | --- | --- | --- | --- | --- |
@@ -9,7 +9,7 @@ A simple, cross-platform (Desktop, Android, Wasm) weather application using real
 
 Weather Demo is a weather application made by [Felgo](https://felgo.com/).
 
-The application retrieves weather data from the [OpenWeather](https://openweathermap.org/) API to provide:
+The application retrieves weather data from the [Open-Meteo](https://open-meteo.com/) API to provide:
 * Real-time weather data,
 * 8-day forecasts data,
 * Temperatures at particular times of the day,
@@ -31,11 +31,9 @@ The application retrieves weather data from the [OpenWeather](https://openweathe
 </p>
 
 ## Weather data
-To enable real weather data from the [OpenWeather](https://openweathermap.org/) API, you must enable the `open_weather` feature and provide the `OPEN_WEATHER_API_KEY` environment variable with your API key at build time. The [OpenCall API](https://openweathermap.org/price#onecall) subscription is required.
+Real weather data from [Open-Meteo](https://open-meteo.com/) is enabled by default (the `open_meteo` feature). No API key is required.
 
-If you do not enable the feature or provide the key, the application loads the dummy data instead.
-
-**Note:** You cannot use real weather data for the WebAssembly target.
+On the WebAssembly target, the application loads dummy data instead.
 
 # Supported platforms
 
@@ -48,10 +46,18 @@ To start the application, execute:
 cargo run
 ```
 
+## Node.js
+
+```sh
+cd demos/weather-demo
+pnpm install
+pnpm start
+```
+
+Real weather data is fetched automatically from Open-Meteo (no API key needed).
+
 ## Android
 To be able to compile the application for Android, you must follow an initial setup. The instruction is available in [Slint's documentation](https://releases.slint.dev/latest/docs/rust/slint/android/#building-and-deploying).
-
-***Note:*** To build `openssl` for Android, you must ensure that the proper development libraries are available in the system and provided in the `PATH` variable.
 
 To start the application, execute:
 

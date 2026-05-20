@@ -110,13 +110,28 @@ macro_rules! for_each_builtin_structs {
 
             /// This structure is passed to the callbacks of the `DropArea` element
             struct DropEvent {
-                @name = BuiltinPrivateStruct::DropEvent,
+                @name = BuiltinPublicStruct::DropEvent,
                 export {
                     /// The payload set on the source `DragArea`.
                     data: DataTransfer,
 
                     /// The cursor position in the `DropArea`'s local coordinates.
                     position: LogicalPosition,
+
+                    /// Mirrors `DragArea.allow-copy`: true if the source allows the drop to copy the data.
+                    allow_copy: bool,
+
+                    /// Mirrors `DragArea.allow-move`: true if the source allows the drop to move the data.
+                    allow_move: bool,
+
+                    /// Mirrors `DragArea.allow-link`: true if the source allows the drop to link to the data.
+                    allow_link: bool,
+
+                    /// The action negotiated from current modifier state and the source's `preferred-action`,
+                    /// clamped to the allowed set. Updated on every `DragMove`. The target's `can-drop`
+                    /// callback can return this to honor the user's modifier choice, or override with
+                    /// any other allowed action.
+                    proposed_action: DragAction,
                 }
                 private {
                 }
@@ -129,6 +144,20 @@ macro_rules! for_each_builtin_structs {
                 export {
                     /// The text content of the item
                     text: SharedString,
+                }
+                private {
+                }
+            }
+
+            /// Represents one option in a `RadioGroup`.
+            #[non_exhaustive]
+            struct RadioEntry {
+                @name = BuiltinPublicStruct::RadioEntry,
+                export {
+                    /// Label shown next to the radio button.
+                    text: SharedString,
+                    /// When `true`, this option is visible but not selectable.
+                    disabled: bool,
                 }
                 private {
                 }

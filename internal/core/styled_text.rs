@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-/// Styled text that has been parsed and seperated into paragraphs
+/// Styled text that has been parsed and separated into paragraphs
 #[repr(transparent)]
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct StyledText {
@@ -161,6 +161,22 @@ pub fn parse_markdown(_format_string: &str, _args: &[StyledText]) -> StyledText 
         }
 
         StyledText { paragraphs: paragraphs.as_slice().into() }
+    }
+    #[cfg(not(feature = "std"))]
+    Default::default()
+}
+
+pub fn color_to_styled_text(_color: crate::Color) -> StyledText {
+    #[cfg(feature = "std")]
+    {
+        let hex = alloc::format!(
+            "#{:02x}{:02x}{:02x}{:02x}",
+            _color.red(),
+            _color.green(),
+            _color.blue(),
+            _color.alpha()
+        );
+        StyledText::from_plain_text(&hex)
     }
     #[cfg(not(feature = "std"))]
     Default::default()

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore qualname
 use i_slint_compiler::diagnostics::{ByteFormat, Diagnostic, DiagnosticLevel, SourceFile, Spanned};
 use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::{ElementType, Type};

@@ -1,13 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-#[panic_handler]
-fn panic(info: &core::panic::PanicInfo) -> ! {
-    esp_println::println!("Panic: {:?}", info);
-    loop {}
-}
-esp_bootloader_esp_idf::esp_app_desc!();
-
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::RefCell;
@@ -35,6 +28,14 @@ use log::{error, info, warn};
 use mipidsi::options::{ColorOrder, Orientation, Rotation};
 use slint::platform::PointerEventButton;
 use slint::platform::WindowEvent;
+
+#[panic_handler]
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    esp_println::println!("Panic: {:?}", info);
+    loop {}
+}
+
+esp_bootloader_esp_idf::esp_app_desc!();
 
 struct EspBackend {
     window: RefCell<Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow>>>,

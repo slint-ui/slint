@@ -1,9 +1,9 @@
 ---
-// cSpell: ignore libx libxcursor libxkbcommon
 title: Winit Backend
 description: Winit Backend
 next: false
 ---
+<!-- cSpell: ignore libx libxcursor libxkbcommon -->
 
 The Winit backend uses the [winit](https://docs.rs/winit/latest/winit/) library to interact with the
 windowing system.

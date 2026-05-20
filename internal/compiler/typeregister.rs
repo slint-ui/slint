@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore imum
+// cSpell: ignore imum noarg strarg
 
 use smol_str::{SmolStr, StrExt, ToSmolStr};
 use std::cell::RefCell;
@@ -57,7 +57,7 @@ pub const RESERVED_FLEXBOXLAYOUT_PROPERTIES: &[(&str, Type)] = &[
 ];
 
 macro_rules! declare_enums {
-    ($( $(#[$enum_doc:meta])* enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
+    ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
         #[allow(non_snake_case)]
         pub struct BuiltinEnums {
             $(pub $Name : Rc<Enumeration>),*
@@ -219,7 +219,16 @@ pub const RESERVED_DROP_SHADOW_PROPERTIES: &[(&str, Type)] = &[
     ("drop-shadow-offset-x", Type::LogicalLength),
     ("drop-shadow-offset-y", Type::LogicalLength),
     ("drop-shadow-blur", Type::LogicalLength),
+    ("drop-shadow-spread", Type::LogicalLength),
     ("drop-shadow-color", Type::Color),
+];
+
+pub const RESERVED_INSET_SHADOW_PROPERTIES: &[(&str, Type)] = &[
+    ("inset-shadow-offset-x", Type::LogicalLength),
+    ("inset-shadow-offset-y", Type::LogicalLength),
+    ("inset-shadow-blur", Type::LogicalLength),
+    ("inset-shadow-spread", Type::LogicalLength),
+    ("inset-shadow-color", Type::Color),
 ];
 
 pub const RESERVED_TRANSFORM_PROPERTIES: &[(&str, Type)] = &[
@@ -282,6 +291,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         .chain(RESERVED_LAYOUT_PROPERTIES.iter())
         .chain(RESERVED_OTHER_PROPERTIES.iter())
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
+        .chain(RESERVED_INSET_SHADOW_PROPERTIES.iter())
         .chain(RESERVED_TRANSFORM_PROPERTIES.iter())
         .chain(DEPRECATED_ROTATION_ORIGIN_PROPERTIES.iter())
         .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input))
@@ -664,17 +674,6 @@ impl TypeRegister {
         register.types.remove("FlexboxLayoutAlignContent").unwrap();
         register.types.remove("FlexboxLayoutWrap").unwrap();
         register.types.remove("FlexboxLayoutAlignSelf").unwrap();
-
-        match register.elements.get_mut("Window").unwrap() {
-            ElementType::Builtin(b) => {
-                Rc::get_mut(b)
-                    .expect("Should not be shared at this point")
-                    .properties
-                    .remove("hide")
-                    .unwrap();
-            }
-            _ => unreachable!(),
-        }
 
         Rc::new(RefCell::new(register))
     }

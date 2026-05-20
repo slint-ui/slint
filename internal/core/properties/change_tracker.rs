@@ -1,12 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use super::{
-    BindingHolder, BindingResult, BindingVTable, DependencyListHead, DependencyNode,
-    single_linked_list_pin::SingleLinkedListPinHead,
-};
+use super::{BindingHolder, BindingResult, BindingVTable, DependencyListHead, DependencyNode};
 use alloc::boxed::Box;
 use core::cell::{Cell, UnsafeCell};
+use core::ffi::c_void;
 use core::marker::PhantomPinned;
 use core::pin::Pin;
 use core::ptr::addr_of;
@@ -72,7 +70,7 @@ impl ChangeTracker {
     ///
     /// Same as [`Self::init`], but the first eval function is called in a future evaluation of the event loop.
     /// This means that the change tracker will consider the value as default initialized, and the eval function will
-    /// be called the firs ttime if the initial value is not equal to the default constructed value.
+    /// be called the first time if the initial value is not equal to the default constructed value.
     pub fn init_delayed<
         Data: 'static,
         T: Default + PartialEq,
@@ -115,17 +113,18 @@ impl ChangeTracker {
             Data: 'static,
         >(
             _self: *const BindingHolder,
-            _value: *mut (),
+            _value: *mut c_void,
         ) -> BindingResult {
             unsafe {
-                let pinned_holder = Pin::new_unchecked(&*_self);
+                let _self_raw = _self;
                 let _self = _self as *const BindingHolder<ChangeTrackerInner<T, EF, NF, Data>>;
                 let inner = core::ptr::addr_of!((*_self).binding).as_ref().unwrap();
-                (*core::ptr::addr_of!((*_self).dep_nodes)).take();
+                *(*core::ptr::addr_of!((*_self).dep_nodes)).get() = Default::default();
                 assert!(!inner.evaluating.get());
                 inner.evaluating.set(true);
-                let new_value = super::CURRENT_BINDING
-                    .set(Some(pinned_holder), || (inner.eval_fn)(&inner.data));
+                let new_value = super::current_binding_storage::set(Some(_self_raw), || {
+                    (inner.eval_fn)(&inner.data)
+                });
                 {
                     // Safety: We just set `evaluating` to true which means we can borrow
                     let inner_value = &mut *inner.value.get();
@@ -174,7 +173,7 @@ impl ChangeTracker {
             };
         }
         let holder = BindingHolder {
-            dependencies: Cell::new(0),
+            dependencies: Cell::new(core::ptr::null_mut()),
             dep_nodes: Default::default(),
             vtable: <ChangeTrackerInner<T, EF, NF, Data> as HasBindingVTable>::VT,
             dirty: Cell::new(false),
@@ -188,18 +187,21 @@ impl ChangeTracker {
         let raw = Box::into_raw(Box::new(holder));
         unsafe { self.set_internal(raw as *mut BindingHolder) };
         if delayed {
-            let mut dep_nodes = SingleLinkedListPinHead::default();
-            let node = dep_nodes.push_front(DependencyNode::new(raw as *const BindingHolder));
-            CHANGED_NODES.with(|changed_nodes| {
-                changed_nodes.append(node);
-            });
-            unsafe { (*core::ptr::addr_of_mut!((*raw).dep_nodes)).set(dep_nodes) };
+            // Safety: raw is valid and we own it
+            unsafe {
+                let dep_nodes = &mut *(*core::ptr::addr_of!((*raw).dep_nodes)).get();
+                let node = dep_nodes.push_front(DependencyNode::new(raw as *const BindingHolder));
+                CHANGED_NODES.with(|changed_nodes| {
+                    changed_nodes.append(node);
+                });
+            }
             return;
         }
         let value = unsafe {
-            let pinned_holder = Pin::new_unchecked((raw as *mut BindingHolder).as_ref().unwrap());
             let inner = core::ptr::addr_of!((*raw).binding).as_ref().unwrap();
-            super::CURRENT_BINDING.set(Some(pinned_holder), || (inner.eval_fn)(&inner.data))
+            super::current_binding_storage::set(Some(raw as *const BindingHolder), || {
+                (inner.eval_fn)(&inner.data)
+            })
         };
         unsafe {
             *core::ptr::addr_of_mut!((*raw).binding).as_mut().unwrap().value.get_mut() = value
@@ -253,16 +255,20 @@ impl ChangeTracker {
     }
 
     pub(super) unsafe fn mark_dirty(_self: *const BindingHolder, _was_dirty: bool) {
-        let _self = unsafe { _self.as_ref().unwrap() };
-        let node_head = _self.dep_nodes.take();
-        if let Some(node) = node_head.iter().next() {
-            node.remove();
-            CHANGED_NODES.with(|changed_nodes| {
-                changed_nodes.append(node);
-            });
+        unsafe {
+            // Take dep_nodes out so we can iterate without alias conflicts.
+            let dep_nodes = &mut *(*_self).dep_nodes.get();
+            let node_head = core::mem::take(dep_nodes);
+            if let Some(node) = node_head.iter().next() {
+                node.remove();
+                CHANGED_NODES.with(|changed_nodes| {
+                    changed_nodes.append(node);
+                });
+            }
+            // Restore the list.
+            let other = core::mem::replace(dep_nodes, node_head);
+            debug_assert!(other.iter().next().is_none());
         }
-        let other = _self.dep_nodes.replace(node_head);
-        debug_assert!(other.iter().next().is_none());
     }
 
     pub(super) unsafe fn set_internal(&self, raw: *mut BindingHolder) {
@@ -328,7 +334,7 @@ fn delete_from_eval_fn() {
     let xyz = RefCell::new(String::from("*"));
     let result = Rc::new(RefCell::new(String::new()));
     let result2 = result.clone();
-    // The change event are run in reverse order as they are created, so this one shouldn't be ever called as it is being detroyed from `change`
+    // The change event are run in reverse order as they are created, so this one shouldn't be ever called as it is being destroyed from `change`
     let another = Rc::<RefCell<Option<ChangeTracker>>>::new(Some(ChangeTracker::default()).into());
     another.borrow().as_ref().unwrap().init_delayed(
         (),
@@ -359,7 +365,7 @@ fn delete_from_eval_fn() {
 }
 
 #[test]
-fn change_mutliple_dependencies() {
+fn change_multiple_dependencies() {
     use super::Property;
     use std::cell::RefCell;
     use std::rc::Rc;

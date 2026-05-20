@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore hotspots
 //! Benchmarks for the compiler's semantic analysis phase.
 //!
 //! These benchmarks measure the performance of various compilation stages,

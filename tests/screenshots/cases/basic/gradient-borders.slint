@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// BASE_THRESHOLD=3
+// ROTATION_THRESHOLD=100  - the border radius algorithm don't give the same result from every rotation
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: black;
+
+    GridLayout {
+        Row {
+            // Linear gradient border, sharp corners
+            Rectangle {
+                background: white;
+                border-width: 8px;
+                border-color: @linear-gradient(0deg, red, blue);
+            }
+            // Linear gradient border, rounded corners
+            Rectangle {
+                background: white;
+                border-width: 8px;
+                border-radius: 4px;
+                border-color: @linear-gradient(90deg, red, yellow, blue);
+            }
+        }
+        Row {
+            // Conic gradient border
+            Rectangle {
+                background: white;
+                border-width: 8px;
+                border-radius: 4px;
+                border-color: @conic-gradient(red 0deg, green 120deg, blue 240deg, red 360deg);
+            }
+            // Radial gradient border
+            Rectangle {
+                background: white;
+                border-width: 8px;
+                border-radius: 8px;
+                border-color: @radial-gradient(circle, cyan, red);
+            }
+        }
+    }
+}

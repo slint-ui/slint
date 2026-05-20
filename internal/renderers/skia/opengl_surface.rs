@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore fboid
 use std::num::NonZeroU32;
 use std::{cell::RefCell, sync::Arc};
 
@@ -15,6 +16,7 @@ use i_slint_core::api::{GraphicsAPI, PhysicalSize as PhysicalWindowSize, Window}
 use i_slint_core::graphics::{BorrowedOpenGLTexture, RequestedGraphicsAPI, RequestedOpenGLVersion};
 use i_slint_core::partial_renderer::DirtyRegion;
 use i_slint_core::platform::PlatformError;
+use i_slint_core::renderer::DrawOutcome;
 
 use crate::SkiaSharedContext;
 
@@ -103,7 +105,7 @@ impl super::Surface for OpenGLSurface {
             u8,
         ) -> Option<DirtyRegion>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
-    ) -> Result<(), PlatformError> {
+    ) -> Result<DrawOutcome, PlatformError> {
         self.ensure_context_current()?;
 
         let current_context = &self.glutin_context;
@@ -141,9 +143,11 @@ impl super::Surface for OpenGLSurface {
             pre_present_callback();
         }
 
-        self.glutin_surface.swap_buffers(current_context).map_err(|glutin_error| {
-            format!("Skia OpenGL Renderer: Error swapping buffers: {glutin_error}").into()
-        })
+        self.glutin_surface.swap_buffers(current_context).map(|_| DrawOutcome::Success).map_err(
+            |glutin_error| {
+                format!("Skia OpenGL Renderer: Error swapping buffers: {glutin_error}").into()
+            },
+        )
     }
 
     fn resize_event(&self, size: PhysicalWindowSize) -> Result<(), PlatformError> {

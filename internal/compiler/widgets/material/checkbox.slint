@@ -7,6 +7,8 @@ import { MaterialPalette, MaterialFontSettings, Icons } from "styling.slint";
 export component CheckBox {
     in property <string> text <=> i-text.text;
     in property <bool> enabled: true;
+    in property <length> font-size: MaterialFontSettings.title-small.font-size;
+    in property <int> font-weight: MaterialFontSettings.title-small.font-weight;
     out property <bool> has-focus: i-focus-scope.has-focus;
     in-out property <bool> checked;
 
@@ -131,8 +133,8 @@ export component CheckBox {
             horizontal-alignment: left;
             vertical-alignment: center;
             vertical-stretch: 1;
-            font-size: MaterialFontSettings.title-small.font-size;
-            font-weight: MaterialFontSettings.title-small.font-weight;
+            font-size: root.font-size;
+            font-weight: root.font-weight;
         }
     }
 

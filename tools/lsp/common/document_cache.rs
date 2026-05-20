@@ -365,7 +365,7 @@ impl DocumentCache {
     /// Returns the list of dependencies that were invalidated.
     ///
     /// Compared to [Self::invalidate_url], this actually causes the document to be reloaded from
-    /// disk, not just reparsed.
+    /// disk, not just reparse.
     pub fn drop_document(&mut self, url: &Url) -> Result<HashSet<Url>> {
         let Some(path) = uri_to_file(url) else {
             // This isn't fatal, but we might want to learn about paths/schemes to support in the future.

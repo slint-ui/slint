@@ -1,12 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore madsmtm
 use std::cell::{Cell, RefCell};
 use std::sync::Arc;
 
 use i_slint_core::api::{PhysicalSize as PhysicalWindowSize, Window};
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::partial_renderer::DirtyRegion;
+use i_slint_core::renderer::DrawOutcome;
 
 use vulkano::device::physical::{PhysicalDevice, PhysicalDeviceType};
 use vulkano::device::{
@@ -83,7 +85,7 @@ pub struct VulkanSurface {
 }
 
 impl VulkanSurface {
-    /// Creates a Skia Vulkan rendering surface from the given Vukano device, queue family index, surface,
+    /// Creates a Skia Vulkan rendering surface from the given Vulkano device, queue family index, surface,
     /// and size.
     pub fn from_surface(
         physical_device: Arc<PhysicalDevice>,
@@ -285,7 +287,7 @@ impl super::Surface for VulkanSurface {
             u8,
         ) -> Option<DirtyRegion>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
+    ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         let gr_context = &mut self.gr_context.borrow_mut();
 
         let device = self.device.clone();
@@ -325,7 +327,7 @@ impl super::Surface for VulkanSurface {
                 Ok(r) => r,
                 Err(VulkanError::OutOfDate) => {
                     self.recreate_swapchain.set(true);
-                    return Ok(()); // Try again next frame
+                    return Ok(DrawOutcome::Occluded); // Try again next frame
                 }
                 Err(e) => return Err(format!("Vulkan: failed to acquire next image: {e}").into()),
             };
@@ -418,7 +420,7 @@ impl super::Surface for VulkanSurface {
             }
         }
 
-        Ok(())
+        Ok(DrawOutcome::Success)
     }
 
     fn bits_per_pixel(&self) -> Result<u8, i_slint_core::platform::PlatformError> {

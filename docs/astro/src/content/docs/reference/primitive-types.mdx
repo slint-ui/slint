@@ -1,8 +1,8 @@
 ---
 title: Types
 description: All Slint types
-// cSpell: ignore Farbfeld
 ---
+{/* cSpell: ignore Farbfeld */}
 
 import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
 import Link from '@slint/common-files/src/components/Link.astro';
@@ -105,6 +105,12 @@ Create styled text with the `@markdown()` macro. For example: `@markdown("Hello 
 Any text passed as an argument to the macro will be escaped, for example `@markdown("Hello \{"*World*"}")` will become `"Hello \*World\*"`.
 
 If multiple string literal are used, they are concatenated.
+
+Use `<font color='...'>` to apply colors.
+Literal color names and hex values work directly: `@markdown("<font color='red'>warning</font>")`.
+To interpolate a dynamic color, the expression must be of type `color`:
+`@markdown("<font color='\{self.my-color}'>colored</font>")`.
+Interpolation inside HTML tags is only allowed in the color attribute value.
 
 </SlintProperty>
 

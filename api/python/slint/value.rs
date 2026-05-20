@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore asdict hasattr pybrush pycolor pyimg pymodel pyval rustmodel slintval strongrefs
 use i_slint_compiler::generator::python::ident;
 use pyo3::types::PyDict;
 use pyo3::{IntoPyObjectExt, PyTraverseError};
@@ -11,7 +12,7 @@ use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use i_slint_compiler::langtype::Type;
+use i_slint_compiler::langtype::{BuiltinPublicStruct, StructName, Type};
 
 use i_slint_core::model::{Model, ModelRc};
 
@@ -56,7 +57,28 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
                 )
             }
             Value::Struct(structval) => {
+                // Surface the geometry types as their dedicated pyo3 classes so users get
+                // `slint.LogicalPosition` / `slint.LogicalSize` (with proper `isinstance` and
+                // `repr`) instead of a generic `PyStruct`. The interpreter's `Struct` is just
+                // a `HashMap` with no name attached; identify the type via `expected_type`.
                 let struct_type = expected_type.filter(|t| matches!(t, Type::Struct(_)));
+                if let Some(Type::Struct(s)) = struct_type.as_ref() {
+                    match &s.name {
+                        StructName::BuiltinPublic(BuiltinPublicStruct::LogicalPosition) => {
+                            let x = struct_field_as_f32(&structval, "x");
+                            let y = struct_field_as_f32(&structval, "y");
+                            return crate::geometry::PyLogicalPosition { x, y }
+                                .into_bound_py_any(py);
+                        }
+                        StructName::BuiltinPublic(BuiltinPublicStruct::LogicalSize) => {
+                            let width = struct_field_as_f32(&structval, "width");
+                            let height = struct_field_as_f32(&structval, "height");
+                            return crate::geometry::PyLogicalSize { width, height }
+                                .into_bound_py_any(py);
+                        }
+                        _ => {}
+                    }
+                }
                 type_collection.struct_to_py(structval, struct_type).into_bound_py_any(py)
             }
             Value::Brush(brush) => crate::brush::PyBrush::from(brush).into_bound_py_any(py),
@@ -67,6 +89,9 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
                 type_collection.enum_to_py(&enum_name, &enum_value, py)?.into_bound_py_any(py)
             }
             Value::Keys(keys) => crate::keys::PyKeys::from(keys).into_bound_py_any(py),
+            Value::DataTransfer(data) => {
+                crate::data_transfer::PyDataTransfer::from(data).into_bound_py_any(py)
+            }
             v @ _ => {
                 eprintln!(
                     "Python: conversion from slint to python needed for {v:#?} and not implemented yet"
@@ -103,6 +128,13 @@ fn traverse_struct(
         traverse_value(value, visit)?;
     }
     Ok(())
+}
+
+fn struct_field_as_f32(structval: &slint_interpreter::Struct, name: &str) -> f32 {
+    match structval.get_field(name) {
+        Some(slint_interpreter::Value::Number(n)) => *n as f32,
+        _ => 0.0,
+    }
 }
 
 pub fn clear_strongrefs_in_value(value: &slint_interpreter::Value) {
@@ -274,8 +306,7 @@ impl TypeCollection {
             }
         }
 
-        let enum_classes = Rc::new(enum_classes);
-        Self { enum_classes }
+        Self { enum_classes: Rc::new(enum_classes) }
     }
 
     pub fn to_py_value(
@@ -300,12 +331,12 @@ impl TypeCollection {
         enum_value: &str,
         py: Python<'_>,
     ) -> Result<Py<PyAny>, PyErr> {
-        let enum_cls = self.enum_classes.get(ident(enum_name).as_str()).ok_or_else(|| {
-            PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
-                "Slint provided enum {enum_name} is unknown"
-            ))
-        })?;
-        enum_cls.getattr(py, enum_value)
+        let key = ident(enum_name);
+        if let Some(cls) = self.enum_classes.get(key.as_str()) {
+            return cls.getattr(py, enum_value);
+        }
+        // Built-in language enums live on the `slint.language` module.
+        py.import("slint.language")?.getattr(key.as_str())?.getattr(enum_value).map(|v| v.unbind())
     }
 
     pub fn model_to_py(
@@ -367,6 +398,10 @@ impl TypeCollection {
                     .map(|keys| slint_interpreter::Value::Keys(keys.keys.clone()))
             })
             .or_else(|_| {
+                ob.extract::<PyRef<'_, crate::data_transfer::PyDataTransfer>>()
+                    .map(|data| slint_interpreter::Value::DataTransfer(data.data_transfer.clone()))
+            })
+            .or_else(|_| {
                 ob.extract::<PyRef<'_, crate::brush::PyColor>>()
                     .map(|pycolor| slint_interpreter::Value::Brush(pycolor.color.into()))
             })
@@ -386,6 +421,28 @@ impl TypeCollection {
                         expected_type,
                         rustmodel.model.clone(),
                     ))
+                })
+            })
+            .or_else(|_| {
+                ob.extract::<PyRef<'_, crate::geometry::PyLogicalPosition>>().map(|pos| {
+                    let mut s = slint_interpreter::Struct::default();
+                    s.set_field("x".into(), slint_interpreter::Value::Number(pos.x as f64));
+                    s.set_field("y".into(), slint_interpreter::Value::Number(pos.y as f64));
+                    slint_interpreter::Value::Struct(s)
+                })
+            })
+            .or_else(|_| {
+                ob.extract::<PyRef<'_, crate::geometry::PyLogicalSize>>().map(|size| {
+                    let mut s = slint_interpreter::Struct::default();
+                    s.set_field(
+                        "width".into(),
+                        slint_interpreter::Value::Number(size.width as f64),
+                    );
+                    s.set_field(
+                        "height".into(),
+                        slint_interpreter::Value::Number(size.height as f64),
+                    );
+                    slint_interpreter::Value::Struct(s)
                 })
             })
             .or_else(|_| {

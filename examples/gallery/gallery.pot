@@ -124,7 +124,7 @@ msgstr ""
 #: ui/pages/about_page.slint:11
 msgctxt "AboutPage"
 msgid ""
-"Are you curious now? Check out the docs and getting starteds from the Github "
+"Are you curious now? Check out the docs and getting started guides on the GitHub "
 "repository and the website https://slint.dev and try it yourself."
 msgstr ""
 

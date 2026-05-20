@@ -35,6 +35,9 @@
     "data_transfer": {
         "href": "reference/primitive-types/#data-transfer"
     },
+    "DragAction": {
+        "href": "reference/global-structs-enums/#dragaction"
+    },
     "DragArea": {
         "href": "reference/drag-and-drop/dragarea/"
     },

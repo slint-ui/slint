@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore theproperty underscoresanddashespreserved xreadonly
 use crate::dynamic_item_tree::{ErasedItemTreeBox, WindowOptions};
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::PathData;
@@ -347,7 +348,7 @@ i_slint_common::for_each_builtin_structs!(declare_value_struct_conversion);
 /// The `enum` must derive `Display` and `FromStr`
 /// (can be done with `strum_macros::EnumString`, `strum_macros::Display` derive macro)
 macro_rules! declare_value_enum_conversion {
-    ($( $(#[$enum_doc:meta])* enum $Name:ident { $($body:tt)* })*) => { $(
+    ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $($body:tt)* })*) => { $(
         impl From<i_slint_core::items::$Name> for Value {
             fn from(v: i_slint_core::items::$Name) -> Self {
                 Value::EnumerationValue(stringify!($Name).to_owned(), v.to_string())

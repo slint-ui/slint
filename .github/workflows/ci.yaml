@@ -45,7 +45,6 @@ jobs:
         slint: ${{ inputs.full || steps.filter.outputs.slint == 'true' }}
         figma_inspector: ${{ inputs.full || steps.filter.outputs.figma_inspector == 'true' }}
         material_components: ${{ inputs.full || steps.filter.outputs.material_components == 'true' }}
-        safety_docs: ${{ inputs.full || steps.filter.outputs.safety_docs == 'true' }}
         internal: ${{ inputs.full || steps.filter.outputs.internal == 'true' }}
         api_cpp: ${{ inputs.full || steps.filter.outputs.api_cpp == 'true' }}
         api_python: ${{ inputs.full || steps.filter.outputs.api_python == 'true' }}
@@ -63,6 +62,7 @@ jobs:
         qt: ${{ inputs.full || steps.filter.outputs.qt == 'true' }}
         docs_build: ${{ inputs.full || steps.filter.outputs.docs_build == 'true' }}
         tree_sitter: ${{ inputs.full || steps.filter.outputs.tree_sitter == 'true' }}
+        slint_sc: ${{ inputs.full || steps.filter.outputs.slint_sc == 'true' }}
       steps:
         - uses: actions/checkout@v6
           if: ${{ !inputs.full }}
@@ -328,7 +328,7 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.6
+            - uses: pnpm/action-setup@v6.0.8
               with:
                 version: 10.29.3
             - uses: Swatinem/rust-cache@v2
@@ -546,6 +546,7 @@ jobs:
                             --skip test_interpreter_elements_path_fit \
                             --skip test_interpreter_layout_path \
                             --skip test_interpreter_7guis_booker \
+                            --skip example_bash_sysinfo \
 
     # Test that the formater don't introduce slint compilation error
     fmt_test:
@@ -683,7 +684,7 @@ jobs:
                 node-version: 24
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v6.0.6
+            - uses: pnpm/action-setup@v6.0.8
               with:
                 version: 10.29.3
             - name: Run pnpm install
@@ -722,10 +723,6 @@ jobs:
         ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
-    safety-docs:
-      needs: files-changed
-      if: ${{ needs.files-changed.outputs.safety_docs == 'true' }}
-      uses: ./.github/workflows/safety_docs.yaml
 
     servo_example:
         needs: files-changed
@@ -741,6 +738,36 @@ jobs:
             # but don't save the cache (would trash it for the next PR run).
             update: ${{ inputs.full == true }}
             save_if: ${{ inputs.full != true }}
+
+    slint_sc:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.slint_sc == 'true' }}
+        env:
+            CARGO_INCREMENTAL: false
+            CARGO_PROFILE_DEV_DEBUG: 0
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/setup-rust
+              with:
+                  components: llvm-tools-preview
+            - name: Install cargo-llvm-cov
+              uses: taiki-e/install-action@cargo-llvm-cov
+            - name: Test compiler with slint-sc feature
+              run: cargo llvm-cov --no-report -p i-slint-compiler --features slint-sc --no-default-features
+            - name: Test slint-compiler binary with slint-sc feature
+              run: cargo llvm-cov --no-report -p slint-compiler --features slint-sc --no-default-features
+            - name: Test slint-sc runtime
+              run: cargo llvm-cov --no-report -p slint-sc
+            - name: Generate coverage report
+              run: |
+                  cargo llvm-cov report --html --output-dir coverage
+                  cargo llvm-cov report --lcov --output-path coverage/lcov.info
+            - name: Upload coverage report
+              uses: actions/upload-artifact@v7
+              with:
+                  name: slint-sc-coverage
+                  path: coverage
 
     clippy:
         needs: files-changed
@@ -1039,6 +1066,8 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
+            - name: Install system dependencies
+              run: sudo apt-get update && sudo apt-get install -y libfontconfig-dev
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: nightly
@@ -1046,3 +1075,7 @@ jobs:
                   components: miri
             - name: Run Miri
               run: cargo miri test -p vtable -p const-field-offset -p i-slint-common
+            - name: Run Miri on i-slint-core
+              env:
+                  MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-tree-borrows
+              run: cargo miri test -p i-slint-core --lib -- --skip item_tree --skip model

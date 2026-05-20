@@ -3,7 +3,7 @@
 
 //include_path: ../../../demos/printerdemo/ui/images/
 
-FixedWidthtImage := Image {
+FixedWidthImage := Image {
     source: @image-url("cat.jpg");
     width: 500phx;
 }
@@ -27,7 +27,7 @@ TestCase := Rectangle {
         }
     }
 
-    image_with_missing_height := FixedWidthtImage {
+    image_with_missing_height := FixedWidthImage {
         property <bool> expected_height_ok: self.height == 750phx;
     }
 

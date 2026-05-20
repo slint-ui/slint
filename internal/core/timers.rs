@@ -432,8 +432,7 @@ pub(crate) mod ffi {
     #![allow(unsafe_code)]
 
     use super::*;
-    #[allow(non_camel_case_types)]
-    type c_void = ();
+    use core::ffi::c_void;
 
     struct WrapFn {
         callback: extern "C" fn(*mut c_void),

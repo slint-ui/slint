@@ -35,6 +35,7 @@
     "artifacts": "napi artifacts",
     "compile": "tsc --build",
     "build": "napi build --platform --release --js rust-module.cjs --dts rust-module.d.cts -c binaries.json",
+    "build:minimal": "napi build --platform --js rust-module.cjs --dts rust-module.d.cts -c binaries.json --no-default-features",
     "build:debug": "napi build --platform --js rust-module.cjs --dts rust-module.d.cts -c binaries.json && pnpm compile",
     "build:testing": "napi build --platform --js rust-module.cjs --dts rust-module.d.cts -c binaries.json --features testing && pnpm compile",
     "install": "node build-on-demand.mjs",

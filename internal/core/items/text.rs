@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore textitem
 /*!
 This module contains the builtin text related items.
 
@@ -973,7 +974,7 @@ impl Item for TextInput {
         }
         match event.event_type {
             KeyEventType::KeyPressed => {
-                // invoke first key_pressed callback to give the developer/designer the possibility to implement a custom behaviour
+                // invoke first key_pressed callback to give the developer/designer the possibility to implement a custom behavior
                 if Self::FIELD_OFFSETS
                     .key_pressed()
                     .apply_pin(self)

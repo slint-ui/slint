@@ -695,7 +695,6 @@ pub enum BuiltinPrivateStruct {
     LayoutInfo,
     FontMetrics,
     PathElement,
-    DropEvent,
     TableColumn,
     MenuEntry,
     Edges,
@@ -721,8 +720,7 @@ impl BuiltinPrivateStruct {
             | Self::TableColumn
             | Self::MenuEntry
             | Self::InternalKeyEvent
-            | Self::Edges
-            | Self::DropEvent => {
+            | Self::Edges => {
                 let name: &'static str = self.into();
                 Some(SmolStr::new_static(name))
             }
@@ -737,11 +735,13 @@ pub enum BuiltinPublicStruct {
     LogicalPosition,
     LogicalSize,
     StandardListViewItem,
+    RadioEntry,
     Keys,
     KeyEvent,
     KeyboardModifiers,
     PointerEvent,
     PointerScrollEvent,
+    DropEvent,
 }
 
 impl BuiltinPublicStruct {
@@ -751,11 +751,13 @@ impl BuiltinPublicStruct {
             Self::LogicalPosition => Some(SmolStr::new_static("Point")),
             Self::LogicalSize => Some(SmolStr::new_static("Size")),
             Self::StandardListViewItem => Some(SmolStr::new_static("StandardListViewItem")),
+            Self::RadioEntry => Some(SmolStr::new_static("RadioEntry")),
             Self::Keys => Some(SmolStr::new_static("Keys")),
             Self::KeyEvent => Some(SmolStr::new_static("KeyEvent")),
             Self::KeyboardModifiers => Some(SmolStr::new_static("KeyboardModifiers")),
             Self::PointerEvent => Some(SmolStr::new_static("PointerEvent")),
             Self::PointerScrollEvent => Some(SmolStr::new_static("PointerScrollEvent")),
+            Self::DropEvent => Some(SmolStr::new_static("DropEvent")),
         }
     }
 }
@@ -1072,7 +1074,7 @@ pub struct Keys {
 }
 
 impl std::fmt::Display for Keys {
-    // Make sure to keep this in sync with the implemenation in core/input.rs
+    // Make sure to keep this in sync with the implementation in core/input.rs
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.key.is_empty() {
             write!(f, "")

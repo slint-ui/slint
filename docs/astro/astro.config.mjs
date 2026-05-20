@@ -236,10 +236,6 @@ export default defineConfig({
                                                       slug: "guide/experimental/component-container",
                                                   },
                                                   {
-                                                      label: "Window.hide()",
-                                                      slug: "guide/experimental/window-hide",
-                                                  },
-                                                  {
                                                       label: "Library Modules",
                                                       slug: "guide/experimental/library-modules",
                                                   },

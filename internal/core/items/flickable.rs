@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore tmax tmin
 //! The implementation details behind the Flickable
 
 //! The `Flickable` item
@@ -398,7 +399,7 @@ struct FlickableDataInner {
     /// Heuristics for filtering scroll events from children after we have scrolled ourselves.
     /// We want to filter those to prevent the case where the user scrolls with the mouse wheel,
     /// but the mouse now moves over a child item, and that item captures the scroll event.
-    /// We use two heurstics: First, a timeout after we received a scroll event, and second, if the mouse moves we
+    /// We use two heuristics: First, a timeout after we received a scroll event, and second, if the mouse moves we
     /// stop filtering scroll event until the next scroll event.
     last_scroll_event: Option<(Instant, LogicalPoint)>,
 

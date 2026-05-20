@@ -1,6 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell: ignore adwaita copypasta webbrowser zbus
 [package]
 name = "i-slint-backend-winit"
 description = "Winit backend for Slint"
@@ -41,7 +42,7 @@ x11 = [
   "softbuffer?/x11-dlopen",
 ]
 renderer-femtovg = ["i-slint-renderer-femtovg/opengl", "dep:glutin", "dep:glutin-winit"]
-renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "dep:i-slint-renderer-femtovg", "unstable-wgpu-28"]
+renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "dep:i-slint-renderer-femtovg", "unstable-wgpu-29"]
 renderer-skia = ["i-slint-renderer-skia"]
 renderer-skia-opengl = ["renderer-skia", "i-slint-renderer-skia/opengl"]
 renderer-skia-vulkan = ["renderer-skia", "i-slint-renderer-skia/vulkan"]
@@ -55,11 +56,11 @@ renderer-software = [
 ]
 accessibility = ["dep:accesskit", "dep:accesskit_winit"]
 raw-window-handle-06 = ["i-slint-core/raw-window-handle-06"]
-unstable-wgpu-27 = ["i-slint-core/unstable-wgpu-27", "i-slint-renderer-skia?/unstable-wgpu-27"]
-unstable-wgpu-28 = [
-  "i-slint-core/unstable-wgpu-28",
-  "i-slint-renderer-femtovg?/unstable-wgpu-28",
-  "i-slint-renderer-skia?/unstable-wgpu-28",
+unstable-wgpu-28 = ["i-slint-core/unstable-wgpu-28", "i-slint-renderer-skia?/unstable-wgpu-28"]
+unstable-wgpu-29 = [
+  "i-slint-core/unstable-wgpu-29",
+  "i-slint-renderer-femtovg?/unstable-wgpu-29",
+  "i-slint-renderer-skia?/unstable-wgpu-29",
 ]
 default = []
 
@@ -129,7 +130,7 @@ i-slint-renderer-skia = { workspace = true, features = ["default"] }
 [target.'cfg(target_os = "ios")'.dependencies]
 objc2 = { workspace = true }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "block2", "NSString", "NSNotification", "NSOperation", "NSGeometry", "objc2-core-foundation"] }
-objc2-ui-kit = { version = "0.3.2", default-features = false, features = ["UIScreen", "UIWindow", "UIView", "UIViewAnimating", "UIViewPropertyAnimator", "UIResponder", "objc2-core-foundation", "objc2-quartz-core", "block2"] }
+objc2-ui-kit = { version = "0.3.2", default-features = false, features = ["UIScreen", "UIWindow", "UIView", "UIViewAnimating", "UIViewPropertyAnimator", "UIResponder", "UIInterface", "UITrait", "UITraitCollection", "objc2-core-foundation", "objc2-quartz-core", "block2"] }
 objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["CADisplayLink", "CATransaction"] }
 # Match version in objc2
 block2 = "0.6.2"

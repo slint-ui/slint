@@ -153,7 +153,7 @@ pub fn extract_enum_docs(
     let mut enums: std::collections::BTreeMap<String, EnumDoc> = std::collections::BTreeMap::new();
 
     macro_rules! gen_enums {
-        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
             $(
                 let name = stringify!($Name).to_string();
                 let mut description = String::new();

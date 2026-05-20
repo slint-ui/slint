@@ -3,6 +3,7 @@
 
 use crate::api::{SetPropertyError, Struct, Value};
 use crate::dynamic_item_tree::{CallbackHandler, InstanceRef};
+use core::ffi::c_void;
 use core::pin::Pin;
 use corelib::graphics::{
     ConicGradientBrush, GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush,
@@ -48,7 +49,7 @@ pub trait ErasedPropertyInfo {
 
     /// Safety: Property2 must be a (pinned) pointer to a `Property<T>`
     /// where T is the same T as the one represented by this property.
-    unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const ());
+    unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const c_void);
 
     fn prepare_for_two_way_binding(&self, item: Pin<ItemRef>) -> Pin<Rc<corelib::Property<Value>>>;
 
@@ -96,7 +97,7 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyIn
     fn set_debug_name(&self, item: Pin<ItemRef>, name: String) {
         (*self).set_debug_name(ItemRef::downcast_pin(item).unwrap(), name);
     }
-    unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const ()) {
+    unsafe fn link_two_ways(&self, item: Pin<ItemRef>, property2: *const c_void) {
         // Safety: ErasedPropertyInfo::link_two_ways and PropertyInfo::link_two_ways have the same safety requirement
         unsafe { (*self).link_two_ways(ItemRef::downcast_pin(item).unwrap(), property2) }
     }
@@ -179,6 +180,15 @@ impl<'a, 'id> EvalLocalContext<'a, 'id> {
             local_variables: Default::default(),
             return_value: None,
         }
+    }
+}
+
+/// Evaluate `expression` as a length / number and return the resulting f32.
+/// Caller's responsibility to only pass length-typed expressions.
+fn eval_to_f32(expression: &Expression, local_context: &mut EvalLocalContext) -> f32 {
+    match eval_expression(expression, local_context) {
+        Value::Number(n) => n as f32,
+        other => unreachable!("expected length-typed expression; got {other:?} for {expression:?}"),
     }
 }
 
@@ -599,10 +609,17 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 panic!("invalid layout cache")
             }
         }
-        Expression::ComputeBoxLayoutInfo(lay, o) => {
-            crate::eval_layout::compute_box_layout_info(lay, *o, local_context)
+        Expression::ComputeBoxLayoutInfo { layout, orientation, cross_axis_size } => {
+            let cross = cross_axis_size.as_deref().map(|e| eval_to_f32(e, local_context));
+            crate::eval_layout::compute_box_layout_info(layout, *orientation, local_context, cross)
         }
-        Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, orientation } => {
+        Expression::ComputeGridLayoutInfo {
+            layout_organized_data_prop,
+            layout,
+            orientation,
+            cross_axis_size,
+        } => {
+            let cross = cross_axis_size.as_deref().map(|e| eval_to_f32(e, local_context));
             let cache = load_property_helper(
                 &ComponentInstance::InstanceRef(local_context.component_instance),
                 &layout_organized_data_prop.element(),
@@ -615,6 +632,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     &organized_data,
                     *orientation,
                     local_context,
+                    cross,
                 )
             } else {
                 panic!("invalid layout organized data cache")
@@ -647,8 +665,14 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::SolveFlexboxLayout(layout) => {
             crate::eval_layout::solve_flexbox_layout(layout, local_context)
         }
-        Expression::ComputeFlexboxLayoutInfo(layout, orientation) => {
-            crate::eval_layout::compute_flexbox_layout_info(layout, *orientation, local_context)
+        Expression::ComputeFlexboxLayoutInfo { layout, orientation, cross_axis_size } => {
+            let cross = cross_axis_size.as_deref().map(|e| eval_to_f32(e, local_context));
+            crate::eval_layout::compute_flexbox_layout_info(
+                layout,
+                *orientation,
+                local_context,
+                cross,
+            )
         }
         Expression::MinMax { ty: _, op, lhs, rhs } => {
             let Value::Number(lhs) = eval_expression(lhs, local_context) else {
@@ -890,16 +914,18 @@ fn call_builtin_function(
                 )
                 .try_into()
                 .expect("Invalid internal enumeration representation for close policy");
+                let popup_x = popup.x.clone();
+                let popup_y = popup.y.clone();
 
                 crate::dynamic_item_tree::show_popup(
                     popup_window,
                     enclosing_component,
                     popup,
-                    |instance_ref| {
+                    move |instance_ref| {
                         let comp = ComponentInstance::InstanceRef(instance_ref);
-                        let x = load_property_helper(&comp, &popup.x.element(), popup.x.name())
+                        let x = load_property_helper(&comp, &popup_x.element(), popup_x.name())
                             .unwrap();
-                        let y = load_property_helper(&comp, &popup.y.element(), popup.y.name())
+                        let y = load_property_helper(&comp, &popup_y.element(), popup_y.name())
                             .unwrap();
                         corelib::api::LogicalPosition::new(
                             x.try_into().unwrap(),
@@ -907,7 +933,7 @@ fn call_builtin_function(
                         )
                     },
                     close_policy,
-                    enclosing_component.self_weak().get().unwrap().clone(),
+                    (*enclosing_component.self_weak().get().unwrap()).clone(),
                     component.window_adapter(),
                     &parent_item,
                 );
@@ -969,7 +995,7 @@ fn call_builtin_function(
                 .apply(enclosing_component.as_ref());
             let inst = crate::dynamic_item_tree::instantiate(
                 compiled.clone(),
-                Some(enclosing_component.self_weak().get().unwrap().clone()),
+                Some((*enclosing_component.self_weak().get().unwrap()).clone()),
                 None,
                 Some(&crate::dynamic_item_tree::WindowOptions::UseExistingWindow(
                     component.window_adapter(),
@@ -985,6 +1011,7 @@ fn call_builtin_function(
                 let menu_item_tree = crate::dynamic_item_tree::make_menu_item_tree(
                     &menu_item_tree,
                     &enclosing_component,
+                    None,
                     None,
                 );
 
@@ -1045,7 +1072,7 @@ fn call_builtin_function(
             compiled
                 .set_callback_handler(
                     inst_ref.borrow(),
-                    "close",
+                    "close-popup",
                     Box::new(move |_args: &[Value]| -> Value {
                         let Some(item_rc) = item_weak.upgrade() else { return Value::Void };
                         if let Some(id) = item_rc
@@ -1068,7 +1095,7 @@ fn call_builtin_function(
                 }
                 let id = window.show_popup(
                     &vtable::VRc::into_dyn(inst.clone()),
-                    position,
+                    Box::new(move || position),
                     corelib::items::PopupClosePolicy::CloseOnClickOutside,
                     &item_rc,
                     false,
@@ -1458,7 +1485,9 @@ fn call_builtin_function(
                 Expression::PropertyReference(activated_nr),
                 Expression::ElementReference(item_tree_root),
                 Expression::BoolLiteral(no_native),
-                rest @ ..,
+                condition,
+                visible,
+                ..,
             ] = arguments
             else {
                 panic!("internal error: incorrect argument count to SetupMenuBar")
@@ -1469,7 +1498,8 @@ fn call_builtin_function(
             let menu_item_tree = crate::dynamic_item_tree::make_menu_item_tree(
                 &menu_item_tree,
                 &component,
-                rest.first(),
+                Some(condition),
+                Some(visible),
             );
 
             let window_adapter = component.window_adapter();
@@ -1527,6 +1557,7 @@ fn call_builtin_function(
                 &menu_item_tree_component,
                 &enclosing_component,
                 rest.first(),
+                None,
             );
 
             let system_tray =
@@ -1722,6 +1753,10 @@ fn call_builtin_function(
             let window_adapter = local_context.component_instance.window_adapter();
             Value::Bool(corelib::open_url(&url, window_adapter.window()).is_ok())
         }
+        BuiltinFunction::BringAllToFront => {
+            corelib::bring_all_to_front();
+            Value::Void
+        }
         BuiltinFunction::ParseMarkdown => {
             let format_string: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
@@ -1736,6 +1771,11 @@ fn call_builtin_function(
             let string: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
             Value::StyledText(corelib::styled_text::string_to_styled_text(string.to_string()))
+        }
+        BuiltinFunction::ColorToStyledText => {
+            let color: corelib::Color =
+                eval_expression(&arguments[0], local_context).try_into().unwrap();
+            Value::StyledText(corelib::styled_text::color_to_styled_text(color))
         }
     }
 }
@@ -1781,7 +1821,8 @@ fn call_item_member_function(nr: &NamedReference, local_context: &mut EvalLocalC
         }
     } else if let Some(s) = ItemRef::downcast_pin::<corelib::items::WindowItem>(item_ref) {
         match name {
-            "hide" => s.hide(&window_adapter),
+            "hide" => s.hide(&window_adapter, &item_rc),
+            "close" => return Value::Bool(s.close(&window_adapter, &item_rc)),
             _ => {
                 panic!("internal: Unknown member function {name} called on WindowItem")
             }
@@ -2095,6 +2136,9 @@ pub(crate) fn invoke_callback(
             if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
             {
                 if let Some(callback_offset) = description.custom_callbacks.get(callback_name) {
+                    if let Some(tracker_offset) = description.callback_trackers.get(callback_name) {
+                        tracker_offset.apply_pin(enclosing_component.instance).get();
+                    }
                     let callback = callback_offset.apply(&*enclosing_component.instance);
                     let res = callback.call(args);
                     return Some(if res != Value::Void {
@@ -2148,6 +2192,9 @@ pub(crate) fn set_callback_handler(
                 if let Some(callback_offset) = description.custom_callbacks.get(callback_name) {
                     let callback = callback_offset.apply(&*enclosing_component.instance);
                     callback.set_handler(handler);
+                    if let Some(tracker_offset) = description.callback_trackers.get(callback_name) {
+                        tracker_offset.apply_pin(enclosing_component.instance).mark_dirty();
+                    }
                     return Ok(());
                 } else if enclosing_component.description.original.is_global() {
                     return Err(());

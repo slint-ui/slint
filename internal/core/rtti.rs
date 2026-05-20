@@ -16,6 +16,7 @@ use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use core::convert::{TryFrom, TryInto};
+use core::ffi::c_void;
 use core::pin::Pin;
 
 macro_rules! declare_ValueType {
@@ -25,7 +26,7 @@ macro_rules! declare_ValueType {
 }
 
 macro_rules! declare_ValueType_2 {
-    ($( $(#[$enum_doc:meta])* enum $Name:ident { $($body:tt)* })*) => {
+    ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $($body:tt)* })*) => {
         declare_ValueType![
             (),
             bool,
@@ -138,7 +139,7 @@ pub trait PropertyInfo<Item, Value> {
     /// # Safety
     /// the property2 must be a pinned pointer to a Property of the same type
     #[allow(unsafe_code)]
-    unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ());
+    unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const c_void);
 
     /// Set the debug name of this property (only effective with `cfg(slint_debug_property)`)
     #[cfg(slint_debug_property)]
@@ -214,7 +215,7 @@ where
     }
 
     #[allow(unsafe_code)]
-    unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ()) {
+    unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const c_void) {
         let p1 = self.apply_pin(item);
         // Safety: that's the invariant of this function
         let p2 = unsafe { Pin::new_unchecked((property2 as *const Property<T>).as_ref().unwrap()) };
@@ -390,7 +391,7 @@ where
     }
 
     #[allow(unsafe_code)]
-    unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const ()) {
+    unsafe fn link_two_ways(&self, item: Pin<&Item>, property2: *const c_void) {
         let p1 = self.apply_pin(item);
         // Safety: that's the invariant of this function
         let p2 = unsafe { Pin::new_unchecked((property2 as *const Property<T>).as_ref().unwrap()) };

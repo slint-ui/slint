@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cSpell: ignore libxcb libxkbcommon xfixes
+# cSpell: ignore libxcb libxkbcommon xfixes libgbm
 ---
 name: Install Linux dependencies
 description: Set up Linux dependencies for Slint
@@ -27,7 +27,7 @@ runs:
           if: runner.os == 'Linux'
           run: |
               sudo apt-get update
-              sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev libinput-dev libfontconfig-dev ${{ inputs.extra-packages }}
+              sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev libinput-dev libgbm-dev libfontconfig-dev ${{ inputs.extra-packages }}
           shell: bash
         - name: Install Linux dependencies
           if: ${{ runner.os == 'Linux' && (inputs.old-ubuntu != 'true')}}
