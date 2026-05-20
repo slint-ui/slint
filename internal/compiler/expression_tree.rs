@@ -3,7 +3,7 @@
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::langtype::{
-    BuiltinElement, BuiltinPublicStruct, EnumerationValue, Function, Keys, Struct, Type,
+    BuiltinElement, BuiltinStruct, EnumerationValue, Function, Keys, Struct, Type,
 };
 use crate::layout::Orientation;
 use crate::lookup::LookupCtx;
@@ -237,7 +237,7 @@ declare_builtin_function_types!(
             (SmolStr::new_static("alpha"), Type::Int32),
         ])
         .collect(),
-        name: BuiltinPublicStruct::Color.into(),
+        name: BuiltinStruct::Color.into(),
     })),
     ColorHsvaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
@@ -247,7 +247,7 @@ declare_builtin_function_types!(
             (SmolStr::new_static("alpha"), Type::Float32),
         ])
         .collect(),
-        name: BuiltinPublicStruct::Color.into(),
+        name: BuiltinStruct::Color.into(),
     })),
     ColorOklchStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
@@ -257,7 +257,7 @@ declare_builtin_function_types!(
             (SmolStr::new_static("alpha"), Type::Float32),
         ])
         .collect(),
-        name: BuiltinPublicStruct::Color.into(),
+        name: BuiltinStruct::Color.into(),
     })),
     ColorBrighter: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorDarker: (Type::Brush, Type::Float32) -> Type::Brush,
@@ -270,7 +270,7 @@ declare_builtin_function_types!(
             (SmolStr::new_static("height"), Type::Int32),
         ])
         .collect(),
-        name: crate::langtype::BuiltinPrivateStruct::Size.into(),
+        name: crate::langtype::BuiltinStruct::Size.into(),
     })),
     ArrayLength: (Type::Model) -> Type::Int32,
     Rgb: (Type::Int32, Type::Int32, Type::Int32, Type::Float32) -> Type::Color,

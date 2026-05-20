@@ -3292,7 +3292,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             if ty.name.is_some() {
                 let name_tokens = struct_name_to_tokens(&ty.name).unwrap();
                 let keys = ty.fields.keys().map(|k| ident(k));
-                if matches!(&ty.name, StructName::BuiltinPrivate(private_type) if private_type.is_layout_data())
+                if matches!(&ty.name, StructName::Builtin(b) if b.is_layout_data())
                 {
                     quote!(#name_tokens{#(#keys: #elem as _,)*})
                 } else {
@@ -4305,23 +4305,15 @@ fn struct_name_to_tokens(name: &StructName) -> Option<proc_macro2::TokenStream> 
     match name {
         StructName::None => None,
         StructName::User { name, .. } => Some(proc_macro2::TokenTree::from(ident(name)).into()),
-        StructName::BuiltinPrivate(builtin_private_struct) => {
-            let name: &'static str = builtin_private_struct.into();
+        StructName::Builtin(builtin_struct) => {
+            let name: &'static str = builtin_struct.into();
             let name = format_ident!("{}", name);
-            Some(quote!(sp::#name))
-        }
-        StructName::BuiltinPublic(builtin_public_struct) => {
-            let name: &'static str = builtin_public_struct.into();
-            let name = format_ident!("{}", name);
-            if matches!(
-                builtin_public_struct,
-                crate::langtype::BuiltinPublicStruct::Color
-                    | crate::langtype::BuiltinPublicStruct::LogicalPosition
-                    | crate::langtype::BuiltinPublicStruct::LogicalSize
-            ) {
-                Some(quote!(slint::#name))
-            } else {
-                Some(quote!(slint::language::#name))
+            match builtin_struct {
+                crate::langtype::BuiltinStruct::Color
+                | crate::langtype::BuiltinStruct::LogicalPosition
+                | crate::langtype::BuiltinStruct::LogicalSize => Some(quote!(slint::#name)),
+                s if s.is_public() => Some(quote!(slint::language::#name)),
+                _ => Some(quote!(sp::#name)),
             }
         }
     }

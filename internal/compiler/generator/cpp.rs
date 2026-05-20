@@ -460,8 +460,7 @@ pub mod cpp_ast {
 use crate::CompilerConfiguration;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp};
 use crate::langtype::{
-    BuiltinPrivateStruct, BuiltinPublicStruct, Enumeration, EnumerationValue, NativeClass,
-    StructName, Type,
+    BuiltinStruct, Enumeration, EnumerationValue, NativeClass, StructName, Type,
 };
 use crate::layout::Orientation;
 use crate::llr::{
@@ -496,35 +495,26 @@ impl CppType for StructName {
         match self {
             StructName::None => None,
             StructName::User { name, .. } => Some(ident(name)),
-            StructName::BuiltinPrivate(builtin_private) => builtin_private.cpp_type(),
-            StructName::BuiltinPublic(builtin_public) => builtin_public.cpp_type(),
+            StructName::Builtin(builtin) => builtin.cpp_type(),
         }
     }
 }
 
-impl CppType for BuiltinPrivateStruct {
-    fn cpp_type(&self) -> Option<SmolStr> {
-        let name: &'static str = self.into();
-        match self {
-            Self::PathMoveTo
-            | Self::PathLineTo
-            | Self::PathArcTo
-            | Self::PathCubicTo
-            | Self::PathQuadraticTo
-            | Self::PathClose => Some(format_smolstr!("slint::private_api::{}", name)),
-            _ => Some(format_smolstr!("slint::cbindgen_private::{}", name)),
-        }
-    }
-}
-
-impl CppType for BuiltinPublicStruct {
+impl CppType for BuiltinStruct {
     fn cpp_type(&self) -> Option<SmolStr> {
         let name: &'static str = self.into();
         match self {
             Self::Color | Self::LogicalPosition | Self::LogicalSize => {
                 Some(format_smolstr!("slint::{}", name))
             }
-            _ => Some(format_smolstr!("slint::language::{}", name)),
+            Self::PathMoveTo
+            | Self::PathLineTo
+            | Self::PathArcTo
+            | Self::PathCubicTo
+            | Self::PathQuadraticTo
+            | Self::PathClose => Some(format_smolstr!("slint::private_api::{}", name)),
+            s if s.is_public() => Some(format_smolstr!("slint::language::{}", name)),
+            _ => Some(format_smolstr!("slint::cbindgen_private::{}", name)),
         }
     }
 }

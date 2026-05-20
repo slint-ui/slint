@@ -13,7 +13,7 @@ fn main() {
     generate_language_module();
 }
 
-/// Collect the public language types (`pub enum` enums and `BuiltinPublicStruct` structs)
+/// Collect the public language types (`pub enum` enums and `pub struct` structs)
 /// and emit `typescript/generated/language.ts`. Enums become `as const` maps from the Rust
 /// variant identifier to the kebab-case string the Slint runtime accepts; structs become
 /// TS type aliases. A type-only `namespace language { … }` declaration provides the named
@@ -53,23 +53,17 @@ fn generate_language_module() {
             $(#[doc = $struct_doc:literal])*
             $(#[non_exhaustive])?
             $(#[derive(Copy, Eq)])?
-            struct $Name:ident {
-                @name = $NameTy:ident :: $NameVariant:ident,
-                export {
-                    $( $(#[doc = $pub_doc:literal])* $pub_field:ident : $pub_type:ty, )*
-                }
-                private {
-                    $( $(#[doc = $pri_doc:literal])* $pri_field:ident : $pri_type:ty, )*
-                }
+            $vis:vis struct $Name:ident {
+                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ty, )*
             }
         )*) => {
             $(
-                if stringify!($NameTy) == "BuiltinPublicStruct" {
+                if stringify!($vis) == "pub" {
                     structs.push(StructEntry {
                         name: stringify!($Name),
                         docs: vec![$($struct_doc),*],
                         fields: vec![$(
-                            (stringify!($pub_field), stringify!($pub_type), vec![$($pub_doc),*])
+                            (stringify!($field), stringify!($field_type), vec![$($field_doc),*])
                         ),*],
                     });
                 }

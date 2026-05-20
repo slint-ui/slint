@@ -12,7 +12,7 @@ use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use i_slint_compiler::langtype::{BuiltinPublicStruct, StructName, Type};
+use i_slint_compiler::langtype::{BuiltinStruct, StructName, Type};
 
 use i_slint_core::model::{Model, ModelRc};
 
@@ -64,13 +64,13 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
                 let struct_type = expected_type.filter(|t| matches!(t, Type::Struct(_)));
                 if let Some(Type::Struct(s)) = struct_type.as_ref() {
                     match &s.name {
-                        StructName::BuiltinPublic(BuiltinPublicStruct::LogicalPosition) => {
+                        StructName::Builtin(BuiltinStruct::LogicalPosition) => {
                             let x = struct_field_as_f32(&structval, "x");
                             let y = struct_field_as_f32(&structval, "y");
                             return crate::geometry::PyLogicalPosition { x, y }
                                 .into_bound_py_any(py);
                         }
-                        StructName::BuiltinPublic(BuiltinPublicStruct::LogicalSize) => {
+                        StructName::Builtin(BuiltinStruct::LogicalSize) => {
                             let width = struct_field_as_f32(&structval, "width");
                             let height = struct_field_as_f32(&structval, "height");
                             return crate::geometry::PyLogicalSize { width, height }

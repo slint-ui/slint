@@ -462,24 +462,12 @@ pub mod language {
     macro_rules! export_builtin_structs {
         ($(
             $(#[$attr:meta])*
-            struct $Name:ident {
-                @name = $NameTy:ident :: $NameVariant:ident,
-                export {
-                    $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
-                }
-                private {
-                    $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
-                }
+            $vis:vis struct $Name:ident {
+                $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
             }
         )*) => {
-            $(
-                export_builtin_structs!(@export $NameTy $Name);
-            )*
+            $( #[allow(unused_imports)] $vis use i_slint_core::items::$Name; )*
         };
-        (@export BuiltinPublicStruct $Name:ident) => {
-            pub use i_slint_core::items::$Name;
-        };
-        (@export BuiltinPrivateStruct $Name:ident) => {};
     }
 
     i_slint_common::for_each_builtin_structs!(export_builtin_structs);
