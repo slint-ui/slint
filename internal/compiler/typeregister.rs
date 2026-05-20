@@ -10,9 +10,8 @@ use std::rc::Rc;
 
 use crate::expression_tree::BuiltinFunction;
 use crate::langtype::{
-    BuiltinElement, BuiltinPrivateStruct, BuiltinPropertyDefault, BuiltinPropertyInfo,
-    BuiltinPublicStruct, ElementType, Enumeration, Function, PropertyLookupResult, Struct,
-    StructName, Type,
+    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, BuiltinStruct, ElementType,
+    Enumeration, Function, PropertyLookupResult, Struct, StructName, Type,
 };
 use crate::object_tree::{Component, PropertyVisibility};
 use crate::typeloader;
@@ -115,7 +114,7 @@ impl BuiltinTypes {
                         .map(|s| (SmolStr::new_static(s), Type::Float32)),
                 )
                 .collect(),
-            name: BuiltinPrivateStruct::LayoutInfo.into(),
+            name: BuiltinStruct::LayoutInfo.into(),
         });
         let enums = BuiltinEnums::new();
         let flex_align_self_type = Type::Enumeration(enums.FlexboxLayoutAlignSelf.clone());
@@ -127,7 +126,7 @@ impl BuiltinTypes {
                     (SmolStr::new_static("y"), Type::LogicalLength),
                 ])
                 .collect(),
-                name: BuiltinPublicStruct::LogicalPosition.into(),
+                name: BuiltinStruct::LogicalPosition.into(),
             }),
             logical_size_type: Rc::new(Struct {
                 fields: IntoIterator::into_iter([
@@ -135,7 +134,7 @@ impl BuiltinTypes {
                     (SmolStr::new_static("height"), Type::LogicalLength),
                 ])
                 .collect(),
-                name: BuiltinPublicStruct::LogicalSize.into(),
+                name: BuiltinStruct::LogicalSize.into(),
             }),
             font_metrics_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([
@@ -145,7 +144,7 @@ impl BuiltinTypes {
                     (SmolStr::new_static("cap-height"), Type::LogicalLength),
                 ])
                 .collect(),
-                name: BuiltinPrivateStruct::FontMetrics.into(),
+                name: BuiltinStruct::FontMetrics.into(),
             })),
             noarg_callback_type: Type::Callback(Rc::new(Function {
                 return_type: Type::Void,
@@ -165,11 +164,11 @@ impl BuiltinTypes {
                     (SmolStr::new_static("change-time"), Type::Duration),
                 ])
                 .collect(),
-                name: BuiltinPrivateStruct::StateInfo.into(),
+                name: BuiltinStruct::StateInfo.into(),
             }),
             path_element_type: Type::Struct(Rc::new(Struct {
                 fields: Default::default(),
-                name: BuiltinPrivateStruct::PathElement.into(),
+                name: BuiltinStruct::PathElement.into(),
             })),
             layout_item_info_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([(
@@ -177,7 +176,7 @@ impl BuiltinTypes {
                     layout_info_type.clone().into(),
                 )])
                 .collect(),
-                name: BuiltinPrivateStruct::LayoutItemInfo.into(),
+                name: BuiltinStruct::LayoutItemInfo.into(),
             })),
             flexbox_layout_item_info_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([
@@ -189,7 +188,7 @@ impl BuiltinTypes {
                     ("flex-order".into(), Type::Int32),
                 ])
                 .collect(),
-                name: BuiltinPrivateStruct::FlexboxLayoutItemInfo.into(),
+                name: BuiltinStruct::FlexboxLayoutItemInfo.into(),
             })),
             gridlayout_input_data_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([
@@ -199,7 +198,7 @@ impl BuiltinTypes {
                     ("colspan".into(), Type::Int32),
                 ])
                 .collect(),
-                name: BuiltinPrivateStruct::GridLayoutInputData.into(),
+                name: BuiltinStruct::GridLayoutInputData.into(),
             })),
         }
     }
@@ -832,12 +831,8 @@ pub mod builtin_structs {
         };
     }
 
-    fn struct_name_for(vis: &str, name: &str) -> StructName {
-        if vis == "pub" {
-            name.parse::<BuiltinPublicStruct>().unwrap().into()
-        } else {
-            name.parse::<BuiltinPrivateStruct>().unwrap().into()
-        }
+    fn struct_name_for(name: &str) -> StructName {
+        name.parse::<BuiltinStruct>().unwrap().into()
     }
 
     macro_rules! declare_builtin_structs {
@@ -861,7 +856,7 @@ pub mod builtin_structs {
                         fields: BTreeMap::from([
                             $((stringify!($field).replace_smolstr("_", "-"), map_type!($field_type, $field_type))),*
                         ]),
-                        name: struct_name_for(stringify!($vis), stringify!($Name)),
+                        name: struct_name_for(stringify!($Name)),
                     });
                     )*
 

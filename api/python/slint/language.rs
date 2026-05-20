@@ -4,7 +4,7 @@
 // cSpell: ignore kwargs namedtuple
 //! This module generates Python bindings for the public Slint language types:
 //!
-//! * `BuiltinPublicStruct` structs (via `for_each_builtin_structs!`) become
+//! * `pub struct` declarations (via `for_each_builtin_structs!`) become
 //!   `collections.namedtuple` classes with documented defaults.
 //! * `pub enum` declarations (via `for_each_enums!`) become `enum.Enum`
 //!   subclasses whose member name and value are the kebab-case strings the
