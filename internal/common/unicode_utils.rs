@@ -93,7 +93,7 @@ mod tests {
 
     #[test]
     fn test_roundtrip() {
-        let text = "héllo 日本語 😀 world";
+        let text = "héllo 日本語 😀 world"; // cspell:disable-line
         for (byte_idx, _) in text.char_indices() {
             let utf16 = byte_offset_to_utf16_offset(text, byte_idx);
             assert_eq!(utf16_offset_to_byte_offset_clamped(text, utf16), byte_idx);
