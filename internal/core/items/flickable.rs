@@ -514,18 +514,18 @@ impl FlickableDataInner {
                     // At the time of writing, in practice this means we must use a physics animation.
                     let [limit_x, limit_y] = Self::flick_limits(flick_rc, delta);
 
-                    let x_simulation = (delta.x != 0.).then(|| {
+                    let x_simulation = (delta.x != Coord::default()).then(|| {
                         let simulation = ConstantDecelerationParameters::new_with_distance(
-                            delta.x,
+                            delta.x as f32,
                             WHEEL_SCROLL_DURATION.as_secs_f32(),
                         );
                         viewport_x.set_physic_animation_value(limit_x, simulation.clone());
                         simulation
                     });
 
-                    let y_simulation = (delta.y != 0.).then(|| {
+                    let y_simulation = (delta.y != Coord::default()).then(|| {
                         let simulation = ConstantDecelerationParameters::new_with_distance(
-                            delta.y,
+                            delta.y as f32,
                             WHEEL_SCROLL_DURATION.as_secs_f32(),
                         );
                         viewport_y.set_physic_animation_value(limit_y, simulation.clone());
@@ -597,7 +597,7 @@ impl FlickableDataInner {
             let property = Box::pin(Property::new(0.0));
             property.set_binding({
                 let calculate_limits = calculate_limits.clone();
-                move || calculate_limits().map(|limit| limit.x_length().get()).unwrap_or(0.0)
+                move || calculate_limits().map(|limit| limit.x_length().get() as f32).unwrap_or(0.0)
             });
             property
         } else {
@@ -607,7 +607,7 @@ impl FlickableDataInner {
         let limit_y = if flick_velocity.y < 0 as Coord {
             let property = Box::pin(Property::new(0.0));
             property.set_binding(move || {
-                calculate_limits().map(|limit| limit.y_length().get()).unwrap_or(0.0)
+                calculate_limits().map(|limit| limit.y_length().get() as f32).unwrap_or(0.0)
             });
             property
         } else {
@@ -631,13 +631,13 @@ impl FlickableDataInner {
 
                 {
                     let simulation =
-                        ConstantDecelerationParameters::new(mean_velocity.x, DECELERATION);
+                        ConstantDecelerationParameters::new(mean_velocity.x as f32, DECELERATION);
                     viewport_x.set_physic_animation_value(limit_x, simulation);
                 }
 
                 {
                     let animation_y =
-                        ConstantDecelerationParameters::new(mean_velocity.y, DECELERATION);
+                        ConstantDecelerationParameters::new(mean_velocity.y as f32, DECELERATION);
                     viewport_y.set_physic_animation_value(limit_y, animation_y);
                 }
 
