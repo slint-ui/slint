@@ -1,9 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// As of now, the C++ optimization doesn't optimize hidden item of Listview so this test would take forever
-//ignore:cpp
-
 import { ListView } from "std-widgets.slint";
 export component TestCase inherits Window {
     preferred-width: 300px;
@@ -14,13 +11,15 @@ export component TestCase inherits Window {
     in-out property <length> viewport-y <=> lv.viewport-y;
 
     lv := ListView {
-        for _[num] in 2130000000: Rectangle {
-            height: 20px;
-            border-width: 1px;
-            border-color: red;
-            Text { text: num; }
-            TouchArea {
-                clicked => { result = "|"+num; root.clicked(num) }
+        for _[num] in 2130000000: HorizontalLayout {
+            if true: Rectangle {
+                height: 20px;
+                border-width: 1px;
+                border-color: red;
+                Text { text: num; }
+                TouchArea {
+                    clicked => { result = "|"+num; root.clicked(num) }
+                }
             }
         }
     }
@@ -84,7 +83,46 @@ const TestCase &instance = *handle;
 auto clicked = std::make_shared<std::vector<int>>();
 instance.on_clicked([clicked](int x) { clicked->push_back(x); });
 slint_testing::send_mouse_click(&instance, 5., 250.);
-assert(*clicked == std::vector<int>{12});
+assert((*clicked == std::vector<int>{12}));
+slint_testing::send_mouse_click(&instance, 5., 263.);
+slint_testing::send_mouse_click(&instance, 5., 239.);
+assert((*clicked == std::vector<int>{12, 13, 11}));
+
+instance.set_viewport_y(-20. * 1000.);
+clicked->clear();
+slint_testing::send_mouse_click(&instance, 5., 250.);
+assert((*clicked == std::vector<int>{1012}));
+slint_testing::send_mouse_click(&instance, 5., 263.);
+slint_testing::send_mouse_click(&instance, 5., 239.);
+assert((*clicked == std::vector<int>{1012, 1013, 1011}));
+
+instance.set_viewport_y(-20. * 100000.);
+clicked->clear();
+slint_testing::send_mouse_click(&instance, 5., 250.);
+assert((*clicked == std::vector<int>{100012}));
+slint_testing::send_mouse_click(&instance, 5., 263.);
+slint_testing::send_mouse_click(&instance, 5., 239.);
+assert((*clicked == std::vector<int>{100012, 100013, 100011}));
+
+instance.set_viewport_y(-20. * 10000000.);
+clicked->clear();
+slint_testing::send_mouse_click(&instance, 5., 250.);
+assert((*clicked == std::vector<int>{10000012}));
+slint_testing::send_mouse_click(&instance, 5., 263.);
+slint_testing::send_mouse_click(&instance, 5., 239.);
+assert((*clicked == std::vector<int>{10000012, 10000013, 10000011}));
+
+instance.set_viewport_y(-20. * 210000000.);
+clicked->clear();
+slint_testing::send_mouse_click(&instance, 5., 250.);
+assert((*clicked == std::vector<int>{210000012}));
+slint_testing::send_mouse_click(&instance, 5., 263.);
+slint_testing::send_mouse_click(&instance, 5., 239.);
+assert((*clicked == std::vector<int>{210000012, 210000013, 210000011}));
+
+// go all the way to the end, it shouldn't crash or loop forever
+instance.set_viewport_y(-20. * (2130000000. - 5.));
+slint_testing::send_mouse_click(&instance, 5., 250.);
 ```
 
 ```js

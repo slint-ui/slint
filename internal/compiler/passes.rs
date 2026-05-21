@@ -156,6 +156,7 @@ pub async fn run_passes(
         lower_layout::lower_layouts(component, type_loader, &style_metrics, diag);
         default_geometry::default_geometry(component, diag);
         lower_layout::synthesize_layoutinfo_v_with_constraint(component);
+        lower_layout::synthesize_layoutinfo_h_with_constraint(component);
         lower_absolute_coordinates::lower_absolute_coordinates(component);
         z_order::reorder_by_z_order(component, diag);
         lower_property_to_element::lower_property_to_element(

@@ -2236,11 +2236,30 @@ extern "C" fn layout_info(component: ItemTreeRefPin, orientation: Orientation) -
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let orientation = crate::eval_layout::from_runtime(orientation);
 
-    let mut result = crate::eval_layout::get_layout_info(
-        &instance_ref.description.original.root_element,
+    // The vtable layout_info path is taken e.g. for repeater cells. When
+    // the component root has a parameterized layout-info function, route
+    // through it: reading the bare `layoutinfo-{h,v}` would cycle on
+    // `self.{w,h}` for the cross-axis case, and we have no explicit
+    // constraint at this entry point. `f32::MAX` (i.e. "unconstrained")
+    // tells the runtime's flex algorithm to behave as if items don't
+    // need to wrap, which gives the natural max-cell-cross-axis result
+    // — much closer to correct than the `sqrt(item-areas)` heuristic
+    // that a `-1` sentinel would trigger.
+    let root = &instance_ref.description.original.root_element;
+    let cross_axis_constraint = match orientation {
+        i_slint_compiler::layout::Orientation::Vertical => {
+            root.borrow().layout_info_v_with_constraint.is_some().then_some(f32::MAX)
+        }
+        i_slint_compiler::layout::Orientation::Horizontal => {
+            root.borrow().layout_info_h_with_constraint.is_some().then_some(f32::MAX)
+        }
+    };
+    let mut result = crate::eval_layout::get_layout_info_with_constraint(
+        root,
         instance_ref,
         &instance_ref.window_adapter(),
         orientation,
+        cross_axis_constraint,
     );
 
     let constraints = instance_ref.description.original.root_constraints.borrow();

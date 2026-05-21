@@ -2097,7 +2097,7 @@ impl QtWindow {
             data.set_plaintext(text);
         }
         if let Some(buffer) = qimage_to_shared_pixel_buffer(image) {
-            data.set_image(i_slint_core::graphics::Image::from_rgba8(buffer).into());
+            data.set_image(i_slint_core::graphics::Image::from_rgba8(buffer));
         }
         let drop_event = DropEvent {
             data,

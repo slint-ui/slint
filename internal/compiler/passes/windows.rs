@@ -56,6 +56,7 @@ pub fn ensure_window(
         has_popup_child: false,
         layout_info_prop: Default::default(),
         layout_info_v_with_constraint: Default::default(),
+        layout_info_h_with_constraint: Default::default(),
         default_fill_parent: Default::default(),
         accessibility_props: Default::default(),
         geometry_props: Default::default(),

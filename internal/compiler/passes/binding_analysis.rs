@@ -632,15 +632,21 @@ fn recurse_expression(
                         );
                     }
                     FlexboxAxisRelation::CrossAxis => {
-                        // Cross axis: depends on the perpendicular (main-axis) dimension
-                        // for accurate wrapping.
+                        // Cross axis: depends on the perpendicular (main-axis)
+                        // dimension for accurate wrapping. Skip that edge
+                        // when the element has a parametrized layout-info
+                        // function — callers that would otherwise cycle go
+                        // through it instead, so the bare binding's read of
+                        // `self.{w,h}` is a fallback only.
                         if orientation == Orientation::Vertical
                             && let Some(nr) = layout.geometry.rect.width_reference.as_ref()
+                            && nr.element().borrow().layout_info_v_with_constraint.is_none()
                         {
                             vis(&nr.clone().into(), P);
                         }
                         if orientation == Orientation::Horizontal
                             && let Some(nr) = layout.geometry.rect.height_reference.as_ref()
+                            && nr.element().borrow().layout_info_h_with_constraint.is_none()
                         {
                             vis(&nr.clone().into(), P);
                         }
@@ -812,17 +818,18 @@ fn visit_layout_items_dependencies<'a>(
 
 /// Visit cross-axis `layoutinfo-<cross>` dependencies for child elements that
 /// have a compiled `layoutinfo-<cross>` binding (i.e. an inlined component
-/// root, or a nested layout).
+/// root, or a nested layout) and no parametrized variant that bypasses it.
 ///
 /// Pure builtins (`Image`, `Text`, `Rectangle`, …) do not set `layout_info_prop`
 /// — their cross-axis size is computed through the item VTable, which accepts a
-/// `cross_axis_constraint` argument, so they never read `self.width` at
+/// `cross_axis_constraint` argument, so they never read `self.{w,h}` at
 /// runtime and the parent's `SolveFlexboxLayout` has no real dependency on
 /// them. Elements that *do* set `layout_info_prop` run an ordinary property
-/// binding that may transitively depend on the cross-axis dimension (e.g. an
-/// inner word-wrapping `Text` or aspect-ratio `Image`). Declaring that edge
-/// lets `binding_analysis` detect cycles through component boundaries instead
-/// of letting them surface as a runtime recursion panic.
+/// binding that may transitively depend on the cross-axis dimension.
+/// `implicit_layout_info_call` dispatches via the parametrized
+/// `layoutinfo-{v,h}-with-constraint` function when the child carries one, so
+/// the property dependency only exists at runtime for cells without that
+/// function — mirror that here.
 fn visit_layout_items_layoutinfo_cross_axis_dependencies<'a>(
     items: impl Iterator<Item = &'a LayoutItem>,
     cross_axis: Orientation,
@@ -830,10 +837,16 @@ fn visit_layout_items_layoutinfo_cross_axis_dependencies<'a>(
 ) {
     for it in items {
         let element = it.element.clone();
-        // Parent dispatches via `layoutinfo-v-with-constraint(width)`, not the property.
-        if cross_axis == Orientation::Vertical
-            && element.borrow().inherited_layout_info_v_with_constraint().is_some()
-        {
+        // Parent dispatches via the parametrized function, not the property.
+        let bypassed = match cross_axis {
+            Orientation::Vertical => {
+                element.borrow().inherited_layout_info_v_with_constraint().is_some()
+            }
+            Orientation::Horizontal => {
+                element.borrow().inherited_layout_info_h_with_constraint().is_some()
+            }
+        };
+        if bypassed {
             continue;
         }
         if let Some(nr) = element.borrow().layout_info_prop(cross_axis) {
@@ -845,7 +858,57 @@ fn visit_layout_items_layoutinfo_cross_axis_dependencies<'a>(
                 &PropertyPath { elements: vec![ByAddress(element.clone())], prop: nr.clone() },
                 ReadType::PropertyRead,
             );
+        } else {
+            visit_cell_cross_axis_implicit_dependency(cross_axis, &element, vis);
         }
+    }
+}
+
+/// Cross-axis variant of [`visit_implicit_layout_info_dependencies`]: only
+/// declare deps that actually exist on the cross-axis path. Image/Text and
+/// other h-for-w builtins receive the cross-axis size via the item VTable's
+/// `cross_axis_constraint`, so they don't read `self.{w,h}` here. For other
+/// items (user components, plain builtins), the native `ImplicitLayoutInfo`
+/// reads `preferred-{w,h}` — declare it when the user has bound it to read
+/// the opposite-axis dim on the same element. That catches cycles like
+/// `preferred-height: self.width` at compile time instead of panicking at
+/// runtime.
+fn visit_cell_cross_axis_implicit_dependency(
+    cross_axis: Orientation,
+    item: &ElementRc,
+    vis: &mut impl FnMut(&PropertyPath, ReadType),
+) {
+    let base_type = item.borrow().base_type.to_smolstr();
+    if matches!(base_type.as_str(), "Image" | "ClippedImage" | "Text" | "TextInput" | "StyledText")
+    {
+        return;
+    }
+    let (prop, opposite_dim) = match cross_axis {
+        Orientation::Horizontal => ("preferred-width", "height"),
+        Orientation::Vertical => ("preferred-height", "width"),
+    };
+    if !item.borrow().is_binding_set(prop, false) {
+        return;
+    }
+    let reads_opposite = item
+        .borrow()
+        .bindings
+        .get(prop)
+        .map(|b| {
+            let mut seen = false;
+            b.borrow().expression.visit_recursive(&mut |sub| {
+                if let Expression::PropertyReference(nr) = sub
+                    && nr.name() == opposite_dim
+                    && Rc::ptr_eq(&nr.element(), item)
+                {
+                    seen = true;
+                }
+            });
+            seen
+        })
+        .unwrap_or(false);
+    if reads_opposite {
+        vis(&NamedReference::new(item, SmolStr::new_static(prop)).into(), ReadType::NativeRead);
     }
 }
 
