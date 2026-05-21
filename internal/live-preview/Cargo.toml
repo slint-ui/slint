@@ -15,16 +15,26 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
+# protocol
 lsp-types = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 derive_more = { workspace = true, features = ["debug"], optional = true }
+# file-watcher
+notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"], optional = true }
+i-slint-compiler = { workspace = true, optional = true }
+# live-component
+i-slint-core = { workspace = true, optional = true }
+slint-interpreter = { workspace = true, optional = true, default-features = false, features = ["display-diagnostics", "compat-1-2", "internal"] }
 
 [lib]
 path = "lib.rs"
 
 [features]
 protocol = ["dep:lsp-types", "dep:serde", "dep:serde_json", "dep:derive_more"]
+file-watcher = ["dep:notify", "dep:i-slint-compiler"]
+live-component = ["file-watcher", "dep:slint-interpreter", "dep:i-slint-core"]
+ffi = ["live-component", "slint-interpreter/ffi"]
 
 [package.metadata.docs.rs]
 all-features = true

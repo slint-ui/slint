@@ -8,12 +8,12 @@ use std::{
     time::Duration,
 };
 
+use i_slint_live_preview::file_watcher::{FileChangeKind, FileWatcher, WatchEvent};
 use i_slint_live_preview::protocol::{
     LspToPreviewMessage, PreviewComponent, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
 };
 use lsp_server::{Message, RequestId};
 use lsp_types::{FileChangeType, MessageType, Url, notification::Notification};
-use slint_interpreter::{FileChangeKind, FileWatcher, WatchEvent};
 
 use crate::{
     common::{self, Result, document_cache::OpenImportCallback},

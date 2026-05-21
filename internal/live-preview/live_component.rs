@@ -3,7 +3,6 @@
 
 //! This is an internal module that contains the [`LiveReloadingComponent`] struct.
 
-use crate::dynamic_item_tree::WindowOptions;
 use crate::file_watcher::FileWatcher;
 use core::cell::RefCell;
 use core::task::Waker;
@@ -14,7 +13,7 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 //re-export for the generated code:
-pub use crate::{Compiler, ComponentInstance, DefaultTranslationContext, Value};
+pub use slint_interpreter::{Compiler, ComponentInstance, DefaultTranslationContext, Value};
 
 /// This struct is used to compile and instantiate a component from a .slint file on disk.
 /// The file is watched for changes and the component is recompiled and instantiated
@@ -53,13 +52,12 @@ impl LiveReloadingComponent {
 
         let mut self_mut = self_rc.borrow_mut();
         let result = self_mut.build();
-        #[cfg(feature = "display-diagnostics")]
         result.print_diagnostics();
         assert!(
             !result.has_errors(),
             "Was not able to compile the file {}. \n{:?}",
             self_mut.file_name.display(),
-            result.diagnostics
+            result.diagnostics().collect::<Vec<_>>()
         );
         let definition = result.component(&self_mut.component_name).expect("Cannot open component");
         let instance = definition.create()?;
@@ -78,17 +76,13 @@ impl LiveReloadingComponent {
     /// Return false in case of errors
     pub fn reload(&mut self) -> bool {
         let result = self.build();
-        #[cfg(feature = "display-diagnostics")]
         result.print_diagnostics();
         if result.has_errors() {
             return false;
         }
 
         if let Some(definition) = result.component(&self.component_name) {
-            let window_adapter =
-                i_slint_core::window::WindowInner::from_pub(self.instance().window())
-                    .window_adapter();
-            match definition.create_with_options(WindowOptions::UseExistingWindow(window_adapter)) {
+            match definition.create_with_existing_window(self.instance().window()) {
                 Ok(instance) => {
                     self.instance = Some(instance);
                 }
@@ -104,7 +98,7 @@ impl LiveReloadingComponent {
         true
     }
 
-    fn build(&self) -> crate::CompilationResult {
+    fn build(&self) -> slint_interpreter::CompilationResult {
         let mut future = core::pin::pin!(self.compiler.build_from_path(&self.file_name));
         let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
         let std::task::Poll::Ready(result) = std::future::Future::poll(future.as_mut(), &mut cx)
@@ -239,7 +233,7 @@ impl Watcher {
         let arc = Arc::new(Mutex::new(Self { state: WatcherState::Starting, watcher: None }));
 
         let watcher_weak = Arc::downgrade(&arc);
-        let result = crate::spawn_local(std::future::poll_fn(move |cx| {
+        let result = slint_interpreter::spawn_local(std::future::poll_fn(move |cx| {
             let (Some(instance), Some(watcher)) =
                 (component_weak.upgrade(), watcher_weak.upgrade())
             else {
@@ -334,7 +328,7 @@ mod ffi {
                 .set_translation_domain(std::str::from_utf8(&translation_domain).unwrap().into());
         }
         if no_default_translation_context {
-            compiler.set_default_translation_context(crate::DefaultTranslationContext::None);
+            compiler.set_default_translation_context(DefaultTranslationContext::None);
         }
         Rc::into_raw(
             LiveReloadingComponent::new(
@@ -416,7 +410,11 @@ mod ffi {
         drop_user_data: Option<extern "C" fn(*mut c_void)>,
     ) {
         let ud = unsafe {
-            crate::ffi::CallbackUserData::new(user_data, drop_user_data, callback_handler)
+            slint_interpreter::ffi::CallbackUserData::new(
+                user_data,
+                drop_user_data,
+                callback_handler,
+            )
         };
         let handler = Rc::new(move |args: &[Value]| ud.call(args));
         let callback = std::str::from_utf8(&callback).unwrap();
@@ -438,7 +436,8 @@ mod ffi {
             core::mem::size_of::<i_slint_core::window::ffi::WindowAdapterRcOpaque>()
         );
         let borrow = component.borrow();
-        let adapter = borrow.instance().inner.window_adapter_ref().unwrap();
-        unsafe { core::ptr::write(out as *mut *const Rc<dyn WindowAdapter>, adapter as *const _) };
+        let adapter = i_slint_core::window::WindowInner::from_pub(borrow.instance().window())
+            .window_adapter();
+        unsafe { core::ptr::write(out as *mut *const Rc<dyn WindowAdapter>, &adapter as *const _) };
     }
 }
