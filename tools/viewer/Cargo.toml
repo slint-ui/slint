@@ -50,6 +50,17 @@ renderer-winit-software = ["renderer-software"]
 ## so that the viewer can find the translation
 gettext = ["i-slint-core/gettext-rs"]
 
+## Enable the remote viewer mode (--remote flag)
+remote = [
+  "i-slint-live-preview/remote",
+  "dep:tokio",
+  "dep:slint",
+  "dep:anyhow",
+  "dep:tracing",
+  "dep:mdns-sd",
+  "dep:zeroconf-tokio",
+]
+
 default = ["backend-default", "renderer-femtovg", "renderer-software"]
 
 [dependencies]
@@ -66,10 +77,38 @@ env_logger = "0.11.0"
 itertools = { workspace = true }
 serde_json = { workspace = true }
 smol_str = { workspace = true }
+tokio = { version = "1.48.0", features = ["rt"], optional = true }
+slint = { workspace = true, features = ["compat-1-2", "backend-android-activity-06"], optional = true }
+anyhow = { version = "1.0.100", optional = true }
+tracing = { workspace = true, optional = true }
+
+[target.'cfg(not(any(target_vendor = "apple", target_arch = "wasm32")))'.dependencies]
+mdns-sd = { version = "0.17.0", default-features = false, features = ["async"], optional = true }
+
+[target.'cfg(target_vendor = "apple")'.dependencies]
+zeroconf-tokio = { version = "0.3.2", optional = true }
 
 [target.'cfg(not(any(target_os = "openbsd", target_os = "windows", all(target_arch = "aarch64", target_os = "linux"))))'.dependencies]
 tikv-jemallocator = { workspace = true }
 
+[lib]
+crate-type = ["lib", "cdylib"]
+path = "lib.rs"
+
 [[bin]]
 name = "slint-viewer"
 path = "main.rs"
+
+[package.metadata.android]
+package = "dev.slint.viewer"
+min_sdk_version = 24
+target_sdk_version = 33
+
+[package.metadata.android.application]
+label = "Slint Viewer"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.INTERNET"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.CHANGE_WIFI_MULTICAST_STATE"

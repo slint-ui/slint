@@ -11,6 +11,11 @@ pub use versioned_url::VersionedUrl;
 
 pub use lsp_types;
 
+#[cfg(feature = "file-watcher")]
+mod diagnostics_adapter;
+#[cfg(feature = "file-watcher")]
+pub use diagnostics_adapter::to_lsp_diagnostic;
+
 pub type SourceFileVersion = Option<i32>;
 pub const SERVICE_TYPE: &str = "_slint-preview._tcp.local.";
 pub const SERVICE_TYPE_NAME: &str = "slint-preview";

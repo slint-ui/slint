@@ -6,12 +6,11 @@ use std::{
     sync::Arc,
 };
 
+use crate::protocol::{
+    LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
+};
 use dashmap::{DashMap, Entry};
 use futures_util::{SinkExt as _, StreamExt as _, stream::SplitStream};
-use i_slint_live_preview::protocol::{
-    self, LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLspMessage,
-    SourceFileVersion,
-};
 use lsp_types::Url;
 use serde::Serialize;
 use tokio::{
@@ -363,7 +362,7 @@ impl Connection {
         };
         tracing::info!("Announcing service on {local_ips:?} as {mdns_host}");
         ServiceInfo::new(
-            protocol::SERVICE_TYPE,
+            crate::protocol::SERVICE_TYPE,
             "viewer",
             &mdns_host,
             local_ips.as_slice(),

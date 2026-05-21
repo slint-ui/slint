@@ -1688,7 +1688,10 @@ fn convert_diagnostics(
                 if data.0.is_some() && new_version.is_some() && data.0 != new_version {
                     continue;
                 }
-                data.1.push(crate::util::to_lsp_diag(d, preview_state.format()));
+                data.1.push(i_slint_live_preview::protocol::to_lsp_diagnostic(
+                    d,
+                    preview_state.format(),
+                ));
             }
         }
     });

@@ -1,12 +1,12 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
-name: Remote Slint Viewer
+name: Slint Viewer
 options:
   bundleIdPrefix: dev.slint
 settings:
   ENABLE_USER_SCRIPT_SANDBOXING: NO
 targets:
-  slint-remote-viewer:
+  slint-viewer:
     type: application
     platform: iOS
     deploymentTarget: "16.6"
@@ -28,5 +28,5 @@ targets:
     sources: []
     postCompileScripts:
       - script: |
-          ../../scripts/build_for_ios_with_cargo.bash remote-viewer
+          ../../scripts/build_for_ios_with_cargo.bash slint-viewer
         outputFileLists: $TARGET_BUILD_DIR/$EXECUTABLE_PATH

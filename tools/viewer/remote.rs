@@ -5,29 +5,25 @@ use std::{net::SocketAddr, rc::Rc};
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_core::InternalToken;
+use i_slint_core::SharedString;
 use i_slint_live_preview::protocol::PreviewToLspMessage;
-use slint::{ComponentHandle as _, SharedString};
+use i_slint_live_preview::remote::{CacheEntry, Connection, ConnectionMessage, init_compiler};
+use slint_interpreter::ComponentHandle as _;
 use tokio::sync;
 
-use crate::{
-    compilation,
-    connection::{self, CacheEntry},
-    util,
-};
-
-const MAIN_SLINT: &str = include_str!("../ui/main.slint");
+const MAIN_SLINT: &str = include_str!("remote/main.slint");
 
 pub async fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Result<()> {
     let (message_sender, mut message_receiver) = sync::mpsc::unbounded_channel();
 
     let connection = Rc::new(
-        connection::Connection::listen(address, move |msg| {
+        Connection::listen(address, move |msg| {
             let _ = message_sender.send(msg);
         })
         .await?,
     );
 
-    let mut compiler = compilation::init_compiler(Rc::downgrade(&connection));
+    let mut compiler = init_compiler(Rc::downgrade(&connection));
     let base_path = std::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(|p| p.to_owned()))
@@ -94,23 +90,21 @@ pub async fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Resu
     }
 
     let inner_local_ip_str = local_ip_str.clone();
-    slint::spawn_local(async move {
+    slint_interpreter::spawn_local(async move {
         let mut last_connection = None;
         let mut instance = inner_window.clone_strong();
         while let Some(msg) = message_receiver.recv().await {
             match msg {
-                connection::ConnectionMessage::SetConfiguration { config } => {
+                ConnectionMessage::SetConfiguration { config } => {
                     compiler.set_style(config.style);
                     compiler.compiler_configuration(InternalToken).enable_experimental =
                         config.enable_experimental;
                 }
-                connection::ConnectionMessage::ShowPreview { preview_component, file_cache } => {
+                ConnectionMessage::ShowPreview { preview_component, file_cache } => {
                     tracing::debug!(
                         "Cached files: {:#?}",
                         file_cache.iter().map(|entry| entry.key().to_string()).collect::<Vec<_>>()
                     );
-                    // TODO: pass resources from the file cache to the compiler via
-                    // a resource preloader in CompilerConfiguration
                     let compilation_result = if let Some(entry) = file_cache.get(
                         preview_component.url.to_file_path().unwrap().as_os_str().to_str().unwrap(),
                     ) && let CacheEntry::Ready(file) = &*entry
@@ -149,7 +143,7 @@ pub async fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Resu
                             diagnostics: compilation_result
                                 .diagnostics()
                                 .map(|diagnostic| {
-                                    util::to_lsp_diag(
+                                    i_slint_live_preview::protocol::to_lsp_diagnostic(
                                         &diagnostic,
                                         i_slint_compiler::diagnostics::ByteFormat::Utf8,
                                     )
@@ -209,8 +203,8 @@ pub async fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Resu
                         instance = new_instance;
                     }
                 }
-                connection::ConnectionMessage::HighlightFromEditor { .. } => {}
-                connection::ConnectionMessage::Connected { remote_addr } => {
+                ConnectionMessage::HighlightFromEditor { .. } => {}
+                ConnectionMessage::Connected { remote_addr } => {
                     if let Err(err) = inner_window.set_property(
                         "message",
                         SharedString::from(format!("Connected to {remote_addr}")).into(),
@@ -219,7 +213,7 @@ pub async fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Resu
                     }
                     last_connection = Some(remote_addr);
                 }
-                connection::ConnectionMessage::Disconnected { remote_addr } => {
+                ConnectionMessage::Disconnected { remote_addr } => {
                     if last_connection == Some(remote_addr) {
                         last_connection = None;
                         inner_window = main_ui
@@ -249,7 +243,8 @@ pub async fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Resu
 
     window.show().inspect_err(|err| tracing::error!("window show: {err}"))?;
 
-    slint::run_event_loop().inspect_err(|err| tracing::error!("slint event loop: {err}"))?;
+    slint_interpreter::run_event_loop()
+        .inspect_err(|err| tracing::error!("slint event loop: {err}"))?;
 
     #[cfg(not(target_vendor = "apple"))]
     mdns.map(|mdns| mdns.shutdown())
