@@ -27,7 +27,7 @@ path = "src/main.rs"
 i-slint-compiler = { workspace = true }
 i-slint-core = { workspace = true }
 i-slint-backend-selector = { workspace = true }
-i-slint-preview-protocol = { workspace = true }
+i-slint-live-preview = { workspace = true, features = ["protocol"] }
 slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "internal", "accessibility", "image-default-formats", "internal-json"] }
 slint = { workspace = true, features = ["default", "serde", "backend-android-activity-06"] }
 lsp-types = { version = "0.95.0" }

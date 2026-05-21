@@ -8,8 +8,9 @@ use std::{
 
 use dashmap::{DashMap, Entry};
 use futures_util::{SinkExt as _, StreamExt as _, stream::SplitStream};
-use i_slint_preview_protocol::{
-    LspToPreviewMessage, PreviewComponent, PreviewConfig, SourceFileVersion,
+use i_slint_live_preview::protocol::{
+    self, LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLspMessage,
+    SourceFileVersion,
 };
 use lsp_types::Url;
 use serde::Serialize;
@@ -303,7 +304,7 @@ impl Connection {
             }
         }
         if request_file {
-            self.send(i_slint_preview_protocol::PreviewToLspMessage::RequestState {
+            self.send(PreviewToLspMessage::RequestState {
                 files: vec![Url::from_file_path(&file).map_err(|()| {
                     std::io::Error::new(
                         std::io::ErrorKind::InvalidInput,
@@ -362,7 +363,7 @@ impl Connection {
         };
         tracing::info!("Announcing service on {local_ips:?} as {mdns_host}");
         ServiceInfo::new(
-            i_slint_preview_protocol::SERVICE_TYPE,
+            protocol::SERVICE_TYPE,
             "viewer",
             &mdns_host,
             local_ips.as_slice(),

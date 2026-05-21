@@ -3,7 +3,7 @@
 
 use lsp_types::Url;
 
-use crate::SourceFileVersion;
+use super::SourceFileVersion;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]

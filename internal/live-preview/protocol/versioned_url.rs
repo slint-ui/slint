@@ -3,7 +3,7 @@
 
 use lsp_types::Url;
 
-use crate::SourceFileVersion;
+use super::SourceFileVersion;
 
 /// A versioned file
 #[derive(Clone, serde::Deserialize, serde::Serialize, PartialEq, Eq)]

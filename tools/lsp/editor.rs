@@ -8,8 +8,8 @@ use std::{
     time::Duration,
 };
 
-use i_slint_preview_protocol::{
-    LspToPreviewMessage, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
+use i_slint_live_preview::protocol::{
+    LspToPreviewMessage, PreviewComponent, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
 };
 use lsp_server::{Message, RequestId};
 use lsp_types::{FileChangeType, MessageType, Url, notification::Notification};
@@ -120,7 +120,7 @@ struct EmbeddedPreviewToLsp {
 }
 
 impl common::PreviewToLsp for EmbeddedPreviewToLsp {
-    fn send(&self, message: &i_slint_preview_protocol::PreviewToLspMessage) -> common::Result<()> {
+    fn send(&self, message: &PreviewToLspMessage) -> common::Result<()> {
         self.sender.send(message.clone())?;
         Ok(())
     }
@@ -295,7 +295,7 @@ async fn lsp_main(
         .map_err(|_| format!("Failed to convert {} to URL!", cli.file))?;
     file_watcher.update_watched_paths(std::iter::once(root_path.clone()))?;
     language::show_preview(
-        i_slint_preview_protocol::PreviewComponent { url: url.clone(), component: cli.component },
+        PreviewComponent { url: url.clone(), component: cli.component },
         &mut ctx,
     );
 

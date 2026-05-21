@@ -5,7 +5,7 @@ use std::{net::SocketAddr, rc::Rc};
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_core::InternalToken;
-use i_slint_preview_protocol::PreviewToLspMessage;
+use i_slint_live_preview::protocol::PreviewToLspMessage;
 use slint::{ComponentHandle as _, SharedString};
 use tokio::sync;
 
@@ -61,8 +61,8 @@ pub async fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Resu
 
             let mut service = zeroconf_tokio::MdnsService::new(
                 zeroconf_tokio::ServiceType::new(
-                    i_slint_preview_protocol::SERVICE_TYPE_NAME,
-                    i_slint_preview_protocol::SERVICE_TYPE_PROTOCOL,
+                    i_slint_live_preview::protocol::SERVICE_TYPE_NAME,
+                    i_slint_live_preview::protocol::SERVICE_TYPE_PROTOCOL,
                 )?,
                 connection.local_port(),
             );
