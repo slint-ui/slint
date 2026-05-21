@@ -276,40 +276,6 @@
     }
   },
   {
-    "type": "binding",
-    "named": true,
-    "fields": {
-      "binding": {
-        "multiple": true,
-        "required": true,
-        "types": [
-          {
-            "type": ";",
-            "named": false
-          },
-          {
-            "type": "expression",
-            "named": true
-          },
-          {
-            "type": "imperative_block",
-            "named": true
-          }
-        ]
-      },
-      "name": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "simple_identifier",
-            "named": true
-          }
-        ]
-      }
-    }
-  },
-  {
     "type": "binding_alias",
     "named": true,
     "fields": {
@@ -374,7 +340,7 @@
           "named": true
         },
         {
-          "type": "changed_callback",
+          "type": "changed_event",
           "named": true
         },
         {
@@ -561,10 +527,6 @@
         "required": true,
         "types": [
           {
-            "type": "changed_function_call",
-            "named": true
-          },
-          {
             "type": "function_call",
             "named": true
           },
@@ -577,7 +539,7 @@
     }
   },
   {
-    "type": "changed_callback",
+    "type": "changed_event",
     "named": true,
     "fields": {
       "action": {
@@ -616,7 +578,7 @@
           }
         ]
       },
-      "name": {
+      "property": {
         "multiple": false,
         "required": true,
         "types": [
@@ -626,48 +588,6 @@
           }
         ]
       }
-    }
-  },
-  {
-    "type": "changed_function_call",
-    "named": true,
-    "fields": {
-      "arguments": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "arguments",
-            "named": true
-          }
-        ]
-      },
-      "name": {
-        "multiple": false,
-        "required": true,
-        "types": [
-          {
-            "type": "simple_identifier",
-            "named": true
-          }
-        ]
-      }
-    }
-  },
-  {
-    "type": "comment",
-    "named": true,
-    "extra": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": false,
-      "types": [
-        {
-          "type": "comment",
-          "named": true
-        }
-      ]
     }
   },
   {
@@ -883,6 +803,32 @@
     }
   },
   {
+    "type": "export_statement",
+    "named": true,
+    "fields": {
+      "from": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "string_value",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "export_type",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "export_type",
     "named": true,
     "fields": {
@@ -917,6 +863,37 @@
     }
   },
   {
+    "type": "exported_definition",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "component_definition",
+          "named": true
+        },
+        {
+          "type": "enum_definition",
+          "named": true
+        },
+        {
+          "type": "global_definition",
+          "named": true
+        },
+        {
+          "type": "interface_definition",
+          "named": true
+        },
+        {
+          "type": "struct_definition",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "expression",
     "named": true,
     "fields": {},
@@ -930,10 +907,6 @@
         },
         {
           "type": "binary_expression",
-          "named": true
-        },
-        {
-          "type": "changed_function_call",
           "named": true
         },
         {
@@ -1238,7 +1211,7 @@
           "named": true
         },
         {
-          "type": "changed_callback",
+          "type": "changed_event",
           "named": true
         },
         {
@@ -1504,14 +1477,6 @@
         },
         {
           "type": "assignment_expr",
-          "named": true
-        },
-        {
-          "type": "binding",
-          "named": true
-        },
-        {
-          "type": "callback_event",
           "named": true
         },
         {
@@ -1791,15 +1756,7 @@
         "required": true,
         "types": [
           {
-            "type": "changed_function_call",
-            "named": true
-          },
-          {
             "type": "expression",
-            "named": true
-          },
-          {
-            "type": "simple_identifier",
             "named": true
           }
         ]
@@ -1976,34 +1933,6 @@
     "fields": {}
   },
   {
-    "type": "radial_gradient_kind",
-    "named": true,
-    "fields": {}
-  },
-  {
-    "type": "reexport_statement",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "export",
-          "named": true
-        },
-        {
-          "type": "export_type",
-          "named": true
-        },
-        {
-          "type": "string_value",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
     "type": "reference_identifier",
     "named": true,
     "fields": {}
@@ -2023,6 +1952,41 @@
       "types": [
         {
           "type": "expression",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "rust_attr",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "component_definition",
+          "named": true
+        },
+        {
+          "type": "enum_definition",
+          "named": true
+        },
+        {
+          "type": "exported_definition",
+          "named": true
+        },
+        {
+          "type": "global_definition",
+          "named": true
+        },
+        {
+          "type": "interface_definition",
+          "named": true
+        },
+        {
+          "type": "struct_definition",
           "named": true
         }
       ]
@@ -2069,10 +2033,6 @@
       "required": false,
       "types": [
         {
-          "type": "attribute",
-          "named": true
-        },
-        {
           "type": "component_definition",
           "named": true
         },
@@ -2081,11 +2041,11 @@
           "named": true
         },
         {
-          "type": "export",
+          "type": "export_statement",
           "named": true
         },
         {
-          "type": "export_type",
+          "type": "exported_definition",
           "named": true
         },
         {
@@ -2101,7 +2061,7 @@
           "named": true
         },
         {
-          "type": "reexport_statement",
+          "type": "rust_attr",
           "named": true
         },
         {
@@ -2587,10 +2547,6 @@
     "named": false
   },
   {
-    "type": "*/",
-    "named": false
-  },
-  {
     "type": "*=",
     "named": false
   },
@@ -2624,10 +2580,6 @@
   },
   {
     "type": "/",
-    "named": false
-  },
-  {
-    "type": "/*",
     "named": false
   },
   {
@@ -2719,6 +2671,10 @@
     "named": false
   },
   {
+    "type": "@rust-attr",
+    "named": false
+  },
+  {
     "type": "@tr",
     "named": false
   },
@@ -2747,8 +2703,9 @@
     "named": false
   },
   {
-    "type": "attribute",
-    "named": true
+    "type": "block_comment",
+    "named": true,
+    "extra": true
   },
   {
     "type": "bool",
@@ -2769,10 +2726,6 @@
   {
     "type": "children_identifier",
     "named": true
-  },
-  {
-    "type": "circle",
-    "named": false
   },
   {
     "type": "color",
@@ -2940,7 +2893,7 @@
   },
   {
     "type": "export",
-    "named": true
+    "named": false
   },
   {
     "type": "false",
@@ -3019,6 +2972,11 @@
     "named": false
   },
   {
+    "type": "line_comment",
+    "named": true,
+    "extra": true
+  },
+  {
     "type": "linear",
     "named": false
   },
@@ -3077,6 +3035,10 @@
   {
     "type": "pure",
     "named": false
+  },
+  {
+    "type": "radial_gradient_kind",
+    "named": true
   },
   {
     "type": "relative-font-size",
