@@ -6,16 +6,16 @@
 module.exports = grammar({
   name: "slint",
 
-  extras: ($) => [/[\s\r\n]+/, $.comment],
+  extras: ($) => [/[\s\r\n]+/, $.line_comment, $.block_comment],
   conflicts: ($) => [[$._assignment_value_block], [$.assignment_block]],
 
+  externals: ($) => [$.block_comment],
+
   rules: {
-    sourcefile: ($) => repeat(choice($.attribute, $.reexport_statement, $._definition)),
+    sourcefile: ($) => repeat($._definition),
 
     _definition: ($) =>
-      choice($.import_statement, $._exported_type, $._local_type),
-
-    export: (_) => "export",
+      choice($.import_statement, $._export, $._local_type, $.rust_attr),
 
     _local_type: ($) =>
       choice(
@@ -26,30 +26,30 @@ module.exports = grammar({
         $.component_definition,
       ),
 
-    _exported_type: ($) =>
-      prec.left(
-        seq(
-          $.export,
-          choice(
-            seq("{", commaSep($.export_type), optional(","), "}"),
-            $._local_type,
-          ),
-        ),
-      ),
+    _export: ($) => prec.left(choice(
+      $.exported_definition,
+      $.export_statement
+    )),
 
-    reexport_statement: ($) =>
-      seq(
-        $.export,
-        "{",
-        commaSep($.export_type),
-        optional(","),
-        "}",
-        "from",
-        $.string_value,
-        ";",
-      ),
+    export_type: ($) => seq(
+      field("local_name", $._type_identifier),
+      optional(seq("as", field("export_name", $._type_identifier))),
+    ),
 
-    attribute: (_) => token(seq("@", /[a-zA-Z0-9_-]+/, "(", /[^\n]*/, ")")),
+    exported_definition: ($) => seq(
+      "export",
+      $._local_type
+    ),
+
+    export_statement: ($) => seq(
+      "export",
+      "{", commaSep($.export_type), optional(","), "}",
+      optional(seq("from", field("from", $.string_value), ";"))
+    ),
+
+    _rust_attr_args: ($) => seq("(", seq(/[^()]*/, repeat(seq($._rust_attr_args, /[^()]*/))), ")"),
+
+    rust_attr: ($) => seq(repeat1(seq("@rust-attr", $._rust_attr_args)), choice($.exported_definition, $._local_type)),
 
     import_statement: ($) =>
       seq(
@@ -57,12 +57,6 @@ module.exports = grammar({
         optional(seq("{", commaSep($.import_type), optional(","), "}", "from")),
         $.string_value,
         ";",
-      ),
-
-    export_type: ($) =>
-      seq(
-        field("local_name", $._type_identifier),
-        optional(seq("as", field("export_name", $._type_identifier))),
       ),
 
     import_type: ($) =>
@@ -135,8 +129,6 @@ module.exports = grammar({
           seq($.assignment_expr, optional(";")),
           seq($.if_expr, optional(";")),
           $.let_statement,
-          $.callback_event,
-          $.binding,
           seq($.expression, optional(";")),
           $.return_statement,
         ),
@@ -186,7 +178,7 @@ module.exports = grammar({
             $.binding_alias,
             $.callback,
             $.callback_event,
-            $.changed_callback,
+            $.changed_event,
             $.function_definition,
           ),
         ),
@@ -260,8 +252,8 @@ module.exports = grammar({
         $.callback,
         $.callback_alias,
         $.callback_event,
+        $.changed_event,
         $.children_identifier, // No `;` after this one!
-        $.changed_callback,
         $.component,
         $.for_loop,
         $.function_definition,
@@ -398,7 +390,6 @@ module.exports = grammar({
           $.gradient_call,
           $.image_call,
           $.reference_identifier,
-          $.changed_function_call,
           $.simple_identifier,
           $.function_call,
           $.member_access,
@@ -474,11 +465,7 @@ module.exports = grammar({
           ".",
           field(
             "member",
-            choice(
-              $.changed_function_call,
-              $.expression,
-              prec(-1, alias("changed", $.simple_identifier)),
-            ),
+            $.expression,
           ),
         ),
       ),
@@ -569,7 +556,7 @@ module.exports = grammar({
       seq(
         optional($.purity),
         "callback",
-        field("name", choice($.simple_identifier, alias("changed", $.simple_identifier))),
+        field("name", $.simple_identifier),
         optional($._callback_signature),
         optional(seq("->", field("return_type", $.type))),
         ";",
@@ -583,7 +570,7 @@ module.exports = grammar({
       seq(
         repeat(choice($.purity, $.function_visibility)),
         "function",
-        field("name", choice($.simple_identifier, alias("changed", $.simple_identifier))),
+        field("name", $.simple_identifier),
         optional($._function_signature),
         optional(seq("->", field("return_type", $.type))),
         $.imperative_block,
@@ -593,7 +580,7 @@ module.exports = grammar({
       seq(
         repeat(choice($.purity, $.function_visibility)),
         "function",
-        field("name", choice($.simple_identifier, alias("changed", $.simple_identifier))),
+        field("name", $.simple_identifier),
         optional($._function_signature),
         optional(seq("->", field("return_type", $.type))),
         ";",
@@ -603,7 +590,7 @@ module.exports = grammar({
       seq(
         optional($.purity),
         "callback",
-        field("name", choice($.simple_identifier, alias("changed", $.simple_identifier))),
+        field("name", $.simple_identifier),
         "<=>",
         field("alias", $.expression),
         ";",
@@ -611,15 +598,15 @@ module.exports = grammar({
 
     callback_event: ($) =>
       seq(
-        field("name", choice($.changed_function_call, $.function_call, $.simple_identifier)),
+        field("name", choice($.function_call, $.simple_identifier)),
         "=>",
         field("action", $._binding),
       ),
 
-    changed_callback: ($) =>
+    changed_event: ($) =>
       seq(
         "changed",
-        field("name", $.simple_identifier),
+        field("property", $.simple_identifier),
         "=>",
         field("action", $._binding),
       ),
@@ -633,29 +620,20 @@ module.exports = grammar({
         ),
       ),
 
-    changed_function_call: ($) =>
-      prec(
-        17,
-        seq(
-          field("name", alias("changed", $.simple_identifier)),
-          field("arguments", $.arguments),
-        ),
-      ),
-
     gradient_call: ($) =>
       choice(
         seq(
           field("name", $.linear_gradient_identifier),
-            "(",
-            field(
-              "arguments",
-              seq(
-                field("angle", $.expression),
-                ",",
-                field("colors", commaSep2($.gradient_color)),
-                optional(","),
-              ),
+          "(",
+          field(
+            "arguments",
+            seq(
+              field("angle", $.expression),
+              ",",
+              field("colors", commaSep2($.gradient_color)),
+              optional(","),
             ),
+          ),
           ")",
         ),
         seq(
@@ -716,7 +694,7 @@ module.exports = grammar({
       prec.left(
         seq(
           "(",
-            field("arguments", optional(seq(commaSep1(choice($.typed_identifier, $.type)), optional(",")))),
+          field("arguments", optional(seq(commaSep1(choice($.typed_identifier, $.type)), optional(",")))),
           ")",
         ),
       ),
@@ -845,7 +823,7 @@ module.exports = grammar({
       choice("@linear-gradient", "@linear_gradient"),
     radial_gradient_identifier: (_) =>
       choice("@radial-gradient", "@radial_gradient"),
-    radial_gradient_kind: (_) => choice("circle"),
+    radial_gradient_kind: (_) => "circle", // currently only one
     conic_gradient_identifier: (_) =>
       choice("@conic-gradient", "@conic_gradient"),
 
@@ -889,23 +867,12 @@ module.exports = grammar({
         $.easing_kind_identifier,
       ),
 
-    comment: ($) =>
-      choice(
-        token(seq("//", /[^\n\r]*/)),
-        seq(
-          "/*",
-          repeat(
-            choice(
-              token(prec(1, /[^/*]+/)),
-              token(prec(1, /\/[^*]/)),
-              token(prec(1, /\*+[^*/]/)),
-              token(prec(-1, /\*/)),
-              $.comment,
-            ),
-          ),
-          "*/",
-        ),
-      ),
+    // Single-line comment
+    line_comment: (_) => token(seq("//", /[^\n\r]*/)),
+
+    // Multi-line comment — handled by the external scanner (src/scanner.c)
+    // because Slint supports balanced nesting: /* /* */ */ is valid.
+    // block_comment is defined in externals above.
   },
 });
 
