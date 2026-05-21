@@ -859,6 +859,8 @@ pub struct BuiltinElement {
     /// When true this builtin can be declared as a child even if the parent element
     /// does not expose an explicit @children insertion slot.
     pub can_be_declared_without_children_slot: bool,
+    /// When true this element is part of the Slint SC (safety-critical) subset.
+    pub slint_sc: bool,
 }
 
 impl BuiltinElement {

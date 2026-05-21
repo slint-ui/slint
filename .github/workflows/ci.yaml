@@ -727,7 +727,7 @@ jobs:
               run: cargo llvm-cov --no-report -p i-slint-compiler --features slint-sc --no-default-features
             - name: Test slint-compiler binary with slint-sc feature
               run: cargo llvm-cov --no-report -p slint-compiler --features slint-sc --no-default-features
-            - name: Test slint-sc runtime
+            - name: Test slint-sc runtime and driver
               run: cargo llvm-cov --no-report -p slint-sc
             - name: Generate coverage report
               run: |
