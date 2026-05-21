@@ -596,9 +596,18 @@ module.exports = grammar({
         ";",
       ),
 
+    // We need to add an alias for the changed contextual keyword here.
+    // in a $.block, the callback_event is competing with the changed_event.
+    //
+    // If Tree-sitter finds the text "changed", it will already at the lexer stage decide
+    // that this is not an identifier because it matches the "changed" in changed_event,
+    // which takes precedence over the regex-based identifier lexer rule.
+    //
+    // By using the alias here we can force Tree-sitter to treat it also as an identifier.
     callback_event: ($) =>
       seq(
-        field("name", choice($.function_call, $.simple_identifier)),
+        field("name", choice($.simple_identifier, alias("changed", $.simple_identifier))),
+        optional(field("arguments", $.arguments)),
         "=>",
         field("action", $._binding),
       ),

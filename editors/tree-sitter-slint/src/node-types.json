@@ -504,6 +504,16 @@
           }
         ]
       },
+      "arguments": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "arguments",
+            "named": true
+          }
+        ]
+      },
       "binding": {
         "multiple": true,
         "required": true,
@@ -526,10 +536,6 @@
         "multiple": false,
         "required": true,
         "types": [
-          {
-            "type": "function_call",
-            "named": true
-          },
           {
             "type": "simple_identifier",
             "named": true

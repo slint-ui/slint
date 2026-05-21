@@ -3274,14 +3274,35 @@
             "members": [
               {
                 "type": "SYMBOL",
-                "name": "function_call"
+                "name": "simple_identifier"
               },
               {
-                "type": "SYMBOL",
-                "name": "simple_identifier"
+                "type": "ALIAS",
+                "content": {
+                  "type": "STRING",
+                  "value": "changed"
+                },
+                "named": true,
+                "value": "simple_identifier"
               }
             ]
           }
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "arguments",
+              "content": {
+                "type": "SYMBOL",
+                "name": "arguments"
+              }
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
         },
         {
           "type": "STRING",

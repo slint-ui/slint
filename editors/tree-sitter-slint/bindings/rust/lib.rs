@@ -68,9 +68,14 @@ mod tests {
         let source = r#"
 export component Demo inherits Window {
     callback changed(int);
+    changed => {
+    }
     changed(delta) => {
         root.changed(+1);
+        root.changed;
         changed(+2);
+    }
+    changed value => {
     }
 }
 "#;
@@ -84,29 +89,16 @@ export component Demo inherits Window {
         assert_eq!(callback_name.kind(), "simple_identifier");
         assert_eq!(callback_name.utf8_text(source.as_bytes()).expect("utf-8"), "changed");
 
-        let callback_event = find_first(root, "callback_event").expect("callback event");
-        let event_name = callback_event.child_by_field_name("name").expect("event name");
-        assert_eq!(event_name.kind(), "changed_function_call");
-        assert_eq!(
-            event_name
-                .child_by_field_name("name")
-                .expect("changed function call name")
-                .utf8_text(source.as_bytes())
-                .expect("utf-8"),
-            "changed"
-        );
-        assert_eq!(
-            event_name.child_by_field_name("arguments").expect("event arguments").kind(),
-            "arguments"
-        );
-
         let member_access = find_first(root, "member_access").expect("member access");
-        let member_call = find_first(member_access, "changed_function_call").expect("member call");
+        let member_call = find_first(member_access, "function_call").expect("member call");
         assert_eq!(
             member_call.child_by_field_name("arguments").expect("member arguments").kind(),
             "arguments"
         );
 
-        assert_eq!(count_kind(root, "changed_function_call"), 3);
+        assert_eq!(count_kind(root, "callback_event"), 2);
+        assert_eq!(count_kind(root, "changed_event"), 1);
+        assert_eq!(count_kind(root, "function_call"), 2);
+        assert_eq!(count_kind(root, "member_access"), 2);
     }
 }
