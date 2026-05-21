@@ -26,7 +26,11 @@ use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-fn get_completion_text_edit_range(
+/// For multi-word keywords like "in property", compute a replacement range that covers
+/// the already-typed prefix. Without this, some editors (not VS Code) insert the full
+/// keyword without removing the prefix, producing duplicates like "in in property".
+/// See also #8962 and #11816.
+fn multi_word_keyword_replace_range(
     t: &SyntaxToken,
     offset: TextSize,
     completion_label: &str,
@@ -109,22 +113,6 @@ pub(crate) fn completion_at(
                 .and_then(|n| n.child_text(SyntaxKind::Identifier))
                 .is_some_and(|k| k == "global");
 
-            let make_keyword = |kw: &str, ins_tex: &str| {
-                let mut c = CompletionItem::new_simple(kw.to_string(), String::new())
-                    .with_kind(CompletionItemKind::KEYWORD)
-                    .with_insert_text(ins_tex, snippet_support);
-                if let Some(range) =
-                    get_completion_text_edit_range(&token, offset, kw, document_cache.format)
-                {
-                    c.text_edit = Some(lsp_types::CompletionTextEdit::Edit(TextEdit::new(
-                        range,
-                        ins_tex.to_string(),
-                    )));
-                    c.insert_text = None;
-                }
-                c
-            };
-
             // add keywords
             r.extend(
                 [
@@ -138,7 +126,19 @@ pub(crate) fn completion_at(
                     ("callback", "callback ${1:name}($2);"),
                 ]
                 .iter()
-                .map(|(kw, ins_tex)| make_keyword(kw, ins_tex)),
+                .map(|(kw, ins_tex)| {
+                    let mut c = CompletionItem::new_simple(kw.to_string(), String::new())
+                        .with_kind(CompletionItemKind::KEYWORD)
+                        .with_insert_text(ins_tex, snippet_support);
+                    if let Some(range) =
+                        multi_word_keyword_replace_range(&token, offset, kw, document_cache.format)
+                    {
+                        let text = c.insert_text.take().unwrap_or_else(|| c.label.clone());
+                        c.text_edit =
+                            Some(lsp_types::CompletionTextEdit::Edit(TextEdit::new(range, text)));
+                    }
+                    c
+                }),
             );
 
             if !is_global {
@@ -152,7 +152,11 @@ pub(crate) fn completion_at(
                         ("@children", "@children"),
                     ]
                     .iter()
-                    .map(|(kw, ins_tex)| make_keyword(kw, ins_tex)),
+                    .map(|(kw, ins_tex)| {
+                        CompletionItem::new_simple(kw.to_string(), String::new())
+                            .with_kind(CompletionItemKind::KEYWORD)
+                            .with_insert_text(ins_tex, snippet_support)
+                    }),
                 );
             }
 
