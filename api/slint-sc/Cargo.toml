@@ -18,3 +18,13 @@ path = "lib.rs"
 
 [features]
 default = []
+
+[dev-dependencies]
+rayon = { workspace = true }
+tempfile = "3"
+regex = "1"
+
+[[test]]
+name = "driver"
+path = "tests/driver.rs"
+harness = false

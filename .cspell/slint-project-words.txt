@@ -66,6 +66,7 @@ checkmark
 checkstate
 chipset
 chrono
+Cinstrument
 circledraw
 circularprogressindicator
 CLIB
@@ -321,6 +322,7 @@ Libinput
 libloading
 libm
 libseat
+libslint
 libstdc
 libudev
 libx

@@ -238,7 +238,9 @@ cpp! {{
             rust!(Slint_mouseWheelEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPointF as "QPointF", delta: qttypes::QPoint as "QPoint", phase: usize as "int"] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 let phase = match phase as _ {
-                    key_generated::Qt_ScrollPhase_NoScrollPhase => TouchPhase::Cancelled,
+                    // If we don't know the scroll phase, this is likely a mouse wheel scroll, which
+                    // should be mapped to TouchPhase::Moved to align with the winit backend.
+                    key_generated::Qt_ScrollPhase_NoScrollPhase => TouchPhase::Moved,
                     key_generated::Qt_ScrollPhase_ScrollBegin => TouchPhase::Started,
                     key_generated::Qt_ScrollPhase_ScrollUpdate => TouchPhase::Moved,
                     key_generated::Qt_ScrollPhase_ScrollEnd => TouchPhase::Ended,

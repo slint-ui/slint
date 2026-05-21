@@ -4,8 +4,6 @@
 // States and transitions are rejected in Slint SC mode.
 
 export component Test inherits Window {
-//               >  <error{Component declarations are not supported in Slint SC}
-//                             >     <^error{The builtin element 'Window' is not supported in Slint SC}
     in-out property <bool> active;
 //  >                            <error{Property declarations are not supported in Slint SC}
 //                   >  <^error{The type 'bool' is not supported in Slint SC}

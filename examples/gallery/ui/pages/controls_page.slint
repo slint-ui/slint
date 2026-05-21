@@ -8,7 +8,6 @@ import {
     ComboBox,
     CheckBox,
     LineEdit,
-    TabWidget,
     VerticalBox,
     HorizontalBox,
     Slider,
@@ -323,64 +322,6 @@ export component ControlsPage inherits Page {
                 text: @tr("indeterminate");
                 checked <=> progress-indicator.indeterminate;
                 enabled: GallerySettings.widgets-enabled;
-            }
-        }
-    }
-
-    GroupBox {
-        title: @tr("TabWidget");
-
-        TabWidget {
-            Tab {
-                title: @tr("Tab 1");
-
-                VerticalBox {
-                    alignment: start;
-
-                    GroupBox {
-                        title: @tr("Content of tab 1");
-
-                        HorizontalBox {
-                            alignment: start;
-
-                            Button {
-                                text: @tr("Click me");
-                                enabled: GallerySettings.widgets-enabled;
-                            }
-                        }
-                    }
-                }
-            }
-
-            Tab {
-                title: @tr("Tab 2");
-
-                VerticalBox {
-                    alignment: start;
-
-                    GroupBox {
-                        title: @tr("Content of tab 2");
-
-                        VerticalBox {
-                            alignment: start;
-
-                            CheckBox {
-                                text: @tr("Check me");
-                                enabled: GallerySettings.widgets-enabled;
-                            }
-                        }
-                    }
-                }
-            }
-
-            Tab {
-                title: @tr("Tab 3");
-
-                VerticalBox {
-                    Text {
-                        text: @tr("Content of tab 3");
-                    }
-                }
             }
         }
     }
