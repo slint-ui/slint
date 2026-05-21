@@ -568,6 +568,23 @@ macro_rules! for_each_enums {
                 AlternateReverse,
             }
 
+            /// This enum describes the interpolation method for angle values during animation.
+            /// Similar to [Qt's RotationAnimation.direction](https://doc.qt.io/qt-6/qml-qtquick-rotationanimation.html#direction-prop)
+            /// and [CSS hue-interpolation-method](https://developer.mozilla.org/en-US/docs/Web/CSS/hue-interpolation-method).
+            #[non_exhaustive]
+            enum AngleInterpolation {
+                /// Standard linear interpolation between start and end values, treating the angle as a plain number.
+                Linear,
+                /// Interpolate via the shorter arc. Rotating from 10° to 350° will traverse only 20 degrees counterclockwise.
+                AngleShorter,
+                /// Interpolate via the longer arc. Rotating from 10° to 350° will traverse 340 degrees clockwise.
+                AngleLonger,
+                /// Always rotate clockwise.
+                AngleClockwise,
+                /// Always rotate counterclockwise.
+                AngleCounterclockwise,
+            }
+
             /// This enum describes the scrollbar visibility
             #[non_exhaustive]
             enum ScrollBarPolicy {

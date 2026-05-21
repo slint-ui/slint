@@ -1889,6 +1889,7 @@ mod tests {
         res.iter().find(|ci| ci.label == "direction").unwrap();
         res.iter().find(|ci| ci.label == "iteration-count").unwrap();
         res.iter().find(|ci| ci.label == "easing").unwrap();
+        res.iter().find(|ci| ci.label == "angle-interpolation").unwrap();
     }
 
     #[test]
@@ -1944,6 +1945,26 @@ mod tests {
             ..Default::default()
         }]);
         assert_completions_found(expected, &res);
+    }
+
+    #[test]
+    fn animation_interpolation_completion() {
+        let source = r#"
+            component Foo {
+                Text {
+                    width: 20px;
+                    animate width {
+                        angle-interpolation: 🔺;
+                    }
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        res.iter().find(|ci| ci.label == "linear").unwrap();
+        res.iter().find(|ci| ci.label == "angle-shorter").unwrap();
+        res.iter().find(|ci| ci.label == "angle-longer").unwrap();
+        res.iter().find(|ci| ci.label == "angle-clockwise").unwrap();
+        res.iter().find(|ci| ci.label == "angle-counterclockwise").unwrap();
     }
 
     #[test]

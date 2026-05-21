@@ -609,6 +609,14 @@
                 }
             ]
         },
+        "interpolation-mode": {
+            "patterns": [
+                {
+                    "match": "(?<!-)\\b(linear|angle-shorter|angle-longer|angle-clockwise|angle-counterclockwise)\\b(?!-)",
+                    "name": "support.constant.interpolation-mode.slint"
+                }
+            ]
+        },
         "number": {
             "patterns": [
                 {
@@ -630,6 +638,9 @@
                 },
                 {
                     "include": "#boolean"
+                },
+                {
+                    "include": "#interpolation-mode"
                 },
                 {
                     "begin": "(@(tr|linear-gradient|radial-gradient|conic-gradient|image-url))\\s*(\\()",
@@ -681,7 +692,7 @@
                     },
                     "patterns": [
                         {
-                            "match": "(?<!-)\\b(delay|duration|iteration-count|easing|direction)\\s*:",
+                            "match": "(?<!-)\\b(delay|duration|iteration-count|easing|direction|angle-interpolation)\\s*:",
                             "captures": {
                                 "1": {
                                     "name": "keyword.other.animate.setting.slint"
