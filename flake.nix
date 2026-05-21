@@ -25,6 +25,7 @@
       in
         mkShell {
           nativeBuildInputs = [
+            cargo
             pkg-config
             perf
           ];

@@ -1548,6 +1548,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "conditional-tabs"
+version = "1.17.0"
+dependencies = [
+ "slint",
+ "slint-build",
+]
+
+[[package]]
 name = "condtype"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2587,6 +2595,14 @@ dependencies = [
  "libc",
  "winapi",
  "wio",
+]
+
+[[package]]
+name = "editable-tabs"
+version = "1.17.0"
+dependencies = [
+ "slint",
+ "slint-build",
 ]
 
 [[package]]
