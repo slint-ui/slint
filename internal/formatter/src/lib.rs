@@ -256,6 +256,30 @@ mod tests {
     }
 
     #[test]
+    fn formats_export_statements_before_definitions() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input = "export {Foo as Bar} from \"./x.slint\";\ncomponent Demo{}";
+        let result = formatter.format_str(input).expect("formatting should succeed");
+
+        assert_eq!(
+            result.text,
+            "export { Foo as Bar } from \"./x.slint\";\n\ncomponent Demo {}\n"
+        );
+    }
+
+    #[test]
+    fn preserves_rust_attr_blocks_while_spacing_top_level_sections() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input = "@rust-attr(derive(Debug))\nexport struct Foo {}\ncomponent Demo{}";
+        let result = formatter.format_str(input).expect("formatting should succeed");
+
+        assert_eq!(
+            result.text,
+            "@rust-attr(derive(Debug))\nexport struct Foo {}\n\ncomponent Demo {}\n"
+        );
+    }
+
+    #[test]
     fn formatted_output_has_no_trailing_spaces() {
         let formatter = Formatter::new().expect("formatter should initialize");
         let input = "component First inherits Rectangle {}\ncomponent Second inherits Rectangle {}";

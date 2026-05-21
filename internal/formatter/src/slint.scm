@@ -1,7 +1,8 @@
 ; Keep literals and comments stable while the surrounding layout evolves.
 [
-  (attribute)
-  (comment)
+  (rust_attr)
+  (line_comment)
+  (block_comment)
   (bool_value)
   (int_value)
   (float_value)
@@ -15,12 +16,24 @@
   (relative_font_size_value)
 ] @leaf
 
-(comment) @multi_line_indent_all
-(comment) @prepend_input_softline @append_input_softline
-(comment) @allow_blank_line_before
+[
+  (line_comment)
+  (block_comment)
+] @multi_line_indent_all
+[
+  (line_comment)
+  (block_comment)
+] @prepend_input_softline @append_input_softline
+[
+  (line_comment)
+  (block_comment)
+] @allow_blank_line_before
 ; Preserve the conventional blank line between a leading header comment block and the first item.
 (sourcefile
-  . (comment)+
+  . [
+      (line_comment)
+      (block_comment)
+    ]+
   . (_) @allow_blank_line_before
  )
 
@@ -28,13 +41,19 @@
 ; so that they can be used to disable formatting for the following item without forcing a blank line.
 ;
 ; Note: We must use a topiary-compatible capture name for the comment, otherwise topariy rejects the query.
-((comment) @prepend_input_softline
+((line_comment) @prepend_input_softline
   . (_) @leaf
   (#eq? @prepend_input_softline "// slint-fmt:ignore"))
  
 
 ; Round one focuses on the highest-signal spacing choices first.
-(export) @append_space
+(exported_definition
+  "export" @append_space
+)
+
+(export_statement
+  "export" @append_space
+)
 
 (component_definition
   "component" @append_space
@@ -76,7 +95,7 @@
   "from" @append_space
 )
 
-(reexport_statement
+(export_statement
   "{" @append_space
   "}" @prepend_space @append_space
   "from" @append_space
@@ -416,15 +435,15 @@
 )
 
 (sourcefile
-  (reexport_statement) @append_antispace @append_hardline
+  (export_statement) @append_antispace @append_hardline
   .
-  (reexport_statement)
+  (export_statement)
 )
 
 (sourcefile
   (import_statement) @append_antispace @append_delimiter
   .
-  (reexport_statement)
+  (export_statement)
 
   (#delimiter! "\n\n")
 )
@@ -433,7 +452,8 @@
   (import_statement) @append_antispace @append_delimiter
   .
   [
-    (export)
+    (rust_attr)
+    (exported_definition)
     (component_definition)
     (struct_definition)
     (enum_definition)
@@ -445,10 +465,11 @@
 )
 
 (sourcefile
-  (reexport_statement) @append_antispace @append_delimiter
+  (export_statement) @append_antispace @append_delimiter
   .
   [
-    (export)
+    (rust_attr)
+    (exported_definition)
     (component_definition)
     (struct_definition)
     (enum_definition)
@@ -461,6 +482,8 @@
 
 (sourcefile
   [
+    (rust_attr)
+    (exported_definition)
     (component_definition)
     (struct_definition)
     (enum_definition)
@@ -469,7 +492,8 @@
   ] @append_antispace @append_delimiter
   .
   [
-    (export)
+    (rust_attr)
+    (exported_definition)
     (component_definition)
     (struct_definition)
     (enum_definition)
@@ -483,8 +507,8 @@
 (sourcefile
   [
     (import_statement)
-    (reexport_statement)
-    (attribute)
+    (export_statement)
+    (rust_attr)
     (component_definition)
     (struct_definition)
     (enum_definition)
@@ -492,17 +516,23 @@
     (interface_definition)
   ] @append_antispace @append_hardline
   .
-  (comment) @allow_blank_line_before
+  [
+    (line_comment)
+    (block_comment)
+  ] @allow_blank_line_before
 )
 
 (sourcefile
-  (comment) @append_antispace @append_hardline
+  [
+    (line_comment)
+    (block_comment)
+  ] @append_antispace @append_hardline
   .
   [
     (import_statement) @prepend_antispace
-    (attribute) @prepend_antispace
-    (reexport_statement) @prepend_antispace
-    (export) @prepend_antispace
+    (rust_attr) @prepend_antispace
+    (export_statement) @prepend_antispace
+    (exported_definition) @prepend_antispace
     (component_definition) @prepend_antispace
     (struct_definition) @prepend_antispace
     (enum_definition) @prepend_antispace
@@ -513,7 +543,8 @@
 
 (sourcefile
   [
-    (export)
+    (rust_attr)
+    (exported_definition)
     (component_definition)
     (struct_definition)
     (enum_definition)
@@ -523,15 +554,15 @@
   .
   [
     (import_statement) @allow_blank_line_before @prepend_antispace
-    (reexport_statement) @allow_blank_line_before @prepend_antispace
+    (export_statement) @allow_blank_line_before @prepend_antispace
   ]
 )
 
 (sourcefile
   [
     (import_statement)
-    (reexport_statement)
-    (attribute)
+    (export_statement)
+    (rust_attr)
     (component_definition)
     (struct_definition)
     (enum_definition)
@@ -539,30 +570,20 @@
     (interface_definition)
   ]
   .
-  (comment)+
+  [
+    (line_comment)
+    (block_comment)
+  ]+
   .
   [
     (import_statement) @allow_blank_line_before
-    (attribute) @allow_blank_line_before
-    (reexport_statement) @allow_blank_line_before
-    (export) @allow_blank_line_before
+    (rust_attr) @allow_blank_line_before
+    (export_statement) @allow_blank_line_before
+    (exported_definition) @allow_blank_line_before
     (component_definition) @allow_blank_line_before
     (struct_definition) @allow_blank_line_before
     (enum_definition) @allow_blank_line_before
     (global_definition) @allow_blank_line_before
     (interface_definition) @allow_blank_line_before
-  ]
-)
-
-(sourcefile
-  (attribute) @append_antispace @append_hardline
-  .
-  [
-    (export) @prepend_antispace
-    (component_definition) @prepend_antispace
-    (struct_definition) @prepend_antispace
-    (enum_definition) @prepend_antispace
-    (global_definition) @prepend_antispace
-    (interface_definition) @prepend_antispace
   ]
 )
