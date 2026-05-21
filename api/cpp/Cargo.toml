@@ -26,7 +26,7 @@ name = "slint_cpp"
 # the C++ crate's CMakeLists.txt as well as cbindgen.rs
 [features]
 interpreter = ["slint-interpreter", "std"]
-live-preview = ["interpreter", "slint-interpreter/internal-live-preview"]
+live-preview = ["interpreter", "dep:i-slint-live-preview"]
 # Enable some function used by the integration tests
 testing = ["dep:i-slint-backend-testing"]
 
@@ -68,6 +68,7 @@ i-slint-renderer-skia = { workspace = true, features = ["default", "x11", "wayla
 i-slint-renderer-software = { workspace = true, optional = true }
 i-slint-core = { workspace = true, features = ["ffi"] }
 slint-interpreter = { workspace = true, features = ["ffi", "compat-1-2"], optional = true }
+i-slint-live-preview = { workspace = true, optional = true, features = ["ffi"] }
 raw-window-handle = { version = "0.6", optional = true }
 
 esp-backtrace = { version = "0.17.0", features = ["panic-handler", "println"], optional = true }

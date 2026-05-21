@@ -56,6 +56,7 @@ default = ["backend-default", "renderer-femtovg", "renderer-software"]
 i-slint-compiler = { workspace = true }
 i-slint-core = { workspace = true }
 slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "internal", "internal-file-watcher", "accessibility", "image-default-formats", "internal-json"] }
+i-slint-live-preview = { workspace = true, features = ["file-watcher"] }
 i-slint-backend-selector = { workspace = true }
 
 clap = { workspace = true }

@@ -232,5 +232,5 @@ pub mod re_exports {
     pub use vtable::{self, *};
 
     #[cfg(feature = "live-preview")]
-    pub use slint_interpreter::live_preview;
+    pub use i_slint_live_preview::live_component as live_preview;
 }

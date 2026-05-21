@@ -5442,9 +5442,13 @@ name = "i-slint-live-preview"
 version = "1.17.0"
 dependencies = [
  "derive_more",
+ "i-slint-compiler",
+ "i-slint-core",
  "lsp-types",
+ "notify",
  "serde",
  "serde_json",
+ "slint-interpreter",
 ]
 
 [[package]]
@@ -10622,6 +10626,7 @@ dependencies = [
  "i-slint-common",
  "i-slint-core",
  "i-slint-core-macros",
+ "i-slint-live-preview",
  "i-slint-renderer-femtovg",
  "i-slint-renderer-skia",
  "i-slint-renderer-software",
@@ -10633,7 +10638,6 @@ dependencies = [
  "serde",
  "serde_json",
  "slint-build",
- "slint-interpreter",
  "slint-macros",
  "tokio",
  "unicode-segmentation",
@@ -10678,6 +10682,7 @@ dependencies = [
  "i-slint-backend-testing",
  "i-slint-common",
  "i-slint-core",
+ "i-slint-live-preview",
  "i-slint-renderer-skia",
  "i-slint-renderer-software",
  "proc-macro2",
@@ -10731,7 +10736,6 @@ dependencies = [
  "i-slint-core-macros",
  "itertools 0.14.0",
  "lyon_path",
- "notify",
  "once_cell",
  "raw-window-handle",
  "serde_json",
@@ -10880,6 +10884,7 @@ dependencies = [
  "i-slint-backend-selector",
  "i-slint-compiler",
  "i-slint-core",
+ "i-slint-live-preview",
  "itertools 0.14.0",
  "serde_json",
  "shlex",

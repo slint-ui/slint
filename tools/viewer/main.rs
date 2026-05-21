@@ -6,9 +6,10 @@
 use clap::Parser;
 use i_slint_compiler::ComponentSelection;
 use i_slint_core::timers::Timer;
+use i_slint_live_preview::file_watcher::FileWatcher;
 use itertools::Itertools;
 use slint_interpreter::{
-    CompilationResult, ComponentDefinition, ComponentHandle, ComponentInstance, FileWatcher, Value,
+    CompilationResult, ComponentDefinition, ComponentHandle, ComponentInstance, Value,
     json::JsonExt,
 };
 use std::collections::HashMap;
