@@ -472,6 +472,28 @@ mod tests {
     }
 
     #[test]
+    fn formats_changed_callbacks_events_and_member_access_without_parse_errors() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input = r#"component Base { callback changed(int); }
+component Demo {
+    base:=Base{}
+    callback changed<=> base . changed;
+    in-out property<int> value;
+    changed(delta)=>{ root.changed(+1); base.changed(delta); }
+    changed value=>{ root.changed(value);}
+}"#;
+        let result = formatter.format_str(input).expect("formatting should succeed");
+
+        assert_eq!(
+            result.text,
+            "component Base { callback changed(int); }\n\ncomponent Demo {\n    base := Base {}\n    callback changed <=> base.changed;\n    in-out property <int> value;\n    changed(delta) => { root.changed(+ 1); base.changed(delta); }\n    changed value => { root.changed(value); }\n}\n"
+        );
+
+        let profile = profile_source(&result.text);
+        assert!(!profile.has_parse_errors, "{:?}", profile.diagnostics);
+    }
+
+    #[test]
     fn reports_compiler_diagnostics_for_invalid_input() {
         let formatter = Formatter::new().expect("formatter should initialize");
         let input = "export component Broken inherits Rectangle { @@@ }";
