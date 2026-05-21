@@ -10840,6 +10840,11 @@ dependencies = [
 [[package]]
 name = "slint-sc"
 version = "1.17.0"
+dependencies = [
+ "rayon",
+ "regex",
+ "tempfile",
+]
 
 [[package]]
 name = "slint-tr-extractor"
