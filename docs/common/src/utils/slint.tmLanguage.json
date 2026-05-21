@@ -612,7 +612,7 @@
         "interpolation-mode": {
             "patterns": [
                 {
-                    "match": "(?<!-)\\b(linear|angle-shorter|angle-longer|angle-clockwise|angle-counterclockwise)\\b(?!-)",
+                    "match": "(?<!-)\\b(linear|shorter|longer|increasing|decreasing)\\b(?!-)",
                     "name": "support.constant.interpolation-mode.slint"
                 }
             ]

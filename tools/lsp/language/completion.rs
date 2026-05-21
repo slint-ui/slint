@@ -363,10 +363,36 @@ pub(crate) fn completion_at(
         return Some(r);
     } else if node.kind() == SyntaxKind::PropertyAnimation {
         let global_tr = document_cache.global_type_registry();
+        let doc = node.source_file().and_then(|sf| document_cache.get_document_for_source_file(sf));
+        let tr = doc.map(|d| &d.local_registry).unwrap_or(&global_tr);
+
+        // Hide `angle-interpolation` if we can prove every animated property is not an angle.
+        let exclude_angle_interpolation = lookup_current_element_type(node.clone(), tr)
+            .is_some_and(|element_type| {
+                let mut any_resolved = false;
+                let mut all_non_angle = true;
+                for qn in node.children().filter_map(syntax_nodes::QualifiedName::new) {
+                    let Some(prop_name) = i_slint_compiler::parser::identifier_text(&qn) else {
+                        continue;
+                    };
+                    let lookup = element_type.lookup_property(prop_name.as_str());
+                    if !lookup.property_type.is_property_type() {
+                        continue;
+                    }
+                    any_resolved = true;
+                    if matches!(lookup.property_type, Type::Angle) {
+                        all_non_angle = false;
+                        break;
+                    }
+                }
+                any_resolved && all_non_angle
+            });
+
         let r = global_tr
             .property_animation_type_for_property(Type::Float32)
             .property_list()
             .into_iter()
+            .filter(|(k, _)| !(exclude_angle_interpolation && k.as_str() == "angle-interpolation"))
             .map(|(k, t)| {
                 let mut c = CompletionItem::new_simple(k.to_string(), t.to_string());
                 c.kind = Some(CompletionItemKind::PROPERTY);
@@ -1889,6 +1915,23 @@ mod tests {
         res.iter().find(|ci| ci.label == "direction").unwrap();
         res.iter().find(|ci| ci.label == "iteration-count").unwrap();
         res.iter().find(|ci| ci.label == "easing").unwrap();
+        // angle-interpolation should not be suggested for a non-angle property
+        assert!(!res.iter().any(|ci| ci.label == "angle-interpolation"));
+    }
+
+    #[test]
+    fn animation_completion_angle() {
+        let source = r#"
+            component Foo {
+                Rectangle {
+                    animate transform-rotation {
+                        🔺
+                    }
+                }
+            }
+        "#;
+        let res = get_completions(source).unwrap();
+        res.iter().find(|ci| ci.label == "duration").unwrap();
         res.iter().find(|ci| ci.label == "angle-interpolation").unwrap();
     }
 
@@ -1961,10 +2004,10 @@ mod tests {
         "#;
         let res = get_completions(source).unwrap();
         res.iter().find(|ci| ci.label == "linear").unwrap();
-        res.iter().find(|ci| ci.label == "angle-shorter").unwrap();
-        res.iter().find(|ci| ci.label == "angle-longer").unwrap();
-        res.iter().find(|ci| ci.label == "angle-clockwise").unwrap();
-        res.iter().find(|ci| ci.label == "angle-counterclockwise").unwrap();
+        res.iter().find(|ci| ci.label == "shorter").unwrap();
+        res.iter().find(|ci| ci.label == "longer").unwrap();
+        res.iter().find(|ci| ci.label == "increasing").unwrap();
+        res.iter().find(|ci| ci.label == "decreasing").unwrap();
     }
 
     #[test]

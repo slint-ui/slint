@@ -31,8 +31,8 @@ TestCase := Rectangle {
 
     property<angle> rotation: 10deg;
     animate rotation {
-        duration: 600ms;
-        angle-interpolation: angle-shorter;
+        duration: 1200ms;
+        angle-interpolation: shorter;
     }
 }
 
@@ -43,19 +43,24 @@ let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_hello(), 40);
 assert_eq!(instance.get_binding_dep(), 100);
 assert_eq!(instance.get_direction(), 100);
+assert_eq!(instance.get_rotation(), 10.);
 instance.set_condition(false);
 instance.set_hello(60);
 instance.set_direction(200);
+instance.set_rotation(350.);
 // no time has elapsed yet
 assert_eq!(instance.get_hello(), 40);
 assert_eq!(instance.get_binding_dep(), 100);
 assert_eq!(instance.get_direction(), 200);
+assert_eq!(instance.get_rotation(), 10.);
 
 // Half the animation
 slint_testing::mock_elapsed_time(600);
 assert_eq!(instance.get_hello(), 50);
 assert_eq!(instance.get_binding_dep(), 125);
 assert_eq!(instance.get_direction(), 100);
+// shorter arc from 10° to 350° spans -20°; mid-point lands on 0°
+assert_eq!(instance.get_rotation(), 0.);
 
 
 // Remaining half
@@ -63,21 +68,26 @@ slint_testing::mock_elapsed_time(600);
 assert_eq!(instance.get_hello(), 60);
 assert_eq!(instance.get_binding_dep(), 150);
 assert_eq!(instance.get_direction(), 200);
+assert_eq!(instance.get_rotation(), 350.);
 
 slint_testing::mock_elapsed_time(100);
 assert_eq!(instance.get_hello(), 60);
 assert_eq!(instance.get_binding_dep(), 150);
 assert_eq!(instance.get_direction(), 200);
+assert_eq!(instance.get_rotation(), 350.);
 
 // Changing the value and waiting should have effect without
 // querying the value (because te dirty event should cause the animation to start)
 instance.set_condition(true);
 instance.set_hello(30);
 instance.set_direction(100);
+instance.set_rotation(10.);
 slint_testing::mock_elapsed_time(600);
 assert_eq!(instance.get_hello(), 45);
 assert_eq!(instance.get_binding_dep(), 125);
 assert_eq!(instance.get_direction(), 200);
+// shorter arc from 350° to 10° spans +20°; mid-point lands on 360°
+assert_eq!(instance.get_rotation(), 360.);
 
 ```
 
@@ -88,19 +98,23 @@ const TestCase &instance = *handle;
 assert_eq(instance.get_hello(), 40);
 assert_eq(instance.get_binding_dep(), 100);
 assert_eq(instance.get_direction(), 100);
+assert_eq(instance.get_rotation(), 10.f);
 instance.set_condition(false);
 instance.set_hello(60);
 instance.set_direction(200);
+instance.set_rotation(350.f);
 // no time has elapsed yet
 assert_eq(instance.get_hello(), 40);
 assert_eq(instance.get_binding_dep(), 100);
 assert_eq(instance.get_direction(), 200);
+assert_eq(instance.get_rotation(), 10.f);
 
 // Half the animation
 slint_testing::mock_elapsed_time(600);
 assert_eq(instance.get_hello(), 50);
 assert_eq(instance.get_binding_dep(), 125);
 assert_eq(instance.get_direction(), 100);
+assert_eq(instance.get_rotation(), 0.f);
 
 
 // Remaining half
@@ -108,21 +122,25 @@ slint_testing::mock_elapsed_time(600);
 assert_eq(instance.get_hello(), 60);
 assert_eq(instance.get_binding_dep(), 150);
 assert_eq(instance.get_direction(), 200);
+assert_eq(instance.get_rotation(), 350.f);
 
 slint_testing::mock_elapsed_time(100);
 assert_eq(instance.get_hello(), 60);
 assert_eq(instance.get_binding_dep(), 150);
 assert_eq(instance.get_direction(), 200);
+assert_eq(instance.get_rotation(), 350.f);
 
 // Changing the value and waiting should have effect without
 // querying the value (because te dirty event should cause the animation to start)
 instance.set_condition(true);
 instance.set_hello(30);
 instance.set_direction(100);
+instance.set_rotation(10.f);
 slint_testing::mock_elapsed_time(600);
 assert_eq(instance.get_hello(), 45);
 assert_eq(instance.get_binding_dep(), 125);
 assert_eq(instance.get_direction(), 200);
+assert_eq(instance.get_rotation(), 360.f);
 ```
 
 ```js
@@ -130,37 +148,45 @@ var instance = new slint.TestCase({});
 assert.equal(instance.hello, 40);
 assert.equal(instance.binding_dep, 100);
 assert.equal(instance.direction, 100);
+assert.equal(instance.rotation, 10);
 instance.condition = false;
 instance.hello = 60;
 instance.direction = 200;
+instance.rotation = 350;
 // no time has elapsed yet
 assert.equal(instance.hello, 40);
 assert.equal(instance.binding_dep, 100);
 assert.equal(instance.direction, 200);
+assert.equal(instance.rotation, 10);
 
 // Half the animation
 slintlib.private_api.mock_elapsed_time(600);
 assert.equal(instance.hello, 50);
 assert.equal(instance.binding_dep, 125);
 assert.equal(instance.direction, 100);
+assert.equal(instance.rotation, 0);
 // Remaining half
 slintlib.private_api.mock_elapsed_time(600);
 assert.equal(instance.hello, 60);
 assert.equal(instance.binding_dep, 150);
 assert.equal(instance.direction, 200);
+assert.equal(instance.rotation, 350);
 slintlib.private_api.mock_elapsed_time(100);
 assert.equal(instance.hello, 60);
 assert.equal(instance.binding_dep, 150);
 assert.equal(instance.direction, 200);
+assert.equal(instance.rotation, 350);
 
 // Changing the value and waiting should have effect without
 // querying the value (because te dirty event should cause the animation to start)
 instance.condition = true;
 instance.hello = 30;
 instance.direction = 100;
+instance.rotation = 10;
 slintlib.private_api.mock_elapsed_time(600);
 assert.equal(instance.hello, 45);
 assert.equal(instance.binding_dep, 125);
 assert.equal(instance.direction, 200);
+assert.equal(instance.rotation, 360);
 ```
 */

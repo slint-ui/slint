@@ -75,17 +75,17 @@ Use this to set or change the direction of the animation.
 Specifies how angle values are interpolated during the animation. Only allowed on animations of `angle` properties.
 
 - `linear` (default): Standard linear interpolation, treating the angle as a plain number.
-- `angle-shorter`: Interpolates via the shorter arc.
-- `angle-longer`: Interpolates via the longer arc.
-- `angle-clockwise`: Always rotates clockwise.
-- `angle-counterclockwise`: Always rotates counterclockwise.
+- `shorter`: Interpolates along the shorter arc between the two angles.
+- `longer`: Interpolates along the longer arc between the two angles.
+- `increasing`: The angle value always increases during the animation, wrapping around if necessary.
+- `decreasing`: The angle value always decreases during the animation, wrapping around if necessary.
 
 For example, when animating an angle from 10° to 350°:
-- `linear`: Rotates 340° clockwise (numeric interpolation through 180°).
-- `angle-shorter`: Rotates 20° counterclockwise (the shorter path).
-- `angle-longer`: Rotates 340° clockwise (the longer path).
-- `angle-clockwise`: Rotates 340° clockwise.
-- `angle-counterclockwise`: Rotates 20° counterclockwise.
+- `linear`: Goes from 10° to 350° as a plain number (passes through 180°).
+- `shorter`: Goes via the shorter arc (the angle decreases by 20°, through 0°).
+- `longer`: Goes via the longer arc (the angle increases by 340°, through 180°).
+- `increasing`: The angle increases by 340° (10° → 180° → 350°).
+- `decreasing`: The angle decreases by 20° (10° → 0° → -10°).
 </SlintProperty>
 
 **Example:**
@@ -108,7 +108,7 @@ export component Example inherits Window {
 
         animate transform-rotation {
             duration: 1000ms;
-            angle-interpolation: angle-shorter;
+            angle-interpolation: shorter;
         }
     }
 
