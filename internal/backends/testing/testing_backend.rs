@@ -174,6 +174,7 @@ impl i_slint_core::platform::Platform for TestingBackend {
             all_item_trees: Default::default(),
             open_url: self.open_url.clone(),
             debug_logs: self.debug_logs.clone(),
+            native_popup: Cell::new(false),
         });
         ALL_TESTING_WINDOWS.with(|list| list.borrow_mut().push(Rc::downgrade(&window)));
         Ok(window)
@@ -267,9 +268,14 @@ pub struct TestingWindow {
     all_item_trees: CheckAllItemTreesUnregistered,
     pub open_url: Rc<RefCell<Option<SharedString>>>,
     pub debug_logs: Rc<RefCell<Vec<String>>>,
+    native_popup: Cell<bool>,
 }
 
 impl TestingWindow {
+    pub fn use_native_popup(&self, native: bool) {
+        self.native_popup.set(native);
+    }
+
     #[allow(dead_code)] // Used by various tests
     pub fn mouse_cursor(&self) -> i_slint_core::items::MouseCursor {
         self.mouse_cursor.get()
@@ -311,6 +317,24 @@ impl WindowAdapterInternal for TestingWindow {
         _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
     ) {
         self.all_item_trees.0.borrow_mut().remove(&item_tree.as_ptr());
+    }
+
+    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+        if self.native_popup.get() {
+            let window = Rc::new_cyclic(|self_weak| TestingWindow {
+                window: i_slint_core::api::Window::new(self_weak.clone() as _),
+                size: Default::default(),
+                ime_requests: Default::default(),
+                mouse_cursor: Default::default(),
+                all_item_trees: Default::default(),
+                open_url: self.open_url.clone(),
+                debug_logs: self.debug_logs.clone(),
+                native_popup: self.native_popup.clone(),
+            });
+            Some(window)
+        } else {
+            None
+        }
     }
 }
 
