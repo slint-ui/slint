@@ -348,7 +348,6 @@ fn update_visible_instances(
         state.anchor_y = state.cached_item_height * state.offset as Coord;
         viewport_height.set(LogicalLength::new(state.cached_item_height * row_count as Coord));
         viewport_width.set(LogicalLength::new(vp_width));
-        // If an animation is ongoing we should not interrupt it
         let new_viewport_y = -state.anchor_y + new_offset_y;
         // Important: Use get_internal here, the viewport_y may have a binding on it (especially
         // a physical animation).
@@ -356,6 +355,9 @@ fn update_visible_instances(
         // viewport_width and viewport_height, but the viewport_y is not yet consistent.
         // So the physics animations limit value may be inconsistent.
         if new_viewport_y != viewport_y.get_internal().get() {
+            // If a physics animation is ongoing (e.g. due to a flick), we should not interrupt it.
+            // The physics animation implements intercept_set, and is therefore not interrupted by
+            // a call to set() - so it's okay to just use a normal set here.
             viewport_y.set(LogicalLength::new(new_viewport_y));
         }
         state.previous_viewport_y = new_viewport_y;
