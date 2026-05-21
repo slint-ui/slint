@@ -60,8 +60,19 @@ struct Cli {
     library_paths: Vec<String>,
 
     /// The .slint file to load ('-' for stdin)
-    #[arg(name = "path", action)]
-    path: std::path::PathBuf,
+    #[cfg_attr(feature = "remote", arg(name = "path", action, required_unless_present = "remote"))]
+    #[cfg_attr(not(feature = "remote"), arg(name = "path", action, required = true))]
+    path: Option<std::path::PathBuf>,
+
+    #[cfg(feature = "remote")]
+    /// Start in remote viewer mode: listen for WebSocket connections from the LSP
+    #[arg(long)]
+    remote: bool,
+
+    #[cfg(feature = "remote")]
+    /// Address to listen on in remote mode (default: auto-assigned port on all interfaces)
+    #[arg(long, value_name = "address")]
+    remote_address: Option<std::net::SocketAddr>,
 
     /// The style name. Defaults to 'fluent' if not specified
     #[arg(long, value_name = "style name", action)]
@@ -111,11 +122,24 @@ struct Cli {
     no_default_translation_context: bool,
 }
 
+impl Cli {
+    fn path(&self) -> &std::path::Path {
+        self.path.as_deref().expect("path is required when not in remote mode")
+    }
+}
+
 static EXIT_CODE: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
 
 fn main() -> Result<()> {
     env_logger::init();
     let args = Cli::parse();
+
+    #[cfg(feature = "remote")]
+    if args.remote {
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
+        rt.block_on(slint_viewer::remote::run(args.remote_address, true))?;
+        return Ok(());
+    }
 
     if args.auto_reload && args.save_data.is_some() {
         eprintln!("Cannot pass both --auto-reload and --save-data");
@@ -139,7 +163,7 @@ fn main() -> Result<()> {
     if args.auto_reload {
         let live = i_slint_live_preview::live_component::LiveReloadingComponent::new(
             compiler,
-            args.path.to_path_buf(),
+            args.path().to_path_buf(),
             args.component.clone(),
         )?;
 
@@ -162,7 +186,7 @@ fn main() -> Result<()> {
         let instance = live.borrow().instance().clone_strong();
         instance.run()?;
     } else {
-        let result = spin_on::spin_on(compiler.build_from_path(&args.path));
+        let result = spin_on::spin_on(compiler.build_from_path(args.path()));
         result.print_diagnostics();
         if result.has_errors() {
             std::process::exit(-1);
@@ -271,10 +295,10 @@ fn extract_component(result: &CompilationResult, args: &Cli) -> Option<Component
     if component.is_none() {
         match &args.component {
             Some(name) => {
-                eprintln!("Component '{name}' not found in file '{}'", args.path.display());
+                eprintln!("Component '{name}' not found in file '{}'", args.path().display());
             }
             None => {
-                eprintln!("No component found in file '{}'", args.path.display());
+                eprintln!("No component found in file '{}'", args.path().display());
             }
         }
     }

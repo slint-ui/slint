@@ -5,7 +5,7 @@ use std::{path::PathBuf, rc::Weak};
 
 use i_slint_core::InternalToken;
 
-use crate::connection::Connection;
+use super::connection::Connection;
 
 pub fn init_compiler(connection: Weak<Connection>) -> slint_interpreter::Compiler {
     let mut compiler = slint_interpreter::Compiler::new();

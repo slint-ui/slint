@@ -5441,14 +5441,26 @@ dependencies = [
 name = "i-slint-live-preview"
 version = "1.17.0"
 dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "dashmap",
  "derive_more",
+ "futures-util",
+ "getifs",
+ "hostname",
  "i-slint-compiler",
  "i-slint-core",
  "lsp-types",
+ "mdns-sd 0.17.2",
  "notify",
+ "postcard",
  "serde",
  "serde_json",
  "slint-interpreter",
+ "tokio",
+ "tokio-tungstenite",
+ "tracing",
+ "zeroconf-tokio",
 ]
 
 [[package]]
@@ -9480,33 +9492,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
-name = "remote-viewer"
-version = "1.17.0"
-dependencies = [
- "anyhow",
- "base64 0.22.1",
- "dashmap",
- "futures-util",
- "getifs",
- "hostname",
- "i-slint-backend-selector",
- "i-slint-compiler",
- "i-slint-core",
- "i-slint-live-preview",
- "lsp-types",
- "mdns-sd 0.17.2",
- "postcard",
- "serde",
- "slint",
- "slint-interpreter",
- "tokio",
- "tokio-tungstenite",
- "tracing",
- "tracing-subscriber",
- "zeroconf-tokio",
-]
-
-[[package]]
 name = "rend"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10868,6 +10853,7 @@ dependencies = [
 name = "slint-viewer"
 version = "1.17.0"
 dependencies = [
+ "anyhow",
  "clap",
  "env_logger",
  "i-slint-backend-selector",
@@ -10875,12 +10861,17 @@ dependencies = [
  "i-slint-core",
  "i-slint-live-preview",
  "itertools 0.14.0",
+ "mdns-sd 0.17.2",
  "serde_json",
  "shlex",
+ "slint",
  "slint-interpreter",
  "smol_str 0.3.2",
  "spin_on",
  "tikv-jemallocator",
+ "tokio",
+ "tracing",
+ "zeroconf-tokio",
 ]
 
 [[package]]

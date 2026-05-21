@@ -922,7 +922,10 @@ pub fn convert_diagnostics(
             continue;
         }
         let uri = Url::from_file_path(d.source_file().unwrap()).unwrap();
-        lsp_diags.entry(uri).or_default().push(util::to_lsp_diag(&d, format));
+        lsp_diags
+            .entry(uri)
+            .or_default()
+            .push(i_slint_live_preview::protocol::to_lsp_diagnostic(&d, format));
     }
 
     lsp_diags
