@@ -23,9 +23,11 @@ pub struct LiveReloadingComponent {
     watcher: Arc<Mutex<Watcher>>,
     compiler: Compiler,
     file_name: PathBuf,
-    component_name: String,
+    component_name: Option<String>,
     properties: RefCell<HashMap<String, Value>>,
     callbacks: RefCell<HashMap<String, Rc<dyn Fn(&[Value]) -> Value + 'static>>>,
+    post_reload_hook: Option<Box<dyn Fn(&ComponentInstance)>>,
+    extra_watch_paths: Vec<PathBuf>,
 }
 
 impl LiveReloadingComponent {
@@ -33,7 +35,7 @@ impl LiveReloadingComponent {
     pub fn new(
         mut compiler: Compiler,
         file_name: PathBuf,
-        component_name: String,
+        component_name: Option<String>,
     ) -> Result<Rc<RefCell<Self>>, PlatformError> {
         compiler.set_embed_resources(i_slint_compiler::EmbedResourcesKind::ListAllResources);
 
@@ -47,6 +49,8 @@ impl LiveReloadingComponent {
                 component_name,
                 properties: Default::default(),
                 callbacks: Default::default(),
+                post_reload_hook: None,
+                extra_watch_paths: Vec::new(),
             })
         });
 
@@ -59,11 +63,11 @@ impl LiveReloadingComponent {
             self_mut.file_name.display(),
             result.diagnostics().collect::<Vec<_>>()
         );
-        let definition = result.component(&self_mut.component_name).expect("Cannot open component");
+        let definition = self_mut.find_component(&result).expect("Cannot open component");
         let instance = definition.create()?;
         eprintln!(
             "Loaded component {} from {}",
-            self_mut.component_name,
+            self_mut.component_name.as_deref().unwrap_or("<default>"),
             self_mut.file_name.display()
         );
         self_mut.instance = Some(instance);
@@ -81,7 +85,7 @@ impl LiveReloadingComponent {
             return false;
         }
 
-        if let Some(definition) = result.component(&self.component_name) {
+        if let Some(definition) = self.find_component(&result) {
             match definition.create_with_existing_window(self.instance().window()) {
                 Ok(instance) => {
                     self.instance = Some(instance);
@@ -92,10 +96,23 @@ impl LiveReloadingComponent {
                 }
             }
         } else {
-            eprintln!("Component {} not found", self.component_name);
+            eprintln!(
+                "Component {} not found",
+                self.component_name.as_deref().unwrap_or("<default>")
+            );
             return false;
         }
         true
+    }
+
+    fn find_component(
+        &self,
+        result: &slint_interpreter::CompilationResult,
+    ) -> Option<slint_interpreter::ComponentDefinition> {
+        match &self.component_name {
+            Some(name) => result.component(name),
+            None => result.components().next(),
+        }
     }
 
     fn build(&self) -> slint_interpreter::CompilationResult {
@@ -108,7 +125,8 @@ impl LiveReloadingComponent {
         Watcher::update_watched_paths(
             &self.watcher,
             std::iter::once(self.file_name.clone())
-                .chain(result.watch_paths(i_slint_core::InternalToken).iter().cloned()),
+                .chain(result.watch_paths(i_slint_core::InternalToken).iter().cloned())
+                .chain(self.extra_watch_paths.iter().cloned()),
         );
         result
     }
@@ -140,7 +158,21 @@ impl LiveReloadingComponent {
             }
         }
 
-        eprintln!("Reloaded component {} from {}", self.component_name, self.file_name.display());
+        eprintln!(
+            "Reloaded component {} from {}",
+            self.component_name.as_deref().unwrap_or("<default>"),
+            self.file_name.display()
+        );
+    }
+
+    /// Set a hook that runs after each successful reload, receiving the new instance.
+    pub fn set_post_reload_hook(&mut self, hook: impl Fn(&ComponentInstance) + 'static) {
+        self.post_reload_hook = Some(Box::new(hook));
+    }
+
+    /// Set extra file paths to watch in addition to the .slint file and its imports.
+    pub fn set_extra_watch_paths(&mut self, paths: Vec<PathBuf>) {
+        self.extra_watch_paths = paths;
     }
 
     /// Return the instance
@@ -247,7 +279,11 @@ impl Watcher {
             if matches!(state, WatcherState::Changed) {
                 let success = instance.borrow_mut().reload();
                 if success {
-                    instance.borrow().reload_properties_and_callbacks();
+                    let borrowed = instance.borrow();
+                    borrowed.reload_properties_and_callbacks();
+                    if let Some(hook) = &borrowed.post_reload_hook {
+                        hook(borrowed.instance());
+                    }
                 };
             };
             std::task::Poll::Pending
@@ -334,7 +370,7 @@ mod ffi {
             LiveReloadingComponent::new(
                 compiler,
                 std::path::PathBuf::from(std::str::from_utf8(&file_name).unwrap()),
-                std::str::from_utf8(&component_name).unwrap().into(),
+                Some(std::str::from_utf8(&component_name).unwrap().into()),
             )
             .expect("Creating the component failed"),
         )
