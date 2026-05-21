@@ -8,8 +8,8 @@
 //! - `ConstantDeceleration`
 //! - `ConstantDecelerationSpringDamper` with spring damper simulation when reaching the limit
 
-use crate::animations::Instant;
-#[cfg(all(test, not(feature = "std")))]
+use crate::{Coord, animations::Instant};
+#[cfg(not(feature = "std"))]
 use num_traits::Float;
 
 /// The direction the simulation is running
@@ -91,7 +91,7 @@ impl ConstantDecelerationParameters {
     }
 
     /// Calculates the remaining distance to the limit value at a given time based on the initial velocity and deceleration.
-    pub fn remaining_distance(&self, time_elapsed: core::time::Duration) -> f32 {
+    pub fn remaining_distance(&self, time_elapsed: core::time::Duration) -> Coord {
         debug_assert!(self.deceleration != 0., "deceleration must not be zero");
         debug_assert!(
             self.deceleration.signum() == self.initial_velocity.signum(),
@@ -107,11 +107,12 @@ impl ConstantDecelerationParameters {
 
         if time_elapsed.as_secs_f32() < total_duration {
             // Based on the equations of motion for constant acceleration we can calculate the remaining distance at a given time:
-            0.5 * (-self.deceleration)
+            (0.5 * (-self.deceleration)
                 * (total_duration.powi(2) - time_elapsed.as_secs_f32().powi(2))
-                + self.initial_velocity * (total_duration - time_elapsed.as_secs_f32())
+                + self.initial_velocity * (total_duration - time_elapsed.as_secs_f32()))
+                as Coord
         } else {
-            0.
+            Coord::default()
         }
     }
 }
@@ -232,13 +233,20 @@ impl Simulation for ConstantDeceleration {
 }
 
 #[cfg(test)]
+macro_rules! assert_approx_eq {
+    ($a:expr, $b:expr) => {
+        assert!(($a - $b).abs() < 1e-4, "{} != {}", $a, $b);
+    };
+}
+#[cfg(test)]
+fn test_limit_property(value: f32) -> core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>> {
+    alloc::boxed::Box::pin(crate::Property::new(value))
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use core::time::Duration;
-
-    fn test_limit_property(value: f32) -> core::pin::Pin<alloc::boxed::Box<crate::Property<f32>>> {
-        alloc::boxed::Box::pin(crate::Property::new(value))
-    }
 
     #[test]
     fn constant_deceleration_start_eq_limit() {

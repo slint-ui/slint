@@ -80,7 +80,7 @@ impl<const N: usize> VelocityRingBuffer<N> {
             index = (index + 1) % N;
         }
 
-        total_delta / duration.as_secs_f32()
+        (total_delta.cast::<f32>() / duration.as_secs_f32()).cast::<Coord>()
     }
 }
 
