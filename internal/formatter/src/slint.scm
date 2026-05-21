@@ -28,15 +28,6 @@
   (line_comment)
   (block_comment)
 ] @allow_blank_line_before
-; Preserve the conventional blank line between a leading header comment block and the first item.
-(sourcefile
-  . [
-      (line_comment)
-      (block_comment)
-    ]+
-  . (_) @allow_blank_line_before
- )
-
 ; Add a special case for single-line comments that end with the ignore directive,
 ; so that they can be used to disable formatting for the following item without forcing a blank line.
 ;
@@ -427,31 +418,12 @@
   (#multi_line_only!)
 )
 
-; Imports usually stay grouped. Definitions are easier to scan with a blank line.
+; Top-level items should always break onto their own line, while preserving
+; existing blank lines between user-defined sections.
 (sourcefile
-  (import_statement) @append_antispace @append_hardline
-  .
-  (import_statement)
-)
-
-(sourcefile
-  (export_statement) @append_antispace @append_hardline
-  .
-  (export_statement)
-)
-
-(sourcefile
-  (import_statement) @append_antispace @append_delimiter
-  .
-  (export_statement)
-
-  (#delimiter! "\n\n")
-)
-
-(sourcefile
-  (import_statement) @append_antispace @append_delimiter
-  .
   [
+    (import_statement)
+    (export_statement)
     (rust_attr)
     (exported_definition)
     (component_definition)
@@ -459,49 +431,19 @@
     (enum_definition)
     (global_definition)
     (interface_definition)
+  ] @append_antispace @append_hardline
+  .
+  [
+    (import_statement) @allow_blank_line_before @prepend_antispace
+    (export_statement) @allow_blank_line_before @prepend_antispace
+    (rust_attr) @allow_blank_line_before @prepend_antispace
+    (exported_definition) @allow_blank_line_before @prepend_antispace
+    (component_definition) @allow_blank_line_before @prepend_antispace
+    (struct_definition) @allow_blank_line_before @prepend_antispace
+    (enum_definition) @allow_blank_line_before @prepend_antispace
+    (global_definition) @allow_blank_line_before @prepend_antispace
+    (interface_definition) @allow_blank_line_before @prepend_antispace
   ]
-
-  (#delimiter! "\n\n")
-)
-
-(sourcefile
-  (export_statement) @append_antispace @append_delimiter
-  .
-  [
-    (rust_attr)
-    (exported_definition)
-    (component_definition)
-    (struct_definition)
-    (enum_definition)
-    (global_definition)
-    (interface_definition)
-  ]
-
-  (#delimiter! "\n\n")
-)
-
-(sourcefile
-  [
-    (rust_attr)
-    (exported_definition)
-    (component_definition)
-    (struct_definition)
-    (enum_definition)
-    (global_definition)
-    (interface_definition)
-  ] @append_antispace @append_delimiter
-  .
-  [
-    (rust_attr)
-    (exported_definition)
-    (component_definition)
-    (struct_definition)
-    (enum_definition)
-    (global_definition)
-    (interface_definition)
-  ]
-
-  (#delimiter! "\n\n")
 )
 
 (sourcefile
@@ -509,6 +451,7 @@
     (import_statement)
     (export_statement)
     (rust_attr)
+    (exported_definition)
     (component_definition)
     (struct_definition)
     (enum_definition)
@@ -529,61 +472,14 @@
   ] @append_antispace @append_hardline
   .
   [
-    (import_statement) @prepend_antispace
-    (rust_attr) @prepend_antispace
-    (export_statement) @prepend_antispace
-    (exported_definition) @prepend_antispace
-    (component_definition) @prepend_antispace
-    (struct_definition) @prepend_antispace
-    (enum_definition) @prepend_antispace
-    (global_definition) @prepend_antispace
-    (interface_definition) @prepend_antispace
-  ]
-)
-
-(sourcefile
-  [
-    (rust_attr)
-    (exported_definition)
-    (component_definition)
-    (struct_definition)
-    (enum_definition)
-    (global_definition)
-    (interface_definition)
-  ] @append_antispace @append_hardline
-  .
-  [
     (import_statement) @allow_blank_line_before @prepend_antispace
+    (rust_attr) @allow_blank_line_before @prepend_antispace
     (export_statement) @allow_blank_line_before @prepend_antispace
-  ]
-)
-
-(sourcefile
-  [
-    (import_statement)
-    (export_statement)
-    (rust_attr)
-    (component_definition)
-    (struct_definition)
-    (enum_definition)
-    (global_definition)
-    (interface_definition)
-  ]
-  .
-  [
-    (line_comment)
-    (block_comment)
-  ]+
-  .
-  [
-    (import_statement) @allow_blank_line_before
-    (rust_attr) @allow_blank_line_before
-    (export_statement) @allow_blank_line_before
-    (exported_definition) @allow_blank_line_before
-    (component_definition) @allow_blank_line_before
-    (struct_definition) @allow_blank_line_before
-    (enum_definition) @allow_blank_line_before
-    (global_definition) @allow_blank_line_before
-    (interface_definition) @allow_blank_line_before
+    (exported_definition) @allow_blank_line_before @prepend_antispace
+    (component_definition) @allow_blank_line_before @prepend_antispace
+    (struct_definition) @allow_blank_line_before @prepend_antispace
+    (enum_definition) @allow_blank_line_before @prepend_antispace
+    (global_definition) @allow_blank_line_before @prepend_antispace
+    (interface_definition) @allow_blank_line_before @prepend_antispace
   ]
 )

@@ -208,14 +208,14 @@ mod tests {
     }
 
     #[test]
-    fn separates_top_level_definitions_with_a_blank_line() {
+    fn keeps_adjacent_top_level_definitions_on_consecutive_lines() {
         let formatter = Formatter::new().expect("formatter should initialize");
         let input = "component First inherits Rectangle {}\ncomponent Second inherits Rectangle {}";
         let result = formatter.format_str(input).expect("formatting should succeed");
 
         assert_eq!(
             result.text,
-            "component First inherits Rectangle {}\n\ncomponent Second inherits Rectangle {}\n"
+            "component First inherits Rectangle {}\ncomponent Second inherits Rectangle {}\n"
         );
     }
 
@@ -263,19 +263,56 @@ mod tests {
 
         assert_eq!(
             result.text,
-            "export { Foo as Bar } from \"./x.slint\";\n\ncomponent Demo {}\n"
+            "export { Foo as Bar } from \"./x.slint\";\ncomponent Demo {}\n"
         );
     }
 
     #[test]
     fn preserves_rust_attr_blocks_while_spacing_top_level_sections() {
         let formatter = Formatter::new().expect("formatter should initialize");
-        let input = "@rust-attr(derive(Debug))\nexport struct Foo {}\ncomponent Demo{}";
+        let input = "@rust-attr(derive(Debug))\nexport struct Foo {}\n\ncomponent Demo{}";
         let result = formatter.format_str(input).expect("formatting should succeed");
 
         assert_eq!(
             result.text,
             "@rust-attr(derive(Debug))\nexport struct Foo {}\n\ncomponent Demo {}\n"
+        );
+    }
+
+    #[test]
+    fn preserves_existing_blank_lines_between_top_level_definitions() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input = "component First inherits Rectangle {}\n\ncomponent Second inherits Rectangle {}";
+        let result = formatter.format_str(input).expect("formatting should succeed");
+
+        assert_eq!(
+            result.text,
+            "component First inherits Rectangle {}\n\ncomponent Second inherits Rectangle {}\n"
+        );
+    }
+
+    #[test]
+    fn keeps_imports_and_reexports_grouped_without_forced_blank_lines() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input =
+            "import { Foo } from \"./a.slint\";\nexport {Bar as Baz} from \"./b.slint\";\ncomponent Demo{}";
+        let result = formatter.format_str(input).expect("formatting should succeed");
+
+        assert_eq!(
+            result.text,
+            "import { Foo } from \"./a.slint\";\nexport { Bar as Baz } from \"./b.slint\";\ncomponent Demo {}\n"
+        );
+    }
+
+    #[test]
+    fn preserves_blank_lines_around_banner_comments_after_exported_definitions() {
+        let formatter = Formatter::new().expect("formatter should initialize");
+        let input = "export component Primary {}\n\n//------ Helpers ------\n\ncomponent Helper {}";
+        let result = formatter.format_str(input).expect("formatting should succeed");
+
+        assert_eq!(
+            result.text,
+            "export component Primary {}\n\n//------ Helpers ------\n\ncomponent Helper {}\n"
         );
     }
 
@@ -486,7 +523,7 @@ component Demo {
 
         assert_eq!(
             result.text,
-            "component Base { callback changed(int); }\n\ncomponent Demo {\n    base := Base {}\n    callback changed <=> base.changed;\n    in-out property <int> value;\n    changed(delta) => { root.changed(+ 1); base.changed(delta); }\n    changed value => { root.changed(value); }\n}\n"
+            "component Base { callback changed(int); }\ncomponent Demo {\n    base := Base {}\n    callback changed <=> base.changed;\n    in-out property <int> value;\n    changed(delta) => { root.changed(+ 1); base.changed(delta); }\n    changed value => { root.changed(value); }\n}\n"
         );
 
         let profile = profile_source(&result.text);
