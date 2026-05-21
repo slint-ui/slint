@@ -1036,7 +1036,9 @@ class Repeater
                     }(),
             .init =
                     [](void *ud, uintptr_t instance_idx) {
-                        (*static_cast<Ctx *>(ud)->inner->data[instance_idx].ptr)->init();
+                        auto &c = static_cast<Ctx *>(ud)->inner->data[instance_idx];
+                        (*c.ptr)->init();
+                        (*c.ptr)->ensure_instantiated();
                     },
         };
     }
@@ -1175,6 +1177,8 @@ public:
         track_model_changes();
         for (std::size_t i = 0; i < inner->data.size(); ++i) {
             auto index = order == TraversalOrder::BackToFront ? i : inner->data.size() - 1 - i;
+            if (!inner->data[index].ptr)
+                continue;
             auto ref = item_at(index);
             if (ref.vtable->visit_children_item(ref, -1, order, visitor)
                 != std::numeric_limits<uint64_t>::max()) {
@@ -1191,6 +1195,8 @@ public:
             return {};
         }
         const auto &x = inner->data.at(i - offset);
+        if (!x.ptr)
+            return {};
         return vtable::VWeak<private_api::ItemTreeVTable> { x.ptr->into_dyn() };
     }
 
@@ -1232,7 +1238,8 @@ public:
     {
         if (inner) {
             for (auto &&x : inner->data) {
-                f(*x.ptr);
+                if (x.ptr)
+                    f(*x.ptr);
             }
         }
     }
