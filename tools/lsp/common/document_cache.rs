@@ -8,7 +8,7 @@ use i_slint_compiler::object_tree::Document;
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
-use i_slint_preview_protocol::SourceFileVersion;
+use i_slint_live_preview::protocol::SourceFileVersion;
 use lsp_types::Url;
 
 use std::{

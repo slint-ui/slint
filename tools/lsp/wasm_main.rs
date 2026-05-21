@@ -13,7 +13,7 @@ pub mod util;
 
 use common::SwitchableLspToPreview;
 use common::{DocumentCache, Result};
-use i_slint_preview_protocol::{LspToPreviewMessage, VersionedUrl};
+use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl};
 use js_sys::Function;
 pub use language::{Context, RequestHandler};
 use lsp_types::Url;
@@ -337,7 +337,7 @@ impl SlintServer {
         &self,
         value: JsValue,
     ) -> std::result::Result<(), JsValue> {
-        use i_slint_preview_protocol::PreviewToLspMessage as M;
+        use PreviewToLspMessage as M;
 
         let ctx = self.ctx.lock().await;
 
@@ -473,11 +473,8 @@ impl SlintServer {
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
-fn handle_preview_to_lsp_message(
-    message: i_slint_preview_protocol::PreviewToLspMessage,
-    ctx: &Context,
-) -> Result<()> {
-    use i_slint_preview_protocol::PreviewToLspMessage as M;
+fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Context) -> Result<()> {
+    use PreviewToLspMessage as M;
 
     match message {
         M::Diagnostics { diagnostics, version, uri } => {

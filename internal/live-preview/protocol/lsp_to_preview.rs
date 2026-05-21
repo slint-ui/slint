@@ -5,7 +5,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use lsp_types::Url;
 
-use crate::VersionedUrl;
+use super::VersionedUrl;
 
 /// The Component to preview
 #[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]

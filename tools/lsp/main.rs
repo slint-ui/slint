@@ -43,6 +43,7 @@ use std::time::Duration;
 use crate::common::{SwitchableLspToPreview, document_cache::CompilerConfiguration};
 #[cfg(feature = "preview-remote")]
 use crate::preview::connector::remote::RemoteLspToPreview;
+use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl};
 
 #[cfg(not(any(
     target_os = "openbsd",
@@ -338,7 +339,7 @@ async fn main_loop(
     let request_queue = OutgoingRequestQueue::default();
     #[cfg_attr(not(feature = "preview-engine"), allow(unused))]
     let (preview_to_lsp_sender, preview_to_lsp_receiver) =
-        mpsc::unbounded_channel::<i_slint_preview_protocol::PreviewToLspMessage>();
+        mpsc::unbounded_channel::<PreviewToLspMessage>();
 
     let server_notifier =
         ServerNotifier { sender: connection.sender.clone(), queue: request_queue.clone() };
@@ -348,7 +349,7 @@ async fn main_loop(
         Rc::new(SwitchableLspToPreview::with_one(common::DummyLspToPreview::default()));
     #[cfg(feature = "preview-engine")]
     let to_preview = {
-        use i_slint_preview_protocol::PreviewTarget;
+        use i_slint_live_preview::protocol::PreviewTarget;
 
         let sn = server_notifier.clone();
 
@@ -397,11 +398,9 @@ async fn run_main_loop(
     cli_args: Cli,
     request_queue: OutgoingRequestQueue,
     server_notifier: ServerNotifier,
-    preview_to_lsp_sender: mpsc::UnboundedSender<i_slint_preview_protocol::PreviewToLspMessage>,
+    preview_to_lsp_sender: mpsc::UnboundedSender<PreviewToLspMessage>,
     #[cfg_attr(not(feature = "preview-engine"), allow(unused_mut))]
-    mut preview_to_lsp_receiver: mpsc::UnboundedReceiver<
-        i_slint_preview_protocol::PreviewToLspMessage,
-    >,
+    mut preview_to_lsp_receiver: mpsc::UnboundedReceiver<PreviewToLspMessage>,
     to_preview: Rc<SwitchableLspToPreview>,
 ) -> Result<()> {
     let mut rh = RequestHandler::default();
@@ -424,16 +423,12 @@ async fn run_main_loop(
                 let contents = std::fs::read(&path);
                 if let Ok(url) = Url::from_file_path(&path) {
                     if let Ok(contents) = &contents {
-                        to_preview.send(
-                            &i_slint_preview_protocol::LspToPreviewMessage::SetContents {
-                                url: i_slint_preview_protocol::VersionedUrl::new(url, None),
-                                contents: contents.clone(),
-                            },
-                        );
+                        to_preview.send(&LspToPreviewMessage::SetContents {
+                            url: VersionedUrl::new(url, None),
+                            contents: contents.clone(),
+                        });
                     } else {
-                        to_preview.send(
-                            &i_slint_preview_protocol::LspToPreviewMessage::ForgetFile { url },
-                        );
+                        to_preview.send(&LspToPreviewMessage::ForgetFile { url });
                     }
                 }
                 Some(contents.and_then(|c| {
@@ -684,11 +679,8 @@ async fn send_workspace_edit(
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
-async fn handle_preview_to_lsp_message(
-    message: i_slint_preview_protocol::PreviewToLspMessage,
-    ctx: &Context,
-) -> Result<()> {
-    use i_slint_preview_protocol::PreviewToLspMessage as M;
+async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Context) -> Result<()> {
+    use PreviewToLspMessage as M;
     match message {
         M::Diagnostics { uri, version, diagnostics } => {
             if diagnostics.is_empty() {

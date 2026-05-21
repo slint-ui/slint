@@ -5438,20 +5438,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "i-slint-parser-test-macro"
-version = "1.17.0"
-dependencies = [
- "quote",
-]
-
-[[package]]
-name = "i-slint-preview-protocol"
+name = "i-slint-live-preview"
 version = "1.17.0"
 dependencies = [
  "derive_more",
  "lsp-types",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "i-slint-parser-test-macro"
+version = "1.17.0"
+dependencies = [
+ "quote",
 ]
 
 [[package]]
@@ -9488,7 +9488,7 @@ dependencies = [
  "i-slint-backend-selector",
  "i-slint-compiler",
  "i-slint-core",
- "i-slint-preview-protocol",
+ "i-slint-live-preview",
  "lsp-types",
  "mdns-sd 0.17.2",
  "postcard",
@@ -10760,7 +10760,7 @@ dependencies = [
  "i-slint-common",
  "i-slint-compiler",
  "i-slint-core",
- "i-slint-preview-protocol",
+ "i-slint-live-preview",
  "itertools 0.14.0",
  "js-sys",
  "lsp-server",
