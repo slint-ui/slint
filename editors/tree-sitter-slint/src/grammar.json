@@ -2721,12 +2721,12 @@
             "name": "op",
             "content": {
               "type": "SYMBOL",
-              "name": "unary_prec_operator"
+              "name": "_unary_prec_operator"
             }
           },
           {
             "type": "FIELD",
-            "name": "left",
+            "name": "expr",
             "content": {
               "type": "SYMBOL",
               "name": "expression"
@@ -4026,7 +4026,7 @@
         ]
       }
     },
-    "unary_prec_operator": {
+    "_unary_prec_operator": {
       "type": "CHOICE",
       "members": [
         {

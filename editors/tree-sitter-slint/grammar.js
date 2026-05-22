@@ -474,7 +474,7 @@ module.exports = grammar({
     unary_expression: ($) =>
       prec.left(
         14,
-        seq(field("op", $.unary_prec_operator), field("left", $.expression)),
+        seq(field("op", $._unary_prec_operator), field("expr", $.expression)),
       ),
 
     binary_expression: ($) =>
@@ -717,7 +717,7 @@ module.exports = grammar({
         seq("(", optional(seq(commaSep1($.argument), optional(","))), ")"),
       ),
 
-    unary_prec_operator: (_) => choice("!", "-", "+"),
+    _unary_prec_operator: (_) => choice("!", "-", "+"),
 
     add_prec_operator: (_) => choice("+", "-"),
     mult_prec_operator: (_) => choice("*", "/"),

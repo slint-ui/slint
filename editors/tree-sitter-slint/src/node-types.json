@@ -2390,7 +2390,7 @@
     "type": "unary_expression",
     "named": true,
     "fields": {
-      "left": {
+      "expr": {
         "multiple": false,
         "required": true,
         "types": [
@@ -2405,17 +2405,20 @@
         "required": true,
         "types": [
           {
-            "type": "unary_prec_operator",
-            "named": true
+            "type": "!",
+            "named": false
+          },
+          {
+            "type": "+",
+            "named": false
+          },
+          {
+            "type": "-",
+            "named": false
           }
         ]
       }
     }
-  },
-  {
-    "type": "unary_prec_operator",
-    "named": true,
-    "fields": {}
   },
   {
     "type": "used_interface",
