@@ -1625,7 +1625,7 @@ pub fn instantiate(
             if let Some(WindowOptions::UseExistingWindow(adapter)) = window_options.as_ref() {
                 Some(adapter.clone())
             } else {
-                instance_ref.maybe_window_adapter()
+                extra_data.globals.get().unwrap().window_adapter().and_then(|wa| wa.get().cloned())
             };
 
         let component_rc = vtable::VRc::into_dyn(self_rc.clone());
