@@ -133,6 +133,11 @@
   "]" @prepend_antispace
 )
 
+(keys
+  "+" @append_space @prepend_space)
+(keys
+  "?" @prepend_antispace)
+
 ; Integer literals keep a separating space so `1 .foo` doesn't collapse into `1.foo`.
 (member_access
   base: (expression
