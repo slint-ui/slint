@@ -136,8 +136,7 @@ fn main() -> Result<()> {
 
     #[cfg(feature = "remote")]
     if args.remote {
-        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
-        rt.block_on(slint_viewer::remote::run(args.remote_address, true))?;
+        slint_viewer::remote::run(args.remote_address, true)?;
         return Ok(());
     }
 
@@ -186,7 +185,7 @@ fn main() -> Result<()> {
         let instance = live.borrow().instance().clone_strong();
         instance.run()?;
     } else {
-        let result = spin_on::spin_on(compiler.build_from_path(args.path()));
+        let result = slint_viewer::poll_ready(compiler.build_from_path(args.path()));
         result.print_diagnostics();
         if result.has_errors() {
             std::process::exit(-1);
