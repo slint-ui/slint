@@ -9,6 +9,7 @@ use android_activity::input::{
     ButtonState, InputEvent, KeyAction, Keycode, MotionAction, MotionEvent,
 };
 use android_activity::{InputStatus, MainEvent, PollEvent};
+use i_slint_core::SharedString;
 use i_slint_core::api::{
     LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, PlatformError, Window,
 };
@@ -19,7 +20,6 @@ use i_slint_core::platform::{
 };
 use i_slint_core::timers::{Timer, TimerMode};
 use i_slint_core::window::{InputMethodRequest, WindowInner};
-use i_slint_core::SharedString;
 use i_slint_renderer_skia::{SkiaRenderer, SkiaSharedContext};
 use std::cell::Cell;
 use std::rc::Rc;
