@@ -289,27 +289,28 @@ module.exports = grammar({
     transitions_definition: ($) =>
       seq("transitions", "[", repeat($.in_out_transition), "]"),
 
+    state_definition: ($) => 
+      seq(
+        field("name", $.simple_identifier),
+        optional(seq("when", field("condition", $.expression))),
+        ":",
+        "{",
+        repeat(
+          choice(
+            $.in_out_transition,
+            $.assignment_block,
+            seq($.assignment_expr, ";"),
+          ),
+        ),
+        optional($.assignment_expr),
+        "}",
+      ),
+
     states_definition: ($) =>
       seq(
         "states",
         "[",
-        repeat(
-          seq(
-            field("name", $.simple_identifier),
-            optional(seq("when", $.expression)),
-            ":",
-            "{",
-            repeat(
-              choice(
-                $.in_out_transition,
-                $.assignment_block,
-                seq($.assignment_expr, ";"),
-              ),
-            ),
-            optional($.assignment_expr),
-            "}",
-          ),
-        ),
+        repeat($.state_definition),
         "]",
       ),
 
