@@ -65,11 +65,6 @@ impl LiveReloadingComponent {
         );
         let definition = self_mut.find_component(&result).expect("Cannot open component");
         let instance = definition.create()?;
-        eprintln!(
-            "Loaded component {} from {}",
-            self_mut.component_name.as_deref().unwrap_or("<default>"),
-            self_mut.file_name.display()
-        );
         self_mut.instance = Some(instance);
         drop(self_mut);
         Ok(self_rc)
