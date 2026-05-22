@@ -203,12 +203,13 @@ module.exports = grammar({
     interface_definition: ($) =>
       seq("interface", field("name", $.user_type_identifier), $.interface_block),
 
+    struct_field_definition: ($) =>
+      seq(field("name", $.simple_identifier), ":", field("type", $.type)),
+
     struct_block: ($) =>
       seq(
         "{",
-        commaSep(
-          seq(field("name", $.simple_identifier), ":", field("type", $.type)),
-        ),
+        commaSep($.struct_field_definition),
         optional(","),
         "}",
       ),
@@ -232,12 +233,19 @@ module.exports = grammar({
     enum_definition: ($) =>
       seq("enum", field("name", $.user_type_identifier), $.enum_block),
 
+    anon_struct_assignment: ($) =>
+      seq(
+        field("member", $.simple_identifier), 
+        ":",
+        field("value", $.expression)
+      ),
+
     anon_struct_block: ($) =>
       prec(
         100,
         seq(
           "{",
-          commaSep(seq($.simple_identifier, ":", $.expression)),
+          commaSep($.anon_struct_assignment),
           optional(","),
           "}",
         ),
