@@ -512,7 +512,6 @@ macro_rules! for_each_enums {
                 /// The element is a container grouping related `RadioButton`s.
                 RadioGroup,
                 // Landmark roles
-
                 /// Landmark: the header area of the application, typically containing a logo, title, or global navigation.
                 Banner,
                 /// Landmark: a supporting section that complements the main content, such as a sidebar.
