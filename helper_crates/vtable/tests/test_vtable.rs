@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+// cSpell: ignore ANOTHERSTRUCT vras vrss
 #![no_std]
 extern crate alloc;
 use crate::alloc::borrow::ToOwned;

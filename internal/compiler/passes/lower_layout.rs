@@ -18,6 +18,356 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
+/// Add a `pure function layoutinfo-v-with-constraint(width: length) -> LayoutInfo`
+/// to `elem` with the given `body`. The body reads
+/// `FunctionParameterReference { index: 0 }` for the width.
+fn synthesize_layoutinfo_v_with_constraint_on(
+    elem: &ElementRc,
+    span: crate::diagnostics::SourceLocation,
+    body: Expression,
+) {
+    let function_ty = Type::Function(Rc::new(crate::langtype::Function {
+        return_type: crate::typeregister::layout_info_type().into(),
+        args: vec![Type::LogicalLength],
+        arg_names: vec![SmolStr::new_static("width")],
+    }));
+    let prop_name = SmolStr::new_static("layoutinfo-v-with-constraint");
+    let nr = crate::namedreference::NamedReference::new(elem, prop_name.clone());
+
+    let mut elem_mut = elem.borrow_mut();
+    elem_mut.property_declarations.insert(
+        prop_name.clone(),
+        PropertyDeclaration {
+            property_type: function_ty,
+            visibility: crate::object_tree::PropertyVisibility::Private,
+            pure: Some(true),
+            ..Default::default()
+        },
+    );
+    elem_mut.bindings.insert(prop_name, BindingExpression::new_with_span(body, span).into());
+    elem_mut.layout_info_v_with_constraint = Some(nr);
+}
+
+/// Rewrite a `layoutinfo-v` expression body to consume `width_param`
+/// as its cross-axis constraint instead of reading the descendants'
+/// width property.
+fn rewrite_layoutinfo_v_for_constraint(expr: &mut Expression, width_param: &Expression) {
+    expr.visit_recursive_mut(&mut |sub| match sub {
+        Expression::ComputeBoxLayoutInfo {
+            orientation: Orientation::Vertical,
+            cross_axis_size,
+            ..
+        }
+        | Expression::ComputeGridLayoutInfo {
+            orientation: Orientation::Vertical,
+            cross_axis_size,
+            ..
+        }
+        | Expression::ComputeFlexboxLayoutInfo {
+            orientation: Orientation::Vertical,
+            cross_axis_size,
+            ..
+        } => {
+            *cross_axis_size = Some(Box::new(width_param.clone()));
+        }
+        Expression::FunctionCall {
+            function: Callable::Builtin(BuiltinFunction::ImplicitLayoutInfo(Orientation::Vertical)),
+            arguments,
+            ..
+        } => {
+            // Find the target element of the implicit layout-info query.
+            let target = match arguments.first() {
+                Some(Expression::ElementReference(weak)) => weak.upgrade(),
+                _ => None,
+            };
+            if let Some(target) = target {
+                // Target has the parametrized function: swap for the function call.
+                if let Some(constrained_nr) =
+                    target.borrow().inherited_layout_info_v_with_constraint()
+                {
+                    *sub = Expression::FunctionCall {
+                        function: Callable::Function(crate::namedreference::NamedReference::new(
+                            &target,
+                            constrained_nr.name().clone(),
+                        )),
+                        arguments: vec![width_param.clone()],
+                        source_location: None,
+                    };
+                    return;
+                }
+                // Builtin height-for-width: replace the default -1 with
+                // the cross-axis size. The second arg is the
+                // `cross_axis_constraint` of `ImplicitLayoutInfo`.
+                if target.borrow().is_builtin_height_for_width() {
+                    debug_assert!(arguments.len() >= 2);
+                    if let Some(second) = arguments.get_mut(1) {
+                        *second = width_param.clone();
+                    }
+                }
+            }
+        }
+        Expression::PropertyReference(nr) => {
+            // PropertyReference to an element's vertical layout-info prop
+            // whose target has the parametrized function: swap for the function call.
+            let target = nr.element();
+            let is_vertical_layout_info = target
+                .borrow()
+                .layout_info_prop(Orientation::Vertical)
+                .map(|prop_nr| {
+                    prop_nr.name() == nr.name() && Rc::ptr_eq(&prop_nr.element(), &target)
+                })
+                .unwrap_or(false);
+            if !is_vertical_layout_info {
+                return;
+            }
+            if let Some(constrained_nr) = target.borrow().inherited_layout_info_v_with_constraint()
+            {
+                *sub = Expression::FunctionCall {
+                    function: Callable::Function(crate::namedreference::NamedReference::new(
+                        &target,
+                        constrained_nr.name().clone(),
+                    )),
+                    arguments: vec![width_param.clone()],
+                    source_location: None,
+                };
+            }
+        }
+        _ => {}
+    });
+}
+
+/// Mirror of [`synthesize_layoutinfo_v_with_constraint_on`] for the horizontal axis.
+fn synthesize_layoutinfo_h_with_constraint_on(
+    elem: &ElementRc,
+    span: crate::diagnostics::SourceLocation,
+    body: Expression,
+) {
+    let function_ty = Type::Function(Rc::new(crate::langtype::Function {
+        return_type: crate::typeregister::layout_info_type().into(),
+        args: vec![Type::LogicalLength],
+        arg_names: vec![SmolStr::new_static("height")],
+    }));
+    let prop_name = SmolStr::new_static("layoutinfo-h-with-constraint");
+    let nr = crate::namedreference::NamedReference::new(elem, prop_name.clone());
+
+    let mut elem_mut = elem.borrow_mut();
+    elem_mut.property_declarations.insert(
+        prop_name.clone(),
+        PropertyDeclaration {
+            property_type: function_ty,
+            visibility: crate::object_tree::PropertyVisibility::Private,
+            pure: Some(true),
+            ..Default::default()
+        },
+    );
+    elem_mut.bindings.insert(prop_name, BindingExpression::new_with_span(body, span).into());
+    elem_mut.layout_info_h_with_constraint = Some(nr);
+}
+
+/// Same as `rewrite_layoutinfo_v_for_constraint`, but for the horizontal
+/// axis. Only `ComputeFlexboxLayoutInfo` and `PropertyReference` are
+/// rewritten — there's no width-for-height equivalent in box/grid
+/// layouts, and `ImplicitLayoutInfo(Horizontal)` on a non-component
+/// element doesn't depend on `self.height`.
+fn rewrite_layoutinfo_h_for_constraint(expr: &mut Expression, height_param: &Expression) {
+    expr.visit_recursive_mut(&mut |sub| match sub {
+        Expression::ComputeFlexboxLayoutInfo {
+            orientation: Orientation::Horizontal,
+            cross_axis_size,
+            ..
+        } => {
+            *cross_axis_size = Some(Box::new(height_param.clone()));
+        }
+        Expression::PropertyReference(nr) => {
+            // PropertyReference to an element's horizontal layout-info
+            // prop whose target has the parametrized function: swap for the function call.
+            let target = nr.element();
+            let is_horizontal_layout_info = target
+                .borrow()
+                .layout_info_prop(Orientation::Horizontal)
+                .map(|prop_nr| {
+                    prop_nr.name() == nr.name() && Rc::ptr_eq(&prop_nr.element(), &target)
+                })
+                .unwrap_or(false);
+            if !is_horizontal_layout_info {
+                return;
+            }
+            if let Some(constrained_nr) = target.borrow().inherited_layout_info_h_with_constraint()
+            {
+                *sub = Expression::FunctionCall {
+                    function: Callable::Function(crate::namedreference::NamedReference::new(
+                        &target,
+                        constrained_nr.name().clone(),
+                    )),
+                    arguments: vec![height_param.clone()],
+                    source_location: None,
+                };
+            }
+        }
+        _ => {}
+    });
+}
+
+/// Same as `synthesize_layoutinfo_v_with_constraint`, but for the
+/// horizontal axis. Fires on any element whose `layoutinfo-h` depends
+/// (transitively) on a flex with horizontal cross-axis — directly
+/// (column-direction flex) or via a descendant / base component.
+pub fn synthesize_layoutinfo_h_with_constraint(component: &Rc<Component>) {
+    /// Bottom-up walk, returns `true` if the subtree contains an
+    /// h-cross-axis dependency (a flex with cross axis on horizontal,
+    /// or a descendant / base component that has `layoutinfo-h-with-constraint`).
+    fn walk(elem: &ElementRc) -> bool {
+        let children = elem.borrow().children.clone();
+        let mut has_h_cross = false;
+        for c in &children {
+            has_h_cross |= walk(c);
+        }
+        // Repeated elements moved their body into a sub-component;
+        // recurse into it so we synthesize on the body's tree too.
+        let repeated_body = {
+            let elem_b = elem.borrow();
+            if elem_b.repeated.is_some() {
+                if let ElementType::Component(base_comp) = &elem_b.base_type {
+                    Some(base_comp.root_element.clone())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
+        if let Some(body_root) = repeated_body {
+            has_h_cross |= walk(&body_root);
+        }
+
+        let (already_synthesized, base_has_constraint, self_is_h_cross_flex, h_nr_clone) = {
+            let elem_b = elem.borrow();
+            let layout_type = elem_b.debug.first().and_then(|d| d.layout.as_ref()).cloned();
+            let self_is = matches!(
+                layout_type,
+                Some(crate::layout::Layout::FlexboxLayout(ref l))
+                    if !matches!(
+                        l.axis_relation(Orientation::Horizontal),
+                        crate::layout::FlexboxAxisRelation::MainAxis,
+                    )
+            );
+            let base_has = matches!(
+                &elem_b.base_type,
+                ElementType::Component(base_comp)
+                    if base_comp.root_element.borrow().layout_info_h_with_constraint.is_some()
+            );
+            (
+                elem_b.layout_info_h_with_constraint.is_some(),
+                base_has,
+                self_is,
+                elem_b.layout_info_prop(Orientation::Horizontal).cloned(),
+            )
+        };
+        has_h_cross |= self_is_h_cross_flex | base_has_constraint;
+
+        if !has_h_cross || already_synthesized {
+            return has_h_cross;
+        }
+        let Some(h_nr) = h_nr_clone else { return has_h_cross };
+        // `h_nr.element()` may be stale for repeater-body elements (their
+        // bindings were moved to a new sub-component root by
+        // `repeater_component`). Read from `elem` itself, which is the
+        // current owner of the binding.
+        let Some(h_binding) = elem.borrow().bindings.get(h_nr.name()).map(|b| b.borrow().clone())
+        else {
+            return has_h_cross;
+        };
+
+        let span = h_binding.span.clone().unwrap_or_else(|| elem.borrow().to_source_location());
+        let mut body = h_binding.expression.clone();
+        let height_param =
+            Expression::FunctionParameterReference { index: 0, ty: Type::LogicalLength };
+        rewrite_layoutinfo_h_for_constraint(&mut body, &height_param);
+
+        synthesize_layoutinfo_h_with_constraint_on(elem, span, body);
+        has_h_cross
+    }
+    walk(&component.root_element);
+}
+
+/// Synthesize `layoutinfo-v-with-constraint` on every element whose
+/// vertical layout info depends on its width. The parameterized
+/// function breaks the recursion that would otherwise occur when the
+/// parent queries this element's vertical info.
+pub fn synthesize_layoutinfo_v_with_constraint(component: &Rc<Component>) {
+    /// Bottom-up walk, returns `true` if the subtree carries a v-cross-axis
+    /// dependency (a height-for-width descendant, a row-direction flex, or
+    /// a base component / descendant that already has `layoutinfo-v-with-constraint`).
+    fn walk(elem: &ElementRc) -> bool {
+        let children = elem.borrow().children.clone();
+        let mut has_v_cross = false;
+        for c in &children {
+            has_v_cross |= walk(c);
+        }
+        // Repeater body: recurse into the moved-out sub-component.
+        let repeated_body = {
+            let elem_b = elem.borrow();
+            if elem_b.repeated.is_some() {
+                if let ElementType::Component(base_comp) = &elem_b.base_type {
+                    Some(base_comp.root_element.clone())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
+        if let Some(body_root) = repeated_body {
+            has_v_cross |= walk(&body_root);
+        }
+
+        let (already_synthesized, base_has_constraint, self_is_v_cross_flex, v_nr_clone) = {
+            let elem_b = elem.borrow();
+            has_v_cross |= elem_b.is_builtin_height_for_width();
+            let layout_type = elem_b.debug.first().and_then(|d| d.layout.as_ref()).cloned();
+            let self_is = matches!(
+                layout_type,
+                Some(crate::layout::Layout::FlexboxLayout(ref l))
+                    if !matches!(
+                        l.axis_relation(Orientation::Vertical),
+                        crate::layout::FlexboxAxisRelation::MainAxis,
+                    )
+            );
+            let base_has = matches!(
+                &elem_b.base_type,
+                ElementType::Component(base_comp)
+                    if base_comp.root_element.borrow().layout_info_v_with_constraint.is_some()
+            );
+            (
+                elem_b.layout_info_v_with_constraint.is_some(),
+                base_has,
+                self_is,
+                elem_b.layout_info_prop(Orientation::Vertical).cloned(),
+            )
+        };
+        has_v_cross |= self_is_v_cross_flex | base_has_constraint;
+
+        if !has_v_cross || already_synthesized {
+            return has_v_cross;
+        }
+        let Some(v_nr) = v_nr_clone else { return has_v_cross };
+        let Some(v_binding) = elem.borrow().bindings.get(v_nr.name()).map(|b| b.borrow().clone())
+        else {
+            return has_v_cross;
+        };
+
+        let span = v_binding.span.clone().unwrap_or_else(|| elem.borrow().to_source_location());
+        let mut body = v_binding.expression.clone();
+        let width_param =
+            Expression::FunctionParameterReference { index: 0, ty: Type::LogicalLength };
+        rewrite_layoutinfo_v_for_constraint(&mut body, &width_param);
+
+        synthesize_layoutinfo_v_with_constraint_on(elem, span, body);
+        has_v_cross
+    }
+    walk(&component.root_element);
+}
+
 /// Lower all layouts and assign a LayoutConstraints to the component
 pub fn lower_layouts(
     component: &Rc<Component>,
@@ -320,6 +670,7 @@ fn lower_grid_layout(
                 layout_organized_data_prop: layout_organized_data_prop.clone(),
                 layout: grid.clone(),
                 orientation: Orientation::Horizontal,
+                cross_axis_size: None,
             },
             span.clone(),
         )
@@ -332,6 +683,7 @@ fn lower_grid_layout(
                 layout_organized_data_prop: layout_organized_data_prop.clone(),
                 layout: grid.clone(),
                 orientation: Orientation::Vertical,
+                cross_axis_size: None,
             },
             span,
         )
@@ -885,7 +1237,11 @@ fn lower_box_layout(
     layout_info_prop_h.element().borrow_mut().bindings.insert(
         layout_info_prop_h.name().clone(),
         BindingExpression::new_with_span(
-            Expression::ComputeBoxLayoutInfo(layout.clone(), Orientation::Horizontal),
+            Expression::ComputeBoxLayoutInfo {
+                layout: layout.clone(),
+                orientation: Orientation::Horizontal,
+                cross_axis_size: None,
+            },
             span.clone(),
         )
         .into(),
@@ -893,7 +1249,11 @@ fn lower_box_layout(
     layout_info_prop_v.element().borrow_mut().bindings.insert(
         layout_info_prop_v.name().clone(),
         BindingExpression::new_with_span(
-            Expression::ComputeBoxLayoutInfo(layout.clone(), Orientation::Vertical),
+            Expression::ComputeBoxLayoutInfo {
+                layout: layout.clone(),
+                orientation: Orientation::Vertical,
+                cross_axis_size: None,
+            },
             span,
         )
         .into(),
@@ -1012,7 +1372,11 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
     layout_info_prop_h.element().borrow_mut().bindings.insert(
         layout_info_prop_h.name().clone(),
         BindingExpression::new_with_span(
-            Expression::ComputeFlexboxLayoutInfo(layout.clone(), Orientation::Horizontal),
+            Expression::ComputeFlexboxLayoutInfo {
+                layout: layout.clone(),
+                orientation: Orientation::Horizontal,
+                cross_axis_size: None,
+            },
             span.clone(),
         )
         .into(),
@@ -1020,7 +1384,11 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
     layout_info_prop_v.element().borrow_mut().bindings.insert(
         layout_info_prop_v.name().clone(),
         BindingExpression::new_with_span(
-            Expression::ComputeFlexboxLayoutInfo(layout.clone(), Orientation::Vertical),
+            Expression::ComputeFlexboxLayoutInfo {
+                layout: layout.clone(),
+                orientation: Orientation::Vertical,
+                cross_axis_size: None,
+            },
             span,
         )
         .into(),
@@ -1278,6 +1646,7 @@ fn lower_dialog_layout(
                 layout_organized_data_prop: layout_organized_data_prop.clone(),
                 layout: grid.clone(),
                 orientation: Orientation::Horizontal,
+                cross_axis_size: None,
             },
             span.clone(),
         )
@@ -1290,6 +1659,7 @@ fn lower_dialog_layout(
                 layout_organized_data_prop: layout_organized_data_prop.clone(),
                 layout: grid.clone(),
                 orientation: Orientation::Vertical,
+                cross_axis_size: None,
             },
             span,
         )

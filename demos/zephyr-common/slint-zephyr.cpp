@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell: ignore llims
 #include "slint-zephyr.h"
 
 #include <slint-platform.h>

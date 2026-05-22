@@ -7,6 +7,7 @@ use core::num::NonZeroU32;
 use core::ops::DerefMut;
 use i_slint_core::graphics::Rgb8Pixel;
 use i_slint_core::platform::PlatformError;
+use i_slint_core::renderer::DrawOutcome;
 pub use i_slint_renderer_software::SoftwareRenderer;
 use i_slint_renderer_software::{PremultipliedRgbaColor, RepaintBufferType, TargetPixel};
 use std::cell::RefCell;
@@ -82,19 +83,19 @@ impl WinitSoftwareRenderer {
 }
 
 impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
-    fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError> {
+    fn render(&self, window: &i_slint_core::api::Window) -> Result<DrawOutcome, PlatformError> {
         let size = window.size();
 
         let Some((width, height)) = size.width.try_into().ok().zip(size.height.try_into().ok())
         else {
             // Nothing to render
-            return Ok(());
+            return Ok(DrawOutcome::Success);
         };
 
         let mut borrowed_surface = self.surface.borrow_mut();
         let Some(surface) = borrowed_surface.as_mut() else {
             // Nothing to render
-            return Ok(());
+            return Ok(DrawOutcome::Success);
         };
 
         let winit_window = surface.window().clone();
@@ -162,7 +163,7 @@ impl super::WinitCompatibleRenderer for WinitSoftwareRenderer {
                 }])
                 .map_err(|e| format!("Error presenting softbuffer buffer: {e}"))?;
         }
-        Ok(())
+        Ok(DrawOutcome::Success)
     }
 
     fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer {

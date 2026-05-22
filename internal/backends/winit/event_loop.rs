@@ -533,7 +533,6 @@ impl winit::application::ApplicationHandler for EventLoopState {
                     phase: winit_touch_phase(phase),
                 });
             }
-
             _ => {}
         }
 

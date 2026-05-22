@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore PYTHONPATH
 use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
 use std::error::Error;
 use std::io::Write;
@@ -122,7 +123,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         // Append the python code to the bottom of the generated file and run it
 
         let mut f = std::fs::File::options().append(true).open(&python_file).unwrap();
-        f.write(python_script.as_bytes()).unwrap();
+        f.write_all(python_script.as_bytes()).unwrap();
     };
 
     let o = std::process::Command::new("uvx")

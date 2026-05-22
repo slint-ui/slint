@@ -1,6 +1,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell:ignore nalge fdsm nalgebra pathdiff flate
+
 [package]
 name = "i-slint-compiler"
 description = "Internal Slint Compiler Library"
@@ -39,7 +41,7 @@ sdf-fonts = ["dep:fdsm", "dep:fdsm-ttf-parser", "dep:nalgebra", "dep:rayon"]
 # Translation bundler
 bundle-translations = ["dep:rspolib", "i-slint-common/locale-decimal-separator"]
 
-# Enable expermental library module support
+# Enable experimental library module support
 experimental-library-module = []
 
 default = []

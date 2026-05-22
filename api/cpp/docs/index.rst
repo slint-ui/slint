@@ -56,13 +56,6 @@ Slint C++ documentation
 
    thirdparty.md
 
-.. image:: https://github.com/slint-ui/slint/workflows/CI/badge.svg
-   :target: https://github.com/slint-ui/slint/actions
-   :alt: GitHub CI Build Status
-
-.. image:: https://img.shields.io/github/discussions/slint-ui/slint
-   :target: https://github.com/slint-ui/slint/discussions
-   :alt: GitHub Discussions
 
 `Slint <https://slint.dev/>`_ is a toolkit to efficiently develop fluid graphical user interfaces for any display: embedded devices and desktop applications.
 Slint C++ is the C++ API to interact with a Slint UI from C++.

@@ -4,7 +4,6 @@
 import { Palette } from "std-widgets.slint";
 
 export struct TaskData {
-    id: int,
     title: string,
 }
 
@@ -13,8 +12,17 @@ export struct TaskData {
 // The implementations live in the host language.
 export global Api {
     pure callback make-data(task: TaskData, source-column: int, source-index: int) -> data-transfer;
-    pure callback can-drop(data: data-transfer, target-column: int) -> bool;
-    callback drop-task(data: data-transfer, target-column: int);
+    pure callback can-drop(event: DropEvent, target-column: int, target-index: int) -> DragAction;
+    callback dropped(event: DropEvent, target-column: int, target-index: int);
+}
+
+// Card geometry, used by both `Card` itself and the column's insertion-index
+// math.
+global Layout {
+    out property <length> card-height: 56px;
+    out property <length> card-spacing: 8px;
+    // Distance from one card's top edge to the next card's top edge.
+    out property <length> card-stride: card-height + card-spacing;
 }
 
 // Color palette that follows the system color scheme via `Palette`
@@ -37,7 +45,7 @@ component Card inherits Rectangle {
     in property <int> source-column;
     in property <int> source-index;
 
-    height: 56px;
+    height: Layout.card-height;
     background: Theme.card-bg;
     border-radius: 6px;
     border-width: 1px;
@@ -48,6 +56,16 @@ component Card inherits Rectangle {
 
     DragArea {
         data: Api.make-data(root.task, root.source-column, root.source-index);
+        // Show a card-shaped preview under the cursor while dragging. The offsets are
+        // half the SVG's 80x56 viewBox so the image centres on the cursor (the offset
+        // names the hot spot inside the image, not a displacement from the cursor).
+        drag-image: @image-url("card-drag.svg");
+        drag-image-offset-x: 40;
+        drag-image-offset-y: 28;
+        allow-copy: true;
+        allow-move: true;
+        preferred-action: DragAction.move;
+        opacity: self.dragging ? 0.4 : 1.0;
 
         Text {
             x: 12px;
@@ -65,6 +83,16 @@ component KanbanColumn inherits Rectangle {
     in property <int> column-id;
     in property <[TaskData]> tasks;
     in property <color> accent;
+
+    // Cursor y inside the DropArea, refreshed on every drag move via `can-drop`.
+    property <length> hover-y;
+
+    // Insertion index implied by `hover-y`: 0 means "before card 0", `tasks.length`
+    // means "after the last card". The boundary between index N and N+1 is the
+    // centre of card N, i.e. `N * card-stride + card-height/2`.
+    property <int> drop-index: clamp(
+        floor((hover-y - Layout.card-height / 2) / Layout.card-stride) + 1,
+        0, root.tasks.length);
 
     background: drop-area.contains-drag ? Theme.column-drop-bg : Theme.column-bg;
     border-radius: 10px;
@@ -103,17 +131,36 @@ component KanbanColumn inherits Rectangle {
 
         drop-area := DropArea {
             vertical-stretch: 1;
-            can-drop(event) => Api.can-drop(event.data, root.column-id);
-            dropped(event) => Api.drop-task(event.data, root.column-id);
+            can-drop(event) => {
+                // Track the cursor so the drop indicator can follow it.
+                root.hover-y = event.position.y;
+                return Api.can-drop(event, root.column-id, root.drop-index);
+            }
+            dropped(event) => {
+                Api.dropped(event, root.column-id, root.drop-index);
+                return event.proposed-action;
+            }
 
             VerticalLayout {
-                spacing: 8px;
+                spacing: Layout.card-spacing;
                 alignment: start;
                 for task[i] in root.tasks: Card {
                     task: task;
                     source-column: root.column-id;
                     source-index: i;
                 }
+            }
+
+            // Drop indicator: a 3px line centred in the gap above card `drop-index`
+            // (or at the top / below the last card for the boundary positions).
+            if drop-area.contains-drag: Rectangle {
+                x: 0;
+                width: parent.width;
+                y: max(0px, root.drop-index * Layout.card-stride
+                            - Layout.card-spacing / 2 - 1.5px);
+                height: 3px;
+                background: root.accent;
+                border-radius: 1.5px;
             }
         }
     }
@@ -134,7 +181,7 @@ export component MainWindow inherits Window {
         spacing: 12px;
 
         Text {
-            text: "Drag a card between columns";
+            text: "Drag a card between columns — hold the copy modifier to duplicate. Drop plain text from another app to add a new card.";
             font-size: 18px;
             font-weight: 700;
             color: Theme.text-primary;

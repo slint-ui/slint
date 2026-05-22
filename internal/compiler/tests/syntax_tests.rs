@@ -28,7 +28,7 @@
 //! The newlines are replaced by `↵` in the error message. Also the manifest dir (CARGO_MANIFEST_DIR) is replaced by `📂`.
 //!
 //! When the env variable `SLINT_SYNTAX_TEST_UPDATE` is set to `1`, the source code will be modified to add the comments
-//! The env variable `SLINT_TEST_FILTER` accepts a regexp and will filter out tests not maching that pattern
+//! The env variable `SLINT_TEST_FILTER` accepts a regexp and will filter out tests not matching that pattern
 
 use i_slint_compiler::ComponentSelection;
 use i_slint_compiler::diagnostics::{

@@ -5,22 +5,20 @@
 
 /// Call a macro with every builtin structures exposed in the .slint language
 ///
+/// Each struct is declared with `pub struct` if it should be re-exported in a public
+/// language-binding module (e.g. `slint::language` in the Rust crate), or plain `struct`
+/// to stay private. Consumers can dispatch on `$vis:vis`.
+///
 /// ## Example
 /// ```rust
 /// macro_rules! print_builtin_structs {
 ///     ($(
 ///         $(#[$struct_attr:meta])*
-///         struct $Name:ident {
-///             @name = $inner_name:expr,
-///             export {
-///                 $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
-///             }
-///             private {
-///                 $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
-///             }
+///         $vis:vis struct $Name:ident {
+///             $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
 ///         }
 ///     )*) => {
-///         $(println!("{} => export:[{}] private:[{}]", stringify!($Name), stringify!($($pub_field),*), stringify!($($pri_field),*));)*
+///         $(println!("{} ({}) => [{}]", stringify!($Name), stringify!($vis), stringify!($($field),*));)*
 ///     };
 /// }
 /// i_slint_common::for_each_builtin_structs!(print_builtin_structs);
@@ -39,182 +37,158 @@ macro_rules! for_each_builtin_structs {
             /// On Windows, the Windows key is mapped to the meta modifier.
             #[non_exhaustive]
             #[derive(Copy, Eq)]
-            struct KeyboardModifiers {
-                @name = BuiltinPublicStruct::KeyboardModifiers,
-                export {
-                    /// Indicates the Alt key on a keyboard.
-                    alt: bool,
-                    /// Indicates the Control key on a keyboard, except on macOS, where it is the Command key (⌘).
-                    control: bool,
-                    /// Indicates the Shift key on a keyboard.
-                    shift: bool,
-                    /// Indicates the Control key on macos, and the Windows key on Windows.
-                    meta: bool,
-                }
-                private {
-                }
+            pub struct KeyboardModifiers {
+                /// Indicates the Alt key on a keyboard.
+                alt: bool,
+                /// Indicates the Control key on a keyboard, except on macOS, where it is the Command key (⌘).
+                control: bool,
+                /// Indicates the Shift key on a keyboard.
+                shift: bool,
+                /// Indicates the Control key on macos, and the Windows key on Windows.
+                meta: bool,
             }
 
             /// Represents a Pointer event sent by the windowing system.
             /// This structure is passed to the `pointer-event` callback of the `TouchArea` element.
             #[non_exhaustive]
-            struct PointerEvent {
-                @name = BuiltinPublicStruct::PointerEvent,
-                export {
-                    /// The button that was pressed or released
-                    button: PointerEventButton,
-                    /// The kind of the event
-                    kind: PointerEventKind,
-                    /// The keyboard modifiers pressed during the event
-                    modifiers: KeyboardModifiers,
-                    /// The unique ID of the touch point, indicating the finger ID. 0 means it's not a touch event (e.g., mouse).
-                    touch_finger_id: i32,
-                }
-                private {
-                }
+            pub struct PointerEvent {
+                /// The button that was pressed or released
+                button: PointerEventButton,
+                /// The kind of the event
+                kind: PointerEventKind,
+                /// The keyboard modifiers pressed during the event
+                modifiers: KeyboardModifiers,
+                /// The unique ID of the touch point, indicating the finger ID. 0 means it's not a touch event (e.g., mouse).
+                touch_finger_id: i32,
             }
 
             /// Represents a Pointer scroll (or wheel) event sent by the windowing system.
             /// This structure is passed to the `scroll-event` callback of the `TouchArea` element.
             #[non_exhaustive]
-            struct PointerScrollEvent {
-                @name = BuiltinPublicStruct::PointerScrollEvent,
-                export {
-                    /// The amount of pixel in the horizontal direction
-                    delta_x: Coord,
-                    /// The amount of pixel in the vertical direction
-                    delta_y: Coord,
-                    /// The keyboard modifiers pressed during the event
-                    modifiers: KeyboardModifiers,
-                }
-                private {
-                }
+            pub struct PointerScrollEvent {
+                /// The amount of pixel in the horizontal direction
+                delta_x: Coord,
+                /// The amount of pixel in the vertical direction
+                delta_y: Coord,
+                /// The keyboard modifiers pressed during the event
+                modifiers: KeyboardModifiers,
             }
 
             /// This structure is generated and passed to the key press and release callbacks of the `FocusScope` element.
             #[non_exhaustive]
-            struct KeyEvent {
-                @name = BuiltinPublicStruct::KeyEvent,
-                export {
-                    /// The unicode representation of the key pressed.
-                    text: SharedString,
-                    /// The keyboard modifiers active at the time of the key press event.
-                    modifiers: KeyboardModifiers,
-                    /// This field is set to true for key press events that are repeated,
-                    /// i.e. the key is held down. It's always false for key release events.
-                    repeat: bool,
-                }
-                private {
-                }
+            pub struct KeyEvent {
+                /// The unicode representation of the key pressed.
+                text: SharedString,
+                /// The keyboard modifiers active at the time of the key press event.
+                modifiers: KeyboardModifiers,
+                /// This field is set to true for key press events that are repeated,
+                /// i.e. the key is held down. It's always false for key release events.
+                repeat: bool,
             }
 
             /// This structure is passed to the callbacks of the `DropArea` element
-            struct DropEvent {
-                @name = BuiltinPrivateStruct::DropEvent,
-                export {
-                    /// The payload set on the source `DragArea`.
-                    data: DataTransfer,
+            pub struct DropEvent {
+                /// The payload set on the source `DragArea`.
+                data: DataTransfer,
 
-                    /// The cursor position in the `DropArea`'s local coordinates.
-                    position: LogicalPosition,
-                }
-                private {
-                }
+                /// The cursor position in the `DropArea`'s local coordinates.
+                position: LogicalPosition,
+
+                /// Mirrors `DragArea.allow-copy`: true if the source allows the drop to copy the data.
+                allow_copy: bool,
+
+                /// Mirrors `DragArea.allow-move`: true if the source allows the drop to move the data.
+                allow_move: bool,
+
+                /// Mirrors `DragArea.allow-link`: true if the source allows the drop to link to the data.
+                allow_link: bool,
+
+                /// The action negotiated from current modifier state and the source's `preferred-action`,
+                /// clamped to the allowed set. Updated on every `DragMove`. The target's `can-drop`
+                /// callback can return this to honor the user's modifier choice, or override with
+                /// any other allowed action.
+                proposed_action: DragAction,
             }
 
             /// Represents an item in a StandardListView and a StandardTableView.
             #[non_exhaustive]
-            struct StandardListViewItem {
-                @name = BuiltinPublicStruct::StandardListViewItem,
-                export {
-                    /// The text content of the item
-                    text: SharedString,
-                }
-                private {
-                }
+            pub struct StandardListViewItem {
+                /// The text content of the item
+                text: SharedString,
+            }
+
+            /// Represents one option in a `RadioGroup`.
+            #[non_exhaustive]
+            pub struct RadioEntry {
+                /// Label shown next to the radio button.
+                text: SharedString,
+                /// When `true`, this option is visible but not selectable.
+                disabled: bool,
             }
 
             /// This is used to define the column and the column header of a TableView
             #[non_exhaustive]
             struct TableColumn {
-                @name = BuiltinPrivateStruct::TableColumn,
-                export {
-                    /// The title of the column header
-                    title: SharedString,
-                    /// The minimum column width (logical length)
-                    min_width: Coord,
-                    /// The horizontal column stretch
-                    horizontal_stretch: f32,
-                    /// Sorts the column
-                    sort_order: SortOrder,
-                    /// the actual width of the column (logical length)
-                    width: Coord,
-                }
-                private {
-                }
+                /// The title of the column header
+                title: SharedString,
+                /// The minimum column width (logical length)
+                min_width: Coord,
+                /// The horizontal column stretch
+                horizontal_stretch: f32,
+                /// Sorts the column
+                sort_order: SortOrder,
+                /// the actual width of the column (logical length)
+                width: Coord,
             }
 
             /// A structure to hold metrics of a font for a specified pixel size.
             struct FontMetrics {
-                @name = BuiltinPrivateStruct::FontMetrics,
-                export {
-                    /// The distance between the baseline and the top of the tallest glyph in the font.
-                    ascent: Coord,
-                    /// The distance between the baseline and the bottom of the tallest glyph in the font.
-                    /// This is usually negative.
-                    descent: Coord,
-                    /// The distance between the baseline and the horizontal midpoint of the tallest glyph in the font,
-                    /// or zero if not specified by the font.
-                    x_height: Coord,
-                    /// The distance between the baseline and the top of a regular upper-case glyph in the font,
-                    /// or zero if not specified by the font.
-                    cap_height: Coord,
-                }
-                private {
-                }
+                /// The distance between the baseline and the top of the tallest glyph in the font.
+                ascent: Coord,
+                /// The distance between the baseline and the bottom of the tallest glyph in the font.
+                /// This is usually negative.
+                descent: Coord,
+                /// The distance between the baseline and the horizontal midpoint of the tallest glyph in the font,
+                /// or zero if not specified by the font.
+                x_height: Coord,
+                /// The distance between the baseline and the top of a regular upper-case glyph in the font,
+                /// or zero if not specified by the font.
+                cap_height: Coord,
             }
 
             /// An item in the menu of a menu bar or context menu
             struct MenuEntry {
-                @name = BuiltinPrivateStruct::MenuEntry,
-                export {
-                    /// The text of the menu entry
-                    title: SharedString,
-                    /// the icon associated with the menu entry
-                    icon: Image,
-                    /// an opaque id that can be used to identify the menu entry
-                    id: SharedString,
-                    // keys: KeySequence,
-                    /// whether the menu entry is enabled
-                    enabled: bool,
-                    /// whether the menu entry is checkable
-                    checkable: bool,
-                    /// whether the menu entry is checked
-                    checked: bool,
-                    /// Sub menu
-                    has_sub_menu: bool,
-                    /// The menu entry is a separator
-                    is_separator: bool,
-                    /// The shortcut keys
-                    shortcut: Keys,
-                }
-                private {}
+                /// The text of the menu entry
+                title: SharedString,
+                /// the icon associated with the menu entry
+                icon: Image,
+                /// an opaque id that can be used to identify the menu entry
+                id: SharedString,
+                // keys: KeySequence,
+                /// whether the menu entry is enabled
+                enabled: bool,
+                /// whether the menu entry is checkable
+                checkable: bool,
+                /// whether the menu entry is checked
+                checked: bool,
+                /// Sub menu
+                has_sub_menu: bool,
+                /// The menu entry is a separator
+                is_separator: bool,
+                /// The shortcut keys
+                shortcut: Keys,
             }
 
             /// A structure representing the four edges of an axis-aligned rectangle
             struct Edges {
-                @name = BuiltinPrivateStruct::Edges,
-                export {
-                    /// The left edge value
-                    left: Coord,
-                    /// The top edge value
-                    top: Coord,
-                    /// The right edge value
-                    right: Coord,
-                    /// The bottom edge value
-                    bottom: Coord,
-                }
-                private {}
+                /// The left edge value
+                left: Coord,
+                /// The top edge value
+                top: Coord,
+                /// The right edge value
+                right: Coord,
+                /// The bottom edge value
+                bottom: Coord,
             }
         ];
     };

@@ -17,8 +17,9 @@ This document describes the Slint release process
       - `sed --follow-symlinks -i 's/^\(slint.*\) = ".*"$/\1 = "1.16.0"/' **/*.rs **/*.md`
   - The `[dependencies.slint]` in mcu.md
 
-* Check the `zed` extension has the latest sha-1 for the tree-sitter repo in editors/zed/extension.toml
-  in the `grammars.slint` section
+* Update the `zed` extension SHA-1 of the tree-sitter repo in editors/zed/extension.toml in the `grammars.slint` section.
+  Take the **commit** SHA-1 from the [**nightly** branch](https://github.com/slint-ui/tree-sitter-slint/tree/nightly).
+  (Not the hash from the commit message, and from nightly because master tracks the previous release)
 
 ## Branching
 

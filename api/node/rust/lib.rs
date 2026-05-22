@@ -57,7 +57,9 @@ pub enum ProcessEventsResult {
     Exited,
 }
 
-fn process_events_with_timeout(timeout: std::time::Duration) -> napi::Result<ProcessEventsResult> {
+fn process_events_with_timeout(
+    timeout: Option<std::time::Duration>,
+) -> napi::Result<ProcessEventsResult> {
     i_slint_backend_selector::with_platform(|b| {
         b.process_events(timeout, i_slint_core::InternalToken)
     })
@@ -70,7 +72,7 @@ fn process_events_with_timeout(timeout: std::time::Duration) -> napi::Result<Pro
 
 #[napi]
 pub fn process_events() -> napi::Result<ProcessEventsResult> {
-    process_events_with_timeout(std::time::Duration::ZERO)
+    process_events_with_timeout(Some(std::time::Duration::ZERO))
 }
 
 #[napi]
@@ -91,6 +93,14 @@ pub fn invoke_from_event_loop(env: &Env, callback: DynFunction<'_>) -> napi::Res
         }
     })
     .map_err(|e| napi::Error::from_reason(e.to_string()))
+}
+
+#[napi]
+pub fn quit_event_loop() -> napi::Result<()> {
+    // Don't call core's quit_event_loop — that permanently terminates the winit event loop.
+    // Set a flag so process_slint_events returns Exited on the next iteration.
+    uv_event_loop::request_quit();
+    Ok(())
 }
 
 #[napi]

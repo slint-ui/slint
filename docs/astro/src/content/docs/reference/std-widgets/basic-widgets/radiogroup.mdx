@@ -1,0 +1,105 @@
+---
+title: RadioGroup
+description: RadioGroup api.
+---
+
+import SlintProperty from '@slint/common-files/src/components/SlintProperty.astro';
+import CodeSnippetMD from '@slint/common-files/src/components/CodeSnippetMD.astro';
+
+<CodeSnippetMD needsBackground imagePath="/src/assets/generated/std-widget-radiogroup-example.png" imageWidth="200" imageHeight="150" imageAlt='radiogroup example'>
+```slint
+import { RadioGroup } from "std-widgets.slint";
+export component Example inherits Window {
+    width: 200px;
+    height: 150px;
+    RadioGroup {
+        title: "Target Platform";
+        model: [
+            { text: "Desktop" },
+            { text: "Mobile" },
+            { text: "Embedded" },
+        ];
+        current-index: 0;
+    }
+}
+```
+</CodeSnippetMD>
+
+A group of radio buttons where the user can select exactly one option.
+
+## Properties
+
+### current-index
+<SlintProperty propName="current-index" typeName="int" defaultValue="0" propertyVisibility="in-out">
+The index of the selected entry in `model`.
+```slint "current-index: 1;"
+RadioGroup {
+    model: [
+        { text: "Desktop" },
+        { text: "Mobile" },
+    ];
+    current-index: 1;
+}
+```
+</SlintProperty>
+
+### current-value
+<SlintProperty propName="current-value" typeName="string" defaultValue='""' propertyVisibility="in-out">
+The `text` of the currently selected entry.
+</SlintProperty>
+
+### enabled
+<SlintProperty propName="enabled" typeName="bool" defaultValue="true">
+When `false`, the entire group and all its radio buttons cannot be interacted with.
+</SlintProperty>
+
+### has-focus
+<SlintProperty propName="has-focus" typeName="bool" defaultValue="false" propertyVisibility="out">
+Set to `true` when any radio button inside the group has keyboard focus.
+</SlintProperty>
+
+### model
+<SlintProperty propName="model" typeName="struct" structName="RadioEntry" defaultValue="[]">
+The list of options to display. Each entry has `text` and an optional `disabled` flag.
+
+```slint 'model: [{ text: "Desktop" }, { text: "Mobile", disabled: true }];'
+RadioGroup {
+    model: [
+        { text: "Desktop" },
+        { text: "Mobile", disabled: true },
+    ];
+}
+```
+
+:::note[Note]
+When setting this property, the `RadioGroup` preserves `current-index` when possible. If the `current-index` is larger than the new model length, it is clamped to the last item in the model.
+:::
+
+</SlintProperty>
+
+### title
+<SlintProperty propName="title" typeName="string" defaultValue='""'>
+An optional label rendered above the group. When empty, no title is shown.
+</SlintProperty>
+
+### orientation
+<SlintProperty propName="orientation" typeName="enum" enumName="Orientation" defaultValue="vertical" inlineReferenceDocs={false}>
+Use `Orientation.vertical` (default) to stack options, or `Orientation.horizontal` for a single row.
+</SlintProperty>
+
+## Callbacks
+
+### selected(string)
+Invoked when the user selects a different option. The argument is the `text` of the newly selected entry.
+
+```slint {6-8}
+RadioGroup {
+    model: [
+        { text: "Desktop" },
+        { text: "Mobile" },
+    ];
+    selected(value) => {
+        debug("Selected: ", value);
+    }
+}
+```

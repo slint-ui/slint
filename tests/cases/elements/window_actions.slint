@@ -1,0 +1,150 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    in-out property <bool> win-minimized <=> self.minimized;
+    in-out property <bool> win-maximized <=> self.maximized;
+    in-out property <bool> win-full-screen <=> self.full-screen;
+
+    public function do-hide() { self.hide(); }
+    public function do-close() -> bool { return self.close(); }
+    public function hide-inner() { inner.hide(); }
+    public function close-inner() -> bool { return inner.close(); }
+
+    inner := Window { }
+
+    MenuBar {
+        Menu {
+            title: "Window";
+            MenuItem {
+                title: "Minimize";
+                shortcut: @keys(Control + M);
+                activated => { root.minimized = true; }
+            }
+            MenuItem {
+                title: "Zoom";
+                activated => { root.maximized = !root.maximized; }
+            }
+            MenuItem {
+                title: "Close";
+                shortcut: @keys(Control + W);
+                activated => { root.close(); }
+            }
+            MenuItem {
+                title: "Enter Full Screen";
+                shortcut: @keys(Control + Meta + F);
+                activated => { root.full-screen = !root.full-screen; }
+            }
+        }
+    }
+
+    out property <bool> test: !win-minimized && !win-maximized && !win-full-screen;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+
+// Aliased properties start out in sync with the underlying Window state.
+assert!(!instance.get_win_maximized());
+assert!(!instance.window().is_maximized());
+assert!(!instance.get_win_minimized());
+assert!(!instance.window().is_minimized());
+assert!(!instance.get_win_full_screen());
+assert!(!instance.window().is_fullscreen());
+
+// Slint side → Rust side.
+instance.set_win_maximized(true);
+assert!(instance.window().is_maximized());
+instance.set_win_minimized(true);
+assert!(instance.window().is_minimized());
+instance.set_win_full_screen(true);
+assert!(instance.window().is_fullscreen());
+
+// Rust side → Slint side.
+instance.window().set_maximized(false);
+assert!(!instance.get_win_maximized());
+instance.window().set_minimized(false);
+assert!(!instance.get_win_minimized());
+instance.window().set_fullscreen(false);
+assert!(!instance.get_win_full_screen());
+
+// close() triggers the close-requested callback on the top-level window.
+use std::cell::Cell;
+use std::rc::Rc;
+let close_count = Rc::new(Cell::new(0u32));
+let close_count_clone = close_count.clone();
+instance.window().on_close_requested(move || {
+    close_count_clone.set(close_count_clone.get() + 1);
+    slint::CloseRequestResponse::KeepWindowShown
+});
+assert!(instance.invoke_do_close());
+assert_eq!(close_count.get(), 1);
+
+// close() returns false and fires no close-requested when called on a sub-window.
+assert!(!instance.invoke_close_inner());
+assert_eq!(close_count.get(), 1);
+// hide() on a sub-window is also a no-op.
+instance.invoke_hide_inner();
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_test(), true);
+
+assert(!instance.get_win_maximized());
+assert(!instance.window().is_maximized());
+assert(!instance.get_win_minimized());
+assert(!instance.window().is_minimized());
+assert(!instance.get_win_full_screen());
+assert(!instance.window().is_fullscreen());
+
+instance.set_win_maximized(true);
+assert(instance.window().is_maximized());
+instance.set_win_minimized(true);
+assert(instance.window().is_minimized());
+instance.set_win_full_screen(true);
+assert(instance.window().is_fullscreen());
+
+instance.window().set_maximized(false);
+assert(!instance.get_win_maximized());
+instance.window().set_minimized(false);
+assert(!instance.get_win_minimized());
+instance.window().set_fullscreen(false);
+assert(!instance.get_win_full_screen());
+
+// close() triggers the close-requested callback on the top-level window.
+int close_count = 0;
+instance.window().on_close_requested([&close_count]() {
+    ++close_count;
+    return slint::CloseRequestResponse::KeepWindowShown;
+});
+assert_eq(instance.invoke_do_close(), true);
+assert_eq(close_count, 1);
+
+// close() returns false and fires no close-requested when called on a sub-window.
+assert_eq(instance.invoke_close_inner(), false);
+assert_eq(close_count, 1);
+// hide() on a sub-window is also a no-op.
+instance.invoke_hide_inner();
+```
+
+```js
+var instance = new slint.TestCase();
+assert.equal(instance.test, true);
+
+assert(!instance.win_maximized);
+assert(!instance.win_minimized);
+assert(!instance.win_full_screen);
+
+instance.win_maximized = true;
+assert(instance.win_maximized);
+instance.win_minimized = true;
+assert(instance.win_minimized);
+instance.win_full_screen = true;
+assert(instance.win_full_screen);
+```
+
+*/

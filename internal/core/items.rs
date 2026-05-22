@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore nesw
+// cSpell: ignore nesw windowitem
 
 /*!
 This module contains the builtin items, either in this file or in sub-modules.
@@ -75,6 +75,7 @@ type ItemRendererRef<'a> = &'a mut dyn crate::item_rendering::ItemRenderer;
 /// Workarounds for cbindgen
 pub type VoidArg = ();
 pub type KeyEventArg = (KeyEvent,);
+pub type DragActionArg = (DragAction,);
 type FocusReasonArg = (FocusReason,);
 type PointerEventArg = (PointerEvent,);
 type PointerScrollEventArg = (PointerScrollEvent,);
@@ -1259,6 +1260,8 @@ pub struct WindowItem {
     pub resize_border_width: Property<LogicalLength>,
     pub always_on_top: Property<bool>,
     pub full_screen: Property<bool>,
+    pub minimized: Property<bool>,
+    pub maximized: Property<bool>,
     pub icon: Property<crate::graphics::Image>,
     pub default_font_family: Property<SharedString>,
     pub default_font_size: Property<LogicalLength>,
@@ -1473,9 +1476,41 @@ impl WindowItem {
         }
     }
 
-    pub fn hide(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
+    pub fn close(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) -> bool {
+        if !is_root_window_item(window_adapter, self_rc) {
+            return false;
+        }
+        let inner = WindowInner::from_pub(window_adapter.window());
+        if inner.request_close()
+            && let Err(err) = inner.hide()
+        {
+            crate::debug_log!("Slint: Failed to hide window after close request: {err}");
+        }
+        true
+    }
+
+    pub fn hide(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+        if !is_root_window_item(window_adapter, self_rc) {
+            return;
+        }
         let _ = WindowInner::from_pub(window_adapter.window()).hide();
     }
+}
+
+/// A `WindowItem` is considered the adapter's root window only when it is at index 0 of
+/// the component item tree currently bound to the adapter.
+fn is_root_window_item(window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) -> bool {
+    if !self_rc.is_root() {
+        return false;
+    }
+
+    WindowInner::from_pub(window_adapter.window())
+        .try_component()
+        .is_some_and(|component| VRc::ptr_eq(&component, self_rc.item_tree()))
 }
 
 impl ItemConsts for WindowItem {
@@ -1485,15 +1520,31 @@ impl ItemConsts for WindowItem {
 
 #[cfg(feature = "ffi")]
 #[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_windowitem_close(
+    window_item: Pin<&WindowItem>,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+) -> bool {
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let item_rc = ItemRc::new(self_component.clone(), self_index);
+        window_item.close(window_adapter, &item_rc)
+    }
+}
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_windowitem_hide(
     window_item: Pin<&WindowItem>,
     window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
-    _self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
-    _self_index: u32,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
 ) {
     unsafe {
         let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
-        window_item.hide(window_adapter);
+        let item_rc = ItemRc::new(self_component.clone(), self_index);
+        window_item.hide(window_adapter, &item_rc);
     }
 }
 
@@ -1717,6 +1768,8 @@ pub struct BoxShadow {
     pub offset_y: Property<LogicalLength>,
     pub color: Property<Color>,
     pub blur: Property<LogicalLength>,
+    pub spread: Property<LogicalLength>,
+    pub inset: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -1798,9 +1851,15 @@ impl Item for BoxShadow {
         _self_rc: &ItemRc,
         geometry: LogicalRect,
     ) -> LogicalRect {
-        geometry
-            .outer_rect(euclid::SideOffsets2D::from_length_all_same(self.blur()))
-            .translate(LogicalVector::from_lengths(self.offset_x(), self.offset_y()))
+        if self.inset() {
+            // Inset shadow paints inside the geometry; never extends outside.
+            geometry
+        } else {
+            let pad = self.blur() + LogicalLength::new(self.spread().get().max(0 as crate::Coord));
+            geometry
+                .outer_rect(euclid::SideOffsets2D::from_length_all_same(pad))
+                .translate(LogicalVector::from_lengths(self.offset_x(), self.offset_y()))
+        }
     }
 
     fn clips_children(self: core::pin::Pin<&Self>) -> bool {
@@ -1859,7 +1918,7 @@ declare_item_vtable! {
 }
 
 macro_rules! declare_enums {
-    ($( $(#[$enum_doc:meta])* enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
+    ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
         $(
             #[derive(Copy, Clone, Debug, PartialEq, Eq, strum::EnumString, strum::Display, Hash)]
             #[repr(u32)]
@@ -2076,14 +2135,8 @@ declare_item_vtable! {
 macro_rules! declare_builtin_structs {
     ($(
         $(#[$struct_attr:meta])*
-        struct $Name:ident {
-            @name = $inner_name:expr,
-            export {
-                $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
-            }
-            private {
-                $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
-            }
+        $vis:vis struct $Name:ident {
+            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
         }
     )*) => {
         $(
@@ -2092,12 +2145,8 @@ macro_rules! declare_builtin_structs {
             $(#[$struct_attr])*
             pub struct $Name {
                 $(
-                    $(#[$pub_attr])*
-                    pub $pub_field : $pub_type,
-                )*
-                $(
-                    $(#[$pri_attr])*
-                    pub $pri_field : $pri_type,
+                    $(#[$field_attr])*
+                    pub $field : $field_type,
                 )*
             }
         )*

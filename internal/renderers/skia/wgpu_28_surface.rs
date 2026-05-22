@@ -7,6 +7,7 @@ use i_slint_core::api::{PhysicalSize as PhysicalWindowSize, Window};
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::partial_renderer::DirtyRegion;
 use i_slint_core::platform::PlatformError;
+use i_slint_core::renderer::DrawOutcome;
 
 use std::cell::RefCell;
 use std::sync::Arc;
@@ -88,6 +89,9 @@ impl WGPUSurface {
         })
     }
 
+    // Only used by SkiaWGPURenderer, which is gated on wgpu-29 — the wgpu-28
+    // path doesn't currently expose an offscreen renderer publicly.
+    #[allow(dead_code)]
     pub(crate) fn new_offscreen(
         instance: wgpu::Instance,
         device: wgpu::Device,
@@ -190,7 +194,7 @@ impl crate::Surface for WGPUSurface {
             u8,
         ) -> Option<DirtyRegion>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
-    ) -> Result<(), PlatformError> {
+    ) -> Result<DrawOutcome, PlatformError> {
         let (Some(surface), Some(surface_config)) = (&self.surface, &*self.surface_config.borrow())
         else {
             return Err("WGPUSurface::render() called on offscreen surface".into());
@@ -200,15 +204,15 @@ impl crate::Surface for WGPUSurface {
 
         let frame = match surface.get_current_texture() {
             Ok(texture) => texture,
-            Err(wgpu::SurfaceError::Timeout) => surface.get_current_texture().map_err(|e| {
-                format!("Error obtaining current surface texture after timeout: {e}")
-            })?,
-            // Outdated or lost: re-configure and try again
+            Err(wgpu::SurfaceError::Timeout) => return Ok(DrawOutcome::Timeout),
+            // Outdated or lost: re-configure and try once. If the surface still
+            // doesn't yield a texture, treat it as occluded so the caller re-arms.
             Err(_) => {
                 surface.configure(&self.device, surface_config);
-                surface.get_current_texture().map_err(|e| {
-                    format!("Error obtaining current surface texture after initial error: {e}")
-                })?
+                match surface.get_current_texture() {
+                    Ok(texture) => texture,
+                    Err(_) => return Ok(DrawOutcome::Occluded),
+                }
             }
         };
 
@@ -227,7 +231,7 @@ impl crate::Surface for WGPUSurface {
 
         frame.present();
 
-        Ok(())
+        Ok(DrawOutcome::Success)
     }
 
     fn bits_per_pixel(&self) -> Result<u8, PlatformError> {
@@ -255,17 +259,17 @@ impl crate::Surface for WGPUSurface {
         callback(api)
     }
 
-    #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
+    #[cfg(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29"))]
     fn import_wgpu_texture(
         &self,
         canvas: &skia_safe::Canvas,
         any_wgpu_texture: &i_slint_core::graphics::WGPUTexture,
     ) -> Option<skia_safe::Image> {
         let texture = match any_wgpu_texture {
-            #[cfg(feature = "unstable-wgpu-27")]
-            i_slint_core::graphics::WGPUTexture::WGPU27Texture(..) => return None,
             #[cfg(feature = "unstable-wgpu-28")]
             i_slint_core::graphics::WGPUTexture::WGPU28Texture(texture) => texture.clone(),
+            #[cfg(feature = "unstable-wgpu-29")]
+            i_slint_core::graphics::WGPUTexture::WGPU29Texture(..) => return None,
         };
 
         // Skia won't submit commands right away, so remember the texture and transition before

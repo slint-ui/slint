@@ -5,7 +5,9 @@ use std::{cell::RefCell, num::NonZeroU32, rc::Rc};
 
 use i_slint_core::api::PlatformError;
 
-use crate::{FemtoVGRenderer, GraphicsBackend, WindowSurface, itemrenderer::CanvasRc};
+use crate::{
+    BeginRendering, FemtoVGRenderer, GraphicsBackend, WindowSurface, itemrenderer::CanvasRc,
+};
 
 /// This trait describes the interface GPU accelerated renderers in Slint require to render with OpenGL.
 ///
@@ -182,9 +184,9 @@ impl GraphicsBackend for OpenGLBackend {
     /// Ensures that the OpenGL context is current when returning from this function.
     fn begin_surface_rendering(
         &self,
-    ) -> Result<GLWindowSurface, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<BeginRendering<GLWindowSurface>, Box<dyn std::error::Error + Send + Sync>> {
         self.opengl_context.borrow().ensure_current()?;
-        Ok(GLWindowSurface {})
+        Ok(BeginRendering::Acquired(GLWindowSurface {}))
     }
 
     fn submit_commands(&self, _commands: <Self::Renderer as femtovg::Renderer>::CommandBuffer) {}

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore nsapp
 use super::CustomEvent;
 use super::WinitWindowAdapter;
 use core::pin::Pin;
@@ -220,7 +221,9 @@ impl MudaAdapter {
         if let Some(menu_tree) = menu_tree {
             let mut build_menu = || {
                 let mut menu_entries = Default::default();
-                vtable::VRc::borrow(menu_tree).sub_menu(None, &mut menu_entries);
+                if vtable::VRc::borrow(menu_tree).visible() {
+                    vtable::VRc::borrow(menu_tree).sub_menu(None, &mut menu_entries);
+                }
 
                 if menu_entries.is_empty() && muda_type == MudaType::Menubar {
                     self.menu = None;

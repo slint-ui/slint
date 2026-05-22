@@ -76,7 +76,7 @@ struct Property
 
     void set(const T &value) const
     {
-        if ((inner._0 & 0b10) == 0b10 || this->value != value) {
+        if ((reinterpret_cast<uintptr_t>(inner._0) & 0b10) == 0b10 || this->value != value) {
             this->value = value;
             cbindgen_private::slint_property_set_changed(&inner, &this->value);
         }
@@ -138,7 +138,7 @@ struct Property
     {
         auto value = p2->get();
         cbindgen_private::PropertyHandleOpaque handle {};
-        if ((p2->inner._0 & 0b10) == 0b10) {
+        if ((reinterpret_cast<uintptr_t>(p2->inner._0) & 0b10) == 0b10) {
             std::swap(handle, const_cast<Property<T> *>(p2)->inner);
         }
         auto common_property = std::make_shared<Property<T>>(handle, std::move(value));
@@ -161,7 +161,7 @@ struct Property
 
         auto value = prop1->get();
         cbindgen_private::PropertyHandleOpaque handle {};
-        if ((prop1->inner._0 & 0b10) == 0b10) {
+        if ((reinterpret_cast<uintptr_t>(prop1->inner._0) & 0b10) == 0b10) {
             std::swap(handle, const_cast<Property<T> *>(prop1)->inner);
         }
         auto common_property = std::make_shared<Property<T>>(handle, std::move(value));

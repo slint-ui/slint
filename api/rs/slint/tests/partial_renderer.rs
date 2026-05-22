@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore doesnt
+
 use i_slint_renderer_skia::SkiaRenderer;
 use i_slint_renderer_skia::SkiaSharedContext;
 use i_slint_renderer_skia::skia_safe;
@@ -95,7 +97,7 @@ impl SkiaTestWindow {
 
     fn draw_if_needed(&self) -> bool {
         if self.needs_redraw.replace(false) {
-            self.renderer.render().unwrap();
+            let _ = self.renderer.render().unwrap();
             true
         } else {
             false
@@ -1250,6 +1252,91 @@ fn layer_visible_after_becoming_non_zero_sized() {
     assert!(
         r > 200 && g < 50 && b < 50,
         "Layer pixel at (16,16) should be red after content-height grew, got rgb=({r},{g},{b})"
+    );
+}
+
+#[test]
+fn layer_rendered_at_correct_position() {
+    // Regression test for #11763: render_layer's compute_bounds used
+    // item_rc.geometry() (parent coordinates) instead of a local-coords
+    // rect. Inside a Flickable the parent offset is the viewport position
+    // (large x), while the clip is in item-local coords. The union mixes
+    // coordinate systems, producing a wrong layer origin when the item is
+    // partially scrolled out of the visible area. This makes the layer
+    // texture miss the left portion of the item.
+    slint::slint! {
+        export component Ui inherits Window {
+            width: 64px;
+            height: 64px;
+            background: white;
+            in-out property <length> vpx: 0px;
+            Flickable {
+                width: 64px;
+                height: 64px;
+                viewport-width: 200px;
+                viewport-x <=> root.vpx;
+                interactive: false;
+
+                Rectangle {
+                    cache-rendering-hint: true;
+                    x: 100px;
+                    y: 0px;
+                    width: 40px;
+                    height: 40px;
+                    Rectangle {
+                        background: red;
+                        width: 100%;
+                        height: 100%;
+                    }
+                }
+            }
+        }
+    }
+
+    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    let window = SKIA_WINDOW.with(|w| w.clone());
+    NEXT_WINDOW_CHOICE.with(|choice| {
+        *choice.borrow_mut() = Some(window.clone());
+    });
+    let ui = Ui::new().unwrap();
+    window.set_size(slint::PhysicalSize::new(64, 64).into());
+    ui.show().unwrap();
+
+    // Frame 1: item partially scrolled off the left edge of the Flickable.
+    // viewport-x = -120 → visible range 120..184. Item at 100..140.
+    // Item left edge (100) is 20px left of visible start (120).
+    // Only the right 20px are visible in the Flickable.
+    // The layer cache is created with the clip starting at x=20 in local
+    // coords. With the bug, geometry (100,..) makes the union start at 20
+    // instead of 0, so only the right 20px are captured.
+    ui.set_vpx(-120.);
+    assert!(window.draw_if_needed());
+
+    // Frame 2: scroll so the item is fully visible. Do NOT change any
+    // child property, so the layer cache stays valid and reuses the stale
+    // texture from frame 1. With the bug, the stale texture has origin
+    // (20, 0) instead of (0, 0), so 20px on the left are missing.
+    window.render_buffer.pixels.borrow_mut().take(); // force full redraw
+    ui.set_vpx(-60.);
+    assert!(window.draw_if_needed());
+
+    let pixels = window.render_buffer.pixels.borrow();
+    let buf = pixels.as_ref().expect("render buffer should contain pixels");
+    let data = buf.as_bytes();
+    let stride = 64;
+
+    // Item at vpx=-60: window x = 100 + (-60) = 40. Spans 40..80, clipped
+    // at 64, so visible 40..63.
+    // With the bug: stale cache has origin=(20,0), size=(20,40). Drawn at
+    // (40+20, 0) = (60, 0), only 4px visible (60..63). Gap at 40..59.
+    // With the fix: cache has origin=(0,0), size=(40,40). Drawn at (40, 0),
+    // visible 40..63. Correct.
+    // The item should start at window x=40.
+    let off = ((5 * stride + 40) * 4) as usize;
+    let (r, g, b) = (data[off], data[off + 1], data[off + 2]);
+    assert!(
+        r > 200 && g < 50 && b < 50,
+        "Pixel at (40,5) should be red (left edge of cached layer), got rgb=({r},{g},{b})"
     );
 }
 

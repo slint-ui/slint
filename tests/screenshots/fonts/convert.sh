@@ -2,6 +2,8 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell: ignore wdth subsetting
+
 # This script subsets the NotoSans variable fonts from https://fonts.google.com/noto/specimen/Noto+Sans
 # to a smaller character range for use in screenshot tests.
 

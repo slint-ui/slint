@@ -1,5 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
+// cSpell: ignore reborrow regs
 //! Board support for ESP32-S3-LCD-EV-Board with display and touch controller support.
 
 extern crate alloc;
@@ -78,7 +79,7 @@ const FRAME_BYTES: usize = (LCD_H_RES as usize * LCD_V_RES as usize) * 2;
 const NUM_DMA_DESC: usize = (FRAME_BYTES + CHUNK_SIZE - 1) / CHUNK_SIZE;
 
 // Place DMA descriptors in DMA-capable RAM
-#[link_section = ".dma"]
+#[unsafe(link_section = ".dma")]
 static mut TX_DESCRIPTORS: [DmaDescriptor; NUM_DMA_DESC] = [DmaDescriptor::EMPTY; NUM_DMA_DESC];
 
 #[panic_handler]

@@ -56,22 +56,14 @@ assert_eq!(instance.get_inner_x(), 0.);
 assert_eq!(instance.get_outer_y(), 0.);
 
 // now, scroll down
-instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(150.0, 202.0) });
-assert_eq!(instance.get_inner_x(), 0.);
-assert_eq!(instance.get_outer_y(), 0.);
-instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(150.0, 200.0) });
-assert_eq!(instance.get_inner_x(), 0.);
-assert_eq!(instance.get_outer_y(), 0.);
-instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(150.0, 198.0) });
-assert_eq!(instance.get_inner_x(), 0.);
-assert_eq!(instance.get_outer_y(), 2.);
-instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(150.0, 170.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(150.0, 270.0) });
+// should move the outer one now, it has passed the threshold when moving up already
 assert_eq!(instance.get_inner_x(), 0.);
 assert_eq!(instance.get_outer_y(), 30.);
-instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(150.0, 150.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(150.0, 250.0) });
 assert_eq!(instance.get_inner_x(), 0.);
 assert_eq!(instance.get_outer_y(), 50.);
-instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 150.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 250.0) });
 assert_eq!(instance.get_inner_x(), 0.);
 assert_eq!(instance.get_outer_y(), 50.);
 slint_testing::mock_elapsed_time(100);
@@ -90,6 +82,9 @@ instance.window().dispatch_event(WindowEvent::PointerPressed { position: Logical
 slint_testing::mock_elapsed_time(16);
 assert_eq!(instance.get_inner_x(), 0.);
 assert_eq!(instance.get_outer_y(), 500.);
+// TODO: A small movement will currently break this the delayed pressed event, as the outer flickable
+// is then accepting the event, which cancels the delayed pressed event!
+// instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(95.0, 100.0) });
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(90.0, 100.0) });
 slint_testing::mock_elapsed_time(120); // we need to wait enough because of the delay in the outer one
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(90.0, 100.0) });
@@ -100,7 +95,7 @@ slint_testing::mock_elapsed_time(16);
 assert_eq!(instance.get_inner_x(), 80.);
 assert_eq!(instance.get_outer_y(), 500.);
 
-// Scrolling up still work as the outer flickable now intersepcts it, and then the inner one lost
+// Scrolling up still work as the outer flickable now intercepts it, and then the inner one lost
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(10.0, 190.0) });
 slint_testing::mock_elapsed_time(16);
 assert_eq!(instance.get_inner_x(), 80.);

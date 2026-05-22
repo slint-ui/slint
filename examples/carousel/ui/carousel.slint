@@ -78,7 +78,7 @@ export component Carousel {
                 width: inner-layout.preferred-width;
 
                 states [
-                    swipping when swipe.swiping: {
+                    swiping when swipe.swiping: {
                         //x: self.viewport-x + swipe-offset;
                         swipe-offset: (swipe.current-position.x - swipe.pressed-position.x).clamp(-root.itemWidth, root.itemWidth);
                         out {

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore menulayout
 //! This pass lowers the `MenuBar` and `ContextMenuArea` as well as all their contents
 //!
 //! We can't have properties of type Model because that is not binary compatible with C++,
@@ -476,7 +477,7 @@ fn process_window(
     let item_tree_root = Expression::ElementReference(Rc::downgrade(&c.root_element));
 
     if !no_native_menu {
-        let supportes_native_menu_bar = Expression::UnaryOp {
+        let supports_native_menu_bar = Expression::UnaryOp {
             op: '!',
             sub: Expression::FunctionCall {
                 function: BuiltinFunction::SupportsNativeMenuBar.into(),
@@ -488,10 +489,10 @@ fn process_window(
         condition = match condition {
             Some(condition) => Some(Expression::BinaryExpression {
                 lhs: condition.into(),
-                rhs: supportes_native_menu_bar.into(),
+                rhs: supports_native_menu_bar.into(),
                 op: '&',
             }),
-            None => Some(supportes_native_menu_bar),
+            None => Some(supports_native_menu_bar),
         };
     }
 
@@ -557,6 +558,15 @@ fn process_window(
         }
     }
 
+    // Transfer the visible binding from MenuBar to MenuBarImpl
+    let visible_binding = menu_bar.borrow_mut().bindings.remove("visible");
+    if let Some(visible_binding) = &visible_binding {
+        menubar_impl
+            .borrow_mut()
+            .bindings
+            .insert(SmolStr::new_static("menubar-visible"), visible_binding.clone());
+    }
+
     // Transform the MenuBar in a layout
     menu_bar.borrow_mut().base_type = components.vertical_layout.clone();
     menu_bar.borrow_mut().children = vec![menubar_impl, child];
@@ -601,6 +611,14 @@ fn process_window(
 
     if let Some(condition) = original_cond {
         arguments.push(condition);
+    } else {
+        arguments.push(Expression::BoolLiteral(true));
+    }
+
+    if let Some(visible_binding) = visible_binding {
+        arguments.push(visible_binding.borrow().expression.clone());
+    } else {
+        arguments.push(Expression::BoolLiteral(true));
     }
 
     let setup_menubar = Expression::FunctionCall {

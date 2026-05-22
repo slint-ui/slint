@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore backtab
+// cSpell: ignore backtab componentrc datastructure subelements unmaximized unminimized
 
 #![warn(missing_docs)]
 //! Exposed Window API
@@ -19,7 +19,7 @@ use crate::item_tree::{
     ParentItemTraversalMode,
 };
 use crate::items::{InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
-use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, SizeLengths};
+use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalVector, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
@@ -357,12 +357,12 @@ impl WindowProperties<'_> {
 
     /// true if the window is in a maximized state, otherwise false
     pub fn is_maximized(&self) -> bool {
-        self.0.maximized.get()
+        self.0.is_maximized()
     }
 
     /// true if the window is in a minimized state, otherwise false
     pub fn is_minimized(&self) -> bool {
-        self.0.minimized.get()
+        self.0.is_minimized()
     }
 }
 
@@ -431,7 +431,7 @@ pub struct PopupWindow {
     pub location: PopupWindowLocation,
     /// The component that is responsible for providing the popup content.
     pub component: ItemTreeRc,
-    /// Defines the close behaviour of the popup.
+    /// Defines the close behavior of the popup.
     pub close_policy: PopupClosePolicy,
     /// the item that had the focus in the parent window when the popup was opened
     focus_item_in_parent: ItemWeak,
@@ -487,8 +487,6 @@ pub struct WindowInner {
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<crate::input::TextCursorBlinker>>,
 
     pinned_fields: Pin<Box<WindowPinnedFields>>,
-    maximized: Cell<bool>,
-    minimized: Cell<bool>,
 
     menubar: RefCell<Option<vtable::VWeak<MenuVTable>>>,
 
@@ -550,8 +548,6 @@ impl WindowInner {
                     "i_slint_core::Window::menubar_shortcuts",
                 ),
             }),
-            maximized: Cell::new(false),
-            minimized: Cell::new(false),
             focus_item: Default::default(),
             last_ime_text: Default::default(),
             cursor_blinker: Default::default(),
@@ -634,11 +630,12 @@ impl WindowInner {
     }
 
     /// Receive a mouse event and pass it to the items of the component to
-    /// change their state.
-    pub fn process_mouse_input(&self, mut event: MouseEvent) {
+    /// change their state. For `DragMove`/`Drop`, returns the negotiated
+    /// [`DragAction`](crate::items::DragAction), or `None` if no `DropArea` accepted.
+    pub fn process_mouse_input(&self, mut event: MouseEvent) -> Option<crate::items::DragAction> {
         crate::animations::update_animations();
 
-        let Some(item_tree) = self.try_component() else { return };
+        let item_tree = self.try_component()?;
         self.ensure_tree_instantiated();
 
         // handle multiple press release
@@ -647,22 +644,84 @@ impl WindowInner {
         let window_adapter = self.window_adapter();
         let mut mouse_input_state = self.mouse_input_state.take();
 
+        let was_dragging = mouse_input_state.drag_data.is_some();
         let old_cursor = core::mem::replace(&mut mouse_input_state.cursor, MouseCursor::Default);
+
+        // drag-finished firing is deferred until after dispatch so the DropArea has had
+        // a chance to fire its own `dropped` callback first; that callback returns the
+        // final action, which the runtime then forwards to the source.
+        let mut pending_drag_finished: Option<(
+            crate::item_tree::ItemWeak,
+            Option<crate::item_tree::ItemWeak>,
+        )> = None;
 
         if let Some(mut drop_event) = mouse_input_state.drag_data.clone() {
             match &event {
                 MouseEvent::Released { position, button: PointerEventButton::Left, .. } => {
-                    drop_event.position = crate::lengths::logical_position_to_api(*position);
-                    event = MouseEvent::Drop(drop_event);
                     mouse_input_state.drag_data = None;
+                    let source = mouse_input_state.drag_source.take();
+                    if let Some(target_weak) = mouse_input_state.drop_target.take() {
+                        // Seed `proposed-action` for the dropped callback with the action the
+                        // target last chose during hover; the callback's return value will
+                        // become the final action reported to the source.
+                        let hovered = target_weak
+                            .upgrade()
+                            .and_then(|t| t.downcast::<crate::items::DropArea>())
+                            .map(|d| d.as_pin_ref().current_action())
+                            .unwrap_or(crate::items::DragAction::None);
+                        drop_event.proposed_action = hovered;
+                        drop_event.position = crate::lengths::logical_position_to_api(*position);
+                        event = MouseEvent::Drop(drop_event);
+                        if let Some(s) = source {
+                            pending_drag_finished = Some((s, Some(target_weak)));
+                        }
+                    } else {
+                        // No DropArea accepted the most recent DragMove. Tear the drag
+                        // down via Exit instead of converting to Drop so a non-accepting
+                        // DropArea under the cursor doesn't fire `dropped`, and so the
+                        // underlying Release doesn't reach hit-tested items as a
+                        // spurious click.
+                        event = MouseEvent::Exit;
+                        if let Some(s) = source {
+                            pending_drag_finished = Some((s, None));
+                        }
+                    }
                 }
                 MouseEvent::Moved { position, .. } => {
                     drop_event.position = crate::lengths::logical_position_to_api(*position);
+                    // Recompute the proposed action from current modifier state so the target's
+                    // `can-drop` callback sees an up-to-date `event.proposed-action`.
+                    let preferred = mouse_input_state
+                        .drag_source
+                        .as_ref()
+                        .and_then(|s| s.upgrade())
+                        .and_then(|i| i.downcast::<crate::items::DragArea>())
+                        .map(|d| d.as_pin_ref().preferred_action())
+                        .unwrap_or(crate::items::DragAction::Copy);
+                    drop_event.proposed_action = crate::items::compute_proposed_action(
+                        self.context().0.modifiers.get().into(),
+                        drop_event.allow_copy,
+                        drop_event.allow_move,
+                        drop_event.allow_link,
+                        preferred,
+                    );
+                    // Mirror the position and proposed action into the persistent state so the
+                    // renderer can place the drag-image overlay without re-deriving the cursor
+                    // location, and so a subsequent synthetic Moved (e.g. fired from a modifier
+                    // key press) starts from the right position.
+                    if let Some(d) = mouse_input_state.drag_data.as_mut() {
+                        d.position = drop_event.position;
+                        d.proposed_action = drop_event.proposed_action;
+                    }
                     mouse_input_state.cursor = MouseCursor::NoDrop;
                     event = MouseEvent::DragMove(drop_event);
                 }
                 MouseEvent::Exit => {
                     mouse_input_state.drag_data = None;
+                    mouse_input_state.drop_target = None;
+                    if let Some(s) = mouse_input_state.drag_source.take() {
+                        pending_drag_finished = Some((s, None));
+                    }
                 }
                 _ => {}
             }
@@ -818,13 +877,51 @@ impl WindowInner {
             window_adapter.set_mouse_cursor(mouse_input_state.cursor);
         }
 
+        let is_dragging = mouse_input_state.drag_data.is_some();
+        let drop_target_action = mouse_input_state.drop_target_action();
         self.mouse_input_state.set(mouse_input_state);
+
+        // The drag-image overlay follows the cursor and lives outside any item tree, so
+        // partial renderers won't otherwise know to repaint it on mouse motion or after
+        // the drag ends. `render_drag_image_overlay` marks its painted rect dirty itself,
+        // we just need to schedule the redraw.
+        if was_dragging || is_dragging {
+            window_adapter.request_redraw();
+        }
+
+        if let Some((source_weak, target_weak)) = pending_drag_finished
+            && let Some(source) = source_weak.upgrade()
+            && let Some(drag_area) = source.downcast::<crate::items::DragArea>()
+        {
+            // The action `dropped` returned is now sitting on the target's `current_action`.
+            // For a cancelled drag (no target) we just report None.
+            let target = target_weak
+                .and_then(|w| w.upgrade())
+                .and_then(|i| i.downcast::<crate::items::DropArea>());
+            let action = target
+                .as_ref()
+                .map(|d| d.as_pin_ref().current_action())
+                .unwrap_or(crate::items::DragAction::None);
+            let drag_area = drag_area.as_pin_ref();
+            drag_area.dragging.set(false);
+            crate::items::DragArea::FIELD_OFFSETS
+                .drag_finished()
+                .apply_pin(drag_area)
+                .call(&(action,));
+            // The drag is over: reset the target's `current_action` so it matches
+            // `contains_drag` and the docstring ("none when no drag is hovering").
+            if let Some(target) = target {
+                target.as_pin_ref().current_action.set(crate::items::DragAction::None);
+            }
+        }
 
         if let Some(popup_id) = popup_to_close {
             WindowInner::from_pub(parent_adapter.window()).close_popup(popup_id);
         }
 
         self.ensure_tree_instantiated();
+
+        drop_target_action
     }
 
     /// Receive a raw touch event from a backend and either forward it as a mouse
@@ -880,6 +977,23 @@ impl WindowInner {
         ) {
             // Updates the key modifiers depending on the key code and pressed state.
             self.context().0.modifiers.set(updated_modifier);
+
+            // If a drag is in flight, synthesize a Moved at the last drag position so
+            // the new modifier state flows into `event.proposed-action` and the target's
+            // `can-drop` re-runs — letting the user change copy/move/link with Ctrl/Shift
+            // without having to move the mouse first.
+            let drag_pos = {
+                let state = self.mouse_input_state.take();
+                let pos = state.drag_data.as_ref().map(|d| d.position);
+                self.mouse_input_state.replace(state);
+                pos
+            };
+            if let Some(pos) = drag_pos {
+                self.process_mouse_input(MouseEvent::Moved {
+                    position: crate::lengths::logical_point_from_api(pos),
+                    touch_finger_id: 0,
+                });
+            }
         }
 
         internal_key_event.key_event.modifiers =
@@ -1345,13 +1459,25 @@ impl WindowInner {
 
     /// Calls the render_components to render the main component and any sub-window components, tracked by a
     /// property dependency tracker.
+    ///
+    /// The closure also receives a `post_render` callback. The renderer must invoke it
+    /// once with its `ItemRenderer` after walking the components but before flushing,
+    /// so the runtime can draw overlays that sit on top of the scene without being part
+    /// of any item tree.
+    ///
     /// Returns None if no component is set yet.
     pub fn draw_contents<T>(
         &self,
-        render_components: impl FnOnce(&[(ItemTreeWeak, LogicalPoint)]) -> T,
+        render_components: impl FnOnce(
+            &[(ItemTreeWeak, LogicalPoint)],
+            &dyn Fn(&mut dyn crate::item_rendering::ItemRenderer),
+        ) -> T,
     ) -> Option<T> {
         crate::properties::evaluate_no_tracking(|| self.ensure_tree_instantiated());
         let component_weak = ItemTreeRc::downgrade(&self.try_component()?);
+        let post_render = |renderer: &mut dyn crate::item_rendering::ItemRenderer| {
+            self.render_drag_image_overlay(renderer);
+        };
         Some(self.pinned_fields.as_ref().project_ref().redraw_tracker.evaluate_as_dependency_root(
             || {
                 if !self
@@ -1360,7 +1486,7 @@ impl WindowInner {
                     .iter()
                     .any(|p| matches!(p.location, PopupWindowLocation::ChildWindow(..)))
                 {
-                    render_components(&[(component_weak, LogicalPoint::default())])
+                    render_components(&[(component_weak, LogicalPoint::default())], &post_render)
                 } else {
                     let borrow = self.active_popups.borrow();
                     let mut item_trees = Vec::with_capacity(borrow.len() + 1);
@@ -1374,10 +1500,47 @@ impl WindowInner {
                         }
                     }
                     drop(borrow);
-                    render_components(&item_trees)
+                    render_components(&item_trees, &post_render)
                 }
             },
         ))
+    }
+
+    /// Draws the source `DragArea`'s `drag-image` under the cursor when a drag is in flight.
+    /// No-op when no drag is active or the source has no image set.
+    ///
+    /// Marks the painted rect dirty for partial renderers, so the next frame clears the area
+    /// before redrawing — same trick the linuxkms cursor injection uses, no per-frame state needed.
+    fn render_drag_image_overlay(
+        &self,
+        item_renderer: &mut dyn crate::item_rendering::ItemRenderer,
+    ) {
+        let state = self.mouse_input_state.take();
+        let cursor = state.drag_data.as_ref().map(|d| d.position);
+        let source = state.drag_source.as_ref().and_then(|w| w.upgrade());
+        self.mouse_input_state.set(state);
+
+        let (Some(cursor), Some(source)) = (cursor, source) else { return };
+        let Some(drag_area) = source.downcast::<crate::items::DragArea>() else { return };
+        let drag_area = drag_area.as_pin_ref();
+        let image = drag_area.drag_image();
+        let size = crate::lengths::LogicalSize::from_untyped(image.size().cast());
+        if size.is_empty() {
+            return;
+        }
+        let cursor = crate::lengths::logical_point_from_api(cursor);
+        let offset = LogicalVector::new(
+            drag_area.drag_image_offset_x() as Coord,
+            drag_area.drag_image_offset_y() as Coord,
+        );
+        let top_left = cursor - offset;
+
+        item_renderer.save_state();
+        item_renderer.translate(top_left.to_vector());
+        item_renderer.draw_image_direct(image);
+        item_renderer.restore_state();
+
+        self.window_adapter().renderer().mark_dirty_region(LogicalRect::new(top_left, size).into());
     }
 
     /// Registers the window with the windowing system, in order to render the component's items and react
@@ -1872,7 +2035,7 @@ impl WindowInner {
         }
     }
 
-    /// Returns if the window is currently maximized
+    /// Returns if the window is currently in fullscreen mode
     pub fn is_fullscreen(&self) -> bool {
         if let Some(window_item) = self.window_item() {
             window_item.as_pin_ref().full_screen()
@@ -1891,24 +2054,28 @@ impl WindowInner {
 
     /// Returns if the window is currently maximized
     pub fn is_maximized(&self) -> bool {
-        self.maximized.get()
+        self.window_item().is_some_and(|window_item| window_item.as_pin_ref().maximized())
     }
 
     /// Set the window as maximized or unmaximized
     pub fn set_maximized(&self, maximized: bool) {
-        self.maximized.set(maximized);
-        self.update_window_properties()
+        if let Some(window_item) = self.window_item() {
+            window_item.as_pin_ref().maximized.set(maximized);
+            self.update_window_properties()
+        }
     }
 
     /// Returns if the window is currently minimized
     pub fn is_minimized(&self) -> bool {
-        self.minimized.get()
+        self.window_item().is_some_and(|window_item| window_item.as_pin_ref().minimized())
     }
 
     /// Set the window as minimized or unminimized
     pub fn set_minimized(&self, minimized: bool) {
-        self.minimized.set(minimized);
-        self.update_window_properties()
+        if let Some(window_item) = self.window_item() {
+            window_item.as_pin_ref().minimized.set(minimized);
+            self.update_window_properties()
+        }
     }
 
     /// Returns the (context global) xdg app id for use with wayland and x11.
@@ -1978,6 +2145,7 @@ pub mod ffi {
     use crate::graphics::Size;
     use crate::graphics::{IntSize, Rgba8Pixel};
     use crate::items::WindowItem;
+    use core::ffi::c_void;
 
     /// This enum describes a low-level access to specific graphics APIs used
     /// by the renderer.
@@ -1988,9 +2156,6 @@ pub mod ffi {
         /// The rendering is done using APIs inaccessible from C++, such as WGPU.
         Inaccessible,
     }
-
-    #[allow(non_camel_case_types)]
-    type c_void = ();
 
     struct WithUserData<T> {
         callback: T,
@@ -2275,10 +2440,10 @@ pub mod ffi {
                     let cpp_graphics_api = match graphics_api {
                         crate::api::GraphicsAPI::NativeOpenGL { .. } => GraphicsAPI::NativeOpenGL,
                         crate::api::GraphicsAPI::WebGL { .. } => unreachable!(), // We don't support wasm with C++
-                        #[cfg(feature = "unstable-wgpu-27")]
-                        crate::api::GraphicsAPI::WGPU27 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
                         #[cfg(feature = "unstable-wgpu-28")]
                         crate::api::GraphicsAPI::WGPU28 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
+                        #[cfg(feature = "unstable-wgpu-29")]
+                        crate::api::GraphicsAPI::WGPU29 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
                     };
                     (self.callback)(state, cpp_graphics_api, self.user_data)
                 }

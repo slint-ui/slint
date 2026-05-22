@@ -10,7 +10,7 @@ export component StateLayerBase {
     in property <bool> has-hover;
     in property <bool> checked;
     in property <bool> enabled: true;
-    in property <length> focus-boder-margin: 3px;
+    in property <length> focus-border-margin: 3px;
     out property <brush> background <=> overlay.background;
 
     @children
@@ -18,10 +18,10 @@ export component StateLayerBase {
     overlay := Rectangle {}
 
     if (root.has-focus && root.enabled) : Rectangle {
-        width: root.width + root.focus-boder-margin * 2;
-        height: root.height + root.focus-boder-margin * 2;
+        width: root.width + root.focus-border-margin * 2;
+        height: root.height + root.focus-border-margin * 2;
         border-width: 1px;
-        border-radius: root.border-radius + root.focus-boder-margin;
+        border-radius: root.border-radius + root.focus-border-margin;
         border-color: CosmicPalette.state-focus;
     }
 
@@ -42,7 +42,7 @@ export component StateLayer inherits TouchArea {
     in property <length> border-radius <=> base.border-radius;
     out property <bool> has-focus: focus-scope.has-focus;
     in-out property <bool> checked;
-    in property <length> focus-boder-margin <=> base.focus-boder-margin;
+    in property <length> focus-border-margin <=> base.focus-border-margin;
 
     forward-focus: focus-scope;
 
@@ -124,7 +124,7 @@ export component ListItem {
             has-focus: root.has-focus;
             checked: root.is-selected;
             border-radius: 16px;
-            focus-boder-margin: 0;
+            focus-border-margin: 0;
 
             HorizontalLayout {
                 padding-left: 16px;

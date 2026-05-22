@@ -1,0 +1,60 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Test FlexboxLayout containing a component whose vertical layout info
+// depends on width (Text with word-wrap inside a VerticalLayout). This
+// previously caused a recursion panic: the component's layoutinfo-v
+// evaluation reads Text width → component width → layout cache →
+// layoutinfo-v.
+
+component Card inherits Rectangle {
+    background: #e0e0e0;
+    VerticalLayout {
+        padding: 5px;
+        Text {
+            text: "A card component with text that should word-wrap when the card is narrow enough";
+            wrap: word-wrap;
+            horizontal-alignment: left;
+        }
+        Rectangle {
+            height: 20px;
+            background: #ccc;
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 200px;
+
+    FlexboxLayout {
+        spacing: 10px;
+
+        r := Rectangle {
+            width: 50px;
+            height: 50px;
+            background: red;
+            flex-shrink: 0;
+        }
+        c := Card {
+            flex-shrink: 1;
+        }
+    }
+
+    // The card should be beside the rectangle with non-zero dimensions.
+    // No recursion panic means the cross-axis constraint propagates
+    // through the component boundary correctly.
+    out property <bool> test_r: r.x == 0px && r.width == 50px;
+    out property <bool> test_c: c.width > 0px && c.height > 0px;
+
+    out property <bool> test: test_r && test_c;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+*/

@@ -263,6 +263,18 @@ export class ArrayModel<T> extends Model<T> {
     }
 
     /**
+     * Inserts new values into the array that's backing the model at the given
+     * index and notifies the run-time about the added rows.
+     * @param index zero-based index at which to insert; clamped to [0, length].
+     * @param values list of values to insert.
+     */
+    insert(index: number, ...values: T[]) {
+        const clamped = Math.max(0, Math.min(index, this.#array.length));
+        this.#array.splice(clamped, 0, ...values);
+        this.notifyRowAdded(clamped, values.length);
+    }
+
+    /**
      * Returns an iterable of values in the array.
      */
     values(): IterableIterator<T> {

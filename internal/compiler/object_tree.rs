@@ -102,14 +102,29 @@ impl Document {
             }
         }
 
+        #[cfg(feature = "slint-sc")]
+        let mut sc_exported_count: u32 = 0;
+
         let mut process_component =
             |n: syntax_nodes::Component,
              diag: &mut BuildDiagnostics,
-             local_registry: &mut TypeRegister| {
+             local_registry: &mut TypeRegister,
+             #[cfg(feature = "slint-sc")] sc_exported_count: &mut u32,
+             #[cfg(feature = "slint-sc")] is_exported: bool| {
                 // Globals already get their own "Globals are not supported" message
                 #[cfg(feature = "slint-sc")]
                 if n.child_text(SyntaxKind::Identifier).as_deref() != Some("global") {
-                    diag.slint_sc_error("Component declarations are", &n.DeclaredIdentifier());
+                    if !is_exported {
+                        diag.slint_sc_error("Component declarations are", &n.DeclaredIdentifier());
+                    } else {
+                        *sc_exported_count += 1;
+                        if *sc_exported_count > 1 {
+                            diag.slint_sc_error(
+                                "Multiple exported components per file are",
+                                &n.DeclaredIdentifier(),
+                            );
+                        }
+                    }
                 }
                 let compo = Component::from_node(n, diag, local_registry);
                 if !local_registry.add(compo.clone()) {
@@ -190,7 +205,15 @@ impl Document {
         for n in node.children() {
             match n.kind() {
                 SyntaxKind::Component => {
-                    process_component(n.into(), diag, &mut local_registry);
+                    process_component(
+                        n.into(),
+                        diag,
+                        &mut local_registry,
+                        #[cfg(feature = "slint-sc")]
+                        &mut sc_exported_count,
+                        #[cfg(feature = "slint-sc")]
+                        false,
+                    );
                 }
                 SyntaxKind::StructDeclaration => {
                     process_struct(n.into(), diag, &mut local_registry, &mut inner_types)
@@ -201,9 +224,15 @@ impl Document {
                 SyntaxKind::ExportsList => {
                     for n in n.children() {
                         match n.kind() {
-                            SyntaxKind::Component => {
-                                process_component(n.into(), diag, &mut local_registry)
-                            }
+                            SyntaxKind::Component => process_component(
+                                n.into(),
+                                diag,
+                                &mut local_registry,
+                                #[cfg(feature = "slint-sc")]
+                                &mut sc_exported_count,
+                                #[cfg(feature = "slint-sc")]
+                                true,
+                            ),
                             SyntaxKind::StructDeclaration => process_struct(
                                 n.into(),
                                 diag,
@@ -373,7 +402,7 @@ pub struct UsedSubTypes {
     /// All the sub components use by this components and its children,
     /// and the amount of time it is used
     pub sub_components: Vec<Rc<Component>>,
-    /// All types, structs, enums, that orignates from an
+    /// All types, structs, enums, that originates from an
     /// external library
     pub library_types_imports: Vec<(SmolStr, LibraryInfo)>,
     /// All global components that originates from an
@@ -845,6 +874,15 @@ pub struct Element {
     pub child_of_layout: bool,
     /// The property pointing to the layout info. `(horizontal, vertical)`
     pub layout_info_prop: Option<(NamedReference, NamedReference)>,
+    /// `pure function layoutinfo-v-with-constraint(width: length) -> LayoutInfo`
+    /// synthesized for elements whose vertical layout info depends on
+    /// their width — lets the parent supply the width and avoid the
+    /// recursion that would happen via the descendants' width property.
+    pub layout_info_v_with_constraint: Option<NamedReference>,
+    /// Mirror of `layout_info_v_with_constraint` for the horizontal axis.
+    /// Synthesized on flex elements whose horizontal layout info would
+    /// otherwise read their own height (column-direction or unknown).
+    pub layout_info_h_with_constraint: Option<NamedReference>,
     /// Whether we have `preferred-{width,height}: 100%`
     pub default_fill_parent: (bool, bool),
 
@@ -1109,7 +1147,7 @@ impl Element {
                 Ok(ty) => {
                     #[cfg(feature = "slint-sc")]
                     match &ty {
-                        ElementType::Builtin(b) => {
+                        ElementType::Builtin(b) if !b.slint_sc => {
                             diag.slint_sc_error(
                                 &format!("The builtin element '{}' is", b.name),
                                 &base_node,
@@ -2094,6 +2132,61 @@ impl Element {
         })
     }
 
+    /// Whether this element is a *builtin* whose vertical layout info
+    /// depends on its width. Returns `false` for user components — even
+    /// ones whose own bindings derive height from width (e.g.
+    /// `component Foo { height: self.width; }`); those don't carry the
+    /// information needed to detect the dependency here. The synthesis
+    /// pass catches user components by other means (descendant
+    /// height-for-width + `layoutinfo-v-with-constraint` propagation).
+    pub fn is_builtin_height_for_width(&self) -> bool {
+        let Some(builtin) = self.builtin_type() else { return false };
+        match builtin.name.as_str() {
+            // Conservatively treat any wrap binding (including a literal
+            // `no-wrap`) as height-for-width.
+            "Text" | "TextInput" => self.is_binding_set("wrap", false),
+            // `StyledText` has no `wrap` property; markdown text always
+            // wraps to fill the given width.
+            "Image" | "ClippedImage" | "StyledText" => true,
+            _ => false,
+        }
+    }
+
+    /// Returns the `layoutinfo-v-with-constraint` NamedReference reachable
+    /// from `self`, looking through the base-type chain. The NR points to
+    /// the element actually carrying the binding.
+    pub fn inherited_layout_info_v_with_constraint(&self) -> Option<NamedReference> {
+        if let Some(nr) = &self.layout_info_v_with_constraint {
+            return Some(nr.clone());
+        }
+        let mut base = self.base_type.clone();
+        while let ElementType::Component(base_comp) = base {
+            let root = base_comp.root_element.borrow();
+            if let Some(nr) = &root.layout_info_v_with_constraint {
+                return Some(nr.clone());
+            }
+            base = root.base_type.clone();
+        }
+        None
+    }
+
+    /// Mirror of [`Self::inherited_layout_info_v_with_constraint`] for the
+    /// horizontal axis.
+    pub fn inherited_layout_info_h_with_constraint(&self) -> Option<NamedReference> {
+        if let Some(nr) = &self.layout_info_h_with_constraint {
+            return Some(nr.clone());
+        }
+        let mut base = self.base_type.clone();
+        while let ElementType::Component(base_comp) = base {
+            let root = base_comp.root_element.borrow();
+            if let Some(nr) = &root.layout_info_h_with_constraint {
+                return Some(nr.clone());
+            }
+            base = root.base_type.clone();
+        }
+        None
+    }
+
     /// Returns the element's name as specified in the markup, not normalized.
     pub fn original_name(&self) -> SmolStr {
         self.debug
@@ -2642,8 +2735,8 @@ pub fn visit_named_references_in_expression(
         Expression::LayoutCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
         Expression::GridRepeaterCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
         Expression::OrganizeGridLayout(l) => l.visit_named_references(vis),
-        Expression::ComputeBoxLayoutInfo(l, _) => l.visit_named_references(vis),
-        Expression::ComputeFlexboxLayoutInfo(l, _) => l.visit_named_references(vis),
+        Expression::ComputeBoxLayoutInfo { layout, .. } => layout.visit_named_references(vis),
+        Expression::ComputeFlexboxLayoutInfo { layout, .. } => layout.visit_named_references(vis),
         Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, .. } => {
             vis(layout_organized_data_prop);
             layout.visit_named_references(vis);
@@ -2706,6 +2799,16 @@ pub fn visit_all_named_references_in_element(
     let mut layout_info_prop = std::mem::take(&mut elem.borrow_mut().layout_info_prop);
     layout_info_prop.as_mut().map(|(h, b)| (vis(h), vis(b)));
     elem.borrow_mut().layout_info_prop = layout_info_prop;
+    let mut constrained_v = std::mem::take(&mut elem.borrow_mut().layout_info_v_with_constraint);
+    if let Some(nr) = constrained_v.as_mut() {
+        vis(nr);
+    }
+    elem.borrow_mut().layout_info_v_with_constraint = constrained_v;
+    let mut constrained_h = std::mem::take(&mut elem.borrow_mut().layout_info_h_with_constraint);
+    if let Some(nr) = constrained_h.as_mut() {
+        vis(nr);
+    }
+    elem.borrow_mut().layout_info_h_with_constraint = constrained_h;
     let mut debug = std::mem::take(&mut elem.borrow_mut().debug);
     for d in debug.iter_mut() {
         if let Some(l) = d.layout.as_mut() {
@@ -3163,12 +3266,14 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
             old_root,
             Orientation::Horizontal,
             crate::layout::BuiltinFilter::All,
+            None,
         )
         .unwrap();
         let expr_v = crate::layout::implicit_layout_info_call(
             old_root,
             Orientation::Vertical,
             crate::layout::BuiltinFilter::All,
+            None,
         )
         .unwrap();
         let expr_v =

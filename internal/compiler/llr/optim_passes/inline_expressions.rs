@@ -167,7 +167,9 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::RestartTimer => 10,
         BuiltinFunction::ParseMarkdown => isize::MAX,
         BuiltinFunction::StringToStyledText => ALLOC_COST,
+        BuiltinFunction::ColorToStyledText => ALLOC_COST,
         BuiltinFunction::OpenUrl => isize::MAX,
+        BuiltinFunction::BringAllToFront => isize::MAX,
     }
 }
 

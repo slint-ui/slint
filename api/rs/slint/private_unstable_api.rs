@@ -163,7 +163,9 @@ pub mod re_exports {
     pub use core::iter::FromIterator;
     pub use core::option::{Option, Option::*};
     pub use core::result::{Result, Result::*};
-    pub use i_slint_core::styled_text::{StyledText, parse_markdown, string_to_styled_text};
+    pub use i_slint_core::styled_text::{
+        StyledText, color_to_styled_text, parse_markdown, string_to_styled_text,
+    };
     // This one is empty when Qt is not available, which triggers a warning
     pub use euclid::approxeq::ApproxEq;
     #[allow(unused_imports)]
@@ -174,6 +176,7 @@ pub mod re_exports {
     };
     pub use i_slint_core::animations::{EasingCurve, animation_tick, current_tick};
     pub use i_slint_core::api::LogicalPosition;
+    pub use i_slint_core::bring_all_to_front;
     pub use i_slint_core::callbacks::Callback;
     pub use i_slint_core::context::SlintContext;
     pub use i_slint_core::data_transfer::DataTransfer;

@@ -60,20 +60,19 @@ raw-window-handle-06 = ["i-slint-core/raw-window-handle-06", "i-slint-backend-wi
 system-testing = ["i-slint-backend-testing/system-testing"]
 mcp = ["i-slint-backend-testing/mcp"]
 
-unstable-wgpu-27 = [
-  "i-slint-core/unstable-wgpu-27",
-  "i-slint-renderer-skia?/unstable-wgpu-27",
-  "i-slint-renderer-femtovg?/unstable-wgpu-27",
-  "i-slint-backend-winit?/unstable-wgpu-27",
-  "i-slint-backend-linuxkms?/unstable-wgpu-27",
-]
-
 unstable-wgpu-28 = [
   "i-slint-core/unstable-wgpu-28",
   "i-slint-renderer-skia?/unstable-wgpu-28",
-  "i-slint-renderer-femtovg?/unstable-wgpu-28",
   "i-slint-backend-winit?/unstable-wgpu-28",
   "i-slint-backend-linuxkms?/unstable-wgpu-28",
+]
+
+unstable-wgpu-29 = [
+  "i-slint-core/unstable-wgpu-29",
+  "i-slint-renderer-skia?/unstable-wgpu-29",
+  "i-slint-renderer-femtovg?/unstable-wgpu-29",
+  "i-slint-backend-winit?/unstable-wgpu-29",
+  "i-slint-backend-linuxkms?/unstable-wgpu-29",
 ]
 
 unstable-winit-031 = ["i-slint-backend-winit"]
@@ -89,10 +88,10 @@ cfg-if = "1"
 i-slint-core = { workspace = true }
 i-slint-backend-testing = { workspace = true, optional = true }
 i-slint-core-macros = { workspace = true }
+i-slint-renderer-skia = { workspace = true, optional = true }
 
 [target.'cfg(not(target_os = "android"))'.dependencies]
 i-slint-backend-winit = { workspace = true, features = ["default", "muda"], optional = true }
-i-slint-renderer-skia = { workspace = true, optional = true }
 i-slint-renderer-femtovg = { workspace = true, optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]

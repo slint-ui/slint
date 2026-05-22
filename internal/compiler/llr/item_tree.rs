@@ -317,6 +317,11 @@ pub struct Callback {
 
     /// Same as for Property::use_count
     pub use_count: Cell<usize>,
+
+    /// Whether this callback needs a change tracker `Property<()>` so that
+    /// setting a new handler from native code triggers re-evaluation of
+    /// property bindings that invoke this callback.
+    pub needs_tracker: bool,
 }
 
 #[derive(Debug)]

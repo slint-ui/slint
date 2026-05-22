@@ -92,6 +92,75 @@ def test_python_model_sequence() -> None:
     assert model[2] == 3
 
 
+def test_list_model_insert() -> None:
+    model = models.ListModel([1, 2, 3])
+    model.insert(0, 0)
+    assert list(model) == [0, 1, 2, 3]
+    model.insert(2, 99)
+    assert list(model) == [0, 1, 99, 2, 3]
+    model.insert(len(model), 100)
+    assert list(model) == [0, 1, 99, 2, 3, 100]
+
+
+def test_list_model_insert_clamps() -> None:
+    model = models.ListModel([1, 2, 3])
+    model.insert(-5, 7)
+    assert list(model) == [7, 1, 2, 3]
+    model.insert(100, 8)
+    assert list(model) == [7, 1, 2, 3, 8]
+
+
+def test_list_model_insert_into_empty() -> None:
+    model: models.ListModel[int] = models.ListModel()
+    model.insert(0, 42)
+    assert list(model) == [42]
+
+
+def test_list_model_insert_notifies() -> None:
+    compiler = native.Compiler()
+
+    compdef = compiler.build_from_source(
+        """
+  export component App {
+    width: 300px;
+    height: 300px;
+
+    out property<length> layout-height: layout.height;
+    in-out property<[length]> fixed-height-model;
+
+    VerticalLayout {
+      alignment: start;
+
+      layout := VerticalLayout {
+        for fixed-height in fixed-height-model: Rectangle {
+            background: blue;
+            height: fixed-height;
+        }
+      }
+    }
+  }
+    """,
+        Path(""),
+    ).component("App")
+    assert compdef is not None
+
+    instance = compdef.create()
+    assert instance is not None
+
+    model = models.ListModel([100, 50])
+    instance.set_property("fixed-height-model", model)
+    instance._process_pending_events()
+    assert instance.get_property("layout-height") == 150
+
+    model.insert(0, 25)
+    instance._process_pending_events()
+    assert instance.get_property("layout-height") == 175
+
+    model.insert(len(model), 10)
+    instance._process_pending_events()
+    assert instance.get_property("layout-height") == 185
+
+
 def test_python_model_iterable() -> None:
     def test_generator(max: int) -> typing.Iterator[int]:
         i = 0

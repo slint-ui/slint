@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore xffff
+// cSpell: ignore xffff unclipped subchildren subsubtree
 
 //! This module contains the ItemTree and code that helps navigating it
 
@@ -1511,14 +1511,14 @@ mod tests {
     }
 
     struct TestItemTree {
-        parent_component: Option<ItemTreeRc>,
-        /// First item is always the root, the next ones are the childrens and subchildren and so on
+        parent_component: Option<ItemTreeWeak>,
+        /// First item is always the root, the next ones are the children and subchildren and so on
         item_tree: Vec<ItemTreeNode>,
         /// Contains the trees of the dynamic components
         subtrees: std::cell::RefCell<Vec<Vec<vtable::VRc<ItemTreeVTable, TestItemTree>>>>,
         subtree_index: usize,
 
-        window_adapter: WindowAdapterRc,
+        window_adapter: std::rc::Weak<dyn crate::window::WindowAdapter>,
         window_item: Option<crate::items::WindowItem>,
     }
 
@@ -1549,9 +1549,8 @@ mod tests {
         }
 
         fn parent_node(self: core::pin::Pin<&Self>, result: &mut ItemWeak) {
-            if let Some(parent_item) = self.parent_component.clone() {
-                *result =
-                    ItemRc::new(parent_item.clone(), self.item_tree[0].parent_index()).downgrade();
+            if let Some(parent_item) = self.parent_component.as_ref().and_then(|w| w.upgrade()) {
+                *result = ItemRc::new(parent_item, self.item_tree[0].parent_index()).downgrade();
             }
         }
 
@@ -1636,7 +1635,7 @@ mod tests {
             _do_create: bool,
             result: &mut Option<WindowAdapterRc>,
         ) {
-            *result = Some(self.window_adapter.clone())
+            *result = self.window_adapter.upgrade()
         }
 
         fn item_geometry(self: Pin<&Self>, _: u32) -> LogicalRect {
@@ -1662,9 +1661,8 @@ mod tests {
 
     fn create_one_node_component(
         window_item: Option<WindowItem>,
-    ) -> (std::rc::Weak<WindowAdapter>, VRc<ItemTreeVTable, vtable::Dyn>) {
+    ) -> (std::rc::Rc<WindowAdapter>, VRc<ItemTreeVTable, vtable::Dyn>) {
         let window_adapter = WindowAdapter::new();
-        let weak = Rc::downgrade(&window_adapter);
         let component = VRc::new(TestItemTree {
             parent_component: None,
             item_tree: vec![ItemTreeNode::Item {
@@ -1677,10 +1675,10 @@ mod tests {
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
 
-            window_adapter,
+            window_adapter: Rc::downgrade(&window_adapter) as _,
             window_item,
         });
-        (weak, VRc::into_dyn(component))
+        (window_adapter, VRc::into_dyn(component))
     }
 
     #[test]
@@ -1755,7 +1753,7 @@ mod tests {
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
 
-            window_adapter: WindowAdapter::new(),
+            window_adapter: Rc::downgrade(&WindowAdapter::new()) as _,
             window_item: None,
         });
         VRc::into_dyn(component)
@@ -1868,7 +1866,7 @@ mod tests {
             subtrees: std::cell::RefCell::new(vec![Vec::new()]),
             subtree_index: usize::MAX,
 
-            window_adapter: WindowAdapter::new(),
+            window_adapter: Rc::downgrade(&WindowAdapter::new()) as _,
             window_item: None,
         });
         vtable::VRc::into_dyn(component)
@@ -1912,6 +1910,8 @@ mod tests {
 
     fn create_item_subtree_item() -> VRc<ItemTreeVTable, vtable::Dyn> {
         let window_adapter = WindowAdapter::new();
+        let weak_adapter =
+            Rc::downgrade(&window_adapter) as std::rc::Weak<dyn crate::window::WindowAdapter>;
         let component = VRc::new(TestItemTree {
             parent_component: None,
             item_tree: vec![
@@ -1943,12 +1943,12 @@ mod tests {
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
 
-            window_adapter: window_adapter.clone(),
+            window_adapter: weak_adapter.clone(),
             window_item: None,
         });
 
         component.as_pin_ref().subtrees.replace(vec![vec![VRc::new(TestItemTree {
-            parent_component: Some(VRc::into_dyn(component.clone())),
+            parent_component: Some(VRc::downgrade(&VRc::into_dyn(component.clone()))),
             item_tree: vec![ItemTreeNode::Item {
                 is_accessible: false,
                 children_count: 0,
@@ -1959,7 +1959,7 @@ mod tests {
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: 0,
 
-            window_adapter,
+            window_adapter: weak_adapter,
             window_item: None,
         })]]);
 
@@ -2050,6 +2050,8 @@ mod tests {
         // sub_component1 as subtree of the main component
 
         let window_adapter = WindowAdapter::new();
+        let weak_adapter =
+            Rc::downgrade(&window_adapter) as std::rc::Weak<dyn crate::window::WindowAdapter>;
 
         let component = VRc::new(TestItemTree {
             parent_component: None,
@@ -2085,12 +2087,12 @@ mod tests {
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
 
-            window_adapter: window_adapter.clone(),
+            window_adapter: weak_adapter.clone(),
             window_item: None,
         });
 
         let sub_component1 = VRc::new(TestItemTree {
-            parent_component: Some(VRc::into_dyn(component.clone())),
+            parent_component: Some(VRc::downgrade(&VRc::into_dyn(component.clone()))),
             item_tree: vec![
                 // Root
                 ItemTreeNode::Item {
@@ -2101,17 +2103,17 @@ mod tests {
                     item_array_index: 0,
                 },
                 // First child
-                // Relates to the first subtree in this component (sub_compnent2, added below)
+                // Relates to the first subtree in this component (sub_component2, added below)
                 ItemTreeNode::DynamicTree { index: 0, parent_index: 0 },
             ],
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
 
-            window_adapter: window_adapter.clone(),
+            window_adapter: weak_adapter.clone(),
             window_item: None,
         });
         let sub_component2 = VRc::new(TestItemTree {
-            parent_component: Some(VRc::into_dyn(sub_component1.clone())),
+            parent_component: Some(VRc::downgrade(&VRc::into_dyn(sub_component1.clone()))),
             item_tree: vec![
                 ItemTreeNode::Item {
                     is_accessible: false,
@@ -2131,7 +2133,7 @@ mod tests {
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
 
-            window_adapter,
+            window_adapter: weak_adapter,
             window_item: None,
         });
 
@@ -2253,6 +2255,8 @@ mod tests {
 
     fn create_subtrees_item() -> VRc<ItemTreeVTable, vtable::Dyn> {
         let window_adapter = WindowAdapter::new();
+        let weak_adapter =
+            Rc::downgrade(&window_adapter) as std::rc::Weak<dyn crate::window::WindowAdapter>;
 
         let component = VRc::new(TestItemTree {
             parent_component: None,
@@ -2276,13 +2280,13 @@ mod tests {
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
 
-            window_adapter: window_adapter.clone(),
+            window_adapter: weak_adapter.clone(),
             window_item: None,
         });
 
         component.as_pin_ref().subtrees.replace(vec![vec![
             VRc::new(TestItemTree {
-                parent_component: Some(VRc::into_dyn(component.clone())),
+                parent_component: Some(VRc::downgrade(&VRc::into_dyn(component.clone()))),
                 item_tree: vec![ItemTreeNode::Item {
                     is_accessible: false,
                     children_count: 0,
@@ -2293,11 +2297,11 @@ mod tests {
                 subtrees: std::cell::RefCell::new(Vec::new()),
                 subtree_index: 0,
 
-                window_adapter: window_adapter.clone(),
+                window_adapter: weak_adapter.clone(),
                 window_item: None,
             }),
             VRc::new(TestItemTree {
-                parent_component: Some(VRc::into_dyn(component.clone())),
+                parent_component: Some(VRc::downgrade(&VRc::into_dyn(component.clone()))),
                 item_tree: vec![ItemTreeNode::Item {
                     is_accessible: false,
                     children_count: 0,
@@ -2308,11 +2312,11 @@ mod tests {
                 subtrees: std::cell::RefCell::new(Vec::new()),
                 subtree_index: 1,
 
-                window_adapter: window_adapter.clone(),
+                window_adapter: weak_adapter.clone(),
                 window_item: None,
             }),
             VRc::new(TestItemTree {
-                parent_component: Some(VRc::into_dyn(component.clone())),
+                parent_component: Some(VRc::downgrade(&VRc::into_dyn(component.clone()))),
                 item_tree: vec![ItemTreeNode::Item {
                     is_accessible: false,
                     children_count: 0,
@@ -2323,7 +2327,7 @@ mod tests {
                 subtrees: std::cell::RefCell::new(Vec::new()),
                 subtree_index: 2,
 
-                window_adapter,
+                window_adapter: weak_adapter,
                 window_item: None,
             }),
         ]]);
@@ -2469,14 +2473,13 @@ mod tests {
     // It does not contain any dynamic elements
     fn create_subsubtree_items(
         window_adapter: Option<std::rc::Rc<WindowAdapter>>,
-    ) -> (std::rc::Weak<WindowAdapter>, VRc<ItemTreeVTable>) {
+    ) -> (std::rc::Rc<WindowAdapter>, VRc<ItemTreeVTable>) {
         let window_adapter = window_adapter.unwrap_or(WindowAdapter::new());
-        let weak = Rc::downgrade(&window_adapter);
         let mut window_item = WindowItem::default();
         window_item.width = Property::new(LogicalLength::new(30.));
         window_item.height = Property::new(LogicalLength::new(30.));
         (
-            weak,
+            window_adapter.clone(),
             VRc::into_dyn(VRc::new(TestItemTree {
                 parent_component: None,
                 item_tree: vec![
@@ -2507,7 +2510,7 @@ mod tests {
                 ],
                 subtrees: std::cell::RefCell::new(Vec::new()),
                 subtree_index: usize::MAX,
-                window_adapter,
+                window_adapter: Rc::downgrade(&window_adapter) as _,
                 window_item: Some(window_item),
             })),
         )
@@ -2516,7 +2519,7 @@ mod tests {
     struct TransformTestItemTree {
         item_tree: Vec<ItemTreeNode>,
         geometries: Vec<LogicalRect>,
-        window_adapter: WindowAdapterRc,
+        window_adapter: std::rc::Weak<dyn crate::window::WindowAdapter>,
         root: WindowItem,
         transform: Transform,
         clip: Clip,
@@ -2605,7 +2608,7 @@ mod tests {
             _do_create: bool,
             result: &mut Option<WindowAdapterRc>,
         ) {
-            *result = Some(self.window_adapter.clone())
+            *result = self.window_adapter.upgrade()
         }
 
         fn item_geometry(self: Pin<&Self>, index: u32) -> LogicalRect {
@@ -2626,7 +2629,7 @@ mod tests {
 
     crate::item_tree::ItemTreeVTable_static!(static TRANSFORM_TEST_COMPONENT_VT for TransformTestItemTree);
 
-    fn create_transform_test_items() -> VRc<ItemTreeVTable> {
+    fn create_transform_test_items() -> (std::rc::Rc<WindowAdapter>, VRc<ItemTreeVTable>) {
         let window_adapter = WindowAdapter::new_with_transformations(true);
 
         let mut transform = Transform::default();
@@ -2638,49 +2641,52 @@ mod tests {
         let mut clip = Clip::default();
         clip.clip = Property::new(true);
 
-        VRc::into_dyn(VRc::new(TransformTestItemTree {
-            item_tree: vec![
-                ItemTreeNode::Item {
-                    is_accessible: false,
-                    children_count: 1,
-                    children_index: 1,
-                    parent_index: 0,
-                    item_array_index: 0,
-                },
-                ItemTreeNode::Item {
-                    is_accessible: false,
-                    children_count: 1,
-                    children_index: 2,
-                    parent_index: 0,
-                    item_array_index: 1,
-                },
-                ItemTreeNode::Item {
-                    is_accessible: false,
-                    children_count: 1,
-                    children_index: 3,
-                    parent_index: 1,
-                    item_array_index: 2,
-                },
-                ItemTreeNode::Item {
-                    is_accessible: false,
-                    children_count: 0,
-                    children_index: 4,
-                    parent_index: 2,
-                    item_array_index: 3,
-                },
-            ],
-            geometries: vec![
-                LogicalRect::new(Point2D::new(0., 0.), LogicalSize::new(100., 100.)),
-                LogicalRect::new(Point2D::new(10., 20.), LogicalSize::new(40., 40.)),
-                LogicalRect::new(Point2D::new(5., 6.), LogicalSize::new(20., 20.)),
-                LogicalRect::new(Point2D::new(8., 4.), LogicalSize::new(10., 10.)),
-            ],
-            window_adapter,
-            root: WindowItem::default(),
-            transform,
-            clip,
-            leaf: WindowItem::default(),
-        }))
+        (
+            window_adapter.clone(),
+            VRc::into_dyn(VRc::new(TransformTestItemTree {
+                item_tree: vec![
+                    ItemTreeNode::Item {
+                        is_accessible: false,
+                        children_count: 1,
+                        children_index: 1,
+                        parent_index: 0,
+                        item_array_index: 0,
+                    },
+                    ItemTreeNode::Item {
+                        is_accessible: false,
+                        children_count: 1,
+                        children_index: 2,
+                        parent_index: 0,
+                        item_array_index: 1,
+                    },
+                    ItemTreeNode::Item {
+                        is_accessible: false,
+                        children_count: 1,
+                        children_index: 3,
+                        parent_index: 1,
+                        item_array_index: 2,
+                    },
+                    ItemTreeNode::Item {
+                        is_accessible: false,
+                        children_count: 0,
+                        children_index: 4,
+                        parent_index: 2,
+                        item_array_index: 3,
+                    },
+                ],
+                geometries: vec![
+                    LogicalRect::new(Point2D::new(0., 0.), LogicalSize::new(100., 100.)),
+                    LogicalRect::new(Point2D::new(10., 20.), LogicalSize::new(40., 40.)),
+                    LogicalRect::new(Point2D::new(5., 6.), LogicalSize::new(20., 20.)),
+                    LogicalRect::new(Point2D::new(8., 4.), LogicalSize::new(10., 10.)),
+                ],
+                window_adapter: Rc::downgrade(&window_adapter) as _,
+                root: WindowItem::default(),
+                transform,
+                clip,
+                leaf: WindowItem::default(),
+            })),
+        )
     }
 
     fn assert_point_approx_eq(actual: LogicalPoint, expected: LogicalPoint) {
@@ -2700,8 +2706,8 @@ mod tests {
     }
 
     #[test]
-    fn test_map_to_anchestor() {
-        let item_tree = create_subsubtree_items(None).1;
+    fn test_map_to_ancestor() {
+        let (_window_adapter, item_tree) = create_subsubtree_items(None);
         let root = ItemRc::new_root(item_tree);
         let first_child = root.first_child().unwrap();
         let first_child_of_first_child = first_child.first_child().unwrap();
@@ -2730,7 +2736,7 @@ mod tests {
 
     #[test]
     fn test_map_to_window() {
-        let item_tree = create_subsubtree_items(None).1;
+        let (_window_adapter, item_tree) = create_subsubtree_items(None);
         let root = ItemRc::new_root(item_tree);
         let first_child = root.first_child().unwrap();
         let first_child_of_first_child = first_child.first_child().unwrap();
@@ -2743,7 +2749,7 @@ mod tests {
 
     #[test]
     fn test_map_to_window_through_transform_roundtrip() {
-        let item_tree = create_transform_test_items();
+        let (_window_adapter, item_tree) = create_transform_test_items();
         let root = ItemRc::new_root(item_tree);
         let transform = root.first_child().unwrap();
         let clip = transform.first_child().unwrap();
@@ -2756,7 +2762,7 @@ mod tests {
 
     #[test]
     fn test_visibility_with_clip_under_transform() {
-        let item_tree = create_transform_test_items();
+        let (_window_adapter, item_tree) = create_transform_test_items();
         let root = ItemRc::new_root(item_tree);
         let transform = root.first_child().unwrap();
         let clip = transform.first_child().unwrap();
@@ -2777,10 +2783,9 @@ mod tests {
         window_item.width = Property::new(LogicalLength::new(30.));
         window_item.height = Property::new(LogicalLength::new(30.));
         // A popup has it's own ItemTreeVTable
-        let (window_adapter_weak, parent) = create_one_node_component(Some(window_item));
-        let popup_component =
-            create_subsubtree_items(Some(window_adapter_weak.upgrade().unwrap())).1;
-        window_adapter_weak.upgrade().unwrap().window.0.show_popup(
+        let (window_adapter, parent) = create_one_node_component(Some(window_item));
+        let popup_component = create_subsubtree_items(Some(window_adapter.clone())).1;
+        window_adapter.window.0.show_popup(
             &popup_component,
             alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
@@ -2794,7 +2799,6 @@ mod tests {
         let first_child_of_first_child = first_child.first_child().unwrap();
 
         // Check that we have a ChildWindow popup
-        let window_adapter = window_adapter_weak.upgrade().unwrap();
         let active_popups = window_adapter.window.0.active_popups();
         assert_eq!(active_popups.len(), 1);
         let popup = active_popups.first().unwrap();
@@ -2818,8 +2822,8 @@ mod tests {
     #[test]
     fn test_map_to_window_popup() {
         const POPUP_LOCATION: LogicalPosition = LogicalPosition::new(20., 33.);
-        let (window_adapter_weak, item_tree) = create_subsubtree_items(None);
-        window_adapter_weak.upgrade().unwrap().window.0.show_popup(
+        let (window_adapter, item_tree) = create_subsubtree_items(None);
+        window_adapter.window.0.show_popup(
             &item_tree,
             alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
@@ -2833,7 +2837,6 @@ mod tests {
         let first_child_of_first_child = first_child.first_child().unwrap();
 
         // Check that we have a ChildWindow popup
-        let window_adapter = window_adapter_weak.upgrade().unwrap();
         let active_popups = window_adapter.window.0.active_popups();
         assert_eq!(active_popups.len(), 1);
         let popup = active_popups.first().unwrap();
@@ -2852,6 +2855,8 @@ mod tests {
     fn create_subsubtree_items_dynamic_elements(
         window_adapter: Rc<WindowAdapter>,
     ) -> VRc<ItemTreeVTable> {
+        let weak_adapter =
+            Rc::downgrade(&window_adapter) as std::rc::Weak<dyn crate::window::WindowAdapter>;
         let mut window_item = WindowItem::default();
         window_item.width = Property::new(LogicalLength::new(30.));
         window_item.height = Property::new(LogicalLength::new(30.));
@@ -2872,12 +2877,12 @@ mod tests {
             ],
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: usize::MAX,
-            window_adapter: window_adapter.clone(),
+            window_adapter: weak_adapter.clone(),
             window_item: Some(window_item),
         });
 
         item_tree.as_pin_ref().subtrees.replace(vec![vec![VRc::new(TestItemTree {
-            parent_component: Some(VRc::into_dyn(item_tree.clone())),
+            parent_component: Some(VRc::downgrade(&VRc::into_dyn(item_tree.clone()))),
             item_tree: vec![
                 // Root
                 ItemTreeNode::Item {
@@ -2899,7 +2904,7 @@ mod tests {
             subtrees: std::cell::RefCell::new(Vec::new()),
             subtree_index: 0,
 
-            window_adapter,
+            window_adapter: weak_adapter,
             window_item: None,
         })]]);
 
@@ -2917,10 +2922,9 @@ mod tests {
         window_item.height = Property::new(LogicalLength::new(30.));
 
         // A popup has it's own ItemTreeVTable
-        let (window_adapter_weak, parent) = create_one_node_component(Some(window_item));
-        let popup_component =
-            create_subsubtree_items_dynamic_elements(window_adapter_weak.upgrade().unwrap());
-        window_adapter_weak.upgrade().unwrap().window.0.show_popup(
+        let (window_adapter, parent) = create_one_node_component(Some(window_item));
+        let popup_component = create_subsubtree_items_dynamic_elements(window_adapter.clone());
+        window_adapter.window.0.show_popup(
             &popup_component,
             alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
@@ -2930,7 +2934,6 @@ mod tests {
         );
 
         // Check that we have a ChildWindow popup, otherwise the popup has its own coordinate system
-        let window_adapter = window_adapter_weak.upgrade().unwrap();
         let active_popups = window_adapter.window.0.active_popups();
         assert_eq!(active_popups.len(), 1);
         let popup = active_popups.first().unwrap();

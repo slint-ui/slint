@@ -6,9 +6,7 @@ use by_address::ByAddress;
 use super::lower_expression::{ExpressionLoweringCtx, ExpressionLoweringCtxInner};
 use crate::CompilerConfiguration;
 use crate::expression_tree::Expression as tree_Expression;
-use crate::langtype::{
-    BuiltinPrivateStruct, BuiltinPublicStruct, ElementType, Struct, StructName, Type,
-};
+use crate::langtype::{BuiltinStruct, ElementType, Struct, StructName, Type};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{self, Component, ElementRc, PropertyAnalysis, PropertyVisibility};
@@ -80,7 +78,7 @@ pub fn lower_to_item_tree(
             &state,
         );
         let close = sc.mapping.map_property_reference(
-            &NamedReference::new(&c.root_element, SmolStr::new_static("close")),
+            &NamedReference::new(&c.root_element, SmolStr::new_static("close-popup")),
             &state,
         );
         let entries = sc.mapping.map_property_reference(
@@ -357,6 +355,7 @@ fn lower_sub_component(
                     args: callback.args.clone(),
                     ty: Type::Callback(callback.clone()),
                     use_count: 0.into(),
+                    needs_tracker: x.expose_in_public_api,
                 });
                 index.into()
             } else {
@@ -527,7 +526,7 @@ fn lower_sub_component(
 
             let is_state_info = matches!(
                 e.borrow().lookup_property(p).property_type,
-                Type::Struct(s) if matches!(s.name, StructName::BuiltinPrivate(BuiltinPrivateStruct::StateInfo))
+                Type::Struct(s) if matches!(s.name, StructName::Builtin(BuiltinStruct::StateInfo))
             );
 
             sub_component.property_init.push((
@@ -604,6 +603,7 @@ fn lower_sub_component(
         &mut ctx,
         &component.root_constraints.borrow(),
         crate::layout::Orientation::Horizontal,
+        None,
     )
     .into();
     sub_component.layout_info_v = super::lower_layout_expression::get_layout_info(
@@ -611,6 +611,7 @@ fn lower_sub_component(
         &mut ctx,
         &component.root_constraints.borrow(),
         crate::layout::Orientation::Vertical,
+        None,
     )
     .into();
     // For repeated elements in a FlexboxLayout, generate code to read flex properties
@@ -651,12 +652,14 @@ fn lower_sub_component(
                             &mut ctx,
                             &layout_item.constraints,
                             crate::layout::Orientation::Horizontal,
+                            None,
                         );
                         let layout_info_v = super::lower_layout_expression::get_layout_info(
                             &layout_item.element,
                             &mut ctx,
                             &layout_item.constraints,
                             crate::layout::Orientation::Vertical,
+                            None,
                         );
                         let child_index = sub_component.grid_layout_children.push_and_get_key(
                             super::GridLayoutChildLayoutInfo {
@@ -847,7 +850,7 @@ fn lower_popup_component(
     let sc = lower_sub_component(&popup.component, ctx.state, Some(&ctx.inner), compiler_config);
     use super::Expression::PropertyReference as PR;
     let position = super::lower_expression::make_struct(
-        BuiltinPublicStruct::LogicalPosition,
+        BuiltinStruct::LogicalPosition,
         [
             ("x", Type::LogicalLength, PR(sc.mapping.map_property_reference(&popup.x, ctx.state))),
             ("y", Type::LogicalLength, PR(sc.mapping.map_property_reference(&popup.y, ctx.state))),
@@ -915,6 +918,7 @@ fn lower_global(
                 args: cb.args.clone(),
                 ty: x.property_type.clone(),
                 use_count: 0.into(),
+                needs_tracker: x.expose_in_public_api,
             });
             state.global_properties.insert(
                 nr.clone(),

@@ -28,7 +28,7 @@ def test_no_change() -> None:
         base_dir() / "api-match.slint",
         expected_api_base64_compressed=compress_and_encode(r"""
         {
-            "version":"2.0",
+            "version":"2.1",
             "globals":[],
             "components":[
                 {
@@ -54,7 +54,7 @@ def test_incompatible_changes() -> None:
             base_dir() / "api-match.slint",
             expected_api_base64_compressed=compress_and_encode(r"""
             {
-                "version":"2.0",
+                "version":"2.1",
                 "globals":[],
                 "components":[
                     {

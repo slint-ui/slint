@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore opsom
 //! This module contains adapter models.
 
 use super::*;
@@ -71,11 +72,9 @@ mod tests_helper {
     }
 
     impl<Data: PartialEq + core::fmt::Debug + 'static> ModelChecker<Data> {
-        pub fn new(
-            model: Rc<impl Model<Data = Data> + 'static>,
-        ) -> Pin<Box<ModelChangeListenerContainer<Self>>> {
+        pub fn new(model: Rc<impl Model<Data = Data> + 'static>) -> ModelChangeListenerBox<Self> {
             let s = Self { rows_copy: RefCell::new(model.iter().collect()), model: model.clone() };
-            let s = Box::pin(ModelChangeListenerContainer::new(s));
+            let s = ModelChangeListenerBox::new(s);
             model.model_tracker().attach_peer(s.as_ref().model_peer());
             s
         }
@@ -445,7 +444,7 @@ where
 /// assert_eq!(filtered_model.row_data(1).unwrap(), SharedString::from("opsom"));
 /// assert_eq!(filtered_model.row_data(2).unwrap(), SharedString::from("dolor"));
 /// ```
-pub struct FilterModel<M, F>(Pin<Box<ModelChangeListenerContainer<FilterModelInner<M, F>>>>)
+pub struct FilterModel<M, F>(ModelChangeListenerBox<FilterModelInner<M, F>>)
 where
     M: Model + 'static,
     F: Fn(&M::Data) -> bool + 'static;
@@ -467,7 +466,7 @@ where
 
         filter_model_inner.build_mapping_vec();
 
-        let container = Box::pin(ModelChangeListenerContainer::new(filter_model_inner));
+        let container = ModelChangeListenerBox::new(filter_model_inner);
 
         container.wrapped_model.model_tracker().attach_peer(container.as_ref().model_peer());
 
@@ -882,7 +881,7 @@ where
 /// assert_eq!(sorted_model.row_data(1).unwrap(), SharedString::from("Lorem"));
 /// assert_eq!(sorted_model.row_data(2).unwrap(), SharedString::from("opsom"));
 /// ```
-pub struct SortModel<M, F>(Pin<Box<ModelChangeListenerContainer<SortModelInner<M, F>>>>)
+pub struct SortModel<M, F>(ModelChangeListenerBox<SortModelInner<M, F>>)
 where
     M: Model + 'static,
     F: SortHelper<M::Data> + 'static;
@@ -906,7 +905,7 @@ where
             sorted_rows_dirty: Cell::new(true),
         };
 
-        let container = Box::pin(ModelChangeListenerContainer::new(sorted_model_inner));
+        let container = ModelChangeListenerBox::new(sorted_model_inner);
 
         container.wrapped_model.model_tracker().attach_peer(container.as_ref().model_peer());
 
@@ -933,7 +932,7 @@ where
             sorted_rows_dirty: Cell::new(true),
         };
 
-        let container = Box::pin(ModelChangeListenerContainer::new(sorted_model_inner));
+        let container = ModelChangeListenerBox::new(sorted_model_inner);
 
         container.wrapped_model.model_tracker().attach_peer(container.as_ref().model_peer());
 
@@ -1251,7 +1250,7 @@ mod sort_tests {
 /// assert_eq!(reverse_model.row_data(2).unwrap(), SharedString::from("ipsum"));
 /// assert_eq!(reverse_model.row_data(3).unwrap(), SharedString::from("Lorem"));
 /// ```
-pub struct ReverseModel<M>(Pin<Box<ModelChangeListenerContainer<ReverseModelInner<M>>>>)
+pub struct ReverseModel<M>(ModelChangeListenerBox<ReverseModelInner<M>>)
 where
     M: Model + 'static;
 
@@ -1296,7 +1295,7 @@ where
     /// Alternatively you can use [`ModelExt::reverse`] on your Model.
     pub fn new(wrapped_model: M) -> Self {
         let inner = ReverseModelInner { wrapped_model, notify: Default::default() };
-        let container = Box::pin(ModelChangeListenerContainer::new(inner));
+        let container = ModelChangeListenerBox::new(inner);
         container.wrapped_model.model_tracker().attach_peer(container.as_ref().model_peer());
         Self(container)
     }

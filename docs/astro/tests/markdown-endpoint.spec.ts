@@ -1,5 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
+// cSpell: ignore followable
 import { test, expect } from "@playwright/test";
 
 test("doc page has a markdown sibling", async ({ request }) => {

@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore BBBX Sometype structurize
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
@@ -2219,7 +2220,7 @@ export component Tester {{
     }
 
     #[test]
-    fn test_table_row_to_stuct() {
+    fn test_table_row_to_struct() {
         fn bool_pv(value: bool, accessor_path: &str) -> PropertyValue {
             PropertyValue {
                 accessor_path: SharedString::from(accessor_path),

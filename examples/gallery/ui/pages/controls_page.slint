@@ -8,7 +8,6 @@ import {
     ComboBox,
     CheckBox,
     LineEdit,
-    TabWidget,
     VerticalBox,
     HorizontalBox,
     Slider,
@@ -20,6 +19,7 @@ import {
     TimePickerPopup,
     DatePickerPopup,
     Palette,
+    RadioGroup,
 } from "std-widgets.slint";
 import { GallerySettings } from "../gallery_settings.slint";
 import { Page } from "page.slint";
@@ -188,6 +188,44 @@ export component ControlsPage inherits Page {
     }
 
     GroupBox {
+        title: @tr("RadioGroup");
+        vertical-stretch: 0;
+
+        HorizontalBox {
+            padding: 0px;
+            spacing: 50px;
+            alignment: start;
+            align-items: start;
+
+            RadioGroup {
+                title: @tr("Vertical Orientation");
+                enabled: GallerySettings.widgets-enabled;
+                model: [
+                    { text: @tr("Portrait") },
+                    { text: @tr("Landscape") },
+                    { text: @tr("Auto"), disabled: true },
+                ];
+                current-index: 0;
+            }
+
+            RadioGroup {
+                title: @tr("Horizontal Orientation");
+                enabled: GallerySettings.widgets-enabled;
+                orientation: Orientation.horizontal;
+                model: [
+                    { text: @tr("Start") },
+                    { text: @tr("Center") },
+                    { text: @tr("End") },
+                ];
+                current-index: 1;
+                selected(value) => {
+                    debug("RadioGroup selected: ", value);
+                }
+            }
+        }
+    }
+
+    GroupBox {
         title: @tr("LineEdit - SpinBox - TimePickerPopup - DatePickerPopup");
         vertical-stretch: 0;
         VerticalBox {
@@ -284,64 +322,6 @@ export component ControlsPage inherits Page {
                 text: @tr("indeterminate");
                 checked <=> progress-indicator.indeterminate;
                 enabled: GallerySettings.widgets-enabled;
-            }
-        }
-    }
-
-    GroupBox {
-        title: @tr("TabWidget");
-
-        TabWidget {
-            Tab {
-                title: @tr("Tab 1");
-
-                VerticalBox {
-                    alignment: start;
-
-                    GroupBox {
-                        title: @tr("Content of tab 1");
-
-                        HorizontalBox {
-                            alignment: start;
-
-                            Button {
-                                text: @tr("Click me");
-                                enabled: GallerySettings.widgets-enabled;
-                            }
-                        }
-                    }
-                }
-            }
-
-            Tab {
-                title: @tr("Tab 2");
-
-                VerticalBox {
-                    alignment: start;
-
-                    GroupBox {
-                        title: @tr("Content of tab 2");
-
-                        VerticalBox {
-                            alignment: start;
-
-                            CheckBox {
-                                text: @tr("Check me");
-                                enabled: GallerySettings.widgets-enabled;
-                            }
-                        }
-                    }
-                }
-            }
-
-            Tab {
-                title: @tr("Tab 3");
-
-                VerticalBox {
-                    Text {
-                        text: @tr("Content of tab 3");
-                    }
-                }
             }
         }
     }

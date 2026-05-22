@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore slotmap's
 //! Shared introspection state and logic used by both the systest (protobuf) and
 //! MCP (HTTP/JSON-RPC) transports.
 
@@ -399,6 +400,7 @@ pub(crate) fn convert_to_proto_accessible_role(
         i_slint_core::items::AccessibleRole::TabPanel => proto::AccessibleRole::TabPanel,
         i_slint_core::items::AccessibleRole::Image => proto::AccessibleRole::Image,
         i_slint_core::items::AccessibleRole::RadioButton => proto::AccessibleRole::RadioButton,
+        i_slint_core::items::AccessibleRole::RadioGroup => proto::AccessibleRole::RadioGroup,
         _ => return None,
     })
 }
@@ -429,6 +431,7 @@ pub(crate) fn convert_from_proto_accessible_role(
         proto::AccessibleRole::TabPanel => i_slint_core::items::AccessibleRole::TabPanel,
         proto::AccessibleRole::Image => i_slint_core::items::AccessibleRole::Image,
         proto::AccessibleRole::RadioButton => i_slint_core::items::AccessibleRole::RadioButton,
+        proto::AccessibleRole::RadioGroup => i_slint_core::items::AccessibleRole::RadioGroup,
     })
 }
 
@@ -644,7 +647,7 @@ fn test_accessibility_role_mapping_complete() {
     }
 
     macro_rules! test_accessibility_enum_mapping {
-        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
             $(
                 test_accessibility_enum_mapping_inner!($Name, $($Value,)*);
             )*

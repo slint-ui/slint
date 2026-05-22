@@ -208,7 +208,7 @@ pub enum ProcessEventsResult {
 #[napi]
 pub fn process_events() -> napi::Result<ProcessEventsResult> {
     i_slint_backend_selector::with_platform(|b| {
-        b.process_events(std::time::Duration::ZERO, i_slint_core::InternalToken)
+        b.process_events(Some(std::time::Duration::ZERO), i_slint_core::InternalToken)
     })
     .map_err(|e| napi::Error::from_reason(e.to_string()))
     .map(|result| match result {
