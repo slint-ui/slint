@@ -10854,6 +10854,7 @@ name = "slint-viewer"
 version = "1.17.0"
 dependencies = [
  "anyhow",
+ "async-compat",
  "clap",
  "env_logger",
  "i-slint-backend-selector",
@@ -10867,7 +10868,6 @@ dependencies = [
  "slint",
  "slint-interpreter",
  "smol_str 0.3.2",
- "spin_on",
  "tikv-jemallocator",
  "tokio",
  "tracing",
