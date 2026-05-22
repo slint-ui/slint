@@ -566,6 +566,9 @@ jobs:
             - name: Build usecases demo
               run: cargo apk build -p usecases --target aarch64-linux-android --lib
 
+            - name: Build slint-viewer for Android
+              run: cargo apk build -p slint-viewer --target aarch64-linux-android --lib --features remote
+
     test-figma-inspector:
         needs: files-changed
         if: ${{ needs.files-changed.outputs.figma_inspector == 'true' }}
