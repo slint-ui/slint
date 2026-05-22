@@ -1,5 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+//
+// cspell:ignore unwatch
 use std::{
     pin::Pin,
     rc::Rc,
@@ -8,12 +10,12 @@ use std::{
     time::Duration,
 };
 
-use i_slint_live_preview::file_watcher::{FileChangeKind, FileWatcher, WatchEvent};
+use i_slint_live_preview::file_watcher::{FileWatcher, WatchEvent};
 use i_slint_live_preview::protocol::{
     LspToPreviewMessage, PreviewComponent, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
 };
 use lsp_server::{Message, RequestId};
-use lsp_types::{FileChangeType, MessageType, Url, notification::Notification};
+use lsp_types::{MessageType, Url, notification::Notification};
 
 use crate::{
     common::{self, LspToPreviews, Result, document_cache::OpenImportCallback},
@@ -350,15 +352,7 @@ async fn trigger_editor_file_watcher(
         return Ok(());
     };
 
-    language::trigger_file_watcher(ctx, url, lsp_file_change_type(kind)).await
-}
-
-fn lsp_file_change_type(kind: FileChangeKind) -> FileChangeType {
-    match kind {
-        FileChangeKind::Created => FileChangeType::CREATED,
-        FileChangeKind::Changed => FileChangeType::CHANGED,
-        FileChangeKind::Deleted => FileChangeType::DELETED,
-    }
+    language::trigger_file_watcher(ctx, url, kind).await
 }
 
 fn sync_file_watcher(
