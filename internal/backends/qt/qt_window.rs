@@ -137,12 +137,19 @@ cpp! {{
             if (!rust_window)
                 return;
 
+            // On Windows, Shift+F10 under Qt results in a contextMenuEvent, but no
+            // actual key press event (See also #11591)!
+            // So we handle this event here and translate it to a Menu key event, which is the
+            // most similar to a context menu event we have in Slint.
+#ifdef WIN32
             // we already handle right-click events for the context menu
             if (event->reason() != QContextMenuEvent::Reason::Mouse) {
                 rust!(Slint_contextMenuEvent [rust_window: &QtWindow as "void*"] {
                     rust_window.context_menu_event();
                 });
             }
+#endif
+            event->accept();
         }
 
         void resizeEvent(QResizeEvent *) override {
