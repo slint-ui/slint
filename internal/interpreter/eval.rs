@@ -183,6 +183,15 @@ impl<'a, 'id> EvalLocalContext<'a, 'id> {
     }
 }
 
+/// Evaluate `expression` as a length / number and return the resulting f32.
+/// Caller's responsibility to only pass length-typed expressions.
+fn eval_to_f32(expression: &Expression, local_context: &mut EvalLocalContext) -> f32 {
+    match eval_expression(expression, local_context) {
+        Value::Number(n) => n as f32,
+        other => unreachable!("expected length-typed expression; got {other:?} for {expression:?}"),
+    }
+}
+
 /// Evaluate an expression and return a Value as the result of this expression
 pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalContext) -> Value {
     if let Some(r) = &local_context.return_value {
@@ -600,10 +609,17 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 panic!("invalid layout cache")
             }
         }
-        Expression::ComputeBoxLayoutInfo(lay, o) => {
-            crate::eval_layout::compute_box_layout_info(lay, *o, local_context)
+        Expression::ComputeBoxLayoutInfo { layout, orientation, cross_axis_size } => {
+            let cross = cross_axis_size.as_deref().map(|e| eval_to_f32(e, local_context));
+            crate::eval_layout::compute_box_layout_info(layout, *orientation, local_context, cross)
         }
-        Expression::ComputeGridLayoutInfo { layout_organized_data_prop, layout, orientation } => {
+        Expression::ComputeGridLayoutInfo {
+            layout_organized_data_prop,
+            layout,
+            orientation,
+            cross_axis_size,
+        } => {
+            let cross = cross_axis_size.as_deref().map(|e| eval_to_f32(e, local_context));
             let cache = load_property_helper(
                 &ComponentInstance::InstanceRef(local_context.component_instance),
                 &layout_organized_data_prop.element(),
@@ -616,6 +632,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     &organized_data,
                     *orientation,
                     local_context,
+                    cross,
                 )
             } else {
                 panic!("invalid layout organized data cache")
@@ -648,8 +665,14 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::SolveFlexboxLayout(layout) => {
             crate::eval_layout::solve_flexbox_layout(layout, local_context)
         }
-        Expression::ComputeFlexboxLayoutInfo(layout, orientation) => {
-            crate::eval_layout::compute_flexbox_layout_info(layout, *orientation, local_context)
+        Expression::ComputeFlexboxLayoutInfo { layout, orientation, cross_axis_size } => {
+            let cross = cross_axis_size.as_deref().map(|e| eval_to_f32(e, local_context));
+            crate::eval_layout::compute_flexbox_layout_info(
+                layout,
+                *orientation,
+                local_context,
+                cross,
+            )
         }
         Expression::MinMax { ty: _, op, lhs, rhs } => {
             let Value::Number(lhs) = eval_expression(lhs, local_context) else {
@@ -988,6 +1011,7 @@ fn call_builtin_function(
                 let menu_item_tree = crate::dynamic_item_tree::make_menu_item_tree(
                     &menu_item_tree,
                     &enclosing_component,
+                    None,
                     None,
                 );
 
@@ -1461,7 +1485,9 @@ fn call_builtin_function(
                 Expression::PropertyReference(activated_nr),
                 Expression::ElementReference(item_tree_root),
                 Expression::BoolLiteral(no_native),
-                rest @ ..,
+                condition,
+                visible,
+                ..,
             ] = arguments
             else {
                 panic!("internal error: incorrect argument count to SetupMenuBar")
@@ -1472,7 +1498,8 @@ fn call_builtin_function(
             let menu_item_tree = crate::dynamic_item_tree::make_menu_item_tree(
                 &menu_item_tree,
                 &component,
-                rest.first(),
+                Some(condition),
+                Some(visible),
             );
 
             let window_adapter = component.window_adapter();
@@ -1530,6 +1557,7 @@ fn call_builtin_function(
                 &menu_item_tree_component,
                 &enclosing_component,
                 rest.first(),
+                None,
             );
 
             let system_tray =
@@ -2108,6 +2136,9 @@ pub(crate) fn invoke_callback(
             if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
             {
                 if let Some(callback_offset) = description.custom_callbacks.get(callback_name) {
+                    if let Some(tracker_offset) = description.callback_trackers.get(callback_name) {
+                        tracker_offset.apply_pin(enclosing_component.instance).get();
+                    }
                     let callback = callback_offset.apply(&*enclosing_component.instance);
                     let res = callback.call(args);
                     return Some(if res != Value::Void {
@@ -2161,6 +2192,9 @@ pub(crate) fn set_callback_handler(
                 if let Some(callback_offset) = description.custom_callbacks.get(callback_name) {
                     let callback = callback_offset.apply(&*enclosing_component.instance);
                     callback.set_handler(handler);
+                    if let Some(tracker_offset) = description.callback_trackers.get(callback_name) {
+                        tracker_offset.apply_pin(enclosing_component.instance).mark_dirty();
+                    }
                     return Ok(());
                 } else if enclosing_component.description.original.is_global() {
                     return Err(());

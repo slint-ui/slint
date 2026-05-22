@@ -12,7 +12,7 @@ use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use i_slint_compiler::langtype::Type;
+use i_slint_compiler::langtype::{BuiltinStruct, StructName, Type};
 
 use i_slint_core::model::{Model, ModelRc};
 
@@ -57,7 +57,28 @@ impl<'py> IntoPyObject<'py> for SlintToPyValue {
                 )
             }
             Value::Struct(structval) => {
+                // Surface the geometry types as their dedicated pyo3 classes so users get
+                // `slint.LogicalPosition` / `slint.LogicalSize` (with proper `isinstance` and
+                // `repr`) instead of a generic `PyStruct`. The interpreter's `Struct` is just
+                // a `HashMap` with no name attached; identify the type via `expected_type`.
                 let struct_type = expected_type.filter(|t| matches!(t, Type::Struct(_)));
+                if let Some(Type::Struct(s)) = struct_type.as_ref() {
+                    match &s.name {
+                        StructName::Builtin(BuiltinStruct::LogicalPosition) => {
+                            let x = struct_field_as_f32(&structval, "x");
+                            let y = struct_field_as_f32(&structval, "y");
+                            return crate::geometry::PyLogicalPosition { x, y }
+                                .into_bound_py_any(py);
+                        }
+                        StructName::Builtin(BuiltinStruct::LogicalSize) => {
+                            let width = struct_field_as_f32(&structval, "width");
+                            let height = struct_field_as_f32(&structval, "height");
+                            return crate::geometry::PyLogicalSize { width, height }
+                                .into_bound_py_any(py);
+                        }
+                        _ => {}
+                    }
+                }
                 type_collection.struct_to_py(structval, struct_type).into_bound_py_any(py)
             }
             Value::Brush(brush) => crate::brush::PyBrush::from(brush).into_bound_py_any(py),
@@ -107,6 +128,13 @@ fn traverse_struct(
         traverse_value(value, visit)?;
     }
     Ok(())
+}
+
+fn struct_field_as_f32(structval: &slint_interpreter::Struct, name: &str) -> f32 {
+    match structval.get_field(name) {
+        Some(slint_interpreter::Value::Number(n)) => *n as f32,
+        _ => 0.0,
+    }
 }
 
 pub fn clear_strongrefs_in_value(value: &slint_interpreter::Value) {
@@ -393,6 +421,28 @@ impl TypeCollection {
                         expected_type,
                         rustmodel.model.clone(),
                     ))
+                })
+            })
+            .or_else(|_| {
+                ob.extract::<PyRef<'_, crate::geometry::PyLogicalPosition>>().map(|pos| {
+                    let mut s = slint_interpreter::Struct::default();
+                    s.set_field("x".into(), slint_interpreter::Value::Number(pos.x as f64));
+                    s.set_field("y".into(), slint_interpreter::Value::Number(pos.y as f64));
+                    slint_interpreter::Value::Struct(s)
+                })
+            })
+            .or_else(|_| {
+                ob.extract::<PyRef<'_, crate::geometry::PyLogicalSize>>().map(|size| {
+                    let mut s = slint_interpreter::Struct::default();
+                    s.set_field(
+                        "width".into(),
+                        slint_interpreter::Value::Number(size.width as f64),
+                    );
+                    s.set_field(
+                        "height".into(),
+                        slint_interpreter::Value::Number(size.height as f64),
+                    );
+                    slint_interpreter::Value::Struct(s)
                 })
             })
             .or_else(|_| {

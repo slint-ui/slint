@@ -4,7 +4,7 @@
 // cSpell: ignore kwargs namedtuple
 //! This module generates Python bindings for the public Slint language types:
 //!
-//! * `BuiltinPublicStruct` structs (via `for_each_builtin_structs!`) become
+//! * `pub struct` declarations (via `for_each_builtin_structs!`) become
 //!   `collections.namedtuple` classes with documented defaults.
 //! * `pub enum` declarations (via `for_each_enums!`) become `enum.Enum`
 //!   subclasses whose member name and value are the kebab-case strings the
@@ -122,57 +122,29 @@ fn register_enum_class(
 /// This macro processes `for_each_builtin_structs` and generates a `register_structs`
 /// function that registers all public structs as NamedTuples in the `slint.language` submodule.
 macro_rules! declare_python_public_structs {
-    // Top-level arm: matches the full list of struct definitions emitted by
-    // `for_each_builtin_structs!`. For each struct, it delegates to the
-    // `@register` arm which decides whether to register or skip it based
-    // on whether it's a BuiltinPublicStruct or BuiltinPrivateStruct.
     ($(
         $(#[doc = $struct_doc:literal])*
         $(#[non_exhaustive])?
         $(#[derive(Copy, Eq)])?
-        struct $Name:ident {
-            @name = $NameTy:ident :: $NameVariant:ident,
-            export {
-                $( $(#[doc = $pub_doc:literal])* $pub_field:ident : $pub_type:ident, )*
-            }
-            private {
-                $( $(#[doc = $pri_doc:literal])* $pri_field:ident : $pri_type:ty, )*
-            }
+        $vis:vis struct $Name:ident {
+            $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ident, )*
         }
     )*) => {
         fn register_structs(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
             $(
-                declare_python_public_structs!(@register $NameTy, $Name, py, m;
-                    docs: [$(#[doc = $struct_doc])*],
-                    fields: [$( $(#[doc = $pub_doc])* $pub_field : $pub_type ,)*],
-                );
+                if stringify!($vis) == "pub" {
+                    let class_doc = [ $($struct_doc),* ].join("\n");
+                    let fields = vec![
+                        $(
+                            (stringify!($field), stringify!($field_type), [ $($field_doc),* ].join("\n")),
+                        )*
+                    ];
+                    register_named_tuple(py, m, stringify!($Name), &class_doc, &fields)?;
+                }
             )*
             Ok(())
         }
     };
-
-    // Public struct arm: collects doc comments and field metadata, then calls
-    // `register_named_tuple` to create and register the NamedTuple class.
-    (@register BuiltinPublicStruct, $Name:ident, $py:ident, $m:ident;
-        docs: [$(#[doc = $struct_doc:literal])*],
-        fields: [$( $(#[doc = $field_doc:literal])* $pub_field:ident : $pub_type:ident ,)*],
-    ) => {
-        {
-            let class_doc = [ $($struct_doc),* ].join("\n");
-            let fields = vec![
-                $(
-                    (stringify!($pub_field), stringify!($pub_type), [ $($field_doc),* ].join("\n")),
-                )*
-            ];
-            register_named_tuple($py, $m, stringify!($Name), &class_doc, &fields)?;
-        }
-    };
-
-    // Private struct arm: intentionally empty — private structs are not exposed to Python.
-    (@register BuiltinPrivateStruct, $_Name:ident, $py:ident, $m:ident;
-        docs: [$(#[$struct_meta:meta])*],
-        fields: [$( $(#[$field_meta:meta])* $pub_field:ident : $pub_type:ty ,)*],
-    ) => {};
 }
 
 i_slint_common::for_each_builtin_structs!(declare_python_public_structs);

@@ -238,7 +238,9 @@ cpp! {{
             rust!(Slint_mouseWheelEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPointF as "QPointF", delta: qttypes::QPoint as "QPoint", phase: usize as "int"] {
                 let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 let phase = match phase as _ {
-                    key_generated::Qt_ScrollPhase_NoScrollPhase => TouchPhase::Cancelled,
+                    // If we don't know the scroll phase, this is likely a mouse wheel scroll, which
+                    // should be mapped to TouchPhase::Moved to align with the winit backend.
+                    key_generated::Qt_ScrollPhase_NoScrollPhase => TouchPhase::Moved,
                     key_generated::Qt_ScrollPhase_ScrollBegin => TouchPhase::Started,
                     key_generated::Qt_ScrollPhase_ScrollUpdate => TouchPhase::Moved,
                     key_generated::Qt_ScrollPhase_ScrollEnd => TouchPhase::Ended,
@@ -2092,7 +2094,7 @@ impl QtWindow {
             data.set_plaintext(text);
         }
         if let Some(buffer) = qimage_to_shared_pixel_buffer(image) {
-            data.set_image(i_slint_core::graphics::Image::from_rgba8(buffer).into());
+            data.set_image(i_slint_core::graphics::Image::from_rgba8(buffer));
         }
         let drop_event = DropEvent {
             data,
@@ -2612,7 +2614,7 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
         let ctx = self.slint_context().ok_or("slint platform not initialized")?;
-        ctx.font_context().borrow_mut().collection.register_fonts(data.to_vec().into(), None);
+        ctx.font_context().borrow_mut().register_static_font(data);
         Ok(())
     }
 

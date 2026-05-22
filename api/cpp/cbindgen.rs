@@ -150,6 +150,8 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_pub, "#pragma once")?;
     writeln!(structs_pub, "// This file is auto-generated from {}", file!())?;
     writeln!(structs_pub, "#include \"private/slint_enums.h\"")?;
+    writeln!(structs_pub, "#include \"private/slint_point.h\"")?;
+    writeln!(structs_pub, "#include \"private/slint_data_transfer.h\"")?;
     writeln!(structs_pub, "namespace slint::language {{")?;
 
     let mut structs_priv = BufWriter::new(
@@ -166,54 +168,32 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_priv, "#include \"private/slint_keys.h\"")?;
     writeln!(structs_priv, "namespace slint::cbindgen_private {{")?;
     writeln!(structs_priv, "enum class KeyEventType : uint8_t;")?;
-    macro_rules! struct_file {
-        (BuiltinPublicStruct, $Name:ident) => {{
-            writeln!(structs_priv, "using slint::language::{};", stringify!($Name))?;
-            &mut structs_pub
-        }};
-        (BuiltinPrivateStruct, $_:ident) => {
-            &mut structs_priv
-        };
-    }
     macro_rules! print_structs {
         ($(
             $(#[doc = $struct_doc:literal])*
             $(#[non_exhaustive])?
             $(#[derive(Copy, Eq)])?
-            struct $Name:ident {
-                @name = $NameTy:ident :: $NameVariant:ident,
-                export {
-                    $( $(#[doc = $pub_doc:literal])* $pub_field:ident : $pub_type:ty, )*
-                }
-                private {
-                    $( $(#[doc = $pri_doc:literal])* $pri_field:ident : $pri_type:ty, )*
-                }
+            $vis:vis struct $Name:ident {
+                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ty, )*
             }
         )*) => {
             $(
-                let file = struct_file!($NameTy, $Name);
+                let file: &mut dyn Write = if stringify!($vis) == "pub" {
+                    writeln!(structs_priv, "using slint::language::{};", stringify!($Name))?;
+                    &mut structs_pub
+                } else {
+                    &mut structs_priv
+                };
                 $(writeln!(file, "///{}", $struct_doc)?;)*
                 writeln!(file, "struct {} {{", stringify!($Name))?;
                 $(
-                    $(writeln!(file, "    ///{}", $pub_doc)?;)*
-                    let pub_type = match stringify!($pub_type) {
+                    $(writeln!(file, "    ///{}", $field_doc)?;)*
+                    let field_type = match stringify!($field_type) {
                         "i32" => "int32_t",
                         "f32" | "Coord" => "float",
                         other => other,
                     };
-                    writeln!(file, "    {} {};", pub_type, stringify!($pub_field))?;
-                )*
-                $(
-                    $(writeln!(file, "    ///{}", $pri_doc)?;)*
-                    let pri_type = stringify!($pri_type).replace(' ', "");
-                    let pri_type = match pri_type.as_str() {
-                        "usize" => "uintptr_t",
-                        // This shouldn't be accessed by the C++ anyway, just need to have the same ABI in a struct
-                        "Option<i32>" => "std::pair<int32_t, int32_t>",
-                        "Option<core::ops::Range<i32>>" => "std::tuple<int32_t, int32_t, int32_t>",
-                        other => other,
-                    };
-                    writeln!(file, "    {} {};", pri_type, stringify!($pri_field))?;
+                    writeln!(file, "    {} {};", field_type, stringify!($field))?;
                 )*
                 writeln!(file, "    /// \\private")?;
                 writeln!(file, "    {}", format!("friend bool operator==(const {name}&, const {name}&) = default;", name = stringify!($Name)))?;
@@ -630,13 +610,13 @@ fn gen_corelib(
             }",
         ),
         (
-            vec!["Keys", "KeysInner", "slint_keys_to_string", "slint_keys"],
+            vec!["Keys", "KeysInner", "slint_keys_to_string", "slint_keys", "slint_keys_from_parts"],
             "slint_keys_internal.h",
             "#include \"private/slint_builtin_structs.h\"\n\
             namespace slint::cbindgen_private::types {\n\
                 using KeyboardModifiers = ::slint::language::KeyboardModifiers;\n\
             }"
-        )
+        ),
 
     ]
     .iter()
@@ -647,6 +627,7 @@ fn gen_corelib(
             "slint_keys_debug_string",
             "slint_keys_to_string",
             "slint_keys",
+            "slint_keys_from_parts",
             "slint_visit_item_tree",
             "slint_windowrc_drop",
             "slint_windowrc_clone",

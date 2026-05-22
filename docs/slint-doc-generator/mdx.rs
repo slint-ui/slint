@@ -296,14 +296,8 @@ pub fn extract_builtin_structs(
             $(#[doc = $struct_doc:literal])*
             $(#[non_exhaustive])?
             $(#[derive(Copy, Eq)])?
-            struct $Name:ident {
-                @name = $inner_name:expr,
-                export {
-                    $( $(#[doc = $pub_doc:literal])* $pub_field:ident : $pub_type:ident, )*
-                }
-                private {
-                    $( $(#[doc = $pri_doc:literal])* $pri_field:ident : $pri_type:ty, )*
-                }
+            $vis:vis struct $Name:ident {
+                $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ident, )*
             }
         )*) => {
             $(
@@ -313,11 +307,11 @@ pub fn extract_builtin_structs(
 
                 let mut fields = Vec::new();
                 $(
-                    let key = stringify!($pub_field).to_string();
-                    let type_name = map_type!($pub_type).to_string();
+                    let key = stringify!($field).to_string();
+                    let type_name = map_type!($field_type).to_string();
                     let mut f_description = String::new();
                     $(
-                        f_description += &format!("{}", $pub_doc);
+                        f_description += &format!("{}", $field_doc);
                     )*
                     fields.push(StructFieldDoc { key, description: f_description, type_name });
                 )*

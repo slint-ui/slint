@@ -1,0 +1,54 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Same recursion-breaking scenario as flexbox_component_with_wrap, but
+// with an Image inside the component (height-for-width via aspect ratio)
+// instead of a Text with word-wrap.
+
+component Card inherits Rectangle {
+    background: #e0e0e0;
+    VerticalLayout {
+        padding: 5px;
+        Image {
+            source: @image-url("../../../logo/slint-logo-small-dark-large.png");
+            image-fit: contain;
+        }
+        Rectangle {
+            height: 20px;
+            background: #ccc;
+        }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 200px;
+
+    FlexboxLayout {
+        spacing: 10px;
+
+        r := Rectangle {
+            width: 50px;
+            height: 50px;
+            background: red;
+            flex-shrink: 0;
+        }
+        c := Card {
+            flex-shrink: 1;
+        }
+    }
+
+    out property <bool> test_r: r.x == 0px && r.width == 50px;
+    out property <bool> test_c: c.width > 0px && c.height > 0px;
+
+    out property <bool> test: test_r && test_c;
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+*/

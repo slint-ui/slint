@@ -4,12 +4,9 @@
 // Layouts are rejected in Slint SC mode.
 
 export component Test inherits Window {
-//               >  <error{Component declarations are not supported in Slint SC}
-//                             >     <^error{The builtin element 'Window' is not supported in Slint SC}
 
     HorizontalLayout {
 //  >               <error{The builtin element 'HorizontalLayout' is not supported in Slint SC}
         Rectangle { }
-//      >        <error{The builtin element 'Rectangle' is not supported in Slint SC}
     }
 }

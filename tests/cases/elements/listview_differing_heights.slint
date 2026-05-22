@@ -1,0 +1,249 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Tests that ListView can handle items with different heights using all three scrolling methods:
+// 1. mouse/touch dragging
+// 2. scroll wheel
+// 3. touchpad two-finger scrolling (scroll wheel with a touch phase)
+
+import { ListView, ScrollView } from "std-widgets.slint";
+export component Test inherits Window {
+    width: 600px;
+    height: 600px;
+
+    listview := ListView {
+        mouse-drag-pan-enabled: true;
+
+        for i in 100: Rectangle {
+            height: (i.mod(10) * 50 + 10) * 1px;
+            background: i.mod(2) == 0 ? @linear-gradient(0deg, blue, darkblue) : @linear-gradient(0deg, red, darkred);
+            Text {
+                text: i;
+                font-size: 24px;
+            }
+            TouchArea {
+                // used to detect which element is currently in the middle of the viewport
+                clicked => {
+                    root.clicked-index = i;
+                }
+            }
+        }
+    }
+
+    out property <length> height_ <=> self.height;
+    out property <length> viewport-y <=> listview.viewport-y;
+    out property <length> viewport-height <=> listview.viewport-height;
+
+    out property <int> clicked-index: 0;
+}
+
+
+/*
+
+```rust
+use slint::{platform::PointerEventButton, platform::WindowEvent, LogicalPosition};
+use slint_testing::{LogicalPoint, MouseEvent, TouchPhase};
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ScrollDirection {
+    Down,
+    Up,
+}
+
+impl ScrollDirection {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Down => "down",
+            Self::Up => "up",
+        }
+    }
+
+    fn delta_y(self, delta: f32) -> f32 {
+        match self {
+            Self::Down => -delta,
+            Self::Up => delta,
+        }
+    }
+}
+
+let instance = Test::new().unwrap();
+let window = instance.window();
+let inner = slint_testing::WindowInner::from_pub(&window);
+let scroll_position = LogicalPoint::new(300.0, 300.0);
+
+let send_event = |event| {
+    window.dispatch_event(event);
+};
+
+let send_pressed_event = |x, y| {
+    send_event(WindowEvent::PointerPressed {
+        position: LogicalPosition::new(x, y),
+        button: PointerEventButton::Left,
+    });
+};
+
+let send_released_event = |x, y| {
+    send_event(WindowEvent::PointerReleased {
+        position: LogicalPosition::new(x, y),
+        button: PointerEventButton::Left,
+    });
+};
+
+let send_moved_event = |x, y| {
+    send_event(WindowEvent::PointerMoved { position: LogicalPosition::new(x, y) });
+};
+
+let send_wheel_event = |delta_y, phase| {
+    inner.process_mouse_input(MouseEvent::Wheel {
+        position: scroll_position,
+        delta_x: 0.0,
+        delta_y,
+        phase,
+    });
+};
+
+let probe_index = |direction| {
+    let probe_y = match direction {
+        ScrollDirection::Down => instance.get_height_() - 1.0,
+        ScrollDirection::Up => 1.0,
+    };
+    send_pressed_event(300.0, probe_y);
+    send_released_event(300.0, probe_y);
+    instance.get_clicked_index()
+};
+
+let wait_for_scroll_animation = || {
+    let mut current_viewport_y = instance.get_viewport_y();
+    loop {
+        slint_testing::mock_elapsed_time(16);
+        let new_viewport_y = instance.get_viewport_y();
+        if current_viewport_y == new_viewport_y {
+            break;
+        }
+        current_viewport_y = new_viewport_y;
+    }
+};
+
+let assert_scroll_progress = |current_index: &mut i32, direction: ScrollDirection, method_name: &str| {
+    let new_index = probe_index(direction);
+    let progressed = match direction {
+        ScrollDirection::Down => new_index >= *current_index,
+        ScrollDirection::Up => new_index <= *current_index,
+    };
+    assert!(
+        progressed,
+        "Expected to scroll {} with {}, but the index went from {} to {}",
+        direction.name(),
+        method_name,
+        *current_index,
+        new_index
+    );
+    *current_index = new_index;
+};
+
+let run_bidirectional_scroll_test = |method_name: &str, scroll_step: &mut dyn FnMut(ScrollDirection)| {
+    let target_viewport_y = |direction| match direction {
+        ScrollDirection::Down => -instance.get_viewport_height() + instance.get_height_(),
+        ScrollDirection::Up => 0.0,
+    };
+
+    for direction in [ScrollDirection::Down, ScrollDirection::Up] {
+        let mut current_index = probe_index(direction);
+        let target_index = match direction {
+            ScrollDirection::Down => 99,
+            ScrollDirection::Up => 0,
+        };
+
+        while match direction {
+            ScrollDirection::Down => instance.get_viewport_y() > target_viewport_y(direction),
+            ScrollDirection::Up => instance.get_viewport_y() < target_viewport_y(direction),
+        } {
+            // Note: probing the index sends click events, which would disturb the
+            // active scroll gesture or its velocity calculation. Only probe before
+            // the gesture starts and after the animation settled.
+            scroll_step(direction);
+            wait_for_scroll_animation();
+
+            assert_scroll_progress(&mut current_index, direction, method_name);
+        }
+
+        let viewport_y = instance.get_viewport_y();
+        let expected_viewport_y = target_viewport_y(direction);
+        assert_eq!(
+            viewport_y,
+            expected_viewport_y,
+            "Expected {} scrolling with {} to reach {}, but got {}",
+            direction.name(),
+            method_name,
+            expected_viewport_y,
+            viewport_y
+        );
+        assert_eq!(
+            instance.get_clicked_index(),
+            target_index,
+            "Expected {} scrolling with {} to reach element {}, but got {}",
+            direction.name(),
+            method_name,
+            target_index,
+            instance.get_clicked_index()
+        );
+    }
+};
+
+// Test scrolling with mouse dragging.
+let mut mouse_drag_step = |direction| {
+    match direction {
+        ScrollDirection::Down => {
+            send_pressed_event(300.0, 300.0);
+            slint_testing::mock_elapsed_time(16);
+
+            send_moved_event(300.0, 200.0);
+            slint_testing::mock_elapsed_time(16);
+
+            send_moved_event(300.0, 150.0);
+            slint_testing::mock_elapsed_time(16);
+
+            send_released_event(300.0, 100.0);
+            slint_testing::mock_elapsed_time(16);
+        }
+        ScrollDirection::Up => {
+            send_pressed_event(300.0, 50.0);
+            slint_testing::mock_elapsed_time(16);
+
+            send_moved_event(300.0, 100.0);
+            slint_testing::mock_elapsed_time(16);
+
+            send_moved_event(300.0, 150.0);
+            slint_testing::mock_elapsed_time(16);
+
+            send_released_event(300.0, 200.0);
+            slint_testing::mock_elapsed_time(16);
+        }
+    }
+};
+run_bidirectional_scroll_test("mouse dragging", &mut mouse_drag_step);
+
+// Test scrolling with mouse wheel events. Regular wheel events only use TouchPhase::Moved.
+let mut mouse_wheel_step = |direction: ScrollDirection| {
+    send_wheel_event(direction.delta_y(400.0), TouchPhase::Moved);
+};
+run_bidirectional_scroll_test("mouse wheel", &mut mouse_wheel_step);
+
+// Test scrolling with touchpad events. Touchpad scrolling uses Started/Moved/Ended.
+let mut touchpad_step = |direction: ScrollDirection| {
+    send_wheel_event(0.0, TouchPhase::Started);
+    slint_testing::mock_elapsed_time(16);
+
+    send_wheel_event(direction.delta_y(250.0), TouchPhase::Moved);
+    slint_testing::mock_elapsed_time(16);
+
+    send_wheel_event(direction.delta_y(150.0), TouchPhase::Moved);
+    slint_testing::mock_elapsed_time(16);
+
+    send_wheel_event(0.0, TouchPhase::Ended);
+    slint_testing::mock_elapsed_time(16);
+};
+run_bidirectional_scroll_test("touchpad scrolling", &mut touchpad_step);
+```
+
+*/

@@ -10,6 +10,12 @@ fn map_type(ty: &str) -> &str {
         "SharedString" => "str",
         "i32" => "int",
         "f32" | "Coord" => "float",
+        // Types exposed by the binding outside the `language` submodule.
+        "DataTransfer" => "DataTransfer | None",
+        "LogicalPosition" => "LogicalPosition | None",
+        // Enums in the same submodule; resolved as forward references via
+        // `from __future__ import annotations`.
+        "DragAction" => "DragAction | None",
         _ => "typing.Any",
     }
 }
@@ -29,14 +35,8 @@ macro_rules! generate_builtin_structs_pyi {
         $(#[doc = $struct_doc:literal])*
         $(#[non_exhaustive])?
         $(#[derive(Copy, Eq)])?
-        struct $Name:ident {
-            @name = $NameTy:ident :: $Variant:ident,
-            export {
-                $( $(#[doc = $pub_doc:literal])* $pub_field:ident : $pub_type:ident, )*
-            }
-            private {
-                $($private:tt)*
-            }
+        $vis:vis struct $Name:ident {
+            $( $(#[doc = $field_doc:literal])* $field:ident : $field_type:ident, )*
         }
     )*) => {
         fn generate_pyi(writer: &mut impl Write) {
@@ -45,54 +45,45 @@ macro_rules! generate_builtin_structs_pyi {
             writeln!(writer, "# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0").unwrap();
             // REUSE-IgnoreEnd
             writeln!(writer, "").unwrap();
+            writeln!(writer, "from __future__ import annotations").unwrap();
             writeln!(writer, "import typing").unwrap();
+            writeln!(writer, "from slint import DataTransfer, LogicalPosition").unwrap();
 
             $(
-                generate_builtin_structs_pyi!(@check writer, $NameTy, $Name,
-                    [$($struct_doc),*],
-                    [$([$($pub_doc),*] $pub_field : $pub_type),*]
-                );
+                if stringify!($vis) == "pub" {
+                    writeln!(writer, "\nclass {}(typing.NamedTuple):", stringify!($Name)).unwrap();
+                    let struct_doc = vec![$($struct_doc),*].join("\n").trim().to_string();
+                    if !struct_doc.is_empty() {
+                        writeln!(writer, "    \"\"\"").unwrap();
+                        for line in struct_doc.lines() {
+                            if line.is_empty() {
+                                writeln!(writer).unwrap();
+                            } else {
+                                writeln!(writer, "    {}", line).unwrap();
+                            }
+                        }
+                        writeln!(writer, "    \"\"\"").unwrap();
+                    }
+                    writeln!(writer, "").unwrap();
+                    $(
+                        writeln!(writer, "    {}: {} = {}", stringify!($field), map_type(stringify!($field_type)), map_default(stringify!($field_type))).unwrap();
+                        let field_doc_str = vec![$($field_doc),*].join("\n").trim().to_string();
+                        if !field_doc_str.is_empty() {
+                            writeln!(writer, "    \"\"\"").unwrap();
+                            for line in field_doc_str.lines() {
+                                if line.is_empty() {
+                                    writeln!(writer).unwrap();
+                                } else {
+                                    writeln!(writer, "    {}", line).unwrap();
+                                }
+                            }
+                            writeln!(writer, "    \"\"\"").unwrap();
+                        }
+                    )*
+                }
             )*
         }
     };
-    (@check $writer:expr, BuiltinPublicStruct, $Name:ident,
-        [$($struct_doc:literal),*],
-        [$([$($pub_doc:literal),*] $pub_field:ident : $pub_type:ident),*]
-    ) => {
-        writeln!($writer, "\nclass {}(typing.NamedTuple):", stringify!($Name)).unwrap();
-        let struct_doc = vec![$($struct_doc),*].join("\n").trim().to_string();
-        if !struct_doc.is_empty() {
-            writeln!($writer, "    \"\"\"").unwrap();
-            for line in struct_doc.lines() {
-                if line.is_empty() {
-                    writeln!($writer).unwrap();
-                } else {
-                    writeln!($writer, "    {}", line).unwrap();
-                }
-            }
-            writeln!($writer, "    \"\"\"").unwrap();
-        }
-        writeln!($writer, "").unwrap();
-        $(
-            writeln!($writer, "    {}: {} = {}", stringify!($pub_field), map_type(stringify!($pub_type)), map_default(stringify!($pub_type))).unwrap();
-            let field_doc = vec![$($pub_doc),*].join("\n").trim().to_string();
-            if !field_doc.is_empty() {
-                writeln!($writer, "    \"\"\"").unwrap();
-                for line in field_doc.lines() {
-                    if line.is_empty() {
-                        writeln!($writer).unwrap();
-                    } else {
-                        writeln!($writer, "    {}", line).unwrap();
-                    }
-                }
-                writeln!($writer, "    \"\"\"").unwrap();
-            }
-        )*
-    };
-    (@check $writer:expr, BuiltinPrivateStruct, $Name:ident,
-        [$($struct_doc:literal),*],
-        [$([$($pub_doc:literal),*] $pub_field:ident : $pub_type:ident),*]
-    ) => {};
 }
 
 i_slint_common::for_each_builtin_structs!(generate_builtin_structs_pyi);

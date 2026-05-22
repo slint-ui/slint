@@ -208,6 +208,7 @@ fn layout_constraint_prop(elem: &ElementRc, field: &str, orient: Orientation) ->
             elem,
             orient,
             crate::layout::BuiltinFilter::All,
+            None,
         )
         .unwrap(),
     };

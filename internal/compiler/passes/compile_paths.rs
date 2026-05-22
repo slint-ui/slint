@@ -12,7 +12,7 @@
 use crate::EmbedResourcesKind;
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
-use crate::langtype::{BuiltinPrivateStruct, Struct, Type};
+use crate::langtype::{BuiltinStruct, Struct, Type};
 use crate::object_tree::*;
 use smol_str::SmolStr;
 use std::cell::RefCell;
@@ -165,7 +165,7 @@ fn compile_path_from_string_literal(
             (SmolStr::new_static("y"), Type::Float32),
         ])
         .collect(),
-        name: BuiltinPrivateStruct::Point.into(),
+        name: BuiltinStruct::Point.into(),
     });
 
     let mut points = Vec::new();

@@ -1,0 +1,69 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+import { Button, VerticalBox } from "std-widgets.slint";
+
+export component MainWindow inherits Window {
+    title: "Runtime Key Bindings";
+    width: 400px;
+    height: 300px;
+
+    callback shortcut-activated(string);
+    callback key-event(event: KeyEvent);
+
+    /// A key binding that can be changed from Rust/C++ at runtime.
+    in-out property <keys> user-shortcut: @keys(Control + E);
+
+    property <bool> listening: false;
+
+    forward-focus: scope;
+
+    scope := FocusScope {
+        // When listening, capture key presses and send them to the backend.
+        // Modifier-only presses also fire — the last event before the user
+        // stops listening is the one that sticks.
+        capture-key-pressed(event) => {
+            if root.listening {
+                root.key-event(event);
+                EventResult.accept
+            } else {
+                EventResult.reject
+            }
+        }
+
+        // Static shortcuts
+        KeyBinding {
+            keys: @keys(Control + S);
+            activated => { root.shortcut-activated("save"); }
+        }
+        KeyBinding {
+            keys: @keys(Control + Shift? + Z);
+            activated => { root.shortcut-activated("undo"); }
+        }
+
+        // Dynamic shortcut — set from the backend at runtime
+        KeyBinding {
+            keys: root.user-shortcut;
+            activated => { root.shortcut-activated("user"); }
+        }
+
+        VerticalBox {
+            Text {
+                text: "Runtime Key Bindings";
+                font-size: 16px;
+                font-weight: 700;
+            }
+            Text { text: "Static: Ctrl+S (save), Ctrl+Z (undo)"; }
+            Text { text: "Dynamic: " + root.user-shortcut.to-string(); }
+
+            Button {
+                text: "Reassign to Ctrl+P";
+                clicked => { root.shortcut-activated("reassign-ctrl-p"); }
+            }
+            Button {
+                text: root.listening ? "Stop listening" : "Capture shortcut";
+                clicked => { root.listening = !root.listening; }
+            }
+        }
+    }
+}

@@ -654,7 +654,9 @@ where
 
     let compute_bounds = |r: &R| -> LogicalRect {
         item_children_bounding_rect(item_rc, &r.window().window_adapter())
-            .intersection(&r.get_current_clip().union(&item_rc.geometry()))
+            .intersection(
+                &r.get_current_clip().union(&LogicalRect::from_size(item_rc.geometry().size)),
+            )
             .unwrap_or_default()
     };
 

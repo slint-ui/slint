@@ -3,13 +3,14 @@
 
 use std::rc::Rc;
 
+use slint::language::{DragAction, DropEvent};
 use slint::{DataTransfer, VecModel};
 
 slint::include_modules!();
 
-// What we attach to each `DataTransfer` via `set_user_data`. A clone of
-// the `TaskData` plus the row it came from, so `source-column-of` can
-// answer the .slint side and `move-task` knows what to remove on a move.
+// What we attach to each `DataTransfer` via `set_user_data`. A clone of the
+// `TaskData` plus the row it came from, so `can-drop` recognizes our own
+// payloads and `dropped` knows what to remove on a move.
 #[derive(Clone)]
 struct DragPayload {
     task: TaskData,
@@ -48,67 +49,60 @@ fn main() -> Result<(), slint::PlatformError> {
         transfer
     });
 
-    api.on_source_column_of(|data| {
-        data.user_data()
-            .and_then(|rc| rc.downcast::<DragPayload>().ok())
-            .map_or(-1, |p| p.source_column as i32)
-    });
-
-    api.on_has_plaintext(|data| data.fetch_plaintext().is_ok());
-
-    api.on_add_task({
-        let columns = columns.clone();
-        move |data, target, target_index| {
-            let target = target as usize;
-            if target >= columns.len() {
-                return;
-            }
-            let task = if let Some(payload) =
-                data.user_data().and_then(|rc| rc.downcast::<DragPayload>().ok())
-            {
-                payload.task.clone()
-            } else if let Ok(text) = data.fetch_plaintext() {
-                TaskData { title: text }
-            } else {
-                return;
-            };
-            columns[target].insert(target_index as usize, task);
+    api.on_can_drop(|event: DropEvent, _target, _target_index| -> DragAction {
+        if event.data.user_data().and_then(|rc| rc.downcast::<DragPayload>().ok()).is_some() {
+            // Our own card: accept whatever modifier the user is holding.
+            return event.proposed_action;
         }
+        if event.data.has_plaintext() {
+            // External plaintext drop: always treated as a copy.
+            return DragAction::Copy;
+        }
+        DragAction::None
     });
 
-    api.on_move_task({
+    api.on_dropped({
         let columns = columns.clone();
-        move |data, target, target_index| {
+        move |event: DropEvent, target, target_index| {
             let target = target as usize;
-            let Some(payload) = data.user_data().and_then(|rc| rc.downcast::<DragPayload>().ok())
-            else {
-                return;
-            };
             if target >= columns.len() {
                 return;
             }
-            let source = payload.source_column;
-            let source_index = payload.source_index;
-            let mut target_index = target_index as usize;
+            let target_index = target_index as usize;
 
-            if source == target {
-                // Same-column reorder. Dropping at the source's own slot, or
-                // immediately after it, is a no-op.
-                if target_index == source_index || target_index == source_index + 1 {
+            if let Some(payload) =
+                event.data.user_data().and_then(|rc| rc.downcast::<DragPayload>().ok())
+            {
+                if event.proposed_action != DragAction::Move {
+                    // Anything that isn't an explicit move is treated as a copy.
+                    columns[target].insert(target_index, payload.task.clone());
                     return;
                 }
-                // Removing the source shifts later rows up by one, so the
-                // target index needs to be decremented in that case.
-                let task = columns[source].remove(source_index);
-                if target_index > source_index {
-                    target_index -= 1;
+                let source = payload.source_column;
+                let source_index = payload.source_index;
+                let mut target_index = target_index;
+
+                if source == target {
+                    // Same-column reorder. Dropping at the source's own slot,
+                    // or immediately after it, is a no-op.
+                    if target_index == source_index || target_index == source_index + 1 {
+                        return;
+                    }
+                    // Removing the source shifts later rows up by one, so the
+                    // target index needs to be decremented in that case.
+                    let task = columns[source].remove(source_index);
+                    if target_index > source_index {
+                        target_index -= 1;
+                    }
+                    columns[target].insert(target_index, task);
+                } else {
+                    // Cross-column move. Source and target are independent
+                    // models, so order doesn't matter for index stability.
+                    columns[source].remove(source_index);
+                    columns[target].insert(target_index, payload.task.clone());
                 }
-                columns[target].insert(target_index, task);
-            } else {
-                // Cross-column move. Source and target are independent models,
-                // so order doesn't matter for index stability.
-                columns[source].remove(source_index);
-                columns[target].insert(target_index, payload.task.clone());
+            } else if let Ok(text) = event.data.fetch_plaintext() {
+                columns[target].insert(target_index, TaskData { title: text });
             }
         }
     });

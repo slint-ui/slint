@@ -88,7 +88,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         let prop2_handle_val = prop2.handle.handle.get();
         let handle = if PropertyHandle::is_pointer_to_binding(prop2_handle_val) {
             // If prop2 is a binding, just "steal it"
-            prop2.handle.handle.set(0);
+            prop2.handle.handle.set(core::ptr::null_mut());
             PropertyHandle { handle: Cell::new(prop2_handle_val) }
         } else {
             PropertyHandle::default()
@@ -133,7 +133,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
             let prop1_handle_val = prop1.handle.handle.get();
             let handle = if PropertyHandle::is_pointer_to_binding(prop1_handle_val) {
                 // If prop1 is a binding, just "steal it"
-                prop1.handle.handle.set(0);
+                prop1.handle.handle.set(core::ptr::null_mut());
                 PropertyHandle { handle: Cell::new(prop1_handle_val) }
             } else {
                 PropertyHandle::default()
