@@ -9,6 +9,7 @@ use android_activity::input::{
     ButtonState, InputEvent, KeyAction, Keycode, MotionAction, MotionEvent,
 };
 use android_activity::{InputStatus, MainEvent, PollEvent};
+use i_slint_core::SharedString;
 use i_slint_core::api::{
     LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, PlatformError, Window,
 };
@@ -20,7 +21,6 @@ use i_slint_core::platform::{
 };
 use i_slint_core::timers::{Timer, TimerMode};
 use i_slint_core::window::{InputMethodRequest, WindowInner};
-use i_slint_core::{Property, SharedString};
 use i_slint_renderer_skia::{SkiaRenderer, SkiaSharedContext};
 use std::cell::Cell;
 use std::rc::Rc;
@@ -540,7 +540,7 @@ impl AndroidWindowAdapter {
     pub fn do_render(&self) -> Result<(), PlatformError> {
         if let Some(win) = self.app.native_window() {
             let o = self.offset.get();
-            self.renderer.render_transformed_with_post_callback(
+            let _ = self.renderer.render_transformed_with_post_callback(
                 0.,
                 (o.x as f32, o.y as f32),
                 PhysicalSize { width: win.width() as _, height: win.height() as _ },

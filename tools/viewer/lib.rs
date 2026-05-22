@@ -15,9 +15,15 @@ pub fn poll_ready<F: std::future::Future>(future: F) -> F::Output {
     }
 }
 
+#[cfg(all(target_os = "android", not(feature = "remote")))]
+compile_error!("The `remote` feature is required when building for Android");
+
 #[cfg(all(target_os = "android", feature = "remote"))]
 #[unsafe(no_mangle)]
-fn android_main(app: slint::android::AndroidApp) {
-    slint::android::init(app).unwrap();
+fn android_main(app: i_slint_backend_android_activity::android_activity::AndroidApp) {
+    i_slint_core::platform::set_platform(Box::new(
+        i_slint_backend_android_activity::AndroidPlatform::new(app),
+    ))
+    .unwrap();
     remote::run(None, true).unwrap();
 }
