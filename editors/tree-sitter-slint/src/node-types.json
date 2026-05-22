@@ -2078,12 +2078,22 @@
     }
   },
   {
-    "type": "states_definition",
+    "type": "state_definition",
     "named": true,
     "fields": {
-      "name": {
-        "multiple": true,
+      "condition": {
+        "multiple": false,
         "required": false,
+        "types": [
+          {
+            "type": "expression",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
         "types": [
           {
             "type": "simple_identifier",
@@ -2105,11 +2115,22 @@
           "named": true
         },
         {
-          "type": "expression",
-          "named": true
-        },
-        {
           "type": "in_out_transition",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "states_definition",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "state_definition",
           "named": true
         }
       ]

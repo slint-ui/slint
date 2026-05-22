@@ -357,9 +357,8 @@
 
 (in_out_transition
   [ "in" "out" "in-out" ] @append_space
-  ":" @prepend_space @append_space
   "{" @prepend_space @append_indent_start @append_spaced_softline
-  . (animate_statement) @allow_blank_line_before
+  (animate_statement)* @allow_blank_line_before
   "}" @allow_blank_line_before @prepend_spaced_softline @prepend_indent_end
 )
 
@@ -371,41 +370,21 @@
 
 (states_definition
   "states" @append_space
-  "[" @append_indent_start
-  name: (simple_identifier) @allow_blank_line_before @prepend_input_softline
-  ":" @prepend_space @append_space
-  "{" @prepend_space @append_indent_start
-  (_)+ @allow_blank_line_before @prepend_spaced_softline
-  "}" @prepend_spaced_softline @prepend_indent_end
-  "]" @allow_blank_line_before @prepend_input_softline @prepend_indent_end
+  "[" @append_indent_start @append_spaced_softline
+  (state_definition)* @prepend_spaced_softline @allow_blank_line_before
+  "]" @prepend_indent_end @prepend_spaced_softline 
 )
 
-(states_definition
-  name: (simple_identifier) @prepend_antispace
-  (#multi_line_only!)
-)
-
-(states_definition
+(state_definition
+  "{" @append_indent_start @append_spaced_softline
   [
-    (in_out_transition)
-    (assignment_block)
-    (assignment_expr)
-  ] @prepend_antispace
-  (#multi_line_only!)
-)
-
-(states_definition
-  "]" @prepend_antispace
-  (#multi_line_only!)
-)
-
-(states_definition
-  [
-    (in_out_transition)
-    (assignment_block)
-    (assignment_expr)
-  ] @allow_blank_line_before @prepend_spaced_softline
-)
+   (in_out_transition) @prepend_spaced_softline @allow_blank_line_before
+   (assignment_block) @prepend_spaced_softline @allow_blank_line_before
+   (assignment_expr) @prepend_spaced_softline @allow_blank_line_before
+   _
+  ]*
+  "}" @prepend_indent_end @prepend_spaced_softline
+  )
 
 (transitions_definition
   "transitions" @append_space
