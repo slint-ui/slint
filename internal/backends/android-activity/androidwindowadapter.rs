@@ -13,14 +13,13 @@ use i_slint_core::api::{
     LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize, PlatformError, Window,
 };
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventResult, KeyEventType, TouchPhase};
-use i_slint_core::items::ColorScheme;
 use i_slint_core::lengths::PhysicalEdges;
 use i_slint_core::platform::{
     Key, PointerEventButton, WindowAdapter, WindowEvent, WindowProperties,
 };
 use i_slint_core::timers::{Timer, TimerMode};
 use i_slint_core::window::{InputMethodRequest, WindowInner};
-use i_slint_core::{Property, SharedString};
+use i_slint_core::SharedString;
 use i_slint_renderer_skia::{SkiaRenderer, SkiaSharedContext};
 use std::cell::Cell;
 use std::rc::Rc;
@@ -176,16 +175,7 @@ impl i_slint_core::window::WindowAdapterInternal for AndroidWindowAdapter {
 impl AndroidWindowAdapter {
     pub fn new(app: AndroidApp) -> Rc<Self> {
         let java_helper = JavaHelper::new(&app).unwrap_or_else(|e| print_jni_error(&app, e));
-        let initial_scheme =
-            match java_helper.color_scheme().unwrap_or_else(|e| print_jni_error(&app, e)) {
-                0x10 => ColorScheme::Light,  // UI_MODE_NIGHT_NO(0x10)
-                0x20 => ColorScheme::Dark,   // UI_MODE_NIGHT_YES(0x20)
-                0x0 => ColorScheme::Unknown, // UI_MODE_NIGHT_UNDEFINED
-                _ => ColorScheme::Unknown,
-            };
-        let initial_accent =
-            java_helper.accent_color().unwrap_or_else(|e| print_jni_error(&app, e));
-        let rc = Rc::<Self>::new_cyclic(|w| Self {
+        Rc::<Self>::new_cyclic(|w| Self {
             app,
             window: Window::new(w.clone()),
             #[cfg(not(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29")))]
@@ -203,11 +193,7 @@ impl AndroidWindowAdapter {
             show_cursor_handles: Cell::new(false),
             long_press: RefCell::default(),
             last_pressed_state: Cell::new(ButtonState(0)),
-        });
-        let ctx = i_slint_core::window::WindowInner::from_pub(&rc.window).context();
-        ctx.set_color_scheme(initial_scheme);
-        ctx.set_accent_color(initial_accent);
-        rc
+        })
     }
 
     pub fn process_event(&self, event: &PollEvent<'_>) -> Result<ControlFlow<()>, PlatformError> {
@@ -540,7 +526,7 @@ impl AndroidWindowAdapter {
     pub fn do_render(&self) -> Result<(), PlatformError> {
         if let Some(win) = self.app.native_window() {
             let o = self.offset.get();
-            self.renderer.render_transformed_with_post_callback(
+            let _ = self.renderer.render_transformed_with_post_callback(
                 0.,
                 (o.x as f32, o.y as f32),
                 PhysicalSize { width: win.width() as _, height: win.height() as _ },
