@@ -349,6 +349,12 @@
   (#multi_line_only!)
 )
 
+(value_list
+  "[" @append_indent_start @append_empty_softline
+  (_)+ @allow_blank_line_before @prepend_spaced_softline
+  "]" @prepend_indent_end @prepend_empty_softline)
+
+
 (in_out_transition
   [ "in" "out" "in-out" ] @append_space
   ":" @prepend_space @append_space
