@@ -25,18 +25,22 @@ use i_slint_compiler::parser::{
 use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 use i_slint_live_preview::protocol::PreviewComponent;
-use i_slint_live_preview::protocol::{
-    LspToPreviewMessage, PreviewConfig, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
+use i_slint_live_preview::{
+    file_watcher::FileChangeKind,
+    protocol::{
+        LspToPreviewMessage, PreviewConfig, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
+    },
 };
+
 use itertools::Itertools;
 use lsp_types::TextDocumentPositionParams;
 use lsp_types::{
     ClientCapabilities, CodeActionOrCommand, CodeActionProviderCapability, CodeLens,
     CodeLensOptions, Color, ColorInformation, ColorPresentation, Command, CompletionOptions,
-    DocumentSymbol, DocumentSymbolResponse, FileChangeType, InitializeParams, InitializeResult,
-    OneOf, Position, PrepareRenameResponse, RenameOptions, SemanticTokensFullOptions,
-    SemanticTokensLegend, SemanticTokensOptions, ServerCapabilities, ServerInfo,
-    TextDocumentSyncCapability, TextEdit, Url, WorkDoneProgressOptions,
+    DocumentSymbol, DocumentSymbolResponse, InitializeParams, InitializeResult, OneOf, Position,
+    PrepareRenameResponse, RenameOptions, SemanticTokensFullOptions, SemanticTokensLegend,
+    SemanticTokensOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, TextEdit,
+    Url, WorkDoneProgressOptions,
     request::{
         CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
         DocumentHighlightRequest, DocumentSymbolRequest, ExecuteCommand, Formatting,
@@ -976,18 +980,17 @@ pub async fn delete_document(ctx: &mut Context, url: lsp_types::Url) -> common::
 pub async fn trigger_file_watcher(
     ctx: &mut Context,
     url: lsp_types::Url,
-    typ: lsp_types::FileChangeType,
+    typ: FileChangeKind,
 ) -> common::Result<()> {
     if !ctx.open_urls.contains(&url) {
         tracing::debug!("File watcher triggered for {url} (type: {:?})", typ);
         match typ {
-            FileChangeType::DELETED => delete_document(ctx, url).await?,
+            FileChangeKind::Deleted => delete_document(ctx, url).await?,
             // If the file was newly created, we still need to drop it as another file may
             // already depend on it by trying to import it before it exists.
             // This is especially common on file renames.
             // See also #11304
-            FileChangeType::CHANGED | FileChangeType::CREATED => drop_document(ctx, url).await?,
-            _ => tracing::warn!("Unknown file change type: {:?} for {url}", typ),
+            FileChangeKind::Changed | FileChangeKind::Created => drop_document(ctx, url).await?,
         }
     } else {
         tracing::trace!("Ignoring file watcher event for open document: {url}");
