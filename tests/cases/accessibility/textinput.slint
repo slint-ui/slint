@@ -10,16 +10,6 @@ export component TestCase inherits Window {
     out property <string> text_input_text: ti.text;
     out property <string> line_edit_text: le.text;
 
-    callback set_text_input_text_using_accessible();
-    set_text_input_text_using_accessible => {
-        ti.accessible-action-set-value("Hello");
-    }
-
-    callback set_line_edit_text_using_accessible();
-    set_line_edit_text_using_accessible => {
-        le.accessible-action-set-value("World");
-    }
-
     ti := TextInput {
         text: "123";
     }
@@ -30,21 +20,6 @@ export component TestCase inherits Window {
 }
 
 /*
-
-```rust
-// Test that when setting the value of the TextInput using the accessible, the value is preserved
-
-let instance = TestCase::new().unwrap();
-
-assert_eq!(instance.get_text_input_text(), "123");
-instance.invoke_set_text_input_text_using_accessible();
-assert_eq!(instance.get_text_input_text(), "Hello");
-
-assert_eq!(instance.get_line_edit_text(), "456");
-instance.invoke_set_line_edit_text_using_accessible();
-assert_eq!(instance.get_line_edit_text(), "World");
-```
-
 ```rust
 // Test that when setting the value of the TextInput using the accessible, the value is preserved
 
