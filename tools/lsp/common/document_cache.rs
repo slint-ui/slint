@@ -465,6 +465,10 @@ impl DocumentCache {
         let (doc, offset) = self.get_document_and_offset(text_document_uri, pos)?;
         self.element_at_document_and_offset(doc, offset)
     }
+
+    pub fn all_paths_to_watch(&self) -> HashSet<PathBuf> {
+        self.type_loader.all_files_to_watch()
+    }
 }
 
 #[cfg(test)]
