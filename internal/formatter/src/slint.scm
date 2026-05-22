@@ -209,20 +209,34 @@
 ; simple one-liners to stay inline.
 (block
   "{" @prepend_space @append_indent_start @append_spaced_softline
-  . (_) @allow_blank_line_before
+  [
+    (animate_statement) @prepend_spaced_softline @allow_blank_line_before
+    (binding_alias) @prepend_spaced_softline @allow_blank_line_before
+    (callback) @prepend_spaced_softline @allow_blank_line_before
+    (callback_alias) @prepend_spaced_softline @allow_blank_line_before
+    (callback_event) @prepend_spaced_softline @allow_blank_line_before
+    (changed_event) @prepend_spaced_softline @allow_blank_line_before
+    (children_identifier) @prepend_spaced_softline @allow_blank_line_before
+    (component) @prepend_spaced_softline @allow_blank_line_before
+    (for_loop) @prepend_spaced_softline @allow_blank_line_before
+    (function_definition) @prepend_spaced_softline @allow_blank_line_before
+    (if_statement) @prepend_spaced_softline @allow_blank_line_before
+    (property) @prepend_spaced_softline @allow_blank_line_before
+    (property_assignment) @prepend_spaced_softline @allow_blank_line_before
+    (states_definition) @prepend_spaced_softline @allow_blank_line_before
+    (transitions_definition) @prepend_spaced_softline @allow_blank_line_before
+    ; comments may "hang" from the end of, so should not have a new line prepended
+    (line_comment) @allow_blank_line_before
+    (block_comment) @allow_blank_line_before
+  ]*
+  "}" @prepend_indent_end @prepend_empty_softline
 )
 
+; only prepend a space to the closing } if there is content inside
 (block
-  (_) @append_spaced_softline
-  .
-  (_) @allow_blank_line_before
-)
-
-(block
-  (_) @append_spaced_softline
-  .
-  "}" @allow_blank_line_before @prepend_indent_end
-)
+  (_)+
+  (#single_line_only!)
+  "}" @prepend_space)
 
 (imperative_block
   "{" @prepend_space @append_indent_start @append_spaced_softline
