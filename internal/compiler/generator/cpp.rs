@@ -4818,7 +4818,7 @@ fn compile_builtin_function_call(
                     component_access = component_access.and_then(|x| format!("{x}->parent.lock()"));
                 }
 
-                component_access.then(|component_access| format!("{component_access}->window().window_handle().close_popup({component_access}->popup_id_{popup_index})"))
+                component_access.then(|component_access| format!("{component_access}->globals->window().window_handle().close_popup({component_access}->popup_id_{popup_index})"))
             } else {
                 panic!("internal error: invalid args to ClosePopupWindow {arguments:?}")
             }
