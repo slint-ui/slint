@@ -11,21 +11,22 @@ use crate::EventResult;
 use crate::SharedBackendData;
 use crate::drag_resize_window::{handle_cursor_move_for_resize, handle_resize};
 use crate::winitwindowadapter::WindowVisibility;
-use corelib::SharedString;
 use corelib::graphics::euclid;
 use corelib::input::{InternalKeyEvent, KeyEvent, KeyEventType, MouseEvent, TouchPhase};
-use corelib::items::{ColorScheme, PointerEventButton};
+use corelib::items::{ColorScheme, DropEvent, PointerEventButton};
 use corelib::lengths::LogicalPoint;
 use corelib::platform::PlatformError;
 use corelib::window::*;
+use corelib::{DataTransfer, SharedString};
 use i_slint_core as corelib;
 
 #[allow(unused_imports)]
 use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
-use winit::event::WindowEvent;
-use winit::event_loop::ActiveEventLoop;
+use winit::event::{PointerSource, WindowEvent};
+use winit::event_loop::{ActiveEventLoop, ControlFlow};
 use winit::keyboard::Key;
+use winit::window::ResizeDirection;
 
 fn winit_touch_phase(phase: winit::event::TouchPhase) -> corelib::input::TouchPhase {
     match phase {
@@ -35,9 +36,6 @@ fn winit_touch_phase(phase: winit::event::TouchPhase) -> corelib::input::TouchPh
         winit::event::TouchPhase::Cancelled => corelib::input::TouchPhase::Cancelled,
     }
 }
-use winit::event::PointerSource;
-use winit::event_loop::ControlFlow;
-use winit::window::ResizeDirection;
 
 /// This enum captures run-time specific events that can be dispatched to the event loop in
 /// addition to the winit events.
@@ -65,6 +63,12 @@ impl std::fmt::Debug for CustomEvent {
     }
 }
 
+#[derive(Debug)]
+struct DNDState {
+    data_transfer: DataTransfer,
+    id: winit::data_transfer::DataTransferId,
+}
+
 pub struct EventLoopState {
     shared_backend_data: Rc<SharedBackendData>,
     // last seen cursor position
@@ -85,6 +89,8 @@ pub struct EventLoopState {
     pumping_events_instantly: bool,
 
     custom_application_handler: Option<Box<dyn crate::CustomApplicationHandler>>,
+
+    dnd_state: Option<DNDState>,
 }
 
 impl EventLoopState {
@@ -101,6 +107,7 @@ impl EventLoopState {
             pending_mouse_move: Default::default(),
             pumping_events_instantly: Default::default(),
             custom_application_handler,
+            dnd_state: None,
         }
     }
 
@@ -128,6 +135,24 @@ impl EventLoopState {
             let runtime_window = WindowInner::from_pub(window.window());
             runtime_window.process_mouse_input(MouseEvent::Moved { position, touch_finger_id: 0 });
         }
+    }
+
+    fn process_data_transfer_result(
+        &self,
+        id: winit::data_transfer::DataTransferId,
+    ) -> Option<DropEvent> {
+        let state = self.dnd_state.as_ref()?;
+        if state.id != id {
+            return None;
+        };
+        Some(DropEvent {
+            data: state.data_transfer.clone(),
+            position: corelib::lengths::logical_position_to_api(self.cursor_pos),
+            allow_copy: true,
+            allow_move: false,
+            allow_link: false,
+            proposed_action: i_slint_core::items::DragAction::Copy,
+        })
     }
 }
 
@@ -532,6 +557,46 @@ impl winit::application::ApplicationHandler for EventLoopState {
                     delta: -delta,
                     phase: winit_touch_phase(phase),
                 });
+            }
+
+            WindowEvent::DragEntered { id } => {
+                if let Ok(data_transfer) = dbg!(event_loop.data_transfer(id)) {
+                    for type_ in data_transfer.available_types() {
+                        let _ = event_loop.fetch_data_transfer(id, &*type_);
+                    }
+                }
+                let _ = event_loop.accept_drag(id);
+                self.dnd_state = Some(DNDState { id, data_transfer: DataTransfer::default() });
+            }
+            WindowEvent::DataTransferResult { id, serial } => {
+                let Some(state) = &mut self.dnd_state else { return };
+                if state.id != id {
+                    return;
+                }
+                let Ok(mut r) = event_loop.data_transfer_result(serial) else { return };
+                dbg!(&r);
+                if let Some(t) = r.try_as_string() {
+                    state.data_transfer.set_plaintext(t.into());
+                } else if let Some(_) = r.try_as_uris() {
+                    // TODO: implement
+                    // if it is an image file, load as an image
+                }
+                let Some(event) = self.process_data_transfer_result(id) else { return };
+                runtime_window.process_mouse_input(corelib::input::MouseEvent::DragMove(event));
+            }
+            WindowEvent::DragPosition { id, position } => {
+                let pos = position.to_logical(runtime_window.scale_factor() as f64);
+                self.cursor_pos = euclid::point2(pos.x, pos.y);
+                let Some(event) = self.process_data_transfer_result(id) else { return };
+                runtime_window.process_mouse_input(corelib::input::MouseEvent::DragMove(event));
+            }
+            WindowEvent::DragDropped { id } => {
+                let Some(event) = self.process_data_transfer_result(id) else { return };
+                runtime_window.process_mouse_input(corelib::input::MouseEvent::Drop(event));
+            }
+            WindowEvent::DragLeft { .. } => {
+                self.dnd_state = None;
+                runtime_window.process_mouse_input(corelib::input::MouseEvent::Exit);
             }
             _ => {}
         }
