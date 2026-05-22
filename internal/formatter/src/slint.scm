@@ -64,8 +64,8 @@
 [":=" "<=>" "=>"] @prepend_space @append_space
 ":" @prepend_antispace @append_space
 
-[ "(" "[" "<" ] @append_antispace
-[ ")" "]" ";" "," ">" ] @prepend_antispace
+[ "(" "[" ] @append_antispace
+[ ")" "]" ";" "," ] @prepend_antispace
 
 ; Most adjacent named nodes in Slint want a separating space unless punctuation
 ; explicitly cancels it.
@@ -180,6 +180,9 @@
 (if_statement
   ":" @prepend_space @append_space
 )
+
+(unary_expression
+  op: _ @append_antispace)
 
 (ternary_expression
   "?" @prepend_space @append_space
