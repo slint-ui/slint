@@ -305,34 +305,36 @@ pub fn run_event_loop_until_quit() -> Result<(), PlatformError> {
 /// The following little example demonstrates the use of Tokio's [`TcpStream`](https://docs.rs/tokio/latest/tokio/net/struct.TcpStream.html) to
 /// read from a network socket. The entire future passed to `spawn_local()` is wrapped in `Compat::new()` to make it run:
 ///
-/// ```rust,no_run
+/// ```rust
 /// // A dummy TCP server that once reports "Hello World"
-/// # i_slint_backend_testing::init_integration_test_with_mock_time();
-/// use std::io::Write;
+/// fn main() {
+///     # i_slint_backend_testing::init_integration_test_with_mock_time();
+///     use std::io::Write;
 ///
-/// let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-/// let local_addr = listener.local_addr().unwrap();
-/// let server = std::thread::spawn(move || {
-///     let mut stream = listener.incoming().next().unwrap().unwrap();
-///     stream.write("Hello World".as_bytes()).unwrap();
-/// });
+///     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+///     let local_addr = listener.local_addr().unwrap();
+///     let server = std::thread::spawn(move || {
+///         let mut stream = listener.incoming().next().unwrap().unwrap();
+///         stream.write("Hello World".as_bytes()).unwrap();
+///     });
 ///
-/// let slint_future = async move {
-///     use tokio::io::AsyncReadExt;
-///     let mut stream = tokio::net::TcpStream::connect(local_addr).await.unwrap();
-///     let mut data = Vec::new();
-///     stream.read_to_end(&mut data).await.unwrap();
-///     assert_eq!(data, "Hello World".as_bytes());
-///     slint::quit_event_loop().unwrap();
-/// };
+///     let slint_future = async move {
+///         use tokio::io::AsyncReadExt;
+///         let mut stream = tokio::net::TcpStream::connect(local_addr).await.unwrap();
+///         let mut data = Vec::new();
+///         stream.read_to_end(&mut data).await.unwrap();
+///         assert_eq!(data, "Hello World".as_bytes());
+///         slint::quit_event_loop().unwrap();
+///     };
 ///
-/// // Wrap the future that includes Tokio futures in async_compat's `Compat` to ensure
-/// // presence of a Tokio run-time.
-/// slint::spawn_local(async_compat::Compat::new(slint_future)).unwrap();
+///     // Wrap the future that includes Tokio futures in async_compat's `Compat` to ensure
+///     // presence of a Tokio run-time.
+///     slint::spawn_local(async_compat::Compat::new(slint_future)).unwrap();
 ///
-/// slint::run_event_loop_until_quit().unwrap();
+///     slint::run_event_loop_until_quit().unwrap();
 ///
-/// server.join().unwrap();
+///     server.join().unwrap();
+/// }
 /// ```
 ///
 /// The use of `#[tokio::main]` is **not recommended**. If it's necessary to use though, wrap the call to enter the Slint
