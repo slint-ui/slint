@@ -141,13 +141,10 @@ enum AccessibleRole {
     RadioGroup = 20;
 }
 
-enum RecordedEventSource {
-    Runtime = 0;
-}
-
 enum RecordedEventResult {
-    Processed = 0;
-    Ignored = 1;
+    Accepted = 0;
+    Rejected = 1;
+    Ignored = 2;
 }
 
 message ElementQueryInstruction {
@@ -230,7 +227,7 @@ message RequestQueryElementDescendants {
 message RequestEventLog {
     Handle window_handle = 1;
     uint64 since_sequence = 2;
-    uint32 max_events = 3;
+    uint64 max_events = 3;
     bool clear_after_read = 4;
 }
 
@@ -363,10 +360,11 @@ message ElementQueryResponse {
 }
 
 message RecordedEvent {
+    reserved 4;
+    reserved "source";
     uint64 sequence = 1;
     uint64 timestamp_ms = 2;
     Handle window_handle = 3;
-    RecordedEventSource source = 4;
     WindowEvent event = 5;
     RecordedEventResult result = 6;
 }
@@ -377,6 +375,10 @@ message EventLogResponse {
     // Zero when no events have ever been recorded (or after a clear).
     uint64 next_sequence = 2;
     uint64 dropped_count = 3;
+    // Number of events skipped because their variant could not be converted to
+    // proto. Non-zero indicates a bug: the conversion code is out of sync with
+    // i_slint_core::platform::WindowEvent / PointerEventButton.
+    uint64 unknown_event_count = 4;
 }
 
 message ClearEventLogResponse {
@@ -388,6 +390,8 @@ message StartEventRecordingResponse {
 message StopEventRecordingResponse {
     repeated RecordedEvent events = 1;
     uint64 dropped_count = 2;
+    // See EventLogResponse.unknown_event_count.
+    uint64 unknown_event_count = 3;
 }
 
 message AUTResponse {

@@ -122,6 +122,7 @@ pub(crate) struct IntrospectionState {
     event_log: RefCell<VecDeque<proto::RecordedEvent>>,
     next_event_sequence: Cell<u64>,
     dropped_event_count: Cell<u64>,
+    unknown_event_count: Cell<u64>,
     recording_enabled: Cell<bool>,
 }
 
@@ -134,6 +135,7 @@ impl IntrospectionState {
             event_log: Default::default(),
             next_event_sequence: Default::default(),
             dropped_event_count: Default::default(),
+            unknown_event_count: Default::default(),
             recording_enabled: Cell::new(false),
         }
     }
@@ -291,6 +293,19 @@ impl IntrospectionState {
         if !self.recording_enabled.get() {
             return;
         }
+
+        let proto_event = match convert_window_event_to_proto(event) {
+            Ok(e) => e,
+            Err(UnknownEventVariant) => {
+                eprintln!(
+                    "MCP/systest event recorder: skipping unknown WindowEvent variant {event:?} — \
+                     conversion code is out of sync with i_slint_core::platform"
+                );
+                self.unknown_event_count.set(self.unknown_event_count.get().saturating_add(1));
+                return;
+            }
+        };
+
         let sequence = self.next_event_sequence.get();
         self.next_event_sequence.set(sequence.saturating_add(1));
 
@@ -300,7 +315,7 @@ impl IntrospectionState {
             .unwrap_or_default();
 
         let mut log = self.event_log.borrow_mut();
-        if log.len() >= EVENT_LOG_CAP {
+        while log.len() >= EVENT_LOG_CAP {
             log.pop_front();
             self.dropped_event_count.set(self.dropped_event_count.get().saturating_add(1));
         }
@@ -308,8 +323,7 @@ impl IntrospectionState {
             sequence,
             timestamp_ms,
             window_handle: self.window_handle_for_adapter(adapter).map(index_to_handle),
-            source: proto::RecordedEventSource::Runtime.into(),
-            event: Some(convert_window_event_to_proto(event)),
+            event: Some(proto_event),
             result: convert_event_dispatch_result(result).into(),
         });
     }
@@ -319,7 +333,7 @@ impl IntrospectionState {
         &self,
         window_index: Option<ArenaIndex>,
         since_sequence: u64,
-        max_events: u32,
+        max_events: u64,
         clear_after_read: bool,
     ) -> proto::EventLogResponse {
         let max_events = if max_events == 0 { 200 } else { max_events.min(1000) } as usize;
@@ -350,6 +364,7 @@ impl IntrospectionState {
             // it as sinceSequence on the next poll without arithmetic.
             next_sequence,
             dropped_count: self.dropped_event_count.get(),
+            unknown_event_count: self.unknown_event_count.get(),
         };
         if clear_after_read {
             self.event_log
@@ -362,6 +377,7 @@ impl IntrospectionState {
     pub fn clear_event_log(&self) {
         self.event_log.borrow_mut().clear();
         self.dropped_event_count.set(0);
+        self.unknown_event_count.set(0);
     }
 
     pub fn start_recording(&self) {
@@ -373,8 +389,9 @@ impl IntrospectionState {
         self.recording_enabled.set(false);
         let events: Vec<_> = self.event_log.borrow().iter().cloned().collect();
         let dropped_count = self.dropped_event_count.get();
+        let unknown_event_count = self.unknown_event_count.get();
         self.clear_event_log();
-        proto::StopEventRecordingResponse { events, dropped_count }
+        proto::StopEventRecordingResponse { events, dropped_count, unknown_event_count }
     }
 
     pub fn window_properties(
@@ -409,90 +426,97 @@ impl IntrospectionState {
     }
 }
 
+/// Returned when a [`i_slint_core::platform::WindowEvent`] or
+/// [`i_slint_core::platform::PointerEventButton`] variant has no proto mapping —
+/// indicates the conversion code is out of date with the core enums.
+#[derive(Debug)]
+pub(crate) struct UnknownEventVariant;
+
 pub(crate) fn convert_window_event_to_proto(
     event: &i_slint_core::platform::WindowEvent,
-) -> proto::WindowEvent {
+) -> Result<proto::WindowEvent, UnknownEventVariant> {
     use i_slint_core::platform::WindowEvent;
     use proto::window_event::Event;
 
     let event = match event {
         WindowEvent::PointerPressed { position, button } => {
-            Some(Event::PointerPressed(proto::PointerPressEvent {
+            Event::PointerPressed(proto::PointerPressEvent {
                 position: Some(proto::LogicalPosition { x: position.x, y: position.y }),
-                button: convert_pointer_event_button_to_proto(*button).into(),
-            }))
+                button: convert_pointer_event_button_to_proto(*button)?.into(),
+            })
         }
         WindowEvent::PointerReleased { position, button } => {
-            Some(Event::PointerReleased(proto::PointerReleaseEvent {
+            Event::PointerReleased(proto::PointerReleaseEvent {
                 position: Some(proto::LogicalPosition { x: position.x, y: position.y }),
-                button: convert_pointer_event_button_to_proto(*button).into(),
-            }))
+                button: convert_pointer_event_button_to_proto(*button)?.into(),
+            })
         }
-        WindowEvent::PointerMoved { position } => {
-            Some(Event::PointerMoved(proto::PointerMoveEvent {
-                position: Some(proto::LogicalPosition { x: position.x, y: position.y }),
-            }))
-        }
+        WindowEvent::PointerMoved { position } => Event::PointerMoved(proto::PointerMoveEvent {
+            position: Some(proto::LogicalPosition { x: position.x, y: position.y }),
+        }),
         WindowEvent::PointerScrolled { position, delta_x, delta_y } => {
-            Some(Event::PointerScrolled(proto::PointerScrolledEvent {
+            Event::PointerScrolled(proto::PointerScrolledEvent {
                 position: Some(proto::LogicalPosition { x: position.x, y: position.y }),
                 delta_x: *delta_x,
                 delta_y: *delta_y,
-            }))
+            })
         }
-        WindowEvent::PointerExited => Some(Event::PointerExited(proto::PointerExitedEvent {})),
+        WindowEvent::PointerExited => Event::PointerExited(proto::PointerExitedEvent {}),
         WindowEvent::KeyPressed { text } => {
-            Some(Event::KeyPressed(proto::KeyPressedEvent { text: text.to_string() }))
+            Event::KeyPressed(proto::KeyPressedEvent { text: text.to_string() })
         }
         WindowEvent::KeyPressRepeated { text } => {
-            Some(Event::KeyPressRepeated(proto::KeyPressRepeatedEvent { text: text.to_string() }))
+            Event::KeyPressRepeated(proto::KeyPressRepeatedEvent { text: text.to_string() })
         }
         WindowEvent::KeyReleased { text } => {
-            Some(Event::KeyReleased(proto::KeyReleasedEvent { text: text.to_string() }))
+            Event::KeyReleased(proto::KeyReleasedEvent { text: text.to_string() })
         }
         WindowEvent::ScaleFactorChanged { scale_factor } => {
-            Some(Event::ScaleFactorChanged(proto::ScaleFactorChangedEvent {
-                scale_factor: *scale_factor,
-            }))
+            Event::ScaleFactorChanged(proto::ScaleFactorChangedEvent { scale_factor: *scale_factor })
         }
-        WindowEvent::Resized { size } => Some(Event::Resized(proto::ResizedEvent {
+        WindowEvent::Resized { size } => Event::Resized(proto::ResizedEvent {
             size: Some(proto::LogicalSize { width: size.width, height: size.height }),
-        })),
-        WindowEvent::CloseRequested => Some(Event::CloseRequested(proto::CloseRequestedEvent {})),
+        }),
+        WindowEvent::CloseRequested => Event::CloseRequested(proto::CloseRequestedEvent {}),
         WindowEvent::WindowActiveChanged(active) => {
-            Some(Event::WindowActiveChanged(proto::WindowActiveChangedEvent { active: *active }))
+            Event::WindowActiveChanged(proto::WindowActiveChangedEvent { active: *active })
         }
         // All current variants are covered above. This arm exists only because
-        // WindowEvent is #[non_exhaustive]; future variants will log with event: None.
+        // WindowEvent is #[non_exhaustive]; future variants are reported as a bug
+        // via record_window_event's unknown_event_count.
         #[allow(unreachable_patterns)]
-        _ => None,
+        _ => return Err(UnknownEventVariant),
     };
 
-    proto::WindowEvent { event }
+    Ok(proto::WindowEvent { event: Some(event) })
 }
 
 fn convert_pointer_event_button_to_proto(
     button: i_slint_core::platform::PointerEventButton,
-) -> proto::PointerEventButton {
-    match button {
+) -> Result<proto::PointerEventButton, UnknownEventVariant> {
+    Ok(match button {
         i_slint_core::platform::PointerEventButton::Left => proto::PointerEventButton::Left,
         i_slint_core::platform::PointerEventButton::Right => proto::PointerEventButton::Right,
         i_slint_core::platform::PointerEventButton::Middle => proto::PointerEventButton::Middle,
         i_slint_core::platform::PointerEventButton::Back => proto::PointerEventButton::Back,
         i_slint_core::platform::PointerEventButton::Forward => proto::PointerEventButton::Forward,
         i_slint_core::platform::PointerEventButton::Other => proto::PointerEventButton::Other,
-        // PointerEventButton is #[non_exhaustive]; future buttons map to Other.
+        // PointerEventButton is #[non_exhaustive]; future buttons surface as a bug
+        // via record_window_event's unknown_event_count.
         #[allow(unreachable_patterns)]
-        _ => proto::PointerEventButton::Other,
-    }
+        _ => return Err(UnknownEventVariant),
+    })
 }
 
 fn convert_event_dispatch_result(
     result: i_slint_core::context::WindowEventDispatchResult,
 ) -> proto::RecordedEventResult {
     match result {
-        i_slint_core::context::WindowEventDispatchResult::Processed => {
-            proto::RecordedEventResult::Processed
+        i_slint_core::context::WindowEventDispatchResult::Accepted => {
+            proto::RecordedEventResult::Accepted
+        }
+        i_slint_core::context::WindowEventDispatchResult::Rejected => {
+            proto::RecordedEventResult::Rejected
         }
         i_slint_core::context::WindowEventDispatchResult::Ignored => {
             proto::RecordedEventResult::Ignored
@@ -778,7 +802,7 @@ pub(crate) mod dispatch {
         state: &IntrospectionState,
         window: Option<ArenaIndex>,
         since_sequence: u64,
-        max_events: u32,
+        max_events: u64,
         clear_after_read: bool,
     ) -> proto::EventLogResponse {
         state.query_event_log(window, since_sequence, max_events, clear_after_read)
@@ -913,21 +937,18 @@ fn test_event_log_filters_since_sequence_and_window() {
         proto::RecordedEvent {
             sequence: 0,
             window_handle: Some(index_to_handle(first_window)),
-            source: proto::RecordedEventSource::Runtime.into(),
-            result: proto::RecordedEventResult::Processed.into(),
+            result: proto::RecordedEventResult::Accepted.into(),
             ..Default::default()
         },
         proto::RecordedEvent {
             sequence: 1,
             window_handle: Some(index_to_handle(second_window)),
-            source: proto::RecordedEventSource::Runtime.into(),
-            result: proto::RecordedEventResult::Processed.into(),
+            result: proto::RecordedEventResult::Accepted.into(),
             ..Default::default()
         },
         proto::RecordedEvent {
             sequence: 2,
             window_handle: Some(index_to_handle(first_window)),
-            source: proto::RecordedEventSource::Runtime.into(),
             result: proto::RecordedEventResult::Ignored.into(),
             ..Default::default()
         },
@@ -950,14 +971,13 @@ fn test_event_log_eviction_at_cap() {
     // Fill the log to capacity directly, simulating EVENT_LOG_CAP + 10 recorded events.
     for seq in 0..(EVENT_LOG_CAP + 10) as u64 {
         let mut log = state.event_log.borrow_mut();
-        if log.len() >= EVENT_LOG_CAP {
+        while log.len() >= EVENT_LOG_CAP {
             log.pop_front();
             state.dropped_event_count.set(state.dropped_event_count.get().saturating_add(1));
         }
         log.push_back(proto::RecordedEvent {
             sequence: seq,
-            source: proto::RecordedEventSource::Runtime.into(),
-            result: proto::RecordedEventResult::Processed.into(),
+            result: proto::RecordedEventResult::Accepted.into(),
             ..Default::default()
         });
         state.next_event_sequence.set(seq + 1);
@@ -986,8 +1006,7 @@ fn test_event_log_pagination_cursor_advances_to_returned_page() {
     for seq in 0..3 {
         state.event_log.borrow_mut().push_back(proto::RecordedEvent {
             sequence: seq,
-            source: proto::RecordedEventSource::Runtime.into(),
-            result: proto::RecordedEventResult::Processed.into(),
+            result: proto::RecordedEventResult::Accepted.into(),
             ..Default::default()
         });
     }
@@ -1008,8 +1027,7 @@ fn test_event_log_clear_keeps_sequence_monotonic() {
     state.next_event_sequence.set(42);
     state.event_log.borrow_mut().push_back(proto::RecordedEvent {
         sequence: 41,
-        source: proto::RecordedEventSource::Runtime.into(),
-        result: proto::RecordedEventResult::Processed.into(),
+        result: proto::RecordedEventResult::Accepted.into(),
         ..Default::default()
     });
 
@@ -1021,15 +1039,18 @@ fn test_event_log_clear_keeps_sequence_monotonic() {
 #[test]
 fn test_pointer_event_button_mapping_preserves_extended_buttons() {
     assert_eq!(
-        convert_pointer_event_button_to_proto(i_slint_core::platform::PointerEventButton::Back),
+        convert_pointer_event_button_to_proto(i_slint_core::platform::PointerEventButton::Back)
+            .unwrap(),
         proto::PointerEventButton::Back
     );
     assert_eq!(
-        convert_pointer_event_button_to_proto(i_slint_core::platform::PointerEventButton::Forward),
+        convert_pointer_event_button_to_proto(i_slint_core::platform::PointerEventButton::Forward)
+            .unwrap(),
         proto::PointerEventButton::Forward
     );
     assert_eq!(
-        convert_pointer_event_button_to_proto(i_slint_core::platform::PointerEventButton::Other),
+        convert_pointer_event_button_to_proto(i_slint_core::platform::PointerEventButton::Other)
+            .unwrap(),
         proto::PointerEventButton::Other
     );
     assert_eq!(

@@ -27,7 +27,7 @@ pub use crate::{format, string::SharedString, string::ToSharedString};
 impl From<crate::input::KeyEventResult> for WindowEventDispatchResult {
     fn from(value: crate::input::KeyEventResult) -> Self {
         match value {
-            crate::input::KeyEventResult::EventAccepted => Self::Processed,
+            crate::input::KeyEventResult::EventAccepted => Self::Accepted,
             crate::input::KeyEventResult::EventIgnored => Self::Ignored,
         }
     }
@@ -663,7 +663,7 @@ impl Window {
                     click_count: 0,
                     touch_finger_id: 0,
                 });
-                WindowEventDispatchResult::Processed
+                WindowEventDispatchResult::Accepted
             }
             crate::platform::WindowEvent::PointerReleased { position, button } => {
                 self.0.process_mouse_input(MouseEvent::Released {
@@ -672,14 +672,14 @@ impl Window {
                     click_count: 0,
                     touch_finger_id: 0,
                 });
-                WindowEventDispatchResult::Processed
+                WindowEventDispatchResult::Accepted
             }
             crate::platform::WindowEvent::PointerMoved { position } => {
                 self.0.process_mouse_input(MouseEvent::Moved {
                     position: position.to_euclid().cast(),
                     touch_finger_id: 0,
                 });
-                WindowEventDispatchResult::Processed
+                WindowEventDispatchResult::Accepted
             }
             crate::platform::WindowEvent::PointerScrolled { position, delta_x, delta_y } => {
                 self.0.process_mouse_input(MouseEvent::Wheel {
@@ -688,11 +688,11 @@ impl Window {
                     delta_y: delta_y as _,
                     phase: TouchPhase::Cancelled,
                 });
-                WindowEventDispatchResult::Processed
+                WindowEventDispatchResult::Accepted
             }
             crate::platform::WindowEvent::PointerExited => {
                 self.0.process_mouse_input(MouseEvent::Exit);
-                WindowEventDispatchResult::Processed
+                WindowEventDispatchResult::Accepted
             }
 
             crate::platform::WindowEvent::KeyPressed { text } => self
@@ -721,7 +721,7 @@ impl Window {
                 .into(),
             crate::platform::WindowEvent::ScaleFactorChanged { scale_factor } => {
                 self.0.set_scale_factor(scale_factor);
-                WindowEventDispatchResult::Processed
+                WindowEventDispatchResult::Accepted
             }
             crate::platform::WindowEvent::Resized { size } => {
                 self.0.set_window_item_geometry(size.to_euclid());
@@ -729,19 +729,19 @@ impl Window {
                 if let Some(item_rc) = self.0.focus_item.borrow().upgrade() {
                     item_rc.try_scroll_into_visible();
                 }
-                WindowEventDispatchResult::Processed
+                WindowEventDispatchResult::Accepted
             }
             crate::platform::WindowEvent::CloseRequested => {
                 if self.0.request_close() {
                     self.hide()?;
-                    WindowEventDispatchResult::Processed
+                    WindowEventDispatchResult::Accepted
                 } else {
-                    WindowEventDispatchResult::Ignored
+                    WindowEventDispatchResult::Rejected
                 }
             }
             crate::platform::WindowEvent::WindowActiveChanged(bool) => {
                 self.0.set_active(bool);
-                WindowEventDispatchResult::Processed
+                WindowEventDispatchResult::Accepted
             }
         };
         if let Some(event_for_hook) = event_for_hook

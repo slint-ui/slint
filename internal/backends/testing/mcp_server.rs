@@ -122,7 +122,7 @@ const TOOLS: &[ToolDef] = &[
     },
     ToolDef {
         name: "stop_event_recording",
-        description: "Stop recording and return all events collected since the last start_event_recording call. The response includes an events array and droppedCount (events evicted when the 1024-entry cap was reached). Use to verify that Slint received and processed pointer, key, resize, scale, close, and active-state events.",
+        description: "Stop recording and return all events collected since the last start_event_recording call. The response includes an events array, droppedCount (events evicted when the 1024-entry cap was reached), and unknownEventCount (non-zero indicates a Slint bug: an event variant has no proto mapping). Use to verify that Slint received and processed pointer, key, resize, scale, close, and active-state events.",
         request_type: "RequestStopEventRecording",
         optional_fields: &[],
     },
@@ -472,8 +472,7 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "- ClickAction: SingleClick, DoubleClick\n",
                     "- ElementAccessibilityAction: Default_, Increment, Decrement, Expand\n",
                     "- KeyEventType: PressAndRelease, Press, Release\n",
-                    "- RecordedEventSource: Runtime\n",
-                    "- RecordedEventResult: Processed, Ignored\n",
+                    "- RecordedEventResult: Accepted, Rejected, Ignored\n",
                     "- LayoutKind: NotALayout, HorizontalLayout, VerticalLayout, GridLayout, FlexboxLayout\n",
                     "Omitted enum fields default to the first value (e.g. Left, SingleClick, PressAndRelease).\n\n",
 

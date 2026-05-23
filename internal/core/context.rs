@@ -19,9 +19,14 @@ pub(crate) type WindowEventHook =
 /// Result of dispatching a window event through Slint's runtime.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WindowEventDispatchResult {
-    /// The event was processed by the runtime.
-    Processed,
-    /// The event was ignored by the item tree.
+    /// A receiver handled the event (e.g. a key handler consumed it, or the
+    /// runtime acted on a resize / scale / close).
+    Accepted,
+    /// A receiver actively refused the event (e.g. a `close-requested` callback
+    /// prevented the window from closing).
+    Rejected,
+    /// The event fell through without being handled (e.g. a key event with no
+    /// matching handler).
     Ignored,
 }
 
