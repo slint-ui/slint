@@ -153,7 +153,19 @@ pub fn set_quit_on_last_window_closed(quit_on_last_window_closed: bool) -> napi:
 #[napi]
 pub fn init_testing() {
     #[cfg(feature = "testing")]
-    i_slint_backend_testing::init_integration_test_with_mock_time();
+    {
+        // Under node-slint the platform is already set to winit before
+        // any JavaScript runs, so swap-in the testing backend would
+        // panic.  Skip it — the i-slint-backend-testing helpers
+        // (sendKeyboardStringSequence, sendMouseClick, …) work on any
+        // WindowAdapter, so test cases that drive a real window still
+        // function with winit in place.
+        #[cfg(feature = "backend-winit")]
+        if winit_libuv_handler::is_node_slint() {
+            return;
+        }
+        i_slint_backend_testing::init_integration_test_with_mock_time();
+    }
 }
 
 #[napi]

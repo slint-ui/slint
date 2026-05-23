@@ -30,6 +30,10 @@ renderer-femtovg = ["slint-node/renderer-femtovg"]
 renderer-skia = ["slint-node/renderer-skia"]
 renderer-software = ["slint-node/renderer-software"]
 accessibility = ["slint-node/accessibility"]
+# Enables `i-slint-backend-testing` inside slint-node so private_api
+# functions like sendKeyboardStringSequence dispatch real events when
+# the test driver runs against this runner.
+testing = ["slint-node/testing"]
 
 [dependencies]
 # slint-node is linked as rlib so napi_register_module_v1 ends up in this
