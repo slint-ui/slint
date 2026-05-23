@@ -83,21 +83,34 @@ fn with_notify(id: u32, f: impl FnOnce(&ModelNotify)) {
 #[wasm_bindgen]
 pub fn wasm_model_notify_row_data_changed(notify: &WasmSharedModelNotify, row: u32) {
     with_notify(notify.id, |n| n.row_changed(row as usize));
+    wake_event_loop();
 }
 
 #[wasm_bindgen]
 pub fn wasm_model_notify_row_added(notify: &WasmSharedModelNotify, row: u32, count: u32) {
     with_notify(notify.id, |n| n.row_added(row as usize, count as usize));
+    wake_event_loop();
 }
 
 #[wasm_bindgen]
 pub fn wasm_model_notify_row_removed(notify: &WasmSharedModelNotify, row: u32, count: u32) {
     with_notify(notify.id, |n| n.row_removed(row as usize, count as usize));
+    wake_event_loop();
 }
 
 #[wasm_bindgen]
 pub fn wasm_model_notify_reset(notify: &WasmSharedModelNotify) {
     with_notify(notify.id, |n| n.reset());
+    wake_event_loop();
+}
+
+/// Wake the winit event loop so that any pending `request_redraw` queued by a
+/// property change is actually processed. On wasm, `request_redraw` alone does
+/// not wake the loop (see the `WakeEventLoopWorkaround` comment in
+/// `i_slint_backend_winit::event_loop`). Posting an empty closure via
+/// `invoke_from_event_loop` posts the wake event as a side effect.
+fn wake_event_loop() {
+    let _ = slint_interpreter::invoke_from_event_loop(|| {});
 }
 
 #[wasm_bindgen]
@@ -573,9 +586,12 @@ impl WrappedInstance {
             .find(|(n, _)| n == name)
             .map(|(_, t)| t);
         let val = js_to_value(&value, ty.as_ref());
-        self.0
+        let result = self
+            .0
             .set_property(name, val)
-            .map_err(|e| JsValue::from_str(&format!("{e:?}")))
+            .map_err(|e| JsValue::from_str(&format!("{e:?}")));
+        wake_event_loop();
+        result
     }
 
     /// Registers a callback handler.
@@ -597,10 +613,13 @@ impl WrappedInstance {
     #[wasm_bindgen]
     pub fn invoke(&self, name: &str, args: js_sys::Array) -> Result<JsValue, JsValue> {
         let values: Vec<Value> = args.iter().map(|a| js_to_value(&a, None)).collect();
-        self.0
+        let result = self
+            .0
             .invoke(name, &values)
             .map(|v| value_to_js(&v))
-            .map_err(|e| JsValue::from_str(&format!("{e:?}")))
+            .map_err(|e| JsValue::from_str(&format!("{e:?}")));
+        wake_event_loop();
+        result
     }
 
     /// Gets a global property value.
@@ -630,9 +649,12 @@ impl WrappedInstance {
             .global_properties(global_name)
             .and_then(|mut props| props.find(|(n, _)| n == name).map(|(_, t)| t));
         let val = js_to_value(&value, ty.as_ref());
-        self.0
+        let result = self
+            .0
             .set_global_property(global_name, name, val)
-            .map_err(|e| JsValue::from_str(&format!("{e:?}")))
+            .map_err(|e| JsValue::from_str(&format!("{e:?}")));
+        wake_event_loop();
+        result
     }
 
     /// Registers a callback handler on a global.
@@ -664,10 +686,13 @@ impl WrappedInstance {
         args: js_sys::Array,
     ) -> Result<JsValue, JsValue> {
         let values: Vec<Value> = args.iter().map(|a| js_to_value(&a, None)).collect();
-        self.0
+        let result = self
+            .0
             .invoke_global(global_name, name, &values)
             .map(|v| value_to_js(&v))
-            .map_err(|e| JsValue::from_str(&format!("{e:?}")))
+            .map_err(|e| JsValue::from_str(&format!("{e:?}")));
+        wake_event_loop();
+        result
     }
 
     /// Returns the window handle (not useful in WASM, included for API parity).
