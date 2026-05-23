@@ -609,6 +609,8 @@ jobs:
         needs: files-changed
         if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_rs == 'true' || needs.files-changed.outputs.examples == 'true' }}
         runs-on: ubuntu-latest
+        env:
+            RUSTFLAGS: -D warnings
         steps:
             - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
