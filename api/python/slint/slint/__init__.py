@@ -14,7 +14,7 @@ import types
 import logging
 import copy
 import typing
-from typing import Any, Dict
+from typing import Any
 import pathlib
 from .models import ListModel, Model
 from .slint import Image, Color, Brush, Keys, DataTransfer, StyledText, Timer, TimerMode
@@ -73,10 +73,10 @@ def _normalize_prop(name: str) -> str:
     return name.replace("-", "_")
 
 
-def _build_global_class(compdef: Any, global_name: str) -> Any:
+def _build_global_class(compdef: native.ComponentDefinition, global_name: str) -> Any:
     """Build a wrapper class for a Slint global singleton."""
 
-    properties_and_callbacks: Dict[str, Any] = {
+    properties_and_callbacks: dict[str, Any] = {
         "__slint_global_name__": global_name,
         "__slint_component_definition__": compdef,
     }
@@ -111,7 +111,7 @@ def _build_global_class(compdef: Any, global_name: str) -> Any:
             continue
 
         def mk_setter_getter(prop_or_callback_name: str) -> property:
-            def getter(self: Component) -> Any:
+            def getter(self: Component) -> typing.Callable[..., Any]:
                 def call(*args: Any) -> Any:
                     return self.__instance__.invoke_global(
                         global_name, prop_or_callback_name, *args
@@ -119,7 +119,7 @@ def _build_global_class(compdef: Any, global_name: str) -> Any:
 
                 return call
 
-            def setter(self: Component, value: Any) -> None:
+            def setter(self: Component, value: typing.Callable[..., Any]) -> None:
                 self.__instance__.set_global_callback(
                     global_name, prop_or_callback_name, value
                 )
@@ -136,7 +136,7 @@ def _build_global_class(compdef: Any, global_name: str) -> Any:
             continue
 
         def mk_getter(function_name: str) -> property:
-            def getter(self: Component) -> Any:
+            def getter(self: Component) -> typing.Callable[..., Any]:
                 def call(*args: Any) -> Any:
                     return self.__instance__.invoke_global(
                         global_name, function_name, *args
@@ -544,19 +544,28 @@ def _decorated_callbacks(
 ) -> typing.Iterator[
     tuple[str, typing.Dict[str, Any], bool, typing.Callable[..., Any]]
 ]:
-    callbacks: dict[str, tuple[typing.Dict[str, Any], bool]] = {}
+    callbacks: list[
+        tuple[str, typing.Dict[str, Any], bool]
+    ] = []
+    seen_attrs: set[str] = set()
 
-    for cls in reversed(type(instance).__mro__):
+    for cls in type(instance).__mro__:
         for attr_name, attr in cls.__dict__.items():
-            if hasattr(attr, "slint.callback"):
-                callbacks[attr_name] = (
-                    getattr(attr, "slint.callback"),
-                    getattr(attr, "slint.async", False),
-                )
-            elif attr_name in callbacks:
-                del callbacks[attr_name]
+            if attr_name in seen_attrs:
+                continue
 
-    for attr_name, (callback_info, is_async) in callbacks.items():
+            seen_attrs.add(attr_name)
+
+            if hasattr(attr, "slint.callback"):
+                callbacks.append(
+                    (
+                        attr_name,
+                        getattr(attr, "slint.callback"),
+                        getattr(attr, "slint.async", False),
+                    )
+                )
+
+    for attr_name, callback_info, is_async in callbacks:
         yield attr_name, callback_info, is_async, getattr(instance, attr_name)
 
 
