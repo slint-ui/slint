@@ -26,6 +26,10 @@ pub(crate) mod proto;
 const ELEMENT_HANDLE_CAP: usize = 10_000;
 const EVENT_LOG_CAP: usize = 1024;
 
+fn bump(counter: &Cell<u64>) {
+    counter.set(counter.get().saturating_add(1));
+}
+
 thread_local! {
     static SHARED_STATE: RefCell<Option<Rc<IntrospectionState>>> = const { RefCell::new(None) };
     static WINDOW_TRACKING_HOOK_INSTALLED: Cell<bool> = const { Cell::new(false) };
@@ -123,6 +127,7 @@ pub(crate) struct IntrospectionState {
     next_event_sequence: Cell<u64>,
     dropped_event_count: Cell<u64>,
     unknown_event_count: Cell<u64>,
+    unknown_event_warned: Cell<bool>,
     recording_enabled: Cell<bool>,
 }
 
@@ -136,6 +141,7 @@ impl IntrospectionState {
             next_event_sequence: Default::default(),
             dropped_event_count: Default::default(),
             unknown_event_count: Default::default(),
+            unknown_event_warned: Cell::new(false),
             recording_enabled: Cell::new(false),
         }
     }
@@ -297,11 +303,15 @@ impl IntrospectionState {
         let proto_event = match convert_window_event_to_proto(event) {
             Ok(e) => e,
             Err(UnknownEventVariant) => {
-                eprintln!(
-                    "MCP/systest event recorder: skipping unknown WindowEvent variant {event:?} — \
-                     conversion code is out of sync with i_slint_core::platform"
-                );
-                self.unknown_event_count.set(self.unknown_event_count.get().saturating_add(1));
+                // Log once per process; the counter carries the magnitude.
+                if !self.unknown_event_warned.replace(true) {
+                    eprintln!(
+                        "MCP/systest event recorder: unknown WindowEvent variant {event:?} — \
+                         conversion code is out of sync with i_slint_core::platform. \
+                         Further occurrences are silent; see unknown_event_count."
+                    );
+                }
+                bump(&self.unknown_event_count);
                 return;
             }
         };
@@ -314,18 +324,26 @@ impl IntrospectionState {
             .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
             .unwrap_or_default();
 
-        let mut log = self.event_log.borrow_mut();
-        while log.len() >= EVENT_LOG_CAP {
-            log.pop_front();
-            self.dropped_event_count.set(self.dropped_event_count.get().saturating_add(1));
-        }
-        log.push_back(proto::RecordedEvent {
+        self.push_recorded_event(proto::RecordedEvent {
             sequence,
             timestamp_ms,
             window_handle: self.window_handle_for_adapter(adapter).map(index_to_handle),
             event: Some(proto_event),
             result: convert_event_dispatch_result(result).into(),
         });
+    }
+
+    /// Push a recorded event, evicting the oldest entries until the log is
+    /// strictly below `EVENT_LOG_CAP`. Each evicted entry bumps
+    /// `dropped_event_count`. This is the single source of truth for the
+    /// eviction policy; tests should drive eviction through this method.
+    fn push_recorded_event(&self, event: proto::RecordedEvent) {
+        let mut log = self.event_log.borrow_mut();
+        while log.len() >= EVENT_LOG_CAP {
+            log.pop_front();
+            bump(&self.dropped_event_count);
+        }
+        log.push_back(event);
     }
 
     #[cfg(feature = "system-testing")]
@@ -387,10 +405,9 @@ impl IntrospectionState {
 
     pub fn stop_recording(&self) -> proto::StopEventRecordingResponse {
         self.recording_enabled.set(false);
-        let events: Vec<_> = self.event_log.borrow().iter().cloned().collect();
-        let dropped_count = self.dropped_event_count.get();
-        let unknown_event_count = self.unknown_event_count.get();
-        self.clear_event_log();
+        let events: Vec<_> = self.event_log.borrow_mut().drain(..).collect();
+        let dropped_count = self.dropped_event_count.replace(0);
+        let unknown_event_count = self.unknown_event_count.replace(0);
         proto::StopEventRecordingResponse { events, dropped_count, unknown_event_count }
     }
 
@@ -968,14 +985,9 @@ fn test_event_log_filters_since_sequence_and_window() {
 fn test_event_log_eviction_at_cap() {
     let state = IntrospectionState::new();
 
-    // Fill the log to capacity directly, simulating EVENT_LOG_CAP + 10 recorded events.
+    // Push EVENT_LOG_CAP + 10 events through the real eviction path.
     for seq in 0..(EVENT_LOG_CAP + 10) as u64 {
-        let mut log = state.event_log.borrow_mut();
-        while log.len() >= EVENT_LOG_CAP {
-            log.pop_front();
-            state.dropped_event_count.set(state.dropped_event_count.get().saturating_add(1));
-        }
-        log.push_back(proto::RecordedEvent {
+        state.push_recorded_event(proto::RecordedEvent {
             sequence: seq,
             result: proto::RecordedEventResult::Accepted.into(),
             ..Default::default()

@@ -142,9 +142,12 @@ enum AccessibleRole {
 }
 
 enum RecordedEventResult {
-    Accepted = 0;
-    Rejected = 1;
-    Ignored = 2;
+    // Default; only appears when a deserializer reads a corrupt or
+    // partially-populated RecordedEvent. The recorder never writes this.
+    Unspecified = 0;
+    Accepted = 1;
+    Rejected = 2;
+    Ignored = 3;
 }
 
 message ElementQueryInstruction {

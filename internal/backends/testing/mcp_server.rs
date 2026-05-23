@@ -472,7 +472,7 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "- ClickAction: SingleClick, DoubleClick\n",
                     "- ElementAccessibilityAction: Default_, Increment, Decrement, Expand\n",
                     "- KeyEventType: PressAndRelease, Press, Release\n",
-                    "- RecordedEventResult: Accepted, Rejected, Ignored\n",
+                    "- RecordedEventResult: Unspecified, Accepted, Rejected, Ignored (Unspecified appears only on malformed data)\n",
                     "- LayoutKind: NotALayout, HorizontalLayout, VerticalLayout, GridLayout, FlexboxLayout\n",
                     "Omitted enum fields default to the first value (e.g. Left, SingleClick, PressAndRelease).\n\n",
 
