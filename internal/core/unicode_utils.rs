@@ -98,7 +98,7 @@ mod tests {
 
     #[test]
     fn test_ceil_byte_offset() {
-        let text = "héllo";
+        let text = "héllo"; // cspell:disable-line
         assert_eq!(ceil_byte_offset(text, 0), 0);
         assert_eq!(ceil_byte_offset(text, 1), 1);
         assert_eq!(ceil_byte_offset(text, 2), 3); // middle of é → after é
@@ -107,7 +107,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ceil_byte_offset_multibyte() {
+    fn test_ceil_byte_offset_cjk() {
         let text = "日本語";
         assert_eq!(ceil_byte_offset(text, 1), 3);
         assert_eq!(ceil_byte_offset(text, 2), 3);
@@ -207,7 +207,7 @@ mod tests {
 
     #[test]
     fn test_roundtrip_utf16_byte() {
-        let text = "héllo 日本語 😀 world";
+        let text = "héllo 日本語 😀 world"; // cspell:disable-line
         for (idx, _) in text.char_indices() {
             let utf16 = byte_offset_to_utf16_offset(text, idx);
             let back = utf16_offset_to_byte_offset_clamped(text, utf16);
