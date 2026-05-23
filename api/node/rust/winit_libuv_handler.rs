@@ -219,12 +219,12 @@ fn fire_quit_callbacks(state: &State) {
 /// Returns when winit's `run_event_loop` returns.  The runner is then
 /// responsible for tearing Node down.
 pub fn start_node_slint_event_loop(
-    uv_loop_ptr: i64,
-    node_env_ptr: i64,
+    uv_loop: *mut std::ffi::c_void,
+    node_env: *mut std::ffi::c_void,
     bootstrap_js: String,
 ) -> napi::Result<()> {
-    if uv_loop_ptr == 0 || node_env_ptr == 0 {
-        return Err(napi::Error::from_reason("uv_loop_ptr or env_ptr is null"));
+    if uv_loop.is_null() || node_env.is_null() {
+        return Err(napi::Error::from_reason("uv_loop or node_env is null"));
     }
     let uv = UvFunctions::load().ok_or_else(|| {
         napi::Error::from_reason("libuv symbols not found in host process")
@@ -233,8 +233,8 @@ pub fn start_node_slint_event_loop(
         .map_err(|_| napi::Error::from_reason("bootstrap JS contains NUL"))?;
 
     let state: &'static State = Box::leak(Box::new(State {
-        uv_loop: uv_loop_ptr as *mut _,
-        node_env: node_env_ptr as *mut _,
+        uv_loop,
+        node_env,
         bootstrap_js,
         uv,
         bootstrap_done: Cell::new(false),

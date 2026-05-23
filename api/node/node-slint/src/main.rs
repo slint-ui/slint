@@ -31,7 +31,7 @@ unsafe extern "C" {
     fn node_slint_run(
         argc: c_int,
         argv: *mut *mut c_char,
-        body: Option<unsafe extern "C" fn(i64, i64, *mut c_void)>,
+        body: Option<unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void)>,
         userdata: *mut c_void,
     ) -> c_int;
 }
@@ -102,12 +102,16 @@ fn extract_napi_stub() -> std::io::Result<std::path::PathBuf> {
 
 /// Called by the C++ shim with V8 scopes active.  Registers the winit
 /// custom handler and starts slint's event loop; returns when it exits.
-unsafe extern "C" fn body(uv_loop_ptr: i64, node_env_ptr: i64, _userdata: *mut c_void) {
+unsafe extern "C" fn body(
+    uv_loop: *mut c_void,
+    node_env: *mut c_void,
+    _userdata: *mut c_void,
+) {
     #[cfg(feature = "backend-winit")]
     {
         if let Err(e) = slint_node::start_node_slint_event_loop(
-            uv_loop_ptr,
-            node_env_ptr,
+            uv_loop,
+            node_env,
             BOOTSTRAP_JS.to_string(),
         ) {
             eprintln!("node-slint: {}", e);
@@ -115,7 +119,7 @@ unsafe extern "C" fn body(uv_loop_ptr: i64, node_env_ptr: i64, _userdata: *mut c
     }
     #[cfg(not(feature = "backend-winit"))]
     {
-        let _ = (uv_loop_ptr, node_env_ptr);
+        let _ = (uv_loop, node_env);
         eprintln!("node-slint: built without backend-winit; cannot start event loop");
     }
 }

@@ -15,15 +15,13 @@ extern "C" {
 //
 // `body` runs with the V8 isolate locked and a context scope active, so
 // it may freely call NAPI / V8 functions.  It receives the libuv loop
-// pointer and a `node::Environment*` (opaque) — pass these on to
-// `node_slint_load_environment` when ready.  `body` is expected to run
-// the slint event loop (which blocks until exit) and return when the
-// loop has terminated.
+// (`uv_loop_t *`) and the `node::Environment *` as opaque pointers —
+// pass these on to `node_slint_load_environment` when ready.  `body` is
+// expected to run the slint event loop (which blocks until exit) and
+// return when the loop has terminated.
 //
 // After `body` returns, Node is stopped and torn down.
-typedef void (*NodeSlintBody)(int64_t uv_loop_ptr,
-                              int64_t node_env_ptr,
-                              void *userdata);
+typedef void (*NodeSlintBody)(void *uv_loop, void *node_env, void *userdata);
 
 int node_slint_run(int argc, char **argv, NodeSlintBody body, void *userdata);
 
@@ -32,7 +30,7 @@ int node_slint_run(int argc, char **argv, NodeSlintBody body, void *userdata);
 // is queued in libuv and processed by subsequent `uv_run` calls.
 //
 // Must be called from inside `body` (V8 context active).
-void node_slint_load_environment(int64_t node_env_ptr, const char *script);
+void node_slint_load_environment(void *node_env, const char *script);
 
 // Drain V8's microtask queue.  Needed after firing JS callbacks from
 // Rust when no further libuv callback will run before we exit —

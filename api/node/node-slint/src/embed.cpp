@@ -48,9 +48,7 @@ extern "C" int node_slint_run(int argc,
         // Hand control to Rust, which registers the winit handler and
         // calls slint::run_event_loop().  Returns when slint exits;
         // libuv has been drained by the handler's about_to_wait logic.
-        body(reinterpret_cast<int64_t>(uv_loop),
-             reinterpret_cast<int64_t>(env),
-             userdata);
+        body(static_cast<void *>(uv_loop), static_cast<void *>(env), userdata);
 
         node::Stop(env);
     }
@@ -60,10 +58,9 @@ extern "C" int node_slint_run(int argc,
     return 0;
 }
 
-extern "C" void node_slint_load_environment(int64_t node_env_ptr,
-                                            const char *script)
+extern "C" void node_slint_load_environment(void *node_env, const char *script)
 {
-    auto *env = reinterpret_cast<node::Environment *>(node_env_ptr);
+    auto *env = static_cast<node::Environment *>(node_env);
     // The outer body() call entered a HandleScope before invoking us;
     // we open a nested one so handles created by LoadEnvironment get
     // released when this function returns.
