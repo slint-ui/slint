@@ -489,7 +489,9 @@ pub(crate) fn convert_window_event_to_proto(
             Event::KeyReleased(proto::KeyReleasedEvent { text: text.to_string() })
         }
         WindowEvent::ScaleFactorChanged { scale_factor } => {
-            Event::ScaleFactorChanged(proto::ScaleFactorChangedEvent { scale_factor: *scale_factor })
+            Event::ScaleFactorChanged(proto::ScaleFactorChangedEvent {
+                scale_factor: *scale_factor,
+            })
         }
         WindowEvent::Resized { size } => Event::Resized(proto::ResizedEvent {
             size: Some(proto::LogicalSize { width: size.width, height: size.height }),
