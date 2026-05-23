@@ -555,9 +555,7 @@ def _decorated_callbacks(
 ) -> typing.Iterator[
     tuple[str, typing.Dict[str, Any], bool, typing.Callable[..., Any]]
 ]:
-    callbacks: list[
-        tuple[str, typing.Dict[str, Any], bool]
-    ] = []
+    callbacks: list[tuple[str, typing.Dict[str, Any], bool]] = []
     seen_attrs: set[str] = set()
 
     for cls in type(instance).__mro__:
