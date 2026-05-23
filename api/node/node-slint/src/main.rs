@@ -18,6 +18,14 @@
 //! process.execPath)`, which dlopens this binary and finds that symbol.
 
 use std::ffi::{CString, c_char, c_int, c_void};
+use std::io::Write;
+
+/// Tiny stub shared library whose `napi_register_module_v1` forwards to
+/// `slint_napi_register_module_v1` exported by this binary.  Generated
+/// by `build.rs`; written to a temp file at startup so JS can hand its
+/// path to `process.dlopen`.
+#[cfg(not(target_os = "windows"))]
+const NAPI_STUB_SO: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/napi_stub.so"));
 
 unsafe extern "C" {
     fn node_slint_run(
@@ -39,6 +47,10 @@ fn force_napi_link() {
 /// JS bootstrap.  Intercepts `Module._load` so any require that would
 /// reach the slint native binary returns this binary's in-process napi
 /// module instead.  Then dynamic-imports the user script.
+///
+/// The stub `.so` referenced by `NODE_SLINT_STUB_PATH` re-exports
+/// `napi_register_module_v1` that `dlsym(RTLD_DEFAULT)`s back into our
+/// own `slint_napi_register_module_v1` — see `build.rs`.
 const BOOTSTRAP_JS: &str = r#"
 const Module = require('module');
 const path = require('path');
@@ -47,11 +59,12 @@ const { pathToFileURL } = require('url');
 const interceptPattern =
     /(?:^|[\\/])rust-module\.(?:cjs|node)$|slint-ui.*\.node$/;
 
+const stubPath = process.env.NODE_SLINT_STUB_PATH;
 let cachedNapi = null;
 function loadInProcess() {
     if (cachedNapi === null) {
         const mod = { exports: {} };
-        process.dlopen(mod, process.execPath);
+        process.dlopen(mod, stubPath);
         cachedNapi = mod.exports;
     }
     return cachedNapi;
@@ -77,6 +90,16 @@ const script = path.resolve(process.argv[1]);
 import(pathToFileURL(script).href);
 "#;
 
+#[cfg(not(target_os = "windows"))]
+fn extract_napi_stub() -> std::io::Result<std::path::PathBuf> {
+    let pid = std::process::id();
+    let path = std::env::temp_dir().join(format!("node-slint-stub-{}.so", pid));
+    let mut f = std::fs::File::create(&path)?;
+    f.write_all(NAPI_STUB_SO)?;
+    drop(f);
+    Ok(path)
+}
+
 /// Called by the C++ shim with V8 scopes active.  Registers the winit
 /// custom handler and starts slint's event loop; returns when it exits.
 unsafe extern "C" fn body(uv_loop_ptr: i64, node_env_ptr: i64, _userdata: *mut c_void) {
@@ -100,6 +123,14 @@ unsafe extern "C" fn body(uv_loop_ptr: i64, node_env_ptr: i64, _userdata: *mut c
 fn main() {
     #[cfg(not(target_os = "windows"))]
     force_napi_link();
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let stub_path = extract_napi_stub()
+            .expect("failed to write napi stub to temp dir");
+        // SAFETY: single-threaded; env var is read by the bootstrap JS.
+        unsafe { std::env::set_var("NODE_SLINT_STUB_PATH", &stub_path) };
+    }
 
     let args: Vec<CString> = std::env::args()
         .map(|a| CString::new(a).expect("argv contains NUL"))

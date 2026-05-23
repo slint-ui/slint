@@ -60,11 +60,22 @@ impl UvFunctions {
     }
 }
 
+// These two symbols are provided by node-slint's C++ shim.  The cdylib
+// build (loaded by plain `node` from a .node file) doesn't link against
+// the shim, so it gets the no-op stubs below — the runner-only code
+// path that would call them is unreachable in that build.
+#[cfg(feature = "node-slint-runner")]
 unsafe extern "C" {
-    /// Implemented by the `node-slint` runner's C++ shim.  Calls
-    /// `node::LoadEnvironment(env, script)` on the V8 isolate the
-    /// runner is currently inside.
     fn node_slint_load_environment(env: *mut std::ffi::c_void, script: *const c_char);
+    fn node_slint_perform_microtask_checkpoint();
+}
+#[cfg(not(feature = "node-slint-runner"))]
+unsafe fn node_slint_load_environment(_: *mut std::ffi::c_void, _: *const c_char) {
+    unreachable!("node-slint runner-only code reached from plain `node`")
+}
+#[cfg(not(feature = "node-slint-runner"))]
+unsafe fn node_slint_perform_microtask_checkpoint() {
+    unreachable!("node-slint runner-only code reached from plain `node`")
 }
 
 struct QuitCb {
@@ -154,8 +165,15 @@ impl CustomApplicationHandler for LibuvHandler {
         unsafe { (state.uv.uv_run)(state.uv_loop, UV_RUN_NOWAIT) };
 
         // Fire JS quit callbacks once if quitEventLoop() was called.
+        // Drain the microtask queue afterwards so the `await`
+        // continuations queued by Promise resolution (e.g.,
+        // `console.log("after")` past a `await runEventLoop()`) run
+        // before we exit.  Then pump libuv once more in case those
+        // continuations queued new tasks.
         if state.quit_pending.replace(false) && !state.quit_complete.replace(true) {
             fire_quit_callbacks(state);
+            unsafe { node_slint_perform_microtask_checkpoint() };
+            unsafe { (state.uv.uv_run)(state.uv_loop, UV_RUN_NOWAIT) };
         }
 
         // Decide whether we're done.  Two conditions:

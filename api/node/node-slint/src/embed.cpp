@@ -73,3 +73,8 @@ extern "C" void node_slint_load_environment(int64_t node_env_ptr,
         std::fprintf(stderr, "node-slint: LoadEnvironment failed\n");
     }
 }
+
+extern "C" void node_slint_perform_microtask_checkpoint(void)
+{
+    v8::Isolate::GetCurrent()->PerformMicrotaskCheckpoint();
+}

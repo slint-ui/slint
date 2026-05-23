@@ -46,6 +46,12 @@ accessibility = ["slint-interpreter/accessibility"]
 # Removed by node_package xtask
 testing = ["dep:i-slint-backend-testing"]
 
+# Enabled by the `node-slint` runner binary: tells slint-node it can
+# call the `node_slint_*` C symbols provided by the runner's C++ shim.
+# Plain-`node` cdylib builds leave this off, so the runner-only code
+# paths fall through to stubs that panic if reached.
+node-slint-runner = []
+
 [dependencies]
 napi = { version = "3", default-features = false, features = ["napi8"] }
 napi-derive = "3"

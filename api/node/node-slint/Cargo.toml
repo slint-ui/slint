@@ -37,7 +37,7 @@ accessibility = ["slint-node/accessibility"]
 # `require('slint-ui/rust-module.cjs')` is redirected by the bootstrap to
 # `process.dlopen(mod, process.execPath)`, which loads this binary as a
 # NAPI addon and finds the in-process symbol.
-slint-node = { path = "..", default-features = false }
+slint-node = { path = "..", default-features = false, features = ["node-slint-runner"] }
 
 [build-dependencies]
 cc = "1"

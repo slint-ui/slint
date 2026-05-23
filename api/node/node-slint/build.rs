@@ -60,14 +60,57 @@ fn main() {
         }
     }
 
-    // Export napi_register_module_v1 in the binary's dynamic symbol table
-    // so `process.dlopen(mod, process.execPath)` can find it.
+    // Export `slint_napi_register_module_v1` in the binary's dynamic
+    // symbol table so the stub .so (see below) can find it via
+    // `dlsym(RTLD_DEFAULT, ...)`.
     if cfg!(target_os = "linux") {
         println!("cargo:rustc-link-arg=-rdynamic");
     } else if cfg!(target_os = "macos") {
         println!("cargo:rustc-link-arg=-Wl,-undefined,dynamic_lookup");
         println!("cargo:rustc-link-arg=-Wl,-export_dynamic");
     }
+
+    // glibc refuses `dlopen()` on the running executable, so we can't
+    // point `process.dlopen` at process.execPath directly.  Compile a
+    // tiny stub shared library whose `napi_register_module_v1` forwards
+    // to our own `slint_napi_register_module_v1`, then `include_bytes!`
+    // it into the runner so main.rs can drop it into a temp dir at
+    // startup.
+    build_napi_stub();
+}
+
+fn build_napi_stub() {
+    let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let stub_c = out_dir.join("napi_stub.c");
+    let stub_so = out_dir.join("napi_stub.so");
+
+    std::fs::write(
+        &stub_c,
+        r#"
+#include <dlfcn.h>
+typedef void *napi_env;
+typedef void *napi_value;
+typedef napi_value (*register_func)(napi_env, napi_value);
+
+napi_value napi_register_module_v1(napi_env env, napi_value exports) {
+    register_func fn = (register_func) dlsym(RTLD_DEFAULT,
+        "slint_napi_register_module_v1");
+    if (!fn) return exports;
+    return fn(env, exports);
+}
+"#,
+    )
+    .expect("write napi_stub.c");
+
+    let cc = env::var("CC").unwrap_or_else(|_| "cc".to_string());
+    let status = std::process::Command::new(&cc)
+        .args(["-shared", "-fPIC", "-O2", "-ldl", "-o"])
+        .arg(&stub_so)
+        .arg(&stub_c)
+        .status()
+        .expect("compile napi_stub.so");
+    assert!(status.success(), "napi_stub.so compilation failed");
+    println!("cargo:rerun-if-changed={}", stub_c.display());
 }
 
 enum LinkKind {
@@ -121,7 +164,33 @@ fn from_node_dir(dir: &Path) -> Result<(Vec<PathBuf>, LinkKind), String> {
         }
     }
 
-    // Static archives first (preferred — self-contained binary).
+    // Shared library is preferred when present: configure --shared
+    // builds a single libnode.so and the .a files left over from other
+    // build modes are usually thin archives pointing into a temporary
+    // build dir.
+    let search_dirs: Vec<PathBuf> = ["lib", "out/Release/lib", "out/Release", "Release"]
+        .iter()
+        .map(|s| dir.join(s))
+        .filter(|p| p.is_dir())
+        .collect();
+    for d in &search_dirs {
+        if d.join("libnode.so").exists()
+            || d.join("libnode.dylib").exists()
+            || d.read_dir().ok().into_iter().flatten().filter_map(|e| e.ok()).any(|e| {
+                let f = e.file_name();
+                let n = f.to_string_lossy();
+                n.starts_with("libnode.so.") || n.starts_with("libnode.")
+            })
+        {
+            return Ok((
+                include_dirs,
+                LinkKind::Shared { search_dirs: search_dirs.clone() },
+            ));
+        }
+    }
+
+    // No shared library found: fall back to the full set of static archives
+    // produced by configure --enable-static-zoslib (or default static build).
     let lib_dir = dir.join("lib");
     if lib_dir.is_dir() {
         let archives: Vec<PathBuf> = std::fs::read_dir(&lib_dir)
@@ -135,12 +204,6 @@ fn from_node_dir(dir: &Path) -> Result<(Vec<PathBuf>, LinkKind), String> {
         }
     }
 
-    // Shared library.
-    let search_dirs: Vec<PathBuf> = ["lib", "out/Release/lib", "out/Release", "Release"]
-        .iter()
-        .map(|s| dir.join(s))
-        .filter(|p| p.is_dir())
-        .collect();
     if search_dirs.is_empty() {
         return Err(format!("no lib directories under {}", dir.display()));
     }

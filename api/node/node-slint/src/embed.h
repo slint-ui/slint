@@ -34,6 +34,12 @@ int node_slint_run(int argc, char **argv, NodeSlintBody body, void *userdata);
 // Must be called from inside `body` (V8 context active).
 void node_slint_load_environment(int64_t node_env_ptr, const char *script);
 
+// Drain V8's microtask queue.  Needed after firing JS callbacks from
+// Rust when no further libuv callback will run before we exit —
+// otherwise `await` continuations queued by Promise resolution stay
+// stuck in the microtask queue.
+void node_slint_perform_microtask_checkpoint(void);
+
 #ifdef __cplusplus
 }
 #endif
