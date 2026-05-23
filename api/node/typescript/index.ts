@@ -725,6 +725,17 @@ class EventLoop {
             });
         }
 
+        // node-slint runner: winit is already running.  Register a
+        // quit callback that resolves our termination Promise.
+        if (typeof napi.isNodeSlint === "function" && napi.isNodeSlint()) {
+            try {
+                napi.nodeSlintRegisterQuitCallback(() => this.#resolve());
+                return this.#terminationPromise;
+            } catch {
+                // Fall through.
+            }
+        }
+
         if (napi.hasIntegratedEventLoop()) {
             try {
                 // Register a uv_prepare handle that pumps Slint events
@@ -735,22 +746,6 @@ class EventLoop {
             } catch {
                 // process_events not supported (e.g. testing backend) —
                 // fall through to the polling fallback.
-            }
-        }
-
-        // node-slint on Windows: winit drives, libuv is ticked from
-        // CustomApplicationHandler::about_to_wait.  Block here until the
-        // Slint loop exits, then resolve.
-        if (
-            typeof napi.hasWinitLibuvIntegration === "function" &&
-            napi.hasWinitLibuvIntegration()
-        ) {
-            try {
-                napi.runEventLoopBlocking();
-                this.#resolve();
-                return this.#terminationPromise;
-            } catch {
-                // Fall through to the polling fallback.
             }
         }
 

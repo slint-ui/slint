@@ -47,7 +47,7 @@ SRCDIR="${WORKDIR}/node-v${NODE_VERSION}"
 cd "${SRCDIR}"
 
 echo "Configuring (--prefix=${PREFIX}) ..."
-./configure --prefix="${PREFIX}"
+./configure --shared --prefix="${PREFIX}"
 
 echo "Building (${JOBS} parallel jobs) ..."
 make "-j${JOBS}"

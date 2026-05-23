@@ -18,13 +18,6 @@ mod winit_libuv_handler;
 #[cfg(feature = "backend-winit")]
 pub use winit_libuv_handler::*;
 
-/// Set to `true` by `register_winit_libuv_handler()` after a winit
-/// `CustomApplicationHandler` is registered with the backend selector.
-/// Read by `has_winit_libuv_integration()` from JS to choose between the
-/// blocking `run_event_loop_blocking()` path and the polling fallback.
-pub(crate) static WINIT_LIBUV_HANDLER_REGISTERED: std::sync::atomic::AtomicBool =
-    std::sync::atomic::AtomicBool::new(false);
-
 use napi::Env;
 use napi::bindgen_prelude::*;
 
@@ -128,8 +121,18 @@ pub fn invoke_from_event_loop(env: &Env, callback: DynFunction<'_>) -> napi::Res
 
 #[napi]
 pub fn quit_event_loop() -> napi::Result<()> {
-    // Don't call core's quit_event_loop — that permanently terminates the winit event loop.
-    // Set a flag so process_slint_events returns Exited on the next iteration.
+    // Under the node-slint runner, signal the winit handler instead so it
+    // can resolve any pending JS Promises before exiting.
+    #[cfg(feature = "backend-winit")]
+    {
+        if winit_libuv_handler::is_node_slint() {
+            winit_libuv_handler::request_quit();
+            return Ok(());
+        }
+    }
+    // Plain `node`: same behaviour as before — don't call core's
+    // quit_event_loop (which would permanently terminate winit), set a
+    // flag so process_slint_events returns Exited on the next iteration.
     uv_event_loop::request_quit();
     Ok(())
 }

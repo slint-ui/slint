@@ -14,8 +14,7 @@
 
 extern "C" int node_slint_run(int argc,
                               char **argv,
-                              const char *bootstrap_js,
-                              void (*before_user_script)(int64_t, void *),
+                              NodeSlintBody body,
                               void *userdata)
 {
     argv = uv_setup_args(argc, argv);
@@ -39,7 +38,6 @@ extern "C" int node_slint_run(int argc,
     v8::Isolate *isolate = setup->isolate();
     node::Environment *env = setup->env();
     uv_loop_t *uv_loop = setup->event_loop();
-    int exit_code = 0;
 
     {
         v8::Locker locker(isolate);
@@ -47,28 +45,31 @@ extern "C" int node_slint_run(int argc,
         v8::HandleScope handle_scope(isolate);
         v8::Context::Scope context_scope(setup->context());
 
-        // Let Rust register backend integrations (winit CustomApplicationHandler,
-        // etc.) before the user script runs.
-        if (before_user_script) {
-            before_user_script(reinterpret_cast<int64_t>(uv_loop), userdata);
-        }
+        // Hand control to Rust, which registers the winit handler and
+        // calls slint::run_event_loop().  Returns when slint exits;
+        // libuv has been drained by the handler's about_to_wait logic.
+        body(reinterpret_cast<int64_t>(uv_loop),
+             reinterpret_cast<int64_t>(env),
+             userdata);
 
-        v8::MaybeLocal<v8::Value> result = node::LoadEnvironment(env, bootstrap_js);
-        if (result.IsEmpty()) {
-            std::fprintf(stderr, "node-slint: failed to load bootstrap\n");
-            exit_code = 1;
-        }
-
-        // Drain libuv (timers, microtasks, any code after `await runEventLoop()`).
-        if (exit_code == 0) {
-            exit_code = node::SpinEventLoop(env).FromMaybe(1);
-        } else {
-            node::SpinEventLoop(env).FromMaybe(1);
-        }
         node::Stop(env);
     }
 
     setup.reset();
     node::TearDownOncePerProcess();
-    return exit_code;
+    return 0;
+}
+
+extern "C" void node_slint_load_environment(int64_t node_env_ptr,
+                                            const char *script)
+{
+    auto *env = reinterpret_cast<node::Environment *>(node_env_ptr);
+    // The outer body() call entered a HandleScope before invoking us;
+    // we open a nested one so handles created by LoadEnvironment get
+    // released when this function returns.
+    v8::HandleScope handle_scope(v8::Isolate::GetCurrent());
+    v8::MaybeLocal<v8::Value> result = node::LoadEnvironment(env, script);
+    if (result.IsEmpty()) {
+        std::fprintf(stderr, "node-slint: LoadEnvironment failed\n");
+    }
 }
