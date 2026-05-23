@@ -14,6 +14,92 @@ use slint_interpreter::{ComponentHandle, Value, ValueType};
 mod value_conversion;
 use value_conversion::{js_to_value, value_to_js};
 
+use std::cell::Cell;
+use std::collections::HashMap;
+use i_slint_core::model::ModelNotify;
+
+thread_local! {
+    /// Maps wasm-side notify IDs to their backing `Rc<ModelNotify>`.
+    /// Entries live as long as the corresponding [`WasmSharedModelNotify`]
+    /// wrapper on the JS side; removed in its `Drop`.
+    static NOTIFY_REGISTRY: RefCell<HashMap<u32, std::rc::Rc<ModelNotify>>> = Default::default();
+    static NEXT_NOTIFY_ID: Cell<u32> = const { Cell::new(1) };
+}
+
+/// JavaScript-side handle for a `ModelNotify`. Holds a stable integer ID
+/// looked up in [`NOTIFY_REGISTRY`]; the wrapper's `Drop` removes the entry
+/// so the underlying `Rc<ModelNotify>` is freed once Rust no longer holds
+/// any clones.
+#[wasm_bindgen]
+pub struct WasmSharedModelNotify {
+    id: u32,
+}
+
+#[wasm_bindgen]
+impl WasmSharedModelNotify {
+    /// Exposed so JS can read the ID and Rust can look the notify up via
+    /// `Reflect.get` when wrapping a JS Model.
+    #[wasm_bindgen(getter)]
+    pub fn id(&self) -> u32 {
+        self.id
+    }
+}
+
+impl Drop for WasmSharedModelNotify {
+    fn drop(&mut self) {
+        NOTIFY_REGISTRY.with(|r| {
+            r.borrow_mut().remove(&self.id);
+        });
+    }
+}
+
+/// Look up the underlying notify by ID. Returns `None` if the JS wrapper
+/// has been collected.
+pub(crate) fn notify_from_id(id: u32) -> Option<std::rc::Rc<ModelNotify>> {
+    NOTIFY_REGISTRY.with(|r| r.borrow().get(&id).cloned())
+}
+
+#[wasm_bindgen]
+pub fn wasm_model_notify_new() -> WasmSharedModelNotify {
+    let id = NEXT_NOTIFY_ID.with(|c| {
+        let id = c.get();
+        c.set(id + 1);
+        id
+    });
+    NOTIFY_REGISTRY.with(|r| {
+        r.borrow_mut().insert(id, std::rc::Rc::new(ModelNotify::default()));
+    });
+    WasmSharedModelNotify { id }
+}
+
+fn with_notify(id: u32, f: impl FnOnce(&ModelNotify)) {
+    NOTIFY_REGISTRY.with(|r| {
+        if let Some(n) = r.borrow().get(&id) {
+            f(n);
+        }
+    });
+}
+
+#[wasm_bindgen]
+pub fn wasm_model_notify_row_data_changed(notify: &WasmSharedModelNotify, row: u32) {
+    with_notify(notify.id, |n| n.row_changed(row as usize));
+}
+
+#[wasm_bindgen]
+pub fn wasm_model_notify_row_added(notify: &WasmSharedModelNotify, row: u32, count: u32) {
+    with_notify(notify.id, |n| n.row_added(row as usize, count as usize));
+}
+
+#[wasm_bindgen]
+pub fn wasm_model_notify_row_removed(notify: &WasmSharedModelNotify, row: u32, count: u32) {
+    with_notify(notify.id, |n| n.row_removed(row as usize, count as usize));
+}
+
+#[wasm_bindgen]
+pub fn wasm_model_notify_reset(notify: &WasmSharedModelNotify) {
+    with_notify(notify.id, |n| n.reset());
+}
+
 #[wasm_bindgen]
 #[allow(dead_code)]
 pub struct CompilationResult {
@@ -660,6 +746,24 @@ pub fn run_event_loop() -> Result<(), JsValue> {
     // Merely spawns the event loop, but does not block.
     slint_interpreter::run_event_loop().map_err(|e| -> JsValue { format!("{e}").into() })?;
     Ok(())
+}
+
+/// Quit the running event loop. The winit loop stops processing input and
+/// painting until `run_event_loop` is called again. The JS-side
+/// `runEventLoop` Promise (in the TypeScript wrapper) resolves separately.
+#[wasm_bindgen]
+pub fn quit_event_loop() -> Result<(), JsValue> {
+    slint_interpreter::quit_event_loop().map_err(|e| -> JsValue { format!("{e}").into() })
+}
+
+/// Set the HTML canvas element ID that the next created component instance
+/// will render into. Consumed by the platform's window_attributes_hook on
+/// the next window creation.
+#[wasm_bindgen]
+pub fn set_next_canvas_id(id: String) {
+    NEXT_CANVAS_ID.with(|next_id| {
+        *next_id.borrow_mut() = Some(id);
+    });
 }
 
 thread_local!(

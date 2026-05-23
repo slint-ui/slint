@@ -1,0 +1,18 @@
+{
+  "name": "slint-wasm-interpreter",
+  "version": "1.17.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build:wasm": "wasm-pack build --dev --target web -- --features console_error_panic_hook",
+    "build:wasm-release": "wasm-pack build --release --target web -- --features console_error_panic_hook",
+    "compile": "tsc --build"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  },
+  "dependencies": {
+    "slint-js-common": "workspace:*"
+  }
+}

@@ -1,0 +1,20 @@
+{
+    "compilerOptions": {
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        "target": "esnext",
+        "declaration": true,
+        "rootDir": "ts",
+        "outDir": "dist",
+        "skipLibCheck": true,
+        "strict": true,
+        "lib": ["esnext", "dom"]
+    },
+    "include": [
+        "ts/"
+    ],
+    "exclude": ["**/node_modules/**"],
+    "references": [
+        { "path": "../js-common" }
+    ]
+}

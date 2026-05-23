@@ -4,10 +4,12 @@
 packages:
   - api/js-common
   - api/node
+  - api/wasm-interpreter
   - editors/vscode
   - tools/figma-inspector
   - tools/slintpad
   - demos/printerdemo/node
+  - demos/printerdemo/browser
   - demos/home-automation/node
   - demos/energy-monitor
   - demos/weather-demo

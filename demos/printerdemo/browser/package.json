@@ -1,0 +1,17 @@
+{
+  "name": "printerdemo-browser",
+  "version": "1.17.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host --port 8000",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "slint-wasm-interpreter": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "catalog:"
+  }
+}
