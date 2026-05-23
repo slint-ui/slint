@@ -69,34 +69,35 @@ For a full example, see [/examples/todo/node](https://github.com/slint-ui/slint/
 
 ## API Overview
 
-### Instantiating a Component
+### Loading `.slint` Files
 
-The following example shows how to instantiate a Slint component from JavaScript.
+#### `import` with the Loader Hook (Recommended)
 
-**`ui/main.slint`**
+Import `.slint` files directly using the Slint loader hook.
+Register it with `--import slint-ui/register`:
 
-```slint
-export component MainWindow inherits Window {
-    callback clicked <=> i-touch-area.clicked;
-
-    in property <int> counter;
-
-    width: 400px;
-    height: 200px;
-
-    i-touch-area := TouchArea {}
-}
+```sh
+node --import slint-ui/register app.mjs
 ```
-
-Each exported Window component is exposed as a type constructor. The type constructor takes as parameter
-an object which allow to initialize the value of public properties or callbacks.
-
-**`main.js`**
 
 ```js
 import * as slint from "slint-ui";
-// In this example, the main.slint file exports a module which
-// has a counter property and a clicked callback
+import { MainWindow } from "./ui/main.slint";
+
+let component = new MainWindow({
+    counter: 42,
+    clicked: function() { console.log("hello"); }
+});
+```
+
+#### `loadFile()`
+
+Alternatively, call `loadFile()` at runtime.
+Use this for dynamic loading or to pass compiler options like `style` or `includePaths`:
+
+```js
+import * as slint from "slint-ui";
+
 let ui = slint.loadFile(new URL("ui/main.slint", import.meta.url));
 let component = new ui.MainWindow({
     counter: 42,
@@ -347,3 +348,4 @@ component.position = "top";
 // use the value of the enum
 component.position = ui.Position.bottom;
 ```
+
