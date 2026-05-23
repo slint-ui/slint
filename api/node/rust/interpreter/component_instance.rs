@@ -391,6 +391,27 @@ impl JsComponentInstance {
         #[cfg(feature = "testing")]
         {
             let window_adapter = WindowInner::from_pub(self.inner.window()).window_adapter();
+
+            // The testing-backend helper calls `mock_elapsed_time(50)`
+            // between press and release so click logic that distinguishes
+            // taps from holds works.  Under node-slint a real platform
+            // (winit) is installed, and advancing the global animation
+            // driver's clock past `Instant::now()` would break the
+            // monotonic-clock assertion in `update_animations()` on the
+            // next real frame.  Dispatch the events directly instead.
+            #[cfg(feature = "backend-winit")]
+            if crate::winit_libuv_handler::is_node_slint() {
+                use i_slint_core::api::LogicalPosition;
+                use i_slint_core::items::PointerEventButton;
+                use i_slint_core::platform::WindowEvent;
+                let position = LogicalPosition::new(_x as f32, _y as f32);
+                let button = PointerEventButton::Left;
+                let window = window_adapter.window();
+                window.dispatch_event(WindowEvent::PointerMoved { position });
+                window.dispatch_event(WindowEvent::PointerPressed { position, button });
+                window.dispatch_event(WindowEvent::PointerReleased { position, button });
+                return;
+            }
             i_slint_backend_testing::testing_backend::send_mouse_click(
                 _x as f32,
                 _y as f32,
