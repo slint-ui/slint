@@ -95,6 +95,16 @@ importers:
         specifier: 6.24.0
         version: 6.24.0
 
+  api/js/browser:
+    dependencies:
+      slint-js-common:
+        specifier: workspace:*
+        version: link:../common
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
   api/js/common:
     devDependencies:
       typescript:
@@ -149,6 +159,16 @@ importers:
       slint-ui:
         specifier: workspace:*
         version: link:../../../api/js/node
+
+  demos/printerdemo/browser:
+    dependencies:
+      slint-ui-browser:
+        specifier: workspace:*
+        version: link:../../../api/js/browser
+    devDependencies:
+      vite:
+        specifier: 'catalog:'
+        version: 8.1.3(@types/node@24.12.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.46.1)(yaml@2.9.0)
 
   demos/printerdemo/node:
     dependencies:

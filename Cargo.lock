@@ -7577,6 +7577,7 @@ name = "slint-wasm-interpreter"
 version = "1.18.0"
 dependencies = [
  "console_error_panic_hook",
+ "css-color-parser2",
  "i-slint-backend-winit",
  "i-slint-compiler",
  "i-slint-core",

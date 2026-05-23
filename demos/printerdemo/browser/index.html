@@ -1,0 +1,71 @@
+<!doctype html>
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Slint Printer Demo</title>
+  <style>
+    body { margin: 0; background: #1a1a1a; color: #ddd; font-family: sans-serif; }
+    #wrap { display: flex; flex-direction: column; align-items: center; padding: 8px; }
+    canvas { background: white; border-radius: 8px; max-width: 100%; }
+    #status { margin: 8px 0; font-size: 13px; color: #888; }
+    #status.error { color: #f88; }
+    #log {
+      width: 100%;
+      max-width: 1000px;
+      box-sizing: border-box;
+      max-height: 50vh;
+      overflow: auto;
+      background: #000;
+      color: #cfc;
+      font-family: monospace;
+      font-size: 11px;
+      padding: 8px;
+      border-radius: 6px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    #log .err { color: #f88; }
+    #log .warn { color: #fc8; }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="canvas" width="900" height="600"></canvas>
+    <div id="status">Booting…</div>
+    <div id="log"></div>
+  </div>
+  <script>
+    // Mirror console + uncaught errors into an on-page log so mobile users
+    // can debug without a desktop DevTools window.
+    (function () {
+      const logEl = document.getElementById("log");
+      function append(cls, args) {
+        const div = document.createElement("div");
+        if (cls) div.className = cls;
+        div.textContent = Array.from(args).map((a) => {
+          if (a instanceof Error) return a.stack || a.message;
+          if (typeof a === "object") {
+            try { return JSON.stringify(a); } catch { return String(a); }
+          }
+          return String(a);
+        }).join(" ");
+        logEl.appendChild(div);
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+      ["log", "info", "debug"].forEach((m) => {
+        const orig = console[m].bind(console);
+        console[m] = function (...a) { append("", a); orig(...a); };
+      });
+      console.warn = ((orig) => function (...a) { append("warn", a); orig(...a); })(console.warn.bind(console));
+      console.error = ((orig) => function (...a) { append("err", a); orig(...a); })(console.error.bind(console));
+      window.addEventListener("error", (e) => append("err", [`Uncaught: ${e.message} (${e.filename}:${e.lineno})`]));
+      window.addEventListener("unhandledrejection", (e) => append("err", [`Unhandled rejection: ${e.reason?.stack || e.reason}`]));
+      append("", ["[log initialized]"]);
+    })();
+  </script>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

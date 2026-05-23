@@ -3,9 +3,17 @@
     "version": "1.18.0",
     "private": true,
     "main": "dist/index.js",
+    "module": "dist/esm/index.js",
     "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/esm/index.js",
+            "require": "./dist/index.js"
+        }
+    },
     "scripts": {
-        "compile": "tsc --build"
+        "compile": "tsc --build && tsc --project tsconfig.esm.json"
     },
     "devDependencies": {
         "typescript": "catalog:"

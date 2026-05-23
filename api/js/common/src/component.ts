@@ -56,11 +56,25 @@ export class Component {
     }
 
     show(): void {
-        this.window.show();
+        const w = this.#instance.window() as { show?: () => void } | null;
+        if (w && typeof w.show === "function") {
+            w.show();
+            return;
+        }
+        // Browser/WASM: there is no separate window object — the instance
+        // owns its canvas and exposes show/hide directly.
+        const inst = this.#instance as unknown as { show?: () => void };
+        if (typeof inst.show === "function") inst.show();
     }
 
     hide(): void {
-        this.window.hide();
+        const w = this.#instance.window() as { hide?: () => void } | null;
+        if (w && typeof w.hide === "function") {
+            w.hide();
+            return;
+        }
+        const inst = this.#instance as unknown as { hide?: () => void };
+        if (typeof inst.hide === "function") inst.hide();
     }
 }
 
