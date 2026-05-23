@@ -164,6 +164,15 @@ fn format_node(
         SyntaxKind::StructDeclaration => {
             return format_struct_declaration(node, writer, state);
         }
+        SyntaxKind::EnumDeclaration => {
+            return format_enum_declaration(node, writer, state);
+        }
+        SyntaxKind::ExportsList => {
+            return format_exports_list(node, writer, state);
+        }
+        SyntaxKind::ExportSpecifier => {
+            return format_export_specifier(node, writer, state);
+        }
         SyntaxKind::ObjectType => {
             return format_object_type(node, writer, state);
         }
@@ -433,7 +442,8 @@ fn format_element(
     let ins_ctn = state.insertion_count;
     let mut inserted_newline = false;
 
-    for n in sub {
+    let mut sub = sub.peekable();
+    while let Some(n) = sub.next() {
         if n.kind() != SyntaxKind::Comment
             && let Some(last_removed_whitespace) = state.last_removed_whitespace.take()
         {
@@ -442,14 +452,30 @@ fn format_element(
                 state.new_line();
             }
         }
-        if n.kind() == SyntaxKind::Whitespace && !state.after_comment {
-            let is_empty_line =
-                n.as_token().map(|n| whitespace_has_empty_line(n.text())).unwrap_or(false);
-            if is_empty_line {
-                if !inserted_newline {
-                    state.new_line();
+        if n.kind() == SyntaxKind::Whitespace {
+            if state.after_comment {
+                // After a comment: check if the next non-trivia child is
+                // the closing brace. If so, skip this whitespace so the
+                // brace can get a properly indented newline.
+                let next_is_rbrace = sub
+                    .peek()
+                    .and_then(next_non_trivia_token_kind)
+                    .is_some_and(|k| k == SyntaxKind::RBrace);
+                if next_is_rbrace {
+                    state.after_comment = false;
+                    state.skip_all_whitespace = true;
+                    fold(n, writer, state)?;
+                    continue;
                 }
-                continue;
+            } else {
+                let is_empty_line =
+                    n.as_token().map(|n| whitespace_has_empty_line(n.text())).unwrap_or(false);
+                if is_empty_line {
+                    if !inserted_newline {
+                        state.new_line();
+                    }
+                    continue;
+                }
             }
         }
         inserted_newline = false;
@@ -759,43 +785,104 @@ fn format_qualified_name(
     Ok(())
 }
 
+/// Check whether the whitespace immediately preceding `token` in the token
+/// stream contains a newline.
+fn has_newline_before(token: &i_slint_compiler::parser::SyntaxToken) -> bool {
+    token
+        .prev_token()
+        .is_some_and(|prev| prev.kind() == SyntaxKind::Whitespace && prev.text().contains('\n'))
+}
+
 // Called both for BinaryExpression and SelfAssignment
 fn format_binary_expression(
     node: &SyntaxNode,
     writer: &mut impl TokenWriter,
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
-    let mut sub = node.children_with_tokens();
+    let op_token = node.children_with_tokens().find(|n| {
+        !matches!(n.kind(), SyntaxKind::Whitespace | SyntaxKind::Comment | SyntaxKind::Expression)
+    });
+    let has_newline = op_token.as_ref().and_then(|op| op.as_token()).is_some_and(|op| {
+        has_newline_before(op)
+            || op
+                .next_token()
+                .is_some_and(|t| t.kind() == SyntaxKind::Whitespace && t.text().contains('\n'))
+    });
 
-    let _ok = whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?
-        && whitespace_to_one_of(
-            &mut sub,
-            &[
-                SyntaxKind::Plus,
-                SyntaxKind::Minus,
-                SyntaxKind::Star,
-                SyntaxKind::Div,
-                SyntaxKind::AndAnd,
-                SyntaxKind::OrOr,
-                SyntaxKind::EqualEqual,
-                SyntaxKind::NotEqual,
-                SyntaxKind::LAngle,
-                SyntaxKind::LessEqual,
-                SyntaxKind::RAngle,
-                SyntaxKind::GreaterEqual,
-                SyntaxKind::Equal,
-                SyntaxKind::PlusEqual,
-                SyntaxKind::MinusEqual,
-                SyntaxKind::StarEqual,
-                SyntaxKind::DivEqual,
-            ],
-            writer,
-            state,
-            " ",
-        )?
-        .is_found()
-        && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
-
+    if has_newline {
+        let mut seen_first_expr = false;
+        for n in node.children_with_tokens() {
+            match n.kind() {
+                SyntaxKind::Whitespace => {
+                    state.skip_all_whitespace = true;
+                    fold(n, writer, state)?;
+                }
+                SyntaxKind::Comment => {
+                    fold(n, writer, state)?;
+                }
+                SyntaxKind::Expression => {
+                    if seen_first_expr {
+                        let nl = n
+                            .as_node()
+                            .and_then(|n| n.first_token())
+                            .is_some_and(|t| has_newline_before(&t));
+                        if nl {
+                            state.whitespace_to_add = None;
+                            state.indentation_level += 1;
+                            state.new_line();
+                            state.indentation_level -= 1;
+                        }
+                    }
+                    seen_first_expr = true;
+                    fold(n, writer, state)?;
+                }
+                _ => {
+                    if let Some(t) = n.as_token()
+                        && has_newline_before(t)
+                    {
+                        state.whitespace_to_add = None;
+                        state.indentation_level += 1;
+                        state.new_line();
+                        state.indentation_level -= 1;
+                    } else {
+                        state.insert_whitespace(" ");
+                    }
+                    fold(n, writer, state)?;
+                    state.insert_whitespace(" ");
+                }
+            }
+        }
+    } else {
+        let mut sub = node.children_with_tokens();
+        let _ok = whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?
+            && whitespace_to_one_of(
+                &mut sub,
+                &[
+                    SyntaxKind::Plus,
+                    SyntaxKind::Minus,
+                    SyntaxKind::Star,
+                    SyntaxKind::Div,
+                    SyntaxKind::AndAnd,
+                    SyntaxKind::OrOr,
+                    SyntaxKind::EqualEqual,
+                    SyntaxKind::NotEqual,
+                    SyntaxKind::LAngle,
+                    SyntaxKind::LessEqual,
+                    SyntaxKind::RAngle,
+                    SyntaxKind::GreaterEqual,
+                    SyntaxKind::Equal,
+                    SyntaxKind::PlusEqual,
+                    SyntaxKind::MinusEqual,
+                    SyntaxKind::StarEqual,
+                    SyntaxKind::DivEqual,
+                ],
+                writer,
+                state,
+                " ",
+            )?
+            .is_found()
+            && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
+    }
     Ok(())
 }
 
@@ -815,26 +902,99 @@ fn format_conditional_expression(
             finish_node(sub, writer, state)?;
             return Ok(());
         }
+        let mut pending_newline = false;
         while let Some(n) = sub.next() {
             state.skip_all_whitespace = true;
-            // `else`
-            if n.kind() == SyntaxKind::Identifier {
-                state.insert_whitespace(" ");
-                fold(n, writer, state)?;
-                whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
-                continue;
+            match n.kind() {
+                SyntaxKind::Whitespace => {
+                    if n.as_token().is_some_and(|t| t.text().contains('\n')) {
+                        pending_newline = true;
+                    }
+                    fold(n, writer, state)?;
+                }
+                SyntaxKind::Identifier => {
+                    // `else` keyword
+                    if pending_newline {
+                        state.new_line();
+                        pending_newline = false;
+                    } else {
+                        state.insert_whitespace(" ");
+                    }
+                    fold(n, writer, state)?;
+                    whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
+                }
+                _ => {
+                    fold(n, writer, state)?;
+                }
             }
-            fold(n, writer, state)?;
         }
         state.whitespace_to_add = None;
         state.new_line();
     } else {
-        let _ok = whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?
-            && whitespace_to(&mut sub, SyntaxKind::Question, writer, state, " ")?
-            && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?
-            && whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, " ")?
-            && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
-        finish_node(sub, writer, state)?;
+        let has_newline = node.children_with_tokens().any(|n| {
+            matches!(n.kind(), SyntaxKind::Question | SyntaxKind::Colon)
+                && n.as_token().is_some_and(|t| {
+                    has_newline_before(t)
+                        || t.next_token().is_some_and(|nt| {
+                            nt.kind() == SyntaxKind::Whitespace && nt.text().contains('\n')
+                        })
+                })
+        });
+
+        if has_newline {
+            let mut seen_first_expr = false;
+            for n in node.children_with_tokens() {
+                match n.kind() {
+                    SyntaxKind::Whitespace => {
+                        state.skip_all_whitespace = true;
+                        fold(n, writer, state)?;
+                    }
+                    SyntaxKind::Comment => {
+                        fold(n, writer, state)?;
+                    }
+                    SyntaxKind::Expression => {
+                        if seen_first_expr {
+                            let nl = n
+                                .as_node()
+                                .and_then(|n| n.first_token())
+                                .is_some_and(|t| has_newline_before(&t));
+                            if nl {
+                                state.whitespace_to_add = None;
+                                state.indentation_level += 1;
+                                state.new_line();
+                                state.indentation_level -= 1;
+                            }
+                        }
+                        seen_first_expr = true;
+                        fold(n, writer, state)?;
+                    }
+                    SyntaxKind::Question | SyntaxKind::Colon => {
+                        if let Some(t) = n.as_token()
+                            && has_newline_before(t)
+                        {
+                            state.whitespace_to_add = None;
+                            state.indentation_level += 1;
+                            state.new_line();
+                            state.indentation_level -= 1;
+                        } else {
+                            state.insert_whitespace(" ");
+                        }
+                        fold(n, writer, state)?;
+                        state.insert_whitespace(" ");
+                    }
+                    _ => {
+                        fold(n, writer, state)?;
+                    }
+                }
+            }
+        } else {
+            let _ok = whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?
+                && whitespace_to(&mut sub, SyntaxKind::Question, writer, state, " ")?
+                && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?
+                && whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, " ")?
+                && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
+            finish_node(sub, writer, state)?;
+        }
     }
     Ok(())
 }
@@ -844,13 +1004,29 @@ fn format_expression(
     writer: &mut impl TokenWriter,
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
-    // For expressions, we skip whitespace.
-    // Since state.skip_all_whitespace is reset every time we find something that is not a whitespace,
-    // we need to set it all the time.
+    let children: Vec<_> = node.children_with_tokens().collect();
+    let mut saw_non_ws = false;
 
-    for n in node.children_with_tokens() {
-        state.skip_all_whitespace = true;
-        fold(n, writer, state)?;
+    for (i, n) in children.iter().enumerate() {
+        if n.kind() == SyntaxKind::Whitespace {
+            if saw_non_ws
+                && children[i + 1..]
+                    .iter()
+                    .any(|c| !matches!(c.kind(), SyntaxKind::Whitespace | SyntaxKind::Comment))
+                && n.as_token().is_some_and(|t| t.text().contains('\n'))
+            {
+                state.whitespace_to_add = None;
+                state.indentation_level += 1;
+                state.new_line();
+                state.indentation_level -= 1;
+            }
+            state.skip_all_whitespace = true;
+            fold(n.clone(), writer, state)?;
+        } else {
+            saw_non_ws = true;
+            state.skip_all_whitespace = true;
+            fold(n.clone(), writer, state)?;
+        }
     }
     Ok(())
 }
@@ -1385,6 +1561,286 @@ fn format_struct_declaration(
         && whitespace_to(&mut sub, SyntaxKind::ObjectType, writer, state, " ")?;
     finish_node(sub, writer, state)?;
     state.new_line();
+    Ok(())
+}
+
+fn format_enum_declaration(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let has_trailing_comma = node
+        .last_token()
+        .and_then(|last| last.prev_token())
+        .and_then(prev_non_trivia_token_kind)
+        .map(|kind| kind == SyntaxKind::Comma)
+        .unwrap_or(false);
+    let len = node.children().fold(0, |acc, e| {
+        let mut len = 0;
+        e.text().for_each_chunk(|s| len += s.trim().len());
+        acc + len
+    });
+    let is_large = len >= 80;
+    let indent_with_new_line = is_large || has_trailing_comma;
+
+    let mut sub = node.children_with_tokens().peekable();
+    // `enum`
+    whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+    // name
+    whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, " ")?;
+    // `{`
+    whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?;
+
+    if indent_with_new_line {
+        state.indentation_level += 1;
+        state.new_line();
+    } else {
+        state.insert_whitespace(" ");
+    }
+
+    loop {
+        let el = whitespace_to_one_of(
+            &mut sub,
+            &[SyntaxKind::EnumValue, SyntaxKind::RBrace],
+            writer,
+            state,
+            "",
+        )?;
+
+        match el {
+            SyntaxMatch::Found(SyntaxKind::EnumValue) => {
+                // Check if the next non-whitespace token is RBrace (no comma after last value)
+                let next_is_rbrace = sub
+                    .peek()
+                    .map(|next| {
+                        if next.kind() == SyntaxKind::Whitespace {
+                            next.as_token()
+                                .and_then(|ws| ws.next_token())
+                                .map(|n| n.kind() == SyntaxKind::RBrace)
+                                .unwrap_or(false)
+                        } else {
+                            next.kind() == SyntaxKind::RBrace
+                        }
+                    })
+                    .unwrap_or(false);
+
+                if next_is_rbrace {
+                    whitespace_to(&mut sub, SyntaxKind::RBrace, writer, state, " ")?;
+                    break;
+                }
+
+                let comma = whitespace_to_one_of(
+                    &mut sub,
+                    &[SyntaxKind::Comma, SyntaxKind::RBrace],
+                    writer,
+                    state,
+                    "",
+                )?;
+                match comma {
+                    SyntaxMatch::Found(SyntaxKind::RBrace) => break,
+                    SyntaxMatch::Found(SyntaxKind::Comma) => {
+                        let is_trailing = sub
+                            .peek()
+                            .map(|next| {
+                                if next.kind() == SyntaxKind::Whitespace {
+                                    next.as_token()
+                                        .and_then(|ws| ws.next_token())
+                                        .map(|n| n.kind() == SyntaxKind::RBrace)
+                                        .unwrap_or(false)
+                                } else {
+                                    next.kind() == SyntaxKind::RBrace
+                                }
+                            })
+                            .unwrap_or(false);
+
+                        if is_trailing {
+                            if indent_with_new_line {
+                                state.indentation_level -= 1;
+                            }
+                            state.new_line();
+                            whitespace_to(&mut sub, SyntaxKind::RBrace, writer, state, "")?;
+                            break;
+                        }
+                        if indent_with_new_line {
+                            state.new_line();
+                        } else {
+                            state.insert_whitespace(" ");
+                        }
+                    }
+                    _ => break,
+                }
+            }
+            SyntaxMatch::Found(SyntaxKind::RBrace) => {
+                if indent_with_new_line {
+                    state.indentation_level -= 1;
+                }
+                break;
+            }
+            _ => break,
+        }
+    }
+    state.skip_all_whitespace = true;
+    finish_node(sub, writer, state)?;
+    state.new_line();
+    Ok(())
+}
+
+fn format_exports_list(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    // ExportsList may contain `export { Foo, Bar }` or `export component ...` etc.
+    // Only handle the brace-list case specially; otherwise fall through.
+    let has_lbrace = node.children_with_tokens().any(|n| n.kind() == SyntaxKind::LBrace);
+    if !has_lbrace {
+        // `export component ...` or `export struct ...` — delegate to default
+        for n in node.children_with_tokens() {
+            fold(n, writer, state)?;
+        }
+        return Ok(());
+    }
+
+    let has_trailing_comma = node
+        .children_with_tokens()
+        .filter_map(|n| n.into_token())
+        .find(|t| t.kind() == SyntaxKind::RBrace)
+        .and_then(|rbrace| rbrace.prev_token())
+        .and_then(prev_non_trivia_token_kind)
+        .map(|kind| kind == SyntaxKind::Comma)
+        .unwrap_or(false);
+    let is_large = node.text().len() > 80.into();
+    let indent_with_new_line = is_large || has_trailing_comma;
+
+    let mut sub = node.children_with_tokens().peekable();
+    // `export`
+    whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
+    // `{`
+    whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?;
+
+    if indent_with_new_line {
+        state.indentation_level += 1;
+        state.new_line();
+    } else {
+        state.insert_whitespace(" ");
+    }
+
+    loop {
+        let el = whitespace_to_one_of(
+            &mut sub,
+            &[SyntaxKind::ExportSpecifier, SyntaxKind::RBrace],
+            writer,
+            state,
+            "",
+        )?;
+
+        match el {
+            SyntaxMatch::Found(SyntaxKind::ExportSpecifier) => {
+                // Check if the next non-whitespace token is RBrace (no comma after last specifier)
+                let next_is_rbrace = sub
+                    .peek()
+                    .map(|next| {
+                        if next.kind() == SyntaxKind::Whitespace {
+                            next.as_token()
+                                .and_then(|ws| ws.next_token())
+                                .map(|n| n.kind() == SyntaxKind::RBrace)
+                                .unwrap_or(false)
+                        } else {
+                            next.kind() == SyntaxKind::RBrace
+                        }
+                    })
+                    .unwrap_or(false);
+
+                if next_is_rbrace {
+                    if indent_with_new_line {
+                        writer.insert_content(",")?;
+                        state.indentation_level -= 1;
+                        state.new_line();
+                        whitespace_to(&mut sub, SyntaxKind::RBrace, writer, state, "")?;
+                    } else {
+                        whitespace_to(&mut sub, SyntaxKind::RBrace, writer, state, " ")?;
+                    }
+                    break;
+                }
+
+                let comma = whitespace_to_one_of(
+                    &mut sub,
+                    &[SyntaxKind::Comma, SyntaxKind::RBrace],
+                    writer,
+                    state,
+                    "",
+                )?;
+                match comma {
+                    SyntaxMatch::Found(SyntaxKind::RBrace) => {
+                        if indent_with_new_line {
+                            state.indentation_level -= 1;
+                        }
+                        break;
+                    }
+                    SyntaxMatch::Found(SyntaxKind::Comma) => {
+                        let is_trailing = sub
+                            .peek()
+                            .map(|next| {
+                                if next.kind() == SyntaxKind::Whitespace {
+                                    next.as_token()
+                                        .and_then(|ws| ws.next_token())
+                                        .map(|n| n.kind() == SyntaxKind::RBrace)
+                                        .unwrap_or(false)
+                                } else {
+                                    next.kind() == SyntaxKind::RBrace
+                                }
+                            })
+                            .unwrap_or(false);
+
+                        if is_trailing {
+                            if indent_with_new_line {
+                                state.indentation_level -= 1;
+                            }
+                            state.new_line();
+                            whitespace_to(&mut sub, SyntaxKind::RBrace, writer, state, "")?;
+                            break;
+                        }
+                        if indent_with_new_line {
+                            state.new_line();
+                        } else {
+                            state.insert_whitespace(" ");
+                        }
+                    }
+                    _ => break,
+                }
+            }
+            SyntaxMatch::Found(SyntaxKind::RBrace) => {
+                if indent_with_new_line {
+                    state.indentation_level -= 1;
+                }
+                break;
+            }
+            _ => break,
+        }
+    }
+    state.skip_all_whitespace = true;
+    finish_node(sub, writer, state)?;
+    state.new_line();
+    Ok(())
+}
+
+fn format_export_specifier(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let has_as = node.children_with_tokens().any(|n| {
+        n.kind() == SyntaxKind::Identifier && n.as_token().is_some_and(|t| t.text() == "as")
+    });
+
+    let mut sub = node.children_with_tokens();
+    whitespace_to(&mut sub, SyntaxKind::ExportIdentifier, writer, state, "")?;
+    if has_as {
+        whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, " ")?;
+        whitespace_to(&mut sub, SyntaxKind::ExportName, writer, state, " ")?;
+    }
+    state.skip_all_whitespace = true;
+    finish_node(sub, writer, state)?;
     Ok(())
 }
 
@@ -2606,6 +3062,56 @@ export struct LineEditData {
     }
 
     #[test]
+    fn multiline_binary_expression() {
+        assert_formatting(
+            "component A {\n    x: a && b && c;\n}\n",
+            "component A {\n    x: a && b && c;\n}\n",
+        );
+        assert_formatting(
+            "component A {\n    x: a &&\nb &&\nc;\n}\n",
+            "component A {\n    x: a &&\n        b &&\n        c;\n}\n",
+        );
+        assert_formatting(
+            "component A {\n    x: a\n&& b\n&& c;\n}\n",
+            "component A {\n    x: a\n        && b\n        && c;\n}\n",
+        );
+    }
+
+    #[test]
+    fn multiline_ternary_expression() {
+        assert_formatting(
+            "component A {\n    x: a ? b : c;\n}\n",
+            "component A {\n    x: a ? b : c;\n}\n",
+        );
+        assert_formatting(
+            "component A {\n    x: a\n? b\n: c;\n}\n",
+            "component A {\n    x: a\n        ? b\n        : c;\n}\n",
+        );
+        assert_formatting(
+            "component A {\n    x: cond1 ? 45\n        : cond2 ? 89\n        : 32;\n}\n",
+            "component A {\n    x: cond1 ? 45\n        : cond2 ? 89\n        : 32;\n}\n",
+        );
+    }
+
+    #[test]
+    fn enum_declaration() {
+        assert_formatting("enum Foo { a, b, c, }\n", "enum Foo {\n    a,\n    b,\n    c,\n}\n");
+            "enum Foo {\n    a,\n    b,\n    c,\n}\n",
+        );
+    }
+
+    #[test]
+    fn export_list() {
+        assert_formatting("export {Foo,Bar}\n", "export { Foo, Bar }\n");
+        assert_formatting("export {Foo  as   Bar}\n", "export { Foo as Bar }\n");
+        assert_formatting(
+            "export { SuperLongTypeName, AnotherVeryLongTypeName, YetAnotherExtremelyLongTypeName }\n",
+        assert_formatting("export { Foo, }\n", "export {\n    Foo,\n}\n");
+            "export {\n    Foo,\n}\n",
+        );
+    }
+
+    #[test]
     fn preserve_empty_lines() {
         assert_formatting(
             r#"
@@ -2905,7 +3411,6 @@ export component MainWindow2 inherits Rectangle {
         );
     }
 
-    #[ignore]
     #[test]
     fn comment_in_nest() {
         assert_formatting(
