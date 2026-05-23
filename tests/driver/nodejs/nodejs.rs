@@ -42,6 +42,18 @@ fn node_command() -> &'static str {
 static NODE_API_JS_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
     let node_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../api/node");
 
+    // Skip the pnpm install/build if the artifacts are already in place
+    // — useful for environments where the workspace can't be (re)built
+    // (missing system libs) and the user pre-built manually.
+    let dist_index = node_dir.join("dist/index.js");
+    let native = node_dir.join("rust-module.cjs");
+    if std::env::var_os("SLINT_NODE_SKIP_BUILD").is_some()
+        && dist_index.exists()
+        && native.exists()
+    {
+        return dist_index;
+    }
+
     // On Windows pnpm is 'pnpm.cmd', which Rust's process::Command doesn't look for as extension, because
     // it tries to emulate CreateProcess.
     let pnpm = which::which("pnpm").expect("pnpm must be installed to run the nodejs tests");
