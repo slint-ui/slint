@@ -13,6 +13,18 @@ pub use types::*;
 mod uv_event_loop;
 pub use uv_event_loop::*;
 
+#[cfg(feature = "backend-winit")]
+mod winit_libuv_handler;
+#[cfg(feature = "backend-winit")]
+pub use winit_libuv_handler::*;
+
+/// Set to `true` by `register_winit_libuv_handler()` after a winit
+/// `CustomApplicationHandler` is registered with the backend selector.
+/// Read by `has_winit_libuv_integration()` from JS to choose between the
+/// blocking `run_event_loop_blocking()` path and the polling fallback.
+pub(crate) static WINIT_LIBUV_HANDLER_REGISTERED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
 use napi::Env;
 use napi::bindgen_prelude::*;
 
@@ -36,6 +48,25 @@ pub(crate) fn set_hidden_property<'a, V: napi::JsValue<'a>>(
 
 #[macro_use]
 extern crate napi_derive;
+
+/// Re-export of `napi_register_module_v1` under a unique name so the
+/// `node-slint` runner can statically link this crate as an rlib and
+/// register its module in-process with libnode, without conflicting
+/// with the symbol another addon would expose.
+#[cfg(not(target_os = "windows"))]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_napi_register_module_v1(
+    env: napi::sys::napi_env,
+    exports: napi::sys::napi_value,
+) -> napi::sys::napi_value {
+    unsafe extern "C" {
+        fn napi_register_module_v1(
+            env: napi::sys::napi_env,
+            exports: napi::sys::napi_value,
+        ) -> napi::sys::napi_value;
+    }
+    unsafe { napi_register_module_v1(env, exports) }
+}
 
 #[napi]
 pub fn mock_elapsed_time(_ms: f64) {

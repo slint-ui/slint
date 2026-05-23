@@ -7366,6 +7366,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "node-slint"
+version = "1.17.0"
+dependencies = [
+ "cc",
+ "pkg-config",
+ "slint-node",
+]
+
+[[package]]
 name = "nohash-hasher"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10805,6 +10814,7 @@ dependencies = [
  "css-color-parser2",
  "i-slint-backend-selector",
  "i-slint-backend-testing",
+ "i-slint-backend-winit",
  "i-slint-common",
  "i-slint-compiler",
  "i-slint-core",

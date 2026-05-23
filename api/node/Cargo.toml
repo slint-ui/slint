@@ -18,7 +18,7 @@ build = "build.rs"
 publish = false
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 path = "rust/lib.rs"
 
 [features]
@@ -26,9 +26,13 @@ path = "rust/lib.rs"
 default = ["backend-linuxkms-noseat", "backend-winit", "renderer-femtovg", "renderer-skia", "accessibility"]
 
 backend-qt = ["slint-interpreter/backend-qt"]
-backend-winit = ["slint-interpreter/backend-winit"]
-backend-winit-x11 = ["slint-interpreter/backend-winit-x11"]
-backend-winit-wayland = ["slint-interpreter/backend-winit-wayland"]
+backend-winit = [
+    "slint-interpreter/backend-winit",
+    "dep:i-slint-backend-winit",
+    "i-slint-backend-selector/unstable-winit-030",
+]
+backend-winit-x11 = ["slint-interpreter/backend-winit-x11", "backend-winit"]
+backend-winit-wayland = ["slint-interpreter/backend-winit-wayland", "backend-winit"]
 backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
 backend-linuxkms-noseat = ["slint-interpreter/backend-linuxkms-noseat"]
 renderer-femtovg = ["slint-interpreter/renderer-femtovg"]
@@ -48,6 +52,7 @@ napi-derive = "3"
 i-slint-compiler = { workspace = true, features = ["default"] }
 i-slint-core = { workspace = true, features = ["default", "gettext-rs"] }
 i-slint-backend-selector = { workspace = true }
+i-slint-backend-winit = { workspace = true, optional = true }
 slint-interpreter = { workspace = true, default-features = false, features = ["display-diagnostics", "internal", "compat-1-2"] }
 spin_on = { workspace = true }
 css-color-parser2 = { workspace = true }
@@ -57,8 +62,10 @@ send_wrapper = { workspace = true }
 i-slint-backend-testing = { workspace = true, optional = true, features = ["internal"] }
 smol_str = { workspace = true }
 
+[dependencies.libloading]
+version = "0.9"
+
 [target.'cfg(unix)'.dependencies]
-libloading = "0.9"
 async-io = "2"
 
 [build-dependencies]

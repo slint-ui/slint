@@ -738,6 +738,22 @@ class EventLoop {
             }
         }
 
+        // node-slint on Windows: winit drives, libuv is ticked from
+        // CustomApplicationHandler::about_to_wait.  Block here until the
+        // Slint loop exits, then resolve.
+        if (
+            typeof napi.hasWinitLibuvIntegration === "function" &&
+            napi.hasWinitLibuvIntegration()
+        ) {
+            try {
+                napi.runEventLoopBlocking();
+                this.#resolve();
+                return this.#terminationPromise;
+            } catch {
+                // Fall through to the polling fallback.
+            }
+        }
+
         // Fallback for Windows, Deno, and runtimes without uv_backend_fd().
         {
             const nodejsPollInterval = 16;

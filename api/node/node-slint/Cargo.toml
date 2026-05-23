@@ -1,0 +1,44 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+[package]
+name = "node-slint"
+description = "Node.js runner with statically linked Slint and integrated event loop."
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+build = "build.rs"
+
+[[bin]]
+name = "node-slint"
+path = "src/main.rs"
+
+[features]
+default = ["backend-winit", "renderer-femtovg", "renderer-software", "accessibility"]
+backend-qt = ["slint-node/backend-qt"]
+backend-winit = ["slint-node/backend-winit"]
+backend-winit-x11 = ["slint-node/backend-winit-x11"]
+backend-winit-wayland = ["slint-node/backend-winit-wayland"]
+backend-linuxkms = ["slint-node/backend-linuxkms"]
+backend-linuxkms-noseat = ["slint-node/backend-linuxkms-noseat"]
+renderer-femtovg = ["slint-node/renderer-femtovg"]
+renderer-skia = ["slint-node/renderer-skia"]
+renderer-software = ["slint-node/renderer-software"]
+accessibility = ["slint-node/accessibility"]
+
+[dependencies]
+# slint-node is linked as rlib so napi_register_module_v1 ends up in this
+# binary's exported symbol table. JS code that does
+# `require('slint-ui/rust-module.cjs')` is redirected by the bootstrap to
+# `process.dlopen(mod, process.execPath)`, which loads this binary as a
+# NAPI addon and finds the in-process symbol.
+slint-node = { path = "..", default-features = false }
+
+[build-dependencies]
+cc = "1"
+pkg-config = "0.3"
