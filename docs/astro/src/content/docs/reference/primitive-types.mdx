@@ -106,6 +106,12 @@ Any text passed as an argument to the macro will be escaped, for example `@markd
 
 If multiple string literal are used, they are concatenated.
 
+Use `<font color='...'>` to apply colors.
+Literal color names and hex values work directly: `@markdown("<font color='red'>warning</font>")`.
+To interpolate a dynamic color, the expression must be of type `color`:
+`@markdown("<font color='\{self.my-color}'>colored</font>")`.
+Interpolation inside HTML tags is only allowed in the color attribute value.
+
 </SlintProperty>
 
 ## Numeric Types

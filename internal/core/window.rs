@@ -630,11 +630,12 @@ impl WindowInner {
     }
 
     /// Receive a mouse event and pass it to the items of the component to
-    /// change their state.
-    pub fn process_mouse_input(&self, mut event: MouseEvent) {
+    /// change their state. For `DragMove`/`Drop`, returns the negotiated
+    /// [`DragAction`](crate::items::DragAction), or `None` if no `DropArea` accepted.
+    pub fn process_mouse_input(&self, mut event: MouseEvent) -> Option<crate::items::DragAction> {
         crate::animations::update_animations();
 
-        let Some(item_tree) = self.try_component() else { return };
+        let item_tree = self.try_component()?;
         self.ensure_tree_instantiated();
 
         // handle multiple press release
@@ -877,6 +878,7 @@ impl WindowInner {
         }
 
         let is_dragging = mouse_input_state.drag_data.is_some();
+        let drop_target_action = mouse_input_state.drop_target_action();
         self.mouse_input_state.set(mouse_input_state);
 
         // The drag-image overlay follows the cursor and lives outside any item tree, so
@@ -918,6 +920,8 @@ impl WindowInner {
         }
 
         self.ensure_tree_instantiated();
+
+        drop_target_action
     }
 
     /// Receive a raw touch event from a backend and either forward it as a mouse
@@ -2141,6 +2145,7 @@ pub mod ffi {
     use crate::graphics::Size;
     use crate::graphics::{IntSize, Rgba8Pixel};
     use crate::items::WindowItem;
+    use core::ffi::c_void;
 
     /// This enum describes a low-level access to specific graphics APIs used
     /// by the renderer.
@@ -2151,9 +2156,6 @@ pub mod ffi {
         /// The rendering is done using APIs inaccessible from C++, such as WGPU.
         Inaccessible,
     }
-
-    #[allow(non_camel_case_types)]
-    type c_void = ();
 
     struct WithUserData<T> {
         callback: T,
@@ -2438,10 +2440,10 @@ pub mod ffi {
                     let cpp_graphics_api = match graphics_api {
                         crate::api::GraphicsAPI::NativeOpenGL { .. } => GraphicsAPI::NativeOpenGL,
                         crate::api::GraphicsAPI::WebGL { .. } => unreachable!(), // We don't support wasm with C++
-                        #[cfg(feature = "unstable-wgpu-27")]
-                        crate::api::GraphicsAPI::WGPU27 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
                         #[cfg(feature = "unstable-wgpu-28")]
                         crate::api::GraphicsAPI::WGPU28 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
+                        #[cfg(feature = "unstable-wgpu-29")]
+                        crate::api::GraphicsAPI::WGPU29 { .. } => GraphicsAPI::Inaccessible, // There is no C++ API for wgpu (maybe wgpu c in the future?)
                     };
                     (self.callback)(state, cpp_graphics_api, self.user_data)
                 }

@@ -300,19 +300,15 @@ macro_rules! declare_value_struct_conversion {
     };
     ($(
         $(#[$struct_attr:meta])*
-        struct $Name:ident {
-            @name = $inner_name:expr,
-            export {
-                $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
-            }
-            private { $($pri:tt)* }
+        $vis:vis struct $Name:ident {
+            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
         }
     )*) => {
         $(
             impl From<$Name> for Value {
                 fn from(item: $Name) -> Self {
                     let mut struct_ = Struct::default();
-                    $(struct_.set_field(stringify!($pub_field).into(), item.$pub_field.into());)*
+                    $(struct_.set_field(stringify!($field).into(), item.$field.into());)*
                     Value::Struct(struct_)
                 }
             }
@@ -325,7 +321,7 @@ macro_rules! declare_value_struct_conversion {
                             type Ty = $Name;
                             #[allow(unused)]
                             let mut res: Ty = Ty::default();
-                            $(res.$pub_field = x.get_field(stringify!($pub_field)).ok_or(())?.clone().try_into().map_err(|_|())?;)*
+                            $(res.$field = x.get_field(stringify!($field)).ok_or(())?.clone().try_into().map_err(|_|())?;)*
                             Ok(res)
                         }
                         _ => Err(()),
@@ -339,6 +335,7 @@ macro_rules! declare_value_struct_conversion {
 declare_value_struct_conversion!(struct i_slint_core::layout::LayoutInfo { min, max, min_percent, max_percent, preferred, stretch });
 declare_value_struct_conversion!(struct i_slint_core::graphics::Point { x, y, ..Default::default()});
 declare_value_struct_conversion!(struct i_slint_core::api::LogicalPosition { x, y });
+declare_value_struct_conversion!(struct i_slint_core::api::LogicalSize { width, height });
 declare_value_struct_conversion!(struct i_slint_core::properties::StateInfo { current_state, previous_state, change_time });
 
 i_slint_common::for_each_builtin_structs!(declare_value_struct_conversion);
@@ -348,7 +345,7 @@ i_slint_common::for_each_builtin_structs!(declare_value_struct_conversion);
 /// The `enum` must derive `Display` and `FromStr`
 /// (can be done with `strum_macros::EnumString`, `strum_macros::Display` derive macro)
 macro_rules! declare_value_enum_conversion {
-    ($( $(#[$enum_doc:meta])* enum $Name:ident { $($body:tt)* })*) => { $(
+    ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $($body:tt)* })*) => { $(
         impl From<i_slint_core::items::$Name> for Value {
             fn from(v: i_slint_core::items::$Name) -> Self {
                 Value::EnumerationValue(stringify!($Name).to_owned(), v.to_string())

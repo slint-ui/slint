@@ -64,10 +64,11 @@ mod renderer {
     use std::sync::Arc;
 
     use i_slint_core::platform::PlatformError;
+    use i_slint_core::renderer::DrawOutcome;
     use winit::event_loop::ActiveEventLoop;
 
     pub trait WinitCompatibleRenderer: std::any::Any {
-        fn render(&self, window: &i_slint_core::api::Window) -> Result<(), PlatformError>;
+        fn render(&self, window: &i_slint_core::api::Window) -> Result<DrawOutcome, PlatformError>;
 
         fn as_core_renderer(&self) -> &dyn i_slint_core::renderer::Renderer;
         // Got WindowEvent::Occluded
@@ -755,13 +756,13 @@ impl i_slint_core::platform::Platform for Backend {
     #[cfg(all(not(target_arch = "wasm32"), not(ios_and_friends)))]
     fn process_events(
         &self,
-        timeout: core::time::Duration,
+        timeout: Option<core::time::Duration>,
         _: i_slint_core::InternalToken,
     ) -> Result<core::ops::ControlFlow<()>, PlatformError> {
         let loop_state = self.event_loop_state.borrow_mut().take().unwrap_or_else(|| {
             EventLoopState::new(self.shared_data.clone(), self.custom_application_handler.take())
         });
-        let (new_state, status) = loop_state.pump_events(Some(timeout))?;
+        let (new_state, status) = loop_state.pump_events(timeout)?;
         *self.event_loop_state.borrow_mut() = Some(new_state);
         match status {
             winit::platform::pump_events::PumpStatus::Continue => {
@@ -1038,10 +1039,10 @@ fn create_renderer(
         #[cfg(feature = "renderer-femtovg-wgpu")]
         (Some("femtovg-wgpu"), maybe_graphics_api) => {
             if let Some(_api) = maybe_graphics_api {
-                #[cfg(feature = "unstable-wgpu-28")]
-                if !matches!(_api, RequestedGraphicsAPI::WGPU28(..)) {
+                #[cfg(feature = "unstable-wgpu-29")]
+                if !matches!(_api, RequestedGraphicsAPI::WGPU29(..)) {
                     return Err(
-                        "The FemtoVG WGPU renderer only supports the WGPU28 graphics API selection"
+                        "The FemtoVG WGPU renderer only supports the WGPU29 graphics API selection"
                             .into(),
                     );
                 }
@@ -1064,31 +1065,35 @@ fn create_renderer(
         }
         #[cfg(all(
             enable_skia_renderer,
-            any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28")
+            any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29")
         ))]
         (Some("skia-wgpu"), maybe_graphics_api) => {
             if let Some(selected_renderer) = maybe_graphics_api.map_or_else(
                 || {
-                    #[cfg(feature = "unstable-wgpu-28")]
-                    return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(
-                        shared_data,
-                    ));
-                    #[cfg(all(feature = "unstable-wgpu-27", not(feature = "unstable-wgpu-28")))]
-                    return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended(
-                        shared_data,
-                    ));
+                    #[cfg(feature = "unstable-wgpu-29")]
+                    {
+                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(
+                            shared_data,
+                        ));
+                    }
+                    #[cfg(all(feature = "unstable-wgpu-28", not(feature = "unstable-wgpu-29")))]
+                    {
+                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(
+                            shared_data,
+                        ));
+                    }
                     #[allow(unreachable_code)]
                     None
                 },
-                |api| {
-                    #[cfg(feature = "unstable-wgpu-27")]
-                    if matches!(api, RequestedGraphicsAPI::WGPU27(..)) {
-                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended(
+                |_api| {
+                    #[cfg(feature = "unstable-wgpu-29")]
+                    if matches!(_api, RequestedGraphicsAPI::WGPU29(..)) {
+                        return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(
                             shared_data,
                         ));
                     }
                     #[cfg(feature = "unstable-wgpu-28")]
-                    if matches!(api, RequestedGraphicsAPI::WGPU28(..)) {
+                    if matches!(_api, RequestedGraphicsAPI::WGPU28(..)) {
                         return Some(renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(
                             shared_data,
                         ));
@@ -1125,16 +1130,22 @@ fn create_renderer(
             cfg_if::cfg_if! {
                 if #[cfg(enable_skia_renderer)] {
                     renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(shared_data)
-                } else if #[cfg(feature = "renderer-femtovg-wgpu")] {
-                    renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_data)
                 } else {
-                    return Err("unstable-wgpu-28 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
+                    return Err("unstable-wgpu-28 was enabled but no renderer was selected. Please select renderer-skia*".into())
                 }
             }
         }
-        #[cfg(all(enable_skia_renderer, feature = "unstable-wgpu-27"))]
-        (None, Some(RequestedGraphicsAPI::WGPU27(..))) => {
-            renderer::skia::WinitSkiaRenderer::new_wgpu_27_suspended(shared_data)
+        #[cfg(feature = "unstable-wgpu-29")]
+        (None, Some(RequestedGraphicsAPI::WGPU29(..))) => {
+            cfg_if::cfg_if! {
+                if #[cfg(enable_skia_renderer)] {
+                    renderer::skia::WinitSkiaRenderer::new_wgpu_29_suspended(shared_data)
+                } else if #[cfg(feature = "renderer-femtovg-wgpu")] {
+                    renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_data)
+                } else {
+                    return Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
+                }
+            }
         }
         (None, Some(_requested_graphics_api)) => {
             cfg_if::cfg_if! {

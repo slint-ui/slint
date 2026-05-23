@@ -50,6 +50,7 @@ docs_build:
  - 'internal/**'
  - 'helper_crates/**'
  - 'tools/lsp/**'
+ - 'tests/doctests/**'
  - *ci_config
 
 # Tree-sitter grammar
@@ -68,15 +69,6 @@ material_components:
  - *js_config
  - *ci_config
 
-safety_docs:
- - 'docs/safety/**'
- - 'docs/common/**'
- - 'docs/slint-doc-generator/**'
- - 'internal/compiler/builtins.slint'
- - 'internal/common/enums.rs'
- - 'internal/common/builtin_structs.rs'
- - *js_config
- - *ci_config
 
 internal: &internal
  # The API specific tests don't depends on renderer or backend, but they do depend on the Qt widgets and the testing backend
@@ -97,12 +89,12 @@ api_cpp:
 
 api_python:
  - 'api/python/**'
- - *ci_config
+ - '.github/workflows/python_test_reusable.yaml'
 
 api_node:
  - 'api/node/**'
  - *js_config
- - *ci_config
+ - '.github/workflows/node_test_reusable.yaml'
 
 api_rs:
  - 'api/rs/**'
@@ -144,11 +136,11 @@ updater_test:
 
 servo_example:
  - 'examples/servo/**'
- - *ci_config
+ - '.github/workflows/servo_example.yaml'
 
 bevy_examples:
  - 'examples/bevy/**'
- - *ci_config
+ - '.github/workflows/bevy_examples.yaml'
 
 slint_sc:
  - 'internal/compiler/**'

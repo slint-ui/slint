@@ -90,6 +90,11 @@
         "src/components/VersionBanner.astro"
       ],
       "ignoreDependencies": ["playwright-ctrf-json-reporter"]
+    },
+    "docs/safety": {
+      "ignoreFiles": [
+        "src/styles/sls-ids.css"
+      ]
     }
   },
   "ignoreIssues": {

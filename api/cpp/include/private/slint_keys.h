@@ -3,7 +3,13 @@
 
 #pragma once
 #include "private/slint_keys_internal.h"
+#include "private/slint_sharedvector.h"
 #include "private/slint_string.h"
+
+#include <optional>
+#include <span>
+#include <string_view>
+#include <vector>
 
 namespace slint {
 
@@ -32,6 +38,36 @@ public:
     slint::Keys &operator=(const Keys &) = default;
     /// Move assignment operator
     slint::Keys &operator=(Keys &&) = default;
+
+    /// Create a `Keys` from a span of string parts, e.g. `{"Control", "Shift?", "Z"}`.
+    ///
+    /// Each element is either a modifier (`Control`, `Shift`, `Alt`, `Meta`, `Shift?`, `Alt?`)
+    /// or a key name from the Key namespace (case-sensitive). If not found, it is treated as
+    /// a string literal (must be a single lowercase grapheme cluster).
+    ///
+    /// Returns `std::nullopt` on parse failure.
+    static std::optional<Keys> from_parts(std::span<const std::string_view> parts)
+    {
+        std::vector<SharedString> converted;
+        converted.reserve(parts.size());
+        for (const auto &sv : parts) {
+            converted.emplace_back(sv);
+        }
+        Keys result;
+        SharedString empty;
+        cbindgen_private::Slice<SharedString> slice { converted.empty() ? &empty : converted.data(),
+                                                      converted.size() };
+        if (cbindgen_private::types::slint_keys_from_parts(slice, &result.data)) {
+            return result;
+        }
+        return std::nullopt;
+    }
+
+    /// \overload
+    static std::optional<Keys> from_parts(std::initializer_list<std::string_view> parts)
+    {
+        return from_parts(std::span<const std::string_view> { parts.begin(), parts.size() });
+    }
 
     /// Equality operator, returns true if the two `Keys` instances are equal, i.e. they match the
     /// same key events.

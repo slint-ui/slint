@@ -51,14 +51,23 @@ use std::path::Path;
 pub enum EmbedResourcesKind {
     /// Embeds nothing (only useful for interpreter)
     Nothing,
-    /// Only embed builtin resources
+    /// Only embed builtin resources (such as widget assets shipped with Slint).
+    ///
+    /// User resources are loaded from their absolute path at run-time.
     OnlyBuiltinResources,
-    /// Do not embed resources, but list them in the Document as if they were embedded
+    /// Don't embed resources, but list them in the Document as if they were embedded.
+    ///
+    /// Used by tools such as the LSP that need to know about all resources without embedding them.
     ListAllResources,
-    /// Embed all images resources (the content of their files)
+    /// Embed the content of all image resources in the binary as-is (a compressed PNG stays
+    /// compressed), to be decoded at run-time.
     EmbedAllResources,
     #[cfg(feature = "software-renderer")]
-    /// Embed raw texture (process images and fonts)
+    /// Pre-process images and fonts at compile time and embed them as uncompressed pixel data,
+    /// ready to be drawn by the software renderer without any decoding at run-time.
+    ///
+    /// Useful for MCUs with no file system and little RAM.
+    /// Only the Slint software renderer can use these resources; Skia and FemtoVG can't.
     EmbedTextures,
 }
 

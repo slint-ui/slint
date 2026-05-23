@@ -98,7 +98,7 @@ jobs:
             BRANCH_NAME: ${{ github.ref_name }}
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.6
+            - uses: pnpm/action-setup@v6.0.8
               with:
                 version: 10.29.3
             - uses: actions/setup-node@v6
@@ -132,15 +132,19 @@ jobs:
                 if [ "$RELEASE_INPUT" != "true" ]; then
                     base_url="https://snapshots.slint.dev"
                     base_path="/master/docs/slint/"
+                    safety_base_path="/master/docs/safety/"
                     slint_download_version=nightly
                 else
                     base_url="https://releases.slint.dev"
                     base_path="/$version/docs/slint/"
+                    safety_base_path="/$version/docs/safety/"
                     slint_download_version=v$version
                 fi
                 sed -i "s|BASE_URL = \".*\"|BASE_URL = \"$base_url\"|" docs/common/src/utils/site-config.ts
                 sed -i "s|BASE_PATH = \".*\"|BASE_PATH = \"$base_path\"|" docs/common/src/utils/site-config.ts
                 sed -i "s|SLINT_DOWNLOAD_VERSION = \".*\"| SLINT_DOWNLOAD_VERSION = \"$slint_download_version\"|" docs/common/src/utils/site-config.ts
+                sed -i "s|export const SAFETY_DOCS_BASE_URL = \".*\"|export const SAFETY_DOCS_BASE_URL = \"$base_url\"|" docs/safety/src/safety-site-config.mjs
+                sed -i "s|export const SAFETY_DOCS_BASE_PATH = \".*\"|export const SAFETY_DOCS_BASE_PATH = \"$safety_base_path\"|" docs/safety/src/safety-site-config.mjs
             - name: "Generate screenshots, language documentation and build"
               run: |
                 EXTRA_FLAGS=""
@@ -148,6 +152,13 @@ jobs:
                   EXTRA_FLAGS="--experimental"
                 fi
                 cargo run --release -p slint-doc-generator -- $EXTRA_FLAGS
+            - name: "Generate SC API reference"
+              run: cargo run --release -p slint-doc-generator -- --slint-sc generate-mdx
+            - name: "Compile Slint snippets in Markdown (doctests)"
+              run: cargo test -p doctests
+            - name: "Build Safety Manual"
+              working-directory: docs/safety
+              run: pnpm build
             - name: Install Playwright
               working-directory: docs/astro
               run: pnpm exec playwright install --with-deps
@@ -176,6 +187,7 @@ jobs:
               run: |
                 mkdir -p artifact/docs
                 mv docs/astro/dist artifact/docs/slint
+                mv docs/safety/dist artifact/docs/safety
             - name: "Upload Astro Docs Artifacts"
               uses: actions/upload-artifact@v7
               with:
@@ -189,7 +201,7 @@ jobs:
             RELEASE_INPUT: ${{ inputs.release }}
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.6
+            - uses: pnpm/action-setup@v6.0.8
               with:
                 version: 10.29.3
             - uses: actions/setup-node@v6
@@ -232,7 +244,7 @@ jobs:
                   sed -i "s|export const NODE_DOCS_BASE_URL = \".*\"|export const NODE_DOCS_BASE_URL = \"$base_url\"|" docs/nodejs/src/node-site-config.mjs
                   sed -i "s|export const NODE_DOCS_BASE_PATH = \".*\"|export const NODE_DOCS_BASE_PATH = \"$base_path\"|" docs/nodejs/src/node-site-config.mjs
             - name: "Build NAPI and TypeScript (api/node)"
-              run: pnpm run build
+              run: pnpm run build:minimal
               working-directory: api/node
             - name: "Node.js API Starlight site"
               run: pnpm run build
@@ -240,7 +252,7 @@ jobs:
             - name: Setup headless display
               uses: pyvista/setup-headless-display-action@v4
             - name: "Python docs"
-              run: uv run build_docs.py
+              run: uv run --config-setting build-args='--no-default-features' build_docs.py
               working-directory: api/python/slint
             - name: "Prepare docs for website structure"
               run: |

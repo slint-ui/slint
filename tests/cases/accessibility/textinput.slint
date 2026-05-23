@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { LineEdit } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 400px;
+
+    out property <string> text_input_text: ti.text;
+    out property <string> line_edit_text: le.text;
+
+    ti := TextInput {
+        text: "123";
+    }
+
+    le := LineEdit {
+        text: "456";
+    }
+}
+
+/*
+```rust
+// Test that when setting the value of the TextInput using the accessible, the value is preserved
+
+let instance = TestCase::new().unwrap();
+
+{
+    let text_input = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::ti").next().unwrap();
+    assert_eq!(text_input.accessible_value(), Some("123".into()));
+    assert_eq!(instance.get_text_input_text(), "123");
+    text_input.set_accessible_value("Hello");
+    assert_eq!(text_input.accessible_value(), Some("Hello".into()));
+    assert_eq!(instance.get_text_input_text(), "Hello", "Test component was not notified");
+}
+
+{
+    let line_edit = slint_testing::ElementHandle::find_by_element_id(&instance, "TestCase::le").next().unwrap();
+    assert_eq!(line_edit.accessible_value(), Some("456".into()));
+    assert_eq!(instance.get_line_edit_text(), "456");
+    line_edit.set_accessible_value("World");
+    assert_eq!(line_edit.accessible_value(), Some("World".into()));
+    assert_eq!(instance.get_line_edit_text(), "World", "Test component was not notified");
+}
+```
+
+
+*/

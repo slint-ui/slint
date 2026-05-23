@@ -17,6 +17,7 @@ use euclid::approxeq::ApproxEq;
 #[cfg(muda)]
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
+use i_slint_core::renderer::DrawOutcome;
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
@@ -172,6 +173,8 @@ enum WinitWindowOrNone {
         context_menu_muda_adapter: RefCell<Option<crate::muda::MudaAdapter>>,
         #[cfg(target_os = "ios")]
         keyboard_curve_sampler: super::ios::KeyboardCurveSampler,
+        #[cfg(target_os = "ios")]
+        _color_scheme_observer: Option<super::ios::ColorSchemeObserver>,
     },
     None(RefCell<WindowAttributes>),
 }
@@ -515,6 +518,12 @@ impl WinitWindowAdapter {
             (view, self.self_weak.clone())
         };
 
+        // winit doesn't surface iOS appearance, so query the view's trait
+        // collection directly; the matching live observer is installed below as
+        // part of the `HasWindow` variant so its lifetime is tied to the window.
+        #[cfg(target_os = "ios")]
+        self.set_color_scheme(crate::ios::current_color_scheme(&content_view));
+
         let frame_throttle = crate::frame_throttle::create_frame_throttle(
             self.self_weak.clone(),
             &winit_window,
@@ -550,6 +559,11 @@ impl WinitWindowAdapter {
                         );
                     }
                 },
+            ),
+            #[cfg(target_os = "ios")]
+            _color_scheme_observer: crate::ios::install_color_scheme_observer(
+                &content_view,
+                self.self_weak.clone(),
             ),
         };
 
@@ -680,7 +694,11 @@ impl WinitWindowAdapter {
         }
 
         let renderer = self.renderer();
-        renderer.render(self.window())?;
+        if !matches!(renderer.render(self.window())?, DrawOutcome::Success) {
+            // Frame was skipped (e.g. surface occluded). pending_redraw was already
+            // cleared above, so re-arm it so we try again.
+            self.request_redraw();
+        }
 
         Ok(())
     }

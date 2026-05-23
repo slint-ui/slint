@@ -14,7 +14,7 @@ use super::lower_layout_expression::{
 use super::lower_to_item_tree::{LoweredSubComponentMapping, LoweringState};
 use super::{Animation, LocalMemberReference, MemberReference, PropertyIdx};
 use crate::expression_tree::{BuiltinFunction, Callable, Expression as tree_Expression};
-use crate::langtype::{BuiltinPrivateStruct, Struct, StructName, Type};
+use crate::langtype::{BuiltinStruct, Struct, StructName, Type};
 use crate::llr::ArrayOutput as llr_ArrayOutput;
 use crate::llr::Expression as llr_Expression;
 use crate::namedreference::NamedReference;
@@ -286,18 +286,29 @@ pub fn lower_expression(
             entries_per_item: *entries_per_item,
         },
         tree_Expression::OrganizeGridLayout(l) => organize_grid_layout(l, ctx),
-        tree_Expression::ComputeBoxLayoutInfo(l, o) => compute_box_layout_info(l, *o, ctx),
+        tree_Expression::ComputeBoxLayoutInfo { layout, orientation, cross_axis_size } => {
+            compute_box_layout_info(layout, *orientation, ctx, cross_axis_size.as_deref())
+        }
         tree_Expression::ComputeGridLayoutInfo {
             layout_organized_data_prop,
             layout,
             orientation,
-        } => compute_grid_layout_info(layout_organized_data_prop, layout, *orientation, ctx),
+            cross_axis_size,
+        } => compute_grid_layout_info(
+            layout_organized_data_prop,
+            layout,
+            *orientation,
+            ctx,
+            cross_axis_size.as_deref(),
+        ),
         tree_Expression::SolveBoxLayout(l, o) => solve_box_layout(l, *o, ctx),
         tree_Expression::SolveGridLayout { layout_organized_data_prop, layout, orientation } => {
             solve_grid_layout(layout_organized_data_prop, layout, *orientation, ctx)
         }
         tree_Expression::SolveFlexboxLayout(l) => solve_flexbox_layout(l, ctx),
-        tree_Expression::ComputeFlexboxLayoutInfo(l, o) => compute_flexbox_layout_info(l, *o, ctx),
+        tree_Expression::ComputeFlexboxLayoutInfo { layout, orientation, cross_axis_size } => {
+            compute_flexbox_layout_info(layout, *orientation, ctx, cross_axis_size.as_deref())
+        }
         tree_Expression::MinMax { ty, op, lhs, rhs } => llr_Expression::MinMax {
             ty: ty.clone(),
             op: *op,
@@ -559,7 +570,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
     fn animation_ty() -> Rc<Struct> {
         Rc::new(Struct {
             fields: animation_fields().collect(),
-            name: BuiltinPrivateStruct::PropertyAnimation.into(),
+            name: BuiltinStruct::PropertyAnimation.into(),
         })
     }
 
@@ -646,7 +657,7 @@ fn compile_path(
                             .iter()
                             .map(|(k, v)| (k.clone(), v.ty.clone()))
                             .collect(),
-                        name: StructName::BuiltinPrivate(
+                        name: StructName::Builtin(
                             element
                                 .element_type
                                 .native_class

@@ -45,7 +45,6 @@ jobs:
         slint: ${{ inputs.full || steps.filter.outputs.slint == 'true' }}
         figma_inspector: ${{ inputs.full || steps.filter.outputs.figma_inspector == 'true' }}
         material_components: ${{ inputs.full || steps.filter.outputs.material_components == 'true' }}
-        safety_docs: ${{ inputs.full || steps.filter.outputs.safety_docs == 'true' }}
         internal: ${{ inputs.full || steps.filter.outputs.internal == 'true' }}
         api_cpp: ${{ inputs.full || steps.filter.outputs.api_cpp == 'true' }}
         api_python: ${{ inputs.full || steps.filter.outputs.api_python == 'true' }}
@@ -80,17 +79,13 @@ jobs:
         strategy:
             matrix:
                 include:
-                    - os: ubuntu-22.04
-                      name: "Ubuntu 22.04 beta"
-                      rust_version: "beta"
-                      extra_args: "--exclude plotter --exclude material-gallery"
                     - os: windows-2022
                       name: "Windows 2022 1.92"
                       rust_version: "1.92"
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery"
                     - os: macos-14
-                      name: "MacOS 14 stable"
-                      rust_version: "stable"
+                      name: "MacOS 14 beta"
+                      rust_version: "beta"
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery"
         uses: ./.github/workflows/build_and_test_reusable.yaml
         with:
@@ -112,7 +107,7 @@ jobs:
 
     node_test_macos:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true' }}
+        if: ${{ needs.files-changed.outputs.api_node == 'true' }}
         uses: ./.github/workflows/node_test_reusable.yaml
         with:
           name: "Node.js macOS"
@@ -120,7 +115,7 @@ jobs:
 
     node_test_windows:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true' }}
+        if: ${{ needs.files-changed.outputs.api_node == 'true' }}
         uses: ./.github/workflows/node_test_reusable.yaml
         with:
           name: "Node.js Windows"
@@ -136,14 +131,14 @@ jobs:
           os: "ubuntu-22.04"
     python_test_macos:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true' }}
+        if: ${{ needs.files-changed.outputs.api_python == 'true' }}
         uses: ./.github/workflows/python_test_reusable.yaml
         with:
           name: "Python macOS"
           os: "macos-14"
     python_test_windows:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true' }}
+        if: ${{ needs.files-changed.outputs.api_python == 'true' }}
         uses: ./.github/workflows/python_test_reusable.yaml
         with:
           name: "Python Windows"
@@ -329,7 +324,7 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v6
-            - uses: pnpm/action-setup@v6.0.6
+            - uses: pnpm/action-setup@v6.0.8
               with:
                 version: 10.29.3
             - uses: Swatinem/rust-cache@v2
@@ -362,7 +357,7 @@ jobs:
               working-directory: editors/vscode
               run: pnpm test_grammar
 
-    # test to compile the mcu backend for the arm target (no_std)
+    # test to compile the mcu backend for no_std targets (ARM and ESP32)
     mcu:
         needs: files-changed
         if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples_mcu == 'true' || needs.files-changed.outputs.api_rs == 'true' }}
@@ -372,59 +367,33 @@ jobs:
             CARGO_PROFILE_DEV_DEBUG: 0
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
         runs-on: ubuntu-22.04
-        strategy:
-            matrix:
-                include:
-                    - feature: pico-st7789
-                      target: thumbv6m-none-eabi
-                    - feature: pico2-st7789
-                      target: thumbv8m.main-none-eabihf
-                    - feature: pico2-touch-lcd-2-8
-                      target: thumbv8m.main-none-eabihf
-                    - feature: stm32h735g
-                      target: thumbv7em-none-eabihf
         steps:
             - uses: actions/checkout@v6
             - uses: ./.github/actions/setup-rust
               with:
-                  target: ${{matrix.target}}
-            - name: Check
-              run: cargo check --target=${{matrix.target}} -p printerdemo_mcu --no-default-features --features=mcu-board-support/${{matrix.feature}} --release
-
-    # test to compile the mcu backend for the arm target (no_std) using embassy
-    mcu-embassy:
-        needs: files-changed
-        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples_mcu == 'true' || needs.files-changed.outputs.api_rs == 'true' }}
-        env:
-            SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
-            RUSTFLAGS: --cfg slint_int_coord -D warnings
-            CARGO_PROFILE_DEV_DEBUG: 0
-            CARGO_PROFILE_RELEASE_OPT_LEVEL: s
-        runs-on: ubuntu-22.04
-        steps:
-            - uses: actions/checkout@v6
-            - uses: ./.github/actions/setup-rust
+                  target: thumbv6m-none-eabi,thumbv7em-none-eabihf,thumbv8m.main-none-eabihf
+            - uses: esp-rs/xtensa-toolchain@v1.7
+              if: ${{ needs.files-changed.outputs.examples_mcu == 'true' }}
               with:
-                  target: thumbv8m.main-none-eabihf
-            - name: Check
-              working-directory: examples/mcu-embassy
+                  buildtargets: esp32
+                  ldproxy: false
+            - name: Check pico-st7789
+              run: cargo check --target=thumbv6m-none-eabi -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789 --release
+            - name: Check mcu-embassy
               run: cargo check --bin ui_mcu --target=thumbv8m.main-none-eabihf --no-default-features --features="mcu-embassy/mcu" --release
-
-#    mcu_esp:
-#        env:
-#            RUSTFLAGS: -D warnings
-#        runs-on: ubuntu-22.04
-#        steps:
-#            - uses: actions/checkout@v6
-#            - uses: dtolnay/rust-toolchain@stable
-#            - uses: esp-rs/xtensa-toolchain@v1.7
-#              with:
-#                  default: true
-#                  buildtargets: esp32
-#                  ldproxy: false
-#            - uses: Swatinem/rust-cache@v2
-#            - name: S3Box
-#              run: cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box  --config examples/mcu-board-support/esp32_s3_box/cargo-config.toml --release
+              working-directory: examples/mcu-embassy
+            - name: Check all boards
+              if: ${{ needs.files-changed.outputs.examples_mcu == 'true' }}
+              run: |
+                  cargo check --target=thumbv8m.main-none-eabihf -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico2-st7789 --release
+                  cargo check --target=thumbv8m.main-none-eabihf -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico2-touch-lcd-2-8 --release
+                  cargo check --target=thumbv7em-none-eabihf -p printerdemo_mcu --no-default-features --features=mcu-board-support/stm32h735g --release
+                  cargo check --target=thumbv8m.main-none-eabihf -p printerdemo_mcu --no-default-features --features=mcu-board-support/stm32u5g9j-dk2 --release
+                  cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box-3 --config examples/mcu-board-support/esp32_s3_box_3/cargo-config.toml --release
+                  cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-lcd-ev-board --config examples/mcu-board-support/esp32_s3_lcd_ev_board/cargo-config.toml --release
+                  cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esope-sld-c-w-s3 --config examples/mcu-board-support/esope_sld_c_w_s3/cargo-config.toml --release
+                  cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/waveshare-esp32-s3-touch-amoled-1-8 --config examples/mcu-board-support/waveshare_esp32_s3_touch_amoled_1_8/cargo-config.toml --release
+                  cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/m5stack-cores3 --config examples/mcu-board-support/m5stack_cores3/cargo-config.toml --release
 
     ffi_32bit_build:
         needs: files-changed
@@ -552,7 +521,7 @@ jobs:
     # Test that the formater don't introduce slint compilation error
     fmt_test:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.slintpad == 'true' || needs.files-changed.outputs.tests == 'true' }}
+        if: ${{ needs.files-changed.outputs.slintpad == 'true' }}
         env:
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
@@ -640,6 +609,8 @@ jobs:
         needs: files-changed
         if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_rs == 'true' || needs.files-changed.outputs.examples == 'true' }}
         runs-on: ubuntu-latest
+        env:
+            RUSTFLAGS: -D warnings
         steps:
             - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
@@ -685,7 +656,7 @@ jobs:
                 node-version: 24
                 package-manager-cache: false
               id: node-install
-            - uses: pnpm/action-setup@v6.0.6
+            - uses: pnpm/action-setup@v6.0.8
               with:
                 version: 10.29.3
             - name: Run pnpm install
@@ -724,10 +695,6 @@ jobs:
         ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
-    safety-docs:
-      needs: files-changed
-      if: ${{ needs.files-changed.outputs.safety_docs == 'true' }}
-      uses: ./.github/workflows/safety_docs.yaml
 
     servo_example:
         needs: files-changed
@@ -762,23 +729,17 @@ jobs:
               run: cargo llvm-cov --no-report -p i-slint-compiler --features slint-sc --no-default-features
             - name: Test slint-compiler binary with slint-sc feature
               run: cargo llvm-cov --no-report -p slint-compiler --features slint-sc --no-default-features
-            - name: Test slint-sc runtime
+            - name: Test slint-sc runtime and driver
               run: cargo llvm-cov --no-report -p slint-sc
             - name: Generate coverage report
               run: |
                   cargo llvm-cov report --html --output-dir coverage
                   cargo llvm-cov report --lcov --output-path coverage/lcov.info
             - name: Upload coverage report
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                   name: slint-sc-coverage
                   path: coverage
-            - name: Upload to Codecov
-              uses: codecov/codecov-action@v5
-              with:
-                  files: coverage/lcov.info
-                  flags: slint-sc
-              continue-on-error: true
 
     clippy:
         needs: files-changed
@@ -1077,6 +1038,8 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
+            - name: Install system dependencies
+              run: sudo apt-get update && sudo apt-get install -y libfontconfig-dev
             - uses: ./.github/actions/setup-rust
               with:
                   toolchain: nightly
@@ -1086,5 +1049,5 @@ jobs:
               run: cargo miri test -p vtable -p const-field-offset -p i-slint-common
             - name: Run Miri on i-slint-core
               env:
-                  MIRIFLAGS: -Zmiri-disable-isolation
-              run: cargo miri test -p i-slint-core -- --skip properties --skip model --skip textlayout --skip physics_simulation
+                  MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-tree-borrows
+              run: cargo miri test -p i-slint-core --lib --features ffi,rtti

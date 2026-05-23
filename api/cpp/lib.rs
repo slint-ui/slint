@@ -285,6 +285,11 @@ pub extern "C" fn slint_string_to_styled_text(text: &SharedString, out: &mut Sty
     *out = i_slint_core::styled_text::string_to_styled_text(text.to_string());
 }
 
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_color_to_styled_text(color: &i_slint_core::Color, out: &mut StyledText) {
+    *out = i_slint_core::styled_text::color_to_styled_text(*color);
+}
+
 // Translator API is currently considered experimental due to discussions
 // about the returned string type (SharedString vs. Cow<str> etc.). Also it
 // is not available with no_std due to the tr crate.

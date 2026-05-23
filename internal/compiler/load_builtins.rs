@@ -12,8 +12,8 @@ use std::rc::Rc;
 
 use crate::expression_tree::Expression;
 use crate::langtype::{
-    BuiltinElement, BuiltinPrivateStruct, BuiltinPropertyDefault, BuiltinPropertyInfo,
-    DefaultSizeBinding, ElementType, Function, NativeClass, Type,
+    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, BuiltinStruct, DefaultSizeBinding,
+    ElementType, Function, NativeClass, Type,
 };
 use crate::object_tree::{self, *};
 use crate::parser::{SyntaxKind, SyntaxNode, identifier_text, syntax_nodes};
@@ -142,7 +142,7 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
             })
             .collect();
         n.builtin_struct = parse_annotation("builtin_struct", &e)
-            .map(|x| x.unwrap().parse::<BuiltinPrivateStruct>().unwrap());
+            .map(|x| x.unwrap().parse::<BuiltinStruct>().unwrap());
         enum Base {
             None,
             Global,
@@ -198,6 +198,11 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
         // docs[0] is always the description so children can skip it
         // with `parent.docs[1..]`.
         builtin.docs = docs::assemble(entries, parent_builtin);
+
+        builtin.slint_sc = matches!(
+            builtin.docs.first(),
+            Some(crate::doc_comments::ElementDocEntry::Text(desc)) if has_sc_marker(desc)
+        ) || matches!(&base, Base::NativeParent(p) if p.slint_sc);
 
         builtin.disallow_global_types_as_child_elements =
             parse_annotation("disallow_global_types_as_child_elements", &e).is_some();
@@ -302,6 +307,19 @@ fn parse_annotation(key: &str, node: &SyntaxNode) -> Option<Option<SmolStr>> {
         }
     }
     None
+}
+
+/// Check for standalone `\sc` marker in a doc string, ensuring it is not
+/// followed by an alphanumeric or underscore character (avoids matching
+/// `\score`, `\scale`, etc.).
+fn has_sc_marker(doc: &str) -> bool {
+    doc.match_indices("\\sc").any(|(start, _)| {
+        let end = start + 3;
+        match doc.as_bytes().get(end).copied() {
+            None => true,
+            Some(b) => !b.is_ascii_alphanumeric() && b != b'_',
+        }
+    })
 }
 
 use crate::doc_comments as docs;

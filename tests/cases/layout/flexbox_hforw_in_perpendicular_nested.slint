@@ -1,0 +1,64 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Height-for-width descendant (Text with word-wrap) inside a column-flex
+// that is itself a cell of a row-flex. Exercises both the synthesized
+// `layoutinfo-v-with-constraint` (for the wrapping Text) and its
+// horizontal counterpart (for the column-flex's horizontal info) and
+// confirms the override is routed to the correct axis (regression
+// against an earlier bug where one cross-axis-size override field was
+// dispatched onto cells of the wrong axis).
+
+export component TestCase inherits Window {
+    width: 400px;
+    height: 300px;
+
+    FlexboxLayout {
+        flex-direction: row;
+        spacing: 10px;
+
+        Rectangle { width: 50px; height: 50px; background: red; flex-shrink: 0; }
+
+        FlexboxLayout {
+            flex-direction: column;
+            spacing: 5px;
+            width: 200px;
+
+            txt := Text {
+                text: "A reasonably long sentence that should wrap onto multiple lines";
+                wrap: word-wrap;
+                horizontal-alignment: left;
+            }
+            r := Rectangle { width: 80px; height: 30px; background: blue; }
+        }
+    }
+
+    // Single-line reference in the same font, so the wrap check stays
+    // independent of the renderer's font metrics (the test font and the
+    // system font used by the Node.js driver disagree by a few pixels).
+    ref := Text { x: 0; y: 0; text: "one line"; }
+
+    // txt wrapped onto at least two lines if it is meaningfully taller than
+    // one line of the same font.
+    out property <bool> test_wraps: txt.height > ref.height * 1.5;
+    out property <bool> test_r: r.width == 80px;
+
+    out property <bool> test: test_wraps && test_r;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

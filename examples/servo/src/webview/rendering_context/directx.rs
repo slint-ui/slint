@@ -7,7 +7,7 @@ use glow::HasContext;
 use std::cell::RefCell;
 use winit::dpi::PhysicalSize;
 
-use slint::wgpu_28::wgpu::{
+use slint::wgpu_29::wgpu::{
     Device, Extent3d, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     hal, wgc::api::Dx12,
 };

@@ -4,8 +4,7 @@
 // Dialog is rejected in Slint SC mode.
 
 export component Test inherits Dialog {
-//               >  <error{Component declarations are not supported in Slint SC}
-//                             >     <^error{The builtin element 'Dialog' is not supported in Slint SC}
+//                             >     <error{The builtin element 'Dialog' is not supported in Slint SC}
     Text { text: "hello"; }
 //  >   <error{The builtin element 'Text' is not supported in Slint SC}
 //         >  <^error{Bindings are not supported in Slint SC}

@@ -66,6 +66,7 @@ checkmark
 checkstate
 chipset
 chrono
+Cinstrument
 circledraw
 circularprogressindicator
 CLIB
@@ -110,6 +111,7 @@ ctrf
 ctypes
 customcomponents
 darkimg
+dashmap
 Datakonsult
 Datas
 datatypes
@@ -221,6 +223,7 @@ Fullwidth
 fvar
 Fwww
 getattr
+getifs
 getpid
 getrandom
 globalfun
@@ -319,6 +322,7 @@ Libinput
 libloading
 libm
 libseat
+libslint
 libstdc
 libudev
 libx
@@ -473,6 +477,7 @@ rects
 redoable
 REFR
 relpath
+remoteviewer
 Renderable
 repr
 reqwest
@@ -596,6 +601,7 @@ Torizon
 toucharea
 toupper
 trunc
+tungstenite
 typeregister
 Tzimabazafi
 uart
@@ -671,6 +677,7 @@ yoyo
 zaimoku
 Zbuild
 zephyrproject
+zeroconf
 Zeroable
 zstd
 தோசை

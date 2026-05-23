@@ -1,0 +1,131 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { RadioButtonBase } from "../common/radiobutton-base.slint";
+import { RadioGroupBase, RadioEntry } from "../common/radiogroup-base.slint";
+
+export { RadioEntry }
+
+component RadioButton {
+    in property <string> label <=> base.label;
+    in property <bool> enabled <=> base.enabled;
+    in property <bool> checked <=> base.checked;
+    out property <bool> has-focus <=> base.has-focus;
+
+    callback selected <=> base.selected;
+    callback focus-change <=> base.focus-change;
+
+    private property <brush> dot-color: root.checked ? #2f78ff : transparent;
+
+    base := RadioButtonBase { }
+
+    states [
+        disabled when !root.enabled: {
+            opacity: 0.5;
+        }
+        pressed when base.pressed: {
+            root.dot-color: root.checked ? #205ed8 : #d0d0d0;
+        }
+    ]
+
+    animate dot-color { duration: 120ms; }
+
+    layout := HorizontalLayout {
+        spacing: 8px;
+
+        Rectangle {
+            width: 16px;
+            height: self.width;
+            y: (parent.height - self.height) / 2;
+            border-radius: self.width / 2;
+            border-width: 1px;
+            border-color: #7a7a7a;
+            background: #f7f7f7;
+
+            Rectangle {
+                width: 8px;
+                height: self.width;
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                border-radius: self.width / 2;
+                background: root.dot-color;
+            }
+        }
+
+        if root.label != "": Text {
+            text: root.label;
+            color: #202020;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+        }
+    }
+
+    if root.has-focus && root.enabled: Rectangle {
+        x: -2px;
+        y: -2px;
+        width: parent.width + 4px;
+        height: parent.height + 4px;
+        border-radius: 6px;
+        border-width: 1px;
+        border-color: #2f78ff;
+    }
+}
+
+export component RadioGroup {
+    in property <string> title;
+    in property <bool> enabled: true;
+    in property <Orientation> orientation: Orientation.vertical;
+
+    in property <[RadioEntry]> model <=> base.model;
+    in-out property <int> current-index <=> base.current-index;
+    in-out property <string> current-value <=> base.current-value;
+
+    out property <bool> has-focus: root.focus-depth > 0;
+
+    callback selected <=> base.selected;
+
+    private property <int> focus-depth: 0;
+
+    base := RadioGroupBase {
+        enabled: root.enabled;
+    }
+
+    accessible-role: radio-group;
+    accessible-label: root.title;
+    accessible-enabled: root.enabled;
+    accessible-value <=> root.current-value;
+
+    VerticalLayout {
+        spacing: 8px;
+
+        if root.title != "": Text {
+            color: root.enabled ? #202020 : #808080;
+            text: root.title;
+        }
+
+        GridLayout {
+            spacing: 8px;
+
+            for entry[index] in root.model: RadioButton {
+                row: root.orientation == Orientation.vertical ? index : 0;
+                col: root.orientation == Orientation.vertical ? 0 : index;
+                label: entry.text;
+                enabled: root.enabled && !entry.disabled;
+                checked: root.current-index == index;
+                height: 28px;
+
+                focus-change(gained) => {
+                    if (gained) {
+                        root.focus-depth += 1;
+                    } else {
+                        root.focus-depth = max(0, root.focus-depth - 1);
+                    }
+                }
+
+                selected => {
+                    base.select(index);
+                }
+            }
+        }
+    }
+}

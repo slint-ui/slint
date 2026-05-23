@@ -3,7 +3,7 @@
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::langtype::{
-    BuiltinElement, BuiltinPublicStruct, EnumerationValue, Function, Keys, Struct, Type,
+    BuiltinElement, BuiltinStruct, EnumerationValue, Function, Keys, Struct, Type,
 };
 use crate::layout::Orientation;
 use crate::lookup::LookupCtx;
@@ -126,6 +126,10 @@ pub enum BuiltinFunction {
     BringAllToFront,
     ParseMarkdown,
     StringToStyledText,
+    /// Converts a color to a hex string wrapped in StyledText.
+    /// Used for `<font color='\{expr}'>` interpolation in `@markdown`,
+    /// because `parse_interpolated` takes `StyledText` arguments.
+    ColorToStyledText,
     DecimalSeparator,
 }
 
@@ -233,7 +237,7 @@ declare_builtin_function_types!(
             (SmolStr::new_static("alpha"), Type::Int32),
         ])
         .collect(),
-        name: BuiltinPublicStruct::Color.into(),
+        name: BuiltinStruct::Color.into(),
     })),
     ColorHsvaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
@@ -243,7 +247,7 @@ declare_builtin_function_types!(
             (SmolStr::new_static("alpha"), Type::Float32),
         ])
         .collect(),
-        name: BuiltinPublicStruct::Color.into(),
+        name: BuiltinStruct::Color.into(),
     })),
     ColorOklchStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
         fields: IntoIterator::into_iter([
@@ -253,7 +257,7 @@ declare_builtin_function_types!(
             (SmolStr::new_static("alpha"), Type::Float32),
         ])
         .collect(),
-        name: BuiltinPublicStruct::Color.into(),
+        name: BuiltinStruct::Color.into(),
     })),
     ColorBrighter: (Type::Brush, Type::Float32) -> Type::Brush,
     ColorDarker: (Type::Brush, Type::Float32) -> Type::Brush,
@@ -266,7 +270,7 @@ declare_builtin_function_types!(
             (SmolStr::new_static("height"), Type::Int32),
         ])
         .collect(),
-        name: crate::langtype::BuiltinPrivateStruct::Size.into(),
+        name: crate::langtype::BuiltinStruct::Size.into(),
     })),
     ArrayLength: (Type::Model) -> Type::Int32,
     Rgb: (Type::Int32, Type::Int32, Type::Int32, Type::Float32) -> Type::Color,
@@ -304,7 +308,8 @@ declare_builtin_function_types!(
     StopTimer: (Type::ElementReference) -> Type::Void,
     RestartTimer: (Type::ElementReference) -> Type::Void,
     ParseMarkdown: (Type::String, Type::Array(Type::StyledText.into())) -> Type::StyledText,
-    StringToStyledText: (Type::String) -> Type::StyledText
+    StringToStyledText: (Type::String) -> Type::StyledText,
+    ColorToStyledText: (Type::Color) -> Type::StyledText
     OpenUrl: (Type::String) -> Type::Bool,
     BringAllToFront: () -> Type::Void,
 );
@@ -416,6 +421,7 @@ impl BuiltinFunction {
             BuiltinFunction::RestartTimer => false,
             BuiltinFunction::ParseMarkdown => false,
             BuiltinFunction::StringToStyledText => true,
+            BuiltinFunction::ColorToStyledText => true,
             BuiltinFunction::OpenUrl => false,
             BuiltinFunction::BringAllToFront => false,
         }
@@ -503,6 +509,7 @@ impl BuiltinFunction {
             BuiltinFunction::RestartTimer => false,
             BuiltinFunction::ParseMarkdown => true,
             BuiltinFunction::StringToStyledText => true,
+            BuiltinFunction::ColorToStyledText => true,
             BuiltinFunction::OpenUrl => false,
             BuiltinFunction::BringAllToFront => false,
         }
@@ -847,12 +854,19 @@ pub enum Expression {
     OrganizeGridLayout(crate::layout::GridLayout),
 
     /// Compute the LayoutInfo for the given box layout.
-    /// The orientation is the orientation of the cache, not the orientation of the layout
-    ComputeBoxLayoutInfo(crate::layout::BoxLayout, crate::layout::Orientation),
+    /// The orientation is the orientation of the cache, not the orientation of the layout.
+    ComputeBoxLayoutInfo {
+        layout: crate::layout::BoxLayout,
+        orientation: crate::layout::Orientation,
+        /// only set in `layoutinfo-v-with-constraint`
+        cross_axis_size: Option<Box<Expression>>,
+    },
     ComputeGridLayoutInfo {
         layout_organized_data_prop: NamedReference,
         layout: crate::layout::GridLayout,
         orientation: crate::layout::Orientation,
+        /// only set in `layoutinfo-v-with-constraint`
+        cross_axis_size: Option<Box<Expression>>,
     },
     /// Determine the coordinates of the items in the given orientation.
     SolveBoxLayout(crate::layout::BoxLayout, crate::layout::Orientation),
@@ -863,8 +877,13 @@ pub enum Expression {
     },
     /// Solve a FlexboxLayout - returns positions for all items (x, y, width, height per item)
     SolveFlexboxLayout(crate::layout::FlexboxLayout),
-    /// Compute the LayoutInfo for the given FlexboxLayout
-    ComputeFlexboxLayoutInfo(crate::layout::FlexboxLayout, crate::layout::Orientation),
+    /// Compute the LayoutInfo for the given FlexboxLayout.
+    ComputeFlexboxLayoutInfo {
+        layout: crate::layout::FlexboxLayout,
+        orientation: crate::layout::Orientation,
+        /// only set in `layoutinfo-v-with-constraint`
+        cross_axis_size: Option<Box<Expression>>,
+    },
 
     MinMax {
         ty: Type,
@@ -996,12 +1015,12 @@ impl Expression {
             Expression::LayoutCacheAccess { .. } => Type::LogicalLength,
             Expression::GridRepeaterCacheAccess { .. } => Type::LogicalLength,
             Expression::OrganizeGridLayout(..) => Type::ArrayOfU16,
-            Expression::ComputeBoxLayoutInfo(..) => typeregister::layout_info_type().into(),
+            Expression::ComputeBoxLayoutInfo { .. } => typeregister::layout_info_type().into(),
             Expression::ComputeGridLayoutInfo { .. } => typeregister::layout_info_type().into(),
             Expression::SolveBoxLayout(..) => Type::LayoutCache,
             Expression::SolveGridLayout { .. } => Type::LayoutCache,
             Expression::SolveFlexboxLayout(..) => Type::LayoutCache,
-            Expression::ComputeFlexboxLayoutInfo(..) => typeregister::layout_info_type().into(),
+            Expression::ComputeFlexboxLayoutInfo { .. } => typeregister::layout_info_type().into(),
             Expression::MinMax { ty, .. } => ty.clone(),
             Expression::EmptyComponentFactory => Type::ComponentFactory,
             Expression::DebugHook { expression, .. } => expression.ty(),
@@ -1112,12 +1131,16 @@ impl Expression {
                 inner_repeater_index.as_deref().map(visitor);
             }
             Expression::OrganizeGridLayout(..) => {}
-            Expression::ComputeBoxLayoutInfo(..) => {}
-            Expression::ComputeGridLayoutInfo { .. } => {}
+            Expression::ComputeBoxLayoutInfo { cross_axis_size, .. }
+            | Expression::ComputeGridLayoutInfo { cross_axis_size, .. }
+            | Expression::ComputeFlexboxLayoutInfo { cross_axis_size, .. } => {
+                if let Some(cas) = cross_axis_size {
+                    visitor(cas);
+                }
+            }
             Expression::SolveBoxLayout(..) => {}
             Expression::SolveGridLayout { .. } => {}
             Expression::SolveFlexboxLayout(..) => {}
-            Expression::ComputeFlexboxLayoutInfo(..) => {}
             Expression::MinMax { lhs, rhs, .. } => {
                 visitor(lhs);
                 visitor(rhs);
@@ -1233,12 +1256,16 @@ impl Expression {
                 inner_repeater_index.as_deref_mut().map(visitor);
             }
             Expression::OrganizeGridLayout(..) => {}
-            Expression::ComputeBoxLayoutInfo(..) => {}
-            Expression::ComputeGridLayoutInfo { .. } => {}
+            Expression::ComputeBoxLayoutInfo { cross_axis_size, .. }
+            | Expression::ComputeGridLayoutInfo { cross_axis_size, .. }
+            | Expression::ComputeFlexboxLayoutInfo { cross_axis_size, .. } => {
+                if let Some(cas) = cross_axis_size {
+                    visitor(cas);
+                }
+            }
             Expression::SolveBoxLayout(..) => {}
             Expression::SolveGridLayout { .. } => {}
             Expression::SolveFlexboxLayout(..) => {}
-            Expression::ComputeFlexboxLayoutInfo(..) => {}
             Expression::MinMax { lhs, rhs, .. } => {
                 visitor(lhs);
                 visitor(rhs);
@@ -1335,12 +1362,12 @@ impl Expression {
             Expression::LayoutCacheAccess { .. } => false,
             Expression::GridRepeaterCacheAccess { .. } => false,
             Expression::OrganizeGridLayout { .. } => false,
-            Expression::ComputeBoxLayoutInfo(..) => false,
+            Expression::ComputeBoxLayoutInfo { .. } => false,
             Expression::ComputeGridLayoutInfo { .. } => false,
             Expression::SolveBoxLayout(..) => false,
             Expression::SolveGridLayout { .. } => false,
             Expression::SolveFlexboxLayout(..) => false,
-            Expression::ComputeFlexboxLayoutInfo(..) => false,
+            Expression::ComputeFlexboxLayoutInfo { .. } => false,
             Expression::MinMax { lhs, rhs, .. } => lhs.is_constant(ga) && rhs.is_constant(ga),
             Expression::EmptyComponentFactory => true,
             Expression::DebugHook { .. } => false,
@@ -2087,12 +2114,12 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             }
         }
         Expression::OrganizeGridLayout(..) => write!(f, "organize_grid_layout(..)"),
-        Expression::ComputeBoxLayoutInfo(..) => write!(f, "layout_info(..)"),
+        Expression::ComputeBoxLayoutInfo { .. } => write!(f, "layout_info(..)"),
         Expression::ComputeGridLayoutInfo { .. } => write!(f, "grid_layout_info(..)"),
         Expression::SolveBoxLayout(..) => write!(f, "solve_box_layout(..)"),
         Expression::SolveGridLayout { .. } => write!(f, "solve_grid_layout(..)"),
         Expression::SolveFlexboxLayout(..) => write!(f, "solve_flexbox_layout(..)"),
-        Expression::ComputeFlexboxLayoutInfo(..) => write!(f, "flexbox_layout_info(..)"),
+        Expression::ComputeFlexboxLayoutInfo { .. } => write!(f, "flexbox_layout_info(..)"),
         Expression::MinMax { ty: _, op, lhs, rhs } => {
             match op {
                 MinMaxOp::Min => write!(f, "min(")?,

@@ -30,6 +30,7 @@ use i_slint_core::lengths::{
 };
 use i_slint_core::partial_renderer::{DirtyRegion, PartialRenderingState};
 use i_slint_core::platform::PlatformError;
+use i_slint_core::renderer::DrawOutcome;
 use i_slint_core::textlayout::sharedparley;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 
@@ -58,13 +59,13 @@ pub mod vulkan_surface;
 #[cfg(any(not(target_vendor = "apple"), target_os = "macos"))]
 pub mod opengl_surface;
 
-#[cfg(feature = "wgpu-27")]
-pub mod wgpu_27_surface;
 #[cfg(feature = "wgpu-28")]
 pub mod wgpu_28_surface;
-#[cfg(feature = "wgpu-28")]
+#[cfg(feature = "wgpu-29")]
+pub mod wgpu_29_surface;
+#[cfg(feature = "wgpu-29")]
 mod wgpu_renderer;
-#[cfg(feature = "wgpu-28")]
+#[cfg(feature = "wgpu-29")]
 pub use wgpu_renderer::SkiaWGPURenderer;
 
 use i_slint_core::items::{ItemRc, TextWrap};
@@ -384,42 +385,8 @@ impl SkiaRenderer {
         }
     }
 
-    #[cfg(feature = "unstable-wgpu-27")]
-    /// Creates a new SkiaRenderer that will always use Skia's Vulkan renderer.
-    pub fn default_wgpu_27(context: &SkiaSharedContext) -> Self {
-        Self {
-            maybe_window_adapter: Default::default(),
-            rendering_notifier: Default::default(),
-            image_cache: Default::default(),
-            layer_cache: Default::default(),
-            path_cache: Default::default(),
-            text_layout_cache: Default::default(),
-            rendering_metrics_collector: Default::default(),
-            rendering_first_time: Default::default(),
-            surface: Default::default(),
-            surface_factory: |context,
-                              window_handle,
-                              display_handle,
-                              size,
-                              requested_graphics_api| {
-                wgpu_27_surface::WGPUSurface::new(
-                    context,
-                    window_handle,
-                    display_handle,
-                    size,
-                    requested_graphics_api,
-                )
-                .map(|r| Box::new(r) as Box<dyn Surface>)
-            },
-            pre_present_callback: Default::default(),
-            partial_rendering_state: create_partial_renderer_state(None),
-            dirty_region_debug_mode: Default::default(),
-            dirty_region_history: Default::default(),
-            shared_context: context.clone(),
-        }
-    }
     #[cfg(feature = "unstable-wgpu-28")]
-    /// Creates a new SkiaRenderer that will always use Skia's Vulkan renderer.
+    /// Creates a new SkiaRenderer that will always use Skia's WGPU 28.x renderer.
     pub fn default_wgpu_28(context: &SkiaSharedContext) -> Self {
         Self {
             maybe_window_adapter: Default::default(),
@@ -437,6 +404,41 @@ impl SkiaRenderer {
                               size,
                               requested_graphics_api| {
                 wgpu_28_surface::WGPUSurface::new(
+                    context,
+                    window_handle,
+                    display_handle,
+                    size,
+                    requested_graphics_api,
+                )
+                .map(|r| Box::new(r) as Box<dyn Surface>)
+            },
+            pre_present_callback: Default::default(),
+            partial_rendering_state: create_partial_renderer_state(None),
+            dirty_region_debug_mode: Default::default(),
+            dirty_region_history: Default::default(),
+            shared_context: context.clone(),
+        }
+    }
+
+    #[cfg(feature = "unstable-wgpu-29")]
+    /// Creates a new SkiaRenderer that will always use Skia's WGPU 29.x renderer.
+    pub fn default_wgpu_29(context: &SkiaSharedContext) -> Self {
+        Self {
+            maybe_window_adapter: Default::default(),
+            rendering_notifier: Default::default(),
+            image_cache: Default::default(),
+            layer_cache: Default::default(),
+            path_cache: Default::default(),
+            text_layout_cache: Default::default(),
+            rendering_metrics_collector: Default::default(),
+            rendering_first_time: Default::default(),
+            surface: Default::default(),
+            surface_factory: |context,
+                              window_handle,
+                              display_handle,
+                              size,
+                              requested_graphics_api| {
+                wgpu_29_surface::WGPUSurface::new(
                     context,
                     window_handle,
                     display_handle,
@@ -559,7 +561,7 @@ impl SkiaRenderer {
     }
 
     /// Render the scene in the previously associated window.
-    pub fn render(&self) -> Result<(), i_slint_core::platform::PlatformError> {
+    pub fn render(&self) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         let window_adapter = self.window_adapter()?;
         let size = window_adapter.window().size();
         self.internal_render_with_post_callback(0., (0., 0.), size, None)
@@ -592,9 +594,9 @@ impl SkiaRenderer {
         translation: (f32, f32),
         surface_size: PhysicalWindowSize,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
+    ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         let surface = self.surface.borrow();
-        let Some(surface) = surface.as_ref() else { return Ok(()) };
+        let Some(surface) = surface.as_ref() else { return Ok(DrawOutcome::Success) };
         self.invoke_rendering_notifier_setup(surface.as_ref())?;
 
         let window_adapter = self.window_adapter()?;
@@ -926,7 +928,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
         let ctx = self.slint_context().ok_or("slint platform not initialized")?;
-        ctx.font_context().borrow_mut().collection.register_fonts(data.to_vec().into(), None);
+        ctx.font_context().borrow_mut().register_static_font(data);
         Ok(())
     }
 
@@ -1077,7 +1079,8 @@ pub trait Surface {
         Ok(())
     }
     /// Prepares the surface for rendering and invokes the provided callback with access to a Skia canvas and
-    /// rendering context.
+    /// rendering context. Returning `DrawOutcome::Occluded` or `Timeout` lets the caller
+    /// re-arm its redraw flag without rendering.
     fn render(
         &self,
         window: &Window,
@@ -1088,7 +1091,7 @@ pub trait Surface {
             u8,
         ) -> Option<DirtyRegion>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
-    ) -> Result<(), i_slint_core::platform::PlatformError>;
+    ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError>;
     /// Called when the surface should be resized.
     fn resize_event(
         &self,
@@ -1108,7 +1111,7 @@ pub trait Surface {
         None
     }
 
-    #[cfg(any(feature = "unstable-wgpu-27", feature = "unstable-wgpu-28"))]
+    #[cfg(any(feature = "unstable-wgpu-28", feature = "unstable-wgpu-29"))]
     fn import_wgpu_texture(
         &self,
         _canvas: &skia_safe::Canvas,
@@ -1130,7 +1133,7 @@ pub trait SkiaRendererExt {
         translation: (f32, f32),
         surface_size: PhysicalWindowSize,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
-    ) -> Result<(), i_slint_core::platform::PlatformError>;
+    ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError>;
 }
 
 impl SkiaRendererExt for SkiaRenderer {
@@ -1140,7 +1143,7 @@ impl SkiaRendererExt for SkiaRenderer {
         translation: (f32, f32),
         surface_size: PhysicalWindowSize,
         post_render_cb: Option<&dyn Fn(&mut dyn ItemRenderer)>,
-    ) -> Result<(), i_slint_core::platform::PlatformError> {
+    ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError> {
         self.internal_render_with_post_callback(
             rotation_angle_degrees,
             translation,

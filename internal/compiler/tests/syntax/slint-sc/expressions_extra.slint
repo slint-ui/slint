@@ -4,8 +4,6 @@
 // Additional expression types rejected in Slint SC mode.
 
 export component Test inherits Window {
-//               >  <error{Component declarations are not supported in Slint SC}
-//                             >     <^error{The builtin element 'Window' is not supported in Slint SC}
     // @markdown
     property <string> a: @markdown("hello");
 //  >                                      <error{Property declarations are not supported in Slint SC}
