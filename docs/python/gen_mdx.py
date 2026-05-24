@@ -62,32 +62,34 @@ STDLIB_ROLES = {"py:class", "py:data", "py:exception", "py:function"}
 _STDLIB: dict[str, str] = {}
 
 
+def python_doc_version(requires_python: str) -> str:
+    """The `major.minor` floor of a `requires-python` spec (`">= 3.12"` -> `3.12`).
+    Raises ValueError if no version is present."""
+    match = re.search(r"(\d+)\.(\d+)", requires_python)
+    if not match:
+        raise ValueError(f"no Python version in requires-python: {requires_python!r}")
+    return match.group(0)
+
+
 def python_docs_url() -> str:
     """Base URL of the CPython docs for the slint port's minimum Python, e.g.
-    `https://docs.python.org/3.12/`. The floor is the first `major.minor` in the
-    package's `requires-python` (`">= 3.12"` -> `3.12`), so the linked docs and
-    the objects.inv version track that single source of truth."""
+    `https://docs.python.org/3.12/`. The floor comes from the package's
+    `requires-python`, so the linked docs and the objects.inv version track that
+    single source of truth."""
     requires = tomllib.loads(PYPROJECT.read_text())["project"]["requires-python"]
-    match = re.search(r"(\d+)\.(\d+)", requires)
-    if not match:
-        raise SystemExit(
-            f"error: could not read a Python version from requires-python "
-            f"({requires!r}) in {PYPROJECT}"
-        )
-    return f"https://docs.python.org/{match.group(0)}/"
-
-
-def load_stdlib_inventory(docs_url: str) -> dict[str, str]:
-    """Fetch and parse CPython's Sphinx inventory into {qualified name: URL},
-    keeping only the type-like roles. A fetch failure aborts the build rather
-    than silently dropping standard-library links."""
-    inventory_url = docs_url + "objects.inv"
     try:
-        raw = urllib.request.urlopen(inventory_url, timeout=30).read()  # noqa: S310
-    except OSError as exc:
-        raise SystemExit(f"error: could not fetch {inventory_url}: {exc}") from exc
-    # Inventory v2: four "#"-prefixed header lines, then a zlib-compressed body
-    # of "name domain:role priority uri display-name" records ($ in uri = name).
+        version = python_doc_version(requires)
+    except ValueError as exc:
+        raise SystemExit(f"error: {exc} in {PYPROJECT}") from exc
+    return f"https://docs.python.org/{version}/"
+
+
+def parse_inventory(raw: bytes, docs_url: str) -> dict[str, str]:
+    """Parse a Sphinx v2 objects.inv into {qualified name: URL}, keeping only the
+    type-like roles. Inventory v2 is four "#"-prefixed header lines, then a
+    zlib-compressed body of "name domain:role priority uri display-name" records
+    ($ in uri == name). A name appears under several roles (e.g. `list` is both
+    py:class and a `comprehension`); only the py: type roles are linkable."""
     body = zlib.decompress(raw.split(b"\n", 4)[4]).decode()
     links: dict[str, str] = {}
     for line in body.splitlines():
@@ -97,6 +99,17 @@ def load_stdlib_inventory(docs_url: str) -> dict[str, str]:
         name, uri = parts[0], parts[3]
         links[name] = docs_url + uri.replace("$", name)
     return links
+
+
+def load_stdlib_inventory(docs_url: str) -> dict[str, str]:
+    """Fetch CPython's Sphinx inventory and parse it (see parse_inventory). A
+    fetch failure aborts the build rather than silently dropping links."""
+    inventory_url = docs_url + "objects.inv"
+    try:
+        raw = urllib.request.urlopen(inventory_url, timeout=30).read()  # noqa: S310
+    except OSError as exc:
+        raise SystemExit(f"error: could not fetch {inventory_url}: {exc}") from exc
+    return parse_inventory(raw, docs_url)
 
 
 def imports_for(dir_path: str) -> str:
@@ -244,8 +257,8 @@ def resolve(obj: griffe.Object | griffe.Alias) -> griffe.Object | None:
     """Resolve an alias to its concrete target, or return the object itself.
     Returns None for aliases that point outside the package (e.g. stdlib
     re-imports such as `os`, `asyncio`) which griffe cannot resolve statically."""
-    if not obj.is_alias:
-        return obj  # type: ignore[return-value]
+    if not isinstance(obj, griffe.Alias):
+        return obj
     try:
         target = obj.final_target
     except Exception:
@@ -451,12 +464,12 @@ def public_classes(mod: griffe.Module) -> list[tuple[str, griffe.Class]]:
 @dataclass
 class Page:
     """One generated page: its directory (a sidebar group), the symbol it
-    documents, and how to render it."""
+    documents (the renderer dispatches on its griffe type), and the dotted
+    public name to register in the manifest."""
 
     dir_path: str  # relative to DOCS_ROOT, e.g. "api/classes"
     name: str  # binding name, also the URL slug source, e.g. "Model"
     obj: griffe.Object
-    kind: str  # "class" | "function" | "variable"
     qualifier: str  # dotted public name, e.g. "slint.Model" or "language.KeyEvent"
 
 
@@ -476,22 +489,16 @@ def collect_pages(mod: griffe.Module) -> list[Page]:
             continue
         qualifier = f"{PACKAGE}.{name}"
         if isinstance(obj, griffe.Class):
-            pages.append(Page(class_dir("api", obj), name, obj, "class", qualifier))
+            pages.append(Page(class_dir("api", obj), name, obj, qualifier))
         elif isinstance(obj, griffe.Function):
-            pages.append(Page(DIR_FUNCTIONS, name, obj, "function", qualifier))
+            pages.append(Page(DIR_FUNCTIONS, name, obj, qualifier))
         elif isinstance(obj, griffe.Attribute):
-            pages.append(Page(DIR_VARIABLES, name, obj, "variable", qualifier))
+            pages.append(Page(DIR_VARIABLES, name, obj, qualifier))
         elif isinstance(obj, griffe.Module):
             parent = f"api/{slug(name)}"
             for cls_name, cls in public_classes(obj):
                 pages.append(
-                    Page(
-                        class_dir(parent, cls),
-                        cls_name,
-                        cls,
-                        "class",
-                        f"{name}.{cls_name}",
-                    )
+                    Page(class_dir(parent, cls), cls_name, cls, f"{name}.{cls_name}")
                 )
     return pages
 
@@ -507,7 +514,7 @@ def build_manifest(pages: list[Page]) -> dict[str, str]:
         manifest[page.qualifier] = url
         manifest[page.obj.path] = url
         manifest[page.obj.name] = url
-        if page.kind == "class":
+        if isinstance(page.obj, griffe.Class):
             _, _, members = class_members(page.obj)
             for m in members:
                 member_url = page_url(page.dir_path, page.name, m.name)
@@ -532,11 +539,13 @@ def exported_names(mod: griffe.Module) -> set[str] | None:
 
 def render_page(page: Page, manifest: dict[str, str]) -> str:
     imports = imports_for(page.dir_path)
-    if page.kind == "function":
-        return render_function(page.name, page.obj, manifest, imports)
-    if page.kind == "variable":
-        return render_variable(page.name, page.obj, manifest, imports)
-    return render_class(page.name, page.obj, manifest, imports)
+    obj = page.obj
+    if isinstance(obj, griffe.Function):
+        return render_function(page.name, obj, manifest, imports)
+    if isinstance(obj, griffe.Attribute):
+        return render_variable(page.name, obj, manifest, imports)
+    assert isinstance(obj, griffe.Class)
+    return render_class(page.name, obj, manifest, imports)
 
 
 def main() -> None:

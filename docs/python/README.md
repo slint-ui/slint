@@ -43,3 +43,7 @@ pnpm thirdparty  # regenerate src/content/docs/generated/thirdparty.md only
 ```
 
 The static site is output under `dist/`.
+
+Run the generator's unit tests (pure helpers plus a fixture-package
+integration test) with `uv run pytest`. Lint and type-check it with
+`uv tool run ruff check` and `uvx ty check`.
