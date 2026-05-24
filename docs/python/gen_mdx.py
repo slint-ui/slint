@@ -7,9 +7,9 @@ Run from the docs/python/ directory (or via `pnpm gen`):
 
     uv run python gen_mdx.py
 
-Outputs:
-    src/content/docs/api/<class>.mdx   one page per public top-level class
-    src/content/docs/api/functions.mdx module-level functions and attributes
+Outputs (one page per symbol, grouped into a sidebar group per kind):
+    src/content/docs/api/{classes,enumerations,functions,variables}/<name>.mdx
+    src/content/docs/api/language/{classes,enumerations}/<name>.mdx
     src/api-manifest.json              qualified-name -> URL, for <XRef> resolution
     src/version.json                   documented package name and version
 
@@ -24,7 +24,9 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import tomllib
+from dataclasses import dataclass
 from pathlib import Path
 
 import griffe
@@ -33,17 +35,30 @@ PACKAGE = "slint"
 ROOT = Path(__file__).parent
 # repo_root/api/python/slint holds the `slint` package (and its `pyproject.toml`).
 PACKAGE_ROOT = ROOT.parent.parent / "api" / "python" / "slint"
-API_DIR = ROOT / "src" / "content" / "docs" / "api"
+DOCS_ROOT = ROOT / "src" / "content" / "docs"
+API_DIR = DOCS_ROOT / "api"
 MANIFEST = ROOT / "src" / "api-manifest.json"
 PYPROJECT = PACKAGE_ROOT / "pyproject.toml"
 VERSION_FILE = ROOT / "src" / "version.json"
 
-# imports injected at the top of every generated page; path is relative to
-# src/content/docs/api/<page>.mdx
-IMPORTS = (
-    'import XRef from "../../../components/XRef.astro";\n'
-    'import Signature from "../../../components/Signature.astro";'
-)
+# Per-kind page directories (relative to DOCS_ROOT); each becomes a sidebar
+# group. Submodules like `language` mirror the same structure one level down.
+DIR_CLASSES = "api/classes"
+DIR_ENUMS = "api/enumerations"
+DIR_FUNCTIONS = "api/functions"
+DIR_VARIABLES = "api/variables"
+
+
+def imports_for(dir_path: str) -> str:
+    """The XRef/Signature import header for a page at
+    `src/content/docs/<dir_path>/<page>.mdx`, with enough `../` to reach
+    `src/components` regardless of how deeply the page is nested."""
+    ups = "../" * (2 + len(dir_path.split("/")))
+    return (
+        f'import XRef from "{ups}components/XRef.astro";\n'
+        f'import Signature from "{ups}components/Signature.astro";'
+    )
+
 
 # ---- docstring -> MDX -------------------------------------------------------
 
@@ -160,8 +175,8 @@ def slug(name: str) -> str:
     return name.lower()
 
 
-def url_for(top: str, member: str | None = None) -> str:
-    base = f"/api/{slug(top)}/"
+def page_url(dir_path: str, name: str, member: str | None = None) -> str:
+    base = f"/{dir_path}/{slug(name)}/"
     return f"{base}#{member.lower()}" if member else base
 
 
@@ -230,17 +245,21 @@ def is_enum(cls: griffe.Class) -> bool:
     return any("Enum" in str(b) for b in cls.bases)
 
 
-def base_is_native(base: str | griffe.Expr) -> bool:
-    """True if a base class lives in the native extension (`slint.slint`). That
-    is the pyo3 implementation base (e.g. `PyModelBase`), an internal detail
-    users don't subclass directly, so it is left off the rendered bases line."""
+def base_is_internal(base: str | griffe.Expr) -> bool:
+    """True if a base class is an implementation detail not worth listing: the
+    native pyo3 base in `slint.slint` (e.g. `PyModelBase`), or `typing.NamedTuple`
+    (the language structs are NamedTuples, but that is noise on every page)."""
     if isinstance(base, str):
         return False
     for tok in base.iterate(flat=True):
         if isinstance(tok, str):
             continue
         canonical = getattr(tok, "canonical_path", "") or ""
-        if canonical == "slint.slint" or canonical.startswith("slint.slint."):
+        if (
+            canonical == "slint.slint"
+            or canonical.startswith("slint.slint.")
+            or canonical == "typing.NamedTuple"
+        ):
             return True
     return False
 
@@ -251,7 +270,7 @@ def render_bases(cls: griffe.Class, manifest: dict[str, str]) -> str:
     not parsed as a Markdown link reference in the surrounding prose."""
     rendered: list[str] = []
     for base in cls.bases:
-        if base_is_native(base):
+        if base_is_internal(base):
             continue
         part = render_annotation(base, manifest)
         if part:
@@ -272,8 +291,10 @@ def display_name(name: str, cls: griffe.Class) -> str:
     return f"{name}[{', '.join(params)}]" if params else name
 
 
-def render_class(name: str, cls: griffe.Class, manifest: dict[str, str]) -> str:
-    lines = ["---", f'title: "{display_name(name, cls)}"', "---", IMPORTS, ""]
+def render_class(
+    name: str, cls: griffe.Class, manifest: dict[str, str], imports: str
+) -> str:
+    lines = ["---", f'title: "{display_name(name, cls)}"', "---", imports, ""]
 
     if cls.docstring:
         lines += [docstring_to_mdx(cls.docstring.value, manifest), ""]
@@ -327,42 +348,30 @@ def render_class(name: str, cls: griffe.Class, manifest: dict[str, str]) -> str:
     return "\n".join(lines)
 
 
-def render_functions(
-    functions: list[tuple[str, griffe.Function]],
-    attributes: list[tuple[str, griffe.Attribute]],
-    manifest: dict[str, str],
+def render_function(
+    name: str, func: griffe.Function, manifest: dict[str, str], imports: str
 ) -> str:
-    lines = ["---", "title: Functions", "---", IMPORTS, ""]
-    if functions:
-        for name, m in functions:
-            lines += [
-                f"## {name}",
-                "",
-                f'<Signature symbol="{m.path}">{render_signature(m, manifest)}</Signature>',
-                "",
-            ]
-            if m.docstring:
-                lines += [docstring_to_mdx(m.docstring.value, manifest), ""]
-    if attributes:
-        lines += ["## Module attributes", ""]
-        for name, m in attributes:
-            children = text(name)
-            if m.annotation is not None:
-                children += ": " + render_annotation(m.annotation, manifest)
-            lines += [
-                f"### {name}",
-                "",
-                f'<Signature symbol="{m.path}">{children}</Signature>',
-                "",
-            ]
-            if m.docstring:
-                lines += [docstring_to_mdx(m.docstring.value, manifest), ""]
+    lines = ["---", f'title: "{name}"', "---", imports, ""]
+    lines += [
+        f'<Signature symbol="{func.path}">{render_signature(func, manifest)}</Signature>',
+        "",
+    ]
+    if func.docstring:
+        lines += [docstring_to_mdx(func.docstring.value, manifest), ""]
     return "\n".join(lines)
 
 
-def single_line(value: str) -> str:
-    """Collapse whitespace so a docstring fits on a single list-item line."""
-    return " ".join(value.split())
+def render_variable(
+    name: str, attr: griffe.Attribute, manifest: dict[str, str], imports: str
+) -> str:
+    lines = ["---", f'title: "{name}"', "---", imports, ""]
+    children = text(name)
+    if attr.annotation is not None:
+        children += ": " + render_annotation(attr.annotation, manifest)
+    lines += [f'<Signature symbol="{attr.path}">{children}</Signature>', ""]
+    if attr.docstring:
+        lines += [docstring_to_mdx(attr.docstring.value, manifest), ""]
+    return "\n".join(lines)
 
 
 def public_classes(mod: griffe.Module) -> list[tuple[str, griffe.Class]]:
@@ -379,89 +388,74 @@ def public_classes(mod: griffe.Module) -> list[tuple[str, griffe.Class]]:
     ]
 
 
-def render_module(name: str, mod: griffe.Module, manifest: dict[str, str]) -> str:
-    """Render a submodule (e.g. `language`) as one page: each public class is a
-    section listing its enum values or its struct fields. These types only exist
-    as a build-generated stub (`language.pyi`), so the page is empty until the
-    crate's build script has run."""
-    lines = ["---", f"title: {name}", "---", IMPORTS, ""]
-    if mod.docstring:
-        lines += [docstring_to_mdx(mod.docstring.value, manifest), ""]
-    for cls_name, cls in public_classes(mod):
-        lines += [f"## {cls_name}", ""]
-        if cls.docstring:
-            lines += [docstring_to_mdx(cls.docstring.value, manifest), ""]
-        props, _methods, members = class_members(cls)
-        if is_enum(cls):
-            lines += ["**Values:**", ""]
-            for m in members:
-                doc = (
-                    f" — {single_line(docstring_to_mdx(m.docstring.value, manifest))}"
-                    if m.docstring
-                    else ""
-                )
-                lines.append(f"- **`{m.name}`**{doc}")
-            lines.append("")
-        elif props:
-            lines += ["**Fields:**", ""]
-            for m in props:
-                annotation = ""
-                if m.annotation is not None:
-                    rendered = render_annotation(m.annotation, manifest)
-                    annotation = ": " + rendered.replace("[", "&#91;").replace(
-                        "]", "&#93;"
+# ---- page model -------------------------------------------------------------
+
+
+@dataclass
+class Page:
+    """One generated page: its directory (a sidebar group), the symbol it
+    documents, and how to render it."""
+
+    dir_path: str  # relative to DOCS_ROOT, e.g. "api/classes"
+    name: str  # binding name, also the URL slug source, e.g. "Model"
+    obj: griffe.Object
+    kind: str  # "class" | "function" | "variable"
+    qualifier: str  # dotted public name, e.g. "slint.Model" or "language.KeyEvent"
+
+
+def class_dir(parent: str, cls: griffe.Class) -> str:
+    """Enums go under enumerations/, everything else under classes/."""
+    return f"{parent}/enumerations" if is_enum(cls) else f"{parent}/classes"
+
+
+def collect_pages(mod: griffe.Module) -> list[Page]:
+    """Group the package's public surface into per-kind pages. Classes, enums,
+    functions and variables live directly under api/; a documented submodule
+    (e.g. `language`) mirrors the same classes/ and enumerations/ split."""
+    exported = exported_names(mod)
+    pages: list[Page] = []
+    for name, obj in public_named_members(mod):
+        if exported is not None and name not in exported:
+            continue
+        qualifier = f"{PACKAGE}.{name}"
+        if isinstance(obj, griffe.Class):
+            pages.append(Page(class_dir("api", obj), name, obj, "class", qualifier))
+        elif isinstance(obj, griffe.Function):
+            pages.append(Page(DIR_FUNCTIONS, name, obj, "function", qualifier))
+        elif isinstance(obj, griffe.Attribute):
+            pages.append(Page(DIR_VARIABLES, name, obj, "variable", qualifier))
+        elif isinstance(obj, griffe.Module):
+            parent = f"api/{slug(name)}"
+            for cls_name, cls in public_classes(obj):
+                pages.append(
+                    Page(
+                        class_dir(parent, cls),
+                        cls_name,
+                        cls,
+                        "class",
+                        f"{name}.{cls_name}",
                     )
-                doc = (
-                    f" — {single_line(docstring_to_mdx(m.docstring.value, manifest))}"
-                    if m.docstring
-                    else ""
                 )
-                lines.append(f"- **`{m.name}`**{annotation}{doc}")
-            lines.append("")
-    return "\n".join(lines)
+    return pages
 
 
 # ---- manifest ---------------------------------------------------------------
 
 
-def add_symbol(manifest: dict[str, str], obj: griffe.Object, url: str) -> None:
-    """Register every name a docstring or annotation might use for `obj`."""
-    manifest[obj.path] = url  # resolved path, e.g. slint.slint.Color
-    manifest[obj.name] = url  # bare name, e.g. Color
-
-
-def submodule_member_url(mod_name: str, cls_name: str) -> str:
-    """A submodule's classes share one page; link to the class's anchor."""
-    return f"/api/{slug(mod_name)}/#{slug(cls_name)}"
-
-
-def build_manifest(
-    classes: list[tuple[str, griffe.Class]],
-    functions: list[tuple[str, griffe.Function]],
-    submodules: list[tuple[str, griffe.Module]],
-) -> dict[str, str]:
+def build_manifest(pages: list[Page]) -> dict[str, str]:
     manifest: dict[str, str] = {}
-    for name, cls in classes:
-        url = url_for(name)
-        manifest[name] = url
-        manifest[f"{PACKAGE}.{name}"] = url
-        add_symbol(manifest, cls, url)
-        _, _, members = class_members(cls)
-        for m in members:
-            member_url = url_for(name, m.name)
-            manifest[f"{name}.{m.name}"] = member_url
-            manifest[f"{m.path}"] = member_url
-    for name, func in functions:
-        url = url_for("functions", name)
-        manifest[name] = url
-        manifest[f"{PACKAGE}.{name}"] = url
-        manifest[func.path] = url
-    for mod_name, submod in submodules:
-        for cls_name, cls in public_classes(submod):
-            url = submodule_member_url(mod_name, cls_name)
-            manifest[cls_name] = url
-            manifest[f"{mod_name}.{cls_name}"] = url
-            manifest[cls.path] = url
+    for page in pages:
+        url = page_url(page.dir_path, page.name)
+        manifest[page.name] = url
+        manifest[page.qualifier] = url
+        manifest[page.obj.path] = url
+        manifest[page.obj.name] = url
+        if page.kind == "class":
+            _, _, members = class_members(page.obj)
+            for m in members:
+                member_url = page_url(page.dir_path, page.name, m.name)
+                manifest[f"{page.name}.{m.name}"] = member_url
+                manifest[m.path] = member_url
     return manifest
 
 
@@ -479,49 +473,31 @@ def exported_names(mod: griffe.Module) -> set[str] | None:
     }
 
 
+def render_page(page: Page, manifest: dict[str, str]) -> str:
+    imports = imports_for(page.dir_path)
+    if page.kind == "function":
+        return render_function(page.name, page.obj, manifest, imports)
+    if page.kind == "variable":
+        return render_variable(page.name, page.obj, manifest, imports)
+    return render_class(page.name, page.obj, manifest, imports)
+
+
 def main() -> None:
     mod = griffe.load(PACKAGE, search_paths=[str(PACKAGE_ROOT)], resolve_aliases=True)
     assert isinstance(mod, griffe.Module)
-    exported = exported_names(mod)
 
-    classes: list[tuple[str, griffe.Class]] = []
-    functions: list[tuple[str, griffe.Function]] = []
-    attributes: list[tuple[str, griffe.Attribute]] = []
-    submodules: list[tuple[str, griffe.Module]] = []
-    for name, obj in public_named_members(mod):
-        if exported is not None and name not in exported:
-            continue
-        if isinstance(obj, griffe.Class):
-            classes.append((name, obj))
-        elif isinstance(obj, griffe.Function):
-            functions.append((name, obj))
-        elif isinstance(obj, griffe.Attribute):
-            attributes.append((name, obj))
-        # A documented submodule (e.g. `language`); skip it until its
-        # build-generated stub is present and it actually has classes.
-        elif isinstance(obj, griffe.Module) and public_classes(obj):
-            submodules.append((name, obj))
+    pages = collect_pages(mod)
+    manifest = build_manifest(pages)
 
-    manifest = build_manifest(classes, functions, submodules)
-
-    API_DIR.mkdir(parents=True, exist_ok=True)
-    for stale in API_DIR.glob("*.mdx"):
-        stale.unlink()
-
-    for name, cls in classes:
-        (API_DIR / f"{slug(name)}.mdx").write_text(render_class(name, cls, manifest))
-    if functions or attributes:
-        (API_DIR / "functions.mdx").write_text(
-            render_functions(functions, attributes, manifest)
-        )
-    for name, submod in submodules:
-        (API_DIR / f"{slug(name)}.mdx").write_text(
-            render_module(name, submod, manifest)
-        )
+    if API_DIR.exists():
+        shutil.rmtree(API_DIR)
+    for page in pages:
+        out_dir = DOCS_ROOT / page.dir_path
+        out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / f"{slug(page.name)}.mdx").write_text(render_page(page, manifest))
 
     MANIFEST.write_text(json.dumps(manifest, indent=2, sort_keys=True))
-    pages = len(classes) + (1 if functions or attributes else 0) + len(submodules)
-    print(f"Wrote {pages} pages to {API_DIR}")
+    print(f"Wrote {len(pages)} pages to {API_DIR}")
     print(f"Wrote manifest ({len(manifest)} symbols) to {MANIFEST}")
 
     version = tomllib.loads(PYPROJECT.read_text())["project"]["version"]

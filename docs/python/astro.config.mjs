@@ -67,7 +67,71 @@ export default defineConfig({
                 { label: "Overview", slug: "index" },
                 {
                     label: "API",
-                    items: [{ autogenerate: { directory: "api" } }],
+                    items: [
+                        {
+                            label: "Classes",
+                            items: [
+                                { autogenerate: { directory: "api/classes" } },
+                            ],
+                        },
+                        {
+                            label: "Enumerations",
+                            items: [
+                                {
+                                    autogenerate: {
+                                        directory: "api/enumerations",
+                                    },
+                                },
+                            ],
+                        },
+                        {
+                            label: "Functions",
+                            items: [
+                                {
+                                    autogenerate: {
+                                        directory: "api/functions",
+                                    },
+                                },
+                            ],
+                        },
+                        {
+                            label: "Variables",
+                            items: [
+                                {
+                                    autogenerate: {
+                                        directory: "api/variables",
+                                    },
+                                },
+                            ],
+                        },
+                        {
+                            label: "language",
+                            items: [
+                                {
+                                    label: "Classes",
+                                    items: [
+                                        {
+                                            autogenerate: {
+                                                directory:
+                                                    "api/language/classes",
+                                            },
+                                        },
+                                    ],
+                                },
+                                {
+                                    label: "Enumerations",
+                                    items: [
+                                        {
+                                            autogenerate: {
+                                                directory:
+                                                    "api/language/enumerations",
+                                            },
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
                 },
             ],
         }),
