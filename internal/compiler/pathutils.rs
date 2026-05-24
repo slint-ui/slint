@@ -9,6 +9,12 @@
 use smol_str::{SmolStr, SmolStrBuilder, format_smolstr};
 use std::path::{Path, PathBuf};
 
+/// Return `true` if `path` has a font file extension supported by Slint
+/// (`.ttf`, `.ttc`, or `.otf`).
+pub fn is_font_file(path: &str) -> bool {
+    path.ends_with(".ttf") || path.ends_with(".ttc") || path.ends_with(".otf")
+}
+
 /// Check whether a `Path` is actually an URL.
 pub fn is_url(path: &Path) -> bool {
     let Some(path) = path.to_str() else {

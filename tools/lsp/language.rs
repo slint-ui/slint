@@ -96,6 +96,7 @@ fn create_populate_command(
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn send_state_to_preview(ctx: &Context) {
     let mut doc_count = 0;
+    let mut fonts_sent = HashSet::<PathBuf>::new();
     for (url, node) in ctx.document_cache.all_url_documents() {
         if url.scheme() == "builtin" {
             continue;
@@ -103,9 +104,10 @@ pub fn send_state_to_preview(ctx: &Context) {
         let version = ctx.document_cache.document_version(&url);
 
         ctx.to_preview.send(&LspToPreviewMessage::SetContents {
-            url: VersionedUrl::new(url, version),
+            url: VersionedUrl::new(url.clone(), version),
             contents: node.text().to_string().into(),
         });
+        send_referenced_fonts(ctx, &url, &mut fonts_sent);
         doc_count += 1;
     }
 
@@ -129,6 +131,7 @@ pub fn send_state_to_preview(ctx: &Context) {
     any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
 ))]
 pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
+    let mut fonts_sent = HashSet::<PathBuf>::new();
     for url in files {
         if let Some(node) = ctx.document_cache.get_document(url).and_then(|doc| doc.node.as_ref()) {
             let version = ctx.document_cache.document_version_by_path(node.source_file.path());
@@ -138,6 +141,7 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
                 url: VersionedUrl::new(url.clone(), version),
                 contents,
             });
+            send_referenced_fonts(ctx, url, &mut fonts_sent);
             continue;
         }
         let Some(path) = url.to_file_path().ok() else {
@@ -155,6 +159,54 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
             Err(err) => {
                 tracing::warn!("Failed to read file {}: {err}", path.display());
                 ctx.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
+            }
+        }
+    }
+}
+
+/// Read each font file imported by the `.slint` at `doc_url` and push it
+/// to the preview via `SetContents`. `sent` is used to skip fonts already
+/// transferred in this round (e.g. referenced by several `.slint` files).
+#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
+fn send_referenced_fonts(ctx: &Context, doc_url: &Url, sent: &mut HashSet<PathBuf>) {
+    let Some(doc) = ctx.document_cache.get_document(doc_url) else { return };
+    let Some(doc_node) = doc.node.as_ref() else { return };
+    let doc_path = doc_node.source_file.path();
+    for import in &doc.imports {
+        // Match the compiler's font-import classification: only bare `import "x.ttf"`
+        // (FileImport) counts as a font, not `import {X} from "x.ttf"`.
+        if !matches!(import.import_kind, i_slint_compiler::typeloader::ImportKind::FileImport)
+            || !i_slint_compiler::pathutils::is_font_file(&import.file)
+        {
+            continue;
+        }
+        let import_path = PathBuf::from(&import.file);
+        let resolved = i_slint_compiler::pathutils::join(doc_path, &import_path)
+            .unwrap_or(import_path);
+        if i_slint_compiler::pathutils::is_url(&resolved) {
+            continue;
+        }
+        if !sent.insert(resolved.clone()) {
+            continue;
+        }
+        let Ok(font_url) = Url::from_file_path(&resolved) else {
+            tracing::warn!("Cannot convert font path to URL: {}", resolved.display());
+            continue;
+        };
+        match std::fs::read(&resolved) {
+            Ok(contents) => {
+                tracing::debug!(
+                    "Sending font {} ({} bytes) to preview",
+                    font_url,
+                    contents.len()
+                );
+                ctx.to_preview.send(&LspToPreviewMessage::SetContents {
+                    url: VersionedUrl::new(font_url, None),
+                    contents,
+                });
+            }
+            Err(err) => {
+                tracing::warn!("Failed to read font {}: {err}", resolved.display());
             }
         }
     }
