@@ -18,11 +18,16 @@ if (!target) {
     );
 }
 
-// Manifest URLs are site-root-relative (e.g. "/api/color/"); prepend the
-// configured base so links keep working when the site is served under a
-// subpath like /master/docs/python/.
-const href = import.meta.env.BASE_URL.replace(/\/$/, "") + target;
+// Absolute targets (e.g. docs.python.org for standard-library types) open in a new tab
+// and keep their URL; site-root-relative targets (e.g. "/api/classes/color/")
+// get the configured base so links work under a subpath like
+// /master/docs/python/.
+const external = /^https?:\/\//.test(target);
+const href = external
+    ? target
+    : import.meta.env.BASE_URL.replace(/\/$/, "") + target;
+const attrs = external ? { href, target: "_blank", rel: "noopener" } : { href };
 const label = to.split(".").pop();
 ---
 
-{plain ? <a href={href}>{label}</a> : <a href={href}><code>{label}</code></a>}
+{plain ? <a {...attrs}>{label}</a> : <a {...attrs}><code>{label}</code></a>}

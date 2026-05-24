@@ -427,6 +427,7 @@ Pantone
 partytown
 PATCHLEVEL
 pathdata
+pathlib
 pbjson
 PCLK
 pdoc
