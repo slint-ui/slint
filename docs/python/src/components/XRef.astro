@@ -1,0 +1,28 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+import manifest from "../api-manifest.json";
+
+interface Props {
+    to: string;
+    plain?: boolean;
+}
+
+const { to, plain = false } = Astro.props;
+const target = (manifest as Record<string, string>)[to];
+
+if (!target) {
+    throw new Error(
+        `Unresolved API cross-reference: "${to}". ` +
+            "No such symbol in api-manifest.json.",
+    );
+}
+
+// Manifest URLs are site-root-relative (e.g. "/api/color/"); prepend the
+// configured base so links keep working when the site is served under a
+// subpath like /master/docs/python/.
+const href = import.meta.env.BASE_URL.replace(/\/$/, "") + target;
+const label = to.split(".").pop();
+---
+
+{plain ? <a href={href}>{label}</a> : <a href={href}><code>{label}</code></a>}
