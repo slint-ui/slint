@@ -72,7 +72,15 @@ function renderThirdPartyMarkdown(data: AboutOutput): string {
                 `- [${crate.name} ${crate.version}](${crateUrl(crate)})`,
             );
         }
-        lines.push("", "#### License Text", "", "```", license.text.trimEnd(), "```", "");
+        lines.push(
+            "",
+            "#### License Text",
+            "",
+            "```",
+            license.text.trimEnd(),
+            "```",
+            "",
+        );
     }
 
     return `${lines.join("\n")}\n`;
@@ -91,9 +99,7 @@ if (result.status !== 0) {
 }
 
 try {
-    const data = JSON.parse(
-        readFileSync(aboutJsonFile, "utf8"),
-    ) as AboutOutput;
+    const data = JSON.parse(readFileSync(aboutJsonFile, "utf8")) as AboutOutput;
     writeFileSync(outFile, renderThirdPartyMarkdown(data), "utf8");
 } finally {
     try {
