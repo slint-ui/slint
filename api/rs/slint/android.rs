@@ -118,7 +118,7 @@ pub fn init(app: android_activity::AndroidApp) -> Result<(), SetPlatformError> {
     unreachable!();
     #[cfg(target_os = "android")]
     {
-        crate::platform::set_platform(Box::new(
+        crate::platform::set_platform(alloc::boxed::Box::new(
             i_slint_backend_android_activity::AndroidPlatform::new(app),
         ))
     }
@@ -155,7 +155,7 @@ pub fn init_with_event_listener(
     unreachable!();
     #[cfg(target_os = "android")]
     {
-        crate::platform::set_platform(Box::new(
+        crate::platform::set_platform(alloc::boxed::Box::new(
             i_slint_backend_android_activity::AndroidPlatform::new_with_event_listener(
                 app, listener,
             ),

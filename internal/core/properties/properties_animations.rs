@@ -411,8 +411,11 @@ impl<Unit> Property<Length<crate::Coord, Unit>> {
         // Safety: the BindingCallable will cast its argument to T
         unsafe {
             self.handle.set_binding::<Length<crate::Coord, Unit>, core::cell::RefCell<PropertyPhysicsAnimationData<S>>>(RefCell::new(PropertyPhysicsAnimationData::new(
-                simulation_data.simulation(self.get_internal().0 as f32, limit_value),
-            )));
+                    simulation_data.simulation(self.get_internal().0 as f32, limit_value),
+                )),
+                #[cfg(slint_debug_property)]
+                self.debug_name.borrow().as_str()
+            );
         }
         self.handle.mark_dirty(
             #[cfg(slint_debug_property)]

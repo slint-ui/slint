@@ -3688,20 +3688,19 @@ fn compile_builtin_function_call(
                         _ => unreachable!(),
                     };
                 }
-                let window_adapter_tokens = access_window_adapter_field(ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
                 let current_id_tokens = match component_access_tokens {
                     MemberAccess::Option(token_stream) => quote!(
-                        #token_stream.and_then(|a| a.as_pin_ref().#popup_id_name.take())
+                        #token_stream.and_then(|a| a.as_pin_ref().#popup_id_name.take().map(|id| (a.as_pin_ref().globals.get().unwrap().clone(), id)))
                     ),
                     MemberAccess::Direct(token_stream) => {
-                        quote!(#token_stream.as_ref().#popup_id_name.take())
+                        quote!(#token_stream.as_ref().#popup_id_name.take().map(|id|(#token_stream.as_ref().globals.get().unwrap().clone(), id)))
                     }
                     _ => unreachable!(),
                 };
                 quote!(
-                    if let Some(current_id) = #current_id_tokens {
-                        sp::WindowInner::from_pub(#window_adapter_tokens.window()).close_popup(current_id);
+                    if let Some((globals, current_id)) = #current_id_tokens {
+                        sp::WindowInner::from_pub(globals.window_adapter_impl().window()).close_popup(current_id);
                     }
                 )
             } else {
