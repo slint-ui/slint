@@ -54,9 +54,9 @@ export default defineConfig({
                 slintStarlightLinksValidatorPlugin({
                     exclude: ({ link }) => {
                         const p = (link.split("?")[0] ?? "").trim();
-                        return (
-                            p.startsWith("/#") || p.startsWith("/thirdparty/")
-                        );
+                        // /thirdparty/ is a cargo-about asset (served under the
+                        // base path when deployed), not a content route.
+                        return p.startsWith("/#") || p.endsWith("/thirdparty/");
                     },
                 }),
                 starlightExpandAllSidebarGroups(),
