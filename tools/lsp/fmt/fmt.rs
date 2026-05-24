@@ -34,10 +34,19 @@ struct FormatState {
 
     /// a comment has been written followed maybe by some spacing
     after_comment: bool,
+
+    /// When `true`, the formatter is inside a code block being kept on a single
+    /// line. `new_line()` then becomes a space, so statements that would
+    /// normally insert a trailing newline (e.g. `return` / `let`) stay inline.
+    inline_codeblock: bool,
 }
 
 impl FormatState {
     fn new_line(&mut self) {
+        if self.inline_codeblock {
+            self.insert_whitespace(" ");
+            return;
+        }
         if self.after_comment {
             return;
         }
@@ -1041,6 +1050,11 @@ fn format_codeblock(
         return Ok(());
     }
 
+    // Keep a code block on a single line if the source had it on a single line.
+    if !node.text().contains_char('\n') {
+        return format_codeblock_single_line(node, writer, state);
+    }
+
     let mut sub = node.children_with_tokens();
     if !whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, "")? {
         finish_node(sub, writer, state)?;
@@ -1072,6 +1086,53 @@ fn format_codeblock(
         }
     }
     state.skip_all_whitespace = true;
+    Ok(())
+}
+
+fn format_codeblock_single_line(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    // Is there anything between `{` and `}` other than trivia?
+    let has_content = node.children_with_tokens().any(|n| {
+        !matches!(n.kind(), SyntaxKind::Whitespace | SyntaxKind::LBrace | SyntaxKind::RBrace)
+    });
+
+    let mut sub = node.children_with_tokens();
+    if !whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, "")? {
+        finish_node(sub, writer, state)?;
+        return Ok(());
+    }
+    let was_inline = std::mem::replace(&mut state.inline_codeblock, true);
+    if has_content {
+        state.insert_whitespace(" ");
+    }
+    for n in sub {
+        state.skip_all_whitespace = true;
+        if n.kind() == SyntaxKind::RBrace {
+            state.whitespace_to_add = None;
+            if has_content {
+                // ensure a space even if the previous token was a comment
+                state.after_comment = false;
+                state.insert_whitespace(" ");
+            }
+        }
+
+        let is_semicolon = n.kind() == SyntaxKind::Semicolon;
+
+        fold(n, writer, state)?;
+
+        if is_semicolon {
+            state.whitespace_to_add = None;
+            state.insert_whitespace(" ");
+        }
+        // Don't preserve whitespace following a comment verbatim — the next
+        // iteration should normalize it to a single space too.
+        state.after_comment = false;
+    }
+    state.skip_all_whitespace = true;
+    state.inline_codeblock = was_inline;
     Ok(())
 }
 
@@ -1896,7 +1957,7 @@ fn format_object_type(
 
             if indent_with_new_line {
                 state.new_line();
-            } else if !at_end {
+            } else if !at_end || member_count > 1 {
                 state.insert_whitespace(" ");
             }
 
@@ -2293,9 +2354,7 @@ Main :=Window{callback some-fn(string,string)->bool;some-fn(a, b)=>{a<=b} proper
             r#"
 Main := Window {
     callback some-fn(string, string) -> bool;
-    some-fn(a, b) => {
-        a <= b
-    }
+    some-fn(a, b) => { a <= b }
     property <bool> prop-x;
     VerticalBox {
         combo := ComboBox { }
@@ -2320,7 +2379,7 @@ component W inherits Window{
 "#,
             r#"
 component W inherits Window {
-    callback hello(with-name: int, { x: int, y: float}, foo: string);
+    callback hello(with-name: int, { x: int, y: float }, foo: string);
     callback world() -> string;
     callback another_callback;
 }
@@ -2701,30 +2760,14 @@ A := B {
         assert_formatting(
             r#"A := B { c => { if(!abc){nothing}else   if  (true){if (0== 8) {}    } else{  } } } "#,
             r#"A := B {
-    c => {
-        if (!abc) {
-            nothing
-        } else if (true) {
-            if (0 == 8) {
-            }
-        } else {
-        }
-    }
+    c => { if (!abc) { nothing } else if (true) { if (0 == 8) {} } else {} }
 }
 "#,
         );
         assert_formatting(
             r#"A := B { c => { if !abc{nothing}else   if  true{if 0== 8 {}    } else{  } } } "#,
             r#"A := B {
-    c => {
-        if !abc {
-            nothing
-        } else if true {
-            if 0 == 8 {
-            }
-        } else {
-        }
-    }
+    c => { if !abc { nothing } else if true { if 0 == 8 {} } else {} }
 }
 "#,
         );
@@ -2733,15 +2776,9 @@ A := B {
             "component A { c => { if( a == 1 ){b+=1;} else if (a==2)\n{b+=2;} else if a==3{\nb+=3;\n} else\n if(a==4){ a+=4} return 0;  } }",
             r"component A {
     c => {
-        if (a == 1) {
-            b += 1;
-        } else if (a == 2) {
-            b += 2;
-        } else if a == 3 {
+        if (a == 1) { b += 1; } else if (a == 2) { b += 2; } else if a == 3 {
             b += 3;
-        } else if (a == 4) {
-            a += 4
-        }
+        } else if (a == 4) { a += 4 }
         return 0;
     }
 }
@@ -2930,7 +2967,7 @@ export struct ParsedMarkdown {
 struct ParsedMarkdown {  string :string , span:{start: int, end:int} , x: int }
 "#,
             r#"
-struct ParsedMarkdown { string: string, span: { start: int, end: int}, x: int}
+struct ParsedMarkdown { string: string, span: { start: int, end: int }, x: int }
 "#,
         );
 
@@ -3095,9 +3132,9 @@ export struct LineEditData {
 
     #[test]
     fn enum_declaration() {
+        assert_formatting("enum Foo {  a,   b,   c }\n", "enum Foo { a, b, c }\n");
+        assert_formatting("export enum Foo {  a,   b,   c }\n", "export enum Foo { a, b, c }\n");
         assert_formatting("enum Foo { a, b, c, }\n", "enum Foo {\n    a,\n    b,\n    c,\n}\n");
-            "enum Foo {\n    a,\n    b,\n    c,\n}\n",
-        );
     }
 
     #[test]
@@ -3106,9 +3143,9 @@ export struct LineEditData {
         assert_formatting("export {Foo  as   Bar}\n", "export { Foo as Bar }\n");
         assert_formatting(
             "export { SuperLongTypeName, AnotherVeryLongTypeName, YetAnotherExtremelyLongTypeName }\n",
-        assert_formatting("export { Foo, }\n", "export {\n    Foo,\n}\n");
-            "export {\n    Foo,\n}\n",
+            "export {\n    SuperLongTypeName,\n    AnotherVeryLongTypeName,\n    YetAnotherExtremelyLongTypeName,\n}\n",
         );
+        assert_formatting("export { Foo, }\n", "export {\n    Foo,\n}\n");
     }
 
     #[test]
@@ -3314,22 +3351,40 @@ export component MainWindow2 inherits Rectangle {
         assert_formatting(
             "export component Foobar{ init=>{  debug (1 );} \n\nfoo=>{}  clicked =>   debug(2) ; TouchArea { clicked => root.clicked(); moved=>{debug(3)};\n\n//some comment\n        bar=>{} }  }",
             r#"export component Foobar {
-    init => {
-        debug(1);
-    }
+    init => { debug(1); }
 
-    foo => {
-    }
+    foo => {}
     clicked => debug(2);
     TouchArea {
         clicked => root.clicked();
-        moved => {
-            debug(3)
-        };
+        moved => { debug(3) };
 
         //some comment
-        bar => {
-        }
+        bar => {}
+    }
+}
+"#,
+        );
+    }
+
+    #[test]
+    fn code_block_single_line() {
+        // A code block that fits on one line in the source stays on one line
+        assert_formatting(
+            "component A { c => { root.foo = true; } click2 => {} f() => { a; b; c; } }\n",
+            r#"component A {
+    c => { root.foo = true; }
+    click2 => {}
+    f() => { a; b; c; }
+}
+"#,
+        );
+        // A code block with a newline in the source is expanded
+        assert_formatting(
+            "component A {\n  c => {\n    root.foo = true;\n  }\n}\n",
+            r#"component A {
+    c => {
+        root.foo = true;
     }
 }
 "#,
@@ -3344,14 +3399,10 @@ export component MainWindow2 inherits Rectangle {
     pure function (x: int, y: string) -> int {
         self.y = 0;
 
-        if (true) {
-            return (45);
-            a = 0;
-        }
+        if (true) { return (45); a = 0; }
         return x;
     }
-    function a() {
-        /* ddd */}
+    function a() { /* ddd */ }
 }
 "#,
         );
@@ -3362,12 +3413,8 @@ export component MainWindow2 inherits Rectangle {
         assert_formatting(
             "component X { changed   width=>{ x+=1;  }    changed/*-*/height     =>     {y+=1;} }",
             r#"component X {
-    changed width => {
-        x += 1;
-    }
-    changed /*-*/height => {
-        y += 1;
-    }
+    changed width => { x += 1; }
+    changed /*-*/height => { y += 1; }
 }
 "#,
         );
@@ -3390,9 +3437,7 @@ export component MainWindow2 inherits Rectangle {
         assert_formatting(
             "component X { function foo() { let bar=42; } }",
             r#"component X {
-    function foo() {
-        let bar = 42;
-    }
+    function foo() { let bar = 42; }
 }
 "#,
         );
@@ -3403,9 +3448,7 @@ export component MainWindow2 inherits Rectangle {
         assert_formatting(
             "component X { function foo() { let bar : int=42; } }",
             r#"component X {
-    function foo() {
-        let bar: int = 42;
-    }
+    function foo() { let bar: int = 42; }
 }
 "#,
         );
