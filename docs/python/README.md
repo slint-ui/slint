@@ -7,6 +7,11 @@ symbol, grouped into a sidebar group per kind (classes, enumerations,
 functions, variables). The `language` submodule (Slint language structs and
 enums) mirrors the same classes/enumerations split one level down.
 
+Standard-library types in signatures (e.g. `pathlib.Path`, `typing.Optional`)
+are linked to <https://docs.python.org> by resolving CPython's Sphinx inventory
+(`objects.inv`), fetched at generation time. Generation requires network access
+and fails if the inventory cannot be fetched.
+
 Content lives in `src/content/docs/`. The production build also writes
 third-party license HTML to `public/thirdparty/`.
 

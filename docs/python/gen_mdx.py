@@ -26,6 +26,8 @@ import json
 import re
 import shutil
 import tomllib
+import urllib.request
+import zlib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -47,6 +49,40 @@ DIR_CLASSES = "api/classes"
 DIR_ENUMS = "api/enumerations"
 DIR_FUNCTIONS = "api/functions"
 DIR_VARIABLES = "api/variables"
+
+# CPython documentation cross-references, resolved from its Sphinx inventory
+# (the same objects.inv that Sphinx cross-references consume). Pinned to the
+# generator's minimum Python so links match the documented runtime.
+PYTHON_DOC_VERSION = "3.12"
+PYTHON_DOCS_URL = f"https://docs.python.org/{PYTHON_DOC_VERSION}/"
+INVENTORY_URL = PYTHON_DOCS_URL + "objects.inv"
+# Type-like roles worth linking from a signature (skip py:module, py:method,
+# std:* …). py:data covers typing aliases like Optional and Callable.
+STDLIB_ROLES = {"py:class", "py:data", "py:exception", "py:function"}
+
+# qualified name -> docs.python.org URL; populated once in main().
+_STDLIB: dict[str, str] = {}
+
+
+def load_stdlib_inventory() -> dict[str, str]:
+    """Fetch and parse CPython's Sphinx inventory into {qualified name: URL},
+    keeping only the type-like roles. A fetch failure aborts the build rather
+    than silently dropping standard-library links."""
+    try:
+        raw = urllib.request.urlopen(INVENTORY_URL, timeout=30).read()  # noqa: S310
+    except OSError as exc:
+        raise SystemExit(f"error: could not fetch {INVENTORY_URL}: {exc}") from exc
+    # Inventory v2: four "#"-prefixed header lines, then a zlib-compressed body
+    # of "name domain:role priority uri display-name" records ($ in uri = name).
+    body = zlib.decompress(raw.split(b"\n", 4)[4]).decode()
+    links: dict[str, str] = {}
+    for line in body.splitlines():
+        parts = line.split(" ", 4)
+        if len(parts) < 4 or parts[1] not in STDLIB_ROLES:
+            continue
+        name, uri = parts[0], parts[3]
+        links[name] = PYTHON_DOCS_URL + uri.replace("$", name)
+    return links
 
 
 def imports_for(dir_path: str) -> str:
@@ -128,6 +164,9 @@ def render_annotation(value: str | griffe.Expr | None, manifest: dict[str, str])
         bare = value.strip().strip("\"'")
         if bare in manifest:
             return f'<XRef to="{bare}" plain />'
+        if bare in _STDLIB:
+            manifest.setdefault(bare, _STDLIB[bare])
+            return f'<XRef to="{bare}" plain />'
         return text(bare)
 
     parts: list[str] = []
@@ -149,6 +188,10 @@ def render_annotation(value: str | griffe.Expr | None, manifest: dict[str, str])
             parts.append(f'<XRef to="{canonical}" plain />')
         elif name in manifest:
             parts.append(f'<XRef to="{name}" plain />')
+        elif canonical in _STDLIB:
+            # link the stdlib type to docs.python.org via the shared manifest
+            manifest.setdefault(canonical, _STDLIB[canonical])
+            parts.append(f'<XRef to="{canonical}" plain />')
         else:
             parts.append(text(name))
     return "".join(parts)
@@ -483,6 +526,9 @@ def render_page(page: Page, manifest: dict[str, str]) -> str:
 
 
 def main() -> None:
+    global _STDLIB
+    _STDLIB = load_stdlib_inventory()
+
     mod = griffe.load(PACKAGE, search_paths=[str(PACKAGE_ROOT)], resolve_aliases=True)
     assert isinstance(mod, griffe.Module)
 
@@ -494,6 +540,7 @@ def main() -> None:
     for page in pages:
         out_dir = DOCS_ROOT / page.dir_path
         out_dir.mkdir(parents=True, exist_ok=True)
+        # render_page may add referenced stdlib symbols to `manifest`.
         (out_dir / f"{slug(page.name)}.mdx").write_text(render_page(page, manifest))
 
     MANIFEST.write_text(json.dumps(manifest, indent=2, sort_keys=True))
