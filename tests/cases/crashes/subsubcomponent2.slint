@@ -3,19 +3,19 @@
 
 // Test for issue #781
 
-global Glop := {
-    property <int> r;
+global Glop  {
+    in-out property <int> r;
 }
 
-SubSubCompo := Rectangle {
-    property <int> val;
+component SubSubCompo inherits Rectangle {
+    in-out property <int> val;
     TouchArea {
         clicked => { Glop.r = val; }
     }
 }
-SubCompo := SubSubCompo { }
+component SubCompo inherits SubSubCompo { }
 
-export TestCase := Window {
+export component TestCase inherits Window {
     width: 300px;
     height: 300px;
     HorizontalLayout {
@@ -23,7 +23,7 @@ export TestCase := Window {
         SubCompo { val: 99; }
     }
 
-    property <int> result: Glop.r;
+    in-out property <int> result: Glop.r;
 }
 
 /*

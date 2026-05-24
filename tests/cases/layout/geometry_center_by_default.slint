@@ -19,10 +19,10 @@ component Foo {
         && G.is-center(t1.x, t1.width, self.width) && G.is-center(t1.y, t1.height, self.height);
 }
 
-Old := Rectangle {
-    r1 := Rectangle { width: 20px; }
+component Old inherits Rectangle {
+    r1 := Rectangle { x:0; width: 20px; }
     r2 := Rectangle { height: 20px; y: 20px; }
-    t1 := Text { text: "Foobar"; }
+    t1 := Text { x:0;y:0; text: "Foobar"; }
 
     out property <bool> test:
         r1.x == 0 && r1.y == 0

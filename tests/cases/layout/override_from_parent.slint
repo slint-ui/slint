@@ -1,11 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-ComboBox := Rectangle {
+component ComboBox inherits Rectangle {
     min-width: 60px;
 }
 
-SubComp1 := Rectangle {
+component SubComp1 inherits Rectangle {
     HorizontalLayout {
         ComboBox {
             width: 200px;
@@ -13,18 +13,18 @@ SubComp1 := Rectangle {
     }
 }
 
-SubComp2 := HorizontalLayout {
+component SubComp2 inherits HorizontalLayout {
     ComboBox {
         width: 200px;
     }
 }
 
-SubComp3 := HorizontalLayout {
+component SubComp3 inherits HorizontalLayout {
     max-width: 500px;
     Rectangle { }
 }
 
-SubComp4 := SubComp1 {}
+component SubComp4 inherits SubComp1 {}
 
 
 export component TestCase inherits Rectangle {
