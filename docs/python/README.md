@@ -12,8 +12,8 @@ are linked to <https://docs.python.org> by resolving CPython's Sphinx inventory
 (`objects.inv`), fetched at generation time. Generation requires network access
 and fails if the inventory cannot be fetched.
 
-Content lives in `src/content/docs/`. The production build also writes
-third-party license HTML to `public/thirdparty/`.
+Content lives in `src/content/docs/`. Third-party license text is generated
+into `src/content/docs/generated/thirdparty.md` (gitignored) before the build.
 
 ## Prerequisites
 
@@ -39,7 +39,7 @@ pnpm gen         # regenerate the API reference MDX from the slint package
 pnpm dev         # start dev server (runs gen first)
 pnpm build       # type-check and production build (runs gen + thirdparty first)
 pnpm preview     # preview the production build
-pnpm thirdparty  # regenerate public/thirdparty/index.html only
+pnpm thirdparty  # regenerate src/content/docs/generated/thirdparty.md only
 ```
 
 The static site is output under `dist/`.
