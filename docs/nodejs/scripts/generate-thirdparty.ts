@@ -55,6 +55,7 @@ function renderThirdPartyMarkdown(data: AboutOutput): string {
         "---",
         "title: Third-Party Licenses",
         "slug: thirdparty",
+        "tableOfContents: false",
         "---",
         "",
     ];
