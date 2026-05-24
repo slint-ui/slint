@@ -133,6 +133,7 @@ export default defineConfig({
                         },
                     ],
                 },
+                { label: "Third-Party Licenses", slug: "thirdparty-licenses" },
             ],
         }),
     ],
