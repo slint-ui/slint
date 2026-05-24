@@ -261,6 +261,15 @@ jobs:
             - name: "Node.js API Starlight site"
               run: pnpm run build
               working-directory: docs/nodejs
+            - name: "Test the Python docs generator"
+              run: uv run pytest
+              working-directory: docs/python
+            - name: "Lint the Python docs generator"
+              run: uv tool run ruff check
+              working-directory: docs/python
+            - name: "Type-check the Python docs generator"
+              run: uvx ty check
+              working-directory: docs/python
             - name: "Generate Python language stubs"
               # The slint-python build script writes slint/language.pyi (the
               # Slint language structs and enums). griffe reads it statically
