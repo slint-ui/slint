@@ -2108,7 +2108,10 @@ impl QtWindow {
             if is_drop { MouseEvent::Drop(drop_event) } else { MouseEvent::DragMove(drop_event) };
         let chosen = WindowInner::from_pub(&self.window).process_mouse_input(mouse_event);
         timer_event();
-        chosen.map(slint_drag_action_to_qt).unwrap_or(key_generated::Qt_DropAction_IgnoreAction)
+        chosen
+            .and_then(|r| r.drag_action)
+            .map(slint_drag_action_to_qt)
+            .unwrap_or(key_generated::Qt_DropAction_IgnoreAction)
     }
 
     fn key_event(&self, key: i32, text: qttypes::QString, released: bool, repeat: bool) {

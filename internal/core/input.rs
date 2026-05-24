@@ -1265,15 +1265,23 @@ impl MouseInputState {
     }
 }
 
-/// Try to handle the mouse grabber. Return None if the event has been handled, otherwise
-/// return the event that must be handled
+pub(crate) struct MouseGrabResult {
+    /// The event that still needs normal hit-test dispatch. `None` means the grabber
+    /// fully handled the original event.
+    pub event: Option<MouseEvent>,
+    /// Whether the grabber consumed the original event before any follow-up event was
+    /// synthesized for hover/grab refresh.
+    pub accepted: bool,
+}
+
+/// Try to handle the mouse grabber.
 pub(crate) fn handle_mouse_grab(
     mouse_event: &MouseEvent,
     window_adapter: &Rc<dyn WindowAdapter>,
     mouse_input_state: &mut MouseInputState,
-) -> Option<MouseEvent> {
+) -> MouseGrabResult {
     if !mouse_input_state.grabbed || mouse_input_state.item_stack.is_empty() {
-        return Some(mouse_event.clone());
+        return MouseGrabResult { event: Some(mouse_event.clone()), accepted: false };
     };
 
     let mut event = mouse_event.clone();
@@ -1328,7 +1336,7 @@ pub(crate) fn handle_mouse_grab(
         true
     });
     if invalid {
-        return Some(mouse_event.clone());
+        return MouseGrabResult { event: Some(mouse_event.clone()), accepted: false };
     }
 
     let grabber = mouse_input_state.top_item().unwrap();
@@ -1339,7 +1347,7 @@ pub(crate) fn handle_mouse_grab(
         &mut mouse_input_state.cursor,
     );
     match input_result {
-        InputEventResult::GrabMouse => None,
+        InputEventResult::GrabMouse => MouseGrabResult { event: None, accepted: true },
         InputEventResult::StartDrag => {
             mouse_input_state.grabbed = false;
             let drag_area_item = grabber.downcast::<crate::items::DragArea>().unwrap();
@@ -1354,15 +1362,17 @@ pub(crate) fn handle_mouse_grab(
             mouse_input_state.drag_data = Some(drop_event);
             mouse_input_state.drag_source = Some(grabber.downgrade());
             drag_area.dragging.set(true);
-            None
+            MouseGrabResult { event: None, accepted: true }
         }
-        _ => {
+        InputEventResult::EventAccepted | InputEventResult::EventIgnored => {
             mouse_input_state.grabbed = false;
             // Return a move event so that the new position can be registered properly
-            Some(mouse_event.position().map_or(MouseEvent::Exit, |position| MouseEvent::Moved {
-                position,
-                touch_finger_id: mouse_event.touch_finger_id(),
-            }))
+            MouseGrabResult {
+                event: Some(mouse_event.position().map_or(MouseEvent::Exit, |position| {
+                    MouseEvent::Moved { position, touch_finger_id: mouse_event.touch_finger_id() }
+                })),
+                accepted: input_result == InputEventResult::EventAccepted,
+            }
         }
     }
 }
@@ -1415,15 +1425,24 @@ pub(crate) fn send_exit_events(
     }
 }
 
-/// Process the `mouse_event` on the `component`, the `mouse_grabber_stack` is the previous stack
-/// of mouse grabber.
-/// Returns a new mouse grabber stack.
+/// Outcome of [`process_mouse_input`].
+pub struct MouseInputResult {
+    /// The new dispatch state to install in place of the one passed in.
+    pub state: MouseInputState,
+    /// `true` when an item consumed the event (`EventAccepted`, `GrabMouse`,
+    /// `StartDrag`, or a `DropArea` taking a `DragMove`/`Drop`).
+    pub accepted: bool,
+}
+
+/// Process the `mouse_event` on the `component`. The `mouse_input_state` is the previous
+/// dispatch state (grab stack, cursor, in-flight drag); the returned [`MouseInputResult`]
+/// carries the state that replaces it and whether the event was consumed.
 pub fn process_mouse_input(
     root: ItemRc,
     mouse_event: &MouseEvent,
     window_adapter: &Rc<dyn WindowAdapter>,
     mut mouse_input_state: MouseInputState,
-) -> MouseInputState {
+) -> MouseInputResult {
     let mut result = MouseInputState {
         drag_data: mouse_input_state.drag_data.clone(),
         drag_source: mouse_input_state.drag_source.clone(),
@@ -1439,36 +1458,40 @@ pub fn process_mouse_input(
         mouse_input_state.top_item().as_ref(),
         false,
     );
+    let accepted = r.has_aborted();
     if matches!(mouse_event, MouseEvent::DragMove(_)) {
         // Remember the accepting DropArea (or forget if none did) so the subsequent
         // Release knows whether to deliver a Drop.
         result.drop_target =
-            r.has_aborted().then(|| result.item_stack.last().map(|(w, _)| w.clone())).flatten();
+            accepted.then(|| result.item_stack.last().map(|(w, _)| w.clone())).flatten();
     }
     if mouse_input_state.delayed.is_some()
-        && (!r.has_aborted()
+        && (!accepted
             || Option::zip(result.item_stack.last(), mouse_input_state.item_stack.last())
                 .is_none_or(|(a, b)| a.0 != b.0))
     {
-        // Keep the delayed event, but preserve the cursor from the new result
+        // Keep the delayed event but transfer the just-attempted dispatch's cursor.
         mouse_input_state.cursor = result.cursor;
-        return mouse_input_state;
+        return MouseInputResult { state: mouse_input_state, accepted };
     }
     send_exit_events(&mouse_input_state, &mut result, mouse_event.position(), window_adapter);
 
     if let MouseEvent::Wheel { position, .. } = mouse_event
-        && r.has_aborted()
+        && accepted
     {
-        // An accepted wheel event might have moved things. Send a move event at the position to reset the has-hover
-        return process_mouse_input(
+        // An accepted wheel event might have moved things. Send a synthetic Moved to refresh
+        // has-hover. The original wheel's `accepted` (always `true` in this branch) is the
+        // outcome the caller sees — the synthetic Moved is an internal implementation detail.
+        let moved = process_mouse_input(
             root,
             &MouseEvent::Moved { position: *position, touch_finger_id: 0 },
             window_adapter,
             result,
         );
+        return MouseInputResult { state: moved.state, accepted: true };
     }
 
-    result
+    MouseInputResult { state: result, accepted }
 }
 
 pub(crate) fn process_delayed_event(
