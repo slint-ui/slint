@@ -51,11 +51,9 @@ DIR_FUNCTIONS = "api/functions"
 DIR_VARIABLES = "api/variables"
 
 # CPython documentation cross-references, resolved from its Sphinx inventory
-# (the same objects.inv that Sphinx cross-references consume). Pinned to the
-# generator's minimum Python so links match the documented runtime.
-PYTHON_DOC_VERSION = "3.12"
-PYTHON_DOCS_URL = f"https://docs.python.org/{PYTHON_DOC_VERSION}/"
-INVENTORY_URL = PYTHON_DOCS_URL + "objects.inv"
+# (the same objects.inv that Sphinx cross-references consume). The doc version
+# is the slint port's minimum Python (see python_docs_url) so links match the
+# documented runtime floor.
 # Type-like roles worth linking from a signature (skip py:module, py:method,
 # std:* …). py:data covers typing aliases like Optional and Callable.
 STDLIB_ROLES = {"py:class", "py:data", "py:exception", "py:function"}
@@ -64,14 +62,30 @@ STDLIB_ROLES = {"py:class", "py:data", "py:exception", "py:function"}
 _STDLIB: dict[str, str] = {}
 
 
-def load_stdlib_inventory() -> dict[str, str]:
+def python_docs_url() -> str:
+    """Base URL of the CPython docs for the slint port's minimum Python, e.g.
+    `https://docs.python.org/3.12/`. The floor is the first `major.minor` in the
+    package's `requires-python` (`">= 3.12"` -> `3.12`), so the linked docs and
+    the objects.inv version track that single source of truth."""
+    requires = tomllib.loads(PYPROJECT.read_text())["project"]["requires-python"]
+    match = re.search(r"(\d+)\.(\d+)", requires)
+    if not match:
+        raise SystemExit(
+            f"error: could not read a Python version from requires-python "
+            f"({requires!r}) in {PYPROJECT}"
+        )
+    return f"https://docs.python.org/{match.group(0)}/"
+
+
+def load_stdlib_inventory(docs_url: str) -> dict[str, str]:
     """Fetch and parse CPython's Sphinx inventory into {qualified name: URL},
     keeping only the type-like roles. A fetch failure aborts the build rather
     than silently dropping standard-library links."""
+    inventory_url = docs_url + "objects.inv"
     try:
-        raw = urllib.request.urlopen(INVENTORY_URL, timeout=30).read()  # noqa: S310
+        raw = urllib.request.urlopen(inventory_url, timeout=30).read()  # noqa: S310
     except OSError as exc:
-        raise SystemExit(f"error: could not fetch {INVENTORY_URL}: {exc}") from exc
+        raise SystemExit(f"error: could not fetch {inventory_url}: {exc}") from exc
     # Inventory v2: four "#"-prefixed header lines, then a zlib-compressed body
     # of "name domain:role priority uri display-name" records ($ in uri = name).
     body = zlib.decompress(raw.split(b"\n", 4)[4]).decode()
@@ -81,7 +95,7 @@ def load_stdlib_inventory() -> dict[str, str]:
         if len(parts) < 4 or parts[1] not in STDLIB_ROLES:
             continue
         name, uri = parts[0], parts[3]
-        links[name] = PYTHON_DOCS_URL + uri.replace("$", name)
+        links[name] = docs_url + uri.replace("$", name)
     return links
 
 
@@ -527,7 +541,7 @@ def render_page(page: Page, manifest: dict[str, str]) -> str:
 
 def main() -> None:
     global _STDLIB
-    _STDLIB = load_stdlib_inventory()
+    _STDLIB = load_stdlib_inventory(python_docs_url())
 
     mod = griffe.load(PACKAGE, search_paths=[str(PACKAGE_ROOT)], resolve_aliases=True)
     assert isinstance(mod, griffe.Module)
