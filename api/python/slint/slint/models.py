@@ -76,6 +76,7 @@ class ListModel[T](Model[T]):
         the iterable produces are stored in a list."""
 
         super().__init__()
+        self.list: list[T]
         if iterable is not None:
             self.list = list(iterable)
         else:
