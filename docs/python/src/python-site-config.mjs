@@ -20,3 +20,14 @@ export function pythonDocsPublicAsset(path) {
     const base = PYTHON_DOCS_BASE_PATH.replace(/\/+$/, "");
     return `${base}/${rel}`;
 }
+
+/**
+ * Absolute base URL of the Slint language docs, a sibling of this site under
+ * the same origin and version (…/docs/slint/ next to …/docs/python/). Passed
+ * to the shared Link component by the SlintRef wrapper for cross-references.
+ */
+export function slintDocsBase() {
+    const origin = String(PYTHON_DOCS_BASE_URL).replace(/\/+$/, "");
+    const slintBase = PYTHON_DOCS_BASE_PATH.replace(/python\/?$/, "slint/");
+    return `${origin}${slintBase}`;
+}
