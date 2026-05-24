@@ -127,14 +127,20 @@ export component Example inherits Window {
 </CodeSnippetMD>
 
 <SlintProperty propName="opacity" typeName="float" defaultValue="1">
-A value between 0 and 1 (or a percentage) that is used to draw
+A value between `0` and `1` (or a percentage) that is used to draw
 the element and its children with transparency.
-0 is fully transparent (invisible), and 1 is fully opaque.
-The opacity is applied to the tree of child elements as if they
-were first drawn into an intermediate layer, and then the whole layer is rendered with this opacity.
 
-The following example demonstrates the opacity property with children. Note the software renderer does
-not support layer opacity and this will result in a different end result as shown.
+- `0`: fully transparent (invisible)
+- `1`: fully opaque
+
+The opacity is applied to the tree of child elements as if they
+were first drawn onto an intermediate layer, and then the whole layer is rendered with this opacity.
+
+The following example demonstrates the opacity property with children.
+
+:::note
+The software renderer does not support layer opacity and this results in a different end result as shown.
+:::
 
 <CodeSnippetMD imagePath="/src/assets/generated/layer-opacity.png" scale="3" imageWidth="150" imageHeight="390"  imageAlt='layer opacity'>
 ```slint playground
@@ -240,18 +246,16 @@ Rectangle {
 
 ### visible
 <SlintProperty propName="visible" typeName="bool" defaultValue="true">
-When set to `false`, the element and all his children won't be drawn and not react to mouse input. The element
-will still take up layout space within any layout container.
+When set to `false`, the element and all its children won't be drawn and won't react to mouse input. The element
+still takes up layout space within any layout container.
 
 </SlintProperty>
 
 ### absolute-position
 <SlintProperty propName="absolute-position" typeName="struct" structName="Point" propertyVisibility="out">
 
-A common issue is that in a UI with many nested components it's useful to know their (x,y)position relative to
-the main window or screen. This convenience property gives easy read only access to that value.
-
-It represents a point specifying the absolute position within the enclosing <Link type="Window"/> or <Link type="PopupWindow"/>.
+In a UI with many nested components it's useful to know their (x,y)position relative to the main window or screen.
+This convenience property gives easy read only access to that value. It represents a point specifying the absolute position within the enclosing <Link type="Window"/> or <Link type="PopupWindow"/>.
 It defines coordinates (x,y) relative to the enclosing Window or PopupWindow, but the reference frame is unspecified
 (could be screen, window, or popup coordinates).
 </SlintProperty>
@@ -264,8 +268,11 @@ It defines coordinates (x,y) relative to the enclosing Window or PopupWindow, bu
 <SlintProperty typeName="bool" propName="cache-rendering-hint" default="false" >
 When set to `true`, this provides a hint to the renderer to cache the contents of the element
 and all the children into an intermediate cached layer. For complex sub-trees that rarely
-change this may speed up the rendering, at the expense of increased memory consumption. Not
-all rendering backends support this, so this is merely a hint.
+change this may speed up the rendering, at the expense of increased memory consumption.
+
+:::note
+Not all rendering backends support this property.
+:::
 </SlintProperty>
 
 
@@ -279,9 +286,9 @@ Specify that this is a button in a `Dialog`.
 
 ### init()
 
-Every element implicitly declares an `init` callback. You can assign a code block to it that will be invoked when the
-element is instantiated and after all properties are initialized with the value of their final binding. The order of
-invocation is from inside to outside. The following example will print "first", then "second", and then "third":
+Every element implicitly declares an `init` callback. You can assign a code block to the element to invoke when
+it's instantiated and after all properties are initialized with the value of their final binding. The order of
+invocation is from inside to outside. The following example prints "first", then "second", and then "third":
 
 ```slint
 component MyButton inherits Rectangle {
@@ -309,9 +316,11 @@ export component MyWindow inherits Window {
 Don't use this callback to initialize properties, because this violates the declarative principle.
 
 Even though the `init` callback exists on all components, it cannot be set from application code,
-i.e. an `on_init` function does not exist in the generated code. This is because the callback is invoked during the creation of the component, before you could call `on_init` to actually set it.
+for example, an `on_init` function does not exist in the generated code.
+This is because the callback is invoked when the component is created,
+before you could call `on_init` to actually set it.
 
-While the `init` callback can invoke other callbacks, e.g. one defined in a `global` section, and
+While the `init` callback can invoke other callbacks, such as one defined in a `global` section, and
 you _can_ bind these in the backend, this doesn't work for statically-created components, including
 the window itself, because you need an instance to set the globals binding. But it is possible
 to use this for dynamically created components (for example ones behind an `if`):
@@ -467,10 +476,10 @@ The total number of elements in a group. Applies to the parent container of a gr
 
 
 ## Accessibility Callbacks
-You can also use the following callbacks that are going to be called by the accessibility framework:
+You can also use the following callbacks that are invoked by the accessibility framework:
 
 ### accessible-action-default()
-Invoked when the default action for this widget is requested (eg: pressed for a button).
+Invoked when the default action for this widget is requested, for example pressed for a button.
 
 ### accessible-action-set-value(string)
 Invoked when the user wants to change the accessible value.
@@ -482,4 +491,4 @@ Invoked when the user requests to increment the value.
 Invoked when the user requests to decrement the value.
 
 ### accessible-action-expand()
-Invoked when the user requests to expand the widget (eg: disclose the list of available choices for a combo box).
+Invoked when the user requests to expand the widget, such as disclose the list of available choices for a combo box.
