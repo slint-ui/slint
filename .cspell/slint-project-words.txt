@@ -602,6 +602,7 @@ toucharea
 toupper
 trunc
 tungstenite
+typedoc
 typeregister
 Tzimabazafi
 uart
@@ -677,7 +678,7 @@ yoyo
 zaimoku
 Zbuild
 zephyrproject
-zeroconf
 Zeroable
+zeroconf
 zstd
 தோசை
