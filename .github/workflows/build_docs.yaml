@@ -81,7 +81,7 @@ jobs:
                 sed -i "s|export const CPP_DOCS_BASE_PATH = \".*\"|export const CPP_DOCS_BASE_PATH = \"$base_path\"|" docs/cpp/src/cpp-site-config.mjs
                 # Generate the cbindgen headers, then let the Astro site run Doxygen
                 # (XML) + the Doxygen-to-Markdown converter and build the static site.
-                cargo xtask cppdocs --headers-only $CPPDOCS_EXTRA_FLAGS
+                cargo xtask cppdocs $CPPDOCS_EXTRA_FLAGS
                 export SLINT_CPP_GENERATED_INCLUDE="$PWD/target/cppdocs/generated_include"
                 pnpm -C docs/cpp run build
             - name: "Rust docs"
