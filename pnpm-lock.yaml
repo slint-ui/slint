@@ -274,7 +274,7 @@ importers:
         version: 3.7.2
       '@astrojs/starlight':
         specifier: 'catalog:'
-        version: 0.39.2(astro@6.3.3(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.60.3)(terser@5.46.1)(tsx@4.20.5)(yaml@2.9.0))(typescript@6.0.3)
+        version: 0.39.2(astro@6.3.3(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.60.4)(terser@5.46.1)(tsx@4.20.5)(yaml@2.9.0))(typescript@6.0.3)
       '@slint/common-files':
         specifier: workspace:*
         version: link:../common
@@ -283,7 +283,7 @@ importers:
         version: 24.12.0
       astro:
         specifier: 'catalog:'
-        version: 6.3.3(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.60.3)(terser@5.46.1)(tsx@4.20.5)(yaml@2.9.0)
+        version: 6.3.3(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.60.4)(terser@5.46.1)(tsx@4.20.5)(yaml@2.9.0)
       sharp:
         specifier: 'catalog:'
         version: 0.34.5
