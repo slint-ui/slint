@@ -336,8 +336,24 @@ fn extract_compiler_config(
 ///
 /// ### Limitations
 ///
-/// Within `.slint` files, you can interpolate string literals using `\{...}` syntax.
-/// This is not possible in this macro as this wouldn't parse as a Rust string.
+/// Because this macro receives its input through Rust's tokenizer, a few constructs that are
+/// valid in standalone `.slint` files cannot be used here:
+///
+/// - **String interpolation with `\{...}`**: Rust parses the macro body as Rust string literals
+///   first, and `\{...}` is not a valid Rust string escape.
+///
+/// - **Color literals that begin with `#0b`, `#0x`, or `#0o`** (for example `#0bf707`): Rust's
+///   lexer sees the `#` as the start of an attribute followed by a numeric literal with a
+///   binary/hex/octal prefix, then rejects the remaining hex digits as invalid digits for that
+///   base.
+///
+/// - **Color literals matching `#<digit><digit>e<non-digit-hex>…`** (for example `#10ea4c`):
+///   Rust's lexer tries to read the payload as a float with scientific notation (`10e…`), and
+///   rejects the non-digit characters that follow the `e`.
+///
+/// In all three cases the workarounds are to either rewrite the literal in a form Rust can
+/// tokenize (e.g. `rgb(11, 247, 7)` in place of `#0bf707`), or to place the snippet in a
+/// `.slint` file and compile it via [`slint-build`](https://crates.io/crates/slint-build).
 #[proc_macro]
 pub fn slint(stream: TokenStream) -> TokenStream {
     let token_iter = stream.into_iter();
