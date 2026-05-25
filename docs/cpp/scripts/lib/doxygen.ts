@@ -3,9 +3,9 @@
 
 // cSpell:ignore argsstring basecompoundref briefdescription codeline compounddef
 // cSpell:ignore computeroutput declname derivedcompoundref detaileddescription enumvalue
-// cSpell:ignore innerclass innernamespace itemizedlist kindref memberdef nonbreakablespace orderedlist
+// cSpell:ignore innerclass innernamespace itemizedlist kindref linkified linkify memberdef nonbreakablespace orderedlist
 // cSpell:ignore parameterdescription parameteritem parameterlist parametername
-// cSpell:ignore parameternamelist programlisting refid retval sectiondef simplesect
+// cSpell:ignore parameternamelist programlisting refid retval sectiondef simplesect virt
 // cSpell:ignore templateparam templateparamlist tparams ulink xrefdescription xrefsect
 
 // Converts a directory of Doxygen XML (the `xml/` output) into Markdown pages
@@ -323,7 +323,7 @@ export class DoxygenConverter {
             "",
         ];
 
-        out.push("```cpp", this.memberSignature(member), "```");
+        out.push("", this.renderSignature(member));
 
         const enumValues = children(member, "enumvalue");
         if (enumValues.length > 0) {
@@ -349,31 +349,146 @@ export class DoxygenConverter {
         return out;
     }
 
-    private memberSignature(member: XmlElement): string {
+    /**
+     * Render a member's signature as an HTML `<pre><code>` block where type
+     * references resolve to links. The return type comes from `<type>` and the
+     * parameter list from `<argsstring>` (both linkified); the qualified name is
+     * a plain non-linkified segment, so a type that also appears in the name
+     * (e.g. a method of `Foo` taking a `Foo`) is never mis-linked. A raw `<pre>`
+     * HTML block is used so Markdown does not reinterpret signature punctuation.
+     */
+    private renderSignature(member: XmlElement): string {
         const kind = member.attrs.kind;
-        const definition = textContent(
-            child(member, "definition") ?? emptyElement(),
-        ).trim();
-        const args = textContent(
-            child(member, "argsstring") ?? emptyElement(),
-        ).trim();
-        if (kind === "enum") {
-            const name = textContent(
-                child(member, "name") ?? emptyElement(),
-            ).trim();
-            const scoped =
-                member.attrs.strong === "yes" ? "enum class" : "enum";
-            return `${scoped} ${name}`;
-        }
-        if (definition) return `${definition}${args}`;
-        // Fallback for entries without a `<definition>` (e.g. some macros).
-        const type = textContent(
-            child(member, "type") ?? emptyElement(),
-        ).trim();
         const name = textContent(
             child(member, "name") ?? emptyElement(),
         ).trim();
-        return [type, `${name}${args}`].filter(Boolean).join(" ");
+
+        if (kind === "enum") {
+            const scoped =
+                member.attrs.strong === "yes" ? "enum class" : "enum";
+            return signatureBlock(escapeHtml(`${scoped} ${name}`));
+        }
+
+        const SPECIFIERS = [
+            "virtual",
+            "static",
+            "explicit",
+            "constexpr",
+            "inline",
+        ];
+        const prefix: string[] = [];
+        if (member.attrs.explicit === "yes") prefix.push("explicit");
+        if (member.attrs.static === "yes") prefix.push("static");
+        if (member.attrs.constexpr === "yes") prefix.push("constexpr");
+        if (
+            member.attrs.virt === "virtual" ||
+            member.attrs.virt === "pure-virtual"
+        )
+            prefix.push("virtual");
+
+        const returnType = this.renderTypeHtml(child(member, "type"));
+
+        // Qualified name = <definition> with the leading specifiers and return
+        // type stripped off (so template parameters in the name are kept).
+        let qualified = textContent(
+            child(member, "definition") ?? emptyElement(),
+        ).trim();
+        let changed = true;
+        while (changed) {
+            changed = false;
+            for (const sp of SPECIFIERS) {
+                if (qualified.startsWith(`${sp} `)) {
+                    qualified = qualified.slice(sp.length + 1);
+                    changed = true;
+                }
+            }
+        }
+        const returnTypeText = textContent(
+            child(member, "type") ?? emptyElement(),
+        ).trim();
+        if (returnTypeText && qualified.startsWith(`${returnTypeText} `)) {
+            qualified = qualified.slice(returnTypeText.length + 1);
+        }
+        const nameSegment = escapeHtml(qualified || name);
+
+        let html = "";
+        if (prefix.length > 0) html += `${escapeHtml(prefix.join(" "))} `;
+        if (returnType) html += `${returnType} `;
+        html += nameSegment;
+
+        if (kind === "function" || kind === "friend") {
+            html += this.linkifyArgsString(member);
+        } else {
+            const args = textContent(
+                child(member, "argsstring") ?? emptyElement(),
+            ).trim();
+            if (args) html += escapeHtml(args);
+        }
+        return signatureBlock(html);
+    }
+
+    /** Render a `<type>` element as escaped HTML, turning resolvable `<ref>`s into links. */
+    private renderTypeHtml(el: XmlElement | undefined): string {
+        if (!el) return "";
+        const render = (node: XmlNode): string => {
+            if (!isElement(node)) return escapeHtml(node.value);
+            if (node.name === "ref") {
+                const url = this.resolveTargetUrl(
+                    node.attrs.refid,
+                    node.attrs.kindref,
+                );
+                const text = escapeHtml(textContent(node));
+                return url ? `<a href="${url}">${text}</a>` : text;
+            }
+            return node.children.map(render).join("");
+        };
+        return el.children.map(render).join("").trim();
+    }
+
+    /** The `<argsstring>` ("(params) const …") with parameter type refs linkified, escaped. */
+    private linkifyArgsString(member: XmlElement): string {
+        const args = textContent(child(member, "argsstring") ?? emptyElement());
+        const refs: { text: string; url: string }[] = [];
+        for (const param of children(member, "param")) {
+            const type = child(param, "type");
+            if (!type) continue;
+            for (const ref of collectRefs(type)) {
+                const text = textContent(ref).trim();
+                const url = this.resolveTargetUrl(
+                    ref.attrs.refid,
+                    ref.attrs.kindref,
+                );
+                if (text && url) refs.push({ text, url });
+            }
+        }
+        let html = "";
+        let pos = 0;
+        for (const ref of refs) {
+            const idx = args.indexOf(ref.text, pos);
+            if (idx < 0) continue;
+            html += escapeHtml(args.slice(pos, idx));
+            html += `<a href="${ref.url}">${escapeHtml(ref.text)}</a>`;
+            pos = idx + ref.text.length;
+        }
+        html += escapeHtml(args.slice(pos));
+        return html;
+    }
+
+    /** Relative URL (with anchor) for a `<ref>` target that resolves to a generated page. */
+    private resolveTargetUrl(
+        refid?: string,
+        kindref?: string,
+    ): string | undefined {
+        if (!refid) return undefined;
+        const target =
+            this.memberTargets.get(refid) ??
+            (kindref === "compound"
+                ? this.compoundTargets.get(refid)
+                : undefined) ??
+            this.compoundTargets.get(refid);
+        if (!target) return undefined;
+        const anchor = target.anchor ? `#${target.anchor}` : "";
+        return `${relativeUrl(this.currentSlug, target.slug)}${anchor}`;
     }
 
     // --- description rendering ---------------------------------------------
@@ -607,6 +722,32 @@ export class DoxygenConverter {
 
 function emptyElement(): XmlElement {
     return { type: "element", name: "#empty", attrs: {}, children: [] };
+}
+
+/** Escape text for inclusion in raw HTML. */
+function escapeHtml(text: string): string {
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+/** All `<ref>` elements within a node, recursively. */
+function collectRefs(node: XmlElement): XmlElement[] {
+    const refs: XmlElement[] = [];
+    const walk = (n: XmlNode): void => {
+        if (!isElement(n)) return;
+        if (n.name === "ref") refs.push(n);
+        for (const c of n.children) walk(c);
+    };
+    for (const c of node.children) walk(c);
+    return refs;
+}
+
+/** Wrap rendered signature HTML in a raw `<pre>` block (passed through by Markdown). */
+function signatureBlock(inner: string): string {
+    return `<pre class="api-signature"><code>${inner}</code></pre>`;
 }
 
 /** Private members are implementation detail and excluded from the public API docs. */

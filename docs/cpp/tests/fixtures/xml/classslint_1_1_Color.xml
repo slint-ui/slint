@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='UTF-8' standalone='no'?>
 <!-- SPDX-FileCopyrightText: Copyright © SixtyFPS GmbH <info@slint.dev> -->
 <!-- SPDX-License-Identifier: MIT -->
-<!-- cSpell:ignore aenumformat afriend afromargb ared argsstring briefdescription classslint -->
+<!-- cSpell:ignore ablend aenumformat afriend afromargb ared argsstring briefdescription classslint -->
 <!-- cSpell:ignore codeline compounddef compoundname computeroutput declname -->
 <!-- cSpell:ignore detaileddescription enumvalue itemizedlist kindref listitem memberdef -->
 <!-- cSpell:ignore parameterdescription parameteritem parameterlist parametername -->
@@ -53,6 +53,18 @@
           <para><programlisting><codeline><highlight class="normal">Color<sp/>c;</highlight></codeline><codeline><highlight class="normal">auto<sp/>r<sp/>=<sp/>c.red();</highlight></codeline></programlisting></para>
           <para>The valid range is documented in this list:<itemizedlist><listitem><para>0 means no red.</para></listitem><listitem><para>255 means full red.</para></listitem></itemizedlist></para>
         </detaileddescription>
+      </memberdef>
+      <memberdef kind="function" id="classslint_1_1_Color_1ablend" prot="public" static="no" const="no">
+        <type>void</type>
+        <definition>void slint::Color::blend</definition>
+        <argsstring>(const Color &amp;other)</argsstring>
+        <name>blend</name>
+        <param>
+          <type>const <ref refid="classslint_1_1_Color" kindref="compound">Color</ref> &amp;</type>
+          <declname>other</declname>
+        </param>
+        <briefdescription><para>Blend with another color.</para></briefdescription>
+        <detaileddescription></detaileddescription>
       </memberdef>
     </sectiondef>
     <sectiondef kind="friend">

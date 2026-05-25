@@ -37,9 +37,11 @@ test("class page has frontmatter, include and brief", () => {
 
 test("function signature, params, returns and note render", () => {
     const md = convert().get("api/classes/slint-color")?.markdown ?? "";
+    // Signature is an HTML <pre><code> block (so types can be linked); the text
+    // (qualified name, return type, params) reads as before.
     assert.match(
         md,
-        /static Color slint::Color::from_argb_encoded\(uint32_t argb_encoded\)/,
+        /<pre class="api-signature"><code>static Color slint::Color::from_argb_encoded\(uint32_t argb_encoded\)<\/code><\/pre>/,
     );
     assert.match(md, /\*\*Parameters:\*\*/);
     assert.match(md, /`argb_encoded` — The 32-bit encoded color\./);
@@ -86,6 +88,17 @@ test("documentation sections (sect1) render as headings with code blocks", () =>
     assert.match(
         md,
         /```cpp\nauto c = Color::from_argb_encoded\(0xff112233\);\n```/,
+    );
+});
+
+test("signature parameter types are linked, the qualified name is not", () => {
+    const md = convert().get("api/classes/slint-color")?.markdown ?? "";
+    // `void slint::Color::blend(const Color &other)` — the Color *parameter*
+    // links to the page; the `Color` inside the qualified name must stay plain
+    // (no substring mis-linking of the method name).
+    assert.match(
+        md,
+        /void slint::Color::blend\(const <a href="\.\/">Color<\/a> &amp;other\)/,
     );
 });
 
