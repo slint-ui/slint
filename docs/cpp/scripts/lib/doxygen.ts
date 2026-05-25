@@ -378,12 +378,39 @@ export class DoxygenConverter {
     /** Render an optional description element as block-level Markdown. */
     private renderBlocks(element: XmlElement | undefined): string {
         if (!element) return "";
+        return this.renderBlockChildren(element.children);
+    }
+
+    private renderBlockChildren(nodes: XmlNode[]): string {
         const blocks: string[] = [];
-        for (const node of element.children) {
+        for (const node of nodes) {
             const rendered = this.renderBlockNode(node);
             if (rendered.trim()) blocks.push(rendered.trim());
         }
         return blocks.join("\n\n");
+    }
+
+    /** A `\section`/Markdown-heading block (`<sect1>`…`<sect4>`): a title plus block content. */
+    private renderDocSection(node: XmlElement): string {
+        const levels: Record<string, number> = {
+            sect1: 3,
+            sect2: 4,
+            sect3: 5,
+            sect4: 6,
+        };
+        const level = levels[node.name] ?? 4;
+        const parts: string[] = [];
+        const titleEl = child(node, "title");
+        if (titleEl) {
+            const title = this.inline(titleEl.children).trim();
+            if (title) parts.push(`${"#".repeat(level)} ${title}`);
+        }
+        const body = node.children.filter(
+            (c) => !(isElement(c) && c.name === "title"),
+        );
+        const rendered = this.renderBlockChildren(body);
+        if (rendered) parts.push(rendered);
+        return parts.join("\n\n");
     }
 
     private renderBlockNode(node: XmlNode): string {
@@ -392,6 +419,11 @@ export class DoxygenConverter {
         switch (node.name) {
             case "para":
                 return this.renderParaWithBlocks(node);
+            case "sect1":
+            case "sect2":
+            case "sect3":
+            case "sect4":
+                return this.renderDocSection(node);
             case "itemizedlist":
                 return this.renderList(node, false);
             case "orderedlist":

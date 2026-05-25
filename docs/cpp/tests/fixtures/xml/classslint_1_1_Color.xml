@@ -60,6 +60,9 @@
     </briefdescription>
     <detaileddescription>
       <para>Colors are stored as four 8-bit channels. See <ulink url="https://slint.dev">the website</ulink> for details.</para>
+      <sect1 id="color_example"><title>Example</title>
+        <para><programlisting filename=".cpp"><codeline><highlight class="normal">auto<sp/>c<sp/>=<sp/>Color::from_argb_encoded(0xff112233);</highlight></codeline></programlisting></para>
+      </sect1>
     </detaileddescription>
   </compounddef>
 </doxygen>
