@@ -48,7 +48,7 @@ by a `std::vector<T>`.
 
 Let's assume we've this code in our `.slint` file:
 
-```slint,no-preview
+```slint
 export component SampleComponent inherits Window {
     in-out property<int> counter;
     // note that dashes will be replaced by underscores in the generated code
@@ -125,7 +125,7 @@ similar to API that's created for your `.slint` component.
 
 For example the following `.slint` markup defines a global `Logic` singleton that's also exported:
 
-```slint,ignore
+```slint
 export global Logic {
     callback to_uppercase(string) -> string;
 }

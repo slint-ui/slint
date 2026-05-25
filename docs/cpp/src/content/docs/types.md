@@ -35,7 +35,7 @@ code.
 
 For example, this `struct` in a `.slint` file
 
-```slint,ignore
+```slint
 export struct MyStruct {
     foo: int,
     bar: string,
@@ -59,7 +59,7 @@ for any user-defined, exported `enum` in the `.slint` code.
 
 For example, this `enum` in a `.slint` file
 
-```slint,ignore
+```slint
 export enum MyEnum { alpha, beta-gamma, omicron }
 ```
 

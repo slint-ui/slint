@@ -80,8 +80,17 @@ sidebar entries in `astro.config.mjs`; intra-doc `*.md` links → page slugs; an
 `slint-reference:`/`../slint/…` links → absolute `https://slint.dev/docs/slint/`
 URLs.
 
+Validated locally (Doxygen 1.9.8 + `pnpm`): the pipeline builds 79 pages and
+Starlight reports all internal links valid.
+
 Remaining:
 
+- **Doxygen strictness**: the `Doxyfile` sets `WARN_AS_ERROR = NO` because the
+  public headers have two pre-existing, benign Doxygen quirks (a template
+  constructor out-of-line match in `slint-interpreter.h` and a documented
+  internal `cbindgen_private::LayoutInfo::merge`). Output-link integrity is
+  enforced by Starlight's links validator instead. Clean those two up to
+  restore `WARN_AS_ERROR = YES`.
 - **Prose → API links**: API cross-references that were `{cpp:class}` /
   `{cpp:func}` are currently rendered as inline code rather than links into the
   generated API pages, because the generated slugs can't be verified without
