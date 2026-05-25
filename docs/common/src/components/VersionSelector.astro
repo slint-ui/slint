@@ -9,7 +9,9 @@ const docsSubdir =
         ? "node"
         : Astro.props.docsUrlKind === "python"
           ? "python"
-          : null;
+          : Astro.props.docsUrlKind === "cpp"
+            ? "cpp"
+            : null;
 ---
 
 <script define:vars={{ docsSubdir }}>

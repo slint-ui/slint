@@ -98,10 +98,6 @@ Remaining:
   `slint::Color` → `/api/classes/slint-color/`). Namespace references
   (`/api/namespaces/slint/`, `/api/namespaces/slint-interpreter/`) are already
   linked.
-- **Versioned header**: the other doc sites use `@slint/common-files`
-  `HeaderVersioned`, which currently only knows `docsUrlKind: "node"`. Add a
-  `"cpp"` kind there to get the version selector; this site uses the default
-  Starlight header until then.
 - **Remove the legacy Sphinx setup** in `api/cpp/docs/` (conf.py, pyproject.toml,
   the `.md` prose now duplicated here) and the Sphinx branch of
   `xtask cppdocs`, once this site is confirmed in production. Note
