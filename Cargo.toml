@@ -74,6 +74,8 @@ members = [
   'tests/manual/module-builds/blogica',
   'tests/manual/module-builds/blogicb',
   'tests/manual/module-builds/app',
+  'tests/issues/test-11836-project/test-app',
+  'tests/issues/test-11836-project/test-library',
   'tests/backends/',
   'tools/compiler',
   'docs/slint-doc-generator',
