@@ -23,6 +23,7 @@ packages:
   - docs/safety
   - docs/nodejs
   - docs/python
+  - docs/cpp
   - ui-libraries/material/docs
 
 catalog:

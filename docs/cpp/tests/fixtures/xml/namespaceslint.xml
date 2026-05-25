@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='UTF-8' standalone='no'?>
+<!-- SPDX-FileCopyrightText: Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<!-- cSpell:ignore compounddef compoundname namespaceslint classslint refid kindref -->
+<!-- cSpell:ignore innerclass briefdescription detaileddescription computeroutput -->
+<doxygen version="1.9.8">
+  <compounddef id="namespaceslint" kind="namespace" language="C++">
+    <compoundname>slint</compoundname>
+    <innerclass refid="classslint_1_1_Color" prot="public">slint::Color</innerclass>
+    <briefdescription>
+      <para>The Slint C++ API lives in the <computeroutput>slint</computeroutput> namespace.</para>
+    </briefdescription>
+    <detaileddescription>
+      <para>See <ref refid="classslint_1_1_Color" kindref="compound">Color</ref> for an example type.</para>
+    </detaileddescription>
+  </compounddef>
+</doxygen>
