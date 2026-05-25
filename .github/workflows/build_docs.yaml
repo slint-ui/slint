@@ -63,6 +63,8 @@ jobs:
                   version: "=0.6.6"
             - name: "Install Node dependencies"
               run: pnpm i --frozen-lockfile
+            - name: Test Cpp docs converter
+              run: pnpm -C docs/cpp test
             - name: Build Cpp docs
               run: |
                 CPPDOCS_EXTRA_FLAGS=""
