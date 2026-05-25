@@ -254,12 +254,20 @@ Note: `--html-in-header` arguments passed to rustdoc via `RUSTDOCFLAGS` are used
 **Prerequisites**:
 
 - [Doxygen](https://www.doxygen.nl/download.html)
+- [pnpm](https://pnpm.io/) (run `pnpm install` from the repository root first)
 
-Run the following command to generate the documentation using sphinx/exhale/breathe/doxygen/myst_parser in the `target/cppdocs` sub-folder:
+The C++ docs are an Astro/Starlight site in `docs/cpp`. First generate the
+cbindgen headers that Doxygen reads, then build the site (which runs Doxygen to
+produce XML, converts it to Markdown, and builds the static site):
 
 ```sh
 cargo xtask cppdocs
+export SLINT_CPP_GENERATED_INCLUDE="$PWD/target/cppdocs/generated_include"
+pnpm -C docs/cpp run build
 ```
+
+The static site is written to `docs/cpp/dist`. See `docs/cpp/README.md` for
+more, including the `pnpm -C docs/cpp dev` workflow.
 
 ### Node.js API docs
 

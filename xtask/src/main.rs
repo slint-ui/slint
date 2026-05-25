@@ -33,14 +33,9 @@ pub struct ApplicationArguments {
 
 #[derive(Debug, clap::Parser)]
 pub struct CppDocsCommand {
-    #[arg(long, action)]
-    show_warnings: bool,
+    /// Generate the headers for the experimental APIs as well.
     #[arg(long, action)]
     experimental: bool,
-    /// Only generate the cbindgen headers (into target/cppdocs/generated_include) and exit,
-    /// without running Sphinx. Used by the Astro-based docs build, which runs Doxygen itself.
-    #[arg(long, action)]
-    headers_only: bool,
 }
 
 /// The root dir of the git repository
@@ -52,7 +47,6 @@ fn root_dir() -> PathBuf {
 
 struct CommandOutput {
     stdout: Vec<u8>,
-    stderr: Vec<u8>,
 }
 
 fn run_command<I, K, V>(program: &str, args: &[&str], env: I) -> anyhow::Result<CommandOutput>
@@ -81,16 +75,14 @@ where
             String::from_utf8_lossy(&output.stderr)
         ))
     } else {
-        Ok(CommandOutput { stderr: output.stderr, stdout: output.stdout })
+        Ok(CommandOutput { stdout: output.stdout })
     }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     match ApplicationArguments::parse().command {
         TaskCommand::CheckLicenseHeaders(cmd) => cmd.check_license_headers()?,
-        TaskCommand::CppDocs(cmd) => {
-            cppdocs::generate(cmd.show_warnings, cmd.experimental, cmd.headers_only)?
-        }
+        TaskCommand::CppDocs(cmd) => cppdocs::generate(cmd.experimental)?,
         TaskCommand::NodePackage(cmd) => nodepackage::generate(cmd.sha1)?,
         TaskCommand::ReuseComplianceCheck(cmd) => cmd.check_reuse_compliance()?,
     };

@@ -70,8 +70,10 @@ Done: the Astro site + converter + build wiring, the ported prose pages
 (`overview`, `types`, `getting-started`, `generated-code`, `cmake`,
 `cmake-reference`, `live-preview`, `mcu/*`), and the CI swap — the
 `rust-cpp-docs` job now generates the cbindgen headers with
-`cargo xtask cppdocs --headers-only`, then runs `pnpm -C docs/cpp run build`
-(Doxygen XML + converter + Astro) and publishes `docs/cpp/dist`.
+`cargo xtask cppdocs`, then runs `pnpm -C docs/cpp run build`
+(Doxygen XML + converter + Astro) and publishes `docs/cpp/dist`. The legacy
+Sphinx/Breathe/Exhale setup in `api/cpp/docs/` and the Sphinx branch of
+`xtask cppdocs` have been removed.
 
 When porting the prose, these MyST constructs were translated to Starlight:
 `:::{note}`/```` ```{caution} ```` → `:::note`/`:::caution` asides;
@@ -98,7 +100,3 @@ Remaining:
   `slint::Color` → `/api/classes/slint-color/`). Namespace references
   (`/api/namespaces/slint/`, `/api/namespaces/slint-interpreter/`) are already
   linked.
-- **Remove the legacy Sphinx setup** in `api/cpp/docs/` (conf.py, pyproject.toml,
-  the `.md` prose now duplicated here) and the Sphinx branch of
-  `xtask cppdocs`, once this site is confirmed in production. Note
-  `upgrade_version.yaml` still bumps the version in `api/cpp/docs/conf.py`.

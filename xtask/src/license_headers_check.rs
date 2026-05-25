@@ -493,7 +493,6 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("^\\.github/.*\\.md$", LicenseLocation::NoLicense),
             ("^\\.mailmap$", LicenseLocation::NoLicense),
             ("^\\.mise/tasks/", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-            ("^api/cpp/docs/conf\\.py$", LicenseLocation::NoLicense),
             ("^docs/reference/Pipfile$", LicenseLocation::NoLicense),
             ("^docs/reference/conf\\.py$", LicenseLocation::NoLicense),
             ("^editors/vscode/src/snippets\\.ts$", LicenseLocation::NoLicense), // liberal license
@@ -536,8 +535,6 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ),
             // Path prefix matches:
             ("^editors/tree-sitter-slint/corpus/", LicenseLocation::NoLicense), // liberal license
-            ("^api/cpp/docs/_static/", LicenseLocation::NoLicense),
-            ("^api/cpp/docs/_templates/", LicenseLocation::NoLicense),
             ("^docs/quickstart/theme/", LicenseLocation::NoLicense),
             ("^editors/tree-sitter-slint/queries/", LicenseLocation::NoLicense), // liberal license
             // directory based matches
@@ -634,7 +631,6 @@ static LICENSE_FOR_FILE: LazyLock<Vec<(regex::Regex, &'static str)>> = LazyLock:
         ("^demos/", MIT_LICENSE),
         ("^docs/slint-doc-generator/", TRIPLE_LICENSE),
         ("^docs/", MIT_LICENSE),
-        ("^api/cpp/docs/", MIT_LICENSE),
         ("^ui-libraries/material", MIT_LICENSE),
         ("^tests/manual/module-builds/", MIT_LICENSE),
         ("^tools/figma-inspector/", MIT_LICENSE),
