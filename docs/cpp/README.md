@@ -66,22 +66,34 @@ The static site is output under `dist/`.
 
 ## Status / follow-ups
 
-This is the infrastructure (Astro site + converter + wiring). Remaining work to
-fully replace `api/cpp/docs/`:
+Done: the Astro site + converter + build wiring, the ported prose pages
+(`overview`, `types`, `getting-started`, `generated-code`, `cmake`,
+`cmake-reference`, `live-preview`, `mcu/*`), and the CI swap — the
+`rust-cpp-docs` job now generates the cbindgen headers with
+`cargo xtask cppdocs --headers-only`, then runs `pnpm -C docs/cpp run build`
+(Doxygen XML + converter + Astro) and publishes `docs/cpp/dist`.
 
-- **Port the prose pages** from `api/cpp/docs/*.md` (`overview.md`, `types.md`,
-  `getting_started.md`, `generated_code.md`, `cmake.md`, `cmake_reference.md`,
-  `live_preview.md`, `mcu/*`) into `src/content/docs/` and re-add them to the
-  sidebar. These are mechanical copies plus a few MyST→Starlight translations:
-  - `:::{note} … :::` → `:::note … :::` (Starlight asides).
-  - ```` ```{eval-rst} ```` RST grid tables → GitHub Markdown tables.
-  - `{ref}`/`{cpp:class}`/`{cpp:func}` → root-relative links into the generated
-    API pages (e.g. `slint::Color` → `/api/classes/slint-color/`).
-  - `{toctree}` → sidebar entries in `astro.config.mjs`.
-- **Versioned header**: the other doc sites use
-  `@slint/common-files` `HeaderVersioned`, which currently only knows
-  `docsUrlKind: "node"`. Add a `"cpp"` kind there to get the version selector;
-  this site uses the default Starlight header until then.
-- **CI**: swap the `rust-cpp-docs` job's `cargo xtask cppdocs` (Sphinx) step for
-  `doxygen` + this site's `build`, mirroring the `node-python-docs` job, and
-  drop the Sphinx/Breathe/Exhale `uv` environment in `api/cpp/docs/`.
+When porting the prose, these MyST constructs were translated to Starlight:
+`:::{note}`/```` ```{caution} ```` → `:::note`/`:::caution` asides;
+```` ```{eval-rst} ```` RST grid tables → GitHub Markdown tables; `{toctree}` →
+sidebar entries in `astro.config.mjs`; intra-doc `*.md` links → page slugs; and
+`slint-reference:`/`../slint/…` links → absolute `https://slint.dev/docs/slint/`
+URLs.
+
+Remaining:
+
+- **Prose → API links**: API cross-references that were `{cpp:class}` /
+  `{cpp:func}` are currently rendered as inline code rather than links into the
+  generated API pages, because the generated slugs can't be verified without
+  running Doxygen. Once verified, turn the common ones into links (e.g.
+  `slint::Color` → `/api/classes/slint-color/`). Namespace references
+  (`/api/namespaces/slint/`, `/api/namespaces/slint-interpreter/`) are already
+  linked.
+- **Versioned header**: the other doc sites use `@slint/common-files`
+  `HeaderVersioned`, which currently only knows `docsUrlKind: "node"`. Add a
+  `"cpp"` kind there to get the version selector; this site uses the default
+  Starlight header until then.
+- **Remove the legacy Sphinx setup** in `api/cpp/docs/` (conf.py, pyproject.toml,
+  the `.md` prose now duplicated here) and the Sphinx branch of
+  `xtask cppdocs`, once this site is confirmed in production. Note
+  `upgrade_version.yaml` still bumps the version in `api/cpp/docs/conf.py`.

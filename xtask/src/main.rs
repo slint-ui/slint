@@ -37,6 +37,10 @@ pub struct CppDocsCommand {
     show_warnings: bool,
     #[arg(long, action)]
     experimental: bool,
+    /// Only generate the cbindgen headers (into target/cppdocs/generated_include) and exit,
+    /// without running Sphinx. Used by the Astro-based docs build, which runs Doxygen itself.
+    #[arg(long, action)]
+    headers_only: bool,
 }
 
 /// The root dir of the git repository
@@ -84,7 +88,9 @@ where
 fn main() -> Result<(), Box<dyn Error>> {
     match ApplicationArguments::parse().command {
         TaskCommand::CheckLicenseHeaders(cmd) => cmd.check_license_headers()?,
-        TaskCommand::CppDocs(cmd) => cppdocs::generate(cmd.show_warnings, cmd.experimental)?,
+        TaskCommand::CppDocs(cmd) => {
+            cppdocs::generate(cmd.show_warnings, cmd.experimental, cmd.headers_only)?
+        }
         TaskCommand::NodePackage(cmd) => nodepackage::generate(cmd.sha1)?,
         TaskCommand::ReuseComplianceCheck(cmd) => cmd.check_reuse_compliance()?,
     };
