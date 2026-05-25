@@ -3,7 +3,7 @@
 
 // cSpell:ignore argsstring basecompoundref briefdescription codeline compounddef
 // cSpell:ignore computeroutput declname derivedcompoundref detaileddescription enumvalue
-// cSpell:ignore itemizedlist kindref memberdef nonbreakablespace orderedlist
+// cSpell:ignore innerclass innernamespace itemizedlist kindref memberdef nonbreakablespace orderedlist
 // cSpell:ignore parameterdescription parameteritem parameterlist parametername
 // cSpell:ignore parameternamelist programlisting refid retval sectiondef simplesect
 // cSpell:ignore templateparam templateparamlist tparams ulink xrefdescription xrefsect
@@ -216,6 +216,8 @@ export class DoxygenConverter {
         const detailed = this.renderBlocks(child(def, "detaileddescription"));
         if (detailed.trim()) out.push("", detailed);
 
+        out.push(...this.renderInnerCompounds(entry, def));
+
         for (const section of children(def, "sectiondef")) {
             if (isHiddenSection(section.attrs.kind ?? "")) continue;
             out.push(...this.renderSection(section));
@@ -262,6 +264,35 @@ export class DoxygenConverter {
         return target
             ? `[${text}](${relativeUrl(this.currentSlug, target.slug)})`
             : `\`${text}\``;
+    }
+
+    /** List the nested namespaces and classes/structs of a compound, with links to their pages. */
+    private renderInnerCompounds(entry: IndexEntry, def: XmlElement): string[] {
+        const out: string[] = [];
+        const link = (el: XmlElement): string => {
+            const name = textContent(el).trim();
+            const display = name.startsWith(`${entry.name}::`)
+                ? name.slice(entry.name.length + 2)
+                : name;
+            const target = this.compoundTargets.get(el.attrs.refid);
+            return target
+                ? `[${display}](${relativeUrl(this.currentSlug, target.slug)})`
+                : `\`${display}\``;
+        };
+
+        const namespaces = children(def, "innernamespace");
+        if (namespaces.length > 0) {
+            out.push("", "## Namespaces");
+            for (const n of namespaces) out.push(`- ${link(n)}`);
+        }
+        const classes = children(def, "innerclass").filter(
+            (c) => c.attrs.prot !== "private",
+        );
+        if (classes.length > 0) {
+            out.push("", "## Classes");
+            for (const c of classes) out.push(`- ${link(c)}`);
+        }
+        return out;
     }
 
     private renderSection(section: XmlElement): string[] {
