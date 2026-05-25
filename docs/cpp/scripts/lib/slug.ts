@@ -31,16 +31,22 @@ export function compoundSlug(kind: string, qualifiedName: string): string {
 }
 
 /**
- * A stable in-page anchor for a member, disambiguating overloads with a numeric
- * suffix. Underscores are kept so the anchor mirrors the C++ identifier; other
- * symbols (e.g. in `operator==`) collapse to `-`.
+ * Base anchor for a member. Underscores are kept so the anchor mirrors the C++
+ * identifier; other symbols (e.g. in `operator==`) collapse to `-`. Callers
+ * disambiguate collisions (overloads, or distinct operators that slug the same)
+ * via {@link disambiguateAnchor}.
  */
-export function memberAnchor(name: string, overloadIndex: number): string {
-    const base =
+export function memberAnchorBase(name: string): string {
+    return (
         name
             .replace(/[^a-zA-Z0-9_]+/g, "-")
             .replace(/-+/g, "-")
             .replace(/^-|-$/g, "")
-            .toLowerCase() || "member";
-    return overloadIndex === 0 ? base : `${base}-${overloadIndex + 1}`;
+            .toLowerCase() || "member"
+    );
+}
+
+/** Append a numeric suffix for the Nth (0-based) use of the same base anchor. */
+export function disambiguateAnchor(base: string, occurrence: number): string {
+    return occurrence === 0 ? base : `${base}-${occurrence + 1}`;
 }

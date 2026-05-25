@@ -26,7 +26,7 @@ as well as the peripherals of our board.
 11. Add a C++ source file to your project, for example `appmain.cpp`, with an `appmain` function and call it
     from the generated `main.c`.
 12. Create `app-window.slint` with the following contents:
-    ```slint,no-preview
+    ```slint
     import { VerticalBox, AboutSlint } from "std-widgets.slint";
     export component AppWindow inherits Window {
         VerticalBox {

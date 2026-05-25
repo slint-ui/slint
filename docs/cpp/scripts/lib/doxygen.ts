@@ -25,7 +25,7 @@ import {
     parseXml,
     textContent,
 } from "./xml.ts";
-import { compoundSlug, memberAnchor } from "./slug.ts";
+import { compoundSlug, disambiguateAnchor, memberAnchorBase } from "./slug.ts";
 
 export interface IndexEntry {
     refid: string;
@@ -136,14 +136,18 @@ export class DoxygenConverter {
             if (!def) continue;
             const seen = new Map<string, number>();
             for (const section of children(def, "sectiondef")) {
+                if (isHiddenSection(section.attrs.kind ?? "")) continue;
                 for (const member of children(section, "memberdef")) {
                     const name = textContent(
                         child(member, "name") ?? emptyElement(),
                     );
-                    const overloadIndex = seen.get(name) ?? 0;
-                    seen.set(name, overloadIndex + 1);
-                    const anchor = memberAnchor(name, overloadIndex);
-                    this.memberTargets.set(member.attrs.id, { slug, anchor });
+                    const base = memberAnchorBase(name);
+                    const occurrence = seen.get(base) ?? 0;
+                    seen.set(base, occurrence + 1);
+                    this.memberTargets.set(member.attrs.id, {
+                        slug,
+                        anchor: disambiguateAnchor(base, occurrence),
+                    });
                 }
             }
         }
@@ -205,6 +209,7 @@ export class DoxygenConverter {
         if (detailed.trim()) out.push("", detailed);
 
         for (const section of children(def, "sectiondef")) {
+            if (isHiddenSection(section.attrs.kind ?? "")) continue;
             out.push(...this.renderSection(section));
         }
 
@@ -526,6 +531,11 @@ export class DoxygenConverter {
 
 function emptyElement(): XmlElement {
     return { type: "element", name: "#empty", attrs: {}, children: [] };
+}
+
+/** Private members are implementation detail and excluded from the public API docs. */
+function isHiddenSection(kind: string): boolean {
+    return kind.startsWith("private");
 }
 
 function qualifiedTitle(entry: IndexEntry): string {
