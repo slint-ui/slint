@@ -28,6 +28,7 @@
         "@types/node": "catalog:",
         "astro": "catalog:",
         "sharp": "catalog:",
+        "shiki": "4.1.0",
         "typescript": "catalog:"
     }
 }

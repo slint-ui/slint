@@ -50,6 +50,16 @@ interface SymbolTarget {
     anchor?: string;
 }
 
+/** A character range `[start, end)` in a signature that links to `url`. */
+interface SignatureLink {
+    start: number;
+    end: number;
+    url: string;
+}
+
+/** The bit of Shiki the converter uses; injected so the converter has no hard Shiki dependency. */
+type SignatureHighlighter = Pick<import("shiki").Highlighter, "codeToHtml">;
+
 /** Compound kinds we turn into their own page. */
 const PAGE_KINDS = new Set([
     "class",
@@ -99,9 +109,15 @@ export class DoxygenConverter {
     private readonly memberTargets = new Map<string, SymbolTarget>();
     /** Slug of the page currently being rendered, for relative cross-reference links. */
     private currentSlug = "";
+    /** Optional Shiki highlighter; when set, signatures are syntax-highlighted. */
+    private readonly highlighter?: SignatureHighlighter;
 
-    constructor(xmlDir: string) {
+    constructor(
+        xmlDir: string,
+        options: { highlighter?: SignatureHighlighter } = {},
+    ) {
         this.xmlDir = xmlDir;
+        this.highlighter = options.highlighter;
     }
 
     /** Parse `index.xml` into the list of compounds Doxygen produced. */
@@ -298,7 +314,7 @@ export class DoxygenConverter {
 
     private renderSection(section: XmlElement): string[] {
         const members = children(section, "memberdef").filter(
-            (m) => !isInternalMember(m),
+            (m) => m.attrs.prot !== "private" && !isInternalMember(m),
         );
         if (members.length === 0) return [];
         const kind = section.attrs.kind ?? "";
@@ -349,24 +365,54 @@ export class DoxygenConverter {
         return out;
     }
 
-    /**
-     * Render a member's signature as an HTML `<pre><code>` block where type
-     * references resolve to links. The return type comes from `<type>` and the
-     * parameter list from `<argsstring>` (both linkified); the qualified name is
-     * a plain non-linkified segment, so a type that also appears in the name
-     * (e.g. a method of `Foo` taking a `Foo`) is never mis-linked. A raw `<pre>`
-     * HTML block is used so Markdown does not reinterpret signature punctuation.
-     */
+    /** Render a member signature: Shiki-highlighted with type links when a highlighter is set. */
     private renderSignature(member: XmlElement): string {
+        const { text, links } = this.buildSignature(member);
+        if (!this.highlighter) return signatureFallback(text, links);
+        return this.highlighter.codeToHtml(text, {
+            lang: "cpp",
+            themes: { light: "light-plus", dark: "dark-plus" },
+            defaultColor: false,
+            decorations: links.map((l) => ({
+                start: l.start,
+                end: l.end,
+                tagName: "a",
+                properties: { href: l.url, class: "api-link" },
+            })),
+            transformers: [
+                {
+                    pre(node) {
+                        const cls = node.properties.class;
+                        node.properties.class = `${
+                            typeof cls === "string" ? `${cls} ` : ""
+                        }api-signature`;
+                    },
+                },
+            ],
+        });
+    }
+
+    /**
+     * Reconstruct a member signature as plain text plus the character ranges of
+     * cross-referenced types. The return type comes from `<type>` and the
+     * parameter list from `<argsstring>`; the qualified name is a plain segment,
+     * so a type that also appears in the name (a method of `Foo` taking a `Foo`)
+     * is never mis-linked.
+     */
+    private buildSignature(member: XmlElement): {
+        text: string;
+        links: SignatureLink[];
+    } {
         const kind = member.attrs.kind;
         const name = textContent(
             child(member, "name") ?? emptyElement(),
         ).trim();
+        const links: SignatureLink[] = [];
 
         if (kind === "enum") {
             const scoped =
                 member.attrs.strong === "yes" ? "enum class" : "enum";
-            return signatureBlock(escapeHtml(`${scoped} ${name}`));
+            return { text: `${scoped} ${name}`, links };
         }
 
         const SPECIFIERS = [
@@ -376,6 +422,7 @@ export class DoxygenConverter {
             "constexpr",
             "inline",
         ];
+        let text = "";
         const prefix: string[] = [];
         if (member.attrs.explicit === "yes") prefix.push("explicit");
         if (member.attrs.static === "yes") prefix.push("static");
@@ -385,11 +432,32 @@ export class DoxygenConverter {
             member.attrs.virt === "pure-virtual"
         )
             prefix.push("virtual");
+        if (prefix.length > 0) text += `${prefix.join(" ")} `;
 
-        const returnType = this.renderTypeHtml(child(member, "type"));
+        // Return type from <type>, recording links for resolvable refs.
+        const typeStart = text.length;
+        const typeEl = child(member, "type");
+        if (typeEl) {
+            for (const node of typeEl.children) {
+                if (!isElement(node)) {
+                    text += node.value;
+                } else if (node.name === "ref") {
+                    const t = textContent(node);
+                    const url = this.resolveTargetUrl(
+                        node.attrs.refid,
+                        node.attrs.kindref,
+                    );
+                    const start = text.length;
+                    text += t;
+                    if (url) links.push({ start, end: text.length, url });
+                } else {
+                    text += textContent(node);
+                }
+            }
+        }
+        if (text.length > typeStart) text += " ";
 
-        // Qualified name = <definition> with the leading specifiers and return
-        // type stripped off (so template parameters in the name are kept).
+        // Qualified name = <definition> minus leading specifiers and return type.
         let qualified = textContent(
             child(member, "definition") ?? emptyElement(),
         ).trim();
@@ -409,69 +477,38 @@ export class DoxygenConverter {
         if (returnTypeText && qualified.startsWith(`${returnTypeText} `)) {
             qualified = qualified.slice(returnTypeText.length + 1);
         }
-        const nameSegment = escapeHtml(qualified || name);
+        text += qualified || name;
 
-        let html = "";
-        if (prefix.length > 0) html += `${escapeHtml(prefix.join(" "))} `;
-        if (returnType) html += `${returnType} `;
-        html += nameSegment;
-
-        if (kind === "function" || kind === "friend") {
-            html += this.linkifyArgsString(member);
-        } else {
-            const args = textContent(
-                child(member, "argsstring") ?? emptyElement(),
-            ).trim();
-            if (args) html += escapeHtml(args);
-        }
-        return signatureBlock(html);
-    }
-
-    /** Render a `<type>` element as escaped HTML, turning resolvable `<ref>`s into links. */
-    private renderTypeHtml(el: XmlElement | undefined): string {
-        if (!el) return "";
-        const render = (node: XmlNode): string => {
-            if (!isElement(node)) return escapeHtml(node.value);
-            if (node.name === "ref") {
-                const url = this.resolveTargetUrl(
-                    node.attrs.refid,
-                    node.attrs.kindref,
-                );
-                const text = escapeHtml(textContent(node));
-                return url ? `<a href="${url}">${text}</a>` : text;
-            }
-            return node.children.map(render).join("");
-        };
-        return el.children.map(render).join("").trim();
-    }
-
-    /** The `<argsstring>` ("(params) const …") with parameter type refs linkified, escaped. */
-    private linkifyArgsString(member: XmlElement): string {
         const args = textContent(child(member, "argsstring") ?? emptyElement());
-        const refs: { text: string; url: string }[] = [];
-        for (const param of children(member, "param")) {
-            const type = child(param, "type");
-            if (!type) continue;
-            for (const ref of collectRefs(type)) {
-                const text = textContent(ref).trim();
-                const url = this.resolveTargetUrl(
-                    ref.attrs.refid,
-                    ref.attrs.kindref,
-                );
-                if (text && url) refs.push({ text, url });
+        if (kind === "function" || kind === "friend") {
+            const base = text.length;
+            text += args;
+            let pos = 0;
+            for (const param of children(member, "param")) {
+                const type = child(param, "type");
+                if (!type) continue;
+                for (const ref of collectRefs(type)) {
+                    const t = textContent(ref).trim();
+                    const url = this.resolveTargetUrl(
+                        ref.attrs.refid,
+                        ref.attrs.kindref,
+                    );
+                    if (!t || !url) continue;
+                    const idx = args.indexOf(t, pos);
+                    if (idx < 0) continue;
+                    links.push({
+                        start: base + idx,
+                        end: base + idx + t.length,
+                        url,
+                    });
+                    pos = idx + t.length;
+                }
             }
+        } else if (args) {
+            text += args;
         }
-        let html = "";
-        let pos = 0;
-        for (const ref of refs) {
-            const idx = args.indexOf(ref.text, pos);
-            if (idx < 0) continue;
-            html += escapeHtml(args.slice(pos, idx));
-            html += `<a href="${ref.url}">${escapeHtml(ref.text)}</a>`;
-            pos = idx + ref.text.length;
-        }
-        html += escapeHtml(args.slice(pos));
-        return html;
+
+        return { text, links };
     }
 
     /** Relative URL (with anchor) for a `<ref>` target that resolves to a generated page. */
@@ -745,9 +782,25 @@ function collectRefs(node: XmlElement): XmlElement[] {
     return refs;
 }
 
-/** Wrap rendered signature HTML in a raw `<pre>` block (passed through by Markdown). */
-function signatureBlock(inner: string): string {
-    return `<pre class="api-signature"><code>${inner}</code></pre>`;
+/**
+ * Render a signature as a plain `<pre>` block (no syntax highlighting), wrapping
+ * the cross-referenced type ranges in `<a>` links. Used when no Shiki
+ * highlighter is supplied (e.g. the unit tests).
+ */
+function signatureFallback(text: string, links: SignatureLink[]): string {
+    const sorted = [...links].sort((a, b) => a.start - b.start);
+    let html = "";
+    let pos = 0;
+    for (const link of sorted) {
+        if (link.start < pos) continue;
+        html += escapeHtml(text.slice(pos, link.start));
+        html += `<a href="${link.url}">${escapeHtml(
+            text.slice(link.start, link.end),
+        )}</a>`;
+        pos = link.end;
+    }
+    html += escapeHtml(text.slice(pos));
+    return `<pre class="api-signature"><code>${html}</code></pre>`;
 }
 
 /** Private members are implementation detail and excluded from the public API docs. */

@@ -11,6 +11,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createHighlighter } from "shiki";
 import { DoxygenConverter } from "./lib/doxygen.ts";
 import { API_ROOT } from "./lib/slug.ts";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -44,13 +45,17 @@ function runDoxygen(): void {
     }
 }
 
-function convert(): void {
+async function convert(): Promise<void> {
     if (!existsSync(join(xmlDir, "index.xml"))) {
         throw new Error(`No Doxygen XML at ${xmlDir} (expected index.xml).`);
     }
     const apiDir = join(contentDocs, API_ROOT);
     rmSync(apiDir, { recursive: true, force: true });
-    const pages = new DoxygenConverter(xmlDir).convert();
+    const highlighter = await createHighlighter({
+        themes: ["light-plus", "dark-plus"],
+        langs: ["cpp"],
+    });
+    const pages = new DoxygenConverter(xmlDir, { highlighter }).convert();
     for (const page of pages) {
         const file = join(contentDocs, `${page.slug}.md`);
         mkdirSync(dirname(file), { recursive: true });
@@ -60,4 +65,4 @@ function convert(): void {
 }
 
 runDoxygen();
-convert();
+await convert();

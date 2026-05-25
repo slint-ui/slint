@@ -43,6 +43,7 @@ export default defineConfig({
             customCss: [
                 "@slint/common-files/src/styles/starlight-slint-custom.css",
                 "@slint/common-files/src/styles/starlight-slint-theme.css",
+                "./src/styles/api-signature.css",
             ],
             favicon: "favicon.svg",
             components: {
