@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
-    property <[int]> foo: [1, 2, 3];
-    property <[int]> bar: [1, 2, 3];
-    property <int> first: foo[0];
+component TestCase inherits Rectangle {
+    in-out property <[int]> foo: [1, 2, 3];
+    in-out property <[int]> bar: [1, 2, 3];
+    in-out property <int> first: foo[0];
 
     callback do() -> bool;
     do => {
@@ -26,8 +26,6 @@ TestCase := Rectangle {
         if (first != 8) { debug(first, "!= 8"); return false; }
         return true;
     }
-
-    property <bool> test: do();
 }
 
 /*
