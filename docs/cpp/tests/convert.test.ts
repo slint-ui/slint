@@ -89,6 +89,14 @@ test("documentation sections (sect1) render as headings with code blocks", () =>
     );
 });
 
+test("internal members (private_api/cbindgen_private) are not documented", () => {
+    const md = convert().get("api/classes/slint-color")?.markdown ?? "";
+    // A `friend void private_api::touch_color(...)` declaration must be filtered
+    // out, leaving no Friends section (it was the only friend).
+    assert.doesNotMatch(md, /private_api/);
+    assert.doesNotMatch(md, /## Friends/);
+});
+
 test("unresolved/no-ref text degrades gracefully (no crash, no empty links)", () => {
     const md = convert().get("api/classes/slint-color")?.markdown ?? "";
     assert.doesNotMatch(md, /\]\(\)/);

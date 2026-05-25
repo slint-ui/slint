@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='UTF-8' standalone='no'?>
 <!-- SPDX-FileCopyrightText: Copyright © SixtyFPS GmbH <info@slint.dev> -->
 <!-- SPDX-License-Identifier: MIT -->
-<!-- cSpell:ignore aenumformat afromargb ared argsstring briefdescription classslint -->
+<!-- cSpell:ignore aenumformat afriend afromargb ared argsstring briefdescription classslint -->
 <!-- cSpell:ignore codeline compounddef compoundname computeroutput declname -->
 <!-- cSpell:ignore detaileddescription enumvalue itemizedlist kindref listitem memberdef -->
 <!-- cSpell:ignore parameterdescription parameteritem parameterlist parametername -->
@@ -53,6 +53,16 @@
           <para><programlisting><codeline><highlight class="normal">Color<sp/>c;</highlight></codeline><codeline><highlight class="normal">auto<sp/>r<sp/>=<sp/>c.red();</highlight></codeline></programlisting></para>
           <para>The valid range is documented in this list:<itemizedlist><listitem><para>0 means no red.</para></listitem><listitem><para>255 means full red.</para></listitem></itemizedlist></para>
         </detaileddescription>
+      </memberdef>
+    </sectiondef>
+    <sectiondef kind="friend">
+      <memberdef kind="friend" id="classslint_1_1_Color_1afriend" prot="public" static="no" const="no">
+        <type>friend void</type>
+        <definition>friend void private_api::touch_color</definition>
+        <argsstring>(Color &amp;c)</argsstring>
+        <name>private_api::touch_color</name>
+        <briefdescription></briefdescription>
+        <detaileddescription></detaileddescription>
       </memberdef>
     </sectiondef>
     <briefdescription>
