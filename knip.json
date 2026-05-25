@@ -101,6 +101,11 @@
       "ignoreFiles": [
         "src/styles/sls-ids.css"
       ]
+    },
+    "docs/cpp": {
+      "ignoreFiles": [
+        "src/styles/api-signature.css"
+      ]
     }
   },
   "ignoreIssues": {
