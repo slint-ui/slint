@@ -81,6 +81,7 @@
         "src/components/Banner.astro",
         "src/components/Footer.astro",
         "src/components/Header.astro",
+        "src/components/HeaderCppDocs.astro",
         "src/components/HeaderNodeDocs.astro",
         "src/components/HeaderPythonDocs.astro",
         "src/components/HeaderSlintDocs.astro",
