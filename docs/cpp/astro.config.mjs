@@ -51,7 +51,12 @@ export default defineConfig({
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
             plugins: [
-                slintStarlightLinksValidatorPlugin(),
+                // Internal links are relative so they resolve under the deploy
+                // base path (e.g. /master/docs/cpp/); root-absolute links would
+                // not be rewritten with the base by Astro.
+                slintStarlightLinksValidatorPlugin({
+                    errorOnRelativeLinks: false,
+                }),
                 starlightExpandAllSidebarGroups(),
             ],
             social: slintStarlightSocial,

@@ -50,3 +50,28 @@ export function memberAnchorBase(name: string): string {
 export function disambiguateAnchor(base: string, occurrence: number): string {
     return occurrence === 0 ? base : `${base}-${occurrence + 1}`;
 }
+
+/**
+ * A relative URL from one page slug to another (both relative to the docs root,
+ * e.g. `api/namespaces/slint`). Relative links resolve correctly whether the
+ * site is served at `/` or under a base like `/master/docs/cpp/`, unlike
+ * root-absolute links which Astro does not rewrite with the base. Pages use
+ * `trailingSlash: "always"`, so each slug is served as its own directory.
+ */
+export function relativeUrl(fromSlug: string, toSlug: string): string {
+    const from =
+        fromSlug === "" || fromSlug === "index" ? [] : fromSlug.split("/");
+    const to = toSlug.split("/");
+    let common = 0;
+    while (
+        common < from.length &&
+        common < to.length &&
+        from[common] === to[common]
+    ) {
+        common++;
+    }
+    const ups = "../".repeat(from.length - common);
+    const downs = to.slice(common).join("/");
+    const rel = ups + (downs ? `${downs}/` : "");
+    return rel === "" ? "./" : rel;
+}

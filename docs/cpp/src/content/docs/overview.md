@@ -25,9 +25,9 @@ handling callbacks to react to events triggered by the user.
 ## Compiled `.slint` Designs
 
 The provided CMake integration makes it easy to compile your Slint sources:
-The [`slint_target_sources` CMake command](/cmake-reference/#slint_target_sources) makes the translation automatic. The
-[generated code](/generated-code/) has an API to set and get property values,
-etc. This API uses types from the [`slint`](/api/namespaces/slint/) namespace, for
+The [`slint_target_sources` CMake command](../cmake-reference/#slint_target_sources) makes the translation automatic. The
+[generated code](../generated-code/) has an API to set and get property values,
+etc. This API uses types from the [`slint`](../api/namespaces/slint/) namespace, for
 example `slint::SharedString` or `slint::Color`.
 
 ## Run-Time Interpreted `.slint` Designs
@@ -38,7 +38,7 @@ more memory, however it provides more flexibility in your application design.
 
 The entry point to loading a `.slint` file is the
 `slint::interpreter::ComponentCompiler` class in the
-[`slint::interpreter`](/api/namespaces/slint-interpreter/) namespace.
+[`slint::interpreter`](../api/namespaces/slint-interpreter/) namespace.
 
 With the help of `slint::interpreter::ComponentCompiler` you create
 a `slint::interpreter::ComponentDefinition`, which provides

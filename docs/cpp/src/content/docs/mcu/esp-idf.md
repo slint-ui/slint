@@ -123,10 +123,10 @@ slint_target_sources(${COMPONENT_LIB} app-window.slint)
 
 Congratulations, you're all set up to develop with Slint.
 
-If you run into compile or run-time issues, see the [Troubleshooting](/mcu/esp-idf/troubleshoot/) page.
+If you run into compile or run-time issues, see the [Troubleshooting](troubleshoot/) page.
 
 ## Next Steps
 
  - For more details about the Slint language, check out the [Slint Language Documentation](https://slint.dev/docs/slint/).
- - Learn about the [Type Mappings](/types/) between Slint and C++.
- - Study the [C++ API Reference](/api/namespaces/slint/).
+ - Learn about the [Type Mappings](../../types/) between Slint and C++.
+ - Study the [C++ API Reference](../../api/namespaces/slint/).

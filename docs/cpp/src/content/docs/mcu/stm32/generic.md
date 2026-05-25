@@ -7,7 +7,7 @@ The following instructions outline a rough, general path how to get started on a
 with STM32 Cube tooling and Slint. Successful completion requires experience with STM32CubeMX
 as well as the peripherals of our board.
 
-1. Make sure to install all the [prerequisites](/mcu/stm32/#prerequisites).
+1. Make sure to install all the [prerequisites](../#prerequisites).
 2. Start a new project with STM32CubeMX:
    - Select your base board.
    - Enable all peripherals needed. This includes LTDC and typically the FMC to be able

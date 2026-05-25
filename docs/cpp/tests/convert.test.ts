@@ -61,10 +61,11 @@ test("code blocks and lists render", () => {
     assert.match(md, /- 0 means no red\./);
 });
 
-test("cross-references resolve to root-relative links with anchors", () => {
+test("cross-references resolve to relative links with anchors", () => {
     const ns = convert().get("api/namespaces/slint")?.markdown ?? "";
-    // compound ref -> page link
-    assert.match(ns, /\[Color\]\(\/api\/classes\/slint-color\/\)/);
+    // compound ref -> page link, relative so it resolves under any deploy base
+    // (from api/namespaces/slint to api/classes/slint-color).
+    assert.match(ns, /\[Color\]\(\.\.\/\.\.\/classes\/slint-color\/\)/);
     const cls = convert().get("api/classes/slint-color")?.markdown ?? "";
     // member anchor is stable and emitted as an HTML id
     assert.match(cls, /<a id="from_argb_encoded"><\/a>/);

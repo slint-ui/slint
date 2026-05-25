@@ -3,7 +3,7 @@ title: Generated Code
 description: The C++ header the Slint compiler generates for a .slint file — component classes, property getters/setters, callbacks and globals.
 ---
 
-The Slint compiler [called by the build system](/cmake-reference/#slint_target_sources)
+The Slint compiler [called by the build system](../cmake-reference/#slint_target_sources)
 will generate a header file for the root `.slint` file.
 
 This header file will contain a `class` for every exported component from the main file that inherits from `Window` or `Dialog`.

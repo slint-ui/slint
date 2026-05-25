@@ -26,7 +26,7 @@ We provide templates for different STM32 Discovery Kits that provide:
  - Application skeleton source code with sample Slint UI.
  - Example usage of callbacks, properties, and basic widgets.
 
-To get started, select a download from the following table. If your board is not included in the table below, see our [generic instructions](/mcu/stm32/generic/).
+To get started, select a download from the following table. If your board is not included in the table below, see our [generic instructions](generic/).
 
 | STM32 Board | Download |
 |----------------------------------|----------|
@@ -42,5 +42,5 @@ To get started, select a download from the following table. If your board is not
 ## Next Steps
 
  - For more details about the Slint language, check out the [Slint Language Documentation](https://slint.dev/docs/slint/).
- - Learn about the [Type Mappings](/types/) between Slint and C++.
- - Study the [C++ API Reference](/api/namespaces/slint/).
+ - Learn about the [Type Mappings](../../types/) between Slint and C++.
+ - Study the [C++ API Reference](../../api/namespaces/slint/).
