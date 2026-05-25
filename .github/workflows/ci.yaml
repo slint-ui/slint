@@ -55,7 +55,6 @@ jobs:
         examples_mcu: ${{ inputs.full || steps.filter.outputs.examples_mcu == 'true' }}
         vsce: ${{ inputs.full || steps.filter.outputs.vsce == 'true' }}
         slintpad: ${{ inputs.full || steps.filter.outputs.slintpad == 'true' }}
-        updater_test: ${{ inputs.full || steps.filter.outputs.updater_test == 'true' }}
         servo_example: ${{ inputs.full || steps.filter.outputs.servo_example == 'true' }}
         bevy_examples: ${{ inputs.full || steps.filter.outputs.bevy_examples == 'true' }}
         rust_files: ${{ inputs.full || steps.filter.outputs.rust_files == 'true' }}
@@ -439,84 +438,6 @@ jobs:
         with:
             latest: false
             tag: "v0.26.5"
-
-    # Checkout a old version of the tests and example, then run the slint-updater on them
-    # and check that it worked with the interpreter test.
-    updater_test:
-        needs: files-changed
-        if: ${{ needs.files-changed.outputs.updater_test == 'true' }}
-        env:
-            SLINT_NO_QT: 1
-            CARGO_INCREMENTAL: false
-            RUST_BACKTRACE: 1
-            CARGO_PROFILE_DEV_DEBUG: 0
-        strategy:
-            matrix:
-                from_version: ["0.3.0"]
-        runs-on: ubuntu-22.04
-        steps:
-            - uses: actions/checkout@v6
-              with:
-                  fetch-depth: 0
-            - uses: ./.github/actions/install-linux-dependencies
-            - uses: ./.github/actions/setup-rust
-            - name: Checkout old version
-              run: |
-                  git checkout v${{ matrix.from_version }} --no-overlay -- examples
-                  git checkout v${{ matrix.from_version }} --no-overlay -- tests/cases
-                  git checkout v${{ matrix.from_version }} --no-overlay -- tests/helper_components
-                  # Remove examples and demos from the workspace because they may no longer exist or their Cargo.toml might prevent the build of the updater
-                  sed -i "/examples/d" Cargo.toml
-                  sed -i "/demos/d" Cargo.toml
-            - name: "Commit old checkout"
-              run: |
-                  git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-                  git config --global user.name "${GITHUB_ACTOR}"
-                  git commit -a -m "REVERT TESTS TO v${{ matrix.from_version }}"
-            - name: run the updater
-              run: |
-                  cargo run -p slint-updater -- -i examples/*/*.slint
-                  cargo run -p slint-updater -- -i examples/*/*/*.slint
-                  cargo run -p slint-updater -- -i tests/cases/*.slint
-                  cargo run -p slint-updater -- -i tests/cases/*/*.slint
-            - name: Show the diff
-              run: git diff
-            - name: test
-              # Skip a few tests that rely on private renamed properties.
-              # Skip the tests which makes two way binding to output property (these are warning in previous version)
-              # Skip the test that use impure functions in property bindings (this is also warning in previous version)
-              # Skip the example that did not exist or that are broken
-              # Skip the path layout related tests as the element has been removed
-              # Skip the booker as it use api from the LineEdit that wasn"t meant to be used
-              run: |
-                  cargo test -p test-driver-interpreter -- \
-                            --skip test_interpreter_text_cursor_move \
-                            --skip test_interpreter_text_cursor_move_grapheme \
-                            --skip test_interpreter_text_cut \
-                            --skip test_interpreter_text_select_all \
-                            --skip test_interpreter_text_surrogate_cursor \
-                            --skip test_interpreter_text_text_change \
-                            --skip test_interpreter_crashes_layout_deleted_item \
-                            --skip test_interpreter_focus_focus_change_subcompo \
-                            --skip test_interpreter_focus_focus_change_through_signal \
-                            --skip test_interpreter_globals_alias_to_global \
-                            --skip test_interpreter_text_default_color \
-                            --skip test_interpreter_crashes_issue1271_set_in_if \
-                            --skip test_interpreter_models_assign_equal_model \
-                            --skip example_carousel \
-                            --skip example_fancy_demo \
-                            --skip example_dial \
-                            --skip example_fancy_switches \
-                            --skip example_sprite_sheet \
-                            --skip example_grid_model_rows \
-                            --skip example_grid_with_repeated_rows \
-                            --skip example_vector_as_grid \
-                            --skip example_vlayout \
-                            --skip example_flexbox_interactive \
-                            --skip test_interpreter_elements_path_fit \
-                            --skip test_interpreter_layout_path \
-                            --skip test_interpreter_7guis_booker \
-                            --skip example_bash_sysinfo \
 
     # Test that the formater don't introduce slint compilation error
     fmt_test:

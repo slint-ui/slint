@@ -30,7 +30,6 @@ slint:
  - 'tools/figma_import/**'
  - 'tools/lsp/**'
  - 'tools/tr-extractor/**'
- - 'tools/updater/**'
  - 'tools/viewer/**'
  - 'xtask/**'
  - 'Cargo.toml'
@@ -128,11 +127,6 @@ slintpad:
  - 'tools/lsp/**'
  - 'api/rs/**'
  - 'docs/common/src/utils/slint.tmLanguage.json'
-
-updater_test:
- - *internal
- - 'tests/cases/**'
- - 'tools/updater/**'
 
 servo_example:
  - 'examples/servo/**'

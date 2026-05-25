@@ -79,7 +79,6 @@ members = [
   'docs/slint-doc-generator',
   'tools/figma_import',
   'tools/lsp',
-  'tools/updater',
   'tools/viewer',
   'tools/tr-extractor',
   "ui-libraries/material/examples/gallery",
