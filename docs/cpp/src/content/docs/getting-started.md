@@ -81,7 +81,7 @@ int main(int argc, char **argv)
 This works because the Slint compiler translated `my_application_ui.slint` to C++ code, in the `my_application_ui.h`
 header file. That generated code contains a C++ class that corresponds to the `HelloWorld` element and has API to create
 the UI, read or write properties, and set callbacks. You can learn more about how this API looks like in general in the
-[Generated Code](/generated-code/) section.
+[Generated Code](../generated-code/) section.
 
 ## Tutorial
 

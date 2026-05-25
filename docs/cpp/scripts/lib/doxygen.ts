@@ -25,7 +25,12 @@ import {
     parseXml,
     textContent,
 } from "./xml.ts";
-import { compoundSlug, disambiguateAnchor, memberAnchorBase } from "./slug.ts";
+import {
+    compoundSlug,
+    disambiguateAnchor,
+    memberAnchorBase,
+    relativeUrl,
+} from "./slug.ts";
 
 export interface IndexEntry {
     refid: string;
@@ -92,6 +97,8 @@ export class DoxygenConverter {
     private readonly compoundTargets = new Map<string, SymbolTarget>();
     /** member id → { slug, anchor } so `<ref kindref="member">` resolves. */
     private readonly memberTargets = new Map<string, SymbolTarget>();
+    /** Slug of the page currently being rendered, for relative cross-reference links. */
+    private currentSlug = "";
 
     constructor(xmlDir: string) {
         this.xmlDir = xmlDir;
@@ -165,6 +172,7 @@ export class DoxygenConverter {
             if (!def) continue;
             const target = this.compoundTargets.get(entry.refid);
             if (!target) continue;
+            this.currentSlug = target.slug;
             pages.push({
                 slug: target.slug,
                 markdown: this.renderCompound(entry, def),
@@ -251,7 +259,9 @@ export class DoxygenConverter {
         const text = textContent(ref).trim();
         const refid = ref.attrs.refid;
         const target = refid ? this.compoundTargets.get(refid) : undefined;
-        return target ? `[${text}](/${target.slug}/)` : `\`${text}\``;
+        return target
+            ? `[${text}](${relativeUrl(this.currentSlug, target.slug)})`
+            : `\`${text}\``;
     }
 
     private renderSection(section: XmlElement): string[] {
@@ -523,7 +533,7 @@ export class DoxygenConverter {
             this.compoundTargets.get(refid);
         if (!target) return `\`${text}\``;
         const anchor = target.anchor ? `#${target.anchor}` : "";
-        return `[${text}](/${target.slug}/${anchor})`;
+        return `[${text}](${relativeUrl(this.currentSlug, target.slug)}${anchor})`;
     }
 }
 

@@ -46,9 +46,9 @@ cmake -DRust_CARGO_TARGET=thumbv7em-none-eabihf -DSLINT_FEATURE_FREESTANDING=ON
 
 ## Next Steps
 
- - Check out the [Getting Started](/getting-started/) instructions for a generic "Hello World" with C++.
- - Study the [C++ API Reference](/api/namespaces/slint/), in particular the `slint::platform` namespace for
+ - Check out the [Getting Started](../../getting-started/) instructions for a generic "Hello World" with C++.
+ - Study the [C++ API Reference](../../api/namespaces/slint/), in particular the `slint::platform` namespace for
    writing a Slint platform integration to handle touch input and render pixel, which you
    need to forward to your MCU's display driver.
  - For more details about the Slint language, check out the [Slint Language Documentation](https://slint.dev/docs/slint/).
- - Learn about the [Type Mappings](/types/) between Slint and C++.
+ - Learn about the [Type Mappings](../../types/) between Slint and C++.
