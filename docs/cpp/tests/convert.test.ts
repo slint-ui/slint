@@ -72,6 +72,13 @@ test("cross-references resolve to relative links with anchors", () => {
     assert.match(cls, /\[the website\]\(https:\/\/slint.dev\)/);
 });
 
+test("namespace pages list their inner classes/structs with links", () => {
+    const ns = convert().get("api/namespaces/slint")?.markdown ?? "";
+    assert.match(ns, /## Classes/);
+    // The leaf name is shown (prefix stripped) and linked to the class page.
+    assert.match(ns, /- \[Color\]\(\.\.\/\.\.\/classes\/slint-color\/\)/);
+});
+
 test("unresolved/no-ref text degrades gracefully (no crash, no empty links)", () => {
     const md = convert().get("api/classes/slint-color")?.markdown ?? "";
     assert.doesNotMatch(md, /\]\(\)/);
