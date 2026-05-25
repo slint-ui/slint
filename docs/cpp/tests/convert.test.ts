@@ -79,6 +79,16 @@ test("namespace pages list their inner classes/structs with links", () => {
     assert.match(ns, /- \[Color\]\(\.\.\/\.\.\/classes\/slint-color\/\)/);
 });
 
+test("documentation sections (sect1) render as headings with code blocks", () => {
+    const md = convert().get("api/classes/slint-color")?.markdown ?? "";
+    assert.match(md, /### Example/);
+    // The code listing inside the section is a fenced cpp block, not inline prose.
+    assert.match(
+        md,
+        /```cpp\nauto c = Color::from_argb_encoded\(0xff112233\);\n```/,
+    );
+});
+
 test("unresolved/no-ref text degrades gracefully (no crash, no empty links)", () => {
     const md = convert().get("api/classes/slint-color")?.markdown ?? "";
     assert.doesNotMatch(md, /\]\(\)/);
