@@ -145,6 +145,7 @@ export class DoxygenConverter {
             for (const section of children(def, "sectiondef")) {
                 if (isHiddenSection(section.attrs.kind ?? "")) continue;
                 for (const member of children(section, "memberdef")) {
+                    if (isInternalMember(member)) continue;
                     const name = textContent(
                         child(member, "name") ?? emptyElement(),
                     );
@@ -296,7 +297,9 @@ export class DoxygenConverter {
     }
 
     private renderSection(section: XmlElement): string[] {
-        const members = children(section, "memberdef");
+        const members = children(section, "memberdef").filter(
+            (m) => !isInternalMember(m),
+        );
         if (members.length === 0) return [];
         const kind = section.attrs.kind ?? "";
         const headerEl = child(section, "header");
@@ -609,6 +612,19 @@ function emptyElement(): XmlElement {
 /** Private members are implementation detail and excluded from the public API docs. */
 function isHiddenSection(kind: string): boolean {
     return kind.startsWith("private");
+}
+
+/**
+ * A member whose own qualified name lives in an internal namespace
+ * (`private_api`/`cbindgen_private`). Doxygen's EXCLUDE_SYMBOLS drops the
+ * standalone pages for those, but it can't strip e.g. a `friend` declaration to
+ * such a function inside a public class — so filter them here too.
+ */
+function isInternalMember(member: XmlElement): boolean {
+    const name = textContent(child(member, "name") ?? emptyElement());
+    return (
+        name.includes("private_api::") || name.includes("cbindgen_private::")
+    );
 }
 
 function qualifiedTitle(entry: IndexEntry): string {
