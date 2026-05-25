@@ -63,6 +63,45 @@ export default defineConfig({
             sidebar: [
                 { label: "Overview", slug: "index" },
                 {
+                    label: "Getting Started",
+                    items: [
+                        {
+                            label: "Set Up Development Environment",
+                            slug: "cmake",
+                        },
+                        { label: "Getting Started", slug: "getting-started" },
+                        { label: "Live Preview", slug: "live-preview" },
+                    ],
+                },
+                {
+                    label: "C++ / .slint Integration",
+                    items: [
+                        { label: "Overview", slug: "overview" },
+                        { label: "Type Mappings", slug: "types" },
+                        { label: "Generated Code", slug: "generated-code" },
+                    ],
+                },
+                {
+                    label: "Microcontrollers",
+                    items: [
+                        { label: "Introduction", slug: "mcu/intro" },
+                        { label: "ESP-IDF", slug: "mcu/esp-idf" },
+                        {
+                            label: "ESP-IDF Troubleshooting",
+                            slug: "mcu/esp-idf/troubleshoot",
+                        },
+                        { label: "STM32", slug: "mcu/stm32" },
+                        { label: "STM32 Generic", slug: "mcu/stm32/generic" },
+                        { label: "Generic MCU", slug: "mcu/generic" },
+                    ],
+                },
+                {
+                    label: "Reference",
+                    items: [
+                        { label: "CMake Reference", slug: "cmake-reference" },
+                    ],
+                },
+                {
                     label: "API Reference",
                     items: [
                         {

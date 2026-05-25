@@ -59,7 +59,11 @@ fn symlink_files_in_dir<S: AsRef<Path>, T: AsRef<Path>, TS: AsRef<Path>>(
     Ok(())
 }
 
-pub fn generate(show_warnings: bool, experimental: bool) -> Result<(), Box<dyn std::error::Error>> {
+pub fn generate(
+    show_warnings: bool,
+    experimental: bool,
+    headers_only: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     let root = super::root_dir();
 
     let docs_source_dir = root.join("api/cpp");
@@ -67,20 +71,23 @@ pub fn generate(show_warnings: bool, experimental: bool) -> Result<(), Box<dyn s
     let html_static_dir = docs_build_dir.join("_static");
 
     std::fs::create_dir_all(docs_build_dir.as_path()).context("Error creating docs build dir")?;
-    std::fs::create_dir_all(html_static_dir.as_path())
-        .context("Error creating _static path for docs build")?;
 
-    symlink_files_in_dir(
-        docs_source_dir.join("docs"),
-        &docs_build_dir,
-        ["..", "..", "api", "cpp", "docs"].iter().collect::<PathBuf>(),
-    )
-    .context("Error creating symlinks from docs source to docs build dir")?;
+    if !headers_only {
+        std::fs::create_dir_all(html_static_dir.as_path())
+            .context("Error creating _static path for docs build")?;
 
-    symlink_file(
-        ["..", "..", "api", "cpp", "README.md"].iter().collect::<PathBuf>(),
-        docs_build_dir.join("README.md"),
-    )?;
+        symlink_files_in_dir(
+            docs_source_dir.join("docs"),
+            &docs_build_dir,
+            ["..", "..", "api", "cpp", "docs"].iter().collect::<PathBuf>(),
+        )
+        .context("Error creating symlinks from docs source to docs build dir")?;
+
+        symlink_file(
+            ["..", "..", "api", "cpp", "README.md"].iter().collect::<PathBuf>(),
+            docs_build_dir.join("README.md"),
+        )?;
+    }
 
     let generated_headers_dir = docs_build_dir.join("generated_include");
     let enabled_features = cbindgen::EnabledFeatures {
@@ -105,6 +112,11 @@ pub fn generate(show_warnings: bool, experimental: bool) -> Result<(), Box<dyn s
         experimental,
     };
     cbindgen::gen_all(&root, &generated_headers_dir, enabled_features)?;
+
+    if headers_only {
+        println!("Generated C++ headers in {}", generated_headers_dir.display());
+        return Ok(());
+    }
 
     let uv_project = vec![(OsString::from("UV_PROJECT"), docs_source_dir.join("docs"))];
 
