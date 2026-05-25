@@ -1,0 +1,38 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+# cSpell:ignore PARAMDOC PROGRAMLISTING
+
+# Doxygen configuration for the Slint C++ API docs. This replaces the inline
+# `exhaleDoxygenStdin` block from `api/cpp/docs/conf.py`: it produces only XML,
+# which `scripts/doxygen-to-markdown.ts` turns into Markdown for Starlight.
+
+PROJECT_NAME           = "Slint C++ API"
+
+# Public headers plus the cbindgen-generated headers. The generated headers are
+# produced by `cargo xtask cppdocs` (cbindgen) into a directory passed via the
+# SLINT_CPP_GENERATED_INCLUDE environment variable.
+INPUT                  = ../../api/cpp/include $(SLINT_CPP_GENERATED_INCLUDE)
+INCLUDE_PATH           = $(SLINT_CPP_GENERATED_INCLUDE)
+
+EXCLUDE                = ../../api/cpp/include/vtable.h \
+                         ../../api/cpp/include/slint_tests_helper.h \
+                         ../../api/cpp/include/slint-stm32.h
+EXCLUDE_SYMBOLS        = slint::cbindgen_private* slint::private_api* vtable* SLINT_DECL_ITEM
+
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+PREDEFINED             = DOXYGEN
+
+# Emit XML only; the converter reads it. No HTML/LaTeX from Doxygen itself.
+GENERATE_HTML          = NO
+GENERATE_LATEX         = NO
+GENERATE_XML           = YES
+XML_PROGRAMLISTING     = YES
+OUTPUT_DIRECTORY       = ../../target/cppdocs
+XML_OUTPUT             = xml
+
+QUIET                  = YES
+# Keep parity with the old Sphinx build, which set WARN_AS_ERROR for Exhale.
+WARN_AS_ERROR          = YES
+WARN_NO_PARAMDOC       = NO

@@ -515,6 +515,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ),
             ("(^|/)Cargo\\.toml$", LicenseLocation::Crate),
             ("(^|/)Dockerfile", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+            ("(^|/)Doxyfile$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("(^|/)LICENSE$", LicenseLocation::NoLicense),
             ("(^|/)LICENSE\\.QT$", LicenseLocation::NoLicense),
             ("(^|/)README$", LicenseLocation::NoLicense),
