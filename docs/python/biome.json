@@ -1,0 +1,13 @@
+{
+    "root": true,
+    "extends": ["../../biome.json", "../common/biome-starlight-shared.json"],
+    "files": {
+        "includes": [
+            "**",
+            "!**/.astro/**",
+            "!src/api-manifest.json",
+            "!src/version.json",
+            "!src/content/docs/api/**"
+        ]
+    }
+}

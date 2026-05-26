@@ -137,6 +137,7 @@ divq
 divr
 DLOPEN
 docsrs
+docstrings
 doctests
 doesnotexist
 dolore
@@ -426,6 +427,7 @@ Pantone
 partytown
 PATCHLEVEL
 pathdata
+pathlib
 pbjson
 PCLK
 pdoc
@@ -594,6 +596,7 @@ Tlink
 Tlinkall
 tmgrammar
 toctree
+tomllib
 tonalbutton
 toolkits
 TOPLEVEL

@@ -37,7 +37,11 @@ export default defineConfig({
         mermaid(),
         starlight({
             title: "Slint SC Safety Manual",
-            customCss: ["./src/styles/sls-ids.css"],
+            customCss: [
+                "@slint/common-files/src/styles/starlight-slint-custom.css",
+                "@slint/common-files/src/styles/starlight-slint-theme.css",
+                "./src/styles/sls-ids.css",
+            ],
             components: {
                 Footer: "@slint/common-files/src/components/Footer.astro",
                 Header: "@slint/common-files/src/components/Header.astro",
