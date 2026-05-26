@@ -107,6 +107,7 @@ Cpolygon
 cpos
 cppbuild
 cppdocs
+cppreference
 cstyle
 Csvg
 ctest

@@ -65,6 +65,18 @@ jobs:
               run: pnpm i --frozen-lockfile
             - name: Test Cpp docs converter
               run: pnpm -C docs/cpp test
+            - name: Download cppreference Doxygen tag file
+              run: |
+                # Lets Doxygen link std:: types to cppreference.com. The tag file
+                # is bundled in the cppreference-doc html-book release; pin a known
+                # version for reproducibility. The build degrades gracefully (std
+                # types stay plain) if this variable is unset.
+                tag_file="$PWD/target/cppreference-doxygen-web.tag.xml"
+                mkdir -p "$(dirname "$tag_file")"
+                curl -fsSL --retry 3 -o /tmp/cppreference-html-book.tar.xz \
+                  "https://github.com/PeterFeicht/cppreference-doc/releases/download/v20250209/html-book-20250209.tar.xz"
+                tar -xJf /tmp/cppreference-html-book.tar.xz -C "$(dirname "$tag_file")" cppreference-doxygen-web.tag.xml
+                echo "SLINT_CPPREFERENCE_TAGFILE=$tag_file" >> "$GITHUB_ENV"
             - name: Build Cpp docs
               run: |
                 CPPDOCS_EXTRA_FLAGS=""
