@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell:ignore refid
+
 // Runnable with: node --experimental-strip-types tests/convert.test.ts
 // Uses the built-in node:test runner so no extra dependency is required.
 
@@ -23,7 +25,11 @@ test("emits one page per page-kind compound with the expected slugs", () => {
     const pages = convert();
     assert.deepEqual(
         [...pages.keys()].sort(),
-        ["api/classes/slint-color", "api/namespaces/slint"].sort(),
+        [
+            "api/classes/slint-color",
+            "api/classes/slint-sharedstring",
+            "api/namespaces/slint",
+        ].sort(),
     );
 });
 
@@ -33,6 +39,15 @@ test("class page has frontmatter, include and brief", () => {
     assert.match(md, /title: "slint::Color Class"/);
     assert.match(md, /#include <slint.h>/);
     assert.match(md, /A `Color` represents an RGBA color\./);
+});
+
+test("a class defined in a private/ header advertises <slint.h>", () => {
+    // slint::SharedString's `<includes>` points (via refid) at a file compound
+    // whose location is under private/; that internal header must be rewritten
+    // to the public umbrella header rather than shown verbatim.
+    const md = convert().get("api/classes/slint-sharedstring")?.markdown ?? "";
+    assert.match(md, /#include <slint.h>/);
+    assert.doesNotMatch(md, /slint_string\.h/);
 });
 
 test("function signature, params, returns and note render", () => {
