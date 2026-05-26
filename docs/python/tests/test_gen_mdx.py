@@ -136,6 +136,24 @@ def test_generic_title_and_docstring_links(sample):
     assert '<XRef to="ListThing" />' in thing_out  # docstring symbol linked
 
 
+def test_import_statement_top_level(sample):
+    pages, manifest = sample
+    # a class, a function and an enum all show `from <pkg> import <name>`
+    thing_out = gen_mdx.render_page(_page(pages, "Thing"), manifest)
+    assert "```python\nfrom samplepkg import Thing\n```" in thing_out
+    do_it_out = gen_mdx.render_page(_page(pages, "do_it"), manifest)
+    assert "```python\nfrom samplepkg import do_it\n```" in do_it_out
+    mode_out = gen_mdx.render_page(_page(pages, "Mode"), manifest)
+    assert "```python\nfrom samplepkg import Mode\n```" in mode_out
+
+
+def test_import_statement_submodule(sample):
+    pages, manifest = sample
+    # a submodule member imports from the submodule, not the top-level package
+    out = gen_mdx.render_page(_page(pages, "SubThing"), manifest)
+    assert "```python\nfrom samplepkg.sub import SubThing\n```" in out
+
+
 def test_bases_line(sample):
     pages, manifest = sample
     thing_out = gen_mdx.render_page(_page(pages, "Thing"), manifest)
