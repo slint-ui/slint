@@ -1366,7 +1366,16 @@ fn safe_byte_offset(unsafe_byte_offset: i32, text: &str) -> usize {
     if unsafe_byte_offset <= 0 {
         return 0;
     }
-    crate::unicode_utils::ceil_byte_offset(text, unsafe_byte_offset as usize)
+    // Use str::ceil_char_boundary once MSRV >= 1.91.
+    let offset = unsafe_byte_offset as usize;
+    if offset >= text.len() {
+        return text.len();
+    }
+    let mut pos = offset;
+    while pos < text.len() && !text.is_char_boundary(pos) {
+        pos += 1;
+    }
+    pos
 }
 
 /// This struct holds the fields needed for rendering a TextInput item after applying any

@@ -2548,12 +2548,12 @@ impl WindowAdapterInternal for QtWindow {
             width: props.cursor_rect_size.width as _,
             height: props.cursor_rect_size.height as _,
         };
-        let cursor: i32 = i_slint_core::unicode_utils::byte_offset_to_utf16_offset(
+        let cursor: i32 = i_slint_common::unicode_utils::byte_offset_to_utf16_offset(
             &props.text,
             props.cursor_position,
         ) as _;
         let anchor: i32 = props.anchor_position.map_or(cursor, |a| {
-            i_slint_core::unicode_utils::byte_offset_to_utf16_offset(&props.text, a) as _
+            i_slint_common::unicode_utils::byte_offset_to_utf16_offset(&props.text, a) as _
         });
         let text: qttypes::QString = props.text.as_str().into();
         cpp! {unsafe [widget_ptr as "SlintWidget*", rect as "QRectF", cursor as "int", anchor as "int", text as "QString"]  {
