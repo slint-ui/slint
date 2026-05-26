@@ -829,14 +829,43 @@ fn format_conditional_expression(
         state.whitespace_to_add = None;
         state.new_line();
     } else {
-        let _ok = whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?
-            && whitespace_to(&mut sub, SyntaxKind::Question, writer, state, " ")?
-            && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?
-            && whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, " ")?
-            && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
-        finish_node(sub, writer, state)?;
+        if has_nested_else_conditional_expression(node) {
+            let ok = whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?
+                && whitespace_to(&mut sub, SyntaxKind::Question, writer, state, " ")?
+                && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
+
+            if ok {
+                state.whitespace_to_add = None;
+                state.indentation_level += 1;
+                state.new_line();
+                state.indentation_level -= 1;
+
+                let _ok = whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, "")?
+                    && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
+            }
+
+            finish_node(sub, writer, state)?;
+        } else {
+            let _ok = whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?
+                && whitespace_to(&mut sub, SyntaxKind::Question, writer, state, " ")?
+                && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?
+                && whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, " ")?
+                && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
+            finish_node(sub, writer, state)?;
+        }
     }
     Ok(())
+}
+
+fn has_nested_else_conditional_expression(node: &SyntaxNode) -> bool {
+    let mut expressions = node.children().filter(|child| child.kind() == SyntaxKind::Expression);
+
+    let _condition = expressions.next();
+    let _true_branch = expressions.next();
+
+    expressions.next().is_some_and(|else_branch| {
+        else_branch.children().any(|child| child.kind() == SyntaxKind::ConditionalExpression)
+    })
 }
 
 fn format_expression(
@@ -2232,6 +2261,65 @@ component FooBar {
 
     #[test]
     fn if_else() {
+        assert_formatting(
+            r#"
+export enum BannerVariant {
+    critical,
+    info,
+    success,
+    premium,
+    warning,
+}
+
+export global Icons {
+    out property <image> stop: @image-url("16px/stop.svg");
+    out property <image> info: @image-url("16px/info.svg");
+    out property <image> circle_check: @image-url("16px/circle-check.svg");
+    out property <image> alert: @image-url("16px/alert.svg");
+}
+
+export component Bug {
+    property <BannerVariant> variant: BannerVariant.info;
+    property <image> default-leading-source:
+        variant == BannerVariant.critical ? Icons.stop
+        : variant == BannerVariant.info ? Icons.info
+        : variant == BannerVariant.success ? Icons.circle_check
+        : variant == BannerVariant.premium ? Icons.info
+        : Icons.alert;
+}
+"#,
+            r#"
+export enum BannerVariant {
+    critical,
+    info,
+    success,
+    premium,
+    warning,
+}
+
+export global Icons {
+    out property <image> stop: @image-url("16px/stop.svg");
+    out property <image> info: @image-url("16px/info.svg");
+    out property <image> circle_check: @image-url("16px/circle-check.svg");
+    out property <image> alert: @image-url("16px/alert.svg");
+}
+
+export component Bug {
+    property <BannerVariant> variant: BannerVariant.info;
+    property <image> default-leading-source:
+        variant == BannerVariant.critical ? Icons.stop
+        : variant == BannerVariant.info ? Icons.info
+        : variant == BannerVariant.success ? Icons.circle_check
+        : variant == BannerVariant.premium ? Icons.info : Icons.alert;
+}
+"#,
+        );
+
+        assert_formatting(
+            "A := Rectangle {\n    property <int> value: foo ? 1\n        : bar ? 2\n        : 3;\n}\n",
+            "A := Rectangle {\n    property <int> value: foo ? 1\n        : bar ? 2 : 3;\n}\n",
+        );
+
         assert_formatting(
             r#"
 A := B { c: true  ||false?  45 + 6:34+ 1; }
