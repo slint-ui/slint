@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-// cSpell:ignore argsstring basecompoundref briefdescription codeline compounddef
+// cSpell:ignore argsstring basecompoundref briefdescription codeline compounddef Doxyfile TAGFILES
 // cSpell:ignore computeroutput declname derivedcompoundref detaileddescription enumvalue
 // cSpell:ignore innerclass innernamespace itemizedlist kindref linkified linkify memberdef nonbreakablespace orderedlist
 // cSpell:ignore parameterdescription parameteritem parameterlist parametername
@@ -98,6 +98,12 @@ const ASIDE_KIND: Record<string, string> = {
     attention: "caution",
     remark: "tip",
 };
+
+// Base URL for cppreference.com symbols. Doxygen resolves standard-library
+// references against the tag file configured in the Doxyfile (TAGFILES) and
+// emits them as `<ref external="…" refid="cpp/…">`, where the refid is already
+// the cppreference path. This base must match the URL given there.
+const CPPREFERENCE_BASE = "https://en.cppreference.com/w/";
 
 export class DoxygenConverter {
     private readonly xmlDir: string;
@@ -446,6 +452,7 @@ export class DoxygenConverter {
                     const url = this.resolveTargetUrl(
                         node.attrs.refid,
                         node.attrs.kindref,
+                        node.attrs.external,
                     );
                     const start = text.length;
                     text += t;
@@ -492,6 +499,7 @@ export class DoxygenConverter {
                     const url = this.resolveTargetUrl(
                         ref.attrs.refid,
                         ref.attrs.kindref,
+                        ref.attrs.external,
                     );
                     if (!t || !url) continue;
                     const idx = args.indexOf(t, pos);
@@ -511,10 +519,16 @@ export class DoxygenConverter {
         return { text, links };
     }
 
-    /** Relative URL (with anchor) for a `<ref>` target that resolves to a generated page. */
+    /**
+     * URL for a `<ref>` target: a relative link (with anchor) for a generated
+     * page, or an absolute cppreference link for an external (standard-library)
+     * reference. `external` is the `<ref>`'s `external` attribute, set by
+     * Doxygen when the symbol was resolved through a tag file.
+     */
     private resolveTargetUrl(
         refid?: string,
         kindref?: string,
+        external?: string,
     ): string | undefined {
         if (!refid) return undefined;
         const target =
@@ -523,9 +537,12 @@ export class DoxygenConverter {
                 ? this.compoundTargets.get(refid)
                 : undefined) ??
             this.compoundTargets.get(refid);
-        if (!target) return undefined;
-        const anchor = target.anchor ? `#${target.anchor}` : "";
-        return `${relativeUrl(this.currentSlug, target.slug)}${anchor}`;
+        if (target) {
+            const anchor = target.anchor ? `#${target.anchor}` : "";
+            return `${relativeUrl(this.currentSlug, target.slug)}${anchor}`;
+        }
+        if (external) return `${CPPREFERENCE_BASE}${refid}`;
+        return undefined;
     }
 
     // --- description rendering ---------------------------------------------
@@ -743,15 +760,13 @@ export class DoxygenConverter {
             this.inline(node.children).trim() || textContent(node).trim();
         const refid = node.attrs.refid;
         if (!refid) return text;
-        const target =
-            this.memberTargets.get(refid) ??
-            (node.attrs.kindref === "compound"
-                ? this.compoundTargets.get(refid)
-                : undefined) ??
-            this.compoundTargets.get(refid);
-        if (!target) return `\`${text}\``;
-        const anchor = target.anchor ? `#${target.anchor}` : "";
-        return `[${text}](${relativeUrl(this.currentSlug, target.slug)}${anchor})`;
+        const url = this.resolveTargetUrl(
+            refid,
+            node.attrs.kindref,
+            node.attrs.external,
+        );
+        if (!url) return `\`${text}\``;
+        return `[${text}](${url})`;
     }
 }
 

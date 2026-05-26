@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: MIT
 
-# cSpell:ignore PARAMDOC PROGRAMLISTING
+# cSpell:ignore PARAMDOC PROGRAMLISTING TAGFILE TAGFILES
 
 # Doxygen configuration for the Slint C++ API docs. This replaces the inline
 # `exhaleDoxygenStdin` block from `api/cpp/docs/conf.py`: it produces only XML,
@@ -25,6 +25,12 @@ EXCLUDE_SYMBOLS        = slint::cbindgen_private* slint::private_api* vtable* SL
 
 ENABLE_PREPROCESSING   = YES
 PREDEFINED             = DOXYGEN
+
+# Standard-library symbols (std::vector, std::shared_ptr, …) are linked to
+# cppreference.com via its Doxygen tag file. SLINT_CPPREFERENCE_TAGFILE points
+# at the tag file (path only; the converter supplies the cppreference base URL).
+# When the variable is unset the build still succeeds, std types just stay plain.
+TAGFILES               = $(SLINT_CPPREFERENCE_TAGFILE)
 
 # Emit XML only; the converter reads it. No HTML/LaTeX from Doxygen itself.
 GENERATE_HTML          = NO
