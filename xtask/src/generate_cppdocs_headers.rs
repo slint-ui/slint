@@ -11,7 +11,9 @@ mod cbindgen;
 /// Generate the cbindgen C++ headers used by the documentation build into
 /// `target/cppdocs/generated_include`. The documentation itself is built by the
 /// Astro site in `docs/cpp` (Doxygen XML + a Markdown converter); this task only
-/// produces the generated headers Doxygen needs.
+/// produces the generated headers Doxygen needs. It is normally invoked by that
+/// site's `gen:api` script (`docs/cpp/scripts/generate-api.ts`) rather than by
+/// hand.
 pub fn generate(experimental: bool) -> Result<(), Box<dyn std::error::Error>> {
     let root = super::root_dir();
 

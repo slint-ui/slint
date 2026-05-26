@@ -3,7 +3,8 @@
 
 // cSpell:ignore Doxyfile
 
-// Orchestrates the API-reference generation: run Doxygen (XML only) over the
+// Orchestrates the API-reference generation: generate the cbindgen C++ headers
+// (via `cargo xtask generate_cppdocs_headers`), run Doxygen (XML only) over the
 // C++ headers, then convert that XML into Markdown for Starlight. This is the
 // C++ analogue of the `starlight-typedoc` plugin used by the Node.js docs.
 
@@ -22,14 +23,43 @@ const repoRoot = join(docsRoot, "..", "..");
 const xmlDir = join(repoRoot, "target", "cppdocs", "xml");
 const contentDocs = join(docsRoot, "src", "content", "docs");
 
-function runDoxygen(): void {
-    if (!process.env.SLINT_CPP_GENERATED_INCLUDE) {
-        console.warn(
-            "warning: SLINT_CPP_GENERATED_INCLUDE is not set. Generate the cbindgen\n" +
-                "headers first (e.g. `cargo xtask cppdocs`) and point this variable at\n" +
-                "the resulting directory, otherwise Doxygen will miss generated symbols.",
+// Generate the cbindgen headers and point Doxygen at them. The Doxyfile reads
+// the include directory from $(SLINT_CPP_GENERATED_INCLUDE), which we set here
+// so the whole pipeline runs from a single `gen:api`. If the variable is set
+// externally we trust it and skip the xtask — an escape hatch for environments
+// that pre-generate the headers or have no Rust toolchain.
+function generateHeaders(): void {
+    if (process.env.SLINT_CPP_GENERATED_INCLUDE) {
+        return;
+    }
+    // Experimental APIs are opt-in: snapshot/CI builds set this, releases don't.
+    const experimental = process.env.SLINT_CPP_DOCS_EXPERIMENTAL
+        ? ["--experimental"]
+        : [];
+    const result = spawnSync(
+        "cargo",
+        ["xtask", "generate_cppdocs_headers", ...experimental],
+        { cwd: repoRoot, stdio: "inherit" },
+    );
+    if (result.error) {
+        throw new Error(
+            "Could not run `cargo xtask generate_cppdocs_headers`. Install a Rust " +
+                "toolchain, or pre-generate the headers and point " +
+                "SLINT_CPP_GENERATED_INCLUDE at them.",
         );
     }
+    if (result.status !== 0) {
+        process.exit(result.status ?? 1);
+    }
+    process.env.SLINT_CPP_GENERATED_INCLUDE = join(
+        repoRoot,
+        "target",
+        "cppdocs",
+        "generated_include",
+    );
+}
+
+function runDoxygen(): void {
     const result = spawnSync("doxygen", ["Doxyfile"], {
         cwd: docsRoot,
         stdio: "inherit",
@@ -64,5 +94,6 @@ async function convert(): Promise<void> {
     console.log(`Generated ${pages.length} C++ API page(s) into ${apiDir}`);
 }
 
+generateHeaders();
 runDoxygen();
 await convert();
