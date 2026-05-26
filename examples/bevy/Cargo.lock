@@ -5421,6 +5421,7 @@ name = "i-slint-backend-android-activity"
 version = "1.17.0"
 dependencies = [
  "android-build",
+ "i-slint-common",
  "i-slint-core",
  "i-slint-renderer-skia",
  "jni 0.22.4",
