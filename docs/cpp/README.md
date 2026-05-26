@@ -1,12 +1,11 @@
-<!-- cSpell:ignore Doxyfile -->
+<!-- cSpell:ignore Doxyfile predev -->
 
 # Slint C++ API documentation
 
 Astro [Starlight](https://starlight.astro.build/) site for the Slint C++ API.
 The API reference is generated from the C++ headers by running Doxygen (XML
 output) and converting that XML to Markdown with a small in-repo tool — the
-C++ counterpart of `starlight-typedoc`, and a replacement for the previous
-Sphinx + Breathe + Exhale pipeline (`api/cpp/docs/`).
+C++ counterpart of `starlight-typedoc`.
 
 Content lives in `src/content/docs/`. The API reference under
 `src/content/docs/api/` and the third-party license page under
@@ -18,9 +17,8 @@ Content lives in `src/content/docs/`. The API reference under
 C++ headers ──doxygen (XML)──▶ target/cppdocs/xml ──converter──▶ src/content/docs/api/*.md ──astro──▶ dist/
 ```
 
-- `Doxyfile` configures Doxygen to emit XML only (no HTML/LaTeX). It mirrors the
-  `INPUT`/`EXCLUDE`/`PREDEFINED`/`WARN_AS_ERROR` settings that used to live in
-  `api/cpp/docs/conf.py` (`exhaleDoxygenStdin`).
+- `Doxyfile` configures Doxygen to emit XML only (no HTML/LaTeX), via its
+  `INPUT`/`EXCLUDE`/`PREDEFINED`/`WARN_AS_ERROR` settings.
 - `scripts/generate-api.ts` runs Doxygen, then reads the Doxygen XML and writes
   one Markdown page per class/struct/namespace into `src/content/docs/api/`. The
   conversion logic is in `scripts/lib/`:
@@ -41,12 +39,15 @@ pnpm -C docs/cpp test     # node --test, no extra deps
 
 - [Node.js](https://nodejs.org/) (v22+) and [pnpm](https://pnpm.io/)
 - [Doxygen](https://www.doxygen.nl/) for `gen:api`
-- For `thirdparty`: a Rust toolchain and
-  [cargo-about](https://github.com/EmbarkStudios/cargo-about)
+- A Rust toolchain for `gen:api` (it runs `cargo xtask generate_cppdocs_headers`
+  to produce the cbindgen headers) and for `thirdparty`
+- [cargo-about](https://github.com/EmbarkStudios/cargo-about) for `thirdparty`
 
-The C++ API reference also needs the cbindgen-generated headers. Produce them
-with `cargo xtask cppdocs` and point `SLINT_CPP_GENERATED_INCLUDE` at the
-generated directory before running `gen:api`.
+`gen:api` generates the cbindgen headers itself and points Doxygen at them, so
+no manual setup is needed. To use pre-generated headers (or skip the Rust
+toolchain), set `SLINT_CPP_GENERATED_INCLUDE` to their directory and `gen:api`
+will use it instead of invoking the xtask. Set `SLINT_CPP_DOCS_EXPERIMENTAL=1`
+to include experimental APIs.
 
 ## Commands
 
@@ -54,8 +55,8 @@ From `docs/cpp` (or prefix with `pnpm -C docs/cpp`):
 
 ```sh
 pnpm install     # install dependencies (usually done once from repo root)
-pnpm dev         # start dev server (run gen:api first; the API sidebar autogenerates from it)
-pnpm gen:api     # run Doxygen + converter into src/content/docs/api/
+pnpm dev         # gen:api (via predev) + start dev server
+pnpm gen:api     # generate headers + run Doxygen + converter into src/content/docs/api/
 pnpm thirdparty  # regenerate the third-party license page
 pnpm build       # thirdparty + gen:api + type-check + production build
 pnpm preview     # preview the production build
@@ -69,11 +70,9 @@ The static site is output under `dist/`.
 Done: the Astro site + converter + build wiring, the ported prose pages
 (`overview`, `types`, `getting-started`, `generated-code`, `cmake`,
 `cmake-reference`, `live-preview`, `mcu/*`), and the CI swap — the
-`rust-cpp-docs` job now generates the cbindgen headers with
-`cargo xtask cppdocs`, then runs `pnpm -C docs/cpp run build`
-(Doxygen XML + converter + Astro) and publishes `docs/cpp/dist`. The legacy
-Sphinx/Breathe/Exhale setup in `api/cpp/docs/` and the Sphinx branch of
-`xtask cppdocs` have been removed.
+`rust-cpp-docs` job just runs `pnpm -C docs/cpp run build`, which generates the
+cbindgen headers (`cargo xtask generate_cppdocs_headers`), the Doxygen XML, runs
+the converter and Astro, and publishes `docs/cpp/dist`.
 
 When porting the prose, these MyST constructs were translated to Starlight:
 `:::{note}`/```` ```{caution} ```` → `:::note`/`:::caution` asides;

@@ -256,13 +256,12 @@ Note: `--html-in-header` arguments passed to rustdoc via `RUSTDOCFLAGS` are used
 - [Doxygen](https://www.doxygen.nl/download.html)
 - [pnpm](https://pnpm.io/) (run `pnpm install` from the repository root first)
 
-The C++ docs are an Astro/Starlight site in `docs/cpp`. First generate the
-cbindgen headers that Doxygen reads, then build the site (which runs Doxygen to
-produce XML, converts it to Markdown, and builds the static site):
+The C++ docs are an Astro/Starlight site in `docs/cpp`. Building it generates
+the cbindgen headers that Doxygen reads (`cargo xtask generate_cppdocs_headers`,
+which needs a Rust toolchain), runs Doxygen to produce XML, converts it to
+Markdown, and builds the static site:
 
 ```sh
-cargo xtask cppdocs
-export SLINT_CPP_GENERATED_INCLUDE="$PWD/target/cppdocs/generated_include"
 pnpm -C docs/cpp run build
 ```
 

@@ -8,6 +8,7 @@
     "scripts": {
         "thirdparty": "node --experimental-strip-types ./scripts/generate-thirdparty.ts",
         "gen:api": "node --experimental-strip-types ./scripts/generate-api.ts",
+        "predev": "pnpm gen:api",
         "dev": "astro dev",
         "start": "astro dev",
         "build": "node --experimental-strip-types ./scripts/generate-thirdparty.ts && node --experimental-strip-types ./scripts/generate-api.ts && astro check && astro build",

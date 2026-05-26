@@ -79,9 +79,8 @@ jobs:
                 echo "SLINT_CPPREFERENCE_TAGFILE=$tag_file" >> "$GITHUB_ENV"
             - name: Build Cpp docs
               run: |
-                CPPDOCS_EXTRA_FLAGS=""
                 if [ "$RELEASE_INPUT" != "true" ] && [[ ! "$BRANCH_NAME" =~ ^pre-release/ ]]; then
-                    CPPDOCS_EXTRA_FLAGS="--experimental"
+                    export SLINT_CPP_DOCS_EXPERIMENTAL=1
                 fi
                 version=$(awk '/^\[workspace.package\]/ {found=1} found && /^version = / {gsub(/version = |"/, "", $0); print $0; exit}' Cargo.toml)
                 if [ "$RELEASE_INPUT" != "true" ]; then
@@ -93,10 +92,9 @@ jobs:
                 fi
                 sed -i "s|export const CPP_DOCS_BASE_URL = \".*\"|export const CPP_DOCS_BASE_URL = \"$base_url\"|" docs/cpp/src/cpp-site-config.mjs
                 sed -i "s|export const CPP_DOCS_BASE_PATH = \".*\"|export const CPP_DOCS_BASE_PATH = \"$base_path\"|" docs/cpp/src/cpp-site-config.mjs
-                # Generate the cbindgen headers, then let the Astro site run Doxygen
-                # (XML) + the Doxygen-to-Markdown converter and build the static site.
-                cargo xtask cppdocs $CPPDOCS_EXTRA_FLAGS
-                export SLINT_CPP_GENERATED_INCLUDE="$PWD/target/cppdocs/generated_include"
+                # The site's `gen:api` step generates the cbindgen headers
+                # (`cargo xtask generate_cppdocs_headers`), runs Doxygen (XML) and
+                # the Doxygen-to-Markdown converter; `build` then builds the static site.
                 pnpm -C docs/cpp run build
             - name: "Rust docs"
               run: cargo doc -p slint -p slint-build -p slint-interpreter --no-deps --all-features
