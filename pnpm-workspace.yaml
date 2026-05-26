@@ -8,6 +8,7 @@ packages:
   - editors/vscode
   - tools/figma-inspector
   - tools/slintpad
+  - tools/slint-js-playground
   - demos/printerdemo/node
   - demos/printerdemo/browser
   - demos/home-automation/node
