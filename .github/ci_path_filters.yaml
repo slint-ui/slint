@@ -51,6 +51,7 @@ docs_build:
  - 'helper_crates/**'
  - 'tools/lsp/**'
  - 'tests/doctests/**'
+ - *js_config
  - *ci_config
 
 # Tree-sitter grammar
@@ -128,6 +129,7 @@ slintpad:
  - 'tools/lsp/**'
  - 'api/rs/**'
  - 'docs/common/src/utils/slint.tmLanguage.json'
+ - *js_config
 
 updater_test:
  - *internal
