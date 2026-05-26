@@ -10861,17 +10861,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "slint-updater"
-version = "1.17.0"
-dependencies = [
- "by_address",
- "clap",
- "i-slint-compiler",
- "smol_str 0.3.2",
- "spin_on",
-]
-
-[[package]]
 name = "slint-viewer"
 version = "1.17.0"
 dependencies = [

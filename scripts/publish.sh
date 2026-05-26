@@ -22,5 +22,4 @@ cargo publish --manifest-path internal/preview-protocol/Cargo.toml
 cargo publish --manifest-path api/rs/slint/Cargo.toml
 cargo publish --manifest-path tools/lsp/Cargo.toml
 cargo publish --manifest-path tools/viewer/Cargo.toml
-cargo publish --manifest-path tools/updater/Cargo.toml
 cargo publish --manifest-path tools/tr-extractor/Cargo.toml
