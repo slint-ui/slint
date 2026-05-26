@@ -206,6 +206,27 @@ export class DoxygenConverter {
 
     // --- page rendering -----------------------------------------------------
 
+    /**
+     * The header to advertise in a compound's `#include` line. Doxygen
+     * attributes a class to the file its definition lives in, but Slint's
+     * public sub-headers live under `private/` and are only meant to be pulled
+     * in transitively via `slint.h`. Rewrite those to `slint.h`; leave the real
+     * umbrella headers (slint.h, slint-platform.h, slint-interpreter.h,
+     * slint-testing.h) as Doxygen reports them.
+     */
+    private displayInclude(inc: XmlElement): string {
+        const name = textContent(inc).trim();
+        const refid = inc.attrs.refid;
+        if (refid) {
+            const file = this.loadCompound(refid);
+            const location = file && child(file, "location")?.attrs.file;
+            if (location && /(^|\/)private\//.test(location)) {
+                return "slint.h";
+            }
+        }
+        return name;
+    }
+
     private renderCompound(entry: IndexEntry, def: XmlElement): string {
         const brief = this.renderBlocks(child(def, "briefdescription"));
         const out: string[] = [];
@@ -220,9 +241,13 @@ export class DoxygenConverter {
         const tparams = this.renderTemplateLine(def);
         if (tparams) out.push("", "```cpp", tparams, "```", "");
 
-        const includes = children(def, "includes")
-            .map((inc) => textContent(inc).trim())
-            .filter(Boolean);
+        const includes = [
+            ...new Set(
+                children(def, "includes")
+                    .map((inc) => this.displayInclude(inc))
+                    .filter(Boolean),
+            ),
+        ];
         if (includes.length > 0) {
             out.push(
                 "",
