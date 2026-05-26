@@ -1,0 +1,40 @@
+<!doctype html>
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Slint JS Playground</title>
+        <link rel="stylesheet" href="./styles.css" />
+    </head>
+    <body>
+        <header class="topbar">
+            <h1>Slint JS Playground</h1>
+            <div class="topbar-actions">
+                <label class="demo-select-label" for="demo-select">Demo:</label>
+                <select id="demo-select" class="demo-select"></select>
+                <span id="status" class="status"></span>
+                <button id="reload-button" type="button">Reload (Ctrl+S)</button>
+            </div>
+        </header>
+        <main class="main">
+            <section class="editor-pane">
+                <div id="tabs" class="tabs"></div>
+                <div class="editor-area">
+                    <div id="editor" class="editor"></div>
+                    <pre id="logs" class="logs"></pre>
+                </div>
+            </section>
+            <section class="preview-pane">
+                <iframe
+                    id="preview"
+                    class="preview"
+                    src="./preview.html"
+                    title="Slint preview"
+                ></iframe>
+            </section>
+        </main>
+        <script type="module" src="./src/main.ts"></script>
+    </body>
+</html>

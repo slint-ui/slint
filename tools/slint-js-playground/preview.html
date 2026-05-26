@@ -1,0 +1,64 @@
+<!doctype html>
+<!-- Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Slint Playground Preview</title>
+        <style>
+            html, body {
+                margin: 0;
+                padding: 0;
+                width: 100%;
+                height: 100%;
+                background: white;
+                font-family: ui-sans-serif, system-ui, sans-serif;
+            }
+            #preview-root {
+                width: 100vw;
+                height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 8px;
+                overflow: hidden;
+            }
+            #canvas-fit {
+                /* preview-runtime.ts sets transform: scale(...) to fit the
+                   iframe while preserving the canvas's aspect ratio. */
+                transform-origin: center;
+            }
+            #canvas {
+                display: block;
+                /* No CSS width/height: slint's winit/web backend honours the
+                   canvas's HTML width/height attributes as the window's
+                   preferred size only when CSS is "auto"
+                   (see winitwindowadapter.rs canvas_has_explicit_size_set). */
+            }
+            #error-overlay {
+                position: fixed;
+                inset: 0;
+                background: rgba(254, 226, 226, 0.95);
+                color: #991b1b;
+                padding: 16px;
+                font-family: ui-monospace, monospace;
+                font-size: 12px;
+                white-space: pre-wrap;
+                overflow: auto;
+                display: none;
+            }
+            #error-overlay.visible {
+                display: block;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="preview-root">
+            <div id="canvas-fit">
+                <canvas id="canvas"></canvas>
+            </div>
+        </div>
+        <pre id="error-overlay"></pre>
+        <script type="module" src="./src/preview-runtime.ts"></script>
+    </body>
+</html>
