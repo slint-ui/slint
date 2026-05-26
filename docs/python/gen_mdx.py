@@ -362,9 +362,14 @@ def display_name(name: str, cls: griffe.Class) -> str:
 
 
 def render_class(
-    name: str, cls: griffe.Class, manifest: dict[str, str], imports: str
+    name: str,
+    cls: griffe.Class,
+    manifest: dict[str, str],
+    imports: str,
+    import_line: str,
 ) -> str:
     lines = ["---", f'title: "{display_name(name, cls)}"', "---", imports, ""]
+    lines += [import_line, ""]
 
     if cls.docstring:
         lines += [docstring_to_mdx(cls.docstring.value, manifest), ""]
@@ -419,9 +424,14 @@ def render_class(
 
 
 def render_function(
-    name: str, func: griffe.Function, manifest: dict[str, str], imports: str
+    name: str,
+    func: griffe.Function,
+    manifest: dict[str, str],
+    imports: str,
+    import_line: str,
 ) -> str:
     lines = ["---", f'title: "{name}"', "---", imports, ""]
+    lines += [import_line, ""]
     lines += [
         f'<Signature symbol="{func.path}">{render_signature(func, manifest)}</Signature>',
         "",
@@ -432,9 +442,14 @@ def render_function(
 
 
 def render_variable(
-    name: str, attr: griffe.Attribute, manifest: dict[str, str], imports: str
+    name: str,
+    attr: griffe.Attribute,
+    manifest: dict[str, str],
+    imports: str,
+    import_line: str,
 ) -> str:
     lines = ["---", f'title: "{name}"', "---", imports, ""]
+    lines += [import_line, ""]
     children = text(name)
     if attr.annotation is not None:
         children += ": " + render_annotation(attr.annotation, manifest)
@@ -471,6 +486,13 @@ class Page:
     name: str  # binding name, also the URL slug source, e.g. "Model"
     obj: griffe.Object
     qualifier: str  # dotted public name, e.g. "slint.Model" or "language.KeyEvent"
+    import_path: str  # importable module, e.g. "slint" or "slint.language"
+
+
+def import_statement(import_path: str, name: str) -> str:
+    """A copy-and-paste `from <module> import <name>` code fence showing how to
+    import the symbol. The bare binding name is used (no PEP 695 type params)."""
+    return f"```python\nfrom {import_path} import {name}\n```"
 
 
 def class_dir(parent: str, cls: griffe.Class) -> str:
@@ -489,16 +511,23 @@ def collect_pages(mod: griffe.Module) -> list[Page]:
             continue
         qualifier = f"{PACKAGE}.{name}"
         if isinstance(obj, griffe.Class):
-            pages.append(Page(class_dir("api", obj), name, obj, qualifier))
+            pages.append(Page(class_dir("api", obj), name, obj, qualifier, PACKAGE))
         elif isinstance(obj, griffe.Function):
-            pages.append(Page(DIR_FUNCTIONS, name, obj, qualifier))
+            pages.append(Page(DIR_FUNCTIONS, name, obj, qualifier, PACKAGE))
         elif isinstance(obj, griffe.Attribute):
-            pages.append(Page(DIR_VARIABLES, name, obj, qualifier))
+            pages.append(Page(DIR_VARIABLES, name, obj, qualifier, PACKAGE))
         elif isinstance(obj, griffe.Module):
             parent = f"api/{slug(name)}"
+            import_path = f"{PACKAGE}.{name}"
             for cls_name, cls in public_classes(obj):
                 pages.append(
-                    Page(class_dir(parent, cls), cls_name, cls, f"{name}.{cls_name}")
+                    Page(
+                        class_dir(parent, cls),
+                        cls_name,
+                        cls,
+                        f"{name}.{cls_name}",
+                        import_path,
+                    )
                 )
     return pages
 
@@ -539,13 +568,14 @@ def exported_names(mod: griffe.Module) -> set[str] | None:
 
 def render_page(page: Page, manifest: dict[str, str]) -> str:
     imports = imports_for(page.dir_path)
+    import_line = import_statement(page.import_path, page.name)
     obj = page.obj
     if isinstance(obj, griffe.Function):
-        return render_function(page.name, obj, manifest, imports)
+        return render_function(page.name, obj, manifest, imports, import_line)
     if isinstance(obj, griffe.Attribute):
-        return render_variable(page.name, obj, manifest, imports)
+        return render_variable(page.name, obj, manifest, imports, import_line)
     assert isinstance(obj, griffe.Class)
-    return render_class(page.name, obj, manifest, imports)
+    return render_class(page.name, obj, manifest, imports, import_line)
 
 
 def main() -> None:
