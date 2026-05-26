@@ -114,9 +114,34 @@ export default defineConfig({
                     ],
                 },
                 {
-                    label: "Reference",
+                    label: "CMake Reference",
+                    collapsed: true,
                     items: [
-                        { label: "CMake Reference", slug: "cmake-reference" },
+                        { label: "Overview", slug: "cmake-reference" },
+                        {
+                            label: "slint_target_sources",
+                            slug: "cmake-reference/slint-target-sources",
+                        },
+                        {
+                            label: "Resource Embedding",
+                            slug: "cmake-reference/resource-embedding",
+                        },
+                        {
+                            label: "Scale Factor for Microcontrollers",
+                            slug: "cmake-reference/scale-factor",
+                        },
+                        {
+                            label: "Bundle Translations",
+                            slug: "cmake-reference/bundle-translations",
+                        },
+                        {
+                            label: "Translation Domain",
+                            slug: "cmake-reference/translation-domain",
+                        },
+                        {
+                            label: "Disable Default Translation Context",
+                            slug: "cmake-reference/disable-default-translation-context",
+                        },
                     ],
                 },
                 {
