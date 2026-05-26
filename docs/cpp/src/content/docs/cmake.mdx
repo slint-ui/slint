@@ -3,7 +3,9 @@ title: Set Up Development Environment
 description: Install Slint for C++ from binary packages or build from source, configure CMake features, backends and cross-compilation.
 ---
 
-<!-- cSpell:ignore iconfigure -->
+import SlintRef from "../../components/SlintRef.astro";
+
+{/* cSpell:ignore iconfigure */}
 
 ## Prerequisites
 
@@ -27,7 +29,7 @@ The Slint binary packages work without any Rust development environment.
 
 Steps:
 
-1. Open <https://github.com/slint-ui/slint/releases>
+1. Open [https://github.com/slint-ui/slint/releases](https://github.com/slint-ui/slint/releases)
 
 2. Click on the latest release
 
@@ -132,7 +134,7 @@ any built-in backends, and instead develop your own backend by implementing Slin
 abstraction and window adapter interfaces.
 
 For more information about the available backends, their system requirements, and configuration
-options, see the [Backend & Renderers Documentation](https://slint.dev/docs/slint/guide/backends-and-renderers/backends_and_renderers/).
+options, see the <SlintRef type="backends_and_renderers" label="Backend & Renderers Documentation" code={false} />.
 
 By default Slint will use the [winit](https://crates.io/crates/winit) back-end.
 You can enable additional back-ends using the `SLINT_FEATURE_BACKEND_` features.

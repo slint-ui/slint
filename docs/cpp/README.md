@@ -87,9 +87,14 @@ the converter and Astro, and publishes `docs/cpp/dist`.
 When porting the prose, these MyST constructs were translated to Starlight:
 `:::{note}`/```` ```{caution} ```` → `:::note`/`:::caution` asides;
 ```` ```{eval-rst} ```` RST grid tables → GitHub Markdown tables; `{toctree}` →
-sidebar entries in `astro.config.mjs`; intra-doc `*.md` links → page slugs; and
-`slint-reference:`/`../slint/…` links → absolute `https://slint.dev/docs/slint/`
-URLs.
+sidebar entries in `astro.config.mjs`; and intra-doc `*.md` links → page slugs.
+
+Cross-references to the Slint language reference use the `SlintRef` component
+(`src/components/SlintRef.astro`, the C++ counterpart of the Python docs'): it
+resolves a symbol through the shared `linkMap` and prepends `slintDocsBase()`
+(from `cpp-site-config.mjs`), the sibling `…/docs/slint/` URL for the version
+being built — so the links track snapshots/releases instead of hardcoding
+`https://slint.dev`. Prose pages that use it are `.mdx`.
 
 Validated locally (Doxygen 1.9.8 + `pnpm`): the pipeline builds 79 pages and
 Starlight reports all internal links valid.

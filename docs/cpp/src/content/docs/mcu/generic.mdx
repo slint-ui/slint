@@ -3,6 +3,8 @@ title: Generic MCU Environment Setup
 description: Generic instructions to cross-compile and use Slint on microcontrollers that don't have an out-of-the-box integration.
 ---
 
+import SlintRef from "../../../components/SlintRef.astro";
+
 We aim to support many different MCUs and their respective software development environments.
 For those environments where we can't provide an out-of-the-box integration, we provide the
 following generic instructions on what's needed to compile and use Slint.
@@ -50,5 +52,5 @@ cmake -DRust_CARGO_TARGET=thumbv7em-none-eabihf -DSLINT_FEATURE_FREESTANDING=ON
  - Study the [C++ API Reference](../../api/namespaces/slint/), in particular the `slint::platform` namespace for
    writing a Slint platform integration to handle touch input and render pixel, which you
    need to forward to your MCU's display driver.
- - For more details about the Slint language, check out the [Slint Language Documentation](https://slint.dev/docs/slint/).
+ - For more details about the Slint language, check out the <SlintRef href="" label="Slint Language Documentation" code={false} />.
  - Learn about the [Type Mappings](../../types/) between Slint and C++.

@@ -3,6 +3,8 @@ title: Getting Started
 description: Use Slint in a CMake target — associate .slint files with slint_target_sources, link Slint::Slint, and show a window from C++.
 ---
 
+import SlintRef from "../../components/SlintRef.astro";
+
 Once Slint is built, you can use it in your CMake application or library
 target in two steps:
 
@@ -62,7 +64,7 @@ export component HelloWorld inherits Window {
 }
 ```
 
-then you can use the following code in your `main` function to show the [`Window`](https://slint.dev/docs/slint/reference/window/window/)
+then you can use the following code in your `main` function to show the <SlintRef type="Window" />
 and change the text:
 
 ```cpp
@@ -85,7 +87,7 @@ the UI, read or write properties, and set callbacks. You can learn more about ho
 
 ## Tutorial
 
-For an in-depth walk-through, read our [Slint Memory Game Tutorial](https://slint.dev/docs/slint/tutorial/quickstart/).
+For an in-depth walk-through, read our <SlintRef type="quickstart" label="Slint Memory Game Tutorial" code={false} />.
 It will guide you through the `.slint` mark-up language and the C++ API by building a simple memory
 game.
 
