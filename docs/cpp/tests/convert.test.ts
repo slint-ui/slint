@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-// cSpell:ignore refid
+// cSpell:ignore refid eventloopmode
 
 // Runnable with: node --experimental-strip-types tests/convert.test.ts
 // Uses the built-in node:test runner so no extra dependency is required.
@@ -11,14 +11,21 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { DoxygenConverter } from "../scripts/lib/doxygen.ts";
-import type { GeneratedPage } from "../scripts/lib/doxygen.ts";
+import type {
+    ConvertResult,
+    GeneratedPage,
+    SidebarLink,
+} from "../scripts/lib/doxygen.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const xmlDir = join(here, "fixtures", "xml");
 
+function build(): ConvertResult {
+    return new DoxygenConverter(xmlDir).convert();
+}
+
 function convert(): Map<string, GeneratedPage> {
-    const pages = new DoxygenConverter(xmlDir).convert();
-    return new Map(pages.map((p) => [p.slug, p]));
+    return new Map(build().pages.map((p) => [p.slug, p]));
 }
 
 test("emits one page per page-kind compound with the expected slugs", () => {
@@ -26,15 +33,31 @@ test("emits one page per page-kind compound with the expected slugs", () => {
     assert.deepEqual(
         [...pages.keys()].sort(),
         [
-            "api/classes/slint-color",
-            "api/classes/slint-sharedstring",
-            "api/namespaces/slint",
+            "api/slint",
+            "api/slint/color",
+            "api/slint/sharedstring",
+            // Free functions and enums each become their own page too.
+            "api/slint/run-event-loop",
+            "api/slint/eventloopmode",
         ].sort(),
     );
 });
 
+test("namespace free functions and enums get their own page", () => {
+    const fn = convert().get("api/slint/run-event-loop")?.markdown ?? "";
+    assert.match(fn, /title: "slint::run_event_loop"/);
+    assert.match(fn, /Enters the main event loop\./);
+
+    const en = convert().get("api/slint/eventloopmode")?.markdown ?? "";
+    assert.match(en, /title: "slint::EventLoopMode"/);
+    assert.match(
+        en,
+        /\| `QuitOnLastWindowClosed` \| Quit when the last window/,
+    );
+});
+
 test("class page has frontmatter, include and brief", () => {
-    const md = convert().get("api/classes/slint-color")?.markdown ?? "";
+    const md = convert().get("api/slint/color")?.markdown ?? "";
     assert.match(md, /^---\n/);
     assert.match(md, /title: "slint::Color Class"/);
     assert.match(md, /#include <slint.h>/);
@@ -45,13 +68,13 @@ test("a class defined in a private/ header advertises <slint.h>", () => {
     // slint::SharedString's `<includes>` points (via refid) at a file compound
     // whose location is under private/; that internal header must be rewritten
     // to the public umbrella header rather than shown verbatim.
-    const md = convert().get("api/classes/slint-sharedstring")?.markdown ?? "";
+    const md = convert().get("api/slint/sharedstring")?.markdown ?? "";
     assert.match(md, /#include <slint.h>/);
     assert.doesNotMatch(md, /slint_string\.h/);
 });
 
 test("function signature, params, returns and note render", () => {
-    const md = convert().get("api/classes/slint-color")?.markdown ?? "";
+    const md = convert().get("api/slint/color")?.markdown ?? "";
     // Signature is an HTML <pre><code> block (so types can be linked); the text
     // (qualified name, return type, params) reads as before.
     assert.match(
@@ -66,38 +89,48 @@ test("function signature, params, returns and note render", () => {
 });
 
 test("enum renders as a value table", () => {
-    const md = convert().get("api/classes/slint-color")?.markdown ?? "";
+    const md = convert().get("api/slint/color")?.markdown ?? "";
     assert.match(md, /\| Value \| Description \|/);
     assert.match(md, /\| `Argb` \| 32-bit ARGB\. \|/);
     assert.match(md, /enum class Format/);
 });
 
 test("code blocks and lists render", () => {
-    const md = convert().get("api/classes/slint-color")?.markdown ?? "";
+    const md = convert().get("api/slint/color")?.markdown ?? "";
     assert.match(md, /```cpp\nColor c;\nauto r = c\.red\(\);\n```/);
     assert.match(md, /- 0 means no red\./);
 });
 
 test("cross-references resolve to relative links with anchors", () => {
-    const ns = convert().get("api/namespaces/slint")?.markdown ?? "";
+    const ns = convert().get("api/slint")?.markdown ?? "";
     // compound ref -> page link, relative so it resolves under any deploy base
-    // (from api/namespaces/slint to api/classes/slint-color).
-    assert.match(ns, /\[Color\]\(\.\.\/\.\.\/classes\/slint-color\/\)/);
-    const cls = convert().get("api/classes/slint-color")?.markdown ?? "";
+    // (from api/slint to api/slint/color).
+    assert.match(ns, /\[Color\]\(color\/\)/);
+    const cls = convert().get("api/slint/color")?.markdown ?? "";
     // member anchor is stable and emitted as an HTML id
     assert.match(cls, /<a id="from_argb_encoded"><\/a>/);
     assert.match(cls, /\[the website\]\(https:\/\/slint.dev\)/);
 });
 
-test("namespace pages list their inner classes/structs with links", () => {
-    const ns = convert().get("api/namespaces/slint")?.markdown ?? "";
-    assert.match(ns, /## Classes/);
-    // The leaf name is shown (prefix stripped) and linked to the class page.
-    assert.match(ns, /- \[Color\]\(\.\.\/\.\.\/classes\/slint-color\/\)/);
+test("namespace pages list their types (classes and structs together) with links", () => {
+    const ns = convert().get("api/slint")?.markdown ?? "";
+    // Classes and structs are listed together under a kind-neutral heading.
+    assert.match(ns, /## Types/);
+    // The leaf name is shown (prefix stripped) and linked to the type page.
+    assert.match(ns, /- \[Color\]\(color\/\)/);
+});
+
+test("namespace pages link to function/enum pages instead of inlining them", () => {
+    const ns = convert().get("api/slint")?.markdown ?? "";
+    // Free functions and enums are listed as links to their own pages…
+    assert.match(ns, /## Functions\n- \[run_event_loop\]\(run-event-loop\/\)/);
+    assert.match(ns, /## Enumerations\n- \[EventLoopMode\]\(eventloopmode\/\)/);
+    // …not rendered inline as member sections on the namespace page.
+    assert.doesNotMatch(ns, /### <a id="run_event_loop">/);
 });
 
 test("documentation sections (sect1) render as headings with code blocks", () => {
-    const md = convert().get("api/classes/slint-color")?.markdown ?? "";
+    const md = convert().get("api/slint/color")?.markdown ?? "";
     assert.match(md, /### Example/);
     // The code listing inside the section is a fenced cpp block, not inline prose.
     assert.match(
@@ -107,7 +140,7 @@ test("documentation sections (sect1) render as headings with code blocks", () =>
 });
 
 test("signature parameter types are linked, the qualified name is not", () => {
-    const md = convert().get("api/classes/slint-color")?.markdown ?? "";
+    const md = convert().get("api/slint/color")?.markdown ?? "";
     // `void slint::Color::blend(const Color &other)` — the Color *parameter*
     // links to the page; the `Color` inside the qualified name must stay plain
     // (no substring mis-linking of the method name).
@@ -118,7 +151,7 @@ test("signature parameter types are linked, the qualified name is not", () => {
 });
 
 test("internal members (private_api/cbindgen_private) are not documented", () => {
-    const md = convert().get("api/classes/slint-color")?.markdown ?? "";
+    const md = convert().get("api/slint/color")?.markdown ?? "";
     // A `friend void private_api::touch_color(...)` declaration must be filtered
     // out, leaving no Friends section (it was the only friend).
     assert.doesNotMatch(md, /private_api/);
@@ -126,6 +159,27 @@ test("internal members (private_api/cbindgen_private) are not documented", () =>
 });
 
 test("unresolved/no-ref text degrades gracefully (no crash, no empty links)", () => {
-    const md = convert().get("api/classes/slint-color")?.markdown ?? "";
+    const md = convert().get("api/slint/color")?.markdown ?? "";
     assert.doesNotMatch(md, /\]\(\)/);
+});
+
+test("sidebar hoists the implicit root namespace directly under API Reference", () => {
+    const { sidebar } = build();
+    const items = sidebar as SidebarLink[];
+
+    // The `slint` root is implicit: its "Overview" sits at the top level (no
+    // intermediate "slint" group), linking to the namespace page by slug.
+    assert.deepEqual(items[0], { label: "Overview", slug: "api/slint" });
+
+    // Classes and structs are listed together as page links by leaf name.
+    const color = items.find((i) => i.label === "Color");
+    const shared = items.find((i) => i.label === "SharedString");
+    assert.equal(color?.slug, "api/slint/color");
+    assert.equal(shared?.slug, "api/slint/sharedstring");
+
+    // Free functions and enums link to their own page (not an anchor).
+    const fn = items.find((i) => i.label === "run_event_loop");
+    const en = items.find((i) => i.label === "EventLoopMode");
+    assert.equal(fn?.slug, "api/slint/run-event-loop");
+    assert.equal(en?.slug, "api/slint/eventloopmode");
 });

@@ -1,5 +1,7 @@
 # Doxygen-to-Markdown converter output (run `pnpm gen:api` to (re)generate)
 src/content/docs/api/
+# generated API-reference sidebar (imported by astro.config.mjs)
+src/api-sidebar.generated.mjs
 
 # build output
 dist/
