@@ -3,7 +3,7 @@ title: Live Preview
 description: Opt into Slint's C++ Live-Preview to reload .slint files at run-time during development.
 ---
 
-`.slint` files are compiled to C++ code when using the [`slint_target_sources()`](../cmake-reference/#slint_target_sources) function.
+`.slint` files are compiled to C++ code when using the [`slint_target_sources()`](../cmake-reference/slint-target-sources/) function.
 This is the default and recommended for release builds.
 
 During debugging and development, changes to `.slint` files requires re-compiling and re-starting the application. To speed up
