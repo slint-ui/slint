@@ -13,7 +13,7 @@ use std::rc::{Rc, Weak};
 
 use crate::{ElementHandle, ElementRoot, LayoutKind};
 
-#[allow(non_snake_case, unused_imports, non_camel_case_types, clippy::all)]
+#[allow(dead_code, non_snake_case, unused_imports, non_camel_case_types, clippy::all)]
 pub(crate) mod proto {
     include!(concat!(env!("OUT_DIR"), "/proto.rs"));
     include!(concat!(env!("OUT_DIR"), "/proto.serde.rs"));
