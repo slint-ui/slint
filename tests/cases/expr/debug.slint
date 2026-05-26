@@ -1,20 +1,20 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Rectangle {
-    property<string> text: "init";
-    property<string> text2: { debug(text); text }
+component TestCase inherits Rectangle {
+    in-out property<string> text: "init";
+    in-out property<string> text2: { debug(text); text }
     callback foo;
     foo => {
         debug("callback");
     }
     background: { test; text2; blue  }
 
-    im := Image {}
+    im := Image {x:0;y:0;}
 
-    property <bool> test: {
+    in-out property <bool> test: {
         debug();
-        debug(42, 42px, width / 5s, { x: 42, y: im.image_fit, z: { d: im.opacity } }, root.background, im.source, Orientation.horizontal);
+        debug(42, 42px, root.width / 5s, { x: 42, y: im.image_fit, z: { d: im.opacity } }, root.background, im.source, Orientation.horizontal);
         true;
     }
 }
