@@ -342,17 +342,16 @@ fn extract_compiler_config(
 /// - **String interpolation with `\{...}`**: Rust parses the macro body as Rust string literals
 ///   first, and `\{...}` is not a valid Rust string escape.
 ///
-/// - **Color literals that begin with `#0b`, `#0x`, or `#0o`** (for example `#0bf707`): Rust's
-///   lexer sees the `#` as the start of an attribute followed by a numeric literal with a
-///   binary/hex/octal prefix, then rejects the remaining hex digits as invalid digits for that
-///   base.
+/// - **Color literals that begin with `#0b`** (for example `#0bf707`): Rust's
+///   lexer sees the `0b` as the start of a numeric literal with a
+///   binary prefix, then rejects the remaining hex digits as invalid digits for that base.
 ///
-/// - **Color literals matching `#<digit><digit>e<non-digit-hex>…`** (for example `#10ea4c`):
+/// - **Color literals matching `#<digits>e<non-digit-hex>…`** (for example `#10ea4c`):
 ///   Rust's lexer tries to read the payload as a float with scientific notation (`10e…`), and
 ///   rejects the non-digit characters that follow the `e`.
 ///
 /// In all three cases the workarounds are to either rewrite the literal in a form Rust can
-/// tokenize (e.g. `rgb(11, 247, 7)` in place of `#0bf707`), or to place the snippet in a
+/// tokenize (e.g. `rgb(11, 247, 7)` in place of `#0bf707`), or to move the Slint code into a
 /// `.slint` file and compile it via [`slint-build`](https://crates.io/crates/slint-build).
 #[proc_macro]
 pub fn slint(stream: TokenStream) -> TokenStream {
