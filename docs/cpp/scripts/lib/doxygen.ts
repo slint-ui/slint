@@ -113,6 +113,13 @@ const PAGE_KINDS = new Set([
     "concept",
 ]);
 
+/** C++ keyword introducing a compound declaration, for the template signature line. */
+const COMPOUND_KEYWORD: Record<string, string> = {
+    class: "class",
+    struct: "struct",
+    union: "union",
+};
+
 const SECTION_TITLES: Record<string, string> = {
     "public-type": "Public Types",
     "public-func": "Public Functions",
@@ -480,8 +487,20 @@ export class DoxygenConverter {
         out.push("---");
         out.push("");
 
+        // Open each type page with its declaration, e.g. `class Color;` or
+        // `template <typename T>\nstruct SharedVector;`. The template parameters
+        // (when present) precede the keyword + name rather than standing alone.
+        const keyword = COMPOUND_KEYWORD[entry.kind];
         const tparams = this.renderTemplateLine(def);
-        if (tparams) out.push("", "```cpp", tparams, "```", "");
+        if (keyword) {
+            const leaf = entry.name.split("::").pop() ?? entry.name;
+            const decl = tparams
+                ? `${tparams}\n${keyword} ${leaf};`
+                : `${keyword} ${leaf};`;
+            out.push("", "```cpp", decl, "```", "");
+        } else if (tparams) {
+            out.push("", "```cpp", tparams, "```", "");
+        }
 
         const includes = [
             ...new Set(

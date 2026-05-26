@@ -73,6 +73,20 @@ test("a class defined in a private/ header advertises <slint.h>", () => {
     assert.doesNotMatch(md, /slint_string\.h/);
 });
 
+test("every type page opens with a declaration line", () => {
+    // Non-template type: a plain `<keyword> <name>;` declaration.
+    const color = convert().get("api/slint/color")?.markdown ?? "";
+    assert.match(color, /```cpp\nclass Color;\n```/);
+
+    // Template type: the parameters precede the keyword + name, so it is not a
+    // bare `template <typename T>` but a real declaration.
+    const shared = convert().get("api/slint/sharedstring")?.markdown ?? "";
+    assert.match(
+        shared,
+        /```cpp\ntemplate <typename T>\nclass SharedString;\n```/,
+    );
+});
+
 test("function signature, params, returns and note render", () => {
     const md = convert().get("api/slint/color")?.markdown ?? "";
     // Signature is an HTML <pre><code> block (so types can be linked); the text
