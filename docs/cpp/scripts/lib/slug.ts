@@ -1,18 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell:ignore slugified
+
 /** Starlight collects pages under `src/content/docs`; the generated API lives under `api/`. */
 export const API_ROOT = "api";
-
-const KIND_DIR: Record<string, string> = {
-    class: "classes",
-    struct: "structs",
-    union: "unions",
-    interface: "interfaces",
-    namespace: "namespaces",
-    group: "groups",
-    concept: "concepts",
-};
 
 /** A filesystem/url-safe fragment, lowercased, with `::` and other separators collapsed to `-`. */
 function slugify(text: string): string {
@@ -24,10 +16,40 @@ function slugify(text: string): string {
         .toLowerCase();
 }
 
-/** Page slug (relative to the docs content root) for a compound, e.g. `api/classes/slint-color`. */
-export function compoundSlug(kind: string, qualifiedName: string): string {
-    const dir = KIND_DIR[kind] ?? "other";
-    return `${API_ROOT}/${dir}/${slugify(qualifiedName)}`;
+/** Turn a `::`-separated namespace name into `/`-joined, slugified path segments. */
+function namespacePath(name: string): string {
+    return name.split("::").map(slugify).filter(Boolean).join("/");
+}
+
+/**
+ * Page slug (relative to the docs content root) for a compound. The reference
+ * is organized by namespace rather than by kind: namespaces become directories
+ * and every type (class, struct, …) lives under its enclosing namespace, so the
+ * class/struct distinction never appears in the path. Examples:
+ * `slint` → `api/slint`, `slint::Color` → `api/slint/color`,
+ * `slint::platform::Platform::Task` → `api/slint/platform/platform-task`.
+ *
+ * `namespaceNames` is the set of all namespace names; the enclosing namespace of
+ * a type is the longest one that prefixes its qualified name (the remainder,
+ * including any nested-class path, collapses into one slug segment).
+ */
+export function compoundSlug(
+    kind: string,
+    qualifiedName: string,
+    namespaceNames: Iterable<string> = [],
+): string {
+    if (kind === "namespace") {
+        return `${API_ROOT}/${namespacePath(qualifiedName)}`;
+    }
+    let owner = "";
+    for (const ns of namespaceNames) {
+        if (qualifiedName.startsWith(`${ns}::`) && ns.length > owner.length) {
+            owner = ns;
+        }
+    }
+    const leaf = owner ? qualifiedName.slice(owner.length + 2) : qualifiedName;
+    const dir = owner ? `${namespacePath(owner)}/` : "";
+    return `${API_ROOT}/${dir}${slugify(leaf)}`;
 }
 
 /**

@@ -39,9 +39,52 @@ export interface IndexEntry {
 }
 
 export interface GeneratedPage {
-    /** Slug relative to the content root, e.g. `api/classes/slint-color`. */
+    /** Slug relative to the content root, e.g. `api/slint/color`. */
     slug: string;
     markdown: string;
+}
+
+/** A Starlight sidebar entry: a link (by `slug` or `link`) or a nested group. */
+export interface SidebarLink {
+    label: string;
+    /** Content-collection slug, e.g. `api/slint/color` (Starlight applies the base path). */
+    slug?: string;
+    /** Root-relative URL, e.g. `/api/slint/#run_event_loop`, for anchors into a page. */
+    link?: string;
+}
+export interface SidebarGroup {
+    label: string;
+    collapsed?: boolean;
+    items: SidebarItem[];
+}
+export type SidebarItem = SidebarLink | SidebarGroup;
+
+export interface ConvertResult {
+    pages: GeneratedPage[];
+    /** The API-reference sidebar tree, organized by namespace. */
+    sidebar: SidebarItem[];
+}
+
+/** Compound kinds that document a type and live under their enclosing namespace. */
+const TYPE_KINDS = new Set([
+    "class",
+    "struct",
+    "union",
+    "interface",
+    "concept",
+]);
+
+/**
+ * A namespace member (free function or enum) that gets its own page. Functions
+ * are grouped by name so all overloads share one page; enums are one each.
+ */
+interface MemberPage {
+    kind: "func" | "enum";
+    /** Leaf name (e.g. `run_event_loop`), used for the sidebar label and listings. */
+    name: string;
+    slug: string;
+    /** The `memberdef` element(s): several for an overloaded function, one for an enum. */
+    members: XmlElement[];
 }
 
 /** Where a `refid` (compound or member) resolves to in the generated site. */
@@ -113,6 +156,8 @@ export class DoxygenConverter {
     private readonly compoundTargets = new Map<string, SymbolTarget>();
     /** member id → { slug, anchor } so `<ref kindref="member">` resolves. */
     private readonly memberTargets = new Map<string, SymbolTarget>();
+    /** Every namespace name, so a type's enclosing namespace can be found by prefix. */
+    private namespaceNames: string[] = [];
     /** Slug of the page currently being rendered, for relative cross-reference links. */
     private currentSlug = "";
     /** Optional Shiki highlighter; when set, signatures are syntax-highlighted. */
@@ -156,18 +201,45 @@ export class DoxygenConverter {
 
     /** First pass: register every compound and member so cross-references resolve. */
     private buildSymbolMap(entries: IndexEntry[]): void {
+        this.namespaceNames = entries
+            .filter((e) => e.kind === "namespace")
+            .map((e) => e.name);
         for (const entry of entries) {
             if (!PAGE_KINDS.has(entry.kind)) continue;
-            const slug = compoundSlug(entry.kind, entry.name);
+            const slug = compoundSlug(
+                entry.kind,
+                entry.name,
+                this.namespaceNames,
+            );
             this.compoundTargets.set(entry.refid, { slug });
 
             const def = this.loadCompound(entry.refid);
             if (!def) continue;
+
+            // Namespace free functions and enums are pages of their own; resolve
+            // cross-references to those pages rather than to a namespace anchor.
+            const ownPageSlug = new Map<string, string>();
+            if (entry.kind === "namespace") {
+                const { functions, enums } = this.namespaceMemberPages(entry);
+                for (const page of [...functions, ...enums]) {
+                    for (const m of page.members) {
+                        ownPageSlug.set(m.attrs.id, page.slug);
+                    }
+                }
+            }
+
             const seen = new Map<string, number>();
             for (const section of children(def, "sectiondef")) {
                 if (isHiddenSection(section.attrs.kind ?? "")) continue;
                 for (const member of children(section, "memberdef")) {
                     if (isInternalMember(member)) continue;
+                    const pageSlug = ownPageSlug.get(member.attrs.id);
+                    if (pageSlug) {
+                        this.memberTargets.set(member.attrs.id, {
+                            slug: pageSlug,
+                        });
+                        continue;
+                    }
                     const name = textContent(
                         child(member, "name") ?? emptyElement(),
                     );
@@ -183,8 +255,8 @@ export class DoxygenConverter {
         }
     }
 
-    /** Convert all compounds into pages. */
-    convert(): GeneratedPage[] {
+    /** Convert all compounds into pages plus the namespace-organized sidebar. */
+    convert(): ConvertResult {
         const entries = this.readIndex();
         this.buildSymbolMap(entries);
 
@@ -200,8 +272,178 @@ export class DoxygenConverter {
                 slug: target.slug,
                 markdown: this.renderCompound(entry, def),
             });
+
+            // A namespace's free functions and enums each get their own page.
+            if (entry.kind === "namespace") {
+                const { functions, enums } = this.namespaceMemberPages(entry);
+                for (const page of [...functions, ...enums]) {
+                    this.currentSlug = page.slug;
+                    pages.push({
+                        slug: page.slug,
+                        markdown: this.renderMemberPage(entry.name, page),
+                    });
+                }
+            }
         }
-        return pages;
+        return { pages, sidebar: this.buildSidebar(entries) };
+    }
+
+    /**
+     * Render a standalone page for a namespace member: the qualified name as the
+     * title, then each overload (functions) or the single definition (enums)
+     * rendered as it would appear inline, minus the in-page heading.
+     */
+    private renderMemberPage(nsName: string, page: MemberPage): string {
+        const out: string[] = ["---"];
+        out.push(`title: ${frontmatterString(`${nsName}::${page.name}`)}`);
+        const description = firstLine(
+            this.renderBlocks(child(page.members[0], "briefdescription")),
+        );
+        if (description)
+            out.push(`description: ${frontmatterString(description)}`);
+        out.push("---", "");
+        for (const member of page.members) {
+            out.push(...this.renderMemberBody(member));
+        }
+        return `${out
+            .join("\n")
+            .replace(/\n{3,}/g, "\n\n")
+            .trimEnd()}\n`;
+    }
+
+    /**
+     * Build the API-reference sidebar as a tree of namespace groups. Each group
+     * holds the namespace's own page ("Overview"), a link to every type defined
+     * directly in it, anchor links to its free functions and enums, and nested
+     * groups for child namespaces.
+     */
+    private buildSidebar(entries: IndexEntry[]): SidebarItem[] {
+        const namespaces = entries.filter((e) => e.kind === "namespace");
+        const namespaceSet = new Set(namespaces.map((n) => n.name));
+        const parentOf = (name: string): string => {
+            const i = name.lastIndexOf("::");
+            return i === -1 ? "" : name.slice(0, i);
+        };
+        const leafOf = (name: string): string => {
+            const i = name.lastIndexOf("::");
+            return i === -1 ? name : name.slice(i + 2);
+        };
+
+        // Bucket each type under the longest namespace name that prefixes it.
+        const typesByNamespace = new Map<string, IndexEntry[]>();
+        for (const type of entries) {
+            if (!TYPE_KINDS.has(type.kind)) continue;
+            let owner = "";
+            for (const ns of namespaceSet) {
+                if (
+                    type.name.startsWith(`${ns}::`) &&
+                    ns.length > owner.length
+                ) {
+                    owner = ns;
+                }
+            }
+            const list = typesByNamespace.get(owner) ?? [];
+            list.push(type);
+            typesByNamespace.set(owner, list);
+        }
+
+        const groupFor = (ns: IndexEntry): SidebarGroup => {
+            const items: SidebarItem[] = [];
+            const nsSlug = this.compoundTargets.get(ns.refid)?.slug;
+            if (nsSlug) items.push({ label: "Overview", slug: nsSlug });
+
+            // Nested namespaces come first, above the (often long) type list.
+            const childGroups = namespaces
+                .filter((n) => parentOf(n.name) === ns.name)
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((n) => groupFor(n));
+            items.push(...childGroups);
+
+            const types = (typesByNamespace.get(ns.name) ?? [])
+                .slice()
+                .sort((a, b) => a.name.localeCompare(b.name));
+            for (const type of types) {
+                const slug = this.compoundTargets.get(type.refid)?.slug;
+                if (slug) items.push({ label: leafOf(type.name), slug });
+            }
+
+            // Free functions and enums are pages of their own; link to them.
+            const { functions, enums } = this.namespaceMemberPages(ns);
+            for (const page of [...functions, ...enums]) {
+                items.push({ label: page.name, slug: page.slug });
+            }
+
+            return { label: leafOf(ns.name), collapsed: true, items };
+        };
+
+        const roots = namespaces
+            .filter((n) => !namespaceSet.has(parentOf(n.name)))
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((n) => groupFor(n));
+        // Everything lives under the single root namespace (`slint`); that is
+        // implicit, so hoist its contents directly under "API Reference" rather
+        // than nesting them one level deeper. (Multiple roots stay grouped.)
+        return roots.length === 1 ? roots[0].items : roots;
+    }
+
+    /**
+     * The free functions and enums of a namespace, each as its own page.
+     * Functions are grouped by name (overloads share a page) and kept in
+     * document order; enums are one page each.
+     */
+    private namespaceMemberPages(ns: IndexEntry): {
+        functions: MemberPage[];
+        enums: MemberPage[];
+    } {
+        const def = this.loadCompound(ns.refid);
+        if (!def) return { functions: [], enums: [] };
+        const slugFor = (name: string): string =>
+            compoundSlug(
+                "function",
+                `${ns.name}::${name}`,
+                this.namespaceNames,
+            );
+
+        const funcGroups = new Map<string, XmlElement[]>();
+        const funcOrder: string[] = [];
+        const enums: MemberPage[] = [];
+        for (const section of children(def, "sectiondef")) {
+            const kind = section.attrs.kind ?? "";
+            if (kind !== "func" && kind !== "enum") continue;
+            for (const member of children(section, "memberdef")) {
+                if (
+                    member.attrs.prot === "private" ||
+                    isInternalMember(member)
+                ) {
+                    continue;
+                }
+                const name = textContent(
+                    child(member, "name") ?? emptyElement(),
+                ).trim();
+                if (!name) continue;
+                if (kind === "enum") {
+                    enums.push({
+                        kind: "enum",
+                        name,
+                        slug: slugFor(name),
+                        members: [member],
+                    });
+                } else {
+                    if (!funcGroups.has(name)) {
+                        funcGroups.set(name, []);
+                        funcOrder.push(name);
+                    }
+                    funcGroups.get(name)?.push(member);
+                }
+            }
+        }
+        const functions = funcOrder.map((name) => ({
+            kind: "func" as const,
+            name,
+            slug: slugFor(name),
+            members: funcGroups.get(name) ?? [],
+        }));
+        return { functions, enums };
     }
 
     // --- page rendering -----------------------------------------------------
@@ -266,8 +508,15 @@ export class DoxygenConverter {
 
         out.push(...this.renderInnerCompounds(entry, def));
 
+        // A namespace's free functions and enums live on their own pages; list
+        // them as links here and skip their inline sections below.
+        const isNamespace = entry.kind === "namespace";
+        if (isNamespace) out.push(...this.renderNamespaceMemberLists(entry));
+
         for (const section of children(def, "sectiondef")) {
-            if (isHiddenSection(section.attrs.kind ?? "")) continue;
+            const kind = section.attrs.kind ?? "";
+            if (isHiddenSection(kind)) continue;
+            if (isNamespace && (kind === "func" || kind === "enum")) continue;
             out.push(...this.renderSection(section));
         }
 
@@ -275,6 +524,24 @@ export class DoxygenConverter {
             .join("\n")
             .replace(/\n{3,}/g, "\n\n")
             .trimEnd()}\n`;
+    }
+
+    /** On a namespace page, list its free functions and enums, each linking to its page. */
+    private renderNamespaceMemberLists(entry: IndexEntry): string[] {
+        const { functions, enums } = this.namespaceMemberPages(entry);
+        const out: string[] = [];
+        const list = (heading: string, pages: MemberPage[]): void => {
+            if (pages.length === 0) return;
+            out.push("", `## ${heading}`);
+            for (const page of pages) {
+                out.push(
+                    `- [${page.name}](${relativeUrl(this.currentSlug, page.slug)})`,
+                );
+            }
+        };
+        list("Functions", functions);
+        list("Enumerations", enums);
+        return out;
     }
 
     private renderTemplateLine(def: XmlElement): string | undefined {
@@ -337,7 +604,9 @@ export class DoxygenConverter {
             (c) => c.attrs.prot !== "private",
         );
         if (classes.length > 0) {
-            out.push("", "## Classes");
+            // C++ classes and structs are listed together; the kind distinction
+            // is immaterial to users, so the heading is kind-neutral.
+            out.push("", "## Types");
             for (const c of classes) out.push(`- ${link(c)}`);
         }
         return out;
@@ -358,19 +627,24 @@ export class DoxygenConverter {
         return out;
     }
 
+    /** A member as it appears within a compound page: an anchored heading plus its body. */
     private renderMember(member: XmlElement): string[] {
         const name = textContent(
             child(member, "name") ?? emptyElement(),
         ).trim();
         const target = this.memberTargets.get(member.attrs.id);
         const anchor = target?.anchor ?? name;
-        const out: string[] = [
+        return [
             "",
             `### <a id="${anchor}"></a> \`${name}\``,
             "",
+            ...this.renderMemberBody(member),
         ];
+    }
 
-        out.push("", this.renderSignature(member));
+    /** The signature, enum-value table and descriptions of a member (no heading). */
+    private renderMemberBody(member: XmlElement): string[] {
+        const out: string[] = ["", this.renderSignature(member)];
 
         const enumValues = children(member, "enumvalue");
         if (enumValues.length > 0) {
