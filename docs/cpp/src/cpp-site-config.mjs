@@ -20,3 +20,16 @@ export function cppDocsPublicAsset(path) {
     const base = CPP_DOCS_BASE_PATH.replace(/\/+$/, "");
     return `${base}/${rel}`;
 }
+
+/**
+ * Absolute base URL of the Slint language docs, a sibling of this site under
+ * the same origin and version (…/docs/slint/ next to …/docs/cpp/). Passed to
+ * the shared Link component by the SlintRef wrapper so cross-references to the
+ * language reference track the version being built instead of always pointing
+ * at the live production docs.
+ */
+export function slintDocsBase() {
+    const origin = String(CPP_DOCS_BASE_URL).replace(/\/+$/, "");
+    const slintBase = CPP_DOCS_BASE_PATH.replace(/cpp\/?$/, "slint/");
+    return `${origin}${slintBase}`;
+}

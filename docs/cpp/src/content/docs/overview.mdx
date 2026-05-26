@@ -3,6 +3,8 @@ title: Overview
 description: How to integrate .slint designs into a C++ application, either compiled ahead of time or interpreted at run-time.
 ---
 
+import SlintRef from "../../components/SlintRef.astro";
+
 The following sections explain how to integrate your `.slint` designs into your
 C++ application. The entry point is the `.slint` file containing the primary
 component you need to instantiate from C++.
@@ -55,14 +57,14 @@ that can hold different kinds of values, such as numbers, strings or even data
 models.
 
 More complex user interfaces commonly consume data in the form of an abstract
-data model, that is used with [`for` - `in`](https://slint.dev/docs/slint/guide/language/coding/repetition-and-data-models/)
-repetitions or [`ListView`](https://slint.dev/docs/slint/reference/std-widgets/views/listview/) elements in the
+data model, that is used with <SlintRef type="Models" label="for…in" />
+repetitions or <SlintRef type="ListView" /> elements in the
 `.slint` language. All models in C++ with the interpreter API are sub-classes
 of the `slint::Model` where the template parameter is
 `slint::interpreter::Value`. To provide your own data model, you can
 subclass `slint::Model<slint::interpreter::Value>`.
 
-It's possible to declare [singletons that are globally available](https://slint.dev/docs/slint/guide/language/coding/globals/)
+It's possible to declare <SlintRef type="Globals" label="singletons that are globally available" code={false} />
 in `.slint` files. You can access them from to your C++ code by exporting them
 and using the getter and setter functions on
 `slint::interpreter::ComponentInstance` to change properties and
