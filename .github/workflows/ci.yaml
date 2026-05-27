@@ -816,17 +816,22 @@ jobs:
         if: ${{ inputs.full }}
         strategy:
             matrix:
-              demo:
+              project:
                 - demos/home-automation/rust
                 - demos/energy-monitor
+                - tools/viewer
               include:
-                - demo: demos/home-automation/rust
+                - project: demos/home-automation/rust
                   scheme: "Home Automation"
                   bundle_id: dev.slint.demos.HomeAutomation
                   device: iPad Pro 13-inch (M5)
-                - demo: demos/energy-monitor
+                - project: demos/energy-monitor
                   scheme: "Energy Monitor"
                   bundle_id: dev.slint.demos.EnergyMonitor
+                  device: iPhone 17
+                - project: tools/viewer
+                  scheme: "slint-viewer"
+                  bundle_id: dev.slint.slint-viewer
                   device: iPhone 17
         runs-on: macos-26
         steps:
@@ -836,7 +841,7 @@ jobs:
                   target: aarch64-apple-ios-sim
             - run: brew install xcodegen
             - run: xcodegen -s ios-project.yml
-              working-directory: ${{ matrix.demo }}
+              working-directory: ${{ matrix.project }}
             - name: "Find Simulator UDID from iOS 26.4 runtime"
               run: |
                 echo "=== Finding device from iOS 26.4 runtime (default Xcode) ==="
@@ -860,7 +865,7 @@ jobs:
                 echo "UDID: $DEVICE_UDID"
                 echo "SIMULATOR_UDID=$DEVICE_UDID" >> $GITHUB_ENV
             - run: xcodebuild -scheme "${{ matrix.scheme }}" -destination "platform=iOS Simulator,id=${{ env.SIMULATOR_UDID }}" build
-              working-directory: ${{ matrix.demo }}
+              working-directory: ${{ matrix.project }}
 # This isn't working reliably. Sometimes the simulator doesn't boot, somethings launching fails, and sometimes screenshotting fails.
 #            - name: "Boot Simulator"
 #              timeout-minutes: 5
