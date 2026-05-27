@@ -15,6 +15,7 @@ targets:
     type: application
     platform: iOS
     deploymentTarget: "16.6"
+    scheme: {}
     settings:
       base:
         CODE_SIGN_STYLE: Automatic
@@ -24,6 +25,7 @@ targets:
       properties:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        ITSAppUsesNonExemptEncryption: false
         # Must be a dictionary (an empty one yields the default launch screen);
         # iPad multitasking requires a valid UILaunchScreen.
         UILaunchScreen: {}
