@@ -1,11 +1,11 @@
 <?xml version='1.0' encoding='UTF-8' standalone='no'?>
 <!-- SPDX-FileCopyrightText: Copyright © SixtyFPS GmbH <info@slint.dev> -->
 <!-- SPDX-License-Identifier: MIT -->
-<!-- cSpell:ignore ablend aenumformat afriend afromargb ared argsstring briefdescription classslint -->
+<!-- cSpell:ignore ablend aenumformat afriend afromargb aoverridable apure ared argsstring asealed briefdescription classslint -->
 <!-- cSpell:ignore codeline compounddef compoundname computeroutput declname -->
 <!-- cSpell:ignore detaileddescription enumvalue itemizedlist kindref listitem memberdef -->
 <!-- cSpell:ignore parameterdescription parameteritem parameterlist parametername -->
-<!-- cSpell:ignore parameternamelist programlisting refid sectiondef simplesect ulink -->
+<!-- cSpell:ignore parameternamelist programlisting refid sectiondef simplesect ulink virt -->
 <doxygen version="1.9.8">
   <compounddef id="classslint_1_1_Color" kind="class" language="C++" prot="public">
     <compoundname>slint::Color</compoundname>
@@ -64,6 +64,31 @@
           <declname>other</declname>
         </param>
         <briefdescription><para>Blend with another color.</para></briefdescription>
+        <detaileddescription></detaileddescription>
+      </memberdef>
+      <!-- Synthetic virtual methods to exercise the (virtual) heading marker. -->
+      <memberdef kind="function" id="classslint_1_1_Color_1aoverridable" prot="public" static="no" const="no" virt="virtual">
+        <type>void</type>
+        <definition>virtual void slint::Color::on_changed</definition>
+        <argsstring>()</argsstring>
+        <name>on_changed</name>
+        <briefdescription><para>An overridable hook.</para></briefdescription>
+        <detaileddescription></detaileddescription>
+      </memberdef>
+      <memberdef kind="function" id="classslint_1_1_Color_1asealed" prot="public" static="no" const="no" virt="virtual">
+        <type>void</type>
+        <definition>virtual void slint::Color::on_sealed</definition>
+        <argsstring>() override final</argsstring>
+        <name>on_sealed</name>
+        <briefdescription><para>A sealed override.</para></briefdescription>
+        <detaileddescription></detaileddescription>
+      </memberdef>
+      <memberdef kind="function" id="classslint_1_1_Color_1apure" prot="public" static="no" const="no" virt="pure-virtual">
+        <type>void</type>
+        <definition>virtual void slint::Color::on_required</definition>
+        <argsstring>()=0</argsstring>
+        <name>on_required</name>
+        <briefdescription><para>A required override.</para></briefdescription>
         <detaileddescription></detaileddescription>
       </memberdef>
     </sectiondef>

@@ -653,12 +653,34 @@ export class DoxygenConverter {
         ).trim();
         const target = this.memberTargets.get(member.attrs.id);
         const anchor = target?.anchor ?? name;
+        // Flag overridable virtual functions (virtual or pure-virtual, but not
+        // sealed with `final`) so readers know they can re-implement them in a
+        // subclass. The marker is a suffix (in a smaller font, outside the
+        // inline-code name) so it doesn't disturb sorting by name.
+        const marker = this.virtualMarker(member);
+        const suffix = marker ? ` <small>${marker}</small>` : "";
         return [
             "",
-            `### <a id="${anchor}"></a> \`${name}\``,
+            `### <a id="${anchor}"></a> \`${name}\`${suffix}`,
             "",
             ...this.renderMemberBody(member),
         ];
+    }
+
+    /**
+     * The heading marker for an overridable virtual function: `(pure virtual)`
+     * for `=0` methods, `(virtual)` for other non-`final` virtual functions, or
+     * undefined for anything that can't be re-implemented in a subclass.
+     */
+    private virtualMarker(member: XmlElement): string | undefined {
+        if (member.attrs.kind !== "function") return undefined;
+        const virt = member.attrs.virt;
+        if (virt !== "virtual" && virt !== "pure-virtual") return undefined;
+        // Doxygen has no `final` attribute; the keyword (when present) trails the
+        // signature in `argsstring`, e.g. `() const override final`.
+        const args = textContent(child(member, "argsstring") ?? emptyElement());
+        if (/\bfinal\b/.test(args)) return undefined;
+        return virt === "pure-virtual" ? "(pure virtual)" : "(virtual)";
     }
 
     /** The signature, enum-value table and descriptions of a member (no heading). */
@@ -751,11 +773,9 @@ export class DoxygenConverter {
         if (member.attrs.explicit === "yes") prefix.push("explicit");
         if (member.attrs.static === "yes") prefix.push("static");
         if (member.attrs.constexpr === "yes") prefix.push("constexpr");
-        if (
-            member.attrs.virt === "virtual" ||
-            member.attrs.virt === "pure-virtual"
-        )
-            prefix.push("virtual");
+        // `virtual` is intentionally omitted from the signature: overridable
+        // virtual functions are flagged by the `(virtual)` heading marker
+        // instead. (It stays in SPECIFIERS so it is stripped from `definition`.)
         if (prefix.length > 0) text += `${prefix.join(" ")} `;
 
         // Return type from <type>, recording links for resolvable refs.
