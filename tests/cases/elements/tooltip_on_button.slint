@@ -18,7 +18,9 @@ export component TestCase {
         ToolTip {
             placement: above-element;
             Rectangle {
-                init => { root.init-count += 1; }
+                init => {
+                    root.init-count += 1;
+                }
             }
         }
     }
@@ -27,6 +29,8 @@ export component TestCase {
 /*
 
 ```rust
+// Test hovering the tooltip with non native popup
+
 use slint::{platform::WindowEvent, LogicalPosition};
 
 let instance = TestCase::new().unwrap();
@@ -41,6 +45,62 @@ assert_eq!(instance.get_init_count(), 0);
 // After the delay, the tooltip is shown and init fires exactly once.
 slint_testing::mock_elapsed_time(600);
 assert_eq!(instance.get_init_count(), 1);
+```
+
+```rust
+// Test hovering the tooltip with native popup
+// After leaving the button, the tooltip disappears again after some time
+
+use slint::{platform::WindowEvent, LogicalPosition};
+
+let instance = TestCase::new().unwrap();
+let inner =  slint_testing::WindowInner::from_pub(&instance.window());
+
+// Position for hovering the button
+let button_pos = LogicalPosition::new(80.0, 58.0);
+let outside_button = LogicalPosition::new(80.0, 80.0);
+
+
+slint_testing::access_testing_window(instance.window(), |w| w.use_native_popup(true));
+
+assert_eq!(instance.get_init_count(), 0);
+
+// Hover over the button; tooltip init has not fired yet.
+instance.window().dispatch_event(WindowEvent::PointerMoved {position: button_pos});
+assert_eq!(instance.get_init_count(), 0);
+assert_eq!(inner.active_popups.borrow().len(), 0, "We don't have any open tooltip");
+
+// After the delay, the tooltip is shown and init fires exactly once.
+slint_testing::mock_elapsed_time(600);
+assert_eq!(instance.get_init_count(), 1);
+assert_eq!(inner.active_popups.borrow().len(), 1, "We have one tooltip open");
+
+// Leaving popup
+instance.window().dispatch_event(WindowEvent::PointerMoved {position: outside_button});
+assert_eq!(inner.active_popups.borrow().len(), 1, "We have one tooltip open because timeout did not yet occur");
+
+slint_testing::mock_elapsed_time(10000000);
+assert_eq!(inner.active_popups.borrow().len(), 0, "We don't have any open tooltip, because the timeout occurred");
+
+// Hover button again, leave shortly and enter again
+// instance.window().dispatch_event(WindowEvent::PointerMoved {position: button_pos});
+// slint_testing::mock_elapsed_time(600);
+// assert_eq!(instance.get_init_count(), 2);
+// assert_eq!(inner.active_popups.borrow().len(), 1, "We have one tooltip open");
+// instance.window().dispatch_event(WindowEvent::PointerMoved {position: outside_button}); // Go shortly outside of the button
+// slint_testing::mock_elapsed_time(1);
+// instance.window().dispatch_event(WindowEvent::PointerMoved {position: button_pos}); // Enter button again
+// slint_testing::mock_elapsed_time(10000000);
+// assert_eq!(inner.active_popups.borrow().len(), 1, "We have one tooltip open, because we have not been long enough outside");
+
+// Hover button but wait not until it is shown
+instance.window().dispatch_event(WindowEvent::PointerMoved {position: outside_button});
+slint_testing::mock_elapsed_time(10000000);
+instance.window().dispatch_event(WindowEvent::PointerMoved {position: button_pos});
+assert_eq!(inner.active_popups.borrow().len(), 0, "We don't have any open tooltip, because the delay for the show was not triggered");
+slint_testing::mock_elapsed_time(10); // really short
+instance.window().dispatch_event(WindowEvent::PointerMoved {position: outside_button});
+assert_eq!(inner.active_popups.borrow().len(), 0, "We don't have any open tooltip, because the delay for the show was not triggered");
 ```
 
 */

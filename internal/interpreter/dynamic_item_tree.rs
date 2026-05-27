@@ -36,7 +36,7 @@ use i_slint_core::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
 use i_slint_core::slice::Slice;
 use i_slint_core::styled_text::StyledText;
 use i_slint_core::timers::Timer;
-use i_slint_core::window::{WindowAdapterRc, WindowInner};
+use i_slint_core::window::{WindowAdapterRc, WindowInner, WindowKind};
 use i_slint_core::{Brush, Color, DataTransfer, Property, SharedString, SharedVector};
 #[cfg(feature = "internal")]
 use itertools::Either;
@@ -2813,9 +2813,10 @@ pub fn show_popup(
     // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one.
     // Tooltips skip this to share the parent's adapter, ensuring they use the ChildWindow path
     // and renderer caches stay consistent.
-    let globals = if !popup.is_tooltip
-        && let Some(window_adapter) =
-            WindowInner::from_pub(parent_window_adapter.window()).create_popup_window_adapter()
+    let window_kind = if popup.is_tooltip { WindowKind::ToolTip } else { WindowKind::Popup };
+    let globals = if let Some(window_adapter) =
+        WindowInner::from_pub(parent_window_adapter.window())
+            .create_child_window_adapter(window_kind)
     {
         extra_data.globals.get().unwrap().clone_with_window_adapter(window_adapter)
     } else {
@@ -2842,6 +2843,7 @@ pub fn show_popup(
         pos_getter(instance_ref)
     });
     close_popup(element.clone(), instance, parent_window_adapter.clone());
+    let window_kind = if popup.is_tooltip { WindowKind::ToolTip } else { WindowKind::Popup };
     instance.description.popup_ids.borrow_mut().insert(
         element.borrow().id.clone(),
         WindowInner::from_pub(parent_window_adapter.window()).show_popup(
@@ -2849,8 +2851,7 @@ pub fn show_popup(
             access_position,
             close_policy,
             parent_item,
-            popup.is_tooltip,
-            false,
+            window_kind,
         ),
     );
     inst.run_setup_code();
