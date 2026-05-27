@@ -5432,6 +5432,7 @@ dependencies = [
 name = "i-slint-core-macros"
 version = "1.17.0"
 dependencies = [
+ "i-slint-common",
  "quote",
  "serde_json",
  "syn 2.0.117",

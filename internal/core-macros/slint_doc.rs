@@ -21,6 +21,35 @@ impl syn::visit_mut::VisitMut for Visitor {
     }
 }
 
+/// Names of builtin structs and enums that have an entry on the
+/// `reference/global-structs-enums/` page. Derived from the macros in
+/// `i_slint_common` so adding a new struct or enum makes `slint:Name` links
+/// work without editing `link-data.json`.
+fn builtin_struct_and_enum_names() -> &'static std::collections::HashSet<&'static str> {
+    macro_rules! collect_struct_names {
+        ($( $(#[$_:meta])* $vis:vis struct $Name:ident { $($body:tt)* } )*) => {
+            &[$( stringify!($Name), )* "Point", "Size"]
+        };
+    }
+    macro_rules! collect_enum_names {
+        ($( $(#[$_:meta])* $vis:vis enum $Name:ident { $($body:tt)* } )*) => {
+            &[$( stringify!($Name), )*]
+        };
+    }
+    const STRUCTS: &[&str] = i_slint_common::for_each_builtin_structs!(collect_struct_names);
+    const ENUMS: &[&str] = i_slint_common::for_each_enums!(collect_enum_names);
+    static ALL: std::sync::OnceLock<std::collections::HashSet<&'static str>> =
+        std::sync::OnceLock::new();
+    ALL.get_or_init(|| STRUCTS.iter().chain(ENUMS.iter()).copied().collect())
+}
+
+/// Build the anchor for a struct/enum name on the `global-structs-enums`
+/// page. The page renders headings like `### PointerEvent`, which the Astro
+/// slugger lowercases without splitting camelCase, e.g. `#pointerevent`.
+fn anchor_for(name: &str) -> String {
+    name.to_ascii_lowercase()
+}
+
 impl Visitor {
     pub fn new() -> Self {
         let link_data: serde_json::Value = serde_json::from_str(include_str!(concat!(
@@ -56,6 +85,12 @@ impl Visitor {
                     .as_str()
                     .expect("invalid string in link-data.json");
                 format!("https://releases.slint.dev/{}/docs/slint/{dst}", env!("CARGO_PKG_VERSION"),)
+            } else if builtin_struct_and_enum_names().contains(link) {
+                format!(
+                    "https://releases.slint.dev/{}/docs/slint/reference/global-structs-enums/#{}",
+                    env!("CARGO_PKG_VERSION"),
+                    anchor_for(link),
+                )
             } else {
                 panic!("Unknown link {link}");
             };
@@ -76,6 +111,9 @@ fn test_slint_doc() {
     slint::index is not a link
     slint:index is a link
     rust link: slint:rust:foobar
+    auto struct: slint:Edges
+    auto enum: slint:EventResult
+    auto struct point: slint:Point
      "
     .to_owned();
 
@@ -90,6 +128,9 @@ fn test_slint_doc() {
     slint::index is not a link
     https://releases.slint.dev/{0}/docs/slint/ is a link
     rust link: https://releases.slint.dev/{0}/docs/rust/foobar
+    auto struct: https://releases.slint.dev/{0}/docs/slint/reference/global-structs-enums/#edges
+    auto enum: https://releases.slint.dev/{0}/docs/slint/reference/global-structs-enums/#eventresult
+    auto struct point: https://releases.slint.dev/{0}/docs/slint/reference/global-structs-enums/#point
      ",
             env!("CARGO_PKG_VERSION")
         )

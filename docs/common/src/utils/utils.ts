@@ -91,7 +91,7 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
             };
         case "Edges":
             return {
-                href: linkMap.Edges.href,
+                href: "reference/global-structs-enums/#edges",
                 defaultValue: "0px",
             };
         case "float":
@@ -131,12 +131,12 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
             };
         case "Point":
             return {
-                href: linkMap.Point.href,
+                href: "reference/global-structs-enums/#point",
                 defaultValue: "(0px, 0px)",
             };
         case "Size":
             return {
-                href: linkMap.Size.href,
+                href: "reference/global-structs-enums/#size",
                 defaultValue: "(0px, 0px)",
             };
         case "relative-font-size":
