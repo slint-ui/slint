@@ -17,6 +17,7 @@ use std::path::{Path, PathBuf};
 #[cfg(not(any(
     target_os = "openbsd",
     target_os = "windows",
+    target_os = "ios",
     all(target_arch = "aarch64", target_os = "linux")
 )))]
 use tikv_jemallocator::Jemalloc;
@@ -24,6 +25,7 @@ use tikv_jemallocator::Jemalloc;
 #[cfg(not(any(
     target_os = "openbsd",
     target_os = "windows",
+    target_os = "ios",
     all(target_arch = "aarch64", target_os = "linux")
 )))]
 #[global_allocator]
@@ -132,6 +134,12 @@ static EXIT_CODE: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::n
 
 fn main() -> Result<()> {
     env_logger::init();
+
+    // On iOS the binary is launched as an app without command line arguments, so always
+    // start in remote viewer mode.
+    #[cfg(all(target_os = "ios", feature = "remote"))]
+    let args = Cli::parse_from(["slint-viewer", "--remote"]);
+    #[cfg(not(all(target_os = "ios", feature = "remote")))]
     let args = Cli::parse();
 
     #[cfg(feature = "remote")]

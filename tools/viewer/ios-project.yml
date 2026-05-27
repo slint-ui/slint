@@ -28,5 +28,5 @@ targets:
     sources: []
     postCompileScripts:
       - script: |
-          ../../scripts/build_for_ios_with_cargo.bash slint-viewer
+          ../../scripts/build_for_ios_with_cargo.bash slint-viewer --features remote
         outputFileLists: $TARGET_BUILD_DIR/$EXECUTABLE_PATH

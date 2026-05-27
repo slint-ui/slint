@@ -94,7 +94,7 @@ zeroconf-tokio = { version = "0.3.2", optional = true }
 [target.'cfg(target_os = "android")'.dependencies]
 i-slint-backend-android-activity = { workspace = true, optional = true }
 
-[target.'cfg(not(any(target_os = "openbsd", target_os = "windows", all(target_arch = "aarch64", target_os = "linux"))))'.dependencies]
+[target.'cfg(not(any(target_os = "openbsd", target_os = "windows", target_os = "ios", all(target_arch = "aarch64", target_os = "linux"))))'.dependencies]
 tikv-jemallocator = { workspace = true }
 
 [lib]
