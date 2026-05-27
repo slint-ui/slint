@@ -28,7 +28,7 @@ targets:
           [
             UIInterfaceOrientationPortrait,
             UIInterfaceOrientationPortraitUpsideDown,
-            UIInterfaceOrientationPortraitLandscapeLeft,
+            UIInterfaceOrientationLandscapeLeft,
             UIInterfaceOrientationLandscapeRight,
           ]
     sources: []
