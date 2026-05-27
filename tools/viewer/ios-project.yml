@@ -20,8 +20,9 @@ targets:
       properties:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
-        UILaunchScreen:
-          - ImageRespectSafeAreaInsets: false
+        # Must be a dictionary (an empty one yields the default launch screen);
+        # iPad multitasking requires a valid UILaunchScreen.
+        UILaunchScreen: {}
         NSLocalNetworkUsageDescription: "We need to talk to editors on the local network."
         NSBonjourServices:
           - "_slint-preview._tcp"
