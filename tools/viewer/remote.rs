@@ -1,13 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{net::SocketAddr, rc::Rc};
+use std::{collections::HashSet, net::SocketAddr, path::PathBuf, rc::Rc};
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_core::InternalToken;
 use i_slint_core::SharedString;
-use i_slint_live_preview::protocol::PreviewToLspMessage;
-use i_slint_live_preview::remote::{CacheEntry, Connection, ConnectionMessage, init_compiler};
+use i_slint_live_preview::protocol::{PreviewComponent, PreviewToLspMessage};
+use i_slint_live_preview::remote::{
+    CacheEntry, Connection, ConnectionMessage, FileCache, init_compiler,
+};
 use slint_interpreter::ComponentHandle as _;
 
 const MAIN_SLINT: &str = include_str!("remote/main.slint");
@@ -121,6 +123,8 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
 
     let mut last_connection = None;
     let mut instance = inner_window.clone_strong();
+    let mut current_preview: Option<PreviewComponent> = None;
+    let mut dependencies: HashSet<PathBuf> = HashSet::new();
     while let Some(msg) = message_receiver.recv().await {
         match msg {
             ConnectionMessage::SetConfiguration { config } => {
@@ -129,98 +133,47 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                     config.enable_experimental;
             }
             ConnectionMessage::ShowPreview { preview_component, file_cache } => {
-                tracing::debug!(
-                    "Cached files: {:#?}",
-                    file_cache.iter().map(|entry| entry.key().to_string()).collect::<Vec<_>>()
-                );
-                let compilation_result = if let Some(entry) = file_cache.get(
-                    preview_component.url.to_file_path().unwrap().as_os_str().to_str().unwrap(),
-                ) && let CacheEntry::Ready(file) = &*entry
+                if let Some(BuildOutcome { new_instance, watch_paths }) = build_and_show(
+                    &compiler,
+                    &preview_component,
+                    &file_cache,
+                    &inner_window,
+                    &instance,
+                    &connection,
+                )
+                .await
                 {
-                    tracing::debug!("Fetched file {} from cache.", preview_component.url);
-                    compiler
-                        .build_from_source(
-                            str::from_utf8(&file.contents).unwrap().to_owned(),
-                            preview_component.url.path().into(),
-                        )
-                        .await
-                } else {
-                    tracing::debug!("Failed fetching file {} from cache.", preview_component.url);
-                    compiler.build_from_path(preview_component.url.path()).await
-                };
-                if compilation_result.has_errors() {
-                    let mut build_diagnostics = BuildDiagnostics::default();
-                    for d in compilation_result.diagnostics() {
-                        tracing::warn!("Compiler error: {d}");
-                        build_diagnostics.push_compiler_error(d);
+                    if let Some(new_instance) = new_instance {
+                        instance = new_instance;
                     }
-
-                    if let Err(err) = inner_window.set_property(
-                        "message",
-                        SharedString::from(build_diagnostics.to_string_vec().join("\n")).into(),
-                    ) {
-                        tracing::error!("Failed setting property: {err}");
+                    if let Some(watch_paths) = watch_paths {
+                        dependencies = watch_paths.into_iter().collect();
                     }
-
-                    let message = PreviewToLspMessage::Diagnostics {
-                        uri: preview_component.url,
-                        version: None,
-                        diagnostics: compilation_result
-                            .diagnostics()
-                            .map(|diagnostic| {
-                                i_slint_live_preview::protocol::to_lsp_diagnostic(
-                                    &diagnostic,
-                                    i_slint_compiler::diagnostics::ByteFormat::Utf8,
-                                )
-                            })
-                            .collect(),
-                    };
-
-                    connection.send(message).ok();
-
+                }
+                current_preview = Some(preview_component);
+            }
+            ConnectionMessage::ContentsChanged { url, file_cache } => {
+                let Some(preview_component) = current_preview.clone() else { continue };
+                let Ok(path) = url.to_file_path() else { continue };
+                if !dependencies.contains(&path) {
                     continue;
                 }
-                if let Err(err) = inner_window.set_property("message", SharedString::new().into()) {
-                    tracing::error!("Failed setting property: {err}");
-                }
-
-                let Some(component) = preview_component
-                    .component
-                    .as_deref()
-                    .or_else(|| compilation_result.component_names().next())
-                    .and_then(|name| compilation_result.component(name))
-                else {
-                    if let Err(err) = inner_window
-                        .set_property("message", SharedString::from("Component not found").into())
-                    {
-                        tracing::error!("Failed setting property: {err}");
+                if let Some(BuildOutcome { new_instance, watch_paths }) = build_and_show(
+                    &compiler,
+                    &preview_component,
+                    &file_cache,
+                    &inner_window,
+                    &instance,
+                    &connection,
+                )
+                .await
+                {
+                    if let Some(new_instance) = new_instance {
+                        instance = new_instance;
                     }
-                    tracing::error!("Component not found");
-                    continue;
-                };
-
-                let Ok(new_instance) =
-                    component.create_with_existing_window(instance.window()).inspect_err(|err| {
-                        if let Err(err) = inner_window
-                            .set_property("message", SharedString::from(format!("{err}")).into())
-                        {
-                            tracing::error!("Failed setting property: {err}");
-                        }
-                        tracing::warn!("Platform error: {err}");
-                    })
-                else {
-                    return Ok(());
-                };
-
-                if let Err(err) = new_instance.show() {
-                    if let Err(err) = inner_window
-                        .set_property("message", SharedString::from(format!("{err}")).into())
-                    {
-                        tracing::error!("Failed setting property: {err}");
+                    if let Some(watch_paths) = watch_paths {
+                        dependencies = watch_paths.into_iter().collect();
                     }
-                    tracing::warn!("Platform error: {err}");
-                } else {
-                    instance = new_instance;
                 }
             }
             ConnectionMessage::HighlightFromEditor { .. } => {}
@@ -236,6 +189,8 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
             ConnectionMessage::Disconnected { remote_addr } => {
                 if last_connection == Some(remote_addr) {
                     last_connection = None;
+                    current_preview = None;
+                    dependencies.clear();
                     inner_window = main_ui
                         .create_with_existing_window(instance.window())
                         .unwrap_or_else(|_| main_ui.create().unwrap());
@@ -257,4 +212,122 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
         .inspect_err(|err| tracing::error!("mdns shutdown: {err}"))?;
 
     Ok(())
+}
+
+struct BuildOutcome {
+    /// `Some` if a new component instance was successfully created and shown. The caller should
+    /// replace its tracked instance with it.
+    new_instance: Option<slint_interpreter::ComponentInstance>,
+    /// Files the compiled component depends on. `None` means the build failed too early to
+    /// produce a meaningful dependency list, and the caller should keep its previous one.
+    watch_paths: Option<Vec<PathBuf>>,
+}
+
+/// Compile `preview_component` (using `file_cache` for the in-memory editor buffer if available)
+/// and replace the visible instance with it. Returns `None` only when the host window cannot be
+/// reused, which is a fatal condition for the caller.
+async fn build_and_show(
+    compiler: &slint_interpreter::Compiler,
+    preview_component: &PreviewComponent,
+    file_cache: &FileCache,
+    inner_window: &slint_interpreter::ComponentInstance,
+    instance: &slint_interpreter::ComponentInstance,
+    connection: &Connection,
+) -> Option<BuildOutcome> {
+    tracing::debug!(
+        "Cached files: {:#?}",
+        file_cache.iter().map(|entry| entry.key().to_string()).collect::<Vec<_>>()
+    );
+    let compilation_result = if let Some(entry) = file_cache
+        .get(preview_component.url.to_file_path().unwrap().as_os_str().to_str().unwrap())
+        && let CacheEntry::Ready(file) = &*entry
+    {
+        tracing::debug!("Fetched file {} from cache.", preview_component.url);
+        compiler
+            .build_from_source(
+                str::from_utf8(&file.contents).unwrap().to_owned(),
+                preview_component.url.path().into(),
+            )
+            .await
+    } else {
+        tracing::debug!("Failed fetching file {} from cache.", preview_component.url);
+        compiler.build_from_path(preview_component.url.path()).await
+    };
+    if compilation_result.has_errors() {
+        let mut build_diagnostics = BuildDiagnostics::default();
+        for d in compilation_result.diagnostics() {
+            tracing::warn!("Compiler error: {d}");
+            build_diagnostics.push_compiler_error(d);
+        }
+
+        if let Err(err) = inner_window.set_property(
+            "message",
+            SharedString::from(build_diagnostics.to_string_vec().join("\n")).into(),
+        ) {
+            tracing::error!("Failed setting property: {err}");
+        }
+
+        let message = PreviewToLspMessage::Diagnostics {
+            uri: preview_component.url.clone(),
+            version: None,
+            diagnostics: compilation_result
+                .diagnostics()
+                .map(|diagnostic| {
+                    i_slint_live_preview::protocol::to_lsp_diagnostic(
+                        &diagnostic,
+                        i_slint_compiler::diagnostics::ByteFormat::Utf8,
+                    )
+                })
+                .collect(),
+        };
+
+        connection.send(message).ok();
+
+        return Some(BuildOutcome { new_instance: None, watch_paths: None });
+    }
+    if let Err(err) = inner_window.set_property("message", SharedString::new().into()) {
+        tracing::error!("Failed setting property: {err}");
+    }
+
+    let watch_paths = Some(compilation_result.watch_paths(InternalToken).to_vec());
+
+    let Some(component) = preview_component
+        .component
+        .as_deref()
+        .or_else(|| compilation_result.component_names().next())
+        .and_then(|name| compilation_result.component(name))
+    else {
+        if let Err(err) =
+            inner_window.set_property("message", SharedString::from("Component not found").into())
+        {
+            tracing::error!("Failed setting property: {err}");
+        }
+        tracing::error!("Component not found");
+        return Some(BuildOutcome { new_instance: None, watch_paths });
+    };
+
+    let Ok(new_instance) =
+        component.create_with_existing_window(instance.window()).inspect_err(|err| {
+            if let Err(err) =
+                inner_window.set_property("message", SharedString::from(format!("{err}")).into())
+            {
+                tracing::error!("Failed setting property: {err}");
+            }
+            tracing::warn!("Platform error: {err}");
+        })
+    else {
+        return None;
+    };
+
+    if let Err(err) = new_instance.show() {
+        if let Err(err) =
+            inner_window.set_property("message", SharedString::from(format!("{err}")).into())
+        {
+            tracing::error!("Failed setting property: {err}");
+        }
+        tracing::warn!("Platform error: {err}");
+        return Some(BuildOutcome { new_instance: None, watch_paths });
+    }
+
+    Some(BuildOutcome { new_instance: Some(new_instance), watch_paths })
 }

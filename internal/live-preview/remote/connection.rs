@@ -91,6 +91,9 @@ pub enum CacheEntry {
     Ready(VersionedFileContent),
 }
 
+/// Shared cache of file contents pushed by the LSP, keyed by absolute file path.
+pub type FileCache = Arc<DashMap<String, CacheEntry>>;
+
 #[derive(Debug)]
 pub enum ConnectionMessage {
     Connected {
@@ -104,7 +107,13 @@ pub enum ConnectionMessage {
     },
     ShowPreview {
         preview_component: PreviewComponent,
-        file_cache: Arc<DashMap<String, CacheEntry>>,
+        file_cache: FileCache,
+    },
+    /// The contents of a file changed in the editor. The viewer should rebuild the currently
+    /// shown component if the file is one of its dependencies.
+    ContentsChanged {
+        url: Url,
+        file_cache: FileCache,
     },
     #[allow(dead_code)]
     HighlightFromEditor {
@@ -215,7 +224,7 @@ impl Connection {
     async fn handle_connection(
         mut receiver: SplitStream<WebSocketStream<TcpStream>>,
         message_handler: Arc<dyn Fn(ConnectionMessage) + 'static + Send + Sync>,
-        file_cache: Arc<DashMap<String, CacheEntry>>,
+        file_cache: FileCache,
         message_sender: UnboundedSender<Message>,
         remote_addr: SocketAddr,
     ) {
@@ -284,6 +293,10 @@ impl Connection {
                                             }
                                         })
                                         .insert(CacheEntry::Ready(versioned_content));
+                                    message_handler(ConnectionMessage::ContentsChanged {
+                                        url: url.url().clone(),
+                                        file_cache: file_cache.clone(),
+                                    });
                                 }
                                 LspToPreviewMessage::SetConfiguration { config } => {
                                     message_handler(ConnectionMessage::SetConfiguration { config });
