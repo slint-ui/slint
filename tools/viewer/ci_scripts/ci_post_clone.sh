@@ -16,6 +16,10 @@
 #      xcodegen spec so the generated Info.plist carries the right
 #      CFBundleVersion (App Store Connect rejects re-uploads with stale ones).
 #   4. Run xcodegen to materialise tools/viewer/Slint Viewer.xcodeproj.
+#
+# The TestFlight "What to Test" notes are kept manually in
+# tools/viewer/TestFlight/WhatToTest.en-US.txt and committed in advance of a
+# release; this script does not touch them.
 
 set -euo pipefail
 
