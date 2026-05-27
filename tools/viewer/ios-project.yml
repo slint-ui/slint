@@ -15,6 +15,10 @@ targets:
     type: application
     platform: iOS
     deploymentTarget: "16.6"
+    settings:
+      base:
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: S3GWAKQTX6
     info:
       path: Info.plist
       properties:
