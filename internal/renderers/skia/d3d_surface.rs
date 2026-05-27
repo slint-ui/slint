@@ -380,8 +380,9 @@ impl super::Surface for D3DSurface {
             protected_context: skia_safe::gpu::Protected::No,
         };
 
-        let gr_context = unsafe { skia_safe::gpu::direct_contexts::make_d3d(&backend_context, None) }
-            .ok_or_else(|| format!("unable to create Skia D3D DirectContext"))?;
+        let gr_context =
+            unsafe { skia_safe::gpu::direct_contexts::make_d3d(&backend_context, None) }
+                .ok_or_else(|| format!("unable to create Skia D3D DirectContext"))?;
 
         let window_handle = window_handle
             .window_handle()
