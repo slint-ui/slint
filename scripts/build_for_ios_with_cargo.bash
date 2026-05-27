@@ -41,7 +41,7 @@ for arch in $ARCHS; do
             ;;
     esac
 
-    cargo build $MAYBE_RELEASE --target $CARGO_TARGET --bin $1
+    cargo build $MAYBE_RELEASE --target $CARGO_TARGET --bin "$1" "${@:2}"
 
     executables+=("$DERIVED_FILE_DIR/cargo/$CARGO_TARGET/$CARGO_PROFILE/$1")
 done
