@@ -155,6 +155,8 @@ driverlib
 droparea
 dropevent
 DSHIELD
+dsym
+dsymutil
 dustygold
 Dxgi
 DYLD
