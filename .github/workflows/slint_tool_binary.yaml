@@ -228,7 +228,8 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-apple-ios
-            - run: brew install xcodegen
+            # librsvg provides rsvg-convert, used to render the app icon.
+            - run: brew install xcodegen librsvg
             - name: Compute version numbers
               run: |
                   # Marketing version from the workspace, build number from the

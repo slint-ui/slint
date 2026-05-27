@@ -15,6 +15,8 @@ amdgpu
 amet
 Amoled
 Appbar
+appicon
+appiconset
 appkit
 appmain
 appsink
@@ -22,6 +24,7 @@ appview
 ARCHS
 armhf
 arrayvec
+assetcatalog
 astrolib
 astrowind
 asyncio
@@ -322,6 +325,7 @@ libgstrtspserver
 Libinput
 libloading
 libm
+librsvg
 libseat
 libslint
 libstdc
@@ -536,6 +540,7 @@ spinboxes
 SPIRAM
 SPRINTF
 Spyrosoft
+srcroot
 SRCS
 SRGBA
 standardbutton
@@ -669,6 +674,7 @@ writeback
 WRONLY
 xbuild
 xcarchive
+xcassets
 xcent
 xchg
 xcrun
