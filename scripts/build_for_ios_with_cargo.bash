@@ -17,6 +17,11 @@ else
     MAYBE_RELEASE=
 fi
 
+# Build with debug info so a dSYM can be produced below. Release builds carry no
+# debug info by default, which makes the archive fail validation with a missing
+# dSYM for the (cargo-built) executable.
+export CARGO_PROFILE_RELEASE_DEBUG="${CARGO_PROFILE_RELEASE_DEBUG:-1}"
+
 # Make Cargo output cache files in Xcode's directories
 export CARGO_TARGET_DIR="$DERIVED_FILE_DIR/cargo"
 
@@ -48,6 +53,14 @@ done
 
 # Combine executables, and place them at the output path excepted by Xcode
 lipo -create -output "$TARGET_BUILD_DIR/$EXECUTABLE_PATH" "${executables[@]}"
+
+# Generate a dSYM for the executable into the folder Xcode collects dSYMs from
+# for the archive. Xcode only produces dSYMs for what it compiles, not for this
+# cargo-built binary, so without this the archive has no dSYM matching its UUID.
+if [ -n "${DWARF_DSYM_FOLDER_PATH:-}" ] && [ -n "${DWARF_DSYM_FILE_NAME:-}" ]; then
+    mkdir -p "$DWARF_DSYM_FOLDER_PATH"
+    dsymutil "$TARGET_BUILD_DIR/$EXECUTABLE_PATH" -o "$DWARF_DSYM_FOLDER_PATH/$DWARF_DSYM_FILE_NAME"
+fi
 
 # Force code signing every run for device builds (non-simulator), unless code
 # signing is disabled (e.g. unsigned archive builds with CODE_SIGNING_ALLOWED=NO).
