@@ -668,8 +668,10 @@ WQXGA
 writeback
 WRONLY
 xbuild
+xcarchive
 xcent
 xchg
+xcrun
 xfer
 xfixes
 xlib
