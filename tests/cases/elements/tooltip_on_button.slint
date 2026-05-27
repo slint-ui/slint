@@ -82,17 +82,6 @@ assert_eq!(inner.active_popups.borrow().len(), 1, "We have one tooltip open beca
 slint_testing::mock_elapsed_time(10000000);
 assert_eq!(inner.active_popups.borrow().len(), 0, "We don't have any open tooltip, because the timeout occurred");
 
-// Hover button again, leave shortly and enter again
-// instance.window().dispatch_event(WindowEvent::PointerMoved {position: button_pos});
-// slint_testing::mock_elapsed_time(600);
-// assert_eq!(instance.get_init_count(), 2);
-// assert_eq!(inner.active_popups.borrow().len(), 1, "We have one tooltip open");
-// instance.window().dispatch_event(WindowEvent::PointerMoved {position: outside_button}); // Go shortly outside of the button
-// slint_testing::mock_elapsed_time(1);
-// instance.window().dispatch_event(WindowEvent::PointerMoved {position: button_pos}); // Enter button again
-// slint_testing::mock_elapsed_time(10000000);
-// assert_eq!(inner.active_popups.borrow().len(), 1, "We have one tooltip open, because we have not been long enough outside");
-
 // Hover button but wait not until it is shown
 instance.window().dispatch_event(WindowEvent::PointerMoved {position: outside_button});
 slint_testing::mock_elapsed_time(10000000);
