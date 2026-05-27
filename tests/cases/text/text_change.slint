@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-TestCase := Window {
+component TestCase inherits Window {
     width: 100phx;
     height: 100phx;
     VerticalLayout {
@@ -11,9 +11,9 @@ TestCase := Window {
         Rectangle { }
     }
 
-    property <string> text <=> ti.text;
-    property <bool> input_focused: ti.has_focus;
-    property<int> test_cursor_pos: ti.cursor_position_byte_offset;
+    in-out property <string> text <=> ti.text;
+    in-out property <bool> input_focused: ti.has_focus;
+    in-out property<int> test_cursor_pos: ti.cursor_position_byte_offset;
 }
 
 /*

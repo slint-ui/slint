@@ -7,11 +7,28 @@ use crate::graphics::Color;
 use crate::input::InternalKeyboardModifierState;
 use crate::item_tree::{ItemRc, ItemTreeRc};
 use crate::items::ColorScheme;
-use crate::platform::{EventLoopProxy, Platform};
+use crate::platform::{EventLoopProxy, Platform, WindowAdapter, WindowEvent};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::Cell;
 use pin_weak::rc::PinWeak;
+
+pub(crate) type WindowEventHook =
+    Box<dyn Fn(&Rc<dyn WindowAdapter>, &WindowEvent, WindowEventDispatchResult)>;
+
+/// Result of dispatching a window event through Slint's runtime.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WindowEventDispatchResult {
+    /// A receiver handled the event (e.g. a key handler consumed it, or the
+    /// runtime acted on a resize / scale / close).
+    Accepted,
+    /// A receiver actively refused the event (e.g. a `close-requested` callback
+    /// prevented the window from closing).
+    Rejected,
+    /// The event fell through without being handled (e.g. a key event with no
+    /// matching handler).
+    Ignored,
+}
 
 crate::thread_local! {
     pub(crate) static GLOBAL_CONTEXT : once_cell::unsync::OnceCell<SlintContext>
@@ -47,10 +64,11 @@ pub(crate) struct SlintContextInner {
     pub(crate) accent_color: Property<Color>,
     pub(crate) window_shown_hook:
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
+    pub(crate) window_event_hook: core::cell::RefCell<Option<WindowEventHook>>,
     #[cfg(all(unix, not(target_os = "macos")))]
     xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "shared-parley")]
-    pub(crate) font_context: core::cell::RefCell<parley::FontContext>,
+    pub(crate) font_context: core::cell::RefCell<crate::textlayout::sharedparley::FontContext>,
     #[cfg(feature = "shared-swash")]
     pub(crate) swash_scale_context: core::cell::RefCell<swash::scale::ScaleContext>,
     pub(crate) modifiers: Cell<InternalKeyboardModifierState>,
@@ -84,7 +102,7 @@ impl SlintContext {
             color_scheme: Property::new_named(ColorScheme::Unknown, "SlintContext::color_scheme"),
             accent_color: Property::new_named(Color::default(), "SlintContext::accent_color"),
             window_shown_hook: Default::default(),
-
+            window_event_hook: Default::default(),
             #[cfg(all(unix, not(target_os = "macos")))]
             xdg_app_id: Default::default(),
             #[cfg(feature = "shared-parley")]
@@ -93,7 +111,9 @@ impl SlintContext {
                     collection: collection.inner,
                     source_cache: collection.source_cache,
                 };
-                core::cell::RefCell::new(font_context)
+                core::cell::RefCell::new(crate::textlayout::sharedparley::FontContext::new(
+                    font_context,
+                ))
             },
             #[cfg(feature = "shared-swash")]
             swash_scale_context: core::cell::RefCell::new(swash::scale::ScaleContext::new()),
@@ -108,7 +128,9 @@ impl SlintContext {
 
     /// Return a reference to the font context
     #[cfg(feature = "shared-parley")]
-    pub fn font_context(&self) -> &core::cell::RefCell<parley::FontContext> {
+    pub fn font_context(
+        &self,
+    ) -> &core::cell::RefCell<crate::textlayout::sharedparley::FontContext> {
         &self.0.font_context
     }
 
@@ -288,6 +310,22 @@ pub fn set_window_shown_hook(
 ) -> Result<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>, PlatformError> {
     GLOBAL_CONTEXT.with(|p| match p.get() {
         Some(ctx) => Ok(ctx.0.window_shown_hook.replace(hook)),
+        None => Err(PlatformError::NoPlatform),
+    })
+}
+
+/// Internal function to set a hook that's invoked after a window event was dispatched.
+/// This is used by the system testing module. Returns a previously set hook, if any.
+pub fn set_window_event_hook(
+    hook: Option<WindowEventHook>,
+) -> Result<Option<WindowEventHook>, PlatformError> {
+    GLOBAL_CONTEXT.with(|p| match p.get() {
+        Some(ctx) => {
+            let mut slot = ctx.0.window_event_hook.try_borrow_mut().map_err(|_| {
+                PlatformError::Other(alloc::string::String::from("event hook is currently in use"))
+            })?;
+            Ok(core::mem::replace(&mut *slot, hook))
+        }
         None => Err(PlatformError::NoPlatform),
     })
 }

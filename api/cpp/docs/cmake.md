@@ -1,4 +1,4 @@
-<!-- cSpell: ignore ccmake iconfigure
+<!-- cSpell: ignore ccmake iconfigure -->
 
 # Set Up Development Environment
 
@@ -161,15 +161,12 @@ an ARM64 board, the following commands show how to compile:
 
 Install the Rust target toolchain once:
 
-<!-- cSpell:disable -->
 ```sh
 rustup target add aarch64-unknown-linux-gnu
 ```
-<!-- cSpell:enable -->
 
 Set up the environment and build:
 
-<!-- cSpell:disable -->
 ```sh
 . /path/to/yocto/sdk/environment-setup-cortexa53-crypto-poky-linux
 cd <PROJECT_ROOT>

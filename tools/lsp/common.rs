@@ -7,8 +7,8 @@
 
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, TextSize, syntax_nodes};
-use i_slint_preview_protocol::{
-    LspToPreviewMessage, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
+use i_slint_live_preview::protocol::{
+    LspToPreviewMessage, PreviewTarget, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
 };
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
 
@@ -21,6 +21,8 @@ pub use document_cache::DocumentCache;
 pub use i_slint_compiler::diagnostics::ByteFormat;
 pub mod rename_component;
 pub mod rename_element_id;
+mod switchable;
+pub use switchable::SwitchableLspToPreview;
 #[cfg(test)]
 pub mod test;
 #[cfg(any(test, feature = "preview-engine"))]
@@ -50,20 +52,9 @@ where
 /// ignore a node for code analysis purposes.
 pub const NODE_IGNORE_COMMENT: &str = "@lsp:ignore-node";
 
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum PreviewTarget {
-    #[allow(dead_code)]
-    ChildProcess,
-    #[allow(dead_code)]
-    EmbeddedWasm,
-    #[allow(dead_code)]
-    Dummy,
-}
-
 #[allow(dead_code)]
-pub trait LspToPreview {
+pub trait LspToPreview: std::any::Any {
     fn send(&self, message: &LspToPreviewMessage);
-    fn set_preview_target(&self, target: PreviewTarget) -> Result<()>;
     fn preview_target(&self) -> PreviewTarget;
     fn shutdown<'a>(&'a self) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'a>> {
         Box::pin(async {})
@@ -79,10 +70,6 @@ impl LspToPreview for DummyLspToPreview {
 
     fn preview_target(&self) -> PreviewTarget {
         PreviewTarget::Dummy
-    }
-
-    fn set_preview_target(&self, _: PreviewTarget) -> Result<()> {
-        Err("Can not change the preview target".into())
     }
 }
 

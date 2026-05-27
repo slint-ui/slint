@@ -74,14 +74,6 @@ pub fn fallbackfont(
     VectorFont::new(font, swash_key, swash_offset, requested_pixel_size)
 }
 
-pub fn register_font_from_memory(
-    collection: &mut fontique::Collection,
-    data: &'static [u8],
-) -> Result<(), Box<dyn std::error::Error>> {
-    collection.register_fonts(data.to_vec().into(), None);
-    Ok(())
-}
-
 #[cfg(not(target_family = "wasm"))]
 pub fn register_font_from_path(
     collection: &mut fontique::Collection,

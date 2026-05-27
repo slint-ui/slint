@@ -3,7 +3,7 @@
 
 # Deploy a consolidated Cloudflare Workers preview for pull requests.
 # All preview sites are served under a single worker with sub-paths:
-#   /docs/   /editor/   /material/   /safety/
+#   /docs/   /editor/   /material/
 #
 # Runs as a workflow_run so it has access to repository secrets even for fork PRs.
 name: Deploy Previews for PRs
@@ -96,26 +96,14 @@ jobs:
                 github-token: ${{ secrets.GITHUB_TOKEN }}
                 run-id: ${{ github.event.workflow_run.id }}
 
-            - name: Download safety-docs preview artifact
-              id: dl-safety
-              continue-on-error: true
-              uses: actions/download-artifact@v8
-              with:
-                name: preview-safety-docs
-                path: artifacts/safety-docs
-                github-token: ${{ secrets.GITHUB_TOKEN }}
-                run-id: ${{ github.event.workflow_run.id }}
-
             # --- Assemble all sites under a single directory ---
 
             - name: Assemble preview site
               id: assemble
               env:
                 PR_NUMBER: ${{ steps.pr-info.outputs.pr_number }}
-                DL_DOCS: ${{ steps.dl-docs.outcome }}
                 DL_SLINTPAD: ${{ steps.dl-slintpad.outcome }}
                 DL_MATERIAL: ${{ steps.dl-material.outcome }}
-                DL_SAFETY: ${{ steps.dl-safety.outcome }}
               run: |
                 DIST="preview-deploy/dist"
                 mkdir -p "$DIST"
@@ -130,7 +118,7 @@ jobs:
                 LINKS=""
 
                 # Assemble docs from sub-artifacts into master/docs/
-                if [ "$DL_DOCS" = "success" ]; then
+                if [ -d artifacts/docs-parts/docs ]; then
                   mkdir -p "$DIST/master/docs"
                   cp -R artifacts/docs-parts/docs/. "$DIST/master/docs/"
                   LINKS="$LINKS<li>Documentation: "
@@ -139,6 +127,7 @@ jobs:
                   LINKS="$LINKS · <a href=\"/master/docs/cpp/\">C++</a>"
                   LINKS="$LINKS · <a href=\"/master/docs/node/\">Node</a>"
                   LINKS="$LINKS · <a href=\"/master/docs/python/\">Python</a>"
+                  LINKS="$LINKS · <a href=\"/master/docs/safety/\">Safety</a>"
                   LINKS="$LINKS</li>"
                 fi
                 if [ "$DL_SLINTPAD" = "success" ]; then
@@ -148,10 +137,6 @@ jobs:
                 if [ "$DL_MATERIAL" = "success" ]; then
                   cp -R artifacts/material/. "$DIST/material/"
                   LINKS="$LINKS<li><a href=\"/material/\">Material Components</a></li>"
-                fi
-                if [ "$DL_SAFETY" = "success" ]; then
-                  cp -R artifacts/safety-docs/. "$DIST/safety/"
-                  LINKS="$LINKS<li><a href=\"/safety/\">Safety Docs</a></li>"
                 fi
 
                 if [ -z "$LINKS" ]; then

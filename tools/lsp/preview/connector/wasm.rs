@@ -6,6 +6,7 @@
 
 use crate::common;
 use crate::preview::{self, connector, ui};
+use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewTarget, PreviewToLspMessage};
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -250,18 +251,12 @@ impl WasmLspToPreview {
 }
 
 impl common::LspToPreview for WasmLspToPreview {
-    fn send(&self, message: &i_slint_preview_protocol::LspToPreviewMessage) {
-        let _ = self
-            .server_notifier
-            .send_notification::<i_slint_preview_protocol::LspToPreviewMessage>(message.clone());
+    fn send(&self, message: &LspToPreviewMessage) {
+        let _ = self.server_notifier.send_notification::<LspToPreviewMessage>(message.clone());
     }
 
-    fn preview_target(&self) -> common::PreviewTarget {
-        common::PreviewTarget::EmbeddedWasm
-    }
-
-    fn set_preview_target(&self, _: common::PreviewTarget) -> common::Result<()> {
-        Err("Can not change the preview target".into())
+    fn preview_target(&self) -> PreviewTarget {
+        PreviewTarget::EmbeddedWasm
     }
 }
 
@@ -269,7 +264,7 @@ impl common::LspToPreview for WasmLspToPreview {
 struct WasmPreviewToLsp {}
 
 impl common::PreviewToLsp for WasmPreviewToLsp {
-    fn send(&self, message: &i_slint_preview_protocol::PreviewToLspMessage) -> common::Result<()> {
+    fn send(&self, message: &PreviewToLspMessage) -> common::Result<()> {
         WASM_CALLBACKS.with_borrow(|callbacks| {
             let notifier = js_sys::Function::from(
                 (callbacks.as_ref().expect("Callbacks were set up earlier").lsp_notifier).clone(),

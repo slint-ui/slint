@@ -45,7 +45,6 @@ jobs:
         slint: ${{ inputs.full || steps.filter.outputs.slint == 'true' }}
         figma_inspector: ${{ inputs.full || steps.filter.outputs.figma_inspector == 'true' }}
         material_components: ${{ inputs.full || steps.filter.outputs.material_components == 'true' }}
-        safety_docs: ${{ inputs.full || steps.filter.outputs.safety_docs == 'true' }}
         internal: ${{ inputs.full || steps.filter.outputs.internal == 'true' }}
         api_cpp: ${{ inputs.full || steps.filter.outputs.api_cpp == 'true' }}
         api_python: ${{ inputs.full || steps.filter.outputs.api_python == 'true' }}
@@ -56,7 +55,6 @@ jobs:
         examples_mcu: ${{ inputs.full || steps.filter.outputs.examples_mcu == 'true' }}
         vsce: ${{ inputs.full || steps.filter.outputs.vsce == 'true' }}
         slintpad: ${{ inputs.full || steps.filter.outputs.slintpad == 'true' }}
-        updater_test: ${{ inputs.full || steps.filter.outputs.updater_test == 'true' }}
         servo_example: ${{ inputs.full || steps.filter.outputs.servo_example == 'true' }}
         bevy_examples: ${{ inputs.full || steps.filter.outputs.bevy_examples == 'true' }}
         rust_files: ${{ inputs.full || steps.filter.outputs.rust_files == 'true' }}
@@ -80,17 +78,13 @@ jobs:
         strategy:
             matrix:
                 include:
-                    - os: ubuntu-22.04
-                      name: "Ubuntu 22.04 beta"
-                      rust_version: "beta"
-                      extra_args: "--exclude plotter --exclude material-gallery"
                     - os: windows-2022
                       name: "Windows 2022 1.92"
                       rust_version: "1.92"
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery"
                     - os: macos-14
-                      name: "MacOS 14 stable"
-                      rust_version: "stable"
+                      name: "MacOS 14 beta"
+                      rust_version: "beta"
                       extra_args: "--exclude ffmpeg --exclude gstreamer-player --exclude material-gallery"
         uses: ./.github/workflows/build_and_test_reusable.yaml
         with:
@@ -112,7 +106,7 @@ jobs:
 
     node_test_macos:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true' }}
+        if: ${{ needs.files-changed.outputs.api_node == 'true' }}
         uses: ./.github/workflows/node_test_reusable.yaml
         with:
           name: "Node.js macOS"
@@ -120,7 +114,7 @@ jobs:
 
     node_test_windows:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.api_node == 'true' || needs.files-changed.outputs.tests == 'true' }}
+        if: ${{ needs.files-changed.outputs.api_node == 'true' }}
         uses: ./.github/workflows/node_test_reusable.yaml
         with:
           name: "Node.js Windows"
@@ -136,14 +130,14 @@ jobs:
           os: "ubuntu-22.04"
     python_test_macos:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true' }}
+        if: ${{ needs.files-changed.outputs.api_python == 'true' }}
         uses: ./.github/workflows/python_test_reusable.yaml
         with:
           name: "Python macOS"
           os: "macos-14"
     python_test_windows:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.api_python == 'true' || needs.files-changed.outputs.tests == 'true' }}
+        if: ${{ needs.files-changed.outputs.api_python == 'true' }}
         uses: ./.github/workflows/python_test_reusable.yaml
         with:
           name: "Python Windows"
@@ -362,7 +356,7 @@ jobs:
               working-directory: editors/vscode
               run: pnpm test_grammar
 
-    # test to compile the mcu backend for the arm target (no_std)
+    # test to compile the mcu backend for no_std targets (ARM and ESP32)
     mcu:
         needs: files-changed
         if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples_mcu == 'true' || needs.files-changed.outputs.api_rs == 'true' }}
@@ -372,59 +366,33 @@ jobs:
             CARGO_PROFILE_DEV_DEBUG: 0
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
         runs-on: ubuntu-22.04
-        strategy:
-            matrix:
-                include:
-                    - feature: pico-st7789
-                      target: thumbv6m-none-eabi
-                    - feature: pico2-st7789
-                      target: thumbv8m.main-none-eabihf
-                    - feature: pico2-touch-lcd-2-8
-                      target: thumbv8m.main-none-eabihf
-                    - feature: stm32h735g
-                      target: thumbv7em-none-eabihf
         steps:
             - uses: actions/checkout@v6
             - uses: ./.github/actions/setup-rust
               with:
-                  target: ${{matrix.target}}
-            - name: Check
-              run: cargo check --target=${{matrix.target}} -p printerdemo_mcu --no-default-features --features=mcu-board-support/${{matrix.feature}} --release
-
-    # test to compile the mcu backend for the arm target (no_std) using embassy
-    mcu-embassy:
-        needs: files-changed
-        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.examples_mcu == 'true' || needs.files-changed.outputs.api_rs == 'true' }}
-        env:
-            SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
-            RUSTFLAGS: --cfg slint_int_coord -D warnings
-            CARGO_PROFILE_DEV_DEBUG: 0
-            CARGO_PROFILE_RELEASE_OPT_LEVEL: s
-        runs-on: ubuntu-22.04
-        steps:
-            - uses: actions/checkout@v6
-            - uses: ./.github/actions/setup-rust
+                  target: thumbv6m-none-eabi,thumbv7em-none-eabihf,thumbv8m.main-none-eabihf
+            - uses: esp-rs/xtensa-toolchain@v1.7
+              if: ${{ needs.files-changed.outputs.examples_mcu == 'true' }}
               with:
-                  target: thumbv8m.main-none-eabihf
-            - name: Check
-              working-directory: examples/mcu-embassy
+                  buildtargets: esp32
+                  ldproxy: false
+            - name: Check pico-st7789
+              run: cargo check --target=thumbv6m-none-eabi -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789 --release
+            - name: Check mcu-embassy
               run: cargo check --bin ui_mcu --target=thumbv8m.main-none-eabihf --no-default-features --features="mcu-embassy/mcu" --release
-
-#    mcu_esp:
-#        env:
-#            RUSTFLAGS: -D warnings
-#        runs-on: ubuntu-22.04
-#        steps:
-#            - uses: actions/checkout@v6
-#            - uses: dtolnay/rust-toolchain@stable
-#            - uses: esp-rs/xtensa-toolchain@v1.7
-#              with:
-#                  default: true
-#                  buildtargets: esp32
-#                  ldproxy: false
-#            - uses: Swatinem/rust-cache@v2
-#            - name: S3Box
-#              run: cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box  --config examples/mcu-board-support/esp32_s3_box/cargo-config.toml --release
+              working-directory: examples/mcu-embassy
+            - name: Check all boards
+              if: ${{ needs.files-changed.outputs.examples_mcu == 'true' }}
+              run: |
+                  cargo check --target=thumbv8m.main-none-eabihf -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico2-st7789 --release
+                  cargo check --target=thumbv8m.main-none-eabihf -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico2-touch-lcd-2-8 --release
+                  cargo check --target=thumbv7em-none-eabihf -p printerdemo_mcu --no-default-features --features=mcu-board-support/stm32h735g --release
+                  cargo check --target=thumbv8m.main-none-eabihf -p printerdemo_mcu --no-default-features --features=mcu-board-support/stm32u5g9j-dk2 --release
+                  cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box-3 --config examples/mcu-board-support/esp32_s3_box_3/cargo-config.toml --release
+                  cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-lcd-ev-board --config examples/mcu-board-support/esp32_s3_lcd_ev_board/cargo-config.toml --release
+                  cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esope-sld-c-w-s3 --config examples/mcu-board-support/esope_sld_c_w_s3/cargo-config.toml --release
+                  cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/waveshare-esp32-s3-touch-amoled-1-8 --config examples/mcu-board-support/waveshare_esp32_s3_touch_amoled_1_8/cargo-config.toml --release
+                  cargo +esp check -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/m5stack-cores3 --config examples/mcu-board-support/m5stack_cores3/cargo-config.toml --release
 
     ffi_32bit_build:
         needs: files-changed
@@ -471,88 +439,10 @@ jobs:
             latest: false
             tag: "v0.26.5"
 
-    # Checkout a old version of the tests and example, then run the slint-updater on them
-    # and check that it worked with the interpreter test.
-    updater_test:
-        needs: files-changed
-        if: ${{ needs.files-changed.outputs.updater_test == 'true' }}
-        env:
-            SLINT_NO_QT: 1
-            CARGO_INCREMENTAL: false
-            RUST_BACKTRACE: 1
-            CARGO_PROFILE_DEV_DEBUG: 0
-        strategy:
-            matrix:
-                from_version: ["0.3.0"]
-        runs-on: ubuntu-22.04
-        steps:
-            - uses: actions/checkout@v6
-              with:
-                  fetch-depth: 0
-            - uses: ./.github/actions/install-linux-dependencies
-            - uses: ./.github/actions/setup-rust
-            - name: Checkout old version
-              run: |
-                  git checkout v${{ matrix.from_version }} --no-overlay -- examples
-                  git checkout v${{ matrix.from_version }} --no-overlay -- tests/cases
-                  git checkout v${{ matrix.from_version }} --no-overlay -- tests/helper_components
-                  # Remove examples and demos from the workspace because they may no longer exist or their Cargo.toml might prevent the build of the updater
-                  sed -i "/examples/d" Cargo.toml
-                  sed -i "/demos/d" Cargo.toml
-            - name: "Commit old checkout"
-              run: |
-                  git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-                  git config --global user.name "${GITHUB_ACTOR}"
-                  git commit -a -m "REVERT TESTS TO v${{ matrix.from_version }}"
-            - name: run the updater
-              run: |
-                  cargo run -p slint-updater -- -i examples/*/*.slint
-                  cargo run -p slint-updater -- -i examples/*/*/*.slint
-                  cargo run -p slint-updater -- -i tests/cases/*.slint
-                  cargo run -p slint-updater -- -i tests/cases/*/*.slint
-            - name: Show the diff
-              run: git diff
-            - name: test
-              # Skip a few tests that rely on private renamed properties.
-              # Skip the tests which makes two way binding to output property (these are warning in previous version)
-              # Skip the test that use impure functions in property bindings (this is also warning in previous version)
-              # Skip the example that did not exist or that are broken
-              # Skip the path layout related tests as the element has been removed
-              # Skip the booker as it use api from the LineEdit that wasn"t meant to be used
-              run: |
-                  cargo test -p test-driver-interpreter -- \
-                            --skip test_interpreter_text_cursor_move \
-                            --skip test_interpreter_text_cursor_move_grapheme \
-                            --skip test_interpreter_text_cut \
-                            --skip test_interpreter_text_select_all \
-                            --skip test_interpreter_text_surrogate_cursor \
-                            --skip test_interpreter_text_text_change \
-                            --skip test_interpreter_crashes_layout_deleted_item \
-                            --skip test_interpreter_focus_focus_change_subcompo \
-                            --skip test_interpreter_focus_focus_change_through_signal \
-                            --skip test_interpreter_globals_alias_to_global \
-                            --skip test_interpreter_text_default_color \
-                            --skip test_interpreter_crashes_issue1271_set_in_if \
-                            --skip test_interpreter_models_assign_equal_model \
-                            --skip example_carousel \
-                            --skip example_fancy_demo \
-                            --skip example_dial \
-                            --skip example_fancy_switches \
-                            --skip example_sprite_sheet \
-                            --skip example_grid_model_rows \
-                            --skip example_grid_with_repeated_rows \
-                            --skip example_vector_as_grid \
-                            --skip example_vlayout \
-                            --skip example_flexbox_interactive \
-                            --skip test_interpreter_elements_path_fit \
-                            --skip test_interpreter_layout_path \
-                            --skip test_interpreter_7guis_booker \
-                            --skip example_bash_sysinfo \
-
     # Test that the formater don't introduce slint compilation error
     fmt_test:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.slintpad == 'true' || needs.files-changed.outputs.tests == 'true' }}
+        if: ${{ needs.files-changed.outputs.slintpad == 'true' }}
         env:
             SLINT_NO_QT: 1
             CARGO_INCREMENTAL: false
@@ -640,6 +530,8 @@ jobs:
         needs: files-changed
         if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_rs == 'true' || needs.files-changed.outputs.examples == 'true' }}
         runs-on: ubuntu-latest
+        env:
+            RUSTFLAGS: -D warnings
         steps:
             - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
@@ -673,6 +565,9 @@ jobs:
 
             - name: Build usecases demo
               run: cargo apk build -p usecases --target aarch64-linux-android --lib
+
+            - name: Build slint-viewer for Android
+              run: cargo apk build -p slint-viewer --target aarch64-linux-android --lib --features remote
 
     test-figma-inspector:
         needs: files-changed
@@ -724,10 +619,6 @@ jobs:
         ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
 
-    safety-docs:
-      needs: files-changed
-      if: ${{ needs.files-changed.outputs.safety_docs == 'true' }}
-      uses: ./.github/workflows/safety_docs.yaml
 
     servo_example:
         needs: files-changed
@@ -762,7 +653,7 @@ jobs:
               run: cargo llvm-cov --no-report -p i-slint-compiler --features slint-sc --no-default-features
             - name: Test slint-compiler binary with slint-sc feature
               run: cargo llvm-cov --no-report -p slint-compiler --features slint-sc --no-default-features
-            - name: Test slint-sc runtime
+            - name: Test slint-sc runtime and driver
               run: cargo llvm-cov --no-report -p slint-sc
             - name: Generate coverage report
               run: |
@@ -925,17 +816,22 @@ jobs:
         if: ${{ inputs.full }}
         strategy:
             matrix:
-              demo:
+              project:
                 - demos/home-automation/rust
                 - demos/energy-monitor
+                - tools/viewer
               include:
-                - demo: demos/home-automation/rust
+                - project: demos/home-automation/rust
                   scheme: "Home Automation"
                   bundle_id: dev.slint.demos.HomeAutomation
                   device: iPad Pro 13-inch (M5)
-                - demo: demos/energy-monitor
+                - project: demos/energy-monitor
                   scheme: "Energy Monitor"
                   bundle_id: dev.slint.demos.EnergyMonitor
+                  device: iPhone 17
+                - project: tools/viewer
+                  scheme: "slint-viewer"
+                  bundle_id: dev.slint.slint-viewer
                   device: iPhone 17
         runs-on: macos-26
         steps:
@@ -945,7 +841,7 @@ jobs:
                   target: aarch64-apple-ios-sim
             - run: brew install xcodegen
             - run: xcodegen -s ios-project.yml
-              working-directory: ${{ matrix.demo }}
+              working-directory: ${{ matrix.project }}
             - name: "Find Simulator UDID from iOS 26.4 runtime"
               run: |
                 echo "=== Finding device from iOS 26.4 runtime (default Xcode) ==="
@@ -969,7 +865,7 @@ jobs:
                 echo "UDID: $DEVICE_UDID"
                 echo "SIMULATOR_UDID=$DEVICE_UDID" >> $GITHUB_ENV
             - run: xcodebuild -scheme "${{ matrix.scheme }}" -destination "platform=iOS Simulator,id=${{ env.SIMULATOR_UDID }}" build
-              working-directory: ${{ matrix.demo }}
+              working-directory: ${{ matrix.project }}
 # This isn't working reliably. Sometimes the simulator doesn't boot, somethings launching fails, and sometimes screenshotting fails.
 #            - name: "Boot Simulator"
 #              timeout-minutes: 5
@@ -1082,5 +978,5 @@ jobs:
               run: cargo miri test -p vtable -p const-field-offset -p i-slint-common
             - name: Run Miri on i-slint-core
               env:
-                  MIRIFLAGS: -Zmiri-disable-isolation
-              run: cargo miri test -p i-slint-core -- --skip properties --skip model --skip textlayout --skip physics_simulation
+                  MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-tree-borrows
+              run: cargo miri test -p i-slint-core --lib --features ffi,rtti

@@ -3,9 +3,9 @@
 
 use crate::{common, preview};
 
-use std::collections::HashMap;
 use std::{cell::RefCell, io::BufRead};
 
+use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewTarget, PreviewToLspMessage};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt},
     sync::mpsc,
@@ -23,15 +23,11 @@ struct ChildProcessLspToPreviewInner {
 
 pub struct ChildProcessLspToPreview {
     inner: RefCell<Option<ChildProcessLspToPreviewInner>>,
-    preview_to_lsp_channel: mpsc::UnboundedSender<i_slint_preview_protocol::PreviewToLspMessage>,
+    preview_to_lsp_channel: mpsc::UnboundedSender<PreviewToLspMessage>,
 }
 
 impl ChildProcessLspToPreview {
-    pub fn new(
-        preview_to_lsp_channel: mpsc::UnboundedSender<
-            i_slint_preview_protocol::PreviewToLspMessage,
-        >,
-    ) -> Self {
+    pub fn new(preview_to_lsp_channel: mpsc::UnboundedSender<PreviewToLspMessage>) -> Self {
         Self { inner: RefCell::new(None), preview_to_lsp_channel }
     }
 
@@ -78,14 +74,12 @@ impl ChildProcessLspToPreview {
                         .to_string();
                 tracing::error!("{message}");
 
-                let _ = preview_to_lsp_channel.send(
-                    i_slint_preview_protocol::PreviewToLspMessage::SendShowMessage {
-                        message: lsp_types::ShowMessageParams {
-                            typ: lsp_types::MessageType::ERROR,
-                            message,
-                        },
+                let _ = preview_to_lsp_channel.send(PreviewToLspMessage::SendShowMessage {
+                    message: lsp_types::ShowMessageParams {
+                        typ: lsp_types::MessageType::ERROR,
+                        message,
                     },
-                );
+                });
             }
             Ok(())
         });
@@ -111,16 +105,14 @@ impl ChildProcessLspToPreview {
 impl Drop for ChildProcessLspToPreview {
     fn drop(&mut self) {
         if let Some(inner) = self.inner.borrow_mut().take() {
-            let message =
-                serde_json::to_string(&i_slint_preview_protocol::LspToPreviewMessage::Quit)
-                    .unwrap();
+            let message = serde_json::to_string(&LspToPreviewMessage::Quit).unwrap();
             let _ = inner.to_child_sender.send(message);
         }
     }
 }
 
 impl common::LspToPreview for ChildProcessLspToPreview {
-    fn send(&self, message: &i_slint_preview_protocol::LspToPreviewMessage) {
+    fn send(&self, message: &LspToPreviewMessage) {
         if self.preview_is_running() {
             let mut inner = self.inner.borrow_mut();
             let inner = inner.as_mut().unwrap();
@@ -129,7 +121,7 @@ impl common::LspToPreview for ChildProcessLspToPreview {
                 return;
             };
             let _ = inner.to_child_sender.send(message);
-        } else if let i_slint_preview_protocol::LspToPreviewMessage::ShowPreview(_) = message {
+        } else if let LspToPreviewMessage::ShowPreview(_) = message {
             tracing::debug!("Starting preview process");
             self.start_preview().unwrap();
         } else {
@@ -137,31 +129,8 @@ impl common::LspToPreview for ChildProcessLspToPreview {
         }
     }
 
-    fn preview_target(&self) -> common::PreviewTarget {
-        common::PreviewTarget::ChildProcess
-    }
-
-    fn set_preview_target(&self, _: common::PreviewTarget) -> common::Result<()> {
-        Err("Can not change the preview target".into())
-    }
-
-    fn shutdown<'a>(&'a self) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'a>> {
-        Box::pin(async move {
-            let Some(inner) = self.inner.borrow_mut().take() else {
-                return;
-            };
-            let message =
-                serde_json::to_string(&i_slint_preview_protocol::LspToPreviewMessage::Quit)
-                    .unwrap();
-            let _ = inner.to_child_sender.send(message);
-            drop(inner.to_child_sender);
-            if tokio::time::timeout(std::time::Duration::from_secs(5), inner.communication_handle)
-                .await
-                .is_err()
-            {
-                tracing::warn!("Timed out waiting for preview child process to exit");
-            }
-        })
+    fn preview_target(&self) -> PreviewTarget {
+        PreviewTarget::ChildProcess
     }
 }
 
@@ -176,63 +145,12 @@ impl EmbeddedLspToPreview {
 }
 
 impl common::LspToPreview for EmbeddedLspToPreview {
-    fn send(&self, message: &i_slint_preview_protocol::LspToPreviewMessage) {
-        let _ = self
-            .server_notifier
-            .send_notification::<i_slint_preview_protocol::LspToPreviewMessage>(message.clone());
+    fn send(&self, message: &LspToPreviewMessage) {
+        let _ = self.server_notifier.send_notification::<LspToPreviewMessage>(message.clone());
     }
 
-    fn preview_target(&self) -> common::PreviewTarget {
-        common::PreviewTarget::EmbeddedWasm
-    }
-
-    fn set_preview_target(&self, _: common::PreviewTarget) -> common::Result<()> {
-        Err("Can not change the preview target".into())
-    }
-}
-
-pub struct SwitchableLspToPreview {
-    lsp_to_previews: HashMap<common::PreviewTarget, Box<dyn common::LspToPreview>>,
-    current_target: RefCell<common::PreviewTarget>,
-}
-
-impl SwitchableLspToPreview {
-    pub fn new(
-        lsp_to_previews: HashMap<common::PreviewTarget, Box<dyn common::LspToPreview>>,
-        current_target: common::PreviewTarget,
-    ) -> common::Result<Self> {
-        if lsp_to_previews.contains_key(&current_target) {
-            Ok(Self { lsp_to_previews, current_target: RefCell::new(current_target) })
-        } else {
-            Err("No such target".into())
-        }
-    }
-}
-
-impl common::LspToPreview for SwitchableLspToPreview {
-    fn send(&self, message: &i_slint_preview_protocol::LspToPreviewMessage) {
-        self.lsp_to_previews.get(&self.current_target.borrow()).unwrap().send(message);
-    }
-
-    fn preview_target(&self) -> common::PreviewTarget {
-        self.current_target.borrow().clone()
-    }
-
-    fn set_preview_target(&self, target: common::PreviewTarget) -> common::Result<()> {
-        if self.lsp_to_previews.contains_key(&target) {
-            *self.current_target.borrow_mut() = target;
-            Ok(())
-        } else {
-            Err("Target not found".into())
-        }
-    }
-
-    fn shutdown<'a>(&'a self) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'a>> {
-        Box::pin(async move {
-            for child in self.lsp_to_previews.values() {
-                child.shutdown().await;
-            }
-        })
+    fn preview_target(&self) -> PreviewTarget {
+        PreviewTarget::EmbeddedWasm
     }
 }
 
@@ -296,7 +214,7 @@ impl RemoteControlledPreviewToLsp {
 
 impl common::PreviewToLsp for RemoteControlledPreviewToLsp {
     #[allow(clippy::print_stdout)]
-    fn send(&self, message: &i_slint_preview_protocol::PreviewToLspMessage) -> common::Result<()> {
+    fn send(&self, message: &PreviewToLspMessage) -> common::Result<()> {
         let message = serde_json::to_string(message).map_err(|e| e.to_string())?;
         println!("{message}");
         Ok(())

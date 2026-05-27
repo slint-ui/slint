@@ -7,7 +7,7 @@ use float_cmp::ApproxEq;
 
 use std::collections::HashMap;
 
-use derive_more::*;
+use derive_more::{Add, AddAssign, Neg, Sub, SubAssign};
 use serde::Deserialize;
 use smart_default::SmartDefault;
 

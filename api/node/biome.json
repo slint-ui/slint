@@ -6,7 +6,8 @@
             "**",
             "!**/docs/",
             "!rust-module.d.cts",
-            "!rust-module.cjs"
+            "!rust-module.cjs",
+            "!typescript/generated/"
         ]
     },
     "linter": {

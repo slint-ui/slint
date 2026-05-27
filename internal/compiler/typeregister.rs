@@ -10,8 +10,8 @@ use std::rc::Rc;
 
 use crate::expression_tree::BuiltinFunction;
 use crate::langtype::{
-    BuiltinElement, BuiltinPrivateStruct, BuiltinPropertyDefault, BuiltinPropertyInfo,
-    BuiltinPublicStruct, ElementType, Enumeration, Function, PropertyLookupResult, Struct, Type,
+    BuiltinElement, BuiltinPropertyDefault, BuiltinPropertyInfo, BuiltinStruct, ElementType,
+    Enumeration, Function, PropertyLookupResult, Struct, Type,
 };
 use crate::object_tree::{Component, PropertyVisibility};
 use crate::typeloader;
@@ -57,7 +57,7 @@ pub const RESERVED_FLEXBOXLAYOUT_PROPERTIES: &[(&str, Type)] = &[
 ];
 
 macro_rules! declare_enums {
-    ($( $(#[$enum_doc:meta])* enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
+    ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
         #[allow(non_snake_case)]
         pub struct BuiltinEnums {
             $(pub $Name : Rc<Enumeration>),*
@@ -114,7 +114,7 @@ impl BuiltinTypes {
                         .map(|s| (SmolStr::new_static(s), Type::Float32)),
                 )
                 .collect(),
-            name: BuiltinPrivateStruct::LayoutInfo.into(),
+            name: BuiltinStruct::LayoutInfo.into(),
         });
         let enums = BuiltinEnums::new();
         let flex_align_self_type = Type::Enumeration(enums.FlexboxLayoutAlignSelf.clone());
@@ -126,7 +126,7 @@ impl BuiltinTypes {
                     (SmolStr::new_static("y"), Type::LogicalLength),
                 ])
                 .collect(),
-                name: BuiltinPublicStruct::LogicalPosition.into(),
+                name: BuiltinStruct::LogicalPosition.into(),
             }),
             logical_size_type: Rc::new(Struct {
                 fields: IntoIterator::into_iter([
@@ -134,7 +134,7 @@ impl BuiltinTypes {
                     (SmolStr::new_static("height"), Type::LogicalLength),
                 ])
                 .collect(),
-                name: BuiltinPublicStruct::LogicalSize.into(),
+                name: BuiltinStruct::LogicalSize.into(),
             }),
             font_metrics_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([
@@ -144,7 +144,7 @@ impl BuiltinTypes {
                     (SmolStr::new_static("cap-height"), Type::LogicalLength),
                 ])
                 .collect(),
-                name: BuiltinPrivateStruct::FontMetrics.into(),
+                name: BuiltinStruct::FontMetrics.into(),
             })),
             noarg_callback_type: Type::Callback(Rc::new(Function {
                 return_type: Type::Void,
@@ -164,11 +164,11 @@ impl BuiltinTypes {
                     (SmolStr::new_static("change-time"), Type::Duration),
                 ])
                 .collect(),
-                name: BuiltinPrivateStruct::StateInfo.into(),
+                name: BuiltinStruct::StateInfo.into(),
             }),
             path_element_type: Type::Struct(Rc::new(Struct {
                 fields: Default::default(),
-                name: BuiltinPrivateStruct::PathElement.into(),
+                name: BuiltinStruct::PathElement.into(),
             })),
             layout_item_info_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([(
@@ -176,7 +176,7 @@ impl BuiltinTypes {
                     layout_info_type.clone().into(),
                 )])
                 .collect(),
-                name: BuiltinPrivateStruct::LayoutItemInfo.into(),
+                name: BuiltinStruct::LayoutItemInfo.into(),
             })),
             flexbox_layout_item_info_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([
@@ -188,7 +188,7 @@ impl BuiltinTypes {
                     ("flex-order".into(), Type::Int32),
                 ])
                 .collect(),
-                name: BuiltinPrivateStruct::FlexboxLayoutItemInfo.into(),
+                name: BuiltinStruct::FlexboxLayoutItemInfo.into(),
             })),
             gridlayout_input_data_type: Type::Struct(Rc::new(Struct {
                 fields: IntoIterator::into_iter([
@@ -198,7 +198,7 @@ impl BuiltinTypes {
                     ("colspan".into(), Type::Int32),
                 ])
                 .collect(),
-                name: BuiltinPrivateStruct::GridLayoutInputData.into(),
+                name: BuiltinStruct::GridLayoutInputData.into(),
             })),
         }
     }
@@ -501,14 +501,8 @@ impl TypeRegister {
         macro_rules! register_builtin_structs {
             ($(
                 $(#[$attr:meta])*
-                struct $Name:ident {
-                    @name = $inner_name:expr,
-                    export {
-                        $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ident, )*
-                    }
-                    private {
-                        $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
-                    }
+                $vis:vis struct $Name:ident {
+                    $( $(#[$field_attr:meta])* $field:ident : $field_type:ident, )*
                 }
             )*) => { $(
                 register.insert_type_with_name(Type::Struct(builtin_structs::$Name()), SmolStr::new(stringify!($Name)));
@@ -840,14 +834,8 @@ pub mod builtin_structs {
     macro_rules! declare_builtin_structs {
         ($(
             $(#[$attr:meta])*
-            struct $Name:ident {
-                @name = $inner_name:expr,
-                export {
-                    $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ident, )*
-                }
-                private {
-                    $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
-                }
+            $vis:vis struct $Name:ident {
+                $( $(#[$field_attr:meta])* $field:ident : $field_type:ident, )*
             }
         )*) => {
             pub struct BuiltinStructs {
@@ -862,9 +850,9 @@ pub mod builtin_structs {
                     #[allow(non_snake_case)]
                     let $Name = Rc::new(Struct{
                         fields: BTreeMap::from([
-                            $((stringify!($pub_field).replace_smolstr("_", "-"), map_type!($pub_type, $pub_type))),*
+                            $((stringify!($field).replace_smolstr("_", "-"), map_type!($field_type, $field_type))),*
                         ]),
-                        name: $inner_name.into(),
+                        name: BuiltinStruct::$Name.into(),
                     });
                     )*
 

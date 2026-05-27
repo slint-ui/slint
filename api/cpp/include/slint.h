@@ -289,10 +289,11 @@ union MaybeUninitialized {
 
 inline vtable::VRc<cbindgen_private::MenuVTable>
 create_menu_wrapper(const ItemTreeRc &menu_item_tree,
-                    bool (*condition)(const ItemTreeRc *menu_tree) = nullptr)
+                    bool (*condition)(const ItemTreeRc *menu_tree) = nullptr,
+                    bool (*visible)(const ItemTreeRc *menu_tree) = nullptr)
 {
     MaybeUninitialized<vtable::VRc<cbindgen_private::MenuVTable>> maybe;
-    cbindgen_private::slint_menus_create_wrapper(&menu_item_tree, &maybe.value, condition);
+    cbindgen_private::slint_menus_create_wrapper(&menu_item_tree, &maybe.value, condition, visible);
     return maybe.take();
 }
 
@@ -349,6 +350,13 @@ inline StyledText string_to_styled_text(const SharedString &text)
 {
     StyledText result;
     cbindgen_private::slint_string_to_styled_text(&text, &result);
+    return result;
+}
+
+inline StyledText color_to_styled_text(const Color &color)
+{
+    StyledText result;
+    cbindgen_private::slint_color_to_styled_text(&color, &result);
     return result;
 }
 

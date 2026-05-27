@@ -66,6 +66,7 @@ checkmark
 checkstate
 chipset
 chrono
+Cinstrument
 circledraw
 circularprogressindicator
 CLIB
@@ -110,6 +111,7 @@ ctrf
 ctypes
 customcomponents
 darkimg
+dashmap
 Datakonsult
 Datas
 datatypes
@@ -135,6 +137,7 @@ divq
 divr
 DLOPEN
 docsrs
+docstrings
 doctests
 doesnotexist
 dolore
@@ -221,6 +224,7 @@ Fullwidth
 fvar
 Fwww
 getattr
+getifs
 getpid
 getrandom
 globalfun
@@ -319,6 +323,7 @@ Libinput
 libloading
 libm
 libseat
+libslint
 libstdc
 libudev
 libx
@@ -422,6 +427,7 @@ Pantone
 partytown
 PATCHLEVEL
 pathdata
+pathlib
 pbjson
 PCLK
 pdoc
@@ -473,6 +479,7 @@ rects
 redoable
 REFR
 relpath
+remoteviewer
 Renderable
 repr
 reqwest
@@ -589,6 +596,7 @@ Tlink
 Tlinkall
 tmgrammar
 toctree
+tomllib
 tonalbutton
 toolkits
 TOPLEVEL
@@ -596,6 +604,8 @@ Torizon
 toucharea
 toupper
 trunc
+tungstenite
+typedoc
 typeregister
 Tzimabazafi
 uart
@@ -672,5 +682,6 @@ zaimoku
 Zbuild
 zephyrproject
 Zeroable
+zeroconf
 zstd
 தோசை

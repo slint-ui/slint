@@ -50,6 +50,10 @@ jobs:
               run: rustup toolchain install stable-x86_64-unknown-linux-gnu --profile default
             - name: Run lints
               run: mise run --force --jobs=1 'ci:autofix:lint'
+            - name: Spell check
+              uses: streetsidesoftware/cspell-action@v8
+              with:
+                incremental_files_only: true
 
     ci:
         needs: [format_fix, lint_typecheck]

@@ -300,19 +300,15 @@ macro_rules! declare_value_struct_conversion {
     };
     ($(
         $(#[$struct_attr:meta])*
-        struct $Name:ident {
-            @name = $inner_name:expr,
-            export {
-                $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
-            }
-            private { $($pri:tt)* }
+        $vis:vis struct $Name:ident {
+            $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
         }
     )*) => {
         $(
             impl From<$Name> for Value {
                 fn from(item: $Name) -> Self {
                     let mut struct_ = Struct::default();
-                    $(struct_.set_field(stringify!($pub_field).into(), item.$pub_field.into());)*
+                    $(struct_.set_field(stringify!($field).into(), item.$field.into());)*
                     Value::Struct(struct_)
                 }
             }
@@ -325,7 +321,7 @@ macro_rules! declare_value_struct_conversion {
                             type Ty = $Name;
                             #[allow(unused)]
                             let mut res: Ty = Ty::default();
-                            $(res.$pub_field = x.get_field(stringify!($pub_field)).ok_or(())?.clone().try_into().map_err(|_|())?;)*
+                            $(res.$field = x.get_field(stringify!($field)).ok_or(())?.clone().try_into().map_err(|_|())?;)*
                             Ok(res)
                         }
                         _ => Err(()),
@@ -339,6 +335,7 @@ macro_rules! declare_value_struct_conversion {
 declare_value_struct_conversion!(struct i_slint_core::layout::LayoutInfo { min, max, min_percent, max_percent, preferred, stretch });
 declare_value_struct_conversion!(struct i_slint_core::graphics::Point { x, y, ..Default::default()});
 declare_value_struct_conversion!(struct i_slint_core::api::LogicalPosition { x, y });
+declare_value_struct_conversion!(struct i_slint_core::api::LogicalSize { width, height });
 declare_value_struct_conversion!(struct i_slint_core::properties::StateInfo { current_state, previous_state, change_time });
 
 i_slint_common::for_each_builtin_structs!(declare_value_struct_conversion);
@@ -348,7 +345,7 @@ i_slint_common::for_each_builtin_structs!(declare_value_struct_conversion);
 /// The `enum` must derive `Display` and `FromStr`
 /// (can be done with `strum_macros::EnumString`, `strum_macros::Display` derive macro)
 macro_rules! declare_value_enum_conversion {
-    ($( $(#[$enum_doc:meta])* enum $Name:ident { $($body:tt)* })*) => { $(
+    ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $($body:tt)* })*) => { $(
         impl From<i_slint_core::items::$Name> for Value {
             fn from(v: i_slint_core::items::$Name) -> Self {
                 Value::EnumerationValue(stringify!($Name).to_owned(), v.to_string())
@@ -852,11 +849,9 @@ impl Compiler {
         Self::default()
     }
 
-    #[cfg(feature = "internal-live-preview")]
-    pub(crate) fn set_embed_resources(
-        &mut self,
-        embed_resources: i_slint_compiler::EmbedResourcesKind,
-    ) {
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn set_embed_resources(&mut self, embed_resources: i_slint_compiler::EmbedResourcesKind) {
         self.config.embed_resources = embed_resources;
     }
 
@@ -975,7 +970,7 @@ impl Compiler {
                 return CompilationResult {
                     components: HashMap::new(),
                     diagnostics: diagnostics.into_iter().collect(),
-                    #[cfg(feature = "internal-file-watcher")]
+                    #[cfg(feature = "internal")]
                     watch_paths: vec![i_slint_compiler::pathutils::clean_path(path)],
                     #[cfg(feature = "internal")]
                     structs_and_enums: Vec::new(),
@@ -1015,7 +1010,7 @@ impl Compiler {
 pub struct CompilationResult {
     pub(crate) components: HashMap<String, ComponentDefinition>,
     pub(crate) diagnostics: Vec<Diagnostic>,
-    #[cfg(feature = "internal-file-watcher")]
+    #[cfg(feature = "internal")]
     pub(crate) watch_paths: Vec<PathBuf>,
     #[cfg(feature = "internal")]
     pub(crate) structs_and_enums: Vec<LangType>,
@@ -1075,7 +1070,7 @@ impl CompilationResult {
 
     /// This is an internal function without API stability guarantees.
     #[doc(hidden)]
-    #[cfg(feature = "internal-file-watcher")]
+    #[cfg(feature = "internal")]
     pub fn watch_paths(&self, _: i_slint_core::InternalToken) -> &[PathBuf] {
         &self.watch_paths
     }
@@ -2377,6 +2372,7 @@ export component Foo2 inherits Window  {
 }
 
 #[cfg(feature = "ffi")]
+#[doc(hidden)]
 #[allow(missing_docs)]
 #[path = "ffi.rs"]
-pub(crate) mod ffi;
+pub mod ffi;

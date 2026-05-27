@@ -731,12 +731,14 @@ impl SkiaRenderer {
                     buffer_dirty_region,
                 );
 
-                let mut clip_path = skia_safe::Path::new();
+                let mut clip_path_builder = skia_safe::PathBuilder::new();
 
                 for dirty_rect in partial_renderer.dirty_region.iter() {
                     let physical_rect = (dirty_rect * scale_factor).to_rect().round_out();
-                    clip_path.add_rect(to_skia_rect(&physical_rect), None);
+                    clip_path_builder.add_rect(to_skia_rect(&physical_rect), None, None);
                 }
+
+                let clip_path = clip_path_builder.detach();
 
                 if matches!(self.dirty_region_debug_mode, DirtyRegionDebugMode::Log) {
                     let area_to_repaint: f32 =
@@ -928,7 +930,7 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
         let ctx = self.slint_context().ok_or("slint platform not initialized")?;
-        ctx.font_context().borrow_mut().collection.register_fonts(data.to_vec().into(), None);
+        ctx.font_context().borrow_mut().register_static_font(data);
         Ok(())
     }
 

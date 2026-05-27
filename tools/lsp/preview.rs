@@ -19,8 +19,8 @@ use i_slint_compiler::{EmbedResourcesKind, diagnostics};
 use i_slint_core::DataTransfer;
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
-use i_slint_preview_protocol::{
-    PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
+use i_slint_live_preview::protocol::{
+    PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
 };
 use lsp_types::Url;
 use slint::{PlatformError, SharedString};
@@ -65,9 +65,7 @@ pub fn run(
     app_window.window().set_fullscreen(fullscreen);
 
     tracing::debug!("Preview: requesting state from LSP");
-    to_lsp
-        .send(&i_slint_preview_protocol::PreviewToLspMessage::RequestState { unused: true })
-        .unwrap();
+    to_lsp.send(&PreviewToLspMessage::RequestState { files: Vec::new() }).unwrap();
 
     let app_window_clone = PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
@@ -259,7 +257,7 @@ fn apply_live_preview_data() {
     }
 }
 
-fn set_contents(url: &i_slint_preview_protocol::VersionedUrl, content: String) {
+fn set_contents(url: &VersionedUrl, content: String) {
     if let Some(current) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content) {
             undo_redo::set_undo_redo_enabled(preview_state);
@@ -966,10 +964,7 @@ fn resize_selected_element_impl(
 
     properties::update_element_properties(
         &document_cache,
-        common::VersionedPosition::new(
-            i_slint_preview_protocol::VersionedUrl::new(url, version),
-            offset,
-        ),
+        common::VersionedPosition::new(VersionedUrl::new(url, version), offset),
         properties,
     )
     .map(|edit| (edit, format!("{op} element")))
@@ -1432,9 +1427,9 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
 }
 
 async fn parse_source(
-    config: i_slint_preview_protocol::PreviewConfig,
+    config: PreviewConfig,
     path: PathBuf,
-    version: i_slint_preview_protocol::SourceFileVersion,
+    version: SourceFileVersion,
     source_code: String,
     style: String,
     component: Option<String>,
@@ -1442,11 +1437,7 @@ async fn parse_source(
         String,
     ) -> core::pin::Pin<
         Box<
-            dyn core::future::Future<
-                    Output = Option<
-                        std::io::Result<(i_slint_preview_protocol::SourceFileVersion, String)>,
-                    >,
-                >,
+            dyn core::future::Future<Output = Option<std::io::Result<(SourceFileVersion, String)>>>,
         >,
     > + 'static,
 ) -> (
@@ -1697,7 +1688,10 @@ fn convert_diagnostics(
                 if data.0.is_some() && new_version.is_some() && data.0 != new_version {
                     continue;
                 }
-                data.1.push(crate::util::to_lsp_diag(d, preview_state.format()));
+                data.1.push(i_slint_live_preview::protocol::to_lsp_diagnostic(
+                    d,
+                    preview_state.format(),
+                ));
             }
         }
     });

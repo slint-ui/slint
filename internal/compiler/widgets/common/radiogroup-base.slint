@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export struct RadioEntry {
+    text: string,
+    disabled: bool,
+}
+
+export component RadioGroupBase {
+    in property <[RadioEntry]> model;
+    in property <bool> enabled: true;
+    in-out property <int> current-index: 0;
+    in-out property <string> current-value: root.model[root.current-index].text;
+
+    callback selected(string);
+
+    public function select(index: int) {
+        if root.enabled && index >= 0 && index < root.model.length && !root.model[index].disabled {
+            root.current-index = index;
+            root.update-current-value();
+            root.selected(root.current-value);
+        }
+    }
+
+    function reset-current() {
+        if root.model.length == 0 {
+            root.current-index = 0;
+        } else {
+            root.current-index = root.current-index.clamp(0, root.model.length - 1);
+        }
+        root.update-current-value();
+    }
+
+    function update-current-value() {
+        if root.current-index < 0 || root.current-index >= root.model.length {
+            root.current-value = "";
+            return;
+        }
+        root.current-value = root.model[root.current-index].text;
+    }
+
+    changed model => {
+        root.reset-current();
+    }
+
+    changed current-index => {
+        root.update-current-value();
+    }
+}

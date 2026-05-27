@@ -199,10 +199,12 @@ each instance will have their own instance of associated globals singletons.
 #![warn(missing_docs)]
 #![deny(unsafe_code)]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 #![allow(clippy::needless_doctest_main)] // We document how to write a main function
 
 extern crate alloc;
+#[cfg(feature = "std")]
+extern crate std;
 
 #[cfg(not(feature = "compat-1-2"))]
 compile_error!(
@@ -219,6 +221,7 @@ pub use i_slint_core::api::*;
 pub use i_slint_core::component_factory::ComponentFactory;
 #[cfg(not(target_arch = "wasm32"))]
 pub use i_slint_core::graphics::{BorrowedOpenGLTextureBuilder, BorrowedOpenGLTextureOrigin};
+pub use i_slint_core::input::{Keys, KeysParseError};
 pub use i_slint_core::items::{StandardListViewItem, TableColumn};
 pub use i_slint_core::model::{
     FilterModel, MapModel, Model, ModelExt, ModelNotify, ModelPeer, ModelRc, ModelTracker,
@@ -304,34 +307,36 @@ pub fn run_event_loop_until_quit() -> Result<(), PlatformError> {
 /// The following little example demonstrates the use of Tokio's [`TcpStream`](https://docs.rs/tokio/latest/tokio/net/struct.TcpStream.html) to
 /// read from a network socket. The entire future passed to `spawn_local()` is wrapped in `Compat::new()` to make it run:
 ///
-/// ```rust,no_run
+/// ```rust
 /// // A dummy TCP server that once reports "Hello World"
-/// # i_slint_backend_testing::init_integration_test_with_mock_time();
-/// use std::io::Write;
+/// fn main() {
+///     # i_slint_backend_testing::init_integration_test_with_mock_time();
+///     use std::io::Write;
 ///
-/// let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-/// let local_addr = listener.local_addr().unwrap();
-/// let server = std::thread::spawn(move || {
-///     let mut stream = listener.incoming().next().unwrap().unwrap();
-///     stream.write("Hello World".as_bytes()).unwrap();
-/// });
+///     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+///     let local_addr = listener.local_addr().unwrap();
+///     let server = std::thread::spawn(move || {
+///         let mut stream = listener.incoming().next().unwrap().unwrap();
+///         stream.write("Hello World".as_bytes()).unwrap();
+///     });
 ///
-/// let slint_future = async move {
-///     use tokio::io::AsyncReadExt;
-///     let mut stream = tokio::net::TcpStream::connect(local_addr).await.unwrap();
-///     let mut data = Vec::new();
-///     stream.read_to_end(&mut data).await.unwrap();
-///     assert_eq!(data, "Hello World".as_bytes());
-///     slint::quit_event_loop().unwrap();
-/// };
+///     let slint_future = async move {
+///         use tokio::io::AsyncReadExt;
+///         let mut stream = tokio::net::TcpStream::connect(local_addr).await.unwrap();
+///         let mut data = Vec::new();
+///         stream.read_to_end(&mut data).await.unwrap();
+///         assert_eq!(data, "Hello World".as_bytes());
+///         slint::quit_event_loop().unwrap();
+///     };
 ///
-/// // Wrap the future that includes Tokio futures in async_compat's `Compat` to ensure
-/// // presence of a Tokio run-time.
-/// slint::spawn_local(async_compat::Compat::new(slint_future)).unwrap();
+///     // Wrap the future that includes Tokio futures in async_compat's `Compat` to ensure
+///     // presence of a Tokio run-time.
+///     slint::spawn_local(async_compat::Compat::new(slint_future)).unwrap();
 ///
-/// slint::run_event_loop_until_quit().unwrap();
+///     slint::run_event_loop_until_quit().unwrap();
 ///
-/// server.join().unwrap();
+///     server.join().unwrap();
+/// }
 /// ```
 ///
 /// The use of `#[tokio::main]` is **not recommended**. If it's necessary to use though, wrap the call to enter the Slint
@@ -461,29 +466,29 @@ pub mod language {
     macro_rules! export_builtin_structs {
         ($(
             $(#[$attr:meta])*
-            struct $Name:ident {
-                @name = $NameTy:ident :: $NameVariant:ident,
-                export {
-                    $( $(#[$pub_attr:meta])* $pub_field:ident : $pub_type:ty, )*
-                }
-                private {
-                    $( $(#[$pri_attr:meta])* $pri_field:ident : $pri_type:ty, )*
-                }
+            $vis:vis struct $Name:ident {
+                $( $(#[$field_attr:meta])* $field:ident : $field_type:ty, )*
             }
         )*) => {
-            $(
-                export_builtin_structs!(@export $NameTy $Name);
-            )*
+            $( #[allow(unused_imports)] $vis use i_slint_core::items::$Name; )*
         };
-        (@export BuiltinPublicStruct $Name:ident) => {
-            pub use i_slint_core::items::$Name;
-        };
-        (@export BuiltinPrivateStruct $Name:ident) => {};
     }
 
     i_slint_common::for_each_builtin_structs!(export_builtin_structs);
 
-    pub use i_slint_core::items::{ColorScheme, PointerEventButton, PointerEventKind};
+    // `$vis use …;` propagates the enum's declared visibility: `pub enum Foo` becomes a
+    // `pub use`, plain `enum Foo` becomes a private `use` (in-scope only, suppressed by
+    // `#[allow(unused_imports)]`).
+    macro_rules! export_builtin_enums {
+        ($(
+            $(#[$attr:meta])*
+            $vis:vis enum $Name:ident { $($_body:tt)* }
+        )*) => {
+            $( #[allow(unused_imports)] $vis use i_slint_core::items::$Name; )*
+        };
+    }
+
+    i_slint_common::for_each_enums!(export_builtin_enums);
 }
 
 #[cfg(any(

@@ -82,6 +82,7 @@
         "src/components/Footer.astro",
         "src/components/Header.astro",
         "src/components/HeaderNodeDocs.astro",
+        "src/components/HeaderPythonDocs.astro",
         "src/components/HeaderSlintDocs.astro",
         "src/components/HeaderVersioned.astro",
         "src/components/ThemeSelect.astro",
@@ -90,6 +91,15 @@
         "src/components/VersionBanner.astro"
       ],
       "ignoreDependencies": ["playwright-ctrf-json-reporter"]
+    },
+    "docs/python": {
+      "ignoreBinaries": ["uv"],
+      "ignoreFiles": ["src/components/Signature.astro"]
+    },
+    "docs/safety": {
+      "ignoreFiles": [
+        "src/styles/sls-ids.css"
+      ]
     }
   },
   "ignoreIssues": {

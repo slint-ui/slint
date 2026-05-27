@@ -3,13 +3,14 @@
 // SPDX-License-Identifier: MIT
 
 import * as slint from "slint-ui";
+const { DragAction } = slint.language;
 
 const ui = slint.loadFile(new URL("kanban.slint", import.meta.url));
 const appWindow = new ui.MainWindow();
 
 // What we attach to each `DataTransfer` via the `userData` property. A copy of
-// the `TaskData` plus the row it came from, so `source-column-of` can answer
-// the .slint side and `move-task` knows what to remove on a move.
+// the `TaskData` plus the row it came from, so `can-drop` recognizes our own
+// payloads and `dropped` knows what to remove on a move.
 class DragPayload {
     constructor(task, sourceColumn, sourceIndex) {
         this.task = task;
@@ -19,16 +20,16 @@ class DragPayload {
 }
 
 const todo = new slint.ArrayModel([
-    { id: 1, title: "Write release notes" },
-    { id: 2, title: "Reply to mailing list" },
-    { id: 3, title: "Triage open issues" },
+    { title: "Write release notes" },
+    { title: "Reply to mailing list" },
+    { title: "Triage open issues" },
 ]);
 const doing = new slint.ArrayModel([
-    { id: 4, title: "Polish drag-and-drop example" },
-    { id: 5, title: "Review kanban PR" },
+    { title: "Polish drag-and-drop example" },
+    { title: "Review kanban PR" },
 ]);
 const done = new slint.ArrayModel([
-    { id: 6, title: "Set up project skeleton" },
+    { title: "Set up project skeleton" },
 ]);
 
 appWindow.todo = todo;
@@ -43,39 +44,48 @@ appWindow.Api.make_data = (task, sourceColumn, sourceIndex) => {
     return transfer;
 };
 
-appWindow.Api.source_column_of = (data) => {
-    const payload = data.userData;
-    return payload instanceof DragPayload ? payload.sourceColumn : -1;
+appWindow.Api.can_drop = (event, _targetColumn, _targetIndex) => {
+    if (event.data.userData instanceof DragPayload) {
+        // Our own card: accept whatever modifier the user is holding.
+        return event.proposed_action;
+    }
+    if (event.data.hasPlaintext) {
+        // External plaintext drop: always treated as a copy.
+        return DragAction.Copy;
+    }
+    return DragAction.None;
 };
 
-appWindow.Api.add_task = (data, targetColumn, targetIndex) => {
-    const payload = data.userData;
-    if (!(payload instanceof DragPayload)) return;
+appWindow.Api.dropped = (event, targetColumn, targetIndex) => {
     if (targetColumn < 0 || targetColumn >= columns.length) return;
-    columns[targetColumn].insert(targetIndex, payload.task);
-};
+    const payload = event.data.userData;
 
-appWindow.Api.move_task = (data, targetColumn, targetIndex) => {
-    const payload = data.userData;
-    if (!(payload instanceof DragPayload)) return;
-    if (targetColumn < 0 || targetColumn >= columns.length) return;
-    const source = payload.sourceColumn;
-    const sourceIndex = payload.sourceIndex;
+    if (payload instanceof DragPayload) {
+        if (event.proposed_action !== DragAction.Move) {
+            // Anything that isn't an explicit move is treated as a copy.
+            columns[targetColumn].insert(targetIndex, payload.task);
+            return;
+        }
+        const source = payload.sourceColumn;
+        const sourceIndex = payload.sourceIndex;
 
-    if (source === targetColumn) {
-        // Same-column reorder. Drops at the source slot or immediately after
-        // it are no-ops; otherwise remove the source first, adjusting the
-        // target index for the shift that the removal causes.
-        if (targetIndex === sourceIndex || targetIndex === sourceIndex + 1) return;
-        const task = payload.task;
-        columns[source].remove(sourceIndex, 1);
-        const adjusted = targetIndex > sourceIndex ? targetIndex - 1 : targetIndex;
-        columns[targetColumn].insert(adjusted, task);
-    } else {
-        // Cross-column move. Source and target are independent models, so the
-        // order of operations doesn't affect index stability.
-        columns[source].remove(sourceIndex, 1);
-        columns[targetColumn].insert(targetIndex, payload.task);
+        if (source === targetColumn) {
+            // Same-column reorder. Drops at the source slot or immediately
+            // after it are no-ops; otherwise remove the source first, adjusting
+            // the target index for the shift that the removal causes.
+            if (targetIndex === sourceIndex || targetIndex === sourceIndex + 1) return;
+            const task = payload.task;
+            columns[source].remove(sourceIndex, 1);
+            const adjusted = targetIndex > sourceIndex ? targetIndex - 1 : targetIndex;
+            columns[targetColumn].insert(adjusted, task);
+        } else {
+            // Cross-column move. Source and target are independent models, so
+            // the order of operations doesn't affect index stability.
+            columns[source].remove(sourceIndex, 1);
+            columns[targetColumn].insert(targetIndex, payload.task);
+        }
+    } else if (event.data.hasPlaintext) {
+        columns[targetColumn].insert(targetIndex, { title: event.data.fetchPlaintext() });
     }
 };
 

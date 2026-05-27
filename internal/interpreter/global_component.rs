@@ -7,6 +7,7 @@ use crate::dynamic_item_tree::{
     ErasedItemTreeBox, ErasedItemTreeDescription, PopupMenuDescription,
 };
 use core::cell::RefCell;
+use core::ffi::c_void;
 use core::pin::Pin;
 use i_slint_compiler::langtype::ElementType;
 use i_slint_compiler::namedreference::NamedReference;
@@ -195,7 +196,7 @@ pub trait GlobalComponent {
     ) -> Result<(), SetPropertyError>;
     fn get_property(self: Pin<&Self>, prop_name: &str) -> Result<Value, ()>;
 
-    fn get_property_ptr(self: Pin<&Self>, prop_name: &SmolStr) -> *const ();
+    fn get_property_ptr(self: Pin<&Self>, prop_name: &SmolStr) -> *const c_void;
 
     fn eval_function(self: Pin<&Self>, fn_name: &str, args: Vec<Value>) -> Result<Value, ()>;
 
@@ -274,7 +275,7 @@ impl GlobalComponent for GlobalComponentInstance {
         comp.description().get_property(comp.borrow(), prop_name)
     }
 
-    fn get_property_ptr(self: Pin<&Self>, prop_name: &SmolStr) -> *const () {
+    fn get_property_ptr(self: Pin<&Self>, prop_name: &SmolStr) -> *const c_void {
         generativity::make_guard!(guard);
         let comp = self.0.unerase(guard);
         crate::dynamic_item_tree::get_property_ptr(
@@ -356,10 +357,10 @@ impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
         prop.get(self)
     }
 
-    fn get_property_ptr(self: Pin<&Self>, prop_name: &SmolStr) -> *const () {
+    fn get_property_ptr(self: Pin<&Self>, prop_name: &SmolStr) -> *const c_void {
         let prop: &dyn rtti::PropertyInfo<Self, Value> =
             Self::properties().into_iter().find(|(k, _)| *k == prop_name).unwrap().1;
-        unsafe { (self.get_ref() as *const Self as *const u8).add(prop.offset()) as *const () }
+        unsafe { (self.get_ref() as *const Self).cast::<c_void>().add(prop.offset()) }
     }
 
     fn invoke_callback(

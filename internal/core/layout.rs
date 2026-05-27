@@ -1361,6 +1361,10 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
     fold.min += extra_w;
     fold.max = Saturating::add(fold.max, extra_w);
     fold.preferred += extra_w;
+    // Don't propagate children's percentage constraints to the parent.
+    // Percentages are relative to the layout's own size, not the grandparent's.
+    fold.min_percent = 0 as _;
+    fold.max_percent = 100 as _;
     fold
 }
 
@@ -1961,7 +1965,13 @@ pub fn flexbox_layout_info_cross_axis(
     let main_axis_constraint = if constraint_size > 0 as Coord && constraint_size < Coord::MAX {
         // Use the actual container main-axis dimension (accurate)
         constraint_size
-    } else if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) {
+    } else if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) || constraint_size >= Coord::MAX {
+        // No-wrap mode, or caller signalled "unconstrained" via MAX
+        // (used when no real main-axis dimension is in scope, e.g.
+        // a nested perpendicular flex queried via vtable): treat the
+        // main axis as unbounded so items don't wrap. This gives the
+        // natural max-cell-cross-axis result rather than the
+        // sqrt(item-areas) heuristic.
         Coord::MAX
     } else {
         // Use actual item areas (main * cross) for the heuristic, since both
