@@ -8,6 +8,7 @@ docs/
 ├── building.md     # How to build Slint
 ├── development.md  # How to develop Slint
 ├── embedded-tutorials.md       # Embedded tutorials template
+├── ios.md          # How to build slint-viewer for iOS / TestFlight
 ├── install_qt.md   # How to install Qt
 ├── nightly-release-notes.md    # Release note template
 ├── release-artifacts.md
