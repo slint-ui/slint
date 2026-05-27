@@ -21,6 +21,9 @@ The archive carries the workspace version as its marketing version and the commi
 number. App Store Connect requires the build number to grow with every upload, so always archive
 from a newer commit than the last upload.
 
+The app icon is rendered from `logo/slint-logo-square-light-whitebg.svg` into the asset catalog at
+build time by `scripts/render_ios_app_icon.bash` using `rsvg-convert`, so it is not checked in.
+
 ## Signing, exporting and uploading locally
 
 ### Prerequisites

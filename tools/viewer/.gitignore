@@ -4,3 +4,6 @@
 
 # Xcode build output (xcodebuild -derivedDataPath build)
 /build/
+
+# App icon asset catalog generated at build time by scripts/render_ios_app_icon.bash
+/Assets.xcassets/
