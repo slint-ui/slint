@@ -143,6 +143,29 @@ test("namespace pages link to function/enum pages instead of inlining them", () 
     assert.doesNotMatch(ns, /### <a id="run_event_loop">/);
 });
 
+test("overridable virtual functions are flagged in the heading, not the signature", () => {
+    const md = convert().get("api/slint/color")?.markdown ?? "";
+    // virtual, not final -> (virtual) marker as a smaller-font suffix (name first).
+    assert.match(
+        md,
+        /### <a id="on_changed"><\/a> `on_changed` <small>\(virtual\)<\/small>\n/,
+    );
+    // pure-virtual (=0) -> (pure virtual) suffix.
+    assert.match(
+        md,
+        /### <a id="on_required"><\/a> `on_required` <small>\(pure virtual\)<\/small>\n/,
+    );
+    // virtual but `final` -> no marker (cannot be overridden further).
+    assert.match(md, /### <a id="on_sealed"><\/a> `on_sealed`\n/);
+    // a plain non-virtual member is never flagged.
+    assert.match(md, /### <a id="red"><\/a> `red`\n/);
+    // `virtual` is dropped from the signature itself (the marker conveys it).
+    assert.match(
+        md,
+        /<pre class="api-signature"><code>void slint::Color::on_changed\(\)<\/code><\/pre>/,
+    );
+});
+
 test("documentation sections (sect1) render as headings with code blocks", () => {
     const md = convert().get("api/slint/color")?.markdown ?? "";
     assert.match(md, /### Example/);
