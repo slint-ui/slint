@@ -18,6 +18,7 @@
 import textwrap
 import os
 import json
+import re
 
 
 # -- Project information -----------------------------------------------------
@@ -145,6 +146,24 @@ with open(
 for key in links.keys():
     href = links[key]["href"]
     url = f"https://slint.dev/releases/{version}/docs/slint/{href}"
+    myst_substitutions[f"slint_href_{key}"] = url
+    rst_epilog += f".. |{key}| replace:: :code:`{key}`\n"
+    rst_epilog += f".. _{key}: {url}\n"
+
+# Auto-derive substitutions for builtin structs and enums. The names live in
+# i_slint_common's `for_each_builtin_structs!` and `for_each_enums!` macros;
+# all their entries render on the same anchor-style page. Kept here so writing
+# `|Edges|` etc. in C++ docs works without manual link-data.json upkeep.
+_common_dir = os.path.join(
+    os.path.dirname(__file__), "..", "..", "..", "internal", "common"
+)
+_name_re = re.compile(r"^\s*(?:pub\s+)?(?:struct|enum)\s+(\w+)\s*\{", re.MULTILINE)
+_builtin_names = ["Point", "Size"]
+for _fname in ("builtin_structs.rs", "enums.rs"):
+    with open(os.path.join(_common_dir, _fname)) as _f:
+        _builtin_names.extend(_name_re.findall(_f.read()))
+for key in _builtin_names:
+    url = f"https://slint.dev/releases/{version}/docs/slint/reference/global-structs-enums/#{key.lower()}"
     myst_substitutions[f"slint_href_{key}"] = url
     rst_epilog += f".. |{key}| replace:: :code:`{key}`\n"
     rst_epilog += f".. _{key}: {url}\n"
