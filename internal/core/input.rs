@@ -243,17 +243,8 @@ pub enum InputEventFilterResult {
     /// If any other component is handling the event it will be not handled by the component returned this result
     //(Can't use core::time::Duration because it is not repr(c))
     DelayForwarding(u64),
-    /// Passive observer (e.g. tooltip hover tracker): like `ForwardAndIgnore` for
-    /// routing (children are visited, `input_event` is skipped), but the item is migrated
-    /// from the path stack to the `MouseInputState` observers side-list when it would
-    /// otherwise be popped. A later [`MouseEvent::Exit`] is delivered directly by
-    /// [`send_exit_events`] when the item no longer appears in either list.
-    ///
-    /// If a descendant aborts traversal before the observer's input handling completes,
-    /// the entry stays on the path stack with this filter result rather than migrating —
-    /// that path expects the observer to have zero origin, no transform, and
-    /// `clips_children == false`, so the path-stack walk can treat it like any other
-    /// item.
+    /// Like `ForwardAndIgnore`, but the item still receives a [`MouseEvent::Exit`]
+    /// when the pointer leaves, even if a sibling handles the event in between.
     ForwardAndObserve,
 }
 
@@ -1652,7 +1643,7 @@ fn send_mouse_event_to_item(
             // so a later Exit can still reach it.
             if filter_result == InputEventFilterResult::ForwardAndObserve
                 && let Some((weak, _)) = popped
-                && !result.observers.iter().any(|x| *x == weak)
+                && !result.observers.contains(&weak)
             {
                 result.observers.push(weak);
             }
