@@ -77,10 +77,7 @@ assert_eq!(inner.active_popups.borrow().len(), 1, "We have one tooltip open");
 
 // Leaving popup
 instance.window().dispatch_event(WindowEvent::PointerMoved {position: outside_button});
-assert_eq!(inner.active_popups.borrow().len(), 1, "We have one tooltip open because timeout did not yet occur");
-
-slint_testing::mock_elapsed_time(10000000);
-assert_eq!(inner.active_popups.borrow().len(), 0, "We don't have any open tooltip, because the timeout occurred");
+assert_eq!(inner.active_popups.borrow().len(), 0, "We don't have any open tooltip, because we left the button");
 
 // Hover button but wait not until it is shown
 instance.window().dispatch_event(WindowEvent::PointerMoved {position: outside_button});
