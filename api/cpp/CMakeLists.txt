@@ -25,6 +25,33 @@ endif ()
 list(PREPEND CMAKE_MODULE_PATH ${Corrosion_SOURCE_DIR}/cmake)
 find_package(Rust 1.92 REQUIRED MODULE)
 
+# When building for Android (NDK toolchain sets CMAKE_SYSTEM_NAME to "Android"),
+# auto-configure the Rust target and pick platform-level defaults. Feature defaults
+# specific to Android live inline with their define_cargo_dependent_feature() calls
+# below.
+if(ANDROID)
+    # Map Android ABI to Rust target triple
+    if(ANDROID_ABI STREQUAL "arm64-v8a")
+        set(Rust_CARGO_TARGET "aarch64-linux-android" CACHE STRING "" FORCE)
+    elseif(ANDROID_ABI STREQUAL "armeabi-v7a")
+        set(Rust_CARGO_TARGET "armv7-linux-androideabi" CACHE STRING "" FORCE)
+    elseif(ANDROID_ABI STREQUAL "x86_64")
+        set(Rust_CARGO_TARGET "x86_64-linux-android" CACHE STRING "" FORCE)
+    elseif(ANDROID_ABI STREQUAL "x86")
+        set(Rust_CARGO_TARGET "i686-linux-android" CACHE STRING "" FORCE)
+    else()
+        message(FATAL_ERROR "Unsupported ANDROID_ABI: ${ANDROID_ABI}")
+    endif()
+
+    # Android requires a shared library
+    set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
+
+    # Default to Material style on Android
+    if(NOT SLINT_STYLE)
+        set(SLINT_STYLE "material" CACHE STRING "" FORCE)
+    endif()
+endif()
+
 option(BUILD_SHARED_LIBS "Build Slint as shared library" ON)
 option(SLINT_FEATURE_COMPILER "Enable support for compiling .slint files to C++ ahead of time" ON)
 add_feature_info(SLINT_FEATURE_COMPILER SLINT_FEATURE_COMPILER "Enable support for compiling .slint files to C++ ahead of time")
@@ -95,19 +122,24 @@ define_renderer_winit_compat_option(software)
 define_cargo_dependent_feature(interpreter "Enable support for the Slint interpreter to load .slint files at run-time" ON "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(live-preview "Enable support for the Slint live-preview to re-load changed .slint files at run-time" OFF "SLINT_FEATURE_INTERPRETER")
 
-define_cargo_dependent_feature(backend-winit "Enable support for the winit crate to interaction with all windowing systems." ON "NOT SLINT_FEATURE_FREESTANDING")
-define_cargo_dependent_feature(backend-winit-x11 "Enable support for the winit create to interact only with the X11 windowing system on Unix. Enable this option and turn off SLINT_FEATURE_BACKEND_WINIT for a smaller build with just X11 support on Unix." OFF "NOT SLINT_FEATURE_FREESTANDING")
-define_cargo_dependent_feature(backend-winit-wayland "Enable support for the winit create to interact only with the wayland windowing system on Unix. Enable this option and turn off SLINT_FEATURE_BACKEND_WINIT for a smaller build with just wayland support." OFF "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(backend-winit "Enable support for the winit crate to interaction with all windowing systems." ON "NOT SLINT_FEATURE_FREESTANDING AND NOT ANDROID")
+define_cargo_dependent_feature(backend-winit-x11 "Enable support for the winit create to interact only with the X11 windowing system on Unix. Enable this option and turn off SLINT_FEATURE_BACKEND_WINIT for a smaller build with just X11 support on Unix." OFF "NOT SLINT_FEATURE_FREESTANDING AND NOT ANDROID")
+define_cargo_dependent_feature(backend-winit-wayland "Enable support for the winit create to interact only with the wayland windowing system on Unix. Enable this option and turn off SLINT_FEATURE_BACKEND_WINIT for a smaller build with just wayland support." OFF "NOT SLINT_FEATURE_FREESTANDING AND NOT ANDROID")
 
-define_cargo_dependent_feature(renderer-femtovg "Enable support for the OpenGL ES 2.0 based FemtoVG rendering engine." ON "NOT SLINT_FEATURE_FREESTANDING")
-define_cargo_dependent_feature(renderer-femtovg-wgpu "Enable support for the WGPU based FemtoVG rendering engine." OFF "NOT SLINT_FEATURE_FREESTANDING")
-define_cargo_dependent_feature(renderer-skia "Enable support for the Skia based rendering engine." OFF "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(renderer-femtovg "Enable support for the OpenGL ES 2.0 based FemtoVG rendering engine." ON "NOT SLINT_FEATURE_FREESTANDING AND NOT ANDROID")
+define_cargo_dependent_feature(renderer-femtovg-wgpu "Enable support for the WGPU based FemtoVG rendering engine." OFF "NOT SLINT_FEATURE_FREESTANDING AND NOT ANDROID")
+if(ANDROID)
+    set(_slint_default_renderer_skia ON)
+else()
+    set(_slint_default_renderer_skia OFF)
+endif()
+define_cargo_dependent_feature(renderer-skia "Enable support for the Skia based rendering engine." ${_slint_default_renderer_skia} "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(renderer-skia-opengl "Enable support for the Skia based rendering engine with its OpenGL backend." OFF "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(renderer-skia-vulkan "Enable support for the Skia based rendering engine with its Vulkan backend." OFF "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_feature(renderer-software "Enable support for the software renderer" ON)
 define_cargo_feature(software-renderer-path "Enable support for Path element rendering with the software renderer. This is implicitly enabled when SLINT_FEATURE_FREESTANDING is OFF. Enable this in bare-metal environments if you need support for Path elements" OFF)
 
-define_cargo_dependent_feature(backend-qt "Enable Qt based rendering backend" OFF "NOT SLINT_FEATURE_FREESTANDING")
+define_cargo_dependent_feature(backend-qt "Enable Qt based rendering backend" OFF "NOT SLINT_FEATURE_FREESTANDING AND NOT ANDROID")
 
 define_cargo_dependent_feature(backend-linuxkms "Enable support for the backend that renders a single window fullscreen on Linux. Requires libseat. If you don't have libseat, select `backend-linuxkms-noseat` instead." OFF "NOT SLINT_FEATURE_FREESTANDING")
 define_cargo_dependent_feature(backend-linuxkms-noseat "Enable support for the backend that renders a single window fullscreen on Linux" OFF "NOT SLINT_FEATURE_FREESTANDING")
@@ -305,6 +337,41 @@ if (SLINT_BUILD_RUNTIME)
             PROPERTY CORROSION_ENVIRONMENT_VARIABLES
             "PKG_CONFIG_SYSROOT_DIR=$ENV{PKG_CONFIG_SYSROOT_DIR}"
         )
+    endif()
+
+    # Propagate Android NDK/SDK paths to the Rust build so that the android-activity
+    # backend can compile Java sources and produce DEX bytecode.
+    if(ANDROID)
+        if(DEFINED ENV{ANDROID_NDK_ROOT})
+            set_property(
+                TARGET slint_cpp
+                APPEND
+                PROPERTY CORROSION_ENVIRONMENT_VARIABLES
+                "ANDROID_NDK_ROOT=$ENV{ANDROID_NDK_ROOT}"
+            )
+        elseif(CMAKE_ANDROID_NDK)
+            set_property(
+                TARGET slint_cpp
+                APPEND
+                PROPERTY CORROSION_ENVIRONMENT_VARIABLES
+                "ANDROID_NDK_ROOT=${CMAKE_ANDROID_NDK}"
+            )
+        endif()
+        if(DEFINED ENV{ANDROID_HOME})
+            set_property(
+                TARGET slint_cpp
+                APPEND
+                PROPERTY CORROSION_ENVIRONMENT_VARIABLES
+                "ANDROID_HOME=$ENV{ANDROID_HOME}"
+            )
+        elseif(CMAKE_ANDROID_SDK)
+            set_property(
+                TARGET slint_cpp
+                APPEND
+                PROPERTY CORROSION_ENVIRONMENT_VARIABLES
+                "ANDROID_HOME=${CMAKE_ANDROID_SDK}"
+            )
+        endif()
     endif()
 
     if(SLINT_FEATURE_RENDERER_SKIA OR SLINT_FEATURE_RENDERER_SKIA_OPENGL OR SLINT_FEATURE_RENDERER_SKIA_VULKAN)

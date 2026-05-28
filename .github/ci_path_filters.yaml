@@ -87,6 +87,9 @@ api_cpp:
  # The renderers are not part of the `internal` group, but are exposed in the C++ API
  - 'internal/renderers/{skia,software}/**'
 
+android_backend:
+ - 'internal/backends/android-activity/**'
+
 api_python:
  - 'api/python/**'
  - '.github/workflows/python_test_reusable.yaml'
