@@ -63,7 +63,7 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     #[cfg(target_vendor = "apple")]
     let mut mdns = enable_mdns
         .then(|| {
-            use zeroconf_tokio::prelude::TMdnsService as _;
+            use zeroconf_tokio::prelude::{TMdnsService as _, TTxtRecord as _};
 
             let mut service = zeroconf_tokio::MdnsService::new(
                 zeroconf_tokio::ServiceType::new(
@@ -73,6 +73,16 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                 connection.local_port(),
             );
             service.set_name("viewer");
+            let mut txt = zeroconf_tokio::TxtRecord::new();
+            txt.insert(
+                i_slint_live_preview::protocol::TXT_PROTOCOLS_KEY,
+                i_slint_live_preview::protocol::PROTOCOL_SUBPROTOCOL,
+            )?;
+            txt.insert(
+                i_slint_live_preview::protocol::TXT_SLINT_VERSION_KEY,
+                i_slint_live_preview::protocol::SLINT_VERSION,
+            )?;
+            service.set_txt_record(txt);
             zeroconf_tokio::MdnsServiceAsync::new(service)
         })
         .transpose()
