@@ -7,20 +7,76 @@ use std::{
 };
 
 use crate::protocol::{
-    LspToPreviewMessage, PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion,
+    LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PreviewComponent, PreviewConfig,
+    PreviewToLspMessage, SLINT_PROTOCOLS_HEADER, SLINT_VERSION, SLINT_VERSION_HEADER,
+    SourceFileVersion,
 };
+#[cfg(not(target_vendor = "apple"))]
+use crate::protocol::{TXT_PROTOCOLS_KEY, TXT_SLINT_VERSION_KEY};
 use dashmap::{DashMap, Entry};
 use futures_util::{SinkExt as _, StreamExt as _, stream::SplitStream};
 use lsp_types::Url;
 use serde::Serialize;
+#[cfg(not(target_vendor = "apple"))]
+use std::collections::HashMap;
 use tokio::{
     net::TcpStream,
     sync::{self, mpsc::UnboundedSender, oneshot},
 };
-use tokio_tungstenite::{WebSocketStream, tungstenite::Message};
+use tokio_tungstenite::{
+    WebSocketStream,
+    tungstenite::{
+        Message,
+        handshake::server::{ErrorResponse, Request, Response},
+        http::{HeaderValue, StatusCode, header::SEC_WEBSOCKET_PROTOCOL},
+    },
+};
 
 #[cfg(not(target_vendor = "apple"))]
 use mdns_sd::ServiceInfo;
+
+/// WebSocket handshake callback used on the viewer (server) side.
+///
+/// Always attaches the `Slint-Version` and `Slint-Protocols` response
+/// headers so the LSP can report the viewer's actual version when the
+/// handshake is rejected. Accepts the connection only when the client
+/// offered our [`PROTOCOL_SUBPROTOCOL`]; otherwise returns 426 Upgrade
+/// Required with the same informational headers attached.
+#[allow(clippy::result_large_err)] // signature is dictated by tungstenite's Callback trait
+fn handshake_callback(
+    request: &Request,
+    mut response: Response,
+) -> Result<Response, ErrorResponse> {
+    let headers = response.headers_mut();
+    headers.insert(SLINT_VERSION_HEADER, HeaderValue::from_static(SLINT_VERSION));
+    headers.insert(SLINT_PROTOCOLS_HEADER, HeaderValue::from_static(PROTOCOL_SUBPROTOCOL));
+
+    let offered: Vec<&str> = request
+        .headers()
+        .get_all(SEC_WEBSOCKET_PROTOCOL)
+        .iter()
+        .filter_map(|v| v.to_str().ok())
+        .flat_map(|s| s.split(','))
+        .map(str::trim)
+        .collect();
+
+    if offered.contains(&PROTOCOL_SUBPROTOCOL) {
+        response
+            .headers_mut()
+            .insert(SEC_WEBSOCKET_PROTOCOL, HeaderValue::from_static(PROTOCOL_SUBPROTOCOL));
+        Ok(response)
+    } else {
+        tracing::warn!(
+            "Rejecting handshake: client offered {offered:?}, we support {PROTOCOL_SUBPROTOCOL:?}"
+        );
+        let mut err = ErrorResponse::new(None);
+        *err.status_mut() = StatusCode::UPGRADE_REQUIRED;
+        let err_headers = err.headers_mut();
+        err_headers.insert(SLINT_VERSION_HEADER, HeaderValue::from_static(SLINT_VERSION));
+        err_headers.insert(SLINT_PROTOCOLS_HEADER, HeaderValue::from_static(PROTOCOL_SUBPROTOCOL));
+        Err(err)
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct VersionedFileContent {
@@ -106,7 +162,7 @@ impl Connection {
                                 }
                                 Ok((stream, addr)) => {
                                     tracing::info!("Connected to {addr:?}");
-                                    match tokio_tungstenite::accept_async(stream).await {
+                                    match tokio_tungstenite::accept_hdr_async(stream, handshake_callback).await {
                                         Err(err) => {
                                             tracing::error!("Failed to establish websocket connection: {err}")
                                         }
@@ -361,13 +417,17 @@ impl Connection {
             format!("{host}.local.")
         };
         tracing::info!("Announcing service on {local_ips:?} as {mdns_host}");
+        let properties = HashMap::from([
+            (TXT_PROTOCOLS_KEY.to_owned(), PROTOCOL_SUBPROTOCOL.to_owned()),
+            (TXT_SLINT_VERSION_KEY.to_owned(), SLINT_VERSION.to_owned()),
+        ]);
         ServiceInfo::new(
             crate::protocol::SERVICE_TYPE,
             "viewer",
             &mdns_host,
             local_ips.as_slice(),
             local_port,
-            None,
+            Some(properties),
         )
         .map_err(Into::into)
     }

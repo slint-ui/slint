@@ -9,7 +9,9 @@ use futures_util::{
     stream::{SplitSink, SplitStream, StreamExt as _},
 };
 use i_slint_live_preview::protocol::{
-    self, LspToPreviewMessage, PreviewTarget, PreviewToLspMessage,
+    self, LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PreviewTarget, PreviewToLspMessage,
+    SLINT_PROTOCOLS_HEADER, SLINT_VERSION, SLINT_VERSION_HEADER, TXT_PROTOCOLS_KEY,
+    TXT_SLINT_VERSION_KEY,
 };
 use tokio::sync::mpsc;
 #[cfg(not(target_arch = "wasm32"))]
@@ -34,24 +36,22 @@ pub fn connect_remote_preview_command(
 
     if let Some(addresses) = addresses {
         if let Some(port) = port {
-            let _ = ctx.to_preview.set_preview_target(PreviewTarget::Remote);
             ctx.to_preview.with_preview_target::<RemoteLspToPreview, Result<Option<serde_json::Value>, LspError>>(
                 |remote| {
                     let preview_to_lsp_sender = ctx.preview_to_lsp_sender.clone();
+                    let to_preview = ctx.to_preview.clone();
                     let future = remote.connect(addresses, port as u16);
                     crate::common::spawn_local(async move {
-                        if let Err(err) = future.await {
-                            let _ = preview_to_lsp_sender.send(
-                                PreviewToLspMessage::SendShowMessage {
-                                    message: lsp_types::ShowMessageParams {
-                                        typ: lsp_types::MessageType::ERROR,
-                                        message: format!(
-                                            "Failed to connect to remote preview: {err}"
-                                        ),
-                                    },
-                                },
-                            );
-                        } else {
+                        // On failure, `connect` already emits a
+                        // RemoteViewerConnectionState notification carrying
+                        // the version-mismatch reason (or other cause) so the
+                        // editor can reset its status bar and show the
+                        // explanation. Switch the active preview target only
+                        // once we know the socket is up, so a failed connect
+                        // does not strand the LSP in Remote mode with no
+                        // socket.
+                        if future.await.is_ok() {
+                            let _ = to_preview.set_preview_target(PreviewTarget::Remote);
                             let _ = preview_to_lsp_sender.send(PreviewToLspMessage::RequestState { files: Vec::new() });
                         }
                     });
@@ -147,6 +147,14 @@ impl RemoteLspToPreview {
                         use crate::preview::connector::remote::remote_notifications::RemoteViewerDiscoveredMessage;
 
                         tracing::debug!("mDNS service resolved: {resolved_service:?}");
+                        let viewer_protocols = resolved_service
+                            .txt_properties
+                            .get_property_val_str(TXT_PROTOCOLS_KEY)
+                            .map(str::to_owned);
+                        let viewer_slint_version = resolved_service
+                            .txt_properties
+                            .get_property_val_str(TXT_SLINT_VERSION_KEY)
+                            .map(str::to_owned);
                         if let Err(err) = server_notifier
                             .send_notification::<RemoteViewerDiscoveredMessage>(
                                 RemoteViewerDiscoveredMessage {
@@ -165,6 +173,10 @@ impl RemoteLspToPreview {
                                             _ => unimplemented!(),
                                         })
                                         .collect(),
+                                    viewer_protocols,
+                                    viewer_slint_version,
+                                    lsp_protocol: PROTOCOL_SUBPROTOCOL.to_owned(),
+                                    lsp_slint_version: SLINT_VERSION.to_owned(),
                                 },
                             )
                         {
@@ -198,26 +210,49 @@ impl RemoteLspToPreview {
         let preview_to_lsp_sender = self.preview_to_lsp_sender.clone();
         let server_notifier = self.server_notifier.clone();
         async move {
+            // First address is used purely to identify the connection in the
+            // disconnected-with-error notification we send on failure.
+            let first_address = addresses.first().cloned().unwrap_or_default();
             let addresses = &mut addresses.into_iter();
+            let mut last_error: Option<String> = None;
             let (stream, address, port) = loop {
                 let Some(address) = addresses.next() else {
-                    return Err("Unable to connect to remote viewer".into());
+                    let reason =
+                        last_error.unwrap_or_else(|| "Unable to connect to remote viewer".into());
+                    let _ = server_notifier.send_notification::<RemoteViewerConnectionState>(
+                        RemoteViewerConnectionState {
+                            address: first_address.clone(),
+                            port,
+                            state: ConnectionState::Disconnected,
+                            error: Some(reason.clone()),
+                        },
+                    );
+                    return Err(reason.into());
                 };
                 tracing::info!(
                     "Attempting to connect to remote preview server at {address}:{port}"
                 );
                 // The host parameter is not sanitized here, but since it's provided by the user, it should be fine.
+                let url = format!("ws://{address}:{port}");
                 let connect_future =
-                    tokio_tungstenite_wasm::connect(format!("ws://{address}:{port}"));
+                    tokio_tungstenite_wasm::connect_with_protocols(&url, &[PROTOCOL_SUBPROTOCOL]);
                 match connect_future.await {
                     Ok(stream) => {
                         tracing::info!("Connected to remote preview server at {address}:{port}");
                         break (stream, address, port);
                     }
                     Err(err) => {
+                        let mismatch = describe_version_mismatch(&err);
                         tracing::debug!(
                             "Failed connecting to remote viewer, trying next address: {err}"
                         );
+                        // Subprotocol mismatch reports a definitive reason — keep it
+                        // even if a later address also fails with a less useful error.
+                        if mismatch.is_some() {
+                            last_error = mismatch;
+                        } else if last_error.is_none() {
+                            last_error = Some(format!("{err}"));
+                        }
                     }
                 }
             };
@@ -282,16 +317,12 @@ impl RemoteLspToPreview {
                             }
                         }
                         Message::Close(_) => {
-                            connection_state_handle.error =
-                                Some("Remote server closed the connection".into());
                             return;
                         }
                     }
                 }
                 Err(tokio_tungstenite_wasm::Error::ConnectionClosed)
                 | Err(tokio_tungstenite_wasm::Error::AlreadyClosed) => {
-                    connection_state_handle.error =
-                        Some("Remote server closed the connection".into());
                     return;
                 }
                 Err(tokio_tungstenite_wasm::Error::Io(err))
@@ -374,6 +405,44 @@ impl Drop for RemoteLspToPreview {
             tracing::info!("Closing connection to remote preview server");
             connection.task.abort();
         }
+    }
+}
+
+/// Build a human-readable explanation when the WebSocket handshake was
+/// rejected because of a Slint version mismatch.
+///
+/// The viewer always sends `Slint-Version` / `Slint-Protocols` response
+/// headers (see `internal/live-preview/remote/connection.rs`), so on a
+/// 426 Upgrade Required we can name the viewer's actual version. In wasm
+/// builds the browser hides those headers from us and we fall back to a
+/// generic mismatch message.
+fn describe_version_mismatch(err: &tokio_tungstenite_wasm::Error) -> Option<String> {
+    match err {
+        tokio_tungstenite_wasm::Error::Http(response) => {
+            let headers = response.headers();
+            let viewer_version = headers
+                .get(SLINT_VERSION_HEADER)
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("an unknown version");
+            let viewer_protocols =
+                headers.get(SLINT_PROTOCOLS_HEADER).and_then(|v| v.to_str().ok());
+            // Only treat as a Slint mismatch if the server identified itself
+            // as a Slint viewer (otherwise this is just some random 4xx).
+            if headers.contains_key(SLINT_VERSION_HEADER) {
+                Some(format!(
+                    "Version mismatch: viewer runs Slint {viewer_version} (protocol {}), extension speaks {PROTOCOL_SUBPROTOCOL} (Slint {SLINT_VERSION})",
+                    viewer_protocols.unwrap_or("unknown"),
+                ))
+            } else {
+                None
+            }
+        }
+        tokio_tungstenite_wasm::Error::Protocol(
+            tokio_tungstenite_wasm::error::ProtocolError::SecWebSocketSubProtocolError(_),
+        ) => Some(format!(
+            "Version mismatch: viewer does not speak {PROTOCOL_SUBPROTOCOL} (this extension is Slint {SLINT_VERSION})",
+        )),
+        _ => None,
     }
 }
 

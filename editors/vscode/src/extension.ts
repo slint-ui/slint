@@ -473,6 +473,12 @@ function setupRemotePreview(context: vscode.ExtensionContext) {
             };
 
             const connect = (item: common.RemoteViewerInfo) => {
+                if (item.incompatible) {
+                    vscode.window.showWarningMessage(
+                        `Cannot connect to ${item.id}: ${item.incompatibleReason ?? "version mismatch"}.`,
+                    );
+                    return;
+                }
                 lsp_commands.connectRemotePreview(
                     item.value.addresses,
                     item.value.port,
