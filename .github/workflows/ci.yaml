@@ -839,7 +839,7 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-apple-ios-sim
-            - run: brew install xcodegen
+            - run: brew install xcodegen librsvg
             - run: xcodegen -s ios-project.yml
               working-directory: ${{ matrix.project }}
             - name: "Find Simulator UDID from iOS 26.4 runtime"
