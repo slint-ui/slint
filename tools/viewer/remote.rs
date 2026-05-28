@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{collections::HashSet, net::SocketAddr, path::PathBuf, rc::Rc};
+use std::{net::SocketAddr, path::PathBuf, rc::Rc};
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_core::InternalToken;
@@ -124,7 +124,6 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     let mut last_connection = None;
     let mut instance = inner_window.clone_strong();
     let mut current_preview: Option<PreviewComponent> = None;
-    let mut dependencies: HashSet<PathBuf> = HashSet::new();
     while let Some(msg) = message_receiver.recv().await {
         match msg {
             ConnectionMessage::SetConfiguration { config } => {
@@ -132,8 +131,9 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                 compiler.compiler_configuration(InternalToken).enable_experimental =
                     config.enable_experimental;
             }
-            ConnectionMessage::ShowPreview { preview_component, file_cache } => {
-                if let Some(BuildOutcome { new_instance, watch_paths }) = build_and_show(
+            ConnectionMessage::ShowPreview { preview_component } => {
+                let file_cache = connection.file_cache();
+                let BuildOutcome { new_instance, watch_paths } = build_and_show(
                     &compiler,
                     &preview_component,
                     &file_cache,
@@ -141,24 +141,17 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                     &instance,
                     &connection,
                 )
-                .await
-                {
-                    if let Some(new_instance) = new_instance {
-                        instance = new_instance;
-                    }
-                    if let Some(watch_paths) = watch_paths {
-                        dependencies = watch_paths.into_iter().collect();
-                    }
+                .await?;
+                if let Some(new_instance) = new_instance {
+                    instance = new_instance;
                 }
+                connection.set_dependencies(watch_paths);
                 current_preview = Some(preview_component);
             }
-            ConnectionMessage::ContentsChanged { url, file_cache } => {
+            ConnectionMessage::ContentsChanged => {
                 let Some(preview_component) = current_preview.clone() else { continue };
-                let Ok(path) = url.to_file_path() else { continue };
-                if !dependencies.contains(&path) {
-                    continue;
-                }
-                if let Some(BuildOutcome { new_instance, watch_paths }) = build_and_show(
+                let file_cache = connection.file_cache();
+                let BuildOutcome { new_instance, watch_paths } = build_and_show(
                     &compiler,
                     &preview_component,
                     &file_cache,
@@ -166,15 +159,11 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                     &instance,
                     &connection,
                 )
-                .await
-                {
-                    if let Some(new_instance) = new_instance {
-                        instance = new_instance;
-                    }
-                    if let Some(watch_paths) = watch_paths {
-                        dependencies = watch_paths.into_iter().collect();
-                    }
+                .await?;
+                if let Some(new_instance) = new_instance {
+                    instance = new_instance;
                 }
+                connection.set_dependencies(watch_paths);
             }
             ConnectionMessage::HighlightFromEditor { .. } => {}
             ConnectionMessage::Connected { remote_addr } => {
@@ -190,7 +179,7 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                 if last_connection == Some(remote_addr) {
                     last_connection = None;
                     current_preview = None;
-                    dependencies.clear();
+                    connection.set_dependencies(Vec::new());
                     inner_window = main_ui
                         .create_with_existing_window(instance.window())
                         .unwrap_or_else(|_| main_ui.create().unwrap());
@@ -218,14 +207,16 @@ struct BuildOutcome {
     /// `Some` if a new component instance was successfully created and shown. The caller should
     /// replace its tracked instance with it.
     new_instance: Option<slint_interpreter::ComponentInstance>,
-    /// Files the compiled component depends on. `None` means the build failed too early to
-    /// produce a meaningful dependency list, and the caller should keep its previous one.
-    watch_paths: Option<Vec<PathBuf>>,
+    /// Files the compiled component depends on. The type loader populates this list even when
+    /// compilation has errors, so the caller can keep watching the right files while the user
+    /// types a fix.
+    watch_paths: Vec<PathBuf>,
 }
 
 /// Compile `preview_component` (using `file_cache` for the in-memory editor buffer if available)
-/// and replace the visible instance with it. Returns `None` only when the host window cannot be
-/// reused, which is a fatal condition for the caller.
+/// and replace the visible instance with it. Returns `Err` only when the platform can no longer
+/// host a Slint window — the caller should propagate it and exit, since retrying on every
+/// keystroke would only repeat the underlying failure.
 async fn build_and_show(
     compiler: &slint_interpreter::Compiler,
     preview_component: &PreviewComponent,
@@ -233,13 +224,13 @@ async fn build_and_show(
     inner_window: &slint_interpreter::ComponentInstance,
     instance: &slint_interpreter::ComponentInstance,
     connection: &Connection,
-) -> Option<BuildOutcome> {
+) -> anyhow::Result<BuildOutcome> {
     tracing::debug!(
         "Cached files: {:#?}",
         file_cache.iter().map(|entry| entry.key().to_string()).collect::<Vec<_>>()
     );
-    let compilation_result = if let Some(entry) = file_cache
-        .get(preview_component.url.to_file_path().unwrap().as_os_str().to_str().unwrap())
+    let compilation_result = if let Some(entry) =
+        file_cache.get(preview_component.url.to_file_path().unwrap().as_os_str().to_str().unwrap())
         && let CacheEntry::Ready(file) = &*entry
     {
         tracing::debug!("Fetched file {} from cache.", preview_component.url);
@@ -253,6 +244,7 @@ async fn build_and_show(
         tracing::debug!("Failed fetching file {} from cache.", preview_component.url);
         compiler.build_from_path(preview_component.url.path()).await
     };
+    let watch_paths = compilation_result.watch_paths(InternalToken).to_vec();
     if compilation_result.has_errors() {
         let mut build_diagnostics = BuildDiagnostics::default();
         for d in compilation_result.diagnostics() {
@@ -283,13 +275,11 @@ async fn build_and_show(
 
         connection.send(message).ok();
 
-        return Some(BuildOutcome { new_instance: None, watch_paths: None });
+        return Ok(BuildOutcome { new_instance: None, watch_paths });
     }
     if let Err(err) = inner_window.set_property("message", SharedString::new().into()) {
         tracing::error!("Failed setting property: {err}");
     }
-
-    let watch_paths = Some(compilation_result.watch_paths(InternalToken).to_vec());
 
     let Some(component) = preview_component
         .component
@@ -303,31 +293,14 @@ async fn build_and_show(
             tracing::error!("Failed setting property: {err}");
         }
         tracing::error!("Component not found");
-        return Some(BuildOutcome { new_instance: None, watch_paths });
+        return Ok(BuildOutcome { new_instance: None, watch_paths });
     };
 
-    let Ok(new_instance) =
-        component.create_with_existing_window(instance.window()).inspect_err(|err| {
-            if let Err(err) =
-                inner_window.set_property("message", SharedString::from(format!("{err}")).into())
-            {
-                tracing::error!("Failed setting property: {err}");
-            }
-            tracing::warn!("Platform error: {err}");
-        })
-    else {
-        return None;
-    };
+    let new_instance = component
+        .create_with_existing_window(instance.window())
+        .map_err(|err| anyhow::anyhow!("Cannot create component instance: {err}"))?;
 
-    if let Err(err) = new_instance.show() {
-        if let Err(err) =
-            inner_window.set_property("message", SharedString::from(format!("{err}")).into())
-        {
-            tracing::error!("Failed setting property: {err}");
-        }
-        tracing::warn!("Platform error: {err}");
-        return Some(BuildOutcome { new_instance: None, watch_paths });
-    }
+    new_instance.show().map_err(|err| anyhow::anyhow!("Cannot show component: {err}"))?;
 
-    Some(BuildOutcome { new_instance: Some(new_instance), watch_paths })
+    Ok(BuildOutcome { new_instance: Some(new_instance), watch_paths })
 }
