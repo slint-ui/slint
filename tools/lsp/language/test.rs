@@ -300,8 +300,10 @@ fn preview_file_recompiled_when_dependency_changes() {
     // Update context with:
     // - main.slint set as the preview file (to_show)
     // - main.slint NOT in open_urls (simulating it was closed in the editor)
-    ctx.to_show =
-        Some(i_slint_preview_protocol::PreviewComponent { url: main_url.clone(), component: None });
+    ctx.to_show = Some(i_slint_live_preview::protocol::PreviewComponent {
+        url: main_url.clone(),
+        component: None,
+    });
 
     spin_on::spin_on(crate::language::trigger_file_watcher(
         &mut ctx,

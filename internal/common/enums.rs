@@ -459,6 +459,13 @@ macro_rules! for_each_enums {
 
             /// This enum represents the different values for the `accessible-role` property, used to describe the
             /// role of an element in the context of assistive technology such as screen readers.
+            ///
+            /// In addition to widget roles, this enum includes *landmark* roles (`banner`, `complementary`,
+            /// `content-info`, `form`, `main`, `navigation`, `region`, `search`).
+            /// Landmarks identify large content areas that screen reader users can jump between,
+            /// giving the application a navigable structure similar to headings in a document.
+            /// See [WAI-ARIA Landmark Regions](https://www.w3.org/WAI/ARIA/apg/practices/landmark-regions/)
+            /// for guidance on when and how to use them.
             #[non_exhaustive]
             enum AccessibleRole {
                 /// The element isn't accessible.
@@ -504,6 +511,24 @@ macro_rules! for_each_enums {
                 RadioButton,
                 /// The element is a container grouping related `RadioButton`s.
                 RadioGroup,
+                // Landmark roles
+                /// Landmark: the header area of the application, typically containing a logo, title, or global navigation.
+                Banner,
+                /// Landmark: a supporting section that complements the main content, such as a sidebar.
+                Complementary,
+                /// Landmark: information about the application or its content, typically at the bottom (e.g. status bar, copyright).
+                ContentInfo,
+                /// Landmark: a region containing input fields and controls for submitting information.
+                Form,
+                /// Landmark: the primary content of the application. Each view should have exactly one `main` landmark.
+                Main,
+                /// Landmark: a group of links or controls used for navigating the application.
+                Navigation,
+                /// Landmark: a generic section significant enough to be listed in a summary.
+                /// Use a more specific landmark if one applies.
+                Region,
+                /// Landmark: a region containing controls for searching or filtering content.
+                Search,
             }
 
             /// This enum represents the different values of the `accessible-live` property.

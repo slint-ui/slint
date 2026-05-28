@@ -98,7 +98,7 @@ image-default-formats = ["i-slint-core/image-default-formats"]
 ## ```bash
 ## SLINT_LIVE_PREVIEW=1 cargo build --features slint/live-preview
 ## ```
-live-preview = ["dep:slint-interpreter"]
+live-preview = ["dep:i-slint-live-preview"]
 
 ## Enable the embedded MCP (Model Context Protocol) server.
 ##
@@ -288,7 +288,7 @@ i-slint-backend-selector = { workspace = true }
 i-slint-core-macros = { workspace = true }
 i-slint-common = { workspace = true }
 i-slint-renderer-software = { workspace = true, optional = true }
-slint-interpreter = { workspace = true, optional = true, default-features = false, features = ["display-diagnostics", "compat-1-2", "internal-live-preview"] }
+i-slint-live-preview = { workspace = true, optional = true, features = ["live-component"] }
 
 const-field-offset = { version = "0.2.0", path = "../../../helper_crates/const-field-offset" }
 document-features = { version = "0.2.0", optional = true }

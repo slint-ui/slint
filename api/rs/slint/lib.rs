@@ -199,10 +199,12 @@ each instance will have their own instance of associated globals singletons.
 #![warn(missing_docs)]
 #![deny(unsafe_code)]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 #![allow(clippy::needless_doctest_main)] // We document how to write a main function
 
 extern crate alloc;
+#[cfg(feature = "std")]
+extern crate std;
 
 #[cfg(not(feature = "compat-1-2"))]
 compile_error!(

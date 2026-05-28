@@ -50,10 +50,8 @@ long int model_length(const std::shared_ptr<M> &model)
 
 } // namespace private_api
 
-/// \rst
-/// A Model is providing Data for Slint |Models|_ or |ListView|_ elements of the
-/// :code:`.slint` language
-/// \endrst
+/// A Model is providing Data for Slint Models or ListView elements of the
+/// `.slint` language
 ///
 /// This is typically used in a `std::shared_ptr<slint::Model>`.
 /// Model is an abstract class and you can derive from it to provide your own data model,

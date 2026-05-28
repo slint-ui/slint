@@ -7,13 +7,13 @@ component Button {
     accessible-label: "Hello";
     accessible-action-default => {
         debug("DEFAULT");
-        clicked()
+        root.clicked()
     }
-    accessible-value: value;
+    accessible-value: root.value;
     in-out property <int> value;
     accessible-action-set-value(x) => {
         debug("SetValue", x);
-        value = x.to-float();
+        root.value = x.to-float();
     }
 }
 

@@ -10,7 +10,7 @@ use i_slint_compiler::object_tree::{Element, ElementRc, PropertyDeclaration, Pro
 use i_slint_compiler::parser::{
     SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
-use i_slint_preview_protocol::SourceFileVersion;
+use i_slint_live_preview::protocol::SourceFileVersion;
 use lsp_types::Url;
 use smol_str::{SmolStr, ToSmolStr};
 

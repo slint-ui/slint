@@ -21,6 +21,10 @@ on:
                 type: boolean
                 description: Sign binaries on macOS (false for manual builds)
                 default: false
+            ios:
+                type: boolean
+                description: Also build an unsigned iOS archive (.xcarchive) of the viewer
+                default: false
 
     workflow_call:
         inputs:
@@ -36,6 +40,10 @@ on:
                 type: boolean
                 description: Sign binaries on macOS
                 default: true
+            ios:
+                type: boolean
+                description: Also build an unsigned iOS archive (.xcarchive) of the viewer
+                default: false
         secrets:
             certificate:
                 description: "certificate secret"
@@ -206,3 +214,4 @@ jobs:
               with:
                   name: slint-${{ github.event.inputs.program || inputs.program }}-macos
                   path: slint-${{ github.event.inputs.program || inputs.program }}-macos.tar.gz
+

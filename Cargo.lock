@@ -5445,20 +5445,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "i-slint-live-preview"
+version = "1.17.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "dashmap",
+ "derive_more",
+ "futures-util",
+ "getifs",
+ "hostname",
+ "i-slint-compiler",
+ "i-slint-core",
+ "lsp-types",
+ "mdns-sd 0.17.2",
+ "notify",
+ "postcard",
+ "serde",
+ "serde_json",
+ "slint-interpreter",
+ "tokio",
+ "tokio-tungstenite",
+ "tracing",
+ "zeroconf-tokio",
+]
+
+[[package]]
 name = "i-slint-parser-test-macro"
 version = "1.17.0"
 dependencies = [
  "quote",
-]
-
-[[package]]
-name = "i-slint-preview-protocol"
-version = "1.17.0"
-dependencies = [
- "derive_more",
- "lsp-types",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -9505,33 +9521,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
-name = "remote-viewer"
-version = "1.17.0"
-dependencies = [
- "anyhow",
- "base64 0.22.1",
- "dashmap",
- "futures-util",
- "getifs",
- "hostname",
- "i-slint-backend-selector",
- "i-slint-compiler",
- "i-slint-core",
- "i-slint-preview-protocol",
- "lsp-types",
- "mdns-sd 0.17.2",
- "postcard",
- "serde",
- "slint",
- "slint-interpreter",
- "tokio",
- "tokio-tungstenite",
- "tracing",
- "tracing-subscriber",
- "zeroconf-tokio",
-]
-
-[[package]]
 name = "rend"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10567,9 +10556,9 @@ dependencies = [
 
 [[package]]
 name = "skia-bindings"
-version = "0.90.0"
+version = "0.97.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f6f96e00735f14a781aac8a6870c862b8cc831df6d8e4ad77ab78e11411b9af"
+checksum = "e6a38f4d460276ea40588c958396a9de0eec808c679009a5b52afdf6ebf34132"
 dependencies = [
  "bindgen 0.72.1",
  "cc",
@@ -10579,14 +10568,14 @@ dependencies = [
  "regex",
  "serde_json",
  "tar",
- "toml 0.9.12+spec-1.1.0",
+ "toml 1.1.2+spec-1.1.0",
 ]
 
 [[package]]
 name = "skia-safe"
-version = "0.90.0"
+version = "0.97.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a71c01d325d40b1031dee67d251a5e0132e79e2a9ec272149a4f4a0d4b8b3be"
+checksum = "1ecfc54fcd40dc5dea15dd2a84f8422cdb0f76c6a51ebb8835ce0b7ef590a21f"
 dependencies = [
  "bitflags 2.11.1",
  "skia-bindings",
@@ -10651,6 +10640,7 @@ dependencies = [
  "i-slint-common",
  "i-slint-core",
  "i-slint-core-macros",
+ "i-slint-live-preview",
  "i-slint-renderer-femtovg",
  "i-slint-renderer-skia",
  "i-slint-renderer-software",
@@ -10662,7 +10652,6 @@ dependencies = [
  "serde",
  "serde_json",
  "slint-build",
- "slint-interpreter",
  "slint-macros",
  "tokio",
  "unicode-segmentation",
@@ -10707,6 +10696,7 @@ dependencies = [
  "i-slint-backend-testing",
  "i-slint-common",
  "i-slint-core",
+ "i-slint-live-preview",
  "i-slint-renderer-skia",
  "i-slint-renderer-software",
  "proc-macro2",
@@ -10760,7 +10750,6 @@ dependencies = [
  "i-slint-core-macros",
  "itertools 0.14.0",
  "lyon_path",
- "notify",
  "once_cell",
  "raw-window-handle",
  "serde_json",
@@ -10789,7 +10778,7 @@ dependencies = [
  "i-slint-common",
  "i-slint-compiler",
  "i-slint-core",
- "i-slint-preview-protocol",
+ "i-slint-live-preview",
  "itertools 0.14.0",
  "js-sys",
  "lsp-server",
@@ -10890,32 +10879,28 @@ dependencies = [
 ]
 
 [[package]]
-name = "slint-updater"
-version = "1.17.0"
-dependencies = [
- "by_address",
- "clap",
- "i-slint-compiler",
- "smol_str 0.3.2",
- "spin_on",
-]
-
-[[package]]
 name = "slint-viewer"
 version = "1.17.0"
 dependencies = [
+ "anyhow",
+ "async-compat",
  "clap",
  "env_logger",
+ "i-slint-backend-android-activity",
  "i-slint-backend-selector",
  "i-slint-compiler",
  "i-slint-core",
+ "i-slint-live-preview",
  "itertools 0.14.0",
+ "mdns-sd 0.17.2",
  "serde_json",
  "shlex",
  "slint-interpreter",
  "smol_str 0.3.2",
- "spin_on",
  "tikv-jemallocator",
+ "tokio",
+ "tracing",
+ "zeroconf-tokio",
 ]
 
 [[package]]

@@ -1,0 +1,115 @@
+<?xml version='1.0' encoding='UTF-8' standalone='no'?>
+<!-- SPDX-FileCopyrightText: Copyright © SixtyFPS GmbH <info@slint.dev> -->
+<!-- SPDX-License-Identifier: MIT -->
+<!-- cSpell:ignore ablend aenumformat afriend afromargb aoverridable apure ared argsstring asealed briefdescription classslint -->
+<!-- cSpell:ignore codeline compounddef compoundname computeroutput declname -->
+<!-- cSpell:ignore detaileddescription enumvalue itemizedlist kindref listitem memberdef -->
+<!-- cSpell:ignore parameterdescription parameteritem parameterlist parametername -->
+<!-- cSpell:ignore parameternamelist programlisting refid sectiondef simplesect ulink virt -->
+<doxygen version="1.9.8">
+  <compounddef id="classslint_1_1_Color" kind="class" language="C++" prot="public">
+    <compoundname>slint::Color</compoundname>
+    <includes local="no">slint.h</includes>
+    <sectiondef kind="public-type">
+      <memberdef kind="enum" id="classslint_1_1_Color_1aenumformat" prot="public" static="no" strong="yes">
+        <name>Format</name>
+        <enumvalue id="ev1"><name>Argb</name><briefdescription><para>32-bit ARGB.</para></briefdescription></enumvalue>
+        <enumvalue id="ev2"><name>Rgb</name><briefdescription><para>24-bit RGB.</para></briefdescription></enumvalue>
+        <briefdescription><para>The pixel format.</para></briefdescription>
+        <detaileddescription></detaileddescription>
+      </memberdef>
+    </sectiondef>
+    <sectiondef kind="public-static-func">
+      <memberdef kind="function" id="classslint_1_1_Color_1afromargb" prot="public" static="yes" const="no">
+        <type>Color</type>
+        <definition>static Color slint::Color::from_argb_encoded</definition>
+        <argsstring>(uint32_t argb_encoded)</argsstring>
+        <name>from_argb_encoded</name>
+        <param><type>uint32_t</type><declname>argb_encoded</declname></param>
+        <briefdescription><para>Construct a color from an encoded ARGB value.</para></briefdescription>
+        <detaileddescription>
+          <para>
+            <parameterlist kind="param">
+              <parameteritem>
+                <parameternamelist><parametername>argb_encoded</parametername></parameternamelist>
+                <parameterdescription><para>The 32-bit encoded color.</para></parameterdescription>
+              </parameteritem>
+            </parameterlist>
+            <simplesect kind="return"><para>the new <ref refid="classslint_1_1_Color" kindref="compound">Color</ref>.</para></simplesect>
+          </para>
+          <para><simplesect kind="note"><para>The alpha channel is <bold>not</bold> premultiplied.</para></simplesect></para>
+        </detaileddescription>
+      </memberdef>
+    </sectiondef>
+    <sectiondef kind="public-func">
+      <memberdef kind="function" id="classslint_1_1_Color_1ared" prot="public" static="no" const="yes">
+        <type>uint8_t</type>
+        <definition>uint8_t slint::Color::red</definition>
+        <argsstring>() const</argsstring>
+        <name>red</name>
+        <briefdescription><para>Returns the red channel.</para></briefdescription>
+        <detaileddescription>
+          <para>Example usage:</para>
+          <para><programlisting><codeline><highlight class="normal">Color<sp/>c;</highlight></codeline><codeline><highlight class="normal">auto<sp/>r<sp/>=<sp/>c.red();</highlight></codeline></programlisting></para>
+          <para>The valid range is documented in this list:<itemizedlist><listitem><para>0 means no red.</para></listitem><listitem><para>255 means full red.</para></listitem></itemizedlist></para>
+        </detaileddescription>
+      </memberdef>
+      <memberdef kind="function" id="classslint_1_1_Color_1ablend" prot="public" static="no" const="no">
+        <type>void</type>
+        <definition>void slint::Color::blend</definition>
+        <argsstring>(const Color &amp;other)</argsstring>
+        <name>blend</name>
+        <param>
+          <type>const <ref refid="classslint_1_1_Color" kindref="compound">Color</ref> &amp;</type>
+          <declname>other</declname>
+        </param>
+        <briefdescription><para>Blend with another color.</para></briefdescription>
+        <detaileddescription></detaileddescription>
+      </memberdef>
+      <!-- Synthetic virtual methods to exercise the (virtual) heading marker. -->
+      <memberdef kind="function" id="classslint_1_1_Color_1aoverridable" prot="public" static="no" const="no" virt="virtual">
+        <type>void</type>
+        <definition>virtual void slint::Color::on_changed</definition>
+        <argsstring>()</argsstring>
+        <name>on_changed</name>
+        <briefdescription><para>An overridable hook.</para></briefdescription>
+        <detaileddescription></detaileddescription>
+      </memberdef>
+      <memberdef kind="function" id="classslint_1_1_Color_1asealed" prot="public" static="no" const="no" virt="virtual">
+        <type>void</type>
+        <definition>virtual void slint::Color::on_sealed</definition>
+        <argsstring>() override final</argsstring>
+        <name>on_sealed</name>
+        <briefdescription><para>A sealed override.</para></briefdescription>
+        <detaileddescription></detaileddescription>
+      </memberdef>
+      <memberdef kind="function" id="classslint_1_1_Color_1apure" prot="public" static="no" const="no" virt="pure-virtual">
+        <type>void</type>
+        <definition>virtual void slint::Color::on_required</definition>
+        <argsstring>()=0</argsstring>
+        <name>on_required</name>
+        <briefdescription><para>A required override.</para></briefdescription>
+        <detaileddescription></detaileddescription>
+      </memberdef>
+    </sectiondef>
+    <sectiondef kind="friend">
+      <memberdef kind="friend" id="classslint_1_1_Color_1afriend" prot="public" static="no" const="no">
+        <type>friend void</type>
+        <definition>friend void private_api::touch_color</definition>
+        <argsstring>(Color &amp;c)</argsstring>
+        <name>private_api::touch_color</name>
+        <briefdescription></briefdescription>
+        <detaileddescription></detaileddescription>
+      </memberdef>
+    </sectiondef>
+    <briefdescription>
+      <para>A <computeroutput>Color</computeroutput> represents an RGBA color.</para>
+    </briefdescription>
+    <detaileddescription>
+      <para>Colors are stored as four 8-bit channels. See <ulink url="https://slint.dev">the website</ulink> for details.</para>
+      <sect1 id="color_example"><title>Example</title>
+        <para><programlisting filename=".cpp"><codeline><highlight class="normal">auto<sp/>c<sp/>=<sp/>Color::from_argb_encoded(0xff112233);</highlight></codeline></programlisting></para>
+      </sect1>
+    </detaileddescription>
+  </compounddef>
+</doxygen>
