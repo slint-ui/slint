@@ -66,7 +66,6 @@ export default defineConfig({
                         const p = (link.split("?")[0] ?? "").trim();
                         return (
                             p.startsWith("/#") ||
-                            p.startsWith("/thirdparty/") ||
                             // starlight-typedoc deletes every subdirectory README.md but
                             // typedoc-plugin-markdown still emits a "Namespaces" link to
                             // the deleted file in the parent README. The namespace's
@@ -156,6 +155,7 @@ export default defineConfig({
                         },
                     ],
                 },
+                { autogenerate: { directory: "generated" } },
             ],
         }),
     ],

@@ -1,0 +1,28 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+
+[project]
+name = "slint-python-docs-gen"
+version = "0.1"
+description = "API reference generator for the Slint Python docs site"
+# 3.12+: griffe parses the slint sources statically, and they use PEP 695
+# generics (`class Model[T]`, `def run_until_complete[T]`). tomllib (3.11+) is
+# also used to read the documented package version.
+requires-python = ">=3.12"
+dependencies = ["griffe>=2"]
+
+[dependency-groups]
+dev = ["ty>=0.0.1a28", "pytest>=8"]
+
+[tool.uv]
+# This project is just the generator script and its tooling; nothing to build.
+package = false
+
+[tool.pytest.ini_options]
+# cSpell:ignore pythonpath testpaths
+# Make gen_mdx.py importable from tests/ and only collect tests/.
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ty.src]
+exclude = ["node_modules", "dist"]

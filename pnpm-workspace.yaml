@@ -22,6 +22,8 @@ packages:
   - docs/common
   - docs/safety
   - docs/nodejs
+  - docs/python
+  - docs/cpp
   - ui-libraries/material/docs
 
 catalog:
@@ -30,7 +32,7 @@ catalog:
   '@astrojs/starlight': 0.39.2
   '@biomejs/biome': 2.4.15
   '@expressive-code/plugin-line-numbers': 0.42.0
-  '@playwright/test': 1.59.1
+  '@playwright/test': 1.60.0
   '@types/node': 24.12.0
   astro: 6.3.3
   astro-embed: 0.13.0

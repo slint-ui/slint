@@ -75,9 +75,6 @@ path = [
   ".github/ISSUE_TEMPLATE/3-tracking-issue.md",
   ".github/pull_request_template.md",
 
-  "api/cpp/docs/**/**.css",
-  "api/cpp/docs/**/**.md",
-  "api/cpp/docs/**/**.html",
   "api/cpp/tests/redpixel.png",
 
   "demos/**.md",

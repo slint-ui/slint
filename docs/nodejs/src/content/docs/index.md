@@ -434,7 +434,3 @@ component.Logic.to_upper_case = (str) => {
 
 **Note**: Global singletons are instantiated once per component. When declaring multiple components for `export` to JavaScript,
 each instance will have their own instance of associated global singletons.
-
-## Third-Party Licenses
-
-For a list of the third-party licenses of all dependencies, see the separate [Third-Party Licenses page](/thirdparty/).

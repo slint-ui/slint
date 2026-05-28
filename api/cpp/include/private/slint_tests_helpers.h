@@ -60,6 +60,18 @@ inline void send_keyboard_string_sequence(const Component *component,
                                                           &component->window().window_handle());
 }
 
+template<typename Component>
+inline void set_use_native_popup(const Component *component, bool native)
+{
+    cbindgen_private::slint_testing_use_native_popup(&component->window().window_handle(), native);
+}
+
+template<typename Component>
+inline size_t active_popup_count(const Component *component)
+{
+    return cbindgen_private::slint_testing_active_popup_count(&component->window().window_handle());
+}
+
 #define assert_eq(A, B)                                                                            \
     slint::private_api::testing::assert_eq_impl(A, B, #A, #B, __FILE__, __LINE__)
 

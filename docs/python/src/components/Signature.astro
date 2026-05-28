@@ -1,0 +1,23 @@
+---
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+interface Props {
+    symbol: string;
+}
+
+const { symbol } = Astro.props;
+---
+
+<div class="api-signature" data-symbol={symbol}><code><slot /></code></div>
+
+<style>
+    .api-signature {
+        border-left: 3px solid var(--sl-color-accent);
+        padding-left: 0.75rem;
+        margin: 0.5rem 0;
+    }
+    .api-signature code {
+        background: none;
+        padding: 0;
+    }
+</style>

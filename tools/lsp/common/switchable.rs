@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_preview_protocol::PreviewTarget;
+use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewTarget};
 use std::{any::Any, cell::RefCell, collections::HashMap};
 
 use super::{LspToPreview, Result};
@@ -31,12 +31,12 @@ impl SwitchableLspToPreview {
         Self { lsp_to_previews, current_target: RefCell::new(target) }
     }
 
-    pub fn send(&self, message: &i_slint_preview_protocol::LspToPreviewMessage) {
+    pub fn send(&self, message: &LspToPreviewMessage) {
         self.lsp_to_previews.get(&self.current_target.borrow()).unwrap().send(message);
     }
 
     pub async fn shutdown(&self) {
-        self.send(&i_slint_preview_protocol::LspToPreviewMessage::Quit);
+        self.send(&LspToPreviewMessage::Quit);
         futures_util::future::join_all(
             self.lsp_to_previews.values().map(|to_preview| to_preview.shutdown()),
         )

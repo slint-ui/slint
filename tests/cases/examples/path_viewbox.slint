@@ -3,7 +3,7 @@
 
 // cSpell: ignore unclipped
 
-RectPath := Path {
+component RectPath inherits Path {
     MoveTo {
         x: 0;
         y: 0;
@@ -27,7 +27,7 @@ RectPath := Path {
     Close {}
 }
 
-PathViewBox := Window {
+component PathViewBox inherits Window {
     preferred-width: 600px;
     preferred-height: 600px;
 
@@ -52,6 +52,7 @@ PathViewBox := Window {
         height: 100px;
 
         RectPath {
+            x:0;y:0;
             width: 100px;
             height: 100px;
 
@@ -75,6 +76,7 @@ PathViewBox := Window {
         height: 100px;
 
         RectPath {
+            x:0;y:0;
             width: 100px;
             height: 100px;
 

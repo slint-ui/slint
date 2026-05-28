@@ -17,6 +17,7 @@ pub mod key_codes;
 pub mod sharedfontique;
 
 pub mod styled_text;
+pub mod unicode_utils;
 
 pub const DEFAULT_DECIMAL_SEPARATOR: char = '.';
 

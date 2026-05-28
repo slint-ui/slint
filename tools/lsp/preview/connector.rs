@@ -16,9 +16,10 @@ pub use crate::common::SwitchableLspToPreview;
 pub mod remote;
 
 use crate::preview;
+use i_slint_live_preview::protocol::LspToPreviewMessage;
 
-pub fn lsp_to_preview(message: i_slint_preview_protocol::LspToPreviewMessage) {
-    use i_slint_preview_protocol::LspToPreviewMessage as M;
+pub fn lsp_to_preview(message: LspToPreviewMessage) {
+    use LspToPreviewMessage as M;
     match message {
         M::InvalidateContents { url } => preview::invalidate_contents(&url),
         M::ForgetFile { url } => preview::delete_document(&url),

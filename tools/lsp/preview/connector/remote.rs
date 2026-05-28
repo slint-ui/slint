@@ -8,7 +8,9 @@ use futures_util::{
     lock::Mutex,
     stream::{SplitSink, SplitStream, StreamExt as _},
 };
-use i_slint_preview_protocol::{PreviewTarget, PreviewToLspMessage};
+use i_slint_live_preview::protocol::{
+    self, LspToPreviewMessage, PreviewTarget, PreviewToLspMessage,
+};
 use tokio::sync::mpsc;
 #[cfg(not(target_arch = "wasm32"))]
 use tokio::{sync::RwLock, task::JoinHandle};
@@ -32,8 +34,7 @@ pub fn connect_remote_preview_command(
 
     if let Some(addresses) = addresses {
         if let Some(port) = port {
-            let _ =
-                ctx.to_preview.set_preview_target(i_slint_preview_protocol::PreviewTarget::Remote);
+            let _ = ctx.to_preview.set_preview_target(PreviewTarget::Remote);
             ctx.to_preview.with_preview_target::<RemoteLspToPreview, Result<Option<serde_json::Value>, LspError>>(
                 |remote| {
                     let preview_to_lsp_sender = ctx.preview_to_lsp_sender.clone();
@@ -128,7 +129,7 @@ impl RemoteLspToPreview {
         server_notifier: crate::ServerNotifier,
     ) -> Option<JoinHandle<()>> {
         let receiver = mdns
-            .browse(i_slint_preview_protocol::SERVICE_TYPE)
+            .browse(protocol::SERVICE_TYPE)
             .inspect_err(|err| tracing::error!("Failed to start mDNS browsing: {err}"))
             .ok()?;
 
@@ -265,10 +266,7 @@ impl RemoteLspToPreview {
                             );
                         }
                         Message::Binary(bytes) => {
-                            match postcard::from_bytes::<
-                                i_slint_preview_protocol::PreviewToLspMessage,
-                            >(&bytes)
-                            {
+                            match postcard::from_bytes::<PreviewToLspMessage>(&bytes) {
                                 Ok(msg) => {
                                     preview_to_lsp_sender.send(msg).unwrap_or_else(|err| {
                                         tracing::error!(
@@ -380,7 +378,7 @@ impl Drop for RemoteLspToPreview {
 }
 
 impl crate::common::LspToPreview for RemoteLspToPreview {
-    fn send(&self, message: &i_slint_preview_protocol::LspToPreviewMessage) {
+    fn send(&self, message: &LspToPreviewMessage) {
         tracing::debug!("Sending websocket message {message:?}");
         let connection = Arc::downgrade(&self.connection);
         let message = postcard::to_allocvec(message).unwrap();

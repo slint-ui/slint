@@ -25,13 +25,11 @@
 #    include <memory>
 #endif
 
-/// \rst
-/// The :code:`slint` namespace is the primary entry point into the Slint C++ API.
+/// The `slint` namespace is the primary entry point into the Slint C++ API.
 /// All available types are in this namespace.
 ///
-/// See the :doc:`Overview <../overview>` documentation for the C++ integration how
-/// to load :code:`.slint` designs.
-/// \endrst
+/// See the Overview documentation for the C++ integration and how
+/// to load `.slint` designs.
 namespace slint {
 
 namespace private_api {

@@ -114,6 +114,18 @@ const TOOLS: &[ToolDef] = &[
         request_type: "RequestDispatchKeyEvent",
         optional_fields: &["eventType"],
     },
+    ToolDef {
+        name: "start_event_recording",
+        description: "Clear the event log and begin recording window/input events. Call this before the interaction you want to observe, then call stop_event_recording when done.",
+        request_type: "RequestStartEventRecording",
+        optional_fields: &[],
+    },
+    ToolDef {
+        name: "stop_event_recording",
+        description: "Stop recording and return all events collected since the last start_event_recording call. The response includes an events array, droppedCount (events evicted when the 1024-entry cap was reached), and unknownEventCount (non-zero indicates a Slint bug: an event variant has no proto mapping). Use to verify that Slint received and processed pointer, key, resize, scale, close, and active-state events.",
+        request_type: "RequestStopEventRecording",
+        optional_fields: &[],
+    },
 ];
 
 fn tool_definitions() -> Value {
@@ -366,6 +378,18 @@ async fn handle_tool_call(
                 serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
             ))
         }
+        "start_event_recording" => {
+            let response = dispatch::start_event_recording(state);
+            Ok(ToolResult::Json(
+                serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
+            ))
+        }
+        "stop_event_recording" => {
+            let response = dispatch::stop_event_recording(state);
+            Ok(ToolResult::Json(
+                serde_json::to_value(response).map_err(|e| format!("serialize error: {e}"))?,
+            ))
+        }
         _ => Err(format!("Unknown tool: {name}")),
     }
 }
@@ -432,7 +456,8 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "5. get_element_properties → full details on a specific element\n",
                     "6. take_screenshot → visual snapshot (returned as inline image)\n",
                     "7. Interact: click_element, drag_element, set_element_value, invoke_accessibility_action, dispatch_key_event\n",
-                    "8. take_screenshot again to verify the effect\n\n",
+                    "8. start_event_recording → then interact → stop_event_recording to verify the runtime received and processed expected input/window events\n",
+                    "9. take_screenshot again to verify the visual effect\n\n",
 
                     "# Handle format\n\n",
                     "All handles are JSON objects with string-valued fields: {\"index\": \"0\", \"generation\": \"0\"}. ",
@@ -443,10 +468,11 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "# Enum values\n\n",
                     "Enum fields accept PascalCase strings:\n",
                     "- AccessibleRole: Unknown, Button, Checkbox, Combobox, List, Slider, Spinbox, Tab, TabList, Text, Table, Tree, ProgressIndicator, TextInput, Switch, ListItem, TabPanel, Groupbox, Image, RadioButton, RadioGroup, Banner, Complementary, ContentInfo, Form, Main, Navigation, Region, Search\n",
-                    "- PointerEventButton: Left, Right, Middle\n",
+                    "- PointerEventButton: Left, Right, Middle, Back, Forward, Other\n",
                     "- ClickAction: SingleClick, DoubleClick\n",
                     "- ElementAccessibilityAction: Default_, Increment, Decrement, Expand\n",
                     "- KeyEventType: PressAndRelease, Press, Release\n",
+                    "- RecordedEventResult: Unspecified, Accepted, Rejected, Ignored (Unspecified appears only on malformed data)\n",
                     "- LayoutKind: NotALayout, HorizontalLayout, VerticalLayout, GridLayout, FlexboxLayout\n",
                     "Omitted enum fields default to the first value (e.g. Left, SingleClick, PressAndRelease).\n\n",
 
@@ -1051,7 +1077,7 @@ mod tests {
     fn test_tool_definitions_structure() {
         let defs = tool_definitions();
         let tools = defs["tools"].as_array().unwrap();
-        assert_eq!(tools.len(), 12);
+        assert_eq!(tools.len(), TOOLS.len());
         for tool in tools {
             assert!(tool.get("name").and_then(|v| v.as_str()).is_some());
             assert!(tool.get("description").and_then(|v| v.as_str()).is_some());

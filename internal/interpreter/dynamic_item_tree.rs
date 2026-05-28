@@ -921,13 +921,13 @@ pub async fn load(
     #[cfg(not(feature = "internal-highlight"))]
     let (path, mut diag, loader) =
         i_slint_compiler::load_root_file(&path, &path, source, diag, compiler_config).await;
-    #[cfg(feature = "internal-file-watcher")]
+    #[cfg(feature = "internal")]
     let watch_paths = loader.all_files_to_watch().into_iter().collect();
     if diag.has_errors() {
         return CompilationResult {
             components: HashMap::new(),
             diagnostics: diag.into_iter().collect(),
-            #[cfg(feature = "internal-file-watcher")]
+            #[cfg(feature = "internal")]
             watch_paths,
             #[cfg(feature = "internal")]
             structs_and_enums: Vec::new(),
@@ -1014,7 +1014,7 @@ pub async fn load(
     CompilationResult {
         diagnostics: diag.into_iter().collect(),
         components,
-        #[cfg(feature = "internal-file-watcher")]
+        #[cfg(feature = "internal")]
         watch_paths,
         #[cfg(feature = "internal")]
         structs_and_enums,
@@ -1625,7 +1625,7 @@ pub fn instantiate(
             if let Some(WindowOptions::UseExistingWindow(adapter)) = window_options.as_ref() {
                 Some(adapter.clone())
             } else {
-                instance_ref.maybe_window_adapter()
+                extra_data.globals.get().unwrap().window_adapter().and_then(|wa| wa.get().cloned())
             };
 
         let component_rc = vtable::VRc::into_dyn(self_rc.clone());

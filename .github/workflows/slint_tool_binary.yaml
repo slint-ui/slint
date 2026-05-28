@@ -21,6 +21,10 @@ on:
                 type: boolean
                 description: Sign binaries on macOS (false for manual builds)
                 default: false
+            ios:
+                type: boolean
+                description: Also build an unsigned iOS archive (.xcarchive) of the viewer
+                default: false
 
     workflow_call:
         inputs:
@@ -36,6 +40,10 @@ on:
                 type: boolean
                 description: Sign binaries on macOS
                 default: true
+            ios:
+                type: boolean
+                description: Also build an unsigned iOS archive (.xcarchive) of the viewer
+                default: false
         secrets:
             certificate:
                 description: "certificate secret"
@@ -206,3 +214,44 @@ jobs:
               with:
                   name: slint-${{ github.event.inputs.program || inputs.program }}-macos
                   path: slint-${{ github.event.inputs.program || inputs.program }}-macos.tar.gz
+
+    # Opt-in: build an unsigned iOS archive of the viewer that can be signed and
+    # exported into an .ipa locally, e.g. for upload to TestFlight.
+    build_ios:
+        if: ${{ github.event.inputs.ios == 'true' || inputs.ios }}
+        runs-on: macos-26
+        steps:
+            - uses: actions/checkout@v6
+              with:
+                  # Full history so the build number (commit count) is accurate.
+                  fetch-depth: 0
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-apple-ios
+            # librsvg provides rsvg-convert, used to render the app icon.
+            - run: brew install xcodegen librsvg
+            - name: Compute version numbers
+              run: |
+                  # Marketing version from the workspace, build number from the
+                  # git history (monotonic), short SHA for artifact traceability.
+                  MARKETING_VERSION=$(sed -n '/\[workspace.package\]/,/^\[/{s/^version = "\(.*\)"/\1/p;}' Cargo.toml)
+                  echo "MARKETING_VERSION=$MARKETING_VERSION" >> "$GITHUB_ENV"
+                  echo "CURRENT_PROJECT_VERSION=$(git rev-list --count HEAD)" >> "$GITHUB_ENV"
+                  echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+            - run: xcodegen generate --spec ios-project.yml
+              working-directory: tools/viewer
+            - name: Archive (unsigned)
+              working-directory: tools/viewer
+              run: |
+                  xcodebuild -scheme "slint-viewer" \
+                    -destination "generic/platform=iOS" \
+                    -archivePath "$RUNNER_TEMP/slint-viewer.xcarchive" \
+                    archive \
+                    CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+                    MARKETING_VERSION="$MARKETING_VERSION" \
+                    CURRENT_PROJECT_VERSION="$CURRENT_PROJECT_VERSION"
+            - name: Upload artifact
+              uses: actions/upload-artifact@v7
+              with:
+                  name: slint-viewer-ios-${{ env.MARKETING_VERSION }}-${{ env.SHORT_SHA }}
+                  path: ${{ runner.temp }}/slint-viewer.xcarchive
