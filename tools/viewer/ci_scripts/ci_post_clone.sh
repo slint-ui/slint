@@ -2,6 +2,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+# cSpell:ignore tlsv1
 # Xcode Cloud post-clone hook for the slint-viewer iOS app.
 #
 # Runs after the repository is cloned and before Xcode Cloud validates the
@@ -15,7 +16,7 @@
 #   3. Read the workspace version from Cargo.toml and rewrite the xcodegen spec
 #      so Info.plist carries the right CFBundleShortVersionString. Build numbers
 #      (CFBundleVersion) are assigned by Xcode Cloud, not from git history.
-#   4. Run xcodegen to materialise tools/viewer/Slint Viewer.xcodeproj.
+#   4. Run xcodegen to materialize tools/viewer/Slint Viewer.xcodeproj.
 
 set -euo pipefail
 
