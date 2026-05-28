@@ -388,7 +388,7 @@ fn process_tag(
     let width = attr.get("imageWidth").and_then(|w| w.parse::<usize>().ok());
     let height = attr.get("imageHeight").and_then(|h| h.parse::<usize>().ok());
 
-    let size = width.and_then(|w| height.map(|h| (w, h)));
+    let size = width.zip(height);
 
     let scale_factor = attr.get("scale").and_then(|s| s.parse::<f32>().ok()).unwrap_or(1.0);
 
