@@ -6,7 +6,7 @@
 ```sh
 cargo install bindgen-cli
 export QT_INCLUDE_PATH="/usr/include/x86_64-linux-gnu/qt6"
-bindgen $QT_INCLUDE_PATH/QtCore/qnamespace.h --allowlist-type Qt::Key --allowlist-type Qt::KeyboardModifier --allowlist-type Qt::AlignmentFlag --allowlist-type Qt::TextFlag --allowlist-type Qt::FillRule --allowlist-type Qt::CursorShape --allowlist-type Qt::ScrollPhase --allowlist-type Qt::DropAction -o internal/backends/qt/key_generated.rs -- -I $QT_INCLUDE_PATH -xc++
+bindgen $QT_INCLUDE_PATH/QtCore/qnamespace.h --allowlist-type Qt::Key --allowlist-type Qt::KeyboardModifier --allowlist-type Qt::AlignmentFlag --allowlist-type Qt::TextFlag --allowlist-type Qt::FillRule --allowlist-type Qt::CursorShape --allowlist-type Qt::ScrollPhase --allowlist-type Qt::DropAction --allowlist-type Qt::WindowType -o internal/backends/qt/key_generated.rs -- -I $QT_INCLUDE_PATH -xc++
 ```
 then add license header and this doc
 */
