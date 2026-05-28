@@ -467,7 +467,7 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
 
                     "# Enum values\n\n",
                     "Enum fields accept PascalCase strings:\n",
-                    "- AccessibleRole: Unknown, Button, Checkbox, Combobox, List, Slider, Spinbox, Tab, TabList, Text, Table, Tree, ProgressIndicator, TextInput, Switch, ListItem, TabPanel, Groupbox, Image, RadioButton\n",
+                    "- AccessibleRole: Unknown, Button, Checkbox, Combobox, List, Slider, Spinbox, Tab, TabList, Text, Table, Tree, ProgressIndicator, TextInput, Switch, ListItem, TabPanel, Groupbox, Image, RadioButton, RadioGroup, Banner, Complementary, ContentInfo, Form, Main, Navigation, Region, Search\n",
                     "- PointerEventButton: Left, Right, Middle, Back, Forward, Other\n",
                     "- ClickAction: SingleClick, DoubleClick\n",
                     "- ElementAccessibilityAction: Default_, Increment, Decrement, Expand\n",
