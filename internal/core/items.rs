@@ -2011,7 +2011,9 @@ impl Item for TooltipArea {
             self.schedule_show(self_rc);
         }
 
-        InputEventFilterResult::ForwardAndInterceptGrab
+        // Observe without claiming: siblings still receive the event; the routing tracks
+        // this item on its observers side-list and delivers Exit when the pointer leaves.
+        InputEventFilterResult::ForwardAndObserve
     }
 
     fn input_event(
@@ -2021,16 +2023,10 @@ impl Item for TooltipArea {
         _self_rc: &ItemRc,
         _: &mut MouseCursor,
     ) -> InputEventResult {
-        match event {
-            // Accept move/exit so this passive tracker stays in the routing lifecycle and
-            // continues receiving leave transitions, but ignore other interaction semantics.
-            MouseEvent::Moved { .. } => InputEventResult::EventAccepted,
-            MouseEvent::Exit => {
-                self.set_hover_state(false, _self_rc);
-                InputEventResult::EventAccepted
-            }
-            _ => InputEventResult::EventIgnored,
+        if matches!(event, MouseEvent::Exit) {
+            self.set_hover_state(false, _self_rc);
         }
+        InputEventResult::EventIgnored
     }
 
     fn capture_key_event(
