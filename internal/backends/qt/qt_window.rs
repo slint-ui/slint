@@ -994,7 +994,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
                     Brush::SolidColor(box_shadow.color()),
                     Brush::default(),
                     0.,
-                    LogicalBorderRadius::new_uniform(box_shadow.border_radius().get()),
+                    box_shadow.logical_border_radius(),
                 );
 
                 drop(painter_);

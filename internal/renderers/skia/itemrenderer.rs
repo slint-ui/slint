@@ -98,7 +98,8 @@ impl<'a> SkiaItemRenderer<'a> {
             return None;
         }
         // CSS rule: outer corner radius after spread = max(0, r + spread).
-        let shape_radius = (shadow_options.radius.get() + spread).max(0.);
+        let shape_radius = (shadow_options.radius + PhysicalBorderRadius::new_uniform(spread))
+            .max(Default::default());
 
         let canvas_size: skia_safe::Size = (shape_w + 2. * blur, shape_h + 2. * blur).into();
 
@@ -111,10 +112,9 @@ impl<'a> SkiaItemRenderer<'a> {
 
         // The shape is centered in the canvas with `blur` padding on all sides so the Gaussian blur
         // has room to fade out into transparency.
-        let rounded_rect = skia_safe::RRect::new_rect_xy(
-            skia_safe::Rect::from_xywh(blur, blur, shape_w, shape_h),
-            shape_radius,
-            shape_radius,
+        let rounded_rect = to_skia_rrect(
+            &PhysicalRect::new(PhysicalPoint::new(blur, blur), PhysicalSize::new(shape_w, shape_h)),
+            &shape_radius,
         );
 
         let mut paint = skia_safe::Paint::default();
@@ -146,7 +146,7 @@ impl<'a> SkiaItemRenderer<'a> {
         }
         let blur = shadow_options.blur.get();
         let spread = shadow_options.spread.get();
-        let radius = shadow_options.radius.get();
+        let radius = shadow_options.radius;
         let offset_x = shadow_options.offset_x_inset;
         let offset_y = shadow_options.offset_y_inset;
 
@@ -160,10 +160,9 @@ impl<'a> SkiaItemRenderer<'a> {
             None,
         );
 
-        let geometry_rrect = skia_safe::RRect::new_rect_xy(
-            skia_safe::Rect::from_xywh(0., 0., width, height),
-            radius,
-            radius,
+        let geometry_rrect = to_skia_rrect(
+            &PhysicalRect::new(PhysicalPoint::zero(), PhysicalSize::new(width, height)),
+            &radius,
         );
 
         // Inner "hole" rrect: geometry inset by spread on each side, translated by offset.
@@ -174,8 +173,15 @@ impl<'a> SkiaItemRenderer<'a> {
             width - spread + offset_x,
             height - spread + offset_y,
         );
-        let inner_radius = (radius - spread).max(0.);
-        let inner_rrect = skia_safe::RRect::new_rect_xy(inner_rect, inner_radius, inner_radius);
+        let inner_radius =
+            (radius - PhysicalBorderRadius::new_uniform(spread)).max(Default::default());
+        let inner_rrect = to_skia_rrect(
+            &PhysicalRect::new(
+                PhysicalPoint::new(inner_rect.left, inner_rect.top),
+                PhysicalSize::new(inner_rect.width(), inner_rect.height()),
+            ),
+            &inner_radius,
+        );
 
         // Outer rect inflated well beyond the geometry so its blurred edge falls outside the clip.
         let inflate = blur + spread.abs() + offset_x.abs() + offset_y.abs() + 16.;
