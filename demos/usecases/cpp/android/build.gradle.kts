@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "dev.slint.usecases"
+    namespace = "dev.slint.demos.usecases"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "dev.slint.usecases"
+        applicationId = "dev.slint.demos.usecases"
         // API 26 required for InMemoryDexClassLoader used by the Slint Android backend
         minSdk = 26
         targetSdk = 35

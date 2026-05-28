@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-# cSpell: ignore bigobj buildroot CLANGCC CLANGCXX CROSSCOMPILING dlopening hostbuild IMPLIB libslint mbig MINSIZEREL NSIS RELWITHDEBINFO SONAME Yocto
+# cSpell: ignore bigobj buildroot CLANGCC CLANGCXX CROSSCOMPILING dlopening hostbuild IMPLIB javac libslint mbig MINSIZEREL NSIS RELWITHDEBINFO SONAME Yocto
 cmake_minimum_required(VERSION 3.21)
 # Select C++ and C as languages, as Corrosion needs ${CMAKE_C_COMPILER}
 # for linking
@@ -26,9 +26,8 @@ list(PREPEND CMAKE_MODULE_PATH ${Corrosion_SOURCE_DIR}/cmake)
 find_package(Rust 1.92 REQUIRED MODULE)
 
 # When building for Android (NDK toolchain sets CMAKE_SYSTEM_NAME to "Android"),
-# auto-configure the Rust target and pick platform-level defaults. Feature defaults
-# specific to Android live inline with their define_cargo_dependent_feature() calls
-# below.
+# auto-configure the Rust target and pick platform-level defaults.
+# Feature defaults specific to Android live inline with their define_cargo_dependent_feature() calls below.
 if(ANDROID)
     # Map Android ABI to Rust target triple
     if(ANDROID_ABI STREQUAL "arm64-v8a")
@@ -339,9 +338,15 @@ if (SLINT_BUILD_RUNTIME)
         )
     endif()
 
-    # Propagate Android NDK/SDK paths to the Rust build so that the android-activity
-    # backend can compile Java sources and produce DEX bytecode.
+    # Propagate Android NDK/SDK paths to the Rust build,
+    # so the android-activity backend can compile Java sources and produce DEX bytecode.
     if(ANDROID)
+        # The android-activity backend invokes javac during cargo build.
+        # Catch a missing JDK at configure time rather than mid-build.
+        find_program(JAVAC_EXECUTABLE javac)
+        if(NOT JAVAC_EXECUTABLE)
+            message(FATAL_ERROR "javac not found in PATH. The Slint Android backend needs a JDK (with javac) to compile its Java sources during cargo build. Install a JDK and ensure javac is on PATH (or set JAVA_HOME to a JDK with bin/javac).")
+        endif()
         if(DEFINED ENV{ANDROID_NDK_ROOT})
             set_property(
                 TARGET slint_cpp
