@@ -107,8 +107,7 @@ skia-safe = { version = "0.97.2", features = ["gl", "vulkan"] }
 wgpu-28 = { workspace = true, optional = true, features = ["vulkan"] }
 wgpu-29 = { workspace = true, optional = true, features = ["vulkan"] }
 
-[target.'cfg(any(target_os = "ios", target_os="macos", target_os="windows", target_os="android", target_os="linux"))'.dependencies]
-# Text layout is enabled here just so that we can make use of the pre-built Skia libraries.
+[target.'cfg(all(any(target_os = "ios", target_os="macos", target_os="windows", target_os="android", target_os="linux"), not(target_arch = "arm")))'.dependencies]
 skia-safe = { version = "0.97.2", features = ["textlayout"] }
 
 [target.aarch64-apple-ios-sim.dependencies]
