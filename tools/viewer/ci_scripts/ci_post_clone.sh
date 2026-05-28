@@ -12,9 +12,9 @@
 #   1. Install xcodegen (project generator) and librsvg (rsvg-convert, used by
 #      scripts/render_ios_app_icon.bash to render the app icon at build time).
 #   2. Install rustup with the stable toolchain and the iOS Rust targets.
-#   3. Compute a monotonic build number from git history and rewrite the
-#      xcodegen spec so the generated Info.plist carries the right
-#      CFBundleVersion (App Store Connect rejects re-uploads with stale ones).
+#   3. Read the workspace version from Cargo.toml and a monotonic build number
+#      from git history, then rewrite the xcodegen spec so Info.plist carries
+#      the right CFBundleShortVersionString and CFBundleVersion.
 #   4. Run xcodegen to materialise tools/viewer/Slint Viewer.xcodeproj.
 
 set -euo pipefail
@@ -36,7 +36,7 @@ rustup target add aarch64-apple-ios aarch64-apple-ios-sim
 # one level up. CI_PRIMARY_REPOSITORY_PATH points to the repo root.
 cd "$CI_PRIMARY_REPOSITORY_PATH/tools/viewer"
 
-echo "--- Computing build number from git"
+echo "--- Computing version numbers"
 # Xcode Cloud clones the repo shallow (depth 1), which would make
 # `git rev-list --count HEAD` silently return 1 on every run and trip App
 # Store Connect's "build number must increase" rule on the second upload.
@@ -44,11 +44,19 @@ echo "--- Computing build number from git"
 # used by the upstream GHA build_ios job in slint_tool_binary.yaml.
 git -C "$CI_PRIMARY_REPOSITORY_PATH" fetch --unshallow --quiet || \
     git -C "$CI_PRIMARY_REPOSITORY_PATH" fetch --quiet
+MARKETING_VERSION=$(
+    sed -n '/\[workspace.package\]/,/^\[/{s/^version = "\(.*\)"/\1/p;}' \
+        "$CI_PRIMARY_REPOSITORY_PATH/Cargo.toml"
+)
 CURRENT_PROJECT_VERSION=$(git -C "$CI_PRIMARY_REPOSITORY_PATH" rev-list --count HEAD)
+echo "Marketing version: $MARKETING_VERSION"
 echo "Build number: $CURRENT_PROJECT_VERSION"
 
-# Patch the spec so xcodegen bakes the build number into Info.plist. Just
-# exporting CURRENT_PROJECT_VERSION as an env var would not reach xcodebuild.
+# Patch the spec so xcodegen bakes both into Info.plist. Exporting them as env
+# vars would not reach xcodebuild.
+sed -i.bak \
+    -E "s/^  MARKETING_VERSION: .*/  MARKETING_VERSION: \"$MARKETING_VERSION\"/" \
+    ios-project.yml
 sed -i.bak \
     -E "s/^  CURRENT_PROJECT_VERSION: .*/  CURRENT_PROJECT_VERSION: \"$CURRENT_PROJECT_VERSION\"/" \
     ios-project.yml
