@@ -292,6 +292,20 @@ export function activate(
                         RemoteViewerStatusBarItemState.disconnected,
                     );
                     break;
+                case "connectAttemptFailed":
+                    vscode.window.showErrorMessage(
+                        `Failed to connect to remote viewer (${where}): ${params.error ?? "unknown error"}`,
+                    );
+                    cl.outputChannel.appendLine(
+                        `Failed to connect to remote viewer (${where}): ${params.error ?? "unknown error"}`,
+                    );
+                    // A previous connection is still active — restore the
+                    // status bar to connected (it was flipped to connecting
+                    // when the user clicked).
+                    setRemoteViewerStatusBarItemState(
+                        RemoteViewerStatusBarItemState.connected,
+                    );
+                    break;
             }
         });
     });

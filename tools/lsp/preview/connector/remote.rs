@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use futures_util::{
     SinkExt as _,
@@ -82,6 +83,12 @@ pub fn disconnect_remote_preview_command(ctx: &crate::language::Context) {
 struct RemoteLspConnection {
     sender: SplitSink<WebSocketStream, Message>,
     task: tokio::task::JoinHandle<()>,
+    /// Shared with the receive_task's `ConnectionStateHandle`. Set to true
+    /// before aborting the task when this connection is being replaced by
+    /// a new one, so the old handle's Drop skips its Disconnected
+    /// notification — otherwise the editor would see Disconnected for the
+    /// old peer racing with Connected for the new peer.
+    replaced: Arc<AtomicBool>,
 }
 
 pub struct RemoteLspToPreview {
@@ -219,11 +226,21 @@ impl RemoteLspToPreview {
                 let Some(address) = addresses.next() else {
                     let reason =
                         last_error.unwrap_or_else(|| "Unable to connect to remote viewer".into());
+                    // If a previous connection is still alive, the LSP is
+                    // still routing messages to it — report the failed
+                    // attempt without toggling the editor's status bar to
+                    // Disconnected (that would mislead the user into
+                    // thinking they have no connection).
+                    let state = if connection.lock().await.is_some() {
+                        ConnectionState::ConnectAttemptFailed
+                    } else {
+                        ConnectionState::Disconnected
+                    };
                     let _ = server_notifier.send_notification::<RemoteViewerConnectionState>(
                         RemoteViewerConnectionState {
                             address: first_address.clone(),
                             port,
-                            state: ConnectionState::Disconnected,
+                            state,
                             error: Some(reason.clone()),
                         },
                     );
@@ -259,6 +276,7 @@ impl RemoteLspToPreview {
 
             let (socket_sender, socket_receiver) = stream.split();
 
+            let replaced = Arc::new(AtomicBool::new(false));
             #[allow(clippy::disallowed_methods)]
             let Some(old) = connection.lock().await.replace(RemoteLspConnection {
                 sender: socket_sender,
@@ -268,12 +286,15 @@ impl RemoteLspToPreview {
                     server_notifier,
                     address,
                     port,
+                    replaced.clone(),
                 )),
+                replaced,
             }) else {
                 return Ok(());
             };
 
             tracing::info!("Closing previous connection to remote preview server");
+            old.replaced.store(true, Ordering::Relaxed);
             old.task.abort();
 
             Ok(())
@@ -286,9 +307,10 @@ impl RemoteLspToPreview {
         server_notifier: crate::ServerNotifier,
         address: String,
         port: u16,
+        replaced: Arc<AtomicBool>,
     ) {
         let mut connection_state_handle =
-            ConnectionStateHandle::new(server_notifier, address, port);
+            ConnectionStateHandle::new(server_notifier, address, port, replaced);
         // TODO: implement a timer to send a ping every once in a while, and close the connection if we don't receive a pong in time
         while let Some(msg) = socket_receiver.next().await {
             match msg {
@@ -354,10 +376,16 @@ struct ConnectionStateHandle {
     error: Option<String>,
     address: String,
     port: u16,
+    replaced: Arc<AtomicBool>,
 }
 
 impl ConnectionStateHandle {
-    fn new(server_notifier: crate::ServerNotifier, address: String, port: u16) -> Self {
+    fn new(
+        server_notifier: crate::ServerNotifier,
+        address: String,
+        port: u16,
+        replaced: Arc<AtomicBool>,
+    ) -> Self {
         let _ = server_notifier.send_notification::<RemoteViewerConnectionState>(
             RemoteViewerConnectionState {
                 address: address.clone(),
@@ -366,12 +394,15 @@ impl ConnectionStateHandle {
                 error: None,
             },
         );
-        Self { server_notifier, error: None, address, port }
+        Self { server_notifier, error: None, address, port, replaced }
     }
 }
 
 impl Drop for ConnectionStateHandle {
     fn drop(&mut self) {
+        if self.replaced.load(Ordering::Relaxed) {
+            return;
+        }
         let _ = self.server_notifier.send_notification::<RemoteViewerConnectionState>(
             RemoteViewerConnectionState {
                 address: self.address.clone(),

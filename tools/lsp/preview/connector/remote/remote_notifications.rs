@@ -33,9 +33,14 @@ impl Notification for RemoteViewerDiscoveredMessage {
 pub(crate) enum ConnectionState {
     Disconnected,
     Connected,
+    /// A connect attempt failed while a previous connection is still
+    /// active. The editor shows the error but keeps the status bar
+    /// tracking the still-active connection.
+    ConnectAttemptFailed,
 }
 
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub(crate) struct RemoteViewerConnectionState {
     pub address: String,
     pub port: u16,
