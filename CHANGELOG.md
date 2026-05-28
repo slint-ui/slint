@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file.
 
 ### General
 
+ - A global can now implement a callback declared in another global, by declaring a two-way alias
+   to it (`callback foo <=> Other.foo;`) and providing a handler (`foo => { ... }`).
  - Upgraded WGPU dependency to version 29: The `unstable-wgpu-27` and `unstable-wgpu-28` Cargo features have been replaced
    by a single `unstable-wgpu-29` feature, alongside the new `slint::wgpu_29` module. Existing users of the
    `unstable-wgpu-27`/`unstable-wgpu-28` features need to migrate to `unstable-wgpu-29` and update their code to use

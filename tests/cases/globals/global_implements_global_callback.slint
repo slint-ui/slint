@@ -1,0 +1,71 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A global may implement a callback declared in another global, by declaring a
+// two-way alias to it and providing a handler.
+
+global Provider {
+    out property <int> factor: 10;
+    pure callback compute(int) -> int;
+    pure callback offset(int) -> int;
+}
+
+export global Impl {
+    pure callback compute <=> Provider.compute;
+    pure callback offset <=> Provider.offset;
+    compute(x) => {
+        return x * Provider.factor;
+    }
+    offset(x) => {
+        return x + Provider.factor;
+    }
+}
+
+export component TestCase inherits Window {
+    out property <int> computed: Provider.compute(5);
+    out property <int> shifted: Provider.offset(5);
+    out property <bool> test: computed == 50 && shifted == 15;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_computed(), 50);
+assert_eq!(instance.get_shifted(), 15);
+
+// A handler installed from native code wins over the one implemented in Slint.
+instance.global::<Impl<'_>>().on_compute(|x| x + 1);
+assert_eq!(instance.get_computed(), 6);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_computed(), 50);
+assert_eq(instance.get_shifted(), 15);
+
+// A handler installed from native code wins over the one implemented in Slint.
+instance.global<Impl>().on_compute([](int x) { return x + 1; });
+assert_eq(instance.get_computed(), 6);
+```
+
+```js
+let instance = new slint.TestCase({});
+assert.equal(instance.computed, 50);
+assert.equal(instance.shifted, 15);
+
+// A handler installed from native code wins over the one implemented in Slint.
+instance.Impl.compute = function(x) { return x + 1; };
+assert.equal(instance.computed, 6);
+```
+
+```python
+instance = TestCase()
+assert instance.computed == 50
+assert instance.shifted == 15
+
+# A handler installed from native code wins over the one implemented in Slint.
+instance.Impl.compute = lambda x: x + 1
+assert instance.computed == 6
+```
+*/

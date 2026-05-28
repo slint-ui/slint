@@ -1620,10 +1620,27 @@ impl Element {
                 Entry::Vacant(e) => {
                     e.insert(BindingExpression::new_uncompiled(con_node.clone().into()).into());
                 }
-                Entry::Occupied(_) => diag.push_error(
-                    "Duplicated callback".into(),
-                    &con_node.child_token(SyntaxKind::Identifier).unwrap(),
-                ),
+                Entry::Occupied(mut e) => {
+                    // A global may implement a callback declared in another global: the
+                    // callback is declared as a two-way alias (`callback foo <=> Other.foo;`)
+                    // and also given a handler (`foo => { ... }`). The alias node stays on
+                    // the declaration, and the handler takes the binding expression slot.
+                    let is_global_alias = r.base_type == ElementType::Global
+                        && matches!(
+                            &e.get().borrow().expression,
+                            Expression::Uncompiled(node)
+                                if syntax_nodes::TwoWayBinding::new(node.clone()).is_some()
+                        );
+                    if is_global_alias {
+                        e.get_mut().get_mut().expression =
+                            Expression::Uncompiled(con_node.clone().into());
+                    } else {
+                        diag.push_error(
+                            "Duplicated callback".into(),
+                            &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                        );
+                    }
+                }
             }
         }
 

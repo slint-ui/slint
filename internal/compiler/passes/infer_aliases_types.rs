@@ -8,11 +8,10 @@
 //! This pass will attempt to assign a type to these based on the type of property they alias.
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{Expression, TwoWayBinding};
+use crate::expression_tree::TwoWayBinding;
 use crate::langtype::Type;
 use crate::lookup::LookupCtx;
 use crate::object_tree::{Document, ElementRc};
-use crate::parser::syntax_nodes;
 use crate::typeregister::TypeRegister;
 use std::rc::Rc;
 
@@ -77,29 +76,19 @@ fn resolve_alias(
     };
     drop(borrow_mut);
 
-    let borrow = elem.borrow();
-    let Some(binding) = borrow.bindings.get(prop) else {
-        assert!(diag.has_errors());
-        return;
+    let twb = {
+        let Some(node) = crate::passes::two_way_binding_node(&elem.borrow(), prop) else {
+            // The parser only allows omitting the type for a two-way binding, so a missing
+            // alias node here means an error was already reported for this component.
+            assert!(diag.has_errors(), "The parser only avoid missing types for two way bindings");
+            return;
+        };
+        let mut lookup_ctx = LookupCtx::empty_context(type_register, diag);
+        lookup_ctx.property_name = Some(prop);
+        lookup_ctx.property_type = old_type.clone();
+        lookup_ctx.component_scope = &scope.0;
+        crate::passes::resolving::resolve_two_way_binding(node, &mut lookup_ctx)
     };
-    let twb = match super::ignore_debug_hooks(&binding.borrow().expression) {
-        Expression::Uncompiled(node) => {
-            let Some(node) = syntax_nodes::TwoWayBinding::new(node.clone()) else {
-                assert!(
-                    diag.has_errors(),
-                    "The parser only avoid missing types for two way bindings"
-                );
-                return;
-            };
-            let mut lookup_ctx = LookupCtx::empty_context(type_register, diag);
-            lookup_ctx.property_name = Some(prop);
-            lookup_ctx.property_type = old_type.clone();
-            lookup_ctx.component_scope = &scope.0;
-            crate::passes::resolving::resolve_two_way_binding(node, &mut lookup_ctx)
-        }
-        _ => panic!("There should be a Uncompiled expression at this point."),
-    };
-    drop(borrow);
 
     let mut ty = Type::Invalid;
     match &twb {
@@ -154,8 +143,12 @@ fn resolve_alias(
                 );
             }
         } else if let Some(nr) = twb.unwrap().property() {
-            let is_global = nr.element().borrow().base_type == crate::langtype::ElementType::Global;
+            let target_is_global =
+                nr.element().borrow().base_type == crate::langtype::ElementType::Global;
             let purity = nr.element().borrow().lookup_property(nr.name()).declared_pure;
+            // A global aliasing another global's callback is the supported way for one
+            // global to implement another's callback, so it isn't deprecated.
+            let aliasing_global = elem.borrow().base_type == crate::langtype::ElementType::Global;
             let mut elem = elem.borrow_mut();
             let decl = elem.property_declarations.get_mut(prop).unwrap();
             if decl.pure.unwrap_or(false) != purity.unwrap_or(false) {
@@ -164,7 +157,7 @@ fn resolve_alias(
                     &decl.type_node(),
                 );
             }
-            if is_global {
+            if target_is_global && !aliasing_global {
                 diag.push_warning("Aliases to global callback are deprecated. Export the global to access the global callback directly from native code".into(), &decl.node);
             }
             decl.property_type = ty;
