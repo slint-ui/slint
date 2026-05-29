@@ -523,6 +523,7 @@ impl NodeCollection {
                                     i_slint_core::items::InputType::Decimal
                                     | i_slint_core::items::InputType::Number => Role::NumberInput,
                                     i_slint_core::items::InputType::Password => Role::PasswordInput,
+                                    i_slint_core::items::InputType::Search => Role::SearchInput,
                                     i_slint_core::items::InputType::Text | _ => Role::TextInput,
                                 }
                             }
@@ -628,6 +629,7 @@ impl NodeCollection {
                 | Role::MultilineTextInput
                 | Role::NumberInput
                 | Role::PasswordInput
+                | Role::SearchInput
                 | Role::Slider
                 | Role::SpinButton
                 | Role::Tab
