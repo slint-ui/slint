@@ -1631,8 +1631,16 @@ impl Element {
                             Expression::Uncompiled(node) if node.kind() == SyntaxKind::TwoWayBinding
                         );
                     if is_global_alias {
-                        e.get_mut().get_mut().expression =
-                            Expression::Uncompiled(con_node.clone().into());
+                        // Keep the handler as the binding and point its span at the handler
+                        // name, so a duplicate-implementation error refers to the
+                        // implementation rather than the alias. The alias is recovered from
+                        // the declaration node, so dropping it from the binding is fine.
+                        let mut handler =
+                            BindingExpression::new_uncompiled(con_node.clone().into());
+                        if let Some(name) = con_node.child_token(SyntaxKind::Identifier) {
+                            handler.span = Some(name.to_source_location());
+                        }
+                        e.insert(handler.into());
                     } else {
                         diag.push_error(
                             "Duplicated callback".into(),

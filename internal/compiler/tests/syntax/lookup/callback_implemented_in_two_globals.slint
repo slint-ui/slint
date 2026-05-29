@@ -7,12 +7,12 @@ export global A {
 
 export global B {
     callback compute <=> A.compute;
-//                   >           <error{Callback 'compute' is implemented in more than one global}
     compute(x) => { return x * 2; }
+//  >     <error{Callback 'compute' is implemented in more than one global}
 }
 
 export global C {
     callback compute <=> A.compute;
-//                   >           <error{Callback 'compute' is implemented in more than one global}
     compute(x) => { return x * 3; }
+//  >     <error{Callback 'compute' is implemented in more than one global}
 }
