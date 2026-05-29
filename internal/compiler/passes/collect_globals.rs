@@ -40,20 +40,25 @@ pub fn mark_library_globals(doc: &Document) {
     used_types.globals.clone().iter().for_each(|component| {
         if let Some(library_info) = doc.library_exports.get(component.id.as_str()) {
             component.from_library.set(true);
-            // Properties on a library-imported global may be written by the
-            // library's own components or by its host Rust/C++ code via the
-            // public API. The consumer document has no visibility into those
-            // writes, so mark every non-`Input` property as `is_set_externally`
-            // — this is the single source of truth that downstream passes
-            // (`NamedReference::is_constant`, `inline_simple_expressions`,
-            // etc.) already consult to decide whether a value is fixed at
-            // compile time.
+            // Every property on a library-imported global is "external" from
+            // the consumer's view: the library's own bindings and host code
+            // (its `lib.rs`) may read or write any of them at runtime, and
+            // the consumer's compilation has no visibility into either side.
+            //
+            // Mark both `is_set_externally` and `is_read_externally` on every
+            // property, regardless of `in`/`in-out`/`out`/`private` — these
+            // are the single source of truth that downstream passes already
+            // consult (`NamedReference::is_constant`, the LLR
+            // `inline_simple_expressions` pass, `remove_aliases`,
+            // `PropertyAnalysis::is_used`, etc.) to decide whether a value is
+            // fixed at compile time and whether a property is observable
+            // outside this compilation unit.
             let root = component.root_element.borrow();
             let mut analysis = root.property_analysis.borrow_mut();
-            for (name, decl) in &root.property_declarations {
-                if decl.visibility != PropertyVisibility::Input {
-                    analysis.entry(name.clone()).or_default().is_set_externally = true;
-                }
+            for name in root.property_declarations.keys() {
+                let entry = analysis.entry(name.clone()).or_default();
+                entry.is_set_externally = true;
+                entry.is_read_externally = true;
             }
             used_types.library_types_imports.push((component.id.clone(), library_info.clone()));
             used_types
@@ -83,18 +88,21 @@ fn collect_in_component(
 mod tests {
     use super::*;
 
-    /// `mark_library_globals` must record that non-`Input` properties of a
-    /// library-imported global can be set externally. The flag is the single
-    /// source of truth that downstream passes (`NamedReference::is_constant`,
-    /// the LLR `inline_simple_expressions` pass, etc.) consult to decide
-    /// whether a value is fixed at compile time, so without it those passes
-    /// would silently drop bindings that read from the library global.
+    /// `mark_library_globals` must record that *every* property on a
+    /// library-imported global can be read and written from outside the
+    /// consumer's compilation. These flags are the single source of truth
+    /// that downstream passes (`NamedReference::is_constant`, the LLR
+    /// `inline_simple_expressions` pass, `remove_aliases`,
+    /// `PropertyAnalysis::is_used`, etc.) consult to decide whether a value
+    /// is fixed at compile time and whether a property is observable
+    /// outside this compilation unit. Without them those passes would
+    /// silently drop bindings that read from the library global.
     ///
     /// Regression test for the bug where a binding such as
     /// `text: "\{LibGlobal.value}"` in the consumer was inlined to the
     /// global's compile-time default.
     #[test]
-    fn mark_library_globals_marks_properties_as_externally_set() {
+    fn mark_library_globals_marks_properties_as_externally_used() {
         let mut compiler_config =
             crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
         compiler_config.style = Some("fluent".into());
@@ -103,10 +111,11 @@ mod tests {
             r#"
 export global LibGlobal {
     in-out property <int> value: 0;
-    in property <bool> input-only: false;
+    in property <int> count: 5;
+    out property <int> ready: 9;
 }
 export component App {
-    out property <string> text-out: "\{LibGlobal.value}";
+    out property <string> text-out: "\{LibGlobal.value} \{LibGlobal.count} \{LibGlobal.ready}";
 }
 "#
             .into(),
@@ -150,20 +159,37 @@ export component App {
 
         let root = global.root_element.borrow();
         let analysis = root.property_analysis.borrow();
-        assert!(
-            analysis.get("value").is_some_and(|a| a.is_set_externally),
-            "in-out property of a library global must be marked is_set_externally"
-        );
-        assert!(
-            !analysis.get("input-only").is_some_and(|a| a.is_set_externally),
-            "input-only property must not be marked is_set_externally — the consumer is its writer"
-        );
+        // `in`, `in-out`, and `out` properties all get the same treatment:
+        // the library's bindings or its host code may read or write any of
+        // them at runtime, regardless of visibility, so both flags must be
+        // set on every property. `private` is intentionally omitted from
+        // this test — `remove_unused_properties` runs before we re-invoke
+        // `mark_library_globals` here and would strip an unused private
+        // property from the declarations; the integration test in `bapp`
+        // exercises the in-tree-order case.
+        for prop in ["value", "count", "ready"] {
+            let a = analysis
+                .get(prop)
+                .unwrap_or_else(|| panic!("{prop}: no analysis entry for library global property"));
+            assert!(
+                a.is_set_externally,
+                "{prop}: every property on a library global must be marked is_set_externally \
+                 — the library or its host code may write it at runtime regardless of visibility"
+            );
+            assert!(
+                a.is_read_externally,
+                "{prop}: every property on a library global must be marked is_read_externally \
+                 — the library's bindings or host code may read it"
+            );
+        }
         drop(analysis);
         drop(root);
 
-        assert!(
-            !NamedReference::new(&global.root_element, "value".into()).is_constant(),
-            "value on a library global must never be constant"
-        );
+        for prop in ["value", "count", "ready"] {
+            assert!(
+                !NamedReference::new(&global.root_element, prop.into()).is_constant(),
+                "{prop} on a library global must never be constant"
+            );
+        }
     }
 }
