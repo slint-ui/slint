@@ -2145,14 +2145,12 @@ impl Element {
     /// and provide a handler (`foo => { ... }`): the handler then occupies the binding
     /// expression slot, so the alias node lives on the callback declaration instead.
     pub fn two_way_binding_node(&self, name: &str) -> Option<syntax_nodes::TwoWayBinding> {
-        if let Some(binding) = self.bindings.get(name) {
-            if let Ok(b) = binding.try_borrow() {
-                if let Expression::Uncompiled(node) = b.expression.ignore_debug_hooks() {
-                    if let Some(twb) = syntax_nodes::TwoWayBinding::new(node.clone()) {
-                        return Some(twb);
-                    }
-                }
-            }
+        if let Some(binding) = self.bindings.get(name)
+            && let Ok(b) = binding.try_borrow()
+            && let Expression::Uncompiled(node) = b.expression.ignore_debug_hooks()
+            && let Some(twb) = syntax_nodes::TwoWayBinding::new(node.clone())
+        {
+            return Some(twb);
         }
         self.callback_alias_declaration_node(name)
     }
