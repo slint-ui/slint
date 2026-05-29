@@ -389,10 +389,7 @@ fn array_push_macro(
 ) -> Expression {
     if args.len() != 2 {
         diag.push_error(
-            format!(
-                "This method needs 1 argument but {} were provided",
-                if args.len() == 1 { 0 } else { args.len() - 1 } // Avoid counting the model argument.
-            ),
+            format!("This method needs 1 argument, but {} were provided", args.len() - 1),
             node,
         );
         return Expression::Invalid;
@@ -418,10 +415,7 @@ fn array_remove_macro(
 ) -> Expression {
     if args.len() != 2 {
         diag.push_error(
-            format!(
-                "This method needs 1 argument but {} were provided",
-                if args.len() == 1 { 0 } else { args.len() - 1 } // Avoid counting the model argument.
-            ),
+            format!("This method needs 1 argument, but {} were provided", args.len() - 1),
             node,
         );
         return Expression::Invalid;
@@ -444,10 +438,7 @@ fn array_insert_macro(
 ) -> Expression {
     if args.len() != 3 {
         diag.push_error(
-            format!(
-                "This method needs 2 argument but {} were provided",
-                if args.len() == 1 { 0 } else { args.len() - 1 } // Avoid counting the model argument.
-            ),
+            format!("This method needs 2 argument, but {} were provided", args.len() - 1),
             node,
         );
         return Expression::Invalid;
