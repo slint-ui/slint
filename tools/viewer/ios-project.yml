@@ -24,6 +24,7 @@ targets:
     info:
       path: Info.plist
       properties:
+        CFBundleDisplayName: Slint Viewer
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         ITSAppUsesNonExemptEncryption: false
