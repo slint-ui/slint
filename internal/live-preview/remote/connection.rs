@@ -4,21 +4,10 @@
 use std::{
     collections::HashSet,
     net::{IpAddr, Ipv6Addr, SocketAddr, SocketAddrV6},
-    path::PathBuf,
     sync::{Arc, Mutex},
 };
 
-/// The compiler stores file paths in URL form (e.g. `/C:/foo.slint` on Windows, with percent
-/// encoding preserved). The LSP sends `SetContents` with the same `Url`. Comparing the path
-/// from `Url::to_file_path()` against the path from `compilation_result.watch_paths()` is
-/// platform-dependent and unreliable on Windows or for paths with spaces, so the dependency
-/// set is keyed on the URL's path component, which is the form both sides natively produce.
-type DependencyKey = String;
-
-/// Window over which a burst of keystrokes is coalesced into a single `ContentsChanged`
-/// notification, matching the in-process preview's `preview_loading_delay_timer`.
-const REBUILD_DEBOUNCE: std::time::Duration = std::time::Duration::from_millis(150);
-
+use crate::REBUILD_DEBOUNCE;
 use crate::protocol::{
     LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PreviewComponent, PreviewConfig,
     PreviewToLspMessage, SLINT_PROTOCOLS_HEADER, SLINT_VERSION, SLINT_VERSION_HEADER,
@@ -104,8 +93,10 @@ pub enum CacheEntry {
     Ready(VersionedFileContent),
 }
 
-/// Shared cache of file contents pushed by the LSP, keyed by absolute file path.
-pub type FileCache = Arc<DashMap<String, CacheEntry>>;
+/// Shared cache of file contents pushed by the LSP, keyed by the `Url` the LSP sent. Using
+/// the URL verbatim avoids platform-dependent path normalization (Windows backslashes,
+/// percent-encoding) — equality is structural.
+pub type FileCache = Arc<DashMap<Url, CacheEntry>>;
 
 #[derive(Debug)]
 pub enum ConnectionMessage {
@@ -135,29 +126,22 @@ pub struct Connection {
     local_addr: SocketAddr,
     thread_handle: Option<(std::thread::JoinHandle<()>, sync::oneshot::Sender<()>)>,
     message_sender: sync::mpsc::UnboundedSender<Message>,
-    file_cache: Arc<DashMap<String, CacheEntry>>,
-    /// Files the currently shown component depends on, keyed by `Url::path()`. `SetContents`
-    /// notifications for paths outside this set are ignored, so unrelated edits in the user's
-    /// editor don't trigger a rebuild. Updated by the viewer after each compile.
-    dependencies: Arc<Mutex<HashSet<DependencyKey>>>,
+    file_cache: FileCache,
+    /// Files the currently shown component depends on. `SetContents` notifications for URLs
+    /// outside this set are ignored, so unrelated edits in the user's editor don't trigger a
+    /// rebuild. Updated by the viewer after each compile.
+    dependencies: Arc<Mutex<HashSet<Url>>>,
 }
 
-/// Compute the `file_cache` key for an incoming LSP URL. Returns `None` (with a warning) for
-/// schemes that aren't `file://` or for paths the host OS represents non-UTF-8 — both cases
-/// the remote preview protocol can't handle. We log and skip rather than panic the connection
-/// task, since the LSP can legitimately produce URLs like `vscode-remote://`.
-fn cache_key_for_url(url: &Url) -> Option<String> {
-    let Ok(path) = url.to_file_path() else {
+/// Whether the connection can act on this URL. The remote preview protocol only handles
+/// `file://` URLs; the LSP can legitimately produce others (e.g. `vscode-remote://`), but
+/// they're silently ignored on this side.
+fn is_supported(url: &Url) -> bool {
+    if url.scheme() != "file" {
         tracing::warn!("Ignoring message for unsupported URL scheme: {url}");
-        return None;
-    };
-    match path.into_os_string().into_string() {
-        Ok(s) => Some(s),
-        Err(_) => {
-            tracing::warn!("Ignoring message for non-UTF-8 file path: {url}");
-            None
-        }
+        return false;
     }
+    true
 }
 
 impl Connection {
@@ -165,8 +149,8 @@ impl Connection {
         address: Option<SocketAddr>,
         message_handler: impl Fn(ConnectionMessage) + 'static + Send + Sync,
     ) -> anyhow::Result<Self> {
-        let file_cache = Arc::new(DashMap::<String, CacheEntry>::new());
-        let dependencies = Arc::new(Mutex::new(HashSet::<DependencyKey>::new()));
+        let file_cache = Arc::new(DashMap::<Url, CacheEntry>::new());
+        let dependencies = Arc::new(Mutex::new(HashSet::<Url>::new()));
         let (message_sender, mut message_receiver) = sync::mpsc::unbounded_channel();
 
         let inner_file_cache = file_cache.clone();
@@ -266,13 +250,10 @@ impl Connection {
         })
     }
 
-    /// Replace the set of files the connection treats as relevant. A subsequent `SetContents`
-    /// for a path in `paths` produces a `ContentsChanged` message; anything outside is dropped.
-    /// `paths` is expected to be the `watch_paths` returned by the compiler — they are stored
-    /// in URL-path form (the same form the LSP sends in `SetContents`).
-    pub fn set_dependencies(&self, paths: Vec<PathBuf>) {
-        *self.dependencies.lock().unwrap() =
-            paths.into_iter().filter_map(|p| p.into_os_string().into_string().ok()).collect();
+    /// Replace the set of URLs the connection treats as relevant. A subsequent `SetContents`
+    /// for a URL in `urls` produces a `ContentsChanged` message; anything outside is dropped.
+    pub fn set_dependencies(&self, urls: Vec<Url>) {
+        *self.dependencies.lock().unwrap() = urls.into_iter().collect();
     }
 
     /// Shared cache of files pushed by the LSP. The viewer reads this to feed
@@ -285,7 +266,7 @@ impl Connection {
         mut receiver: SplitStream<WebSocketStream<TcpStream>>,
         message_handler: Arc<dyn Fn(ConnectionMessage) + 'static + Send + Sync>,
         file_cache: FileCache,
-        dependencies: Arc<Mutex<HashSet<DependencyKey>>>,
+        dependencies: Arc<Mutex<HashSet<Url>>>,
         message_sender: UnboundedSender<Message>,
         remote_addr: SocketAddr,
     ) {
@@ -318,22 +299,22 @@ impl Connection {
                                     tracing::debug!("Received message {message:?}");
                                     match message {
                                         LspToPreviewMessage::InvalidateContents { url } => {
-                                            let Some(key) = cache_key_for_url(&url) else {
+                                            if !is_supported(&url) {
                                                 continue;
-                                            };
-                                            file_cache.remove(&key);
-                                            if dependencies.lock().unwrap().contains(url.path()) {
+                                            }
+                                            file_cache.remove(&url);
+                                            if dependencies.lock().unwrap().contains(&url) {
                                                 debounce_deadline = Some(
                                                     tokio::time::Instant::now() + REBUILD_DEBOUNCE,
                                                 );
                                             }
                                         }
                                         LspToPreviewMessage::ForgetFile { url } => {
-                                            let Some(key) = cache_key_for_url(&url) else {
+                                            if !is_supported(&url) {
                                                 continue;
-                                            };
+                                            }
                                             if let Some((_, CacheEntry::Loading(senders))) =
-                                                file_cache.remove(&key)
+                                                file_cache.remove(&url)
                                             {
                                                 for sender in senders {
                                                     let _ = sender.send(Err(std::io::Error::new(
@@ -342,7 +323,7 @@ impl Connection {
                                                     )));
                                                 }
                                             }
-                                            if dependencies.lock().unwrap().contains(url.path()) {
+                                            if dependencies.lock().unwrap().contains(&url) {
                                                 debounce_deadline = Some(
                                                     tokio::time::Instant::now() + REBUILD_DEBOUNCE,
                                                 );
@@ -354,15 +335,19 @@ impl Connection {
                                                 url.url(),
                                                 contents.len()
                                             );
-                                            let Some(key) = cache_key_for_url(url.url()) else {
+                                            if !is_supported(url.url()) {
                                                 continue;
-                                            };
+                                            }
                                             let versioned_content = VersionedFileContent {
                                                 version: *url.version(),
                                                 contents: contents.into(),
                                             };
+                                            let triggers_rebuild = dependencies
+                                                .lock()
+                                                .unwrap()
+                                                .contains(url.url());
                                             file_cache
-                                                .entry(key)
+                                                .entry(url.url().clone())
                                                 .and_modify(|entry| {
                                                     if let CacheEntry::Loading(senders) = entry {
                                                         for sender in senders.drain(..) {
@@ -373,11 +358,7 @@ impl Connection {
                                                     }
                                                 })
                                                 .insert(CacheEntry::Ready(versioned_content));
-                                            if dependencies
-                                                .lock()
-                                                .unwrap()
-                                                .contains(url.url().path())
-                                            {
+                                            if triggers_rebuild {
                                                 debounce_deadline = Some(
                                                     tokio::time::Instant::now() + REBUILD_DEBOUNCE,
                                                 );
@@ -442,15 +423,15 @@ impl Connection {
         Ok(())
     }
 
-    pub async fn request_file(&self, file: String) -> std::io::Result<VersionedFileContent> {
-        if let Some(entry) = self.file_cache.get(&file)
+    pub async fn request_file(&self, url: Url) -> std::io::Result<VersionedFileContent> {
+        if let Some(entry) = self.file_cache.get(&url)
             && let CacheEntry::Ready(entry) = entry.value()
         {
             return Ok(entry.clone());
         }
         let (sender, receiver) = oneshot::channel();
-        let request_file; // do not hold the lock on requested_files across await
-        match self.file_cache.entry(file.clone()) {
+        let request_file; // do not hold the lock across await
+        match self.file_cache.entry(url.clone()) {
             Entry::Occupied(mut occupied) => match occupied.get_mut() {
                 CacheEntry::Ready(entry) => {
                     return Ok(entry.clone());
@@ -465,16 +446,15 @@ impl Connection {
                 request_file = true;
             }
         }
-        if request_file {
-            self.send(PreviewToLspMessage::RequestState {
-                files: vec![Url::from_file_path(&file).map_err(|()| {
-                    std::io::Error::new(
-                        std::io::ErrorKind::InvalidInput,
-                        format!("Invalid file path: {file}"),
-                    )
-                })?],
-            })
-            .map_err(std::io::Error::other)?;
+        if request_file
+            && let Err(err) =
+                self.send(PreviewToLspMessage::RequestState { files: vec![url.clone()] })
+        {
+            // The Loading entry we just inserted will never be resolved by the
+            // websocket task — remove it so the senders inside (including ours)
+            // drop and a later request_file for the same key doesn't deadlock.
+            self.file_cache.remove(&url);
+            return Err(std::io::Error::other(err));
         }
         receiver.await.map_err(std::io::Error::other)?
     }

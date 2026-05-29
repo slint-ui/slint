@@ -1,15 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use std::{net::SocketAddr, path::PathBuf, rc::Rc};
+use std::{net::SocketAddr, rc::Rc};
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_core::InternalToken;
 use i_slint_core::SharedString;
 use i_slint_live_preview::protocol::{PreviewComponent, PreviewToLspMessage};
-use i_slint_live_preview::remote::{
-    CacheEntry, Connection, ConnectionMessage, FileCache, init_compiler,
-};
+use i_slint_live_preview::remote::{Connection, ConnectionMessage, init_compiler};
 use slint_interpreter::ComponentHandle as _;
 
 const MAIN_SLINT: &str = include_str!("remote/main.slint");
@@ -132,38 +130,32 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                     config.enable_experimental;
             }
             ConnectionMessage::ShowPreview { preview_component } => {
-                let file_cache = connection.file_cache();
-                let BuildOutcome { new_instance, watch_paths } = build_and_show(
+                if let Some(new_instance) = build_and_show(
                     &compiler,
                     &preview_component,
-                    &file_cache,
                     &inner_window,
                     &instance,
                     &connection,
                 )
-                .await?;
-                if let Some(new_instance) = new_instance {
+                .await?
+                {
                     instance = new_instance;
                 }
-                connection.set_dependencies(watch_paths);
                 current_preview = Some(preview_component);
             }
             ConnectionMessage::ContentsChanged => {
                 let Some(preview_component) = current_preview.clone() else { continue };
-                let file_cache = connection.file_cache();
-                let BuildOutcome { new_instance, watch_paths } = build_and_show(
+                if let Some(new_instance) = build_and_show(
                     &compiler,
                     &preview_component,
-                    &file_cache,
                     &inner_window,
                     &instance,
                     &connection,
                 )
-                .await?;
-                if let Some(new_instance) = new_instance {
+                .await?
+                {
                     instance = new_instance;
                 }
-                connection.set_dependencies(watch_paths);
             }
             ConnectionMessage::HighlightFromEditor { .. } => {}
             ConnectionMessage::Connected { remote_addr } => {
@@ -203,82 +195,55 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     Ok(())
 }
 
-struct BuildOutcome {
-    /// `Some` if a new component instance was successfully created and shown. The caller should
-    /// replace its tracked instance with it.
-    new_instance: Option<slint_interpreter::ComponentInstance>,
-    /// Files the compiled component depends on. The type loader populates this list even when
-    /// compilation has errors, so the caller can keep watching the right files while the user
-    /// types a fix.
-    watch_paths: Vec<PathBuf>,
-}
-
-/// Compile `preview_component` (using `file_cache` for the in-memory editor buffer if available)
-/// and replace the visible instance with it. Returns `Err` only when the platform can no longer
-/// host a Slint window — the caller should propagate it and exit, since retrying on every
-/// keystroke would only repeat the underlying failure.
+/// Compile `preview_component` from the connection's file cache and replace the visible
+/// instance with it. Returns `Ok(Some(new))` after a successful build, `Ok(None)` if the
+/// build failed or the component wasn't found, and `Err` only when the platform can no
+/// longer host a Slint window — the caller should propagate it and exit, since retrying
+/// on every keystroke would only repeat the underlying failure.
 async fn build_and_show(
     compiler: &slint_interpreter::Compiler,
     preview_component: &PreviewComponent,
-    file_cache: &FileCache,
     inner_window: &slint_interpreter::ComponentInstance,
     instance: &slint_interpreter::ComponentInstance,
     connection: &Connection,
-) -> anyhow::Result<BuildOutcome> {
-    tracing::debug!(
-        "Cached files: {:#?}",
-        file_cache.iter().map(|entry| entry.key().to_string()).collect::<Vec<_>>()
-    );
-    let compilation_result = if let Some(entry) =
-        file_cache.get(preview_component.url.to_file_path().unwrap().as_os_str().to_str().unwrap())
-        && let CacheEntry::Ready(file) = &*entry
-    {
-        tracing::debug!("Fetched file {} from cache.", preview_component.url);
-        compiler
-            .build_from_source(
-                str::from_utf8(&file.contents).unwrap().to_owned(),
-                preview_component.url.path().into(),
-            )
-            .await
-    } else {
-        tracing::debug!("Failed fetching file {} from cache.", preview_component.url);
-        compiler.build_from_path(preview_component.url.path()).await
+) -> anyhow::Result<Option<slint_interpreter::ComponentInstance>> {
+    let Ok(path) = preview_component.url.to_file_path() else {
+        tracing::error!("Not a file URL: {}", preview_component.url);
+        return Ok(None);
     };
-    let watch_paths = compilation_result.watch_paths(InternalToken).to_vec();
-    if compilation_result.has_errors() {
-        let mut build_diagnostics = BuildDiagnostics::default();
-        for d in compilation_result.diagnostics() {
-            tracing::warn!("Compiler error: {d}");
-            build_diagnostics.push_compiler_error(d);
+    let file = match connection.request_file(preview_component.url.clone()).await {
+        Ok(file) => file,
+        Err(err) => {
+            tracing::error!("Failed fetching {}: {err}", preview_component.url);
+            return Ok(None);
         }
+    };
+    let compilation_result = compiler
+        .build_from_source(String::from_utf8_lossy(&file.contents).into_owned(), path)
+        .await;
+    // Watch paths come from the type loader and are populated even on errors, so the
+    // connection keeps reacting to edits in the right files while the user types a fix.
+    let watch_urls: Vec<lsp_types::Url> = compilation_result
+        .watch_paths(InternalToken)
+        .iter()
+        .filter_map(|p| lsp_types::Url::from_file_path(p).ok())
+        .collect();
+    connection.set_dependencies(watch_urls);
 
-        if let Err(err) = inner_window.set_property(
-            "message",
-            SharedString::from(build_diagnostics.to_string_vec().join("\n")).into(),
-        ) {
+    if compilation_result.has_errors() {
+        send_diagnostics(&compilation_result, &preview_component.url, connection);
+        let message = compilation_result
+            .diagnostics()
+            .inspect(|d| tracing::warn!("Compiler diagnostic: {d}"))
+            .map(|d| d.to_string())
+            .collect::<Vec<_>>()
+            .join("\n");
+        if let Err(err) =
+            inner_window.set_property("message", SharedString::from(message).into())
+        {
             tracing::error!("Failed setting property: {err}");
         }
-
-        let message = PreviewToLspMessage::Diagnostics {
-            uri: preview_component.url.clone(),
-            version: None,
-            diagnostics: compilation_result
-                .diagnostics()
-                .map(|diagnostic| {
-                    i_slint_live_preview::protocol::to_lsp_diagnostic(
-                        &diagnostic,
-                        i_slint_compiler::diagnostics::ByteFormat::Utf8,
-                    )
-                })
-                .collect(),
-        };
-
-        connection.send(message).ok();
-
-        return Ok(BuildOutcome { new_instance: None, watch_paths });
-    }
-    if let Err(err) = inner_window.set_property("message", SharedString::new().into()) {
-        tracing::error!("Failed setting property: {err}");
+        return Ok(None);
     }
 
     let Some(component) = preview_component
@@ -287,14 +252,25 @@ async fn build_and_show(
         .or_else(|| compilation_result.component_names().next())
         .and_then(|name| compilation_result.component(name))
     else {
+        // Compilation produced no errors but the requested component is missing.
+        // Don't publish a Diagnostics message: that would clobber whatever the LSP
+        // (or a previous compile) was showing in the editor for this URI, while
+        // the only signal we have to surface is local to the viewer window.
         if let Err(err) =
             inner_window.set_property("message", SharedString::from("Component not found").into())
         {
             tracing::error!("Failed setting property: {err}");
         }
         tracing::error!("Component not found");
-        return Ok(BuildOutcome { new_instance: None, watch_paths });
+        return Ok(None);
     };
+
+    // Clean build: publish the (possibly empty) diagnostic list so the editor
+    // clears any errors we surfaced from the previous build.
+    send_diagnostics(&compilation_result, &preview_component.url, connection);
+    if let Err(err) = inner_window.set_property("message", SharedString::new().into()) {
+        tracing::error!("Failed setting property: {err}");
+    }
 
     let new_instance = component
         .create_with_existing_window(instance.window())
@@ -302,5 +278,26 @@ async fn build_and_show(
 
     new_instance.show().map_err(|err| anyhow::anyhow!("Cannot show component: {err}"))?;
 
-    Ok(BuildOutcome { new_instance: Some(new_instance), watch_paths })
+    Ok(Some(new_instance))
+}
+
+fn send_diagnostics(
+    compilation_result: &slint_interpreter::CompilationResult,
+    uri: &lsp_types::Url,
+    connection: &Connection,
+) {
+    let message = PreviewToLspMessage::Diagnostics {
+        uri: uri.clone(),
+        version: None,
+        diagnostics: compilation_result
+            .diagnostics()
+            .map(|diagnostic| {
+                i_slint_live_preview::protocol::to_lsp_diagnostic(
+                    &diagnostic,
+                    i_slint_compiler::diagnostics::ByteFormat::Utf8,
+                )
+            })
+            .collect(),
+    };
+    connection.send(message).ok();
 }
