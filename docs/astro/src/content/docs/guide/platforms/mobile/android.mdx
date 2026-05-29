@@ -174,7 +174,7 @@ variable if the build tools can't detect it automatically.
 
 In the SDK Manager, also install:
 - The Android NDK (under the "SDK Tools" tab).
-- CMake (under the "SDK Tools" tab) — needed by the C++ workflow.
+- Only when building C++ applications: CMake (under the "SDK Tools" tab).
 
 Set up these environment variables so the build can find the NDK:
 
@@ -186,10 +186,9 @@ export ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/<version>
 ### Rust Toolchain
 
 Slint is written in Rust, so a Rust toolchain is needed to compile it for Android.
-Install Rust and add the Android target:
+Install Rust via the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started), then add the Android target:
 
 ```sh
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 rustup target add aarch64-linux-android
 ```
 
@@ -200,8 +199,6 @@ rustup target add armv7-linux-androideabi  # armeabi-v7a
 rustup target add x86_64-linux-android     # x86_64 (emulator)
 rustup target add i686-linux-android       # x86 (emulator)
 ```
-
-For the standard (non-Android) CMake workflow, see the [C++ build-from-sources documentation](https://snapshots.slint.dev/master/docs/cpp/cmake/#build-from-sources).
 
 Add the `platform-tools` directory to your `PATH` so that the `adb` tool is available on the command
 line.

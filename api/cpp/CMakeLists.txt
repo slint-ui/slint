@@ -343,7 +343,7 @@ if (SLINT_BUILD_RUNTIME)
     if(ANDROID)
         # The android-activity backend invokes javac during cargo build.
         # Catch a missing JDK at configure time rather than mid-build.
-        find_program(JAVAC_EXECUTABLE javac)
+        find_program(JAVAC_EXECUTABLE javac NO_CACHE)
         if(NOT JAVAC_EXECUTABLE)
             message(FATAL_ERROR "javac not found in PATH. The Slint Android backend needs a JDK (with javac) to compile its Java sources during cargo build. Install a JDK and ensure javac is on PATH (or set JAVA_HOME to a JDK with bin/javac).")
         endif()

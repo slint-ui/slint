@@ -5,7 +5,13 @@ cmake_minimum_required(VERSION 3.21)
 project(slint_cpp_usecases LANGUAGES CXX)
 
 if (NOT TARGET Slint::Slint)
-    find_package(Slint REQUIRED)
+    # When built standalone (e.g. when the Android Gradle build invokes CMake on this file directly),
+    # use Slint from the surrounding source tree if it is available there; otherwise require an install.
+    if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/../../../api/cpp/CMakeLists.txt")
+        add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../../../api/cpp" _slint)
+    else()
+        find_package(Slint REQUIRED)
+    endif()
 endif()
 
 if(NOT SLINT_STYLE)
