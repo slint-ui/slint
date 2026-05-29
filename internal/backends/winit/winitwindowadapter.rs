@@ -1124,6 +1124,12 @@ impl WinitWindowAdapter {
                 self.draw()?;
             };
 
+            // On iOS making an already-created window visible doesn't generate a fresh
+            // RedrawRequested. winit's one initial RedrawRequested is delivered while the window is
+            // created (during `resumed`), so a window first shown later misses it and stays blank.
+            #[cfg(ios_and_friends)]
+            self.request_redraw();
+
             Ok(())
         } else {
             // Wayland doesn't support hiding a window, only destroying it entirely.
