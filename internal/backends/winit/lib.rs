@@ -27,6 +27,7 @@ use winit::event_loop::ActiveEventLoop;
 #[cfg(not(target_arch = "wasm32"))]
 mod clipboard;
 mod drag_resize_window;
+mod winit_compat;
 mod winitwindowadapter;
 use winitwindowadapter::*;
 pub(crate) mod event_loop;
