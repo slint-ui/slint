@@ -1,17 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// CADisplayLink based frame throttle, shared between macOS and the other Apple
+// platforms (iOS, etc.). The display link target, the throttle and the tick
+// logic are identical; only the way the `CADisplayLink` is obtained differs, so
+// that part lives in the platform-specific `try_create` below.
+
 use std::rc::Weak;
 
 use i_slint_core as corelib;
 use i_slint_core::platform::WindowAdapter as _;
 use objc2::rc::Retained;
-use objc2::runtime::AnyClass;
-use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send, sel};
-use objc2_app_kit::NSView;
+use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_foundation::{NSObject, NSObjectProtocol, NSRunLoop, NSRunLoopCommonModes};
 use objc2_quartz_core::CADisplayLink;
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 use crate::winitwindowadapter::WinitWindowAdapter;
 
@@ -74,10 +76,33 @@ impl super::FrameThrottle for CADisplayLinkFrameThrottle {
     }
 }
 
+/// Register `display_link` on the main run loop and wrap it into a throttle that
+/// starts out paused (the tick is driven on demand via `request_throttled_redraw`).
+fn into_throttle(
+    target: Retained<DisplayLinkTarget>,
+    display_link: Retained<CADisplayLink>,
+) -> Box<dyn super::FrameThrottle> {
+    // Use NSRunLoopCommonModes so the callback fires during modal tracking loops
+    // (context menus, window resize, scrolling, etc.)
+    unsafe {
+        display_link.addToRunLoop_forMode(&NSRunLoop::mainRunLoop(), NSRunLoopCommonModes);
+    }
+
+    display_link.setPaused(true);
+
+    Box::new(CADisplayLinkFrameThrottle { _target: target, display_link })
+}
+
+#[cfg(target_os = "macos")]
 pub(super) fn try_create(
     window_adapter: Weak<WinitWindowAdapter>,
     winit_window: &winit::window::Window,
 ) -> Option<Box<dyn super::FrameThrottle>> {
+    use objc2::runtime::AnyClass;
+    use objc2::sel;
+    use objc2_app_kit::NSView;
+    use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
     // -[NSView displayLinkWithTarget:selector:] is only available on macOS
     // 14.0+. The CADisplayLink class itself is reachable on older macOS via
     // QuartzCore, so check for the selector instead of the class.
@@ -95,13 +120,21 @@ pub(super) fn try_create(
     let target = DisplayLinkTarget::new(mtm, window_adapter);
     let display_link = unsafe { ns_view.displayLinkWithTarget_selector(&target, sel!(tick:)) };
 
-    // Use NSRunLoopCommonModes so the callback fires during modal tracking loops
-    // (context menus, window resize, etc.)
-    unsafe {
-        display_link.addToRunLoop_forMode(&NSRunLoop::mainRunLoop(), NSRunLoopCommonModes);
-    }
+    Some(into_throttle(target, display_link))
+}
 
-    display_link.setPaused(true);
+#[cfg(ios_and_friends)]
+pub(super) fn try_create(
+    window_adapter: Weak<WinitWindowAdapter>,
+    _winit_window: &winit::window::Window,
+) -> Option<Box<dyn super::FrameThrottle>> {
+    use objc2::sel;
 
-    Some(Box::new(CADisplayLinkFrameThrottle { _target: target, display_link }))
+    let mtm = MainThreadMarker::new().expect("frame throttle must be created on main thread");
+
+    let target = DisplayLinkTarget::new(mtm, window_adapter);
+    let display_link =
+        unsafe { CADisplayLink::displayLinkWithTarget_selector(&target, sel!(tick:)) };
+
+    Some(into_throttle(target, display_link))
 }
