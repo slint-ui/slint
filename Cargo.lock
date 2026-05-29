@@ -868,6 +868,7 @@ version = "1.17.1"
 dependencies = [
  "blogica",
  "blogicb",
+ "i-slint-backend-testing",
  "rand 0.10.1",
  "random_word",
  "slint",
