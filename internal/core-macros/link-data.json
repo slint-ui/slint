@@ -287,6 +287,9 @@
     "quickstart": {
         "href": "tutorial/quickstart/"
     },
+    "getting_started": {
+        "href": "tutorial/getting_started/"
+    },
     "modules": {
         "href": "guide/language/coding/file/#modules"
     },

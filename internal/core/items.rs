@@ -1565,7 +1565,7 @@ pub struct ContextMenu {
     pub popup_id: Cell<Option<NonZeroU32>>,
     pub enabled: Property<bool>,
     #[cfg(target_os = "android")]
-    long_press_timer: Cell<Option<crate::timers::Timer>>,
+    long_press_timer: crate::timers::Timer,
 }
 
 impl Item for ContextMenu {
@@ -1610,10 +1610,9 @@ impl Item for ContextMenu {
             }
             #[cfg(target_os = "android")]
             MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
-                let timer = crate::timers::Timer::default();
                 let self_weak = _self_rc.downgrade();
                 let position = *position;
-                timer.start(
+                self.long_press_timer.start(
                     crate::timers::TimerMode::SingleShot,
                     WindowInner::from_pub(_window_adapter.window())
                         .context()
@@ -1625,14 +1624,11 @@ impl Item for ContextMenu {
                         self_.show.call(&(LogicalPosition::from_euclid(position),));
                     },
                 );
-                self.long_press_timer.set(Some(timer));
                 InputEventResult::GrabMouse
             }
             #[cfg(target_os = "android")]
             MouseEvent::Released { .. } | MouseEvent::Exit => {
-                if let Some(timer) = self.long_press_timer.take() {
-                    timer.stop();
-                }
+                self.long_press_timer.stop();
                 InputEventResult::EventIgnored
             }
             #[cfg(target_os = "android")]
