@@ -2122,6 +2122,41 @@ impl Element {
         }
     }
 
+    /// Return the alias node of a `callback foo <=> ...;` declaration, if `name` is one.
+    ///
+    /// This lives on the callback declaration itself, which is where the alias of a
+    /// global callback that also has a handler ends up (the handler takes the binding
+    /// expression slot).
+    pub fn callback_alias_declaration_node(
+        &self,
+        name: &str,
+    ) -> Option<syntax_nodes::TwoWayBinding> {
+        self.property_declarations
+            .get(name)
+            .and_then(|d| d.node.clone())
+            .and_then(syntax_nodes::CallbackDeclaration::new)
+            .and_then(|cb| cb.TwoWayBinding())
+    }
+
+    /// Return the two-way-binding syntax node of a `<=>` alias for the given property, if any.
+    ///
+    /// Usually the alias is the binding's own (uncompiled) expression. But a global
+    /// callback may both alias another global's callback (`callback foo <=> Other.foo;`)
+    /// and provide a handler (`foo => { ... }`): the handler then occupies the binding
+    /// expression slot, so the alias node lives on the callback declaration instead.
+    pub fn two_way_binding_node(&self, name: &str) -> Option<syntax_nodes::TwoWayBinding> {
+        if let Some(binding) = self.bindings.get(name) {
+            if let Ok(b) = binding.try_borrow() {
+                if let Expression::Uncompiled(node) = b.expression.ignore_debug_hooks() {
+                    if let Some(twb) = syntax_nodes::TwoWayBinding::new(node.clone()) {
+                        return Some(twb);
+                    }
+                }
+            }
+        }
+        self.callback_alias_declaration_node(name)
+    }
+
     pub fn native_class(&self) -> Option<Rc<NativeClass>> {
         let mut base_type = self.base_type.clone();
         loop {

@@ -77,7 +77,7 @@ fn resolve_alias(
     drop(borrow_mut);
 
     let twb = {
-        let Some(node) = crate::passes::two_way_binding_node(&elem.borrow(), prop) else {
+        let Some(node) = elem.borrow().two_way_binding_node(prop) else {
             // The parser only allows omitting the type for a two-way binding, so a missing
             // alias node here means an error was already reported for this component.
             assert!(diag.has_errors(), "The parser only avoid missing types for two way bindings");

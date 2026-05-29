@@ -2224,7 +2224,7 @@ fn resolve_two_way_bindings_for_element(
         };
         let twb_node = twb_from_expression
             .clone()
-            .or_else(|| super::callback_alias_declaration_node(&elem.borrow(), prop_name));
+            .or_else(|| elem.borrow().callback_alias_declaration_node(prop_name));
         if let Some(n) = twb_node {
             let node: SyntaxNode = n.clone().into();
             let lhs_lookup = elem.borrow().lookup_property(prop_name);
