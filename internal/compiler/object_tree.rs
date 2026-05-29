@@ -1628,8 +1628,7 @@ impl Element {
                     let is_global_alias = r.base_type == ElementType::Global
                         && matches!(
                             &e.get().borrow().expression,
-                            Expression::Uncompiled(node)
-                                if syntax_nodes::TwoWayBinding::new(node.clone()).is_some()
+                            Expression::Uncompiled(node) if node.kind() == SyntaxKind::TwoWayBinding
                         );
                     if is_global_alias {
                         e.get_mut().get_mut().expression =
