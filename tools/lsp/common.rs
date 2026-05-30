@@ -19,6 +19,8 @@ pub mod component_catalog;
 pub mod document_cache;
 pub use document_cache::DocumentCache;
 pub use i_slint_compiler::diagnostics::ByteFormat;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod host_language_search;
 mod lsp_to_previews;
 pub mod rename_component;
 pub mod rename_element_id;
