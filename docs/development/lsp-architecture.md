@@ -32,6 +32,9 @@ The Slint LSP (Language Server Protocol) server provides IDE features for `.slin
 | `tools/lsp/language/semantic_tokens.rs` | Syntax highlighting |
 | `tools/lsp/language/signature_help.rs` | Function/callback signatures |
 | `tools/lsp/common/document_cache.rs` | Document caching and compilation |
+| `tools/lsp/common/rename_component.rs` | Rename of components, structs, enums, properties, callbacks, functions |
+| `tools/lsp/common/host_language_search.rs` | Cross-language rename: walks workspace files to rewrite Rust/C++ accessor call sites |
+| `internal/compiler/generator/accessor_names.rs` | Shared name mapping for Rust/C++ property/callback/function accessors (used by both codegen and the LSP scanner) |
 | `tools/lsp/preview.rs` | Live preview engine |
 | `tools/lsp/fmt/` | Code formatter |
 
@@ -303,6 +306,69 @@ pub fn goto_definition(
 - Type names → Struct/component definition
 - Import paths → Imported file
 - Qualified names → Resolved definition
+
+## Rename
+
+Rename support lives in `tools/lsp/common/rename_component.rs` and is
+dispatched from the `textDocument/rename` handler in `language.rs`. It
+handles components, structs, enums, internal/export names, properties,
+callbacks, and functions through a single `DeclarationNode::rename`
+entry point that returns a `WorkspaceEdit` covering the `.slint`
+sources.
+
+### Cross-language rename
+
+Renaming a public property/callback/function in `.slint` can optionally
+also rewrite the generated Rust/C++ accessor (`get_<n>`, `set_<n>`,
+`invoke_<n>`, `on_<n>`) at every call site in the workspace. The
+behavior is gated by the user-facing `slint.renameAccessorsInHostLanguages`
+workspace setting (`"never"` (default) / `"always"`).
+
+The pipeline, invoked from the Rename handler when the policy is
+`"always"`:
+
+1. **Classify** the renamed declaration via
+   `DeclarationNode::host_language_classification` (in
+   `rename_component.rs`). Walks every loaded `Document` (via
+   `DocumentCache::all_documents()`) and, for each exported non-interface
+   component, follows the `inherits` chain looking for a property
+   declaration whose syntax node matches the rename target. The walk is
+   bounded (depth + visited-set) so a cyclic `inherits` chain from a
+   mid-edit state can't hang the synchronous handler. Returns the
+   declaration kind, current name, and source file -- or `None` if the
+   declaration isn't exposed in the generated public API (private
+   visibility, non-`ok_for_public_api` type, not reachable from any
+   exported component, etc.).
+2. **Skip** when `normalize_identifier(new_name) == old_name` -- a
+   kebab/snake no-op rename has no host-language effect.
+3. **Scan** the workspace via
+   `host_language_search::scan_host_language_accessors`. Resolves the
+   scan root (`workspace_folders` → `root_uri` → `root_path`) to the
+   most-specific folder containing the renamed `.slint`, walks it
+   (`std::fs`, no symlink-following, skipping `target/`, `build/`,
+   `node_modules/`, etc., case-insensitive on `.rs`/`.cpp`/`.cc`/`.cxx`/
+   `.h`/`.hpp`/`.hh`), and for each file runs a small lexer state machine
+   that emits word-boundary-aligned matches for the kind-specific
+   accessor names. The lexer skips line comments, block comments,
+   string literals, and short char literals; raw strings, byte strings,
+   lifetimes, and nested block comments are accepted false-positive
+   surface.
+4. **Merge** the resulting `Vec<SingleTextEdit>` into the `.slint`
+   `WorkspaceEdit` via `common::merge_workspace_edits`.
+
+Failure modes (renamed file outside any workspace folder, or scan
+exceeds its file-count cap) **soft-degrade**: the handler logs a
+`tracing::warn!` and applies only the `.slint` edits. Rejecting the
+whole rename would lose work the user expected; the policy is opt-in
+and the user can disable it if the warnings become a problem.
+
+Accessor names are shared between the codegen (`internal/compiler/
+generator/{rust,cpp}.rs`) and the scanner via
+`internal/compiler/generator/accessor_names.rs`, so the two can't
+drift.
+
+The scanner module is gated `cfg(not(target_arch = "wasm32"))` since
+the WASM LSP has no filesystem.
 
 ## Live Preview
 
