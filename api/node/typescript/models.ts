@@ -287,8 +287,7 @@ export class ArrayModel<T> extends Model<T> {
     insertRow(_index: number, _data: T) {
         // Validate index range to prevent out-of-bounds access as this method is used by
         // the `array.insert(index, value)` slint method.
-        if (_index < 0 || _index > this.#array.length)
-            return;
+        if (_index < 0 || _index > this.#array.length) return;
         this.insert(_index, _data);
     }
 

@@ -271,21 +271,21 @@ def test_model_modifications() -> None:
     assert len(model) == 4
     assert model[1] == 20
 
-    instance.invoke("remove_one", -1);
+    instance.invoke("remove_one", -1)
     assert len(model), 4
-    instance.invoke("remove_one", 10);
-    assert len(model), 4
-
-    instance.invoke("insert_one", -1, 30);
-    assert len(model), 4
-    instance.invoke("insert_one", 10, 30);
+    instance.invoke("remove_one", 10)
     assert len(model), 4
 
-    model = instance.get_property("empty_ints");
+    instance.invoke("insert_one", -1, 30)
+    assert len(model), 4
+    instance.invoke("insert_one", 10, 30)
+    assert len(model), 4
+
+    model = instance.get_property("empty_ints")
     assert len(model) == 0
-    instance.invoke("push_one_empty", 1);
+    instance.invoke("push_one_empty", 1)
     assert len(model) == 0
-    instance.invoke("remove_one_empty");
+    instance.invoke("remove_one_empty")
     assert len(model) == 0
-    instance.invoke("insert_one_empty");
+    instance.invoke("insert_one_empty")
     assert len(model) == 0
