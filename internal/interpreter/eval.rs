@@ -1453,11 +1453,13 @@ fn call_builtin_function(
                 _ => panic!("First argument not an array: {:?}", arguments[0]),
             };
             let index = match eval_expression(&arguments[1], local_context) {
-                Value::Number(i) => i as usize,
+                Value::Number(i) => i,
                 _ => panic!("Second argument not an integer: {:?}", arguments[0]),
             };
 
-            model.remove_row(index);
+            if index > 0. {
+                model.remove_row(index as usize);
+            }
 
             Value::Void
         }
@@ -1472,12 +1474,14 @@ fn call_builtin_function(
                 _ => panic!("First argument not an array: {:?}", arguments[0]),
             };
             let index = match eval_expression(&arguments[1], local_context) {
-                Value::Number(i) => i as usize,
+                Value::Number(i) => i,
                 _ => panic!("Second argument not an integer: {:?}", arguments[0]),
             };
 
             let value = eval_expression(&arguments[2], local_context);
-            model.insert_row(index, value);
+            if index > 0. {
+                model.insert_row(index as usize, value);
+            }
 
             Value::Void
         }

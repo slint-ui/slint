@@ -647,12 +647,12 @@ fn handle_builtin_function(
             };
 
             let index = match eval_expression(&arguments[1], local_context, None) {
-                Value::Number(i) => i as usize,
+                Value::Number(i) => i,
                 _ => panic!("Second argument not an integer: {:?}", arguments[0]),
             };
 
-            if index < model.row_count() {
-                model.remove_row(index);
+            if index > 0. {
+                model.remove_row(index as usize);
             }
 
             Value::Void
@@ -667,16 +667,16 @@ fn handle_builtin_function(
                 _ => panic!("First argument not an array: {:?}", arguments[0]),
             };
             let index = match eval_expression(&arguments[1], local_context, None) {
-                Value::Number(i) => i as usize,
+                Value::Number(i) => i,
                 _ => panic!("Second argument not an integer: {:?}", arguments[0]),
             };
 
-            if index > model.row_count() {
+            if index < 0. {
                 return Value::Void;
             }
 
             let value = eval_expression(&arguments[2], local_context, None);
-            model.insert_row(index, value);
+            model.insert_row(index as usize, value);
 
             Value::Void
         }
