@@ -675,6 +675,14 @@ pub(crate) fn convert_to_proto_accessible_role(
         i_slint_core::items::AccessibleRole::Image => proto::AccessibleRole::Image,
         i_slint_core::items::AccessibleRole::RadioButton => proto::AccessibleRole::RadioButton,
         i_slint_core::items::AccessibleRole::RadioGroup => proto::AccessibleRole::RadioGroup,
+        i_slint_core::items::AccessibleRole::Banner => proto::AccessibleRole::Banner,
+        i_slint_core::items::AccessibleRole::Complementary => proto::AccessibleRole::Complementary,
+        i_slint_core::items::AccessibleRole::ContentInfo => proto::AccessibleRole::ContentInfo,
+        i_slint_core::items::AccessibleRole::Form => proto::AccessibleRole::Form,
+        i_slint_core::items::AccessibleRole::Main => proto::AccessibleRole::Main,
+        i_slint_core::items::AccessibleRole::Navigation => proto::AccessibleRole::Navigation,
+        i_slint_core::items::AccessibleRole::Region => proto::AccessibleRole::Region,
+        i_slint_core::items::AccessibleRole::Search => proto::AccessibleRole::Search,
         _ => return None,
     })
 }
@@ -706,6 +714,14 @@ pub(crate) fn convert_from_proto_accessible_role(
         proto::AccessibleRole::Image => i_slint_core::items::AccessibleRole::Image,
         proto::AccessibleRole::RadioButton => i_slint_core::items::AccessibleRole::RadioButton,
         proto::AccessibleRole::RadioGroup => i_slint_core::items::AccessibleRole::RadioGroup,
+        proto::AccessibleRole::Banner => i_slint_core::items::AccessibleRole::Banner,
+        proto::AccessibleRole::Complementary => i_slint_core::items::AccessibleRole::Complementary,
+        proto::AccessibleRole::ContentInfo => i_slint_core::items::AccessibleRole::ContentInfo,
+        proto::AccessibleRole::Form => i_slint_core::items::AccessibleRole::Form,
+        proto::AccessibleRole::Main => i_slint_core::items::AccessibleRole::Main,
+        proto::AccessibleRole::Navigation => i_slint_core::items::AccessibleRole::Navigation,
+        proto::AccessibleRole::Region => i_slint_core::items::AccessibleRole::Region,
+        proto::AccessibleRole::Search => i_slint_core::items::AccessibleRole::Search,
     })
 }
 

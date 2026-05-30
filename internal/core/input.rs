@@ -243,6 +243,9 @@ pub enum InputEventFilterResult {
     /// If any other component is handling the event it will be not handled by the component returned this result
     //(Can't use core::time::Duration because it is not repr(c))
     DelayForwarding(u64),
+    /// Like `ForwardAndIgnore`, but the item still receives a [`MouseEvent::Exit`]
+    /// when the pointer leaves, even if a sibling handles the event in between.
+    ForwardAndObserve,
 }
 
 /// This module contains the constant character code used to represent the keys.
@@ -1217,6 +1220,11 @@ pub struct MouseInputState {
     /// The stack of item which contain the mouse cursor (or grab),
     /// along with the last result from the input function
     item_stack: Vec<(ItemWeak, InputEventFilterResult)>,
+    /// Passive trackers that saw the last event without claiming it (see
+    /// [`InputEventResult::ObserveEvent`]). Held outside `item_stack` so the stack
+    /// stays a single root-to-leaf path; entries here receive a synthesized
+    /// [`MouseEvent::Exit`] when they no longer appear after a new event.
+    observers: Vec<ItemWeak>,
     /// Offset to apply to the first item of the stack (used if there is a popup)
     pub(crate) offset: LogicalPoint,
     /// true if the top item of the stack has the mouse grab
@@ -1413,6 +1421,21 @@ pub(crate) fn send_exit_events(
             }
         }
     }
+
+    // Observers live outside the path-stack and are tracked by identity. Exit fires
+    // only when the item is missing from BOTH the new observer set and the new path
+    // stack: an item whose ForwardAndObserve filter never ran (because a child aborted
+    // before reaching it) is still on the path stack with another filter result, and
+    // should not receive Exit.
+    for obs in &old_input_state.observers {
+        if new_input_state.observers.iter().any(|x| x == obs)
+            || new_input_state.item_stack.iter().any(|(x, _)| x == obs)
+        {
+            continue;
+        }
+        let Some(item) = obs.upgrade() else { continue };
+        item.borrow().as_ref().input_event(&MouseEvent::Exit, window_adapter, &item, cursor);
+    }
 }
 
 /// Process the `mouse_event` on the `component`, the `mouse_grabber_stack` is the previous stack
@@ -1568,6 +1591,10 @@ fn send_mouse_event_to_item(
                 .push((item_rc.downgrade(), InputEventFilterResult::DelayForwarding(duration)));
             return VisitChildrenResult::abort(item_rc.index(), 0);
         }
+        // Like ForwardAndIgnore: forward to children, skip input_event. The
+        // EventIgnored arm below moves our entry from the path stack to the observers
+        // side list instead of dropping it.
+        InputEventFilterResult::ForwardAndObserve => (true, true),
     };
 
     result.item_stack.push((item_rc.downgrade(), filter_result));
@@ -1607,11 +1634,19 @@ fn send_mouse_event_to_item(
     match r {
         InputEventResult::EventAccepted => VisitChildrenResult::abort(item_rc.index(), 0),
         InputEventResult::EventIgnored => {
-            let _pop = result.item_stack.pop();
+            let popped = result.item_stack.pop();
             debug_assert_eq!(
-                _pop.map(|x| (x.0.upgrade().unwrap().index(), x.1)).unwrap(),
+                popped.as_ref().map(|x| (x.0.upgrade().unwrap().index(), x.1)).unwrap(),
                 (item_rc.index(), filter_result)
             );
+            // For ForwardAndObserve, migrate the entry to the observers side list (dedup)
+            // so a later Exit can still reach it.
+            if filter_result == InputEventFilterResult::ForwardAndObserve
+                && let Some((weak, _)) = popped
+                && !result.observers.contains(&weak)
+            {
+                result.observers.push(weak);
+            }
             VisitChildrenResult::CONTINUE
         }
         InputEventResult::GrabMouse => {

@@ -849,11 +849,9 @@ impl Compiler {
         Self::default()
     }
 
-    #[cfg(feature = "internal-live-preview")]
-    pub(crate) fn set_embed_resources(
-        &mut self,
-        embed_resources: i_slint_compiler::EmbedResourcesKind,
-    ) {
+    #[doc(hidden)]
+    #[cfg(feature = "internal")]
+    pub fn set_embed_resources(&mut self, embed_resources: i_slint_compiler::EmbedResourcesKind) {
         self.config.embed_resources = embed_resources;
     }
 
@@ -972,7 +970,7 @@ impl Compiler {
                 return CompilationResult {
                     components: HashMap::new(),
                     diagnostics: diagnostics.into_iter().collect(),
-                    #[cfg(feature = "internal-file-watcher")]
+                    #[cfg(feature = "internal")]
                     watch_paths: vec![i_slint_compiler::pathutils::clean_path(path)],
                     #[cfg(feature = "internal")]
                     structs_and_enums: Vec::new(),
@@ -1012,7 +1010,7 @@ impl Compiler {
 pub struct CompilationResult {
     pub(crate) components: HashMap<String, ComponentDefinition>,
     pub(crate) diagnostics: Vec<Diagnostic>,
-    #[cfg(feature = "internal-file-watcher")]
+    #[cfg(feature = "internal")]
     pub(crate) watch_paths: Vec<PathBuf>,
     #[cfg(feature = "internal")]
     pub(crate) structs_and_enums: Vec<LangType>,
@@ -1072,7 +1070,7 @@ impl CompilationResult {
 
     /// This is an internal function without API stability guarantees.
     #[doc(hidden)]
-    #[cfg(feature = "internal-file-watcher")]
+    #[cfg(feature = "internal")]
     pub fn watch_paths(&self, _: i_slint_core::InternalToken) -> &[PathBuf] {
         &self.watch_paths
     }
@@ -2374,6 +2372,7 @@ export component Foo2 inherits Window  {
 }
 
 #[cfg(feature = "ffi")]
+#[doc(hidden)]
 #[allow(missing_docs)]
 #[path = "ffi.rs"]
-pub(crate) mod ffi;
+pub mod ffi;

@@ -4,6 +4,7 @@
 use std::rc::Rc;
 use std::sync::Arc;
 
+use crate::winit_compat::WindowSurfaceSizeExt;
 use crate::winitwindowadapter::physical_size_to_slint;
 use i_slint_core::graphics::RequestedGraphicsAPI;
 use i_slint_core::platform::PlatformError;
@@ -180,7 +181,7 @@ impl super::WinitCompatibleRenderer for WinitSkiaRenderer {
             },
         )?);
 
-        let size = winit_window.inner_size();
+        let size = winit_window.surface_size();
 
         self.renderer.set_window_handle(
             winit_window.clone(),

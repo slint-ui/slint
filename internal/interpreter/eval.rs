@@ -13,7 +13,7 @@ use corelib::items::{ItemRc, ItemRef, PropertyAnimation, WindowItem};
 use corelib::menus::{Menu, MenuFromItemTree};
 use corelib::model::{Model, ModelExt, ModelRc, VecModel};
 use corelib::rtti::AnimatedBindingKind;
-use corelib::window::WindowInner;
+use corelib::window::{WindowInner, WindowKind};
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
 use i_slint_compiler::expression_tree::{
     BuiltinFunction, Callable, EasingCurve, Expression, MinMaxOp, Path as ExprPath,
@@ -1114,8 +1114,7 @@ fn call_builtin_function(
                     Box::new(move || position),
                     corelib::items::PopupClosePolicy::CloseOnClickOutside,
                     &item_rc,
-                    false,
-                    true,
+                    WindowKind::Menu,
                 );
                 context_menu_elem.popup_id.set(Some(id));
             });

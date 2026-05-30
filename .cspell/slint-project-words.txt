@@ -14,14 +14,19 @@ alsa
 amdgpu
 amet
 Amoled
+androideabi
 Appbar
+appicon
+appiconset
 appkit
 appmain
 appsink
 appview
 ARCHS
+armeabi
 armhf
 arrayvec
+assetcatalog
 astrolib
 astrowind
 asyncio
@@ -104,6 +109,7 @@ Cpolygon
 cpos
 cppbuild
 cppdocs
+cppreference
 cstyle
 Csvg
 ctest
@@ -132,11 +138,13 @@ devenv
 dfaure
 dgettext
 directx
+dists
 divp
 divq
 divr
 DLOPEN
 docsrs
+docstrings
 doctests
 doesnotexist
 dolore
@@ -151,6 +159,8 @@ driverlib
 droparea
 dropevent
 DSHIELD
+dsym
+dsymutil
 dustygold
 Dxgi
 DYLD
@@ -321,6 +331,7 @@ libgstrtspserver
 Libinput
 libloading
 libm
+librsvg
 libseat
 libslint
 libstdc
@@ -426,6 +437,7 @@ Pantone
 partytown
 PATCHLEVEL
 pathdata
+pathlib
 pbjson
 PCLK
 pdoc
@@ -534,6 +546,7 @@ spinboxes
 SPIRAM
 SPRINTF
 Spyrosoft
+srcroot
 SRCS
 SRGBA
 standardbutton
@@ -594,6 +607,7 @@ Tlink
 Tlinkall
 tmgrammar
 toctree
+tomllib
 tonalbutton
 toolkits
 TOPLEVEL
@@ -602,6 +616,7 @@ toucharea
 toupper
 trunc
 tungstenite
+typedoc
 typeregister
 Tzimabazafi
 uart
@@ -664,8 +679,11 @@ WQXGA
 writeback
 WRONLY
 xbuild
+xcarchive
+xcassets
 xcent
 xchg
+xcrun
 xfer
 xfixes
 xlib
@@ -677,7 +695,7 @@ yoyo
 zaimoku
 Zbuild
 zephyrproject
-zeroconf
 Zeroable
+zeroconf
 zstd
 தோசை

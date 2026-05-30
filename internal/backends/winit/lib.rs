@@ -27,6 +27,7 @@ use winit::event_loop::ActiveEventLoop;
 #[cfg(not(target_arch = "wasm32"))]
 mod clipboard;
 mod drag_resize_window;
+mod winit_compat;
 mod winitwindowadapter;
 use winitwindowadapter::*;
 pub(crate) mod event_loop;
@@ -1131,7 +1132,7 @@ fn create_renderer(
                 if #[cfg(enable_skia_renderer)] {
                     renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(shared_data)
                 } else {
-                    return Err("unstable-wgpu-28 was enabled but no renderer was selected. Please select renderer-skia*".into())
+                    Err("unstable-wgpu-28 was enabled but no renderer was selected. Please select renderer-skia*".into())
                 }
             }
         }
@@ -1143,7 +1144,7 @@ fn create_renderer(
                 } else if #[cfg(feature = "renderer-femtovg-wgpu")] {
                     renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_data)
                 } else {
-                    return Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
+                    Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
                 }
             }
         }

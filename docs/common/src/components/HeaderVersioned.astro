@@ -10,8 +10,8 @@ import ThemeSelect from "./ThemeSelect.astro";
 import VersionSelector from "./VersionSelector.astro";
 
 export interface Props {
-    /** When `"node"`, version links target the Node handbook URL layout. */
-    docsUrlKind?: "node";
+    /** Version links target the matching per-language docs URL layout. */
+    docsUrlKind?: "node" | "python" | "cpp";
 }
 
 const { docsUrlKind } = Astro.props;

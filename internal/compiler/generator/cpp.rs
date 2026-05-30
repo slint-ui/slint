@@ -4839,7 +4839,7 @@ fn compile_builtin_function_call(
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
                 let close_policy = compile_expression(close_policy, ctx);
-                let is_tooltip = if popup.is_tooltip { "true" } else { "false" };
+                let window_kind = if popup.is_tooltip { "slint::cbindgen_private::WindowKind::ToolTip" } else { "slint::cbindgen_private::WindowKind::Popup" };
                 component_access.then(|component_access| format!(
                     // Use a block statement to create own globals and popup instance
                     "{window}.close_popup({component_access}->popup_id_{popup_index}); \
@@ -4848,7 +4848,7 @@ fn compile_builtin_function_call(
                                                                         [=](auto self) {{ return {position}; }},  \
                                                                         {close_policy},  \
                                                                         {{ {parent_component} }},  \
-                                                                        {is_tooltip})"
+                                                                        {window_kind})"
                 ))
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")

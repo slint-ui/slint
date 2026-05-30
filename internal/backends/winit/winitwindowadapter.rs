@@ -27,6 +27,7 @@ use winit::platform::windows::WindowExtWindows;
 #[cfg(muda)]
 use crate::muda::MudaType;
 use crate::renderer::WinitCompatibleRenderer;
+use crate::winit_compat::WindowSurfaceSizeExt;
 
 use corelib::item_tree::ItemTreeRc;
 #[cfg(enable_accesskit)]
@@ -689,7 +690,7 @@ impl WinitWindowAdapter {
             // Note: On displays with a scale factor != 1, we get a scale factor change
             // event and a resize event, so all is good.
             if self.pending_resize_event_after_show.take() {
-                self.resize_event(winit_window.inner_size())?;
+                self.resize_event(winit_window.surface_size())?;
             }
         }
 
@@ -1123,6 +1124,12 @@ impl WinitWindowAdapter {
             if self.pending_redraw.get() {
                 self.draw()?;
             };
+
+            // On iOS making an already-created window visible doesn't generate a fresh
+            // RedrawRequested. winit's one initial RedrawRequested is delivered while the window is
+            // created (during `resumed`), so a window first shown later misses it and stays blank.
+            #[cfg(ios_and_friends)]
+            self.request_redraw();
 
             Ok(())
         } else {

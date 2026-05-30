@@ -2321,9 +2321,19 @@ fn resolve_two_way_bindings_for_element(
 
     for (prop_name, binding) in &elem.borrow().bindings {
         let mut binding = binding.borrow_mut();
-        if let Expression::Uncompiled(node) = binding.expression.ignore_debug_hooks().clone()
-            && let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone())
-        {
+        // The alias node is normally the binding's own (uncompiled) expression. But a
+        // global callback may both alias another global's callback and provide a handler:
+        // the handler then occupies the expression slot and the alias node lives on the
+        // callback declaration, in which case the handler expression must be preserved.
+        let twb_from_expression = match binding.expression.ignore_debug_hooks() {
+            Expression::Uncompiled(node) => syntax_nodes::TwoWayBinding::new(node.clone()),
+            _ => None,
+        };
+        let twb_node = twb_from_expression
+            .clone()
+            .or_else(|| elem.borrow().callback_alias_declaration_node(prop_name));
+        if let Some(n) = twb_node {
+            let node: SyntaxNode = n.clone().into();
             let lhs_lookup = elem.borrow().lookup_property(prop_name);
             if !lhs_lookup.is_valid() {
                 // An attempt to resolve this already failed when trying to resolve the property type
@@ -2342,7 +2352,11 @@ fn resolve_two_way_bindings_for_element(
                 local_variables: Vec::new(),
             };
 
-            binding.expression = Expression::Invalid;
+            // Only the alias-only case stores the two-way binding in the expression slot;
+            // the combined case must keep its handler expression intact.
+            if twb_from_expression.is_some() {
+                binding.expression = Expression::Invalid;
+            }
 
             if let Some(twb) = resolve_two_way_binding(n, &mut lookup_ctx) {
                 if matches!(lhs_lookup.property_type, Type::InferredProperty) {
@@ -2614,7 +2628,12 @@ fn check_callback_alias_validity(
         return;
     };
 
-    if alias.element().borrow().base_type == ElementType::Global {
+    // A non-global element can be instantiated many times, so letting it assign a handler
+    // to a singleton global's callback is ambiguous. A global is itself a singleton, so it
+    // may implement another global's callback.
+    if alias.element().borrow().base_type == ElementType::Global
+        && elem_borrow.base_type != ElementType::Global
+    {
         diag.push_error(
             "Can't assign a local callback handler to an alias to a global callback".into(),
             &node.child_token(SyntaxKind::Identifier).unwrap(),

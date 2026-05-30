@@ -47,6 +47,7 @@ jobs:
         material_components: ${{ inputs.full || steps.filter.outputs.material_components == 'true' }}
         internal: ${{ inputs.full || steps.filter.outputs.internal == 'true' }}
         api_cpp: ${{ inputs.full || steps.filter.outputs.api_cpp == 'true' }}
+        android_backend: ${{ inputs.full || steps.filter.outputs.android_backend == 'true' }}
         api_python: ${{ inputs.full || steps.filter.outputs.api_python == 'true' }}
         api_node: ${{ inputs.full || steps.filter.outputs.api_node == 'true' }}
         api_rs: ${{ inputs.full || steps.filter.outputs.api_rs == 'true' }}
@@ -55,7 +56,6 @@ jobs:
         examples_mcu: ${{ inputs.full || steps.filter.outputs.examples_mcu == 'true' }}
         vsce: ${{ inputs.full || steps.filter.outputs.vsce == 'true' }}
         slintpad: ${{ inputs.full || steps.filter.outputs.slintpad == 'true' }}
-        updater_test: ${{ inputs.full || steps.filter.outputs.updater_test == 'true' }}
         servo_example: ${{ inputs.full || steps.filter.outputs.servo_example == 'true' }}
         bevy_examples: ${{ inputs.full || steps.filter.outputs.bevy_examples == 'true' }}
         rust_files: ${{ inputs.full || steps.filter.outputs.rust_files == 'true' }}
@@ -440,84 +440,6 @@ jobs:
             latest: false
             tag: "v0.26.5"
 
-    # Checkout a old version of the tests and example, then run the slint-updater on them
-    # and check that it worked with the interpreter test.
-    updater_test:
-        needs: files-changed
-        if: ${{ needs.files-changed.outputs.updater_test == 'true' }}
-        env:
-            SLINT_NO_QT: 1
-            CARGO_INCREMENTAL: false
-            RUST_BACKTRACE: 1
-            CARGO_PROFILE_DEV_DEBUG: 0
-        strategy:
-            matrix:
-                from_version: ["0.3.0"]
-        runs-on: ubuntu-22.04
-        steps:
-            - uses: actions/checkout@v6
-              with:
-                  fetch-depth: 0
-            - uses: ./.github/actions/install-linux-dependencies
-            - uses: ./.github/actions/setup-rust
-            - name: Checkout old version
-              run: |
-                  git checkout v${{ matrix.from_version }} --no-overlay -- examples
-                  git checkout v${{ matrix.from_version }} --no-overlay -- tests/cases
-                  git checkout v${{ matrix.from_version }} --no-overlay -- tests/helper_components
-                  # Remove examples and demos from the workspace because they may no longer exist or their Cargo.toml might prevent the build of the updater
-                  sed -i "/examples/d" Cargo.toml
-                  sed -i "/demos/d" Cargo.toml
-            - name: "Commit old checkout"
-              run: |
-                  git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-                  git config --global user.name "${GITHUB_ACTOR}"
-                  git commit -a -m "REVERT TESTS TO v${{ matrix.from_version }}"
-            - name: run the updater
-              run: |
-                  cargo run -p slint-updater -- -i examples/*/*.slint
-                  cargo run -p slint-updater -- -i examples/*/*/*.slint
-                  cargo run -p slint-updater -- -i tests/cases/*.slint
-                  cargo run -p slint-updater -- -i tests/cases/*/*.slint
-            - name: Show the diff
-              run: git diff
-            - name: test
-              # Skip a few tests that rely on private renamed properties.
-              # Skip the tests which makes two way binding to output property (these are warning in previous version)
-              # Skip the test that use impure functions in property bindings (this is also warning in previous version)
-              # Skip the example that did not exist or that are broken
-              # Skip the path layout related tests as the element has been removed
-              # Skip the booker as it use api from the LineEdit that wasn"t meant to be used
-              run: |
-                  cargo test -p test-driver-interpreter -- \
-                            --skip test_interpreter_text_cursor_move \
-                            --skip test_interpreter_text_cursor_move_grapheme \
-                            --skip test_interpreter_text_cut \
-                            --skip test_interpreter_text_select_all \
-                            --skip test_interpreter_text_surrogate_cursor \
-                            --skip test_interpreter_text_text_change \
-                            --skip test_interpreter_crashes_layout_deleted_item \
-                            --skip test_interpreter_focus_focus_change_subcompo \
-                            --skip test_interpreter_focus_focus_change_through_signal \
-                            --skip test_interpreter_globals_alias_to_global \
-                            --skip test_interpreter_text_default_color \
-                            --skip test_interpreter_crashes_issue1271_set_in_if \
-                            --skip test_interpreter_models_assign_equal_model \
-                            --skip example_carousel \
-                            --skip example_fancy_demo \
-                            --skip example_dial \
-                            --skip example_fancy_switches \
-                            --skip example_sprite_sheet \
-                            --skip example_grid_model_rows \
-                            --skip example_grid_with_repeated_rows \
-                            --skip example_vector_as_grid \
-                            --skip example_vlayout \
-                            --skip example_flexbox_interactive \
-                            --skip test_interpreter_elements_path_fit \
-                            --skip test_interpreter_layout_path \
-                            --skip test_interpreter_7guis_booker \
-                            --skip example_bash_sysinfo \
-
     # Test that the formater don't introduce slint compilation error
     fmt_test:
         needs: files-changed
@@ -607,7 +529,7 @@ jobs:
 
     android:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_rs == 'true' || needs.files-changed.outputs.examples == 'true' }}
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_rs == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.android_backend == 'true' }}
         runs-on: ubuntu-latest
         env:
             RUSTFLAGS: -D warnings
@@ -644,6 +566,33 @@ jobs:
 
             - name: Build usecases demo
               run: cargo apk build -p usecases --target aarch64-linux-android --lib
+
+            - name: Build slint-viewer for Android
+              run: cargo apk build -p slint-viewer --target aarch64-linux-android --lib --features remote
+
+    android_cpp:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.android_backend == 'true' }}
+        runs-on: ubuntu-latest
+        env:
+            CARGO_INCREMENTAL: false
+            CARGO_PROFILE_DEV_DEBUG: 0
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-linux-android
+            - uses: actions/setup-java@v4
+              with:
+                  distribution: temurin
+                  java-version: '17'
+            - uses: gradle/actions/setup-gradle@v4
+            - name: Build usecases demo APK (Gradle end-to-end)
+              working-directory: demos/usecases/cpp/android
+              env:
+                  ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_LATEST_HOME }}
+              run: gradle assembleDebug
 
     test-figma-inspector:
         needs: files-changed
@@ -892,17 +841,22 @@ jobs:
         if: ${{ inputs.full }}
         strategy:
             matrix:
-              demo:
+              project:
                 - demos/home-automation/rust
                 - demos/energy-monitor
+                - tools/viewer
               include:
-                - demo: demos/home-automation/rust
+                - project: demos/home-automation/rust
                   scheme: "Home Automation"
                   bundle_id: dev.slint.demos.HomeAutomation
                   device: iPad Pro 13-inch (M5)
-                - demo: demos/energy-monitor
+                - project: demos/energy-monitor
                   scheme: "Energy Monitor"
                   bundle_id: dev.slint.demos.EnergyMonitor
+                  device: iPhone 17
+                - project: tools/viewer
+                  scheme: "slint-viewer"
+                  bundle_id: dev.slint.slint-viewer
                   device: iPhone 17
         runs-on: macos-26
         steps:
@@ -910,9 +864,9 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-apple-ios-sim
-            - run: brew install xcodegen
+            - run: brew install xcodegen librsvg
             - run: xcodegen -s ios-project.yml
-              working-directory: ${{ matrix.demo }}
+              working-directory: ${{ matrix.project }}
             - name: "Find Simulator UDID from iOS 26.4 runtime"
               run: |
                 echo "=== Finding device from iOS 26.4 runtime (default Xcode) ==="
@@ -936,7 +890,7 @@ jobs:
                 echo "UDID: $DEVICE_UDID"
                 echo "SIMULATOR_UDID=$DEVICE_UDID" >> $GITHUB_ENV
             - run: xcodebuild -scheme "${{ matrix.scheme }}" -destination "platform=iOS Simulator,id=${{ env.SIMULATOR_UDID }}" build
-              working-directory: ${{ matrix.demo }}
+              working-directory: ${{ matrix.project }}
 # This isn't working reliably. Sometimes the simulator doesn't boot, somethings launching fails, and sometimes screenshotting fails.
 #            - name: "Boot Simulator"
 #              timeout-minutes: 5

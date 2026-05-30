@@ -91,3 +91,27 @@ The program returns with the following error code:
 
 `slint-viewer` can be used to display an GUI from a shell script. For examples check out the
 [examples/bash](https://github.com/slint-ui/slint/tree/master/examples/bash) folder in our repository.
+
+## Building for iOS
+
+On iOS the viewer lets you preview `.slint` files from your editor directly on an iPhone, iPad, or
+the simulator.
+
+### Prerequisites
+
+ * A computer running macOS with an up-to-date installation of [Xcode](https://developer.apple.com/xcode/).
+ * [Xcodegen](https://github.com/yonaskolb/XcodeGen) (e.g. `brew install xcodegen`).
+ * [Rust](https://rustup.rs) with the iOS toolchains:
+   `rustup target add aarch64-apple-ios aarch64-apple-ios-sim`.
+
+### Build and run
+
+Generate the Xcode project and open it:
+
+```bash
+cd tools/viewer
+xcodegen generate --spec ios-project.yml
+open "Slint Viewer.xcodeproj"
+```
+
+From Xcode, build and run on the simulator or a device.

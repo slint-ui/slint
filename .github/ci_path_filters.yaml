@@ -30,7 +30,6 @@ slint:
  - 'tools/figma_import/**'
  - 'tools/lsp/**'
  - 'tools/tr-extractor/**'
- - 'tools/updater/**'
  - 'tools/viewer/**'
  - 'xtask/**'
  - 'Cargo.toml'
@@ -51,6 +50,7 @@ docs_build:
  - 'helper_crates/**'
  - 'tools/lsp/**'
  - 'tests/doctests/**'
+ - *js_config
  - *ci_config
 
 # Tree-sitter grammar
@@ -86,6 +86,9 @@ api_cpp:
  - 'internal/compiler/generator/cpp*'
  # The renderers are not part of the `internal` group, but are exposed in the C++ API
  - 'internal/renderers/{skia,software}/**'
+
+android_backend:
+ - 'internal/backends/android-activity/**'
 
 api_python:
  - 'api/python/**'
@@ -128,11 +131,7 @@ slintpad:
  - 'tools/lsp/**'
  - 'api/rs/**'
  - 'docs/common/src/utils/slint.tmLanguage.json'
-
-updater_test:
- - *internal
- - 'tests/cases/**'
- - 'tools/updater/**'
+ - *js_config
 
 servo_example:
  - 'examples/servo/**'

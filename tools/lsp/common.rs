@@ -7,7 +7,7 @@
 
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{SyntaxKind, SyntaxNode, TextSize, syntax_nodes};
-use i_slint_preview_protocol::{
+use i_slint_live_preview::protocol::{
     LspToPreviewMessage, PreviewTarget, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
 };
 use lsp_types::{TextEdit, Url, WorkspaceEdit};
@@ -581,13 +581,8 @@ impl ComponentInformation {
 /// or `None` otherwise.
 #[cfg(any(test, feature = "preview-engine"))]
 pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
-    struct DummyWaker();
-    impl std::task::Wake for DummyWaker {
-        fn wake(self: std::sync::Arc<Self>) {}
-    }
-
-    let waker = std::sync::Arc::new(DummyWaker()).into();
-    let mut ctx = std::task::Context::from_waker(&waker);
+    let waker = std::task::Waker::noop();
+    let mut ctx = std::task::Context::from_waker(waker);
 
     let future = std::pin::pin!(future);
 

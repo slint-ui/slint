@@ -123,10 +123,6 @@ raw-window-handle-06 = ["dep:raw-window-handle-06", "i-slint-backend-selector/ra
 ## any stability guarantees whatsoever.
 internal = []
 
-# (internal) Expose the native file watcher for other Slint tooling.
-# NOTE: this is not a semver compatible feature
-internal-file-watcher = ["dep:notify"]
-
 # (internal) Draw an highlight on a specified element
 # NOTE: this is not a semver compatible feature
 internal-highlight = []
@@ -134,9 +130,6 @@ internal-highlight = []
 # (internal) Serialize and deserialize Values to JSON, needs other internal API
 # NOTE: this is not a semver compatible feature
 internal-json = ["dep:serde_json"]
-
-# (internal)
-internal-live-preview = ["internal-file-watcher", "display-diagnostics"]
 
 
 [dependencies]
@@ -160,7 +153,6 @@ itertools = { workspace = true }
 smol_str = { workspace = true }
 unicode-segmentation = { workspace = true }
 
-notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 i-slint-backend-winit = { workspace = true }

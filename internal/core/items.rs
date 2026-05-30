@@ -1565,7 +1565,7 @@ pub struct ContextMenu {
     pub popup_id: Cell<Option<NonZeroU32>>,
     pub enabled: Property<bool>,
     #[cfg(target_os = "android")]
-    long_press_timer: Cell<Option<crate::timers::Timer>>,
+    long_press_timer: crate::timers::Timer,
 }
 
 impl Item for ContextMenu {
@@ -1610,10 +1610,9 @@ impl Item for ContextMenu {
             }
             #[cfg(target_os = "android")]
             MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
-                let timer = crate::timers::Timer::default();
                 let self_weak = _self_rc.downgrade();
                 let position = *position;
-                timer.start(
+                self.long_press_timer.start(
                     crate::timers::TimerMode::SingleShot,
                     WindowInner::from_pub(_window_adapter.window())
                         .context()
@@ -1625,14 +1624,11 @@ impl Item for ContextMenu {
                         self_.show.call(&(LogicalPosition::from_euclid(position),));
                     },
                 );
-                self.long_press_timer.set(Some(timer));
                 InputEventResult::GrabMouse
             }
             #[cfg(target_os = "android")]
             MouseEvent::Released { .. } | MouseEvent::Exit => {
-                if let Some(timer) = self.long_press_timer.take() {
-                    timer.stop();
-                }
+                self.long_press_timer.stop();
                 InputEventResult::EventIgnored
             }
             #[cfg(target_os = "android")]
@@ -1659,9 +1655,20 @@ impl Item for ContextMenu {
         if !self.enabled() {
             return KeyEventResult::EventIgnored;
         }
-        if event.event_type == KeyEventType::KeyPressed
-            && event.key_event.text.starts_with(crate::input::key_codes::Menu)
-        {
+
+        fn is_menu_key(event: &InternalKeyEvent) -> bool {
+            #[allow(unused_mut)]
+            let mut is_menu_key = event.key_event.text.contains(crate::input::key_codes::Menu);
+            #[cfg(target_os = "windows")]
+            {
+                // Windows maps Shift + F10 to open the context menu
+                is_menu_key |= event.key_event.text.contains(crate::input::key_codes::F10)
+                    && event.key_event.modifiers.shift;
+            }
+            is_menu_key
+        }
+
+        if is_menu_key(event) {
             self.show.call(&(Default::default(),));
             KeyEventResult::EventAccepted
         } else {
@@ -1762,7 +1769,10 @@ pub unsafe extern "C" fn slint_contextmenu_is_open(
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct BoxShadow {
-    pub border_radius: Property<LogicalLength>,
+    pub border_top_left_radius: Property<LogicalLength>,
+    pub border_top_right_radius: Property<LogicalLength>,
+    pub border_bottom_left_radius: Property<LogicalLength>,
+    pub border_bottom_right_radius: Property<LogicalLength>,
     // Shadow specific properties
     pub offset_x: Property<LogicalLength>,
     pub offset_y: Property<LogicalLength>,
@@ -1771,6 +1781,17 @@ pub struct BoxShadow {
     pub spread: Property<LogicalLength>,
     pub inset: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
+}
+
+impl BoxShadow {
+    pub fn logical_border_radius(self: Pin<&Self>) -> LogicalBorderRadius {
+        LogicalBorderRadius::from_lengths(
+            self.border_top_left_radius(),
+            self.border_top_right_radius(),
+            self.border_bottom_right_radius(),
+            self.border_bottom_left_radius(),
+        )
+    }
 }
 
 impl Item for BoxShadow {
@@ -2000,7 +2021,9 @@ impl Item for TooltipArea {
             self.schedule_show(self_rc);
         }
 
-        InputEventFilterResult::ForwardAndInterceptGrab
+        // Observe without claiming: siblings still receive the event; the routing tracks
+        // this item on its observers side-list and delivers Exit when the pointer leaves.
+        InputEventFilterResult::ForwardAndObserve
     }
 
     fn input_event(
@@ -2010,16 +2033,10 @@ impl Item for TooltipArea {
         _self_rc: &ItemRc,
         _: &mut MouseCursor,
     ) -> InputEventResult {
-        match event {
-            // Accept move/exit so this passive tracker stays in the routing lifecycle and
-            // continues receiving leave transitions, but ignore other interaction semantics.
-            MouseEvent::Moved { .. } => InputEventResult::EventAccepted,
-            MouseEvent::Exit => {
-                self.set_hover_state(false, _self_rc);
-                InputEventResult::EventAccepted
-            }
-            _ => InputEventResult::EventIgnored,
+        if matches!(event, MouseEvent::Exit) {
+            self.set_hover_state(false, _self_rc);
         }
+        InputEventResult::EventIgnored
     }
 
     fn capture_key_event(
