@@ -271,6 +271,11 @@ export class ArrayModel<T> extends Model<T> {
      * @param _index index of the row to remove.
      */
     removeRow(_index: number) {
+        // Validate index range to prevent out-of-bounds access as this method is used by
+        // the `array.remove(index)` slint method.
+        if (_index < 0 || _index >= this.#array.length) {
+            return;
+        }
         this.remove(_index, 1);
     }
 
@@ -280,6 +285,10 @@ export class ArrayModel<T> extends Model<T> {
      * @param _data data item to store in the new row.
      */
     insertRow(_index: number, _data: T) {
+        // Validate index range to prevent out-of-bounds access as this method is used by
+        // the `array.insert(index, value)` slint method.
+        if (_index < 0 || _index > this.#array.length)
+            return;
         this.insert(_index, _data);
     }
 

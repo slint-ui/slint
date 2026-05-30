@@ -226,11 +226,11 @@ impl i_slint_core::model::Model for PyModelShared {
 
             let element_type = self.element_type.borrow().clone();
             if let Err(err) =
-                obj.call_method1(py, "push_row", (type_collection.to_py_value(data, element_type),))
+                obj.call_method1(py, "append", (type_collection.to_py_value(data, element_type),))
             {
                 crate::handle_unraisable(
                     py,
-                    "Python: Model implementation of push_row() threw an exception".into(),
+                    "Python: Model implementation of push_row(), named append(), threw an exception".into(),
                     err,
                 );
             };
