@@ -117,6 +117,7 @@ All notable changes to this project are documented in this file.
  - LSP: Update the preview highlight on hover
  - LSP: formatter preserve newlines in expression, as well as enum declarations and export lists.
  - LSP: show runtime warnings in the console (eg: missing image file)
+ - LSP: Renaming a public property, callback, or function in a `.slint` file can now also rewrite the generated Rust/C++ accessor (`get_<n>`, `set_<n>`, `invoke_<n>`, `on_<n>`) at call sites in workspace `.rs`, `.cpp`, and header files. Opt-in via the new `slint.renameAccessorsInHostLanguages` config (`"never"` (default) / `"always"`). (#11841)
  - Improved file watcher by tracking new file and moved directories.
  - Compiler: Report precise error location within `@markdown` and `@tr` strings. (#11577)
  - Added MCP server feature. (#11542)

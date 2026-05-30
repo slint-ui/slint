@@ -10,6 +10,7 @@ This extension for VS Code adds support for the [Slint](https://slint.dev) desig
 -   Live Preview of a .slint file
 -   Completion of properties
 -   Jump to definition (currently, only definition of Component)
+-   Rename refactoring across `.slint` files, with opt-in propagation to Rust/C++ accessor call sites in workspace `.rs`/`.cpp`/`.h` files (set `slint.renameAccessorsInHostLanguages` to `"always"`)
 
 ## Installation
 

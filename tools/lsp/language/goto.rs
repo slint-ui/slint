@@ -197,6 +197,8 @@ fn test_goto_definition_multi_files() {
         preview_config: Default::default(),
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
+        #[cfg(not(target_arch = "wasm32"))]
+        rename_accessors_policy: Default::default(),
         to_show: None,
         open_urls: Default::default(),
         to_preview: crate::common::LspToPreviews::with_one(common::DummyLspToPreview::default()),
