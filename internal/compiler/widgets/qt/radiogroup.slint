@@ -22,7 +22,7 @@ component RadioButton {
 
     states [
         disabled when !root.enabled: {
-            opacity: 0.5;
+            layout.opacity: 0.5;
         }
         pressed when base.pressed: {
             root.dot-color: root.checked ? #205ed8 : #d0d0d0;

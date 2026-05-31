@@ -25,7 +25,7 @@ component RadioButton {
 
     states [
         disabled when !root.enabled: {
-            opacity: 0.5;
+            layout.opacity: 0.5;
         }
         checked when root.checked: {
             border.border-color: CosmicPalette.accent-background;
