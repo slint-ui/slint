@@ -15,7 +15,7 @@ export component RadioGroupBase {
     callback selected(string);
 
     public function select(index: int) {
-        if root.enabled && index >= 0 && index < root.model.length && !root.model[index].disabled {
+        if root.enabled && index != root.current-index && index >= 0 && index < root.model.length && !root.model[index].disabled {
             root.current-index = index;
             root.update-current-value();
             root.selected(root.current-value);
