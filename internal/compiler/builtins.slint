@@ -1936,14 +1936,14 @@ export component VerticalLayout {
     ///     width: 200px;
     ///     height: 100px;
     ///     VerticalLayout {
-    ///         align-items: end;
+    ///         cross-axis-alignment: end;
     ///         Rectangle { background: red; preferred-width: 30px; preferred-height: 20px; }
     ///         Rectangle { background: blue; preferred-width: 60px; preferred-height: 20px; }
     ///         Rectangle { background: green; preferred-width: 90px; preferred-height: 20px; }
     ///     }
     /// }
     /// ```
-    in property <LayoutAlignItems> align-items;
+    in property <CrossAxisAlignment> cross-axis-alignment;
 }
 
 /// ```slint
@@ -2003,14 +2003,14 @@ export component HorizontalLayout {
     ///     width: 200px;
     ///     height: 100px;
     ///     HorizontalLayout {
-    ///         align-items: center;
+    ///         cross-axis-alignment: center;
     ///         Rectangle { background: red; preferred-width: 30px; preferred-height: 20px; }
     ///         Rectangle { background: blue; preferred-width: 30px; preferred-height: 40px; }
     ///         Rectangle { background: green; preferred-width: 30px; preferred-height: 60px; }
     ///     }
     /// }
     /// ```
-    in property <LayoutAlignItems> align-items;
+    in property <CrossAxisAlignment> cross-axis-alignment;
 }
 
 /// `FlexboxLayout` is a flexible box layout that arranges its children in rows or columns with automatic wrapping. It implements a CSS Flexbox-like layout model suitable for creating flexible, responsive UIs.
@@ -2082,8 +2082,8 @@ export component HorizontalLayout {
 ///
 /// ### flex-align-self
 /// <SlintProperty propName="flex-align-self" typeName="enum" enumName="FlexboxLayoutAlignSelf">
-/// Overrides the container's `align-items` for this specific item.
-/// The default value is `auto`, which inherits the container's `align-items` setting.
+/// Overrides the container's `cross-axis-alignment` for this specific item.
+/// The default value is `auto`, which inherits the container's `cross-axis-alignment` setting.
 /// </SlintProperty>
 ///
 /// ### flex-order
@@ -2145,7 +2145,7 @@ export component FlexboxLayout {
     in property <FlexboxLayoutAlignContent> align-content;
     /// Set the alignment of individual items along the cross axis within each flex line.
     /// The default value is `stretch`.
-    in property <LayoutAlignItems> align-items;
+    in property <CrossAxisAlignment> cross-axis-alignment;
     /// Controls whether flex items wrap onto multiple lines when they don't fit in the container.
     /// The default value is `wrap`.
     in property <FlexboxLayoutWrap> flex-wrap;

@@ -1,8 +1,8 @@
 // Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Test FlexboxLayout align-items property for row and column directions.
-// align-items controls how individual items are aligned along the cross axis
+// Test FlexboxLayout cross-axis-alignment property for row and column directions.
+// cross-axis-alignment controls how individual items are aligned along the cross axis
 // within each flex line.
 
 component VisibleRect inherits Rectangle {
@@ -12,14 +12,14 @@ component VisibleRect inherits Rectangle {
 
 // === Row direction tests ===
 
-// Test 1: align-items: start — items at top of flex line
+// Test 1: cross-axis-alignment: start — items at top of flex line
 component TestAlignItemsStartRow inherits VisibleRect {
     width: 300px;
     height: 300px;
 
     FlexboxLayout {
         align-content: start;
-        align-items: start;
+        cross-axis-alignment: start;
 
         r1 := Rectangle {
             width: 50px;
@@ -45,14 +45,14 @@ component TestAlignItemsStartRow inherits VisibleRect {
         r1.y == 0px && r1.height == 20px && r2.y == 0px && r2.height == 40px && r3.y == 0px && r3.height == 60px;
 }
 
-// Test 2: align-items: end — items at bottom of flex line
+// Test 2: cross-axis-alignment: end — items at bottom of flex line
 component TestAlignItemsEndRow inherits VisibleRect {
     width: 300px;
     height: 300px;
 
     FlexboxLayout {
         align-content: start;
-        align-items: end;
+        cross-axis-alignment: end;
 
         r1 := Rectangle {
             width: 50px;
@@ -78,14 +78,14 @@ component TestAlignItemsEndRow inherits VisibleRect {
         r1.y == 40px && r1.height == 20px && r2.y == 20px && r2.height == 40px && r3.y == 0px && r3.height == 60px;
 }
 
-// Test 3: align-items: center — items centered in flex line
+// Test 3: cross-axis-alignment: center — items centered in flex line
 component TestAlignItemsCenterRow inherits VisibleRect {
     width: 300px;
     height: 300px;
 
     FlexboxLayout {
         align-content: start;
-        align-items: center;
+        cross-axis-alignment: center;
 
         r1 := Rectangle {
             width: 50px;
@@ -111,14 +111,14 @@ component TestAlignItemsCenterRow inherits VisibleRect {
         r1.y == 20px && r1.height == 20px && r2.y == 10px && r2.height == 40px && r3.y == 0px && r3.height == 60px;
 }
 
-// Test 4: align-items: stretch (Row) — items without explicit height stretch to fill line
+// Test 4: cross-axis-alignment: stretch (Row) — items without explicit height stretch to fill line
 component TestAlignItemsStretchRow inherits VisibleRect {
     width: 300px;
     height: 300px;
 
     FlexboxLayout {
         // align-content: stretch (default) — single line fills container height
-        // align-items: stretch (default) — items stretch to line height
+        // cross-axis-alignment: stretch (default) — items stretch to line height
         r1 := Rectangle {
             width: 50px;
             background: red;
@@ -142,7 +142,7 @@ component TestAlignItemsStretchRow inherits VisibleRect {
 
 // === Column direction tests ===
 
-// Test 5: align-items: start (Column) — items at left of flex line
+// Test 5: cross-axis-alignment: start (Column) — items at left of flex line
 component TestAlignItemsStartColumn inherits VisibleRect {
     width: 300px;
     height: 300px;
@@ -150,7 +150,7 @@ component TestAlignItemsStartColumn inherits VisibleRect {
     FlexboxLayout {
         flex-direction: column;
         align-content: start;
-        align-items: start;
+        cross-axis-alignment: start;
 
         r1 := Rectangle {
             width: 20px;
@@ -176,7 +176,7 @@ component TestAlignItemsStartColumn inherits VisibleRect {
         r1.x == 0px && r1.width == 20px && r2.x == 0px && r2.width == 40px && r3.x == 0px && r3.width == 60px;
 }
 
-// Test 6: align-items: end (Column) — items at right of flex line
+// Test 6: cross-axis-alignment: end (Column) — items at right of flex line
 component TestAlignItemsEndColumn inherits VisibleRect {
     width: 300px;
     height: 300px;
@@ -184,7 +184,7 @@ component TestAlignItemsEndColumn inherits VisibleRect {
     FlexboxLayout {
         flex-direction: column;
         align-content: start;
-        align-items: end;
+        cross-axis-alignment: end;
 
         r1 := Rectangle {
             width: 20px;
@@ -210,7 +210,7 @@ component TestAlignItemsEndColumn inherits VisibleRect {
         r1.x == 40px && r1.width == 20px && r2.x == 20px && r2.width == 40px && r3.x == 0px && r3.width == 60px;
 }
 
-// Test 7: align-items: center (Column) — items centered in flex line
+// Test 7: cross-axis-alignment: center (Column) — items centered in flex line
 component TestAlignItemsCenterColumn inherits VisibleRect {
     width: 300px;
     height: 300px;
@@ -218,7 +218,7 @@ component TestAlignItemsCenterColumn inherits VisibleRect {
     FlexboxLayout {
         flex-direction: column;
         align-content: start;
-        align-items: center;
+        cross-axis-alignment: center;
 
         r1 := Rectangle {
             width: 20px;
@@ -244,7 +244,7 @@ component TestAlignItemsCenterColumn inherits VisibleRect {
         r1.x == 20px && r1.width == 20px && r2.x == 10px && r2.width == 40px && r3.x == 0px && r3.width == 60px;
 }
 
-// Test 8: align-items: stretch (Column) — items without explicit width stretch to fill line
+// Test 8: cross-axis-alignment: stretch (Column) — items without explicit width stretch to fill line
 component TestAlignItemsStretchColumn inherits VisibleRect {
     width: 300px;
     height: 300px;
@@ -252,7 +252,7 @@ component TestAlignItemsStretchColumn inherits VisibleRect {
     FlexboxLayout {
         flex-direction: column;
         // align-content: stretch (default) — single column fills container width
-        // align-items: stretch (default) — items stretch to column width
+        // cross-axis-alignment: stretch (default) — items stretch to column width
         r1 := Rectangle {
             height: 50px;
             background: red;
