@@ -206,11 +206,14 @@ export function activate(
     client.add_updater((cl) => {
         wasm_preview.initClientForPreview(context, cl);
         cl?.onNotification("slint/remote_viewer_discovered", (params) => {
+            // Friendly, user-assigned name (e.g. "Simon's iPhone") from the mDNS
+            // service instance name; fall back to the `.local` host for older viewers.
+            const name: string = params.name ?? params.host;
             vscode.window.showInformationMessage(
-                `Remote viewer discovered: ${params.host}`,
+                `Remote viewer discovered: ${name}`,
             );
             cl.outputChannel.appendLine(
-                `Remote viewer discovered: ${params.host} (${params.addresses.join(", ")}:${params.port})`,
+                `Remote viewer discovered: ${name} (${params.host} ${params.addresses.join(", ")}:${params.port})`,
             );
             const old_entry = remote_viewers.get(params.host);
             if (old_entry) {
@@ -242,7 +245,7 @@ export function activate(
             const remote_viewer_entry: RemoteViewerInfo = {
                 id: params.host,
 
-                label: `${labelPrefix}${params.host}`,
+                label: `${labelPrefix}${name}`,
                 detail: params.addresses.join(", "),
                 description: versionTag,
 

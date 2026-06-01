@@ -6,6 +6,9 @@ use lsp_types::notification::Notification;
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RemoteViewerDiscoveredMessage {
+    /// User-facing name of the viewer (e.g. "Simon's iPhone").
+    pub name: String,
+    /// The sanitized mDNS `.local` hostname of the viewer.
     pub host: String,
     pub port: u16,
     pub addresses: Vec<String>,
