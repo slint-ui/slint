@@ -72,7 +72,11 @@ const enumContent = await getEnumContent(enumName);
 const structContent = await getStructContent(structName);
 
 const isOutput = propertyVisibility === "out";
-const defaultValue_ = defaultValue ? defaultValue : (isOutput ? "" : typeInfo.defaultValue);
+const defaultValue_ = defaultValue
+    ? defaultValue
+    : isOutput
+      ? ""
+      : typeInfo.defaultValue;
 
 if (!defaultValue_ && !isOutput) {
     console.error("No defaultValue for:", propName);
