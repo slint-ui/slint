@@ -63,6 +63,13 @@ impl PyDataTransfer {
         self.data_transfer.has_image()
     }
 
+    /// `True` if this `DataTransfer` carries no data: no plaintext, no image, and no
+    /// user data.
+    #[getter]
+    fn is_empty(&self) -> bool {
+        self.data_transfer.is_empty()
+    }
+
     /// Application-internal user data attached to this `DataTransfer`. Use this when the
     /// drag-and-drop or clipboard operation stays inside the current Python application and you
     /// want to avoid serializing to plaintext or an image.

@@ -122,6 +122,13 @@ impl SlintDataTransfer {
         self.inner.has_image()
     }
 
+    /// `true` if this `DataTransfer` carries no data: no plaintext, no image, and no
+    /// user data.
+    #[napi(getter)]
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
     /// Application-internal user data attached to this `DataTransfer`. Use this
     /// when the drag-and-drop or clipboard operation stays inside the current
     /// JavaScript application and you want to avoid serializing to plaintext or
