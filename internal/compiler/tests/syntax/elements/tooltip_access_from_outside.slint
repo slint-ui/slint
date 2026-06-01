@@ -11,34 +11,34 @@ export component Test inherits Window {
     }
     property <string> val: tt.text;
 
-    // Access a named tooltip's delay property.
+    // Access a named tooltip's text property from a separate parent.
     Rectangle {
         tt2 := Tooltip {
-//             >      <error{Cannot access property or callback 'tt2.delay' inside of a Tooltip from enclosing component}
+//             >      <error{Cannot access property or callback 'tt2.text' inside of a Tooltip from enclosing component}
             text: "tip";
         }
     }
-    property <duration> d: tt2.delay;
+    property <string> d: tt2.text;
 
-    // Multiple references to the same tooltip produce multiple errors.
+    // Multiple references to the same tooltip property produce multiple errors.
     Rectangle {
         tt3 := Tooltip {
 //             >      <error{Cannot access property or callback 'tt3.text' inside of a Tooltip from enclosing component}
-//             >      <^error{Cannot access property or callback 'tt3.offset' inside of a Tooltip from enclosing component}
+//             >      <^error{Cannot access property or callback 'tt3.text' inside of a Tooltip from enclosing component}
             text: "multi";
         }
     }
     property <string> a: tt3.text;
-    property <length> b: tt3.offset;
+    property <string> b: tt3.text;
 
     // Named custom-content tooltip — access the tooltip element itself.
     Rectangle {
         tt4 := Tooltip {
-//             >      <error{Cannot access property or callback 'tt4.delay' inside of a Tooltip from enclosing component}
+//             >      <error{Cannot access property or callback 'tt4.text' inside of a Tooltip from enclosing component}
             Rectangle { background: red; }
         }
     }
-    property <duration> cd: tt4.delay;
+    property <string> cd: tt4.text;
 
     // Access a named child inside a custom-content tooltip.
     Rectangle {

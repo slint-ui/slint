@@ -2476,7 +2476,8 @@ export component TooltipArea inherits Empty {
     out property <length> mouse-y;
     // Tooltip configuration folded from the user-facing Tooltip element during lowering.
     in property <string> text;
-    in property <TooltipPlacement> placement;
+    // Delay and offset are not user-facing in 1.17; the values used here are the
+    // built-in defaults applied to the synthesized element on instantiation.
     in property <duration> delay: 500ms;
     in property <length> offset: 8px;
     callback show();
@@ -2507,7 +2508,7 @@ export component TooltipArea inherits Empty {
 /// ```
 ///
 /// Place a `Tooltip` inside any element to show helpful information when hovering over it.
-/// The tooltip appears after a short delay and hides when the pointer leaves.
+/// The tooltip appears after a short delay near the pointer and hides when the pointer leaves.
 ///
 /// Set the `text` property for a simple text tooltip,
 /// or add a child element instead for custom content.
@@ -2534,8 +2535,6 @@ export component TooltipArea inherits Empty {
 ///             text: "Custom tooltip";
 ///
 ///             Tooltip {
-///                 placement: above-element;
-///
 ///                 VerticalBox {
 ///                     padding: 10px;
 ///                     spacing: 6px;
@@ -2584,12 +2583,6 @@ export component Tooltip inherits Empty {
     /// The text to display in the tooltip.
     /// Don't set this property when using custom content.
     in property <string> text;
-    /// Position relative to the hovered element or pointer.
-    in property <TooltipPlacement> placement;
-    /// How long to wait before showing the tooltip after hover begins.
-    in property <duration> delay: 500ms;
-    /// Space between the tooltip and the pointer or hovered element.
-    in property <length> offset: 8px;
     //-can_be_declared_without_children_slot
     //-is_non_item_type
 }
