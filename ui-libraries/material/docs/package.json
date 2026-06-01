@@ -31,7 +31,7 @@
         "unpic": "4.2.2"
     },
     "devDependencies": {
-        "@astrojs/markdown-remark": "7.1.2",
+        "@astrojs/markdown-remark": "7.2.0",
         "@astrojs/mdx": "5.0.6",
         "@astrojs/partytown": "2.1.7",
         "@astrojs/tailwind": "6.0.2",
@@ -45,7 +45,7 @@
         "@types/mdx": "2.0.13",
         "astro-compress": "2.4.1",
         "cspell": "catalog:",
-        "js-yaml": "4.1.1",
+        "js-yaml": "4.2.0",
         "mdast-util-to-string": "4.0.0",
         "reading-time": "1.5.0",
         "tailwind-merge": "3.6.0",
