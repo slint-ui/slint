@@ -229,6 +229,7 @@ framebuffers
 freetype
 frontends
 Fsvg
+fullsize
 Fullwidth
 fvar
 Fwww
