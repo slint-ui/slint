@@ -19,7 +19,7 @@
     },
     "dependencies": {
         "@astrojs/check": "catalog:",
-        "@astrojs/sitemap": "3.7.2",
+        "@astrojs/sitemap": "3.7.3",
         "@astrojs/starlight": "catalog:",
         "@astrolib/seo": "1.0.0-beta.8",
         "@fontsource-variable/inter": "5.2.8",
