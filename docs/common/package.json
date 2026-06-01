@@ -6,7 +6,8 @@
     "format": "biome format",
     "format:fix": "biome format --write",
     "lint": "biome lint",
-    "lint:fix": "biome lint --fix"
+    "lint:fix": "biome lint --fix",
+    "test": "node --experimental-strip-types --test tests/markdown-endpoint.test.ts"
   },
   "dependencies": {
     "@expressive-code/core": "0.42.0",
