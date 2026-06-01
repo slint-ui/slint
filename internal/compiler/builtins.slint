@@ -2466,7 +2466,7 @@ export component PopupWindow {
     //! Closes the popup. Use this if you set the `close-policy` property to `no-auto-close`.
 }
 
-// Internal hover tracker used with `ToolTip` lowering (the compiler inserts `TooltipArea` so `ToolTip` can react to hover and pointer position).
+// Internal hover tracker used with `Tooltip` lowering (the compiler inserts `TooltipArea` so `Tooltip` can react to hover and pointer position).
 export component TooltipArea inherits Empty {
     // Set when the mouse is over the parent's region while this area is expanded to fill it during lowering.
     out property <bool> has-hover;
@@ -2474,9 +2474,9 @@ export component TooltipArea inherits Empty {
     out property <length> mouse-x;
     // Pointer y within this area during hover.
     out property <length> mouse-y;
-    // Tooltip configuration folded from the user-facing ToolTip element during lowering.
+    // Tooltip configuration folded from the user-facing Tooltip element during lowering.
     in property <string> text;
-    in property <ToolTipPlacement> placement;
+    in property <TooltipPlacement> placement;
     in property <duration> delay: 500ms;
     in property <length> offset: 8px;
     callback show();
@@ -2498,7 +2498,7 @@ export component TooltipArea inherits Empty {
 ///         Button {
 ///             text: "Hover me";
 ///
-///             ToolTip {
+///             Tooltip {
 ///                 text: "This is a tooltip";
 ///             }
 ///         }
@@ -2506,13 +2506,13 @@ export component TooltipArea inherits Empty {
 /// }
 /// ```
 ///
-/// Place a `ToolTip` inside any element to show helpful information when hovering over it.
+/// Place a `Tooltip` inside any element to show helpful information when hovering over it.
 /// The tooltip appears after a short delay and hides when the pointer leaves.
 ///
 /// Set the `text` property for a simple text tooltip,
 /// or add a child element instead for custom content.
 ///
-/// Each element can contain at most one `ToolTip`.
+/// Each element can contain at most one `Tooltip`.
 ///
 /// \footer
 /// ## Custom Content
@@ -2533,7 +2533,7 @@ export component TooltipArea inherits Empty {
 ///         Button {
 ///             text: "Custom tooltip";
 ///
-///             ToolTip {
+///             Tooltip {
 ///                 placement: above-element;
 ///
 ///                 VerticalBox {
@@ -2580,12 +2580,12 @@ export component TooltipArea inherits Empty {
 /// }
 /// ```
 /// \group:window
-export component ToolTip inherits Empty {
+export component Tooltip inherits Empty {
     /// The text to display in the tooltip.
     /// Don't set this property when using custom content.
     in property <string> text;
     /// Position relative to the hovered element or pointer.
-    in property <ToolTipPlacement> placement;
+    in property <TooltipPlacement> placement;
     /// How long to wait before showing the tooltip after hover begins.
     in property <duration> delay: 500ms;
     /// Space between the tooltip and the pointer or hovered element.

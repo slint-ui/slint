@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// A `ToolTip` nested directly inside a `TouchArea` keeps the TouchArea receiving
+// A `Tooltip` nested directly inside a `TouchArea` keeps the TouchArea receiving
 // hover and shows the tooltip after the delay. The TouchArea sits at a non-zero offset under
 // two containers, exercising cumulative geometry translation through the routing
 // path on both enter and leave.
@@ -37,7 +37,7 @@ export component TestCase {
                     }
                 }
 
-                ToolTip {
+                Tooltip {
                     placement: above-element;
                     Rectangle {
                         init => { root.init-count += 1; }

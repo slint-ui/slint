@@ -3,12 +3,12 @@
 
 export component Test inherits Window {
     Rectangle {
-        ToolTip {
+        Tooltip {
             text: "first";
         }
 
-        ToolTip {
-//      >      <error{Only one ToolTip is allowed as a child of an element}
+        Tooltip {
+//      >      <error{Only one Tooltip is allowed as a child of an element}
             text: "second";
         }
     }
