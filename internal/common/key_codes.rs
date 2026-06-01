@@ -215,6 +215,17 @@ pub enum ShiftBehavior {
     Unshiftable,
 }
 
+/// Maps the optional `shifted` column of `for_each_keys!` to a [`ShiftBehavior`].
+/// Shared by [`lookup_key_name`] and [`lookup_key_char`].
+macro_rules! shift_behavior_for {
+    () => {
+        ShiftBehavior::Unshiftable
+    };
+    ($shifted:expr) => {
+        ShiftBehavior::LocalizedShiftable { shifted_hint: stringify!($shifted) }
+    };
+}
+
 /// Look up a key by name (case-sensitive, matching the `@keys` macro),
 /// returning its character code and shift behavior.
 pub fn lookup_key_name(name: &str) -> Option<(char, ShiftBehavior)> {
@@ -228,15 +239,30 @@ pub fn lookup_key_name(name: &str) -> Option<(char, ShiftBehavior)> {
         };
     }
 
-    macro_rules! shift_behavior_for {
-        () => {
-            ShiftBehavior::Unshiftable
-        };
-        ($shifted:expr) => {
-            ShiftBehavior::LocalizedShiftable { shifted_hint: stringify!($shifted) }
+    for_each_keys!(check_key_name);
+
+    None
+}
+
+/// Reverse of [`lookup_key_name`]: given the (lowercase) character stored in a key
+/// shortcut, return its canonical key name and shift behavior, if any row of the
+/// `for_each_keys!` table declares that character as a primary key code.
+///
+/// For characters that appear as the primary code of multiple rows (none today,
+/// but the macro arms below would pick the first such row), the first match wins,
+/// which is the canonical / unshifted spelling.
+pub fn lookup_key_char(c: char) -> Option<(&'static str, ShiftBehavior)> {
+    macro_rules! check_key_char {
+        ($($char:literal # $key_name:ident # $($shifted:expr)? $(=> $($_muda:ident)? # $($qt:ident)|* # $($winit:ident $(($_pos:ident))?)|* # $($xkb:ident)|*)? ;)*) => {
+            $(
+                if c == $char {
+                    return Some((stringify!($key_name), shift_behavior_for!($($shifted)?)));
+                }
+            )*
         };
     }
-    for_each_keys!(check_key_name);
+
+    for_each_keys!(check_key_char);
 
     None
 }

@@ -134,3 +134,28 @@ pub fn physical_key_name_from_xkb(keycode: u32) -> Option<&'static str> {
     }
     for_each_physical_keys!(xkb_to_name)
 }
+
+/// Look up the native physical key name for the given user-facing name
+/// (the `BackQuote` → `Backquote` direction used by `@physical-keys(...)`).
+pub fn lookup_physical_key_name(name: &str) -> Option<&'static str> {
+    macro_rules! check {
+        ($($public:ident # $native:ident # $_xkb:literal # $_win:literal # $($_mac:literal)?;)*) => {
+            $( if name == stringify!($public) { return Some(stringify!($native)); } )*
+        };
+    }
+    for_each_physical_keys!(check);
+    None
+}
+
+/// Reverse of [`lookup_physical_key_name`]: given the native physical key
+/// name stored on a physical `Keys`, return the user-facing name accepted by
+/// `@physical-keys(...)`.
+pub fn lookup_physical_key_native(native: &str) -> Option<&'static str> {
+    macro_rules! check {
+        ($($public:ident # $native:ident # $_xkb:literal # $_win:literal # $($_mac:literal)?;)*) => {
+            $( if native == stringify!($native) { return Some(stringify!($public)); } )*
+        };
+    }
+    for_each_physical_keys!(check);
+    None
+}

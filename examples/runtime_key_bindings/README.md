@@ -10,6 +10,9 @@ user-configurable shortcuts.
 It also shows how to capture a key event and convert it into a `Keys` value,
 enabling graphical shortcut configuration.
 
+The chosen shortcut is persisted to a `user_shortcut.conf` file using
+`Keys::to_parts` and restored on the next launch with `Keys::from_parts`.
+
 ## Rust
 
 ```bash
