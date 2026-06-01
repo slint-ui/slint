@@ -794,14 +794,14 @@ impl ElementHandle {
             .and_then(|s| s.parse().ok())
     }
 
-    /// Returns the value of the `accessible-live` property, if present.
-    pub fn accessible_live(&self) -> Option<crate::AccessibleLive> {
+    /// Returns the value of the `accessible-live-region` property, if present.
+    pub fn accessible_live_region(&self) -> Option<crate::AccessibleLiveRegion> {
         if self.element_index != 0 {
             return None;
         }
         self.item
             .upgrade()
-            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::Live))
+            .and_then(|item| item.accessible_string_property(AccessibleStringProperty::LiveRegion))
             .and_then(|s| s.parse().ok())
     }
 

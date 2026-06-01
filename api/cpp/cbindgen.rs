@@ -38,7 +38,7 @@ fn enums(path: &Path) -> anyhow::Result<()> {
         (Orientation) => {
             Some(None)
         };
-        (AccessibleLive) => {
+        (AccessibleLiveRegion) => {
             Some(None)
         };
         (AccessibleRole) => {
