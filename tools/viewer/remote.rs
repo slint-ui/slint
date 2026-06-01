@@ -72,7 +72,10 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                 )?,
                 connection.local_port(),
             );
-            service.set_name("viewer");
+            // Deliberately don't set a name: with a NULL/empty instance name Bonjour
+            // substitutes the system default service name, which is the user-assigned
+            // device name (e.g. "Simon's iPhone" on iOS, the computer name on macOS).
+            // This is the friendly name we want to show in the editor.
             let mut txt = zeroconf_tokio::TxtRecord::new();
             txt.insert(
                 i_slint_live_preview::protocol::TXT_PROTOCOLS_KEY,
@@ -91,11 +94,19 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
         .flatten();
 
     #[cfg(target_vendor = "apple")]
-    if let Some(mdns) = &mut mdns
-        && let Err(err) = mdns.start().await
-    {
-        tracing::error!("Failed to announce service: {err}");
-    }
+    let device_name = if let Some(mdns) = &mut mdns {
+        match mdns.start().await {
+            Ok(registration) => registration.name().to_owned(),
+            Err(err) => {
+                tracing::error!("Failed to announce service: {err}");
+                String::new()
+            }
+        }
+    } else {
+        String::new()
+    };
+    #[cfg(not(target_vendor = "apple"))]
+    let device_name = String::new();
 
     let local_port = connection.local_port();
     let local_ip_str: Vec<String> = connection
@@ -112,6 +123,10 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     if let Err(err) =
         window.set_property("address", SharedString::from(local_ip_str.join("\n")).into())
     {
+        tracing::error!("Failed setting property: {err}");
+    }
+
+    if let Err(err) = window.set_property("name", SharedString::from(device_name.clone()).into()) {
         tracing::error!("Failed setting property: {err}");
     }
 
@@ -177,6 +192,11 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                         .unwrap_or_else(|_| main_ui.create().unwrap());
                     if let Err(err) = inner_window
                         .set_property("address", SharedString::from(local_ip_str.join("\n")).into())
+                    {
+                        tracing::error!("Failed setting property: {err}");
+                    }
+                    if let Err(err) = inner_window
+                        .set_property("name", SharedString::from(device_name.clone()).into())
                     {
                         tracing::error!("Failed setting property: {err}");
                     }
