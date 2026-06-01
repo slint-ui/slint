@@ -30,10 +30,9 @@ pub fn init_compiler(connection: Weak<Connection>) -> slint_interpreter::Compile
                 )));
             };
             Some(
-                connection
-                    .request_file(url)
-                    .await
-                    .map(|file_content| String::from_utf8_lossy(&file_content.contents).to_string()),
+                connection.request_file(url).await.map(|file_content| {
+                    String::from_utf8_lossy(&file_content.contents).to_string()
+                }),
             )
         })
     });

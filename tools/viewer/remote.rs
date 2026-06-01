@@ -238,9 +238,7 @@ async fn build_and_show(
             .map(|d| d.to_string())
             .collect::<Vec<_>>()
             .join("\n");
-        if let Err(err) =
-            inner_window.set_property("message", SharedString::from(message).into())
-        {
+        if let Err(err) = inner_window.set_property("message", SharedString::from(message).into()) {
             tracing::error!("Failed setting property: {err}");
         }
         return Ok(None);
