@@ -32,7 +32,7 @@
     },
     "devDependencies": {
         "@astrojs/markdown-remark": "7.2.0",
-        "@astrojs/mdx": "5.0.6",
+        "@astrojs/mdx": "6.0.1",
         "@astrojs/partytown": "2.1.7",
         "@astrojs/tailwind": "6.0.2",
         "@biomejs/biome": "catalog:",
