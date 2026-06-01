@@ -2349,7 +2349,7 @@ fn css_property_suggestion(property_name: &str, base_type: &ElementType) -> Opti
 }
 
 /// Apply default property values defined in `builtins.slint` to the element.
-fn apply_default_type_properties(element: &mut Element) {
+pub(crate) fn apply_default_type_properties(element: &mut Element) {
     // Apply default property values on top:
     if let ElementType::Builtin(builtin_base) = &element.base_type {
         for (prop, info) in &builtin_base.properties {

@@ -1970,7 +1970,6 @@ pub struct TooltipArea {
     pub mouse_x: Property<LogicalLength>,
     pub mouse_y: Property<LogicalLength>,
     pub text: Property<SharedString>,
-    pub placement: Property<TooltipPlacement>,
     pub delay: Property<i64>,
     pub offset: Property<LogicalLength>,
     pub show: Callback<VoidArg>,

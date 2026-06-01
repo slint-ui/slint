@@ -96,23 +96,10 @@ export component ControlsPage inherits Page {
             }
 
             Button {
-                text: @tr("Below Tooltip");
-                enabled: GallerySettings.widgets-enabled;
-
-                Tooltip {
-                    placement: below-element;
-                    delay: 700ms;
-                    text: @tr("Below placement with delay");
-                }
-            }
-
-            Button {
                 text: @tr("Custom Tooltip");
                 enabled: GallerySettings.widgets-enabled;
 
                 Tooltip {
-                    placement: above-element;
-
                     VerticalBox {
                         padding: 10px;
                         spacing: 6px;
