@@ -104,3 +104,28 @@ macro_rules! for_each_physical_keys {
         ];
     };
 }
+
+/// Look up the native physical key name for the given user-facing name
+/// (the `BackQuote` → `Backquote` direction used by `@physical-keys(...)`).
+pub fn lookup_physical_key_name(name: &str) -> Option<&'static str> {
+    macro_rules! check {
+        ($($public:ident # $native:ident;)*) => {
+            $( if name == stringify!($public) { return Some(stringify!($native)); } )*
+        };
+    }
+    for_each_physical_keys!(check);
+    None
+}
+
+/// Reverse of [`lookup_physical_key_name`]: given the native physical key
+/// name stored on a physical `Keys`, return the user-facing name accepted by
+/// `@physical-keys(...)`.
+pub fn lookup_physical_key_native(native: &str) -> Option<&'static str> {
+    macro_rules! check {
+        ($($public:ident # $native:ident;)*) => {
+            $( if native == stringify!($native) { return Some(stringify!($public)); } )*
+        };
+    }
+    for_each_physical_keys!(check);
+    None
+}

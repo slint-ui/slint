@@ -14,6 +14,7 @@
         "codemap",
         "concat",
         "Consts",
+        "desugars",
         "evenodd",
         "FBOs", // plural of FBO (frame buffer object)
         "fontdb",
@@ -36,6 +37,7 @@
         "unlocalized",
         "Unlocalized",
         "unmap",
+        "unshifted",
         "unsync",
         "vsync"
       ],

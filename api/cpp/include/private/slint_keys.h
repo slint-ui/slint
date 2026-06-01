@@ -69,6 +69,19 @@ public:
         return from_parts(std::span<const std::string_view> { parts.begin(), parts.size() });
     }
 
+    /// Decompose this `Keys` value into the list of string parts that
+    /// `from_parts` accepts.
+    ///
+    /// Round-trips: `Keys::from_parts(keys.to_parts())` produces an equal `Keys`.
+    ///
+    /// An empty `Keys` returns an empty vector.
+    SharedVector<SharedString> to_parts() const
+    {
+        SharedVector<SharedString> out;
+        cbindgen_private::types::slint_keys_to_parts(&data, &out);
+        return out;
+    }
+
     /// Equality operator, returns true if the two `Keys` instances are equal, i.e. they match the
     /// same key events.
     friend bool operator==(const Keys &a, const Keys &b) { return a.data == b.data; }
