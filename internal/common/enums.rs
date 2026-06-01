@@ -337,6 +337,10 @@ macro_rules! for_each_enums {
                 Number,
                 /// This will accept and render characters if it's valid part of a decimal
                 Decimal,
+                /// This identifies the input field as a search box. Characters are rendered normally,
+                /// but assistive technologies are informed that the field is used for searching or
+                /// filtering content.
+                Search,
             }
 
             /// Enum representing the `alignment` property of a

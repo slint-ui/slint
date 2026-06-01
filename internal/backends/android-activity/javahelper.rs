@@ -374,7 +374,7 @@ impl JavaHelper {
             let text = JString::new(env, text.as_str())?;
 
             let input_type = match data.input_type {
-                InputType::Text => AndroidInputType::TYPE_CLASS_TEXT(env)?,
+                InputType::Text | InputType::Search => AndroidInputType::TYPE_CLASS_TEXT(env)?,
                 InputType::Password => {
                     AndroidInputType::TYPE_TEXT_VARIATION_PASSWORD(env)?
                         | AndroidInputType::TYPE_CLASS_TEXT(env)?
