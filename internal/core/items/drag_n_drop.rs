@@ -70,7 +70,7 @@ impl Item for DragArea {
         _self_rc: &ItemRc,
         _: &mut MouseCursor,
     ) -> InputEventFilterResult {
-        if !self.enabled() || !self.any_action_allowed() {
+        if !self.enabled() || !self.any_action_allowed() || self.data().is_empty() {
             self.cancel();
             return InputEventFilterResult::ForwardAndIgnore;
         }
@@ -137,7 +137,11 @@ impl Item for DragArea {
                 InputEventResult::EventIgnored
             }
             MouseEvent::Moved { position, .. } => {
-                if !self.pressed.get() || !self.enabled() || !self.any_action_allowed() {
+                if !self.pressed.get()
+                    || !self.enabled()
+                    || !self.any_action_allowed()
+                    || self.data().is_empty()
+                {
                     return InputEventResult::EventIgnored;
                 }
                 let pressed_pos = self.pressed_position.get();
