@@ -154,6 +154,18 @@ impl RemoteLspToPreview {
                         use crate::preview::connector::remote::remote_notifications::RemoteViewerDiscoveredMessage;
 
                         tracing::debug!("mDNS service resolved: {resolved_service:?}");
+                        // The instance name is the friendly, user-assigned name
+                        // (e.g. "Simon's iPhone"); it's the leading label of the
+                        // fullname `<instance>.<ty_domain>`. mdns-sd keeps labels raw
+                        // (no presentation escaping), so stripping the fixed type
+                        // suffix recovers it verbatim. Fall back to the sanitized
+                        // `.local` host if anything looks off.
+                        let name = resolved_service
+                            .fullname
+                            .strip_suffix(&format!(".{}", resolved_service.ty_domain))
+                            .filter(|n| !n.is_empty())
+                            .map(str::to_owned)
+                            .unwrap_or_else(|| resolved_service.host.clone());
                         let viewer_protocols = resolved_service
                             .txt_properties
                             .get_property_val_str(TXT_PROTOCOLS_KEY)
@@ -165,6 +177,7 @@ impl RemoteLspToPreview {
                         if let Err(err) = server_notifier
                             .send_notification::<RemoteViewerDiscoveredMessage>(
                                 RemoteViewerDiscoveredMessage {
+                                    name,
                                     host: resolved_service.host,
                                     port: resolved_service.port,
                                     addresses: resolved_service

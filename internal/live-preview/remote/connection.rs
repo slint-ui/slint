@@ -497,12 +497,18 @@ impl Connection {
         let host = hostname::get()?;
         let host = host.to_str().unwrap_or("unknown");
         // "localhost" is useless for mDNS — derive a name from the first IP instead.
-        let mdns_host = if host == "localhost" || host.is_empty() {
-            let ip = local_ips.first().map(|ip| ip.to_string()).unwrap_or("unknown".into());
-            format!("slint-viewer-{ip}.local.")
+        // The instance name is what the editor shows to the user, so prefer the
+        // machine's hostname (these platforms have no separate "device name" the way
+        // iOS/macOS do); fall back to an IP-derived name when it's missing.
+        let instance_name = if host == "localhost" || host.is_empty() {
+            local_ips
+                .first()
+                .map(|ip| format!("slint-viewer-{ip}"))
+                .unwrap_or_else(|| "slint-viewer".into())
         } else {
-            format!("{host}.local.")
+            host.to_owned()
         };
+        let mdns_host = format!("{instance_name}.local.");
         tracing::info!("Announcing service on {local_ips:?} as {mdns_host}");
         let properties = HashMap::from([
             (TXT_PROTOCOLS_KEY.to_owned(), PROTOCOL_SUBPROTOCOL.to_owned()),
@@ -510,7 +516,7 @@ impl Connection {
         ]);
         ServiceInfo::new(
             crate::protocol::SERVICE_TYPE,
-            "viewer",
+            &instance_name,
             &mdns_host,
             local_ips.as_slice(),
             local_port,
