@@ -44,7 +44,7 @@ use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton
 use slint::private_unstable_api::re_exports::{DragAction, Key};
 
 let instance = TestCase::new().unwrap();
-instance.on_make_data(|| Default::default());
+instance.on_make_data(|| slint::SharedString::from("payload").into());
 
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(20.0, 25.0), button: PointerEventButton::Left });
 slint_testing::mock_elapsed_time(20);
