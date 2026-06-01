@@ -2475,7 +2475,7 @@ export component TooltipArea inherits Empty {
     // Pointer y within this area during hover.
     out property <length> mouse-y;
     // Tooltip configuration folded from the user-facing Tooltip element during lowering.
-    in property <string> text;
+    in property <styled-text> text;
     // Delay and offset are not user-facing in 1.17; the values used here are the
     // built-in defaults applied to the synthesized element on instantiation.
     in property <duration> delay: 500ms;
@@ -2500,7 +2500,7 @@ export component TooltipArea inherits Empty {
 ///             text: "Hover me";
 ///
 ///             Tooltip {
-///                 text: "This is a tooltip";
+///                 text: @markdown("This is a tooltip");
 ///             }
 ///         }
 ///     }
@@ -2582,7 +2582,7 @@ export component TooltipArea inherits Empty {
 export component Tooltip inherits Empty {
     /// The text to display in the tooltip.
     /// Don't set this property when using custom content.
-    in property <string> text;
+    in property <styled-text> text;
     //-can_be_declared_without_children_slot
     //-is_non_item_type
 }

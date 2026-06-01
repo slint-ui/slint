@@ -1969,7 +1969,7 @@ pub struct TooltipArea {
     pub has_hover: Property<bool>,
     pub mouse_x: Property<LogicalLength>,
     pub mouse_y: Property<LogicalLength>,
-    pub text: Property<SharedString>,
+    pub text: Property<crate::styled_text::StyledText>,
     pub delay: Property<i64>,
     pub offset: Property<LogicalLength>,
     pub show: Callback<VoidArg>,

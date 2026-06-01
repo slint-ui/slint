@@ -4,7 +4,7 @@
 import { Palette } from "std-widgets-impl.slint";
 
 export component ToolTipImpl inherits Rectangle {
-    in property <string> text;
+    in property <styled-text> text;
 
     background: Palette.alternate-background;
     border-radius: 4px;
@@ -17,9 +17,9 @@ export component ToolTipImpl inherits Rectangle {
         padding-top: 6px;
         padding-bottom: 6px;
 
-        Text {
+        StyledText {
             text: root.text;
-            color: Palette.foreground;
+            default-color: Palette.foreground;
         }
     }
 

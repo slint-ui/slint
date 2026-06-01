@@ -6,30 +6,30 @@ export component Test inherits Window {
     Rectangle {
         tt := Tooltip {
 //            >      <error{Cannot access property or callback 'tt.text' inside of a Tooltip from enclosing component}
-            text: "Hello";
+            text: @markdown("Hello");
         }
     }
-    property <string> val: tt.text;
+    property <styled-text> val: tt.text;
 
     // Access a named tooltip's text property from a separate parent.
     Rectangle {
         tt2 := Tooltip {
 //             >      <error{Cannot access property or callback 'tt2.text' inside of a Tooltip from enclosing component}
-            text: "tip";
+            text: @markdown("tip");
         }
     }
-    property <string> d: tt2.text;
+    property <styled-text> d: tt2.text;
 
     // Multiple references to the same tooltip property produce multiple errors.
     Rectangle {
         tt3 := Tooltip {
 //             >      <error{Cannot access property or callback 'tt3.text' inside of a Tooltip from enclosing component}
 //             >      <^error{Cannot access property or callback 'tt3.text' inside of a Tooltip from enclosing component}
-            text: "multi";
+            text: @markdown("multi");
         }
     }
-    property <string> a: tt3.text;
-    property <string> b: tt3.text;
+    property <styled-text> a: tt3.text;
+    property <styled-text> b: tt3.text;
 
     // Named custom-content tooltip — access the tooltip element itself.
     Rectangle {
@@ -38,7 +38,7 @@ export component Test inherits Window {
             Rectangle { background: red; }
         }
     }
-    property <string> cd: tt4.text;
+    property <styled-text> cd: tt4.text;
 
     // Access a named child inside a custom-content tooltip.
     Rectangle {
