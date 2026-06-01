@@ -87,6 +87,7 @@ macro_rules! for_each_builtin_structs {
             }
 
             /// This structure is passed to the callbacks of the `DropArea` element
+            #[non_exhaustive]
             pub struct DropEvent {
                 /// The payload set on the source `DragArea`.
                 data: DataTransfer,
