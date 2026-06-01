@@ -20,6 +20,12 @@
 //!   - text mode: `text` binding is present, no children
 //!   - custom mode: children are present, no `text` binding
 //! - custom mode expects one root child element which is used directly as tooltip content.
+//!
+//! Placement around `for`/`if`:
+//! - `for ... : Tooltip { ... }` is rejected at compile time.
+//! - `if cond : Tooltip { ... }` is allowed; the condition is forwarded onto the synthesized
+//!   `TooltipArea` (which owns the generated `PopupWindow` as its child), so the area only
+//!   exists while `cond` is true.
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, Unit};
@@ -159,6 +165,7 @@ fn build_tooltip_area(
     popup_id: &SmolStr,
     enclosing_component: &std::rc::Weak<Component>,
     tooltip_area_type: &ElementType,
+    repeated: Option<RepeatedElementInfo>,
 ) -> ElementRc {
     let mut elem = Element {
         id: format_smolstr!("{}-area", popup_id),
@@ -184,6 +191,7 @@ fn build_tooltip_area(
         ]
         .into_iter()
         .collect(),
+        repeated,
         ..Default::default()
     };
     // `Element::from_node` runs `apply_default_type_properties` on user-written elements;
@@ -243,12 +251,11 @@ fn wire_tooltip_visibility_behavior(
         RefCell::new(Expression::CodeBlock(vec![close_popup]).into()),
     );
 
-    {
-        let mut elem_borrow = elem.borrow_mut();
-        elem_borrow.children.insert(tooltip_child_index, tooltip_area.clone());
-        elem_borrow.children.insert(tooltip_child_index + 1, popup_window_rc);
-        elem_borrow.has_popup_child = true;
-    }
+    // Make the PopupWindow a child of the TooltipArea so that the popup's bindings
+    // (`x`/`y` referring to `TooltipArea.mouse-x`/`mouse-y`) and the conditional
+    // gating (`repeated` on `TooltipArea`) stay in the same scope.
+    tooltip_area.borrow_mut().children.push(popup_window_rc);
+    elem.borrow_mut().children.insert(tooltip_child_index, tooltip_area.clone());
 }
 
 fn lower_tooltips_in_component(
@@ -312,6 +319,17 @@ fn lower_tooltips_in_component(
         let tooltip_child_index = tooltip_indices[0];
 
         let tooltip_candidate = elem.borrow().children[tooltip_child_index].clone();
+        // `if cond : Tooltip { ... }` is allowed (the wrapper switches the synthesized
+        // TooltipArea + PopupWindow on/off with the condition); `for ... : Tooltip { ... }`
+        // is not.
+        let tooltip_repeated = tooltip_candidate.borrow_mut().repeated.take();
+        if tooltip_repeated.as_ref().is_some_and(|r| !r.is_conditional_element) {
+            diag.push_error(
+                "Tooltip cannot be in a `for` element".into(),
+                &*tooltip_candidate.borrow(),
+            );
+            return;
+        }
         if elem.borrow().builtin_type().is_some_and(|builtin| {
             LAYOUT_ELEMENTS_DISALLOWING_TOOLTIP.contains(&builtin.name.as_str())
         }) {
@@ -370,7 +388,12 @@ fn lower_tooltips_in_component(
             (tooltip_config, enclosing_component, popup_id, custom_children)
         };
 
-        let tooltip_area = build_tooltip_area(&popup_id, &enclosing_component, &tooltip_area_type);
+        let tooltip_area = build_tooltip_area(
+            &popup_id,
+            &enclosing_component,
+            &tooltip_area_type,
+            tooltip_repeated,
+        );
         // Propagate a user-set binding from the `Tooltip` element onto the synthesized
         // `TooltipArea`, keyed by the same property name. Currently only `text` is shared,
         // but the helper is kept so adding more shared properties later is a one-liner.
