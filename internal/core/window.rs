@@ -43,6 +43,17 @@ fn previous_focus_item(item: ItemRc) -> ItemRc {
     item.previous_focus_item()
 }
 
+/// The window kind when creating a new child window
+#[repr(C)]
+pub enum WindowKind {
+    /// Tooltip
+    ToolTip,
+    /// Popup Window
+    Popup,
+    /// Popup Menu
+    Menu,
+}
+
 /// This trait represents the adaptation layer between the [`Window`] API and then
 /// windowing specific window representation, such as a Win32 `HWND` handle or a `wayland_surface_t`.
 ///
@@ -187,7 +198,10 @@ pub trait WindowAdapterInternal: core::any::Any {
     ///
     /// If this function return None (the default implementation), then the
     /// popup will be rendered within the window itself.
-    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+    fn create_child_window_adapter(
+        &self,
+        _window_kind: WindowKind,
+    ) -> Option<Rc<dyn WindowAdapter>> {
         None
     }
 
@@ -438,9 +452,8 @@ pub struct PopupWindow {
     /// The item from where the Popup was invoked from
     pub parent_item: ItemWeak,
     /// Overlay tooltip: no focus steal, unclamped placement, skipped in main mouse routing.
-    pub is_tooltip: bool,
     /// Context / popup menu: participates in menu-chain hit testing and cascading close.
-    is_menu: bool,
+    pub window_kind: WindowKind,
     /// Callback that returns the current desired logical position of the popup.
     /// Called during re-evaluation of the position tracker to re-subscribe to dependencies.
     /// IMPORTANT: This position is relative to the parent
@@ -821,7 +834,7 @@ impl WindowInner {
             let mut offset = LogicalPoint::default();
             let mut menubar_item = None;
             for (idx, popup) in active_popups.borrow().iter().enumerate().rev() {
-                if popup.is_tooltip {
+                if matches!(popup.window_kind, WindowKind::ToolTip) {
                     continue;
                 }
                 item_tree = None;
@@ -841,7 +854,7 @@ impl WindowInner {
                     break;
                 }
 
-                if !popup.is_menu {
+                if !matches!(popup.window_kind, WindowKind::Menu) {
                     break;
                 } else if popup_to_close.is_some() {
                     // clicking outside of a popup menu should close all the menus
@@ -1678,10 +1691,10 @@ impl WindowInner {
     }
     /// Create a new popup window adapter
     /// This window adapter can be used on a popup component and shown with show_popup()
-    pub fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+    pub fn create_child_window_adapter(&self, kind: WindowKind) -> Option<Rc<dyn WindowAdapter>> {
         self.window_adapter()
             .internal(crate::InternalToken)
-            .and_then(|s| s.create_popup_window_adapter())
+            .and_then(|s| s.create_child_window_adapter(kind))
     }
 
     /// Show a popup at the given position relative to the `parent_item` and returns its ID.
@@ -1692,8 +1705,7 @@ impl WindowInner {
         popup_access_position: Box<dyn Fn() -> LogicalPosition>,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
-        is_tooltip: bool,
-        is_menu: bool,
+        window_kind: WindowKind,
     ) -> NonZeroU32 {
         // Popups live in their own ItemTree, which was invisible to any
         // earlier instantiation pass; materialize it before the layout queries below.
@@ -1796,14 +1808,10 @@ impl WindowInner {
         let (location, properties_tracker) =
             if Rc::ptr_eq(&parent_window_adapter, &popup_window_adapter) {
                 // Tooltips may extend past the window (e.g. above/left of the anchor); do not clamp.
-                let clip_region = if is_tooltip {
-                    None
-                } else {
-                    Some(LogicalRect::new(
-                        LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
-                        self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
-                    ))
-                };
+                let clip_region = Some(LogicalRect::new(
+                    LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
+                    self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
+                ));
                 let rect = popup::place_popup(
                     popup::Placement::Fixed(LogicalRect::new(position, size)),
                     &clip_region,
@@ -1836,7 +1844,7 @@ impl WindowInner {
                 )
             };
 
-        let focus_item = if is_tooltip {
+        let focus_item = if matches!(window_kind, WindowKind::ToolTip) {
             Default::default()
         } else {
             self.take_focus_item(&FocusEvent::FocusOut(FocusReason::PopupActivation))
@@ -1851,8 +1859,7 @@ impl WindowInner {
             close_policy,
             focus_item_in_parent: focus_item,
             parent_item: parent_item.downgrade(),
-            is_tooltip,
-            is_menu,
+            window_kind,
             position_access: popup_access_position,
             properties_tracker,
         });
@@ -1919,9 +1926,14 @@ impl WindowInner {
             let p = active_popups.remove(popup_index);
             drop(active_popups);
             self.close_popup_impl(&p);
-            if p.is_menu {
+            if matches!(p.window_kind, WindowKind::Menu) {
                 // close all sub-menus
-                while self.active_popups.borrow().get(popup_index).is_some_and(|p| p.is_menu) {
+                while self
+                    .active_popups
+                    .borrow()
+                    .get(popup_index)
+                    .is_some_and(|p| matches!(p.window_kind, WindowKind::Menu))
+                {
                     let p = self.active_popups.borrow_mut().remove(popup_index);
                     self.close_popup_impl(&p);
                 }
@@ -2398,8 +2410,7 @@ pub mod ffi {
         user_data: *mut c_void,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
-        is_tooltip: bool,
-        is_menu: bool,
+        window_kind: WindowKind,
     ) -> NonZeroU32 {
         unsafe {
             let with_user_data = WithUserData { callback: position, drop_user_data, user_data };
@@ -2409,8 +2420,7 @@ pub mod ffi {
                 Box::new(move || with_user_data.call()),
                 close_policy,
                 parent_item,
-                is_tooltip,
-                is_menu,
+                window_kind,
             )
         }
     }
@@ -2419,13 +2429,16 @@ pub mod ffi {
     /// Returns false if the backend does not support top-level popups.
     /// This can be used to set the correct window adapter on a popup component before showing it.
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_windowrc_create_popup_window_adapter(
+    pub unsafe extern "C" fn slint_windowrc_create_child_window_adapter(
         handle: *const WindowAdapterRcOpaque,
+        window_kind: WindowKind,
         result: *mut WindowAdapterRcOpaque,
     ) -> bool {
         unsafe {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-            match WindowInner::from_pub(window_adapter.window()).create_popup_window_adapter() {
+            match WindowInner::from_pub(window_adapter.window())
+                .create_child_window_adapter(window_kind)
+            {
                 Some(wa) => {
                     core::ptr::write(result as *mut Rc<dyn WindowAdapter>, wa);
                     true

@@ -8,10 +8,9 @@ This module contains a cache helper for caching box shadow textures.
 use std::{cell::RefCell, collections::BTreeMap};
 
 use crate::items::ItemRc;
-use crate::lengths::RectLengths;
 use crate::{
     Color,
-    lengths::{PhysicalPx, ScaleFactor},
+    lengths::{PhysicalBorderRadius, PhysicalPx, RectLengths, ScaleFactor},
 };
 
 /// Struct to store options affecting the rendering of a box shadow
@@ -25,8 +24,8 @@ pub struct BoxShadowOptions {
     pub color: Color,
     /// The blur to apply to the box shadow in pixels.
     pub blur: euclid::Length<f32, PhysicalPx>,
-    /// The radius of the box shadow.
-    pub radius: euclid::Length<f32, PhysicalPx>,
+    /// The radii of the box shadow.
+    pub radius: PhysicalBorderRadius,
     /// The spread radius in physical pixels. Positive grows the shadow shape, negative shrinks it.
     pub spread: euclid::Length<f32, PhysicalPx>,
     /// Whether the shadow is rendered inside the element's geometry.
@@ -46,7 +45,10 @@ impl Ord for BoxShadowOptions {
             self.height,
             self.color,
             self.blur,
-            self.radius,
+            self.radius.top_left.to_bits(),
+            self.radius.top_right.to_bits(),
+            self.radius.bottom_right.to_bits(),
+            self.radius.bottom_left.to_bits(),
             self.spread,
             self.inset,
             self.offset_x_inset.to_bits(),
@@ -57,7 +59,10 @@ impl Ord for BoxShadowOptions {
             other.height,
             other.color,
             other.blur,
-            other.radius,
+            other.radius.top_left.to_bits(),
+            other.radius.top_right.to_bits(),
+            other.radius.bottom_right.to_bits(),
+            other.radius.bottom_left.to_bits(),
             other.spread,
             other.inset,
             other.offset_x_inset.to_bits(),
@@ -112,7 +117,7 @@ impl BoxShadowOptions {
             height,
             color,
             blur: box_shadow.blur() * scale_factor, // This effectively becomes the blur radius, so scale to physical pixels
-            radius: box_shadow.border_radius() * scale_factor,
+            radius: box_shadow.logical_border_radius() * scale_factor,
             spread: box_shadow.spread() * scale_factor,
             inset,
             offset_x_inset,

@@ -3,8 +3,7 @@
 
 component TooltipCard inherits Rectangle {
     in-out property <int> created;
-    ToolTip {
-        placement: right-element;
+    Tooltip {
         Rectangle {
             init => {
                 root.created += 1;

@@ -550,13 +550,12 @@ impl<'a, R: femtovg::Renderer + TextureImporter> ItemRenderer for GLItemRenderer
                         femtovg::Color::rgba(0, 0, 0, 0),
                     );
 
-                    let mut shadow_path = femtovg::Path::new();
-                    shadow_path.rounded_rect(
-                        blur.get(),
-                        blur.get(),
-                        width.get(),
-                        height.get(),
-                        radius.get(),
+                    let shadow_path = rect_with_radius_to_path(
+                        PhysicalRect::new(
+                            PhysicalPoint::from_lengths(blur, blur),
+                            PhysicalSize::from_lengths(width, height),
+                        ),
+                        radius,
                     );
                     canvas.fill_path(
                         &shadow_path,

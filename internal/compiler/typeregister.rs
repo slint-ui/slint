@@ -346,8 +346,8 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
                 PropertyVisibility::Input,
             ),
             (
-                "accessible-live",
-                Type::Enumeration(BUILTIN.with(|e| e.enums.AccessibleLive.clone())),
+                "accessible-live-region",
+                Type::Enumeration(BUILTIN.with(|e| e.enums.AccessibleLiveRegion.clone())),
                 PropertyVisibility::Input,
             ),
         ]))

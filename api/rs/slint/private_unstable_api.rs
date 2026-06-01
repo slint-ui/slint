@@ -215,7 +215,7 @@ pub mod re_exports {
         set_bundled_languages, translate_from_bundle, translate_from_bundle_with_plural,
     };
     pub use i_slint_core::window::{
-        InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner, accent_color,
+        InputMethodRequest, WindowAdapter, WindowAdapterRc, WindowInner, WindowKind, accent_color,
         context_for_root,
     };
     pub use i_slint_core::{
@@ -232,5 +232,5 @@ pub mod re_exports {
     pub use vtable::{self, *};
 
     #[cfg(feature = "live-preview")]
-    pub use slint_interpreter::live_preview;
+    pub use i_slint_live_preview::live_component as live_preview;
 }

@@ -2790,8 +2790,7 @@ mod tests {
             alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(parent.clone()),
-            false,
-            false,
+            crate::window::WindowKind::Popup,
         );
 
         let root = ItemRc::new_root(popup_component);
@@ -2828,8 +2827,7 @@ mod tests {
             alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(item_tree.clone()),
-            false,
-            false,
+            crate::window::WindowKind::Popup,
         );
 
         let root = ItemRc::new_root(item_tree);
@@ -2929,8 +2927,7 @@ mod tests {
             alloc::boxed::Box::new(move || POPUP_LOCATION),
             crate::items::PopupClosePolicy::NoAutoClose,
             &ItemRc::new_root(parent.clone()),
-            false,
-            false,
+            crate::window::WindowKind::Popup,
         );
 
         // Check that we have a ChildWindow popup, otherwise the popup has its own coordinate system

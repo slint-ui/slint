@@ -337,6 +337,10 @@ macro_rules! for_each_enums {
                 Number,
                 /// This will accept and render characters if it's valid part of a decimal
                 Decimal,
+                /// This identifies the input field as a search box. Characters are rendered normally,
+                /// but assistive technologies are informed that the field is used for searching or
+                /// filtering content.
+                Search,
             }
 
             /// Enum representing the `alignment` property of a
@@ -459,6 +463,13 @@ macro_rules! for_each_enums {
 
             /// This enum represents the different values for the `accessible-role` property, used to describe the
             /// role of an element in the context of assistive technology such as screen readers.
+            ///
+            /// In addition to widget roles, this enum includes *landmark* roles (`banner`, `complementary`,
+            /// `content-info`, `form`, `main`, `navigation`, `region`, `search`).
+            /// Landmarks identify large content areas that screen reader users can jump between,
+            /// giving the application a navigable structure similar to headings in a document.
+            /// See [WAI-ARIA Landmark Regions](https://www.w3.org/WAI/ARIA/apg/practices/landmark-regions/)
+            /// for guidance on when and how to use them.
             #[non_exhaustive]
             enum AccessibleRole {
                 /// The element isn't accessible.
@@ -504,13 +515,31 @@ macro_rules! for_each_enums {
                 RadioButton,
                 /// The element is a container grouping related `RadioButton`s.
                 RadioGroup,
+                // Landmark roles
+                /// Landmark: the header area of the application, typically containing a logo, title, or global navigation.
+                Banner,
+                /// Landmark: a supporting section that complements the main content, such as a sidebar.
+                Complementary,
+                /// Landmark: information about the application or its content, typically at the bottom (e.g. status bar, copyright).
+                ContentInfo,
+                /// Landmark: a region containing input fields and controls for submitting information.
+                Form,
+                /// Landmark: the primary content of the application. Each view should have exactly one `main` landmark.
+                Main,
+                /// Landmark: a group of links or controls used for navigating the application.
+                Navigation,
+                /// Landmark: a generic section significant enough to be listed in a summary.
+                /// Use a more specific landmark if one applies.
+                Region,
+                /// Landmark: a region containing controls for searching or filtering content.
+                Search,
             }
 
-            /// This enum represents the different values of the `accessible-live` property.
+            /// This enum represents the different values of the `accessible-live-region` property.
             /// It indicates that an element is a live region whose content changes should be
             /// announced by assistive technologies.
             #[non_exhaustive]
-            enum AccessibleLive {
+            enum AccessibleLiveRegion {
                 /// The element is not a live region.
                 Off,
                 /// Updates are announced when the user is idle.
@@ -522,7 +551,7 @@ macro_rules! for_each_enums {
             /// This enum represents the different values of the `sort-order` property.
             /// It's used to sort a `StandardTableView` by a column.
             #[non_exhaustive]
-            enum SortOrder {
+            pub enum SortOrder {
                 /// The column is unsorted.
                 Unsorted,
 
@@ -590,21 +619,6 @@ macro_rules! for_each_enums {
 
                 /// Does not close the `PopupWindow` automatically when user clicks.
                 NoAutoClose,
-            }
-
-            /// This enum describes where a `ToolTip` is placed relative to the hovered element.
-            #[non_exhaustive]
-            enum ToolTipPlacement {
-                /// Place the tooltip at the current mouse pointer position.
-                Pointer,
-                /// Place the tooltip centered above the hovered element.
-                AboveElement,
-                /// Place the tooltip centered below the hovered element.
-                BelowElement,
-                /// Place the tooltip centered left of the hovered element.
-                LeftElement,
-                /// Place the tooltip centered right of the hovered element.
-                RightElement,
             }
 
             /// This enum describes the appearance of the ends of stroked paths.

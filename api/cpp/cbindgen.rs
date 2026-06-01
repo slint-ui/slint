@@ -38,7 +38,7 @@ fn enums(path: &Path) -> anyhow::Result<()> {
         (Orientation) => {
             Some(None)
         };
-        (AccessibleLive) => {
+        (AccessibleLiveRegion) => {
             Some(None)
         };
         (AccessibleRole) => {
@@ -326,7 +326,6 @@ fn gen_corelib(
         "ClippedImage",
         "TouchArea",
         "TooltipArea",
-        "ToolTip",
         "FocusScope",
         "KeyBinding",
         "SwipeGestureHandler",
@@ -373,7 +372,6 @@ fn gen_corelib(
         "PointerEvent",
         "PointerScrollEvent",
         "Rect",
-        "SortOrder",
         "BitmapFont",
         "DataTransferOpaque",
     ]
@@ -643,7 +641,7 @@ fn gen_corelib(
             "slint_windowrc_set_component",
             "slint_windowrc_show_popup",
             "slint_windowrc_close_popup",
-            "slint_windowrc_create_popup_window_adapter",
+            "slint_windowrc_create_child_window_adapter",
             "slint_windowrc_set_rendering_notifier",
             "slint_windowrc_request_redraw",
             "slint_windowrc_on_close_requested",
@@ -1056,9 +1054,14 @@ fn gen_interpreter(
         .context("Unable to generate bindings for slint_interpreter_generated_public.h")?
         .write_to_file(include_dir.join("slint_interpreter_generated_public.h"));
 
+    let mut live_preview_dir = root_dir.to_owned();
+    live_preview_dir.extend(["internal", "live-preview"].iter());
+    ensure_cargo_rerun_for_crate(&live_preview_dir, dependencies)?;
+
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)
+        .with_src(live_preview_dir.join("live_component.rs"))
         .with_include("private/slint_internal.h")
         .with_include("private/slint_interpreter_generated_public.h")
         .with_after_include(

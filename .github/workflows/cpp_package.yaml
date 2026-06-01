@@ -194,9 +194,13 @@ jobs:
                   - gcc_target: aarch64-linux-gnu
                     rust_target: aarch64-unknown-linux-gnu
                     cmake_system_processor: arm64
+                    gcc_suffix: ""
+                  # armv7 compiles Skia from source, which needs C++20 / GCC 10
+                  # (the default GCC 9 only knows -std=c++2a, not -std=c++20).
                   - gcc_target: arm-linux-gnueabihf
                     rust_target: armv7-unknown-linux-gnueabihf
                     cmake_system_processor: armhf
+                    gcc_suffix: "-10"
 
         runs-on: ubuntu-22.04
         container: ghcr.io/slint-ui/slint/${{ matrix.rust_target }}-cpp
@@ -210,7 +214,7 @@ jobs:
               run: bash -x ../../scripts/prepare_binary_package.sh ../../build
               working-directory: api/cpp/
             - name: CMake configure
-              run: cmake -B build -S . -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.cmake_system_processor }} -DRust_CARGO_TARGET=${{ matrix.rust_target}} -DCMAKE_C_COMPILER=${{ matrix.gcc_target }}-gcc -DCMAKE_CXX_COMPILER=${{ matrix.gcc_target }}-g++  -DSLINT_COMPILER=download ${{ env.SLINT_BINARY_FEATURES }} ${{ inputs.extra_cmake_flags }}
+              run: cmake -B build -S . -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=${{ matrix.cmake_system_processor }} -DRust_CARGO_TARGET=${{ matrix.rust_target}} -DCMAKE_C_COMPILER=${{ matrix.gcc_target }}-gcc${{ matrix.gcc_suffix }} -DCMAKE_CXX_COMPILER=${{ matrix.gcc_target }}-g++${{ matrix.gcc_suffix }}  -DSLINT_COMPILER=download ${{ env.SLINT_BINARY_FEATURES }} ${{ inputs.extra_cmake_flags }}
             - name: CMake build
               run: cmake --build build --parallel
             - name: CMake package

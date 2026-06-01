@@ -33,7 +33,7 @@ use i_slint_core::lengths::{
 use i_slint_core::platform::{PlatformError, WindowEvent};
 use i_slint_core::string::ToSharedString;
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
-use i_slint_core::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
+use i_slint_core::window::{WindowAdapter, WindowAdapterInternal, WindowInner, WindowKind};
 use i_slint_core::{ImageInner, SharedString};
 
 use std::cell::RefCell;
@@ -42,7 +42,7 @@ use std::pin::Pin;
 use std::ptr::NonNull;
 use std::rc::{Rc, Weak};
 
-use crate::key_generated;
+use crate::key_generated::{self, Qt_WindowType_Popup, Qt_WindowType_ToolTip};
 use i_slint_core::renderer::Renderer;
 
 cpp! {{
@@ -139,6 +139,25 @@ cpp! {{
             rust!(Slint_paintEvent [rust_window: &QtWindow as "void*", painter_ptr: &mut QPainterPtr as "QPainterPtr*"] {
                 rust_window.paint_event(std::mem::take(painter_ptr))
             });
+        }
+
+        void contextMenuEvent(QContextMenuEvent * event) override {
+            if (!rust_window)
+                return;
+
+            // On Windows, Shift+F10 under Qt results in a contextMenuEvent, but no
+            // actual key press event (See also #11591)!
+            // So we handle this event here and translate it to a Menu key event, which is the
+            // most similar to a context menu event we have in Slint.
+#ifdef WIN32
+            // we already handle right-click events for the context menu
+            if (event->reason() != QContextMenuEvent::Reason::Mouse) {
+                rust!(Slint_contextMenuEvent [rust_window: &QtWindow as "void*"] {
+                    rust_window.context_menu_event();
+                });
+            }
+#endif
+            event->accept();
         }
 
         void resizeEvent(QResizeEvent *) override {
@@ -994,7 +1013,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
                     Brush::SolidColor(box_shadow.color()),
                     Brush::default(),
                     0.,
-                    LogicalBorderRadius::new_uniform(box_shadow.border_radius().get()),
+                    box_shadow.logical_border_radius(),
                 );
 
                 drop(painter_);
@@ -2004,6 +2023,17 @@ impl QtWindow {
         unsafe { std::mem::transmute_copy::<QWidgetPtr, NonNull<_>>(&self.widget_ptr) }
     }
 
+    // A context menu event was delivered by Qt that was not caused by a mouse input.
+    // The closest equivalent we have in Slint is a KeyEvent with the `Menu` key.
+    //
+    // Note that Qt also sends this event if the user presses Shift+F10 on Windows, but that
+    // information is lost at this point, so we still map it to the menu key (see #11591).
+    fn context_menu_event(&self) {
+        let menu_key: SharedString = i_slint_core::platform::Key::Menu.into();
+        self.window.dispatch_event(WindowEvent::KeyPressed { text: menu_key.clone() });
+        self.window.dispatch_event(WindowEvent::KeyReleased { text: menu_key });
+    }
+
     fn paint_event(&self, painter: QPainterPtr) {
         let runtime_window = WindowInner::from_pub(&self.window);
         let window_adapter = runtime_window.window_adapter();
@@ -2434,14 +2464,23 @@ impl WindowAdapterInternal for QtWindow {
         self.tree_structure_changed.replace(true);
     }
 
-    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
-        let popup_window = QtWindow::new(self.self_weak.clone());
-        let popup_ptr = popup_window.widget_ptr();
-        let widget_ptr = self.widget_ptr();
-        cpp! {unsafe [widget_ptr as "QWidget*", popup_ptr as "QWidget*"] {
-            popup_ptr->setParent(widget_ptr, Qt::Popup);
+    fn create_child_window_adapter(
+        &self,
+        window_kind: WindowKind,
+    ) -> Option<Rc<dyn WindowAdapter>> {
+        let child_window = QtWindow::new(self.self_weak.clone());
+        let child_ptr = child_window.widget_ptr();
+        let parent_ptr = self.widget_ptr();
+
+        let window_kind = match window_kind {
+            WindowKind::Popup => Qt_WindowType_Popup,
+            WindowKind::ToolTip => Qt_WindowType_ToolTip,
+            WindowKind::Menu => Qt_WindowType_Popup,
+        };
+        cpp! {unsafe [parent_ptr as "QWidget*", child_ptr as "QWidget*", window_kind as "Qt::WindowType"] {
+            child_ptr->setParent(parent_ptr, window_kind);
         }};
-        Some(popup_window as _)
+        Some(child_window as _)
     }
 
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
@@ -2512,9 +2551,13 @@ impl WindowAdapterInternal for QtWindow {
             width: props.cursor_rect_size.width as _,
             height: props.cursor_rect_size.height as _,
         };
-        let cursor: i32 = props.text[..props.cursor_position].encode_utf16().count() as _;
-        let anchor: i32 =
-            props.anchor_position.map_or(cursor, |a| props.text[..a].encode_utf16().count() as _);
+        let cursor: i32 = i_slint_common::unicode_utils::byte_offset_to_utf16_offset(
+            &props.text,
+            props.cursor_position,
+        ) as _;
+        let anchor: i32 = props.anchor_position.map_or(cursor, |a| {
+            i_slint_common::unicode_utils::byte_offset_to_utf16_offset(&props.text, a) as _
+        });
         let text: qttypes::QString = props.text.as_str().into();
         cpp! {unsafe [widget_ptr as "SlintWidget*", rect as "QRectF", cursor as "int", anchor as "int", text as "QString"]  {
             widget_ptr->ime_position = rect.toRect();

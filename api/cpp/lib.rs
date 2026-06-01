@@ -38,6 +38,22 @@ pub use i_slint_backend_testing;
 #[cfg(feature = "slint-interpreter")]
 pub use slint_interpreter;
 
+#[cfg(target_os = "android")]
+mod android {
+    unsafe extern "C" {
+        fn slint_main();
+    }
+
+    #[unsafe(no_mangle)]
+    fn android_main(app: i_slint_backend_android_activity::AndroidApp) {
+        i_slint_core::platform::set_platform(alloc::boxed::Box::new(
+            i_slint_backend_android_activity::AndroidPlatform::new(app),
+        ))
+        .unwrap();
+        unsafe { slint_main() };
+    }
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_context_accent_color(
     root: &i_slint_core::item_tree::ItemTreeRc,
