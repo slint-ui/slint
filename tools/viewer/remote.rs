@@ -6,7 +6,7 @@ use std::{net::SocketAddr, rc::Rc};
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_core::InternalToken;
 use i_slint_core::SharedString;
-use i_slint_live_preview::protocol::{PreviewComponent, PreviewToLspMessage};
+use i_slint_live_preview::protocol::{PreviewComponent, PreviewToLspMessage, lsp_types};
 use i_slint_live_preview::remote::{Connection, ConnectionMessage, init_compiler};
 use slint_interpreter::ComponentHandle as _;
 
