@@ -41,6 +41,8 @@ mod drop_location;
 mod element_selection;
 pub mod eval;
 mod ext;
+#[cfg(target_os = "macos")]
+pub mod macos_titlebar;
 mod preview_data;
 use ext::ElementRcNodeExt;
 mod outline;
@@ -55,6 +57,12 @@ pub fn run(
     use_editor_ui: bool,
 ) -> std::result::Result<(), slint::PlatformError> {
     let app_window = ui::create_ui(&to_lsp, "", use_editor_ui)?;
+
+    #[cfg(target_os = "macos")]
+    if let ui::AppWindow::Editor(editor) = &app_window {
+        use slint::ComponentHandle;
+        macos_titlebar::setup(editor.as_weak());
+    }
 
     to_lsp
         .send_telemetry(&mut [(

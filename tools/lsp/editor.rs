@@ -21,7 +21,7 @@ use crate::{
     preview::connector::{EmbeddedLspToPreview, SwitchableLspToPreview},
 };
 
-pub fn editor_main() {
+pub fn editor_main() -> std::result::Result<(), slint::PlatformError> {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -44,11 +44,14 @@ pub fn editor_main() {
     let to_lsp =
         Rc::new(EmbeddedPreviewToLsp { sender: to_lsp }) as Rc<dyn common::PreviewToLsp + 'static>;
 
+    // Set up the Slint backend (installing the macOS unified-title-bar hook)
+    // *before* spawning the LSP thread, so that no other thread can lazily
+    // initialize the default platform first and lose the hook.
+    start_processing_lsp_messages_thread(from_lsp)?;
+
     start_lsp_thread(from_preview, to_preview, notifier, cli);
 
-    start_processing_lsp_messages_thread(from_lsp);
-
-    preview::run(to_lsp, false, true).unwrap();
+    preview::run(to_lsp, false, true)
 }
 
 // TODO: Deduplicate with main.rs
@@ -132,18 +135,26 @@ struct Cli {
     component: Option<String>,
 }
 
-fn start_processing_lsp_messages_thread(from_lsp: crossbeam_channel::Receiver<Message>) {
+fn start_processing_lsp_messages_thread(
+    from_lsp: crossbeam_channel::Receiver<Message>,
+) -> std::result::Result<(), slint::PlatformError> {
     // Ensure the backend is set up before the reader thread starts. This fixes
     // bug #10274 on macOS where a race condition was causing the reader thread to already
     // process messages before the event loop was running.
-    //
-    // Use .ok() to ignore any errors, as the backend might already be set by the user and that's fine.
-    slint::BackendSelector::new().select().ok();
+    let selector = slint::BackendSelector::new();
+    // On macOS, request a unified title bar: the editor content extends underneath
+    // a transparent title bar. The title-bar metrics are reported back to the UI
+    // via the `Api` global (see `preview::macos_titlebar`).
+    #[cfg(target_os = "macos")]
+    let selector = selector
+        .with_winit_window_attributes_hook(crate::preview::macos_titlebar::apply_unified_titlebar);
+    selector.select()?;
     std::thread::spawn(move || {
         if let Err(err) = process_lsp_messages(from_lsp) {
             tracing::error!("LSP message processing thread exited with error: {err}");
         }
     });
+    Ok(())
 }
 
 fn process_lsp_messages(from_lsp: crossbeam_channel::Receiver<Message>) -> common::Result<()> {
