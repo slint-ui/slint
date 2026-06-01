@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::{
+    collections::HashSet,
     net::{IpAddr, Ipv6Addr, SocketAddr, SocketAddrV6},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
+use crate::REBUILD_DEBOUNCE;
 use crate::protocol::{
     LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PreviewComponent, PreviewConfig,
     PreviewToLspMessage, SLINT_PROTOCOLS_HEADER, SLINT_VERSION, SLINT_VERSION_HEADER,
@@ -91,6 +93,11 @@ pub enum CacheEntry {
     Ready(VersionedFileContent),
 }
 
+/// Shared cache of file contents pushed by the LSP, keyed by the `Url` the LSP sent. Using
+/// the URL verbatim avoids platform-dependent path normalization (Windows backslashes,
+/// percent-encoding) — equality is structural.
+pub type FileCache = Arc<DashMap<Url, CacheEntry>>;
+
 #[derive(Debug)]
 pub enum ConnectionMessage {
     Connected {
@@ -104,8 +111,10 @@ pub enum ConnectionMessage {
     },
     ShowPreview {
         preview_component: PreviewComponent,
-        file_cache: Arc<DashMap<String, CacheEntry>>,
     },
+    /// A dependency of the currently shown component changed. The viewer should rebuild.
+    /// The connection has already filtered unrelated edits and debounced bursts of keystrokes.
+    ContentsChanged,
     #[allow(dead_code)]
     HighlightFromEditor {
         url: Option<Url>,
@@ -117,7 +126,22 @@ pub struct Connection {
     local_addr: SocketAddr,
     thread_handle: Option<(std::thread::JoinHandle<()>, sync::oneshot::Sender<()>)>,
     message_sender: sync::mpsc::UnboundedSender<Message>,
-    file_cache: Arc<DashMap<String, CacheEntry>>,
+    file_cache: FileCache,
+    /// Files the currently shown component depends on. `SetContents` notifications for URLs
+    /// outside this set are ignored, so unrelated edits in the user's editor don't trigger a
+    /// rebuild. Updated by the viewer after each compile.
+    dependencies: Arc<Mutex<HashSet<Url>>>,
+}
+
+/// Whether the connection can act on this URL. The remote preview protocol only handles
+/// `file://` URLs; the LSP can legitimately produce others (e.g. `vscode-remote://`), but
+/// they're silently ignored on this side.
+fn is_supported(url: &Url) -> bool {
+    if url.scheme() != "file" {
+        tracing::warn!("Ignoring message for unsupported URL scheme: {url}");
+        return false;
+    }
+    true
 }
 
 impl Connection {
@@ -125,10 +149,12 @@ impl Connection {
         address: Option<SocketAddr>,
         message_handler: impl Fn(ConnectionMessage) + 'static + Send + Sync,
     ) -> anyhow::Result<Self> {
-        let file_cache = Arc::new(DashMap::<String, CacheEntry>::new());
+        let file_cache = Arc::new(DashMap::<Url, CacheEntry>::new());
+        let dependencies = Arc::new(Mutex::new(HashSet::<Url>::new()));
         let (message_sender, mut message_receiver) = sync::mpsc::unbounded_channel();
 
         let inner_file_cache = file_cache.clone();
+        let inner_dependencies = dependencies.clone();
         let inner_message_sender = message_sender.clone();
 
         let (local_addr_sender, local_addr_receiver) =
@@ -151,7 +177,10 @@ impl Connection {
                 local_addr_sender.send(listener.local_addr()).ok();
 
                 let message_handler = Arc::new(message_handler);
-                let mut current_sink = None;
+                // The sink is the write half; the JoinHandle is the read-half task. We keep
+                // both so the next accept can abort the in-flight task and reset shared state
+                // before its messages race with the new client's.
+                let mut current_session: Option<(_, tokio::task::JoinHandle<()>)> = None;
                 loop {
                     tokio::select! {
                         accept = listener.accept() => {
@@ -168,19 +197,27 @@ impl Connection {
                                         }
                                         Ok(stream) => {
                                             tracing::info!("Websocket established with {addr:?}");
-                                            let (sink, receiver) = stream.split();
-                                            tokio::spawn(Self::handle_connection(
-                                                receiver,
-                                                message_handler.clone(),
-                                                inner_file_cache.clone(),
-                                                inner_message_sender.clone(),
-                                                addr,
-                                            ));
-                                            if let Some(_old_sink) = current_sink.replace(sink) {
+                                            if let Some((_old_sink, old_handle)) = current_session.take() {
                                                 tracing::error!(
                                                     "Second connection while we were already connected, dropping old connection"
                                                 );
+                                                old_handle.abort();
+                                                // The aborted task can't run its end-of-loop
+                                                // cleanup, so reset the shared state here so
+                                                // the new client starts from a clean cache.
+                                                inner_file_cache.clear();
+                                                inner_dependencies.lock().unwrap().clear();
                                             }
+                                            let (sink, receiver) = stream.split();
+                                            let handle = tokio::spawn(Self::handle_connection(
+                                                receiver,
+                                                message_handler.clone(),
+                                                inner_file_cache.clone(),
+                                                inner_dependencies.clone(),
+                                                inner_message_sender.clone(),
+                                                addr,
+                                            ));
+                                            current_session = Some((sink, handle));
                                         }
                                     }
                                 }
@@ -191,8 +228,8 @@ impl Connection {
                             break;
                         }
                         message = message_receiver.recv() => {
-                            if let (Some(message), Some(current_sink)) = (message, &mut current_sink)
-                                && let Err(err) = current_sink.send(message).await {
+                            if let (Some(message), Some((sink, _))) = (message, current_session.as_mut())
+                                && let Err(err) = sink.send(message).await {
                                 tracing::error!("Failed sending message to Websocket: {err}");
                             }
                         }
@@ -209,122 +246,173 @@ impl Connection {
             thread_handle: Some((thread_handle, quit_sender)),
             message_sender,
             file_cache,
+            dependencies,
         })
+    }
+
+    /// Replace the set of URLs the connection treats as relevant. A subsequent `SetContents`
+    /// for a URL in `urls` produces a `ContentsChanged` message; anything outside is dropped.
+    pub fn set_dependencies(&self, urls: Vec<Url>) {
+        *self.dependencies.lock().unwrap() = urls.into_iter().collect();
+    }
+
+    /// Shared cache of files pushed by the LSP. The viewer reads this to feed
+    /// `Compiler::build_from_source`.
+    pub fn file_cache(&self) -> FileCache {
+        self.file_cache.clone()
     }
 
     async fn handle_connection(
         mut receiver: SplitStream<WebSocketStream<TcpStream>>,
         message_handler: Arc<dyn Fn(ConnectionMessage) + 'static + Send + Sync>,
-        file_cache: Arc<DashMap<String, CacheEntry>>,
+        file_cache: FileCache,
+        dependencies: Arc<Mutex<HashSet<Url>>>,
         message_sender: UnboundedSender<Message>,
         remote_addr: SocketAddr,
     ) {
         message_handler(ConnectionMessage::Connected { remote_addr });
-        while let Some(msg) = receiver.next().await {
-            match msg {
-                Ok(Message::Text(text)) => {
-                    // Handle incoming text messages
-                    tracing::warn!("Received text message: {text}");
+        // `Some(deadline)` while a `SetContents`-driven rebuild is pending. The sleep_until
+        // arm of the select fires `ContentsChanged` once the burst of keystrokes settles.
+        let mut debounce_deadline: Option<tokio::time::Instant> = None;
+        'outer: loop {
+            let debounce_fut = async {
+                match debounce_deadline {
+                    Some(deadline) => tokio::time::sleep_until(deadline).await,
+                    None => std::future::pending::<()>().await,
                 }
-                Ok(Message::Binary(bin)) => {
-                    // Handle incoming binary messages
-                    match postcard::from_bytes::<LspToPreviewMessage>(&bin) {
-                        Ok(message) => {
-                            tracing::debug!("Received message {message:?}");
-                            // Process the data
-                            match message {
-                                LspToPreviewMessage::InvalidateContents { url } => {
-                                    file_cache.remove(
-                                        url.to_file_path().unwrap().as_os_str().to_str().unwrap(),
-                                    );
-                                }
-                                LspToPreviewMessage::ForgetFile { url } => {
-                                    if let Some((_, CacheEntry::Loading(senders))) = file_cache
-                                        .remove(
-                                            url.to_file_path()
+            };
+            tokio::select! {
+                biased;
+                _ = debounce_fut => {
+                    debounce_deadline = None;
+                    message_handler(ConnectionMessage::ContentsChanged);
+                }
+                msg = receiver.next() => {
+                    let Some(msg) = msg else { break };
+                    match msg {
+                        Ok(Message::Text(text)) => {
+                            tracing::warn!("Received text message: {text}");
+                        }
+                        Ok(Message::Binary(bin)) => {
+                            match postcard::from_bytes::<LspToPreviewMessage>(&bin) {
+                                Ok(message) => {
+                                    tracing::debug!("Received message {message:?}");
+                                    match message {
+                                        LspToPreviewMessage::InvalidateContents { url } => {
+                                            if !is_supported(&url) {
+                                                continue;
+                                            }
+                                            file_cache.remove(&url);
+                                            if dependencies.lock().unwrap().contains(&url) {
+                                                debounce_deadline = Some(
+                                                    tokio::time::Instant::now() + REBUILD_DEBOUNCE,
+                                                );
+                                            }
+                                        }
+                                        LspToPreviewMessage::ForgetFile { url } => {
+                                            if !is_supported(&url) {
+                                                continue;
+                                            }
+                                            if let Some((_, CacheEntry::Loading(senders))) =
+                                                file_cache.remove(&url)
+                                            {
+                                                for sender in senders {
+                                                    let _ = sender.send(Err(std::io::Error::new(
+                                                        std::io::ErrorKind::NotFound,
+                                                        "File not found",
+                                                    )));
+                                                }
+                                            }
+                                            if dependencies.lock().unwrap().contains(&url) {
+                                                debounce_deadline = Some(
+                                                    tokio::time::Instant::now() + REBUILD_DEBOUNCE,
+                                                );
+                                            }
+                                        }
+                                        LspToPreviewMessage::SetContents { url, contents } => {
+                                            tracing::debug!(
+                                                "Inserting file {} with {} bytes.",
+                                                url.url(),
+                                                contents.len()
+                                            );
+                                            if !is_supported(url.url()) {
+                                                continue;
+                                            }
+                                            let versioned_content = VersionedFileContent {
+                                                version: *url.version(),
+                                                contents: contents.into(),
+                                            };
+                                            let triggers_rebuild = dependencies
+                                                .lock()
                                                 .unwrap()
-                                                .as_os_str()
-                                                .to_str()
-                                                .unwrap(),
-                                        )
-                                    {
-                                        for sender in senders {
-                                            let _ = sender.send(Err(std::io::Error::new(
-                                                std::io::ErrorKind::NotFound,
-                                                "File not found",
-                                            )));
+                                                .contains(url.url());
+                                            file_cache
+                                                .entry(url.url().clone())
+                                                .and_modify(|entry| {
+                                                    if let CacheEntry::Loading(senders) = entry {
+                                                        for sender in senders.drain(..) {
+                                                            let _ = sender.send(Ok(
+                                                                versioned_content.clone(),
+                                                            ));
+                                                        }
+                                                    }
+                                                })
+                                                .insert(CacheEntry::Ready(versioned_content));
+                                            if triggers_rebuild {
+                                                debounce_deadline = Some(
+                                                    tokio::time::Instant::now() + REBUILD_DEBOUNCE,
+                                                );
+                                            }
+                                        }
+                                        LspToPreviewMessage::SetConfiguration { config } => {
+                                            message_handler(ConnectionMessage::SetConfiguration {
+                                                config,
+                                            });
+                                        }
+                                        LspToPreviewMessage::ShowPreview(preview_component) => {
+                                            // ShowPreview rebuilds unconditionally; cancel any
+                                            // queued debounce so the viewer only rebuilds once.
+                                            debounce_deadline = None;
+                                            message_handler(ConnectionMessage::ShowPreview {
+                                                preview_component,
+                                            });
+                                        }
+                                        LspToPreviewMessage::HighlightFromEditor { url, offset } => {
+                                            message_handler(ConnectionMessage::HighlightFromEditor {
+                                                url,
+                                                offset,
+                                            });
+                                        }
+                                        LspToPreviewMessage::Quit => {
+                                            break 'outer;
                                         }
                                     }
                                 }
-                                LspToPreviewMessage::SetContents { url, contents } => {
-                                    tracing::debug!(
-                                        "Inserting file {} with {} bytes.",
-                                        url.url(),
-                                        contents.len()
-                                    );
-                                    let versioned_content = VersionedFileContent {
-                                        version: *url.version(),
-                                        contents: contents.into(),
-                                    };
-                                    file_cache
-                                        .entry(
-                                            url.url()
-                                                .to_file_path()
-                                                .unwrap()
-                                                .to_str()
-                                                .unwrap()
-                                                .to_owned(),
-                                        )
-                                        .and_modify(|entry| {
-                                            if let CacheEntry::Loading(senders) = entry {
-                                                for sender in senders.drain(..) {
-                                                    let _ =
-                                                        sender.send(Ok(versioned_content.clone()));
-                                                }
-                                            }
-                                        })
-                                        .insert(CacheEntry::Ready(versioned_content));
-                                }
-                                LspToPreviewMessage::SetConfiguration { config } => {
-                                    message_handler(ConnectionMessage::SetConfiguration { config });
-                                }
-                                LspToPreviewMessage::ShowPreview(preview_component) => {
-                                    message_handler(ConnectionMessage::ShowPreview {
-                                        preview_component,
-                                        file_cache: file_cache.clone(),
-                                    });
-                                }
-                                LspToPreviewMessage::HighlightFromEditor { url, offset } => {
-                                    message_handler(ConnectionMessage::HighlightFromEditor {
-                                        url,
-                                        offset,
-                                    });
-                                }
-                                LspToPreviewMessage::Quit => {
-                                    break;
+                                Err(err) => {
+                                    tracing::error!("Failed to deserialize message: {err}");
                                 }
                             }
                         }
+                        Ok(Message::Ping(data)) => {
+                            message_sender.send(Message::Pong(data)).ok();
+                        }
+                        Ok(Message::Pong(_)) => {}
+                        Ok(Message::Close(_)) => {
+                            break;
+                        }
+                        Ok(Message::Frame(_)) => unreachable!(),
                         Err(err) => {
-                            tracing::error!("Failed to deserialize message: {err}");
+                            tracing::error!("WebSocket error: {err}");
+                            break;
                         }
                     }
                 }
-                Ok(Message::Ping(data)) => {
-                    message_sender.send(Message::Pong(data)).ok();
-                }
-                Ok(Message::Pong(_)) => {}
-                Ok(Message::Close(_)) => {
-                    // Handle connection close
-                    break;
-                }
-                Ok(Message::Frame(_)) => unreachable!(),
-                Err(err) => {
-                    tracing::error!("WebSocket error: {err}");
-                    break;
-                }
             }
         }
+        // Drop cached contents so a reconnecting peer doesn't see stale buffers from the prior
+        // session (the next peer only pushes files currently dirty in its editor and would
+        // otherwise inherit our cache for everything else).
+        file_cache.clear();
         message_handler(ConnectionMessage::Disconnected { remote_addr });
     }
 
@@ -335,15 +423,15 @@ impl Connection {
         Ok(())
     }
 
-    pub async fn request_file(&self, file: String) -> std::io::Result<VersionedFileContent> {
-        if let Some(entry) = self.file_cache.get(&file)
+    pub async fn request_file(&self, url: Url) -> std::io::Result<VersionedFileContent> {
+        if let Some(entry) = self.file_cache.get(&url)
             && let CacheEntry::Ready(entry) = entry.value()
         {
             return Ok(entry.clone());
         }
         let (sender, receiver) = oneshot::channel();
-        let request_file; // do not hold the lock on requested_files across await
-        match self.file_cache.entry(file.clone()) {
+        let request_file; // do not hold the lock across await
+        match self.file_cache.entry(url.clone()) {
             Entry::Occupied(mut occupied) => match occupied.get_mut() {
                 CacheEntry::Ready(entry) => {
                     return Ok(entry.clone());
@@ -358,16 +446,15 @@ impl Connection {
                 request_file = true;
             }
         }
-        if request_file {
-            self.send(PreviewToLspMessage::RequestState {
-                files: vec![Url::from_file_path(&file).map_err(|()| {
-                    std::io::Error::new(
-                        std::io::ErrorKind::InvalidInput,
-                        format!("Invalid file path: {file}"),
-                    )
-                })?],
-            })
-            .map_err(std::io::Error::other)?;
+        if request_file
+            && let Err(err) =
+                self.send(PreviewToLspMessage::RequestState { files: vec![url.clone()] })
+        {
+            // The Loading entry we just inserted will never be resolved by the
+            // websocket task — remove it so the senders inside (including ours)
+            // drop and a later request_file for the same key doesn't deadlock.
+            self.file_cache.remove(&url);
+            return Err(std::io::Error::other(err));
         }
         receiver.await.map_err(std::io::Error::other)?
     }

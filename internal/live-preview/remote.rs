@@ -5,4 +5,4 @@ mod compilation;
 mod connection;
 
 pub use compilation::init_compiler;
-pub use connection::{CacheEntry, Connection, ConnectionMessage};
+pub use connection::{CacheEntry, Connection, ConnectionMessage, FileCache};
