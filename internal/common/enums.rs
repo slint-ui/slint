@@ -535,11 +535,11 @@ macro_rules! for_each_enums {
                 Search,
             }
 
-            /// This enum represents the different values of the `accessible-live` property.
+            /// This enum represents the different values of the `accessible-live-region` property.
             /// It indicates that an element is a live region whose content changes should be
             /// announced by assistive technologies.
             #[non_exhaustive]
-            enum AccessibleLive {
+            enum AccessibleLiveRegion {
                 /// The element is not a live region.
                 Off,
                 /// Updates are announced when the user is idle.

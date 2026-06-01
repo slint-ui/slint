@@ -35,7 +35,7 @@ All notable changes to this project are documented in this file.
  - Added `align-items` property to `VerticalLayout` and `HorizontalLayout` for cross-axis alignment. (#2587)
  - Added two-way bindings to model row data. (#2013)
  - `@markdown()`: Fixed interpolation in link URLs and colors
- - Added `accessible-orientation` and `accessible-live` properties
+ - Added `accessible-orientation` and `accessible-live-region` properties
  - Added `DragArea` and `DropArea` elements for drag and drop support within a window.
  - Added `data-transfer` type
  - Deprecated calling `init()` explicitly (#11696)
