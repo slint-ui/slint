@@ -182,6 +182,15 @@ impl DataTransfer {
         self.inner.as_ref().is_some_and(|inner| inner.plaintext.is_some())
     }
 
+    /// Returns `true` if this data transfer carries no data: no plaintext, no image,
+    /// and no user data. A `DataTransfer` constructed via [`Default::default`] is empty.
+    ///
+    /// Note that `set_plaintext("")` followed by `is_empty()` returns `false` — an
+    /// explicitly-set empty string is still a plaintext representation.
+    pub fn is_empty(&self) -> bool {
+        !self.has_plaintext() && !self.has_image() && self.user_data.is_none()
+    }
+
     /// Set the application-internal data represented by this [`DataTransfer`].
     /// This can be read with [`DataTransfer::user_data`], and allows circumventing
     /// serialize/deserializing the data to bytes when a drag-and-drop or copy-paste

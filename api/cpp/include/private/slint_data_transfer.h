@@ -94,6 +94,10 @@ public:
     /// Returns `true` if this data transfer advertises an image representation.
     bool has_image() const { return cbindgen_private::types::slint_data_transfer_has_image(this); }
 
+    /// Returns `true` if this `DataTransfer` carries no data: no plaintext, no image,
+    /// and no user data.
+    bool is_empty() const { return cbindgen_private::types::slint_data_transfer_is_empty(this); }
+
     /// Returns the plaintext representation of this `DataTransfer`, or `std::nullopt` if no
     /// plaintext representation is available.
     std::optional<SharedString> fetch_plaintext() const
