@@ -2126,14 +2126,13 @@ impl QtWindow {
         if let Some(buffer) = qimage_to_shared_pixel_buffer(image) {
             data.set_image(i_slint_core::graphics::Image::from_rgba8(buffer));
         }
-        let drop_event = DropEvent {
-            data,
-            position,
-            allow_copy,
-            allow_move,
-            allow_link,
-            proposed_action: qt_drop_action_to_slint(proposed),
-        };
+        let mut drop_event = DropEvent::default();
+        drop_event.data = data;
+        drop_event.position = position;
+        drop_event.allow_copy = allow_copy;
+        drop_event.allow_move = allow_move;
+        drop_event.allow_link = allow_link;
+        drop_event.proposed_action = qt_drop_action_to_slint(proposed);
         let mouse_event =
             if is_drop { MouseEvent::Drop(drop_event) } else { MouseEvent::DragMove(drop_event) };
         let chosen = WindowInner::from_pub(&self.window).process_mouse_input(mouse_event);
