@@ -79,7 +79,7 @@ export component ControlsPage inherits Page {
     }
 
     GroupBox {
-        title: @tr("ToolTip");
+        title: @tr("Tooltip");
         vertical-stretch: 0;
 
         HorizontalBox {
@@ -90,16 +90,16 @@ export component ControlsPage inherits Page {
                 text: @tr("Hover me");
                 enabled: GallerySettings.widgets-enabled;
 
-                ToolTip {
+                Tooltip {
                     text: @tr("This is a tooltip.");
                 }
             }
 
             Button {
-                text: @tr("Below ToolTip");
+                text: @tr("Below Tooltip");
                 enabled: GallerySettings.widgets-enabled;
 
-                ToolTip {
+                Tooltip {
                     placement: below-element;
                     delay: 700ms;
                     text: @tr("Below placement with delay");
@@ -107,10 +107,10 @@ export component ControlsPage inherits Page {
             }
 
             Button {
-                text: @tr("Custom ToolTip");
+                text: @tr("Custom Tooltip");
                 enabled: GallerySettings.widgets-enabled;
 
-                ToolTip {
+                Tooltip {
                     placement: above-element;
 
                     VerticalBox {

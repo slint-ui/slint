@@ -326,7 +326,6 @@ fn gen_corelib(
         "ClippedImage",
         "TouchArea",
         "TooltipArea",
-        "ToolTip",
         "FocusScope",
         "KeyBinding",
         "SwipeGestureHandler",

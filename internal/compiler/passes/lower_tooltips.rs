@@ -1,11 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Lowers `ToolTip { text: ... }` to an input-transparent popup overlay.
+//! Lowers `Tooltip { text: ... }` to an input-transparent popup overlay.
 //!
-//! For each `ToolTip` child, this pass synthesizes a `PopupWindow` anchored around
+//! For each `Tooltip` child, this pass synthesizes a `PopupWindow` anchored around
 //! the hovered parent element and contains the tooltip content.
-//! The `ToolTip.placement` enum controls whether it appears at the mouse pointer position
+//! The `Tooltip.placement` enum controls whether it appears at the mouse pointer position
 //! (`pointer`) or relative to the hovered element (`above-element`/`below-element`/`left-element`/`right-element`).
 //! Visibility is driven by runtime behavior in `TooltipArea`:
 //! - hover enters: start/restart internal delay timer
@@ -15,11 +15,11 @@
 //!   the `pointer` placement mode.
 //!
 //! Runtime popup handling marks tooltip popups as input-transparent overlays.
-//! Tooltip show/hide delay uses `ToolTip.delay`.
+//! Tooltip show/hide delay uses `Tooltip.delay`.
 //!
 //! Tooltip content contract:
-//! - A parent element may have **at most one** `ToolTip` child.
-//! - `ToolTip` supports exactly one content mode:
+//! - A parent element may have **at most one** `Tooltip` child.
+//! - `Tooltip` supports exactly one content mode:
 //!   - text mode: `text` binding is present, no children
 //!   - custom mode: children are present, no `text` binding
 //! - placement uses effective popup size:
@@ -37,7 +37,7 @@ use smol_str::{SmolStr, format_smolstr};
 use std::cell::RefCell;
 use std::rc::Rc;
 
-const TOOLTIP_ELEMENT: &str = "ToolTip";
+const TOOLTIP_ELEMENT: &str = "Tooltip";
 const TOOLTIP_IMPL_ELEMENT: &str = "ToolTipImpl";
 const TOOLTIP_AREA_ELEMENT: &str = "TooltipArea";
 const POPUP_WINDOW_ELEMENT: &str = "PopupWindow";
@@ -81,7 +81,7 @@ fn check_no_reference_to_tooltip(
                 format!("property or callback '{id}.{prop_name}'")
             };
             diag.push_error(
-                format!("Cannot access {what} inside of a ToolTip from enclosing component"),
+                format!("Cannot access {what} inside of a Tooltip from enclosing component"),
                 &*tooltip_element.borrow(),
             );
             *nr = dummy_ref.clone();
@@ -219,7 +219,7 @@ fn wire_tooltip_placement(
                 .values
                 .iter()
                 .position(|v| v == name)
-                .expect("ToolTipPlacement variant must exist"),
+                .expect("TooltipPlacement variant must exist"),
             enumeration: placement_enum.clone(),
         }
     };
@@ -414,7 +414,7 @@ fn lower_tooltips_in_component(
             matches!(&elem.borrow().builtin_type(), Some(b) if b.name == TOOLTIP_ELEMENT);
         let is_direct_tooltip = matches!(&elem.borrow().base_type, t if *t == tooltip_type);
         if is_tooltip_like && !is_direct_tooltip {
-            diag.push_error("ToolTip cannot be inherited".into(), &*elem.borrow());
+            diag.push_error("Tooltip cannot be inherited".into(), &*elem.borrow());
             return;
         }
 
@@ -435,7 +435,7 @@ fn lower_tooltips_in_component(
             for idx in tooltip_indices.iter().skip(1) {
                 let child = &children[*idx];
                 diag.push_error(
-                    "Only one ToolTip is allowed as a child of an element".into(),
+                    "Only one Tooltip is allowed as a child of an element".into(),
                     &*child.borrow(),
                 );
             }
@@ -448,14 +448,14 @@ fn lower_tooltips_in_component(
             LAYOUT_ELEMENTS_DISALLOWING_TOOLTIP.contains(&builtin.name.as_str())
         }) {
             diag.push_error(
-                "ToolTip cannot be used inside layout elements".into(),
+                "Tooltip cannot be used inside layout elements".into(),
                 &*tooltip_candidate.borrow(),
             );
             return;
         }
         if elem.borrow().builtin_type().is_some_and(|builtin| builtin.is_non_item_type) {
             diag.push_error(
-                "ToolTip cannot be used inside non-item elements".into(),
+                "Tooltip cannot be used inside non-item elements".into(),
                 &*tooltip_candidate.borrow(),
             );
             return;
@@ -465,21 +465,21 @@ fn lower_tooltips_in_component(
         let has_text_binding = tooltip_candidate.borrow().bindings.contains_key("text");
         if has_custom_content && has_text_binding {
             diag.push_error(
-                "ToolTip cannot have both text and custom content".into(),
+                "Tooltip cannot have both text and custom content".into(),
                 &*tooltip_candidate.borrow(),
             );
             return;
         }
         if !has_custom_content && !has_text_binding {
             diag.push_error(
-                "ToolTip must provide either text or custom content".into(),
+                "Tooltip must provide either text or custom content".into(),
                 &*tooltip_candidate.borrow(),
             );
             return;
         }
         if has_custom_content && tooltip_candidate.borrow().children.len() > 1 {
             diag.push_error(
-                "ToolTip custom content must have exactly one root child element".into(),
+                "Tooltip custom content must have exactly one root child element".into(),
                 &*tooltip_candidate.borrow(),
             );
             return;
@@ -540,7 +540,7 @@ fn lower_tooltips_in_component(
             Type::Enumeration(en) => en,
             _ => {
                 diag.push_error(
-                    "ToolTip.placement must be an enum value".into(),
+                    "Tooltip.placement must be an enum value".into(),
                     &*tooltip_area.borrow(),
                 );
                 return;
@@ -561,8 +561,8 @@ fn lower_tooltips_in_component(
             )]
             .into_iter()
             .collect(),
-            // Carry the ToolTip's source location so diagnostics from
-            // lower_popups point back to the original ToolTip element.
+            // Carry the Tooltip's source location so diagnostics from
+            // lower_popups point back to the original Tooltip element.
             debug: tooltip_config.borrow().debug.clone(),
             ..Default::default()
         };
@@ -611,7 +611,7 @@ pub async fn lower_tooltips(
     let Some(tooltip_component) = tooltip_component else {
         let generic_location = doc.node.as_ref().map(|n| n.to_source_location());
         diag.push_error(
-            "`ToolTip` style implementation could not be loaded from std-widgets".into(),
+            "`Tooltip` style implementation could not be loaded from std-widgets".into(),
             &generic_location,
         );
         return;
