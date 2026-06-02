@@ -9,6 +9,7 @@ export {
     Brush,
     DataTransfer,
     StyledText,
+    Keys
 } from "../rust-module.cjs";
 
 import { Model } from "./models";
@@ -1030,7 +1031,6 @@ export namespace private_api {
     export import SlintSize = napi.SlintSize;
     export import SlintPoint = napi.SlintPoint;
     export import SlintImageData = napi.SlintImageData;
-    export import SlintKeys = napi.SlintKeys;
 
     export function send_mouse_click(
         component: Component,
