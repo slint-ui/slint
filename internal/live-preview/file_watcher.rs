@@ -18,10 +18,14 @@ pub enum FileChangeKind {
     Deleted,
 }
 
-/// A file-system event for one watched path.
+/// A file-system event for one path.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WatchEvent {
-    /// The affected watched path.
+    /// The affected path.
+    ///
+    /// Most file watchers only emit watched paths.
+    /// Optionally a FileWatcher can be created with pass_through_unwatched_events = true, in which
+    /// case the path may not be on the list of watched paths.
     pub path: PathBuf,
     /// The normalized change kind for this path.
     pub kind: FileChangeKind,
@@ -119,7 +123,7 @@ impl FileWatcher<notify::RecommendedWatcher> {
         on_event: impl FnMut(WatchEvent) + Send + 'static,
         on_error: impl FnMut(notify::Error) + Send + 'static,
     ) -> Result<Self, notify::Error> {
-        Self::start_with_impl(on_event, on_error, |event_handler| {
+        Self::start_with_impl(on_event, on_error, false, |event_handler| {
             notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
                 // Keep the backend callback lightweight and forward the real work to the worker.
                 //
@@ -135,10 +139,14 @@ impl FileWatcher<notify::RecommendedWatcher> {
 impl<Impl: FileWatcherImpl> FileWatcher<Impl> {
     /// Creates a watcher and invokes `on_event` for matching watched-path changes.
     ///
+    /// If `pass_through_unwatched_events` is `true`, raw file-system events for paths outside the
+    /// current watched set are forwarded as-is.
+    ///
     /// Runtime watcher errors are forwarded to `on_error`.
     pub fn start_with_impl(
         on_event: impl FnMut(WatchEvent) + Send + 'static,
         on_error: impl FnMut(Impl::Error) + Send + 'static,
+        pass_through_unwatched_events: bool,
         create_impl: impl FnOnce(FileWatcherEventSink<Impl>) -> Result<Impl, Impl::Error>
         + Send
         + 'static,
@@ -147,7 +155,15 @@ impl<Impl: FileWatcherImpl> FileWatcher<Impl> {
         let (startup_tx, startup_rx) = mpsc::sync_channel(1);
         let worker_tx = tx.clone();
         let worker = thread::spawn(move || {
-            worker_loop(create_impl, rx, worker_tx, startup_tx, on_event, on_error);
+            worker_loop(
+                create_impl,
+                rx,
+                worker_tx,
+                startup_tx,
+                on_event,
+                on_error,
+                pass_through_unwatched_events,
+            );
         });
 
         match startup_rx.recv() {
@@ -304,8 +320,19 @@ impl WorkerState {
         &mut self,
         watcher: &mut Impl,
         events: Vec<(PathBuf, FileChangeKind)>,
+        pass_through_unwatched_events: bool,
         on_event: &mut impl FnMut(WatchEvent),
     ) -> Result<(), Impl::Error> {
+        if pass_through_unwatched_events {
+            let passthrough_events = events
+                .iter()
+                .filter(|(path, _kind)| !self.watched_files.contains(path))
+                .map(|(path, kind)| WatchEvent { path: path.clone(), kind: *kind });
+            for event in passthrough_events {
+                on_event(event);
+            }
+        }
+
         if self.watched_files.is_empty() {
             return Ok(());
         }
@@ -431,6 +458,7 @@ fn worker_loop<Impl: FileWatcherImpl>(
     startup_tx: mpsc::SyncSender<Result<(), Impl::Error>>,
     mut on_event: impl FnMut(WatchEvent) + Send + 'static,
     mut on_error: impl FnMut(Impl::Error) + Send + 'static,
+    pass_through_unwatched_events: bool,
 ) {
     let watcher = create_impl(FileWatcherEventSink { tx });
 
@@ -457,7 +485,12 @@ fn worker_loop<Impl: FileWatcherImpl>(
                 ));
             }
             WorkerMessage::FileSystemEvents(Ok(event)) => {
-                if let Err(err) = state.handle_events(&mut watcher, event, &mut on_event) {
+                if let Err(err) = state.handle_events(
+                    &mut watcher,
+                    event,
+                    pass_through_unwatched_events,
+                    &mut on_event,
+                ) {
                     on_error(err);
                 }
             }
@@ -535,6 +568,17 @@ mod tests {
     const EVENT_TIMEOUT: Duration = Duration::from_millis(100);
     const QUIET_TIMEOUT: Duration = Duration::from_millis(50);
 
+    fn new_test_root() -> PathBuf {
+        static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
+
+        let unique_id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+        let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let root = std::env::temp_dir()
+            .join(format!("slint-file-watcher-{timestamp}-{unique_id}-{}", std::process::id()));
+        fs::create_dir_all(&root).unwrap();
+        root
+    }
+
     struct TestContext {
         root: PathBuf,
         watcher: FileWatcher,
@@ -544,22 +588,27 @@ mod tests {
 
     impl TestContext {
         fn new() -> Self {
-            static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
+            Self::new_with_passthrough(false)
+        }
 
-            let unique_id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-            let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-            let root = std::env::temp_dir()
-                .join(format!("slint-file-watcher-{timestamp}-{unique_id}-{}", std::process::id()));
-            fs::create_dir_all(&root).unwrap();
+        fn new_with_passthrough(pass_through_unwatched_events: bool) -> Self {
+            let root = new_test_root();
             let (event_tx, events) = mpsc::channel();
             let (error_tx, errors) = mpsc::channel();
 
-            let watcher = FileWatcher::start(
+            let watcher = FileWatcher::start_with_impl(
                 move |event| {
                     event_tx.send(event).unwrap();
                 },
                 move |error| {
                     error_tx.send(error).unwrap();
+                },
+                pass_through_unwatched_events,
+                |event_handler| {
+                    notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
+                        let events = event.map(classify_event);
+                        event_handler.send(events).ok();
+                    })
                 },
             )
             .unwrap();
@@ -609,6 +658,10 @@ mod tests {
             self.settle();
             self.drain_events();
             self.assert_no_errors();
+        }
+
+        fn send_raw(&mut self, events: Vec<(PathBuf, FileChangeKind)>) {
+            self.watcher.event_sink().send(Ok(events)).unwrap();
         }
 
         fn settle(&self) {
@@ -684,6 +737,86 @@ mod tests {
         ctx.write("ui/main.slint", "second");
 
         ctx.expect_event(&watched, FileChangeKind::Changed);
+    }
+
+    #[test]
+    fn passthrough_can_emit_unwatched_paths() {
+        let mut ctx = TestContext::new_with_passthrough(true);
+        let unwatched = ctx.path("ui/unwatched.slint");
+
+        ctx.send_raw(vec![(unwatched.clone(), FileChangeKind::Changed)]);
+
+        ctx.expect_event(&unwatched, FileChangeKind::Changed);
+        ctx.expect_quiet();
+    }
+
+    #[test]
+    fn passthrough_works_without_watched_paths() {
+        let mut ctx = TestContext::new_with_passthrough(true);
+        let unwatched = ctx.path("ui/unwatched.slint");
+
+        ctx.send_raw(vec![(unwatched.clone(), FileChangeKind::Created)]);
+
+        ctx.expect_event(&unwatched, FileChangeKind::Created);
+        ctx.expect_quiet();
+    }
+
+    #[test]
+    fn passthrough_does_not_leak_without_opt_in() {
+        let mut ctx = TestContext::new();
+        let unwatched = ctx.path("ui/unwatched.slint");
+
+        ctx.send_raw(vec![(unwatched, FileChangeKind::Changed)]);
+
+        ctx.expect_quiet();
+    }
+
+    #[test]
+    fn passthrough_still_reconciles_watched_paths() {
+        let mut ctx = TestContext::new_with_passthrough(true);
+        let watched = ctx.path("ui/missing.slint");
+
+        ctx.create_dir_all("ui");
+        let sibling = ctx.write("ui/sibling.slint", "first");
+        ctx.watch(&["ui/missing.slint"]);
+        ctx.write("ui/missing.slint", "created later");
+        ctx.expect_event(&watched, FileChangeKind::Created);
+
+        ctx.send_raw(vec![(sibling.clone(), FileChangeKind::Changed)]);
+        ctx.expect_event(&sibling, FileChangeKind::Changed);
+        ctx.settle();
+
+        for event in ctx.drain_events() {
+            assert_eq!(
+                event,
+                WatchEvent { path: watched.clone(), kind: FileChangeKind::Changed },
+                "unexpected trailing event after reconcile",
+            );
+        }
+    }
+
+    #[test]
+    fn passthrough_does_not_duplicate_watched_events() {
+        let mut ctx = TestContext::new_with_passthrough(true);
+        let watched = ctx.write("ui/main.slint", "first");
+
+        ctx.watch(&["ui/main.slint"]);
+        ctx.remove_file("ui/main.slint");
+        ctx.send_raw(vec![(watched.clone(), FileChangeKind::Deleted)]);
+
+        ctx.expect_event(&watched, FileChangeKind::Deleted);
+        let folder_path = ctx.path("ui");
+
+        ctx.settle();
+        // On some platforms, removing a file creates a file change event on the folder (e.g. on macOS)
+        // Only allow this, but no other event to occur
+        for event in ctx.drain_events() {
+            assert_eq!(
+                event,
+                WatchEvent { path: folder_path.clone(), kind: FileChangeKind::Changed },
+            )
+        }
+        ctx.expect_quiet();
     }
 
     #[test]
