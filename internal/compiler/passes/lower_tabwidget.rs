@@ -45,11 +45,19 @@ pub async fn lower_tabwidget(
         .await
         .expect("can't load TabImpl from std-widgets-impl.slint");
     let tabbar_horizontal_impl = type_loader
-        .import_component("std-widgets-impl.slint", "TabBarHorizontalImpl", &mut build_diags_to_ignore)
+        .import_component(
+            "std-widgets-impl.slint",
+            "TabBarHorizontalImpl",
+            &mut build_diags_to_ignore,
+        )
         .await
         .expect("can't load TabBarHorizontalImpl from std-widgets-impl.slint");
     let tabbar_vertical_impl = type_loader
-        .import_component("std-widgets-impl.slint", "TabBarVerticalImpl", &mut build_diags_to_ignore)
+        .import_component(
+            "std-widgets-impl.slint",
+            "TabBarVerticalImpl",
+            &mut build_diags_to_ignore,
+        )
         .await
         .expect("can't load TabBarVerticalImpl from std-widgets-impl.slint");
     let empty_type = type_loader.global_type_registry.borrow().empty_type();
