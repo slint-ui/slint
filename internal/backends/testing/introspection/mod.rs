@@ -1115,3 +1115,348 @@ fn test_accessibility_role_mapping_complete() {
     }
     i_slint_common::for_each_enums!(test_accessibility_enum_mapping);
 }
+
+// `WindowEventDispatchResult` honesty for pointer events: verify that
+// `Window::try_dispatch_event` reports `Accepted` only when an item consumed the
+// event, and `Ignored` otherwise. Tests install the window-event hook directly
+// since that's the consumer the public contract is for.
+
+#[cfg(test)]
+mod dispatch_result_tests {
+    use i_slint_core::api::LogicalPosition;
+    use i_slint_core::context::WindowEventDispatchResult;
+    use i_slint_core::items::PointerEventButton;
+    use i_slint_core::platform::WindowEvent;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    /// Install a recording hook; the returned guard restores whatever hook was
+    /// installed before (possibly `None`) on drop.
+    fn capture_hook() -> (HookGuard, Rc<RefCell<Vec<(WindowEvent, WindowEventDispatchResult)>>>) {
+        let captured = Rc::new(RefCell::new(Vec::new()));
+        let captured_in_hook = captured.clone();
+        let previous = i_slint_core::context::set_window_event_hook(Some(Box::new(
+            move |_adapter, event, result| {
+                captured_in_hook.borrow_mut().push((event.clone(), result));
+            },
+        )))
+        .expect("install hook");
+        (HookGuard { previous: Some(previous) }, captured)
+    }
+
+    struct HookGuard {
+        previous: Option<Option<i_slint_core::context::WindowEventHook>>,
+    }
+
+    impl Drop for HookGuard {
+        fn drop(&mut self) {
+            if let Some(prev) = self.previous.take() {
+                let _ = i_slint_core::context::set_window_event_hook(prev);
+            }
+        }
+    }
+
+    /// Dispatch `event` to `window` with a recording hook installed, then assert that
+    /// exactly one hook invocation occurred with the `expected` dispatch result.
+    fn assert_single_dispatch(
+        window: &i_slint_core::api::Window,
+        event: WindowEvent,
+        expected: WindowEventDispatchResult,
+    ) {
+        let (_guard, captured) = capture_hook();
+        window.dispatch_event(event);
+        let captured = captured.borrow();
+        assert_eq!(captured.len(), 1);
+        assert_eq!(captured[0].1, expected);
+    }
+
+    #[test]
+    fn pointer_pressed_over_touch_area_is_accepted() {
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+                TouchArea { width: 100%; height: 100%; }
+            }
+        }
+        let app = App::new().unwrap();
+        assert_single_dispatch(
+            app.window(),
+            WindowEvent::PointerPressed {
+                position: LogicalPosition::new(50.0, 50.0),
+                button: PointerEventButton::Left,
+            },
+            WindowEventDispatchResult::Accepted,
+        );
+    }
+
+    #[test]
+    fn pointer_pressed_with_no_handler_is_ignored() {
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+                Rectangle { background: #abc; }
+            }
+        }
+        let app = App::new().unwrap();
+        assert_single_dispatch(
+            app.window(),
+            WindowEvent::PointerPressed {
+                position: LogicalPosition::new(50.0, 50.0),
+                button: PointerEventButton::Left,
+            },
+            WindowEventDispatchResult::Ignored,
+        );
+    }
+
+    #[test]
+    fn pointer_scrolled_over_flickable_is_accepted() {
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+                Flickable {
+                    width: 100%; height: 100%;
+                    viewport-width: 400px;
+                    viewport-height: 400px;
+                    Rectangle { background: #abc; }
+                }
+            }
+        }
+        let app = App::new().unwrap();
+        assert_single_dispatch(
+            app.window(),
+            WindowEvent::PointerScrolled {
+                position: LogicalPosition::new(100.0, 100.0),
+                delta_x: 0.0,
+                delta_y: -30.0,
+            },
+            WindowEventDispatchResult::Accepted,
+        );
+    }
+
+    #[test]
+    fn pointer_pressed_inside_flickable_is_accepted() {
+        // Flickable installs `DelayForwarding` on press to disambiguate click from flick;
+        // the hit-test visitor returns `abort` for the delayed item, so the press dispatch
+        // is Accepted even though no child has yet received the event.
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+                Flickable {
+                    viewport-width: 400px;
+                    viewport-height: 400px;
+                    Rectangle { background: #abc; }
+                }
+            }
+        }
+        let app = App::new().unwrap();
+        assert_single_dispatch(
+            app.window(),
+            WindowEvent::PointerPressed {
+                position: LogicalPosition::new(100.0, 100.0),
+                button: PointerEventButton::Left,
+            },
+            WindowEventDispatchResult::Accepted,
+        );
+    }
+
+    #[test]
+    fn pointer_exited_is_always_accepted() {
+        // Teardown event — Accepted unconditionally even when no item is under the cursor.
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+                Rectangle { background: #abc; }
+            }
+        }
+        let app = App::new().unwrap();
+        assert_single_dispatch(
+            app.window(),
+            WindowEvent::PointerExited,
+            WindowEventDispatchResult::Accepted,
+        );
+    }
+
+    #[test]
+    fn pointer_scrolled_over_empty_area_is_ignored() {
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+                Rectangle { background: #abc; }
+            }
+        }
+        let app = App::new().unwrap();
+        assert_single_dispatch(
+            app.window(),
+            WindowEvent::PointerScrolled {
+                position: LogicalPosition::new(100.0, 100.0),
+                delta_x: 0.0,
+                delta_y: -30.0,
+            },
+            WindowEventDispatchResult::Ignored,
+        );
+    }
+
+    #[test]
+    fn pointer_moved_over_empty_area_is_ignored() {
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+                Rectangle { background: #abc; }
+            }
+        }
+        let app = App::new().unwrap();
+        assert_single_dispatch(
+            app.window(),
+            WindowEvent::PointerMoved { position: LogicalPosition::new(50.0, 50.0) },
+            WindowEventDispatchResult::Ignored,
+        );
+    }
+
+    #[test]
+    fn pointer_moved_while_touch_area_is_pressed_is_accepted() {
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+                TouchArea { width: 100%; height: 100%; }
+            }
+        }
+        let app = App::new().unwrap();
+        // Press first so the TouchArea grabs the mouse; without the grab a Moved over a
+        // TouchArea is hover-only and falls through.
+        app.window().dispatch_event(WindowEvent::PointerPressed {
+            position: LogicalPosition::new(50.0, 50.0),
+            button: PointerEventButton::Left,
+        });
+        assert_single_dispatch(
+            app.window(),
+            WindowEvent::PointerMoved { position: LogicalPosition::new(60.0, 60.0) },
+            WindowEventDispatchResult::Accepted,
+        );
+    }
+
+    #[test]
+    fn pointer_released_outside_grabbed_touch_area_is_accepted() {
+        // The TouchArea grabbed the mouse on press, so the release reaches the grab handler
+        // even though it lands outside the item's geometry — Accepted via the grab path.
+        crate::init_no_event_loop();
+        slint::slint! {
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+                TouchArea { width: 100%; height: 100%; }
+            }
+        }
+        let app = App::new().unwrap();
+        app.window().dispatch_event(WindowEvent::PointerPressed {
+            position: LogicalPosition::new(20.0, 20.0),
+            button: PointerEventButton::Left,
+        });
+        app.window().dispatch_event(WindowEvent::PointerMoved {
+            position: LogicalPosition::new(250.0, 250.0),
+        });
+        assert_single_dispatch(
+            app.window(),
+            WindowEvent::PointerReleased {
+                position: LogicalPosition::new(250.0, 250.0),
+                button: PointerEventButton::Left,
+            },
+            WindowEventDispatchResult::Accepted,
+        );
+    }
+
+    #[test]
+    fn pointer_released_at_end_of_drag_is_accepted_if_droparea_accepted() {
+        // Release is rewritten internally to `Drop`; with a permissive DropArea the
+        // public PointerReleased dispatch reports Accepted.
+        crate::init_no_event_loop();
+        slint::slint! {
+            export global Api {
+                pure callback make-data() -> data-transfer;
+            }
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+                VerticalLayout {
+                    DragArea {
+                        data: Api.make-data();
+                        Rectangle { background: #abc; }
+                    }
+                    DropArea {
+                        can-drop(_) => { DragAction.copy }
+                        Rectangle { background: #cba; }
+                    }
+                }
+            }
+        }
+        let app = App::new().unwrap();
+        app.global::<Api>().on_make_data(|| slint::SharedString::from("payload").into());
+        let (_guard, captured) = capture_hook();
+        crate::search_api::mock_drag_window(
+            app.window(),
+            LogicalPosition::new(100.0, 50.0),
+            LogicalPosition::new(100.0, 150.0),
+            PointerEventButton::Left,
+        );
+        let release = captured
+            .borrow()
+            .iter()
+            .rev()
+            .find(|(e, _)| matches!(e, WindowEvent::PointerReleased { .. }))
+            .map(|(_, r)| *r)
+            .expect("PointerReleased recorded");
+        assert_eq!(release, WindowEventDispatchResult::Accepted);
+    }
+
+    #[test]
+    fn pointer_released_at_end_of_drag_is_ignored_if_no_droparea_accepted() {
+        // Release is rewritten internally to `Exit` (no DropArea accepted the prior
+        // DragMove); the public PointerReleased reports Ignored.
+        crate::init_no_event_loop();
+        slint::slint! {
+            export global Api {
+                pure callback make-data() -> data-transfer;
+            }
+            export component App inherits Window {
+                width: 200px;
+                height: 200px;
+                DragArea {
+                    data: Api.make-data();
+                    Rectangle { background: #abc; }
+                }
+            }
+        }
+        let app = App::new().unwrap();
+        app.global::<Api>().on_make_data(|| slint::SharedString::from("payload").into());
+        let (_guard, captured) = capture_hook();
+        crate::search_api::mock_drag_window(
+            app.window(),
+            LogicalPosition::new(50.0, 100.0),
+            LogicalPosition::new(150.0, 100.0),
+            PointerEventButton::Left,
+        );
+        let release = captured
+            .borrow()
+            .iter()
+            .rev()
+            .find(|(e, _)| matches!(e, WindowEvent::PointerReleased { .. }))
+            .map(|(_, r)| *r)
+            .expect("PointerReleased recorded");
+        assert_eq!(release, WindowEventDispatchResult::Ignored);
+    }
+}
