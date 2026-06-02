@@ -651,7 +651,7 @@ fn handle_builtin_function(
                 _ => panic!("Second argument not an integer: {:?}", arguments[0]),
             };
 
-            if index > 0. {
+            if index >= 0. {
                 model.remove_row(index as usize);
             }
 

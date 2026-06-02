@@ -4029,7 +4029,7 @@ fn compile_builtin_function_call(
                 let model = &#model;
                 let index = #index;
 
-                if index > 0 {
+                if index >= 0 {
                     model.remove_row(index as usize);
                 }
             })
@@ -4043,7 +4043,7 @@ fn compile_builtin_function_call(
                 let index = #index;
                 let value = #value;
 
-                if index > 0 {
+                if index >= 0 {
                     model.insert_row(index as usize, value);
                 }
             })
