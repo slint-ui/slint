@@ -697,7 +697,9 @@ fn keys_from_parts_inner<'a>(
         }
         // Key code literals in key_codes.rs are already NFC-normalized, just lowercase.
         let key: SharedString = key_char.to_lowercase().collect::<alloc::string::String>().into();
-        return Ok(Keys { inner: KeysInner { key, modifiers, ignore_shift, ignore_alt } });
+        return Ok(Keys {
+            inner: KeysInner { key, modifiers, ignore_shift, ignore_alt, is_physical: false },
+        });
     }
 
     // Fallback: treat as a string literal (like @keys("€"))
@@ -714,7 +716,7 @@ fn keys_from_parts_inner<'a>(
     }
 
     let key = normalize_key(key_name);
-    Ok(Keys { inner: KeysInner { key, modifiers, ignore_shift, ignore_alt } })
+    Ok(Keys { inner: KeysInner { key, modifiers, ignore_shift, ignore_alt, is_physical: false } })
 }
 
 /// Internal representation of the `Keys` type.
