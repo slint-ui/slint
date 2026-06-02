@@ -425,18 +425,19 @@ pub enum WindowEvent {
 }
 
 /// The kind of key event delivered through [`WindowEvent::Key`].
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
 #[non_exhaustive]
 pub enum WindowKeyEventType {
     /// A key was pressed.
-    #[default]
     Pressed,
     /// A key was released.
     Released,
 }
 
 /// A platform key event delivered through [`WindowEvent::Key`].
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
+#[repr(C)]
 #[non_exhaustive]
 pub struct WindowKeyEvent {
     /// Whether the key was pressed or released.
