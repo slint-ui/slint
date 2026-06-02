@@ -7,6 +7,10 @@ export component Test inherits Window {
             MenuItem {
                 shortcut: @keys(Control + N);
             }
+            MenuItem {
+                shortcut: @physical-keys(Control + N);
+//                        >                          <warning{Physical keys in MenuItem shortcuts are interpreted as logical keys by native menu bars. Use @keys(...) for menu shortcuts instead}
+            }
         }
     }
 
