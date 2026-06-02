@@ -1541,6 +1541,10 @@ impl Expression {
                     message =
                         format!("{message}. Divide by 1{from_unit} to convert to a plain number");
                 }
+            } else if matches!(target_type, Type::StyledText) && ty.can_convert(&Type::String) {
+                message = format!(
+                    "{message}. Wrap the expression in `@markdown(\"\\{{...}}\")` to convert it explicitly"
+                );
             } else if let Some(to_unit) = target_type.default_unit()
                 && matches!(ty, Type::Int32 | Type::Float32)
             {
