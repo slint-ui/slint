@@ -479,6 +479,18 @@ struct WindowPinnedFields {
     menubar_shortcuts: Property<SharedVector<MenuEntry>>,
 }
 
+/// The outcome of dispatching a [`MouseEvent`] through [`WindowInner::process_mouse_input`].
+#[derive(Copy, Clone, Debug)]
+pub struct MouseDispatchResult {
+    /// For `MouseEvent::DragMove` / `MouseEvent::Drop` events, the action negotiated with
+    /// the accepting `DropArea` (or `None` if no `DropArea` accepted). Always `None` for
+    /// other event kinds.
+    pub drag_action: Option<crate::items::DragAction>,
+    /// `true` if an item consumed the event (`EventAccepted`, `GrabMouse`, `StartDrag`, or
+    /// a `DropArea` accepting a drag/drop). `false` if the event fell through without a taker.
+    pub accepted: bool,
+}
+
 /// Inner datastructure for the [`crate::api::Window`]
 pub struct WindowInner {
     window_adapter_weak: Weak<dyn WindowAdapter>,
@@ -643,9 +655,19 @@ impl WindowInner {
     }
 
     /// Receive a mouse event and pass it to the items of the component to
-    /// change their state. For `DragMove`/`Drop`, returns the negotiated
-    /// [`DragAction`](crate::items::DragAction), or `None` if no `DropArea` accepted.
-    pub fn process_mouse_input(&self, mut event: MouseEvent) -> Option<crate::items::DragAction> {
+    /// change their state.
+    ///
+    /// Returns `None` when there is no component to dispatch to; otherwise returns a
+    /// [`MouseDispatchResult`] carrying:
+    /// - `accepted`: whether an item consumed the event, and
+    /// - `drag_action`: for `DragMove`/`Drop` events, the negotiated
+    ///   [`DragAction`](crate::items::DragAction) (or `None` if no `DropArea` accepted).
+    ///
+    /// Note: when a drag is in flight, the runtime rewrites a `Released` into either a
+    /// `Drop` (if a `DropArea` had previously accepted the matching `DragMove`) or an
+    /// `Exit` (if not). The reported `accepted` reflects the rewritten event, so a
+    /// `Released` that completes a drop on a non-accepting target reports `accepted = false`.
+    pub fn process_mouse_input(&self, mut event: MouseEvent) -> Option<MouseDispatchResult> {
         crate::animations::update_animations();
 
         let item_tree = self.try_component()?;
@@ -798,9 +820,12 @@ impl WindowInner {
             .then_some(popup.popup_id)
         });
 
-        mouse_input_state = if let Some(mut event) =
-            crate::input::handle_mouse_grab(&event, &window_adapter, &mut mouse_input_state)
-        {
+        let grab_result =
+            crate::input::handle_mouse_grab(&event, &window_adapter, &mut mouse_input_state);
+        let grab_accepted = grab_result.accepted;
+
+        let mut dispatch_accepted = false;
+        mouse_input_state = if let Some(mut event) = grab_result.event {
             // The grab handler may have fired callbacks that modified models or
             // other state, so materialize any pending repeater/conditional
             // changes before hit-testing with the returned event.
@@ -853,14 +878,16 @@ impl WindowInner {
 
             if let Some(root) = root {
                 event.translate(-offset.to_vector());
-                let mut new_input_state = crate::input::process_mouse_input(
-                    root,
-                    &event,
-                    &window_adapter,
-                    mouse_input_state,
-                );
-                new_input_state.offset = offset;
-                new_input_state
+                let crate::input::MouseInputResult { mut state, accepted } =
+                    crate::input::process_mouse_input(
+                        root,
+                        &event,
+                        &window_adapter,
+                        mouse_input_state,
+                    );
+                state.offset = offset;
+                dispatch_accepted = accepted;
+                state
             } else {
                 // When outside, send exit event
                 let mut new_input_state = MouseInputState::default();
@@ -875,6 +902,8 @@ impl WindowInner {
         } else {
             mouse_input_state
         };
+
+        let accepted = dispatch_accepted | grab_accepted;
 
         if last_top_item != mouse_input_state.top_item_including_delayed() {
             self.click_state.reset();
@@ -891,7 +920,7 @@ impl WindowInner {
         }
 
         let is_dragging = mouse_input_state.drag_data.is_some();
-        let drop_target_action = mouse_input_state.drop_target_action();
+        let drag_action = mouse_input_state.drop_target_action();
         self.mouse_input_state.set(mouse_input_state);
 
         // The drag-image overlay follows the cursor and lives outside any item tree, so
@@ -934,7 +963,7 @@ impl WindowInner {
 
         self.ensure_tree_instantiated();
 
-        drop_target_action
+        Some(MouseDispatchResult { drag_action, accepted })
     }
 
     /// Receive a raw touch event from a backend and either forward it as a mouse
@@ -944,11 +973,28 @@ impl WindowInner {
     /// `position` must be in **logical coordinates** (i.e., already divided by the
     /// scale factor). Passing physical coordinates will produce incorrect gesture
     /// geometry and hit-testing.
-    pub fn process_touch_input(&self, id: u64, position: LogicalPoint, phase: TouchPhase) {
+    ///
+    /// `drag_action` is taken from the *last* sub-event (including `None`), because
+    /// `drag_action` reflects the current drop-target negotiation, not a per-event
+    /// verdict to aggregate. For touch sequences that never produce a `DragMove`/`Drop`
+    /// (the common case), this stays `None` throughout.
+    pub fn process_touch_input(
+        &self,
+        id: u64,
+        position: LogicalPoint,
+        phase: TouchPhase,
+    ) -> Option<MouseDispatchResult> {
         let events = self.touch_state.borrow_mut().process(id, position, phase);
+        let mut aggregate: Option<MouseDispatchResult> = None;
         for event in events.into_iter() {
-            self.process_mouse_input(event);
+            if let Some(r) = self.process_mouse_input(event) {
+                let agg = aggregate
+                    .get_or_insert(MouseDispatchResult { drag_action: None, accepted: false });
+                agg.accepted |= r.accepted;
+                agg.drag_action = r.drag_action;
+            }
         }
+        aggregate
     }
 
     /// Called by the input code's internal timer to send an event that was delayed
