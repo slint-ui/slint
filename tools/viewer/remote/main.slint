@@ -9,35 +9,98 @@ export component EmptyWindow inherits Window {
     in property <string> address;
     in property <string> message;
 
-    VerticalLayout {
-        // Keep the name clear of the status bar / notch / Dynamic Island.
-        padding-top: root.safe-area-insets.top + 8px;
-        padding-bottom: root.safe-area-insets.bottom;
+    property <bool> showing-name: true;
 
-        if name != "": Text {
-            text: name;
-            horizontal-alignment: center;
-            font-size: 20px;
-            font-weight: 700;
+    Rectangle {
+        background: @linear-gradient(180deg, #1C1C1C, black);
+    }
+
+    Image {
+        y: root.height - self.height;
+        width: 100%;
+        source: @image-url("assets/bg-frame.svg");
+    }
+
+    TouchArea {
+        clicked => {
+            root.showing-name = !root.showing-name;
         }
+    }
 
-        if message == "": HorizontalLayout {
-            alignment: center;
-            VerticalLayout {
-                alignment: center;
+    VerticalLayout {
+        alignment: space-between;
+        padding-left: 24px;
+        padding-top: root.safe-area-insets.top + 46px;
+        padding-bottom: root.safe-area-insets.bottom;
+        VerticalLayout {
+            alignment: start;
+            spacing: 8px;
+
+            HorizontalLayout {
+                alignment: start;
+                spacing: 2px;
+                align-items: end;
                 Text {
-                    text: address;
-                    horizontal-alignment: center;
-                    wrap: word-wrap;
+                    text: "Connect to";
+                    font-size: 26px;
+                    font-weight: 100;
+                }
+                Image {
+                    width: 30px;
+                    source: @image-url("assets/slint-logo-small-light.svg");
                 }
             }
+
+            Text {
+                text: root.showing-name ? name : address;
+                font-size: 24px;
+                font-weight: 400;
+            }
         }
-        // Compile diagnostics can be many lines long; a read-only TextEdit gives
-        // the user wrapping, scrolling, and selection/copy in one widget.
-        if message != "": TextEdit {
-            text: message;
-            read-only: true;
-            wrap: word-wrap;
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 8px;
+            opacity: 0.5;
+            Text {
+                text: "Slint 1.17.0";
+                color: white;
+                font-size: 14px;
+                font-weight: 400;
+            }
+
+            Text {
+                text: "Viewer v0.0.3";
+                color: white;
+                font-size: 12px;
+                font-weight: 400;
+            }
         }
+        // HorizontalLayout {
+        //     alignment: center;
+        //     VerticalLayout {
+        //         alignment: center;
+        //         spacing: 8px;
+
+        //         Text {
+        //             text: "Connect to";
+        //             horizontal-alignment: center;
+        //             font-size: 20px;
+        //             font-weight: 400;
+        //         }
+        //         Text {
+        //             text: root.showing-name ? name : address;
+        //             horizontal-alignment: center;
+        //             font-size: 20px;
+        //             font-weight: 700;
+        //         }
+        //         Text {
+        //             text: "on your PC";
+        //             horizontal-alignment: center;
+        //             font-size: 20px;
+        //             font-weight: 400;
+        //         }
+        //     }
+        // }
     }
 }

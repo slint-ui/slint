@@ -46,12 +46,27 @@ targets:
       # absent when the project is generated.
       - path: Assets.xcassets
         optional: true
+      # Bundled for the remote idle UI: the interpreter resolves @image-url paths
+      # relative to the app bundle directory (see remote.rs). Xcode copies the
+      # folder reference to Slint Viewer.app/assets/. slint-logo-small-light.svg
+      # is copied from logo/ by the Sync remote UI assets pre-build script.
+      - path: remote/assets
+        type: folder
+        buildPhase: resources
     preBuildScripts:
       - name: Generate app icon
         script: |
           ../../scripts/render_ios_app_icon.bash
         outputFiles:
           - $(SRCROOT)/Assets.xcassets/AppIcon.appiconset/icon-1024.png
+      - name: Sync remote UI assets
+        script: |
+          mkdir -p remote/assets
+          cp ../../logo/slint-logo-small-light.svg remote/assets/
+        inputFiles:
+          - $(SRCROOT)/../../logo/slint-logo-small-light.svg
+        outputFiles:
+          - $(SRCROOT)/remote/assets/slint-logo-small-light.svg
     postCompileScripts:
       - script: |
           ../../scripts/build_for_ios_with_cargo.bash slint-viewer --features remote
