@@ -42,7 +42,7 @@ export component EmptyWindow inherits Window {
                 spacing: 2px;
                 align-items: end;
                 Text {
-                    text: "Connect to";
+                    text: "Connect VScode to";
                     font-size: 26px;
                     font-weight: 100;
                 }
@@ -76,31 +76,20 @@ export component EmptyWindow inherits Window {
                 font-weight: 400;
             }
         }
-        // HorizontalLayout {
-        //     alignment: center;
-        //     VerticalLayout {
-        //         alignment: center;
-        //         spacing: 8px;
+    }
 
-        //         Text {
-        //             text: "Connect to";
-        //             horizontal-alignment: center;
-        //             font-size: 20px;
-        //             font-weight: 400;
-        //         }
-        //         Text {
-        //             text: root.showing-name ? name : address;
-        //             horizontal-alignment: center;
-        //             font-size: 20px;
-        //             font-weight: 700;
-        //         }
-        //         Text {
-        //             text: "on your PC";
-        //             horizontal-alignment: center;
-        //             font-size: 20px;
-        //             font-weight: 400;
-        //         }
-        //     }
-        // }
+    VerticalLayout {
+        alignment: center;
+        padding-left: 24px;
+        padding-right: 24px;
+        padding-top: root.safe-area-insets.top;
+        padding-bottom: root.safe-area-insets.bottom;
+
+        if message != "": Text {
+            text: message;
+            horizontal-alignment: center;
+            font-size: 16px;
+            font-weight: 400;
+        }
     }
 }
