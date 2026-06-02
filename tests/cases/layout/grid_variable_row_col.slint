@@ -51,6 +51,31 @@ export component TestCase inherits Window {
         txt.text == "0,2"
     }
 
+    // A GridLayout with both static children and an `if`-wrapped child, all
+    // carrying runtime `row`/`col` bindings (property references, not
+    // integer literals, so they take the runtime-expression classification
+    // path). The wrapper's bindings live in a separate sub-component after
+    // lowering, so any consistency check that only inspects the wrapper's
+    // direct bindings would wrongly classify this as a mix of auto and
+    // runtime. Placed off-screen so it doesn't fight the first GridLayout
+    // for room inside the same Window.
+    property <int> mix_base;
+    Rectangle {
+        x: 1000phx;
+        GridLayout {
+            ma := Rectangle { background: blue;  row: mix_base;     col: mix_base; }
+            if true: Rectangle { background: green; row: mix_base + 1; col: mix_base; }
+            mc := Rectangle { background: red;  row: mix_base + 2; col: mix_base; }
+        }
+    }
+    // The layout solver places ma and mc in the same column and on
+    // different rows. Checking solver-computed positions (not just the
+    // bound row property) ensures the solver's view of row/col agrees with
+    // the compiler-side consistency check.
+    out property <bool> mixed_grid_ok:
+        ma.row == 0 && mc.row == 2 &&
+        ma.x == mc.x && ma.y < mc.y;
+
     public function change_grid() {
         green_col = 0;
         red_row = 1;
@@ -69,6 +94,7 @@ export component TestCase inherits Window {
 
     init => {
         if !initial_grid_ok { root.error = "!initial_grid_ok"; }
+        if !mixed_grid_ok { root.error = "!mixed_grid_ok"; }
         change_grid()
     }
     out property <string> error;
