@@ -558,6 +558,13 @@ async fn run_main_loop(
         |err| {
             tracing::error!("File watcher error: {err:?}");
         },
+        // Pass through events from files that are not in the watch list.
+        // This ensures the LSP will still manage to detect file changed events in the majority of
+        // cases, even if the file is missing from the watch list for any reason.
+        //
+        // This ensures that adding our own FileWatcher reconciliation on top of the file change
+        // events doesn't regress the LSP.
+        true,
         // We don't need the event_sink in the worker thread, we just send the events directly
         // from the main thread to the file watchers worker thread.
         move |_event_sink| Ok(LspFileWatcherImpl {}),
