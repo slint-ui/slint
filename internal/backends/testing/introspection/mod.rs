@@ -1405,7 +1405,7 @@ mod dispatch_result_tests {
             }
         }
         let app = App::new().unwrap();
-        app.global::<Api>().on_make_data(slint::DataTransfer::default);
+        app.global::<Api>().on_make_data(|| slint::SharedString::from("payload").into());
         let (_guard, captured) = capture_hook();
         crate::search_api::mock_drag_window(
             app.window(),
@@ -1442,7 +1442,7 @@ mod dispatch_result_tests {
             }
         }
         let app = App::new().unwrap();
-        app.global::<Api>().on_make_data(slint::DataTransfer::default);
+        app.global::<Api>().on_make_data(|| slint::SharedString::from("payload").into());
         let (_guard, captured) = capture_hook();
         crate::search_api::mock_drag_window(
             app.window(),
