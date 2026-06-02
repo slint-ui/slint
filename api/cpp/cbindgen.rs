@@ -466,6 +466,8 @@ fn gen_corelib(
         "PointerEventButton",
         "PointerEvent",
         "PointerScrollEvent",
+        "WindowKeyEventType",
+        "WindowKeyEvent",
         "Rect",
         "BitmapFont",
         "DataTransferOpaque",
