@@ -13,7 +13,7 @@ export component EmptyWindow inherits Window {
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
 
     Rectangle {
-        background: root.dark-color-scheme ? @linear-gradient(180deg, #1C1C1C, black) : @linear-gradient(180deg, #D7D9DD, white);
+        background: root.dark-color-scheme ? @linear-gradient(180deg, #1C1C1C, black) : @linear-gradient(0deg, #D7D9DD, white);
     }
 
     Image {
