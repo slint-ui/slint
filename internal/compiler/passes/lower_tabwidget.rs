@@ -37,21 +37,21 @@ pub async fn lower_tabwidget(
     // Ignore import errors
     let mut build_diags_to_ignore = BuildDiagnostics::default();
     let tabwidget_impl = type_loader
-        .import_component("std-widgets.slint", "TabWidgetImpl", &mut build_diags_to_ignore)
+        .import_component("std-widgets-impl.slint", "TabWidgetImpl", &mut build_diags_to_ignore)
         .await
-        .expect("can't load TabWidgetImpl from std-widgets.slint");
+        .expect("can't load TabWidgetImpl from std-widgets-impl.slint");
     let tab_impl = type_loader
-        .import_component("std-widgets.slint", "TabImpl", &mut build_diags_to_ignore)
+        .import_component("std-widgets-impl.slint", "TabImpl", &mut build_diags_to_ignore)
         .await
-        .expect("can't load TabImpl from std-widgets.slint");
+        .expect("can't load TabImpl from std-widgets-impl.slint");
     let tabbar_horizontal_impl = type_loader
-        .import_component("std-widgets.slint", "TabBarHorizontalImpl", &mut build_diags_to_ignore)
+        .import_component("std-widgets-impl.slint", "TabBarHorizontalImpl", &mut build_diags_to_ignore)
         .await
-        .expect("can't load TabBarHorizontalImpl from std-widgets.slint");
+        .expect("can't load TabBarHorizontalImpl from std-widgets-impl.slint");
     let tabbar_vertical_impl = type_loader
-        .import_component("std-widgets.slint", "TabBarVerticalImpl", &mut build_diags_to_ignore)
+        .import_component("std-widgets-impl.slint", "TabBarVerticalImpl", &mut build_diags_to_ignore)
         .await
-        .expect("can't load TabBarVerticalImpl from std-widgets.slint");
+        .expect("can't load TabBarVerticalImpl from std-widgets-impl.slint");
     let empty_type = type_loader.global_type_registry.borrow().empty_type();
 
     doc.visit_all_used_components(|component| {
