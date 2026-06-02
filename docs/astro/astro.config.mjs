@@ -555,12 +555,6 @@ export default defineConfig({
                             ],
                         },
                     ],
-                    {
-                        exclude: [
-                            "/reference/enums/**",
-                            "/reference/structs/**",
-                        ],
-                    },
                 ),
                 slintStarlightLinksValidatorPlugin(),
             ],
