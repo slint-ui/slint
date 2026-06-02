@@ -80,8 +80,7 @@ const defaultValue_ = defaultValue
 
 if (!defaultValue_ && !isOutput) {
     console.error("No defaultValue for:", propName);
-}
-if (defaultValue && isOutput) {
+} else if (defaultValue && isOutput) {
     console.error("defaultValue set on out property:", propName);
 }
 
