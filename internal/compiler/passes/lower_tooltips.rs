@@ -470,7 +470,7 @@ pub async fn lower_tooltips(
 
     let mut import_diag = BuildDiagnostics::default();
     let tooltip_component = type_loader
-        .import_component("std-widgets.slint", TOOLTIP_IMPL_ELEMENT, &mut import_diag)
+        .import_component("std-widgets-impl.slint", TOOLTIP_IMPL_ELEMENT, &mut import_diag)
         .await;
     for diagnostic in import_diag {
         diag.push_compiler_error(diagnostic);

@@ -17,8 +17,8 @@ export component TabWidgetImpl inherits Rectangle {
     out property <length> content-y: orientation==Orientation.horizontal? root.tabbar-preferred-height: 0;
     out property <length> content-height: orientation==Orientation.horizontal? root.height - root.tabbar-preferred-height: root.height;
     out property <length> content-width: orientation==Orientation.horizontal? root.width: root.width - root.tabbar-preferred-width;
-    out property <length> tabbar-x: 0;
-    out property <length> tabbar-y: 0;
+    out property <length> tabbar-x;
+    out property <length> tabbar-y;
     out property <length> tabbar-height: orientation==Orientation.horizontal? root.tabbar-preferred-height: root.height;
     out property <length> tabbar-width: orientation==Orientation.horizontal? root.width: root.tabbar-preferred-width;
 
