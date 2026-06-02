@@ -14,16 +14,7 @@ location is on your `PATH`.
 
 Prebuilt binaries are published with each Slint release. From the
 [latest release](https://github.com/slint-ui/slint/releases/latest)
-download the asset for your platform:
-
-| Platform          | Asset                                              |
-|-------------------|----------------------------------------------------|
-| Linux x86-64      | `slint-lsp-linux.tar.gz`                           |
-| Linux aarch64     | `slint-lsp-aarch64-unknown-linux-gnu.tar.gz`       |
-| Linux armv7       | `slint-lsp-armv7-unknown-linux-gnueabihf.tar.gz`   |
-| macOS (universal) | `slint-lsp-macos.tar.gz`                           |
-| Windows x86-64    | `slint-lsp-windows-x86_64.zip`                     |
-| Windows aarch64   | `slint-lsp-windows-arm64.zip`                      |
+download the asset for your platform.
 
 Extract the archive and put the `slint-lsp` binary somewhere on `PATH`.
 
