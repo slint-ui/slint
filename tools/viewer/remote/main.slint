@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { TextEdit } from "std-widgets.slint";
+import { Palette } from "std-widgets.slint";
 
 export component EmptyWindow inherits Window {
     // Friendly device name (e.g. "Simon's iPhone") this viewer advertises to editors.
@@ -10,15 +10,16 @@ export component EmptyWindow inherits Window {
     in property <string> message;
 
     property <bool> showing-name: true;
+    property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
 
     Rectangle {
-        background: @linear-gradient(180deg, #1C1C1C, black);
+        background: root.dark-color-scheme ? @linear-gradient(180deg, #1C1C1C, black) : @linear-gradient(180deg, #D7D9DD, white);
     }
 
     Image {
         y: root.height - self.height;
         width: 100%;
-        source: @image-url("assets/bg-frame.svg");
+        source: root.dark-color-scheme ? @image-url("assets/bg-frame.svg") : @image-url("assets/bg-frame-light.svg");
     }
 
     TouchArea {
@@ -65,14 +66,12 @@ export component EmptyWindow inherits Window {
             opacity: 0.5;
             Text {
                 text: "Slint 1.17.0";
-                color: white;
                 font-size: 14px;
                 font-weight: 400;
             }
 
             Text {
                 text: "Viewer v0.0.3";
-                color: white;
                 font-size: 12px;
                 font-weight: 400;
             }
