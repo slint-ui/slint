@@ -494,7 +494,7 @@ fn lower_element_layout(
 }
 
 // to detect mixing auto and non-literal expressions in row/col values
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum RowColExpressionType {
     Auto, // not specified
     Literal,
@@ -511,6 +511,16 @@ impl RowColExpressionType {
             Some(_) => RowColExpressionType::RuntimeExpression,
         }
     }
+}
+
+/// Two views of the running auto-vs-runtime classification as we walk a
+/// GridLayout's children. See the call site in `lower_grid_layout` for why we
+/// keep both: the lenient view is the only signal that a given conflict was
+/// previously accepted (and so should be a warning rather than an error).
+#[derive(Default)]
+struct NumberingTypes {
+    strict: Option<RowColExpressionType>,
+    lenient: Option<RowColExpressionType>,
 }
 
 fn lower_grid_layout(
@@ -555,7 +565,24 @@ fn lower_grid_layout(
     let layout_children = std::mem::take(&mut grid_layout_element.borrow_mut().children);
     let mut collected_children = Vec::new();
     let mut new_row = false; // true until the first child of a Row, or the first item after an empty Row
-    let mut numbering_type: Option<RowColExpressionType> = None;
+    // The consistency check runs two classifications in parallel:
+    //
+    //   `strict`  — looks one level into a `for`/`if`'s sub-component for
+    //               row/col bindings that `repeater_component` moved off the
+    //               wrapper. This matches what the layout solver actually
+    //               consumes.
+    //   `lenient` — ignores those moved bindings, i.e. the same classification
+    //               the consistency check used to perform.
+    //
+    // Some layouts that *should* have been rejected as auto-vs-runtime mixes
+    // slipped through historically: the wrapper looked Auto from the outside
+    // because its bindings had been moved into a sub-component, so the check
+    // never saw the conflict. We can't simply error on every such input
+    // because real `.slint` files written against the old behavior are out
+    // there. Instead we keep both views and only emit a hard error when the
+    // lenient view would also have flagged the mix; cases the lenient view
+    // missed are downgraded to a warning so existing code keeps compiling.
+    let mut numbering_type = NumberingTypes::default();
     let mut num_cached_items: usize = 0;
     for layout_child in layout_children {
         let is_repeated_row = {
@@ -628,7 +655,7 @@ fn lower_grid_layout(
         }
     }
     grid_layout_element.borrow_mut().children = collected_children;
-    grid.uses_auto = numbering_type == Some(RowColExpressionType::Auto);
+    grid.uses_auto = numbering_type.strict == Some(RowColExpressionType::Auto);
     let span = grid_layout_element.borrow().to_source_location();
 
     layout_organized_data_prop.element().borrow_mut().bindings.insert(
@@ -704,59 +731,157 @@ impl GridLayout {
         layout_cache_prop_h: &NamedReference,
         layout_cache_prop_v: &NamedReference,
         organized_data_prop: &NamedReference,
-        numbering_type: &mut Option<RowColExpressionType>,
+        numbering_type: &mut NumberingTypes,
         diag: &mut BuildDiagnostics,
         num_cached_items: &mut usize,
     ) {
         // Some compile-time checks
         {
+            // Returns (strict, lenient, is_number_literal):
+            //
+            //   `strict`  - the binding the layout solver will see at runtime,
+            //               looking one level into a repeater wrapper's
+            //               sub-component when needed.
+            //   `lenient` - the binding visible directly on the wrapper, which
+            //               is empty for repeater wrappers because their
+            //               bindings have been moved into the sub-component.
+            //
+            // The two only differ for a repeater wrapper that had a row/col
+            // binding on its body; everywhere else they are equal. We hand
+            // both to the consistency check so it can tell apart cases that
+            // were already wrong before this code changed from cases that were
+            // only just unmasked.
+            //
+            // `is_number_literal` describes the strict expression. It is safe
+            // to share one flag because either direct == strict (the binding
+            // was on the wrapper) or direct is None (in which case the lenient
+            // classification will be Auto regardless of the flag).
             let mut check_expr = |name: &str| {
                 let mut is_number_literal = false;
-                let expr = item_element.borrow_mut().bindings.get(name).map(|e| {
-                    let expr = &e.borrow().expression;
-                    is_number_literal =
-                        check_number_literal_is_positive_integer(expr, name, &*e.borrow(), diag);
-                    expr.clone()
-                });
-                (expr, is_number_literal)
+                let mut read = |elem: &ElementRc, lit: &mut bool| -> Option<Expression> {
+                    let b = elem.borrow().bindings.get(name).cloned()?;
+                    let b_borrow = b.borrow();
+                    if !b_borrow.has_binding() {
+                        return None;
+                    }
+                    *lit = check_number_literal_is_positive_integer(
+                        &b_borrow.expression,
+                        name,
+                        &*b_borrow,
+                        diag,
+                    );
+                    Some(b_borrow.expression.clone())
+                };
+                let lenient = read(item_element, &mut is_number_literal);
+                let strict = if lenient.is_some() {
+                    lenient.clone()
+                } else if item_element.borrow().repeated.is_some()
+                    && let ElementType::Component(base) = item_element.borrow().base_type.clone()
+                {
+                    read(&base.root_element, &mut is_number_literal)
+                } else {
+                    None
+                };
+                (strict, lenient, is_number_literal)
             };
 
-            let (row_expr, row_is_number_literal) = check_expr("row");
-            let (col_expr, col_is_number_literal) = check_expr("col");
+            let (row_strict, row_lenient, row_lit) = check_expr("row");
+            let (col_strict, col_lenient, col_lit) = check_expr("col");
             check_expr("rowspan");
             check_expr("colspan");
 
-            let mut check_numbering_consistency =
-                |expr_type: RowColExpressionType, prop_name: &str| {
-                    if !matches!(expr_type, RowColExpressionType::Literal) {
-                        if let Some(current_numbering_type) = numbering_type {
-                            if *current_numbering_type != expr_type {
-                                let element_ref = item_element.borrow();
-                                let span: &dyn Spanned =
-                                    if let Some(binding) = element_ref.bindings.get(prop_name) {
-                                        &*binding.borrow()
-                                    } else {
-                                        &*element_ref
-                                    };
-                                diag.push_error(
-                                    format!("Cannot mix auto-numbering and runtime expressions for the '{prop_name}' property"),
-                                    span,
-                                );
-                            }
-                        } else {
-                            // Store the first auto or runtime expression case we see
-                            *numbering_type = Some(expr_type);
-                        }
+            // Returns true iff a classification of `ty`, compared against the
+            // already-recorded numbering `num`, would have errored under the
+            // historical rule (set on the first non-Literal element; mismatch
+            // after that is the mix).
+            let would_conflict = |num: &Option<RowColExpressionType>,
+                                  ty: &RowColExpressionType|
+             -> bool {
+                !matches!(ty, RowColExpressionType::Literal) && matches!(num, Some(t) if t != ty)
+            };
+
+            // Classify each axis into the diagnostic it would produce, and
+            // immediately fold its non-Literal types into `numbering_type` so
+            // an intra-element mix (row Runtime + col Auto on the same
+            // wrapper) still trips when the second axis is checked.
+            let mut classify_and_update =
+                |strict: RowColExpressionType, lenient: RowColExpressionType| -> Option<bool> {
+                    let diag = if would_conflict(&numbering_type.strict, &strict) {
+                        // true ↔ strict-and-lenient conflict ↔ this was
+                        // already wrong under the old check, so it stays an
+                        // error; false ↔ strict-only conflict ↔ warning.
+                        Some(would_conflict(&numbering_type.lenient, &lenient))
+                    } else {
+                        None
+                    };
+                    // Record the first non-Literal value seen for each view,
+                    // even after a conflict — once set, never overwritten,
+                    // matching the historical check's behavior.
+                    if numbering_type.strict.is_none()
+                        && !matches!(strict, RowColExpressionType::Literal)
+                    {
+                        numbering_type.strict = Some(strict);
                     }
+                    if numbering_type.lenient.is_none()
+                        && !matches!(lenient, RowColExpressionType::Literal)
+                    {
+                        numbering_type.lenient = Some(lenient);
+                    }
+                    diag
                 };
 
-            let row_expr_type =
-                RowColExpressionType::from_option_expr(&row_expr, row_is_number_literal);
-            check_numbering_consistency(row_expr_type, "row");
+            let row_strict_ty = RowColExpressionType::from_option_expr(&row_strict, row_lit);
+            let row_lenient_ty = RowColExpressionType::from_option_expr(&row_lenient, row_lit);
+            let col_strict_ty = RowColExpressionType::from_option_expr(&col_strict, col_lit);
+            let col_lenient_ty = RowColExpressionType::from_option_expr(&col_lenient, col_lit);
 
-            let col_expr_type =
-                RowColExpressionType::from_option_expr(&col_expr, col_is_number_literal);
-            check_numbering_consistency(col_expr_type, "col");
+            let row_diag = classify_and_update(row_strict_ty, row_lenient_ty);
+            let col_diag = classify_and_update(col_strict_ty, col_lenient_ty);
+
+            // Pick the most severe diagnostic across both axes. `Some(true)`
+            // (error) wins over `Some(false)` (warning); ties prefer row for
+            // a stable, source-order span.
+            let report = match (row_diag, col_diag) {
+                (Some(true), _) => Some(("row", true)),
+                (_, Some(true)) => Some(("col", true)),
+                (Some(false), _) => Some(("row", false)),
+                (_, Some(false)) => Some(("col", false)),
+                _ => None,
+            };
+
+            if let Some((prop_name, is_error)) = report {
+                // Pick the tightest span we can: a binding on the wrapper if
+                // there is one, otherwise the same binding inside the
+                // repeater's sub-component root, otherwise the wrapper as a
+                // whole.
+                let element_ref = item_element.borrow();
+                let inner_borrow = match &element_ref.base_type {
+                    ElementType::Component(base) if element_ref.repeated.is_some() => {
+                        Some(base.root_element.clone())
+                    }
+                    _ => None,
+                };
+                let direct_binding = element_ref.bindings.get(prop_name).cloned();
+                let inner_binding =
+                    inner_borrow.as_ref().and_then(|e| e.borrow().bindings.get(prop_name).cloned());
+                let binding = direct_binding.or(inner_binding);
+                let binding_borrow = binding.as_ref().map(|b| b.borrow());
+                let span: &dyn Spanned = match &binding_borrow {
+                    Some(b) => &**b,
+                    None => &*element_ref,
+                };
+                if is_error {
+                    diag.push_error(
+                        format!("Cannot mix auto-numbering and runtime expressions for the '{prop_name}' property"),
+                        span,
+                    );
+                } else {
+                    diag.push_warning(
+                        format!("Cannot mix auto-numbering and runtime expressions for the '{prop_name}' property. This was accepted by previous versions of Slint, but may become an error in the future"),
+                        span,
+                    );
+                }
+            }
         }
 
         let propref = |name: &'static str| -> Option<RowColExpr> {
