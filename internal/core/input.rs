@@ -2984,7 +2984,7 @@ mod tests {
         for (desc, parts, expected_key, mods, is, ia) in cases {
             let result =
                 Keys::from_parts(parts.iter().copied()).unwrap_or_else(|e| panic!("{desc}: {e}"));
-            assert_eq!(result, make_keys((*expected_key).into(), *mods, *is, *ia), "{desc}");
+            assert_eq!(result, make_keys((*expected_key).into(), *mods, *is, *ia, false), "{desc}");
         }
     }
 
