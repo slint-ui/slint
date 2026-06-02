@@ -88,6 +88,9 @@ async-compat = { version = "0.2.4", optional = true }
 anyhow = { version = "1.0.100", optional = true }
 tracing = { workspace = true, optional = true }
 
+[dev-dependencies]
+tempfile = "3"
+
 [target.'cfg(not(any(target_vendor = "apple", target_arch = "wasm32")))'.dependencies]
 mdns-sd = { version = "0.17.0", default-features = false, features = ["async"], optional = true }
 

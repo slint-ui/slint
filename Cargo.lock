@@ -10888,6 +10888,7 @@ dependencies = [
  "shlex",
  "slint-interpreter",
  "smol_str 0.3.2",
+ "tempfile",
  "tikv-jemallocator",
  "tokio",
  "tracing",
