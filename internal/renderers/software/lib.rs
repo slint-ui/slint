@@ -1232,23 +1232,37 @@ impl RendererSealed for SoftwareRenderer {
             return Err("take_snapshot() called on window with invalid size".into());
         };
 
-        let mut target_buffer =
-            SharedPixelBuffer::<i_slint_core::graphics::Rgb8Pixel>::new(size.width, size.height);
+        // Render into a premultiplied buffer so that windows with a transparent
+        // or semi-transparent background end up with the right alpha in the
+        // snapshot. PremultipliedRgbaColor::background() is (0,0,0,0), so
+        // anything the window doesn't paint stays fully transparent.
+        let mut premul = SharedPixelBuffer::<PremultipliedRgbaColor>::new(size.width, size.height);
 
         let old_repaint_buffer_type = self.repaint_buffer_type();
         // ensure that caches are clear
         self.set_repaint_buffer_type(RepaintBufferType::NewBuffer);
-        self.render(target_buffer.make_mut_slice(), size.width as usize);
+        self.render(premul.make_mut_slice(), size.width as usize);
         self.set_repaint_buffer_type(old_repaint_buffer_type);
 
         let mut target_buffer_with_alpha =
-            SharedPixelBuffer::<Rgba8Pixel>::new(target_buffer.width(), target_buffer.height());
-        for (target_pixel, source_pixel) in target_buffer_with_alpha
-            .make_mut_slice()
-            .iter_mut()
-            .zip(target_buffer.as_slice().iter())
+            SharedPixelBuffer::<Rgba8Pixel>::new(premul.width(), premul.height());
+        for (target_pixel, source_pixel) in
+            target_buffer_with_alpha.make_mut_slice().iter_mut().zip(premul.as_slice().iter())
         {
-            *target_pixel.rgb_mut() = *source_pixel;
+            // Un-premultiply: straight RGBA is what the public API exposes (and
+            // what PNG encoders expect). Round half up to keep `255 * a / a == 255`.
+            let a = source_pixel.alpha;
+            if a == 0 {
+                *target_pixel = Rgba8Pixel::new(0, 0, 0, 0);
+            } else {
+                let unp = |c: u8| ((c as u32 * 255 + (a as u32 / 2)) / a as u32).min(255) as u8;
+                *target_pixel = Rgba8Pixel::new(
+                    unp(source_pixel.red),
+                    unp(source_pixel.green),
+                    unp(source_pixel.blue),
+                    a,
+                );
+            }
         }
         Ok(target_buffer_with_alpha)
     }
