@@ -81,6 +81,9 @@ const defaultValue_ = defaultValue
 if (!defaultValue_ && !isOutput) {
     console.error("No defaultValue for:", propName);
 }
+if (defaultValue && isOutput) {
+    console.error("defaultValue set on out property:", propName);
+}
 
 if ((enumName || structName) && !Astro.slots.has("default")) {
     throw new Error(
