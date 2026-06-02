@@ -484,6 +484,7 @@ QXGA
 radiobuttontile
 Raleway
 Randriana
+rasterizer
 rasterizes
 RBUTTONUP
 rects

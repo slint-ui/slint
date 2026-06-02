@@ -3,6 +3,8 @@
 
 #![doc = include_str!("README.md")]
 
+mod screenshot;
+
 use clap::Parser;
 use i_slint_compiler::ComponentSelection;
 use itertools::Itertools;
@@ -101,6 +103,16 @@ struct Cli {
     #[arg(long, value_name = "json file", action)]
     save_data: Option<std::path::PathBuf>,
 
+    /// Render the component to an image file and exit instead of opening a window.
+    /// The file format is inferred from the extension (e.g. .png, .jpg).
+    /// Use `-` to write a PNG to standard output. The component is rendered at its
+    /// preferred size with a headless renderer (Skia's software rasterizer when the
+    /// `renderer-skia` feature is enabled, otherwise Slint's software renderer); pass
+    /// `--backend` to pick another renderer. Set `SLINT_SCALE_FACTOR` to override the
+    /// default scale factor of 1. Incompatible with `--auto-reload` and `--remote`.
+    #[arg(long, value_name = "image file", action)]
+    screenshot: Option<std::path::PathBuf>,
+
     /// Specify callbacks handler.
     /// The first argument is the callback name, and the second argument is a string that is going
     /// to be passed to the shell to be executed. Occurrences of `$1` will be replaced by the first argument,
@@ -142,6 +154,22 @@ fn main() -> Result<()> {
     #[cfg(not(all(target_os = "ios", feature = "remote")))]
     let args = Cli::parse();
 
+    if args.screenshot.is_some() {
+        if args.auto_reload {
+            eprintln!("Cannot pass both --auto-reload and --screenshot");
+            std::process::exit(-1);
+        }
+        if args.save_data.is_some() {
+            eprintln!("Cannot pass both --save-data and --screenshot");
+            std::process::exit(-1);
+        }
+        #[cfg(feature = "remote")]
+        if args.remote {
+            eprintln!("Cannot pass both --remote and --screenshot");
+            std::process::exit(-1);
+        }
+    }
+
     #[cfg(feature = "remote")]
     if args.remote {
         slint_viewer::remote::run(args.remote_address, true)?;
@@ -164,6 +192,10 @@ fn main() -> Result<()> {
             dirname,
         )?;
     };
+
+    if args.screenshot.is_some() {
+        return screenshot::take_screenshot(&args);
+    }
 
     let compiler = init_compiler(&args);
 
