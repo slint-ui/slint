@@ -5,6 +5,7 @@
     {
       "languageId": "rust",
       "words": [
+        "Backquote",
         "bbox",
         "bindgen",
         "boxshadowcache",
