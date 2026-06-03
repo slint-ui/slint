@@ -9,7 +9,7 @@ export {
     Brush,
     DataTransfer,
     StyledText,
-    Keys
+    Keys,
 } from "../rust-module.cjs";
 
 import { Model } from "./models";
