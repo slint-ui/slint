@@ -1483,6 +1483,9 @@ fn at_key_like_completions(ctx: &mut LookupCtx, physical: bool) -> Vec<Completio
             };
         }
         i_slint_common::for_each_physical_keys!(add_physical_key_completions);
+        for modifier in ["Control", "Alt", "Shift", "Meta"] {
+            push_key(modifier);
+        }
     } else {
         let keys = i_slint_compiler::lookup::KeysLookup;
         keys.for_each_entry(ctx, &mut |label, _expr| -> Option<()> {
@@ -2282,7 +2285,18 @@ mod tests {
             }
         "#;
         let res = get_completions(source).unwrap();
-        for label in ["A", "Digit1", "BackQuote", "LeftArrow", "Shift?", "Alt?"] {
+        for label in [
+            "A",
+            "Digit1",
+            "BackQuote",
+            "LeftArrow",
+            "Shift?",
+            "Alt?",
+            "Control",
+            "Alt",
+            "Shift",
+            "Meta",
+        ] {
             res.iter().find(|ci| ci.label == label).unwrap();
         }
         assert!(!res.iter().any(|ci| ci.label == "Plus"));
