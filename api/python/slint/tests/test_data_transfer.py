@@ -179,10 +179,10 @@ def test_callback_round_trip() -> None:
     source.set_plain_text("payload")
     echoed = instance.invoke_global("Api", "identity", source)
     assert isinstance(echoed, DataTransfer)
-    assert echoed.plain_text() == "payload"
+    assert echoed.plain_text == "payload"
 
     built = instance.invoke_global("Api", "set_plain", "constructed")
     assert isinstance(built, DataTransfer)
-    assert built.plain_text() == "constructed"
+    assert built.plain_text == "constructed"
 
     assert instance.invoke_global("Api", "get_plain", built) == "constructed"
