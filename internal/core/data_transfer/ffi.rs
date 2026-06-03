@@ -68,10 +68,10 @@ pub extern "C" fn slint_data_transfer_eq(a: &DataTransfer, b: &DataTransfer) -> 
     a == b
 }
 
-/// Set the plaintext representation of `d` to a clone of `text`.
+/// Set the plain text representation of `d` to a clone of `text`.
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_data_transfer_set_plaintext(d: &mut DataTransfer, text: &SharedString) {
-    d.set_plaintext(text.clone());
+pub extern "C" fn slint_data_transfer_set_plain_text(d: &mut DataTransfer, text: &SharedString) {
+    d.set_plain_text(text.clone());
 }
 
 /// Set the image representation of `d` to a clone of `image`.
@@ -80,10 +80,10 @@ pub extern "C" fn slint_data_transfer_set_image(d: &mut DataTransfer, image: &Im
     d.set_image(image.clone());
 }
 
-/// Returns `true` if `d` advertises a plaintext representation.
+/// Returns `true` if `d` advertises a plain text representation.
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_data_transfer_has_plaintext(d: &DataTransfer) -> bool {
-    d.has_plaintext()
+pub extern "C" fn slint_data_transfer_has_plain_text(d: &DataTransfer) -> bool {
+    d.has_plain_text()
 }
 
 /// Returns `true` if `d` advertises an image representation.
@@ -92,22 +92,22 @@ pub extern "C" fn slint_data_transfer_has_image(d: &DataTransfer) -> bool {
     d.has_image()
 }
 
-/// Returns `true` if `d` carries no data: no plaintext, no image, and no user data.
+/// Returns `true` if `d` carries no data: no plain text, no image, and no user data.
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_data_transfer_is_empty(d: &DataTransfer) -> bool {
     d.is_empty()
 }
 
-/// If `d` has a plaintext representation, write a clone of it into `out` and
+/// If `d` has a plain text representation, write a clone of it into `out` and
 /// return `true`. Otherwise leave `out` unchanged and return `false`.
 ///
 /// `out` must point to an initialized `SharedString`.
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_data_transfer_fetch_plaintext(
+pub extern "C" fn slint_data_transfer_plain_text(
     d: &DataTransfer,
     out: &mut SharedString,
 ) -> bool {
-    match d.fetch_plaintext() {
+    match d.plain_text() {
         Ok(s) => {
             *out = s;
             true
@@ -121,8 +121,8 @@ pub extern "C" fn slint_data_transfer_fetch_plaintext(
 ///
 /// `out` must point to an initialized `Image`.
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_data_transfer_fetch_image(d: &DataTransfer, out: &mut Image) -> bool {
-    match d.fetch_image() {
+pub extern "C" fn slint_data_transfer_image(d: &DataTransfer, out: &mut Image) -> bool {
+    match d.image() {
         Ok(i) => {
             *out = i;
             true

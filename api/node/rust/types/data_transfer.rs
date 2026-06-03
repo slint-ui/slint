@@ -82,24 +82,24 @@ impl SlintDataTransfer {
         Self { inner: DataTransfer::default() }
     }
 
-    /// Sets the plaintext representation of this `DataTransfer`. Calling this again
-    /// overwrites the previous plaintext.
+    /// Sets the plain text representation of this `DataTransfer`. Calling this again
+    /// overwrites the previous plain text.
     #[napi]
-    pub fn set_plaintext(&mut self, text: String) {
-        self.inner.set_plaintext(text.into());
+    pub fn set_plain_text(&mut self, text: String) {
+        self.inner.set_plain_text(text.into());
     }
 
-    /// Returns the plaintext representation of this `DataTransfer`, or `null` if no
-    /// plaintext is available.
+    /// Returns the plain text representation of this `DataTransfer`, or `null` if no
+    /// plain text is available.
     #[napi]
-    pub fn fetch_plaintext(&self) -> Option<String> {
-        self.inner.fetch_plaintext().ok().map(|s| s.to_string())
+    pub fn plain_text(&self) -> Option<String> {
+        self.inner.plain_text().ok().map(|s| s.to_string())
     }
 
-    /// `true` if this `DataTransfer` advertises a plaintext representation.
+    /// `true` if this `DataTransfer` advertises a plain text representation.
     #[napi(getter)]
-    pub fn has_plaintext(&self) -> bool {
-        self.inner.has_plaintext()
+    pub fn has_plain_text(&self) -> bool {
+        self.inner.has_plain_text()
     }
 
     /// Sets the image representation of this `DataTransfer`. Calling this again
@@ -112,8 +112,8 @@ impl SlintDataTransfer {
     /// Returns the image representation of this `DataTransfer`, or `null` if no
     /// image is available.
     #[napi]
-    pub fn fetch_image(&self) -> Option<SlintImageData> {
-        self.inner.fetch_image().ok().map(SlintImageData::from)
+    pub fn image(&self) -> Option<SlintImageData> {
+        self.inner.image().ok().map(SlintImageData::from)
     }
 
     /// `true` if this `DataTransfer` advertises an image representation.
@@ -122,7 +122,7 @@ impl SlintDataTransfer {
         self.inner.has_image()
     }
 
-    /// `true` if this `DataTransfer` carries no data: no plaintext, no image, and no
+    /// `true` if this `DataTransfer` carries no data: no plain text, no image, and no
     /// user data.
     #[napi(getter)]
     pub fn is_empty(&self) -> bool {
@@ -131,7 +131,7 @@ impl SlintDataTransfer {
 
     /// Application-internal user data attached to this `DataTransfer`. Use this
     /// when the drag-and-drop or clipboard operation stays inside the current
-    /// JavaScript application and you want to avoid serializing to plaintext or
+    /// JavaScript application and you want to avoid serializing to plain text or
     /// an image.
     ///
     /// Reading returns the JavaScript value previously assigned, or `null` if
@@ -180,7 +180,7 @@ impl SlintDataTransfer {
 
     /// Returns `true` if this `DataTransfer` equals `other`. Two transfers
     /// compare equal when one is an unmodified clone of the other; any
-    /// modification (including overwriting plaintext, image, or user data with
+    /// modification (including overwriting plain text, image, or user data with
     /// the same value) makes them unequal.
     #[napi]
     pub fn equals(&self, other: &SlintDataTransfer) -> bool {

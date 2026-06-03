@@ -12,19 +12,19 @@ from slint import slint as native
 
 def test_default_is_empty() -> None:
     dt = DataTransfer()
-    assert dt.has_plaintext is False
+    assert dt.has_plain_text is False
     assert dt.has_image is False
-    assert dt.fetch_plaintext() is None
-    assert dt.fetch_image() is None
+    assert dt.plain_text() is None
+    assert dt.image() is None
     assert dt.user_data is None
     assert dt.is_empty is True
 
 
-def test_plaintext_round_trip() -> None:
+def test_plain_text_round_trip() -> None:
     dt = DataTransfer()
-    dt.set_plaintext("Hello, World!")
-    assert dt.has_plaintext is True
-    assert dt.fetch_plaintext() == "Hello, World!"
+    dt.set_plain_text("Hello, World!")
+    assert dt.has_plain_text is True
+    assert dt.plain_text() == "Hello, World!"
     assert dt.is_empty is False
 
 
@@ -42,11 +42,11 @@ def test_is_empty_after_user_data() -> None:
     assert dt.is_empty is False
 
 
-def test_set_plaintext_overwrites() -> None:
+def test_set_plain_text_overwrites() -> None:
     dt = DataTransfer()
-    dt.set_plaintext("first")
-    dt.set_plaintext("second")
-    assert dt.fetch_plaintext() == "second"
+    dt.set_plain_text("first")
+    dt.set_plain_text("second")
+    assert dt.plain_text() == "second"
 
 
 def test_image_round_trip() -> None:
@@ -55,7 +55,7 @@ def test_image_round_trip() -> None:
     dt = DataTransfer()
     dt.set_image(image)
     assert dt.has_image is True
-    fetched = dt.fetch_image()
+    fetched = dt.image()
     assert fetched is not None
     assert fetched.width == image.width
     assert fetched.height == image.height
@@ -99,12 +99,12 @@ def test_user_data_assign_none_clears() -> None:
     assert dt.user_data is None
 
 
-def test_plaintext_and_user_data_coexist() -> None:
+def test_plain_text_and_user_data_coexist() -> None:
     dt = DataTransfer()
-    dt.set_plaintext("hello")
+    dt.set_plain_text("hello")
     dt.user_data = {"k": 1}
-    assert dt.has_plaintext is True
-    assert dt.fetch_plaintext() == "hello"
+    assert dt.has_plain_text is True
+    assert dt.plain_text() == "hello"
     assert dt.user_data == {"k": 1}
 
 
@@ -115,13 +115,13 @@ def test_equality() -> None:
     # unequal — equality is identity-based on the inner content, so two transfers
     # holding distinct payloads are different.
     b = DataTransfer()
-    b.set_plaintext("payload")
+    b.set_plain_text("payload")
     assert a != b
 
 
 def test_repr() -> None:
     dt = DataTransfer()
-    dt.set_plaintext("hi")
+    dt.set_plain_text("hi")
     text = repr(dt)
     assert text.startswith("DataTransfer(")
 
@@ -169,22 +169,22 @@ def test_callback_round_trip() -> None:
 
     def make(text: str) -> DataTransfer:
         out = DataTransfer()
-        out.set_plaintext(text)
+        out.set_plain_text(text)
         return out
 
     instance.set_global_callback("Api", "set_plain", make)
     instance.set_global_callback(
-        "Api", "get_plain", lambda dt: dt.fetch_plaintext() or ""
+        "Api", "get_plain", lambda dt: dt.plain_text() or ""
     )
 
     source = DataTransfer()
-    source.set_plaintext("payload")
+    source.set_plain_text("payload")
     echoed = instance.invoke_global("Api", "identity", source)
     assert isinstance(echoed, DataTransfer)
-    assert echoed.fetch_plaintext() == "payload"
+    assert echoed.plain_text() == "payload"
 
     built = instance.invoke_global("Api", "set_plain", "constructed")
     assert isinstance(built, DataTransfer)
-    assert built.fetch_plaintext() == "constructed"
+    assert built.plain_text() == "constructed"
 
     assert instance.invoke_global("Api", "get_plain", built) == "constructed"

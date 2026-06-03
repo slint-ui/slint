@@ -30,8 +30,8 @@ public:
     /// Default constructor for `DataTransfer`
     DataTransfer() { cbindgen_private::types::slint_data_transfer_init_default(this); }
 
-    /// Constructs a `DataTransfer` whose plaintext representation is \a string.
-    explicit DataTransfer(const SharedString &string) : DataTransfer() { set_plaintext(string); }
+    /// Constructs a `DataTransfer` whose plain text representation is \a string.
+    explicit DataTransfer(const SharedString &string) : DataTransfer() { set_plain_text(string); }
 
     /// Constructs a `DataTransfer` whose image representation is \a image. Conversion to the
     /// relevant format is done on-demand.
@@ -71,11 +71,11 @@ public:
         return *this;
     }
 
-    /// Sets the plaintext representation of this `DataTransfer`. Each `DataTransfer` can only
-    /// have a single plaintext representation; calling this again overwrites the previous one.
-    void set_plaintext(const SharedString &text)
+    /// Sets the plain text representation of this `DataTransfer`. Each `DataTransfer` can only
+    /// have a single plain text representation; calling this again overwrites the previous one.
+    void set_plain_text(const SharedString &text)
     {
-        cbindgen_private::types::slint_data_transfer_set_plaintext(this, &text);
+        cbindgen_private::types::slint_data_transfer_set_plain_text(this, &text);
     }
 
     /// Sets the image representation of this `DataTransfer`. Each `DataTransfer` can only have
@@ -85,25 +85,25 @@ public:
         cbindgen_private::types::slint_data_transfer_set_image(this, &image.data);
     }
 
-    /// Returns `true` if this data transfer advertises a plaintext representation.
-    bool has_plaintext() const
+    /// Returns `true` if this data transfer advertises a plain text representation.
+    bool has_plain_text() const
     {
-        return cbindgen_private::types::slint_data_transfer_has_plaintext(this);
+        return cbindgen_private::types::slint_data_transfer_has_plain_text(this);
     }
 
     /// Returns `true` if this data transfer advertises an image representation.
     bool has_image() const { return cbindgen_private::types::slint_data_transfer_has_image(this); }
 
-    /// Returns `true` if this `DataTransfer` carries no data: no plaintext, no image,
+    /// Returns `true` if this `DataTransfer` carries no data: no plain text, no image,
     /// and no user data.
     bool is_empty() const { return cbindgen_private::types::slint_data_transfer_is_empty(this); }
 
-    /// Returns the plaintext representation of this `DataTransfer`, or `std::nullopt` if no
-    /// plaintext representation is available.
-    std::optional<SharedString> fetch_plaintext() const
+    /// Returns the plain text representation of this `DataTransfer`, or `std::nullopt` if no
+    /// plain text representation is available.
+    std::optional<SharedString> plain_text() const
     {
         SharedString out;
-        if (cbindgen_private::types::slint_data_transfer_fetch_plaintext(this, &out)) {
+        if (cbindgen_private::types::slint_data_transfer_plain_text(this, &out)) {
             return out;
         }
         return std::nullopt;
@@ -111,10 +111,10 @@ public:
 
     /// Returns the image representation of this `DataTransfer`, or `std::nullopt` if no image
     /// representation is available.
-    std::optional<Image> fetch_image() const
+    std::optional<Image> image() const
     {
         Image out;
-        if (cbindgen_private::types::slint_data_transfer_fetch_image(this, &out.data)) {
+        if (cbindgen_private::types::slint_data_transfer_image(this, &out.data)) {
             return out;
         }
         return std::nullopt;
