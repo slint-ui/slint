@@ -103,10 +103,7 @@ pub extern "C" fn slint_data_transfer_is_empty(d: &DataTransfer) -> bool {
 ///
 /// `out` must point to an initialized `SharedString`.
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_data_transfer_plain_text(
-    d: &DataTransfer,
-    out: &mut SharedString,
-) -> bool {
+pub extern "C" fn slint_data_transfer_plain_text(d: &DataTransfer, out: &mut SharedString) -> bool {
     match d.plain_text() {
         Ok(s) => {
             *out = s;

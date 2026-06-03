@@ -173,9 +173,7 @@ def test_callback_round_trip() -> None:
         return out
 
     instance.set_global_callback("Api", "set_plain", make)
-    instance.set_global_callback(
-        "Api", "get_plain", lambda dt: dt.plain_text() or ""
-    )
+    instance.set_global_callback("Api", "get_plain", lambda dt: dt.plain_text() or "")
 
     source = DataTransfer()
     source.set_plain_text("payload")
