@@ -89,10 +89,8 @@ macro_rules! generate_builtin_structs_pyi {
 i_slint_common::for_each_builtin_structs!(generate_builtin_structs_pyi);
 
 /// Convert a Rust CamelCase variant identifier (e.g. `NoDrop`) into the kebab-case string
-/// the Slint runtime stores in `Enumeration::values` (e.g. `"no-drop"`). Matches the helper
-/// in `i_slint_compiler::generator::to_kebab_case` and is reused for Python member names
-/// — kebab-case lowercases to a valid Python identifier as long as no `-` appears (the
-/// current public set is single-word only).
+/// the Slint runtime stores in `Enumeration::values` (e.g. `"no-drop"`).
+/// Matches the helper in `i_slint_compiler::generator::to_kebab_case`.
 fn to_kebab_case(s: &str) -> String {
     let mut out = Vec::with_capacity(s.len());
     for b in s.as_bytes() {
@@ -136,7 +134,8 @@ macro_rules! generate_public_enums_pyi {
                     writeln!(writer, "").unwrap();
                     $({
                         let kebab = to_kebab_case(stringify!($Value));
-                        writeln!(writer, "    {} = \"{}\"", kebab, kebab).unwrap();
+                        let member_name = kebab.replace('-', "_");
+                        writeln!(writer, "    {} = \"{}\"", member_name, kebab).unwrap();
                         let value_doc_lines: Vec<&str> = vec![$($value_doc),*];
                         let value_doc = value_doc_lines.join("\n").trim().to_string();
                         if !value_doc.is_empty() {
