@@ -95,7 +95,7 @@ class MainWindow(slint.loader.kanban.MainWindow):
                 del self._columns[source][source_index]
                 self._columns[target_column].insert(target_index, payload.task)
         else:
-            text = event.data.plain_text()
+            text = event.data.plain_text
             if text is not None:
                 self._columns[target_column].insert(target_index, TaskData(title=text))
 

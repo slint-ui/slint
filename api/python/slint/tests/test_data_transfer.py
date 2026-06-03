@@ -14,8 +14,8 @@ def test_default_is_empty() -> None:
     dt = DataTransfer()
     assert dt.has_plain_text is False
     assert dt.has_image is False
-    assert dt.plain_text() is None
-    assert dt.image() is None
+    assert dt.plain_text is None
+    assert dt.image is None
     assert dt.user_data is None
     assert dt.is_empty is True
 
@@ -24,7 +24,7 @@ def test_plain_text_round_trip() -> None:
     dt = DataTransfer()
     dt.set_plain_text("Hello, World!")
     assert dt.has_plain_text is True
-    assert dt.plain_text() == "Hello, World!"
+    assert dt.plain_text == "Hello, World!"
     assert dt.is_empty is False
 
 
@@ -46,7 +46,7 @@ def test_set_plain_text_overwrites() -> None:
     dt = DataTransfer()
     dt.set_plain_text("first")
     dt.set_plain_text("second")
-    assert dt.plain_text() == "second"
+    assert dt.plain_text == "second"
 
 
 def test_image_round_trip() -> None:
@@ -55,7 +55,7 @@ def test_image_round_trip() -> None:
     dt = DataTransfer()
     dt.set_image(image)
     assert dt.has_image is True
-    fetched = dt.image()
+    fetched = dt.image
     assert fetched is not None
     assert fetched.width == image.width
     assert fetched.height == image.height
@@ -104,7 +104,7 @@ def test_plain_text_and_user_data_coexist() -> None:
     dt.set_plain_text("hello")
     dt.user_data = {"k": 1}
     assert dt.has_plain_text is True
-    assert dt.plain_text() == "hello"
+    assert dt.plain_text == "hello"
     assert dt.user_data == {"k": 1}
 
 
@@ -173,7 +173,7 @@ def test_callback_round_trip() -> None:
         return out
 
     instance.set_global_callback("Api", "set_plain", make)
-    instance.set_global_callback("Api", "get_plain", lambda dt: dt.plain_text() or "")
+    instance.set_global_callback("Api", "get_plain", lambda dt: dt.plain_text or "")
 
     source = DataTransfer()
     source.set_plain_text("payload")

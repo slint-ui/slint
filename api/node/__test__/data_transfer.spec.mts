@@ -9,8 +9,8 @@ test("default DataTransfer is empty", () => {
     const dt = new DataTransfer();
     expect(dt.hasPlainText).toBe(false);
     expect(dt.hasImage).toBe(false);
-    expect(dt.plainText()).toBeNull();
-    expect(dt.image()).toBeNull();
+    expect(dt.plainText).toBeNull();
+    expect(dt.image).toBeNull();
     expect(dt.userData).toBeNull();
     expect(dt.isEmpty).toBe(true);
 });
@@ -19,7 +19,7 @@ test("DataTransfer plain text round-trip", () => {
     const dt = new DataTransfer();
     dt.setPlainText("Hello, World!");
     expect(dt.hasPlainText).toBe(true);
-    expect(dt.plainText()).toBe("Hello, World!");
+    expect(dt.plainText).toBe("Hello, World!");
     expect(dt.isEmpty).toBe(false);
 });
 
@@ -40,7 +40,7 @@ test("DataTransfer setPlainText overwrites", () => {
     const dt = new DataTransfer();
     dt.setPlainText("first");
     dt.setPlainText("second");
-    expect(dt.plainText()).toBe("second");
+    expect(dt.plainText).toBe("second");
 });
 
 test("DataTransfer image round-trip", () => {
@@ -48,7 +48,7 @@ test("DataTransfer image round-trip", () => {
     const dt = new DataTransfer();
     dt.setImage(image);
     expect(dt.hasImage).toBe(true);
-    const fetched = dt.image();
+    const fetched = dt.image;
     expect(fetched).not.toBeNull();
     expect(fetched!.width).toBe(image.width);
     expect(fetched!.height).toBe(image.height);
@@ -103,7 +103,7 @@ test("DataTransfer plain text and userData coexist", () => {
     dt.setPlainText("hello");
     dt.userData = { k: 1 };
     expect(dt.hasPlainText).toBe(true);
-    expect(dt.plainText()).toBe("hello");
+    expect(dt.plainText).toBe("hello");
     expect(dt.userData).toEqual({ k: 1 });
 });
 
@@ -133,15 +133,15 @@ test("DataTransfer round-trips through Slint callbacks", () => {
         out.setPlainText(text);
         return out;
     };
-    app.Api.get_plain = (dt) => dt.plainText() ?? "";
+    app.Api.get_plain = (dt) => dt.plainText ?? "";
 
     const source = new DataTransfer();
     source.setPlainText("payload");
     const echoed = app.Api.identity(source);
-    expect(echoed.plainText()).toBe("payload");
+    expect(echoed.plainText).toBe("payload");
 
     const built = app.Api.make_plain("constructed");
-    expect(built.plainText()).toBe("constructed");
+    expect(built.plainText).toBe("constructed");
 
     expect(app.Api.get_plain(built)).toBe("constructed");
 });

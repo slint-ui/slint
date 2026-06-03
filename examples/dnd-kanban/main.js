@@ -85,7 +85,7 @@ appWindow.Api.dropped = (event, targetColumn, targetIndex) => {
             columns[targetColumn].insert(targetIndex, payload.task);
         }
     } else if (event.data.hasPlainText) {
-        columns[targetColumn].insert(targetIndex, { title: event.data.plainText() });
+        columns[targetColumn].insert(targetIndex, { title: event.data.plainText });
     }
 };
 

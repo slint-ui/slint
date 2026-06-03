@@ -129,7 +129,7 @@ window.Api.string_to_transfer = (text) => {
 };
 
 // A helper for reading plain text from a `DataTransfer` is also supplied.
-window.Api.transfer_to_string = (data) => data.plainText() ?? "";
+window.Api.transfer_to_string = (data) => data.plainText ?? "";
 
 // This helper abstracts over various "plain text" MIME types
 window.Api.can_drop = (data) => data.hasPlainText;
@@ -152,7 +152,7 @@ class App(slint.loader.example.Example):
     # A helper for reading plain text from a `DataTransfer` is also supplied.
     @slint.callback(global_name="Api", name="transfer-to-string")
     def transfer_to_string(self, data: DataTransfer) -> str:
-        return data.plain_text() or ""
+        return data.plain_text or ""
 
     # This helper abstracts over various "plain text" MIME types
     @slint.callback(global_name="Api", name="can-drop")

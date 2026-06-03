@@ -33,8 +33,9 @@ impl PyDataTransfer {
         self.data_transfer.set_plain_text(text.into());
     }
 
-    /// Returns the plain text representation of this `DataTransfer`, or `None` if no plain text
+    /// The plain text representation of this `DataTransfer`, or `None` if no plain text
     /// is available.
+    #[getter]
     fn plain_text(&self) -> Option<String> {
         self.data_transfer.plain_text().ok().map(|s| s.to_string())
     }
@@ -51,8 +52,9 @@ impl PyDataTransfer {
         self.data_transfer.set_image(image.image.clone());
     }
 
-    /// Returns the image representation of this `DataTransfer`, or `None` if no image is
+    /// The image representation of this `DataTransfer`, or `None` if no image is
     /// available.
+    #[getter]
     fn image(&self) -> Option<crate::image::PyImage> {
         self.data_transfer.image().ok().map(crate::image::PyImage::from)
     }

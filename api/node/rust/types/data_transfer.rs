@@ -89,9 +89,9 @@ impl SlintDataTransfer {
         self.inner.set_plain_text(text.into());
     }
 
-    /// Returns the plain text representation of this `DataTransfer`, or `null` if no
+    /// The plain text representation of this `DataTransfer`, or `null` if no
     /// plain text is available.
-    #[napi]
+    #[napi(getter)]
     pub fn plain_text(&self) -> Option<String> {
         self.inner.plain_text().ok().map(|s| s.to_string())
     }
@@ -109,9 +109,9 @@ impl SlintDataTransfer {
         self.inner.set_image(image.inner.clone());
     }
 
-    /// Returns the image representation of this `DataTransfer`, or `null` if no
+    /// The image representation of this `DataTransfer`, or `null` if no
     /// image is available.
-    #[napi]
+    #[napi(getter)]
     pub fn image(&self) -> Option<SlintImageData> {
         self.inner.image().ok().map(SlintImageData::from)
     }

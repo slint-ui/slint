@@ -89,11 +89,11 @@ class DataTransfer:
         the previous plain text.
         """
 
-    def plain_text(self) -> typing.Optional[str]:
-        r"""
-        Returns the plain text representation of this `DataTransfer`, or `None` if no plain text
-        is available.
-        """
+    plain_text: typing.Optional[str]
+    r"""
+    The plain text representation of this `DataTransfer`, or `None` if no plain text
+    is available.
+    """
 
     has_plain_text: bool
     r"""`True` if this `DataTransfer` advertises a plain text representation."""
@@ -104,11 +104,11 @@ class DataTransfer:
         previous image.
         """
 
-    def image(self) -> typing.Optional[Image]:
-        r"""
-        Returns the image representation of this `DataTransfer`, or `None` if no image is
-        available.
-        """
+    image: typing.Optional[Image]
+    r"""
+    The image representation of this `DataTransfer`, or `None` if no image is
+    available.
+    """
 
     has_image: bool
     r"""`True` if this `DataTransfer` advertises an image representation."""
