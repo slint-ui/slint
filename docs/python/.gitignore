@@ -3,7 +3,7 @@ src/content/docs/api/
 src/api-manifest.json
 src/version.json
 
-# cargo-about output (run via `pnpm thirdparty`)
+# third-party license output (run via `pnpm thirdparty`)
 src/content/docs/generated/
 
 # build output
