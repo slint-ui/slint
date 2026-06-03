@@ -18,7 +18,6 @@
 /// CMake options.
 namespace slint::testing {
 
-using slint::cbindgen_private::AccessibleRole;
 using slint::cbindgen_private::LayoutKind;
 
 /// Init the testing backend.
@@ -221,7 +220,7 @@ public:
 
     /// Returns the value of the element's `accessible-role` property, if present. Use this property
     /// to locate elements by their type/role, i.e. buttons, checkboxes, etc.
-    std::optional<slint::testing::AccessibleRole> accessible_role() const
+    std::optional<slint::language::AccessibleRole> accessible_role() const
     {
         if (inner.element_index != 0)
             return std::nullopt;
