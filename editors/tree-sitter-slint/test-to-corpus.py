@@ -85,7 +85,7 @@ parser.add_argument(
     "--corpus-directory",
     dest="corpus_dir",
     action="store",
-    default="./corpus",
+    default="./test/corpus/gen",
     help="The directory containing the corpus data",
 )
 

@@ -16,6 +16,9 @@ src/tree_sitter/alloc.h
 src/tree_sitter/array.h
 src/tree_sitter/parser.h
 
+# Tests generated with ./test-to-corpus.py
+test/corpus/gen
+
 # Ignore generated artifacts
 *.so
 *.so.*

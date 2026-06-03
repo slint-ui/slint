@@ -20,12 +20,11 @@ component Test {
         (simple_identifier)
         (imperative_block))
       (callback_event
-        (function_call
-          (simple_identifier)
-          (arguments
-            (argument
-              (expression
-                (simple_identifier)))))
+        (simple_identifier)
+        (arguments
+          (argument
+            (expression
+              (simple_identifier))))
         (imperative_block))
       (changed_event
         (simple_identifier)
