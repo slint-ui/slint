@@ -611,6 +611,7 @@ component ComplexText inherits SimpleText {
     /// ```
     /// \default false
     in property <bool> font-italic;
+    in property <string> font-features;
     /// How the text should behave when it exceeds the available space.
     in property <TextOverflow> overflow;
     /// ```slint "wrap: word-wrap;" imageAlt="wrap" width="200" height="200" needsBackground
@@ -721,6 +722,7 @@ component StyledTextItem inherits Empty {
     in property <string> default-font-family;
     /// The default font size used to render the text, when no size is specified via markup. If unset (or zero), the value falls back to the enclosing `Window`'s `default-font-size`.
     in property <length> default-font-size;
+    in property <string> default-font-features;
     /// The horizontal alignment of the text.
     in property <TextHorizontalAlignment> horizontal-alignment;
     /// The color used for rendering links in the text.
@@ -1515,6 +1517,7 @@ component WindowItem {
     in property <length> default-font-size;
     /// The font weight to use as default in text elements inside this window, that don't have their `font-weight` property set. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight. Use the <Link type="FontWeight" /> namespace for predefined constants.
     in property <int> default-font-weight;
+    in property <string> default-font-features;
     /// The window icon shown in the title bar or the task bar on window managers supporting it.
     in property <image> icon;
     /// Whether the window should be borderless/frameless or not.
@@ -1631,6 +1634,7 @@ export component TextInput {
     in property <bool> font-italic;
     /// The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
     in property <int> font-weight;
+    in property <string> font-features;
     /// The color of the text.
     /// \default depends on the style
     in property <brush> color; // StyleMetrics.default-text-color  set in apply_default_properties_from_style
@@ -2808,7 +2812,8 @@ export global Platform {
     /// to the top of the window stack. On other platforms this function is a no-op.
     ///
     /// This corresponds to the standard macOS **Window › Bring All to Front** menu item.
-    function bring-all-to-front() { }
+    function bring-all-to-front() {
+    }
     /// The decimal separator currently used for localized float to string and vice versa conversions
     /// For more information about localization and how to change the decimal separator see <Link type="translations" label="translations page"/>.
     out property <string> decimal-separator;

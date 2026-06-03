@@ -937,6 +937,7 @@ fn visit_implicit_layout_info_dependencies(
             vis(&NamedReference::new(item, SmolStr::new_static("font-family")).into(), N);
             vis(&NamedReference::new(item, SmolStr::new_static("font-size")).into(), N);
             vis(&NamedReference::new(item, SmolStr::new_static("font-weight")).into(), N);
+            vis(&NamedReference::new(item, SmolStr::new_static("font-features")).into(), N);
             vis(&NamedReference::new(item, SmolStr::new_static("letter-spacing")).into(), N);
             vis(&NamedReference::new(item, SmolStr::new_static("wrap")).into(), N);
             let wrap_set = item.borrow().is_binding_set("wrap", false)

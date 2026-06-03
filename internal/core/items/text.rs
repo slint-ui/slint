@@ -56,6 +56,7 @@ pub struct ComplexText {
 
     pub font_family: Property<SharedString>,
     pub font_italic: Property<bool>,
+    pub font_features: Property<SharedString>,
     pub wrap: Property<TextWrap>,
     pub overflow: Property<TextOverflow>,
     pub letter_spacing: Property<LogicalLength>,
@@ -174,6 +175,7 @@ impl HasFont for ComplexText {
             self.font_size(),
             self.letter_spacing(),
             self.font_italic(),
+            self.font_features(),
         )
     }
 }
@@ -242,6 +244,7 @@ pub struct StyledTextItem {
     pub default_color: Property<Brush>,
     pub default_font_size: Property<LogicalLength>,
     pub default_font_family: Property<SharedString>,
+    pub default_font_features: Property<SharedString>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
     pub link_clicked: Callback<StringArg>,
@@ -397,6 +400,7 @@ impl HasFont for StyledTextItem {
             self.default_font_size(),
             Default::default(),
             Default::default(),
+            self.default_font_features(),
         )
     }
 }
@@ -464,6 +468,7 @@ pub struct SimpleText {
     pub text: Property<SharedString>,
     pub font_size: Property<LogicalLength>,
     pub font_weight: Property<i32>,
+    pub font_features: Property<SharedString>,
     pub color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
@@ -580,6 +585,7 @@ impl HasFont for SimpleText {
             self.font_size(),
             LogicalLength::default(),
             false,
+            self.font_features(),
         )
     }
 }
@@ -754,6 +760,7 @@ pub struct TextInput {
     pub font_size: Property<LogicalLength>,
     pub font_weight: Property<i32>,
     pub font_italic: Property<bool>,
+    pub font_features: Property<SharedString>,
     pub color: Property<Brush>,
     pub selection_foreground_color: Property<Color>,
     pub selection_background_color: Property<Color>,
@@ -1289,6 +1296,7 @@ impl HasFont for TextInput {
             self.font_size(),
             self.letter_spacing(),
             self.font_italic(),
+            self.font_features(),
         )
     }
 }

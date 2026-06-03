@@ -101,6 +101,8 @@ pub struct FontRequest {
     pub letter_spacing: Option<LogicalLength>,
     /// Whether to select an italic face of the font family.
     pub italic: bool,
+    /// The comma-delimited OpenType font features to be used, such as "'tnum', 'kern'". Parsed according to the CSS grammar.
+    pub features: Option<SharedString>,
 }
 
 #[cfg(feature = "shared-fontique")]
