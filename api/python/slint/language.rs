@@ -7,12 +7,11 @@
 //! * `pub struct` declarations (via `for_each_builtin_structs!`) become
 //!   `collections.namedtuple` classes with documented defaults.
 //! * `pub enum` declarations (via `for_each_enums!`) become `enum.Enum`
-//!   subclasses whose member name and value are the kebab-case strings the
-//!   Slint runtime expects.
+//!   subclasses whose member `name` is a Python-safe identifier and whose
+//!   `value` is the kebab-case string the Slint runtime expects.
 //!
 //! Both kinds are registered as attributes of the `slint.language` submodule.
 
-use i_slint_compiler::generator::python::ident;
 use i_slint_compiler::generator::to_kebab_case;
 use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
@@ -84,30 +83,31 @@ fn register_named_tuple(
 }
 
 /// Dynamically creates a Python `enum.Enum` subclass and registers it in the
-/// `slint.language` submodule. Each variant becomes a member whose name AND value
-/// are the kebab-case string the Slint runtime expects (`ColorScheme.dark.value`
-/// is `"dark"`). The interpreter's enum round-trip already keys off
-/// `member.name`, so name == value keeps the existing path working without any
-/// changes to `value.rs`.
+/// `slint.language` submodule.
+/// Each variant becomes a member whose `name` is a Python-safe identifier
+/// (dashes replaced with underscores) and whose `value` is the kebab-case string
+/// the Slint runtime expects (`AccessibleRole.radio_button.value` is `"radio-button"`).
+/// The interpreter's enum round-trip in `value.rs` keys off `member.value`,
+/// so multi-word variants round-trip correctly.
 fn register_enum_class(
     py: Python<'_>,
     m: &Bound<'_, PyModule>,
     class_name: &str,
     class_doc: &str,
-    variants: &[(String, String)], // (python_member_name, variant_doc)
+    variants: &[(String, String, String)], // (python_member_name, kebab_value, variant_doc)
 ) -> PyResult<()> {
     let enum_mod = py.import("enum")?;
     let enum_ctor = enum_mod.getattr("Enum")?;
 
     let members: Vec<(String, String)> =
-        variants.iter().map(|(name, _)| (name.clone(), name.clone())).collect();
+        variants.iter().map(|(name, value, _)| (name.clone(), value.clone())).collect();
 
     let kwargs = PyDict::new(py);
     kwargs.set_item("module", "slint.language")?;
     let class = enum_ctor.call((class_name, members), Some(&kwargs))?;
 
     let mut full_doc = class_doc.to_string();
-    for (name, doc) in variants {
+    for (name, _, doc) in variants {
         if !doc.is_empty() {
             use std::fmt::Write;
             let _ = write!(full_doc, "\n\n* ``{name}``: {doc}");
@@ -150,15 +150,15 @@ macro_rules! declare_python_public_structs {
 i_slint_common::for_each_builtin_structs!(declare_python_public_structs);
 
 /// Walks `for_each_enums!` and registers every `pub enum` as an `enum.Enum`
-/// subclass on `slint.language`. Private enums are skipped.
+/// subclass on `slint.language`.
+/// Private enums are skipped.
 ///
-/// Each variant's Python member name is the kebab-case string the Slint runtime expects
-/// (so `member.name == member.value`). The interpreter's enum round-trip in `value.rs`
-/// sends `member.name`, so keeping name == value here avoids touching that code path.
-/// Multi-word variants would need a different strategy (kebab isn't a valid Python
-/// identifier), but the current public set is single-word only — if a multi-word variant
-/// ever joins, `register_enum_class` will need to convert to snake case for the name and
-/// consumers will need `member.value` instead.
+/// Each variant's Python member name is a Python-safe identifier derived from the
+/// kebab-case form (dashes replaced with underscores), and the value is the kebab-case
+/// string the Slint runtime expects.
+/// For single-word variants name and value coincide (`ColorScheme.dark.value == "dark"`);
+/// for multi-word variants they differ (`AccessibleRole.radio_button.value == "radio-button"`).
+/// The interpreter's enum round-trip in `value.rs` keys off `member.value`.
 macro_rules! declare_python_public_enums {
     ($(
         $(#[doc = $enum_doc:literal])*
@@ -172,15 +172,19 @@ macro_rules! declare_python_public_enums {
                 if stringify!($vis) == "pub" {
                     let class_doc_lines: Vec<&str> = vec![$($enum_doc),*];
                     let class_doc = class_doc_lines.join("\n");
-                    let variants: Vec<(String, String)> = vec![
+                    let variants: Vec<(String, String, String)> = vec![
                         $(
-                            (
-                                ident(to_kebab_case(stringify!($Value)).as_str()).to_string(),
-                                {
-                                    let value_doc_lines: Vec<&str> = vec![$($value_doc),*];
-                                    value_doc_lines.join("\n")
-                                },
-                            ),
+                            {
+                                let kebab = to_kebab_case(stringify!($Value));
+                                (
+                                    kebab.replace('-', "_"),
+                                    kebab,
+                                    {
+                                        let value_doc_lines: Vec<&str> = vec![$($value_doc),*];
+                                        value_doc_lines.join("\n")
+                                    },
+                                )
+                            },
                         )*
                     ];
                     register_enum_class(py, m, stringify!($Name), &class_doc, &variants)?;
