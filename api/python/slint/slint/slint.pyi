@@ -113,6 +113,12 @@ class DataTransfer:
     has_image: bool
     r"""`True` if this `DataTransfer` advertises an image representation."""
 
+    is_empty: bool
+    r"""
+    `True` if this `DataTransfer` carries no data: no plaintext, no image, and no
+    user data.
+    """
+
     user_data: typing.Optional[object]
     r"""
     Application-internal user data attached to this `DataTransfer`. Use this when the

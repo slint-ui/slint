@@ -12,6 +12,7 @@ test("default DataTransfer is empty", () => {
     expect(dt.fetchPlaintext()).toBeNull();
     expect(dt.fetchImage()).toBeNull();
     expect(dt.userData).toBeNull();
+    expect(dt.isEmpty).toBe(true);
 });
 
 test("DataTransfer plaintext round-trip", () => {
@@ -19,6 +20,20 @@ test("DataTransfer plaintext round-trip", () => {
     dt.setPlaintext("Hello, World!");
     expect(dt.hasPlaintext).toBe(true);
     expect(dt.fetchPlaintext()).toBe("Hello, World!");
+    expect(dt.isEmpty).toBe(false);
+});
+
+test("DataTransfer isEmpty after setImage", () => {
+    const image = new private_api.SlintImageData(4, 4);
+    const dt = new DataTransfer();
+    dt.setImage(image);
+    expect(dt.isEmpty).toBe(false);
+});
+
+test("DataTransfer isEmpty after userData", () => {
+    const dt = new DataTransfer();
+    dt.userData = { k: 1 };
+    expect(dt.isEmpty).toBe(false);
 });
 
 test("DataTransfer setPlaintext overwrites", () => {

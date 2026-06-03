@@ -28,6 +28,8 @@ All notable changes to this project are documented in this file.
  - ListView: Fixed drag with differing height items
  - Windows: Treat Shift+F10 as menu key
  - Fixed per-corner radii for drop shadows
+ - Upgraded fontique and parley to 0.10: The `unstable-fontique-09` Cargo feature is renamed to
+   `unstable-fontique-010`, and the `slint::fontique_09` module to `slint::fontique_010`.
 
 ### Slint language
 
@@ -35,7 +37,7 @@ All notable changes to this project are documented in this file.
  - Added `align-items` property to `VerticalLayout` and `HorizontalLayout` for cross-axis alignment. (#2587)
  - Added two-way bindings to model row data. (#2013)
  - `@markdown()`: Fixed interpolation in link URLs and colors
- - Added `accessible-orientation` and `accessible-live` properties
+ - Added `accessible-orientation` and `accessible-live-region` properties
  - Added `DragArea` and `DropArea` elements for drag and drop support within a window.
  - Added `data-transfer` type
  - Deprecated calling `init()` explicitly (#11696)

@@ -1415,7 +1415,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                 let timer = slint::Timer::default();
                 timer.start(
                     slint::TimerMode::SingleShot,
-                    core::time::Duration::from_millis(50),
+                    i_slint_live_preview::REBUILD_DEBOUNCE,
                     || {
                         let _ = slint::spawn_local(reload_timer_function());
                     },

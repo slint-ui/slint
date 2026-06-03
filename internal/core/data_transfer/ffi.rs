@@ -92,6 +92,12 @@ pub extern "C" fn slint_data_transfer_has_image(d: &DataTransfer) -> bool {
     d.has_image()
 }
 
+/// Returns `true` if `d` carries no data: no plaintext, no image, and no user data.
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_data_transfer_is_empty(d: &DataTransfer) -> bool {
+    d.is_empty()
+}
+
 /// If `d` has a plaintext representation, write a clone of it into `out` and
 /// return `true`. Otherwise leave `out` unchanged and return `false`.
 ///

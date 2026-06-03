@@ -2131,19 +2131,21 @@ impl QtWindow {
         if let Some(buffer) = qimage_to_shared_pixel_buffer(image) {
             data.set_image(i_slint_core::graphics::Image::from_rgba8(buffer));
         }
-        let drop_event = DropEvent {
-            data,
-            position,
-            allow_copy,
-            allow_move,
-            allow_link,
-            proposed_action: qt_drop_action_to_slint(proposed),
-        };
+        let mut drop_event = DropEvent::default();
+        drop_event.data = data;
+        drop_event.position = position;
+        drop_event.allow_copy = allow_copy;
+        drop_event.allow_move = allow_move;
+        drop_event.allow_link = allow_link;
+        drop_event.proposed_action = qt_drop_action_to_slint(proposed);
         let mouse_event =
             if is_drop { MouseEvent::Drop(drop_event) } else { MouseEvent::DragMove(drop_event) };
         let chosen = WindowInner::from_pub(&self.window).process_mouse_input(mouse_event);
         timer_event();
-        chosen.map(slint_drag_action_to_qt).unwrap_or(key_generated::Qt_DropAction_IgnoreAction)
+        chosen
+            .and_then(|r| r.drag_action)
+            .map(slint_drag_action_to_qt)
+            .unwrap_or(key_generated::Qt_DropAction_IgnoreAction)
     }
 
     fn key_event(&self, key: i32, text: qttypes::QString, released: bool, repeat: bool) {
@@ -2553,9 +2555,13 @@ impl WindowAdapterInternal for QtWindow {
             width: props.cursor_rect_size.width as _,
             height: props.cursor_rect_size.height as _,
         };
-        let cursor: i32 = props.text[..props.cursor_position].encode_utf16().count() as _;
-        let anchor: i32 =
-            props.anchor_position.map_or(cursor, |a| props.text[..a].encode_utf16().count() as _);
+        let cursor: i32 = i_slint_common::unicode_utils::byte_offset_to_utf16_offset(
+            &props.text,
+            props.cursor_position,
+        ) as _;
+        let anchor: i32 = props.anchor_position.map_or(cursor, |a| {
+            i_slint_common::unicode_utils::byte_offset_to_utf16_offset(&props.text, a) as _
+        });
         let text: qttypes::QString = props.text.as_str().into();
         cpp! {unsafe [widget_ptr as "SlintWidget*", rect as "QRectF", cursor as "int", anchor as "int", text as "QString"]  {
             widget_ptr->ime_position = rect.toRect();

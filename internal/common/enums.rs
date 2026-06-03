@@ -337,6 +337,10 @@ macro_rules! for_each_enums {
                 Number,
                 /// This will accept and render characters if it's valid part of a decimal
                 Decimal,
+                /// This identifies the input field as a search box. Characters are rendered normally,
+                /// but assistive technologies are informed that the field is used for searching or
+                /// filtering content.
+                Search,
             }
 
             /// Enum representing the `alignment` property of a
@@ -531,11 +535,11 @@ macro_rules! for_each_enums {
                 Search,
             }
 
-            /// This enum represents the different values of the `accessible-live` property.
+            /// This enum represents the different values of the `accessible-live-region` property.
             /// It indicates that an element is a live region whose content changes should be
             /// announced by assistive technologies.
             #[non_exhaustive]
-            enum AccessibleLive {
+            enum AccessibleLiveRegion {
                 /// The element is not a live region.
                 Off,
                 /// Updates are announced when the user is idle.
@@ -547,7 +551,7 @@ macro_rules! for_each_enums {
             /// This enum represents the different values of the `sort-order` property.
             /// It's used to sort a `StandardTableView` by a column.
             #[non_exhaustive]
-            enum SortOrder {
+            pub enum SortOrder {
                 /// The column is unsorted.
                 Unsorted,
 
@@ -615,21 +619,6 @@ macro_rules! for_each_enums {
 
                 /// Does not close the `PopupWindow` automatically when user clicks.
                 NoAutoClose,
-            }
-
-            /// This enum describes where a `ToolTip` is placed relative to the hovered element.
-            #[non_exhaustive]
-            enum ToolTipPlacement {
-                /// Place the tooltip at the current mouse pointer position.
-                Pointer,
-                /// Place the tooltip centered above the hovered element.
-                AboveElement,
-                /// Place the tooltip centered below the hovered element.
-                BelowElement,
-                /// Place the tooltip centered left of the hovered element.
-                LeftElement,
-                /// Place the tooltip centered right of the hovered element.
-                RightElement,
             }
 
             /// This enum describes the appearance of the ends of stroked paths.

@@ -38,7 +38,7 @@ fn enums(path: &Path) -> anyhow::Result<()> {
         (Orientation) => {
             Some(None)
         };
-        (AccessibleLive) => {
+        (AccessibleLiveRegion) => {
             Some(None)
         };
         (AccessibleRole) => {
@@ -326,7 +326,6 @@ fn gen_corelib(
         "ClippedImage",
         "TouchArea",
         "TooltipArea",
-        "ToolTip",
         "FocusScope",
         "KeyBinding",
         "SwipeGestureHandler",
@@ -373,7 +372,6 @@ fn gen_corelib(
         "PointerEvent",
         "PointerScrollEvent",
         "Rect",
-        "SortOrder",
         "BitmapFont",
         "DataTransferOpaque",
     ]
@@ -416,6 +414,7 @@ fn gen_corelib(
         "slint_data_transfer_set_image",
         "slint_data_transfer_has_plaintext",
         "slint_data_transfer_has_image",
+        "slint_data_transfer_is_empty",
         "slint_data_transfer_fetch_plaintext",
         "slint_data_transfer_fetch_image",
         "slint_data_transfer_set_user_data",
@@ -589,6 +588,7 @@ fn gen_corelib(
                 "slint_data_transfer_set_image",
                 "slint_data_transfer_has_plaintext",
                 "slint_data_transfer_has_image",
+                "slint_data_transfer_is_empty",
                 "slint_data_transfer_fetch_plaintext",
                 "slint_data_transfer_fetch_image",
                 "slint_data_transfer_set_user_data",

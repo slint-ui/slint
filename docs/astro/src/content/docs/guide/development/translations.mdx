@@ -96,7 +96,7 @@ Pass the `--no-default-translation-context` flag to `slint-tr-extractor` if you 
 
 <Tabs syncKey="dev-language">
 <TabItem label="C++" icon="cpp">
-Set the <LangRefLink lang="cpp" relpath="cmake_reference.html#bundle-translations">`SLINT_NO_DEFAULT_TRANSLATION_CONTEXT`</LangRefLink> target property on your CMake target.
+Set the <LangRefLink lang="cpp" relpath="cmake-reference/disable-default-translation-context/">`SLINT_NO_DEFAULT_TRANSLATION_CONTEXT`</LangRefLink> target property on your CMake target.
 </TabItem>
 <TabItem label="Rust" icon="rust">
 With <LangRefLink lang="rust-slint-build" relpath="struct.compilerconfiguration#method.set_default_translation_context">`slint_build::CompilerConfiguration::set_default_translation_context(slint_build::DefaultTranslationContext::None)`</LangRefLink>
@@ -257,7 +257,7 @@ path/<lang>/LC_MESSAGES/<domain>.po
 ### Bundling
 <Tabs syncKey="dev-language">
 <TabItem label="C++" icon="cpp">
-Set the <LangRefLink lang="cpp" relpath="cmake_reference.html#bundle-translations">`SLINT_BUNDLE_TRANSLATIONS`</LangRefLink> property in CMake:
+Set the <LangRefLink lang="cpp" relpath="cmake-reference/bundle-translations/">`SLINT_BUNDLE_TRANSLATIONS`</LangRefLink> property in CMake:
 
 ```cmake
 set_property(TARGET my_application PROPERTY SLINT_BUNDLE_TRANSLATIONS "${CMAKE_CURRENT_SOURCE_DIR}/lang")
@@ -290,13 +290,13 @@ if one of the bundled language matches the selected locale, it will be used.
 
 <Tabs syncKey="dev-language">
 <TabItem label="C++" icon="cpp">
-Use the <LangRefLink lang="cpp" relpath="api/function_namespaceslint_1a18aba736373254f5be3362941f3ddbcd.html#_CPPv4N5slint26select_bundled_translationENSt11string_viewE">`slint::select_bundled_translation`</LangRefLink> function to change translations at runtime.
+Use the <LangRefLink lang="cpp" relpath="api/slint/select-bundled-translation/">`slint::select_bundled_translation`</LangRefLink> function to change translations at runtime.
 </TabItem>
 <TabItem label="Rust" icon="rust">
 Use the <LangRefLink lang="rust-slint" relpath="fn.select_bundled_translation.html">`slint::select_bundled_translation`</LangRefLink> function to change translations at runtime.
 </TabItem>
 <TabItem label="Python">
-Use the <LangRefLink lang="python" relpath="slint#init_translations">`slint.init_translations()`</LangRefLink> function to change translations at runtime.
+Use the <LangRefLink lang="python" relpath="api/functions/init_translations/">`slint.init_translations()`</LangRefLink> function to change translations at runtime.
 </TabItem>
 </Tabs>
 

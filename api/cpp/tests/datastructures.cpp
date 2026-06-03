@@ -373,6 +373,7 @@ TEST_CASE("DataTransfer")
         DataTransfer a;
         DataTransfer b;
         REQUIRE(a == b);
+        REQUIRE(a.is_empty());
     }
 
     SECTION("Copy construction")
@@ -421,6 +422,7 @@ TEST_CASE("DataTransfer")
 
         a.set_plaintext(slint::SharedString("hello"));
         REQUIRE(a.has_plaintext());
+        REQUIRE(!a.is_empty());
         REQUIRE(a.fetch_plaintext() == slint::SharedString("hello"));
 
         // Overwrite.

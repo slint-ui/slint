@@ -2,19 +2,35 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export component EmptyWindow inherits Window {
+    // Friendly device name (e.g. "Simon's iPhone") this viewer advertises to editors.
+    in property <string> name;
     in property <string> address;
     in property <string> message;
 
-    HorizontalLayout {
-        alignment: center;
-        VerticalLayout {
-            alignment: center;
+    VerticalLayout {
+        alignment: start;
+        // Keep the name clear of the status bar / notch / Dynamic Island.
+        padding-top: root.safe-area-insets.top + 8px;
+        padding-bottom: root.safe-area-insets.bottom;
 
-            if message == "": Text {
-                text: address;
-            }
-            if message != "": Text {
-                text: message;
+        if name != "": Text {
+            text: name;
+            horizontal-alignment: center;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        HorizontalLayout {
+            alignment: center;
+            VerticalLayout {
+                alignment: center;
+
+                if message == "": Text {
+                    text: address;
+                }
+                if message != "": Text {
+                    text: message;
+                }
             }
         }
     }

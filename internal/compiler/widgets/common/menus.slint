@@ -3,7 +3,8 @@
 
 //! This file contains a generic implementation of the MenuBar and ContextMenu
 
-import { Palette, MenuBarItem, MenuBar, MenuFrame, MenuItem } from "std-widgets-impl.slint";
+import { Palette } from "style-base.slint";
+import { MenuBarItem, MenuBar, MenuFrame, MenuItem } from "menu.slint";
 
 export component PopupMenuImpl inherits Window {
     in property <[MenuEntry]> entries: [];

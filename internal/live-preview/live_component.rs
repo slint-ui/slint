@@ -297,7 +297,7 @@ impl Watcher {
                     std::mem::replace(&mut watcher.lock().unwrap().state, WatcherState::Changed)
                 {
                     // Wait a bit to let the time to write multiple files
-                    std::thread::sleep(std::time::Duration::from_millis(15));
+                    std::thread::sleep(crate::REBUILD_DEBOUNCE);
                     waker.wake();
                 }
             },

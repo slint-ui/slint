@@ -1,0 +1,128 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { RadioGroup } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    in-out property <int> selected-count: 0;
+    in-out property <string> last-selected;
+    in-out property <int> current-index <=> group.current-index;
+    in-out property <string> current-value <=> group.current-value;
+    out property <bool> has-focus <=> group.has-focus;
+
+    HorizontalLayout {
+        alignment: start;
+        group := RadioGroup {
+            title: "Colors";
+            current-index: -1;
+            model: [
+                { text: "Red" },
+                { text: "Green" },
+                { text: "Blue", disabled: true },
+            ];
+            selected(value) => {
+                root.selected-count += 1;
+                root.last-selected = value;
+            }
+        }
+    }
+}
+
+/*
+
+```rust
+use slint::platform::Key;
+use slint::platform::PointerEventButton;
+use slint::SharedString;
+use slint_testing::{AccessibleRole, Orientation};
+
+let instance = TestCase::new().unwrap();
+
+// Nothing is selected initially.
+assert_eq!(instance.get_current_index(), -1);
+assert_eq!(instance.get_selected_count(), 0);
+assert_eq!(instance.get_has_focus(), false);
+
+// The group exposes its accessibility properties, including orientation and the size of the set.
+let group = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Colors").next().unwrap();
+assert_eq!(group.accessible_role(), Some(AccessibleRole::RadioGroup));
+assert_eq!(group.accessible_orientation(), Some(Orientation::Vertical));
+assert_eq!(group.accessible_item_count(), Some(3));
+assert_eq!(group.accessible_enabled(), Some(true));
+// A radio group has no value of its own; the selection is conveyed by the checked button.
+assert_eq!(group.accessible_value(), None);
+
+// Each radio button exposes its role, checkable state and position in the set.
+let red = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Red").next().unwrap();
+let green = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Green").next().unwrap();
+let blue = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Blue").next().unwrap();
+assert_eq!(red.accessible_role(), Some(AccessibleRole::RadioButton));
+assert_eq!(red.accessible_checkable(), Some(true));
+assert_eq!(red.accessible_item_index(), Some(0));
+assert_eq!(green.accessible_item_index(), Some(1));
+assert_eq!(blue.accessible_item_index(), Some(2));
+assert_eq!(red.accessible_checked(), Some(false));
+assert_eq!(red.accessible_enabled(), Some(true));
+// The disabled entry is reported as disabled.
+assert_eq!(blue.accessible_enabled(), Some(false));
+
+// Tabbing into the group moves focus into it without changing the selection
+// (keyboard navigation with the arrow keys is not yet implemented).
+slint_testing::send_keyboard_string_sequence(&instance, &SharedString::from(Key::Tab));
+assert_eq!(instance.get_has_focus(), true);
+assert_eq!(instance.get_current_index(), -1);
+assert_eq!(instance.get_selected_count(), 0);
+assert_eq!(red.accessible_checked(), Some(false));
+
+// Clicking a radio button updates the selection.
+red.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(instance.get_current_value(), SharedString::from("Red"));
+assert_eq!(instance.get_selected_count(), 1);
+assert_eq!(instance.get_last_selected(), SharedString::from("Red"));
+assert_eq!(red.accessible_checked(), Some(true));
+
+// Clicking the already-checked radio button does not update the selection again.
+red.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(instance.get_selected_count(), 1);
+
+// Clicking another radio button updates the selection.
+green.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_current_index(), 1);
+assert_eq!(instance.get_current_value(), SharedString::from("Green"));
+assert_eq!(instance.get_selected_count(), 2);
+assert_eq!(instance.get_last_selected(), SharedString::from("Green"));
+assert_eq!(green.accessible_checked(), Some(true));
+assert_eq!(red.accessible_checked(), Some(false));
+
+// Clicking a disabled radio button does nothing.
+blue.mock_single_click(PointerEventButton::Left);
+assert_eq!(instance.get_current_index(), 1);
+assert_eq!(instance.get_selected_count(), 2);
+
+// The accessible default action selects a radio button and updates the checked state.
+red.invoke_accessible_default_action();
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(instance.get_selected_count(), 3);
+assert_eq!(instance.get_last_selected(), SharedString::from("Red"));
+assert_eq!(red.accessible_checked(), Some(true));
+assert_eq!(green.accessible_checked(), Some(false));
+
+// The accessible default action on the already-checked button does not update the selection again.
+red.invoke_accessible_default_action();
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(instance.get_selected_count(), 3);
+assert_eq!(red.accessible_checked(), Some(true));
+
+// The accessible default action does nothing on a disabled radio button.
+blue.invoke_accessible_default_action();
+assert_eq!(instance.get_current_index(), 0);
+assert_eq!(instance.get_selected_count(), 3);
+assert_eq!(blue.accessible_checked(), Some(false));
+```
+
+*/

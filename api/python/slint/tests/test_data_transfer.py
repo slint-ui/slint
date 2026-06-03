@@ -17,6 +17,7 @@ def test_default_is_empty() -> None:
     assert dt.fetch_plaintext() is None
     assert dt.fetch_image() is None
     assert dt.user_data is None
+    assert dt.is_empty is True
 
 
 def test_plaintext_round_trip() -> None:
@@ -24,6 +25,21 @@ def test_plaintext_round_trip() -> None:
     dt.set_plaintext("Hello, World!")
     assert dt.has_plaintext is True
     assert dt.fetch_plaintext() == "Hello, World!"
+    assert dt.is_empty is False
+
+
+def test_is_empty_after_image() -> None:
+    svg = b'<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"/>'
+    image = slint.Image.load_from_svg_data(list(svg))
+    dt = DataTransfer()
+    dt.set_image(image)
+    assert dt.is_empty is False
+
+
+def test_is_empty_after_user_data() -> None:
+    dt = DataTransfer()
+    dt.user_data = {"k": 1}
+    assert dt.is_empty is False
 
 
 def test_set_plaintext_overwrites() -> None:

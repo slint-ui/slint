@@ -11,6 +11,7 @@ component RadioButton {
     in property <string> label <=> base.label;
     in property <bool> enabled <=> base.enabled;
     in property <bool> checked <=> base.checked;
+    in property <int> item-index <=> base.item-index;
     out property <bool> has-focus <=> base.has-focus;
 
     callback selected <=> base.selected;
@@ -99,7 +100,8 @@ export component RadioGroup {
     accessible-role: radio-group;
     accessible-label: root.title;
     accessible-enabled: root.enabled;
-    accessible-value <=> root.current-value;
+    accessible-orientation: root.orientation;
+    accessible-item-count: root.model.length;
 
     VerticalLayout {
         spacing: 8px;
@@ -120,6 +122,7 @@ export component RadioGroup {
                 label: entry.text;
                 enabled: root.enabled && !entry.disabled;
                 checked: root.current-index == index;
+                item-index: index;
                 height: 32px;
 
                 focus-change(gained) => {

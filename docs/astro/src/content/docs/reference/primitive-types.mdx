@@ -229,7 +229,7 @@ For Rust applications, not all formats are enabled by default. Enable them with 
 
 <Tabs syncKey="dev-language">
 <TabItem label="C++">
-In C++, properties or struct fields of the image type are mapped to <LangRefLink lang="cpp" relpath="api/structslint_1_1Image">`slint::Image`</LangRefLink>.
+In C++, properties or struct fields of the image type are mapped to <LangRefLink lang="cpp" relpath="api/slint/image/">`slint::Image`</LangRefLink>.
 </TabItem>
 <TabItem label="Rust">
 In Rust, properties or struct fields of the image type are mapped to <LangRefLink lang="rust-slint" relpath="struct.Image">`slint::Image`</LangRefLink>.
@@ -238,11 +238,11 @@ Some image formats can be disabled using cargo features to reduce binary size an
 :::
 </TabItem>
 <TabItem label="NodeJS" >
-In JavaScript properties or struct fields of the image type are mapped an object that implement the <LangRefLink lang="nodejs" relpath="interfaces/ImageData.html">ImageData interface</LangRefLink>.
+In JavaScript properties or struct fields of the image type are mapped an object that implement the <LangRefLink lang="nodejs" relpath="api/interfaces/ImageData/">ImageData interface</LangRefLink>.
 </TabItem>
 
 <TabItem label="Python" >
-In Python, properties or struct fields of the image type are mapped to <LangRefLink lang="python" relpath="slint.html#Image">`Image`</LangRefLink>.
+In Python, properties or struct fields of the image type are mapped to <LangRefLink lang="python" relpath="api/classes/image/">`Image`</LangRefLink>.
 </TabItem>
 
 </Tabs>
