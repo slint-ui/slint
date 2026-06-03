@@ -179,17 +179,17 @@ assert_eq(instance.get_matches(), 5);
 ```js
 var instance = new slint.TestCase({});
 
-let ctrl_p = slintlib.private_api.SlintKeys.fromParts(["Control", "P"]);
-let ctrl_plus = slintlib.private_api.SlintKeys.fromParts(["Control", "Plus"]);
-let f5 = slintlib.private_api.SlintKeys.fromParts(["F5"]);
-let empty = slintlib.private_api.SlintKeys.fromParts([]);
+let ctrl_p = slintlib.Keys.fromParts(["Control", "P"]);
+let ctrl_plus = slintlib.Keys.fromParts(["Control", "Plus"]);
+let f5 = slintlib.Keys.fromParts(["F5"]);
+let empty = slintlib.Keys.fromParts([]);
 
 // Equality with compile-time @keys
 assert(ctrl_p.equals(instance.reference_shortcut));
 
 // Error cases
-assert.throws(() => slintlib.private_api.SlintKeys.fromParts(["Ctrl", "P"]));
-assert.throws(() => slintlib.private_api.SlintKeys.fromParts(["Control"]));
+assert.throws(() => slintlib.Keys.fromParts(["Ctrl", "P"]));
+assert.throws(() => slintlib.Keys.fromParts(["Control"]));
 
 const KEY_CONTROL = "\u0011";
 const KEY_SHIFT   = "\u0010";
