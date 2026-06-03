@@ -18,5 +18,10 @@ src/tree_sitter/parser.h
 
 # Ignore generated artifacts
 *.so
+*.so.*
+*.dylib
+*.dll
+*.o
+*.obj
 *.wasm
 *.a
