@@ -28,6 +28,8 @@ All notable changes to this project are documented in this file.
  - ListView: Fixed drag with differing height items
  - Windows: Treat Shift+F10 as menu key
  - Fixed per-corner radii for drop shadows
+ - Upgraded fontique and parley to 0.10: The `unstable-fontique-09` Cargo feature is renamed to
+   `unstable-fontique-010`, and the `slint::fontique_09` module to `slint::fontique_010`.
 
 ### Slint language
 

@@ -4,7 +4,7 @@
 export component Test inherits Window {
     Rectangle {
         Tooltip {
-            text: "Hello";
+            text: @markdown("Hello");
             x: 10px;
 //          ^error{Unknown property x in Tooltip}
             y: 20px;

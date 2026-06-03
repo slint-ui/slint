@@ -5,7 +5,7 @@ export component Test inherits Window {
     Rectangle {
         for x in 3: Tooltip {
 //                  >      <error{Tooltip cannot be in a `for` element}
-            text: "not allowed";
+            text: @markdown("not allowed");
         }
     }
 }

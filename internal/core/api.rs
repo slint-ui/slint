@@ -1234,10 +1234,6 @@ mod weak_handle {
 
 pub use weak_handle::*;
 
-/// This trait provides the necessary functionality for allowing creating strongly-referenced
-/// clones and conversion into a weak pointer for a Global slint component.
-///
-/// This trait is implemented by the [generated component](index.html#generated-components)
 /// Adds the specified function to an internal queue, notifies the event loop to wake up.
 /// Once woken up, any queued up functions will be invoked.
 ///
