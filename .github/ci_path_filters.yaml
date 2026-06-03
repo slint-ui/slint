@@ -56,8 +56,10 @@ docs_build:
  - *ci_config
 
 # Tree-sitter grammar
+# Also needs to be re-tested if any slint files in the corpus change
 tree_sitter:
  - 'editors/tree-sitter-slint/**'
+ - 'tests/cases/**/*.slint'
  - *ci_config
 
 figma_inspector:
