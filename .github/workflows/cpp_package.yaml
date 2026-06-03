@@ -52,10 +52,6 @@ jobs:
                   version: 6.2.2
                   cache: true
             - uses: ./.github/actions/setup-rust
-            - uses: baptiste0928/cargo-install@v3
-              with:
-                  crate: cargo-about
-                  version: "=0.6.6"
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
               working-directory: api/cpp/
@@ -101,10 +97,6 @@ jobs:
                   target: ${{ matrix.target }}
             - name: Install GNU Arm Embedded Toolchain
               run: sudo apt-get update && sudo apt-get install gcc-arm-none-eabi
-            - uses: baptiste0928/cargo-install@v3
-              with:
-                  crate: cargo-about
-                  version: "=0.6.6"
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
               working-directory: api/cpp/
@@ -157,10 +149,6 @@ jobs:
               run: |
                   source "$HOME/export-esp.sh"
                   echo "$PATH" >> "$GITHUB_PATH"
-            - uses: baptiste0928/cargo-install@v3
-              with:
-                  crate: cargo-about
-                  version: "=0.6.6"
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ${{ runner.workspace }}/cppbuild
               working-directory: api/cpp/
@@ -206,10 +194,6 @@ jobs:
         container: ghcr.io/slint-ui/slint/${{ matrix.rust_target }}-cpp
         steps:
             - uses: actions/checkout@v6
-            - uses: baptiste0928/cargo-install@v3
-              with:
-                  crate: cargo-about
-                  version: "=0.6.6"
             - name: Prepare licenses
               run: bash -x ../../scripts/prepare_binary_package.sh ../../build
               working-directory: api/cpp/

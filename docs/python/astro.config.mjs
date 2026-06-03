@@ -12,6 +12,7 @@ import {
     slintStarlightMarkdownRehypeExternalLinksOnly,
 } from "@slint/common-files/src/utils/starlight-site-defaults";
 import { slintStarlightSocial } from "@slint/common-files/src/utils/starlight-social";
+import { THIRDPARTY_MD_LINK } from "@slint/common-files/src/utils/thirdparty.ts";
 import {
     PYTHON_DOCS_BASE_PATH,
     PYTHON_DOCS_BASE_URL,
@@ -54,7 +55,15 @@ export default defineConfig({
                 slintStarlightLinksValidatorPlugin({
                     exclude: ({ link }) => {
                         const p = (link.split("?")[0] ?? "").trim();
-                        return p.startsWith("/#");
+                        return (
+                            p.startsWith("/#") ||
+                            // The Third-Party Licenses page links to its own raw
+                            // markdown sibling (served by the [...slug].md.ts
+                            // endpoint). The relative form resolves correctly
+                            // under any deployment base, but the validator only
+                            // sees it as a relative link.
+                            p === THIRDPARTY_MD_LINK
+                        );
                     },
                 }),
                 starlightExpandAllSidebarGroups(),
