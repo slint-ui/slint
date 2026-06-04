@@ -241,7 +241,7 @@ module.exports = grammar({
 
     anon_struct_assignment: ($) =>
       seq(
-        field("member", $.simple_identifier), 
+        field("member", $.simple_identifier),
         ":",
         field("value", $.expression)
       ),
@@ -303,7 +303,7 @@ module.exports = grammar({
     transitions_definition: ($) =>
       seq("transitions", "[", repeat($.in_out_transition), "]"),
 
-    state_definition: ($) => 
+    state_definition: ($) =>
       seq(
         field("name", $.simple_identifier),
         optional(seq("when", field("condition", $.expression))),
