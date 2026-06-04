@@ -63,8 +63,8 @@ fn main() -> Result<(), slint::PlatformError> {
             // Our own card: accept whatever modifier the user is holding.
             return event.proposed_action;
         }
-        if event.data.has_plaintext() {
-            // External plaintext drop: always treated as a copy.
+        if event.data.has_plain_text() {
+            // External plain text drop: always treated as a copy.
             return DragAction::Copy;
         }
         DragAction::None
@@ -110,7 +110,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     columns[source].remove(source_index);
                     columns[target].insert(target_index, payload.task.clone());
                 }
-            } else if let Ok(text) = event.data.fetch_plaintext() {
+            } else if let Ok(text) = event.data.plain_text() {
                 columns[target].insert(target_index, TaskData { title: text });
             }
         }

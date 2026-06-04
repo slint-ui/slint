@@ -93,15 +93,15 @@ The hovering target's chosen action is also exposed as `current-action`, useful 
 ```rust
 fn main() {
     let app = Example::new();
-    // For simple plaintext and image transfers, a simple conversion is supplied
+    // For simple plain text and image transfers, a simple conversion is supplied
     // which handles the common case.
     let api = app.global::<Api>();
     api.on_string_to_transfer(Into::into);
-    // A helper for reading plaintext from a `DataTransfer` is also supplied.
-    api.on_transfer_to_string(|data| data.fetch_plaintext().unwrap_or_default());
+    // A helper for reading plain text from a `DataTransfer` is also supplied.
+    api.on_transfer_to_string(|data| data.plain_text().unwrap_or_default());
     api.on_can_drop(|data| {
-        // This helper abstracts over various "plaintext" MIME types
-        data.has_plaintext()
+        // This helper abstracts over various "plain text" MIME types
+        data.has_plain_text()
     });
     // ...
 }
@@ -124,15 +124,15 @@ const window = new ui.Example();
 
 window.Api.string_to_transfer = (text) => {
     const transfer = new slint.DataTransfer();
-    transfer.setPlaintext(text);
+    transfer.plainText = text;
     return transfer;
 };
 
-// A helper for reading plaintext from a `DataTransfer` is also supplied.
-window.Api.transfer_to_string = (data) => data.fetchPlaintext() ?? "";
+// A helper for reading plain text from a `DataTransfer` is also supplied.
+window.Api.transfer_to_string = (data) => data.plainText ?? "";
 
-// This helper abstracts over various "plaintext" MIME types
-window.Api.can_drop = (data) => data.hasPlaintext;
+// This helper abstracts over various "plain text" MIME types
+window.Api.can_drop = (data) => data.hasPlainText;
 ```
 </TabItem>
 <TabItem label="Python">
@@ -146,18 +146,18 @@ class App(slint.loader.example.Example):
     @slint.callback(global_name="Api", name="string-to-transfer")
     def string_to_transfer(self, text: str) -> DataTransfer:
         transfer = DataTransfer()
-        transfer.set_plaintext(text)
+        transfer.plain_text = text
         return transfer
 
-    # A helper for reading plaintext from a `DataTransfer` is also supplied.
+    # A helper for reading plain text from a `DataTransfer` is also supplied.
     @slint.callback(global_name="Api", name="transfer-to-string")
     def transfer_to_string(self, data: DataTransfer) -> str:
-        return data.fetch_plaintext() or ""
+        return data.plain_text or ""
 
-    # This helper abstracts over various "plaintext" MIME types
+    # This helper abstracts over various "plain text" MIME types
     @slint.callback(global_name="Api", name="can-drop")
     def can_drop(self, data: DataTransfer) -> bool:
-        return data.has_plaintext
+        return data.has_plain_text
 ```
 </TabItem>
 </Tabs>

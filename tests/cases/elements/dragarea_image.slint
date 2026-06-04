@@ -50,7 +50,7 @@ use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton
 
 let instance = TestCase::new().unwrap();
 instance.on_string_to_transfer(Into::into);
-instance.on_can_drop(|data| data.has_plaintext());
+instance.on_can_drop(|data| data.has_plain_text());
 
 assert_eq!(instance.get_contains_drag(), false);
 
