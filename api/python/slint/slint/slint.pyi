@@ -83,31 +83,21 @@ class DataTransfer:
     def __new__(cls) -> "DataTransfer":
         r"""Constructs an empty `DataTransfer`."""
 
-    def set_plain_text(self, text: str) -> None:
-        r"""
-        Sets the plain text representation of this `DataTransfer`. Calling this again overwrites
-        the previous plain text.
-        """
-
     plain_text: typing.Optional[str]
     r"""
     The plain text representation of this `DataTransfer`, or `None` if no plain text
-    is available.
+    is available. Assigning `None` or the empty string clears any previously-set
+    plain text; assigning any other string overwrites it.
     """
 
     has_plain_text: bool
     r"""`True` if this `DataTransfer` advertises a plain text representation."""
 
-    def set_image(self, image: Image) -> None:
-        r"""
-        Sets the image representation of this `DataTransfer`. Calling this again overwrites the
-        previous image.
-        """
-
     image: typing.Optional[Image]
     r"""
     The image representation of this `DataTransfer`, or `None` if no image is
-    available.
+    available. Assigning `None` clears any previously-set image; assigning any
+    other image overwrites it.
     """
 
     has_image: bool

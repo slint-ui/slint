@@ -27,17 +27,17 @@ impl PyDataTransfer {
         Self { data_transfer: Default::default() }
     }
 
-    /// Sets the plain text representation of this `DataTransfer`. Calling this again overwrites
-    /// the previous plain text.
-    fn set_plain_text(&mut self, text: &str) {
-        self.data_transfer.set_plain_text(text.into());
-    }
-
     /// The plain text representation of this `DataTransfer`, or `None` if no plain text
-    /// is available.
+    /// is available. Assigning `None` or the empty string clears any previously-set
+    /// plain text; assigning any other string overwrites it.
     #[getter]
     fn plain_text(&self) -> Option<String> {
         self.data_transfer.plain_text().ok().map(|s| s.to_string())
+    }
+
+    #[setter]
+    fn set_plain_text(&mut self, text: Option<&str>) {
+        self.data_transfer.set_plain_text(text.unwrap_or_default().into());
     }
 
     /// `True` if this `DataTransfer` advertises a plain text representation.
@@ -46,17 +46,17 @@ impl PyDataTransfer {
         self.data_transfer.has_plain_text()
     }
 
-    /// Sets the image representation of this `DataTransfer`. Calling this again overwrites the
-    /// previous image.
-    fn set_image(&mut self, image: &crate::image::PyImage) {
-        self.data_transfer.set_image(image.image.clone());
-    }
-
     /// The image representation of this `DataTransfer`, or `None` if no image is
-    /// available.
+    /// available. Assigning `None` clears any previously-set image; assigning any
+    /// other image overwrites it.
     #[getter]
     fn image(&self) -> Option<crate::image::PyImage> {
         self.data_transfer.image().ok().map(crate::image::PyImage::from)
+    }
+
+    #[setter]
+    fn set_image(&mut self, image: Option<&crate::image::PyImage>) {
+        self.data_transfer.set_image(image.map(|i| i.image.clone()).unwrap_or_default());
     }
 
     /// `True` if this `DataTransfer` advertises an image representation.
