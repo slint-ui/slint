@@ -112,8 +112,8 @@ accesskit_winit = { version = "0.32", optional = true, default-features = false,
 copypasta = { version = "0.10", default-features = false }
 
 [target.'cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32", target_os = "android")))'.dependencies]
-winit-wayland = { git = "https://github.com/slint-ui/winit.git", rev = "61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e", optional = true }
-winit-x11 = { git = "https://github.com/slint-ui/winit.git", rev = "61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e", optional = true }
+winit-wayland = { git = "https://github.com/slint-ui/winit.git", branch = "drag-n-drop", optional = true }
+winit-x11 = { git = "https://github.com/slint-ui/winit.git", branch = "drag-n-drop", optional = true }
 # Use same version and executor as accesskit
 zbus = { version = "5.14.0", default-features = false, features = ["async-io"] }
 futures = { version = "0.3.31" }
