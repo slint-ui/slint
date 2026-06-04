@@ -1,4 +1,3 @@
-
 mod resource_loader;
 
 use resource_loader::{load_slint_image, set_resource_provider, FileSystemProvider};
@@ -10,7 +9,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Step 1: Register the resource provider BEFORE creating any UI.
     // In a real app this could be a custom provider that loads from
     // Qt resources, a compressed archive, a database, etc.
-    let assets_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets");
+    let assets_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     set_resource_provider(Box::new(FileSystemProvider::new(assets_dir)));
 
     println!("[main] Resource provider registered.");
@@ -28,7 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Path is relative — just like in a .slint file.
         // The provider decides where to actually find it.
-        match load_slint_image("images/demo.png") {
+        match load_slint_image("demo.png") {
             Ok(img) => {
                 window.set_loaded_image(img);
                 window.set_status_text(

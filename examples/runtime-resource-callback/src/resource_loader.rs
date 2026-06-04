@@ -1,24 +1,9 @@
-
-// Implements the runtime resource loading callback system proposed in #10970.
-//
-//   1. ResourceProvider trait — application code implements this
-//   2. Global registry — stores the user-supplied provider
-//   3. FileSystemProvider — loads from disk
-//   4. InMemoryProvider — serves from an in-memory HashMap
-//   5. load_slint_image() — decodes bytes into a slint::Image
-
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
-// ---------------------------------------------------------------------------
-// Public types
-// ---------------------------------------------------------------------------
-
-/// Raw bytes returned by a resource load.
 pub type ResourceData = Vec<u8>;
 
-/// Errors that a provider can return.
 #[derive(Debug)]
 pub enum ResourceError {
     NotFound(PathBuf),
@@ -42,41 +27,25 @@ impl From<std::io::Error> for ResourceError {
     }
 }
 
-/// Trait that an application implements to supply resources to Slint at runtime.
-///
-/// The path received is the *relative* path as written in the .slint file.
-/// Implementations may load from disk, compressed archives, Qt resources,
-/// a database, or anywhere else.
 pub trait ResourceProvider: Send + Sync {
-    /// Load an image. Returns raw bytes (PNG, JPEG, etc.).
     fn load_image(&self, path: &Path) -> Result<ResourceData, ResourceError>;
-
-    /// Load a font. Returns raw TTF/OTF bytes.
     fn load_font(&self, path: &Path) -> Result<ResourceData, ResourceError>;
 }
-
-// ---------------------------------------------------------------------------
-// Global registry
-// ---------------------------------------------------------------------------
 
 static RESOURCE_PROVIDER: OnceLock<Box<dyn ResourceProvider>> = OnceLock::new();
 
 /// Register the application's resource provider.
-///
 /// Must be called once before any Slint window is shown.
-/// Panics if called more than once.
 pub fn set_resource_provider(provider: Box<dyn ResourceProvider>) {
-    RESOURCE_PROVIDER
-        .set(provider)
-        .expect("set_resource_provider() called more than once");
+    if RESOURCE_PROVIDER.set(provider).is_err() {
+        panic!("set_resource_provider() called more than once");
+    }
 }
 
-/// Load an image through the registered provider.
 pub fn load_image(path: &Path) -> Option<Result<ResourceData, ResourceError>> {
     RESOURCE_PROVIDER.get().map(|p| p.load_image(path))
 }
 
-/// Load a font through the registered provider.
 pub fn load_font(path: &Path) -> Option<Result<ResourceData, ResourceError>> {
     RESOURCE_PROVIDER.get().map(|p| p.load_font(path))
 }
@@ -85,8 +54,6 @@ pub fn load_font(path: &Path) -> Option<Result<ResourceData, ResourceError>> {
 // FileSystemProvider
 // ---------------------------------------------------------------------------
 
-/// Loads resources from the file system.
-/// `root_dir` is prepended to all relative paths.
 pub struct FileSystemProvider {
     root_dir: PathBuf,
 }
@@ -132,9 +99,9 @@ impl ResourceProvider for FileSystemProvider {
 // InMemoryProvider
 // ---------------------------------------------------------------------------
 
-/// Serves resources from an in-memory HashMap.
-/// Keys are the path strings as they appear in .slint files.
-/// Useful for bundled/compressed resources or Qt's resource system.
+/// Serves resources from an in-memory map.
+/// Keys are path strings as they appear in .slint files.
+#[derive(Default)] // <-- fixes the clippy warning
 pub struct InMemoryProvider {
     data: HashMap<String, ResourceData>,
 }
@@ -144,15 +111,8 @@ impl InMemoryProvider {
         Self { data: HashMap::new() }
     }
 
-    /// Register a resource by its .slint path and raw bytes.
     pub fn add(&mut self, slint_path: impl Into<String>, bytes: impl Into<ResourceData>) {
         self.data.insert(slint_path.into(), bytes.into());
-    }
-}
-
-impl Default for InMemoryProvider {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -160,19 +120,13 @@ impl ResourceProvider for InMemoryProvider {
     fn load_image(&self, path: &Path) -> Result<ResourceData, ResourceError> {
         let key = path.to_string_lossy().to_string();
         println!("[ResourceLoader] Loading image from memory: {key}");
-        self.data
-            .get(&key)
-            .cloned()
-            .ok_or_else(|| ResourceError::NotFound(path.to_path_buf()))
+        self.data.get(&key).cloned().ok_or_else(|| ResourceError::NotFound(path.to_path_buf()))
     }
 
     fn load_font(&self, path: &Path) -> Result<ResourceData, ResourceError> {
         let key = path.to_string_lossy().to_string();
         println!("[ResourceLoader] Loading font from memory: {key}");
-        self.data
-            .get(&key)
-            .cloned()
-            .ok_or_else(|| ResourceError::NotFound(path.to_path_buf()))
+        self.data.get(&key).cloned().ok_or_else(|| ResourceError::NotFound(path.to_path_buf()))
     }
 }
 
@@ -180,10 +134,6 @@ impl ResourceProvider for InMemoryProvider {
 // Slint integration helper
 // ---------------------------------------------------------------------------
 
-/// Load an image via the registered provider and decode it into a slint::Image.
-///
-/// This is what the Slint runtime would call internally once this feature is
-/// merged. For now, application code calls it and sets the property manually.
 pub fn load_slint_image(path: impl AsRef<Path>) -> Result<slint::Image, ResourceError> {
     let path = path.as_ref();
     let bytes = load_image(path)

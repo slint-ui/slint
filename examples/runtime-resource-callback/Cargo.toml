@@ -9,3 +9,5 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg"]
 
 [build-dependencies]
 slint-build = "1.9"
+
+[workspace]
