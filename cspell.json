@@ -332,7 +332,6 @@
         ".cspell/slint-project-words.txt",
         ".cspell/slint-project-words-audit.tsv",
         "tools/figma-inspector/tests/figma_output.json",
-        "editors/tree-sitter-slint/src/**",
         "**/*.gltf",
         "**/*.po",
         "**/*.pot",
