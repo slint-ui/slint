@@ -124,7 +124,7 @@ const window = new ui.Example();
 
 window.Api.string_to_transfer = (text) => {
     const transfer = new slint.DataTransfer();
-    transfer.setPlainText(text);
+    transfer.plainText = text;
     return transfer;
 };
 
@@ -146,7 +146,7 @@ class App(slint.loader.example.Example):
     @slint.callback(global_name="Api", name="string-to-transfer")
     def string_to_transfer(self, text: str) -> DataTransfer:
         transfer = DataTransfer()
-        transfer.set_plain_text(text)
+        transfer.plain_text = text
         return transfer
 
     # A helper for reading plain text from a `DataTransfer` is also supplied.
