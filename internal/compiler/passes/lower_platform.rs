@@ -42,9 +42,9 @@ pub fn lower_platform(component: &Rc<Component>, type_loader: &mut crate::typelo
             }
             Expression::FunctionCall { function, .. }
                 if matches!(&*function, Callable::Function(nr)
-                    if is_platform(nr) && nr.name() == "bring-all-to-front") =>
+                    if is_platform(nr) && nr.name() == "macos-bring-all-windows-to-front") =>
             {
-                *function = BuiltinFunction::BringAllToFront.into();
+                *function = BuiltinFunction::MacosBringAllWindowsToFront.into();
             }
             _ => {}
         })

@@ -1768,8 +1768,8 @@ fn call_builtin_function(
             let window_adapter = local_context.component_instance.window_adapter();
             Value::Bool(corelib::open_url(&url, window_adapter.window()).is_ok())
         }
-        BuiltinFunction::BringAllToFront => {
-            corelib::bring_all_to_front();
+        BuiltinFunction::MacosBringAllWindowsToFront => {
+            corelib::macos_bring_all_windows_to_front();
             Value::Void
         }
         BuiltinFunction::ParseMarkdown => {
