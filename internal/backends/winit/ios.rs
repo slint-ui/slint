@@ -4,6 +4,7 @@
 mod clipboard;
 mod color_scheme;
 mod keyboard_animator;
+mod touch_finger_id;
 mod virtual_keyboard;
 
 pub(crate) use clipboard::UiPasteboardClipboard;
@@ -11,4 +12,5 @@ pub(crate) use color_scheme::{
     ColorSchemeObserver, current_color_scheme, install_color_scheme_observer,
 };
 pub(crate) use keyboard_animator::KeyboardCurveSampler;
+pub(crate) use touch_finger_id::TouchFingerIdAllocator;
 pub(crate) use virtual_keyboard::{KeyboardNotifications, register_keyboard_notifications};
