@@ -82,18 +82,19 @@ impl SlintDataTransfer {
         Self { inner: DataTransfer::default() }
     }
 
-    /// Sets the plain text representation of this `DataTransfer`. Calling this again
-    /// overwrites the previous plain text.
-    #[napi]
-    pub fn set_plain_text(&mut self, text: String) {
-        self.inner.set_plain_text(text.into());
-    }
-
     /// The plain text representation of this `DataTransfer`, or `null` if no
     /// plain text is available.
     #[napi(getter)]
     pub fn plain_text(&self) -> Option<String> {
         self.inner.plain_text().ok().map(|s| s.to_string())
+    }
+
+    /// Sets the plain text representation of this `DataTransfer`. Assigning
+    /// `null`, `undefined`, or the empty string clears any previously-set
+    /// plain text; assigning any other string overwrites it.
+    #[napi(setter)]
+    pub fn set_plain_text(&mut self, text: Option<String>) {
+        self.inner.set_plain_text(text.unwrap_or_default().into());
     }
 
     /// `true` if this `DataTransfer` advertises a plain text representation.
@@ -102,18 +103,19 @@ impl SlintDataTransfer {
         self.inner.has_plain_text()
     }
 
-    /// Sets the image representation of this `DataTransfer`. Calling this again
-    /// overwrites the previous image.
-    #[napi]
-    pub fn set_image(&mut self, image: &SlintImageData) {
-        self.inner.set_image(image.inner.clone());
-    }
-
     /// The image representation of this `DataTransfer`, or `null` if no
     /// image is available.
     #[napi(getter)]
     pub fn image(&self) -> Option<SlintImageData> {
         self.inner.image().ok().map(SlintImageData::from)
+    }
+
+    /// Sets the image representation of this `DataTransfer`. Assigning `null`
+    /// or `undefined` clears any previously-set image; assigning any other
+    /// image overwrites it.
+    #[napi(setter)]
+    pub fn set_image(&mut self, image: Option<&SlintImageData>) {
+        self.inner.set_image(image.map(|i| i.inner.clone()).unwrap_or_default());
     }
 
     /// `true` if this `DataTransfer` advertises an image representation.
