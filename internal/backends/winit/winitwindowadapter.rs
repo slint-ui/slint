@@ -298,6 +298,8 @@ pub struct WinitWindowAdapter {
     pub shared_backend_data: Rc<SharedBackendData>,
     window: corelib::api::Window,
     pub(crate) self_weak: Weak<Self>,
+    /// The parent window adapter if available
+    parent: Weak<Self>,
     pending_redraw: Cell<bool>,
     constraints: Cell<corelib::window::LayoutConstraints>,
     /// Indicates if the window is shown, from the perspective of the API user.
@@ -357,6 +359,7 @@ impl WinitWindowAdapter {
         renderer: Box<dyn WinitCompatibleRenderer>,
         window_attributes: winit::window::WindowAttributes,
         #[cfg(all(muda, target_os = "macos"))] muda_enable_default_menu_bar: bool,
+        parent: Weak<Self>,
     ) -> Rc<Self> {
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             shared_backend_data: shared_backend_data.clone(),
@@ -388,7 +391,12 @@ impl WinitWindowAdapter {
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
             window_icon_cache_key: Default::default(),
+            parent,
         });
+
+        // The renderer must be set, because otherwise for text layout infos the scale factor is not available
+        <Self as WindowAdapter>::renderer(&self_rc)
+            .set_window_adapter(&(self_rc.clone() as Rc<dyn WindowAdapter>));
 
         self_rc.shared_backend_data.register_inactive_window((self_rc.clone()) as _);
 
@@ -1392,6 +1400,10 @@ impl WindowAdapter for WinitWindowAdapter {
 }
 
 impl WindowAdapterInternal for WinitWindowAdapter {
+    fn get_parent(&self) -> Option<Rc<dyn WindowAdapter>> {
+        self.parent.upgrade().map(|rc| rc as _)
+    }
+
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
         use winit::cursor::CursorIcon;
         let winit_cursor = match cursor {
@@ -1525,6 +1537,57 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 self.self_weak.clone(),
             )));
         }
+    }
+
+    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+        if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
+            use crate::winit::window::WindowType;
+            use raw_window_handle::HasWindowHandle;
+
+            let mut window_attributes = WindowAttributes::default()
+                .with_title("child window")
+                .with_decorations(false)
+                .with_visible(true)
+                .with_type(WindowType::Popup);
+
+            if let Ok(parent) = winit_window.window_handle() {
+                window_attributes =
+                    unsafe { window_attributes.with_parent_window(Some(parent.as_raw())) };
+
+                if let Ok(adapter) = crate::create_renderer(&self.shared_backend_data).map_or_else(
+                    |e| {
+                        crate::try_create_window_with_fallback_renderer(
+                            &self.shared_backend_data.clone(),
+                            window_attributes.clone(),
+                            #[cfg(all(muda, target_os = "macos"))]
+                            self.muda_enable_default_menu_bar,
+                        )
+                        .ok_or_else(|| {
+                            format!("Winit backend failed to find a suitable renderer: {e}")
+                        })
+                    },
+                    |mut renderer| {
+                        Ok(WinitWindowAdapter::new(
+                            self.shared_backend_data.clone(),
+                            renderer,
+                            window_attributes.clone(),
+                            #[cfg(all(muda, target_os = "macos"))]
+                            self.muda_enable_default_menu_bar,
+                            self.self_weak.clone(),
+                        ))
+                    },
+                ) {
+                    // Add to inactive_windows so that it gets shown in the next event loop round
+                    self.shared_backend_data
+                        .inactive_windows
+                        .borrow_mut()
+                        .push(Rc::downgrade(&adapter));
+
+                    return Some(adapter as _);
+                }
+            }
+        }
+        None
     }
 
     #[cfg(muda)]

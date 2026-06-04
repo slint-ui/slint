@@ -157,6 +157,7 @@ fn try_create_window_with_fallback_renderer(
             attrs.clone(),
             #[cfg(all(muda, target_os = "macos"))]
             muda_enable_default_menu_bar,
+            Weak::new(),
         ))
     })
 }
@@ -729,6 +730,7 @@ impl i_slint_core::platform::Platform for Backend {
                     attrs.clone(),
                     #[cfg(all(muda, target_os = "macos"))]
                     self.muda_enable_default_menu_bar_bar,
+                    Weak::new(),
                 ))
             },
         )?;
