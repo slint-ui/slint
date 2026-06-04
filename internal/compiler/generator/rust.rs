@@ -381,6 +381,22 @@ fn generate_public_component(
 
     let experimental = compiler_config.enable_experimental;
 
+    let new_with_existing_window_impl: Option<TokenStream> = match llr.top_level_type {
+        llr::TopLevelComponentType::Window => Some(quote!(
+            #[cfg(#experimental)]
+            pub fn new_with_existing_window(window: &slint::Window) -> ::core::result::Result<Self, slint::PlatformError> {
+                slint::private_unstable_api::ensure_backend()?;
+                let inner = #inner_component_id::new()?;
+                #init_bundle_translations
+                inner.globals.get().unwrap().create_window_from_existing(window)?;
+                #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
+                #ensure_tree_instantiated
+                ::core::result::Result::Ok(Self(inner))
+            }
+        )),
+        llr::TopLevelComponentType::SystemTrayIcon => None,
+    };
+
     // Window-rooted components get the full `ComponentHandle` impl. SystemTrayIcon
     // gets an inherent impl with no `window()` accessor: a tray icon is not a
     // `slint::Window` and the previous accessor's body would panic at runtime.
@@ -497,6 +513,8 @@ fn generate_public_component(
                 ::core::result::Result::Ok(Self(inner))
             }
 
+            #new_with_existing_window_impl
+
             #property_and_callback_accessors
         }
 
@@ -599,6 +617,16 @@ fn generate_shared_globals(
             fn create_window_from_context(&self, ctx: sp::SlintContext) -> sp::Result<(), slint::PlatformError> {
                 let adapter = ctx.platform().create_window_adapter()?;
                 sp::WindowInner::from_pub(adapter.window()).set_context(ctx);
+                let root_rc = self.root_item_tree_weak.upgrade().unwrap();
+                sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
+                #apply_constant_scale_factor
+                self.window_adapter.set(adapter).map_err(|_|()).expect("The window shouldn't be initialized before this call");
+                sp::Ok(())
+            }
+
+            #[cfg(#experimental)]
+            fn create_window_from_existing(&self, window: &slint::Window) -> sp::Result<(), slint::PlatformError> {
+                let adapter = sp::WindowInner::from_pub(window).window_adapter();
                 let root_rc = self.root_item_tree_weak.upgrade().unwrap();
                 sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
                 #apply_constant_scale_factor
