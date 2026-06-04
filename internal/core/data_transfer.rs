@@ -145,8 +145,18 @@ impl DataTransfer {
     /// method is called multiple times, the previous image will be overwritten.
     /// However, you can have, for example, both an image representation and a
     /// plain text representation set simultaneously on the same [`DataTransfer`].
+    ///
+    /// Passing an empty image (an `Image` equal to [`Image::default()`](Image)) clears
+    /// the previously-set image instead of storing it, so afterwards
+    /// [`has_image`](DataTransfer::has_image) returns `false`.
     pub fn set_image(&mut self, image: Image) -> &mut Self {
-        Rc::make_mut(self.inner.get_or_insert_default()).image = Some(image);
+        if matches!(image.0, crate::ImageInner::None) {
+            if let Some(inner) = self.inner.as_mut() {
+                Rc::make_mut(inner).image = None;
+            }
+        } else {
+            Rc::make_mut(self.inner.get_or_insert_default()).image = Some(image);
+        }
         self
     }
 
@@ -161,8 +171,18 @@ impl DataTransfer {
     /// will be overwritten. However, you can have, for example, both an image
     /// representation and a plain text representation set simultaneously on the
     /// same [`DataTransfer`].
+    ///
+    /// Passing an empty string clears the previously-set plain text instead of
+    /// storing it, so afterwards [`has_plain_text`](DataTransfer::has_plain_text)
+    /// returns `false`.
     pub fn set_plain_text(&mut self, plain_text: SharedString) -> &mut Self {
-        Rc::make_mut(self.inner.get_or_insert_default()).plain_text = Some(plain_text);
+        if plain_text.is_empty() {
+            if let Some(inner) = self.inner.as_mut() {
+                Rc::make_mut(inner).plain_text = None;
+            }
+        } else {
+            Rc::make_mut(self.inner.get_or_insert_default()).plain_text = Some(plain_text);
+        }
         self
     }
 
@@ -184,9 +204,6 @@ impl DataTransfer {
 
     /// Returns `true` if this data transfer carries no data: no plain text, no image,
     /// and no user data. A `DataTransfer` constructed via [`Default::default`] is empty.
-    ///
-    /// Note that `set_plain_text("")` followed by `is_empty()` returns `false` — an
-    /// explicitly-set empty string is still a plain text representation.
     pub fn is_empty(&self) -> bool {
         !self.has_plain_text() && !self.has_image() && self.user_data.is_none()
     }
@@ -224,5 +241,48 @@ impl DataTransfer {
     /// one exists.
     pub fn user_data(&self) -> Option<Rc<dyn Any>> {
         self.user_data.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::graphics::{Rgba8Pixel, SharedPixelBuffer};
+
+    #[test]
+    fn set_plain_text_with_empty_string_clears() {
+        let mut dt = DataTransfer::default();
+        dt.set_plain_text("hello".into());
+        assert!(dt.has_plain_text());
+        dt.set_plain_text("".into());
+        assert!(!dt.has_plain_text());
+        assert!(dt.plain_text().is_err());
+    }
+
+    #[test]
+    fn set_image_with_default_image_clears() {
+        let mut dt = DataTransfer::default();
+        let buffer = SharedPixelBuffer::<Rgba8Pixel>::new(2, 2);
+        dt.set_image(Image::from_rgba8(buffer));
+        assert!(dt.has_image());
+        dt.set_image(Image::default());
+        assert!(!dt.has_image());
+        assert!(dt.image().is_err());
+    }
+
+    #[test]
+    fn set_plain_text_with_empty_string_on_default_stays_empty() {
+        let mut dt = DataTransfer::default();
+        dt.set_plain_text("".into());
+        assert!(!dt.has_plain_text());
+        assert!(dt.is_empty());
+    }
+
+    #[test]
+    fn set_image_with_default_image_on_default_stays_empty() {
+        let mut dt = DataTransfer::default();
+        dt.set_image(Image::default());
+        assert!(!dt.has_image());
+        assert!(dt.is_empty());
     }
 }
