@@ -63,6 +63,7 @@ remote = [
   "i-slint-backend-android-activity?/native-activity",
   "i-slint-backend-android-activity?/aa-06",
   "i-slint-backend-selector/backend-android-activity",
+  "dep:jni",
 ]
 
 default = ["backend-default", "renderer-femtovg", "renderer-software"]
@@ -93,6 +94,7 @@ zeroconf-tokio = { version = "0.3.2", optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 i-slint-backend-android-activity = { workspace = true, optional = true }
+jni = { version = "0.22", optional = true }
 
 [target.'cfg(not(any(target_os = "openbsd", target_os = "windows", target_os = "ios", all(target_arch = "aarch64", target_os = "linux"))))'.dependencies]
 tikv-jemallocator = { workspace = true }

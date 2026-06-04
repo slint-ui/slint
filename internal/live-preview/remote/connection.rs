@@ -131,6 +131,12 @@ pub struct Connection {
     /// outside this set are ignored, so unrelated edits in the user's editor don't trigger a
     /// rebuild. Updated by the viewer after each compile.
     dependencies: Arc<Mutex<HashSet<Url>>>,
+    /// Friendly device name shown to remote clients; also used as the mDNS instance name.
+    /// Always non-empty (an IP-derived label is substituted if no name source resolved).
+    /// On Apple this field does not exist — the name comes from Bonjour when the service
+    /// is registered.
+    #[cfg(not(target_vendor = "apple"))]
+    device_name: String,
 }
 
 /// Whether the connection can act on this URL. The remote preview protocol only handles
@@ -147,6 +153,7 @@ fn is_supported(url: &Url) -> bool {
 impl Connection {
     pub async fn listen(
         address: Option<SocketAddr>,
+        #[cfg(not(target_vendor = "apple"))] device_name_override: Option<String>,
         message_handler: impl Fn(ConnectionMessage) + 'static + Send + Sync,
     ) -> anyhow::Result<Self> {
         let file_cache = Arc::new(DashMap::<Url, CacheEntry>::new());
@@ -241,13 +248,30 @@ impl Connection {
         let local_addr = local_addr_receiver.await??;
         tracing::info!("Listening on {}", local_addr);
 
+        #[cfg(not(target_vendor = "apple"))]
+        let device_name = {
+            let raw =
+                device_name_override.filter(|n| !n.is_empty()).unwrap_or_else(default_device_name);
+            if raw.is_empty() { ip_derived_device_name(&local_ips_for(local_addr)) } else { raw }
+        };
         Ok(Self {
             local_addr,
             thread_handle: Some((thread_handle, quit_sender)),
             message_sender,
             file_cache,
             dependencies,
+            #[cfg(not(target_vendor = "apple"))]
+            device_name,
         })
+    }
+
+    /// Friendly device name to advertise over mDNS and show in the viewer UI on non-Apple
+    /// platforms. Guaranteed non-empty: an IP-derived label is substituted when no
+    /// user-set source was available. On Apple the name comes from Bonjour after the
+    /// service is registered, so this method is not available there.
+    #[cfg(not(target_vendor = "apple"))]
+    pub fn device_name(&self) -> &str {
+        &self.device_name
     }
 
     /// Replace the set of URLs the connection treats as relevant. A subsequent `SetContents`
@@ -460,31 +484,7 @@ impl Connection {
     }
 
     pub fn local_ips(&self) -> Vec<IpAddr> {
-        let unspecified = match self.local_addr {
-            SocketAddr::V4(socket_addr_v4) => socket_addr_v4.ip().is_unspecified(),
-            SocketAddr::V6(socket_addr_v6) => socket_addr_v6.ip().is_unspecified(),
-        };
-        if unspecified {
-            let mut ips: Vec<IpAddr> =
-                getifs::interface_addrs_by_filter(|addr| !addr.is_loopback())
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|net| net.addr())
-                    .collect();
-            if ips.is_empty() {
-                // Fallback: open a UDP socket to a public address (nothing is
-                // sent) and read back the local IP the OS picked.
-                if let Ok(sock) = std::net::UdpSocket::bind("0.0.0.0:0")
-                    && sock.connect("8.8.8.8:80").is_ok()
-                    && let Ok(addr) = sock.local_addr()
-                {
-                    ips.push(addr.ip());
-                }
-            }
-            ips
-        } else {
-            vec![self.local_addr.ip()]
-        }
+        local_ips_for(self.local_addr)
     }
     pub fn local_port(&self) -> u16 {
         self.local_addr.port()
@@ -494,29 +494,22 @@ impl Connection {
     pub fn service(&self) -> anyhow::Result<ServiceInfo> {
         let local_ips = self.local_ips();
         let local_port = self.local_port();
-        let host = hostname::get()?;
-        let host = host.to_str().unwrap_or("unknown");
-        // "localhost" is useless for mDNS — derive a name from the first IP instead.
-        // The instance name is what the editor shows to the user, so prefer the
-        // machine's hostname (these platforms have no separate "device name" the way
-        // iOS/macOS do); fall back to an IP-derived name when it's missing.
-        let instance_name = if host == "localhost" || host.is_empty() {
-            local_ips
-                .first()
-                .map(|ip| format!("slint-viewer-{ip}"))
-                .unwrap_or_else(|| "slint-viewer".into())
-        } else {
-            host.to_owned()
-        };
-        let mdns_host = format!("{instance_name}.local.");
-        tracing::info!("Announcing service on {local_ips:?} as {mdns_host}");
+        // The instance name is the user-visible label in editors and can contain spaces,
+        // apostrophes, or non-ASCII characters. The SRV target ("host name") is consumed
+        // by DNS resolvers and must be limited to LDH characters / RFC 1035 label limits.
+        let mdns_host = format!("{}.local.", sanitize_dns_label(&self.device_name));
+        tracing::info!(
+            "Announcing service on {local_ips:?} as {} ({})",
+            self.device_name,
+            mdns_host
+        );
         let properties = HashMap::from([
             (TXT_PROTOCOLS_KEY.to_owned(), PROTOCOL_SUBPROTOCOL.to_owned()),
             (TXT_SLINT_VERSION_KEY.to_owned(), SLINT_VERSION.to_owned()),
         ]);
         ServiceInfo::new(
             crate::protocol::SERVICE_TYPE,
-            &instance_name,
+            &self.device_name,
             &mdns_host,
             local_ips.as_slice(),
             local_port,
@@ -526,11 +519,157 @@ impl Connection {
     }
 }
 
+fn local_ips_for(local_addr: SocketAddr) -> Vec<IpAddr> {
+    let unspecified = match local_addr {
+        SocketAddr::V4(socket_addr_v4) => socket_addr_v4.ip().is_unspecified(),
+        SocketAddr::V6(socket_addr_v6) => socket_addr_v6.ip().is_unspecified(),
+    };
+    if unspecified {
+        let mut ips: Vec<IpAddr> = getifs::interface_addrs_by_filter(|addr| !addr.is_loopback())
+            .unwrap_or_default()
+            .into_iter()
+            .map(|net| net.addr())
+            .collect();
+        if ips.is_empty() {
+            // Fallback: open a UDP socket to a public address (nothing is
+            // sent) and read back the local IP the OS picked.
+            if let Ok(sock) = std::net::UdpSocket::bind("0.0.0.0:0")
+                && sock.connect("8.8.8.8:80").is_ok()
+                && let Ok(addr) = sock.local_addr()
+            {
+                ips.push(addr.ip());
+            }
+        }
+        ips
+    } else {
+        vec![local_addr.ip()]
+    }
+}
+
+/// Compute the friendly device name to advertise on non-Apple platforms.
+///
+/// On Linux, prefer the systemd "pretty hostname" the user sets in Settings → About →
+/// Device Name (`PRETTY_HOSTNAME=` in `/etc/machine-info`). Everywhere else, fall back to
+/// the system hostname. `localhost` and empty strings are treated as missing so the caller
+/// can substitute an IP-derived label.
+#[cfg(not(target_vendor = "apple"))]
+fn default_device_name() -> String {
+    #[cfg(target_os = "linux")]
+    if let Some(pretty) = read_pretty_hostname() {
+        return non_localhost(pretty);
+    }
+    let host = hostname::get().ok().and_then(|h| h.into_string().ok()).unwrap_or_default();
+    non_localhost(host)
+}
+
+#[cfg(not(target_vendor = "apple"))]
+fn non_localhost(name: String) -> String {
+    if name == "localhost" { String::new() } else { name }
+}
+
+/// Fallback when no user-set device name is available. Picks a label derived from the
+/// first non-loopback local IP so the user can still tell two instances apart.
+#[cfg(not(target_vendor = "apple"))]
+fn ip_derived_device_name(local_ips: &[IpAddr]) -> String {
+    local_ips
+        .first()
+        .map(|ip| format!("slint-viewer-{ip}"))
+        .unwrap_or_else(|| "slint-viewer".into())
+}
+
+/// Convert a friendly device name into a DNS label suitable for the SRV target. Replaces
+/// non-LDH characters with `-`, collapses repeats, trims leading/trailing dashes, and
+/// clamps to the RFC 1035 63-octet label limit. Returns a safe fallback for empty inputs.
+#[cfg(not(target_vendor = "apple"))]
+fn sanitize_dns_label(name: &str) -> String {
+    let mut out = String::with_capacity(name.len());
+    let mut prev_dash = true;
+    for c in name.chars() {
+        if c.is_ascii_alphanumeric() {
+            out.push(c);
+            prev_dash = false;
+        } else if !prev_dash {
+            out.push('-');
+            prev_dash = true;
+        }
+    }
+    while out.ends_with('-') {
+        out.pop();
+    }
+    if out.len() > 63 {
+        out.truncate(63);
+        while out.ends_with('-') {
+            out.pop();
+        }
+    }
+    if out.is_empty() { "slint-viewer".to_owned() } else { out }
+}
+
+/// Parse the PRETTY_HOSTNAME entry from /etc/machine-info. Handles unquoted values,
+/// single- or double-quoted values, and a trailing `# comment`. Does not implement
+/// systemd's full shell-style escape rules — values containing `\"` come through as-is.
+#[cfg(target_os = "linux")]
+fn read_pretty_hostname() -> Option<String> {
+    let contents = std::fs::read_to_string("/etc/machine-info").ok()?;
+    for line in contents.lines() {
+        let rest = match line.trim_start().strip_prefix("PRETTY_HOSTNAME=") {
+            Some(rest) => rest.trim_start(),
+            None => continue,
+        };
+        let value = match rest.chars().next() {
+            Some(quote @ ('"' | '\'')) => {
+                let after_open = &rest[quote.len_utf8()..];
+                let end = after_open.find(quote)?;
+                after_open[..end].to_owned()
+            }
+            _ => rest.split(['#']).next().unwrap_or("").trim_end().to_owned(),
+        };
+        let value = value.trim();
+        if !value.is_empty() {
+            return Some(value.to_owned());
+        }
+    }
+    None
+}
+
 impl Drop for Connection {
     fn drop(&mut self) {
         if let Some((thread_handle, quit_sender)) = self.thread_handle.take() {
             quit_sender.send(()).ok();
             thread_handle.join().ok();
         }
+    }
+}
+
+#[cfg(all(test, not(target_vendor = "apple")))]
+mod tests {
+    use super::sanitize_dns_label;
+
+    #[test]
+    fn sanitize_keeps_alnum() {
+        assert_eq!(sanitize_dns_label("MyBox42"), "MyBox42");
+    }
+
+    #[test]
+    fn sanitize_replaces_spaces_and_quotes() {
+        assert_eq!(sanitize_dns_label("Simon's Laptop"), "Simon-s-Laptop");
+    }
+
+    #[test]
+    fn sanitize_collapses_runs_and_trims_dashes() {
+        assert_eq!(sanitize_dns_label("  hello   world  "), "hello-world");
+        assert_eq!(sanitize_dns_label("---abc---"), "abc");
+    }
+
+    #[test]
+    fn sanitize_truncates_to_63_octets() {
+        let long = "a".repeat(200);
+        assert_eq!(sanitize_dns_label(&long).len(), 63);
+    }
+
+    #[test]
+    fn sanitize_falls_back_for_empty_or_all_invalid() {
+        assert_eq!(sanitize_dns_label(""), "slint-viewer");
+        assert_eq!(sanitize_dns_label("@@@"), "slint-viewer");
     }
 }

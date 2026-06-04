@@ -27,9 +27,14 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     let (message_sender, mut message_receiver) = tokio::sync::mpsc::unbounded_channel();
 
     let connection = Rc::new(
-        Connection::listen(address, move |msg| {
-            let _ = message_sender.send(msg);
-        })
+        Connection::listen(
+            address,
+            #[cfg(not(target_vendor = "apple"))]
+            device_name_override(),
+            move |msg| {
+                let _ = message_sender.send(msg);
+            },
+        )
         .await?,
     );
 
@@ -106,7 +111,7 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
         String::new()
     };
     #[cfg(not(target_vendor = "apple"))]
-    let device_name = String::new();
+    let device_name = connection.device_name().to_owned();
 
     let local_port = connection.local_port();
     let local_ip_str: Vec<String> = connection
@@ -298,6 +303,26 @@ async fn build_and_show(
 
     Ok(Some(new_instance))
 }
+
+/// Platform-specific override for the friendly device name. Returns `None` on platforms
+/// where the default chain in `Connection` (pretty hostname → hostname) is already best.
+#[cfg(not(target_vendor = "apple"))]
+fn device_name_override() -> Option<String> {
+    #[cfg(target_os = "android")]
+    {
+        ANDROID_DEVICE_NAME.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        None
+    }
+}
+
+/// Set by `android_main` before `run` is called so the connection picks up the
+/// user-set device name from `Settings.Global.DEVICE_NAME`.
+#[cfg(target_os = "android")]
+pub(crate) static ANDROID_DEVICE_NAME: std::sync::Mutex<Option<String>> =
+    std::sync::Mutex::new(None);
 
 fn send_diagnostics(
     compilation_result: &slint_interpreter::CompilationResult,
