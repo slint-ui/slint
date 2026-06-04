@@ -469,6 +469,28 @@ TEST_CASE("DataTransfer")
         REQUIRE(!a.has_plain_text());
     }
 
+    SECTION("set_plain_text with empty string clears")
+    {
+        DataTransfer a;
+        a.set_plain_text(slint::SharedString("hello"));
+        REQUIRE(a.has_plain_text());
+        a.set_plain_text(slint::SharedString(""));
+        REQUIRE(!a.has_plain_text());
+        REQUIRE(!a.plain_text().has_value());
+        REQUIRE(a.is_empty());
+    }
+
+    SECTION("set_image with default image clears")
+    {
+        DataTransfer a;
+        a.set_image(slint::Image(slint::SharedPixelBuffer<slint::Rgb8Pixel>(2, 2)));
+        REQUIRE(a.has_image());
+        a.set_image(slint::Image());
+        REQUIRE(!a.has_image());
+        REQUIRE(!a.image().has_value());
+        REQUIRE(a.is_empty());
+    }
+
     SECTION("Plain text and image coexist")
     {
         DataTransfer a;
