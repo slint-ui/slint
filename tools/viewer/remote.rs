@@ -4,6 +4,7 @@
 use std::{net::SocketAddr, rc::Rc};
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::diagnostics::Spanned;
 use i_slint_core::InternalToken;
 use i_slint_core::SharedString;
 use i_slint_live_preview::protocol::{PreviewComponent, PreviewToLspMessage, lsp_types};
@@ -218,10 +219,12 @@ async fn build_and_show(
     main_ui: &slint_interpreter::ComponentDefinition,
     inner_window: &mut slint_interpreter::ComponentInstance,
     instance: &slint_interpreter::ComponentInstance,
-    connection: &Connection,
+    connection: &Rc<Connection>,
     address: &str,
     name: &str,
 ) -> anyhow::Result<Option<slint_interpreter::ComponentInstance>> {
+    tracing::debug!("build_and_show");
+
     let Ok(path) = preview_component.url.to_file_path() else {
         tracing::error!("Not a file URL: {}", preview_component.url);
         return Ok(None);
@@ -278,6 +281,27 @@ async fn build_and_show(
     // clears any errors we surfaced from the previous build.
     send_diagnostics(&compilation_result, &preview_component.url, connection);
 
+    let connection = Rc::downgrade(connection);
+    component.set_debug_handler(
+        move |location, message| {
+            let Some(connection) = connection.upgrade() else {
+                return;
+            };
+            let location = location.and_then(|location| {
+                location.source_file().map(|file| {
+                    let (line, column) = file.line_column(
+                        location.span.offset,
+                        i_slint_compiler::diagnostics::ByteFormat::Utf8,
+                    );
+                    (file.path().to_owned(), line, column)
+                })
+            });
+            connection
+                .send(PreviewToLspMessage::DebugMessage { location, message: message.into() })
+                .ok();
+        },
+        i_slint_core::InternalToken,
+    );
     let new_instance = component
         .create_with_existing_window(instance.window())
         .map_err(|err| anyhow::anyhow!("Cannot create component instance: {err}"))?;

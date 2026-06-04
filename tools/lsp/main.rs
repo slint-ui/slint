@@ -728,6 +728,9 @@ async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Conte
                 lsp_types::OneOf::Left(object),
             )?
         }
+        M::DebugMessage { location, message } => {
+            eprintln!("{}", common::preview_debug_message_to_string(&location, &message));
+        }
     }
     Ok(())
 }
