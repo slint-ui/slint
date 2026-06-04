@@ -1554,6 +1554,10 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 window_attributes =
                     unsafe { window_attributes.with_parent_window(Some(parent.as_raw())) };
 
+                // if let Some(hook) = &self.window_attributes_hook {
+                //     window_attributes = hook(window_attributes);
+                // }
+
                 if let Ok(adapter) = crate::create_renderer(&self.shared_backend_data).map_or_else(
                     |e| {
                         crate::try_create_window_with_fallback_renderer(
