@@ -18,12 +18,12 @@ use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
-use crate::items::{InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
+use crate::items::{DropEvent, InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalVector, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
-use crate::{Callback, Coord, SharedString, SharedVector};
+use crate::{Callback, Coord, DataTransfer, SharedString, SharedVector};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use alloc::vec::Vec;
@@ -31,6 +31,7 @@ use core::cell::{Cell, RefCell};
 use core::num::NonZeroU32;
 use core::pin::Pin;
 use euclid::num::Zero;
+use portable_atomic::AtomicBool;
 use vtable::{VRc, VRcMapped};
 
 pub mod popup;
@@ -472,8 +473,9 @@ pub struct WindowInner {
     component: RefCell<ItemTreeWeak>,
     /// When the window is visible, keep a strong reference
     strong_component_ref: RefCell<Option<ItemTreeRc>>,
-    mouse_input_state: Cell<MouseInputState>,
+    mouse_input_state: RefCell<MouseInputState>,
     touch_state: RefCell<TouchState>,
+    pub(crate) start_drag_pending: AtomicBool,
 
     /// ItemRC that currently have the focus (possibly an instance of TextInput)
     pub focus_item: RefCell<crate::item_tree::ItemWeak>,
@@ -533,6 +535,7 @@ impl WindowInner {
             component: Default::default(),
             strong_component_ref: Default::default(),
             mouse_input_state: Default::default(),
+            start_drag_pending: AtomicBool::new(false),
             touch_state: Default::default(),
             pinned_fields: Box::pin(WindowPinnedFields {
                 redraw_tracker,
@@ -560,6 +563,18 @@ impl WindowInner {
             ctx: Default::default(),
             menubar: Default::default(),
         }
+    }
+
+    pub fn set_new_drag_pending(&self, pending: bool) {
+        self.start_drag_pending.store(pending, core::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub fn take_new_started_drag_event(&self) -> Option<DropEvent> {
+        if !self.start_drag_pending.swap(false, core::sync::atomic::Ordering::Relaxed) {
+            return None;
+        }
+
+        self.mouse_input_state.borrow().drag_data.clone()
     }
 
     /// Associates this window with the specified component. Further event handling and rendering, etc. will be
@@ -785,9 +800,12 @@ impl WindowInner {
             .then_some(popup.popup_id)
         });
 
-        mouse_input_state = if let Some(mut event) =
-            crate::input::handle_mouse_grab(&event, &window_adapter, &mut mouse_input_state)
-        {
+        mouse_input_state = if let Some(mut event) = crate::input::handle_mouse_grab(
+            &event,
+            &window_adapter,
+            &mut mouse_input_state,
+            &self.start_drag_pending,
+        ) {
             // The grab handler may have fired callbacks that modified models or
             // other state, so materialize any pending repeater/conditional
             // changes before hit-testing with the returned event.
@@ -879,7 +897,7 @@ impl WindowInner {
 
         let is_dragging = mouse_input_state.drag_data.is_some();
         let drop_target_action = mouse_input_state.drop_target_action();
-        self.mouse_input_state.set(mouse_input_state);
+        self.mouse_input_state.replace(mouse_input_state);
 
         // The drag-image overlay follows the cursor and lives outside any item tree, so
         // partial renderers won't otherwise know to repaint it on mouse motion or after
@@ -940,7 +958,7 @@ impl WindowInner {
 
     /// Called by the input code's internal timer to send an event that was delayed
     pub(crate) fn process_delayed_event(&self) {
-        self.mouse_input_state.set(crate::input::process_delayed_event(
+        self.mouse_input_state.replace(crate::input::process_delayed_event(
             &self.window_adapter(),
             self.mouse_input_state.take(),
         ));
@@ -1518,7 +1536,7 @@ impl WindowInner {
         let state = self.mouse_input_state.take();
         let cursor = state.drag_data.as_ref().map(|d| d.position);
         let source = state.drag_source.as_ref().and_then(|w| w.upgrade());
-        self.mouse_input_state.set(state);
+        self.mouse_input_state.replace(state);
 
         let (Some(cursor), Some(source)) = (cursor, source) else { return };
         let Some(drag_area) = source.downcast::<crate::items::DragArea>() else { return };

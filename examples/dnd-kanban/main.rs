@@ -41,11 +41,14 @@ fn main() -> Result<(), slint::PlatformError> {
 
     api.on_make_data(|task, source_column, source_index| {
         let mut transfer = DataTransfer::default();
-        transfer.set_user_data(Rc::new(DragPayload {
-            task,
-            source_column: source_column as usize,
-            source_index: source_index as usize,
-        }));
+        let title = task.title.clone();
+        transfer
+            .set_user_data(Rc::new(DragPayload {
+                task,
+                source_column: source_column as usize,
+                source_index: source_index as usize,
+            }))
+            .set_plaintext(title);
         transfer
     });
 

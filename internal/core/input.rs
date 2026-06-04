@@ -21,6 +21,7 @@ use core::cell::Cell;
 use core::fmt::Display;
 use core::pin::Pin;
 use core::time::Duration;
+use portable_atomic::AtomicBool;
 
 /// A mouse or touch event
 ///
@@ -1271,6 +1272,7 @@ pub(crate) fn handle_mouse_grab(
     mouse_event: &MouseEvent,
     window_adapter: &Rc<dyn WindowAdapter>,
     mouse_input_state: &mut MouseInputState,
+    start_drag_pending: &AtomicBool,
 ) -> Option<MouseEvent> {
     if !mouse_input_state.grabbed || mouse_input_state.item_stack.is_empty() {
         return Some(mouse_event.clone());
@@ -1351,6 +1353,12 @@ pub(crate) fn handle_mouse_grab(
                 .position()
                 .map(crate::lengths::logical_position_to_api)
                 .unwrap_or_default();
+            // TODO: We should probably have a better way of figuring out if a drag event is
+            // internal-only.
+            if drop_event.data.has_image() || drop_event.data.has_plaintext() {
+                std::dbg!();
+                start_drag_pending.store(true, core::sync::atomic::Ordering::Relaxed);
+            }
             mouse_input_state.drag_data = Some(drop_event);
             mouse_input_state.drag_source = Some(grabber.downgrade());
             drag_area.dragging.set(true);
@@ -1624,6 +1632,9 @@ fn send_mouse_event_to_item(
             result.item_stack.last_mut().unwrap().1 =
                 InputEventFilterResult::ForwardAndInterceptGrab;
             result.grabbed = false;
+            let runtime_window = WindowInner::from_pub(window_adapter.window());
+            runtime_window.set_new_drag_pending(true);
+
             let drag_area_item = item_rc.downcast::<crate::items::DragArea>().unwrap();
             let drag_area = drag_area_item.as_pin_ref();
             let mut drop_event = drag_area.initial_drop_event();

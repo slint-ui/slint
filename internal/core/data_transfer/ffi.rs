@@ -10,27 +10,6 @@ use super::DataTransfer;
 use crate::SharedString;
 use crate::api::Image;
 
-/// Opaque placeholder used by C++ to reserve storage with the same size and
-/// alignment as Rust's `DataTransfer`. The actual `DataTransfer` contains
-/// `Option<Rc<...>>` fields whose layout cannot be expressed via cbindgen, so
-/// C++ never inspects these fields directly: copy/destruction goes through
-/// the `slint_data_transfer_*` FFI functions below, which operate on a real
-/// `DataTransfer`.
-///
-/// The three pointer-sized fields correspond to:
-/// - `_rc_inner`: thin `Rc` pointer for `Option<Rc<DataTransferInner>>` (null = `None`)
-/// - `_rc_any_0`/`_rc_any_1`: data + vtable pointers of the
-///   `Option<Rc<dyn Any>>` user data fat pointer (null data = `None`)
-#[repr(C)]
-pub struct DataTransferOpaque {
-    _rc_inner: *mut core::ffi::c_void,
-    _rc_any_0: *mut core::ffi::c_void,
-    _rc_any_1: *mut core::ffi::c_void,
-}
-
-static_assertions::assert_eq_align!(DataTransferOpaque, DataTransfer);
-static_assertions::assert_eq_size!(DataTransferOpaque, DataTransfer);
-
 /// Default-construct a `DataTransfer` in place at `out`.
 ///
 /// # Safety

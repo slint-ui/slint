@@ -19,6 +19,13 @@ use corelib::platform::PlatformError;
 use corelib::window::*;
 use corelib::{DataTransfer, SharedString};
 use i_slint_core as corelib;
+use i_slint_core::data_transfer::data_transfer_set_image_getter;
+use i_slint_core::data_transfer::data_transfer_set_plaintext_getter;
+use i_slint_core::graphics::load_image_from_dynamic_data;
+use winit::data_transfer::DataTransferId;
+use winit::data_transfer::DataTransferSendBuilder;
+use winit::data_transfer::TypeHint;
+use winit::event_loop::DndActions;
 
 #[allow(unused_imports)]
 use std::cell::{RefCell, RefMut};
@@ -64,7 +71,7 @@ impl std::fmt::Debug for CustomEvent {
 }
 
 #[derive(Debug)]
-struct DNDState {
+struct DndState {
     data_transfer: DataTransfer,
     id: winit::data_transfer::DataTransferId,
 }
@@ -90,7 +97,7 @@ pub struct EventLoopState {
 
     custom_application_handler: Option<Box<dyn crate::CustomApplicationHandler>>,
 
-    dnd_state: Option<DNDState>,
+    dnd_state: Option<DndState>,
 }
 
 impl EventLoopState {
@@ -154,6 +161,48 @@ impl EventLoopState {
             proposed_action: i_slint_core::items::DragAction::Copy,
         })
     }
+}
+
+fn build_external_data_transfer(
+    event_loop: &dyn ActiveEventLoop,
+    id: DataTransferId,
+) -> Option<DataTransfer> {
+    let type_info = event_loop.data_transfer(id).ok()?;
+    let mut data_transfer = DataTransfer::default();
+    // `extension_hint: None` to accept any image
+    // TODO: We should probably be a bit smarter about how we do this, e.g. with `image::ImageFormat::reading_enabled`.
+    if type_info.has_type(&TypeHint::Image { extension_hint: None })
+        && let Ok(image) =
+            event_loop.fetch_data_transfer(id, &TypeHint::Image { extension_hint: None })
+    {
+        let image = RefCell::new(image);
+        data_transfer_set_image_getter(&mut data_transfer, move || {
+            let mut data = vec![];
+            let mut image = image.borrow_mut();
+            image.try_read()?.read_to_end(&mut data).ok()?;
+            let format = match image.type_().hint() {
+                Some(TypeHint::Image { extension_hint }) => extension_hint,
+                _ => None,
+            };
+            // If `load_image_from_dynamic_data` can't find a format from the extension it'll
+            // use the `image` crate's automatic data-based detection, so supplying an empty
+            // string will trigger that.
+            load_image_from_dynamic_data(&data, format.unwrap_or_default()).ok()
+        });
+    }
+
+    // `extension_hint: None` to accept any image
+    // TODO: We should probably be a bit smarter about how we do this, e.g. with `image::ImageFormat::reading_enabled`.
+    if type_info.has_type(&TypeHint::Plaintext)
+        && let Ok(text) = event_loop.fetch_data_transfer(id, &TypeHint::Plaintext)
+    {
+        let text = RefCell::new(text);
+        data_transfer_set_plaintext_getter(&mut data_transfer, move || {
+            text.borrow_mut().try_as_string().map(SharedString::from).ok()
+        });
+    }
+
+    Some(data_transfer)
 }
 
 impl winit::application::ApplicationHandler for EventLoopState {
@@ -232,6 +281,29 @@ impl winit::application::ApplicationHandler for EventLoopState {
         let runtime_window = WindowInner::from_pub(window.window());
         if !matches!(event, WindowEvent::PointerMoved { .. }) {
             self.flush_pending_mouse_move();
+        }
+
+        if let Some(drop_event) = runtime_window.take_new_started_drag_event() {
+            dbg!(&drop_event);
+            let has_plaintext = drop_event.data.has_plaintext();
+            let plaintext =
+                if has_plaintext { drop_event.data.fetch_plaintext().ok() } else { None };
+            // let has_image = drop_event.data.has_image();
+            // let image = if has_image { drop_event.data.fetch_image().ok() } else { None };
+            let action_mask = DndActions::Flags {
+                move_: drop_event.allow_move,
+                copy: drop_event.allow_move,
+                link: drop_event.allow_link,
+            };
+            let mut sender = DataTransferSendBuilder::new((plaintext, ()));
+            if has_plaintext {
+                sender.add_type(TypeHint::Plaintext, |(plaintext, _), _| {
+                    plaintext.as_deref().map(ToString::to_string)
+                });
+            }
+
+            // TODO: Handle error.
+            let _ = event_loop.start_drag(window_id, sender.build(), &action_mask, None);
         }
 
         match event {
@@ -559,38 +631,43 @@ impl winit::application::ApplicationHandler for EventLoopState {
                 });
             }
 
-            WindowEvent::DragEntered { id } => {
-                if let Ok(data_transfer) = dbg!(event_loop.data_transfer(id)) {
-                    for type_ in data_transfer.available_types() {
-                        let _ = event_loop.fetch_data_transfer(id, &*type_);
-                    }
+            WindowEvent::DragEntered { id, position } => {
+                if let Some(position) = position {
+                    let pos = position.to_logical(runtime_window.scale_factor() as f64);
+                    self.cursor_pos = euclid::point2(pos.x, pos.y);
                 }
-                let _ = event_loop.accept_drag(id);
-                self.dnd_state = Some(DNDState { id, data_transfer: DataTransfer::default() });
-            }
-            WindowEvent::DataTransferResult { id, serial } => {
-                let Some(state) = &mut self.dnd_state else { return };
-                if state.id != id {
+
+                let Some(data_transfer) = build_external_data_transfer(event_loop, id) else {
                     return;
-                }
-                let Ok(mut r) = event_loop.data_transfer_result(serial) else { return };
-                dbg!(&r);
-                if let Some(t) = r.try_as_string() {
-                    state.data_transfer.set_plaintext(t.into());
-                } else if let Some(_) = r.try_as_uris() {
-                    // TODO: implement
-                    // if it is an image file, load as an image
-                }
+                };
+
+                self.dnd_state = Some(DndState { id, data_transfer });
+
+                // TODO: Don't unwrap
+                event_loop.set_valid_actions(id, &DndActions::All).unwrap();
+
                 let Some(event) = self.process_data_transfer_result(id) else { return };
                 runtime_window.process_mouse_input(corelib::input::MouseEvent::DragMove(event));
             }
             WindowEvent::DragPosition { id, position } => {
+                let Some(data_transfer) = build_external_data_transfer(event_loop, id) else {
+                    return;
+                };
+
+                self.dnd_state = Some(DndState { id, data_transfer });
+
                 let pos = position.to_logical(runtime_window.scale_factor() as f64);
                 self.cursor_pos = euclid::point2(pos.x, pos.y);
                 let Some(event) = self.process_data_transfer_result(id) else { return };
                 runtime_window.process_mouse_input(corelib::input::MouseEvent::DragMove(event));
             }
             WindowEvent::DragDropped { id } => {
+                let Some(data_transfer) = build_external_data_transfer(event_loop, id) else {
+                    return;
+                };
+
+                self.dnd_state = Some(DndState { id, data_transfer });
+
                 let Some(event) = self.process_data_transfer_result(id) else { return };
                 runtime_window.process_mouse_input(corelib::input::MouseEvent::Drop(event));
             }

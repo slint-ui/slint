@@ -2534,6 +2534,11 @@ checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 [[package]]
 name = "dpi"
 version = "0.1.2"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
+
+[[package]]
+name = "dpi"
+version = "0.1.2"
 source = "git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e#61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e"
 
 [[package]]
@@ -5305,8 +5310,8 @@ dependencies = [
  "webbrowser",
  "windows 0.62.2",
  "winit 0.31.0-beta.2",
- "winit-wayland",
- "winit-x11",
+ "winit-wayland 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e)",
+ "winit-x11 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e)",
  "zbus",
 ]
 
@@ -5381,6 +5386,7 @@ dependencies = [
  "const-field-offset",
  "criterion",
  "derive_more",
+ "enumflags2",
  "euclid",
  "fontique",
  "gettext-rs",
@@ -14035,12 +14041,12 @@ dependencies = [
 [[package]]
 name = "winit"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e#61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
 dependencies = [
  "bitflags 2.11.1",
  "cfg_aliases",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e)",
+ "dpi 0.1.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
  "libc",
  "raw-window-handle",
  "rustix 1.1.4",
@@ -14048,40 +14054,40 @@ dependencies = [
  "tracing",
  "winit-android",
  "winit-appkit",
- "winit-common",
- "winit-core",
+ "winit-common 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
+ "winit-core 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
  "winit-orbital",
  "winit-uikit",
- "winit-wayland",
+ "winit-wayland 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
  "winit-web",
  "winit-win32",
- "winit-x11",
+ "winit-x11 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
 ]
 
 [[package]]
 name = "winit-android"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e#61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
 dependencies = [
  "android-activity 0.6.1",
  "bitflags 2.11.1",
- "dpi 0.1.2 (git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e)",
+ "dpi 0.1.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
  "ndk 0.9.0",
  "raw-window-handle",
  "smol_str 0.3.2",
  "tracing",
- "winit-core",
+ "winit-core 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
 ]
 
 [[package]]
 name = "winit-appkit"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e#61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
 dependencies = [
  "bitflags 2.11.1",
  "block2 0.6.2",
  "dispatch2",
- "dpi 0.1.2 (git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e)",
+ "dpi 0.1.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
  "objc2 0.6.4",
  "objc2-app-kit 0.3.2",
  "objc2-core-foundation",
@@ -14091,14 +14097,14 @@ dependencies = [
  "raw-window-handle",
  "smol_str 0.3.2",
  "tracing",
- "winit-common",
- "winit-core",
+ "winit-common 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
+ "winit-core 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
 ]
 
 [[package]]
 name = "winit-common"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e#61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
 dependencies = [
  "block2 0.6.2",
  "memmap2",
@@ -14107,9 +14113,36 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "smol_str 0.3.2",
  "tracing",
- "winit-core",
+ "winit-core 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
  "x11-dl",
  "xkbcommon-dl",
+]
+
+[[package]]
+name = "winit-common"
+version = "0.31.0-beta.2"
+source = "git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e#61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e"
+dependencies = [
+ "memmap2",
+ "smol_str 0.3.2",
+ "tracing",
+ "winit-core 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e)",
+ "x11-dl",
+ "xkbcommon-dl",
+]
+
+[[package]]
+name = "winit-core"
+version = "0.31.0-beta.2"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
+dependencies = [
+ "bitflags 2.11.1",
+ "cursor-icon",
+ "dpi 0.1.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
+ "keyboard-types 0.8.3",
+ "raw-window-handle",
+ "smol_str 0.3.2",
+ "web-time",
 ]
 
 [[package]]
@@ -14129,28 +14162,28 @@ dependencies = [
 [[package]]
 name = "winit-orbital"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e#61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
 dependencies = [
  "bitflags 2.11.1",
- "dpi 0.1.2 (git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e)",
+ "dpi 0.1.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
  "libredox",
  "orbclient",
  "raw-window-handle",
  "redox_event",
  "smol_str 0.3.2",
  "tracing",
- "winit-core",
+ "winit-core 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
 ]
 
 [[package]]
 name = "winit-uikit"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e#61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
 dependencies = [
  "bitflags 2.11.1",
  "block2 0.6.2",
  "dispatch2",
- "dpi 0.1.2 (git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e)",
+ "dpi 0.1.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
  "objc2 0.6.4",
  "objc2-core-foundation",
  "objc2-foundation 0.3.2",
@@ -14158,8 +14191,34 @@ dependencies = [
  "raw-window-handle",
  "smol_str 0.3.2",
  "tracing",
- "winit-common",
- "winit-core",
+ "winit-common 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
+ "winit-core 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
+]
+
+[[package]]
+name = "winit-wayland"
+version = "0.31.0-beta.2"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
+dependencies = [
+ "bitflags 2.11.1",
+ "calloop 0.14.4",
+ "cursor-icon",
+ "dpi 0.1.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
+ "foldhash 0.2.0",
+ "libc",
+ "memmap2",
+ "raw-window-handle",
+ "rustix 1.1.4",
+ "sctk-adwaita",
+ "smithay-client-toolkit 0.20.0",
+ "smol_str 0.3.2",
+ "tracing",
+ "wayland-backend",
+ "wayland-client",
+ "wayland-protocols",
+ "wayland-protocols-plasma",
+ "winit-common 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
+ "winit-core 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
 ]
 
 [[package]]
@@ -14184,20 +14243,20 @@ dependencies = [
  "wayland-client",
  "wayland-protocols",
  "wayland-protocols-plasma",
- "winit-common",
- "winit-core",
+ "winit-common 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e)",
+ "winit-core 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e)",
 ]
 
 [[package]]
 name = "winit-web"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e#61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
 dependencies = [
  "atomic-waker",
  "bitflags 2.11.1",
  "concurrent-queue",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e)",
+ "dpi 0.1.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
  "js-sys",
  "pin-project",
  "raw-window-handle",
@@ -14207,23 +14266,47 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "web-time",
- "winit-core",
+ "winit-core 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
 ]
 
 [[package]]
 name = "winit-win32"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e#61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
 dependencies = [
  "bitflags 2.11.1",
  "cursor-icon",
- "dpi 0.1.2 (git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e)",
+ "dpi 0.1.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
  "raw-window-handle",
  "smol_str 0.3.2",
  "tracing",
  "unicode-segmentation",
  "windows-sys 0.61.2",
- "winit-core",
+ "winit-core 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
+]
+
+[[package]]
+name = "winit-x11"
+version = "0.31.0-beta.2"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
+dependencies = [
+ "bitflags 2.11.1",
+ "bytemuck",
+ "calloop 0.14.4",
+ "cursor-icon",
+ "dpi 0.1.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
+ "libc",
+ "percent-encoding",
+ "raw-window-handle",
+ "rustix 1.1.4",
+ "rustversion",
+ "smol_str 0.3.2",
+ "tracing",
+ "winit-common 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
+ "winit-core 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
+ "x11-dl",
+ "x11rb",
+ "xkbcommon-dl",
 ]
 
 [[package]]
@@ -14242,8 +14325,8 @@ dependencies = [
  "rustix 1.1.4",
  "smol_str 0.3.2",
  "tracing",
- "winit-common",
- "winit-core",
+ "winit-common 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e)",
+ "winit-core 0.31.0-beta.2 (git+https://github.com/slint-ui/winit.git?rev=61ab9c8b2fd52f5ada6a2cceb976e8337fc9b01e)",
  "x11-dl",
  "x11rb",
  "xkbcommon-dl",
