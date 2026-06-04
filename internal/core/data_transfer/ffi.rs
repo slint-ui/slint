@@ -69,12 +69,16 @@ pub extern "C" fn slint_data_transfer_eq(a: &DataTransfer, b: &DataTransfer) -> 
 }
 
 /// Set the plain text representation of `d` to a clone of `text`.
+///
+/// An empty `text` clears the previously-set plain text instead of storing it.
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_data_transfer_set_plain_text(d: &mut DataTransfer, text: &SharedString) {
     d.set_plain_text(text.clone());
 }
 
 /// Set the image representation of `d` to a clone of `image`.
+///
+/// A default-constructed `image` clears the previously-set image instead of storing it.
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_data_transfer_set_image(d: &mut DataTransfer, image: &Image) {
     d.set_image(image.clone());

@@ -31,10 +31,16 @@ public:
     DataTransfer() { cbindgen_private::types::slint_data_transfer_init_default(this); }
 
     /// Constructs a `DataTransfer` whose plain text representation is \a string.
+    ///
+    /// If \a string is empty, the resulting `DataTransfer` is empty (carries no plain
+    /// text representation).
     explicit DataTransfer(const SharedString &string) : DataTransfer() { set_plain_text(string); }
 
-    /// Constructs a `DataTransfer` whose image representation is \a image. Conversion to the
-    /// relevant format is done on-demand.
+    /// Constructs a `DataTransfer` whose image representation is \a image.
+    /// Conversion to the relevant format is done on-demand.
+    ///
+    /// If \a image is default-constructed, the resulting `DataTransfer` is empty
+    /// (carries no image representation).
     explicit DataTransfer(const Image &image) : DataTransfer() { set_image(image); }
 
     /// Destroys this `DataTransfer`, releasing any data it holds.
@@ -71,15 +77,23 @@ public:
         return *this;
     }
 
-    /// Sets the plain text representation of this `DataTransfer`. Each `DataTransfer` can only
-    /// have a single plain text representation; calling this again overwrites the previous one.
+    /// Sets the plain text representation of this `DataTransfer`.
+    /// Each `DataTransfer` can only have a single plain text representation;
+    /// calling this again overwrites the previous one.
+    ///
+    /// Passing an empty `text` clears the previously-set plain text instead of
+    /// storing it.
     void set_plain_text(const SharedString &text)
     {
         cbindgen_private::types::slint_data_transfer_set_plain_text(this, &text);
     }
 
-    /// Sets the image representation of this `DataTransfer`. Each `DataTransfer` can only have
-    /// a single image representation; calling this again overwrites the previous one.
+    /// Sets the image representation of this `DataTransfer`.
+    /// Each `DataTransfer` can only have a single image representation;
+    /// calling this again overwrites the previous one.
+    ///
+    /// Passing a default-constructed `Image` clears the previously-set image
+    /// instead of storing it.
     void set_image(const Image &image)
     {
         cbindgen_private::types::slint_data_transfer_set_image(this, &image.data);
