@@ -146,14 +146,13 @@ impl DataTransfer {
     /// However, you can have, for example, both an image representation and a
     /// plain text representation set simultaneously on the same [`DataTransfer`].
     ///
-    /// Passing an empty image (an `Image` equal to [`Image::default()`](Image)) clears
-    /// the previously-set image instead of storing it, so afterwards
-    /// [`has_image`](DataTransfer::has_image) returns `false`.
+    /// Passing a default-constructed `Image` clears the previously-set image
+    /// instead of storing it, so afterwards [`has_image`](DataTransfer::has_image)
+    /// returns `false`. If the resulting `DataTransfer` carries no plain text,
+    /// image, or user data, it compares equal to [`DataTransfer::default()`].
     pub fn set_image(&mut self, image: Image) -> &mut Self {
         if matches!(image.0, crate::ImageInner::None) {
-            if let Some(inner) = self.inner.as_mut() {
-                Rc::make_mut(inner).image = None;
-            }
+            self.clear_image();
         } else {
             Rc::make_mut(self.inner.get_or_insert_default()).image = Some(image);
         }
@@ -174,16 +173,35 @@ impl DataTransfer {
     ///
     /// Passing an empty string clears the previously-set plain text instead of
     /// storing it, so afterwards [`has_plain_text`](DataTransfer::has_plain_text)
-    /// returns `false`.
+    /// returns `false`. If the resulting `DataTransfer` carries no plain text,
+    /// image, or user data, it compares equal to [`DataTransfer::default()`].
     pub fn set_plain_text(&mut self, plain_text: SharedString) -> &mut Self {
         if plain_text.is_empty() {
-            if let Some(inner) = self.inner.as_mut() {
-                Rc::make_mut(inner).plain_text = None;
-            }
+            self.clear_plain_text();
         } else {
             Rc::make_mut(self.inner.get_or_insert_default()).plain_text = Some(plain_text);
         }
         self
+    }
+
+    fn clear_image(&mut self) {
+        let Some(inner_rc) = self.inner.as_mut() else { return };
+        if inner_rc.image.is_some() {
+            Rc::make_mut(inner_rc).image = None;
+        }
+        if inner_rc.image.is_none() && inner_rc.plain_text.is_none() {
+            self.inner = None;
+        }
+    }
+
+    fn clear_plain_text(&mut self) {
+        let Some(inner_rc) = self.inner.as_mut() else { return };
+        if inner_rc.plain_text.is_some() {
+            Rc::make_mut(inner_rc).plain_text = None;
+        }
+        if inner_rc.image.is_none() && inner_rc.plain_text.is_none() {
+            self.inner = None;
+        }
     }
 
     /// Returns `true` if this data transfer advertises that it is readable as an [`Image`].
@@ -276,6 +294,11 @@ mod tests {
         dt.set_plain_text("".into());
         assert!(!dt.has_plain_text());
         assert!(dt.is_empty());
+        // The clear path on an already-default transfer must not allocate an
+        // inner Rc — otherwise it would compare unequal to `default()` even
+        // though both are observably empty.
+        assert!(dt.inner.is_none());
+        assert_eq!(dt, DataTransfer::default());
     }
 
     #[test]
@@ -284,5 +307,23 @@ mod tests {
         dt.set_image(Image::default());
         assert!(!dt.has_image());
         assert!(dt.is_empty());
+        assert!(dt.inner.is_none());
+        assert_eq!(dt, DataTransfer::default());
+    }
+
+    #[test]
+    fn cleared_transfer_compares_equal_to_default() {
+        // After clearing every field, the inner Rc must be released so the
+        // transfer compares equal to a freshly-constructed default.
+        let mut dt = DataTransfer::default();
+        dt.set_plain_text("hello".into());
+        dt.set_image(Image::from_rgba8(SharedPixelBuffer::<Rgba8Pixel>::new(2, 2)));
+        assert!(!dt.is_empty());
+        dt.set_plain_text("".into());
+        assert!(dt.inner.is_some(), "image still set, inner must remain");
+        dt.set_image(Image::default());
+        assert!(dt.is_empty());
+        assert!(dt.inner.is_none());
+        assert_eq!(dt, DataTransfer::default());
     }
 }
