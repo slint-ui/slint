@@ -104,7 +104,10 @@ button in sync with an external property, including with a `for`
 over a model:
 
 ```slint
-for m in model: RadioButton { text: m.name; checked <=> m.checked; }
+RadioGroup {
+    for m in [{ name: "Mobile", checked: false }, { name: "Desktop", checked: true }]:
+        RadioButton { text: m.name; checked <=> m.checked; }
+}
 ```
 
 A one-way binding (`checked: cond`) works for the initial state and
