@@ -1,0 +1,63 @@
+
+import { Button, VerticalBox } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    title: "Runtime Resource Loading Demo";
+    width: 500px;
+    height: 400px;
+    background: #1e1e2e;
+
+    // Set from Rust at runtime with the loaded image
+    in property <image> loaded-image;
+
+    // Fires when user clicks "Load Image" — Rust handles it
+    callback load-image();
+
+    // Status message from Rust
+    in property <string> status-text: "Click the button to load an image at runtime";
+
+    VerticalBox {
+        padding: 20px;
+        spacing: 16px;
+
+        Text {
+            text: "Slint Runtime Resource Loading";
+            color: #cdd6f4;
+            font-size: 20px;
+            horizontal-alignment: center;
+        }
+
+        Rectangle {
+            height: 200px;
+            background: #313244;
+            border-radius: 8px;
+
+            Image {
+                source: root.loaded-image;
+                width: parent.width - 20px;
+                height: parent.height - 20px;
+                image-fit: contain;
+            }
+
+            // Placeholder when no image is loaded
+            if root.loaded-image.width == 0 : Text {
+                text: "No image loaded yet";
+                color: #6c7086;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        Text {
+            text: root.status-text;
+            color: #a6e3a1;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+
+        Button {
+            text: "Load Image at Runtime";
+            clicked => { root.load-image(); }
+        }
+    }
+}
