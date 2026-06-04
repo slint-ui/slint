@@ -5010,8 +5010,8 @@ fn compile_builtin_function_call(
             let window = access_window_field(ctx);
             format!("slint::private_api::open_url({url}, {window})")
         }
-        BuiltinFunction::BringAllToFront => {
-            "slint::private_api::bring_all_to_front()".to_owned()
+        BuiltinFunction::MacosBringAllWindowsToFront => {
+            "slint::private_api::macos_bring_all_windows_to_front()".to_owned()
         }
         BuiltinFunction::ParseMarkdown => {
             let format_string = a.next().unwrap();

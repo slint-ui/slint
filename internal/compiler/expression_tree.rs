@@ -123,7 +123,7 @@ pub enum BuiltinFunction {
     StopTimer,
     RestartTimer,
     OpenUrl,
-    BringAllToFront,
+    MacosBringAllWindowsToFront,
     ParseMarkdown,
     StringToStyledText,
     /// Converts a color to a hex string wrapped in StyledText.
@@ -311,7 +311,7 @@ declare_builtin_function_types!(
     StringToStyledText: (Type::String) -> Type::StyledText,
     ColorToStyledText: (Type::Color) -> Type::StyledText
     OpenUrl: (Type::String) -> Type::Bool,
-    BringAllToFront: () -> Type::Void,
+    MacosBringAllWindowsToFront: () -> Type::Void,
 );
 
 impl Default for BuiltinFunctionTypes {
@@ -423,7 +423,7 @@ impl BuiltinFunction {
             BuiltinFunction::StringToStyledText => true,
             BuiltinFunction::ColorToStyledText => true,
             BuiltinFunction::OpenUrl => false,
-            BuiltinFunction::BringAllToFront => false,
+            BuiltinFunction::MacosBringAllWindowsToFront => false,
         }
     }
 
@@ -511,7 +511,7 @@ impl BuiltinFunction {
             BuiltinFunction::StringToStyledText => true,
             BuiltinFunction::ColorToStyledText => true,
             BuiltinFunction::OpenUrl => false,
-            BuiltinFunction::BringAllToFront => false,
+            BuiltinFunction::MacosBringAllWindowsToFront => false,
         }
     }
 }

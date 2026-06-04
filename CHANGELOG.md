@@ -44,7 +44,7 @@ All notable changes to this project are documented in this file.
  - Added `ToolTip` element
  - Added `minimized`, `maximized`, `close`, and `hide` on `Window`
  - Added `drop-shadow-spread` and `inset-shadow-{color,blur,offset-x,offset-y,spread}` properties to rectangle. (Only supported in Skia)
- - added `Platform.bring-all-to-front()`
+ - added `Platform.macos-bring-all-windows-to-front()`
  - Fixed percentage size in children impacting parent layout (#3346)
  - Re-evaluate property bindings when a callback handler is changed from native code (#9551)
  - TextInput: allow setting the accessibility value

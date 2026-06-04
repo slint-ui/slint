@@ -363,9 +363,9 @@ inline bool open_url(const SharedString &url, const WindowAdapterRc &window_adap
     return cbindgen_private::slint_open_url(&url, &window_adapter.handle());
 }
 
-inline void bring_all_to_front()
+inline void macos_bring_all_windows_to_front()
 {
-    cbindgen_private::slint_bring_all_to_front();
+    cbindgen_private::slint_macos_bring_all_windows_to_front();
 }
 
 inline SharedString translate_from_bundle(std::span<const char8_t *const> strs,
