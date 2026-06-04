@@ -1779,7 +1779,7 @@ impl TextCursorBlinker {
 /// A single active touch point.
 #[derive(Clone, Copy, Default)]
 struct TouchPoint {
-    id: u64,
+    id: i32,
     position: LogicalPoint,
 }
 
@@ -1803,11 +1803,11 @@ impl Default for TouchMap {
 }
 
 impl TouchMap {
-    fn get(&self, id: u64) -> Option<&TouchPoint> {
+    fn get(&self, id: i32) -> Option<&TouchPoint> {
         self.entries[..self.len].iter().find(|tp| tp.id == id)
     }
 
-    fn get_mut(&mut self, id: u64) -> Option<&mut TouchPoint> {
+    fn get_mut(&mut self, id: i32) -> Option<&mut TouchPoint> {
         self.entries[..self.len].iter_mut().find(|tp| tp.id == id)
     }
 
@@ -1820,7 +1820,7 @@ impl TouchMap {
         }
     }
 
-    fn remove(&mut self, id: u64) {
+    fn remove(&mut self, id: i32) {
         if let Some(idx) = self.entries[..self.len].iter().position(|tp| tp.id == id) {
             self.len -= 1;
             self.entries[idx] = self.entries[self.len];
@@ -1832,7 +1832,7 @@ impl TouchMap {
     }
 
     /// Returns the first two distinct IDs, or `None` if fewer than 2 entries.
-    fn first_two_ids(&self) -> Option<(u64, u64)> {
+    fn first_two_ids(&self) -> Option<(i32, i32)> {
         if self.len >= 2 { Some((self.entries[0].id, self.entries[1].id)) } else { None }
     }
 
@@ -1882,10 +1882,10 @@ enum GestureRecognitionState {
     #[default]
     Idle,
     /// 2 fingers down, waiting for movement to exceed threshold.
-    TwoFingersDown { finger_ids: (u64, u64), initial_distance: f32, last_angle: euclid::Angle<f32> },
+    TwoFingersDown { finger_ids: (i32, i32), initial_distance: f32, last_angle: euclid::Angle<f32> },
     /// Actively synthesizing PinchGesture/RotationGesture events.
     Pinching {
-        finger_ids: (u64, u64),
+        finger_ids: (i32, i32),
         initial_distance: f32,
         last_scale: f32,
         last_angle: euclid::Angle<f32>,
@@ -1901,7 +1901,7 @@ enum GestureRecognitionState {
 pub(crate) struct TouchState {
     active_touches: TouchMap,
     /// The finger forwarded as mouse events during single-touch.
-    primary_touch_id: Option<u64>,
+    primary_touch_id: Option<i32>,
     gesture_state: GestureRecognitionState,
 }
 
@@ -1923,7 +1923,7 @@ impl TouchState {
     const ROTATION_THRESHOLD: f32 = 5.0;
 
     /// Returns the finger IDs from the current gesture state, if any.
-    fn gesture_finger_ids(&self) -> Option<(u64, u64)> {
+    fn gesture_finger_ids(&self) -> Option<(i32, i32)> {
         match self.gesture_state {
             GestureRecognitionState::TwoFingersDown { finger_ids, .. }
             | GestureRecognitionState::Pinching { finger_ids, .. } => Some(finger_ids),
@@ -1932,7 +1932,7 @@ impl TouchState {
     }
 
     /// Returns (distance, angle) between two specific touch points.
-    fn geometry_for(&self, (id_a, id_b): (u64, u64)) -> Option<(f32, euclid::Angle<f32>)> {
+    fn geometry_for(&self, (id_a, id_b): (i32, i32)) -> Option<(f32, euclid::Angle<f32>)> {
         let a = self.active_touches.get(id_a)?;
         let b = self.active_touches.get(id_b)?;
         let delta = (b.position - a.position).cast::<f32>();
@@ -1962,7 +1962,7 @@ impl TouchState {
     }
 
     /// Returns true if the given touch ID is one of the two gesture fingers.
-    fn is_gesture_finger(&self, id: u64) -> bool {
+    fn is_gesture_finger(&self, id: i32) -> bool {
         self.gesture_finger_ids().is_some_and(|(a, b)| id == a || id == b)
     }
 
@@ -1974,7 +1974,7 @@ impl TouchState {
     /// rather than requiring a manual `drop` at every branch.
     pub(crate) fn process(
         &mut self,
-        id: u64,
+        id: i32,
         position: LogicalPoint,
         phase: TouchPhase,
     ) -> TouchEventBuffer {
@@ -1988,7 +1988,7 @@ impl TouchState {
         events
     }
 
-    fn process_started(&mut self, id: u64, position: LogicalPoint, events: &mut TouchEventBuffer) {
+    fn process_started(&mut self, id: i32, position: LogicalPoint, events: &mut TouchEventBuffer) {
         self.active_touches.insert(TouchPoint { id, position });
 
         let total = self.active_touches.len();
@@ -2000,7 +2000,7 @@ impl TouchState {
                 position,
                 button: PointerEventButton::Left,
                 click_count: 0,
-                touch_finger_id: (id + 1) as i32,
+                touch_finger_id: id + 1,
             });
         } else if total == 2 {
             // Second finger: transition Idle → TwoFingersDown.
@@ -2027,14 +2027,14 @@ impl TouchState {
                 position: primary_pos,
                 button: PointerEventButton::Left,
                 click_count: 0,
-                touch_finger_id: (id as i32 + 1),
+                touch_finger_id: id + 1,
             });
         }
         // 3+ fingers: tracked in active_touches but ignored for gesture.
     }
 
     #[allow(clippy::collapsible_match)]
-    fn process_moved(&mut self, id: u64, position: LogicalPoint, events: &mut TouchEventBuffer) {
+    fn process_moved(&mut self, id: i32, position: LogicalPoint, events: &mut TouchEventBuffer) {
         if let Some(tp) = self.active_touches.get_mut(id) {
             tp.position = position;
         }
@@ -2044,7 +2044,7 @@ impl TouchState {
         match self.gesture_state {
             GestureRecognitionState::Idle => {
                 if self.primary_touch_id == Some(id) {
-                    events.push(MouseEvent::Moved { position, touch_finger_id: (id + 1) as i32 });
+                    events.push(MouseEvent::Moved { position, touch_finger_id: id + 1 });
                 }
             }
             GestureRecognitionState::TwoFingersDown {
@@ -2126,7 +2126,7 @@ impl TouchState {
     #[allow(clippy::collapsible_match)]
     fn process_ended(
         &mut self,
-        id: u64,
+        id: i32,
         position: LogicalPoint,
         is_cancelled: bool,
         events: &mut TouchEventBuffer,
@@ -2144,7 +2144,7 @@ impl TouchState {
                         position,
                         button: PointerEventButton::Left,
                         click_count: 0,
-                        touch_finger_id: (id + 1) as i32,
+                        touch_finger_id: id + 1,
                     });
                     events.push(MouseEvent::Exit);
                 }
@@ -2159,7 +2159,7 @@ impl TouchState {
                             position: remaining_pos,
                             button: PointerEventButton::Left,
                             click_count: 0,
-                            touch_finger_id: (remaining.id + 1) as i32,
+                            touch_finger_id: remaining.id + 1,
                         });
                     } else {
                         self.primary_touch_id = None;
@@ -2203,7 +2203,7 @@ impl TouchState {
                         position: rpos,
                         button: PointerEventButton::Left,
                         click_count: 0,
-                        touch_finger_id: (rid + 1) as i32,
+                        touch_finger_id: rid + 1,
                     });
                 } else {
                     events.push(MouseEvent::Exit);
@@ -2275,7 +2275,7 @@ mod touch_tests {
     fn touch_map_capacity() {
         let mut map = TouchMap::default();
         for i in 0..MAX_TRACKED_TOUCHES {
-            map.insert(TouchPoint { id: i as u64, position: pt(i as f32, 0.0) });
+            map.insert(TouchPoint { id: i as i32, position: pt(i as f32, 0.0) });
         }
         assert_eq!(map.len(), MAX_TRACKED_TOUCHES);
         // Inserting beyond capacity is silently ignored.

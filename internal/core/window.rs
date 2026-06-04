@@ -980,7 +980,7 @@ impl WindowInner {
     /// (the common case), this stays `None` throughout.
     pub fn process_touch_input(
         &self,
-        id: u64,
+        id: i32,
         position: LogicalPoint,
         phase: TouchPhase,
     ) -> Option<MouseDispatchResult> {
