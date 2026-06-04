@@ -69,6 +69,7 @@ export component EmptyWindow inherits Window {
                 alignment: start;
                 spacing: 2px;
                 align-items: end;
+                opacity: 0.9;
                 Text {
                     text: "Connect Live Preview to";
                     font-size: 24px;
@@ -86,7 +87,8 @@ export component EmptyWindow inherits Window {
         VerticalLayout {
             alignment: center;
             spacing: 8px;
-            opacity: 0.5;
+            // TODO: Add version information
+            visible: false;
             Text {
                 text: "Slint 1.17.0";
                 font-size: 14px;
