@@ -2420,6 +2420,27 @@ export component TabWidget {
     //-is_internal
 }
 
+component RadioButton {
+    in property <string> text;
+    in property <bool> enabled: true;
+    in-out property <bool> checked;
+    callback toggled();
+}
+
+// Note: not a native class, handled in the lower_radiogroup pass
+export component RadioGroup {
+    in property <string> title;
+    in property <bool> enabled: true;
+    in property <Orientation> orientation;
+    in-out property <string> current-value;
+    out property <bool> has-focus;
+    callback selected(string);
+
+    //-disallow_global_types_as_child_elements
+    RadioButton { }
+    //-is_internal
+}
+
 /// ```slint playground
 /// export component Example inherits Window {
 ///     width: 100px;

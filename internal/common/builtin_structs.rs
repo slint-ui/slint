@@ -118,15 +118,6 @@ macro_rules! for_each_builtin_structs {
                 text: SharedString,
             }
 
-            /// Represents one option in a `RadioGroup`.
-            #[non_exhaustive]
-            pub struct RadioEntry {
-                /// Label shown next to the radio button.
-                text: SharedString,
-                /// When `true`, this option is visible but not selectable.
-                disabled: bool,
-            }
-
             /// This is used to define the column and the column header of a TableView
             #[non_exhaustive]
             pub struct TableColumn {
