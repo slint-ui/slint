@@ -1,16 +1,23 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Palette } from "std-widgets.slint";
+import { Palette, Button } from "std-widgets.slint";
 
 export component EmptyWindow inherits Window {
-    // Friendly device name (e.g. "Simon's iPhone") this viewer advertises to editors.
     in property <string> name;
     in property <string> address;
     in property <string> message;
 
+    property <bool> has-name: name != "";
     property <bool> showing-name: true;
+
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+
+    hidden-input := TextInput {
+        enabled: false;
+        visible: false;
+        text: root.address;
+    }
 
     Rectangle {
         background: root.dark-color-scheme ? @linear-gradient(180deg, #1C1C1C, black) : @linear-gradient(0deg, #D7D9DD, white);
@@ -23,15 +30,36 @@ export component EmptyWindow inherits Window {
     }
 
     TouchArea {
+        y: 0;
+        height: root.safe-area-insets.top + 246px;
+
         clicked => {
-            root.showing-name = !root.showing-name;
+            hidden-input.select-all();
+            hidden-input.copy();
+            if hide-toast-timer.running == false {
+                hide-toast-timer.start();
+            } else {
+                hide-toast-timer.restart();
+            }
+
+            toast.opacity = 1;
         }
     }
+
+    hide-toast-timer := Timer {
+        interval: 2000ms;
+        running: false;
+        triggered => {
+            toast.opacity = 0;
+            self.stop();
+        }
+    }
+
 
     VerticalLayout {
         alignment: space-between;
         padding-left: 24px;
-        padding-top: root.safe-area-insets.top + 46px;
+        padding-top: root.safe-area-insets.top + 146px;
         padding-bottom: root.safe-area-insets.bottom;
         VerticalLayout {
             alignment: start;
@@ -42,19 +70,14 @@ export component EmptyWindow inherits Window {
                 spacing: 2px;
                 align-items: end;
                 Text {
-                    text: "Connect VScode to";
-                    font-size: 26px;
+                    text: "Connect Live Preview to";
+                    font-size: 24px;
                     font-weight: 100;
-                }
-
-                Image {
-                    width: 30px;
-                    source: @image-url("assets/slint-logo-small-light.svg");
                 }
             }
 
             Text {
-                text: root.showing-name ? name : address;
+                text: root.showing-name && root.has-name ? name : address;
                 font-size: 24px;
                 font-weight: 400;
             }
@@ -76,6 +99,33 @@ export component EmptyWindow inherits Window {
                 font-weight: 400;
             }
         }
+    }
+
+    toast := Rectangle {
+        y: root.height - root.safe-area-insets.bottom - self.height - 100px;
+        width: 300px;
+        height: 50px;
+        border-radius: self.height / 2;
+        drop-shadow-color: root.dark-color-scheme ? black : #0000002e;
+        drop-shadow-blur: 30px;
+        drop-shadow-offset-x: 10px;
+        drop-shadow-offset-y: 10px;
+        opacity: 0;
+        animate opacity {
+            duration: 300ms;
+            easing: cubic-bezier(0.33, 1, 0.68, 1);
+        }
+
+        Rectangle {
+            border-radius: parent.border-radius;
+            background: root.dark-color-scheme ? #212121 : #f6f7f8;
+            Text {
+                text: @tr("IP copied to clipboard");
+                font-size: 16px;
+                font-weight: 400;
+            }
+        }
+
     }
 
     VerticalLayout {
