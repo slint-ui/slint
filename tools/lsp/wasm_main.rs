@@ -386,6 +386,9 @@ impl SlintServer {
                         lsp_types::OneOf::Left(object),
                     );
             }
+            M::DebugMessage { location, message } => {
+                log(&common::preview_debug_message_to_string(&location, &message));
+            }
         }
         Ok(())
     }
@@ -513,6 +516,9 @@ fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Context) ->
                 ctx.server_notifier.send_notification::<lsp_types::notification::TelemetryEvent>(
                     lsp_types::OneOf::Left(object),
                 );
+        }
+        M::DebugMessage { location, message } => {
+            log(&crate::common::preview_debug_message_to_string(&location, &message));
         }
     }
     Ok(())

@@ -1575,14 +1575,18 @@ fn set_preview_factory(
                     (f.clone(), line, column)
                 })
             });
-            if let Some((file, line, column)) = &location {
-                i_slint_core::debug_log!(
-                    "DEBUG {}:{line}:{column}> {text}",
-                    file.path().display(),
-                );
-            } else {
-                i_slint_core::debug_log!("DEBUG> {text}");
-            }
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                let to_lsp = state.to_lsp.try_borrow();
+                let Some(to_lsp) = to_lsp.ok() else { return };
+                if let Some(to_lsp) = &*to_lsp {
+                    let location = location.as_ref().map(|(source_file, line, column)| {
+                        (source_file.path().to_owned(), *line, *column)
+                    });
+                    to_lsp
+                        .send(&PreviewToLspMessage::DebugMessage { location, message: text.into() })
+                        .ok();
+                }
+            });
 
             let location = location.as_ref().map(|(file, line, column)| {
                 (file.path().to_string_lossy().to_string().into(), *line, *column)
