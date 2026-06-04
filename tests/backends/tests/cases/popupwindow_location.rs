@@ -38,6 +38,18 @@ fn popupwindow_location() {
                     background: green;
                 }
 
+                init() => {
+                    Properties.popup-initialized = true;
+                }
+
+                changed x => {
+                    Properties.popup-x = self.x;
+                }
+
+                changed y => {
+                    Properties.popup-y = self.y;
+                }
+
 
                 Timer {
                     running: true;
@@ -69,14 +81,8 @@ fn popupwindow_location() {
     app.run().unwrap();
 
     assert_eq!(app.global::<Properties>().get_popup_initialized(), true);
-    assert_eq!(
-        app.global::<Properties>().get_popup_width(),
-        99. + TIMER_TRIGGER_COUNTS as f32 * 10.
-    );
-    assert_eq!(
-        app.global::<Properties>().get_popup_height(),
-        102. + TIMER_TRIGGER_COUNTS as f32 * 1.
-    );
+    assert_eq!(app.global::<Properties>().get_popup_x(), TIMER_TRIGGER_COUNTS as f32 * 10.);
+    assert_eq!(app.global::<Properties>().get_popup_y(), TIMER_TRIGGER_COUNTS as f32 * 1.);
 
     // IMPORTANT: Check the real window position and not only the property!!!
 }
