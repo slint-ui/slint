@@ -177,6 +177,7 @@ module.exports = grammar({
             $.property,
             $.binding_alias,
             $.callback,
+            $.callback_alias,
             $.callback_event,
             $.changed_event,
             $.function_definition,
