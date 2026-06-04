@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { TextEdit } from "std-widgets.slint";
+
 export component EmptyWindow inherits Window {
     // Friendly device name (e.g. "Simon's iPhone") this viewer advertises to editors.
     in property <string> name;
@@ -8,7 +10,6 @@ export component EmptyWindow inherits Window {
     in property <string> message;
 
     VerticalLayout {
-        alignment: start;
         // Keep the name clear of the status bar / notch / Dynamic Island.
         padding-top: root.safe-area-insets.top + 8px;
         padding-bottom: root.safe-area-insets.bottom;
@@ -20,18 +21,23 @@ export component EmptyWindow inherits Window {
             font-weight: 700;
         }
 
-        HorizontalLayout {
+        if message == "": HorizontalLayout {
             alignment: center;
             VerticalLayout {
                 alignment: center;
-
-                if message == "": Text {
+                Text {
                     text: address;
-                }
-                if message != "": Text {
-                    text: message;
+                    horizontal-alignment: center;
+                    wrap: word-wrap;
                 }
             }
+        }
+        // Compile diagnostics can be many lines long; a read-only TextEdit gives
+        // the user wrapping, scrolling, and selection/copy in one widget.
+        if message != "": TextEdit {
+            text: message;
+            read-only: true;
+            wrap: word-wrap;
         }
     }
 }
