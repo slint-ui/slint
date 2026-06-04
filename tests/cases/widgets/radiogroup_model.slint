@@ -65,8 +65,10 @@ assert_eq!(instance.invoke_get_checked(1), false);
 assert_eq!(instance.invoke_get_checked(2), false);
 
 // Writing the model from outside drives the group too: setting C selects C
-// and clears A.
+// and clears A. The propagation goes through a `changed` handler, so flush
+// the event loop before inspecting the result.
 instance.invoke_set_checked(2, true);
+slint_testing::mock_elapsed_time(0);
 assert_eq!(instance.get_current_value(), SharedString::from("C"));
 assert_eq!(instance.invoke_get_checked(0), false);
 assert_eq!(instance.invoke_get_checked(1), false);
@@ -75,6 +77,7 @@ assert_eq!(instance.invoke_get_checked(2), true);
 // Setting `checked = false` on the currently-selected entry reverts —
 // deselect-all from outside isn't supported.
 instance.invoke_set_checked(2, false);
+slint_testing::mock_elapsed_time(0);
 assert_eq!(instance.get_current_value(), SharedString::from("C"));
 assert_eq!(instance.invoke_get_checked(2), true);
 ```

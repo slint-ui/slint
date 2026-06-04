@@ -187,7 +187,7 @@ export component ControlsPage inherits Page {
             RadioGroup {
                 title: @tr("Vertical Orientation");
                 enabled: GallerySettings.widgets-enabled;
-                RadioButton { text: @tr("Portrait"); }
+                RadioButton { text: @tr("Portrait"); checked: true; }
                 RadioButton { text: @tr("Landscape"); }
                 RadioButton { text: @tr("Auto"); enabled: false; }
             }
@@ -200,7 +200,7 @@ export component ControlsPage inherits Page {
                     debug("RadioGroup selected: ", value);
                 }
                 RadioButton { text: @tr("Start"); }
-                RadioButton { text: @tr("Center"); }
+                RadioButton { text: @tr("Center"); checked: true; }
                 RadioButton { text: @tr("End"); }
             }
         }

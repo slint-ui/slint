@@ -19,7 +19,7 @@ export component TestCase inherits Window {
             title: "Colors";
             red-btn := RadioButton { text: "Red"; }
             green-btn := RadioButton { text: "Green"; }
-            RadioButton { text: "Blue"; enabled: false; }
+            blue-btn := RadioButton { text: "Blue"; enabled: false; }
             selected(value) => {
                 root.selected-count += 1;
                 root.last-selected = value;
@@ -30,9 +30,11 @@ export component TestCase inherits Window {
     public function set-red() { red-btn.checked = true; }
     public function set-green() { green-btn.checked = true; }
     public function unset-red() { red-btn.checked = false; }
+    public function set-blue() { blue-btn.checked = true; }
 
     out property <bool> red-checked: red-btn.checked;
     out property <bool> green-checked: green-btn.checked;
+    out property <bool> blue-checked: blue-btn.checked;
 }
 
 /*
@@ -125,7 +127,12 @@ assert_eq!(blue.accessible_checked(), Some(false));
 
 // Programmatic `checked = true` from outside selects the button and updates
 // the group; the previously-checked button goes unchecked.
+// `invoke_accessible_default_action` doesn't tick the event loop, so the
+// `changed group-current-index` handler is still queued — flush before
+// writing so the queued sync doesn't race with the user write.
+slint_testing::mock_elapsed_time(0);
 instance.invoke_set_green();
+slint_testing::mock_elapsed_time(0);
 assert_eq!(instance.get_current_value(), SharedString::from("Green"));
 assert_eq!(instance.get_selected_count(), 4);
 assert_eq!(instance.get_green_checked(), true);
@@ -135,16 +142,27 @@ assert_eq!(red.accessible_checked(), Some(false));
 
 // Setting `checked = true` on the already-selected button is a no-op.
 instance.invoke_set_green();
+slint_testing::mock_elapsed_time(0);
 assert_eq!(instance.get_selected_count(), 4);
 
 // Setting `checked = false` on the selected button reverts — deselect-all
 // isn't supported from outside.
 instance.invoke_set_red();
+slint_testing::mock_elapsed_time(0);
 assert_eq!(instance.get_current_value(), SharedString::from("Red"));
 assert_eq!(instance.get_red_checked(), true);
 instance.invoke_unset_red();
+slint_testing::mock_elapsed_time(0);
 assert_eq!(instance.get_red_checked(), true);
 assert_eq!(instance.get_current_value(), SharedString::from("Red"));
+
+// Programmatic `checked = true` on a disabled button is refused —
+// selection state and the previously-selected button are unchanged.
+instance.invoke_set_blue();
+slint_testing::mock_elapsed_time(0);
+assert_eq!(instance.get_current_value(), SharedString::from("Red"));
+assert_eq!(instance.get_red_checked(), true);
+assert_eq!(instance.get_blue_checked(), false);
 ```
 
 */

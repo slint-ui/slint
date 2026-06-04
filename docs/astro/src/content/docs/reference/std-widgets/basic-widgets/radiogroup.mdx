@@ -90,11 +90,27 @@ The button stays visible.
 
 <SlintProperty propName="checked" typeName="bool" defaultValue="false" propertyVisibility="in-out">
 `true` when this is the currently selected button.
-Setting it to `true` selects this button; the previously-checked button
-becomes unchecked.
-Setting it to `false` on the currently-selected button is a no-op —
-the group always has at most one selection, and deselect-all from
-outside isn't supported.
+By default `checked` tracks the group's selection: when a button is clicked
+it becomes `true`, and the previously-checked button's `checked` becomes
+`false`.
+Setting `checked = true` from outside selects this button on the next
+event loop iteration; the previously-checked button goes unchecked.
+Setting `checked = false` on the currently-selected button is reverted —
+the group always has at most one selection.
+Programmatic selection on a disabled button is refused.
+
+Use a two-way binding (`checked <=> model.field`) to keep the
+button in sync with an external property, including with a `for`
+over a model:
+
+```slint
+for m in model: RadioButton { text: m.name; checked <=> m.checked; }
+```
+
+A one-way binding (`checked: cond`) works for the initial state and
+stays reactive *until another button in the group is selected* — at
+that point the group writes `checked = false` and the binding to
+`cond` is severed. Prefer `<=>` for cases where `cond` keeps changing.
 </SlintProperty>
 
 ### Callbacks
