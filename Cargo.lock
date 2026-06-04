@@ -10919,6 +10919,7 @@ dependencies = [
  "mdns-sd 0.17.2",
  "serde_json",
  "shlex",
+ "slint",
  "slint-interpreter",
  "smol_str 0.3.2",
  "tempfile",
