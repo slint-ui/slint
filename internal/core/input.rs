@@ -1356,7 +1356,6 @@ pub(crate) fn handle_mouse_grab(
             // TODO: We should probably have a better way of figuring out if a drag event is
             // internal-only.
             if drop_event.data.has_image() || drop_event.data.has_plaintext() {
-                std::dbg!();
                 start_drag_pending.store(true, core::sync::atomic::Ordering::Relaxed);
             }
             mouse_input_state.drag_data = Some(drop_event);

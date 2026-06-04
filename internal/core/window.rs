@@ -9,6 +9,7 @@ use crate::api::{
     CloseRequestResponse, LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize,
     PlatformError, Window, WindowPosition, WindowSize,
 };
+use crate::data_transfer::DropEffect;
 use crate::input::{
     ClickState, FocusEvent, FocusReason, InternalKeyEvent, KeyEventResult, KeyEventType, Keys,
     MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase, TouchState,
@@ -18,18 +19,21 @@ use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
-use crate::items::{DropEvent, InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
+use crate::items::{
+    DropArea, DropEvent, InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy,
+};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalVector, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
-use crate::{Callback, Coord, DataTransfer, SharedString, SharedVector};
+use crate::{Callback, Coord, SharedString, SharedVector};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 use core::num::NonZeroU32;
 use core::pin::Pin;
+use enumflags2::BitFlags;
 use euclid::num::Zero;
 use portable_atomic::AtomicBool;
 use vtable::{VRc, VRcMapped};
@@ -565,10 +569,36 @@ impl WindowInner {
         }
     }
 
+    /// TODO: Docs
+    pub fn internal_drop_event(&self) -> Option<DropEvent> {
+        let mouse_input = self.mouse_input_state.borrow();
+        if mouse_input.drag_source.is_some() { mouse_input.drag_data.clone() } else { None }
+    }
+
+    /// TODO: Docs
+    pub fn valid_drop_actions(&self) -> BitFlags<DropEffect> {
+        let mouse_input = self.mouse_input_state.borrow();
+        let Some(drop_target) = mouse_input
+            .drop_target
+            .as_ref()
+            .and_then(|weak| weak.upgrade())
+            .and_then(|item| item.downcast::<DropArea>())
+        else {
+            return BitFlags::empty();
+        };
+
+        // TODO: Get the set of allowed effects
+        let _ = drop_target;
+
+        BitFlags::all()
+    }
+
+    /// TODO: Docs
     pub fn set_new_drag_pending(&self, pending: bool) {
         self.start_drag_pending.store(pending, core::sync::atomic::Ordering::Relaxed);
     }
 
+    /// TODO: Docs
     pub fn take_new_started_drag_event(&self) -> Option<DropEvent> {
         if !self.start_drag_pending.swap(false, core::sync::atomic::Ordering::Relaxed) {
             return None;
