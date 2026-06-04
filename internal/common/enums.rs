@@ -471,7 +471,7 @@ macro_rules! for_each_enums {
             /// See [WAI-ARIA Landmark Regions](https://www.w3.org/WAI/ARIA/apg/practices/landmark-regions/)
             /// for guidance on when and how to use them.
             #[non_exhaustive]
-            enum AccessibleRole {
+            pub enum AccessibleRole {
                 /// The element isn't accessible.
                 None,
                 /// The element is a `Button` or behaves like one.

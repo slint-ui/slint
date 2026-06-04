@@ -41,9 +41,6 @@ fn enums(path: &Path) -> anyhow::Result<()> {
         (AccessibleLiveRegion) => {
             Some(None)
         };
-        (AccessibleRole) => {
-            Some(Some("testing"))
-        };
         ($_:ident) => {
             None
         };
