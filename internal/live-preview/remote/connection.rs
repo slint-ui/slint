@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// cSpell: ignore alnum localdomain notlocalhost
+
 use std::{
     collections::HashSet,
     net::{IpAddr, Ipv6Addr, SocketAddr, SocketAddrV6},
@@ -131,12 +133,11 @@ pub struct Connection {
     /// outside this set are ignored, so unrelated edits in the user's editor don't trigger a
     /// rebuild. Updated by the viewer after each compile.
     dependencies: Arc<Mutex<HashSet<Url>>>,
-    /// Friendly device name shown to remote clients; also used as the mDNS instance name.
-    /// Always non-empty (an IP-derived label is substituted if no name source resolved).
-    /// On Apple this field does not exist — the name comes from Bonjour when the service
-    /// is registered.
-    #[cfg(not(target_vendor = "apple"))]
-    device_name: String,
+    /// Friendly device name shown to remote clients; also used as the mDNS instance name
+    /// on non-Apple platforms. Always non-empty: an IP-derived label is substituted if no
+    /// name source resolved. On Apple, the initial value is the system hostname; the
+    /// viewer overwrites it with the Bonjour-reported name once the service is registered.
+    device_name: Mutex<String>,
 }
 
 /// Whether the connection can act on this URL. The remote preview protocol only handles
@@ -153,7 +154,7 @@ fn is_supported(url: &Url) -> bool {
 impl Connection {
     pub async fn listen(
         address: Option<SocketAddr>,
-        #[cfg(not(target_vendor = "apple"))] device_name_override: Option<String>,
+        device_name_override: Option<String>,
         message_handler: impl Fn(ConnectionMessage) + 'static + Send + Sync,
     ) -> anyhow::Result<Self> {
         let file_cache = Arc::new(DashMap::<Url, CacheEntry>::new());
@@ -248,7 +249,6 @@ impl Connection {
         let local_addr = local_addr_receiver.await??;
         tracing::info!("Listening on {}", local_addr);
 
-        #[cfg(not(target_vendor = "apple"))]
         let device_name = {
             let raw =
                 device_name_override.filter(|n| !n.is_empty()).unwrap_or_else(default_device_name);
@@ -260,18 +260,24 @@ impl Connection {
             message_sender,
             file_cache,
             dependencies,
-            #[cfg(not(target_vendor = "apple"))]
-            device_name,
+            device_name: Mutex::new(device_name),
         })
     }
 
-    /// Friendly device name to advertise over mDNS and show in the viewer UI on non-Apple
-    /// platforms. Guaranteed non-empty: an IP-derived label is substituted when no
-    /// user-set source was available. On Apple the name comes from Bonjour after the
-    /// service is registered, so this method is not available there.
-    #[cfg(not(target_vendor = "apple"))]
-    pub fn device_name(&self) -> &str {
-        &self.device_name
+    /// Friendly device name to advertise over mDNS and show in the viewer UI.
+    /// Guaranteed non-empty: an IP-derived label is substituted when no user-set source
+    /// is available. On Apple the value starts as the system hostname and is overwritten
+    /// by [`Self::set_device_name`] once Bonjour reports the registered instance name.
+    pub fn device_name(&self) -> String {
+        self.device_name.lock().unwrap_or_else(|e| e.into_inner()).clone()
+    }
+
+    /// Replace the friendly device name. Empty or whitespace-only values are ignored so
+    /// callers can pass the raw output of an mDNS registration without pre-checking.
+    pub fn set_device_name(&self, name: String) {
+        if !name.trim().is_empty() {
+            *self.device_name.lock().unwrap_or_else(|e| e.into_inner()) = name;
+        }
     }
 
     /// Replace the set of URLs the connection treats as relevant. A subsequent `SetContents`
@@ -497,19 +503,16 @@ impl Connection {
         // The instance name is the user-visible label in editors and can contain spaces,
         // apostrophes, or non-ASCII characters. The SRV target ("host name") is consumed
         // by DNS resolvers and must be limited to LDH characters / RFC 1035 label limits.
-        let mdns_host = format!("{}.local.", sanitize_dns_label(&self.device_name));
-        tracing::info!(
-            "Announcing service on {local_ips:?} as {} ({})",
-            self.device_name,
-            mdns_host
-        );
+        let device_name = self.device_name();
+        let mdns_host = format!("{}.local.", sanitize_dns_label(&device_name));
+        tracing::info!("Announcing service on {local_ips:?} as {device_name} ({mdns_host})");
         let properties = HashMap::from([
             (TXT_PROTOCOLS_KEY.to_owned(), PROTOCOL_SUBPROTOCOL.to_owned()),
             (TXT_SLINT_VERSION_KEY.to_owned(), SLINT_VERSION.to_owned()),
         ]);
         ServiceInfo::new(
             crate::protocol::SERVICE_TYPE,
-            &self.device_name,
+            &device_name,
             &mdns_host,
             local_ips.as_slice(),
             local_port,
@@ -546,30 +549,35 @@ fn local_ips_for(local_addr: SocketAddr) -> Vec<IpAddr> {
     }
 }
 
-/// Compute the friendly device name to advertise on non-Apple platforms.
+/// Compute the friendly device name to advertise.
 ///
 /// On Linux, prefer the systemd "pretty hostname" the user sets in Settings → About →
 /// Device Name (`PRETTY_HOSTNAME=` in `/etc/machine-info`). Everywhere else, fall back to
 /// the system hostname. `localhost` and empty strings are treated as missing so the caller
-/// can substitute an IP-derived label.
-#[cfg(not(target_vendor = "apple"))]
+/// can substitute an IP-derived label. On Apple, the viewer overwrites this with the
+/// Bonjour-reported friendly name once the service is registered.
 fn default_device_name() -> String {
     #[cfg(target_os = "linux")]
     if let Some(pretty) = read_pretty_hostname() {
-        return non_localhost(pretty);
+        let cleaned = non_localhost(pretty);
+        if !cleaned.is_empty() {
+            return cleaned;
+        }
     }
     let host = hostname::get().ok().and_then(|h| h.into_string().ok()).unwrap_or_default();
     non_localhost(host)
 }
 
-#[cfg(not(target_vendor = "apple"))]
+/// Treat any `localhost` variant as missing — bare `localhost`, the RHEL/CentOS default
+/// `localhost.localdomain`, or case variants — so the caller falls through to the
+/// IP-derived label rather than advertising a name that conflicts with every other host.
 fn non_localhost(name: String) -> String {
-    if name == "localhost" { String::new() } else { name }
+    let lower = name.to_ascii_lowercase();
+    if lower == "localhost" || lower.starts_with("localhost.") { String::new() } else { name }
 }
 
 /// Fallback when no user-set device name is available. Picks a label derived from the
 /// first non-loopback local IP so the user can still tell two instances apart.
-#[cfg(not(target_vendor = "apple"))]
 fn ip_derived_device_name(local_ips: &[IpAddr]) -> String {
     local_ips
         .first()
@@ -605,28 +613,32 @@ fn sanitize_dns_label(name: &str) -> String {
     if out.is_empty() { "slint-viewer".to_owned() } else { out }
 }
 
-/// Parse the PRETTY_HOSTNAME entry from /etc/machine-info. Handles unquoted values,
-/// single- or double-quoted values, and a trailing `# comment`. Does not implement
-/// systemd's full shell-style escape rules — values containing `\"` come through as-is.
+/// Parse the PRETTY_HOSTNAME entry from /etc/machine-info. Handles unquoted values and
+/// single- or double-quoted values. Does not implement systemd's full shell-style escape
+/// rules — values containing `\"` come through as-is. The systemd env-file format only
+/// treats `#` as a comment at the start of a line, so `#` mid-value is preserved.
 #[cfg(target_os = "linux")]
 fn read_pretty_hostname() -> Option<String> {
     let contents = std::fs::read_to_string("/etc/machine-info").ok()?;
+    parse_pretty_hostname(&contents)
+}
+
+#[cfg(any(target_os = "linux", test))]
+fn parse_pretty_hostname(contents: &str) -> Option<String> {
     for line in contents.lines() {
-        let rest = match line.trim_start().strip_prefix("PRETTY_HOSTNAME=") {
-            Some(rest) => rest.trim_start(),
-            None => continue,
-        };
+        let Some(rest) = line.trim_start().strip_prefix("PRETTY_HOSTNAME=") else { continue };
+        let rest = rest.trim_start();
         let value = match rest.chars().next() {
             Some(quote @ ('"' | '\'')) => {
                 let after_open = &rest[quote.len_utf8()..];
-                let end = after_open.find(quote)?;
+                // Malformed (unterminated) quote: skip this line, don't abandon the file.
+                let Some(end) = after_open.find(quote) else { continue };
                 after_open[..end].to_owned()
             }
-            _ => rest.split(['#']).next().unwrap_or("").trim_end().to_owned(),
+            _ => rest.trim_end().to_owned(),
         };
-        let value = value.trim();
         if !value.is_empty() {
-            return Some(value.to_owned());
+            return Some(value);
         }
     }
     None
@@ -671,5 +683,77 @@ mod tests {
     fn sanitize_falls_back_for_empty_or_all_invalid() {
         assert_eq!(sanitize_dns_label(""), "slint-viewer");
         assert_eq!(sanitize_dns_label("@@@"), "slint-viewer");
+    }
+}
+
+#[cfg(test)]
+mod parser_tests {
+    use super::{non_localhost, parse_pretty_hostname};
+
+    #[test]
+    fn non_localhost_drops_variants() {
+        assert!(non_localhost("localhost".into()).is_empty());
+        assert!(non_localhost("LOCALHOST".into()).is_empty());
+        assert!(non_localhost("localhost.localdomain".into()).is_empty());
+        assert!(non_localhost("localhost.local".into()).is_empty());
+    }
+
+    #[test]
+    fn non_localhost_keeps_others() {
+        assert_eq!(non_localhost("notlocalhost".into()), "notlocalhost");
+        assert_eq!(non_localhost("simon".into()), "simon");
+    }
+
+    #[test]
+    fn parse_picks_quoted_value() {
+        assert_eq!(
+            parse_pretty_hostname("PRETTY_HOSTNAME=\"Simon's Laptop\"\n").as_deref(),
+            Some("Simon's Laptop"),
+        );
+    }
+
+    #[test]
+    fn parse_preserves_inner_whitespace_in_quotes() {
+        assert_eq!(
+            parse_pretty_hostname("PRETTY_HOSTNAME=\"  My Box  \"\n").as_deref(),
+            Some("  My Box  "),
+        );
+    }
+
+    #[test]
+    fn parse_keeps_hash_in_unquoted_value() {
+        // systemd's env-file format treats `#` as a comment only at the start of a line.
+        assert_eq!(
+            parse_pretty_hostname("PRETTY_HOSTNAME=Build#42\n").as_deref(),
+            Some("Build#42"),
+        );
+    }
+
+    #[test]
+    fn parse_unquoted_strips_trailing_whitespace() {
+        assert_eq!(parse_pretty_hostname("PRETTY_HOSTNAME=hello   \n").as_deref(), Some("hello"),);
+    }
+
+    #[test]
+    fn parse_skips_unterminated_quote_but_continues() {
+        let input = "PRETTY_HOSTNAME=\"unterminated\nPRETTY_HOSTNAME=fallback\n";
+        assert_eq!(parse_pretty_hostname(input).as_deref(), Some("fallback"));
+    }
+
+    #[test]
+    fn parse_ignores_comment_lines() {
+        let input = "# PRETTY_HOSTNAME=ignored\nPRETTY_HOSTNAME=real\n";
+        assert_eq!(parse_pretty_hostname(input).as_deref(), Some("real"));
+    }
+
+    #[test]
+    fn parse_returns_none_when_absent() {
+        assert!(parse_pretty_hostname("ICON_NAME=computer\n").is_none());
+    }
+
+    #[test]
+    fn parse_returns_none_for_empty_value() {
+        assert!(parse_pretty_hostname("PRETTY_HOSTNAME=\n").is_none());
+        assert!(parse_pretty_hostname("PRETTY_HOSTNAME=\"\"\n").is_none());
     }
 }

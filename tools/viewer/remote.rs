@@ -27,14 +27,9 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     let (message_sender, mut message_receiver) = tokio::sync::mpsc::unbounded_channel();
 
     let connection = Rc::new(
-        Connection::listen(
-            address,
-            #[cfg(not(target_vendor = "apple"))]
-            device_name_override(),
-            move |msg| {
-                let _ = message_sender.send(msg);
-            },
-        )
+        Connection::listen(address, device_name_override(), move |msg| {
+            let _ = message_sender.send(msg);
+        })
         .await?,
     );
 
@@ -99,19 +94,16 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
         .flatten();
 
     #[cfg(target_vendor = "apple")]
-    let device_name = if let Some(mdns) = &mut mdns {
+    if let Some(mdns) = &mut mdns {
         match mdns.start().await {
-            Ok(registration) => registration.name().to_owned(),
-            Err(err) => {
-                tracing::error!("Failed to announce service: {err}");
-                String::new()
-            }
+            Ok(registration) => connection.set_device_name(registration.name().to_owned()),
+            Err(err) => tracing::error!("Failed to announce service: {err}"),
         }
-    } else {
-        String::new()
-    };
-    #[cfg(not(target_vendor = "apple"))]
-    let device_name = connection.device_name().to_owned();
+    }
+    // Snapshot after the Apple Bonjour overwrite above so the UI label matches the
+    // advertised mDNS instance. Re-read `connection.device_name()` here (not at the
+    // set_property sites) if a future change starts mutating the name post-registration.
+    let device_name = connection.device_name();
 
     let local_port = connection.local_port();
     let local_ip_str: Vec<String> = connection
@@ -305,8 +297,8 @@ async fn build_and_show(
 }
 
 /// Platform-specific override for the friendly device name. Returns `None` on platforms
-/// where the default chain in `Connection` (pretty hostname → hostname) is already best.
-#[cfg(not(target_vendor = "apple"))]
+/// where the default chain in `Connection` (pretty hostname → hostname, then Bonjour on
+/// Apple) is already best.
 fn device_name_override() -> Option<String> {
     #[cfg(target_os = "android")]
     {
