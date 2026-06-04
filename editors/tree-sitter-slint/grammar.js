@@ -122,7 +122,10 @@ module.exports = grammar({
       seq("{", repeat($.imperative_statement), "}"),
 
     imperative_statement: ($) =>
-      prec(
+      // use right-precedence here (e.g. prefer rules that end later)
+      // Because we want to attach the trailing ";" to the statement,
+      // and not parse it as a separate ";" statement.
+      prec.right(
         1,
         choice(
           seq($.assignment_block, optional(";")),
@@ -131,6 +134,8 @@ module.exports = grammar({
           $.let_statement,
           seq($.expression, optional(";")),
           $.return_statement,
+          // An empty/duplicate `;` is valid Slint
+          ";",
         ),
       ),
 
