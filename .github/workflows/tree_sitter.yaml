@@ -38,3 +38,15 @@ jobs:
             - name: Run tree-sitter tests
               run: TREE_SITTER_CLI=${{ runner.workspace }}/tree-sitter ./run_tests.sh
               working-directory: editors/tree-sitter-slint
+            - name: Ensure tests did not update snapshots
+              run: |
+                  if ! git diff --quiet -- .; then
+                      echo "::error::Tree-sitter tests modified repository files. Please run editors/tree-sitter-slint/run_tests.sh locally and commit updated corpus files."
+                      echo
+                      echo "Repository status:"
+                      git --no-pager status
+                      echo
+                      echo "Diff:"
+                      git --no-pager diff -- .
+                      exit 1
+                  fi
