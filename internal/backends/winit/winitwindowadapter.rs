@@ -1570,7 +1570,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                             format!("Winit backend failed to find a suitable renderer: {e}")
                         })
                     },
-                    |mut renderer| {
+                    |renderer| {
                         Ok(WinitWindowAdapter::new(
                             self.shared_backend_data.clone(),
                             renderer,
