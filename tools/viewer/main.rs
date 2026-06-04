@@ -67,16 +67,13 @@ struct Cli {
     library_paths: Vec<String>,
 
     /// The .slint file to load ('-' for stdin)
-    #[cfg_attr(feature = "remote", arg(name = "path", action, required_unless_present = "remote"))]
-    #[cfg_attr(not(feature = "remote"), arg(name = "path", action, required = true))]
+    #[arg(name = "path", action, required_unless_present = "remote")]
     path: Option<std::path::PathBuf>,
 
-    #[cfg(feature = "remote")]
     /// Start in remote viewer mode: listen for WebSocket connections from the LSP
     #[arg(long)]
     remote: bool,
 
-    #[cfg(feature = "remote")]
     /// Address to listen on in remote mode (default: auto-assigned port on all interfaces)
     #[arg(long, value_name = "address")]
     remote_address: Option<std::net::SocketAddr>,
@@ -173,10 +170,19 @@ fn main() -> Result<()> {
         }
     }
 
-    #[cfg(feature = "remote")]
     if args.remote {
-        remote::run(args.remote_address, true)?;
-        return Ok(());
+        #[cfg(feature = "remote")]
+        {
+            remote::run(args.remote_address, true)?;
+            return Ok(());
+        }
+        #[cfg(not(feature = "remote"))]
+        {
+            eprintln!(
+                "Remote mode is not supported in this build, recompile Slint Viewer with the \"remote\" feature enabled."
+            );
+            return Err(Error("Remote mode not enabled".into()));
+        }
     }
 
     if args.auto_reload && args.save_data.is_some() {

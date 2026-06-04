@@ -66,7 +66,7 @@ remote = [
   "dep:jni",
 ]
 
-default = ["backend-default", "renderer-femtovg", "renderer-software"]
+default = ["backend-default", "renderer-femtovg", "renderer-software", "remote"]
 
 [dependencies]
 i-slint-compiler = { workspace = true }
