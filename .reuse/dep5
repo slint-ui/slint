@@ -1,5 +1,0 @@
-Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-
-Files: examples/runtime-resource-callback/Cargo.lock examples/runtime-resource-callback/demo.png
-Copyright: Copyright © SixtyFPS GmbH <info@slint.dev>
-License: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0

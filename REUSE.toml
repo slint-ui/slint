@@ -340,3 +340,13 @@ path = ["demos/**/android/**/gradle-wrapper.properties"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "examples/runtime-resource-callback/Cargo.lock"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "examples/runtime-resource-callback/demo.png"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "MIT"
