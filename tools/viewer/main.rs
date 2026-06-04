@@ -5,6 +5,9 @@
 
 mod screenshot;
 
+#[cfg(feature = "remote")]
+mod remote;
+
 use clap::Parser;
 use i_slint_compiler::ComponentSelection;
 use itertools::Itertools;
@@ -172,7 +175,7 @@ fn main() -> Result<()> {
 
     #[cfg(feature = "remote")]
     if args.remote {
-        slint_viewer::remote::run(args.remote_address, true)?;
+        remote::run(args.remote_address, true)?;
         return Ok(());
     }
 
@@ -225,7 +228,7 @@ fn main() -> Result<()> {
         let instance = live.borrow().instance().clone_strong();
         instance.run()?;
     } else {
-        let result = slint_viewer::poll_ready(compiler.build_from_path(args.path()));
+        let result = poll_ready(compiler.build_from_path(args.path()));
         result.print_diagnostics();
         if result.has_errors() {
             std::process::exit(-1);
@@ -531,4 +534,15 @@ fn execute_cmd(cmd: &str, callback_args: &[Value]) -> Result<()> {
     }
     command.spawn()?;
     Ok(())
+}
+
+/// Poll a future that is expected to resolve immediately (e.g. the interpreter's
+/// `build_from_path` when no async file loader is installed).
+fn poll_ready<F: std::future::Future>(future: F) -> F::Output {
+    let mut future = core::pin::pin!(future);
+    let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+    match std::future::Future::poll(future.as_mut(), &mut cx) {
+        std::task::Poll::Ready(result) => result,
+        std::task::Poll::Pending => unreachable!("Compiler returned Pending"),
+    }
 }

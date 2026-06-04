@@ -104,7 +104,7 @@ i-slint-backend-android-activity = { workspace = true, optional = true }
 tikv-jemallocator = { workspace = true }
 
 [lib]
-crate-type = ["lib", "cdylib"]
+crate-type = ["cdylib"]
 path = "lib.rs"
 
 [[bin]]
