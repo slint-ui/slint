@@ -239,6 +239,21 @@ assert_selection(2, "");
 instance.set_model(Rc::new(VecModel::from_slice(&[SharedString::from("A"), SharedString::from("B"), SharedString::from("C"), SharedString::from("D")])).into());
 mock_elapsed_time(500);
 assert_selection(2, "C");
+
+// And the symmetric order — set_model then set_current_index in adjacent
+// calls — which is the exact reproducer from #7632. The earlier model-swap
+// assertions cover this implicitly; this block re-states it verbatim using
+// the values from the original bug report.
+instance.set_model(Rc::new(VecModel::from_slice(&[
+    SharedString::from("not this1"),
+    SharedString::from("not this2"),
+    SharedString::from("!!!THIS!!!"),
+    SharedString::from("not this3"),
+    SharedString::from("not this4"),
+])).into());
+instance.set_current_index(2);
+mock_elapsed_time(500);
+assert_selection(2, "!!!THIS!!!");
 ```
 
 */
