@@ -9,6 +9,8 @@ export component TestCase inherits Window {
 
     in-out property <int> selected-count: 0;
     in-out property <string> last-selected;
+    in-out property <int> red-toggled-count: 0;
+    in-out property <int> green-toggled-count: 0;
     in-out property <string> current-value <=> group.current-value;
     out property <bool> has-focus <=> group.has-focus;
     out property <bool> test: current-value == "" && selected-count == 0;
@@ -17,8 +19,14 @@ export component TestCase inherits Window {
         alignment: start;
         group := RadioGroup {
             title: "Colors";
-            red-btn := RadioButton { text: "Red"; }
-            green-btn := RadioButton { text: "Green"; }
+            red-btn := RadioButton {
+                text: "Red";
+                toggled => { root.red-toggled-count += 1; }
+            }
+            green-btn := RadioButton {
+                text: "Green";
+                toggled => { root.green-toggled-count += 1; }
+            }
             blue-btn := RadioButton { text: "Blue"; enabled: false; }
             selected(value) => {
                 root.selected-count += 1;
@@ -89,11 +97,15 @@ assert_eq!(instance.get_current_value(), SharedString::from("Red"));
 assert_eq!(instance.get_selected_count(), 1);
 assert_eq!(instance.get_last_selected(), SharedString::from("Red"));
 assert_eq!(red.accessible_checked(), Some(true));
+// `toggled` fires on the button that becomes selected.
+assert_eq!(instance.get_red_toggled_count(), 1);
+assert_eq!(instance.get_green_toggled_count(), 0);
 
 // Clicking the already-checked radio button does not update the selection again.
 red.mock_single_click(PointerEventButton::Left);
 assert_eq!(instance.get_selected_count(), 1);
 assert_eq!(red.accessible_checked(), Some(true));
+assert_eq!(instance.get_red_toggled_count(), 1);
 
 // Clicking another radio button updates the selection.
 green.mock_single_click(PointerEventButton::Left);
@@ -102,6 +114,9 @@ assert_eq!(instance.get_selected_count(), 2);
 assert_eq!(instance.get_last_selected(), SharedString::from("Green"));
 assert_eq!(green.accessible_checked(), Some(true));
 assert_eq!(red.accessible_checked(), Some(false));
+// `toggled` fires on both the newly-selected button and the one losing the selection.
+assert_eq!(instance.get_green_toggled_count(), 1);
+assert_eq!(instance.get_red_toggled_count(), 2);
 
 // Clicking a disabled radio button does nothing.
 blue.mock_single_click(PointerEventButton::Left);

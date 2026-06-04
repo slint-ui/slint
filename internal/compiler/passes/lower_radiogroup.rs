@@ -58,10 +58,6 @@ pub async fn lower_radiogroup(
     });
 }
 
-fn is_radio_button(t: &ElementType) -> bool {
-    matches!(t, ElementType::Builtin(b) if b.name == "RadioButton")
-}
-
 fn process_radiogroup(
     elem: &ElementRc,
     radio_group_impl: ElementType,
@@ -82,7 +78,8 @@ fn process_radiogroup(
     // Validate: every direct child must be a RadioButton, plain or wrapped in a
     // `for` / `if` repeater.
     for child in &children {
-        if !is_radio_button(&child.borrow().base_type) {
+        if !matches!(&child.borrow().base_type, ElementType::Builtin(b) if b.name == "RadioButton")
+        {
             diag.push_error(
                 format!(
                     "Only RadioButton is allowed inside RadioGroup, found {}",

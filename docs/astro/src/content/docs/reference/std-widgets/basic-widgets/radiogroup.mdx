@@ -48,20 +48,18 @@ When `false`, the group and its buttons don't react to input.
 
 ### title
 <SlintProperty propName="title" typeName="string" defaultValue='""'>
-Optional label rendered above the group.
-Leave empty to hide it.
+An optional label rendered above the group. When empty, no title is shown.
 </SlintProperty>
 
 ### orientation
 <SlintProperty propName="orientation" typeName="enum" enumName="Orientation" defaultValue="vertical" inlineReferenceDocs={false}>
-Use `Orientation.vertical` (default) to stack the options, or `Orientation.horizontal` for a single row.
+Use `Orientation.vertical` (default) to stack options, or `Orientation.horizontal` for a single row.
 </SlintProperty>
 
 ## Callbacks
 
 ### selected(string)
-Fires when the user picks a different option.
-The argument is the new entry's `text`.
+Invoked when the user selects a different option. The argument is the `text` of the newly selected entry.
 
 ```slint {4-6}
 RadioGroup {
@@ -119,13 +117,13 @@ that point the group writes `checked = false` and the binding to
 ### Callbacks
 
 #### toggled()
-Fires when this button becomes the selection.
+Invoked when this button's `checked` state changes — both when it becomes the selection and when another button takes it over.
 
 ```slint {3-5}
 RadioGroup {
     RadioButton {
         text: "Mobile";
-        toggled => { debug("Mobile selected"); }
+        toggled => { debug("Mobile is now", self.checked ? "selected" : "unselected"); }
     }
 }
 ```
@@ -134,7 +132,7 @@ RadioGroup {
 
 Drive the buttons from a model with `for`.
 The `for` must be the only child of the group — mixing it with static
-`RadioButton` siblings is rejected at compile time.
+`RadioButton` siblings isn't supported.
 
 ```slint
 RadioGroup {

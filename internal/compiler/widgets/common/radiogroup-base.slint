@@ -35,6 +35,10 @@ export component RadioButtonImplBase {
     // `checked <=> m.checked`, but doing so replaces the binding and means
     // the override owns reactivity from then on — see the docs.
     in-out property <bool> checked: root.group-current-index == root.item-index;
+    // Pure view of the group's selection — independent from `checked`, so the
+    // `changed` handler below fires only on real selection transitions and
+    // not on the brief revert loops in `changed checked`.
+    private property <bool> selected: root.group-current-index == root.item-index;
 
     callback toggled;
     callback group-select;
@@ -43,6 +47,12 @@ export component RadioButtonImplBase {
     out property <bool> has-focus <=> base.has-focus;
     out property <bool> pressed <=> base.pressed;
     out property <bool> has-hover <=> base.has-hover;
+
+    // Fires on every selection transition: when this button becomes the
+    // selection and when another button takes it over.
+    changed selected => {
+        root.toggled();
+    }
 
     // Catch declarative initial state — `RadioButton { checked: true; }`
     // replaces the default binding, so pull the group's view in from `init`
@@ -88,7 +98,6 @@ export component RadioButtonImplBase {
         item-index <=> root.item-index;
         selected => {
             root.group-select();
-            root.toggled();
         }
         focus-change(g) => {
             root.focus-change(g);
