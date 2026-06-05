@@ -2432,7 +2432,7 @@ export component RadioGroup {
     in property <string> title;
     in property <bool> enabled: true;
     in property <Orientation> orientation;
-    in-out property <string> current-value;
+    out property <string> current-value;
     out property <bool> has-focus;
     callback selected(string);
 
