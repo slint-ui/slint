@@ -202,9 +202,11 @@ fn main() -> Result<()> {
         std::process::exit(-1);
     }
 
+    let mut backend_selector = slint_interpreter::BackendSelector::new();
     if let Some(backend) = &args.backend {
-        slint_interpreter::BackendSelector::new().backend_name(backend.clone()).select()?;
+        backend_selector = backend_selector.backend_name(backend.clone());
     }
+    backend_selector.select()?;
 
     #[cfg(feature = "gettext")]
     if let Some(dirname) = args.translation_dir.clone() {
@@ -219,6 +221,11 @@ fn main() -> Result<()> {
     }
 
     let compiler = init_compiler(&args);
+
+    // Print debug output via tracing
+    i_slint_core::context::set_debug_handler(Some(Box::new(move |location, arguments| {
+        debug_handler(location, arguments);
+    })))?;
 
     if args.auto_reload {
         let live = i_slint_live_preview::live_component::LiveReloadingComponent::new(
@@ -266,6 +273,22 @@ fn main() -> Result<()> {
     }
 
     std::process::exit(EXIT_CODE.load(std::sync::atomic::Ordering::Relaxed))
+}
+
+fn debug_handler(
+    location: Option<&i_slint_core::debug_log::DebugLogLocation>,
+    arguments: core::fmt::Arguments,
+) -> Option<(PathBuf, usize, usize)> {
+    let location = location.map(|location| {
+        (std::path::PathBuf::from(location.path.as_str()), location.line, location.column)
+    });
+    if let Some((file, line, column)) = &location {
+        tracing::info!("DEBUG {file}:{line}:{column}> {arguments}", file = file.display());
+    } else {
+        tracing::info!("DEBUG> {}", arguments);
+    }
+
+    location
 }
 
 fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {
