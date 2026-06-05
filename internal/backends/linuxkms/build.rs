@@ -31,7 +31,7 @@ fn main() {
         wgpu_surface: { any(
             feature = "unstable-wgpu-28",
             feature = "renderer-femtovg-wgpu",
-            feature = "unstable-wgpu-27"
+            feature = "unstable-wgpu-29"
         ) },
     }
 }
