@@ -26,3 +26,11 @@ $TS build
 # It's okay if this fails, this means there's a parse error, but the re-run will catch this with a better output
 $TS test -u > /dev/null || true;
 $TS test
+
+# Currently the tree-sitter CLI fails to update the test files if they contain ERROR nodes
+# However, let's ensure there are actually no error nodes in there for good measure
+# (to catch any errors if the behavior of the tree-sitter CLI changes).
+#
+# Note: Wrapped in separate bash, as otherwise the expanded glob pattern is printed, which is annoying
+bash -c "! grep -nC10 ERROR test/corpus/gen/**/*.txt"
+echo "🌳 TREE-SITTER TESTS PASSED 🎉"
