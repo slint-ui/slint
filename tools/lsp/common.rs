@@ -117,6 +117,7 @@ pub trait PreviewToLsp {
 }
 
 /// Converts a debug message from the preview to a string to be logged by the LSP
+#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
 pub fn preview_debug_message_to_string(
     location: &Option<(std::path::PathBuf, usize, usize)>,
     message: &str,
