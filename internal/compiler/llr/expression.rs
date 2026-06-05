@@ -176,7 +176,7 @@ pub enum Expression {
         /// Explicit gradient center in the element's local coordinate space (`at <x> <y>`).
         /// `None` means use the element's bbox centre.
         center: Option<(Box<Expression>, Box<Expression>)>,
-        /// Explicit radius in the element's local coordinate space (`size <r>`).
+        /// Explicit radius in the element's local coordinate space (`circle <radius>`).
         /// `None` means use the element's bbox half-diagonal.
         radius: Option<Box<Expression>>,
         /// First expression in the tuple is a color, second expression is the stop position
