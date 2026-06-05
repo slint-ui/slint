@@ -71,7 +71,7 @@ fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>
                 RefCell::new(
                     Expression::BinaryExpression {
                         lhs: Expression::PropertyReference(new_y.clone()).into(),
-                        rhs: Expression::PropertyReference(listview.viewport_y.clone()).into(),
+                        rhs: Expression::PropertyReference(listview.content_y.clone()).into(),
                         op: '-',
                     }
                     .into(),
@@ -91,10 +91,10 @@ fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>
     });
     let element_type = flickable.borrow().base_type.clone();
     for prop in element_type.as_builtin().properties.keys() {
-        // bind the viewport's property to the flickable property, such as:  `width <=> parent.viewport-width`
-        if let Some(vp_prop) = prop.strip_prefix("viewport-") {
+        // bind the viewport's property to the flickable property, such as:  `width <=> parent.content-width`
+        if let Some(vp_prop) = prop.strip_prefix("content-") {
             if is_listview.is_some() && matches!(vp_prop, "y" | "height") {
-                //don't bind viewport-y for ListView because the layout is handled by the runtime
+                //don't bind content-y for ListView because the layout is handled by the runtime
                 continue;
             }
             viewport.borrow_mut().bindings.insert(
@@ -154,7 +154,7 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
         forward_minmax_of("max-width", MinMaxOp::Min);
         forward_minmax_of("preferred-width", MinMaxOp::Min);
     }
-    set_binding_if_not_explicit(flickable_elem, "viewport-width", || {
+    set_binding_if_not_explicit(flickable_elem, "content-width", || {
         Some(
             flickable_elem
                 .borrow()
@@ -178,7 +178,7 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
                 ),
         )
     });
-    set_binding_if_not_explicit(flickable_elem, "viewport-height", || {
+    set_binding_if_not_explicit(flickable_elem, "content-height", || {
         Some(
             flickable_elem
                 .borrow()

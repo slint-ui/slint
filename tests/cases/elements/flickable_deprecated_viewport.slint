@@ -1,0 +1,73 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Verify that the deprecated viewport-* property aliases of the Flickable and the
+// ScrollView still work and stay in sync with the content-* properties they alias.
+
+import { ListView, ScrollView } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 300phx;
+    height: 300phx;
+
+    f := Flickable {
+        viewport-width: 1000phx;
+        viewport-height: 1200phx;
+        Rectangle { }
+    }
+
+    sv := ScrollView {
+        viewport-width: 800phx;
+        viewport-height: 900phx;
+    }
+
+    // setting the size through the deprecated name must also keep the ListView
+    // layouting code from overwriting it
+    lv := ListView {
+        viewport-width: 5000phx;
+        for _ in [1, 2, 3]: Rectangle { height: 100phx; }
+    }
+
+    // old name in, new name out and vice versa
+    out property <length> flickable-content-width: f.content-width;
+    out property <length> flickable-content-height: f.content-height;
+    in-out property <length> flickable-viewport-x <=> f.viewport-x;
+    out property <length> flickable-content-x: f.content-x;
+
+    out property <length> scrollview-content-width: sv.content-width;
+    out property <length> scrollview-content-height: sv.content-height;
+    in-out property <length> scrollview-viewport-y <=> sv.viewport-y;
+    out property <length> scrollview-content-y: sv.content-y;
+
+    out property <length> listview-content-width: lv.content-width;
+
+    public function scroll-to(x: length, y: length) {
+        f.viewport-x = -x;
+        sv.viewport-y = -y;
+    }
+}
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+// the deprecated viewport-* names alias the content-* properties
+assert_eq!(instance.get_flickable_content_width(), 1000.);
+assert_eq!(instance.get_flickable_content_height(), 1200.);
+assert_eq!(instance.get_scrollview_content_width(), 800.);
+assert_eq!(instance.get_scrollview_content_height(), 900.);
+assert_eq!(instance.get_listview_content_width(), 5000.);
+
+// writing through the old names is reflected in the new ones
+instance.invoke_scroll_to(50., 60.);
+assert_eq!(instance.get_flickable_content_x(), -50.);
+assert_eq!(instance.get_scrollview_content_y(), -60.);
+
+// and writing through an alias of the old name as well
+instance.set_flickable_viewport_x(-70.);
+assert_eq!(instance.get_flickable_content_x(), -70.);
+instance.set_scrollview_viewport_y(-80.);
+assert_eq!(instance.get_scrollview_content_y(), -80.);
+```
+
+*/

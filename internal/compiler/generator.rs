@@ -461,7 +461,8 @@ pub fn for_each_const_properties(
                                 .iter()
                                 .filter(|(k, x)| {
                                     x.ty.is_property_type()
-                                        && !k.starts_with("viewport-")
+                                        && (n.class_name != "Flickable"
+                                            || !k.starts_with("content-"))
                                         && k.as_str() != "commands"
                                 })
                                 .map(|(k, _)| k.clone()),

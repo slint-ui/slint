@@ -18,10 +18,10 @@ export component TextEditBase inherits Rectangle {
     out property <length> visible-width <=> scroll-view.visible-width;
     out property <length> visible-height <=> scroll-view.visible-height;
     in-out property <string> text <=> text-input.text;
-    in-out property <length> viewport-x <=> scroll-view.viewport-x;
-    in-out property <length> viewport-y <=> scroll-view.viewport-y;
-    in-out property <length> viewport-width <=> scroll-view.viewport-width;
-    in-out property <length> viewport-height <=> scroll-view.viewport-height;
+    in-out property <length> content-x <=> scroll-view.content-x;
+    in-out property <length> content-y <=> scroll-view.content-y;
+    in-out property <length> content-width <=> scroll-view.content-width;
+    in-out property <length> content-height <=> scroll-view.content-height;
 
     in property <brush> foreground <=> text-input.color;
     in property <int> font-weight <=> text-input.font-weight;
@@ -102,8 +102,8 @@ export component TextEditBase inherits Rectangle {
             y: root.scroll-view-padding;
             width: parent.width - 2 * root.scroll-view-padding;
             height: parent.height - 2 * root.scroll-view-padding;
-            viewport-width: root.wrap == TextWrap.no-wrap ? max(self.visible-width, text-input.preferred-width) : self.visible-width;
-            viewport-height: max(self.visible-height, text-input.preferred-height);
+            content-width: root.wrap == TextWrap.no-wrap ? max(self.visible-width, text-input.preferred-width) : self.visible-width;
+            content-height: max(self.visible-height, text-input.preferred-height);
 
             text-input := TextInput {
                 enabled: true;
@@ -128,14 +128,14 @@ export component TextEditBase inherits Rectangle {
                 }
 
                 cursor-position-changed(cpos) => {
-                    if (cpos.x + root.viewport-x < 0px) {
-                        root.viewport-x = min(0px, max(parent.visible-width - self.width, -cpos.x));
-                    } else if (cpos.x + root.viewport-x > parent.visible-width) {
-                        root.viewport-x = min(0px, max(parent.visible-width - self.width, parent.visible-width - cpos.x));
+                    if (cpos.x + root.content-x < 0px) {
+                        root.content-x = min(0px, max(parent.visible-width - self.width, -cpos.x));
+                    } else if (cpos.x + root.content-x > parent.visible-width) {
+                        root.content-x = min(0px, max(parent.visible-width - self.width, parent.visible-width - cpos.x));
                     }
 
-                    if (cpos.y + root.viewport-y < 0px) {
-                        root.viewport-y = min(
+                    if (cpos.y + root.content-y < 0px) {
+                        root.content-y = min(
                             0px,
 
                             // This prevents jumping back and forth between this case and the
@@ -145,9 +145,9 @@ export component TextEditBase inherits Rectangle {
 
                             max(parent.visible-height - self.height, -cpos.y),
                         );
-                    } else if (cpos.y + root.viewport-y > parent.visible-height - 20px) {
+                    } else if (cpos.y + root.content-y > parent.visible-height - 20px) {
                         // FIXME: font-height hardcoded to 20px
-                        root.viewport-y = min(0px, max(parent.visible-height - self.height, parent.visible-height - cpos.y - 20px));
+                        root.content-y = min(0px, max(parent.visible-height - self.height, parent.visible-height - cpos.y - 20px));
                     }
                 }
             }
