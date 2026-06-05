@@ -12,6 +12,7 @@ use crate::platform::{EventLoopProxy, Platform, WindowAdapter, WindowEvent};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::Cell;
+use core::cell::RefCell;
 use pin_weak::rc::PinWeak;
 
 /// Type alias for the closure type installed via [`set_window_event_hook`].
@@ -88,6 +89,7 @@ pub(crate) struct SlintContextInner {
     pub(crate) window_shown_hook:
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
     pub(crate) window_event_hook: core::cell::RefCell<Option<WindowEventHook>>,
+    pub(crate) debug_handler: RefCell<Option<crate::debug_log::DebugLogHandler>>,
     #[cfg(all(unix, not(target_os = "macos")))]
     xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "shared-parley")]
@@ -130,6 +132,7 @@ impl SlintContext {
             ),
             window_shown_hook: Default::default(),
             window_event_hook: Default::default(),
+            debug_handler: Default::default(),
             #[cfg(all(unix, not(target_os = "macos")))]
             xdg_app_id: Default::default(),
             #[cfg(feature = "shared-parley")]
@@ -236,6 +239,18 @@ impl SlintContext {
         self.0.as_ref().project_ref().platform_default_font_size.set(size);
     }
 
+    pub(crate) fn dispatch_debug_log(
+        &self,
+        location: Option<&crate::debug_log::DebugLogLocation>,
+        arguments: core::fmt::Arguments<'_>,
+    ) {
+        if let Some(handler) = self.0.debug_handler.borrow().as_ref() {
+            handler(location, arguments);
+        } else {
+            self.0.platform.debug_log(arguments);
+        }
+    }
+
     /// Add one to the counter of "things keeping the event loop alive".
     /// Visible windows and visible system tray icons are the canonical
     /// callers; they pair with [`Self::release_keepalive`].
@@ -340,6 +355,28 @@ pub fn with_global_context<R>(
             crate::platform::set_platform(factory()?).map_err(PlatformError::SetPlatformError)?;
             Ok(f(p.get().unwrap()))
         }
+    })
+}
+
+/// Set or remove the process-wide debug handler.
+/// This overwrites the platform implementations debug handler and the default behavior of
+/// printing to stdout/stderr.
+///
+/// Returns the previously set handler, if any.
+#[doc(hidden)]
+pub fn set_debug_handler(
+    handler: Option<crate::debug_log::DebugLogHandler>,
+) -> Result<Option<crate::debug_log::DebugLogHandler>, PlatformError> {
+    GLOBAL_CONTEXT.with(|p| match p.get() {
+        Some(ctx) => {
+            let mut slot = ctx.0.debug_handler.try_borrow_mut().map_err(|_| {
+                PlatformError::Other(alloc::string::String::from(
+                    "debug handler is currently in use",
+                ))
+            })?;
+            Ok(core::mem::replace(&mut *slot, handler))
+        }
+        None => Err(PlatformError::NoPlatform),
     })
 }
 

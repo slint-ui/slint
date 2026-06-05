@@ -1571,47 +1571,40 @@ fn set_preview_factory(
     // Ensure that any popups are closed as they are related to the old factory
     i_slint_core::window::WindowInner::from_pub(app_window.window()).close_all_popups();
 
-    compiled.set_debug_handler(
-        |location, text| {
-            let location = location.as_ref().and_then(|l| {
-                l.source_file.as_ref().map(|f| {
-                    let (line, column) = f.line_column(l.span.offset, common::ByteFormat::Utf8);
+    i_slint_core::context::set_debug_handler(Some(Box::new(|location, arguments| {
+        let message = arguments.to_string();
+        let location =
+            location.map(|location| (location.path.clone(), location.line, location.column));
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            let to_lsp = state.to_lsp.try_borrow();
+            let Some(to_lsp) = to_lsp.ok() else { return };
+            if let Some(to_lsp) = &*to_lsp {
+                to_lsp
+                    .send(&PreviewToLspMessage::DebugMessage {
+                        location: location.as_ref().map(|(path, line, column)| {
+                            (std::path::PathBuf::from(path.as_str()), *line, *column)
+                        }),
+                        message: message.clone(),
+                    })
+                    .ok();
+            }
+        });
 
-                    (f.clone(), line, column)
-                })
-            });
-            PREVIEW_STATE.with_borrow_mut(|state| {
-                let to_lsp = state.to_lsp.try_borrow();
-                let Some(to_lsp) = to_lsp.ok() else { return };
-                if let Some(to_lsp) = &*to_lsp {
-                    let location = location.as_ref().map(|(source_file, line, column)| {
-                        (source_file.path().to_owned(), *line, *column)
-                    });
-                    to_lsp
-                        .send(&PreviewToLspMessage::DebugMessage { location, message: text.into() })
-                        .ok();
+        let location = location.map(|(file, line, column)| (file, line, column));
+        let _ = slint::invoke_from_event_loop(move || {
+            PREVIEW_STATE.with_borrow(|preview_state| {
+                if let Some(api) = preview_state.api.upgrade() {
+                    ui::log_messages::append_log_message(
+                        &api,
+                        ui::LogMessageLevel::Debug,
+                        location,
+                        &message,
+                    );
                 }
             });
-
-            let location = location.as_ref().map(|(file, line, column)| {
-                (file.path().to_string_lossy().to_string().into(), *line, *column)
-            });
-            let text = text.to_string();
-            let _ = slint::invoke_from_event_loop(move || {
-                PREVIEW_STATE.with_borrow(|preview_state| {
-                    if let Some(api) = preview_state.api.upgrade() {
-                        ui::log_messages::append_log_message(
-                            &api,
-                            ui::LogMessageLevel::Debug,
-                            location,
-                            &text,
-                        );
-                    }
-                });
-            });
-        },
-        i_slint_core::InternalToken,
-    );
+        });
+    })))
+    .unwrap();
 
     let factory = slint::ComponentFactory::new(move |ctx: FactoryContext| {
         let instance = compiled.create_embedded(ctx).unwrap();

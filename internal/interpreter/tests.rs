@@ -1,11 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-#[cfg(feature = "internal")]
+use i_slint_core::api::ComponentHandle;
+
 #[test]
 fn reuse_window() {
     i_slint_backend_testing::init_no_event_loop();
-    use crate::{Compiler, ComponentHandle, SharedString, Value};
+    use crate::{Compiler, SharedString, Value};
     let code = r#"
         export component MainWindow inherits Window {
             in-out property<string> text_text: "foo";
@@ -43,6 +44,123 @@ fn reuse_window() {
         );
         instance
     };
+}
+
+#[test]
+fn context_debug_handler_overrides_platform() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Compiler;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    let captured = Rc::new(RefCell::new(Vec::new()));
+    let previous = i_slint_core::context::set_debug_handler(Some(Box::new({
+        let captured = captured.clone();
+        move |_location: Option<&i_slint_core::debug_log::DebugLogLocation>,
+              arguments: core::fmt::Arguments<'_>| {
+            captured.borrow_mut().push(arguments.to_string());
+        }
+    })))
+    .unwrap();
+
+    let code = r#"
+        export component MainWindow inherits Window {
+            init => { debug("from component"); }
+        }
+    "#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("MainWindow").unwrap();
+    let instance = definition.create().unwrap();
+
+    assert_eq!(captured.borrow().as_slice(), ["from component"]);
+    assert!(
+        i_slint_backend_testing::access_testing_window(
+            instance.window(),
+            |w: &i_slint_backend_testing::TestingWindow| w.take_debug_log(),
+        )
+        .is_empty()
+    );
+
+    i_slint_core::context::set_debug_handler(previous).unwrap();
+}
+
+#[test]
+fn platform_debug_handler_is_fallback() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Compiler;
+
+    let code = r#"
+        export component MainWindow inherits Window {
+            init => { debug("from component"); }
+        }
+    "#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("MainWindow").unwrap();
+    let instance = definition.create().unwrap();
+
+    assert_eq!(
+        i_slint_backend_testing::access_testing_window(
+            instance.window(),
+            |w: &i_slint_backend_testing::TestingWindow| w.take_debug_log(),
+        ),
+        ["from component"]
+    );
+}
+
+#[test]
+fn global_debug_messages_use_context_handler() {
+    i_slint_backend_testing::init_no_event_loop();
+    use crate::Compiler;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    let captured = Rc::new(RefCell::new(Vec::new()));
+    let previous = i_slint_core::context::set_debug_handler(Some(Box::new({
+        let captured = captured.clone();
+        move |_location: Option<&i_slint_core::debug_log::DebugLogLocation>,
+              arguments: core::fmt::Arguments<'_>| {
+            captured.borrow_mut().push(arguments.to_string());
+        }
+    })))
+    .unwrap();
+
+    let code = r#"
+        export global Logic {
+            in-out property<string> greeting: {
+                debug("from global");
+                "hello"
+            };
+        }
+
+        export component MainWindow inherits Window { }
+    "#;
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics().collect::<Vec<_>>());
+    let definition = result.component("MainWindow").unwrap();
+    let instance = definition.create().unwrap();
+
+    assert_eq!(
+        instance.get_global_property("Logic", "greeting").unwrap(),
+        crate::Value::from(crate::SharedString::from("hello"))
+    );
+    assert_eq!(captured.borrow().as_slice(), ["from global"]);
+    assert!(
+        i_slint_backend_testing::access_testing_window(
+            instance.window(),
+            |w: &i_slint_backend_testing::TestingWindow| w.take_debug_log(),
+        )
+        .is_empty()
+    );
+
+    i_slint_core::context::set_debug_handler(previous).unwrap();
 }
 
 #[test]

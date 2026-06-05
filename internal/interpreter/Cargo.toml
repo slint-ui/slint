@@ -163,7 +163,7 @@ web-sys = { workspace = true, features = ["Navigator"] }
 i-slint-backend-qt = { workspace = true, features = ["enable"], optional = true }
 
 [dev-dependencies]
-i-slint-backend-testing = { path = "../../internal/backends/testing" }
+i-slint-backend-testing = { path = "../../internal/backends/testing", features = ["internal"] }
 spin_on = { workspace = true }
 
 [lints.rust]

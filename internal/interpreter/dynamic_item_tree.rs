@@ -504,10 +504,6 @@ pub struct ItemTreeDescription<'id> {
     #[cfg(feature = "internal-highlight")]
     pub(crate) raw_type_loader:
         std::cell::OnceCell<Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>>,
-
-    pub(crate) debug_handler: std::cell::RefCell<
-        Rc<dyn Fn(Option<&i_slint_compiler::diagnostics::SourceLocation>, &str)>,
-    >,
 }
 
 #[derive(Clone, derive_more::From)]
@@ -796,18 +792,6 @@ impl ItemTreeDescription<'_> {
         let extra_data = c.description.extra_data_offset.apply(c.instance.get_ref());
         let g = extra_data.globals.get().unwrap().get(global_name).clone();
         g.ok_or(())
-    }
-
-    pub fn recursively_set_debug_handler(
-        &self,
-        handler: Rc<dyn Fn(Option<&i_slint_compiler::diagnostics::SourceLocation>, &str)>,
-    ) {
-        *self.debug_handler.borrow_mut() = handler.clone();
-
-        for r in &self.repeater {
-            generativity::make_guard!(guard);
-            r.unerase(guard).item_tree_to_repeat.recursively_set_debug_handler(handler.clone());
-        }
     }
 }
 
@@ -1444,9 +1428,6 @@ pub(crate) fn generate_item_tree<'id>(
         type_loader: std::cell::OnceCell::new(),
         #[cfg(feature = "internal-highlight")]
         raw_type_loader: std::cell::OnceCell::new(),
-        debug_handler: std::cell::RefCell::new(Rc::new(|_, text| {
-            i_slint_core::debug_log!("{text}")
-        })),
     };
 
     Rc::new(t)
@@ -2797,7 +2778,6 @@ pub fn show_popup(
     parent_item: &ItemRc,
 ) {
     generativity::make_guard!(guard);
-    let debug_handler = instance.description.debug_handler.borrow().clone();
 
     // FIXME: we should compile once and keep the cached compiled component
     let compiled = generate_item_tree(
@@ -2807,7 +2787,6 @@ pub fn show_popup(
         false,
         guard,
     );
-    compiled.recursively_set_debug_handler(debug_handler);
 
     let extra_data = instance.description.extra_data_offset.apply(instance.as_ref());
     // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one.
