@@ -945,8 +945,8 @@ pub struct Element {
     /// This is always initialized from the element constructor, but is Option because it references itself
     pub geometry_props: Option<GeometryProps>,
 
-    /// true if this Element is the fake Flickable viewport
-    pub is_flickable_viewport: bool,
+    /// true if this Element is the fake Flickable content element
+    pub is_flickable_content: bool,
 
     /// true if this Element may have a popup as child meaning it cannot be optimized
     /// because the popup references it.

@@ -44,8 +44,7 @@ pub fn optimize_useless_rectangles(root_component: &Rc<Component>) {
 /// Check that this is a element we can optimize
 fn can_optimize(elem: &ElementRc) -> bool {
     let element = elem.borrow();
-    if element.is_flickable_viewport || element.has_popup_child || element.is_component_placeholder
-    {
+    if element.is_flickable_content || element.has_popup_child || element.is_component_placeholder {
         return false;
     };
 

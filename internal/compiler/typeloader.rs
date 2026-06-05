@@ -562,7 +562,7 @@ impl Snapshotter {
         target_element.has_popup_child = elem.has_popup_child;
         target_element.inline_depth = elem.inline_depth;
         target_element.is_component_placeholder = elem.is_component_placeholder;
-        target_element.is_flickable_viewport = elem.is_flickable_viewport;
+        target_element.is_flickable_content = elem.is_flickable_content;
         target_element.is_legacy_syntax = elem.is_legacy_syntax;
         target_element.item_index = elem.item_index.clone();
         target_element.item_index_of_first_children = elem.item_index_of_first_children.clone();
