@@ -24,7 +24,7 @@ icon = ["../../logo/slint-logo.icns"]
 name = "slint-lsp"
 path = "main.rs"
 
-[[bin]]
+[[example]]
 name = "slint-editor"
 path = "editor_main.rs"
 
