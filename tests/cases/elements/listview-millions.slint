@@ -8,7 +8,7 @@ export component TestCase inherits Window {
 
     in-out property <string> result;
     callback clicked(int);
-    in-out property <length> viewport-y <=> lv.viewport-y;
+    in-out property <length> content-y <=> lv.content-y;
 
     lv := ListView {
         for _[num] in 2130000000: HorizontalLayout {
@@ -40,7 +40,7 @@ slint_testing::send_mouse_click(&instance, 5., 263.);
 slint_testing::send_mouse_click(&instance, 5., 239.);
 assert_eq!(clicked.borrow().as_slice(), &[12, 13, 11]);
 
-instance.set_viewport_y(-20. * 1000.);
+instance.set_content_y(-20. * 1000.);
 clicked.borrow_mut().clear();
 slint_testing::send_mouse_click(&instance, 5., 250.);
 assert_eq!(clicked.borrow().as_slice(), &[1012]);
@@ -48,7 +48,7 @@ slint_testing::send_mouse_click(&instance, 5., 263.);
 slint_testing::send_mouse_click(&instance, 5., 239.);
 assert_eq!(clicked.borrow().as_slice(), &[1012, 1013, 1011]);
 
-instance.set_viewport_y(-20. * 100000.);
+instance.set_content_y(-20. * 100000.);
 clicked.borrow_mut().clear();
 slint_testing::send_mouse_click(&instance, 5., 250.);
 assert_eq!(clicked.borrow().as_slice(), &[100012]);
@@ -56,7 +56,7 @@ slint_testing::send_mouse_click(&instance, 5., 263.);
 slint_testing::send_mouse_click(&instance, 5., 239.);
 assert_eq!(clicked.borrow().as_slice(), &[100012, 100013, 100011]);
 
-instance.set_viewport_y(-20. * 10000000.);
+instance.set_content_y(-20. * 10000000.);
 clicked.borrow_mut().clear();
 slint_testing::send_mouse_click(&instance, 5., 250.);
 assert_eq!(clicked.borrow().as_slice(), &[10000012]);
@@ -64,7 +64,7 @@ slint_testing::send_mouse_click(&instance, 5., 263.);
 slint_testing::send_mouse_click(&instance, 5., 239.);
 assert_eq!(clicked.borrow().as_slice(), &[10000012, 10000013, 10000011]);
 
-instance.set_viewport_y(-20. * 210000000.);
+instance.set_content_y(-20. * 210000000.);
 clicked.borrow_mut().clear();
 slint_testing::send_mouse_click(&instance, 5., 250.);
 assert_eq!(clicked.borrow().as_slice(), &[210000012]);
@@ -73,7 +73,7 @@ slint_testing::send_mouse_click(&instance, 5., 239.);
 assert_eq!(clicked.borrow().as_slice(), &[210000012, 210000013, 210000011]);
 
 // go all the way to the end, it shouldn't crash or loop forever
-instance.set_viewport_y(-20. * (2130000000. - 5.));
+instance.set_content_y(-20. * (2130000000. - 5.));
 slint_testing::send_mouse_click(&instance, 5., 250.);
 ```
 
@@ -88,7 +88,7 @@ slint_testing::send_mouse_click(&instance, 5., 263.);
 slint_testing::send_mouse_click(&instance, 5., 239.);
 assert((*clicked == std::vector<int>{12, 13, 11}));
 
-instance.set_viewport_y(-20. * 1000.);
+instance.set_content_y(-20. * 1000.);
 clicked->clear();
 slint_testing::send_mouse_click(&instance, 5., 250.);
 assert((*clicked == std::vector<int>{1012}));
@@ -96,7 +96,7 @@ slint_testing::send_mouse_click(&instance, 5., 263.);
 slint_testing::send_mouse_click(&instance, 5., 239.);
 assert((*clicked == std::vector<int>{1012, 1013, 1011}));
 
-instance.set_viewport_y(-20. * 100000.);
+instance.set_content_y(-20. * 100000.);
 clicked->clear();
 slint_testing::send_mouse_click(&instance, 5., 250.);
 assert((*clicked == std::vector<int>{100012}));
@@ -104,7 +104,7 @@ slint_testing::send_mouse_click(&instance, 5., 263.);
 slint_testing::send_mouse_click(&instance, 5., 239.);
 assert((*clicked == std::vector<int>{100012, 100013, 100011}));
 
-instance.set_viewport_y(-20. * 10000000.);
+instance.set_content_y(-20. * 10000000.);
 clicked->clear();
 slint_testing::send_mouse_click(&instance, 5., 250.);
 assert((*clicked == std::vector<int>{10000012}));
@@ -112,7 +112,7 @@ slint_testing::send_mouse_click(&instance, 5., 263.);
 slint_testing::send_mouse_click(&instance, 5., 239.);
 assert((*clicked == std::vector<int>{10000012, 10000013, 10000011}));
 
-instance.set_viewport_y(-20. * 210000000.);
+instance.set_content_y(-20. * 210000000.);
 clicked->clear();
 slint_testing::send_mouse_click(&instance, 5., 250.);
 assert((*clicked == std::vector<int>{210000012}));
@@ -121,7 +121,7 @@ slint_testing::send_mouse_click(&instance, 5., 239.);
 assert((*clicked == std::vector<int>{210000012, 210000013, 210000011}));
 
 // go all the way to the end, it shouldn't crash or loop forever
-instance.set_viewport_y(-20. * (2130000000. - 5.));
+instance.set_content_y(-20. * (2130000000. - 5.));
 slint_testing::send_mouse_click(&instance, 5., 250.);
 ```
 
@@ -135,7 +135,7 @@ slintlib.private_api.send_mouse_click(instance, 5., 263.);
 slintlib.private_api.send_mouse_click(instance, 5., 239.);
 assert.deepEqual(clicked, [12, 13, 11]);
 
-instance.viewport_y=(-20. * 1000.);
+instance.content_y=(-20. * 1000.);
 clicked.length = 0;
 slintlib.private_api.send_mouse_click(instance, 5., 250.);
 assert.deepEqual(clicked, [1012]);
@@ -143,7 +143,7 @@ slintlib.private_api.send_mouse_click(instance, 5., 263.);
 slintlib.private_api.send_mouse_click(instance, 5., 239.);
 assert.deepEqual(clicked, [1012, 1013, 1011]);
 
-instance.viewport_y=(-20. * 100000.);
+instance.content_y=(-20. * 100000.);
 clicked.length = 0;
 slintlib.private_api.send_mouse_click(instance, 5., 250.);
 assert.deepEqual(clicked, [100012]);
@@ -151,7 +151,7 @@ slintlib.private_api.send_mouse_click(instance, 5., 263.);
 slintlib.private_api.send_mouse_click(instance, 5., 239.);
 assert.deepEqual(clicked, [100012, 100013, 100011]);
 
-instance.viewport_y=(-20. * 10000000.);
+instance.content_y=(-20. * 10000000.);
 clicked.length = 0;
 slintlib.private_api.send_mouse_click(instance, 5., 250.);
 assert.deepEqual(clicked, [10000012]);
@@ -159,7 +159,7 @@ slintlib.private_api.send_mouse_click(instance, 5., 263.);
 slintlib.private_api.send_mouse_click(instance, 5., 239.);
 assert.deepEqual(clicked, [10000012, 10000013, 10000011]);
 
-instance.viewport_y=(-20. * 210000000.);
+instance.content_y=(-20. * 210000000.);
 clicked.length = 0;
 slintlib.private_api.send_mouse_click(instance, 5., 250.);
 assert.deepEqual(clicked, [210000012]);
@@ -168,7 +168,7 @@ slintlib.private_api.send_mouse_click(instance, 5., 239.);
 assert.deepEqual(clicked, [210000012, 210000013, 210000011]);
 
 // go all the way to the end, it shouldn't crash or loop forever
-instance.viewport_y=(-20. * (2130000000. - 5.));
+instance.content_y=(-20. * (2130000000. - 5.));
 slintlib.private_api.send_mouse_click(instance, 5., 250.);
 ```
 

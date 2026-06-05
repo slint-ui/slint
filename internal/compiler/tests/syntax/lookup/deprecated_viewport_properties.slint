@@ -1,0 +1,34 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ScrollView, ListView, TextEdit, StandardTableView } from "std-widgets.slint";
+
+export component Test {
+    flick := Flickable {
+        viewport-width: 100px;
+//      >            <warning{The property 'viewport-width' has been deprecated. Please use 'content-width' instead}
+        viewport-x: -10px;
+//      >        <warning{The property 'viewport-x' has been deprecated. Please use 'content-x' instead}
+    }
+    property <length> flick-vp <=> flick.viewport-y;
+//                                       >        <warning{The property 'viewport-y' has been deprecated. Please use 'content-y' instead}
+    property <length> flick-content: flick.content-height;
+
+    scroll := ScrollView {
+        viewport-height: 100px;
+//      >             <warning{The property 'viewport-height' has been deprecated. Please use 'content-height' instead}
+    }
+    property <length> scroll-vp: scroll.viewport-y;
+//                                      >        <warning{The property 'viewport-y' has been deprecated. Please use 'content-y' instead}
+    property <length> scroll-content: scroll.content-width;
+
+    lv := ListView {
+        for x in 3: Text { text: x; }
+    }
+    property <length> lv-vp <=> lv.viewport-y;
+//                                 >        <warning{The property 'viewport-y' has been deprecated. Please use 'content-y' instead}
+
+    te := TextEdit { }
+    property <length> te-vp: te.viewport-x;
+//                              >        <warning{The property 'viewport-x' has been deprecated. Please use 'content-x' instead}
+}

@@ -16,7 +16,7 @@ export component TestCase inherits Window {
     InheritFlickable {
         x:0;
         width: 123phx;
-        viewport_height: 456phx;
+        content_height: 456phx;
         r2 := Rectangle {
             property<bool> ok: self.height == 456phx && self.width == 123phx;
         }
@@ -27,7 +27,7 @@ export component TestCase inherits Window {
             spacing: 0phx;
             padding: 0phx;
             r3 := Rectangle {
-                property<bool> ok: self.height == root.height/2 && self.width == 888phx && f3.viewport_width == 888phx && f3.min-width == 0phx;
+                property<bool> ok: self.height == root.height/2 && self.width == 888phx && f3.content_width == 888phx && f3.min-width == 0phx;
             }
             Rectangle {
                 min-width: 888phx;

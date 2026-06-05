@@ -255,18 +255,12 @@ fn analyze_element(
             process_property(prop, r, context, reverse_aliases, diag);
         });
         if let Some(lv) = &repeated.is_listview {
-            process_property(&lv.viewport_y.clone().into(), P, context, reverse_aliases, diag);
-            if let Some(viewport_height) = &lv.viewport_height {
-                process_property(
-                    &viewport_height.clone().into(),
-                    P,
-                    context,
-                    reverse_aliases,
-                    diag,
-                );
+            process_property(&lv.content_y.clone().into(), P, context, reverse_aliases, diag);
+            if let Some(content_height) = &lv.content_height {
+                process_property(&content_height.clone().into(), P, context, reverse_aliases, diag);
             }
-            if let Some(viewport_width) = &lv.viewport_width {
-                process_property(&viewport_width.clone().into(), P, context, reverse_aliases, diag);
+            if let Some(content_width) = &lv.content_width {
+                process_property(&content_width.clone().into(), P, context, reverse_aliases, diag);
             }
             process_property(&lv.listview_height.clone().into(), P, context, reverse_aliases, diag);
             process_property(&lv.listview_width.clone().into(), P, context, reverse_aliases, diag);

@@ -7,19 +7,19 @@ export component TestCaseFixedViewPort inherits Window  {
     width: 400px;
     height: 540px;
 
-    out property listview-viewport-height <=> listview.viewport-height;
-    out property listview-viewport-width <=> listview.viewport-width;
-    out property<length> listview-viewport-offset_y <=> listview.viewport_y;
+    out property listview-content-height <=> listview.content-height;
+    out property listview-content-width <=> listview.content-width;
+    out property<length> listview-content-offset_y <=> listview.content_y;
 
-    out property <bool> test: listview.viewport-width == 30000px && listview.viewport-height == 1000px;
+    out property <bool> test: listview.content-width == 30000px && listview.content-height == 1000px;
 
     public function scroll-to-end() {
-        listview.viewport-y = -30000px;
+        listview.content-y = -30000px;
     }
 
     listview := ListView {
-        viewport-width: 30000px;
-        viewport-height: 1000px;
+        content-width: 30000px;
+        content-height: 1000px;
         for data in [
             { text: "Blue", color: #0000ff, bg: #eeeeee},
             { text: "Red", color: #ff0000, bg: #eeeeee},
@@ -48,11 +48,11 @@ export component TestCaseFlexibleViewPort inherits Window  {
     width: 400px;
     height: 540px;
 
-    out property listview-viewport-height <=> listview.viewport-height;
-    out property listview-viewport-width <=> listview.viewport-width;
+    out property listview-content-height <=> listview.content-height;
+    out property listview-content-width <=> listview.content-width;
 
 
-    out property <bool> test: listview.viewport-width == 1500px && listview.viewport-height == 800px;
+    out property <bool> test: listview.content-width == 1500px && listview.content-height == 800px;
 
     listview := ListView {
         for data in [
@@ -81,50 +81,50 @@ export component TestCaseFlexibleViewPort inherits Window  {
 
 /*
 
-// The viewport width is explicitly set to 30000 and the height to 1000px, so these values ??should be maintained
+// The content width is explicitly set to 30000 and the height to 1000px, so these values ??should be maintained
 
 ```cpp
 auto handle = TestCaseFixedViewPort::create();
 const TestCaseFixedViewPort &instance = *handle;
 assert(instance.get_test());
-assert_eq(instance.get_listview_viewport_height(), 1000.);
-assert_eq(instance.get_listview_viewport_width(), 30000.);
+assert_eq(instance.get_listview_content_height(), 1000.);
+assert_eq(instance.get_listview_content_width(), 30000.);
 
 auto handle2 = TestCaseFlexibleViewPort::create();
 const TestCaseFlexibleViewPort &instance2 = *handle2;
 assert(instance2.get_test());
-assert_eq(instance2.get_listview_viewport_height(), 800.);
-assert_eq(instance2.get_listview_viewport_width(), 1500.);
+assert_eq(instance2.get_listview_content_height(), 800.);
+assert_eq(instance2.get_listview_content_width(), 1500.);
 
 ```
 
 ```rust
 let instance = TestCaseFixedViewPort::new().unwrap();
 assert!(instance.get_test());
-assert_eq!(instance.get_listview_viewport_height(), 1000.);
-assert_eq!(instance.get_listview_viewport_width(), 30000.);
+assert_eq!(instance.get_listview_content_height(), 1000.);
+assert_eq!(instance.get_listview_content_width(), 30000.);
 
 // Test if scrolling to end of listview
 instance.invoke_scroll_to_end();
-assert_eq!(instance.get_listview_viewport_offset_y(), -30000.);
+assert_eq!(instance.get_listview_content_offset_y(), -30000.);
 
 let instance = TestCaseFlexibleViewPort::new().unwrap();
 assert!(instance.get_test());
 
-assert_eq!(instance.get_listview_viewport_height(), 800.);
-assert_eq!(instance.get_listview_viewport_width(), 1500.);
+assert_eq!(instance.get_listview_content_height(), 800.);
+assert_eq!(instance.get_listview_content_width(), 1500.);
 ```
 
 ```js
 var instance = new slint.TestCaseFixedViewPort({});
 assert(instance.test);
-assert.equal(instance.listview_viewport_height, 1000.);
-assert.equal(instance.listview_viewport_width, 30000.);
+assert.equal(instance.listview_content_height, 1000.);
+assert.equal(instance.listview_content_width, 30000.);
 
 var instance = new slint.TestCaseFlexibleViewPort({});
 assert(instance.test);
-assert.equal(instance.listview_viewport_height, 800.);
-assert.equal(instance.listview_viewport_width, 1500.);
+assert.equal(instance.listview_content_height, 800.);
+assert.equal(instance.listview_content_width, 1500.);
 ```
 
 */

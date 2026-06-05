@@ -1223,8 +1223,8 @@ mod dispatch_result_tests {
                 height: 200px;
                 Flickable {
                     width: 100%; height: 100%;
-                    viewport-width: 400px;
-                    viewport-height: 400px;
+                    content-width: 400px;
+                    content-height: 400px;
                     Rectangle { background: #abc; }
                 }
             }
@@ -1252,8 +1252,8 @@ mod dispatch_result_tests {
                 width: 200px;
                 height: 200px;
                 Flickable {
-                    viewport-width: 400px;
-                    viewport-height: 400px;
+                    content-width: 400px;
+                    content-height: 400px;
                     Rectangle { background: #abc; }
                 }
             }

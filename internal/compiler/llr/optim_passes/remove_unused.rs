@@ -344,12 +344,12 @@ mod visitor {
             }
 
             if let Some(listview) = listview {
-                visit_member_reference(&mut listview.viewport_y, &scope, state, visitor);
-                if let Some(viewport_height) = &mut listview.viewport_height {
-                    visit_member_reference(viewport_height, &scope, state, visitor);
+                visit_member_reference(&mut listview.content_y, &scope, state, visitor);
+                if let Some(content_height) = &mut listview.content_height {
+                    visit_member_reference(content_height, &scope, state, visitor);
                 }
-                if let Some(viewport_width) = &mut listview.viewport_width {
-                    visit_member_reference(viewport_width, &scope, state, visitor);
+                if let Some(content_width) = &mut listview.content_width {
+                    visit_member_reference(content_width, &scope, state, visitor);
                 }
                 visit_member_reference(&mut listview.listview_width, &scope, state, visitor);
                 visit_member_reference(&mut listview.listview_height, &scope, state, visitor);

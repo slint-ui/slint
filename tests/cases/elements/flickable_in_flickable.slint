@@ -16,23 +16,23 @@ export component TestCase inherits Window {
         y: 10px;
         width: parent.width - 20px;
         height: parent.height - 20px;
-        viewport-width: self.width;
-        viewport-height: 980px;
+        content-width: self.width;
+        content-height: 980px;
 
         // Scrolling only horizontal
         inner := Flickable {
-            viewport-width: 1500px;
-            viewport-height: parent.height;
+            content-width: 1500px;
+            content-height: parent.height;
             Rectangle {
                 background: @radial-gradient(circle, yellow, blue, red, green);
             }
         }
     }
 
-    out property<length> outer_y: - outer.viewport-y;
-    out property<length> inner_x: - inner.viewport-x;
+    out property<length> outer_y: - outer.content-y;
+    out property<length> inner_x: - inner.content-x;
 
-    out property <bool> test: outer.viewport-x == 0 && inner.viewport-y == 0;
+    out property <bool> test: outer.content-x == 0 && inner.content-y == 0;
 
 }
 

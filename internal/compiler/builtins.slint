@@ -976,7 +976,7 @@ component KeyBinding {
 ///     height: 100px;
 ///
 ///     Flickable {
-///         viewport-height: 300px;
+///         content-height: 300px;
 ///         Text {
 ///             x:0;
 ///             y: 150px;
@@ -988,14 +988,14 @@ component KeyBinding {
 ///
 /// The `Flickable` is a low-level element that is the base for scrollable
 /// widgets, such as the <Link type="ScrollView"/> or <Link type="ListView"/>.
-/// When the `viewport-width` or the `viewport-height` is greater than the parent's `width` or `height`
+/// When the `content-width` or the `content-height` is greater than the parent's `width` or `height`
 /// respectively, the element becomes scrollable.
 ///
-/// When unset, the `viewport-width` and `viewport-height` are
+/// When unset, the `content-width` and `content-height` are
 /// calculated automatically based on the `Flickable`'s children. This isn't the
 /// case when using a `for` loop to populate the elements. This is a bug tracked in
 /// issue [#407](https://github.com/slint-ui/slint/issues/407).
-/// The maximum and preferred size of the `Flickable` are based on the viewport.
+/// The maximum and preferred size of the `Flickable` are based on the content size.
 ///
 /// Note that the `Flickable` doesn't create a scrollbar.
 /// You can use a <Link type="ScrollView"/> instead or add your own scroll bars.
@@ -1042,21 +1042,25 @@ export component Flickable inherits Empty {
     ///     interactive: false;
     /// }
     /// ```
-    /// When false, the viewport can't be panned by the user, neither by dragging with the mouse
+    /// When false, the content can't be panned by the user, neither by dragging with the mouse
     /// nor with touch.
     in property <bool> interactive: true;
-    /// When true, the viewport can be scrolled by clicking on it and dragging it with the cursor.
+    /// When true, the content can be scrolled by clicking on it and dragging it with the cursor.
     /// Panning with a touch screen is only affected by `interactive`.
     in property <bool> mouse-drag-pan-enabled: true;
-    /// The total width of the scrollable element.
-    in property <length> viewport-width;
-    /// The total height of the scrollable element.
-    in property <length> viewport-height;
-    /// The position of the scrollable element relative to the `Flickable`. This is usually a negative value.
-    in-out property <length> viewport-x;
-    /// The position of the scrollable element relative to the `Flickable`. This is usually a negative value.
-    in-out property <length> viewport-y;
-    /// Invoked when `viewport-x` or `viewport-y` is changed by a user action (dragging, scrolling).
+    /// The total width of the scrollable content.
+    in property <length> content-width;
+    /// The total height of the scrollable content.
+    in property <length> content-height;
+    /// The position of the scrollable content relative to the `Flickable`. This is usually a negative value.
+    in-out property <length> content-x;
+    /// The position of the scrollable content relative to the `Flickable`. This is usually a negative value.
+    in-out property <length> content-y;
+    in property <length> viewport-width <=> content-width;
+    in property <length> viewport-height <=> content-height;
+    in-out property <length> viewport-x <=> content-x;
+    in-out property <length> viewport-y <=> content-y;
+    /// Invoked when `content-x` or `content-y` is changed by a user action (dragging, scrolling).
     callback flicked();
     //-default_size_binding:expands_to_parent_geometry
 }

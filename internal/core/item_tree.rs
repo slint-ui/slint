@@ -1015,15 +1015,15 @@ impl ItemRc {
                     &[
                         self.map_to_ancestor(
                             LogicalPoint::new(
-                                geo.origin.x - flickable.viewport_x().0,
-                                geo.origin.y - flickable.viewport_y().0,
+                                geo.origin.x - flickable.content_x().0,
+                                geo.origin.y - flickable.content_y().0,
                             ),
                             item_rc,
                         ),
                         self.map_to_ancestor(
                             LogicalPoint::new(
-                                geo.max_x() - flickable.viewport_x().0,
-                                geo.max_y() - flickable.viewport_y().0,
+                                geo.max_x() - flickable.content_x().0,
+                                geo.max_y() - flickable.content_y().0,
                             ),
                             item_rc,
                         ),
