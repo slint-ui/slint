@@ -254,6 +254,15 @@ instance.set_model(Rc::new(VecModel::from_slice(&[
 instance.set_current_index(2);
 mock_elapsed_time(500);
 assert_selection(2, "!!!THIS!!!");
+
+// Writes to `current-value` from host code are not a supported way to change
+// the selection — the widget emits a debug warning but doesn't revert the
+// host write. The current-index (and therefore the visible selection in the
+// popup) stays where it was. See https://github.com/slint-ui/slint/issues/11970.
+instance.set_current_value(SharedString::from("not this3"));
+mock_elapsed_time(500);
+assert_eq!(instance.get_current_index(), 2);
+assert_eq!(instance.get_current_value(), SharedString::from("not this3"));
 ```
 
 */

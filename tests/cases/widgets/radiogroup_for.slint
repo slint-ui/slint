@@ -8,7 +8,7 @@ export component TestCase inherits Window {
     height: 300px;
 
     in-out property <[string]> options: ["A", "B", "C"];
-    in-out property <string> current-value <=> group.current-value;
+    out property <string> current-value: group.current-value;
 
     HorizontalLayout {
         alignment: start;
