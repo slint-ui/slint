@@ -957,10 +957,6 @@ impl i_slint_core::renderer::RendererSealed for SkiaRenderer {
         }
     }
 
-    fn default_font_size(&self) -> LogicalLength {
-        sharedparley::DEFAULT_FONT_SIZE
-    }
-
     fn free_graphics_resources(
         &self,
         component: i_slint_core::item_tree::ItemTreeRef,

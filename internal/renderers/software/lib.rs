@@ -1198,10 +1198,6 @@ impl RendererSealed for SoftwareRenderer {
         )
     }
 
-    fn default_font_size(&self) -> LogicalLength {
-        self::fonts::DEFAULT_FONT_SIZE
-    }
-
     fn set_window_adapter(&self, window_adapter: &Rc<dyn WindowAdapter>) {
         *self.maybe_window_adapter.borrow_mut() = Some(Rc::downgrade(window_adapter));
         #[cfg(feature = "systemfonts")]

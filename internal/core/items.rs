@@ -1402,7 +1402,7 @@ impl WindowItem {
         let window_item = next_window_item(&first_item).unwrap();
         Self::resolve_font_property(&window_item, Self::font_size)
             .or_else(|| Self::platform_default_font_size(&first_item))
-            .unwrap_or_else(|| first_item.window_adapter().unwrap().renderer().default_font_size())
+            .unwrap_or(crate::textlayout::DEFAULT_FONT_SIZE)
     }
 
     /// Returns the default font size reported by the platform (e.g. iOS Dynamic Type),
