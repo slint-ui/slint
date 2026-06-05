@@ -440,10 +440,23 @@ impl BuildDiagnostics {
         new_property: &str,
         source: &dyn Spanned,
     ) {
+        self.push_property_deprecation_warning_with_message(
+            old_property,
+            &format!("Please use '{new_property}' instead"),
+            source,
+        )
+    }
+
+    /// Same as [`Self::push_property_deprecation_warning`], but with a free-form message shown
+    /// after "The property 'xxx' has been deprecated."
+    pub fn push_property_deprecation_warning_with_message(
+        &mut self,
+        old_property: &str,
+        message: &str,
+        source: &dyn Spanned,
+    ) {
         self.push_diagnostic_with_span(
-            format!(
-                "The property '{old_property}' has been deprecated. Please use '{new_property}' instead"
-            ),
+            format!("The property '{old_property}' has been deprecated. {message}"),
             source.to_source_location(),
             crate::diagnostics::DiagnosticLevel::Warning,
         )

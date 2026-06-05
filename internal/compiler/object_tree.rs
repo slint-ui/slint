@@ -675,6 +675,10 @@ pub struct PropertyDeclaration {
     /// Whether the declaration shadows a builtin element member of the same name
     /// (diagnosed by the check_builtin_shadowing pass)
     pub shadows_builtin: bool,
+    /// Some if the property was declared with `@deprecated`. The string is the hint shown after
+    /// "The property 'xxx' has been deprecated." in the warning: either derived from the two-way
+    /// binding target, or the custom message given as argument to `@deprecated("...")`.
+    pub deprecated: Option<SmolStr>,
 }
 
 impl PropertyDeclaration {
@@ -1408,6 +1412,34 @@ impl Element {
                 }
             }
 
+            let deprecated = prop_decl.PropertyDeprecation().and_then(|deprecation| {
+                if reject_experimental_feature(diag, tr, "@deprecated", &deprecation) {
+                    return None;
+                }
+                if let Some(message) = deprecation.child_token(SyntaxKind::StringLiteral) {
+                    crate::literals::unescape_string(message.text())
+                } else if let Some(target) = prop_decl
+                    .TwoWayBinding()
+                    .and_then(|twb| twb.Expression().QualifiedName())
+                    .and_then(|qn| {
+                        qn.children_with_tokens()
+                            .filter(|t| t.kind() == SyntaxKind::Identifier)
+                            .last()
+                    })
+                {
+                    Some(format_smolstr!(
+                        "Please use '{}' instead",
+                        parser::normalize_identifier(target.as_token().unwrap().text())
+                    ))
+                } else {
+                    diag.push_error(
+                        "@deprecated without a message requires a two-way binding to derive the replacement from".into(),
+                        &deprecation,
+                    );
+                    None
+                }
+            });
+
             // Use the name as declared, not the resolved name: when the declaration
             // shadows a builtin member, the resolved name may be a native alias.
             r.property_declarations.insert(
@@ -1417,6 +1449,7 @@ impl Element {
                     node: Some(prop_decl.clone().into()),
                     visibility,
                     shadows_builtin,
+                    deprecated,
                     ..Default::default()
                 },
             );
@@ -2282,6 +2315,7 @@ impl Element {
                 builtin_function: None,
                 #[cfg(feature = "slint-sc")]
                 is_slint_sc: false,
+                deprecated: p.deprecated.clone(),
             },
         )
     }

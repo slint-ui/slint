@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component Inner {
+    in-out property <int> new-prop;
+    @deprecated in-out property <int> old-prop <=> new-prop;
+    @deprecated("Compute it from 'new-prop' instead") in-out property <int> older-prop: 42;
+
+    // No warning for accesses within the declaring component:
+    in-out property <int> internal: old-prop + self.older-prop;
+}
+
+export component Derived inherits Inner {
+    // Accessing a deprecated property from the base component warns:
+    in-out property <int> xx: self.old-prop;
+//                                 >      <warning{The property 'old-prop' has been deprecated. Please use 'new-prop' instead}
+}
+
+export component Test {
+    inner := Inner {
+        new-prop: 42;
+    }
+
+    property <int> qualified: inner.old-prop;
+//                                  >      <warning{The property 'old-prop' has been deprecated. Please use 'new-prop' instead}
+    property <int> custom-message: inner.older-prop;
+//                                       >        <warning{The property 'older-prop' has been deprecated. Compute it from 'new-prop' instead}
+    property <int> two-way <=> inner.old-prop;
+//                                   >      <warning{The property 'old-prop' has been deprecated. Please use 'new-prop' instead}
+}

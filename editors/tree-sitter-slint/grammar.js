@@ -129,8 +129,15 @@ module.exports = grammar({
         choice(seq($.imperative_block, optional(";")), seq($.expression, ";")),
       ),
 
+    property_deprecation: ($) =>
+      seq(
+        "@deprecated",
+        optional(seq("(", field("message", $.string_value), ")")),
+      ),
+
     property: ($) =>
       seq(
+        field("deprecation", optional($.property_deprecation)),
         field("visibility", optional($.property_visibility)),
         "property",
         seq(
@@ -146,6 +153,7 @@ module.exports = grammar({
 
     binding_alias: ($) =>
       seq(
+        field("deprecation", optional($.property_deprecation)),
         field("visibility", optional($.property_visibility)),
         optional("property"),
         field("name", $.simple_identifier),

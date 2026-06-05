@@ -2224,7 +2224,7 @@ fn lookup_qualified_name_node(
     };
 
     if let Some(depr) = result.deprecated() {
-        ctx.diag.push_property_deprecation_warning(&first_str, depr, &first);
+        ctx.diag.push_property_deprecation_warning_with_message(&first_str, depr, &first);
     }
 
     match result {
@@ -2317,10 +2317,19 @@ fn continue_lookup_within_element(
                 &lookup_result.resolved_name,
                 &second,
             );
+        } else if let Some(message) =
+            lookup_result.deprecated.as_ref().filter(|_| !local_to_component)
+        {
+            // `@deprecated` properties only warn when accessed from outside the declaring component
+            ctx.diag.push_property_deprecation_warning_with_message(&prop_name, message, &second);
         } else if let Some(deprecated) =
             crate::lookup::check_extra_deprecated(elem, ctx, &prop_name)
         {
-            ctx.diag.push_property_deprecation_warning(&prop_name, &deprecated, &second);
+            ctx.diag.push_property_deprecation_warning_with_message(
+                &prop_name,
+                &deprecated,
+                &second,
+            );
         }
         let prop = Expression::PropertyReference(NamedReference::new(
             elem,

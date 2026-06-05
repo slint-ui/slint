@@ -44,6 +44,7 @@
       <item>pure</item>
       <item>@tr</item>
       <item>@children</item>
+      <item>@deprecated</item>
       <item>@image-url</item>
       <item>@linear-gradient</item>
       <item>@radial-gradient</item>
