@@ -175,7 +175,8 @@ export abstract class Model<T> implements Iterable<T> {
 
 /**
  * ArrayModel wraps a JavaScript array for use in `.slint` views. The underlying
- * array can be modified with the [[ArrayModel.push]] and [[ArrayModel.remove]] methods.
+ * array can be modified with the [[ArrayModel.push]], [[ArrayModel.remove]], and
+ * [[ArrayModel.splice]] methods.
  */
 export class ArrayModel<T> extends Model<T> {
     /**
@@ -250,7 +251,6 @@ export class ArrayModel<T> extends Model<T> {
         return last;
     }
 
-    // FIXME: should this be named splice and have the splice api?
     /**
      * Removes the specified number of element from the array that's backing
      * the model, starting at the specified index.
@@ -263,15 +263,32 @@ export class ArrayModel<T> extends Model<T> {
     }
 
     /**
-     * Inserts new values into the array that's backing the model at the given
-     * index and notifies the run-time about the added rows.
-     * @param index zero-based index at which to insert; clamped to [0, length].
-     * @param values list of values to insert.
+     * Removes elements from the array that's backing the model and, if
+     * necessary, inserts new elements in their place, following the semantics
+     * of `Array.prototype.splice`. The run-time is notified about the removed
+     * and added rows.
+     * @param start zero-based index at which to start changing the array; negative values count back from the end and out-of-range values are clamped.
+     * @param deleteCount number of elements to remove starting at `start`; if omitted, all elements from `start` to the end are removed.
+     * @param items elements to insert at `start`.
+     * @returns an array containing the removed elements.
      */
-    insert(index: number, ...values: T[]) {
-        const clamped = Math.max(0, Math.min(index, this.#array.length));
-        this.#array.splice(clamped, 0, ...values);
-        this.notifyRowAdded(clamped, values.length);
+    splice(start: number, deleteCount?: number, ...items: T[]): T[] {
+        const len = this.#array.length;
+        // Normalize `start` the way `Array.prototype.splice` does, so the
+        // change notifications point at the actual mutation index.
+        const actualStart =
+            start < 0 ? Math.max(len + start, 0) : Math.min(start, len);
+        const removed =
+            deleteCount === undefined
+                ? this.#array.splice(actualStart)
+                : this.#array.splice(actualStart, deleteCount, ...items);
+        if (removed.length > 0) {
+            this.notifyRowRemoved(actualStart, removed.length);
+        }
+        if (items.length > 0) {
+            this.notifyRowAdded(actualStart, items.length);
+        }
+        return removed;
     }
 
     /**

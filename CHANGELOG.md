@@ -79,7 +79,7 @@ All notable changes to this project are documented in this file.
  - Integrate event loop with libuv fd on Linux and macOS with node to avoid excessive polling
  - Fixed leak when a callback handler has a reference to a component instance.
  - exposed StyledText markdown parsing API.
- - Added `ArrayModel.insert` to insert a value at a given index.
+ - Added `ArrayModel.splice` to remove and/or insert values at a given index, following the semantics of `Array.prototype.splice`.
  - Added public API to create `keys`
 
 ### Python
