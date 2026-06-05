@@ -45,6 +45,8 @@ mod preview_data;
 use ext::ElementRcNodeExt;
 mod outline;
 mod properties;
+#[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
+pub mod remote;
 pub mod ui;
 mod undo_redo;
 
@@ -143,6 +145,9 @@ pub struct PreviewState {
     loading_state: PreviewFutureState,
 
     pub to_lsp: RefCell<Option<Rc<dyn common::PreviewToLsp>>>,
+
+    #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
+    pub remote_discovery: Rc<remote::RemoteDiscovery>,
 }
 
 impl PreviewState {
@@ -1622,6 +1627,27 @@ fn set_preview_factory(
 
 /// Highlight the element pointed at the offset in the path.
 /// When the URL is None, remove the highlight.
+pub fn set_remote_connection_state(
+    state: i_slint_live_preview::protocol::RemoteConnectionState,
+    target: String,
+    error: Option<String>,
+) {
+    use i_slint_live_preview::protocol::RemoteConnectionState as R;
+    PREVIEW_STATE.with_borrow(|preview_state| {
+        let _ = preview_state.api.upgrade_in_event_loop(move |api| {
+            let ui_state = match state {
+                R::Disconnected => ui::RemoteConnectionState::Disconnected,
+                R::Connecting => ui::RemoteConnectionState::Connecting,
+                R::Connected => ui::RemoteConnectionState::Connected,
+                R::Failed => ui::RemoteConnectionState::Failed,
+            };
+            api.set_remote_connection_state(ui_state);
+            api.set_remote_connection_target(target.into());
+            api.set_remote_connection_error(error.unwrap_or_default().into());
+        });
+    });
+}
+
 pub fn highlight(url: Option<Url>, offset: TextSize) {
     let Some(path) = url.as_ref().and_then(|u| Url::to_file_path(u).ok()) else {
         element_selection::unselect_element();
