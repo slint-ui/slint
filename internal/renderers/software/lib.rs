@@ -604,6 +604,7 @@ impl SoftwareRenderer {
                 buffer,
                 dirty_range_cache: Vec::new(),
                 dirty_region: Default::default(),
+                scale_factor: factor,
             },
             rotation,
             #[cfg(feature = "systemfonts")]
@@ -1423,7 +1424,7 @@ fn prepare_scene(
         size,
         factor,
         window,
-        PrepareScene::default(),
+        PrepareScene { scale_factor: factor, ..Default::default() },
         software_renderer.rotation.get(),
         #[cfg(feature = "systemfonts")]
         &software_renderer.text_layout_cache,
@@ -1565,9 +1566,15 @@ fn process_rectangle_impl(
     processor: &mut dyn ProcessScene,
     args: &target_pixel_buffer::DrawRectangleArgs,
     clip: &PhysicalRect,
+    scale_factor: ScaleFactor,
 ) {
     let geom = args.geometry();
     let Some(clipped) = geom.intersection(&clip.cast()) else { return };
+    let geom_w = geom.width();
+    let geom_h = geom.height();
+    let to_clipped_center = |cx: f32, cy: f32| {
+        (geom.min_x() + cx - clipped.min_x(), geom.min_y() + cy - clipped.min_y())
+    };
 
     let color = if let Brush::LinearGradient(g) = &args.background {
         let angle = g.angle() + args.rotation.angle();
@@ -1659,13 +1666,9 @@ fn process_rectangle_impl(
         }
         Color::default()
     } else if let Brush::RadialGradient(g) = &args.background {
-        // Calculate absolute center position of the original geometry
-        let absolute_center_x = geom.min_x() + geom.width() / 2.0;
-        let absolute_center_y = geom.min_y() + geom.height() / 2.0;
-
-        // Convert to coordinates relative to the clipped rectangle
-        let center_x = PhysicalLength::new((absolute_center_x - clipped.min_x()) as i16);
-        let center_y = PhysicalLength::new((absolute_center_y - clipped.min_y()) as i16);
+        let (cx, cy) = g.center_or_default_scaled(geom_w, geom_h, scale_factor.get());
+        let (center_x, center_y) = to_clipped_center(cx, cy);
+        let radius = g.radius_or_default_scaled(geom_w, geom_h, scale_factor.get());
 
         let radial_grad = RadialGradientCommand {
             stops: g
@@ -1678,11 +1681,14 @@ fn process_rectangle_impl(
                 .collect(),
             center_x,
             center_y,
+            radius,
         };
 
         processor.process_radial_gradient(clipped.cast(), radial_grad);
         Color::default()
     } else if let Brush::ConicGradient(g) = &args.background {
+        let (cx, cy) = g.center_or_default_scaled(geom_w, geom_h, scale_factor.get());
+        let (center_x, center_y) = to_clipped_center(cx, cy);
         let conic_grad = ConicGradientCommand {
             stops: g
                 .stops()
@@ -1692,6 +1698,8 @@ fn process_rectangle_impl(
                     stop
                 })
                 .collect(),
+            center_x,
+            center_y,
         };
 
         processor.process_conic_gradient(clipped.cast(), conic_grad);
@@ -1780,6 +1788,7 @@ struct RenderToBuffer<'a, TargetPixelBuffer> {
     buffer: &'a mut TargetPixelBuffer,
     dirty_range_cache: Vec<core::ops::Range<i16>>,
     dirty_region: PhysicalRegion,
+    scale_factor: ScaleFactor,
 }
 
 impl<B: target_pixel_buffer::TargetPixelBuffer> RenderToBuffer<'_, B> {
@@ -1871,7 +1880,8 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
             return;
         }
 
-        process_rectangle_impl(self, args, &clip);
+        let scale_factor = self.scale_factor;
+        process_rectangle_impl(self, args, &clip, scale_factor);
     }
 
     fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, rr: RoundedRectangle) {
@@ -1970,6 +1980,7 @@ impl<B: target_pixel_buffer::TargetPixelBuffer> ProcessScene for RenderToBuffer<
 struct PrepareScene {
     items: Vec<SceneItem>,
     vectors: SceneVectors,
+    scale_factor: ScaleFactor,
 }
 
 impl ProcessScene for PrepareScene {
@@ -2032,7 +2043,8 @@ impl ProcessScene for PrepareScene {
         args: &target_pixel_buffer::DrawRectangleArgs,
         clip: PhysicalRect,
     ) {
-        process_rectangle_impl(self, args, &clip);
+        let scale_factor = self.scale_factor;
+        process_rectangle_impl(self, args, &clip, scale_factor);
     }
 
     fn process_simple_rectangle(&mut self, geometry: PhysicalRect, color: PremultipliedRgbaColor) {

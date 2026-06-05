@@ -1525,6 +1525,17 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 let path_width = path_bounds.width();
                 let path_height = path_bounds.height();
 
+                let (cx, cy) = gradient.center_or_default_scaled(
+                    path_width,
+                    path_height,
+                    self.scale_factor.get(),
+                );
+                let radius = gradient.radius_or_default_scaled(
+                    path_width,
+                    path_height,
+                    self.scale_factor.get(),
+                );
+
                 let mut stops: Vec<_> = gradient
                     .stops()
                     .map(|stop| (stop.position, to_femtovg_color(&stop.color)))
@@ -1537,13 +1548,7 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                     stops.push((1.0, last_stop.1));
                 }
 
-                femtovg::Paint::radial_gradient_stops(
-                    path_width / 2.,
-                    path_height / 2.,
-                    0.,
-                    0.5 * (path_width * path_width + path_height * path_height).sqrt(),
-                    stops,
-                )
+                femtovg::Paint::radial_gradient_stops(cx, cy, 0., radius, stops)
             }
             Brush::ConicGradient(gradient) => {
                 let path_bounds = path_bounding_box(&self.canvas, path);
@@ -1551,12 +1556,18 @@ impl<'a, R: femtovg::Renderer + TextureImporter> GLItemRenderer<'a, R> {
                 let path_width = path_bounds.width();
                 let path_height = path_bounds.height();
 
+                let (cx, cy) = gradient.center_or_default_scaled(
+                    path_width,
+                    path_height,
+                    self.scale_factor.get(),
+                );
+
                 let stops: Vec<_> = gradient
                     .stops()
                     .map(|stop| (stop.position, to_femtovg_color(&stop.color)))
                     .collect();
 
-                femtovg::Paint::conic_gradient_stops(path_width / 2., path_height / 2., stops)
+                femtovg::Paint::conic_gradient_stops(cx, cy, stops)
             }
             _ => return None,
         })

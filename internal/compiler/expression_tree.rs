@@ -797,6 +797,12 @@ pub enum Expression {
     },
 
     RadialGradient {
+        /// Explicit gradient center in the element's local coordinate space (`at <x> <y>`).
+        /// `None` means use the element's bbox centre.
+        center: Option<(Box<Expression>, Box<Expression>)>,
+        /// Explicit radius in the element's local coordinate space (`circle <r>`).
+        /// `None` means use the element's bbox half-diagonal.
+        radius: Option<Box<Expression>>,
         /// First expression in the tuple is a color, second expression is the stop position
         stops: Vec<(Expression, Expression)>,
     },
@@ -804,6 +810,9 @@ pub enum Expression {
     ConicGradient {
         /// The starting angle (rotation) of the gradient, corresponding to CSS `from <angle>`
         from_angle: Box<Expression>,
+        /// Explicit gradient center in the element's local coordinate space (`at <x> <y>`).
+        /// `None` means use the element's bbox centre.
+        center: Option<(Box<Expression>, Box<Expression>)>,
         /// First expression in the tuple is a color, second expression is the stop angle
         stops: Vec<(Expression, Expression)>,
     },
@@ -1099,14 +1108,25 @@ impl Expression {
                     visitor(s);
                 }
             }
-            Expression::RadialGradient { stops } => {
+            Expression::RadialGradient { center, radius, stops } => {
+                if let Some((cx, cy)) = center {
+                    visitor(cx);
+                    visitor(cy);
+                }
+                if let Some(r) = radius {
+                    visitor(r);
+                }
                 for (c, s) in stops {
                     visitor(c);
                     visitor(s);
                 }
             }
-            Expression::ConicGradient { from_angle, stops } => {
+            Expression::ConicGradient { from_angle, center, stops } => {
                 visitor(from_angle);
+                if let Some((cx, cy)) = center {
+                    visitor(cx);
+                    visitor(cy);
+                }
                 for (c, s) in stops {
                     visitor(c);
                     visitor(s);
@@ -1224,14 +1244,25 @@ impl Expression {
                     visitor(s);
                 }
             }
-            Expression::RadialGradient { stops } => {
+            Expression::RadialGradient { center, radius, stops } => {
+                if let Some((cx, cy)) = center {
+                    visitor(cx);
+                    visitor(cy);
+                }
+                if let Some(r) = radius {
+                    visitor(r);
+                }
                 for (c, s) in stops {
                     visitor(c);
                     visitor(s);
                 }
             }
-            Expression::ConicGradient { from_angle, stops } => {
+            Expression::ConicGradient { from_angle, center, stops } => {
                 visitor(from_angle);
+                if let Some((cx, cy)) = center {
+                    visitor(cx);
+                    visitor(cy);
+                }
                 for (c, s) in stops {
                     visitor(c);
                     visitor(s);
@@ -1346,11 +1377,16 @@ impl Expression {
                 angle.is_constant(ga)
                     && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
-            Expression::RadialGradient { stops } => {
-                stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
+            Expression::RadialGradient { center, radius, stops } => {
+                center.as_ref().is_none_or(|(cx, cy)| cx.is_constant(ga) && cy.is_constant(ga))
+                    && radius.as_ref().is_none_or(|r| r.is_constant(ga))
+                    && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
-            Expression::ConicGradient { from_angle, stops } => {
+            Expression::ConicGradient { from_angle, center, stops } => {
                 from_angle.is_constant(ga)
+                    && center
+                        .as_ref()
+                        .is_none_or(|(cx, cy)| cx.is_constant(ga) && cy.is_constant(ga))
                     && stops.iter().all(|(c, s)| c.is_constant(ga) && s.is_constant(ga))
             }
             Expression::EnumerationValue(_) => true,
@@ -2046,8 +2082,18 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             }
             write!(f, ")")
         }
-        Expression::RadialGradient { stops } => {
+        Expression::RadialGradient { center, radius, stops } => {
             write!(f, "@radial-gradient(circle")?;
+            if let Some(r) = radius {
+                write!(f, " ")?;
+                pretty_print(f, r)?;
+            }
+            if let Some((cx, cy)) = center {
+                write!(f, " at ")?;
+                pretty_print(f, cx)?;
+                write!(f, " ")?;
+                pretty_print(f, cy)?;
+            }
             for (c, s) in stops {
                 write!(f, ", ")?;
                 pretty_print(f, c)?;
@@ -2056,9 +2102,15 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             }
             write!(f, ")")
         }
-        Expression::ConicGradient { from_angle, stops } => {
+        Expression::ConicGradient { from_angle, center, stops } => {
             write!(f, "@conic-gradient(from ")?;
             pretty_print(f, from_angle)?;
+            if let Some((cx, cy)) = center {
+                write!(f, " at ")?;
+                pretty_print(f, cx)?;
+                write!(f, " ")?;
+                pretty_print(f, cy)?;
+            }
             for (c, s) in stops {
                 write!(f, ", ")?;
                 pretty_print(f, c)?;

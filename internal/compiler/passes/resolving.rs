@@ -591,9 +591,17 @@ impl Expression {
 
     pub fn from_at_gradient(node: syntax_nodes::AtGradient, ctx: &mut LookupCtx) -> Self {
         enum GradKind {
-            Linear { angle: Box<Expression> },
-            Radial,
-            Conic { from_angle: Box<Expression> },
+            Linear {
+                angle: Box<Expression>,
+            },
+            Radial {
+                center: Option<(Box<Expression>, Box<Expression>)>,
+                radius: Option<Box<Expression>>,
+            },
+            Conic {
+                from_angle: Box<Expression>,
+                center: Option<(Box<Expression>, Box<Expression>)>,
+            },
         }
 
         let all_subs: Vec<_> = node
@@ -603,6 +611,33 @@ impl Expression {
 
         let grad_token = node.child_token(SyntaxKind::Identifier).unwrap();
         let grad_text = grad_token.text();
+
+        // Helper: parse two consecutive length expressions at positions idx and idx+1
+        let parse_at_center = |idx: usize,
+                               ctx: &mut LookupCtx|
+         -> Option<(Box<Expression>, Box<Expression>)> {
+            let cx_node = all_subs.get(idx)?;
+            let cy_node = all_subs.get(idx + 1)?;
+            if cx_node.kind() != SyntaxKind::Expression || cy_node.kind() != SyntaxKind::Expression
+            {
+                return None;
+            }
+            let cx_syn = syntax_nodes::Expression::from(cx_node.as_node().unwrap().clone());
+            let cy_syn = syntax_nodes::Expression::from(cy_node.as_node().unwrap().clone());
+            let cx =
+                Box::new(Expression::from_expression_node(cx_syn.clone(), ctx).maybe_convert_to(
+                    Type::LogicalLength,
+                    &cx_syn,
+                    ctx.diag,
+                ));
+            let cy =
+                Box::new(Expression::from_expression_node(cy_syn.clone(), ctx).maybe_convert_to(
+                    Type::LogicalLength,
+                    &cy_syn,
+                    ctx.diag,
+                ));
+            Some((cx, cy))
+        };
 
         let (grad_kind, stops_start_idx) = if grad_text.starts_with("linear") {
             let angle_expr = match all_subs.first() {
@@ -636,23 +671,73 @@ impl Expression {
                 ctx.diag.push_error("Expected 'circle': currently, only @radial-gradient(circle, ...) are supported".into(), &node);
                 return Expression::Invalid;
             }
-            let comma = all_subs.get(1);
-            if matches!(&comma, Some(NodeOrToken::Node(n)) if n.text().to_string().trim() == "at") {
-                ctx.diag.push_error(
-                    "'at' in @radial-gradient is not yet supported".into(),
-                    comma.unwrap(),
-                );
+            // CSS syntax: `circle [<radius>] [at <x> <y>]` — radius before center, no keyword.
+            let mut idx = 1;
+
+            // Parse optional radius (a length expression that is not the "at" keyword).
+            // Only consume the node when it actually resolves to a length-compatible type;
+            // a colour keyword like `blue` must not silently become a failed conversion.
+            let radius = if all_subs.get(idx).is_some_and(|n| {
+                n.kind() == SyntaxKind::Expression
+                    && !matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "at")
+            }) {
+                let r = all_subs.get(idx).unwrap();
+                let r_syn = syntax_nodes::Expression::from(r.as_node().unwrap().clone());
+                let expr = Expression::from_expression_node(r_syn.clone(), ctx);
+                if matches!(expr.ty(), Type::LogicalLength | Type::Float32 | Type::Int32) {
+                    let radius = Box::new(
+                        expr.maybe_convert_to(Type::LogicalLength, &r_syn, ctx.diag),
+                    );
+                    idx += 1;
+                    Some(radius)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            // Parse optional "at <x> <y>".
+            let center = if all_subs.get(idx).is_some_and(
+                |n| matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "at"),
+            ) {
+                let center = parse_at_center(idx + 1, ctx);
+                if center.is_none() {
+                    ctx.diag.push_error(
+                        "Expected two length values after 'at'".into(),
+                        all_subs.get(idx).unwrap(),
+                    );
+                    return Expression::Invalid;
+                }
+                idx += 3; // consumed "at x y"
+                center
+            } else {
+                None
+            };
+
+            let stops_start = if all_subs.get(idx).is_none() {
+                idx
+            } else if all_subs.get(idx).is_some_and(|s| s.kind() == SyntaxKind::Comma) {
+                idx + 1
+            } else {
+                if idx == 1 {
+                    let message = "'circle' must be followed by a comma, a radius, or 'at'".into();
+                    if let Some(error_node) = all_subs.get(idx) {
+                        ctx.diag.push_error(message, error_node);
+                    } else {
+                        ctx.diag.push_error(message, &node);
+                    }
+                } else {
+                    ctx.diag
+                        .push_error("gradient header must be followed by a comma".into(), &node);
+                }
                 return Expression::Invalid;
-            }
-            // Only error if there's something after 'circle' that's NOT a comma
-            if comma.is_some_and(|s| s.kind() != SyntaxKind::Comma) {
-                ctx.diag.push_error("'circle' must be followed by a comma".into(), comma.unwrap());
-                return Expression::Invalid;
-            }
-            (GradKind::Radial, 2)
+            };
+            (GradKind::Radial { center, radius }, stops_start)
         } else if grad_text.starts_with("conic") {
-            // Check for optional "from <angle>" syntax
-            let (from_angle, start_idx) = if all_subs.first().is_some_and(|n| {
+            // Parse optional "from <angle>" and/or "at <x> <y>" before the comma
+            let mut idx = 0usize;
+            let from_angle = if all_subs.first().is_some_and(|n| {
                 matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "from")
             }) {
                 // Parse "from <angle>" syntax
@@ -665,13 +750,6 @@ impl Expression {
                         return Expression::Invalid;
                     }
                 };
-                if all_subs.get(2).is_none_or(|s| s.kind() != SyntaxKind::Comma) {
-                    ctx.diag.push_error(
-                        "'from <angle>' must be followed by a comma".into(),
-                        &node,
-                    );
-                    return Expression::Invalid;
-                }
                 let angle = Box::new(
                     Expression::from_expression_node(angle_expr.clone(), ctx).maybe_convert_to(
                         Type::Angle,
@@ -679,12 +757,38 @@ impl Expression {
                         ctx.diag,
                     ),
                 );
-                (angle, 3)
+                idx = 2; // consumed "from" and angle
+                angle
             } else {
                 // Default to 0deg when "from" is omitted
-                (Box::new(Expression::NumberLiteral(0., Unit::Deg)), 0)
+                Box::new(Expression::NumberLiteral(0., Unit::Deg))
             };
-            (GradKind::Conic { from_angle }, start_idx)
+
+            // Parse optional "at <x> <y>" after the optional "from <angle>"
+            let center = if all_subs.get(idx).is_some_and(
+                |n| matches!(n, NodeOrToken::Node(node) if node.text().to_string().trim() == "at"),
+            ) {
+                let center = parse_at_center(idx + 1, ctx);
+                if center.is_none() {
+                    ctx.diag.push_error(
+                        "Expected two length values after 'at'".into(),
+                        all_subs.get(idx).unwrap(),
+                    );
+                    return Expression::Invalid;
+                }
+                idx += 3; // consumed "at", x, y
+                center
+            } else {
+                None
+            };
+
+            // Expect a comma after the header (if any header elements were present)
+            if (idx > 0) && all_subs.get(idx).is_none_or(|s| s.kind() != SyntaxKind::Comma) {
+                ctx.diag.push_error("gradient header must be followed by a comma".into(), &node);
+                return Expression::Invalid;
+            }
+            let stops_start = if idx > 0 { idx + 1 } else { 0 };
+            (GradKind::Conic { from_angle, center }, stops_start)
         } else {
             // Parser should have ensured we have one of the linear, radial or conic gradient
             panic!("Not a gradient {grad_text:?}");
@@ -795,8 +899,10 @@ impl Expression {
 
         match grad_kind {
             GradKind::Linear { angle } => Expression::LinearGradient { angle, stops },
-            GradKind::Radial => Expression::RadialGradient { stops },
-            GradKind::Conic { from_angle } => {
+            GradKind::Radial { center, radius } => {
+                Expression::RadialGradient { center, radius, stops }
+            }
+            GradKind::Conic { from_angle, center } => {
                 // Normalize stop angles to 0-1 range by dividing by 360deg
                 let normalized_stops = stops
                     .into_iter()
@@ -816,6 +922,7 @@ impl Expression {
 
                 Expression::ConicGradient {
                     from_angle: Box::new(from_angle_degrees),
+                    center,
                     stops: normalized_stops,
                 }
             }

@@ -3386,26 +3386,44 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 sp::LinearGradientBrush::new(#angle as _, [#(#stops),*])
             ))
         }
-        Expression::RadialGradient { stops } => {
+        Expression::RadialGradient { center, radius, stops } => {
             let stops = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
                 quote!(sp::GradientStop{ color: #color, position: #position as _ })
             });
-            quote!(slint::Brush::RadialGradient(
-                sp::RadialGradientBrush::new_circle([#(#stops),*])
-            ))
+            let brush_expr = quote!(sp::RadialGradientBrush::new_circle([#(#stops),*]));
+            let brush_expr = if let Some((cx, cy)) = center {
+                let cx = compile_expression(cx, ctx);
+                let cy = compile_expression(cy, ctx);
+                quote!(#brush_expr.with_center(#cx as f32, #cy as f32))
+            } else {
+                brush_expr
+            };
+            let brush_expr = if let Some(r) = radius {
+                let r = compile_expression(r, ctx);
+                quote!(#brush_expr.with_radius(#r as f32))
+            } else {
+                brush_expr
+            };
+            quote!(slint::Brush::RadialGradient(#brush_expr))
         }
-        Expression::ConicGradient { from_angle, stops } => {
+        Expression::ConicGradient { from_angle, center, stops } => {
             let from_angle = compile_expression(from_angle, ctx);
             let stops = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
                 quote!(sp::GradientStop{ color: #color, position: #position as _ })
             });
-            quote!(slint::Brush::ConicGradient(
-                sp::ConicGradientBrush::new(#from_angle as _, [#(#stops),*])
-            ))
+            let brush_expr = quote!(sp::ConicGradientBrush::new(#from_angle as _, [#(#stops),*]));
+            let brush_expr = if let Some((cx, cy)) = center {
+                let cx = compile_expression(cx, ctx);
+                let cy = compile_expression(cy, ctx);
+                quote!(#brush_expr.with_center(#cx as f32, #cy as f32))
+            } else {
+                brush_expr
+            };
+            quote!(slint::Brush::ConicGradient(#brush_expr))
         }
         Expression::EnumerationValue(value) => {
             let base_ident = ident(&value.enumeration.name);

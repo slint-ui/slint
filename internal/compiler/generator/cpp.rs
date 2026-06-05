@@ -4244,30 +4244,74 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 stops.len()
             )
         }
-        Expression::RadialGradient { stops } => {
+        Expression::RadialGradient { center, radius, stops } => {
             let mut stops_it = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
                 format!("slint::private_api::GradientStop{{ {color}, float({position}), }}")
             });
+            let center_setup = match (center, radius) {
+                (Some((cx, cy)), Some(r)) => {
+                    let cx = compile_expression(cx, ctx);
+                    let cy = compile_expression(cy, ctx);
+                    let r = compile_expression(r, ctx);
+                    format!(
+                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, float({cx}), float({cy}), float({r})));",
+                        stops_count = stops.len()
+                    )
+                }
+                (Some((cx, cy)), None) => {
+                    let cx = compile_expression(cx, ctx);
+                    let cy = compile_expression(cy, ctx);
+                    format!(
+                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, float({cx}), float({cy}), -1.0f));",
+                        stops_count = stops.len()
+                    )
+                }
+                (None, Some(r)) => {
+                    let r = compile_expression(r, ctx);
+                    format!(
+                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {stops_count}, std::numeric_limits<float>::quiet_NaN(), std::numeric_limits<float>::quiet_NaN(), float({r})));",
+                        stops_count = stops.len()
+                    )
+                }
+                (None, None) => {
+                    format!(
+                        "return slint::Brush(slint::private_api::RadialGradientBrush(stops, {}));",
+                        stops.len()
+                    )
+                }
+            };
             format!(
-                "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; return slint::Brush(slint::private_api::RadialGradientBrush(stops, {})); }}()",
+                "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; {} }}()",
                 stops_it.join(", "),
-                stops.len()
+                center_setup
             )
         }
-        Expression::ConicGradient { from_angle, stops } => {
+        Expression::ConicGradient { from_angle, center, stops } => {
             let from_angle = compile_expression(from_angle, ctx);
             let mut stops_it = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
                 format!("slint::private_api::GradientStop{{ {color}, float({position}), }}")
             });
+            let center_setup = if let Some((cx, cy)) = center {
+                let cx = compile_expression(cx, ctx);
+                let cy = compile_expression(cy, ctx);
+                format!(
+                    "return slint::Brush(slint::private_api::ConicGradientBrush(float({from_angle}), stops, {stops_count}, float({cx}), float({cy})));",
+                    stops_count = stops.len()
+                )
+            } else {
+                format!(
+                    "return slint::Brush(slint::private_api::ConicGradientBrush(float({from_angle}), stops, {}));",
+                    stops.len()
+                )
+            };
             format!(
-                "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; return slint::Brush(slint::private_api::ConicGradientBrush(float({}), stops, {})); }}()",
+                "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; {} }}()",
                 stops_it.join(", "),
-                from_angle,
-                stops.len()
+                center_setup
             )
         }
         Expression::EnumerationValue(value) => {

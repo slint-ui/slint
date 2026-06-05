@@ -846,14 +846,21 @@ impl Snapshotter {
                     .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
                     .collect(),
             },
-            Expression::RadialGradient { stops } => Expression::RadialGradient {
+            Expression::RadialGradient { center, radius, stops } => Expression::RadialGradient {
+                center: center.as_ref().map(|(cx, cy)| {
+                    (Box::new(self.snapshot_expression(cx)), Box::new(self.snapshot_expression(cy)))
+                }),
+                radius: radius.as_ref().map(|r| Box::new(self.snapshot_expression(r))),
                 stops: stops
                     .iter()
                     .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
                     .collect(),
             },
-            Expression::ConicGradient { from_angle, stops } => Expression::ConicGradient {
+            Expression::ConicGradient { from_angle, center, stops } => Expression::ConicGradient {
                 from_angle: Box::new(self.snapshot_expression(from_angle)),
+                center: center.as_ref().map(|(cx, cy)| {
+                    (Box::new(self.snapshot_expression(cx)), Box::new(self.snapshot_expression(cy)))
+                }),
                 stops: stops
                     .iter()
                     .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
