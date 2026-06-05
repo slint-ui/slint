@@ -72,14 +72,14 @@ export component EmptyWindow inherits Window {
                 opacity: 0.9;
                 Text {
                     text: "Connect Live Preview to";
-                    font-size: 24px;
+                    font-size: 1.41rem;
                     font-weight: 100;
                 }
             }
 
             Text {
                 text: root.showing-name && root.has-name ? name : address;
-                font-size: 24px;
+                font-size: 1.41rem;
                 font-weight: 400;
             }
         }
@@ -91,13 +91,13 @@ export component EmptyWindow inherits Window {
             visible: false;
             Text {
                 text: "Slint 1.17.0";
-                font-size: 14px;
+                font-size: 0.82rem;
                 font-weight: 400;
             }
 
             Text {
                 text: "Viewer v0.0.3";
-                font-size: 12px;
+                font-size: 0.71rem;
                 font-weight: 400;
             }
         }
@@ -123,7 +123,6 @@ export component EmptyWindow inherits Window {
             background: root.dark-color-scheme ? #212121 : #f6f7f8;
             Text {
                 text: @tr("IP copied to clipboard");
-                font-size: 16px;
                 font-weight: 400;
             }
         }
@@ -140,7 +139,6 @@ export component EmptyWindow inherits Window {
         if message != "": Text {
             text: message;
             horizontal-alignment: center;
-            font-size: 16px;
             font-weight: 400;
         }
     }
