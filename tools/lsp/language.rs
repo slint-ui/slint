@@ -12,7 +12,7 @@ mod signature_help;
 #[cfg(test)]
 pub mod test;
 
-use crate::common::SwitchableLspToPreview;
+use crate::common::LspToPreviews;
 use crate::common::uri_to_file;
 use crate::{common, util};
 
@@ -209,7 +209,7 @@ pub struct Context {
     pub to_show: Option<PreviewComponent>,
     /// File currently open in the editor
     pub open_urls: HashSet<lsp_types::Url>,
-    pub to_preview: Rc<SwitchableLspToPreview>,
+    pub to_preview: Rc<LspToPreviews>,
     /// Files to recompile after all other operations are done
     /// (i.e. recompilations triggered by updates to unopened files)
     pub pending_recompile: HashSet<lsp_types::Url>,

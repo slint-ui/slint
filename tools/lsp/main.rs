@@ -40,7 +40,7 @@ use std::sync::{Arc, atomic};
 use std::task::{Poll, Waker};
 use std::time::Duration;
 
-use crate::common::{SwitchableLspToPreview, document_cache::CompilerConfiguration};
+use crate::common::{LspToPreviews, document_cache::CompilerConfiguration};
 #[cfg(feature = "preview-remote")]
 use crate::preview::connector::remote::RemoteLspToPreview;
 use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl};
@@ -346,7 +346,7 @@ async fn main_loop(
 
     #[cfg(not(feature = "preview-engine"))]
     let to_preview =
-        Rc::new(SwitchableLspToPreview::with_one(common::DummyLspToPreview::default()));
+        Rc::new(LspToPreviews::with_one(common::DummyLspToPreview::default()));
     #[cfg(feature = "preview-engine")]
     let to_preview = {
         use i_slint_live_preview::protocol::PreviewTarget;
@@ -363,7 +363,7 @@ async fn main_loop(
             preview::connector::remote::RemoteLspToPreview::new(sn, preview_to_lsp_sender.clone()),
         );
         Rc::new(
-            preview::connector::SwitchableLspToPreview::new(
+            preview::connector::LspToPreviews::new(
                 std::collections::HashMap::from([
                     (PreviewTarget::ChildProcess, child_preview),
                     (PreviewTarget::EmbeddedWasm, embedded_preview),
@@ -401,7 +401,7 @@ async fn run_main_loop(
     preview_to_lsp_sender: mpsc::UnboundedSender<PreviewToLspMessage>,
     #[cfg_attr(not(feature = "preview-engine"), allow(unused_mut))]
     mut preview_to_lsp_receiver: mpsc::UnboundedReceiver<PreviewToLspMessage>,
-    to_preview: Rc<SwitchableLspToPreview>,
+    to_preview: Rc<LspToPreviews>,
 ) -> Result<()> {
     let mut rh = RequestHandler::default();
     register_request_handlers(&mut rh);

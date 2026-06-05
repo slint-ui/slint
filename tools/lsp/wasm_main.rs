@@ -11,7 +11,7 @@ mod language;
 mod preview;
 pub mod util;
 
-use common::SwitchableLspToPreview;
+use common::LspToPreviews;
 use common::{DocumentCache, Result};
 use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl};
 use js_sys::Function;
@@ -254,9 +254,9 @@ pub fn create(
 
     #[cfg(not(feature = "preview-engine"))]
     let to_preview =
-        Rc::new(SwitchableLspToPreview::with_one(common::DummyLspToPreview::default()));
+        Rc::new(LspToPreviews::with_one(common::DummyLspToPreview::default()));
     #[cfg(feature = "preview-engine")]
-    let to_preview = Rc::new(SwitchableLspToPreview::with_one(
+    let to_preview = Rc::new(LspToPreviews::with_one(
         preview::connector::WasmLspToPreview::new(server_notifier.clone()),
     ));
 

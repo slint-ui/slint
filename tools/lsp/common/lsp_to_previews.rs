@@ -6,13 +6,13 @@ use std::{any::Any, cell::RefCell, collections::HashMap};
 
 use super::{LspToPreview, Result};
 
-pub struct SwitchableLspToPreview {
+pub struct LspToPreviews {
     lsp_to_previews: HashMap<PreviewTarget, Box<dyn LspToPreview>>,
     current_target: RefCell<PreviewTarget>,
 }
 
 #[allow(dead_code)] // Which methods are live depends on the enabled preview features.
-impl SwitchableLspToPreview {
+impl LspToPreviews {
     pub fn new(
         lsp_to_previews: HashMap<PreviewTarget, Box<dyn LspToPreview>>,
         current_target: PreviewTarget,

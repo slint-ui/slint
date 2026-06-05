@@ -18,7 +18,7 @@ use lsp_types::{FileChangeType, MessageType, Url, notification::Notification};
 use crate::{
     common::{self, Result, document_cache::OpenImportCallback},
     language, preview,
-    preview::connector::{EmbeddedLspToPreview, SwitchableLspToPreview},
+    preview::connector::{EmbeddedLspToPreview, LspToPreviews},
 };
 
 pub fn editor_main() {
@@ -236,7 +236,7 @@ async fn lsp_main(
     )?;
 
     // Wrap to_preview in Rc for sharing with the import callback and Context
-    let to_preview = Rc::new(SwitchableLspToPreview::with_one(to_preview));
+    let to_preview = Rc::new(LspToPreviews::with_one(to_preview));
 
     let open_import_callback = {
         let to_preview = Rc::clone(&to_preview);
