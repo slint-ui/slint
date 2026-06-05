@@ -1,43 +1,147 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { TextEdit } from "std-widgets.slint";
+import { Palette, Button } from "std-widgets.slint";
 
 export component EmptyWindow inherits Window {
-    // Friendly device name (e.g. "Simon's iPhone") this viewer advertises to editors.
     in property <string> name;
     in property <string> address;
     in property <string> message;
 
-    VerticalLayout {
-        // Keep the name clear of the status bar / notch / Dynamic Island.
-        padding-top: root.safe-area-insets.top + 8px;
-        padding-bottom: root.safe-area-insets.bottom;
+    property <bool> has-name: name != "";
+    property <bool> showing-name: true;
 
-        if name != "": Text {
-            text: name;
-            horizontal-alignment: center;
-            font-size: 20px;
-            font-weight: 700;
+    property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+
+    hidden-input := TextInput {
+        enabled: false;
+        visible: false;
+        text: root.address;
+    }
+
+    Rectangle {
+        background: root.dark-color-scheme ? @linear-gradient(180deg, #1C1C1C, black) : @linear-gradient(0deg, #D7D9DD, white);
+    }
+
+    Image {
+        y: root.height - self.height;
+        width: 100%;
+        source: root.dark-color-scheme ? @image-url("assets/bg-frame.svg") : @image-url("assets/bg-frame-light.svg");
+    }
+
+    TouchArea {
+        y: 0;
+        height: root.safe-area-insets.top + 246px;
+
+        clicked => {
+            hidden-input.select-all();
+            hidden-input.copy();
+            if hide-toast-timer.running == false {
+                hide-toast-timer.start();
+            } else {
+                hide-toast-timer.restart();
+            }
+
+            toast.opacity = 1;
         }
+    }
 
-        if message == "": HorizontalLayout {
-            alignment: center;
-            VerticalLayout {
-                alignment: center;
+    hide-toast-timer := Timer {
+        interval: 2000ms;
+        running: false;
+        triggered => {
+            toast.opacity = 0;
+            self.stop();
+        }
+    }
+
+
+    VerticalLayout {
+        alignment: space-between;
+        padding-left: 24px;
+        padding-top: root.safe-area-insets.top + 146px;
+        padding-bottom: root.safe-area-insets.bottom;
+        VerticalLayout {
+            alignment: start;
+            spacing: 8px;
+
+            HorizontalLayout {
+                alignment: start;
+                spacing: 2px;
+                align-items: end;
+                opacity: 0.9;
                 Text {
-                    text: address;
-                    horizontal-alignment: center;
-                    wrap: word-wrap;
+                    text: "Connect Live Preview to";
+                    font-size: 24px;
+                    font-weight: 100;
                 }
             }
+
+            Text {
+                text: root.showing-name && root.has-name ? name : address;
+                font-size: 24px;
+                font-weight: 400;
+            }
         }
-        // Compile diagnostics can be many lines long; a read-only TextEdit gives
-        // the user wrapping, scrolling, and selection/copy in one widget.
-        if message != "": TextEdit {
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 8px;
+            // TODO: Add version information
+            visible: false;
+            Text {
+                text: "Slint 1.17.0";
+                font-size: 14px;
+                font-weight: 400;
+            }
+
+            Text {
+                text: "Viewer v0.0.3";
+                font-size: 12px;
+                font-weight: 400;
+            }
+        }
+    }
+
+    toast := Rectangle {
+        y: root.height - root.safe-area-insets.bottom - self.height - 100px;
+        width: 300px;
+        height: 50px;
+        border-radius: self.height / 2;
+        drop-shadow-color: root.dark-color-scheme ? black : #0000002e;
+        drop-shadow-blur: 30px;
+        drop-shadow-offset-x: 10px;
+        drop-shadow-offset-y: 10px;
+        opacity: 0;
+        animate opacity {
+            duration: 300ms;
+            easing: cubic-bezier(0.33, 1, 0.68, 1);
+        }
+
+        Rectangle {
+            border-radius: parent.border-radius;
+            background: root.dark-color-scheme ? #212121 : #f6f7f8;
+            Text {
+                text: @tr("IP copied to clipboard");
+                font-size: 16px;
+                font-weight: 400;
+            }
+        }
+
+    }
+
+    VerticalLayout {
+        alignment: center;
+        padding-left: 24px;
+        padding-right: 24px;
+        padding-top: root.safe-area-insets.top;
+        padding-bottom: root.safe-area-insets.bottom;
+
+        if message != "": Text {
             text: message;
-            read-only: true;
-            wrap: word-wrap;
+            horizontal-alignment: center;
+            font-size: 16px;
+            font-weight: 400;
         }
     }
 }
