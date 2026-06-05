@@ -81,7 +81,7 @@ pub(crate) struct SlintContextInner {
     pub(crate) accent_color: Property<Color>,
     /// Process-wide default font size as reported by the platform (e.g. iOS Dynamic
     /// Type). Backends write here; `WindowItem::resolved_default_font_size` consults it
-    /// before falling back to the renderer's built-in default. `None` when the backend
+    /// before falling back to `textlayout::DEFAULT_FONT_SIZE`. `None` when the backend
     /// doesn't report one.
     #[pin]
     pub(crate) platform_default_font_size: Property<Option<LogicalLength>>,
