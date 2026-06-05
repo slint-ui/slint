@@ -13,31 +13,6 @@ use slint_interpreter::ComponentHandle as _;
 
 const MAIN_SLINT: &str = include_str!("remote/main.slint");
 
-fn idle_ui_source_path() -> std::path::PathBuf {
-    app_bundle_dir().join("main.slint")
-}
-
-fn app_bundle_dir() -> std::path::PathBuf {
-    if let Ok(mut path) = std::env::current_exe() {
-        loop {
-            if path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .is_some_and(|name| name.ends_with(".app"))
-            {
-                return path;
-            }
-            if !path.pop() {
-                break;
-            }
-        }
-    }
-    std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
-        .unwrap_or_else(std::env::temp_dir)
-}
-
 pub fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Result<()> {
     slint_interpreter::spawn_local(async_compat::Compat::new(async move {
         if let Err(err) = run_async(address, enable_mdns).await {
@@ -60,8 +35,11 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     );
 
     let mut compiler = init_compiler(Rc::downgrade(&connection));
-    let source_path = idle_ui_source_path();
-    let compilation_result = compiler.build_from_source(MAIN_SLINT.to_owned(), source_path).await;
+    let base_path = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_owned()))
+        .unwrap_or_else(std::env::temp_dir);
+    let compilation_result = compiler.build_from_source(MAIN_SLINT.to_owned(), base_path).await;
     if compilation_result.has_errors() {
         let mut build_diagnostics = BuildDiagnostics::default();
         for d in compilation_result.diagnostics() {

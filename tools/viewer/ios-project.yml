@@ -46,35 +46,12 @@ targets:
       # absent when the project is generated.
       - path: Assets.xcassets
         optional: true
-      # Bundled for the remote idle UI: @image-url("assets/...") resolves under the
-      # app bundle (see remote.rs). Use copyFiles with subpath so XcodeGen/Xcode
-      # place files in Slint Viewer.app/assets/ (folder references with nested
-      # paths are unreliable in recent XcodeGen versions).
-      - path: remote/assets
-        buildPhase:
-          copyFiles:
-            destination: resources
-            subpath: assets
     preBuildScripts:
       - name: Generate app icon
         script: |
           ../../scripts/render_ios_app_icon.bash
         outputFiles:
           - $(SRCROOT)/Assets.xcassets/AppIcon.appiconset/icon-1024.png
-      - name: Sync remote UI assets
-        script: |
-          set -e
-          mkdir -p remote/assets
-          cp ../../logo/slint-logo-small-light.svg remote/assets/
-          for asset in bg-frame.svg bg-frame-light.svg; do
-            test -f "remote/assets/${asset}" || { echo "missing remote/assets/${asset}"; exit 1; }
-          done
-        inputFiles:
-          - $(SRCROOT)/../../logo/slint-logo-small-light.svg
-          - $(SRCROOT)/remote/assets/bg-frame.svg
-          - $(SRCROOT)/remote/assets/bg-frame-light.svg
-        outputFiles:
-          - $(SRCROOT)/remote/assets/slint-logo-small-light.svg
     postCompileScripts:
       - script: |
           ../../scripts/build_for_ios_with_cargo.bash slint-viewer --features remote
