@@ -476,61 +476,6 @@ impl SlintServer {
     }
 }
 
-#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
-fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Context) -> Result<()> {
-    use PreviewToLspMessage as M;
-
-    match message {
-        M::Diagnostics { diagnostics, version, uri } => {
-            crate::common::lsp_to_editor::notify_lsp_diagnostics(
-                &ctx.server_notifier,
-                uri,
-                version,
-                diagnostics,
-            );
-        }
-        M::ShowDocument { file, selection, .. } => {
-            let sn = ctx.server_notifier.clone();
-            wasm_bindgen_futures::spawn_local(async move {
-                crate::common::lsp_to_editor::send_show_document_to_editor(
-                    sn, file, selection, true,
-                )
-                .await
-            });
-        }
-        M::PreviewTypeChanged { target } => {
-            ctx.to_preview.set_local_target(target)?;
-        }
-        M::RequestState { .. } => {
-            crate::language::send_state_to_preview(&ctx);
-        }
-        M::SendWorkspaceEdit { label, edit } => {
-            forward_workspace_edit(ctx.server_notifier.clone(), label, Ok(edit));
-        }
-        M::SendShowMessage { message } => {
-            let _ = ctx
-                .server_notifier
-                .send_notification::<lsp_types::notification::ShowMessage>(message);
-        }
-        M::TelemetryEvent(object) => {
-            let _ =
-                ctx.server_notifier.send_notification::<lsp_types::notification::TelemetryEvent>(
-                    lsp_types::OneOf::Left(object),
-                );
-        }
-        M::DebugMessage { location, message } => {
-            log(&crate::common::preview_debug_message_to_string(&location, &message));
-        }
-        // Remote preview is native-only: the WASM build has no networking
-        // path to a `slint-viewer --remote` device, so these messages
-        // shouldn't reach this branch. If they do, log and drop.
-        M::ConnectRemote { .. } | M::DisconnectRemote => {
-            tracing::debug!("Ignoring remote-preview control message in WASM LSP");
-        }
-    }
-    Ok(())
-}
-
 async fn load_file(path: String, load_file: &Function) -> std::io::Result<String> {
     let string_promise = load_file
         .call1(&JsValue::UNDEFINED, &path.into())

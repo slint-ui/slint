@@ -119,7 +119,11 @@ pub fn send_state_to_preview(ctx: &Context) {
     }
 }
 
-#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
+// Callers live in the native LSP (main.rs / editor.rs); not used from WASM.
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
+))]
 pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
     for url in files {
         if let Some(node) = ctx.document_cache.get_document(url).and_then(|doc| doc.node.as_ref()) {
