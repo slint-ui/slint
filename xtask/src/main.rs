@@ -8,6 +8,7 @@ use std::error::Error;
 use std::path::PathBuf;
 
 mod generate_cppdocs_headers;
+mod license;
 mod license_headers_check;
 mod nodepackage;
 mod reuse_compliance_check;
@@ -18,6 +19,8 @@ pub enum TaskCommand {
     CheckLicenseHeaders(license_headers_check::LicenseHeaderCheck),
     #[command(name = "generate_cppdocs_headers")]
     GenerateCppDocsHeaders(GenerateCppDocsHeadersCommand),
+    #[command(name = "license")]
+    License(license::LicenseCommand),
     #[command(name = "node_package")]
     NodePackage(nodepackage::NodePackageOptions),
     #[command(name = "check_reuse_compliance")]
@@ -85,6 +88,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         TaskCommand::GenerateCppDocsHeaders(cmd) => {
             generate_cppdocs_headers::generate(cmd.experimental)?
         }
+        TaskCommand::License(cmd) => cmd.run()?,
         TaskCommand::NodePackage(cmd) => nodepackage::generate(cmd.sha1)?,
         TaskCommand::ReuseComplianceCheck(cmd) => cmd.check_reuse_compliance()?,
     };

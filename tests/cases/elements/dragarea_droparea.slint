@@ -83,14 +83,14 @@ instance.on_string_to_transfer(Into::into);
 instance.on_image_to_transfer(Into::into);
 instance.on_empty_transfer(slint::DataTransfer::default);
 
-instance.on_transfer_to_string(|data| data.fetch_plaintext().unwrap_or_default());
-instance.on_transfer_to_image(|data| data.fetch_image().unwrap_or_default());
+instance.on_transfer_to_string(|data| data.plain_text().unwrap_or_default());
+instance.on_transfer_to_image(|data| data.image().unwrap_or_default());
 
 instance.on_can_drop(|data, use_image| {
     if use_image {
         data.has_image()
     } else {
-        data.has_plaintext()
+        data.has_plain_text()
     }
 });
 

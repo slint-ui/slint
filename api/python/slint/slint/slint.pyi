@@ -83,39 +83,29 @@ class DataTransfer:
     def __new__(cls) -> "DataTransfer":
         r"""Constructs an empty `DataTransfer`."""
 
-    def set_plaintext(self, text: str) -> None:
-        r"""
-        Sets the plaintext representation of this `DataTransfer`. Calling this again overwrites
-        the previous plaintext.
-        """
+    plain_text: typing.Optional[str]
+    r"""
+    The plain text representation of this `DataTransfer`, or `None` if no plain text
+    is available. Assigning `None` or the empty string clears any previously-set
+    plain text; assigning any other string overwrites it.
+    """
 
-    def fetch_plaintext(self) -> typing.Optional[str]:
-        r"""
-        Returns the plaintext representation of this `DataTransfer`, or `None` if no plaintext
-        is available.
-        """
+    has_plain_text: bool
+    r"""`True` if this `DataTransfer` advertises a plain text representation."""
 
-    has_plaintext: bool
-    r"""`True` if this `DataTransfer` advertises a plaintext representation."""
-
-    def set_image(self, image: Image) -> None:
-        r"""
-        Sets the image representation of this `DataTransfer`. Calling this again overwrites the
-        previous image.
-        """
-
-    def fetch_image(self) -> typing.Optional[Image]:
-        r"""
-        Returns the image representation of this `DataTransfer`, or `None` if no image is
-        available.
-        """
+    image: typing.Optional[Image]
+    r"""
+    The image representation of this `DataTransfer`, or `None` if no image is
+    available. Assigning `None` clears any previously-set image; assigning any
+    other image overwrites it.
+    """
 
     has_image: bool
     r"""`True` if this `DataTransfer` advertises an image representation."""
 
     is_empty: bool
     r"""
-    `True` if this `DataTransfer` carries no data: no plaintext, no image, and no
+    `True` if this `DataTransfer` carries no data: no plain text, no image, and no
     user data.
     """
 
@@ -123,7 +113,7 @@ class DataTransfer:
     r"""
     Application-internal user data attached to this `DataTransfer`. Use this when the
     drag-and-drop or clipboard operation stays inside the current Python application and you
-    want to avoid serializing to plaintext or an image.
+    want to avoid serializing to plain text or an image.
 
     Reading returns the Python object previously assigned, or `None` if none was set (or the
     user data was set by a non-Python binding). Assigning `None` clears any previously attached

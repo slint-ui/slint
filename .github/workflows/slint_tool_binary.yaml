@@ -80,10 +80,6 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{ matrix.arch }}
-            - uses: baptiste0928/cargo-install@v3
-              with:
-                  crate: cargo-about
-                  version: "=0.6.6"
             - name: Build
               run: cargo build --verbose --no-default-features --features ${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
             - name: Create artifact directory
@@ -96,7 +92,7 @@ jobs:
                   cd ..
                   cd ..
                   cd tools\${{ github.event.inputs.program || inputs.program }}
-                  bash -x ../../scripts/prepare_binary_package.sh ..\..\pkg\slint-${{ github.event.inputs.program || inputs.program }}
+                  bash -x ../../scripts/prepare_binary_package.sh ..\..\pkg\slint-${{ github.event.inputs.program || inputs.program }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }}
             - name: Create archive
               shell: powershell
               run: |
@@ -117,10 +113,6 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: x86_64-unknown-linux-gnu
-            - uses: baptiste0928/cargo-install@v3
-              with:
-                  crate: cargo-about
-                  version: "=0.6.6"
             - name: Build
               run: cargo build --verbose --no-default-features --features ${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
             - name: Create artifact directory
@@ -128,7 +120,7 @@ jobs:
                   mkdir -p slint-${{ github.event.inputs.program || inputs.program }}
                   cp target/release/slint-${{ github.event.inputs.program || inputs.program }} slint-${{ github.event.inputs.program || inputs.program }}/
                   cd tools/${{ github.event.inputs.program || inputs.program }}
-                  ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }}
+                  ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }}
             - name: Tar artifacts to preserve permissions
               run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-linux.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
             - name: Upload artifact
@@ -152,10 +144,6 @@ jobs:
           - uses: baptiste0928/cargo-install@v3
             with:
                 crate: cross
-          - uses: baptiste0928/cargo-install@v3
-            with:
-                crate: cargo-about
-                version: "=0.6.6"
           - name: Build
             run: cross build --target=${{ matrix.target }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
           - name: Create artifact directory
@@ -163,7 +151,7 @@ jobs:
                 mkdir -p slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}
                 cp target//${{ matrix.target }}/release/slint-${{ github.event.inputs.program || inputs.program }} slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}/
                 cd tools/${{ github.event.inputs.program || inputs.program }}
-                ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}
+                ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }}
           - name: Tar artifacts to preserve permissions
             run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}.tar.gz slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.target }}
           - name: Upload artifact
@@ -182,10 +170,6 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-apple-darwin
-            - uses: baptiste0928/cargo-install@v3
-              with:
-                  crate: cargo-about
-                  version: "=0.6.6"
             - name: Build x86-64
               run: cargo build --verbose --target x86_64-apple-darwin --no-default-features --features ${{ github.event.inputs.features || inputs.features }} --release -p slint-${{ github.event.inputs.program || inputs.program }}
             - name: Build aarch64
@@ -198,7 +182,7 @@ jobs:
                   install_name_tool -add_rpath @executable_path/. ./slint-${{ github.event.inputs.program || inputs.program }}
                   cd ..
                   cd tools/${{ github.event.inputs.program || inputs.program }}
-                  ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }}
+                  ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }}
             - uses: ./.github/actions/codesign
               if: ${{ github.event.inputs.codesign == 'true' }}
               with:

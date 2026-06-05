@@ -451,6 +451,7 @@ prediv
 Preedit
 PREMUL
 premultiplication
+premultiply
 PRIMASK
 printk
 println
@@ -483,6 +484,7 @@ QXGA
 radiobuttontile
 Raleway
 Randriana
+rasterizer
 rasterizes
 RBUTTONUP
 rects

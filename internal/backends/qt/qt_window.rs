@@ -2126,7 +2126,7 @@ impl QtWindow {
         let mut data = DataTransfer::default();
         let text = text.to_shared_string();
         if !text.is_empty() {
-            data.set_plaintext(text);
+            data.set_plain_text(text);
         }
         if let Some(buffer) = qimage_to_shared_pixel_buffer(image) {
             data.set_image(i_slint_core::graphics::Image::from_rgba8(buffer));

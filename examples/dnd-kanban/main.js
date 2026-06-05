@@ -49,8 +49,8 @@ appWindow.Api.can_drop = (event, _targetColumn, _targetIndex) => {
         // Our own card: accept whatever modifier the user is holding.
         return event.proposed_action;
     }
-    if (event.data.hasPlaintext) {
-        // External plaintext drop: always treated as a copy.
+    if (event.data.hasPlainText) {
+        // External plain text drop: always treated as a copy.
         return DragAction.Copy;
     }
     return DragAction.None;
@@ -84,8 +84,8 @@ appWindow.Api.dropped = (event, targetColumn, targetIndex) => {
             columns[source].remove(sourceIndex, 1);
             columns[targetColumn].insert(targetIndex, payload.task);
         }
-    } else if (event.data.hasPlaintext) {
-        columns[targetColumn].insert(targetIndex, { title: event.data.fetchPlaintext() });
+    } else if (event.data.hasPlainText) {
+        columns[targetColumn].insert(targetIndex, { title: event.data.plainText });
     }
 };
 

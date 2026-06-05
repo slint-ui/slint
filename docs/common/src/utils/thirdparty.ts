@@ -1,105 +1,69 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 //
-// Generate a Starlight "Third-Party Licenses" Markdown page from cargo-about's
-// JSON output. Shared by the per-language docs sites (docs/nodejs, docs/python),
-// which differ only in the crate directory and the output path.
+// Generate a Starlight "Third-Party Licenses" Markdown page from the Markdown
+// emitted by `cargo xtask license`. Shared by the per-language docs sites
+// (docs/cpp, docs/nodejs, docs/python), which differ only in the crate
+// directory and the output path.
 import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 
-interface AboutCrate {
-    name: string;
-    version: string;
-    repository: string | null;
-}
-
-interface AboutLicense {
-    name: string;
-    id: string;
-    text: string;
-    used_by: { crate: AboutCrate }[];
-}
-
-interface AboutOutput {
-    licenses: AboutLicense[];
-}
-
-function crateUrl(crate: AboutCrate): string {
-    const repo = crate.repository?.trim();
-    return repo && repo.length > 0
-        ? repo
-        : `https://crates.io/crates/${crate.name}`;
-}
-
-function renderThirdPartyMarkdown(data: AboutOutput): string {
-    const lines: string[] = [
-        "---",
-        "title: Third-Party Licenses",
-        "slug: thirdparty",
-        "tableOfContents: false",
-        "---",
-        "",
-    ];
-
-    for (const license of data.licenses) {
-        lines.push(
-            `### <a id="${license.id}"></a> ${license.name}`,
-            "",
-            "#### Used by:",
-            "",
-        );
-        for (const { crate } of license.used_by) {
-            lines.push(
-                `- [${crate.name} ${crate.version}](${crateUrl(crate)})`,
-            );
-        }
-        lines.push(
-            "",
-            "#### License Text",
-            "",
-            "```",
-            license.text.trimEnd(),
-            "```",
-            "",
-        );
-    }
-
-    return `${lines.join("\n")}\n`;
-}
+/** Slug of the generated Third-Party Licenses page (its URL is `…/thirdparty/`). */
+const THIRDPARTY_SLUG = "thirdparty";
 
 /**
- * Run `cargo about generate --format json` in `crateDir` and write the rendered
- * Third-Party Licenses Markdown page to `outFile`. Exits the process if
- * cargo-about fails.
+ * Relative link from the page to its own raw-markdown sibling served by the
+ * `[...slug].md.ts` endpoint. The page lives at `…/${THIRDPARTY_SLUG}/`, so the
+ * sibling is one level up at `…/${THIRDPARTY_SLUG}.md`. The links validator
+ * configs exclude this exact link, so keep it as the single source of truth.
+ */
+export const THIRDPARTY_MD_LINK = `../${THIRDPARTY_SLUG}.md`;
+
+const FRONT_MATTER = [
+    "---",
+    "title: Third-Party Licenses",
+    `slug: ${THIRDPARTY_SLUG}`,
+    // Each license is an `h2`; limit the on-page navigation to those so it
+    // lists the licenses without the per-license "Used by"/"License Text"
+    // subheadings.
+    "tableOfContents:",
+    "    maxHeadingLevel: 2",
+    "---",
+    "",
+    // Point readers at the raw-markdown sibling of this page so they can drop
+    // it into their app's own distribution.
+    "You can include this page in your application's distribution by copying" +
+        ` its [Markdown source](${THIRDPARTY_MD_LINK}).`,
+    "",
+    "",
+].join("\n");
+
+/**
+ * Run `cargo xtask license` in `crateDir` and write the rendered Third-Party
+ * Licenses Markdown page to `outFile`. Exits the process if the generator
+ * fails.
  */
 export function generateThirdPartyMarkdown(options: {
     crateDir: string;
     outFile: string;
 }): void {
     const { crateDir, outFile } = options;
-    const aboutJsonFile = join(dirname(outFile), ".thirdparty-about.json");
     mkdirSync(dirname(outFile), { recursive: true });
 
-    const result = spawnSync(
-        "cargo",
-        ["about", "generate", "--format", "json", "-o", aboutJsonFile],
-        { cwd: crateDir, stdio: "inherit" },
-    );
+    // Let the generator write the Markdown body directly to the output file:
+    // the listing easily exceeds spawnSync's default stdout buffer, and
+    // inheriting stdio keeps the build log and any error visible.
+    const result = spawnSync("cargo", ["xtask", "license", "-o", outFile], {
+        cwd: crateDir,
+        stdio: "inherit",
+    });
     if (result.status !== 0) {
         process.exit(result.status ?? 1);
     }
 
-    try {
-        const data = JSON.parse(
-            readFileSync(aboutJsonFile, "utf8"),
-        ) as AboutOutput;
-        writeFileSync(outFile, renderThirdPartyMarkdown(data), "utf8");
-    } finally {
-        try {
-            unlinkSync(aboutJsonFile);
-        } catch {
-            // ignore if cargo-about did not write the file
-        }
-    }
+    // Prepend the Starlight front matter the docs site needs (the body itself
+    // is shared verbatim with the binary packages, which must not carry it).
+    const body = readFileSync(outFile, "utf8");
+    writeFileSync(outFile, FRONT_MATTER + body, "utf8");
 }
