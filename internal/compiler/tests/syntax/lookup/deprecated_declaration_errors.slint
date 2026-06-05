@@ -1,0 +1,8 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Test {
+    // Without a message, the replacement must be derivable from a two-way binding:
+    @deprecated in-out property <int> stand-alone;
+//  >          <error{@deprecated without a message requires a two-way binding to derive the replacement from}
+}

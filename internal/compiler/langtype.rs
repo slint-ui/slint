@@ -515,6 +515,7 @@ impl ElementType {
                         },
                         #[cfg(feature = "slint-sc")]
                         is_slint_sc: p.slint_sc,
+                        deprecated: None,
                     },
                 }
             }
@@ -537,6 +538,7 @@ impl ElementType {
                     builtin_function: None,
                     #[cfg(feature = "slint-sc")]
                     is_slint_sc: false,
+                    deprecated: None,
                 }
             }
             _ => PropertyLookupResult::invalid(Cow::Borrowed(name)),
@@ -932,6 +934,11 @@ pub struct PropertyLookupResult<'a> {
     /// (`\sc` marker in its doc comment in builtins.slint).
     #[cfg(feature = "slint-sc")]
     pub is_slint_sc: bool,
+
+    /// Some if the property was declared with `@deprecated`: the hint message shown after
+    /// "The property 'xxx' has been deprecated." in the warning.
+    /// (Only set for properties declared in a component; builtin aliases use `resolved_name` instead.)
+    pub deprecated: Option<SmolStr>,
 }
 
 impl<'a> PropertyLookupResult<'a> {
@@ -961,6 +968,7 @@ impl<'a> PropertyLookupResult<'a> {
             builtin_function: None,
             #[cfg(feature = "slint-sc")]
             is_slint_sc: false,
+            deprecated: None,
         }
     }
 }

@@ -16,7 +16,7 @@ use crate::object_tree::{ElementRc, PropertyVisibility};
 use crate::parser::NodeOrToken;
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
-use smol_str::{SmolStr, ToSmolStr};
+use smol_str::{SmolStr, ToSmolStr, format_smolstr};
 use std::cell::RefCell;
 
 pub use i_slint_common::color_parsing::named_colors;
@@ -117,8 +117,9 @@ impl<'a> LookupCtx<'a> {
 pub enum LookupResult {
     Expression {
         expression: Expression,
-        /// When set, this is deprecated, and the string is the new name
-        deprecated: Option<String>,
+        /// When set, this is deprecated, and the string is the hint message shown after
+        /// "The property 'xxx' has been deprecated." (e.g. "Please use 'yyy' instead")
+        deprecated: Option<SmolStr>,
     },
     Enumeration(Rc<Enumeration>),
     Namespace(BuiltinNamespace),
@@ -524,7 +525,15 @@ impl LookupObject for ElementRc {
                 || lookup_result.property_visibility != PropertyVisibility::Private)
         {
             let deprecated = (lookup_result.resolved_name != name.as_str())
-                .then(|| lookup_result.resolved_name.to_string())
+                .then(|| format_smolstr!("Please use '{}' instead", lookup_result.resolved_name))
+                .or_else(|| {
+                    // Only warn about `@deprecated` properties when accessed from outside the
+                    // component that declares them
+                    lookup_result
+                        .deprecated
+                        .clone()
+                        .filter(|_| !lookup_result.is_local_to_component)
+                })
                 .or_else(|| check_extra_deprecated(self, ctx, name));
             Some(expression_from_reference(
                 NamedReference::new(self, lookup_result.resolved_name.to_smolstr()),
@@ -537,13 +546,17 @@ impl LookupObject for ElementRc {
     }
 }
 
+/// Returns the deprecation hint message for some hardcoded deprecated properties
 pub fn check_extra_deprecated(
     elem: &ElementRc,
     ctx: &LookupCtx<'_>,
     name: &SmolStr,
-) -> Option<String> {
+) -> Option<SmolStr> {
     if crate::typeregister::DEPRECATED_ROTATION_ORIGIN_PROPERTIES.iter().any(|(p, _)| p == name) {
-        return Some(format!("transform-origin.{}", &name[name.len() - 1..]));
+        return Some(format_smolstr!(
+            "Please use 'transform-origin.{}' instead",
+            &name[name.len() - 1..]
+        ));
     }
     let borrow = elem.borrow();
     (!ctx.type_register.expose_internal_types
@@ -557,13 +570,13 @@ pub fn check_extra_deprecated(
             .and_then(|x| x.node.source_file())
             .is_none_or(|x| x.path().starts_with("builtin:"))
         && !name.starts_with("layout-"))
-    .then(|| format!("Palette.{name}"))
+    .then(|| format_smolstr!("Please use 'Palette.{name}' instead"))
 }
 
 fn expression_from_reference(
     n: NamedReference,
     ty: &Type,
-    deprecated: Option<String>,
+    deprecated: Option<SmolStr>,
 ) -> LookupResult {
     match ty {
         Type::Callback { .. } => Callable::Callback(n).into(),

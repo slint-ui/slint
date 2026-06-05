@@ -371,6 +371,7 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
             property_visibility: visibility,
             declared_pure: None,
             builtin_function,
+            deprecated: None,
         };
     }
 
@@ -392,6 +393,7 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
                         builtin_function: None,
                         #[cfg(feature = "slint-sc")]
                         is_slint_sc: false,
+                        deprecated: None,
                     };
                 }
             }
