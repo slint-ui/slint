@@ -425,6 +425,11 @@ impl JsComponentInstance {
 
     #[napi]
     pub fn window(&self) -> Result<JsWindow> {
+        if !self.inner.definition().is_window() {
+            return Err(napi::Error::from_reason(
+                "this component is not windowed (for example because it inherits from SystemTrayIcon) and has no window",
+            ));
+        }
         Ok(JsWindow { inner: WindowInner::from_pub(self.inner.window()).window_adapter() })
     }
 }

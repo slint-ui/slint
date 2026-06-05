@@ -157,9 +157,9 @@ export interface ComponentHandle {
      * Returns the {@link Window} associated with this component instance.
      * The window API can be used to control different aspects of the integration into the windowing system, such as the position on the screen.
      *
-     * Not present on non-windowed components such as ones inheriting from `SystemTrayIcon`.
+     * Throws an error when accessed on non-windowed components such as ones inheriting from `SystemTrayIcon`.
      */
-    readonly window?: Window;
+    get window(): Window;
 }
 
 /**
@@ -174,17 +174,10 @@ class Component implements ComponentHandle {
      */
     constructor(instance: napi.ComponentInstance) {
         this.#instance = instance;
+    }
 
-        // Non-windowed components (e.g. `SystemTrayIcon`) don't have a `window`:
-        // the underlying `instance.window()` would panic. Install the getter
-        // only when meaningful so `'window' in component` reflects support.
-        if (instance.definition().isWindow) {
-            Object.defineProperty(this, "window", {
-                get: () => this.#instance.window(),
-                enumerable: true,
-                configurable: false,
-            });
-        }
+    get window(): Window {
+        return this.#instance.window();
     }
 
     /**
