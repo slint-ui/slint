@@ -41,8 +41,6 @@ use std::task::{Poll, Waker};
 use std::time::Duration;
 
 use crate::common::{LspToPreviews, document_cache::CompilerConfiguration};
-#[cfg(feature = "preview-remote")]
-use crate::preview::connector::remote::RemoteLspToPreview;
 use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl};
 
 #[cfg(not(any(
@@ -345,8 +343,7 @@ async fn main_loop(
         ServerNotifier { sender: connection.sender.clone(), queue: request_queue.clone() };
 
     #[cfg(not(feature = "preview-engine"))]
-    let to_preview =
-        Rc::new(LspToPreviews::with_one(common::DummyLspToPreview::default()));
+    let to_preview = LspToPreviews::with_one(common::DummyLspToPreview::default());
     #[cfg(feature = "preview-engine")]
     let to_preview = {
         use i_slint_live_preview::protocol::PreviewTarget;
@@ -358,21 +355,16 @@ async fn main_loop(
         );
         let embedded_preview: Box<dyn common::LspToPreview> =
             Box::new(preview::connector::EmbeddedLspToPreview::new(sn.clone()));
-        #[cfg(feature = "preview-remote")]
-        let remote_preview: Box<dyn common::LspToPreview> = Box::new(
-            preview::connector::remote::RemoteLspToPreview::new(sn, preview_to_lsp_sender.clone()),
-        );
-        Rc::new(
-            preview::connector::LspToPreviews::new(
-                std::collections::HashMap::from([
-                    (PreviewTarget::ChildProcess, child_preview),
-                    (PreviewTarget::EmbeddedWasm, embedded_preview),
-                    (PreviewTarget::Remote, remote_preview),
-                ]),
-                PreviewTarget::ChildProcess,
-            )
-            .unwrap(),
+        LspToPreviews::new(
+            std::collections::HashMap::from([
+                (PreviewTarget::ChildProcess, child_preview),
+                (PreviewTarget::EmbeddedWasm, embedded_preview),
+            ]),
+            PreviewTarget::ChildProcess,
+            #[cfg(feature = "preview-remote")]
+            preview_to_lsp_sender.clone(),
         )
+        .unwrap()
     };
 
     let result = run_main_loop(
@@ -474,13 +466,6 @@ async fn run_main_loop(
     });
 
     startup_lsp(&mut ctx).await?;
-
-    #[cfg(feature = "preview-remote")]
-    ctx.to_preview
-        .with_preview_target_async::<RemoteLspToPreview, ()>(async |preview| {
-            preview.start_browsing().await;
-        })
-        .await;
 
     loop {
         let recompile_idle_timeout =
@@ -705,7 +690,7 @@ async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Conte
         }
         M::PreviewTypeChanged { target } => {
             tracing::debug!("Preview type changed: {target:?}");
-            ctx.to_preview.set_preview_target(target)?;
+            ctx.to_preview.set_local_target(target)?;
         }
         M::RequestState { files } => {
             tracing::debug!("Preview requested state");
@@ -730,6 +715,29 @@ async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Conte
         }
         M::DebugMessage { location, message } => {
             eprintln!("{}", common::preview_debug_message_to_string(&location, &message));
+        }
+        M::ConnectRemote { addresses, port } => {
+            tracing::debug!("Preview asked to connect remote at {addresses:?}:{port}");
+            #[cfg(feature = "preview-remote")]
+            if let Some(remote) = ctx.to_preview.remote() {
+                // `connect()` emits Connecting / Connected / Failed itself and
+                // rejects empty `addresses` up front.
+                let preview_to_lsp_sender = ctx.preview_to_lsp_sender.clone();
+                let future = remote.connect(addresses.clone(), port);
+                crate::common::spawn_local(async move {
+                    if future.await.is_ok() {
+                        let _ = preview_to_lsp_sender
+                            .send(PreviewToLspMessage::RequestState { files: Vec::new() });
+                    }
+                });
+            }
+        }
+        M::DisconnectRemote => {
+            tracing::debug!("Preview asked to disconnect remote");
+            #[cfg(feature = "preview-remote")]
+            if let Some(remote) = ctx.to_preview.remote() {
+                crate::common::spawn_local(remote.disconnect());
+            }
         }
     }
     Ok(())

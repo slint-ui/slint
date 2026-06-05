@@ -53,20 +53,12 @@ use std::rc::Rc;
 
 const POPULATE_COMMAND: &str = "slint/populate";
 pub const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
-#[cfg(feature = "preview-remote")]
-pub const CONNECT_REMOTE_PREVIEW_COMMAND: &str = "slint/connectRemotePreview";
-#[cfg(feature = "preview-remote")]
-pub const DISCONNECT_REMOTE_PREVIEW_COMMAND: &str = "slint/disconnectRemotePreview";
 
 fn command_list() -> Vec<String> {
     vec![
         POPULATE_COMMAND.into(),
         #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
         SHOW_PREVIEW_COMMAND.into(),
-        #[cfg(feature = "preview-remote")]
-        CONNECT_REMOTE_PREVIEW_COMMAND.into(),
-        #[cfg(feature = "preview-remote")]
-        DISCONNECT_REMOTE_PREVIEW_COMMAND.into(),
     ]
 }
 
@@ -458,17 +450,6 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                     }
                 });
                 return Ok(None::<serde_json::Value>);
-            }
-            #[cfg(feature = "preview-remote")]
-            CONNECT_REMOTE_PREVIEW_COMMAND => {
-                return crate::preview::connector::remote::connect_remote_preview_command(
-                    &params.arguments,
-                    ctx,
-                );
-            }
-            #[cfg(feature = "preview-remote")]
-            DISCONNECT_REMOTE_PREVIEW_COMMAND => {
-                crate::preview::connector::remote::disconnect_remote_preview_command(ctx);
             }
             _ => {
                 tracing::error!("Received unknown command {}", params.command.as_str());

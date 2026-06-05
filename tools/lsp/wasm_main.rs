@@ -253,12 +253,10 @@ pub fn create(
     let mut compiler_config = crate::common::document_cache::CompilerConfiguration::default();
 
     #[cfg(not(feature = "preview-engine"))]
-    let to_preview =
-        Rc::new(LspToPreviews::with_one(common::DummyLspToPreview::default()));
+    let to_preview = LspToPreviews::with_one(common::DummyLspToPreview::default());
     #[cfg(feature = "preview-engine")]
-    let to_preview = Rc::new(LspToPreviews::with_one(
-        preview::connector::WasmLspToPreview::new(server_notifier.clone()),
-    ));
+    let to_preview =
+        LspToPreviews::with_one(preview::connector::WasmLspToPreview::new(server_notifier.clone()));
 
     let to_preview_clone = to_preview.clone();
     compiler_config.open_import_callback = Some(Rc::new(move |path| {
@@ -365,7 +363,7 @@ impl SlintServer {
             }
             M::PreviewTypeChanged { target } => {
                 ctx.to_preview
-                    .set_preview_target(target)
+                    .set_local_target(target)
                     .map_err(|err| js_sys::Error::new(&format!("{err}")))?;
             }
             M::RequestState { .. } => {
@@ -388,6 +386,9 @@ impl SlintServer {
             }
             M::DebugMessage { location, message } => {
                 log(&common::preview_debug_message_to_string(&location, &message));
+            }
+            M::ConnectRemote { .. } | M::DisconnectRemote => {
+                tracing::debug!("Ignoring remote-preview control message in WASM LSP");
             }
         }
         Ok(())
@@ -498,7 +499,7 @@ fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Context) ->
             });
         }
         M::PreviewTypeChanged { target } => {
-            ctx.to_preview.set_preview_target(target)?;
+            ctx.to_preview.set_local_target(target)?;
         }
         M::RequestState { .. } => {
             crate::language::send_state_to_preview(&ctx);
@@ -519,6 +520,12 @@ fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Context) ->
         }
         M::DebugMessage { location, message } => {
             log(&crate::common::preview_debug_message_to_string(&location, &message));
+        }
+        // Remote preview is native-only: the WASM build has no networking
+        // path to a `slint-viewer --remote` device, so these messages
+        // shouldn't reach this branch. If they do, log and drop.
+        M::ConnectRemote { .. } | M::DisconnectRemote => {
+            tracing::debug!("Ignoring remote-preview control message in WASM LSP");
         }
     }
     Ok(())

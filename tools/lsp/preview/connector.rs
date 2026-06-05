@@ -11,8 +11,7 @@ pub mod native;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-builtin"))]
 pub use native::*;
 
-pub use crate::common::SwitchableLspToPreview;
-#[cfg(feature = "preview-remote")]
+#[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
 pub mod remote;
 
 use crate::preview;

@@ -19,9 +19,9 @@ pub mod component_catalog;
 pub mod document_cache;
 pub use document_cache::DocumentCache;
 pub use i_slint_compiler::diagnostics::ByteFormat;
+mod lsp_to_previews;
 pub mod rename_component;
 pub mod rename_element_id;
-mod lsp_to_previews;
 pub use lsp_to_previews::LspToPreviews;
 #[cfg(test)]
 pub mod test;
