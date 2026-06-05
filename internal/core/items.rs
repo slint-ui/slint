@@ -1401,7 +1401,18 @@ impl WindowItem {
         let first_item = ItemRc::new_root(item_tree);
         let window_item = next_window_item(&first_item).unwrap();
         Self::resolve_font_property(&window_item, Self::font_size)
+            .or_else(|| Self::platform_default_font_size(&first_item))
             .unwrap_or_else(|| first_item.window_adapter().unwrap().renderer().default_font_size())
+    }
+
+    /// Returns the default font size reported by the platform (e.g. iOS Dynamic Type),
+    /// or `None` when the backend doesn't report one. Used as fallback when no
+    /// `default-font-size` is set in the .slint code, before the renderer's built-in
+    /// default applies.
+    fn platform_default_font_size(item: &ItemRc) -> Option<LogicalLength> {
+        item.window_adapter().and_then(|adapter| {
+            WindowInner::from_pub(adapter.window()).context().platform_default_font_size()
+        })
     }
 
     fn resolve_font_property<T>(
@@ -1467,6 +1478,7 @@ impl WindowItem {
                         &window_item_rc,
                         crate::items::WindowItem::font_size,
                     )
+                    .or_else(|| Self::platform_default_font_size(self_rc))
                 } else {
                     Some(local_font_size)
                 }
