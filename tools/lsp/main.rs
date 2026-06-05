@@ -3,7 +3,7 @@
 
 #![cfg(not(target_arch = "wasm32"))]
 #![allow(clippy::await_holding_refcell_ref)]
-#![deny(clippy::print_stderr, clippy::print_stdout, clippy::disallowed_methods)]
+#![deny(clippy::print_stdout, clippy::disallowed_methods)]
 
 #[cfg(all(feature = "preview-engine", not(feature = "preview-builtin")))]
 compile_error!(
@@ -727,6 +727,9 @@ async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Conte
             ctx.server_notifier.send_notification::<lsp_types::notification::TelemetryEvent>(
                 lsp_types::OneOf::Left(object),
             )?
+        }
+        M::DebugMessage { location, message } => {
+            eprintln!("{}", common::preview_debug_message_to_string(&location, &message));
         }
     }
     Ok(())

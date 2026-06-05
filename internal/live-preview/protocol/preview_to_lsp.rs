@@ -34,4 +34,10 @@ pub enum PreviewToLspMessage {
     SendShowMessage { message: lsp_types::ShowMessageParams },
     /// Send a telemetry event
     TelemetryEvent(serde_json::Map<String, serde_json::Value>),
+    /// A debug message from the preview, to be shown by the LSP
+    DebugMessage {
+        /// location is the file path, plus the line and column
+        location: Option<(std::path::PathBuf, usize, usize)>,
+        message: String,
+    },
 }

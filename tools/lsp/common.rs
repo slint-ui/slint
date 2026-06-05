@@ -116,6 +116,19 @@ pub trait PreviewToLsp {
     }
 }
 
+/// Converts a debug message from the preview to a string to be logged by the LSP
+#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
+pub fn preview_debug_message_to_string(
+    location: &Option<(std::path::PathBuf, usize, usize)>,
+    message: &str,
+) -> String {
+    if let Some((file, line, column)) = location {
+        format!("DEBUG {file}:{line}:{column}> {message}", file = file.display())
+    } else {
+        format!("DEBUG> {message}")
+    }
+}
+
 /// Check whether a node is marked to be ignored in the LSP/live preview
 /// using a comment containing `@lsp:ignore-node`
 pub fn is_element_node_ignored(node: &syntax_nodes::Element) -> bool {

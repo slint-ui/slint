@@ -398,6 +398,10 @@ fn handle_preview_message(msg: PreviewToLspMessage, ctx: &language::Context) {
                 _ => tracing::info!("Preview: {}", message.message),
             };
         }
+        DebugMessage { location, message } => {
+            eprintln!("{}", common::preview_debug_message_to_string(location, message));
+        }
+
         Diagnostics { .. }
         | ShowDocument { .. }
         | PreviewTypeChanged { .. }
