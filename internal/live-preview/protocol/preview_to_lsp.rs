@@ -5,12 +5,14 @@ use lsp_types::Url;
 
 use super::SourceFileVersion;
 
+/// Where the local preview is rendered. Remote viewers are layered on top
+/// of one of these via [`LspToPreviewMessage::RemoteConnectionState`]; they
+/// aren't a target of their own.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum PreviewTarget {
     ChildProcess,
     EmbeddedWasm,
-    Remote,
     Dummy,
 }
 
@@ -40,4 +42,9 @@ pub enum PreviewToLspMessage {
         location: Option<(std::path::PathBuf, usize, usize)>,
         message: String,
     },
+    /// The preview UI asked to connect to a remote viewer. The LSP main
+    /// process owns the WebSocket; the addresses are tried in order.
+    ConnectRemote { addresses: Vec<String>, port: u16 },
+    /// The preview UI asked to disconnect the remote viewer.
+    DisconnectRemote,
 }
