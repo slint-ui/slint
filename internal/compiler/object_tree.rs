@@ -1848,6 +1848,16 @@ impl Element {
                                     &lookup_result.resolved_name,
                                     &prop_name_token,
                                 );
+                            } else if let Some(message) = lookup_result
+                                .deprecated
+                                .as_ref()
+                                .filter(|_| !lookup_result.is_local_to_component)
+                            {
+                                diag.push_property_deprecation_warning_with_message(
+                                    unresolved_prop_name,
+                                    message,
+                                    &prop_name_token,
+                                );
                             }
 
                             let expr_binding = r
