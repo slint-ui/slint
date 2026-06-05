@@ -262,13 +262,13 @@ impl Flickable {
     }
 
     fn choose_min_move(
-        current_view_start: Coord, // vx or vy
+        current_view_start: Coord, // cx or cy
         view_len: Coord,           // w or h
-        content_len: Coord,        // vw or vh
+        content_len: Coord,        // cw or ch
         points: impl Iterator<Item = Coord>,
     ) -> Coord {
-        // Feasible translations t such that for all p: vx+t <= p <= vx+t+w
-        // -> t in [max_i(p_i - (vx + w)), min_i(p_i - vx)]
+        // Feasible translations t such that for all p: cx+t <= p <= cx+t+w
+        // -> t in [max_i(p_i - (cx + w)), min_i(p_i - cx)]
         let zero = 0 as Coord;
         let mut lower = Coord::MIN;
         let mut upper = Coord::MAX;
@@ -319,21 +319,21 @@ impl Flickable {
         // visible viewport size from base Item
         let geo = Self::geometry_without_virtual_keyboard(self_rc);
 
-        // content extents and current viewport origin (content coords)
-        let vw = Self::FIELD_OFFSETS.content_width().apply_pin(self).get().0;
-        let vh = Self::FIELD_OFFSETS.content_height().apply_pin(self).get().0;
-        let vx = -Self::FIELD_OFFSETS.content_x().apply_pin(self).get().0;
-        let vy = -Self::FIELD_OFFSETS.content_y().apply_pin(self).get().0;
+        // content extents and current content origin
+        let cw = Self::FIELD_OFFSETS.content_width().apply_pin(self).get().0;
+        let ch = Self::FIELD_OFFSETS.content_height().apply_pin(self).get().0;
+        let cx = -Self::FIELD_OFFSETS.content_x().apply_pin(self).get().0;
+        let cy = -Self::FIELD_OFFSETS.content_y().apply_pin(self).get().0;
 
         // choose minimal translation along each axis
-        let tx = Self::choose_min_move(vx, geo.width(), vw, pts.iter().map(|p| p.x));
-        let ty = Self::choose_min_move(vy, geo.height(), vh, pts.iter().map(|p| p.y));
+        let tx = Self::choose_min_move(cx, geo.width(), cw, pts.iter().map(|p| p.x));
+        let ty = Self::choose_min_move(cy, geo.height(), ch, pts.iter().map(|p| p.y));
 
-        let new_vx = vx + tx;
-        let new_vy = vy + ty;
+        let new_cx = cx + tx;
+        let new_cy = cy + ty;
 
-        Self::FIELD_OFFSETS.content_x().apply_pin(self).set(euclid::Length::new(-new_vx));
-        Self::FIELD_OFFSETS.content_y().apply_pin(self).set(euclid::Length::new(-new_vy));
+        Self::FIELD_OFFSETS.content_x().apply_pin(self).set(euclid::Length::new(-new_cx));
+        Self::FIELD_OFFSETS.content_y().apply_pin(self).set(euclid::Length::new(-new_cy));
     }
 
     fn geometry_without_virtual_keyboard(self_rc: &ItemRc) -> LogicalRect {
@@ -944,10 +944,10 @@ fn ensure_in_bound(flick: Pin<&Flickable>, p: LogicalPoint, flick_rc: &ItemRc) -
     let geo = Flickable::geometry_without_virtual_keyboard(flick_rc);
     let w = geo.width_length();
     let h = geo.height_length();
-    let vw = (Flickable::FIELD_OFFSETS.content_width()).apply_pin(flick).get();
-    let vh = (Flickable::FIELD_OFFSETS.content_height()).apply_pin(flick).get();
+    let cw = (Flickable::FIELD_OFFSETS.content_width()).apply_pin(flick).get();
+    let ch = (Flickable::FIELD_OFFSETS.content_height()).apply_pin(flick).get();
 
-    let min = LogicalPoint::from_lengths(w - vw, h - vh);
+    let min = LogicalPoint::from_lengths(w - cw, h - ch);
     let max = LogicalPoint::default();
     p.max(min).min(max)
 }

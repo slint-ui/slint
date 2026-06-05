@@ -1380,17 +1380,17 @@ fn generate_sub_component(
                 });
             });
             if let Some(listview) = &repeated.listview {
-                let vp_y = access_member(&listview.content_y, &ctx).unwrap();
+                let content_y = access_member(&listview.content_y, &ctx).unwrap();
                 let lv_h = access_member(&listview.listview_height, &ctx).unwrap();
                 let lv_w = access_member(&listview.listview_width, &ctx).unwrap();
-                let vp_w = listview.content_width.as_ref().map_or_else(
+                let content_w = listview.content_width.as_ref().map_or_else(
                     || quote!(None),
                     |w| {
                         let w = access_member(w, &ctx).unwrap();
                         quote!(Some(#w))
                     },
                 );
-                let vp_h = listview.content_height.as_ref().map_or_else(
+                let content_h = listview.content_height.as_ref().map_or_else(
                     || quote!(None),
                     |h| {
                         let h = access_member(h, &ctx).unwrap();
@@ -1401,7 +1401,7 @@ fn generate_sub_component(
                 repeated_visit_branch.push(quote!(
                     #idx => {
                         #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).track_changes_listview(
-                            #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
+                            #content_w, #content_h, #content_y, #lv_w.get(), #lv_h
                         );
                         #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).visit(order, visitor)
                     }
@@ -1409,7 +1409,7 @@ fn generate_sub_component(
                 ensure_instantiated_stmts.push(quote!({
                     _changed |= #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated_listview(
                         || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() },
-                        #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
+                        #content_w, #content_h, #content_y, #lv_w.get(), #lv_h
                     );
                 }));
             } else {

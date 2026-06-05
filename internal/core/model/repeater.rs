@@ -43,7 +43,7 @@ pub trait RepeatedItemTree:
     /// offset_y is the `y` position where this item should be placed.
     /// it should be updated to be to the y position of the next item.
     ///
-    /// Returns the minimum item width which will be used to compute the listview's viewport width
+    /// Returns the minimum item width which will be used to compute the listview's content width
     fn listview_layout(self: Pin<&Self>, _offset_y: &mut LogicalLength) -> LogicalLength {
         LogicalLength::default()
     }
@@ -123,9 +123,9 @@ pub struct RepeaterLayoutState {
     pub offset: usize,
     /// The average visible item height (cached between frames).
     pub cached_item_height: Coord,
-    /// The viewport_y value from the previous layout pass.
+    /// The content_y value from the previous layout pass.
     /// It is used to detect if we are scrolling up or down
-    pub previous_viewport_y: Coord,
+    pub previous_content_y: Coord,
     /// The y position of the item at `offset`.
     pub anchor_y: Coord,
 }
@@ -182,31 +182,31 @@ fn update_visible_instances(
     ops: &mut impl RepeaterInstanceOps,
     state: &mut RepeaterLayoutState,
     row_count: usize,
-    viewport_width: Option<Pin<&Property<LogicalLength>>>,
-    viewport_height: Option<Pin<&Property<LogicalLength>>>,
-    viewport_y: Pin<&Property<LogicalLength>>,
+    content_width: Option<Pin<&Property<LogicalLength>>>,
+    content_height: Option<Pin<&Property<LogicalLength>>>,
+    content_y: Pin<&Property<LogicalLength>>,
     listview_width: LogicalLength,
     listview_height: LogicalLength,
 ) -> bool {
     let zero = LogicalLength::default();
-    let mut vp_width = listview_width.get();
+    let mut content_width_value = listview_width.get();
     let listview_height = listview_height.get();
 
     if row_count == 0 {
         ops.splice(0, ops.len(), 0);
-        if let Some(viewport_height) = viewport_height {
-            viewport_height.set(zero);
+        if let Some(content_height) = content_height {
+            content_height.set(zero);
         }
-        viewport_y.set(zero);
-        if let Some(viewport_width) = viewport_width {
-            viewport_width.set(listview_width);
+        content_y.set(zero);
+        if let Some(content_width) = content_width {
+            content_width.set(listview_width);
         }
         return false;
     }
 
-    let mut vp_y = viewport_y.get().get();
-    if !viewport_y.has_binding() {
-        vp_y = vp_y.min(0 as Coord);
+    let mut content_y_value = content_y.get().get();
+    if !content_y.has_binding() {
+        content_y_value = content_y_value.min(0 as Coord);
     }
 
     let mut changed = false;
@@ -243,16 +243,17 @@ fn update_visible_instances(
     let first_item_y = state.anchor_y;
     let last_item_bottom = first_item_y + element_height * ops.len() as Coord;
 
-    let (mut new_offset, mut new_offset_y) = if first_item_y > -vp_y + one_and_a_half_screen
-        || (viewport_height.is_some() && last_item_bottom + element_height < -vp_y)
+    let (mut new_offset, mut new_offset_y) = if first_item_y
+        > -content_y_value + one_and_a_half_screen
+        || (content_height.is_some() && last_item_bottom + element_height < -content_y_value)
     {
         // Jumping more than 1.5 screens: random seek.
         ops.splice(0, ops.len(), 0);
-        state.offset = ((-vp_y / element_height).floor() as usize).min(row_count - 1);
+        state.offset = ((-content_y_value / element_height).floor() as usize).min(row_count - 1);
         (state.offset, 0 as Coord)
-    } else if vp_y < state.previous_viewport_y {
+    } else if content_y_value < state.previous_content_y {
         // Scrolled down: find the new offset by walking existing instances.
-        let mut it_y = first_item_y + vp_y;
+        let mut it_y = first_item_y + content_y_value;
         let mut new_off = state.offset;
         for i in 0..ops.len() {
             changed |= ops.ensure_updated(i, new_off);
@@ -266,7 +267,7 @@ fn update_visible_instances(
         (new_off, it_y)
     } else {
         // Scrolled up: will instantiate items before offset in the loop below.
-        (state.offset, first_item_y + vp_y)
+        (state.offset, first_item_y + content_y_value)
     };
 
     let mut loop_count = 0;
@@ -299,7 +300,7 @@ fn update_visible_instances(
                 break;
             }
             changed |= ops.ensure_updated(i, idx);
-            vp_width = vp_width.max(ops.listview_layout(i, &mut y));
+            content_width_value = content_width_value.max(ops.listview_layout(i, &mut y));
             idx += 1;
             if y >= listview_height {
                 break;
@@ -311,14 +312,14 @@ fn update_visible_instances(
             let i = ops.len();
             ops.splice(i, 0, 1);
             changed |= ops.ensure_updated(i, idx);
-            vp_width = vp_width.max(ops.listview_layout(i, &mut y));
+            content_width_value = content_width_value.max(ops.listview_layout(i, &mut y));
             idx += 1;
         }
 
-        if y < listview_height && vp_y < 0 as Coord && loop_count < 3 {
+        if y < listview_height && content_y_value < 0 as Coord && loop_count < 3 {
             debug_assert!(idx >= row_count);
             // Reached end of model with room to spare. Scroll up.
-            vp_y += listview_height - y;
+            content_y_value += listview_height - y;
             loop_count += 1;
             continue;
         }
@@ -341,25 +342,25 @@ fn update_visible_instances(
         // Recompute coordinates for the scrollbar.
         state.cached_item_height = (y - new_offset_y) / ops.len() as Coord;
         state.anchor_y = state.cached_item_height * state.offset as Coord;
-        if let Some(viewport_height) = viewport_height {
-            viewport_height.set(LogicalLength::new(state.cached_item_height * row_count as Coord));
+        if let Some(content_height) = content_height {
+            content_height.set(LogicalLength::new(state.cached_item_height * row_count as Coord));
         }
-        if let Some(viewport_width) = viewport_width {
-            viewport_width.set(LogicalLength::new(vp_width));
+        if let Some(content_width) = content_width {
+            content_width.set(LogicalLength::new(content_width_value));
         }
-        let new_viewport_y = -state.anchor_y + new_offset_y;
-        // Important: Use get_internal here, the viewport_y may have a binding on it (especially
+        let new_content_y = -state.anchor_y + new_offset_y;
+        // Important: Use get_internal here, the content_y may have a binding on it (especially
         // a physical animation).
         // We must not yet trigger a re-evaluation of that binding, as we have already updated the
-        // viewport_width and viewport_height, but the viewport_y is not yet consistent.
+        // content_width and content_height, but the content_y is not yet consistent.
         // So the physics animations limit value may be inconsistent.
-        if new_viewport_y != viewport_y.get_internal().get() {
+        if new_content_y != content_y.get_internal().get() {
             // If a physics animation is ongoing (e.g. due to a flick), we should not interrupt it.
             // The physics animation implements intercept_set, and is therefore not interrupted by
             // a call to set() - so it's okay to just use a normal set here.
-            viewport_y.set(LogicalLength::new(new_viewport_y));
+            content_y.set(LogicalLength::new(new_content_y));
         }
-        state.previous_viewport_y = new_viewport_y;
+        state.previous_content_y = new_content_y;
 
         break;
     }
@@ -630,24 +631,24 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         changed
     }
 
-    /// Register the ListView viewport properties as dependencies so that
+    /// Register the ListView content properties as dependencies so that
     /// scrolling triggers a redraw.  Model dependencies are registered by
-    /// [`Self::visit`], so this only covers the viewport geometry.
+    /// [`Self::visit`], so this only covers the content geometry.
     pub fn track_changes_listview(
         self: Pin<&Self>,
-        viewport_width: Option<Pin<&Property<LogicalLength>>>,
-        viewport_height: Option<Pin<&Property<LogicalLength>>>,
-        viewport_y: Pin<&Property<LogicalLength>>,
+        content_width: Option<Pin<&Property<LogicalLength>>>,
+        content_height: Option<Pin<&Property<LogicalLength>>>,
+        content_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
     ) {
-        if let Some(viewport_width) = viewport_width {
-            viewport_width.register_as_dependency();
+        if let Some(content_width) = content_width {
+            content_width.register_as_dependency();
         }
-        if let Some(viewport_height) = viewport_height {
-            viewport_height.register_as_dependency();
+        if let Some(content_height) = content_height {
+            content_height.register_as_dependency();
         }
-        viewport_y.register_as_dependency();
+        content_y.register_as_dependency();
         // listview_width is passed as a value, not a property, so it cannot
         // be registered as a dependency. Kept in the signature for symmetry
         // with ensure_updated_listview.
@@ -660,9 +661,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     pub fn ensure_updated_listview(
         self: Pin<&Self>,
         init: impl Fn() -> ItemTreeRc<C>,
-        viewport_width: Option<Pin<&Property<LogicalLength>>>,
-        viewport_height: Option<Pin<&Property<LogicalLength>>>,
-        viewport_y: Pin<&Property<LogicalLength>>,
+        content_width: Option<Pin<&Property<LogicalLength>>>,
+        content_height: Option<Pin<&Property<LogicalLength>>>,
+        content_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
     ) -> bool {
@@ -678,9 +679,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             &mut ops,
             &mut layout_state,
             row_count,
-            viewport_width,
-            viewport_height,
-            viewport_y,
+            content_width,
+            content_height,
+            content_y,
             listview_width,
             listview_height.get(),
         );
@@ -962,9 +963,9 @@ mod ffi {
         ops: &mut RepeaterInstanceOpsVTable,
         state: &mut RepeaterLayoutState,
         row_count: usize,
-        viewport_width: Option<Pin<&Property<LogicalLength>>>,
-        viewport_height: Option<Pin<&Property<LogicalLength>>>,
-        viewport_y: Pin<&Property<LogicalLength>>,
+        content_width: Option<Pin<&Property<LogicalLength>>>,
+        content_height: Option<Pin<&Property<LogicalLength>>>,
+        content_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: LogicalLength,
     ) -> bool {
@@ -972,9 +973,9 @@ mod ffi {
             ops,
             state,
             row_count,
-            viewport_width,
-            viewport_height,
-            viewport_y,
+            content_width,
+            content_height,
+            content_y,
             listview_width,
             listview_height,
         )

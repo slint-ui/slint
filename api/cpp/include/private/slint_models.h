@@ -1146,9 +1146,9 @@ public:
     /// Returns true if any instance was created or any child changed.
     template<typename Parent>
     bool ensure_updated_listview(const Parent *parent,
-                                 const private_api::Property<float> *viewport_width,
-                                 const private_api::Property<float> *viewport_height,
-                                 const private_api::Property<float> *viewport_y,
+                                 const private_api::Property<float> *content_width,
+                                 const private_api::Property<float> *content_height,
+                                 const private_api::Property<float> *content_y,
                                  float listview_width, float listview_height) const
     {
         refresh_model();
@@ -1165,8 +1165,8 @@ public:
         VTableContext<Parent> ctx { inner.get(), parent };
         auto ops = make_ops(ctx);
         bool changed = cbindgen_private::slint_repeater_ensure_updated_listview(
-                &ops, &inner->layout_state, m->row_count(), viewport_width, viewport_height,
-                viewport_y, listview_width, listview_height);
+                &ops, &inner->layout_state, m->row_count(), content_width, content_height,
+                content_y, listview_width, listview_height);
         if (changed)
             instance_generation.mark_dirty();
         return recurse_ensure_instantiated() || changed;
@@ -1191,20 +1191,20 @@ public:
     /// ensure_updated materializes instance changes.
     void track_instance_changes() const { instance_generation.register_as_dependency(); }
 
-    /// Register the ListView viewport properties as dependencies so that
+    /// Register the ListView content properties as dependencies so that
     /// scrolling triggers a redraw.  Model dependencies are registered by
-    /// visit(), so this only covers the viewport geometry.
-    void track_changes_listview(const private_api::Property<float> *viewport_width,
-                                const private_api::Property<float> *viewport_height,
-                                const private_api::Property<float> *viewport_y,
+    /// visit(), so this only covers the content geometry.
+    void track_changes_listview(const private_api::Property<float> *content_width,
+                                const private_api::Property<float> *content_height,
+                                const private_api::Property<float> *content_y,
                                 [[maybe_unused]] float listview_width,
                                 const private_api::Property<float> *listview_height) const
     {
-        if (viewport_width)
-            viewport_width->register_as_dependency();
-        if (viewport_height)
-            viewport_height->register_as_dependency();
-        viewport_y->register_as_dependency();
+        if (content_width)
+            content_width->register_as_dependency();
+        if (content_height)
+            content_height->register_as_dependency();
+        content_y->register_as_dependency();
         listview_height->register_as_dependency();
     }
 
@@ -1253,18 +1253,18 @@ public:
 
     std::size_t len() const { return inner ? inner->data.size() : 0; }
 
-    float compute_layout_listview(const private_api::Property<float> *viewport_width,
-                                  float listview_width, float viewport_y) const
+    float compute_layout_listview(const private_api::Property<float> *content_width,
+                                  float listview_width, float content_y) const
     {
-        float offset = viewport_y;
-        auto vp_width = listview_width;
+        float offset = content_y;
+        auto content_width_value = listview_width;
         if (!inner)
             return offset;
         for (auto &x : inner->data) {
-            vp_width = std::max(vp_width, (*x.ptr)->listview_layout(&offset));
+            content_width_value = std::max(content_width_value, (*x.ptr)->listview_layout(&offset));
         }
-        viewport_width->set(vp_width);
-        return offset - viewport_y;
+        content_width->set(content_width_value);
+        return offset - content_y;
     }
 
     void model_set_row_data(size_t row, const ModelData &data) const

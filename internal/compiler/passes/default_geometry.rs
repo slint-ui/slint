@@ -169,7 +169,7 @@ fn gen_layout_info_prop(
     diag: &mut BuildDiagnostics,
     symbol_counters: &SymbolCounters,
 ) {
-    if elem.borrow().layout_info_prop.is_some() || elem.borrow().is_flickable_viewport {
+    if elem.borrow().layout_info_prop.is_some() || elem.borrow().is_flickable_content {
         return;
     }
 
@@ -402,10 +402,10 @@ fn fix_percent_size(
                 );
             }
             if let Some(mut parent) = parent.clone() {
-                let flickable = parent.borrow().is_flickable_viewport;
-                if parent.borrow().is_flickable_viewport {
+                let flickable = parent.borrow().is_flickable_content;
+                if parent.borrow().is_flickable_content {
                     // the `%` in a flickable need to refer to the size of the flickable, not
-                    // the size of the viewport
+                    // the size of the content element
                     parent = crate::object_tree::find_parent_element(&parent).unwrap_or(parent)
                 }
                 debug_assert_eq!(
