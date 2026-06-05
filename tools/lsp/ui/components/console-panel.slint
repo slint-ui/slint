@@ -290,7 +290,7 @@ export component ConsolePanel inherits SimpleColumn {
         // Scroll to end workaround while this feature is missing from ScrollView
         property <int> timer-clicked: 0;
         function scroll-to-bottom() {
-            lv.viewport-y = -100000px;
+            lv.content-y = -100000px;
             timer-clicked = 0;
             scroll-timer.running = true;
         }
@@ -299,7 +299,7 @@ export component ConsolePanel inherits SimpleColumn {
             running: true;
             interval: 1ms;
             triggered => {
-                lv.viewport-y = -100000px;
+                lv.content-y = -100000px;
                 if timer-clicked < 1 {
                     timer-clicked += 1;
                 } else {

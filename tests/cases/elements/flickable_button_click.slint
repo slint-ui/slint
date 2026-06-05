@@ -25,8 +25,8 @@ export component TestCase inherits Window {
         }
     }
 
-    out property <length> viewport_y <=> flick.viewport_y;
-    out property <length> viewport_height <=> flick.viewport_height;
+    out property <length> content_y <=> flick.content_y;
+    out property <length> content_height <=> flick.content_height;
     out property <length> height_ <=> flick.height;
     out property <int> button-clicked: -1;
 }
@@ -38,19 +38,19 @@ use slint::*;
 let instance = TestCase::new().unwrap();
 let window = instance.window();
 
-assert!(instance.get_viewport_height() > instance.get_height_(), "{} > {} not fulfilled", instance.get_viewport_height(), instance.get_height_());
+assert!(instance.get_content_height() > instance.get_height_(), "{} > {} not fulfilled", instance.get_content_height(), instance.get_height_());
 
 let pressed_position = LogicalPosition::new(250., 10.);
 window.dispatch_event(platform::WindowEvent::PointerPressed { position: pressed_position, button: platform::PointerEventButton::Left });
 window.dispatch_event(platform::WindowEvent::PointerReleased { position: pressed_position, button: platform::PointerEventButton::Left });
 
 assert_eq!(instance.get_button_clicked(), 0);
-assert_eq!(instance.get_viewport_y(), 0.);
+assert_eq!(instance.get_content_y(), 0.);
 
 let moved_position = LogicalPosition::new(250., 0.); // Moved cursor up
 window.dispatch_event(platform::WindowEvent::PointerMoved { position: moved_position });
 
-assert_eq!(instance.get_viewport_y(), 0.); // The flickable did not move
+assert_eq!(instance.get_content_y(), 0.); // The flickable did not move
 ```
 
 ```rust

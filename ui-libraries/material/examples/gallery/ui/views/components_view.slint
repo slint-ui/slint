@@ -44,26 +44,26 @@ import { MainWindowAdapter } from "../main_window_adapter.slint";
 export component ComponentsView {
     if !MainWindowAdapter.break_layout : HorizontalLayout {
         ScrollView {
-            viewport_height: navigation_view.height;
+            content_height: navigation_view.height;
 
             navigation_view := NavigationView {
                 width: 100%;
             }
 
-            changed viewport_y => {
-                MainWindowAdapter.show_background = self.viewport_y != 0;
+            changed content_y => {
+                MainWindowAdapter.show_background = self.content_y != 0;
             }
         }
 
         ScrollView {
-            viewport_height: action_view.height;
+            content_height: action_view.height;
 
             action_view := ActionsView {
                 width: 100%;
             }
 
-            changed viewport_y => {
-                MainWindowAdapter.show_background = self.viewport_y != 0;
+            changed content_y => {
+                MainWindowAdapter.show_background = self.content_y != 0;
             }
         }
     }
@@ -77,8 +77,8 @@ export component ComponentsView {
             ActionsView {}
         }
 
-        changed viewport_y => {
-            MainWindowAdapter.show_background = self.viewport_y != 0;
+        changed content_y => {
+            MainWindowAdapter.show_background = self.content_y != 0;
         }
     }
 }

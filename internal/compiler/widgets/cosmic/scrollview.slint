@@ -98,10 +98,14 @@ export component ScrollView {
     in property <bool> enabled: true;
     out property <length> visible-width <=> flickable.width;
     out property <length> visible-height <=> flickable.height;
-    in-out property <length> viewport-width <=> flickable.viewport-width;
-    in-out property <length> viewport-height <=> flickable.viewport-height;
-    in-out property <length> viewport-x <=> flickable.viewport-x;
-    in-out property <length> viewport-y <=> flickable.viewport-y;
+    in-out property <length> content-width <=> flickable.content-width;
+    in-out property <length> content-height <=> flickable.content-height;
+    in-out property <length> content-x <=> flickable.content-x;
+    in-out property <length> content-y <=> flickable.content-y;
+    @deprecated in-out property <length> viewport-width <=> content-width;
+    @deprecated in-out property <length> viewport-height <=> content-height;
+    @deprecated in-out property <length> viewport-x <=> content-x;
+    @deprecated in-out property <length> viewport-y <=> content-y;
     in property <ScrollBarPolicy> vertical-scrollbar-policy <=> vertical-bar.policy;
     in property <ScrollBarPolicy> horizontal-scrollbar-policy <=> horizontal-bar.policy;
     in property <bool> mouse-drag-pan-enabled <=> flickable.mouse-drag-pan-enabled;
@@ -120,8 +124,8 @@ export component ScrollView {
 
     flickable := Flickable {
         mouse-drag-pan-enabled: false;
-        viewport-y <=> vertical-bar.value;
-        viewport-x <=> horizontal-bar.value;
+        content-y <=> vertical-bar.value;
+        content-x <=> horizontal-bar.value;
         width: 100%;
         height: 100%;
 
@@ -135,7 +139,7 @@ export component ScrollView {
         width: 8px;
         height: horizontal-bar.visible ? parent.height - horizontal-bar.height : parent.height;
         horizontal: false;
-        maximum:  flickable.viewport-height - flickable.height;
+        maximum:  flickable.content-height - flickable.height;
         page-size:  flickable.height;
 
         scrolled => {root.scrolled()}
@@ -148,7 +152,7 @@ export component ScrollView {
         y: parent.height - self.height;
         x: 0;
         horizontal: true;
-        maximum:  flickable.viewport-width - flickable.width;
+        maximum:  flickable.content-width - flickable.width;
         page-size:  flickable.width;
 
         scrolled => {root.scrolled()}

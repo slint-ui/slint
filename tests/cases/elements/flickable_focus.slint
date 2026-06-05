@@ -11,8 +11,8 @@ export component TestCase inherits Window {
         y: 10px;
         width: parent.width - 20px;
         height: parent.height - 20px;
-        viewport_width: 2100px;
-        viewport_height: 2100px;
+        content_width: 2100px;
+        content_height: 2100px;
 
         VerticalLayout {
             padding: 0;
@@ -45,8 +45,8 @@ export component TestCase inherits Window {
         fs.clear-focus();
     }
 
-    in-out property <length> offset_x: -f.viewport_x;
-    in-out property <length> offset_y: -f.viewport_y;
+    in-out property <length> offset_x: -f.content_x;
+    in-out property <length> offset_y: -f.content_y;
 }
 
 /*
