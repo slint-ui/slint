@@ -24,7 +24,6 @@ export component TestCase inherits Window {
                 allow-copy: false;
                 allow-move: true;
                 allow-link: false;
-                preferred-action: DragAction.move;
                 drag-finished(action) => {
                     last-finished = action;
                     finished-count += 1;

@@ -1205,10 +1205,11 @@ export component ScaleRotateGestureHandler {
 /// `data-transfer` values are opaque in Slint code:
 /// construct and read them via callbacks implemented in the host language.
 ///
-/// The source declares which actions it permits via `allow-copy`, `allow-move`, and `allow-link`,
-/// and a `preferred-action` that applies when no modifier key is pressed. The target picks the final
-/// action from this set in its `can-drop` callback. Once a drop completes (or the drag is cancelled),
-/// `drag-finished(action)` fires so a "move" source can remove the original data.
+/// The source declares which actions it permits via `allow-copy`, `allow-move`, and `allow-link`.
+/// When no modifier key is pressed, the proposed action is the first allowed of move, copy, link;
+/// modifier keys request a specific action (Ctrl -> copy, Shift -> move, Ctrl+Shift -> link).
+/// The target picks the final action from this set in its `can-drop` callback. Once a drop completes
+/// (or the drag is cancelled), `drag-finished(action)` fires so a "move" source can remove the original data.
 ///
 /// See <Link type="DragAndDrop" /> for a usage guide and a complete example.
 /// \group:drag-and-drop
@@ -1234,9 +1235,6 @@ export component DragArea {
     in property <bool> allow-move: false;
     /// Whether the source allows the drop to link to the data. Neither side gives up ownership.
     in property <bool> allow-link: false;
-    /// The action used when no modifier key is pressed. The runtime clamps it to the allowed set;
-    /// if the named action isn't allowed, falls back to the first allowed of move, copy, link.
-    in property <DragAction> preferred-action: DragAction.copy;
     /// `true` once the press has crossed the drag threshold and a drag is in flight,
     /// `false` once the drop completes or the drag is cancelled.
     out property <bool> dragging;

@@ -104,10 +104,10 @@ macro_rules! for_each_builtin_structs {
                 /// Mirrors `DragArea.allow-link`: true if the source allows the drop to link to the data.
                 allow_link: bool,
 
-                /// The action negotiated from current modifier state and the source's `preferred-action`,
-                /// clamped to the allowed set. Updated on every `DragMove`. The target's `can-drop`
-                /// callback can return this to honor the user's modifier choice, or override with
-                /// any other allowed action.
+                /// The action negotiated from current modifier state, clamped to the allowed set;
+                /// when no modifier is pressed, the first allowed of move, copy, link.
+                /// Updated on every `DragMove`. The target's `can-drop` callback can return this
+                /// to honor the user's modifier choice, or override with any other allowed action.
                 proposed_action: DragAction,
             }
 

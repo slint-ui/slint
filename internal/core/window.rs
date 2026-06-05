@@ -726,19 +726,11 @@ impl WindowInner {
                     drop_event.position = crate::lengths::logical_position_to_api(*position);
                     // Recompute the proposed action from current modifier state so the target's
                     // `can-drop` callback sees an up-to-date `event.proposed-action`.
-                    let preferred = mouse_input_state
-                        .drag_source
-                        .as_ref()
-                        .and_then(|s| s.upgrade())
-                        .and_then(|i| i.downcast::<crate::items::DragArea>())
-                        .map(|d| d.as_pin_ref().preferred_action())
-                        .unwrap_or(crate::items::DragAction::Copy);
                     drop_event.proposed_action = crate::items::compute_proposed_action(
                         self.context().0.modifiers.get().into(),
                         drop_event.allow_copy,
                         drop_event.allow_move,
                         drop_event.allow_link,
-                        preferred,
                     );
                     // Mirror the position and proposed action into the persistent state so the
                     // renderer can place the drag-image overlay without re-deriving the cursor
