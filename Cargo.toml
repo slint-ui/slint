@@ -169,7 +169,8 @@ itertools = { version = "0.14" }
 log = { version = "0.4.17" }
 notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"] }
 tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3" }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-log = { version = "0.2" }
 resvg = { version = "0.47.0", default-features = false, features = ["text", "raster-images"] }
 rowan = { version = "0.16.1" }
 rustybuzz = { version = "0.20.0" }

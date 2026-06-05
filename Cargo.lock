@@ -10905,7 +10905,6 @@ dependencies = [
  "anyhow",
  "async-compat",
  "clap",
- "env_logger",
  "i-slint-backend-android-activity",
  "i-slint-backend-selector",
  "i-slint-compiler",
@@ -10926,6 +10925,8 @@ dependencies = [
  "tikv-jemallocator",
  "tokio",
  "tracing",
+ "tracing-log",
+ "tracing-subscriber",
  "zeroconf-tokio",
 ]
 
