@@ -1246,7 +1246,7 @@ fn lower_box_layout(
         orientation,
         elems: Default::default(),
         geometry: LayoutGeometry::new(layout_element),
-        cross_alignment: binding_reference(layout_element, "align-items"),
+        cross_alignment: binding_reference(layout_element, "cross-axis-alignment"),
     };
 
     let layout_cache_prop =
@@ -1275,7 +1275,7 @@ fn lower_box_layout(
         Orientation::Horizontal => ("x", "width", "y", "height"),
         Orientation::Vertical => ("y", "height", "x", "width"),
     };
-    // Default stretch bindings, only used when there is no `align-items`.
+    // Default stretch bindings, only used when there is no `cross-axis-alignment`.
     let stretch_bindings = layout_cache_ortho_prop.is_none().then(|| {
         let (begin_padding, end_padding) = match orientation {
             Orientation::Horizontal => {
@@ -1407,7 +1407,8 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
 
     let direction = crate::layout::binding_reference(layout_element, "flex-direction");
     let align_content = crate::layout::binding_reference(layout_element, "align-content");
-    let align_items = crate::layout::binding_reference(layout_element, "align-items");
+    let cross_axis_alignment =
+        crate::layout::binding_reference(layout_element, "cross-axis-alignment");
     let flex_wrap = crate::layout::binding_reference(layout_element, "flex-wrap");
 
     let mut layout = crate::layout::FlexboxLayout {
@@ -1415,7 +1416,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
         geometry: LayoutGeometry::new(layout_element),
         direction,
         align_content,
-        align_items,
+        cross_axis_alignment,
         flex_wrap,
     };
 

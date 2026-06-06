@@ -2973,10 +2973,6 @@ mod tests {
             LogicalSize::new(5., 10.)
         }
 
-        fn default_font_size(&self) -> LogicalLength {
-            LogicalLength::new(10.)
-        }
-
         fn font_metrics(
             &self,
             _font_request: crate::graphics::FontRequest,

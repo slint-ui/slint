@@ -515,10 +515,6 @@ impl RendererSealed for TestingWindow {
         Ok(())
     }
 
-    fn default_font_size(&self) -> LogicalLength {
-        sharedparley::DEFAULT_FONT_SIZE
-    }
-
     fn set_window_adapter(&self, _window_adapter: &Rc<dyn WindowAdapter>) {
         // No-op since TestingWindow is also the WindowAdapter
     }

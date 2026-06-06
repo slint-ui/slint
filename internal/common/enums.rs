@@ -403,10 +403,10 @@ macro_rules! for_each_enums {
             }
 
             /// Controls the alignment of individual items along the cross axis of a layout.
-            /// Used as the `align-items` property of `HorizontalLayout`, `VerticalLayout`,
+            /// Used as the `cross-axis-alignment` property of `HorizontalLayout`, `VerticalLayout`,
             /// and `FlexboxLayout`.
             #[non_exhaustive]
-            enum LayoutAlignItems {
+            enum CrossAxisAlignment {
                 /// Items are stretched to fill the cross axis.
                 Stretch,
                 /// Items are placed at the start of the cross axis.
@@ -417,10 +417,10 @@ macro_rules! for_each_enums {
                 Center,
             }
 
-            /// Overrides the container's `align-items` for a specific flex item.
+            /// Overrides the container's `cross-axis-alignment` for a specific flex item.
             #[non_exhaustive]
             enum FlexboxLayoutAlignSelf {
-                /// Use the container's `align-items` value (default).
+                /// Use the container's `cross-axis-alignment` value (default).
                 Auto,
                 /// The item is stretched to fill the line along the cross axis.
                 Stretch,

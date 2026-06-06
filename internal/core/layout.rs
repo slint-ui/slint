@@ -6,8 +6,8 @@
 // cspell:ignore coord
 
 use crate::items::{
-    DialogButtonRole, FlexboxLayoutAlignContent, FlexboxLayoutAlignSelf, FlexboxLayoutDirection,
-    FlexboxLayoutWrap, LayoutAlignItems, LayoutAlignment,
+    CrossAxisAlignment, DialogButtonRole, FlexboxLayoutAlignContent, FlexboxLayoutAlignSelf,
+    FlexboxLayoutDirection, FlexboxLayoutWrap, LayoutAlignment,
 };
 use crate::{Coord, SharedVector, slice::Slice};
 use alloc::format;
@@ -1131,7 +1131,7 @@ pub struct BoxLayoutData<'a> {
 pub struct BoxLayoutOrthoData<'a> {
     pub size: Coord,
     pub padding: Padding,
-    pub align_items: LayoutAlignItems,
+    pub cross_axis_alignment: CrossAxisAlignment,
     pub cells: Slice<'a, LayoutItemInfo>,
 }
 
@@ -1148,7 +1148,7 @@ pub struct FlexboxLayoutData<'a> {
     pub alignment: LayoutAlignment,
     pub direction: FlexboxLayoutDirection,
     pub align_content: FlexboxLayoutAlignContent,
-    pub align_items: LayoutAlignItems,
+    pub cross_axis_alignment: CrossAxisAlignment,
     pub flex_wrap: FlexboxLayoutWrap,
     /// Horizontal constraints (width) for each cell
     pub cells_h: Slice<'a, FlexboxLayoutItemInfo>,
@@ -1174,7 +1174,7 @@ pub struct FlexboxLayoutItemInfo {
     pub flex_shrink: f32,
     /// Flex basis in logical pixels (-1 = auto, meaning use preferred size; default)
     pub flex_basis: Coord,
-    /// Per-item cross-axis alignment override (Auto = use container's align-items)
+    /// Per-item cross-axis alignment override (Auto = use container's cross-axis-alignment)
     pub flex_align_self: FlexboxLayoutAlignSelf,
     /// Visual ordering of flex items (lower values appear first, default 0)
     pub flex_order: i32,
@@ -1302,16 +1302,16 @@ pub fn solve_box_layout_ortho(
             c.constraint.min.max(c.constraint.min_percent * size_without_padding / 100 as Coord);
         let max =
             c.constraint.max.min(c.constraint.max_percent * size_without_padding / 100 as Coord);
-        let size = match data.align_items {
-            LayoutAlignItems::Stretch => size_without_padding,
+        let size = match data.cross_axis_alignment {
+            CrossAxisAlignment::Stretch => size_without_padding,
             _ => c.constraint.preferred,
         }
         .min(max)
         .max(min);
-        let pos = match data.align_items {
-            LayoutAlignItems::Stretch | LayoutAlignItems::Start => data.padding.begin,
-            LayoutAlignItems::End => data.padding.begin + size_without_padding - size,
-            LayoutAlignItems::Center => {
+        let pos = match data.cross_axis_alignment {
+            CrossAxisAlignment::Stretch | CrossAxisAlignment::Start => data.padding.begin,
+            CrossAxisAlignment::End => data.padding.begin + size_without_padding - size,
+            CrossAxisAlignment::Center => {
                 data.padding.begin + (size_without_padding - size) / 2 as Coord
             }
         };
@@ -1371,9 +1371,9 @@ pub fn box_layout_info_ortho(cells: Slice<LayoutItemInfo>, padding: &Padding) ->
 /// Helper module for taffy-based flexbox layout
 mod flexbox_taffy {
     use super::{
-        Coord, FlexboxLayoutAlignContent, FlexboxLayoutAlignSelf, FlexboxLayoutItemInfo,
-        FlexboxLayoutWrap as SlintFlexboxLayoutWrap, LayoutAlignItems, LayoutAlignment, Padding,
-        Slice,
+        Coord, CrossAxisAlignment, FlexboxLayoutAlignContent, FlexboxLayoutAlignSelf,
+        FlexboxLayoutItemInfo, FlexboxLayoutWrap as SlintFlexboxLayoutWrap, LayoutAlignment,
+        Padding, Slice,
     };
     use alloc::vec::Vec;
     pub use taffy::prelude::FlexDirection as TaffyFlexDirection;
@@ -1389,7 +1389,7 @@ mod flexbox_taffy {
         pub padding_v: &'a Padding,
         pub alignment: LayoutAlignment,
         pub align_content: FlexboxLayoutAlignContent,
-        pub align_items: LayoutAlignItems,
+        pub cross_axis_alignment: CrossAxisAlignment,
         pub flex_wrap: SlintFlexboxLayoutWrap,
         pub flex_direction: TaffyFlexDirection,
         pub container_width: Option<Coord>,
@@ -1556,11 +1556,11 @@ mod flexbox_taffy {
                             LayoutAlignment::SpaceAround => AlignContent::SpaceAround,
                             LayoutAlignment::SpaceEvenly => AlignContent::SpaceEvenly,
                         }),
-                        align_items: Some(match params.align_items {
-                            LayoutAlignItems::Stretch => AlignItems::Stretch,
-                            LayoutAlignItems::Start => AlignItems::FlexStart,
-                            LayoutAlignItems::End => AlignItems::FlexEnd,
-                            LayoutAlignItems::Center => AlignItems::Center,
+                        align_items: Some(match params.cross_axis_alignment {
+                            CrossAxisAlignment::Stretch => AlignItems::Stretch,
+                            CrossAxisAlignment::Start => AlignItems::FlexStart,
+                            CrossAxisAlignment::End => AlignItems::FlexEnd,
+                            CrossAxisAlignment::Center => AlignItems::Center,
                         }),
                         align_content: Some(match params.align_content {
                             FlexboxLayoutAlignContent::Stretch => AlignContent::Stretch,
@@ -1810,7 +1810,7 @@ pub fn solve_flexbox_layout_with_measure(
         padding_v: &data.padding_v,
         alignment: data.alignment,
         align_content: data.align_content,
-        align_items: data.align_items,
+        cross_axis_alignment: data.cross_axis_alignment,
         flex_wrap: data.flex_wrap,
         flex_direction: taffy_direction,
         container_width,
@@ -2012,7 +2012,7 @@ pub fn flexbox_layout_info_cross_axis(
         padding_v,
         alignment: LayoutAlignment::Start,
         align_content: FlexboxLayoutAlignContent::Stretch,
-        align_items: LayoutAlignItems::Stretch,
+        cross_axis_alignment: CrossAxisAlignment::Stretch,
         flex_wrap,
         flex_direction: taffy_direction,
         container_width,

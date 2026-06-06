@@ -7,6 +7,7 @@ use crate::graphics::Color;
 use crate::input::InternalKeyboardModifierState;
 use crate::item_tree::{ItemRc, ItemTreeRc};
 use crate::items::ColorScheme;
+use crate::lengths::LogicalLength;
 use crate::platform::{EventLoopProxy, Platform, WindowAdapter, WindowEvent};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
@@ -78,6 +79,12 @@ pub(crate) struct SlintContextInner {
     /// transparent color when the platform doesn't expose one.
     #[pin]
     pub(crate) accent_color: Property<Color>,
+    /// Process-wide default font size as reported by the platform (e.g. iOS Dynamic
+    /// Type). Backends write here; `WindowItem::resolved_default_font_size` consults it
+    /// before falling back to `textlayout::DEFAULT_FONT_SIZE`. `None` when the backend
+    /// doesn't report one.
+    #[pin]
+    pub(crate) platform_default_font_size: Property<Option<LogicalLength>>,
     pub(crate) window_shown_hook:
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
     pub(crate) window_event_hook: core::cell::RefCell<Option<WindowEventHook>>,
@@ -117,6 +124,10 @@ impl SlintContext {
 
             color_scheme: Property::new_named(ColorScheme::Unknown, "SlintContext::color_scheme"),
             accent_color: Property::new_named(Color::default(), "SlintContext::accent_color"),
+            platform_default_font_size: Property::new_named(
+                None,
+                "SlintContext::platform_default_font_size",
+            ),
             window_shown_hook: Default::default(),
             window_event_hook: Default::default(),
             #[cfg(all(unix, not(target_os = "macos")))]
@@ -210,6 +221,19 @@ impl SlintContext {
     /// platform's system-theme observer; `Property::set` short-circuits no-op writes.
     pub fn set_accent_color(&self, color: Color) {
         self.0.as_ref().project_ref().accent_color.set(color);
+    }
+
+    /// Returns the platform-reported default font size, or `None` if the backend doesn't
+    /// report one. Reads register a property dependency, so bindings re-evaluate when the
+    /// platform reports a change (e.g. the user adjusts the system text size).
+    pub fn platform_default_font_size(&self) -> Option<LogicalLength> {
+        self.0.as_ref().project_ref().platform_default_font_size.get()
+    }
+
+    /// Backend-side write path for the platform-reported default font size. Called by
+    /// backends that track the system setting; `Property::set` short-circuits no-op writes.
+    pub fn set_platform_default_font_size(&self, size: Option<LogicalLength>) {
+        self.0.as_ref().project_ref().platform_default_font_size.set(size);
     }
 
     /// Add one to the counter of "things keeping the event loop alive".

@@ -152,7 +152,7 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
     fn fill_rectangle(&mut self, physical_rect: PhysicalRect, brush: Self::PlatformBrush);
 }
 
-pub const DEFAULT_FONT_SIZE: LogicalLength = LogicalLength::new(12.);
+pub use super::DEFAULT_FONT_SIZE;
 
 std::thread_local! {
     static LAYOUT_CONTEXT: RefCell<parley::LayoutContext<Brush>> = Default::default();

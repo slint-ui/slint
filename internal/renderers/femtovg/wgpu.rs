@@ -574,10 +574,6 @@ impl RendererSealed for FemtoVGWGPURenderer {
         self.0.register_font_from_path(path)
     }
 
-    fn default_font_size(&self) -> i_slint_core::lengths::LogicalLength {
-        self.0.default_font_size()
-    }
-
     fn set_rendering_notifier(
         &self,
         callback: Box<dyn i_slint_core::api::RenderingNotifier>,
