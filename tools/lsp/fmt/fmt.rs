@@ -203,6 +203,9 @@ fn format_node(
         SyntaxKind::ImplementsSpecifier => {
             return format_implements_specifier(node, writer, state);
         }
+        SyntaxKind::Predicate => {
+            return format_predicate(node, writer, state);
+        }
         _ => (),
     }
 
@@ -773,24 +776,6 @@ fn format_qualified_name(
         state.skip_all_whitespace = true;
         fold(n, writer, state)?;
     }
-    /*if !node
-        .last_token()
-        .and_then(|x| x.next_token())
-        .map(|x| {
-            matches!(
-                x.kind(),
-                SyntaxKind::LParent
-                    | SyntaxKind::RParent
-                    | SyntaxKind::Semicolon
-                    | SyntaxKind::Comma
-            )
-        })
-        .unwrap_or(false)
-    {
-        state.insert_whitespace(" ");
-    } else {
-        state.skip_all_whitespace = true;
-    }*/
     Ok(())
 }
 
@@ -2076,6 +2061,26 @@ fn format_import_specifier(
             _ => {
                 fold(n, writer, state)?;
             }
+        }
+    }
+
+    Ok(())
+}
+
+fn format_predicate(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    for s in node.children_with_tokens() {
+        state.skip_all_whitespace = true;
+        match s.kind() {
+            SyntaxKind::FatArrow => {
+                state.insert_whitespace(" ");
+                fold(s, writer, state)?;
+                state.insert_whitespace(" ");
+            }
+            _ => fold(s, writer, state)?,
         }
     }
 
@@ -3470,6 +3475,20 @@ export component MainWindow2 inherits Rectangle {
         );
     }
 
+    #[test]
+    fn predicate() {
+        assert_formatting(
+            "component X { property <[int]> arr: [1, 2, 3, 4, 5]; function foo() { arr.any(x\n     =>   x         ==  1     ); } }",
+            r#"component X {
+    property <[int]> arr: [1, 2, 3, 4, 5];
+    function foo() {
+        arr.any(x => x == 1);
+    }
+}
+"#,
+        );
+    }
+
     // cspell:disable
     #[test]
     fn import_line_too_long() {
@@ -3682,6 +3701,27 @@ export component MainWindow2 inherits Rectangle {
     Tar,
     Jar,
 } from "./here.slint";"#,
+        );
+    }
+
+    #[test]
+    fn nested_predicate() {
+        assert_formatting(
+            "component X { property <[[int]]> arr: [[1, 2, 3, 4, 5]]; function foo() { arr.any(x     =>   x.all(y   => y   ==  7     )      ); } }",
+            r#"component X {
+    property <[[int]]> arr: [[1, 2, 3, 4, 5]];
+    function foo() { arr.any(x => x.all(y => y == 7)); }
+}
+"#,
+        );
+
+        assert_formatting(
+            "component X { property <[[{age: int}]]> groups: []; function foo() { groups.any(group     =>   group.any(person   => person.age   >  20     ) && group.length == 2      ); } }",
+            r#"component X {
+    property <[[{age: int}]]> groups: [];
+    function foo() { groups.any(group => group.any(person => person.age > 20) && group.length == 2); }
+}
+"#,
         );
     }
 }

@@ -65,8 +65,13 @@ Arrays define the following operations:
 
 -   **`array.length`**: One can query the length of an array and model using the builtin `.length` property.
 -   **`array[index]`**: The index operator retrieves individual elements of an array.
+-   **`array.any(name => condition)`**: Returns true if the boolean predicate is true for at least one element.
+-   **`array.all(name => condition)`**: Returns true if the boolean predicate is true for every element.
 
 Out of bound access into an array will return default-constructed values.
+The argument name of an `any` or `all` predicate is available only in the predicate expression,
+and its type is inferred from the array element type. `any` returns false for an empty array,
+while `all` returns true for an empty array.
 
 ```slint
 export component Example {
@@ -74,6 +79,7 @@ export component Example {
 
     out property <int> list-len: list-of-int.length;
     out property <int> first-int: list-of-int[0];
+    out property <bool> contains-two: list-of-int.any(value => value == 2);
+    out property <bool> all-positive: list-of-int.all(value => value > 0);
 }
 ```
-
