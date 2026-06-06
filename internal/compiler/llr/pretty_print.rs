@@ -498,6 +498,9 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                     ),
                 }
             }
+            Expression::Predicate { arg_name, expression } => {
+                write!(f, "{} => {}", arg_name, e(expression))
+            }
         }
     }
 }

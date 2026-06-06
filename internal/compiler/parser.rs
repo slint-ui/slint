@@ -376,7 +376,7 @@ declare_syntax! {
         Expression-> [ ?Expression, ?FunctionCallExpression, ?IndexExpression, ?SelfAssignment,
                        ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral,
                        ?UnaryOpExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl, ?AtGradient, ?AtTr,
-                       ?MemberAccess, ?AtKeys ],
+                       ?MemberAccess, ?AtKeys, ?Predicate ],
         /// Concatenate the children Expressions and StringLiteral to make a string
         StringTemplate -> [*Expression],
         /// `@image-url("foo.png")`
@@ -460,6 +460,8 @@ declare_syntax! {
         UsesIdentifier -> [QualifiedName, DeclaredIdentifier],
         /// `implements Interface.Foo`
         ImplementsSpecifier -> [ QualifiedName ],
+        /// `x => x > 0`
+        Predicate -> [DeclaredIdentifier, Expression],
     }
 }
 

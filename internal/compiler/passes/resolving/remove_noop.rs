@@ -126,5 +126,6 @@ fn without_side_effects(expression: &Expression) -> bool {
         Expression::DebugHook { .. } => false,
         Expression::EmptyComponentFactory => false,
         Expression::EmptyDataTransfer => false,
+        Expression::Predicate { expression, .. } => without_side_effects(expression),
     }
 }
