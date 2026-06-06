@@ -24,6 +24,7 @@ use core::pin::Pin;
 use euclid::num::Zero;
 use i_slint_common::sharedfontique;
 use skrifa::MetadataProvider as _;
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -254,6 +255,11 @@ impl LayoutWithoutLineBreaksBuilder {
             }
             if let Some(letter_spacing) = font_request.letter_spacing {
                 builder.push_default(parley::StyleProperty::LetterSpacing(letter_spacing.get()));
+            }
+            if let Some(features) = &font_request.features {
+                builder.push_default(parley::StyleProperty::FontFeatures(
+                    parley::style::FontFeatures::Source(Cow::Borrowed(features.as_str())),
+                ));
             }
             builder.push_default(parley::StyleProperty::FontStyle(if font_request.italic {
                 parley::style::FontStyle::Italic

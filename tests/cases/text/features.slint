@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 200px;
+    height: 100px;
+    default-font-family: "Inter";
+
+    property <bool> running: false;
+    property <string> str: "1";
+
+    Timer {
+        running: running;
+        interval: 500ms;
+        triggered => {
+            str += "1";
+        }
+    }
+
+    VerticalLayout {
+        alignment: start;
+
+        Text {
+            text: "font-features: \"'tnum'\"";
+            padding-bottom: 10px;
+        }
+
+        Text {
+            text: str;
+            font-features: "'tnum'";
+        }
+
+        Text {
+            text: str;
+        }
+
+        Button {
+            text: "start";
+            visible: !running;
+            clicked => {
+                running = true;
+            }
+        }
+    }
+}

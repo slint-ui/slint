@@ -1266,6 +1266,7 @@ pub struct WindowItem {
     pub default_font_family: Property<SharedString>,
     pub default_font_size: Property<LogicalLength>,
     pub default_font_weight: Property<i32>,
+    pub default_font_features: Property<SharedString>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -1397,6 +1398,11 @@ impl WindowItem {
         if font_weight == 0 { None } else { Some(font_weight) }
     }
 
+    pub fn font_features(self: Pin<&Self>) -> Option<SharedString> {
+        let font_features = self.default_font_features();
+        if !font_features.is_empty() { Some(font_features) } else { None }
+    }
+
     pub fn resolved_default_font_size(item_tree: ItemTreeRc) -> LogicalLength {
         let first_item = ItemRc::new_root(item_tree);
         let window_item = next_window_item(&first_item).unwrap();
@@ -1446,6 +1452,7 @@ impl WindowItem {
         local_font_size: LogicalLength,
         local_letter_spacing: LogicalLength,
         local_italic: bool,
+        local_font_features: SharedString,
     ) -> FontRequest {
         let Some(window_item_rc) = next_window_item(self_rc) else {
             return FontRequest::default();
@@ -1481,6 +1488,16 @@ impl WindowItem {
                     .or_else(|| Self::platform_default_font_size(self_rc))
                 } else {
                     Some(local_font_size)
+                }
+            },
+            features: {
+                if !local_font_features.is_empty() {
+                    Some(local_font_features)
+                } else {
+                    Self::resolve_font_property(
+                        &window_item_rc,
+                        crate::items::WindowItem::font_features,
+                    )
                 }
             },
             letter_spacing: Some(local_letter_spacing),
