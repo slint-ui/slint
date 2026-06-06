@@ -1,0 +1,187 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, LineEdit, ListView, Palette } from "std-widgets.slint";
+import { Api, RemoteConnectionState } from "../api.slint";
+import { EditorSpaceSettings } from "styling.slint";
+
+export component RemotePreviewDialog inherits Rectangle {
+    background: #00000080;
+
+    private property <int> selected-index: -1;
+    private property <string> manual-entry;
+
+    private property <bool> selection-is-compatible:
+        selected-index >= 0
+        && selected-index < Api.remote-discovered-viewers.length
+        && Api.remote-discovered-viewers[selected-index].compatible;
+
+
+    private property <bool> connecting: Api.remote-connection-state == RemoteConnectionState.Connecting;
+
+    // Swallow clicks on the backdrop.
+    TouchArea { }
+
+    Rectangle {
+        background: Palette.background;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: Palette.border;
+        width: Math.min(parent.width - 40px, 520px);
+        height: Math.min(parent.height - 40px, 480px);
+        drop-shadow-blur: 16px;
+        drop-shadow-color: #00000040;
+
+        VerticalLayout {
+            padding: EditorSpaceSettings.default-padding * 2;
+            spacing: EditorSpaceSettings.default-spacing;
+
+            Text {
+                text: @tr("Remote Preview");
+                font-size: 16px;
+                font-weight: 700;
+                color: Palette.foreground;
+            }
+
+            Text {
+                text: @tr("Connect to a device running `slint-viewer --remote`. Pick a discovered device or enter a host and port manually.");
+                wrap: word-wrap;
+                color: Palette.foreground;
+            }
+
+            Text {
+                text: @tr("Discovered devices");
+                font-weight: 700;
+                color: Palette.foreground;
+            }
+
+            Rectangle {
+                background: Palette.alternate-background;
+                border-radius: 4px;
+                border-width: 1px;
+                border-color: Palette.border;
+                vertical-stretch: 1;
+
+                if Api.remote-discovered-viewers.length == 0: VerticalLayout {
+                    alignment: center;
+                    Text {
+                        text: @tr("Searching for devices on the local network…");
+                        horizontal-alignment: center;
+                        color: Palette.foreground;
+                    }
+                }
+
+                if Api.remote-discovered-viewers.length > 0: ListView {
+                    for device[i] in Api.remote-discovered-viewers: Rectangle {
+                        height: device-layout.preferred-height;
+                        background: i == root.selected-index
+                            ? Palette.accent-background
+                            : (touch.has-hover ? Palette.alternate-background : transparent);
+
+                        touch := TouchArea {
+                            clicked => {
+                                root.selected-index = i;
+                                root.manual-entry = "";
+                            }
+                        }
+
+                        device-layout := HorizontalLayout {
+                            padding: EditorSpaceSettings.default-padding;
+                            spacing: EditorSpaceSettings.default-spacing;
+                            VerticalLayout {
+                                horizontal-stretch: 1;
+                                Text {
+                                    text: device.name;
+                                    color: i == root.selected-index ? Palette.accent-foreground : Palette.foreground;
+                                    font-weight: 700;
+                                }
+                                Text {
+                                    text: (device.addresses.length > 0 ? device.addresses[0] : device.host) + ":" + device.port;
+                                    color: i == root.selected-index ? Palette.accent-foreground : Palette.foreground;
+                                    opacity: 0.7;
+                                    font-size: 12px;
+                                }
+                                if !device.compatible: Text {
+                                    text: device.incompatible-reason;
+                                    color: #d33;
+                                    font-size: 11px;
+                                    wrap: word-wrap;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Text {
+                text: @tr("Manual entry");
+                font-weight: 700;
+                color: Palette.foreground;
+            }
+
+            LineEdit {
+                placeholder-text: @tr("host:port  (e.g. 192.168.1.42:9000 or [::1]:9000)");
+                text <=> root.manual-entry;
+                edited => {
+                    root.selected-index = -1;
+                }
+            }
+
+            if root.connecting: Text {
+                text: @tr("Connecting to {}…", Api.remote-connection-target);
+                color: Palette.foreground;
+            }
+            if Api.remote-connection-state == RemoteConnectionState.Connected: Text {
+                text: @tr("Connected to {}", Api.remote-connection-target);
+                color: #2a2;
+                font-weight: 700;
+            }
+            if Api.remote-connection-state == RemoteConnectionState.Failed: Text {
+                text: Api.remote-connection-error != ""
+                    ? Api.remote-connection-error
+                    : @tr("Connection failed");
+                color: #d33;
+                wrap: word-wrap;
+            }
+
+            HorizontalLayout {
+                spacing: EditorSpaceSettings.default-spacing;
+                alignment: end;
+
+                Button {
+                    text: @tr("Close");
+                    clicked => {
+                        Api.remote-stop-discovery();
+                        Api.remote-dialog-open = false;
+                    }
+                }
+                Button {
+                    text: @tr("Disconnect");
+                    enabled: Api.remote-connection-state == RemoteConnectionState.Connected;
+                    clicked => {
+                        Api.remote-disconnect();
+                    }
+                }
+                Button {
+                    text: @tr("Connect");
+                    primary: true;
+                    enabled: !root.connecting && (root.selection-is-compatible || root.manual-entry != "");
+                    clicked => {
+                        if root.manual-entry != "" {
+                            Api.remote-connect-manual(root.manual-entry);
+                        } else if root.selected-index >= 0
+                            && root.selected-index < Api.remote-discovered-viewers.length
+                            && Api.remote-discovered-viewers[root.selected-index].compatible
+                            && Api.remote-discovered-viewers[root.selected-index].addresses.length > 0 {
+                            // Re-check: a ServiceRemoved between hover and click
+                            // could shrink the model.
+                            Api.remote-connect(
+                                Api.remote-discovered-viewers[root.selected-index].addresses,
+                                Api.remote-discovered-viewers[root.selected-index].port);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

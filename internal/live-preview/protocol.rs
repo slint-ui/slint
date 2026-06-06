@@ -5,7 +5,9 @@ mod lsp_to_preview;
 mod preview_to_lsp;
 mod versioned_url;
 
-pub use lsp_to_preview::{LspToPreviewMessage, PreviewComponent, PreviewConfig};
+pub use lsp_to_preview::{
+    LspToPreviewMessage, PreviewComponent, PreviewConfig, RemoteConnectionState,
+};
 pub use preview_to_lsp::{PreviewTarget, PreviewToLspMessage};
 pub use versioned_url::VersionedUrl;
 

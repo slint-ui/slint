@@ -416,6 +416,13 @@ impl Connection {
                                         LspToPreviewMessage::Quit => {
                                             break 'outer;
                                         }
+                                        // Internal LSP↔local-preview control message;
+                                        // never legitimately reaches a remote viewer.
+                                        LspToPreviewMessage::RemoteConnectionState { .. } => {
+                                            tracing::warn!(
+                                                "Ignoring unexpected RemoteConnectionState over WebSocket"
+                                            );
+                                        }
                                     }
                                 }
                                 Err(err) => {
