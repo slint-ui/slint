@@ -547,7 +547,7 @@ fn recurse_expression(
             }
             visit_layout_items_dependencies(l.elems.iter(), *o, vis);
 
-            // The orthogonal solve depends on `align-items`.
+            // The orthogonal solve depends on `cross-axis-alignment`.
             if matches!(expr, Expression::SolveBoxLayout(..))
                 && *o != l.orientation
                 && let Some(nr) = l.cross_alignment.as_ref()

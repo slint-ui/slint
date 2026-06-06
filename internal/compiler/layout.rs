@@ -615,7 +615,7 @@ pub struct BoxLayout {
     pub orientation: Orientation,
     pub elems: Vec<LayoutItem>,
     pub geometry: LayoutGeometry,
-    /// The `align-items` property, if set.
+    /// The `cross-axis-alignment` property, if set.
     pub cross_alignment: Option<NamedReference>,
 }
 
@@ -638,7 +638,7 @@ pub struct FlexboxLayout {
     pub geometry: LayoutGeometry,
     pub direction: Option<NamedReference>,
     pub align_content: Option<NamedReference>,
-    pub align_items: Option<NamedReference>,
+    pub cross_axis_alignment: Option<NamedReference>,
     pub flex_wrap: Option<NamedReference>,
 }
 
@@ -712,7 +712,7 @@ impl FlexboxLayout {
         if let Some(e) = self.align_content.as_mut() {
             visitor(&mut *e)
         }
-        if let Some(e) = self.align_items.as_mut() {
+        if let Some(e) = self.cross_axis_alignment.as_mut() {
             visitor(&mut *e)
         }
         if let Some(e) = self.flex_wrap.as_mut() {

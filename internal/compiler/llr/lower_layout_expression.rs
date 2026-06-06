@@ -272,12 +272,12 @@ pub(super) fn solve_box_layout(
         );
         (data, "solve_box_layout")
     } else {
-        let align_items_ty = crate::typeregister::BUILTIN
-            .with(|e| Type::Enumeration(e.enums.LayoutAlignItems.clone()));
-        let align_items = if let Some(nr) = &layout.cross_alignment {
+        let cross_axis_alignment_ty = crate::typeregister::BUILTIN
+            .with(|e| Type::Enumeration(e.enums.CrossAxisAlignment.clone()));
+        let cross_axis_alignment = if let Some(nr) = &layout.cross_alignment {
             llr_Expression::PropertyReference(ctx.map_property_reference(nr))
         } else {
-            let e = crate::typeregister::BUILTIN.with(|e| e.enums.LayoutAlignItems.clone());
+            let e = crate::typeregister::BUILTIN.with(|e| e.enums.CrossAxisAlignment.clone());
             llr_Expression::EnumerationValue(EnumerationValue {
                 value: e.default_value,
                 enumeration: e,
@@ -288,7 +288,7 @@ pub(super) fn solve_box_layout(
             [
                 ("size", Type::Float32, size),
                 ("padding", padding.ty(ctx), padding),
-                ("align_items", align_items_ty, align_items),
+                ("cross_axis_alignment", cross_axis_alignment_ty, cross_axis_alignment),
                 ("cells", bld.cells.ty(ctx), bld.cells),
             ],
         );
@@ -377,10 +377,10 @@ pub(super) fn solve_flexbox_layout(
                 fld.align_content,
             ),
             (
-                "align_items",
+                "cross_axis_alignment",
                 crate::typeregister::BUILTIN
-                    .with(|e| Type::Enumeration(e.enums.LayoutAlignItems.clone())),
-                fld.align_items,
+                    .with(|e| Type::Enumeration(e.enums.CrossAxisAlignment.clone())),
+                fld.cross_axis_alignment,
             ),
             (
                 "flex_wrap",
@@ -614,7 +614,7 @@ struct FlexboxLayoutDataResult {
     alignment: llr_Expression,
     direction: llr_Expression,
     align_content: llr_Expression,
-    align_items: llr_Expression,
+    cross_axis_alignment: llr_Expression,
     flex_wrap: llr_Expression,
     cells_h: llr_Expression,
     cells_v: llr_Expression,
@@ -663,10 +663,10 @@ fn flexbox_layout_data(
         })
     };
 
-    let align_items = if let Some(expr) = &layout.align_items {
+    let cross_axis_alignment = if let Some(expr) = &layout.cross_axis_alignment {
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
     } else {
-        let e = crate::typeregister::BUILTIN.with(|e| e.enums.LayoutAlignItems.clone());
+        let e = crate::typeregister::BUILTIN.with(|e| e.enums.CrossAxisAlignment.clone());
         llr_Expression::EnumerationValue(EnumerationValue {
             value: e.default_value,
             enumeration: e,
@@ -798,7 +798,7 @@ fn flexbox_layout_data(
             alignment,
             direction,
             align_content,
-            align_items,
+            cross_axis_alignment,
             flex_wrap,
             cells_h,
             cells_v,
@@ -858,7 +858,7 @@ fn flexbox_layout_data(
             alignment,
             direction,
             align_content,
-            align_items,
+            cross_axis_alignment,
             flex_wrap,
             cells_h,
             cells_v,

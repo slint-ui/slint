@@ -184,7 +184,7 @@ pub(crate) fn solve_box_layout(
         )
         .into()
     } else {
-        let align_items = box_layout
+        let cross_axis_alignment = box_layout
             .cross_alignment
             .as_ref()
             .map(|nr| {
@@ -198,7 +198,7 @@ pub(crate) fn solve_box_layout(
             &core_layout::BoxLayoutOrthoData {
                 size,
                 padding,
-                align_items,
+                cross_axis_alignment,
                 cells: Slice::from(cells.as_slice()),
             },
             Slice::from(repeated_indices.as_slice()),
@@ -252,10 +252,10 @@ pub(crate) fn solve_flexbox_layout(
         .map_or(i_slint_core::items::FlexboxLayoutAlignContent::default(), |nr| {
             eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
         });
-    let align_items = flexbox_layout
-        .align_items
+    let cross_axis_alignment = flexbox_layout
+        .cross_axis_alignment
         .as_ref()
-        .map_or(i_slint_core::items::LayoutAlignItems::default(), |nr| {
+        .map_or(i_slint_core::items::CrossAxisAlignment::default(), |nr| {
             eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
         });
     let flex_wrap = flexbox_layout
@@ -280,7 +280,7 @@ pub(crate) fn solve_flexbox_layout(
         alignment,
         direction,
         align_content,
-        align_items,
+        cross_axis_alignment,
         flex_wrap,
         cells_h: Slice::from(cells_h.as_slice()),
         cells_v: Slice::from(cells_v.as_slice()),
