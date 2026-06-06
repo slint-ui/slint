@@ -203,8 +203,8 @@ fn format_node(
         SyntaxKind::ImplementsSpecifier => {
             return format_implements_specifier(node, writer, state);
         }
-        SyntaxKind::Predicate => {
-            return format_predicate(node, writer, state);
+        SyntaxKind::Closure => {
+            return format_closure(node, writer, state);
         }
         _ => (),
     }
@@ -2067,7 +2067,7 @@ fn format_import_specifier(
     Ok(())
 }
 
-fn format_predicate(
+fn format_closure(
     node: &SyntaxNode,
     writer: &mut impl TokenWriter,
     state: &mut FormatState,
@@ -3476,7 +3476,7 @@ export component MainWindow2 inherits Rectangle {
     }
 
     #[test]
-    fn predicate() {
+    fn closure() {
         assert_formatting(
             "component X { property <[int]> arr: [1, 2, 3, 4, 5]; function foo() { arr.any(x\n     =>   x         ==  1     ); } }",
             r#"component X {
@@ -3705,7 +3705,7 @@ export component MainWindow2 inherits Rectangle {
     }
 
     #[test]
-    fn nested_predicate() {
+    fn nested_closure() {
         assert_formatting(
             "component X { property <[[int]]> arr: [[1, 2, 3, 4, 5]]; function foo() { arr.any(x     =>   x.all(y   => y   ==  7     )      ); } }",
             r#"component X {

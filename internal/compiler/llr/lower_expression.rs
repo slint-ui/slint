@@ -329,7 +329,7 @@ pub fn lower_expression(
         tree_Expression::EmptyComponentFactory => llr_Expression::EmptyComponentFactory,
         tree_Expression::EmptyDataTransfer => llr_Expression::EmptyDataTransfer,
         tree_Expression::DebugHook { expression, .. } => lower_expression(expression, ctx),
-        tree_Expression::Predicate { arg_name, expression } => llr_Expression::Predicate {
+        tree_Expression::Closure { arg_name, expression } => llr_Expression::Closure {
             arg_name: arg_name.clone(),
             expression: Box::new(lower_expression(expression, ctx)),
         },

@@ -49,19 +49,6 @@ pub struct LookupCtx<'a> {
 
     /// A stack of local variable scopes
     pub local_variables: Vec<Vec<(SmolStr, Type)>>,
-
-    /// A stack of `(source_name, internal_name, type)` for the predicate arguments currently in scope.
-    /// Predicates can nest (a predicate body may itself contain another predicate), so this is a stack.
-    pub predicate_arguments: Vec<(SmolStr, SmolStr, Type)>,
-
-    /// When set, this is the element type the next-resolved `SyntaxKind::Predicate` should
-    /// bind its argument to. Set by `Expression::from_function_call_node` when descending
-    /// into the predicate argument of `.any()`/`.all()`, consumed (taken) by
-    /// `from_predicate_node`.
-    pub predicate_arg_type: Option<Type>,
-
-    /// A flag that indicates if predicates are currently allowed (currently only inside a function argument)
-    pub predicates_allowed: bool,
 }
 
 impl<'a> LookupCtx<'a> {
@@ -77,9 +64,6 @@ impl<'a> LookupCtx<'a> {
             type_loader: None,
             current_token: None,
             local_variables: Default::default(),
-            predicate_arguments: Default::default(),
-            predicate_arg_type: None,
-            predicates_allowed: false,
         }
     }
 
@@ -258,8 +242,8 @@ impl LookupObject for LocalVariableLookup {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        for scope in ctx.local_variables.iter() {
-            for (name, ty) in scope {
+        for scope in ctx.local_variables.iter().rev() {
+            for (name, ty) in scope.iter().rev() {
                 if let Some(r) = f(
                     // we need to strip the "local_" prefix because a lookup call will not include it
                     &name.strip_prefix("local_").unwrap_or(name).into(),
@@ -288,27 +272,6 @@ impl LookupObject for ArgumentsLookup {
             if let Some(r) =
                 f(name, Expression::FunctionParameterReference { index, ty: ty.clone() }.into())
             {
-                return Some(r);
-            }
-        }
-        None
-    }
-}
-
-struct PredicateArgumentsLookup;
-impl LookupObject for PredicateArgumentsLookup {
-    fn for_each_entry<R>(
-        &self,
-        ctx: &LookupCtx,
-        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
-    ) -> Option<R> {
-        // Search innermost predicates first so predicate arguments shadow outer variables.
-        for (source_name, internal_name, ty) in ctx.predicate_arguments.iter().rev() {
-            if let Some(r) = f(
-                source_name,
-                Expression::ReadLocalVariable { name: internal_name.clone(), ty: ty.clone() }
-                    .into(),
-            ) {
                 return Some(r);
             }
         }
@@ -965,23 +928,20 @@ impl LookupObject for BuiltinNamespaceLookup {
 
 pub fn global_lookup() -> impl LookupObject {
     (
-        PredicateArgumentsLookup,
+        LocalVariableLookup,
         (
-            LocalVariableLookup,
+            ArgumentsLookup,
             (
-                ArgumentsLookup,
+                SpecialIdLookup,
                 (
-                    SpecialIdLookup,
+                    IdLookup,
                     (
-                        IdLookup,
+                        InScopeLookup,
                         (
-                            InScopeLookup,
+                            LookupType,
                             (
-                                LookupType,
-                                (
-                                    BuiltinNamespaceLookup,
-                                    (ReturnTypeSpecificLookup, BuiltinFunctionLookup),
-                                ),
+                                BuiltinNamespaceLookup,
+                                (ReturnTypeSpecificLookup, BuiltinFunctionLookup),
                             ),
                         ),
                     ),

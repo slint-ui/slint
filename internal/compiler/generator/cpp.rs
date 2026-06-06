@@ -4543,7 +4543,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 ),
             }
         }
-        Expression::Predicate { arg_name, expression } => {
+        Expression::Closure { arg_name, expression } => {
             let arg = ident(arg_name);
             let expr = compile_expression(expression, ctx);
 

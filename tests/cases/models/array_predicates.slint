@@ -7,7 +7,8 @@ struct Person {
 }
 
 export component TestCase {
-    property <[int]> ints: [1, 2, 3, 4, 5];
+    in-out property <[int]> ints: [1, 2, 3, 4, 5];
+    in-out property <int> threshold: 3;
     property <[int]> empty-ints: [];
     property <[string]> strings: ["hello", "world", "foo", "bar"];
     property <[Person]> people: [
@@ -22,63 +23,76 @@ export component TestCase {
         [{ name: "Evan", age: 22 }, { name: "Fiona", age: 27 }]
     ];
 
-    out property <bool> test: {
-        // test that predicate args shadow outer variables regardless of type
+    out property <bool> has-zero: ints.any(x => x == 0);
+    out property <bool> all-positive: ints.all(x => x > 0);
+    out property <bool> any-above-threshold: ints.any(x => x > threshold);
+    out property <bool> all-above-threshold: ints.all(x => x > threshold);
+
+    out property <bool> ints-all-positive: ints.all(x => x > 0);
+    out property <bool> ints-not-all-gt-one: !ints.all(x => x > 1);
+    out property <bool> ints-no-zero: !ints.any(x => x == 0);
+    out property <bool> ints-any-five: ints.any(x => x == 5);
+    out property <bool> ints-any-under-five: ints.any(x => x < 5);
+
+    out property <bool> strings-all-nonempty: strings.all(s => s.character-count > 0);
+    out property <bool> strings-not-all-empty: !strings.all(s => s.is-empty);
+    out property <bool> strings-any-hello: strings.any(s => s == "hello");
+    out property <bool> strings-no-test: !strings.any(s => s == "test");
+    out property <bool> strings-no-empty: !strings.any(s => s.is-empty);
+
+    out property <bool> people-all-adults: people.all(p => p.age > 20);
+    out property <bool> people-not-all-under-thirty: !people.all(p => p.age < 30);
+    out property <bool> people-any-alice: people.any(p => p.name == "Alice");
+    out property <bool> people-no-evan: !people.any(p => p.name == "Evan");
+    out property <bool> people-any-under-thirty: people.any(p => p.age < 30);
+
+    out property <bool> groups-all-over-twenty: groups.all(group => group.all(person => person.age > 20));
+    out property <bool> groups-not-all-under-thirty: !groups.all(group => group.all(person => person.age < 30));
+    out property <bool> groups-all-have-adult: groups.all(group => group.any(person => person.age >= 25));
+    out property <bool> groups-no-all-alice: !groups.any(group => group.all(person => person.name == "Alice"));
+    out property <bool> groups-any-all-long-name: groups.any(group => group.all(person => person.name.character-count > 4));
+    out property <bool> groups-any-seven-letter-name: groups.any(group => group.any(person => person.name.character-count == 7));
+
+    out property <bool> nested-finds-alice: groups.any(group => group.length == 2 && group.any(person => person.name == "Alice"));
+    out property <bool> nested-all-have-age-twenty-five: groups.all(group => group.any(person => person.age >= 25));
+    out property <bool> nested-no-all-alice: !groups.any(group => group.all(person => person.name == "Alice"));
+
+    out property <bool> precedence-and: ints.any(x => x > 0 && x < 2);
+    out property <bool> precedence-or: !ints.any(x => x > 10 || x < 0);
+    out property <bool> precedence-all: ints.all(x => x > 0 && x < 10);
+
+    out property <bool> empty-any-false: !empty-ints.any(x => x == 0);
+    out property <bool> empty-all-true: empty-ints.all(x => x == 0);
+
+    out property <bool> closure-arg-shadows-local: {
         let x = "hello world";
-        let s = 42;
-        let p = 42px;
-        let slint_predicate_arg_0 = 99;
-
-        let ints = self.ints.all(x
-
-        => x > 0
-        ) && !self.ints.all(x => x > 1
-        ) && !self.ints.any(x => x == 0
-        ) && self.ints.any(x => x == 5
-        ) && self.ints.any(x => x < 5
-        );
-
-        let strings = self.strings.all(s => s.character-count > 0
-        ) && !self.strings.all(s => s.is-empty
-        ) && self.strings.any(s => s == "hello"
-        ) && !self.strings.any(s => s == "test"
-        ) && !self.strings.any(s => s.is-empty
-        );
-
-        let people = self.people.all(p => p.age > 20
-        ) && !self.people.all(p => p.age < 30
-        ) && self.people.any(p => p.name == "Alice"
-        ) && !self.people.any(p => p.name == "Evan"
-        ) && self.people.any(p => p.age < 30
-        );
-
-        let groups = self.groups.all(p => p.all(p
-        => p.age > 20)) && !self.groups.all(p => p.all(p
-        => p.age < 30)) && self.groups.all(p => p.any(p
-        => p.age >= 25)) && !self.groups.any(p => p.all(p
-        => p.name == "Alice")) && self.groups.any(p => p.all(p
-        => p.name.character-count > 4)) && self.groups.any(p => p.any(p
-        => p.name.character-count == 7));
-
-        let nested_named = self.groups.any(group => group.length == 2 && group.any(person
-        => person.name == "Alice")) && self.groups.all(group => group.any(person
-        => person.age >= 25)) && !self.groups.any(group => group.all(person
-        => person.name == "Alice"));
-
-        let precedence = self.ints.any(x => x > 0 && x < 2
-        ) && !self.ints.any(x => x > 10 || x < 0
-        ) && self.ints.all(x => x > 0 && x < 10);
-
-        let empty = !self.empty-ints.any(x => x == 0) && self.empty-ints.all(x => x == 0);
-
-        let internal_name_shadowing = self.ints.any(x => x == 1 && slint_predicate_arg_0 == 99);
-
-        let shadowing = x == "hello world" && s == 42 && p == 42px;
-
-        ints && strings && people && groups && nested_named && precedence && empty && internal_name_shadowing && shadowing
+        self.ints.any(x => x == 1) && x == "hello world"
     }
 
-    // with the groups here we are also testing arg shadowing when nested predicate args have the same and different names
+    // Same-name, same-type shadowing: the outer `x: int` must be hidden by the closure's
+    // `x: int` for the duration of the predicate body, and re-exposed after.
+    out property <bool> closure-arg-shadows-same-type-local: {
+        let x = 5;
+        self.ints.any(x => x == 2) && x == 5
+    }
+
+    out property <bool> nested-closure-arg-shadows: {
+        let person = "outer";
+        self.groups.any(person => person.any(person => person.name == "Alice")) && person == "outer"
+    }
+
+    out property <bool> test:
+        ints-all-positive && ints-not-all-gt-one && ints-no-zero && ints-any-five
+        && ints-any-under-five && strings-all-nonempty && strings-not-all-empty
+        && strings-any-hello && strings-no-test && strings-no-empty && people-all-adults
+        && people-not-all-under-thirty && people-any-alice && people-no-evan
+        && people-any-under-thirty && groups-all-over-twenty && groups-not-all-under-thirty
+        && groups-all-have-adult && groups-no-all-alice && groups-any-all-long-name
+        && groups-any-seven-letter-name && nested-finds-alice && nested-all-have-age-twenty-five
+        && nested-no-all-alice && precedence-and && precedence-or && precedence-all
+        && empty-any-false && empty-all-true && closure-arg-shadows-local
+        && closure-arg-shadows-same-type-local
+        && nested-closure-arg-shadows;
 }
 
 /*
@@ -86,19 +100,144 @@ export component TestCase {
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 
-assert(instance.get_test());
+assert(instance.get_ints_all_positive());
+assert(instance.get_ints_not_all_gt_one());
+assert(instance.get_ints_no_zero());
+assert(instance.get_ints_any_five());
+assert(instance.get_ints_any_under_five());
+assert(instance.get_strings_all_nonempty());
+assert(instance.get_strings_not_all_empty());
+assert(instance.get_strings_any_hello());
+assert(instance.get_strings_no_test());
+assert(instance.get_strings_no_empty());
+assert(instance.get_people_all_adults());
+assert(instance.get_people_not_all_under_thirty());
+assert(instance.get_people_any_alice());
+assert(instance.get_people_no_evan());
+assert(instance.get_people_any_under_thirty());
+assert(instance.get_groups_all_over_twenty());
+assert(instance.get_groups_not_all_under_thirty());
+assert(instance.get_groups_all_have_adult());
+assert(instance.get_groups_no_all_alice());
+assert(instance.get_groups_any_all_long_name());
+assert(instance.get_groups_any_seven_letter_name());
+assert(instance.get_nested_finds_alice());
+assert(instance.get_nested_all_have_age_twenty_five());
+assert(instance.get_nested_no_all_alice());
+assert(instance.get_precedence_and());
+assert(instance.get_precedence_or());
+assert(instance.get_precedence_all());
+assert(instance.get_empty_any_false());
+assert(instance.get_empty_all_true());
+assert(instance.get_closure_arg_shadows_local());
+assert(instance.get_closure_arg_shadows_same_type_local());
+assert(instance.get_nested_closure_arg_shadows());
 ```
 
-
 ```rust
+use slint::Model;
+
 let instance = TestCase::new().unwrap();
 
-assert!(instance.get_test());
+assert!(instance.get_ints_all_positive());
+assert!(instance.get_ints_not_all_gt_one());
+assert!(instance.get_ints_no_zero());
+assert!(instance.get_ints_any_five());
+assert!(instance.get_ints_any_under_five());
+assert!(instance.get_strings_all_nonempty());
+assert!(instance.get_strings_not_all_empty());
+assert!(instance.get_strings_any_hello());
+assert!(instance.get_strings_no_test());
+assert!(instance.get_strings_no_empty());
+assert!(instance.get_people_all_adults());
+assert!(instance.get_people_not_all_under_thirty());
+assert!(instance.get_people_any_alice());
+assert!(instance.get_people_no_evan());
+assert!(instance.get_people_any_under_thirty());
+assert!(instance.get_groups_all_over_twenty());
+assert!(instance.get_groups_not_all_under_thirty());
+assert!(instance.get_groups_all_have_adult());
+assert!(instance.get_groups_no_all_alice());
+assert!(instance.get_groups_any_all_long_name());
+assert!(instance.get_groups_any_seven_letter_name());
+assert!(instance.get_nested_finds_alice());
+assert!(instance.get_nested_all_have_age_twenty_five());
+assert!(instance.get_nested_no_all_alice());
+assert!(instance.get_precedence_and());
+assert!(instance.get_precedence_or());
+assert!(instance.get_precedence_all());
+assert!(instance.get_empty_any_false());
+assert!(instance.get_empty_all_true());
+assert!(instance.get_closure_arg_shadows_local());
+assert!(instance.get_closure_arg_shadows_same_type_local());
+assert!(instance.get_nested_closure_arg_shadows());
+
+let model: std::rc::Rc<slint::VecModel<i32>> = std::rc::Rc::new(vec![1, 2, 3].into());
+instance.set_ints(slint::ModelRc::from(model.clone()));
+assert!(!instance.get_has_zero());
+assert!(instance.get_all_positive());
+assert!(!instance.get_any_above_threshold());
+assert!(!instance.get_all_above_threshold());
+
+instance.set_threshold(1);
+assert!(instance.get_any_above_threshold());
+assert!(!instance.get_all_above_threshold());
+
+model.set_row_data(0, 3);
+assert!(instance.get_all_above_threshold());
+
+model.set_row_data(1, 0);
+assert!(instance.get_has_zero());
+assert!(!instance.get_all_positive());
+assert!(instance.get_any_above_threshold());
+assert!(!instance.get_all_above_threshold());
+
+model.set_row_data(1, 4);
+assert!(!instance.get_has_zero());
+assert!(instance.get_all_positive());
+assert!(instance.get_any_above_threshold());
+assert!(instance.get_all_above_threshold());
+
+model.push(0);
+assert!(instance.get_has_zero());
+assert!(!instance.get_all_positive());
+assert!(!instance.get_all_above_threshold());
 ```
 
 ```js
 var instance = new slint.TestCase();
 
-assert(instance.test);
+assert(instance.ints_all_positive);
+assert(instance.ints_not_all_gt_one);
+assert(instance.ints_no_zero);
+assert(instance.ints_any_five);
+assert(instance.ints_any_under_five);
+assert(instance.strings_all_nonempty);
+assert(instance.strings_not_all_empty);
+assert(instance.strings_any_hello);
+assert(instance.strings_no_test);
+assert(instance.strings_no_empty);
+assert(instance.people_all_adults);
+assert(instance.people_not_all_under_thirty);
+assert(instance.people_any_alice);
+assert(instance.people_no_evan);
+assert(instance.people_any_under_thirty);
+assert(instance.groups_all_over_twenty);
+assert(instance.groups_not_all_under_thirty);
+assert(instance.groups_all_have_adult);
+assert(instance.groups_no_all_alice);
+assert(instance.groups_any_all_long_name);
+assert(instance.groups_any_seven_letter_name);
+assert(instance.nested_finds_alice);
+assert(instance.nested_all_have_age_twenty_five);
+assert(instance.nested_no_all_alice);
+assert(instance.precedence_and);
+assert(instance.precedence_or);
+assert(instance.precedence_all);
+assert(instance.empty_any_false);
+assert(instance.empty_all_true);
+assert(instance.closure_arg_shadows_local);
+assert(instance.closure_arg_shadows_same_type_local);
+assert(instance.nested_closure_arg_shadows);
 ```
 */

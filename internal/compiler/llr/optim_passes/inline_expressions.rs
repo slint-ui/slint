@@ -79,7 +79,7 @@ fn expression_cost(exp: &Expression, ctx: &EvaluationContext) -> isize {
         Expression::TranslationReference { .. } => PROPERTY_ACCESS_COST + 2 * ALLOC_COST,
         // The body cost is added by the visit() walk below; returning the body
         // cost here would double-count it.
-        Expression::Predicate { .. } => 0,
+        Expression::Closure { .. } => 0,
     };
 
     exp.visit(|e| cost = cost.saturating_add(expression_cost(e, ctx)));
@@ -175,7 +175,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ColorToStyledText => ALLOC_COST,
         BuiltinFunction::OpenUrl => isize::MAX,
         BuiltinFunction::MacosBringAllWindowsToFront => isize::MAX,
-        // Iterating the model and running the predicate is unbounded; never inline.
+        // Iterating the model and running the closure is unbounded; never inline.
         BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll => isize::MAX,
     }
 }

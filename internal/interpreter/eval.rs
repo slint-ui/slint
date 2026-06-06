@@ -712,8 +712,8 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::EmptyComponentFactory => Value::ComponentFactory(Default::default()),
         Expression::EmptyDataTransfer => Value::DataTransfer(Default::default()),
         Expression::DebugHook { expression, .. } => eval_expression(expression, local_context),
-        Expression::Predicate { .. } => unreachable!(
-            "predicates are only valid as direct arguments to ArrayAny/ArrayAll, which dispatch them without going through eval_expression"
+        Expression::Closure { .. } => unreachable!(
+            "closures are dispatched by their consuming builtin and should not go through eval_expression"
         ),
     }
 }
@@ -1835,10 +1835,12 @@ fn call_builtin_function(
             let is_all = matches!(f, BuiltinFunction::ArrayAll);
             let model: ModelRc<Value> =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
-            let Expression::Predicate { arg_name, expression } = &arguments[1] else {
-                panic!("internal error: Array.any/all expects a predicate as second argument")
+            let Expression::Closure { arg_name, expression } = &arguments[1] else {
+                panic!("internal error: Array.any/all expects a closure as second argument")
             };
-            for x in model.iter() {
+            model.model_tracker().track_row_count_changes();
+            for row in 0..model.row_count() {
+                let x = model.row_data_tracked(row).unwrap_or_default();
                 let previous = local_context.local_variables.insert(arg_name.clone(), x);
                 let result: bool = eval_expression(expression, local_context).try_into().unwrap();
                 match previous {
@@ -2155,7 +2157,7 @@ fn check_value_type(value: &mut Value, ty: &Type) -> bool {
         | Type::Callback { .. }
         | Type::Function { .. }
         | Type::ElementReference
-        | Type::Predicate => panic!("not valid property type"),
+        | Type::Closure => panic!("not valid property type"),
         Type::Float32 => matches!(value, Value::Number(_)),
         Type::Int32 => matches!(value, Value::Number(_)),
         Type::String => matches!(value, Value::String(_)),
@@ -2526,7 +2528,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         | Type::InferredCallback
         | Type::ElementReference
         | Type::Function { .. }
-        | Type::Predicate => {
+        | Type::Closure => {
             panic!("There can't be such property")
         }
         Type::StyledText => Value::StyledText(Default::default()),

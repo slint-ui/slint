@@ -398,7 +398,7 @@ fn to_debug_string(
         | Type::ArrayOfU16
         | Type::Model
         | Type::PathData
-        | Type::Predicate => {
+        | Type::Closure => {
             diag.push_error("Cannot debug this expression".into(), node);
             Expression::Invalid
         }
