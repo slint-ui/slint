@@ -405,7 +405,7 @@ declare_syntax! {
         Expression-> [ ?Expression, ?FunctionCallExpression, ?IndexExpression, ?SelfAssignment,
                        ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral,
                        ?UnaryOpExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl, ?AtGradient, ?AtTr,
-                       ?MemberAccess, ?AtKeys, ?Predicate ],
+                       ?MemberAccess, ?AtKeys, ?Closure ],
         /// Concatenate the children Expressions and StringLiteral to make a string
         StringTemplate -> [*Expression],
         /// `@image-url("foo.png")`
@@ -486,7 +486,7 @@ declare_syntax! {
         /// `@rust-attr(...)`
         AtRustAttr -> [],
         /// `x => x > 0`
-        Predicate -> [DeclaredIdentifier, Expression],
+        Closure -> [DeclaredIdentifier, Expression],
     }
 }
 

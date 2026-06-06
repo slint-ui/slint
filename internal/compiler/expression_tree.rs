@@ -284,8 +284,8 @@ declare_builtin_function_types!(
     ArrayPush: (Type::Model, Type::InferredProperty) -> Type::Void,
     ArrayRemove: (Type::Model, Type::Int32) -> Type::Void,
     ArrayInsert: (Type::Model, Type::Int32, Type::InferredProperty) -> Type::Void,
-    ArrayAny: (Type::Model, Type::Predicate) -> Type::Bool,
-    ArrayAll: (Type::Model, Type::Predicate) -> Type::Bool,
+    ArrayAny: (Type::Model, Type::Closure) -> Type::Bool,
+    ArrayAll: (Type::Model, Type::Closure) -> Type::Bool,
     Rgb: (Type::Int32, Type::Int32, Type::Int32, Type::Float32) -> Type::Color,
     Hsv: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
     Oklch: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
@@ -995,7 +995,7 @@ pub enum Expression {
 
     EmptyComponentFactory,
 
-    Predicate {
+    Closure {
         arg_name: SmolStr,
         expression: Box<Expression>,
     },
@@ -1126,7 +1126,7 @@ impl Expression {
             Expression::MinMax { ty, .. } => ty.clone(),
             Expression::EmptyComponentFactory => Type::ComponentFactory,
             Expression::DebugHook { expression, .. } => expression.ty(),
-            Expression::Predicate { .. } => Type::Predicate,
+            Expression::Closure { .. } => Type::Closure,
         }
     }
 
@@ -1269,7 +1269,7 @@ impl Expression {
             }
             Expression::EmptyComponentFactory => {}
             Expression::DebugHook { expression, .. } => visitor(expression),
-            Expression::Predicate { expression, .. } => visitor(expression),
+            Expression::Closure { expression, .. } => visitor(expression),
         }
     }
 
@@ -1414,7 +1414,7 @@ impl Expression {
             }
             Expression::EmptyComponentFactory => {}
             Expression::DebugHook { expression, .. } => visitor(expression),
-            Expression::Predicate { expression, .. } => visitor(expression),
+            Expression::Closure { expression, .. } => visitor(expression),
         }
     }
 
@@ -1538,7 +1538,7 @@ impl Expression {
             Expression::MinMax { lhs, rhs, .. } => lhs.is_constant(ga) && rhs.is_constant(ga),
             Expression::EmptyComponentFactory => true,
             Expression::DebugHook { .. } => false,
-            Expression::Predicate { expression, .. } => expression.is_constant(ga),
+            Expression::Closure { expression, .. } => expression.is_constant(ga),
         }
     }
 
@@ -1805,7 +1805,7 @@ impl Expression {
                 arguments: vec![Self::default_value_for_type(&Type::String)],
                 source_location: None,
             },
-            Type::Predicate => Expression::Invalid,
+            Type::Closure => Expression::Invalid,
         }
     }
 
@@ -2478,8 +2478,9 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             }
             write!(f, "\"{id}\")")
         }
-        Expression::Predicate { arg_name, expression } => {
-            write!(f, "{arg_name} => ")?;
+        Expression::Closure { arg_name, expression } => {
+            let display_name = arg_name.strip_prefix("local_").unwrap_or(arg_name);
+            write!(f, "{display_name} => ")?;
             pretty_print(f, expression)
         }
     }

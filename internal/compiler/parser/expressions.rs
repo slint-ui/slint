@@ -60,7 +60,7 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
     match p.nth(0).kind() {
         SyntaxKind::Identifier => {
             if p.nth(1).kind() == SyntaxKind::FatArrow {
-                parse_predicate(&mut *p);
+                parse_closure(&mut *p);
             } else {
                 parse_qualified_name(&mut *p);
             }
@@ -241,8 +241,8 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
 /// y => y == 42
 /// z => true
 /// ```
-fn parse_predicate(p: &mut impl Parser) {
-    let mut p = p.start_node(SyntaxKind::Predicate);
+fn parse_closure(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::Closure);
 
     {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);

@@ -1315,7 +1315,7 @@ pub(crate) fn generate_item_tree<'id>(
             | Type::PathData
             | Type::UnitProduct(_)
             | Type::ElementReference
-            | Type::Predicate => panic!("bad type {ty:?} for property {name}"),
+            | Type::Closure => panic!("bad type {ty:?} for property {name}"),
         })
     }
 

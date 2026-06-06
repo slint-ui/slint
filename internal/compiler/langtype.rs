@@ -73,7 +73,7 @@ pub enum Type {
 
     StyledText,
     MouseCursor,
-    Predicate,
+    Closure,
 }
 
 impl core::cmp::PartialEq for Type {
@@ -119,7 +119,7 @@ impl core::cmp::PartialEq for Type {
             Type::ArrayOfU16 => matches!(other, Type::ArrayOfU16),
             Type::StyledText => matches!(other, Type::StyledText),
             Type::DataTransfer => matches!(other, Type::DataTransfer),
-            Type::Predicate => matches!(other, Type::Predicate),
+            Type::Closure => matches!(other, Type::Closure),
         }
     }
 }
@@ -180,7 +180,7 @@ impl Display for Type {
             Type::LayoutCache => write!(f, "layout cache"),
             Type::ArrayOfU16 => write!(f, "[u16]"),
             Type::StyledText => write!(f, "styled-text"),
-            Type::Predicate => write!(f, "predicate"),
+            Type::Closure => write!(f, "closure"),
         }
     }
 }
@@ -332,7 +332,7 @@ impl Type {
             Type::LayoutCache => None,
             Type::ArrayOfU16 => None,
             Type::StyledText => None,
-            Type::Predicate => None,
+            Type::Closure => None,
         }
     }
 

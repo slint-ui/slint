@@ -7,43 +7,56 @@ export component Test inherits Window {
     function takes-bool(value: bool) -> bool { return value; }
 
     if x => x > 0 : Rectangle {}
-//     >         <error{Predicates (`x => ...`) can only appear as arguments to `.any()` or `.all()`}
+//     >         <error{Cannot convert closure to bool}
 
     init => {
         ints.any(1);
-//               ^error{Cannot convert float to predicate}
+//               ^error{Cannot convert float to closure}
         ints.all(1);
-//               ^error{Cannot convert float to predicate}
+//               ^error{Cannot convert float to closure}
 
         ints.any(x => 1);
-//                    ^error{Predicate expression must be of type bool, but is float}
+//                    ^error{Closure body must be of type bool, but is float}
         ints.all(x => 1);
-//                    ^error{Predicate expression must be of type bool, but is float}
+//                    ^error{Closure body must be of type bool, but is float}
 
         ints.any(x => x);
-//                    ^error{Predicate expression must be of type bool, but is int}
+//                    ^error{Closure body must be of type bool, but is int}
         ints.all(x => x);
-//                    ^error{Predicate expression must be of type bool, but is int}
+//                    ^error{Closure body must be of type bool, but is int}
         debug(x);
 //            ^error{Unknown unqualified identifier 'x'. Did you mean 'self.x'?}
 
         takes-int(x => true);
-//                >       <error{Predicates (`x => ...`) can only appear as arguments to `.any()` or `.all()`}
+//                >       <error{Cannot convert closure to int}
 
         debug(x => x > 0);
-//            >        <error{Predicates (`x => ...`) can only appear as arguments to `.any()` or `.all()`}
+//            >        <error{Cannot debug this expression}
 
         y => y > 0;
-//      >        <error{Predicates (`x => ...`) can only appear as arguments to `.any()` or `.all()`}
+//      >        <warning{Expression has no effect!}
 
-        // A predicate must not be accepted as an argument to a non-array function call
-        // that is itself nested inside a legitimate predicate body.
+        // A closure must not be accepted as an argument to a non-array function call
+        // that is itself nested inside a legitimate closure body.
         ints.any(x => takes-bool(y => y > 0));
-//                               >        <error{Predicates (`x => ...`) can only appear as arguments to `.any()` or `.all()`}
+//                               >        <error{Cannot convert closure to bool}
+
+        // Closures are first-class expressions of type `closure`; using one in a position
+        // that doesn't constrain the argument's type produces an unusable value but no
+        // error. The body is *not* type-checked for `bool` here — only call sites that
+        // structurally know what the argument should be (currently `.any`/`.all`) enforce
+        // that. Reading `useless` later would emit "Cannot convert closure to …".
+        let useless = x => x + 1;
+        // Closure as a regular sub-expression: same story, body is unconstrained.
+        let still-useless = (y => y);
     }
+
+    // Closure as the right-hand side of a non-array property still produces a single
+    // conversion error at the property's binding, not a cascade inside the closure body.
+    property <int> rejected: x => x + 1;
+//                           >         <error{Cannot convert closure to int}
 
     TouchArea {
         clicked => x => x > 0;
-//                 >        <error{Predicates (`x => ...`) can only appear as arguments to `.any()` or `.all()`}
     }
 }
