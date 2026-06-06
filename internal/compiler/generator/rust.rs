@@ -3140,7 +3140,8 @@ fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> To
             | Expression::LinearGradient { .. }
             | Expression::RadialGradient { .. }
             | Expression::ConicGradient { .. }
-            | Expression::EnumerationValue(..) => true,
+            | Expression::EnumerationValue(..)
+            | Expression::Predicate { .. } => true,
             Expression::Condition { true_expr, false_expr, .. } => {
                 produces_owned_value(true_expr) && produces_owned_value(false_expr)
             }
@@ -3151,7 +3152,6 @@ fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> To
     }
 
     let compiled_expr = compile_expression(expr, ctx);
-
     if produces_owned_value(expr) { compiled_expr } else { quote!((#compiled_expr).clone()) }
 }
 
@@ -3820,6 +3820,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 None => {
                     quote!(sp::translate_from_bundle(&self::_SLINT_TRANSLATED_STRINGS[#string_index], sp::Slice::<sp::SharedString>::from(#args).as_slice()))
                 }
+            }
+        }
+        Expression::Predicate { arg_name, expression } => {
+            let arg_name = ident(arg_name);
+            let expression = compile_expression(expression, ctx);
+            quote! {
+                |#arg_name| {#expression}
             }
         }
     }
@@ -4656,6 +4663,18 @@ fn compile_builtin_function_call(
         BuiltinFunction::ColorToStyledText => {
             let color = a.next().unwrap();
             quote!(sp::color_to_styled_text(#color))
+        }
+        BuiltinFunction::ArrayAny => {
+            let arr_expression = a.next().unwrap();
+            let predicate_expression = a.next().unwrap();
+            // `.iter()` resolves to `sp::ModelExt::iter`, imported at the top of the generated module.
+            quote!({ let arr = #arr_expression; arr.iter().any(#predicate_expression) })
+        }
+        BuiltinFunction::ArrayAll => {
+            let arr_expression = a.next().unwrap();
+            let predicate_expression = a.next().unwrap();
+            // `.iter()` resolves to `sp::ModelExt::iter`, imported at the top of the generated module.
+            quote!({ let arr = #arr_expression; arr.iter().all(#predicate_expression) })
         }
     }
 }

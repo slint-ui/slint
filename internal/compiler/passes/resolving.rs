@@ -19,8 +19,8 @@ use crate::parser::{NodeOrToken, SyntaxKind, SyntaxNode, identifier_text, syntax
 use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
-use smol_str::{SmolStr, ToSmolStr};
-use std::collections::BTreeMap;
+use smol_str::{SmolStr, ToSmolStr, format_smolstr};
+use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -54,6 +54,9 @@ fn resolve_expression(
             type_loader: Some(type_loader),
             current_token: None,
             local_variables: Vec::new(),
+            predicate_arguments: vec![],
+            predicate_arg_type: None,
+            predicates_allowed: false,
         };
         lookup_ctx.expected_type = lookup_ctx.return_type().clone();
 
@@ -536,6 +539,7 @@ impl Expression {
                         ctx.diag.slint_sc_error("String interpolation expressions are", &node);
                         Some(Self::from_string_template_node(node.into(), ctx))
                     }
+                    SyntaxKind::Predicate => Some(Self::from_predicate_node(node.into(), ctx)),
                     _ => None,
                 },
                 NodeOrToken::Token(token) => match token.kind() {
@@ -1533,6 +1537,20 @@ impl Expression {
         node: syntax_nodes::FunctionCallExpression,
         ctx: &mut LookupCtx,
     ) -> Expression {
+        // Save state so nested calls (or function calls inside a predicate body) can't leak
+        // their settings out into the enclosing scope. Restore on every exit path.
+        let prev_predicates_allowed = std::mem::replace(&mut ctx.predicates_allowed, false);
+        let prev_predicate_arg_type = ctx.predicate_arg_type.take();
+        let result = Self::resolve_function_call_node(node, ctx);
+        ctx.predicates_allowed = prev_predicates_allowed;
+        ctx.predicate_arg_type = prev_predicate_arg_type;
+        result
+    }
+
+    fn resolve_function_call_node(
+        node: syntax_nodes::FunctionCallExpression,
+        ctx: &mut LookupCtx,
+    ) -> Expression {
         let mut arguments = Vec::new();
 
         let mut sub_expr = node.Expression();
@@ -1584,6 +1602,20 @@ impl Expression {
             return Self::Invalid;
         };
 
+        // For array .any() / .all(), arrange to accept the predicate's element type
+        // when the sub-expressions (the predicate body) are resolved by `convert_args`.
+        if let LookupResultCallable::MemberFunction { base, member, .. } = &function {
+            if let LookupResultCallable::Callable(Callable::Builtin(
+                BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll,
+            )) = **member
+            {
+                // You won't have access to these member functions if the base is not an array.
+                let Type::Array(elem_ty) = base.ty() else { unreachable!() };
+                ctx.predicates_allowed = true;
+                ctx.predicate_arg_type = Some((*elem_ty).clone());
+            }
+        }
+
         let mut adjust_arg_count = 0;
         let function = match function {
             LookupResultCallable::Callable(c) => c,
@@ -1597,8 +1629,8 @@ impl Expression {
                     &ctx.symbol_counters,
                 );
             }
-            LookupResultCallable::MemberFunction { member, base, base_node } => {
-                arguments.push((base, base_node));
+            LookupResultCallable::MemberFunction { member, base, source_node } => {
+                arguments.push((base.clone(), source_node));
                 adjust_arg_count = 1;
                 match *member {
                     LookupResultCallable::Callable(c) => c,
@@ -2013,6 +2045,68 @@ impl Expression {
         Expression::Array { element_ty, values }
     }
 
+    fn from_predicate_node(node: syntax_nodes::Predicate, ctx: &mut LookupCtx) -> Expression {
+        if !ctx.predicates_allowed {
+            ctx.diag.push_error(
+                "Predicates (`x => ...`) can only appear as arguments to `.any()` or `.all()`"
+                    .to_string(),
+                &node,
+            );
+            return Expression::Invalid;
+        }
+
+        // `.take()` so a nested function call inside the predicate body sees `None`
+        // and doesn't accidentally inherit the outer predicate's element type.
+        // Once we've descended past this predicate node, no further predicates should be
+        // resolved against this type.
+        let Some(ty) = ctx.predicate_arg_type.take() else {
+            // The caller (from_function_call_node) sets this for ArrayAny/ArrayAll. Reaching
+            // here without it means the resolver enabled predicates outside that path.
+            ctx.diag.push_error(
+                "Predicates (`x => ...`) can only appear as arguments to `.any()` or `.all()`"
+                    .to_string(),
+                &node,
+            );
+            return Expression::Invalid;
+        };
+
+        let arg_name = node.DeclaredIdentifier().to_smolstr();
+        let internal_arg_name = Self::unique_internal_predicate_name(ctx);
+
+        ctx.predicate_arguments.push((arg_name, internal_arg_name.clone(), ty));
+        let expression = Expression::from_expression_node(node.Expression(), ctx);
+        ctx.predicate_arguments.pop();
+
+        let body_ty = expression.ty();
+        if body_ty != Type::Bool && body_ty != Type::Invalid {
+            ctx.diag.push_error(
+                format!("Predicate expression must be of type bool, but is {body_ty}"),
+                &node.Expression(),
+            );
+            return Expression::Invalid;
+        }
+
+        Expression::Predicate { arg_name: internal_arg_name, expression: Box::new(expression) }
+    }
+
+    fn unique_internal_predicate_name(ctx: &LookupCtx) -> SmolStr {
+        let conflicts = |candidate: &SmolStr| {
+            ctx.local_variables.iter().flatten().any(|(name, _)| name == candidate)
+                || ctx.predicate_arguments.iter().any(|(source_name, internal_name, _)| {
+                    source_name == candidate || internal_name == candidate
+                })
+        };
+
+        let mut index = ctx.predicate_arguments.len();
+        loop {
+            let candidate = format_smolstr!("slint_predicate_arg_{index}");
+            if !conflicts(&candidate) {
+                return candidate;
+            }
+            index += 1;
+        }
+    }
+
     fn from_string_template_node(
         node: syntax_nodes::StringTemplate,
         ctx: &mut LookupCtx,
@@ -2373,7 +2467,7 @@ fn continue_lookup_within_element(
         if matches!(fun.args.first(), Some(Type::ElementReference)) {
             LookupResult::Callable(LookupResultCallable::MemberFunction {
                 base: Expression::ElementReference(Rc::downgrade(elem)),
-                base_node: Some(NodeOrToken::Node(node.into())),
+                source_node: Some(NodeOrToken::Node(node.into())),
                 member: Box::new(LookupResultCallable::Callable(callable)),
             })
             .into()
@@ -2539,6 +2633,9 @@ fn resolve_two_way_bindings_for_element(
                 type_loader: None,
                 current_token: Some(node.clone().into()),
                 local_variables: Vec::new(),
+                predicate_arguments: vec![],
+                predicate_arg_type: None,
+                predicates_allowed: false,
             };
 
             // Only the alias-only case stores the two-way binding in the expression slot;

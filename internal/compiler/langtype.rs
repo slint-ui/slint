@@ -72,6 +72,7 @@ pub enum Type {
     ArrayOfU16,
 
     StyledText,
+    Predicate,
 }
 
 impl core::cmp::PartialEq for Type {
@@ -116,6 +117,7 @@ impl core::cmp::PartialEq for Type {
             Type::ArrayOfU16 => matches!(other, Type::ArrayOfU16),
             Type::StyledText => matches!(other, Type::StyledText),
             Type::DataTransfer => matches!(other, Type::DataTransfer),
+            Type::Predicate => matches!(other, Type::Predicate),
         }
     }
 }
@@ -194,6 +196,7 @@ impl Display for Type {
             Type::LayoutCache => write!(f, "layout cache"),
             Type::ArrayOfU16 => write!(f, "[u16]"),
             Type::StyledText => write!(f, "styled-text"),
+            Type::Predicate => write!(f, "predicate"),
         }
     }
 }
@@ -337,6 +340,7 @@ impl Type {
             Type::LayoutCache => None,
             Type::ArrayOfU16 => None,
             Type::StyledText => None,
+            Type::Predicate => None,
         }
     }
 

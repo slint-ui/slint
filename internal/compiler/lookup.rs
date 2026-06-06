@@ -59,6 +59,19 @@ pub struct LookupCtx<'a> {
 
     /// A stack of local variable scopes
     pub local_variables: Vec<Vec<(SmolStr, Type)>>,
+
+    /// A stack of `(source_name, internal_name, type)` for the predicate arguments currently in scope.
+    /// Predicates can nest (a predicate body may itself contain another predicate), so this is a stack.
+    pub predicate_arguments: Vec<(SmolStr, SmolStr, Type)>,
+
+    /// When set, this is the element type the next-resolved `SyntaxKind::Predicate` should
+    /// bind its argument to. Set by `Expression::from_function_call_node` when descending
+    /// into the predicate argument of `.any()`/`.all()`, consumed (taken) by
+    /// `from_predicate_node`.
+    pub predicate_arg_type: Option<Type>,
+
+    /// A flag that indicates if predicates are currently allowed (currently only inside a function argument)
+    pub predicates_allowed: bool,
 }
 
 impl<'a> LookupCtx<'a> {
@@ -80,6 +93,9 @@ impl<'a> LookupCtx<'a> {
             type_loader: None,
             current_token: None,
             local_variables: Default::default(),
+            predicate_arguments: Default::default(),
+            predicate_arg_type: None,
+            predicates_allowed: false,
         }
     }
 
@@ -132,7 +148,10 @@ pub enum LookupResultCallable {
     MemberFunction {
         /// This becomes the first argument of the function call
         base: Expression,
-        base_node: Option<NodeOrToken>,
+        /// Syntax node used as the diagnostic source span for `base`. In practice this is
+        /// often the node that originated the member-function lookup (e.g. the `.focus`
+        /// token), not the node of `base` itself.
+        source_node: Option<NodeOrToken>,
         member: Box<LookupResultCallable>,
     },
 }
@@ -293,6 +312,27 @@ impl LookupObject for ArgumentsLookup {
             if let Some(r) =
                 f(name, Expression::FunctionParameterReference { index, ty: ty.clone() }.into())
             {
+                return Some(r);
+            }
+        }
+        None
+    }
+}
+
+struct PredicateArgumentsLookup;
+impl LookupObject for PredicateArgumentsLookup {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        // Search innermost predicates first so predicate arguments shadow outer variables.
+        for (source_name, internal_name, ty) in ctx.predicate_arguments.iter().rev() {
+            if let Some(r) = f(
+                source_name,
+                Expression::ReadLocalVariable { name: internal_name.clone(), ty: ty.clone() }
+                    .into(),
+            ) {
                 return Some(r);
             }
         }
@@ -568,7 +608,7 @@ fn expression_from_reference(
             if matches!(function.args.first(), Some(Type::ElementReference)) {
                 LookupResult::Callable(LookupResultCallable::MemberFunction {
                     base: Expression::ElementReference(base_expr),
-                    base_node: None,
+                    source_node: None,
                     member: Box::new(LookupResultCallable::Callable(callable)),
                 })
             } else {
@@ -949,18 +989,24 @@ impl LookupObject for BuiltinNamespaceLookup {
 
 pub fn global_lookup() -> impl LookupObject {
     (
-        LocalVariableLookup,
+        PredicateArgumentsLookup,
         (
-            ArgumentsLookup,
+            LocalVariableLookup,
             (
-                SpecialIdLookup,
+                ArgumentsLookup,
                 (
-                    IdLookup,
+                    SpecialIdLookup,
                     (
-                        InScopeLookup,
+                        IdLookup,
                         (
-                            LookupType,
-                            (BuiltinNamespaceLookup, (TypeSpecificLookup, BuiltinFunctionLookup)),
+                            InScopeLookup,
+                            (
+                                LookupType,
+                                (
+                                    BuiltinNamespaceLookup,
+                                    (TypeSpecificLookup, BuiltinFunctionLookup),
+                                ),
+                            ),
                         ),
                     ),
                 ),
@@ -1082,7 +1128,7 @@ impl LookupObject for ColorExpression<'_> {
             };
             LookupResult::Callable(LookupResultCallable::MemberFunction {
                 base,
-                base_node: ctx.current_token.clone(), // Note that this is not the base_node, but the function's node
+                source_node: ctx.current_token.clone(),
                 member: Box::new(LookupResultCallable::Callable(Callable::Builtin(f))),
             })
         };
@@ -1147,6 +1193,13 @@ impl LookupObject for ArrayExpression<'_> {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
+        let member_function = |f: BuiltinFunction| {
+            LookupResult::Callable(LookupResultCallable::MemberFunction {
+                base: self.0.clone(),
+                source_node: ctx.current_token.clone(),
+                member: LookupResultCallable::Callable(Callable::Builtin(f)).into(),
+            })
+        };
         let function_call = |f: BuiltinFunction| {
             LookupResult::from(Expression::FunctionCall {
                 function: Callable::Builtin(f),
@@ -1161,6 +1214,8 @@ impl LookupObject for ArrayExpression<'_> {
             .or_else(|| f("push", member_macro(BuiltinMacroFunction::ArrayPush)))
             .or_else(|| f("remove", member_macro(BuiltinMacroFunction::ArrayRemove)))
             .or_else(|| f("insert", member_macro(BuiltinMacroFunction::ArrayInsert)))
+            .or_else(|| f("any", member_function(BuiltinFunction::ArrayAny)))
+            .or_else(|| f("all", member_function(BuiltinFunction::ArrayAll)))
     }
 }
 
@@ -1204,7 +1259,7 @@ fn builtin_member_function_generator<'a>(
     move |func: BuiltinFunction| {
         LookupResult::Callable(LookupResultCallable::MemberFunction {
             base: base.clone(),
-            base_node: ctx.current_token.clone(),
+            source_node: ctx.current_token.clone(),
             member: Box::new(LookupResultCallable::Callable(Callable::Builtin(func))),
         })
     }
@@ -1212,12 +1267,12 @@ fn builtin_member_function_generator<'a>(
 
 fn member_macro_generator(
     base: Expression,
-    base_node: Option<NodeOrToken>,
+    source_node: Option<NodeOrToken>,
 ) -> impl FnMut(BuiltinMacroFunction) -> LookupResult {
     move |func: BuiltinMacroFunction| {
         LookupResult::Callable(LookupResultCallable::MemberFunction {
             base: base.clone(),
-            base_node: base_node.clone(),
+            source_node: source_node.clone(),
             member: Box::new(LookupResultCallable::Macro(func)),
         })
     }
