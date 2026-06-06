@@ -14,6 +14,10 @@ slint::slint! {
     export { EmptyWindow } from "remote/main.slint";
 }
 
+// CARGO_PKG_VERSION tracks the workspace version, so it is the Slint version.
+const SLINT_VERSION: &str = concat!("Slint ", env!("CARGO_PKG_VERSION"));
+const BUILD_COMMIT: &str = git_version::git_version!();
+
 pub fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Result<()> {
     slint_interpreter::spawn_local(async_compat::Compat::new(async move {
         if let Err(err) = run_async(address, enable_mdns).await {
@@ -107,6 +111,10 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
 
     placeholder.set_address(SharedString::from(address.as_str()));
     placeholder.set_name(SharedString::from(device_name.as_str()));
+    placeholder.set_slint_version(SharedString::from(SLINT_VERSION));
+    if !BUILD_COMMIT.is_empty() {
+        placeholder.set_build_info(slint::format!("Build from {BUILD_COMMIT}"));
+    }
     placeholder.show()?;
 
     let mut last_connection = None;
@@ -281,6 +289,10 @@ fn swap_to_placeholder(
     fresh.set_address(SharedString::from(address));
     fresh.set_name(SharedString::from(name));
     fresh.set_message(SharedString::from(message));
+    fresh.set_slint_version(SharedString::from(SLINT_VERSION));
+    if !BUILD_COMMIT.is_empty() {
+        fresh.set_build_info(slint::format!("Build from {BUILD_COMMIT}"));
+    }
     fresh.show().map_err(|err| anyhow::anyhow!("Cannot show placeholder: {err}"))?;
     *placeholder = fresh;
     *user_instance = None;

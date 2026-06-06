@@ -7,6 +7,8 @@ export component EmptyWindow inherits Window {
     in property <string> name;
     in property <string> address;
     in property <string> message;
+    in property <string> slint-version;
+    in property <string> build-info;
 
     property <bool> has-name: name != "";
     property <bool> showing-name: true;
@@ -87,16 +89,14 @@ export component EmptyWindow inherits Window {
         VerticalLayout {
             alignment: center;
             spacing: 8px;
-            // TODO: Add version information
-            visible: false;
             Text {
-                text: "Slint 1.17.0";
+                text: root.slint-version;
                 font-size: 0.82rem;
                 font-weight: 400;
             }
 
-            Text {
-                text: "Viewer v0.0.3";
+            if root.build-info != "": Text {
+                text: root.build-info;
                 font-size: 0.71rem;
                 font-weight: 400;
             }
