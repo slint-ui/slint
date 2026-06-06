@@ -128,11 +128,11 @@ export component RemotePreviewDialog inherits Rectangle {
             }
 
             if root.connecting: Text {
-                text: @tr("Connecting to ") + Api.remote-connection-target + "…";
+                text: @tr("Connecting to {}…", Api.remote-connection-target);
                 color: Palette.foreground;
             }
             if Api.remote-connection-state == RemoteConnectionState.Connected: Text {
-                text: @tr("Connected to ") + Api.remote-connection-target;
+                text: @tr("Connected to {}", Api.remote-connection-target);
                 color: #2a2;
                 font-weight: 700;
             }

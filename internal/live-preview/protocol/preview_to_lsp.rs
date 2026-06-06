@@ -6,8 +6,8 @@ use lsp_types::Url;
 use super::SourceFileVersion;
 
 /// Where the local preview is rendered. Remote viewers are layered on top
-/// of one of these via [`LspToPreviewMessage::RemoteConnectionState`]; they
-/// aren't a target of their own.
+/// of one of these via [`super::LspToPreviewMessage::RemoteConnectionState`];
+/// they aren't a target of their own.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum PreviewTarget {

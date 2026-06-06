@@ -349,12 +349,12 @@ fn remove_viewer(api: &Api, fullname: &str) {
 }
 
 fn prune_stale(api: &Api) {
-    let cutoff = now_unix_secs().saturating_sub(EXPIRY_AGE.as_secs() as i32);
+    let cutoff = now_secs().saturating_sub(EXPIRY_AGE.as_secs() as i32);
     with_viewers(api, |viewers| {
         // Walk backwards: removals don't shift indices we haven't visited yet.
         for i in (0..viewers.row_count()).rev() {
             let Some(row) = viewers.row_data(i) else { continue };
-            if row.last_seen_unix < cutoff {
+            if row.last_seen_secs < cutoff {
                 tracing::debug!("Pruning stale discovered viewer {:?}", row.fullname);
                 viewers.remove(i);
             }
@@ -396,7 +396,7 @@ fn to_remote_viewer_info(resolved: mdns_sd::ResolvedService) -> RemoteViewerInfo
         addresses: ModelRc::new(VecModel::from(addresses)),
         compatible,
         incompatible_reason: incompatible_reason.into(),
-        last_seen_unix: now_unix_secs(),
+        last_seen_secs: now_secs(),
     }
 }
 
@@ -425,12 +425,14 @@ fn check_compatibility(
     }
 }
 
-// Used for relative age only, so i32 (good until 2038) is fine.
-fn now_unix_secs() -> i32 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs() as i32)
-        .unwrap_or(0)
+// Seconds since this process started. Monotonic and only ever used to
+// compute relative ages for pruning, so it side-steps the year-2038 wrap
+// that absolute Unix time stored in an i32 would hit.
+fn now_secs() -> i32 {
+    use std::sync::OnceLock;
+    use std::time::Instant;
+    static START: OnceLock<Instant> = OnceLock::new();
+    START.get_or_init(Instant::now).elapsed().as_secs() as i32
 }
 
 #[cfg(test)]

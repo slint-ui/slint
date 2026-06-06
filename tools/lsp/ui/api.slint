@@ -44,9 +44,9 @@ export struct RemoteViewerInfo {
     compatible: bool,
     /// If incompatible, a short reason to show to the user.
     incompatible-reason: string,
-    /// Unix-epoch seconds at the last mDNS ServiceResolved.
+    /// Monotonic seconds-since-process-start at the last mDNS ServiceResolved.
     /// The prune timer drops entries older than 60 s.
-    last-seen-unix: int,
+    last-seen-secs: int,
 }
 
 export enum RemoteConnectionState {
