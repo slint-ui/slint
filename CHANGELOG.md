@@ -34,7 +34,7 @@ All notable changes to this project are documented in this file.
 ### Slint language
 
  - Added new `SystemTrayIcon` element.
- - Added `align-items` property to `VerticalLayout` and `HorizontalLayout` for cross-axis alignment. (#2587)
+ - Added `cross-axis-alignment` property to `VerticalLayout` and `HorizontalLayout` for cross-axis alignment. (#2587)
  - Added two-way bindings to model row data. (#2013)
  - `@markdown()`: Fixed interpolation in link URLs and colors
  - Added `accessible-orientation` and `accessible-live-region` properties
