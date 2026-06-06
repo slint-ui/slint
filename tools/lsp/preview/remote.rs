@@ -170,7 +170,7 @@ fn parse_host_port(input: &str) -> Result<(String, u16), HostPortError> {
     Ok((host.to_owned(), port))
 }
 
-/// Lives in [`PREVIEW_STATE`] (thread-local), so a `RefCell` is enough.
+/// Lives in [`crate::preview::PREVIEW_STATE`] (thread-local), so a `RefCell` is enough.
 #[derive(Default)]
 pub struct RemoteDiscovery {
     inner: RefCell<Option<ActiveDiscovery>>,
