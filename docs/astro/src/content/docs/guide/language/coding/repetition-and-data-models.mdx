@@ -65,11 +65,16 @@ Arrays define the following operations:
 
 -   **`array.length`**: One can query the length of an array and model using the builtin `.length` property.
 -   **`array[index]`**: The index operator retrieves individual elements of an array.
--   **`array.push(value)`**: One can add an element to an array and model using the `.push(value)` method.
--   **`array.remove(index)`**: One can remove an element from an array and model using the `.remove(index)` method. The accepted index range is `0 <= index < array.length`.
--   **`array.insert(index, value)`**: One can insert an element at a specified index to an array and model using the `.insert(index, value)` method. The accepted index range is `0 <= index <= array.length`.
+-   **`array.push(value)`**: Adds an element to an array or model.
+-   **`array.remove(index)`**: Removes an element from an array or model. The accepted index range is `0 <= index < array.length`.
+-   **`array.insert(index, value)`**: Inserts an element at a specified index in an array or model. The accepted index range is `0 <= index <= array.length`.
+-   **`array.any(name => condition)`**: Returns true if the boolean predicate is true for at least one element.
+-   **`array.all(name => condition)`**: Returns true if the boolean predicate is true for every element.
 
 Out of bound access into an array will return default-constructed values.
+The argument name of an `any` or `all` predicate is available only in the predicate expression,
+and its type is inferred from the array element type. `any` returns false for an empty array,
+while `all` returns true for an empty array.
 
 ```slint
 export component Example {
@@ -77,18 +82,19 @@ export component Example {
 
     out property <int> list-len: list-of-int.length;
     out property <int> first-int: list-of-int[0];
+    out property <bool> contains-two: list-of-int.any(value => value == 2);
+    out property <bool> all-positive: list-of-int.all(value => value > 0);
 }
 ```
-
-Out of bound indexes in the remove and insert methods will result in the methods doing nothing.
+Out-of-bounds indexes in the `remove` and `insert` methods make the methods do nothing.
 
 ```slint
 export component Example {
     in-out property<[int]> list-of-int: [1,2,3];
-	init => {
-		// Both operations will do nothing and the list-of-int property value will still be [1, 2, 3].
-		list-of-int.remove(4);
-		list-of-int.insert(4, 10);
-	}
+    init => {
+        // Both operations do nothing and the list-of-int property value remains [1, 2, 3].
+        list-of-int.remove(4);
+        list-of-int.insert(4, 10);
+    }
 }
 ```
