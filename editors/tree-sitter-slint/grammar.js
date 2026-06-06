@@ -432,6 +432,7 @@ module.exports = grammar({
           $.simple_identifier,
           $.function_call,
           $.member_access,
+          $.closure_expression,
           $.unary_expression,
           $.binary_expression,
           $.ternary_expression,
@@ -439,6 +440,16 @@ module.exports = grammar({
       ),
 
     parens_op: ($) => seq("(", field("left", $.expression), ")"),
+
+    closure_expression: ($) =>
+      prec.right(
+        2,
+        seq(
+          field("argument", $.simple_identifier),
+          "=>",
+          field("body", $.expression),
+        ),
+      ),
 
     index_op: ($) =>
       prec(

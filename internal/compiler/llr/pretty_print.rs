@@ -700,8 +700,9 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                     ),
                 }
             }
-            Expression::Predicate { arg_name, expression } => {
-                write!(f, "{} => {}", arg_name, e(expression))
+            Expression::Closure { arg_name, expression } => {
+                let display_name = arg_name.strip_prefix("local_").unwrap_or(arg_name);
+                write!(f, "{} => {}", display_name, e(expression))
             }
         }
     }

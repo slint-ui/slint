@@ -3141,7 +3141,7 @@ fn compile_expression_to_value(expr: &Expression, ctx: &EvaluationContext) -> To
             | Expression::RadialGradient { .. }
             | Expression::ConicGradient { .. }
             | Expression::EnumerationValue(..)
-            | Expression::Predicate { .. } => true,
+            | Expression::Closure { .. } => true,
             Expression::Condition { true_expr, false_expr, .. } => {
                 produces_owned_value(true_expr) && produces_owned_value(false_expr)
             }
@@ -3822,7 +3822,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 }
             }
         }
-        Expression::Predicate { arg_name, expression } => {
+        Expression::Closure { arg_name, expression } => {
             let arg_name = ident(arg_name);
             let expression = compile_expression(expression, ctx);
             quote! {
@@ -4665,16 +4665,28 @@ fn compile_builtin_function_call(
             quote!(sp::color_to_styled_text(#color))
         }
         BuiltinFunction::ArrayAny => {
-            let arr_expression = a.next().unwrap();
-            let predicate_expression = a.next().unwrap();
-            // `.iter()` resolves to `sp::ModelExt::iter`, imported at the top of the generated module.
-            quote!({ let arr = #arr_expression; arr.iter().any(#predicate_expression) })
+            let arr_expression = compile_expression_to_value(&arguments[0], ctx);
+            let Expression::Closure { arg_name, expression } = &arguments[1] else {
+                panic!("internal error: ArrayAny expects a closure as second argument")
+            };
+            let arg_name = ident(arg_name);
+            let closure_expression = compile_expression(expression, ctx);
+            quote!({
+                let arr = #arr_expression;
+                sp::model_any(&arr, |#arg_name| -> bool { #closure_expression })
+            })
         }
         BuiltinFunction::ArrayAll => {
-            let arr_expression = a.next().unwrap();
-            let predicate_expression = a.next().unwrap();
-            // `.iter()` resolves to `sp::ModelExt::iter`, imported at the top of the generated module.
-            quote!({ let arr = #arr_expression; arr.iter().all(#predicate_expression) })
+            let arr_expression = compile_expression_to_value(&arguments[0], ctx);
+            let Expression::Closure { arg_name, expression } = &arguments[1] else {
+                panic!("internal error: ArrayAll expects a closure as second argument")
+            };
+            let arg_name = ident(arg_name);
+            let closure_expression = compile_expression(expression, ctx);
+            quote!({
+                let arr = #arr_expression;
+                sp::model_all(&arr, |#arg_name| -> bool { #closure_expression })
+            })
         }
     }
 }
