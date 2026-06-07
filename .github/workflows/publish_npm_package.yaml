@@ -118,17 +118,13 @@ jobs:
               shell: bash
               working-directory: api/node
               run: |
-                  npx napi create-npm-dirs --npm-dir . -c ./binaries.json
-                  mv slint-ui.${{ matrix.napi-rs-target }}.node ${{ matrix.napi-rs-target }}/
-                  cd ${{ matrix.napi-rs-target }}/
-                  pnpm pkg set repository.type=git
-                  pnpm pkg set repository.url=https://github.com/slint-ui/slint
-                  pnpm pack
+                  mkdir -p packed
+                  node "$GITHUB_WORKSPACE/api/node/scripts/packaging.mts" pack-binary binaries.json ${{ matrix.napi-rs-target }} slint-ui "$PWD/packed"
             - name: Upload artifact
               uses: actions/upload-artifact@v7
               with:
                   name: binaries-${{ matrix.rust-target }}
-                  path: "api/node/${{ matrix.napi-rs-target }}/*.tgz"
+                  path: "api/node/packed/*.tgz"
 
     build_and_publish_npm_package:
         runs-on: ubuntu-22.04
@@ -161,7 +157,8 @@ jobs:
               if: github.event.inputs.release != 'true'
               run: |
                   echo "PKG_EXTRA_ARGS=--sha1=$GITHUB_SHA" >> $GITHUB_ENV
-                  echo "PUBLISH_TAG=--tag nightly" >> $GITHUB_ENV
+                  # dist-tag value (empty for a release → published as `latest`).
+                  echo "PUBLISH_DIST_TAG=nightly" >> $GITHUB_ENV
             - name: Compile index.js and index.d.ts
               working-directory: api/node
               run: |
@@ -200,10 +197,7 @@ jobs:
             - name: Add binary dependencies
               working-directory: api/node
               run: |
-                  for package in @slint-ui/slint-ui-binary-linux-x64-gnu @slint-ui/slint-ui-binary-linux-arm64-gnu @slint-ui/slint-ui-binary-darwin-arm64 @slint-ui/slint-ui-binary-win32-x64-msvc @slint-ui/slint-ui-binary-win32-arm64-msvc; do
-                      jq --arg pkg "$package" --arg version "$PKG_VERSION" '.optionalDependencies[$pkg]=$version' package.json > new.json
-                      mv new.json package.json
-                  done
+                  node "$GITHUB_WORKSPACE/api/node/scripts/packaging.mts" set-main-deps "$PKG_VERSION"
             - name: Build package
               run: |
                   cargo xtask node_package $PKG_EXTRA_ARGS
@@ -223,9 +217,4 @@ jobs:
             - name: Build and publish packages
               if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
               run: |
-                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-linux-x64-gnu-$PKG_VERSION.tgz
-                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-linux-arm64-gnu-$PKG_VERSION.tgz
-                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-darwin-arm64-$PKG_VERSION.tgz
-                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-win32-x64-msvc-$PKG_VERSION.tgz
-                  pnpm publish --no-git-checks --access public $PUBLISH_TAG api/node/slint-ui-slint-ui-binary-win32-arm64-msvc-$PKG_VERSION.tgz
-                  pnpm publish --no-git-checks $PUBLISH_TAG api/node/slint-ui-$PKG_VERSION.tgz
+                  node "$GITHUB_WORKSPACE/api/node/scripts/packaging.mts" publish-all "$GITHUB_WORKSPACE/api/node" https://registry.npmjs.org/ "$PUBLISH_DIST_TAG"
