@@ -330,18 +330,22 @@ fn lower_tooltips_in_component(
             );
             return;
         }
-        if elem.borrow().builtin_type().is_some_and(|builtin| {
-            LAYOUT_ELEMENTS_DISALLOWING_TOOLTIP.contains(&builtin.name.as_str())
-        }) {
+        let parent_name = elem.borrow().builtin_type().map(|b| b.name.clone());
+        if parent_name
+            .as_ref()
+            .is_some_and(|name| LAYOUT_ELEMENTS_DISALLOWING_TOOLTIP.contains(&name.as_str()))
+        {
             diag.push_error(
-                "Tooltip cannot be used inside layout elements".into(),
+                format!("Tooltip cannot be added to {}", parent_name.as_ref().unwrap()),
                 &*tooltip_candidate.borrow(),
             );
             return;
         }
-        if elem.borrow().builtin_type().is_some_and(|builtin| builtin.is_non_item_type) {
+        if elem.borrow().builtin_type().is_some_and(|builtin| {
+            builtin.is_non_item_type || builtin.disallow_global_types_as_child_elements
+        }) {
             diag.push_error(
-                "Tooltip cannot be used inside non-item elements".into(),
+                format!("Tooltip cannot be added to {}", parent_name.as_ref().unwrap()),
                 &*tooltip_candidate.borrow(),
             );
             return;
