@@ -207,13 +207,18 @@ jobs:
                   name: slint-ui-node-package
                   path: |
                       api/node/slint-ui-${{ env.PKG_VERSION }}.tgz
-            - name: Smoke test package to see if it builds at least
-              run: |
-                  mkdir /tmp/nodetest
-                  cd /tmp/nodetest
-                  echo "neverBuiltDependencies: []" > pnpm-workspace.yaml
-                  pnpm init
-                  pnpm install --dangerously-allow-all-builds --verbose $GITHUB_WORKSPACE/api/node/slint-ui-$PKG_VERSION.tgz
+            - name: End-to-end test against a local registry
+              # Gate that always runs (including dry-run builds where `private=true`):
+              # publish the real, all-platform tarballs to a throwaway Verdaccio
+              # registry with the same `publishAll` routine used for the real publish
+              # below, then install them as a consumer (npm + pnpm) and verify the
+              # distribution. Blocks the real publish on failure.
+              working-directory: api/node
+              env:
+                  SLINT_E2E_TGZ_DIR: ${{ github.workspace }}/api/node
+                  SLINT_E2E_VERSION: ${{ env.PKG_VERSION }}
+                  SLINT_E2E_TAG: ${{ env.PUBLISH_DIST_TAG }}
+              run: node --test __test__/registry/e2e.test.mts
             - name: Build and publish packages
               if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
               run: |
