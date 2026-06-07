@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore dalvik jboolean jint
+// cSpell: ignore dalvik jboolean jfloat jint
 use super::*;
 use i_slint_common::unicode_utils::{
     byte_offset_to_utf16_offset, utf16_offset_to_byte_offset_clamped,
@@ -12,13 +12,19 @@ use i_slint_core::graphics::{Color, euclid};
 use i_slint_core::input::{InternalKeyEvent, KeyEvent, KeyEventType};
 use i_slint_core::item_rendering::HasFont;
 use i_slint_core::items::{ColorScheme, InputType};
-use i_slint_core::lengths::PhysicalEdges;
+use i_slint_core::lengths::{LogicalLength, PhysicalEdges};
 use i_slint_core::platform::WindowAdapter;
 use jni::objects::{JClass, JClassLoader, JString, LoaderContext};
-use jni::sys::jint;
+use jni::sys::{jfloat, jint};
 use jni::{Env, JavaVM, bind_java_type};
 use std::sync::OnceLock;
 use std::time::Duration;
+
+/// Maps an Android `Configuration.fontScale` to a Slint default font size.
+/// 14 LP = Material Design body-text size at `fontScale = 1.0`.
+pub(crate) fn font_scale_to_logical_length(font_scale: f32) -> Option<LogicalLength> {
+    (font_scale.is_finite() && font_scale > 0.0).then(|| LogicalLength::new(14.0 * font_scale))
+}
 
 const DEX_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/classes.dex"));
 
@@ -39,6 +45,10 @@ bind_java_type! {
         fn color_scheme {
             name = "color_scheme",
             sig = () -> jint,
+        },
+        fn font_scale {
+            name = "font_scale",
+            sig = () -> jfloat,
         },
         fn get_clipboard {
             name = "get_clipboard",
@@ -120,6 +130,10 @@ bind_java_type! {
         pub static fn set_night_mode {
             sig = (night_mode: jint) -> (),
             fn = callback_set_night_mode,
+        },
+        pub static fn set_font_scale {
+            sig = (font_scale: jfloat) -> (),
+            fn = callback_set_font_scale,
         },
         pub static fn update_text {
             sig = (
@@ -429,6 +443,10 @@ impl JavaHelper {
         self.with_jni_env(|env, helper| helper.color_scheme(env))
     }
 
+    pub fn font_scale(&self) -> Result<f32, jni::errors::Error> {
+        self.with_jni_env(|env, helper| helper.font_scale(env))
+    }
+
     pub fn accent_color(&self) -> Result<Color, jni::errors::Error> {
         self.with_jni_env(|env, helper| {
             Ok(Color::from_argb_encoded(helper.accent_color(env)? as u32))
@@ -559,6 +577,25 @@ fn callback_set_night_mode<'local>(
             if let Ok(accent) = w.java_helper.accent_color() {
                 ctx.set_accent_color(accent);
             }
+        }
+    })
+    .unwrap();
+    Ok(())
+}
+
+fn callback_set_font_scale<'local>(
+    _env: &mut Env<'local>,
+    _class: JClass<'local>,
+    font_scale: jfloat,
+) -> Result<(), jni::errors::Error> {
+    // Skip rather than clobber: an OEM/ROM that hands us 0.0 or NaN during a
+    // transient configuration change must not zero out the value `bind_context`
+    // already set.
+    let Some(size) = font_scale_to_logical_length(font_scale) else { return Ok(()) };
+    i_slint_core::api::invoke_from_event_loop(move || {
+        if let Some(w) = CURRENT_WINDOW.with_borrow(|x| x.upgrade()) {
+            let ctx = i_slint_core::window::WindowInner::from_pub(&w.window).context();
+            ctx.set_platform_default_font_size(Some(size));
         }
     })
     .unwrap();

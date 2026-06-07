@@ -173,6 +173,11 @@ impl i_slint_core::platform::Platform for AndroidPlatform {
         if let Ok(accent) = self.window.java_helper.accent_color() {
             ctx.set_accent_color(accent);
         }
+        if let Ok(scale) = self.window.java_helper.font_scale()
+            && let Some(size) = javahelper::font_scale_to_logical_length(scale)
+        {
+            ctx.set_platform_default_font_size(Some(size));
+        }
     }
 
     fn long_press_interval(&self, _: i_slint_core::InternalToken) -> Duration {
