@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import * as napi from "../rust-module.cjs";
+import * as napi from "../binding.cjs";
 export {
     Diagnostic,
     DiagnosticLevel,
@@ -10,7 +10,7 @@ export {
     DataTransfer,
     StyledText,
     Keys,
-} from "../rust-module.cjs";
+} from "../binding.cjs";
 
 import { Model } from "./models";
 export { Model };
@@ -19,7 +19,7 @@ export { ArrayModel } from "./models";
 
 export { language } from "./generated/language";
 
-import { Diagnostic } from "../rust-module.cjs";
+import { Diagnostic } from "../binding.cjs";
 
 import { fileURLToPath } from "node:url";
 
@@ -1045,4 +1045,12 @@ export namespace private_api {
     }
 
     export import initTesting = napi.initTesting;
+
+    /**
+     * Returns the optional capabilities that were compiled into the loaded
+     * native binary, e.g. `"testing"`, `"system-testing"` and `"mcp"`. When the
+     * default binary is loaded this is empty; when the "dev" binary is loaded
+     * it contains the additional features. See binding.cjs.
+     */
+    export import buildFeatures = napi.buildFeatures;
 }

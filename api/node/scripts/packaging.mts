@@ -18,6 +18,7 @@ const execFileAsync = promisify(execFile);
 
 const here = dirname(fileURLToPath(import.meta.url)); // api/node/scripts
 const nodeDir = join(here, ".."); // api/node
+const repoRoot = join(nodeDir, "..", ".."); // repository root
 
 /** The napi-rs platform suffixes for the binary packages. */
 export const NAPI_TARGETS = [
@@ -28,8 +29,9 @@ export const NAPI_TARGETS = [
     "win32-arm64-msvc",
 ] as const;
 
-/** Base npm package name for the release platform binaries. */
+/** Base npm package names for the release and dev platform binaries. */
 export const BASE_BINARY_PACKAGE = "@slint-ui/slint-ui-binary";
+export const DEV_BINARY_PACKAGE = "@slint-ui/slint-ui-dev-binary";
 
 /** Full npm package names for a binary base name, e.g. `@slint-ui/slint-ui-binary`. */
 export function binaryPackageNames(
@@ -80,9 +82,9 @@ function editManifest(
 
 /** Pack a single platform's prebuilt native binary into an npm package tarball. */
 export async function packBinary(opts: {
-    config: string; // napi binaries config (binaries.json)
+    config: string; // napi binaries config (binaries.json / binaries-dev.json)
     target: string; // napi-rs platform suffix, e.g. linux-x64-gnu
-    binary: string; // the <name>.<target>.node prefix, e.g. slint-ui
+    binary: string; // the <name>.<target>.node prefix, e.g. slint-ui / slint-ui-dev
     dest: string; // directory the .tgz is written to
 }): Promise<void> {
     const { config, target, binary, dest } = opts;
@@ -118,8 +120,11 @@ export async function packBinary(opts: {
 }
 
 /**
- * Inject the platform binary optionalDependencies into the main slint-ui
- * package.json, so they are installed automatically alongside slint-ui.
+ * Inject the base binary optionalDependencies and the optional slint-ui-dev peer
+ * dependency into the main slint-ui package.json. Only the release base binaries
+ * are optional dependencies of the main package, so `npm i slint-ui` stays lean;
+ * the dev binaries ship via the separate slint-ui-dev package, declared here as
+ * an optional peer.
  */
 export function setMainBinaryDeps(opts: {
     version: string;
@@ -131,7 +136,46 @@ export function setMainBinaryDeps(opts: {
         for (const pkg of binaryPackageNames(BASE_BINARY_PACKAGE, targets)) {
             manifest.optionalDependencies[pkg] = version;
         }
+        manifest.peerDependencies = {
+            ...manifest.peerDependencies,
+            "slint-ui-dev": version,
+        };
+        manifest.peerDependenciesMeta = {
+            ...manifest.peerDependenciesMeta,
+            "slint-ui-dev": { optional: true },
+        };
     });
+}
+
+/**
+ * Assemble and pack the slint-ui-dev meta-package: it ships the dev loader and
+ * pulls in the matching platform's dev binary. Requires the dev loader
+ * (rust-module-dev.cjs) to be built in api/node.
+ */
+export async function packDevMeta(opts: {
+    version: string;
+    dest: string;
+    targets?: readonly string[];
+}): Promise<void> {
+    const { version, dest, targets } = opts;
+    const devDir = join(nodeDir, "dev-package");
+    cpSync(join(repoRoot, "LICENSE.md"), join(devDir, "LICENSE.md"));
+    cpSync(
+        join(nodeDir, "rust-module-dev.cjs"),
+        join(devDir, "rust-module-dev.cjs"),
+    );
+    editManifest(join(devDir, "package.json"), (manifest) => {
+        manifest.version = version;
+        manifest.optionalDependencies ??= {};
+        for (const pkg of binaryPackageNames(DEV_BINARY_PACKAGE, targets)) {
+            manifest.optionalDependencies[pkg] = version;
+        }
+        manifest.peerDependencies = {
+            ...manifest.peerDependencies,
+            "slint-ui": version,
+        };
+    });
+    await run("pnpm", ["pack", "--pack-destination", dest], { cwd: devDir });
 }
 
 /**
@@ -180,6 +224,15 @@ async function main(argv: string[]): Promise<void> {
             const [version, ...targets] = args;
             setMainBinaryDeps({
                 version,
+                targets: targets.length ? targets : undefined,
+            });
+            break;
+        }
+        case "pack-dev-meta": {
+            const [version, dest, ...targets] = args;
+            await packDevMeta({
+                version,
+                dest,
                 targets: targets.length ? targets : undefined,
             });
             break;
