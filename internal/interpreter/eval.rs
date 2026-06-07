@@ -2146,6 +2146,14 @@ pub(crate) fn invoke_callback(
     generativity::make_guard!(guard);
     match enclosing_component_instance_for_element(element, component_instance, guard) {
         ComponentInstance::InstanceRef(enclosing_component) => {
+            // Keep the component alive while the callback runs: the callback may close the popup
+            // that owns this callback, and Callback::call() restores the handler after returning.
+            let _component_guard = enclosing_component
+                .self_weak()
+                .get()
+                .expect("component self weak must be initialized before invoking callbacks")
+                .upgrade()
+                .expect("component must be alive while invoking callbacks");
             let description = enclosing_component.description;
             let element = element.borrow();
             if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
@@ -2242,6 +2250,14 @@ pub(crate) fn call_function(
     generativity::make_guard!(guard);
     match enclosing_component_instance_for_element(element, component_instance, guard) {
         ComponentInstance::InstanceRef(c) => {
+            // Keep the component alive while the function runs: the function may close the popup
+            // that owns this function or callbacks it invokes.
+            let _component_guard = c
+                .self_weak()
+                .get()
+                .expect("component self weak must be initialized before invoking functions")
+                .upgrade()
+                .expect("component must be alive while invoking functions");
             let mut ctx = EvalLocalContext::from_function_arguments(c, args);
             eval_expression(
                 &element.borrow().bindings.get(function_name)?.borrow().expression,
