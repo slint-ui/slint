@@ -596,6 +596,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("\\.tmPreferences$", LicenseLocation::NoLicense),
             ("\\.toml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.ts$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
+            ("\\.cts$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.tsx$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.ttf$", LicenseLocation::NoLicense),
             ("\\.txt$", LicenseLocation::NoLicense),
