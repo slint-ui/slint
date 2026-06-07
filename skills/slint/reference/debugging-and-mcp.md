@@ -94,6 +94,18 @@ releases:
 SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=9315 SLINT_BACKEND=headless cargo run --features slint/mcp
 ```
 
+**Node.js** (`slint-ui`): install the optional `slint-ui-dev` package as a dev
+dependency at the same version as `slint-ui`. It ships a binary with the MCP
+server (and system-testing) compiled in, which `slint-ui` loads automatically —
+but only when `SLINT_MCP_PORT` (or `SLINT_TEST_SERVER`) is set, so ordinary runs
+stay on the lean release binary. There is nothing to import from it; set the
+variable before launching node:
+
+```sh
+npm install --save-dev slint-ui-dev
+SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=9315 node app.js
+```
+
 Connect to `http://localhost:9315/mcp` (Streamable HTTP / JSON-RPC). From a
 shell, `curl` is the most reliable client — include the `Accept` header:
 
