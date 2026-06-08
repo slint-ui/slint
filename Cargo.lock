@@ -2534,7 +2534,7 @@ checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 [[package]]
 name = "dpi"
 version = "0.1.2"
-source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#580469056d479ffe288c9c016033ad376c69a962"
 
 [[package]]
 name = "drm"
@@ -14036,7 +14036,7 @@ dependencies = [
 [[package]]
 name = "winit"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#580469056d479ffe288c9c016033ad376c69a962"
 dependencies = [
  "bitflags 2.11.1",
  "cfg_aliases",
@@ -14062,7 +14062,7 @@ dependencies = [
 [[package]]
 name = "winit-android"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#580469056d479ffe288c9c016033ad376c69a962"
 dependencies = [
  "android-activity 0.6.1",
  "bitflags 2.11.1",
@@ -14077,7 +14077,7 @@ dependencies = [
 [[package]]
 name = "winit-appkit"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#580469056d479ffe288c9c016033ad376c69a962"
 dependencies = [
  "bitflags 2.11.1",
  "block2 0.6.2",
@@ -14099,7 +14099,7 @@ dependencies = [
 [[package]]
 name = "winit-common"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#580469056d479ffe288c9c016033ad376c69a962"
 dependencies = [
  "block2 0.6.2",
  "memmap2",
@@ -14116,7 +14116,7 @@ dependencies = [
 [[package]]
 name = "winit-core"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#580469056d479ffe288c9c016033ad376c69a962"
 dependencies = [
  "bitflags 2.11.1",
  "cursor-icon",
@@ -14130,7 +14130,7 @@ dependencies = [
 [[package]]
 name = "winit-orbital"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#580469056d479ffe288c9c016033ad376c69a962"
 dependencies = [
  "bitflags 2.11.1",
  "dpi 0.1.2 (git+https://github.com/slint-ui/winit.git?branch=drag-n-drop)",
@@ -14146,7 +14146,7 @@ dependencies = [
 [[package]]
 name = "winit-uikit"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#580469056d479ffe288c9c016033ad376c69a962"
 dependencies = [
  "bitflags 2.11.1",
  "block2 0.6.2",
@@ -14166,7 +14166,7 @@ dependencies = [
 [[package]]
 name = "winit-wayland"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#580469056d479ffe288c9c016033ad376c69a962"
 dependencies = [
  "bitflags 2.11.1",
  "calloop 0.14.4",
@@ -14192,7 +14192,7 @@ dependencies = [
 [[package]]
 name = "winit-web"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#580469056d479ffe288c9c016033ad376c69a962"
 dependencies = [
  "atomic-waker",
  "bitflags 2.11.1",
@@ -14214,7 +14214,7 @@ dependencies = [
 [[package]]
 name = "winit-win32"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#580469056d479ffe288c9c016033ad376c69a962"
 dependencies = [
  "bitflags 2.11.1",
  "cursor-icon",
@@ -14230,7 +14230,7 @@ dependencies = [
 [[package]]
 name = "winit-x11"
 version = "0.31.0-beta.2"
-source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#3a4bb3d111a1e9235bf05a5b8ad3e855b360c83d"
+source = "git+https://github.com/slint-ui/winit.git?branch=drag-n-drop#580469056d479ffe288c9c016033ad376c69a962"
 dependencies = [
  "bitflags 2.11.1",
  "bytemuck",

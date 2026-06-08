@@ -19,6 +19,7 @@ use corelib::platform::PlatformError;
 use corelib::window::*;
 use corelib::{DataTransfer, SharedString};
 use i_slint_core as corelib;
+use i_slint_core::api::PhysicalSize;
 use i_slint_core::data_transfer::DropEffect;
 use i_slint_core::data_transfer::data_transfer_set_image_getter;
 use i_slint_core::data_transfer::data_transfer_set_plaintext_getter;
@@ -26,7 +27,9 @@ use i_slint_core::graphics::load_image_from_dynamic_data;
 use winit::data_transfer::DataTransferId;
 use winit::data_transfer::DataTransferSendBuilder;
 use winit::data_transfer::TypeHint;
+use winit::dpi::PhysicalPosition;
 use winit::event_loop::DndActions;
+use winit::event_loop::DragIcon;
 
 #[allow(unused_imports)]
 use std::cell::{RefCell, RefMut};
@@ -285,9 +288,25 @@ impl winit::application::ApplicationHandler for EventLoopState {
         }
 
         if let Some(drop_event) = runtime_window.take_new_started_drag_event() {
+            let icon = runtime_window.started_drag_event_icon();
+            let rgba_icon = icon.and_then(|(icon, offset)| {
+                let size = icon.size();
+                let icon_size = euclid::Size2D::new(size.width as f32, size.height as f32);
+                let icon = crate::winitwindowadapter::icon_to_winit(icon, icon_size)?;
+
+                Some(DragIcon {
+                    icon,
+                    offset: PhysicalPosition::new(
+                        offset.x - size.width as i32,
+                        offset.y - size.height as i32,
+                    ),
+                })
+            });
+
             let has_plaintext = drop_event.data.has_plaintext();
             let plaintext =
                 if has_plaintext { drop_event.data.fetch_plaintext().ok() } else { None };
+            // TODO: Encode image to an available image type (see winit example)
             // let has_image = drop_event.data.has_image();
             // let image = if has_image { drop_event.data.fetch_image().ok() } else { None };
             let action_mask = DndActions::Flags {
@@ -302,8 +321,8 @@ impl winit::application::ApplicationHandler for EventLoopState {
                 });
             }
 
-            // TODO: Handle error.
-            let _ = event_loop.start_drag(window_id, sender.build(), &action_mask, None);
+            let result = event_loop.start_drag(window_id, sender.build(), &action_mask, rgba_icon);
+            runtime_window.set_drag_event_internal(result.is_ok());
         }
 
         match event {
@@ -675,11 +694,14 @@ impl winit::application::ApplicationHandler for EventLoopState {
                     // update.
                     self.pending_mouse_move = Some((window_id, pos));
                 } else {
-                    let Some(data_transfer) = build_external_data_transfer(event_loop, id) else {
-                        return;
-                    };
+                    if self.dnd_state.as_ref().is_none_or(|state| state.id != id) {
+                        let Some(data_transfer) = build_external_data_transfer(event_loop, id)
+                        else {
+                            return;
+                        };
 
-                    self.dnd_state = Some(DndState { id, data_transfer });
+                        self.dnd_state = Some(DndState { id, data_transfer });
+                    }
 
                     let Some(event) = self.process_data_transfer_result(id) else { return };
                     runtime_window.process_mouse_input(MouseEvent::DragMove(event));
@@ -699,11 +721,14 @@ impl winit::application::ApplicationHandler for EventLoopState {
                 self.pressed = false;
 
                 if runtime_window.internal_drop_event().is_none() {
-                    let Some(data_transfer) = build_external_data_transfer(event_loop, id) else {
-                        return;
-                    };
+                    if self.dnd_state.as_ref().is_none_or(|state| state.id != id) {
+                        let Some(data_transfer) = build_external_data_transfer(event_loop, id)
+                        else {
+                            return;
+                        };
 
-                    self.dnd_state = Some(DndState { id, data_transfer });
+                        self.dnd_state = Some(DndState { id, data_transfer });
+                    }
 
                     let Some(event) = self.process_data_transfer_result(id) else { return };
                     runtime_window.process_mouse_input(MouseEvent::Drop(event));
@@ -715,10 +740,12 @@ impl winit::application::ApplicationHandler for EventLoopState {
                         touch_finger_id: 0,
                     });
                 }
+
+                self.dnd_state = None;
             }
             WindowEvent::DragLeft { .. } => {
-                self.dnd_state = None;
                 runtime_window.process_mouse_input(corelib::input::MouseEvent::Exit);
+                self.dnd_state = None;
             }
             _ => {}
         }

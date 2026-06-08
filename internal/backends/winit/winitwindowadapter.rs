@@ -109,7 +109,7 @@ fn apply_scale_factor_to_logical_sizes_in_attributes(
     fixup(&mut attributes.surface_resize_increments);
 }
 
-fn icon_to_winit(
+pub(crate) fn icon_to_winit(
     icon: corelib::graphics::Image,
     size: euclid::Size2D<Coord, PhysicalPx>,
 ) -> Option<winit::icon::Icon> {

@@ -10,6 +10,7 @@ use crate::api::{
     PlatformError, Window, WindowPosition, WindowSize,
 };
 use crate::data_transfer::DropEffect;
+use crate::graphics::Image;
 use crate::input::{
     ClickState, FocusEvent, FocusReason, InternalKeyEvent, KeyEventResult, KeyEventType, Keys,
     MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase, TouchState,
@@ -20,7 +21,7 @@ use crate::item_tree::{
     ParentItemTraversalMode,
 };
 use crate::items::{
-    DropArea, DropEvent, InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy,
+    DragArea, DropArea, DropEvent, InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy,
 };
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalVector, SizeLengths};
 use crate::menus::MenuVTable;
@@ -34,6 +35,7 @@ use core::cell::{Cell, RefCell};
 use core::num::NonZeroU32;
 use core::pin::Pin;
 use enumflags2::BitFlags;
+use euclid::UnknownUnit;
 use euclid::num::Zero;
 use portable_atomic::AtomicBool;
 use vtable::{VRc, VRcMapped};
@@ -605,6 +607,32 @@ impl WindowInner {
         }
 
         self.mouse_input_state.borrow().drag_data.clone()
+    }
+
+    // TODO: Docs
+    pub fn set_drag_event_internal(&self, internal: bool) {
+        self.mouse_input_state.borrow_mut().drag_is_internal = internal;
+    }
+
+    /// TODO: Docs
+    pub fn started_drag_event_icon(&self) -> Option<(Image, euclid::Point2D<i32, UnknownUnit>)> {
+        let drag_area = self
+            .mouse_input_state
+            .borrow()
+            .drag_source
+            .as_ref()?
+            .upgrade()?
+            .downcast::<DragArea>()?;
+
+        // The drag image can't be updated after the drag has started, so it probably makes sense to use
+        // `get_internal` here. TODO: Confirm that this is correct.
+        let image = drag_area.drag_image.get_internal();
+        let offset = euclid::Point2D::new(
+            drag_area.drag_image_offset_x.get_internal(),
+            drag_area.drag_image_offset_y.get_internal(),
+        );
+
+        Some((image, offset))
     }
 
     /// Associates this window with the specified component. Further event handling and rendering, etc. will be
@@ -1564,7 +1592,12 @@ impl WindowInner {
         item_renderer: &mut dyn crate::item_rendering::ItemRenderer,
     ) {
         let state = self.mouse_input_state.take();
-        let cursor = state.drag_data.as_ref().map(|d| d.position);
+
+        // TODO: Clean this up. We don't want to double-render the overlay if the compositor/OS is
+        // already rendering one, but we also can't rely on the compositor to render the image if
+        // the drag is internal-only
+        let cursor =
+            state.drag_data.as_ref().map(|d| d.position).filter(|_| state.drag_is_internal);
         let source = state.drag_source.as_ref().and_then(|w| w.upgrade());
         self.mouse_input_state.replace(state);
 

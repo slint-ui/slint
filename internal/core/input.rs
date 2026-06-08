@@ -1225,6 +1225,7 @@ pub struct MouseInputState {
     /// When this is Some, it means we are in the middle of a drag-drop operation and it contains the dragged data.
     /// The `position` field has no signification
     pub(crate) drag_data: Option<DropEvent>,
+    pub(crate) drag_is_internal: bool,
     /// The `DragArea` that initiated the in-flight drag.
     /// `None` for drags coming from outside (native cross-window/cross-process DnD).
     pub(crate) drag_source: Option<ItemWeak>,
