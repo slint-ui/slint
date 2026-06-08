@@ -79,10 +79,10 @@ impl Inner {
         }
     }
 
-    fn activated(&self) {
+    fn clicked(&self) {
         let Some(item_rc) = self.self_weak.upgrade() else { return };
         let Some(tray) = item_rc.downcast::<super::SystemTrayIcon>() else { return };
-        tray.as_pin_ref().activated.call(&());
+        tray.as_pin_ref().clicked.call(&());
     }
 }
 
@@ -295,7 +295,7 @@ unsafe extern "system" fn wnd_proc(
         } else if event == WM_LBUTTONUP {
             let inner_ptr = unsafe { GetWindowLongPtrW(hwnd, GWLP_USERDATA) } as *const Inner;
             if !inner_ptr.is_null() {
-                unsafe { &*inner_ptr }.activated();
+                unsafe { &*inner_ptr }.clicked();
             }
         }
         return LRESULT(0);
