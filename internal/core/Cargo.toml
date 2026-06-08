@@ -74,6 +74,10 @@ wgpu-29 = ["dep:wgpu-29"]
 unstable-wgpu-28 = ["wgpu-28"]
 unstable-wgpu-29 = ["wgpu-29"]
 
+## If enabled, calls of `debug()` in `.slint` files use to the [`log::debug!()`] macro
+## of the [log](https://crates.io/crates/log) crate instead of just `println!()`.
+log = ["dep:log"]
+
 tr = ["dep:tr"]
 
 32-bit-color = []
@@ -111,6 +115,8 @@ scopeguard = { version = "1.1.0", default-features = false }
 slab = { version = "0.4.3", default-features = false }
 static_assertions = { version = "1.1", optional = true }
 strum = { workspace = true }
+
+log = { workspace = true, optional = true }
 
 # Note: We're migrating our unicode handling over to the icu family of crates.
 # Prefer using icu crates over adding more unicode-* dependencies

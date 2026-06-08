@@ -36,7 +36,9 @@ pub fn debug_log_with_location(location: Option<&DebugLogLocation>, args: core::
 #[doc(hidden)]
 pub fn default_debug_log(_arguments: core::fmt::Arguments) {
     cfg_if::cfg_if! {
-        if #[cfg(target_arch = "wasm32")] {
+        if #[cfg(feature = "log")] {
+            log::debug!("{_arguments}");
+        } else if #[cfg(target_arch = "wasm32")] {
             use wasm_bindgen::prelude::*;
             use std::string::ToString;
 
