@@ -113,9 +113,6 @@ pub fn set_callback_handler<
 }
 
 pub fn debug(s: SharedString) {
-    #[cfg(feature = "log")]
-    log::debug!("{s}");
-    #[cfg(not(feature = "log"))]
     i_slint_core::debug_log!("{s}");
 }
 

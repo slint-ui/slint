@@ -504,10 +504,6 @@ pub struct ItemTreeDescription<'id> {
     #[cfg(feature = "internal-highlight")]
     pub(crate) raw_type_loader:
         std::cell::OnceCell<Option<std::rc::Rc<i_slint_compiler::typeloader::TypeLoader>>>,
-
-    pub(crate) debug_handler: std::cell::RefCell<
-        Rc<dyn Fn(Option<&i_slint_compiler::diagnostics::SourceLocation>, &str)>,
-    >,
 }
 
 #[derive(Clone, derive_more::From)]
@@ -796,18 +792,6 @@ impl ItemTreeDescription<'_> {
         let extra_data = c.description.extra_data_offset.apply(c.instance.get_ref());
         let g = extra_data.globals.get().unwrap().get(global_name).clone();
         g.ok_or(())
-    }
-
-    pub fn recursively_set_debug_handler(
-        &self,
-        handler: Rc<dyn Fn(Option<&i_slint_compiler::diagnostics::SourceLocation>, &str)>,
-    ) {
-        *self.debug_handler.borrow_mut() = handler.clone();
-
-        for r in &self.repeater {
-            generativity::make_guard!(guard);
-            r.unerase(guard).item_tree_to_repeat.recursively_set_debug_handler(handler.clone());
-        }
     }
 }
 
@@ -1444,9 +1428,6 @@ pub(crate) fn generate_item_tree<'id>(
         type_loader: std::cell::OnceCell::new(),
         #[cfg(feature = "internal-highlight")]
         raw_type_loader: std::cell::OnceCell::new(),
-        debug_handler: std::cell::RefCell::new(Rc::new(|_, text| {
-            i_slint_core::debug_log!("{text}")
-        })),
     };
 
     Rc::new(t)
@@ -1589,6 +1570,7 @@ pub fn instantiate(
         assert!(Rc::ptr_eq(a, &b), "window not the same as parent window");
     }
 
+    let has_parent = parent_ctx.is_some();
     if let Some(parent) = parent_ctx {
         description
             .parent_item_tree_offset
@@ -1597,27 +1579,32 @@ pub fn instantiate(
             .set(parent)
             .ok()
             .unwrap();
-    } else if let Some(g) = description.compiled_globals.as_ref() {
+    }
+    let extra_data = description.extra_data_offset.apply(instance_ref.as_ref());
+    extra_data.globals.set(globals.clone()).ok().unwrap();
+
+    let resolved_root = if let Some(WindowOptions::Embed { .. }) = window_options {
+        self_weak.clone()
+    } else {
+        generativity::make_guard!(guard);
+        root.or_else(|| {
+            instance_ref.parent_instance(guard).map(|parent| parent.root_weak().clone())
+        })
+        .unwrap_or_else(|| self_weak.clone())
+    };
+    description.root_offset.apply(instance_ref.as_ref()).set(resolved_root).ok().unwrap();
+
+    if !has_parent && let Some(g) = description.compiled_globals.as_ref() {
         for g in g.compiled_globals.iter() {
             crate::global_component::instantiate(g, &globals, self_weak.clone());
         }
     }
-    let extra_data = description.extra_data_offset.apply(instance_ref.as_ref());
-    extra_data.globals.set(globals).ok().unwrap();
+
     if let Some(WindowOptions::Embed { parent_item_tree, parent_item_tree_index }) = window_options
     {
         vtable::VRc::borrow_pin(&self_rc)
             .as_ref()
             .embed_component(parent_item_tree, *parent_item_tree_index);
-        description.root_offset.apply(instance_ref.as_ref()).set(self_weak.clone()).ok().unwrap();
-    } else {
-        generativity::make_guard!(guard);
-        let root = root
-            .or_else(|| {
-                instance_ref.parent_instance(guard).map(|parent| parent.root_weak().clone())
-            })
-            .unwrap_or_else(|| self_weak.clone());
-        description.root_offset.apply(instance_ref.as_ref()).set(root).ok().unwrap();
     }
 
     if !description.original.is_global() {
@@ -2797,7 +2784,6 @@ pub fn show_popup(
     parent_item: &ItemRc,
 ) {
     generativity::make_guard!(guard);
-    let debug_handler = instance.description.debug_handler.borrow().clone();
 
     // FIXME: we should compile once and keep the cached compiled component
     let compiled = generate_item_tree(
@@ -2807,7 +2793,6 @@ pub fn show_popup(
         false,
         guard,
     );
-    compiled.recursively_set_debug_handler(debug_handler);
 
     let extra_data = instance.description.extra_data_offset.apply(instance.as_ref());
     // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one.

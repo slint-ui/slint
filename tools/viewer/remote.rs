@@ -3,7 +3,6 @@
 
 use std::{net::SocketAddr, rc::Rc};
 
-use i_slint_compiler::diagnostics::Spanned;
 use i_slint_core::InternalToken;
 use i_slint_core::SharedString;
 use i_slint_live_preview::protocol::{PreviewComponent, PreviewToLspMessage, lsp_types};
@@ -42,6 +41,25 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     );
 
     let mut compiler = init_compiler(Rc::downgrade(&connection));
+
+    // Forward all debug output to the LSP, so that the LSP can show it to the user.
+    // Slint Viewer itself only displays the previewed app, so it has no UI of its own to show debug messages in.
+    let connection_weak = Rc::downgrade(&connection);
+    let _ = i_slint_backend_selector::with_global_context(|ctx| {
+        ctx.set_debug_handler(Some(Box::new(move |location, arguments| {
+            let location = crate::debug::debug_handler(location, arguments);
+            let Some(connection) = connection_weak.upgrade() else {
+                return;
+            };
+
+            connection
+                .send(PreviewToLspMessage::DebugMessage {
+                    location,
+                    message: arguments.to_string(),
+                })
+                .ok();
+        })))
+    })?;
 
     let mut placeholder = EmptyWindow::new()?;
 
@@ -248,27 +266,6 @@ async fn build_and_show(
     // Send the (possibly empty) list so the editor clears stale errors.
     send_diagnostics(&compilation_result, &preview_component.url, connection);
 
-    let connection = Rc::downgrade(connection);
-    component.set_debug_handler(
-        move |location, message| {
-            let Some(connection) = connection.upgrade() else {
-                return;
-            };
-            let location = location.and_then(|location| {
-                location.source_file().map(|file| {
-                    let (line, column) = file.line_column(
-                        location.span.offset,
-                        i_slint_compiler::diagnostics::ByteFormat::Utf8,
-                    );
-                    (file.path().to_owned(), line, column)
-                })
-            });
-            connection
-                .send(PreviewToLspMessage::DebugMessage { location, message: message.into() })
-                .ok();
-        },
-        i_slint_core::InternalToken,
-    );
     let new_instance = component
         .create_with_existing_window(placeholder.window())
         .map_err(|err| anyhow::anyhow!("Cannot create component instance: {err}"))?;

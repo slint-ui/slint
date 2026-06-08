@@ -45,9 +45,9 @@ gettext = ["i-slint-core/gettext-rs"]
 ## in MCU environments where the processor does not support floating point arithmetic.
 libm = ["i-slint-core/libm", "i-slint-renderer-software?/libm"]
 
-## If enabled, calls of `debug()` in `.slint` files use to the [`log::debug!()`] macro
-## of the [log](https://crates.io/crates/log) crate instead of just `println!()`.
-log = ["dep:log"]
+## If enabled, calls of `debug()` in `.slint` files use to the [`log::debug!()`](https://docs.rs/log/latest/log/macro.debug.html)
+## macro of the [log](https://crates.io/crates/log) crate instead of just `println!()`.
+log = ["i-slint-core/log"]
 
 ## Implement the `serde::Serialize` and `serde::Deserialize` for some of the base types
 ## such as `SharedString` and `SharedVector`.
@@ -297,8 +297,6 @@ vtable = { workspace = true }
 once_cell = { version = "1.5", default-features = false, features = ["alloc"] }
 pin-weak = { version = "1.1", default-features = false }
 num-traits = { version = "0.2", default-features = false }
-
-log = { workspace = true, optional = true }
 
 raw-window-handle-06 = { workspace = true, optional = true }
 
