@@ -34,6 +34,7 @@ on:
 env:
     MACOSX_DEPLOYMENT_TARGET: "11.0"
     SLINT_COMPILER_DENY_WARNINGS: 1
+    SLINT_BUILD_NUMBER: ${{ github.run_number }}
 
 jobs:
     files-changed:

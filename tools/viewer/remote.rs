@@ -14,6 +14,12 @@ slint::slint! {
     export { EmptyWindow } from "remote/main.slint";
 }
 
+// CARGO_PKG_VERSION tracks the workspace version, so it is the Slint version.
+const SLINT_VERSION: &str = concat!("Slint ", env!("CARGO_PKG_VERSION"));
+// Set by CI when building binaries (desktop, Android, iOS) so users can report
+// which build they are running. Empty for local developer builds.
+const BUILD_NUMBER: Option<&str> = option_env!("SLINT_BUILD_NUMBER");
+
 pub fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Result<()> {
     slint_interpreter::spawn_local(async_compat::Compat::new(async move {
         if let Err(err) = run_async(address, enable_mdns).await {
@@ -107,6 +113,10 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
 
     placeholder.set_address(SharedString::from(address.as_str()));
     placeholder.set_name(SharedString::from(device_name.as_str()));
+    placeholder.set_slint_version(SharedString::from(SLINT_VERSION));
+    if let Some(build_number) = BUILD_NUMBER {
+        placeholder.set_build_info(slint::format!("Build {build_number}"));
+    }
     placeholder.show()?;
 
     let mut last_connection = None;
@@ -281,6 +291,10 @@ fn swap_to_placeholder(
     fresh.set_address(SharedString::from(address));
     fresh.set_name(SharedString::from(name));
     fresh.set_message(SharedString::from(message));
+    fresh.set_slint_version(SharedString::from(SLINT_VERSION));
+    if let Some(build_number) = BUILD_NUMBER {
+        fresh.set_build_info(slint::format!("Build {build_number}"));
+    }
     fresh.show().map_err(|err| anyhow::anyhow!("Cannot show placeholder: {err}"))?;
     *placeholder = fresh;
     *user_instance = None;

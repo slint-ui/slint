@@ -22,6 +22,7 @@ env:
     # Keep in sync with features in slint_tool_binary.yaml, cpp_package.yaml, api/node/Cargo.toml, and api/python/slint/Cargo.toml
     SLINT_BINARY_FEATURES: "backend-linuxkms-noseat,backend-winit,renderer-femtovg,renderer-skia,renderer-software"
     MACOSX_DEPLOYMENT_TARGET: "11.0"
+    SLINT_BUILD_NUMBER: ${{ github.run_number }}
     # Use fat LTO for distributed binaries: smaller size and better runtime perf.
     # Workspace [profile.release] uses cargo defaults to keep dev release builds fast.
     CARGO_PROFILE_RELEASE_LTO: "fat"
@@ -737,6 +738,8 @@ jobs:
               run: cargo apk build -p usecases --target aarch64-linux-android --lib --release
             - name: Build home automation demo
               run: cargo apk build -p home-automation --target aarch64-linux-android --lib --release
+            - name: Build slint-viewer
+              run: cargo apk build -p slint-viewer --target aarch64-linux-android --lib --release --features remote
             - name: "upload APK artifact"
               uses: actions/upload-artifact@v7
               with:
@@ -748,3 +751,4 @@ jobs:
                     target/release/apk/usecases_lib.apk
                     target/release/apk/usecases_lib.apk
                     target/release/apk/home_automation_lib.apk
+                    target/release/apk/slint-viewer.apk
