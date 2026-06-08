@@ -11,12 +11,16 @@ use super::{
     VoidArg,
 };
 use crate::animations::Instant;
-use crate::animations::physics_simulation::ConstantDecelerationParameters;
+use crate::animations::physics_simulation::{
+    ConstantDeceleration, ConstantDecelerationParameters, Parameter,
+};
 use crate::input::InternalKeyEvent;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, MouseEvent, TouchPhase,
 };
 use crate::item_rendering::CachedRenderingData;
+use crate::item_tree::ItemWeak;
+use crate::items::SnapMode;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
@@ -63,6 +67,7 @@ pub struct Flickable {
     pub viewport_y: Property<LogicalLength>,
     pub viewport_width: Property<LogicalLength>,
     pub viewport_height: Property<LogicalLength>,
+    pub snap_mode: Property<SnapMode>,
 
     pub interactive: Property<bool>,
 
@@ -244,6 +249,32 @@ impl ItemConsts for Flickable {
 }
 
 impl Flickable {
+    pub fn simulation_flick_limit_y(self: Pin<&Self>) -> Option<LogicalLength> {
+        if let Some((item_rc, animation)) = self
+            .data
+            .inner
+            .borrow()
+            .running_animation
+            .as_ref()
+            .and_then(|animation| animation.weak.upgrade().zip(animation.y_simulation.as_ref()))
+        {
+            let velocity_y = animation.borrow().data().initial_velocity;
+            Some(LogicalLength::new(
+                self.flick_limits(&item_rc, LogicalVector::new(0., velocity_y)).1,
+            ))
+        } else {
+            None
+        }
+    }
+
+    pub fn update_simulation_limit_y(self: Pin<&Self>, limit: LogicalLength) {
+        if let Some(animations) = &self.data.inner.borrow().running_animation {
+            if let Some(animation) = &animations.y_simulation {
+                animation.borrow_mut().update_limit(limit.0);
+            }
+        }
+    }
+
     fn choose_min_move(
         current_view_start: Coord, // vx or vy
         view_len: Coord,           // w or h
@@ -292,10 +323,6 @@ impl Flickable {
         }
     }
 
-    pub(crate) fn get_inner(self) {
-        (*self.data).inner.borrow().capture_events;
-    }
-
     /// Scroll the Flickable so that all of the points are visible at the same time (if possible).
     /// The points have to be in the parent's coordinate space.
     pub(crate) fn reveal_points(self: Pin<&Self>, self_rc: &ItemRc, pts: &[LogicalPoint]) {
@@ -339,6 +366,26 @@ impl Flickable {
             }
         }
         geometry
+    }
+
+    pub(crate) fn flick_limits(
+        self: Pin<&Self>,
+        flick_rc: &ItemRc,
+        flick_velocity: LogicalVector,
+    ) -> (f32, f32) {
+        let limit = ensure_in_bound(
+            self,
+            LogicalPoint::from_lengths(-self.viewport_width(), -self.viewport_height()),
+            flick_rc,
+        );
+
+        let limit_x =
+            if flick_velocity.x < 0 as Coord { limit.x_length().get() as f32 } else { 0.0 };
+
+        let limit_y =
+            if flick_velocity.y < 0 as Coord { limit.y_length().get() as f32 } else { 0.0 };
+
+        (limit_x, limit_y)
     }
 }
 
@@ -390,8 +437,15 @@ enum CaptureEvents {
     MouseWheel,
 }
 
+struct RunningSimulation {
+    start_time: Instant,
+    weak: ItemWeak,
+    x_simulation: Option<Rc<RefCell<ConstantDeceleration>>>,
+    y_simulation: Option<Rc<RefCell<ConstantDeceleration>>>,
+}
+
 #[derive(Default)]
-struct FlickableDataInner {
+pub(crate) struct FlickableDataInner {
     /// The time and position in which the press was made
     ///
     /// The position is in the coordinate system of the flickable, not of the viewport.
@@ -416,7 +470,8 @@ struct FlickableDataInner {
     /// The animation details of the currently running animation for smooth mouse wheel scrolling.
     /// This allows us to add the missing delta of the animation to the next scroll event if the user scrolls again
     /// before the animation is finished.
-    running_animation: Option<(Instant, [Option<ConstantDecelerationParameters>; 2])>,
+    /// This is required, because otherwise we slow down the scrolling
+    running_animation: Option<RunningSimulation>,
 }
 
 impl FlickableDataInner {
@@ -468,16 +523,19 @@ impl FlickableDataInner {
 
         if self.capture_events.is_none()
             && matches!(phase, TouchPhase::Moved)
-            && let Some((start_time, [x_simulation, y_simulation])) = &self.running_animation
+            && let Some(RunningSimulation { start_time, x_simulation, y_simulation, .. }) =
+                &self.running_animation
         {
             // If the animation is not finished, we add the remaining animations delta.
             let animation_duration = crate::animations::current_tick().duration_since(*start_time);
 
             if let Some(x_simulation) = x_simulation {
-                delta.x += x_simulation.remaining_distance(animation_duration);
+                // TODO: instead of calculating the remaining_distance from the parameters, we can do that also
+                // directly from the simulation, because there we have the current velocity
+                delta.x += x_simulation.borrow().remaining_distance(animation_duration);
             }
             if let Some(y_simulation) = y_simulation {
-                delta.y += y_simulation.remaining_distance(animation_duration);
+                delta.y += y_simulation.borrow().remaining_distance(animation_duration);
             }
         }
 
@@ -516,32 +574,43 @@ impl FlickableDataInner {
                     // estimate.
                     //
                     // At the time of writing, in practice this means we must use a physics animation.
-                    let [limit_x, limit_y] = Self::flick_limits(flick_rc, delta);
+                    let (limit_x, limit_y) = Flickable::flick_limits(flick, flick_rc, delta);
 
                     let x_simulation = (delta.x != Coord::default()).then(|| {
-                        let simulation = ConstantDecelerationParameters::new_with_distance(
-                            delta.x as f32,
-                            WHEEL_SCROLL_DURATION.as_secs_f32(),
-                        );
-                        viewport_x.set_physic_animation_value(limit_x, simulation.clone());
-                        simulation
+                        Rc::new_cyclic(|weak| {
+                            let curr_val = viewport_x.get().0;
+                            viewport_x.set_physic_animation_value(weak.clone());
+                            let simulation = ConstantDecelerationParameters::new_with_distance(
+                                delta.x as f32,
+                                WHEEL_SCROLL_DURATION.as_secs_f32(),
+                            );
+                            RefCell::new(simulation.simulation(curr_val, limit_x))
+                        })
                     });
 
                     let y_simulation = (delta.y != Coord::default()).then(|| {
-                        let simulation = ConstantDecelerationParameters::new_with_distance(
-                            delta.y as f32,
-                            WHEEL_SCROLL_DURATION.as_secs_f32(),
-                        );
-                        viewport_y.set_physic_animation_value(limit_y, simulation.clone());
-                        simulation
+                        Rc::new_cyclic(|weak| {
+                            let curr_val = viewport_y.get().0;
+                            viewport_y.set_physic_animation_value(weak.clone());
+
+                            let simulation = ConstantDecelerationParameters::new_with_distance(
+                                delta.y as f32,
+                                WHEEL_SCROLL_DURATION.as_secs_f32(),
+                            );
+                            RefCell::new(simulation.simulation(curr_val, limit_y))
+                        })
                     });
 
                     if delta.x != 0 as Coord || delta.y != 0 as Coord {
                         (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());
                     }
 
-                    self.running_animation =
-                        Some((crate::animations::current_tick(), [x_simulation, y_simulation]));
+                    self.running_animation = Some(RunningSimulation {
+                        start_time: crate::animations::current_tick(),
+                        x_simulation,
+                        y_simulation,
+                        weak: flick_rc.downgrade(),
+                    });
                 }
                 self.last_scroll_event = Some((crate::animations::current_tick(), position));
             }
@@ -573,55 +642,7 @@ impl FlickableDataInner {
         }
     }
 
-    fn flick_limits(
-        flick_rc: &ItemRc,
-        flick_velocity: LogicalVector,
-    ) -> [Pin<Box<Property<f32>>>; 2] {
-        let flick_weak = flick_rc.downgrade();
-        let calculate_limits = move || {
-            flick_weak
-                .upgrade()
-                .and_then(|flick_rc| {
-                    flick_rc.downcast::<Flickable>().map(move |flick| (flick_rc, flick))
-                })
-                .map(|(flick_rc, flick)| {
-                    let flick = flick.as_pin_ref();
-                    ensure_in_bound(
-                        flick,
-                        LogicalPoint::from_lengths(
-                            -flick.viewport_width(),
-                            -flick.viewport_height(),
-                        ),
-                        &flick_rc,
-                    )
-                })
-        };
-
-        let limit_x = if flick_velocity.x < 0 as Coord {
-            let property = Box::pin(Property::new(0.0));
-            property.set_binding({
-                let calculate_limits = calculate_limits.clone();
-                move || calculate_limits().map(|limit| limit.x_length().get() as f32).unwrap_or(0.0)
-            });
-            property
-        } else {
-            Box::pin(Property::new(0.0))
-        };
-
-        let limit_y = if flick_velocity.y < 0 as Coord {
-            let property = Box::pin(Property::new(0.0));
-            property.set_binding(move || {
-                calculate_limits().map(|limit| limit.y_length().get() as f32).unwrap_or(0.0)
-            });
-            property
-        } else {
-            Box::pin(Property::new(0.0))
-        };
-
-        [limit_x, limit_y]
-    }
-
-    fn animate(&self, flick: Pin<&Flickable>, flick_rc: &ItemRc) {
+    fn animate(&mut self, flick: Pin<&Flickable>, flick_rc: &ItemRc) {
         if let Some(last_time) = self.velocity_rb.last_time() {
             let mean_velocity = self.velocity_rb.mean_velocity();
             if self.capture_events.is_some()
@@ -631,19 +652,30 @@ impl FlickableDataInner {
                 let viewport_x = (Flickable::FIELD_OFFSETS.viewport_x()).apply_pin(flick);
                 let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flick);
 
-                let [limit_x, limit_y] = Self::flick_limits(flick_rc, mean_velocity);
+                let (limit_x, limit_y) = Flickable::flick_limits(flick, flick_rc, mean_velocity);
 
-                {
-                    let simulation =
+                let x_simulation = Rc::new_cyclic(|weak| {
+                    let curr_val = viewport_x.get().0;
+                    viewport_x.set_physic_animation_value(weak.clone());
+                    let animation =
                         ConstantDecelerationParameters::new(mean_velocity.x as f32, DECELERATION);
-                    viewport_x.set_physic_animation_value(limit_x, simulation);
-                }
+                    RefCell::new(animation.simulation(curr_val, limit_x))
+                });
 
-                {
-                    let animation_y =
+                let y_simulation = Rc::new_cyclic(|weak| {
+                    let curr_val = viewport_y.get().0;
+                    viewport_y.set_physic_animation_value(weak.clone());
+                    let animation =
                         ConstantDecelerationParameters::new(mean_velocity.y as f32, DECELERATION);
-                    viewport_y.set_physic_animation_value(limit_y, animation_y);
-                }
+                    RefCell::new(animation.simulation(curr_val, limit_y))
+                });
+
+                self.running_animation = Some(RunningSimulation {
+                    start_time: crate::animations::current_tick(),
+                    weak: flick_rc.downgrade(),
+                    x_simulation: Some(x_simulation),
+                    y_simulation: Some(y_simulation),
+                });
 
                 if mean_velocity.x != 0 as Coord || mean_velocity.y != 0 as Coord {
                     (Flickable::FIELD_OFFSETS.flicked()).apply_pin(flick).call(&());

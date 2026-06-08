@@ -163,15 +163,17 @@ fn update_visible_instances(
     ops: &mut impl RepeaterInstanceOps,
     state: &mut RepeaterLayoutState,
     row_count: usize,
-    viewport_width: Pin<&Property<LogicalLength>>,
-    viewport_height: Pin<&Property<LogicalLength>>,
-    viewport_y: Pin<&Property<LogicalLength>>,
+    flickable: Pin<&Flickable>,
     listview_width: LogicalLength,
     listview_height: LogicalLength,
 ) -> bool {
     let zero = LogicalLength::default();
     let mut vp_width = listview_width.get();
     let listview_height = listview_height.get();
+
+    let viewport_width = (Flickable::FIELD_OFFSETS.viewport_width()).apply_pin(flickable);
+    let viewport_height = (Flickable::FIELD_OFFSETS.viewport_height()).apply_pin(flickable);
+    let viewport_y = (Flickable::FIELD_OFFSETS.viewport_y()).apply_pin(flickable);
 
     if row_count == 0 {
         ops.splice(0, ops.len(), 0);
@@ -319,6 +321,10 @@ fn update_visible_instances(
         state.cached_item_height = (y - new_offset_y) / ops.len() as Coord;
         state.anchor_y = state.cached_item_height * state.offset as Coord;
         viewport_height.set(LogicalLength::new(state.cached_item_height * row_count as Coord));
+        if let Some(limit) = flickable.simulation_flick_limit_y() {
+            // We have to update the simulation limit, because we changed the height
+            flickable.update_simulation_limit_y(limit);
+        }
         viewport_width.set(LogicalLength::new(vp_width));
         let new_viewport_y = -state.anchor_y + new_offset_y;
         // Important: Use get_internal here, the viewport_y may have a binding on it (especially
@@ -629,10 +635,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     pub fn ensure_updated_listview(
         self: Pin<&Self>,
         init: impl Fn() -> ItemTreeRc<C>,
-        _flickable: Pin<&Flickable>,
-        viewport_width: Pin<&Property<LogicalLength>>,
-        viewport_height: Pin<&Property<LogicalLength>>,
-        viewport_y: Pin<&Property<LogicalLength>>,
+        flickable: Pin<&Flickable>,
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
     ) -> bool {
@@ -648,9 +651,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             &mut ops,
             &mut layout_state,
             row_count,
-            viewport_width,
-            viewport_height,
-            viewport_y,
+            flickable,
             listview_width,
             listview_height.get(),
         );
@@ -932,21 +933,10 @@ mod ffi {
         ops: &mut RepeaterInstanceOpsVTable,
         state: &mut RepeaterLayoutState,
         row_count: usize,
-        viewport_width: Pin<&Property<LogicalLength>>,
-        viewport_height: Pin<&Property<LogicalLength>>,
-        viewport_y: Pin<&Property<LogicalLength>>,
+        flickable: Pin<&Flickable>,
         listview_width: LogicalLength,
         listview_height: LogicalLength,
     ) -> bool {
-        update_visible_instances(
-            ops,
-            state,
-            row_count,
-            viewport_width,
-            viewport_height,
-            viewport_y,
-            listview_width,
-            listview_height,
-        )
+        update_visible_instances(ops, state, row_count, flickable, listview_width, listview_height)
     }
 }

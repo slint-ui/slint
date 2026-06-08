@@ -1281,7 +1281,7 @@ fn generate_sub_component(
                 ensure_instantiated_stmts.push(quote!({
                     _changed |= #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated_listview(
                         || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() },
-                        #flickable, #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
+                        #flickable, #lv_w.get(), #lv_h
                     );
                 }));
             } else {
