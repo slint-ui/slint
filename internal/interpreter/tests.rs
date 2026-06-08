@@ -3,6 +3,12 @@
 
 use i_slint_core::api::ComponentHandle;
 
+fn set_global_debug_handler(
+    handler: Option<i_slint_core::debug_log::DebugLogHandler>,
+) -> Option<i_slint_core::debug_log::DebugLogHandler> {
+    i_slint_backend_selector::with_global_context(|ctx| ctx.set_debug_handler(handler)).unwrap()
+}
+
 #[test]
 fn reuse_window() {
     i_slint_backend_testing::init_no_event_loop();
@@ -54,14 +60,13 @@ fn context_debug_handler_overrides_platform() {
     use std::rc::Rc;
 
     let captured = Rc::new(RefCell::new(Vec::new()));
-    let previous = i_slint_core::context::set_debug_handler(Some(Box::new({
+    let previous = set_global_debug_handler(Some(Box::new({
         let captured = captured.clone();
         move |_location: Option<&i_slint_core::debug_log::DebugLogLocation>,
               arguments: core::fmt::Arguments<'_>| {
             captured.borrow_mut().push(arguments.to_string());
         }
-    })))
-    .unwrap();
+    })));
 
     let code = r#"
         export component MainWindow inherits Window {
@@ -84,7 +89,7 @@ fn context_debug_handler_overrides_platform() {
         .is_empty()
     );
 
-    i_slint_core::context::set_debug_handler(previous).unwrap();
+    set_global_debug_handler(previous);
 }
 
 #[test]
@@ -121,14 +126,13 @@ fn global_debug_messages_use_context_handler() {
     use std::rc::Rc;
 
     let captured = Rc::new(RefCell::new(Vec::new()));
-    let previous = i_slint_core::context::set_debug_handler(Some(Box::new({
+    let previous = set_global_debug_handler(Some(Box::new({
         let captured = captured.clone();
         move |_location: Option<&i_slint_core::debug_log::DebugLogLocation>,
               arguments: core::fmt::Arguments<'_>| {
             captured.borrow_mut().push(arguments.to_string());
         }
-    })))
-    .unwrap();
+    })));
 
     let code = r#"
         export global Logic {
@@ -160,7 +164,7 @@ fn global_debug_messages_use_context_handler() {
         .is_empty()
     );
 
-    i_slint_core::context::set_debug_handler(previous).unwrap();
+    set_global_debug_handler(previous);
 }
 
 #[test]

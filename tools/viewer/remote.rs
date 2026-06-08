@@ -39,16 +39,21 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     // Forward all debug output to the LSP, so that the LSP can show it to the user.
     // Slint Viewer itself only displays the previewed app, so it has no UI of its own to show debug messages in.
     let connection_weak = Rc::downgrade(&connection);
-    i_slint_core::context::set_debug_handler(Some(Box::new(move |location, arguments| {
-        let location = crate::debug::debug_handler(location, arguments);
-        let Some(connection) = connection_weak.upgrade() else {
-            return;
-        };
+    let _ = i_slint_backend_selector::with_global_context(|ctx| {
+        ctx.set_debug_handler(Some(Box::new(move |location, arguments| {
+            let location = crate::debug::debug_handler(location, arguments);
+            let Some(connection) = connection_weak.upgrade() else {
+                return;
+            };
 
-        connection
-            .send(PreviewToLspMessage::DebugMessage { location, message: arguments.to_string() })
-            .ok();
-    })))?;
+            connection
+                .send(PreviewToLspMessage::DebugMessage {
+                    location,
+                    message: arguments.to_string(),
+                })
+                .ok();
+        })))
+    })?;
 
     let mut placeholder = EmptyWindow::new()?;
 

@@ -749,10 +749,18 @@ fn call_builtin_function(
                     }
                 })
             });
-            corelib::debug_log::debug_log_with_location(
-                location.as_ref(),
-                format_args!("{to_print}"),
-            );
+            let root_weak =
+                vtable::VWeak::into_dyn(local_context.component_instance.root_weak().clone());
+            if let Some(root) = root_weak.upgrade()
+                && let Some(ctx) = corelib::window::context_for_root(&root)
+            {
+                ctx.dispatch_debug_log(location.as_ref(), format_args!("{to_print}"));
+            } else {
+                corelib::debug_log::debug_log_with_location(
+                    location.as_ref(),
+                    format_args!("{to_print}"),
+                );
+            }
             Value::Void
         }
         BuiltinFunction::DecimalSeparator => Value::String(

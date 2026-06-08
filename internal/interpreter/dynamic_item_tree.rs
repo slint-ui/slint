@@ -1570,6 +1570,7 @@ pub fn instantiate(
         assert!(Rc::ptr_eq(a, &b), "window not the same as parent window");
     }
 
+    let has_parent = parent_ctx.is_some();
     if let Some(parent) = parent_ctx {
         description
             .parent_item_tree_offset
@@ -1578,27 +1579,32 @@ pub fn instantiate(
             .set(parent)
             .ok()
             .unwrap();
-    } else if let Some(g) = description.compiled_globals.as_ref() {
+    }
+    let extra_data = description.extra_data_offset.apply(instance_ref.as_ref());
+    extra_data.globals.set(globals.clone()).ok().unwrap();
+
+    let resolved_root = if let Some(WindowOptions::Embed { .. }) = window_options {
+        self_weak.clone()
+    } else {
+        generativity::make_guard!(guard);
+        root.or_else(|| {
+            instance_ref.parent_instance(guard).map(|parent| parent.root_weak().clone())
+        })
+        .unwrap_or_else(|| self_weak.clone())
+    };
+    description.root_offset.apply(instance_ref.as_ref()).set(resolved_root).ok().unwrap();
+
+    if !has_parent && let Some(g) = description.compiled_globals.as_ref() {
         for g in g.compiled_globals.iter() {
             crate::global_component::instantiate(g, &globals, self_weak.clone());
         }
     }
-    let extra_data = description.extra_data_offset.apply(instance_ref.as_ref());
-    extra_data.globals.set(globals).ok().unwrap();
+
     if let Some(WindowOptions::Embed { parent_item_tree, parent_item_tree_index }) = window_options
     {
         vtable::VRc::borrow_pin(&self_rc)
             .as_ref()
             .embed_component(parent_item_tree, *parent_item_tree_index);
-        description.root_offset.apply(instance_ref.as_ref()).set(self_weak.clone()).ok().unwrap();
-    } else {
-        generativity::make_guard!(guard);
-        let root = root
-            .or_else(|| {
-                instance_ref.parent_instance(guard).map(|parent| parent.root_weak().clone())
-            })
-            .unwrap_or_else(|| self_weak.clone());
-        description.root_offset.apply(instance_ref.as_ref()).set(root).ok().unwrap();
     }
 
     if !description.original.is_global() {

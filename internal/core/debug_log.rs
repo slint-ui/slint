@@ -11,7 +11,7 @@ pub struct DebugLogLocation {
     pub column: usize,
 }
 
-/// Debug handler type stored in the global context.
+/// Debug handler type stored in a [`crate::SlintContext`].
 pub type DebugLogHandler = alloc::boxed::Box<
     dyn for<'a> Fn(Option<&DebugLogLocation>, core::fmt::Arguments<'a>) + 'static,
 >;

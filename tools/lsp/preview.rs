@@ -1571,38 +1571,39 @@ fn set_preview_factory(
     // Ensure that any popups are closed as they are related to the old factory
     i_slint_core::window::WindowInner::from_pub(app_window.window()).close_all_popups();
 
-    i_slint_core::context::set_debug_handler(Some(Box::new(|location, arguments| {
-        let message = arguments.to_string();
-        let location =
-            location.map(|location| (location.path.clone(), location.line, location.column));
-        PREVIEW_STATE.with_borrow_mut(|state| {
-            let to_lsp = state.to_lsp.try_borrow();
-            let Some(to_lsp) = to_lsp.ok() else { return };
-            if let Some(to_lsp) = &*to_lsp {
-                to_lsp
-                    .send(&PreviewToLspMessage::DebugMessage {
-                        location: location.as_ref().map(|(path, line, column)| {
-                            (std::path::PathBuf::from(path.as_str()), *line, *column)
-                        }),
-                        message: message.clone(),
-                    })
-                    .ok();
-            }
-        });
-        let _ = slint::invoke_from_event_loop(move || {
-            PREVIEW_STATE.with_borrow(|preview_state| {
-                if let Some(api) = preview_state.api.upgrade() {
-                    ui::log_messages::append_log_message(
-                        &api,
-                        ui::LogMessageLevel::Debug,
-                        location,
-                        &message,
-                    );
+    let _ = i_slint_core::window::WindowInner::from_pub(app_window.window())
+        .context()
+        .set_debug_handler(Some(Box::new(|location, arguments| {
+            let message = arguments.to_string();
+            let location =
+                location.map(|location| (location.path.clone(), location.line, location.column));
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                let to_lsp = state.to_lsp.try_borrow();
+                let Some(to_lsp) = to_lsp.ok() else { return };
+                if let Some(to_lsp) = &*to_lsp {
+                    to_lsp
+                        .send(&PreviewToLspMessage::DebugMessage {
+                            location: location.as_ref().map(|(path, line, column)| {
+                                (std::path::PathBuf::from(path.as_str()), *line, *column)
+                            }),
+                            message: message.clone(),
+                        })
+                        .ok();
                 }
             });
-        });
-    })))
-    .unwrap();
+            let _ = slint::invoke_from_event_loop(move || {
+                PREVIEW_STATE.with_borrow(|preview_state| {
+                    if let Some(api) = preview_state.api.upgrade() {
+                        ui::log_messages::append_log_message(
+                            &api,
+                            ui::LogMessageLevel::Debug,
+                            location,
+                            &message,
+                        );
+                    }
+                });
+            });
+        })));
 
     let factory = slint::ComponentFactory::new(move |ctx: FactoryContext| {
         let instance = compiled.create_embedded(ctx).unwrap();

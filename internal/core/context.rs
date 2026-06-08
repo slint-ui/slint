@@ -239,7 +239,8 @@ impl SlintContext {
         self.0.as_ref().project_ref().platform_default_font_size.set(size);
     }
 
-    pub(crate) fn dispatch_debug_log(
+    #[doc(hidden)]
+    pub fn dispatch_debug_log(
         &self,
         location: Option<&crate::debug_log::DebugLogLocation>,
         arguments: core::fmt::Arguments<'_>,
@@ -249,6 +250,15 @@ impl SlintContext {
         } else {
             self.0.platform.debug_log(arguments);
         }
+    }
+
+    #[doc(hidden)]
+    pub fn set_debug_handler(
+        &self,
+        handler: Option<crate::debug_log::DebugLogHandler>,
+    ) -> Option<crate::debug_log::DebugLogHandler> {
+        let mut slot = self.0.debug_handler.borrow_mut();
+        core::mem::replace(&mut *slot, handler)
     }
 
     /// Add one to the counter of "things keeping the event loop alive".
@@ -355,28 +365,6 @@ pub fn with_global_context<R>(
             crate::platform::set_platform(factory()?).map_err(PlatformError::SetPlatformError)?;
             Ok(f(p.get().unwrap()))
         }
-    })
-}
-
-/// Set or remove the process-wide debug handler.
-/// This overwrites the platform implementations debug handler and the default behavior of
-/// printing to stdout/stderr.
-///
-/// Returns the previously set handler, if any.
-#[doc(hidden)]
-pub fn set_debug_handler(
-    handler: Option<crate::debug_log::DebugLogHandler>,
-) -> Result<Option<crate::debug_log::DebugLogHandler>, PlatformError> {
-    GLOBAL_CONTEXT.with(|p| match p.get() {
-        Some(ctx) => {
-            let mut slot = ctx.0.debug_handler.try_borrow_mut().map_err(|_| {
-                PlatformError::Other(alloc::string::String::from(
-                    "debug handler is currently in use",
-                ))
-            })?;
-            Ok(core::mem::replace(&mut *slot, handler))
-        }
-        None => Err(PlatformError::NoPlatform),
     })
 }
 

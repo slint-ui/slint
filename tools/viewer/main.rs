@@ -284,9 +284,11 @@ fn select_backend(backend: Option<&str>) -> Result<()> {
 }
 
 fn install_debug_handler() -> Result<()> {
-    i_slint_core::context::set_debug_handler(Some(Box::new(move |location, arguments| {
-        debug::debug_handler(location, arguments);
-    })))?;
+    let _ = i_slint_backend_selector::with_global_context(|ctx| {
+        ctx.set_debug_handler(Some(Box::new(move |location, arguments| {
+            debug::debug_handler(location, arguments);
+        })))
+    })?;
     Ok(())
 }
 
