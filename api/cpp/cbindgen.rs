@@ -375,7 +375,6 @@ fn gen_corelib(
         "Rect",
         "SortOrder",
         "BitmapFont",
-        "DataTransferOpaque",
     ]
     .iter()
     .chain(items.iter())
@@ -579,7 +578,6 @@ fn gen_corelib(
         ),
         (
             vec![
-                "DataTransferOpaque",
                 "slint_data_transfer_init_default",
                 "slint_data_transfer_drop",
                 "slint_data_transfer_clone",

@@ -94,6 +94,7 @@ vtable = { workspace = true }
 
 portable-atomic = { version = "1", features = ["critical-section"] }
 auto_enums = { version = "0.8.0", optional = true }
+enumflags2 = "0.7"
 cfg-if = "1"
 derive_more = { workspace = true, features = ["error", "deref", "deref_mut"] }
 euclid = { workspace = true }

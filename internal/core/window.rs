@@ -9,6 +9,7 @@ use crate::api::{
     CloseRequestResponse, LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize,
     PlatformError, Window, WindowPosition, WindowSize,
 };
+use crate::graphics::Image;
 use crate::input::{
     ClickState, FocusEvent, FocusReason, InternalKeyEvent, KeyEventResult, KeyEventType, Keys,
     MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase, TouchState,
@@ -18,7 +19,9 @@ use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
-use crate::items::{InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
+use crate::items::{
+    DragArea, DropArea, DropEvent, InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy,
+};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalVector, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
@@ -30,7 +33,9 @@ use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 use core::num::NonZeroU32;
 use core::pin::Pin;
+use euclid::UnknownUnit;
 use euclid::num::Zero;
+use portable_atomic::AtomicBool;
 use vtable::{VRc, VRcMapped};
 
 pub mod popup;
@@ -472,8 +477,9 @@ pub struct WindowInner {
     component: RefCell<ItemTreeWeak>,
     /// When the window is visible, keep a strong reference
     strong_component_ref: RefCell<Option<ItemTreeRc>>,
-    mouse_input_state: Cell<MouseInputState>,
+    mouse_input_state: RefCell<MouseInputState>,
     touch_state: RefCell<TouchState>,
+    pub(crate) start_drag_pending: AtomicBool,
 
     /// ItemRC that currently have the focus (possibly an instance of TextInput)
     pub focus_item: RefCell<crate::item_tree::ItemWeak>,
@@ -533,6 +539,7 @@ impl WindowInner {
             component: Default::default(),
             strong_component_ref: Default::default(),
             mouse_input_state: Default::default(),
+            start_drag_pending: AtomicBool::new(false),
             touch_state: Default::default(),
             pinned_fields: Box::pin(WindowPinnedFields {
                 redraw_tracker,
@@ -560,6 +567,68 @@ impl WindowInner {
             ctx: Default::default(),
             menubar: Default::default(),
         }
+    }
+
+    /// TODO: Docs
+    pub fn drop_event(&self) -> Option<DropEvent> {
+        let mouse_input = self.mouse_input_state.borrow();
+        mouse_input.drag_data.clone()
+    }
+
+    /// TODO: Docs
+    pub fn set_new_drag_pending(&self, pending: bool) {
+        self.start_drag_pending.store(pending, core::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// TODO: Docs
+    pub fn take_new_started_drag_event(&self) -> Option<DropEvent> {
+        if !self.start_drag_pending.swap(false, core::sync::atomic::Ordering::Relaxed) {
+            return None;
+        }
+
+        self.mouse_input_state.borrow().drag_data.clone()
+    }
+
+    /// `move`, `copy`, `link`
+    /// TODO: this should be a separate struct
+    pub fn drop_target_action(&self) -> Option<crate::items::DragAction> {
+        self.mouse_input_state.borrow().drop_target_action()
+    }
+
+    /// TODO: Docs
+    pub fn is_drag_event_internal(&self) -> bool {
+        self.mouse_input_state.borrow().drag_source.is_some()
+    }
+
+    /// TODO: Docs
+    pub fn hide_drag_image(&self) {
+        self.mouse_input_state.borrow_mut().hide_drag_image = true;
+    }
+
+    /// TODO: Docs
+    pub fn set_drop_event(&self, event: DropEvent) {
+        self.mouse_input_state.borrow_mut().drag_data = Some(event);
+    }
+
+    /// TODO: Docs
+    pub fn started_drag_event_icon(&self) -> Option<(Image, euclid::Point2D<i32, UnknownUnit>)> {
+        let drag_area = self
+            .mouse_input_state
+            .borrow()
+            .drag_source
+            .as_ref()?
+            .upgrade()?
+            .downcast::<DragArea>()?;
+
+        // The drag image can't be updated after the drag has started, so it probably makes sense to use
+        // `get_internal` here. TODO: Confirm that this is correct.
+        let image = drag_area.drag_image.get_internal();
+        let offset = euclid::Point2D::new(
+            drag_area.drag_image_offset_x.get_internal(),
+            drag_area.drag_image_offset_y.get_internal(),
+        );
+
+        Some((image, offset))
     }
 
     /// Associates this window with the specified component. Further event handling and rendering, etc. will be
@@ -661,15 +730,6 @@ impl WindowInner {
                     mouse_input_state.drag_data = None;
                     let source = mouse_input_state.drag_source.take();
                     if let Some(target_weak) = mouse_input_state.drop_target.take() {
-                        // Seed `proposed-action` for the dropped callback with the action the
-                        // target last chose during hover; the callback's return value will
-                        // become the final action reported to the source.
-                        let hovered = target_weak
-                            .upgrade()
-                            .and_then(|t| t.downcast::<crate::items::DropArea>())
-                            .map(|d| d.as_pin_ref().current_action())
-                            .unwrap_or(crate::items::DragAction::None);
-                        drop_event.proposed_action = hovered;
                         drop_event.position = crate::lengths::logical_position_to_api(*position);
                         event = MouseEvent::Drop(drop_event);
                         if let Some(s) = source {
@@ -717,11 +777,11 @@ impl WindowInner {
                     event = MouseEvent::DragMove(drop_event);
                 }
                 MouseEvent::Exit => {
-                    mouse_input_state.drag_data = None;
-                    mouse_input_state.drop_target = None;
-                    if let Some(s) = mouse_input_state.drag_source.take() {
-                        pending_drag_finished = Some((s, None));
-                    }
+                    // mouse_input_state.drag_data = None;
+                    // mouse_input_state.drop_target = None;
+                    // if let Some(s) = mouse_input_state.drag_source.take() {
+                    //     pending_drag_finished = Some((s, None));
+                    // }
                 }
                 _ => {}
             }
@@ -785,9 +845,12 @@ impl WindowInner {
             .then_some(popup.popup_id)
         });
 
-        mouse_input_state = if let Some(mut event) =
-            crate::input::handle_mouse_grab(&event, &window_adapter, &mut mouse_input_state)
-        {
+        mouse_input_state = if let Some(mut event) = crate::input::handle_mouse_grab(
+            &event,
+            &window_adapter,
+            &mut mouse_input_state,
+            &self.start_drag_pending,
+        ) {
             // The grab handler may have fired callbacks that modified models or
             // other state, so materialize any pending repeater/conditional
             // changes before hit-testing with the returned event.
@@ -879,7 +942,7 @@ impl WindowInner {
 
         let is_dragging = mouse_input_state.drag_data.is_some();
         let drop_target_action = mouse_input_state.drop_target_action();
-        self.mouse_input_state.set(mouse_input_state);
+        self.mouse_input_state.replace(mouse_input_state);
 
         // The drag-image overlay follows the cursor and lives outside any item tree, so
         // partial renderers won't otherwise know to repaint it on mouse motion or after
@@ -940,7 +1003,7 @@ impl WindowInner {
 
     /// Called by the input code's internal timer to send an event that was delayed
     pub(crate) fn process_delayed_event(&self) {
-        self.mouse_input_state.set(crate::input::process_delayed_event(
+        self.mouse_input_state.replace(crate::input::process_delayed_event(
             &self.window_adapter(),
             self.mouse_input_state.take(),
         ));
@@ -1516,9 +1579,14 @@ impl WindowInner {
         item_renderer: &mut dyn crate::item_rendering::ItemRenderer,
     ) {
         let state = self.mouse_input_state.take();
-        let cursor = state.drag_data.as_ref().map(|d| d.position);
+
+        // TODO: Clean this up. We don't want to double-render the overlay if the compositor/OS is
+        // already rendering one, but we also can't rely on the compositor to render the image if
+        // the drag is internal-only
+        let cursor =
+            state.drag_data.as_ref().map(|d| d.position).filter(|_| !state.hide_drag_image);
         let source = state.drag_source.as_ref().and_then(|w| w.upgrade());
-        self.mouse_input_state.set(state);
+        self.mouse_input_state.replace(state);
 
         let (Some(cursor), Some(source)) = (cursor, source) else { return };
         let Some(drag_area) = source.downcast::<crate::items::DragArea>() else { return };

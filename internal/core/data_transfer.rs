@@ -5,26 +5,100 @@
 //! data transfer both within an application and between applications.
 
 use alloc::rc::Rc;
-use core::any::Any;
+use core::{
+    any::Any,
+    cell::RefCell,
+    fmt::{self, Pointer},
+};
 
 use crate::{SharedString, api::Image};
 
 #[cfg(feature = "ffi")]
 pub mod ffi;
 
-/// Hidden type to make `DataTransfer` smaller and easier to use in FFI.
-///
-/// In particular, `Image` is a different size depending on feature flags, so this
-/// allows `DataTransfer` to have a normalized size no matter what flags are enabled.
-#[derive(Default, Clone, PartialEq)]
-struct DataTransferInner {
-    // TODO: Custom binary data providers with custom MIME types.
-    /// Special-cased support for images, as the precise implementation of transferring
-    /// images differs between platforms.
-    image: Option<Image>,
-    /// Special-cased support for plaintext, as the precise implementation of transferring
-    /// text differs between platforms.
-    plaintext: Option<SharedString>,
+#[derive(Clone)]
+enum FetcherState<T> {
+    Loaded(T),
+    Unloaded(Rc<dyn Fn() -> Option<T>>),
+    // Separate "empty" state instead of `Self::Unloaded(|| None)` so we don't
+    // need to actually call the getter to know if the data exists.
+    Empty,
+}
+
+#[derive(Clone)]
+struct Fetcher<T> {
+    state: RefCell<FetcherState<T>>,
+}
+
+impl<T> Default for Fetcher<T> {
+    fn default() -> Self {
+        Self { state: FetcherState::Empty.into() }
+    }
+}
+
+impl<T> PartialEq for Fetcher<T>
+where
+    T: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        match (&*self.state.borrow(), &*other.state.borrow()) {
+            (FetcherState::Loaded(self_value), FetcherState::Loaded(other_value)) => {
+                self_value == other_value
+            }
+            (FetcherState::Unloaded(self_getter), FetcherState::Unloaded(other_getter)) => {
+                core::ptr::addr_eq(&**self_getter, &**other_getter)
+            }
+            _ => false,
+        }
+    }
+}
+
+impl<T> fmt::Debug for Fetcher<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match &*self.state.borrow() {
+            FetcherState::Loaded(value) => value.fmt(f),
+            FetcherState::Unloaded(_) => write!(f, "{{unloaded}}"),
+            FetcherState::Empty => write!(f, "{{none}}"),
+        }
+    }
+}
+
+impl<T> Fetcher<T> {
+    fn unloaded<F: Fn() -> Option<T> + 'static>(func: F) -> Self {
+        Self { state: FetcherState::Unloaded(Rc::new(func)).into() }
+    }
+
+    fn loaded(value: T) -> Self {
+        Self { state: FetcherState::Loaded(value).into() }
+    }
+
+    fn is_empty(&self) -> bool {
+        matches!(&*self.state.borrow(), FetcherState::Empty)
+    }
+}
+
+impl<T> Fetcher<T>
+where
+    T: Clone,
+{
+    fn get(&self) -> Option<T> {
+        let state = self.state.borrow();
+        match &*state {
+            FetcherState::Loaded(val) => Some(val.clone()),
+            FetcherState::Unloaded(func) => {
+                // Short-circuiting here means that calling `get` again will re-run
+                // the function. It's not yet clear if this is correct behaviour.
+                let value = func()?;
+
+                core::mem::drop(state);
+
+                self.state.replace(FetcherState::Loaded(value));
+
+                self.get()
+            }
+            FetcherState::Empty => None,
+        }
+    }
 }
 
 /// `DataTransfer` abstracts over the various ways of transferring data within an application
@@ -63,9 +137,13 @@ struct DataTransferInner {
 #[derive(Clone, Default)]
 #[repr(C)]
 pub struct DataTransfer {
-    /// Special-cased types. `Option<Rc>` to prevent allocating if this `DataTransfer`
-    /// only contains `user_data`.
-    inner: Option<Rc<DataTransferInner>>,
+    // TODO: Custom binary data providers with custom MIME types.
+    /// Special-cased support for images, as the precise implementation of transferring
+    /// images differs between platforms.
+    image: Fetcher<Image>,
+    /// Special-cased support for plaintext, as the precise implementation of transferring
+    /// text differs between platforms.
+    plaintext: Fetcher<SharedString>,
     /// A custom in-memory value. No MIME type-based dispatch is done here - if the user
     /// wants to store one of a set of possible values, they should store their own enum
     /// and handle the dispatch themselves.
@@ -89,7 +167,7 @@ impl core::fmt::Debug for DataTransfer {
 // identical.
 impl PartialEq for DataTransfer {
     fn eq(&self, other: &Self) -> bool {
-        self.inner == other.inner
+        self.image == other.image
             && self.user_data.as_ref().map(Rc::as_ptr) == other.user_data.as_ref().map(Rc::as_ptr)
     }
 }
@@ -134,6 +212,26 @@ impl core::fmt::Display for DataTransferError {
     }
 }
 
+// =================
+// Free functions for internal use, so we don't need to re-export them from the main Slint library.
+// =================
+
+/// Set a lazy getter for plaintext data
+pub fn data_transfer_set_plaintext_getter<F: Fn() -> Option<SharedString> + 'static>(
+    transfer: &mut DataTransfer,
+    getter: F,
+) {
+    transfer.plaintext = Fetcher::unloaded(getter);
+}
+
+/// Set a lazy getter for image data
+pub fn data_transfer_set_image_getter<F: Fn() -> Option<Image> + 'static>(
+    transfer: &mut DataTransfer,
+    getter: F,
+) {
+    transfer.image = Fetcher::unloaded(getter);
+}
+
 impl DataTransfer {
     /// Sets an image to be transferred by this [`DataTransfer`].
     ///
@@ -146,7 +244,7 @@ impl DataTransfer {
     /// However, you can have, for example, both an image representation and a
     /// plaintext representation set simultaneously on the same [`DataTransfer`].
     pub fn set_image(&mut self, image: Image) -> &mut Self {
-        Rc::make_mut(self.inner.get_or_insert_default()).image = Some(image);
+        self.image = Fetcher::loaded(image);
         self
     }
 
@@ -162,7 +260,7 @@ impl DataTransfer {
     /// representation and a plaintext representation set simultaneously on the
     /// same [`DataTransfer`].
     pub fn set_plaintext(&mut self, plaintext: SharedString) -> &mut Self {
-        Rc::make_mut(self.inner.get_or_insert_default()).plaintext = Some(plaintext);
+        self.plaintext = Fetcher::loaded(plaintext);
         self
     }
 
@@ -171,7 +269,7 @@ impl DataTransfer {
     /// This does not necessarily mean that `fetch_image` will return `Ok`, as an I/O error
     /// may occur.
     pub fn has_image(&self) -> bool {
-        self.inner.as_ref().is_some_and(|inner| inner.image.is_some())
+        !self.image.is_empty()
     }
 
     /// Returns `true` if this data transfer advertises that it is readable as plaintext.
@@ -179,7 +277,7 @@ impl DataTransfer {
     /// This does not necessarily mean that `fetch_plaintext` will return `Ok`, as an I/O
     /// error may occur.
     pub fn has_plaintext(&self) -> bool {
-        self.inner.as_ref().is_some_and(|inner| inner.plaintext.is_some())
+        !self.plaintext.is_empty()
     }
 
     /// Set the application-internal data represented by this [`DataTransfer`].
@@ -195,20 +293,14 @@ impl DataTransfer {
     ///
     /// The caller should assume that this method call may do I/O.
     pub fn fetch_plaintext(&self) -> Result<SharedString, DataTransferError> {
-        self.inner
-            .as_ref()
-            .and_then(|inner| inner.plaintext.clone())
-            .ok_or(DataTransferError::TypeNotFound)
+        self.plaintext.get().ok_or(DataTransferError::TypeNotFound)
     }
 
     /// Helper to read this [`DataTransfer`] as an image, supporting multiple image types.
     ///
     /// The caller should assume that this method call may do I/O.
     pub fn fetch_image(&self) -> Result<Image, DataTransferError> {
-        self.inner
-            .as_ref()
-            .and_then(|inner| inner.image.clone())
-            .ok_or(DataTransferError::TypeNotFound)
+        self.image.get().ok_or(DataTransferError::TypeNotFound)
     }
 
     /// Get the application-internal data represented by this [`DataTransfer`], if

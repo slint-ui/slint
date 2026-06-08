@@ -156,10 +156,8 @@ public:
     }
 
 private:
-    /// Storage matching the size and alignment of `DataTransfer` in `i_slint_core`.
     /// All operations on this field go through the `slint_data_transfer_*` FFI functions;
     /// it is never inspected directly from C++. See
-    /// `i_slint_core::data_transfer::ffi::DataTransferOpaque`.
-    cbindgen_private::types::DataTransferOpaque _inner;
+    cbindgen_private::types::DataTransfer _inner;
 };
 }

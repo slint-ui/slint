@@ -11,21 +11,32 @@ use crate::EventResult;
 use crate::SharedBackendData;
 use crate::drag_resize_window::{handle_cursor_move_for_resize, handle_resize};
 use crate::winitwindowadapter::WindowVisibility;
-use corelib::SharedString;
 use corelib::graphics::euclid;
 use corelib::input::{InternalKeyEvent, KeyEvent, KeyEventType, MouseEvent, TouchPhase};
-use corelib::items::{ColorScheme, PointerEventButton};
+use corelib::items::{ColorScheme, DropEvent, PointerEventButton};
 use corelib::lengths::LogicalPoint;
 use corelib::platform::PlatformError;
 use corelib::window::*;
+use corelib::{DataTransfer, SharedString};
 use i_slint_core as corelib;
+use i_slint_core::data_transfer::data_transfer_set_image_getter;
+use i_slint_core::data_transfer::data_transfer_set_plaintext_getter;
+use i_slint_core::graphics::load_image_from_dynamic_data;
+use i_slint_core::items::DragAction;
+use winit::data_transfer::DataTransferId;
+use winit::data_transfer::DataTransferSendBuilder;
+use winit::data_transfer::TypeHint;
+use winit::dpi::PhysicalPosition;
+use winit::event_loop::DndActions;
+use winit::event_loop::DragIcon;
 
 #[allow(unused_imports)]
 use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
-use winit::event::WindowEvent;
-use winit::event_loop::ActiveEventLoop;
+use winit::event::{PointerSource, WindowEvent};
+use winit::event_loop::{ActiveEventLoop, ControlFlow};
 use winit::keyboard::Key;
+use winit::window::ResizeDirection;
 
 fn winit_touch_phase(phase: winit::event::TouchPhase) -> corelib::input::TouchPhase {
     match phase {
@@ -35,9 +46,6 @@ fn winit_touch_phase(phase: winit::event::TouchPhase) -> corelib::input::TouchPh
         winit::event::TouchPhase::Cancelled => corelib::input::TouchPhase::Cancelled,
     }
 }
-use winit::event::PointerSource;
-use winit::event_loop::ControlFlow;
-use winit::window::ResizeDirection;
 
 /// This enum captures run-time specific events that can be dispatched to the event loop in
 /// addition to the winit events.
@@ -65,6 +73,12 @@ impl std::fmt::Debug for CustomEvent {
     }
 }
 
+#[derive(Debug)]
+struct DndState {
+    data_transfer: DataTransfer,
+    id: winit::data_transfer::DataTransferId,
+}
+
 pub struct EventLoopState {
     shared_backend_data: Rc<SharedBackendData>,
     // last seen cursor position
@@ -85,6 +99,8 @@ pub struct EventLoopState {
     pumping_events_instantly: bool,
 
     custom_application_handler: Option<Box<dyn crate::CustomApplicationHandler>>,
+
+    dnd_state: Option<DndState>,
 }
 
 impl EventLoopState {
@@ -101,6 +117,7 @@ impl EventLoopState {
             pending_mouse_move: Default::default(),
             pumping_events_instantly: Default::default(),
             custom_application_handler,
+            dnd_state: None,
         }
     }
 
@@ -128,6 +145,79 @@ impl EventLoopState {
             let runtime_window = WindowInner::from_pub(window.window());
             runtime_window.process_mouse_input(MouseEvent::Moved { position, touch_finger_id: 0 });
         }
+    }
+}
+
+fn build_external_data_transfer(
+    event_loop: &dyn ActiveEventLoop,
+    id: DataTransferId,
+) -> Option<DataTransfer> {
+    let type_info = event_loop.data_transfer(id).ok()?;
+    let mut data_transfer = DataTransfer::default();
+    // `extension_hint: None` to accept any image
+    // TODO: We should probably be a bit smarter about how we do this, e.g. with `image::ImageFormat::reading_enabled`.
+    if type_info.has_type(&TypeHint::Image { extension_hint: None })
+        && let Ok(image) =
+            event_loop.fetch_data_transfer(id, &TypeHint::Image { extension_hint: None })
+    {
+        let image = RefCell::new(image);
+        data_transfer_set_image_getter(&mut data_transfer, move || {
+            let mut data = vec![];
+            let mut image = image.borrow_mut();
+            image.try_read()?.read_to_end(&mut data).ok()?;
+            let format = match image.type_().hint() {
+                Some(TypeHint::Image { extension_hint }) => extension_hint,
+                _ => None,
+            };
+            // If `load_image_from_dynamic_data` can't find a format from the extension it'll
+            // use the `image` crate's automatic data-based detection, so supplying an empty
+            // string will trigger that.
+            load_image_from_dynamic_data(&data, format.unwrap_or_default()).ok()
+        });
+    }
+
+    // `extension_hint: None` to accept any image
+    // TODO: We should probably be a bit smarter about how we do this, e.g. with `image::ImageFormat::reading_enabled`.
+    if type_info.has_type(&TypeHint::Plaintext)
+        && let Ok(text) = event_loop.fetch_data_transfer(id, &TypeHint::Plaintext)
+    {
+        let text = RefCell::new(text);
+        data_transfer_set_plaintext_getter(&mut data_transfer, move || {
+            text.borrow_mut().try_as_string().map(SharedString::from).ok()
+        });
+    }
+
+    Some(data_transfer)
+}
+
+fn build_drop_event(
+    event_loop: &dyn ActiveEventLoop,
+    cursor_pos: LogicalPoint,
+    data_transfer_id: DataTransferId,
+    data_transfer: DataTransfer,
+) -> DropEvent {
+    let actions @ [allow_move, allow_copy, allow_link] = event_loop
+        .valid_actions(data_transfer_id)
+        .ok()
+        .map(|drop_effects| {
+            let mask = drop_effects.hint();
+            match mask {
+                DndActions::Flags { move_, copy, link } => [move_, copy, link],
+                DndActions::All => [true; 3],
+            }
+        })
+        .unwrap_or_default();
+    DropEvent {
+        data: data_transfer,
+        position: corelib::lengths::logical_position_to_api(cursor_pos),
+        allow_copy,
+        allow_move,
+        allow_link,
+        proposed_action: [DragAction::Move, DragAction::Copy, DragAction::Link]
+            .into_iter()
+            .zip(actions)
+            .find_map(|(op, allowed)| allowed.then_some(op))
+            .unwrap_or(i_slint_core::items::DragAction::None),
     }
 }
 
@@ -207,6 +297,49 @@ impl winit::application::ApplicationHandler for EventLoopState {
         let runtime_window = WindowInner::from_pub(window.window());
         if !matches!(event, WindowEvent::PointerMoved { .. }) {
             self.flush_pending_mouse_move();
+        }
+
+        if let Some(drop_event) = runtime_window.take_new_started_drag_event() {
+            let icon = runtime_window.started_drag_event_icon();
+            let rgba_icon = icon.and_then(|(icon, offset)| {
+                let size = icon.size();
+                let icon_size = euclid::Size2D::new(size.width as f32, size.height as f32);
+                let icon = crate::winitwindowadapter::icon_to_winit(icon, icon_size)?;
+
+                Some(DragIcon {
+                    icon,
+                    offset: PhysicalPosition::new(
+                        offset.x - size.width as i32,
+                        offset.y - size.height as i32,
+                    ),
+                })
+            });
+
+            let has_plaintext = drop_event.data.has_plaintext();
+            let plaintext =
+                if has_plaintext { drop_event.data.fetch_plaintext().ok() } else { None };
+            // TODO: Encode image to an available image type (see winit example)
+            // let has_image = drop_event.data.has_image();
+            // let image = if has_image { drop_event.data.fetch_image().ok() } else { None };
+            let action_mask = DndActions::Flags {
+                move_: drop_event.allow_move,
+                copy: drop_event.allow_move,
+                link: drop_event.allow_link,
+            };
+            let mut sender = DataTransferSendBuilder::new((plaintext, ()));
+            if has_plaintext {
+                sender.add_type(TypeHint::Plaintext, |(plaintext, _), _| {
+                    plaintext.as_deref().map(ToString::to_string)
+                });
+            }
+
+            // TODO: Error handling
+            if let Ok(id) =
+                event_loop.start_drag(window_id, sender.build(), &action_mask, rgba_icon)
+            {
+                self.dnd_state = Some(DndState { data_transfer: drop_event.data.clone(), id });
+                runtime_window.hide_drag_image();
+            }
         }
 
         match event {
@@ -532,6 +665,115 @@ impl winit::application::ApplicationHandler for EventLoopState {
                     delta: -delta,
                     phase: winit_touch_phase(phase),
                 });
+            }
+
+            WindowEvent::DragEntered { id, position } => {
+                self.pressed = true;
+
+                let pos = position.map(|pos| {
+                    let pos = pos.to_logical(runtime_window.scale_factor() as f64);
+                    let pos = euclid::point2(pos.x, pos.y);
+                    self.cursor_pos = pos;
+                    pos
+                });
+
+                if self.dnd_state.as_ref().is_none_or(|state| state.id != id) {
+                    let Some(data_transfer) = build_external_data_transfer(event_loop, id) else {
+                        return;
+                    };
+
+                    self.dnd_state = Some(DndState { id, data_transfer: data_transfer.clone() });
+                    runtime_window.hide_drag_image();
+                }
+
+                runtime_window.set_drop_event(build_drop_event(
+                    event_loop,
+                    self.cursor_pos,
+                    id,
+                    self.dnd_state.as_ref().unwrap().data_transfer.clone(),
+                ));
+
+                runtime_window.process_mouse_input(MouseEvent::Moved {
+                    position: self.cursor_pos,
+                    touch_finger_id: 0,
+                });
+
+                let target_action = runtime_window.drop_target_action();
+
+                let actions = match target_action {
+                    Some(DragAction::Copy) => DndActions::new_copy(),
+                    Some(DragAction::Move) => DndActions::new_move(),
+                    Some(DragAction::Link) => DndActions::new_link(),
+                    _ => DndActions::none(),
+                };
+                // TODO: Don't unwrap
+                event_loop.set_valid_actions(id, &actions).unwrap();
+            }
+            WindowEvent::DragPosition { id, position } => {
+                let pos = position.to_logical(runtime_window.scale_factor() as f64);
+                let pos = euclid::point2(pos.x, pos.y);
+                self.cursor_pos = pos;
+
+                if self.dnd_state.as_ref().is_none_or(|state| state.id != id) {
+                    let Some(data_transfer) = build_external_data_transfer(event_loop, id) else {
+                        return;
+                    };
+
+                    self.dnd_state = Some(DndState { id, data_transfer });
+                    runtime_window.hide_drag_image();
+                }
+
+                runtime_window.set_drop_event(build_drop_event(
+                    event_loop,
+                    self.cursor_pos,
+                    id,
+                    self.dnd_state.as_ref().unwrap().data_transfer.clone(),
+                ));
+
+                runtime_window.process_mouse_input(MouseEvent::Moved {
+                    position: self.cursor_pos,
+                    touch_finger_id: 0,
+                });
+
+                let target_action = runtime_window.drop_target_action();
+
+                let actions = match target_action {
+                    Some(DragAction::Copy) => DndActions::new_copy(),
+                    Some(DragAction::Move) => DndActions::new_move(),
+                    Some(DragAction::Link) => DndActions::new_link(),
+                    _ => DndActions::none(),
+                };
+                // TODO: Don't unwrap
+                event_loop.set_valid_actions(id, &actions).unwrap();
+            }
+            WindowEvent::DragDropped { id } => {
+                self.pressed = false;
+
+                if self.dnd_state.as_ref().is_none_or(|state| state.id != id) {
+                    let Some(data_transfer) = build_external_data_transfer(event_loop, id) else {
+                        return;
+                    };
+
+                    self.dnd_state = Some(DndState { id, data_transfer });
+                    runtime_window.hide_drag_image();
+                }
+
+                runtime_window.set_drop_event(build_drop_event(
+                    event_loop,
+                    self.cursor_pos,
+                    id,
+                    self.dnd_state.as_ref().unwrap().data_transfer.clone(),
+                ));
+
+                runtime_window.process_mouse_input(MouseEvent::Released {
+                    position: self.cursor_pos,
+                    button: PointerEventButton::Left,
+                    click_count: 0,
+                    touch_finger_id: 0,
+                });
+            }
+            WindowEvent::DragLeft { .. } => {
+                runtime_window.process_mouse_input(corelib::input::MouseEvent::Exit);
             }
             _ => {}
         }

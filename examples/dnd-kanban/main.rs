@@ -11,7 +11,7 @@ slint::include_modules!();
 // What we attach to each `DataTransfer` via `set_user_data`. A clone of the
 // `TaskData` plus the row it came from, so `can-drop` recognizes our own
 // payloads and `dropped` knows what to remove on a move.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct DragPayload {
     task: TaskData,
     source_column: usize,
@@ -41,11 +41,14 @@ fn main() -> Result<(), slint::PlatformError> {
 
     api.on_make_data(|task, source_column, source_index| {
         let mut transfer = DataTransfer::default();
-        transfer.set_user_data(Rc::new(DragPayload {
-            task,
-            source_column: source_column as usize,
-            source_index: source_index as usize,
-        }));
+        let title = task.title.clone();
+        transfer
+            .set_user_data(Rc::new(DragPayload {
+                task,
+                source_column: source_column as usize,
+                source_index: source_index as usize,
+            }))
+            .set_plaintext(title);
         transfer
     });
 
