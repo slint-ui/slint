@@ -17,7 +17,7 @@ packages:
   - examples/maps
   - examples/memory
   - examples/slide_puzzle
-  - examples/system_tray
+  - examples/system-tray
   - docs/astro
   - docs/common
   - docs/safety
