@@ -19,10 +19,10 @@ use corelib::platform::PlatformError;
 use corelib::window::*;
 use corelib::{DataTransfer, SharedString};
 use i_slint_core as corelib;
-use i_slint_core::data_transfer::DropEffect;
 use i_slint_core::data_transfer::data_transfer_set_image_getter;
 use i_slint_core::data_transfer::data_transfer_set_plaintext_getter;
 use i_slint_core::graphics::load_image_from_dynamic_data;
+use i_slint_core::items::DragAction;
 use winit::data_transfer::DataTransferId;
 use winit::data_transfer::DataTransferSendBuilder;
 use winit::data_transfer::TypeHint;
@@ -146,24 +146,6 @@ impl EventLoopState {
             runtime_window.process_mouse_input(MouseEvent::Moved { position, touch_finger_id: 0 });
         }
     }
-
-    fn process_data_transfer_result(
-        &self,
-        id: winit::data_transfer::DataTransferId,
-    ) -> Option<DropEvent> {
-        let state = self.dnd_state.as_ref()?;
-        if state.id != id {
-            return None;
-        };
-        Some(DropEvent {
-            data: state.data_transfer.clone(),
-            position: corelib::lengths::logical_position_to_api(self.cursor_pos),
-            allow_copy: true,
-            allow_move: false,
-            allow_link: false,
-            proposed_action: i_slint_core::items::DragAction::Copy,
-        })
-    }
 }
 
 fn build_external_data_transfer(
@@ -206,6 +188,37 @@ fn build_external_data_transfer(
     }
 
     Some(data_transfer)
+}
+
+fn build_drop_event(
+    event_loop: &dyn ActiveEventLoop,
+    cursor_pos: LogicalPoint,
+    data_transfer_id: DataTransferId,
+    data_transfer: DataTransfer,
+) -> DropEvent {
+    let actions @ [allow_move, allow_copy, allow_link] = event_loop
+        .valid_actions(data_transfer_id)
+        .ok()
+        .map(|drop_effects| {
+            let mask = drop_effects.hint();
+            match mask {
+                DndActions::Flags { move_, copy, link } => [move_, copy, link],
+                DndActions::All => [true; 3],
+            }
+        })
+        .unwrap_or_default();
+    DropEvent {
+        data: data_transfer,
+        position: corelib::lengths::logical_position_to_api(cursor_pos),
+        allow_copy,
+        allow_move,
+        allow_link,
+        proposed_action: [DragAction::Move, DragAction::Copy, DragAction::Link]
+            .into_iter()
+            .zip(actions)
+            .find_map(|(op, allowed)| allowed.then_some(op))
+            .unwrap_or(i_slint_core::items::DragAction::None),
+    }
 }
 
 impl winit::application::ApplicationHandler for EventLoopState {
@@ -320,8 +333,13 @@ impl winit::application::ApplicationHandler for EventLoopState {
                 });
             }
 
-            let result = event_loop.start_drag(window_id, sender.build(), &action_mask, rgba_icon);
-            runtime_window.set_drag_event_internal(result.is_ok());
+            // TODO: Error handling
+            if let Ok(id) =
+                event_loop.start_drag(window_id, sender.build(), &action_mask, rgba_icon)
+            {
+                self.dnd_state = Some(DndState { data_transfer: drop_event.data.clone(), id });
+                runtime_window.hide_drag_image();
+            }
         }
 
         match event {
@@ -659,25 +677,34 @@ impl winit::application::ApplicationHandler for EventLoopState {
                     pos
                 });
 
-                if runtime_window.internal_drop_event().is_some() {
-                    self.pending_mouse_move = pos.map(|pos| (window_id, pos));
-                } else {
+                if self.dnd_state.as_ref().is_none_or(|state| state.id != id) {
                     let Some(data_transfer) = build_external_data_transfer(event_loop, id) else {
                         return;
                     };
 
-                    self.dnd_state = Some(DndState { id, data_transfer });
-
-                    let Some(event) = self.process_data_transfer_result(id) else { return };
-                    runtime_window.process_mouse_input(MouseEvent::DragMove(event));
+                    self.dnd_state = Some(DndState { id, data_transfer: data_transfer.clone() });
+                    runtime_window.hide_drag_image();
                 }
 
-                let valid_actions = runtime_window.valid_drop_actions();
+                runtime_window.set_drop_event(build_drop_event(
+                    event_loop,
+                    self.cursor_pos,
+                    id,
+                    self.dnd_state.as_ref().unwrap().data_transfer.clone(),
+                ));
 
-                let actions = DndActions::Flags {
-                    move_: valid_actions.contains(DropEffect::Move),
-                    copy: valid_actions.contains(DropEffect::Copy),
-                    link: valid_actions.contains(DropEffect::Link),
+                runtime_window.process_mouse_input(MouseEvent::Moved {
+                    position: self.cursor_pos,
+                    touch_finger_id: 0,
+                });
+
+                let target_action = runtime_window.drop_target_action();
+
+                let actions = match target_action {
+                    Some(DragAction::Copy) => DndActions::new_copy(),
+                    Some(DragAction::Move) => DndActions::new_move(),
+                    Some(DragAction::Link) => DndActions::new_link(),
+                    _ => DndActions::none(),
                 };
                 // TODO: Don't unwrap
                 event_loop.set_valid_actions(id, &actions).unwrap();
@@ -687,31 +714,34 @@ impl winit::application::ApplicationHandler for EventLoopState {
                 let pos = euclid::point2(pos.x, pos.y);
                 self.cursor_pos = pos;
 
-                if runtime_window.internal_drop_event().is_some() {
-                    // TODO: For some reason doing this for external drags causes flickering,
-                    // but _not_ doing it for internal drags causes the drag location not to
-                    // update.
-                    self.pending_mouse_move = Some((window_id, pos));
-                } else {
-                    if self.dnd_state.as_ref().is_none_or(|state| state.id != id) {
-                        let Some(data_transfer) = build_external_data_transfer(event_loop, id)
-                        else {
-                            return;
-                        };
+                if self.dnd_state.as_ref().is_none_or(|state| state.id != id) {
+                    let Some(data_transfer) = build_external_data_transfer(event_loop, id) else {
+                        return;
+                    };
 
-                        self.dnd_state = Some(DndState { id, data_transfer });
-                    }
-
-                    let Some(event) = self.process_data_transfer_result(id) else { return };
-                    runtime_window.process_mouse_input(MouseEvent::DragMove(event));
+                    self.dnd_state = Some(DndState { id, data_transfer });
+                    runtime_window.hide_drag_image();
                 }
 
-                let valid_actions = runtime_window.valid_drop_actions();
+                runtime_window.set_drop_event(build_drop_event(
+                    event_loop,
+                    self.cursor_pos,
+                    id,
+                    self.dnd_state.as_ref().unwrap().data_transfer.clone(),
+                ));
 
-                let actions = DndActions::Flags {
-                    move_: valid_actions.contains(DropEffect::Move),
-                    copy: valid_actions.contains(DropEffect::Copy),
-                    link: valid_actions.contains(DropEffect::Link),
+                runtime_window.process_mouse_input(MouseEvent::Moved {
+                    position: self.cursor_pos,
+                    touch_finger_id: 0,
+                });
+
+                let target_action = runtime_window.drop_target_action();
+
+                let actions = match target_action {
+                    Some(DragAction::Copy) => DndActions::new_copy(),
+                    Some(DragAction::Move) => DndActions::new_move(),
+                    Some(DragAction::Link) => DndActions::new_link(),
+                    _ => DndActions::none(),
                 };
                 // TODO: Don't unwrap
                 event_loop.set_valid_actions(id, &actions).unwrap();
@@ -719,32 +749,31 @@ impl winit::application::ApplicationHandler for EventLoopState {
             WindowEvent::DragDropped { id } => {
                 self.pressed = false;
 
-                if runtime_window.internal_drop_event().is_none() {
-                    if self.dnd_state.as_ref().is_none_or(|state| state.id != id) {
-                        let Some(data_transfer) = build_external_data_transfer(event_loop, id)
-                        else {
-                            return;
-                        };
+                if self.dnd_state.as_ref().is_none_or(|state| state.id != id) {
+                    let Some(data_transfer) = build_external_data_transfer(event_loop, id) else {
+                        return;
+                    };
 
-                        self.dnd_state = Some(DndState { id, data_transfer });
-                    }
-
-                    let Some(event) = self.process_data_transfer_result(id) else { return };
-                    runtime_window.process_mouse_input(MouseEvent::Drop(event));
-                } else {
-                    runtime_window.process_mouse_input(MouseEvent::Released {
-                        position: self.cursor_pos,
-                        button: PointerEventButton::Left,
-                        click_count: 0,
-                        touch_finger_id: 0,
-                    });
+                    self.dnd_state = Some(DndState { id, data_transfer });
+                    runtime_window.hide_drag_image();
                 }
 
-                self.dnd_state = None;
+                runtime_window.set_drop_event(build_drop_event(
+                    event_loop,
+                    self.cursor_pos,
+                    id,
+                    self.dnd_state.as_ref().unwrap().data_transfer.clone(),
+                ));
+
+                runtime_window.process_mouse_input(MouseEvent::Released {
+                    position: self.cursor_pos,
+                    button: PointerEventButton::Left,
+                    click_count: 0,
+                    touch_finger_id: 0,
+                });
             }
             WindowEvent::DragLeft { .. } => {
                 runtime_window.process_mouse_input(corelib::input::MouseEvent::Exit);
-                self.dnd_state = None;
             }
             _ => {}
         }

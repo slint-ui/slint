@@ -1225,7 +1225,8 @@ pub struct MouseInputState {
     /// When this is Some, it means we are in the middle of a drag-drop operation and it contains the dragged data.
     /// The `position` field has no signification
     pub(crate) drag_data: Option<DropEvent>,
-    pub(crate) drag_is_internal: bool,
+    /// If `true`, the drag image is handled by the OS.
+    pub(crate) hide_drag_image: bool,
     /// The `DragArea` that initiated the in-flight drag.
     /// `None` for drags coming from outside (native cross-window/cross-process DnD).
     pub(crate) drag_source: Option<ItemWeak>,
@@ -1437,6 +1438,7 @@ pub fn process_mouse_input(
         drag_source: mouse_input_state.drag_source.clone(),
         drop_target: mouse_input_state.drop_target.clone(),
         cursor: mouse_input_state.cursor,
+        hide_drag_image: mouse_input_state.hide_drag_image,
         ..Default::default()
     };
     let r = send_mouse_event_to_item(

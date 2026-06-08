@@ -9,7 +9,6 @@ use crate::api::{
     CloseRequestResponse, LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize,
     PlatformError, Window, WindowPosition, WindowSize,
 };
-use crate::data_transfer::DropEffect;
 use crate::graphics::Image;
 use crate::input::{
     ClickState, FocusEvent, FocusReason, InternalKeyEvent, KeyEventResult, KeyEventType, Keys,
@@ -34,7 +33,6 @@ use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 use core::num::NonZeroU32;
 use core::pin::Pin;
-use enumflags2::BitFlags;
 use euclid::UnknownUnit;
 use euclid::num::Zero;
 use portable_atomic::AtomicBool;
@@ -572,27 +570,9 @@ impl WindowInner {
     }
 
     /// TODO: Docs
-    pub fn internal_drop_event(&self) -> Option<DropEvent> {
+    pub fn drop_event(&self) -> Option<DropEvent> {
         let mouse_input = self.mouse_input_state.borrow();
-        if mouse_input.drag_source.is_some() { mouse_input.drag_data.clone() } else { None }
-    }
-
-    /// TODO: Docs
-    pub fn valid_drop_actions(&self) -> BitFlags<DropEffect> {
-        let mouse_input = self.mouse_input_state.borrow();
-        let Some(drop_target) = mouse_input
-            .drop_target
-            .as_ref()
-            .and_then(|weak| weak.upgrade())
-            .and_then(|item| item.downcast::<DropArea>())
-        else {
-            return BitFlags::empty();
-        };
-
-        // TODO: Get the set of allowed effects
-        let _ = drop_target;
-
-        BitFlags::all()
+        mouse_input.drag_data.clone()
     }
 
     /// TODO: Docs
@@ -609,9 +589,25 @@ impl WindowInner {
         self.mouse_input_state.borrow().drag_data.clone()
     }
 
+    /// `move`, `copy`, `link`
+    /// TODO: this should be a separate struct
+    pub fn drop_target_action(&self) -> Option<crate::items::DragAction> {
+        self.mouse_input_state.borrow().drop_target_action()
+    }
+
     /// TODO: Docs
-    pub fn set_drag_event_internal(&self, internal: bool) {
-        self.mouse_input_state.borrow_mut().drag_is_internal = internal;
+    pub fn is_drag_event_internal(&self) -> bool {
+        self.mouse_input_state.borrow().drag_source.is_some()
+    }
+
+    /// TODO: Docs
+    pub fn hide_drag_image(&self) {
+        self.mouse_input_state.borrow_mut().hide_drag_image = true;
+    }
+
+    /// TODO: Docs
+    pub fn set_drop_event(&self, event: DropEvent) {
+        self.mouse_input_state.borrow_mut().drag_data = Some(event);
     }
 
     /// TODO: Docs
@@ -734,15 +730,6 @@ impl WindowInner {
                     mouse_input_state.drag_data = None;
                     let source = mouse_input_state.drag_source.take();
                     if let Some(target_weak) = mouse_input_state.drop_target.take() {
-                        // Seed `proposed-action` for the dropped callback with the action the
-                        // target last chose during hover; the callback's return value will
-                        // become the final action reported to the source.
-                        let hovered = target_weak
-                            .upgrade()
-                            .and_then(|t| t.downcast::<crate::items::DropArea>())
-                            .map(|d| d.as_pin_ref().current_action())
-                            .unwrap_or(crate::items::DragAction::None);
-                        drop_event.proposed_action = hovered;
                         drop_event.position = crate::lengths::logical_position_to_api(*position);
                         event = MouseEvent::Drop(drop_event);
                         if let Some(s) = source {
@@ -790,11 +777,11 @@ impl WindowInner {
                     event = MouseEvent::DragMove(drop_event);
                 }
                 MouseEvent::Exit => {
-                    mouse_input_state.drag_data = None;
-                    mouse_input_state.drop_target = None;
-                    if let Some(s) = mouse_input_state.drag_source.take() {
-                        pending_drag_finished = Some((s, None));
-                    }
+                    // mouse_input_state.drag_data = None;
+                    // mouse_input_state.drop_target = None;
+                    // if let Some(s) = mouse_input_state.drag_source.take() {
+                    //     pending_drag_finished = Some((s, None));
+                    // }
                 }
                 _ => {}
             }
@@ -1597,7 +1584,7 @@ impl WindowInner {
         // already rendering one, but we also can't rely on the compositor to render the image if
         // the drag is internal-only
         let cursor =
-            state.drag_data.as_ref().map(|d| d.position).filter(|_| state.drag_is_internal);
+            state.drag_data.as_ref().map(|d| d.position).filter(|_| !state.hide_drag_image);
         let source = state.drag_source.as_ref().and_then(|w| w.upgrade());
         self.mouse_input_state.replace(state);
 

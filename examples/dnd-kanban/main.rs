@@ -11,7 +11,7 @@ slint::include_modules!();
 // What we attach to each `DataTransfer` via `set_user_data`. A clone of the
 // `TaskData` plus the row it came from, so `can-drop` recognizes our own
 // payloads and `dropped` knows what to remove on a move.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 struct DragPayload {
     task: TaskData,
     source_column: usize,

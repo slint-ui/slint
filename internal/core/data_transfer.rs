@@ -10,7 +10,6 @@ use core::{
     cell::RefCell,
     fmt::{self, Pointer},
 };
-use enumflags2::BitFlags;
 
 use crate::{SharedString, api::Image};
 
@@ -149,17 +148,6 @@ pub struct DataTransfer {
     /// wants to store one of a set of possible values, they should store their own enum
     /// and handle the dispatch themselves.
     user_data: Option<Rc<dyn Any>>,
-    /// The set of allowable "drop effects" for this `DataTransfer`, if it is part of a drag-and-drop operation.
-    allowed_effects: BitFlags<DropEffect>,
-}
-
-#[enumflags2::bitflags]
-#[repr(u8)]
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
-pub enum DropEffect {
-    Move = 0b001,
-    Copy = 0b010,
-    Link = 0b100,
 }
 
 impl core::fmt::Debug for DataTransfer {
@@ -180,7 +168,6 @@ impl core::fmt::Debug for DataTransfer {
 impl PartialEq for DataTransfer {
     fn eq(&self, other: &Self) -> bool {
         self.image == other.image
-            && self.allowed_effects == other.allowed_effects
             && self.user_data.as_ref().map(Rc::as_ptr) == other.user_data.as_ref().map(Rc::as_ptr)
     }
 }
@@ -225,22 +212,9 @@ impl core::fmt::Display for DataTransferError {
     }
 }
 
-/// Sets the set of allowed effects for a drag operation (see [`DropEffect`]).
-pub fn set_data_transfer_allowed_drop_effects(
-    transfer: &mut DataTransfer,
-    flags: BitFlags<DropEffect>,
-) {
-    transfer.allowed_effects = flags;
-}
-
 // =================
 // Free functions for internal use, so we don't need to re-export them from the main Slint library.
 // =================
-
-/// Sets the set of allowed effects for a drag operation (see [`DropEffect`]).
-pub fn data_transfer_allowed_drop_effects(transfer: &DataTransfer) -> BitFlags<DropEffect> {
-    transfer.allowed_effects
-}
 
 /// Set a lazy getter for plaintext data
 pub fn data_transfer_set_plaintext_getter<F: Fn() -> Option<SharedString> + 'static>(
