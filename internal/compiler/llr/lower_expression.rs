@@ -504,13 +504,20 @@ fn lower_show_popup_window(
             ctx,
         );
 
+        let mut arguments = vec![
+            llr_Expression::NumberLiteral(popup_index as _),
+            llr_Expression::EnumerationValue(popup.close_policy.clone()),
+            item_ref,
+        ];
+        // Map `is-open` here, at the show site, so it resolves in the same frame as `item_ref`. The
+        // popup struct is shared across all show sites and was lowered in a different frame, so this
+        // reference must not be cached on it (see the `is_open` handling in the generators).
+        if let Some(is_open) = &popup.is_open {
+            arguments.push(llr_Expression::PropertyReference(ctx.map_property_reference(is_open)));
+        }
         llr_Expression::BuiltinFunctionCall {
             function: BuiltinFunction::ShowPopupWindow,
-            arguments: vec![
-                llr_Expression::NumberLiteral(popup_index as _),
-                llr_Expression::EnumerationValue(popup.close_policy.clone()),
-                item_ref,
-            ],
+            arguments,
         }
     } else {
         panic!("invalid arguments to ShowPopupWindow");

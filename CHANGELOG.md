@@ -33,6 +33,8 @@ All notable changes to this project are documented in this file.
 
 ### Slint language
 
+ - Added `is-open` output property to `PopupWindow`, reflecting whether the popup is currently shown.
+   It can be used to style the element that opened the popup, such as a ComboBox's arrow. (#456)
  - Added new `SystemTrayIcon` element.
  - Added `cross-axis-alignment` property to `VerticalLayout` and `HorizontalLayout` for cross-axis alignment. (#2587)
  - Added two-way bindings to model row data. (#2013)

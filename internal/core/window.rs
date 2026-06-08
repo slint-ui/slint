@@ -458,6 +458,10 @@ pub struct PopupWindow {
     /// Called during re-evaluation of the position tracker to re-subscribe to dependencies.
     /// IMPORTANT: This position is relative to the parent
     position_access: Box<dyn Fn() -> LogicalPosition>,
+    /// Keeps the parent component's `PopupWindow::is-open` property in sync. Called with `false` from
+    /// `close_popup_impl` on every close path. Defaults to a no-op for popups whose parent does not
+    /// read `is-open` (and for menus / tooltips / the C++ backend, which do not register a setter).
+    is_open_setter: Box<dyn Fn(bool)>,
     // tracks all relevant properties and reacts on changes
     properties_tracker: Pin<Box<PropertyTracker<true, PopupWindowPropertiesTracker>>>,
 }
@@ -1861,12 +1865,31 @@ impl WindowInner {
             parent_item: parent_item.downgrade(),
             window_kind,
             position_access: popup_access_position,
+            is_open_setter: Box::new(|_| {}),
             properties_tracker,
         });
 
         self.update_popup_properties(popup_id);
 
         popup_id
+    }
+
+    /// Register a setter that keeps the parent component's `PopupWindow::is-open` property in sync with
+    /// the popup identified by `popup_id`. The setter is invoked immediately with `true`, and again
+    /// with `false` when the popup is closed through any path. This is additive (it does not change the
+    /// `show_popup` signature or the C ABI) so it can be called by the code generators right after
+    /// `show_popup` returns.
+    pub fn set_popup_is_open_setter(
+        &self,
+        popup_id: NonZeroU32,
+        is_open_setter: Box<dyn Fn(bool)>,
+    ) {
+        is_open_setter(true);
+        if let Some(popup) =
+            self.active_popups.borrow_mut().iter_mut().find(|p| p.popup_id == popup_id)
+        {
+            popup.is_open_setter = is_open_setter;
+        }
     }
 
     /// Attempt to show a native popup menu
@@ -1893,6 +1916,9 @@ impl WindowInner {
 
     // Close the popup associated with the given popup window.
     fn close_popup_impl(&self, current_popup: &PopupWindow) {
+        // Single choke point for every close path (click-outside, selection, programmatic close(),
+        // sibling replacement, window change, Escape): flip the parent's `is-open` back to false.
+        (current_popup.is_open_setter)(false);
         match &current_popup.location {
             PopupWindowLocation::ChildWindow(offset) => {
                 // Refresh the area that was previously covered by the popup.

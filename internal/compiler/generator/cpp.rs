@@ -4815,7 +4815,9 @@ fn compile_builtin_function_call(
             format!("{}.text_input_focused()", access_window_field(ctx))
         }
         BuiltinFunction::ShowPopupWindow => {
-            if let [llr::Expression::NumberLiteral(popup_index), close_policy, llr::Expression::PropertyReference(parent_ref)] =
+            // A trailing argument may carry the `is-open` property reference (Rust/interpreter only);
+            // the C++ back-end does not yet keep `is-open` in sync, so it is ignored here.
+            if let [llr::Expression::NumberLiteral(popup_index), close_policy, llr::Expression::PropertyReference(parent_ref), ..] =
                 arguments
             {
                 let mut component_access = MemberAccess::Direct("self".into());

@@ -3613,6 +3613,7 @@ fn compile_builtin_function_call(
                 Expression::NumberLiteral(popup_index),
                 close_policy,
                 Expression::PropertyReference(parent_ref),
+                is_open_args @ ..,
             ] = arguments
             {
                 let mut component_access_tokens = MemberAccess::Direct(quote!(_self));
@@ -3660,7 +3661,34 @@ fn compile_builtin_function_call(
                         shared_global.clone()
                     }
                 };
-                component_access_tokens.then(|component_access_tokens| quote!({
+                // The optional 4th argument is a property reference to the synthesized `is-open`,
+                // mapped in this show call's own frame (see lower_show_popup_window), so it resolves
+                // directly against `ctx`/`_self`, exactly like `parent_ref`.
+                let is_open_set_expr = is_open_args.first().map(|arg| {
+                    let Expression::PropertyReference(is_open_ref) = arg else {
+                        unreachable!(
+                            "ShowPopupWindow is-open argument must be a property reference"
+                        )
+                    };
+                    access_member(is_open_ref, ctx).then(|p| quote!(#p.set(value);))
+                });
+                component_access_tokens.then(|component_access_tokens| {
+                    // Keep the parent's `is-open` in sync: the runtime invokes this setter with `true`
+                    // immediately and with `false` from every close path (see window.rs).
+                    let is_open_setup = if let Some(set_expr) = &is_open_set_expr {
+                        quote! {
+                            let is_open_self_weak = _self.self_weak.get().unwrap().clone();
+                            window.set_popup_is_open_setter(popup_id, sp::Box::new(move |value: bool| {
+                                if let Some(is_open_self) = is_open_self_weak.upgrade() {
+                                    let _self = is_open_self.as_pin_ref();
+                                    #set_expr
+                                }
+                            }));
+                        }
+                    } else {
+                        quote!()
+                    };
+                    quote!({
                     let parent_item = #parent_item;
                     // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one
                     let shared_global = #component_access_tokens.globals.get().unwrap();
@@ -3679,17 +3707,18 @@ fn compile_builtin_function_call(
                         let _self = popup_instance_vrc_for_position.as_pin_ref(); #position
                     });
 
-                    #component_access_tokens.#popup_id_name.set(Some(
-                        window.show_popup(
-                            &sp::VRc::into_dyn(popup_instance.into()),
-                            access_position,
-                            #close_policy,
-                            parent_item,
-                            #window_kind,
-                        )
-                    ));
+                    let popup_id = window.show_popup(
+                        &sp::VRc::into_dyn(popup_instance.into()),
+                        access_position,
+                        #close_policy,
+                        parent_item,
+                        #window_kind,
+                    );
+                    #component_access_tokens.#popup_id_name.set(Some(popup_id));
+                    #is_open_setup
                     #popup_window_id::user_init(popup_instance_vrc.clone());
-                }))
+                })
+                })
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")
             }
