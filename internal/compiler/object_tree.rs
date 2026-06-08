@@ -1204,6 +1204,7 @@ impl Element {
                     error_on(&cb, "an 'init' callback")
                 }
             });
+            node.MatchElement().for_each(|n| error_on(&n, "match statements"));
 
             parent_type
         } else if parent_type != ElementType::Error {
