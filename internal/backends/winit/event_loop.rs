@@ -19,7 +19,6 @@ use corelib::platform::PlatformError;
 use corelib::window::*;
 use corelib::{DataTransfer, SharedString};
 use i_slint_core as corelib;
-use i_slint_core::api::PhysicalSize;
 use i_slint_core::data_transfer::DropEffect;
 use i_slint_core::data_transfer::data_transfer_set_image_getter;
 use i_slint_core::data_transfer::data_transfer_set_plaintext_getter;
