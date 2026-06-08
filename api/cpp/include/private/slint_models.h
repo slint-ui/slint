@@ -1102,12 +1102,14 @@ public:
     /// Same as ensure_updated but for a ListView.
     /// Returns true if any instance was created or any child changed.
     template<typename Parent>
-    bool ensure_updated_listview(const Parent *parent,
+    bool ensure_updated_listview(const cbindgen_private::Flickable *flickable,
+                                 const Parent *parent,
                                  const private_api::Property<float> *viewport_width,
                                  const private_api::Property<float> *viewport_height,
                                  const private_api::Property<float> *viewport_y,
                                  float listview_width, float listview_height) const
     {
+        (void)flickable;
         refresh_model();
 
         if (!inner)

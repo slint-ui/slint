@@ -12,6 +12,7 @@
 use super::model_peer::{ModelChangeListener, ModelChangeListenerContainer};
 use super::{Model, ModelExt, ModelRc};
 use crate::item_tree::{ItemTreeVTable, TraversalOrder};
+use crate::items::Flickable;
 use crate::layout::Orientation;
 use crate::lengths::{LogicalLength, RectLengths};
 use crate::{Coord, Property};
@@ -628,6 +629,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     pub fn ensure_updated_listview(
         self: Pin<&Self>,
         init: impl Fn() -> ItemTreeRc<C>,
+        _flickable: Pin<&Flickable>,
         viewport_width: Pin<&Property<LogicalLength>>,
         viewport_height: Pin<&Property<LogicalLength>>,
         viewport_y: Pin<&Property<LogicalLength>>,

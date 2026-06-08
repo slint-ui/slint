@@ -1090,6 +1090,7 @@ impl PropertyAnalysis {
 
 #[derive(Debug, Clone)]
 pub struct ListViewInfo {
+    pub flickable: NamedReference,
     pub viewport_y: NamedReference,
     pub viewport_height: NamedReference,
     pub viewport_width: NamedReference,
@@ -1960,6 +1961,7 @@ impl Element {
             && let Some(geometry_props) = e.borrow().geometry_props.as_ref()
         {
             let lvi = ListViewInfo {
+                flickable: NamedReference::new(parent, SmolStr::new_static("")),
                 viewport_y: NamedReference::new(parent, SmolStr::new_static("viewport-y")),
                 viewport_height: NamedReference::new(
                     parent,
