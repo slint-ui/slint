@@ -60,6 +60,10 @@ on:
 
 env:
     MACOSX_DEPLOYMENT_TARGET: "11.0"
+    # Use fat LTO for distributed binaries: smaller size and better runtime perf.
+    # Workspace [profile.release] uses cargo defaults to keep dev release builds fast.
+    CARGO_PROFILE_RELEASE_LTO: "fat"
+    CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
 
 jobs:
     build_windows:

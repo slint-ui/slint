@@ -50,6 +50,12 @@ jobs:
             - name: Build node plugin in debug
               run: pnpm build:testing
               working-directory: api/node
+            - name: Type-check registry e2e fixtures
+              # Type-checked here (not in the standalone typecheck job) because it
+              # resolves slint-ui's types, which depend on the generated bindings
+              # produced by the build above.
+              run: pnpm exec tsc -p tsconfig.e2e.json
+              working-directory: api/node
             - name: Run node tests
               working-directory: api/node
               run: pnpm test

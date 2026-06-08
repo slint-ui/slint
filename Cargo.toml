@@ -213,7 +213,6 @@ objc2 = { version = "0.6.3" }
 lsp-types = "0.95.0"
 
 [profile.release]
-lto = true
 panic = "abort"
 
 [profile.dev]

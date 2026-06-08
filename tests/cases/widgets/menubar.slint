@@ -186,4 +186,55 @@ assert(instance.get_checkable_menu_item_checked());
 
 ```
 
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+
+// click on the file menu
+slintlib.private_api.send_mouse_click(instance, 10., 16.);
+// navigate using the keys to the "Open Recent" menu item
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u{F701}");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u{F701}");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u{F701}");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u{F703}");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u{F700}");
+assert.equal(instance.result, "");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\n");
+assert.equal(instance.result, "Recent 3");
+
+instance.result = "";
+//click on the file menu
+slintlib.private_api.send_mouse_click(instance, 10., 16.);
+assert.equal(instance.result, "");
+// click on the first entry (new)  (this value seems to work with all styles)
+slintlib.private_api.send_mouse_click(instance, 30., 49.);
+assert.equal(instance.result, "New");
+
+instance.result = "";
+// click on the file menu
+slintlib.private_api.send_mouse_click(instance, 10., 16.);
+// arrow should skip the separators before "save"
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u{F701}"); // New
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u{F701}"); // Open
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u{F701}"); // Open Recent
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u{F701}"); // Checkable
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u{F701}"); // Save (skipped the separator)
+assert.equal(instance.result, "");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\n");
+assert.equal(instance.result, "Save");
+
+// verify that the checked menu item is not checked
+assert(!instance.checkable_menu_item_checked);
+// click on the file menu
+slintlib.private_api.send_mouse_click(instance, 10., 16.);
+// navigate using the keys to the "Checked" menu item and toggle it
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u{F701}");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u{F701}");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u{F701}");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\u{F701}");
+slintlib.private_api.send_keyboard_string_sequence(instance, "\n");
+// verify that the checked menu item is checked
+assert(instance.checkable_menu_item_checked);
+```
+
 */

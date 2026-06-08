@@ -12,6 +12,10 @@ jobs:
         env:
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
             CARGO_INCREMENTAL: false
+            # Use fat LTO for the published WASMs to minimize download size.
+            # Workspace [profile.release] uses cargo defaults to keep dev release builds fast.
+            CARGO_PROFILE_RELEASE_LTO: "fat"
+            CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v6

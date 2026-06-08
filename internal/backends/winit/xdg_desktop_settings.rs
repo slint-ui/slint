@@ -6,8 +6,24 @@ use std::rc::Weak;
 use i_slint_core::SlintContextWeak;
 use i_slint_core::graphics::Color;
 use i_slint_core::items::ColorScheme;
+use i_slint_core::lengths::LogicalLength;
 
 use crate::SharedBackendData;
+
+/// Parses the trailing point size from a GNOME font description such as
+/// `"Helvetica 11"` or `"Sans Bold 10.5"`.
+fn parse_font_points(font_name: &str) -> Option<f32> {
+    let last = font_name.split_whitespace().next_back()?;
+    last.parse::<f32>().ok().filter(|p| p.is_finite() && *p > 0.0)
+}
+
+fn apply_font_name(ctx_weak: &SlintContextWeak, font_name: &str) {
+    let Some(points) = parse_font_points(font_name) else { return };
+    let size = LogicalLength::new(points * 96.0 / 72.0);
+    if let Some(ctx) = ctx_weak.upgrade() {
+        ctx.set_platform_default_font_size(Some(size));
+    }
+}
 
 fn xdg_color_scheme_to_slint(value: zbus::zvariant::OwnedValue) -> ColorScheme {
     match value.downcast_ref::<u32>() {
@@ -103,16 +119,24 @@ pub async fn watch(
         shared.cursor_blink_interval.set(interval);
     }
 
+    let font_name_result: zbus::Result<zbus::zvariant::OwnedValue> =
+        settings_proxy.call("ReadOne", &("org.gnome.desktop.interface", "font-name")).await;
+    if let Ok(value) = font_name_result
+        && let Ok(name) = value.downcast_ref::<&str>()
+    {
+        apply_font_name(&ctx_weak, name);
+    }
+
     use futures::stream::StreamExt;
 
-    let mut settings_stream =
-        settings_proxy.receive_signal("SettingChanged").await?.map(|message| {
-            let (namespace, key, value): (String, String, zbus::zvariant::OwnedValue) =
-                message.body().deserialize().ok()?;
-            Some((namespace, key, value))
-        });
+    let mut settings_stream = settings_proxy.receive_signal("SettingChanged").await?;
 
-    while let Some(Some((namespace, key, value))) = settings_stream.next().await {
+    while let Some(message) = settings_stream.next().await {
+        let Ok((namespace, key, value)) =
+            message.body().deserialize::<(String, String, zbus::zvariant::OwnedValue)>()
+        else {
+            continue;
+        };
         match (namespace.as_str(), key.as_str()) {
             ("org.freedesktop.appearance", "color-scheme") => {
                 apply_color_scheme(&ctx_weak, &shared_data_weak, xdg_color_scheme_to_slint(value));
@@ -144,6 +168,11 @@ pub async fn watch(
                     && let Some(shared) = shared_data_weak.upgrade()
                 {
                     shared.cursor_blink_interval.set(core::time::Duration::from_millis(ms as u64));
+                }
+            }
+            ("org.gnome.desktop.interface", "font-name") => {
+                if let Ok(name) = value.downcast_ref::<&str>() {
+                    apply_font_name(&ctx_weak, name);
                 }
             }
             _ => {}

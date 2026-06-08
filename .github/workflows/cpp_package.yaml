@@ -19,6 +19,10 @@ env:
     SLINT_MCU_FEATURES: "-DSLINT_FEATURE_FREESTANDING=ON -DSLINT_FEATURE_RENDERER_SOFTWARE=ON"
     # env variable used by espup https://github.com/esp-rs/espup?tab=readme-ov-file#github-api
     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # Use fat LTO for the distributed C++ packages: smaller shared library and better runtime perf.
+    # Workspace [profile.release] uses cargo defaults to keep dev release builds fast.
+    CARGO_PROFILE_RELEASE_LTO: "fat"
+    CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
 
 jobs:
     cmake_package_desktop:
