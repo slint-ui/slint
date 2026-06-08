@@ -20,6 +20,15 @@ const SLINT_VERSION: &str = concat!("Slint ", env!("CARGO_PKG_VERSION"));
 // which build they are running. Empty for local developer builds.
 const BUILD_NUMBER: Option<&str> = option_env!("SLINT_BUILD_NUMBER");
 
+fn build_info() -> SharedString {
+    let debug_suffix = if cfg!(debug_assertions) { " (debug build)" } else { "" };
+    match BUILD_NUMBER {
+        Some(n) => slint::format!("Build {n}{debug_suffix}"),
+        None if !debug_suffix.is_empty() => SharedString::from(debug_suffix.trim_start()),
+        None => SharedString::default(),
+    }
+}
+
 pub fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Result<()> {
     slint_interpreter::spawn_local(async_compat::Compat::new(async move {
         if let Err(err) = run_async(address, enable_mdns).await {
@@ -114,9 +123,7 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     placeholder.set_address(SharedString::from(address.as_str()));
     placeholder.set_name(SharedString::from(device_name.as_str()));
     placeholder.set_slint_version(SharedString::from(SLINT_VERSION));
-    if let Some(build_number) = BUILD_NUMBER {
-        placeholder.set_build_info(slint::format!("Build {build_number}"));
-    }
+    placeholder.set_build_info(build_info());
     placeholder.show()?;
 
     let mut last_connection = None;
@@ -292,9 +299,7 @@ fn swap_to_placeholder(
     fresh.set_name(SharedString::from(name));
     fresh.set_message(SharedString::from(message));
     fresh.set_slint_version(SharedString::from(SLINT_VERSION));
-    if let Some(build_number) = BUILD_NUMBER {
-        fresh.set_build_info(slint::format!("Build {build_number}"));
-    }
+    fresh.set_build_info(build_info());
     fresh.show().map_err(|err| anyhow::anyhow!("Cannot show placeholder: {err}"))?;
     *placeholder = fresh;
     *user_instance = None;
