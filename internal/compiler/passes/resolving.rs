@@ -100,6 +100,27 @@ fn resolve_expression(
             Expression::DebugHook { expression, .. } => **expression = new_expr,
             _ => *expr = new_expr,
         }
+    } else if let Expression::BinaryExpression { lhs, rhs, .. } = expr {
+        resolve_expression(
+            elem,
+            lhs,
+            property_name,
+            Type::Invalid,
+            scope,
+            type_register,
+            type_loader,
+            diag,
+        );
+        resolve_expression(
+            elem,
+            rhs,
+            property_name,
+            Type::Invalid,
+            scope,
+            type_register,
+            type_loader,
+            diag,
+        );
     }
 }
 
