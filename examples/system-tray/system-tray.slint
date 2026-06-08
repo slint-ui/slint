@@ -57,7 +57,7 @@ export component MainWindow inherits Window {
                 CheckBox {
                     // When this is unchecked the slint Menu's `if cond` falls
                     // false. On macOS that detaches the NSMenu and clicks on
-                    // the icon fire `activated` instead of popping a menu.
+                    // the icon fire `clicked` instead of popping a menu.
                     text: "Tray menu enabled";
                     checked <=> root.tray-menu-enabled;
                     toggled => { root.tray-menu-enabled-changed(self.checked); }
@@ -97,15 +97,15 @@ export component ExampleTray inherits SystemTrayIcon {
     in-out property <bool> tray-visible <=> root.visible;
     // Drives the conditional `if cond : Menu { ... }` below. Set to false
     // from the host language to detach the menu and exercise the
-    // "no menu attached" branch (on macOS that's where `activated` fires).
+    // "no menu attached" branch (on macOS that's where `clicked` fires).
     in-out property <bool> menu-enabled: true;
 
     callback toggle-window;
     callback quit;
 
-    // Left-click (or platform equivalent) fires this callback when the
-    // platform doesn't auto-popup a menu instead.
-    activated => { toggle-window(); }
+    // Left-click fires this callback when the platform doesn't auto-popup
+    // a menu instead.
+    clicked => { toggle-window(); }
 
     if root.menu-enabled : Menu {
         MenuItem {

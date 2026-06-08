@@ -446,7 +446,7 @@ importers:
         specifier: workspace:*
         version: link:../../api/node
 
-  examples/system_tray:
+  examples/system-tray:
     dependencies:
       slint-ui:
         specifier: workspace:*

@@ -44,6 +44,7 @@ export component SideBar inherits Rectangle {
         width: self.preferred-width;
         padding-top: 12px;
         spacing: 12px;
+        alignment: start;
         for page-data[index] in [
             { enum: Pages.home, icon: @image-url("../images/mcu/home.svg") },
             { enum: Pages.ink, icon: @image-url("../images/mcu/ink.svg") },

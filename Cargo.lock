@@ -11509,7 +11509,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "system_tray"
+name = "system-tray"
 version = "1.16.0"
 dependencies = [
  "slint",
