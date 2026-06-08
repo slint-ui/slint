@@ -106,10 +106,10 @@ component KanbanColumn inherits Rectangle {
 
         HorizontalLayout {
             spacing: 8px;
+            cross-axis-alignment: center;
             Rectangle {
                 width: 10px;
                 height: 10px;
-                y: (parent.height - self.height) / 2;
                 border-radius: 5px;
                 background: root.accent;
             }
