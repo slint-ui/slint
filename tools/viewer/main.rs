@@ -3,6 +3,7 @@
 
 #![doc = include_str!("README.md")]
 
+mod debug;
 mod screenshot;
 
 #[cfg(feature = "remote")]
@@ -202,12 +203,6 @@ fn main() -> Result<()> {
         std::process::exit(-1);
     }
 
-    let mut backend_selector = slint_interpreter::BackendSelector::new();
-    if let Some(backend) = &args.backend {
-        backend_selector = backend_selector.backend_name(backend.clone());
-    }
-    backend_selector.select()?;
-
     #[cfg(feature = "gettext")]
     if let Some(dirname) = args.translation_dir.clone() {
         i_slint_core::translations::gettext_bindtextdomain(
@@ -217,17 +212,18 @@ fn main() -> Result<()> {
     };
 
     if args.screenshot.is_some() {
+        if args.backend.is_some() {
+            select_backend(args.backend.as_deref())?;
+        }
         return screenshot::take_screenshot(&args);
     }
 
     let compiler = init_compiler(&args);
 
-    // Print debug output via tracing
-    i_slint_core::context::set_debug_handler(Some(Box::new(move |location, arguments| {
-        debug_handler(location, arguments);
-    })))?;
-
     if args.auto_reload {
+        select_backend(args.backend.as_deref())?;
+        install_debug_handler()?;
+
         let live = i_slint_live_preview::live_component::LiveReloadingComponent::new(
             compiler,
             args.path().to_path_buf(),
@@ -262,6 +258,9 @@ fn main() -> Result<()> {
             std::process::exit(-1);
         };
 
+        select_backend(args.backend.as_deref())?;
+        install_debug_handler()?;
+
         let component = c.create()?;
         setup_instance(&component, &args.on, args.load_data.as_deref())?;
 
@@ -275,20 +274,20 @@ fn main() -> Result<()> {
     std::process::exit(EXIT_CODE.load(std::sync::atomic::Ordering::Relaxed))
 }
 
-fn debug_handler(
-    location: Option<&i_slint_core::debug_log::DebugLogLocation>,
-    arguments: core::fmt::Arguments,
-) -> Option<(PathBuf, usize, usize)> {
-    let location = location.map(|location| {
-        (std::path::PathBuf::from(location.path.as_str()), location.line, location.column)
-    });
-    if let Some((file, line, column)) = &location {
-        tracing::info!("DEBUG {file}:{line}:{column}> {arguments}", file = file.display());
-    } else {
-        tracing::info!("DEBUG> {}", arguments);
+fn select_backend(backend: Option<&str>) -> Result<()> {
+    let mut backend_selector = slint_interpreter::BackendSelector::new();
+    if let Some(backend) = backend {
+        backend_selector = backend_selector.backend_name(backend.to_owned());
     }
+    backend_selector.select()?;
+    Ok(())
+}
 
-    location
+fn install_debug_handler() -> Result<()> {
+    i_slint_core::context::set_debug_handler(Some(Box::new(move |location, arguments| {
+        debug::debug_handler(location, arguments);
+    })))?;
+    Ok(())
 }
 
 fn init_compiler(args: &Cli) -> slint_interpreter::Compiler {

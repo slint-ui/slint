@@ -1589,8 +1589,6 @@ fn set_preview_factory(
                     .ok();
             }
         });
-
-        let location = location.map(|(file, line, column)| (file, line, column));
         let _ = slint::invoke_from_event_loop(move || {
             PREVIEW_STATE.with_borrow(|preview_state| {
                 if let Some(api) = preview_state.api.upgrade() {
