@@ -14,6 +14,7 @@ use super::r#type::parse_type;
 /// Item { }
 /// Item { property: value; SubElement { } }
 /// Item { if true: Rectangle {} }
+/// Item { match foo { 1: Rectangle {} } }
 /// ```
 pub fn parse_element(p: &mut impl Parser) -> bool {
     let mut p = p.start_node(SyntaxKind::Element);
@@ -51,6 +52,8 @@ pub fn parse_element(p: &mut impl Parser) -> bool {
 /// double_binding <=> element.property;
 /// public pure function foo() {}
 /// changed foo => {}
+/// match (foo) { 1: Elem { } }
+/// match bar.property { 1: Elem { } }
 /// ```
 pub fn parse_element_content(p: &mut impl Parser) {
     let mut had_parse_error = false;
@@ -63,7 +66,9 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::ColonEqual | SyntaxKind::LBrace => {
                     had_parse_error |= !parse_sub_element(&mut *p)
                 }
-                SyntaxKind::FatArrow | SyntaxKind::LParent if p.peek().as_str() != "if" => {
+                SyntaxKind::FatArrow | SyntaxKind::LParent
+                    if p.peek().as_str() != "if" && p.peek().as_str() != "match" =>
+                {
                     parse_callback_connection(&mut *p)
                 }
                 SyntaxKind::DoubleArrow => parse_two_way_binding(&mut *p),
@@ -105,6 +110,9 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 }
                 _ if p.peek().as_str() == "if" => {
                     parse_if_element(&mut *p);
+                }
+                SyntaxKind::Identifier | SyntaxKind::LParent if p.peek().as_str() == "match" => {
+                    parse_match_element(&mut *p);
                 }
                 SyntaxKind::LBracket if p.peek().as_str() == "states" => {
                     parse_states(&mut *p);
@@ -215,6 +223,72 @@ fn parse_if_element(p: &mut impl Parser) {
         drop(p.start_node(SyntaxKind::SubElement).start_node(SyntaxKind::Element));
         return;
     }
+    parse_sub_element(&mut *p);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,MatchElement
+/// match (foo) { one_case: Elem { } }
+/// match foo { one_case: Elem { } another_case: Elem { } }
+/// match (foo) { one_case: Elem { } another_case: Elem { } else: Elem { } }
+/// ```
+fn parse_match_element(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "match");
+    let mut p = p.start_node(SyntaxKind::MatchElement);
+    p.expect(SyntaxKind::Identifier); // "match"
+    parse_expression(&mut *p);
+    if !p.test(SyntaxKind::LBrace) {
+        p.error("Expected '{' to start match cases");
+    }
+    if p.peek().as_str() == "else" {
+        p.error("Expected at least one match case before else case");
+        parse_match_case(&mut *p);
+        p.test(SyntaxKind::RBrace);
+        return;
+    }
+    while p.peek().kind() != SyntaxKind::RBrace
+        && p.peek().as_str() != "else"
+        && p.peek().kind() != SyntaxKind::Eof
+    {
+        parse_match_case(&mut *p);
+    }
+    if p.peek().as_str() == "else" {
+        else_match_case(&mut *p);
+    }
+    p.expect(SyntaxKind::RBrace);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,MatchCase
+/// foo: Elem { }
+/// (foo): Elem { }
+/// ```
+fn parse_match_case(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::MatchCase);
+    parse_expression(&mut *p);
+    if !p.test(SyntaxKind::Colon) {
+        p.error("Expected ':' after match case expression");
+        if p.peek().kind() != SyntaxKind::Identifier {
+            p.consume();
+        }
+    }
+    parse_sub_element(&mut *p);
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,ElseMatchCase
+/// else: Elem { }
+/// ```
+fn else_match_case(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().as_str(), "else");
+    let mut p = p.start_node(SyntaxKind::ElseMatchCase);
+    p.expect(SyntaxKind::Identifier); // "else"
+    if !p.test(SyntaxKind::Colon) {
+        p.error("Expected ':' after else case expression");
+        if p.peek().kind() != SyntaxKind::Identifier {
+            p.consume();
+        }
+    };
     parse_sub_element(&mut *p);
 }
 
