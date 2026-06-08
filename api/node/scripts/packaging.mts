@@ -54,6 +54,10 @@ export async function run(
         const { stdout, stderr } = await execFileAsync(cmd, args, {
             encoding: "utf8",
             maxBuffer: 64 * 1024 * 1024,
+            // npm/npx/pnpm are .cmd shims on Windows, which execFile cannot launch
+            // directly; run through the shell there. (The args below are package
+            // names and ./-relative paths, so no extra quoting is needed.)
+            shell: process.platform === "win32",
             ...opts,
         });
         return { stdout, stderr };
