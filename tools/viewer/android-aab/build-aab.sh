@@ -53,6 +53,13 @@ CARGO_HOME_PATH="${CARGO_HOME:-$HOME/.cargo}"
 REMAP_FLAGS="--remap-path-prefix=$CARGO_HOME_PATH=/cargo --remap-path-prefix=$REPO_ROOT=/build"
 export CARGO_BUILD_RUSTFLAGS="${CARGO_BUILD_RUSTFLAGS:-} $REMAP_FLAGS"
 
+# Render the launcher icons so the AAB carries the current logo. Bail if the
+# renderer succeeded but wrote empty PNGs.
+"$REPO_ROOT/scripts/render_android_app_icon.bash"
+RES_DIR="$PROJECT_DIR/app/src/main/res/mipmap-xxxhdpi"
+[ -s "$RES_DIR/ic_launcher.png" ] && [ -s "$RES_DIR/ic_launcher_foreground.png" ] \
+    || { echo "icon render produced empty PNGs" >&2; exit 1; }
+
 JNI_DIR="$PROJECT_DIR/app/src/main/jniLibs"
 rm -rf "$JNI_DIR"
 mkdir -p "$JNI_DIR"
