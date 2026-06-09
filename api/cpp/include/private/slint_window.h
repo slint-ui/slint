@@ -151,8 +151,7 @@ public:
     uint32_t show_popup(const Parent *parent_component, PosGetter pos,
                         cbindgen_private::PopupClosePolicy close_policy,
                         cbindgen_private::ItemRc parent_item,
-                        cbindgen_private::WindowKind window_kind,
-                        IsOpenSetter is_open_setter) const
+                        cbindgen_private::WindowKind window_kind, IsOpenSetter is_open_setter) const
     {
         using SharedGlobals = decltype(parent_component->globals);
         SharedGlobals _own_globals = nullptr;
