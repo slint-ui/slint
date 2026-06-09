@@ -1,3 +1,4 @@
+# cSpell: ignore xxxhdpi jniLibs
 .gradle/
 build/
 local.properties

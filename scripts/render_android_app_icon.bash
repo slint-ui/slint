@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+# cSpell: ignore xxxhdpi
 
 # Render the slint-viewer Android launcher icons from the Slint logo SVG.
 # The legacy ic_launcher.png is 192px on a white background; the adaptive

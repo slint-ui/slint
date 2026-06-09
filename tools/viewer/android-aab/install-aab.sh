@@ -1,6 +1,7 @@
 #!/bin/bash
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+# cSpell: ignore bundletool BUNDLETOOL androidkey apks APKS
 #
 # Build APKs from the slint-viewer AAB with bundletool and install them on a
 # connected device. Hand-test the same bundle Play would receive without

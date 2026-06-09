@@ -1,6 +1,7 @@
 #!/bin/bash
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+# cSpell: ignore androidkey xxxhdpi jniLibs
 #
 # Build the slint-viewer Android App Bundle for Play Store upload.
 #
