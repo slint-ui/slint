@@ -42,6 +42,7 @@ use euclid::num::Zero;
 use i_slint_core_macros::*;
 #[allow(unused)]
 use num_traits::Float;
+use std::println;
 mod data_ringbuffer;
 use data_ringbuffer::VelocityRingBuffer;
 
@@ -249,6 +250,11 @@ impl ItemConsts for Flickable {
 }
 
 impl Flickable {
+    pub fn flicking_ongoing(self: Pin<&Self>) -> bool {
+        self.data.inner.borrow().capture_events.is_some()
+    }
+
+    /// The flickable limit if a simulation is running otherwise None
     pub fn simulation_flick_limit_y(self: Pin<&Self>) -> Option<LogicalLength> {
         if let Some((item_rc, animation)) = self
             .data
@@ -454,7 +460,7 @@ pub(crate) struct FlickableDataInner {
     ///
     /// This position is in the coordinate system of the flickable, not of the viewport.
     last_mouse_position: LogicalPoint,
-    /// Set to true if the flickable is flicking and capturing all mouse event, not forwarding back to the children
+    /// Set to `Some(_)` if the flickable is flicking and capturing all mouse event, not forwarding back to the children
     capture_events: Option<CaptureEvents>,
     /// Heuristics for filtering scroll events from children after we have scrolled ourselves.
     /// We want to filter those to prevent the case where the user scrolls with the mouse wheel,
