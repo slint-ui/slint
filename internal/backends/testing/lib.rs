@@ -38,7 +38,11 @@ pub mod systest;
 /// Instead, use [`mock_elapsed_time()`] to advance the simulate (mock) time Slint uses.
 pub fn init_no_event_loop() {
     i_slint_core::platform::set_platform(Box::new(testing_backend::TestingBackend::new(
-        testing_backend::TestingBackendOptions { mock_time: true, threading: false, ..Default::default() },
+        testing_backend::TestingBackendOptions {
+            mock_time: true,
+            threading: false,
+            ..Default::default()
+        },
     )))
     .expect("platform already initialized");
 }
@@ -53,7 +57,11 @@ pub fn init_no_event_loop() {
 /// Instead, use [`mock_elapsed_time()`] to advance the simulate (mock) time Slint uses.
 pub fn init_integration_test_with_mock_time() {
     i_slint_core::platform::set_platform(Box::new(testing_backend::TestingBackend::new(
-        testing_backend::TestingBackendOptions { mock_time: true, threading: true, ..Default::default() },
+        testing_backend::TestingBackendOptions {
+            mock_time: true,
+            threading: true,
+            ..Default::default()
+        },
     )))
     .expect("platform already initialized");
 }
@@ -65,7 +73,11 @@ pub fn init_integration_test_with_mock_time() {
 /// Calling it when the rendering backend is already initialized will panic.
 pub fn init_integration_test_with_system_time() {
     i_slint_core::platform::set_platform(Box::new(testing_backend::TestingBackend::new(
-        testing_backend::TestingBackendOptions { mock_time: false, threading: true, ..Default::default() },
+        testing_backend::TestingBackendOptions {
+            mock_time: false,
+            threading: true,
+            ..Default::default()
+        },
     )))
     .expect("platform already initialized");
 }
