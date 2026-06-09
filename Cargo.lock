@@ -5274,6 +5274,8 @@ dependencies = [
  "i-slint-common",
  "i-slint-core",
  "i-slint-core-macros",
+ "i-slint-renderer-skia",
+ "i-slint-renderer-software",
  "image",
  "include_dir",
  "pbjson",

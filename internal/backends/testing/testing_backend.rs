@@ -142,6 +142,13 @@ fn is_fixed_test_font(family: &Option<SharedString>) -> bool {
 pub struct TestingBackendOptions {
     pub mock_time: bool,
     pub threading: bool,
+    /// Selects the rasterizer used for headless screenshots (`take_snapshot`).
+    /// `None` keeps the stub renderer; `Some("software")` / `Some("skia")` /
+    /// `Some("skia-software")` request a real rasterizer (when the matching
+    /// feature is compiled in). Other strings produce an error at window
+    /// creation time.
+    #[cfg(any(feature = "renderer-software", feature = "renderer-skia"))]
+    pub renderer_name: Option<SharedString>,
 }
 
 pub struct TestingBackend {
@@ -150,6 +157,8 @@ pub struct TestingBackend {
     mock_time: bool,
     pub open_url: Rc<RefCell<Option<SharedString>>>,
     pub debug_logs: Rc<RefCell<Vec<String>>>,
+    #[cfg(any(feature = "renderer-software", feature = "renderer-skia"))]
+    renderer_name: Option<SharedString>,
 }
 
 impl TestingBackend {
@@ -160,6 +169,8 @@ impl TestingBackend {
             mock_time: options.mock_time,
             open_url: Default::default(),
             debug_logs: Default::default(),
+            #[cfg(any(feature = "renderer-software", feature = "renderer-skia"))]
+            renderer_name: options.renderer_name,
         }
     }
 }
@@ -168,6 +179,8 @@ impl i_slint_core::platform::Platform for TestingBackend {
     fn create_window_adapter(
         &self,
     ) -> Result<Rc<dyn WindowAdapter>, i_slint_core::platform::PlatformError> {
+        #[cfg(any(feature = "renderer-software", feature = "renderer-skia"))]
+        let renderer = create_headless_renderer(self.renderer_name.as_deref())?;
         let window = Rc::new_cyclic(|self_weak| TestingWindow {
             window: i_slint_core::api::Window::new(self_weak.clone() as _),
             size: Default::default(),
@@ -177,6 +190,10 @@ impl i_slint_core::platform::Platform for TestingBackend {
             open_url: self.open_url.clone(),
             debug_logs: self.debug_logs.clone(),
             native_popup: Cell::new(false),
+            #[cfg(any(feature = "renderer-software", feature = "renderer-skia"))]
+            renderer_name: self.renderer_name.clone(),
+            #[cfg(any(feature = "renderer-software", feature = "renderer-skia"))]
+            renderer,
         });
         ALL_TESTING_WINDOWS.with(|list| list.borrow_mut().push(Rc::downgrade(&window)));
         Ok(window)
@@ -271,6 +288,15 @@ pub struct TestingWindow {
     pub open_url: Rc<RefCell<Option<SharedString>>>,
     pub debug_logs: Rc<RefCell<Vec<String>>>,
     native_popup: Cell<bool>,
+    /// Remembered for child popups, so they pick the same rasterizer.
+    #[cfg(any(feature = "renderer-software", feature = "renderer-skia"))]
+    renderer_name: Option<SharedString>,
+    /// Real rasterizer driving `take_snapshot`. The text-measurement and
+    /// font paths of [`RendererSealed`] are still served by `TestingWindow`
+    /// itself (the fixed-test-font fixture relies on that); only the
+    /// screenshot delegates here.
+    #[cfg(any(feature = "renderer-software", feature = "renderer-skia"))]
+    renderer: Box<dyn Renderer>,
 }
 
 impl TestingWindow {
@@ -323,6 +349,8 @@ impl WindowAdapterInternal for TestingWindow {
 
     fn create_child_window_adapter(&self, _kind: WindowKind) -> Option<Rc<dyn WindowAdapter>> {
         if self.native_popup.get() {
+            #[cfg(any(feature = "renderer-software", feature = "renderer-skia"))]
+            let renderer = create_headless_renderer(self.renderer_name.as_deref()).ok()?;
             let window = Rc::new_cyclic(|self_weak| TestingWindow {
                 window: i_slint_core::api::Window::new(self_weak.clone() as _),
                 size: Default::default(),
@@ -332,6 +360,10 @@ impl WindowAdapterInternal for TestingWindow {
                 open_url: self.open_url.clone(),
                 debug_logs: self.debug_logs.clone(),
                 native_popup: self.native_popup.clone(),
+                #[cfg(any(feature = "renderer-software", feature = "renderer-skia"))]
+                renderer_name: self.renderer_name.clone(),
+                #[cfg(any(feature = "renderer-software", feature = "renderer-skia"))]
+                renderer,
             });
             Some(window)
         } else {
@@ -516,7 +548,13 @@ impl RendererSealed for TestingWindow {
     }
 
     fn set_window_adapter(&self, _window_adapter: &Rc<dyn WindowAdapter>) {
-        // No-op since TestingWindow is also the WindowAdapter
+        // TestingWindow is itself the WindowAdapter, so no need to remember it
+        // here. However, the embedded rasterizer (used for `take_snapshot`)
+        // does need its weak window-adapter reference set, since the
+        // framework only forwards `set_window_adapter` to whatever
+        // `WindowAdapter::renderer()` returns.
+        #[cfg(any(feature = "renderer-software", feature = "renderer-skia"))]
+        self.renderer.set_window_adapter(_window_adapter);
     }
 
     fn window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
@@ -525,6 +563,81 @@ impl RendererSealed for TestingWindow {
 
     fn supports_transformations(&self) -> bool {
         true
+    }
+
+    #[cfg(any(feature = "renderer-software", feature = "renderer-skia"))]
+    fn take_snapshot(
+        &self,
+    ) -> Result<
+        i_slint_core::graphics::SharedPixelBuffer<i_slint_core::graphics::Rgba8Pixel>,
+        PlatformError,
+    > {
+        self.renderer.take_snapshot()
+    }
+
+    // The remaining overrides forward lifecycle notifications that the
+    // wrapped rasterizer needs to keep its caches consistent. Without them,
+    // bitmap fonts baked at compile time would be silently dropped, and
+    // per-component caches in the held renderer would grow without bound.
+    #[cfg(any(feature = "renderer-software", feature = "renderer-skia"))]
+    fn register_bitmap_font(&self, font_data: &'static i_slint_core::graphics::BitmapFont) {
+        self.renderer.register_bitmap_font(font_data);
+    }
+
+    #[cfg(any(feature = "renderer-software", feature = "renderer-skia"))]
+    fn free_graphics_resources(
+        &self,
+        component: i_slint_core::item_tree::ItemTreeRef,
+        items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
+    ) -> Result<(), PlatformError> {
+        self.renderer.free_graphics_resources(component, items)
+    }
+
+    #[cfg(any(feature = "renderer-software", feature = "renderer-skia"))]
+    fn mark_dirty_region(&self, region: i_slint_core::partial_renderer::DirtyRegion) {
+        self.renderer.mark_dirty_region(region);
+    }
+
+    #[cfg(any(feature = "renderer-software", feature = "renderer-skia"))]
+    fn resize(&self, size: PhysicalSize) -> Result<(), PlatformError> {
+        self.renderer.resize(size)
+    }
+}
+
+/// Build a rasterizer suitable for headless `take_snapshot` based on the
+/// renderer name parsed from `SLINT_BACKEND=headless-<name>`. `None` /
+/// empty / `"default"` selects the best available (Skia software when
+/// compiled in, otherwise the built-in software renderer).
+#[cfg(any(feature = "renderer-software", feature = "renderer-skia"))]
+fn create_headless_renderer(name: Option<&str>) -> Result<Box<dyn Renderer>, PlatformError> {
+    // Skia's software rasterizer is unavailable on Android (see
+    // `internal/renderers/skia/build.rs`'s `skia_backend_software` cfg-alias).
+    // When the Skia arm is gated out for Android, the software arms below
+    // pick up `""`/`"default"` so the headless backend still has a fallback.
+    match name.unwrap_or("") {
+        #[cfg(all(feature = "renderer-skia", not(target_os = "android")))]
+        "" | "default" | "skia" | "skia-software" => {
+            Ok(Box::new(i_slint_renderer_skia::SkiaRenderer::default_software(
+                &i_slint_renderer_skia::SkiaSharedContext::default(),
+            )))
+        }
+        #[cfg(all(
+            feature = "renderer-software",
+            any(not(feature = "renderer-skia"), target_os = "android")
+        ))]
+        "" | "default" => Ok(Box::new(i_slint_renderer_software::SoftwareRenderer::new())),
+        #[cfg(feature = "renderer-software")]
+        "sw" | "software" => Ok(Box::new(i_slint_renderer_software::SoftwareRenderer::new())),
+        other => Err(PlatformError::Other(format!(
+            "Unknown headless renderer {other:?} (available: \
+             {software}{skia})",
+            software = if cfg!(feature = "renderer-software") { "software" } else { "" },
+            skia = if cfg!(all(feature = "renderer-skia", not(target_os = "android"))) {
+                if cfg!(feature = "renderer-software") { ", skia" } else { "skia" }
+            } else {
+                ""
+            },
+        ))),
     }
 }
 
