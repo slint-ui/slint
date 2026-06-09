@@ -4,7 +4,7 @@
 // cSpell: ignore Heade
 
 import { Button, TabWidget, Palette, Switch, ScrollView} from "std-widgets.slint";
-import { Api, ComponentItem, DiagnosticSummary, RemoteConnectionState } from "api.slint";
+import { Api, ComponentItem, DiagnosticSummary, PreviewMode, RemoteConnectionState } from "api.slint";
 
 import { EditorUi } from "./editor.slint";
 import { EditorSizeSettings, EditorSpaceSettings, Icons, PickerStyles, ConsoleStyles } from "./components/styling.slint";
@@ -46,7 +46,7 @@ export component PreviewUi inherits Window {
     property <bool> data-widget: false;
     property <bool> outline-widget: false;
     property <bool> library-widget: false;
-    property <bool> remote-mode: Api.preview-mode-index == 1;
+    property <bool> remote-mode: Api.preview-mode == PreviewMode.Remote;
     in-out property <bool> select-mode: false;
 
     title: @tr("Slint Live-Preview");
@@ -212,7 +212,7 @@ export component PreviewUi inherits Window {
 
                     current-style <=> Api.current-style;
                     known-styles <=> Api.known-styles;
-                    preview-mode-index <=> Api.preview-mode-index;
+                    preview-mode <=> Api.preview-mode;
                     remote-mode: root.remote-mode;
                     library-widget <=> root.library-widget;
                     properties-widget <=> root.properties-widget;
@@ -222,8 +222,8 @@ export component PreviewUi inherits Window {
                     style-selected => {
                         Api.style-changed();
                     }
-                    preview-mode-selected(mode-index) => {
-                        if mode-index == 1 {
+                    preview-mode-selected(mode) => {
+                        if mode == PreviewMode.Remote {
                             Api.remote-start-discovery();
                         } else {
                             Api.remote-stop-discovery();
