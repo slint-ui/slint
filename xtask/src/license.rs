@@ -96,7 +96,7 @@ pub fn generate(args: &GenerateArgs) -> anyhow::Result<()> {
 
     fetch_dependencies(&args.manifest_path)?;
 
-    let packages = resolve_packages(&args.manifest_path, &args.features)?;
+    let (packages, allow) = resolve_packages(&args.manifest_path, &args.features)?;
 
     // Build one summary row per crate for the table, and collect every accepted
     // license id that appears so each one gets a body below (the table links to
@@ -128,7 +128,16 @@ pub fn generate(args: &GenerateArgs) -> anyhow::Result<()> {
                 format!("Cannot parse license `{expression}` of {} {}", pkg.name, pkg.version)
             })?;
 
-        if !expr.evaluate(|req| accepted.contains(license_string(req).as_str())) {
+        // A `[package.metadata.slint-license.allow]` entry in the analyzed
+        // crate's manifest extends the accepted set for *that one dependency
+        // only*, so an exceptional license (e.g. LGPL-3.0 via dynamic linking)
+        // is approved explicitly per-crate rather than relaxed project-wide.
+        let pkg_allow = allow.get(pkg.name.as_str()).map(String::as_str);
+        let pkg_accepted = |req: &spdx::LicenseReq| {
+            let id = license_string(req);
+            accepted.contains(id.as_str()) || pkg_allow == Some(id.as_str())
+        };
+        if !expr.evaluate(pkg_accepted) {
             bail!(
                 "License `{expression}` of crate {} {} is not in the accepted list",
                 pkg.name,
@@ -136,21 +145,24 @@ pub fn generate(args: &GenerateArgs) -> anyhow::Result<()> {
             );
         }
 
-        // Record the accepted license ids the crate uses, so each gets a body.
+        // Record the license ids the crate uses, so each gets a body.
         for req in expr.requirements() {
-            let id = license_string(&req.req);
-            if !accepted.contains(id.as_str()) {
+            if !pkg_accepted(&req.req) {
                 continue;
             }
+            let id = license_string(&req.req);
             license_names.entry(id.clone()).or_insert_with(|| license_full_name(&req.req));
             used_ids.insert(id);
         }
 
         // The `authors` field is optional and newer crates increasingly omit
         // it; salvage the copyright holder(s) from the license files shipped
-        // in the crate's package instead.
-        let author = fallback_author
-            .or_else(|| (!pkg.authors.is_empty()).then(|| pkg.authors.join(", ")))
+        // in the crate's package instead. The upstream-declared authors win
+        // over scraped copyright lines, which can name only the license's own
+        // author (e.g. the FSF for verbatim LGPL boilerplate).
+        let author = (!pkg.authors.is_empty())
+            .then(|| pkg.authors.join(", "))
+            .or(fallback_author)
             .or_else(|| authors_from_license_files(pkg))
             .unwrap_or_default();
 
@@ -240,7 +252,7 @@ fn run_cargo(args: &[&str]) -> anyhow::Result<()> {
 fn resolve_packages(
     manifest_path: &Path,
     features: &Features,
-) -> anyhow::Result<Vec<cargo_metadata::Package>> {
+) -> anyhow::Result<(Vec<cargo_metadata::Package>, BTreeMap<String, String>)> {
     let mut cmd = cargo_metadata::MetadataCommand::new();
     cmd.manifest_path(manifest_path);
     if !features.features.is_empty() {
@@ -254,6 +266,7 @@ fn resolve_packages(
     }
     let metadata = cmd.exec()?;
 
+    let allow = root_allow_overrides(&metadata)?;
     let packages: HashMap<cargo_metadata::PackageId, cargo_metadata::Package> =
         metadata.packages.iter().map(|p| (p.id.clone(), p.clone())).collect();
 
@@ -323,7 +336,34 @@ fn resolve_packages(
     }
 
     let mut packages = packages;
-    Ok(wanted.into_iter().filter_map(|id| packages.remove(&id)).collect())
+    Ok((wanted.into_iter().filter_map(|id| packages.remove(&id)).collect(), allow))
+}
+
+/// Read the `[package.metadata.slint-license.allow]` table from the analyzed
+/// crate's manifest: a map of crate name to an SPDX id additionally allowed
+/// for that crate only. Used to explicitly permit an unusual license (e.g.
+/// LGPL-3.0 via dynamic linking) for one specific dependency, without
+/// relaxing the project-wide allowlist.
+fn root_allow_overrides(
+    metadata: &cargo_metadata::Metadata,
+) -> anyhow::Result<BTreeMap<String, String>> {
+    let Some(root) = metadata.root_package() else {
+        return Ok(BTreeMap::new());
+    };
+    let Some(table) = root.metadata.get("slint-license").and_then(|v| v.get("allow")) else {
+        return Ok(BTreeMap::new());
+    };
+    let table = table.as_object().context(
+        "[package.metadata.slint-license.allow] must be a table of crate-name → SPDX id",
+    )?;
+    let mut out = BTreeMap::new();
+    for (name, value) in table {
+        let id = value.as_str().with_context(|| {
+            format!("[package.metadata.slint-license.allow.{name}] must be a string SPDX id")
+        })?;
+        out.insert(name.clone(), id.to_string());
+    }
+    Ok(out)
 }
 
 /// Whether a package is a proc-macro crate (compiled for the host and not
@@ -412,6 +452,7 @@ fn detect_from_license_file(
         ("Zlib", &["this software is provided 'as-is', without any express or implied warranty"]),
         ("Unlicense", &["this is free and unencumbered software released into the public domain"]),
         ("CC0-1.0", &["creative commons cc0 1.0 universal"]),
+        ("LGPL-3.0-or-later", &["gnu lesser general public license", "version 3, 29 june 2007"]),
     ];
     let id = FINGERPRINTS
         .iter()
@@ -496,23 +537,19 @@ fn copyright_holders<T: AsRef<str>>(texts: impl IntoIterator<Item = T>) -> Optio
     (!holders.is_empty()).then(|| holders.join(", "))
 }
 
-/// The canonical SPDX string for a requirement, e.g. `MIT` or
-/// `LicenseRef-Slint-Software-3.0`.
+/// The canonical SPDX string for a requirement's license, e.g. `MIT`,
+/// `LGPL-3.0-or-later` (spdx renders the `-or-later`/`+` modifier) or
+/// `LicenseRef-Slint-Software-3.0`. The `WITH <exception>` clause is
+/// intentionally omitted, as licenses are keyed by id alone.
 fn license_string(req: &spdx::LicenseReq) -> String {
-    match &req.license {
-        spdx::LicenseItem::Spdx { id, .. } => id.name.to_string(),
-        spdx::LicenseItem::Other { doc_ref, lic_ref } => match doc_ref {
-            Some(doc_ref) => format!("DocumentRef-{doc_ref}:LicenseRef-{lic_ref}"),
-            None => format!("LicenseRef-{lic_ref}"),
-        },
-    }
+    req.license.to_string()
 }
 
+/// The human-readable name for a requirement's license, e.g. `MIT License`,
+/// falling back to the SPDX id for `LicenseRef-` licenses with no entry.
 fn license_full_name(req: &spdx::LicenseReq) -> String {
-    match &req.license {
-        spdx::LicenseItem::Spdx { id, .. } => id.full_name.to_string(),
-        spdx::LicenseItem::Other { .. } => license_string(req),
-    }
+    let id = license_string(req);
+    spdx::license_id(&id).map(|l| l.full_name.to_string()).unwrap_or(id)
 }
 
 /// The crates.io page for the exact version of a crate.

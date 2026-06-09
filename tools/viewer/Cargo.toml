@@ -115,6 +115,10 @@ path = "lib.rs"
 name = "slint-viewer"
 path = "main.rs"
 
+# cSpell: ignore avahi
+[package.metadata.slint-license.allow]
+avahi-sys = "LGPL-3.0-or-later"
+
 [package.metadata.android]
 package = "dev.slint.viewer"
 min_sdk_version = 24
