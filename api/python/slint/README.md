@@ -220,6 +220,7 @@ the mapping:
 | ------------- | ----------- | ----- |
 | `int`         | `int`       |       |
 | `float`       | `float`     |       |
+| `bool`        | `bool`      |       |
 | `string`      | `str`       |       |
 | `color`       | `slint.Color` |     |
 | `brush`       | `slint.Brush` |     |
@@ -230,8 +231,10 @@ the mapping:
 | `physical_length` | `float` |       |
 | `duration`    | `float`     | The number of milliseconds |
 | `angle`       | `float`     | The angle in degrees |
+| `relative-font-size` | `float` | Relative font size factor that is multiplied with the window's default font size. |
 | structure     | `dict`/`Struct` | When reading, structures are mapped to data classes, when writing dicts are also accepted. |
 | array         | `slint.Model` |     |
+| `Point`       | `slint.LogicalPosition` | A struct with `x` and `y` fields, representing logical coordinates. |
 
 ### Arrays and Models
 
