@@ -3,6 +3,10 @@
 
 // cSpell: ignore rsplit Sfixed
 fn main() {
+    cfg_aliases::cfg_aliases! {
+        headless: { any(feature = "renderer-software", feature = "renderer-skia") },
+    }
+
     #[cfg(any(feature = "system-testing", feature = "mcp"))]
     {
         use prost::Message;

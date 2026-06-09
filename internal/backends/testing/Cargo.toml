@@ -77,6 +77,7 @@ i-slint-renderer-software = { workspace = true, optional = true }
 i-slint-renderer-skia = { workspace = true, features = ["default"], optional = true }
 
 [build-dependencies]
+cfg_aliases = { workspace = true }
 prost = { version = "0.14", optional = true }
 prost-build = { version = "0.14", optional = true }
 prost-types = { version = "0.14", optional = true }
