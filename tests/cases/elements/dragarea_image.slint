@@ -25,6 +25,7 @@ export component TestCase inherits Window {
             background: red;
             DragArea {
                 data: Api.string-to-transfer("Hello World");
+                allow-copy: true;
                 drag-image: @image-url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC");
                 drag-image-offset-x: 4;
                 drag-image-offset-y: 8;

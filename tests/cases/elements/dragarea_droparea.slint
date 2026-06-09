@@ -34,6 +34,7 @@ export component TestCase inherits Window {
         Rectangle {
             background: inner_touch_area.has-hover ? yellow : red;
             dragger := DragArea {
+                allow-copy: true;
                 data: empty-data
                 ? Api.empty-transfer()
                 : (use-image

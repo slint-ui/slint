@@ -2269,6 +2269,17 @@ impl Element {
         }
     }
 
+    /// Returns true if the property is set by a binding or an assignment expression
+    pub fn is_property_set(self: &Element, property_name: &str) -> bool {
+        self.bindings.contains_key(property_name)
+            || self
+                .property_analysis
+                .borrow()
+                .get(property_name)
+                .is_some_and(|a| a.is_set || a.is_linked)
+            || matches!(&self.base_type, ElementType::Component(base) if base.root_element.borrow().is_property_set(property_name))
+    }
+
     /// Set the property `property_name` of this Element only if it was not set.
     /// the `expression_fn` will only be called if it isn't set
     ///
