@@ -1,0 +1,345 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Button, LineEdit, ListView, Palette } from "std-widgets.slint";
+import { Api, RemoteConnectionState } from "../api.slint";
+import { EditorSpaceSettings, Icons } from "styling.slint";
+
+component PhonePreview {
+    property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+
+    width: 190px;
+    height: 380px;
+
+    Rectangle {
+        border-radius: 34px;
+        background: root.dark-color-scheme ? #141414 : #1f2025;
+        drop-shadow-blur: 22px;
+        drop-shadow-color: #00000040;
+    }
+
+    Rectangle {
+        x: 8px;
+        y: 8px;
+        width: parent.width - 16px;
+        height: parent.height - 16px;
+        border-radius: 28px;
+        clip: true;
+        background: root.dark-color-scheme ? @linear-gradient(180deg, #1C1C1C, black) : @linear-gradient(0deg, #D7D9DD, white);
+
+        Image {
+            y: parent.height - self.height;
+            width: 100%;
+            source: root.dark-color-scheme ? @image-url("../../../viewer/remote/assets/bg-frame.svg") : @image-url("../../../viewer/remote/assets/bg-frame-light.svg");
+        }
+
+        Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: 10px;
+            width: 62px;
+            height: 18px;
+            border-radius: 9px;
+            background: #111111;
+        }
+
+        VerticalLayout {
+            padding-left: 20px;
+            padding-right: 20px;
+            padding-top: 92px;
+            padding-bottom: 24px;
+            alignment: space-between;
+
+            VerticalLayout {
+                spacing: 6px;
+                Text {
+                    text: @tr("Connect Live Preview to");
+                    font-size: 13px;
+                    font-weight: 100;
+                    color: root.dark-color-scheme ? #eeeeee : #333333;
+                }
+                Text {
+                    text: @tr("Slint Viewer");
+                    font-size: 17px;
+                    font-weight: 500;
+                    color: root.dark-color-scheme ? white : #111111;
+                }
+            }
+
+            VerticalLayout {
+                spacing: 6px;
+                Text {
+                    text: @tr("Waiting for Live Preview");
+                    horizontal-alignment: center;
+                    font-size: 12px;
+                    color: root.dark-color-scheme ? #eeeeee : #333333;
+                }
+                Text {
+                    text: @tr("1.17.0");
+                    horizontal-alignment: center;
+                    font-size: 11px;
+                    opacity: 0.7;
+                    color: root.dark-color-scheme ? #eeeeee : #333333;
+                }
+            }
+        }
+    }
+}
+
+export component RemotePreviewView inherits Rectangle {
+    background: Palette.background;
+
+    private property <int> selected-index: -1;
+    private property <string> manual-entry;
+    private property <bool> help-visible: false;
+
+    private property <bool> selection-is-compatible:
+        selected-index >= 0
+        && selected-index < Api.remote-discovered-viewers.length
+        && Api.remote-discovered-viewers[selected-index].compatible;
+
+    private property <bool> connecting: Api.remote-connection-state == RemoteConnectionState.Connecting;
+
+    Rectangle {
+        background: Palette.color-scheme == ColorScheme.dark
+            ? @linear-gradient(180deg, #202124, #111214)
+            : @linear-gradient(180deg, #f8fafc, #e8ecf2);
+    }
+
+    Image {
+        y: parent.height - self.height;
+        width: 100%;
+        source: Palette.color-scheme == ColorScheme.dark
+            ? @image-url("../../../viewer/remote/assets/bg-frame.svg")
+            : @image-url("../../../viewer/remote/assets/bg-frame-light.svg");
+        opacity: 0.24;
+    }
+
+    VerticalLayout {
+        padding-left: 32px;
+        padding-right: 32px;
+        padding-top: 28px;
+        padding-bottom: 28px;
+        spacing: 22px;
+
+        HorizontalLayout {
+            vertical-stretch: 0;
+            alignment: space-between;
+
+            VerticalLayout {
+                spacing: 6px;
+                Text {
+                    text: Api.remote-connection-state == RemoteConnectionState.Connected
+                        ? @tr("Previewing on {}.", Api.remote-connection-target)
+                        : @tr("Searching for a device…");
+                    font-size: 24px;
+                    font-weight: 700;
+                    color: Palette.foreground;
+                }
+                Text {
+                    text: @tr("Open Slint Viewer on your phone and ensure it is on the same Wi-Fi.");
+                    wrap: word-wrap;
+                    color: Palette.foreground;
+                    opacity: 0.72;
+                }
+            }
+
+            Button {
+                icon: Icons.info;
+                colorize-icon: true;
+                clicked => {
+                    root.help-visible = true;
+                }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 28px;
+
+            Rectangle {
+                horizontal-stretch: 1;
+                vertical-stretch: 1;
+                background: Palette.background.with-alpha(0.74);
+                border-color: Palette.border;
+                border-width: 1px;
+                border-radius: 8px;
+
+                VerticalLayout {
+                    padding: EditorSpaceSettings.default-padding * 2;
+                    spacing: EditorSpaceSettings.default-spacing;
+
+                    Text {
+                        text: @tr("Devices");
+                        font-weight: 700;
+                        color: Palette.foreground;
+                    }
+
+                    Rectangle {
+                        background: Palette.alternate-background;
+                        border-radius: 4px;
+                        border-width: 1px;
+                        border-color: Palette.border;
+                        vertical-stretch: 1;
+
+                        if Api.remote-discovered-viewers.length == 0: VerticalLayout {
+                            alignment: center;
+                            spacing: EditorSpaceSettings.default-spacing;
+                            Text {
+                                text: @tr("Searching the local network…");
+                                horizontal-alignment: center;
+                                font-weight: 700;
+                                color: Palette.foreground;
+                            }
+                            Text {
+                                text: @tr("Start Slint Viewer on a nearby phone or tablet.");
+                                horizontal-alignment: center;
+                                color: Palette.foreground;
+                                opacity: 0.68;
+                            }
+                        }
+
+                        if Api.remote-discovered-viewers.length > 0: ListView {
+                            for device[i] in Api.remote-discovered-viewers: Rectangle {
+                                height: device-layout.preferred-height;
+                                background: i == root.selected-index
+                                    ? Palette.accent-background
+                                    : (touch.has-hover ? Palette.alternate-background : transparent);
+
+                                touch := TouchArea {
+                                    clicked => {
+                                        root.selected-index = i;
+                                        root.manual-entry = "";
+                                    }
+                                }
+
+                                device-layout := HorizontalLayout {
+                                    padding: EditorSpaceSettings.default-padding;
+                                    spacing: EditorSpaceSettings.default-spacing;
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        Text {
+                                            text: device.name;
+                                            color: i == root.selected-index ? Palette.accent-foreground : Palette.foreground;
+                                            font-weight: 700;
+                                        }
+                                        Text {
+                                            text: (device.addresses.length > 0 ? device.addresses[0] : device.host) + ":" + device.port;
+                                            color: i == root.selected-index ? Palette.accent-foreground : Palette.foreground;
+                                            opacity: 0.7;
+                                            font-size: 12px;
+                                        }
+                                        if !device.compatible: Text {
+                                            text: device.incompatible-reason;
+                                            color: #d33;
+                                            font-size: 11px;
+                                            wrap: word-wrap;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    LineEdit {
+                        placeholder-text: @tr("Manual host:port, for example 192.168.1.42:9000");
+                        text <=> root.manual-entry;
+                        edited => {
+                            root.selected-index = -1;
+                        }
+                    }
+
+                    if root.connecting: Text {
+                        text: @tr("Connecting to {}…", Api.remote-connection-target);
+                        color: Palette.foreground;
+                    }
+                    if Api.remote-connection-state == RemoteConnectionState.Connected: Text {
+                        text: @tr("Connected to {}. Switch to Local to disconnect.", Api.remote-connection-target);
+                        color: #2a2;
+                        font-weight: 700;
+                    }
+                    if Api.remote-connection-state == RemoteConnectionState.Failed: Text {
+                        text: Api.remote-connection-error != ""
+                            ? Api.remote-connection-error
+                            : @tr("Connection failed");
+                        color: #d33;
+                        wrap: word-wrap;
+                    }
+
+                    HorizontalLayout {
+                        spacing: EditorSpaceSettings.default-spacing;
+                        alignment: end;
+
+                        Button {
+                            text: @tr("Connect");
+                            primary: true;
+                            enabled: !root.connecting && (root.selection-is-compatible || root.manual-entry != "");
+                            clicked => {
+                                if root.manual-entry != "" {
+                                    Api.remote-connect-manual(root.manual-entry);
+                                } else if root.selected-index >= 0
+                                    && root.selected-index < Api.remote-discovered-viewers.length
+                                    && Api.remote-discovered-viewers[root.selected-index].compatible
+                                    && Api.remote-discovered-viewers[root.selected-index].addresses.length > 0 {
+                                    Api.remote-connect(
+                                        Api.remote-discovered-viewers[root.selected-index].addresses,
+                                        Api.remote-discovered-viewers[root.selected-index].port);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if parent.width > 720px: Rectangle {
+                width: 260px;
+                vertical-stretch: 1;
+                PhonePreview {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                }
+            }
+        }
+    }
+
+    if root.help-visible: Rectangle {
+        background: #00000080;
+        TouchArea {
+            clicked => {
+                root.help-visible = false;
+            }
+        }
+
+        Rectangle {
+            width: Math.min(parent.width - 40px, 440px);
+            height: Math.min(parent.height - 40px, 560px);
+            background: Palette.background;
+            border-radius: 8px;
+            border-width: 1px;
+            border-color: Palette.border;
+            drop-shadow-blur: 16px;
+            drop-shadow-color: #00000040;
+
+            VerticalLayout {
+                padding: EditorSpaceSettings.default-padding * 2;
+                spacing: EditorSpaceSettings.default-spacing * 2;
+                alignment: center;
+
+                PhonePreview { }
+
+                Text {
+                    text: @tr("Open Slint Viewer on your phone and ensure it is on the same Wi-Fi.");
+                    wrap: word-wrap;
+                    horizontal-alignment: center;
+                    color: Palette.foreground;
+                    font-weight: 700;
+                }
+
+                Button {
+                    text: @tr("Close");
+                    clicked => {
+                        root.help-visible = false;
+                    }
+                }
+            }
+        }
+    }
+}

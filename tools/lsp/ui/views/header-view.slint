@@ -12,12 +12,15 @@ export component HeaderView {
     in-out property <bool> edit-mode <=> interaction-switch.checked;
     in-out property <string> current-style <=> style-combobox.current-value;
     in property <[string]> known-styles <=> style-combobox.model;
+    in-out property <int> preview-mode-index <=> mode-combobox.current-index;
+    in property <bool> remote-mode;
     in-out property <bool> library-widget <=> shortcut-library.checked;
     in-out property <bool> properties-widget <=> shortcut-properties.checked;
     in-out property <bool> outline-widget <=> shortcut-outline.checked;
     in-out property <bool> data-widget <=> shortcut-simulator-data.checked;
 
     callback style-selected();
+    callback preview-mode-selected(int);
 
     background-layer := Rectangle {
         background: Palette.alternate-background;
@@ -49,6 +52,7 @@ export component HeaderView {
             }
 
             HorizontalLayout {
+                visible: !root.remote-mode;
                 alignment: center;
                 spacing: EditorSpaceSettings.default-spacing;
 
@@ -114,7 +118,7 @@ export component HeaderView {
                 BodyText {
                     horizontal-stretch: 0;
 
-                    visible: Api.uses-widgets;
+                    visible: !root.remote-mode && Api.uses-widgets;
                     horizontal-alignment: right;
                     text: @tr("Style");
                 }
@@ -122,10 +126,19 @@ export component HeaderView {
                 style-combobox := ComboBox {
                     horizontal-stretch: 0;
 
-                    visible: Api.uses-widgets;
+                    visible: !root.remote-mode && Api.uses-widgets;
 
                     selected => {
                         root.style-selected();
+                    }
+                }
+
+                mode-combobox := ComboBox {
+                    horizontal-stretch: 0;
+                    visible: !Api.runs-in-slintpad;
+                    model: [@tr("Local"), @tr("Remote")];
+                    selected => {
+                        root.preview-mode-selected(self.current-index);
                     }
                 }
             }
