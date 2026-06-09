@@ -35,7 +35,7 @@ fn create_linuxkms_backend() -> Result<Box<dyn Platform + 'static>, PlatformErro
     Ok(Box::new(i_slint_backend_linuxkms::BackendBuilder::default().build()?))
 }
 
-#[cfg(all(feature = "mcp", any(feature = "renderer-software", feature = "renderer-skia")))]
+#[cfg(all(feature = "mcp", headless))]
 fn create_headless_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
     Ok(Box::new(i_slint_backend_testing::TestingBackend::new(
         i_slint_backend_testing::TestingBackendOptions {
@@ -83,7 +83,7 @@ cfg_if::cfg_if! {
                 // MCP server keep working in environments where no display is
                 // available. Only kicks in if every graphical backend above
                 // failed to initialize.
-                #[cfg(all(feature = "mcp", any(feature = "renderer-software", feature = "renderer-skia")))]
+                #[cfg(all(feature = "mcp", headless))]
                 ("Headless", create_headless_backend as fn() -> Result<Box<(dyn Platform + 'static)>, PlatformError>),
                 ("", || Err(PlatformError::NoPlatform)),
             ];
@@ -129,7 +129,7 @@ cfg_if::cfg_if! {
                 "testing" => return Ok(Box::new(i_slint_backend_testing::TestingBackend::new(
                     i_slint_backend_testing::TestingBackendOptions { mock_time: false, threading: true, ..Default::default() },
                 ))),
-                #[cfg(all(feature = "mcp", any(feature = "renderer-software", feature = "renderer-skia")))]
+                #[cfg(all(feature = "mcp", headless))]
                 "headless" => return Ok(Box::new(i_slint_backend_testing::TestingBackend::new(
                     i_slint_backend_testing::TestingBackendOptions {
                         mock_time: false,
