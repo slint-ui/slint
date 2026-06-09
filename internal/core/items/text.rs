@@ -25,7 +25,6 @@ use crate::item_rendering::{
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use crate::platform::Clipboard;
-use crate::renderer::Renderer;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::string::string_to_float;
@@ -636,23 +635,6 @@ impl SimpleText {
     }
 }
 
-/// The size of the text of the textitem considering the current font as minimum height
-fn text_size(
-    text_item: Pin<&dyn crate::item_rendering::RenderString>,
-    self_rc: &ItemRc,
-    renderer: &dyn Renderer,
-    max_width: Option<LogicalLength>,
-    text_wrap: TextWrap,
-) -> LogicalSize {
-    let mut size = renderer.text_size(text_item, self_rc, max_width, text_wrap);
-    // ensure that text input doesn't shrink when going from empty to text that ends up selecting a font that has
-    // an ascent - descent that's less than the requested default font.
-    let request = text_item.font_request(self_rc);
-    let metrics = renderer.font_metrics(request);
-    size.height = size.height.max(metrics.ascent - metrics.descent);
-    size
-}
-
 fn text_layout_info(
     text: Pin<&dyn RenderText>,
     self_rc: &ItemRc,
@@ -662,7 +644,7 @@ fn text_layout_info(
     cross_axis_constraint: Coord,
 ) -> LayoutInfo {
     let implicit_size = |max_width, text_wrap| {
-        text_size(text, self_rc, window_adapter.renderer(), max_width, text_wrap)
+        window_adapter.renderer().text_size(text, self_rc, max_width, text_wrap)
     };
 
     // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
@@ -809,7 +791,7 @@ impl Item for TextInput {
         self_rc: &ItemRc,
     ) -> LayoutInfo {
         let implicit_size = |max_width, text_wrap| {
-            text_size(self, self_rc, window_adapter.renderer(), max_width, text_wrap)
+            window_adapter.renderer().text_size(self, self_rc, max_width, text_wrap)
         };
 
         // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes

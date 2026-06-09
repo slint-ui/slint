@@ -219,7 +219,28 @@ impl LayoutWithoutLineBreaksBuilder {
         font_ctx: &'a mut parley::FontContext,
         text: &'a str,
     ) -> parley::RangedBuilder<'a, Brush> {
+        // Pin the line height to the requested font's metrics so fallback runs (e.g.
+        // password chars rendered by a wider-descender symbol font) don't grow the
+        // line box. FontSizeRelative makes the ratio scale with any per-span FontSize.
+        let line_height_ratio = self.font_request.as_ref().and_then(|font_request| {
+            let font = font_request
+                .clone()
+                .query_fontique(&mut font_ctx.collection, &mut font_ctx.source_cache)?;
+            let face = skrifa::FontRef::from_index(font.blob.data(), font.index).ok()?;
+            let location = face.axes().location(font.synthesis.variation_settings());
+            let metrics = face.metrics(skrifa::instance::Size::unscaled(), &location);
+            let units_per_em = metrics.units_per_em as f32;
+            (units_per_em > 0.0)
+                .then(|| (metrics.ascent - metrics.descent + metrics.leading) / units_per_em)
+        });
+
         let mut builder = layout_ctx.ranged_builder(font_ctx, text, self.scale_factor.get(), false);
+
+        if let Some(ratio) = line_height_ratio {
+            builder.push_default(parley::StyleProperty::LineHeight(
+                parley::style::LineHeight::FontSizeRelative(ratio),
+            ));
+        }
 
         if let Some(ref font_request) = self.font_request {
             let mut fallback_family_iter = sharedfontique::FALLBACK_FAMILIES
