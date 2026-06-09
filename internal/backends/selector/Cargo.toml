@@ -44,13 +44,11 @@ renderer-skia = [
 renderer-skia-opengl = [
   "i-slint-backend-winit?/renderer-skia-opengl",
   "i-slint-backend-linuxkms?/renderer-skia-opengl",
-  "i-slint-backend-testing?/renderer-skia-opengl",
   "i-slint-renderer-skia/opengl",
 ]
 renderer-skia-vulkan = [
   "i-slint-backend-winit?/renderer-skia-vulkan",
   "i-slint-backend-linuxkms?/renderer-skia-vulkan",
-  "i-slint-backend-testing?/renderer-skia-vulkan",
   "i-slint-renderer-skia/vulkan",
 ]
 renderer-software = [

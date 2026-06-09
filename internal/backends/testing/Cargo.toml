@@ -24,8 +24,6 @@ internal = ["include_dir"]
 ffi = []
 renderer-software = ["dep:i-slint-renderer-software", "i-slint-renderer-software/std"]
 renderer-skia = ["dep:i-slint-renderer-skia"]
-renderer-skia-opengl = ["renderer-skia", "i-slint-renderer-skia/opengl"]
-renderer-skia-vulkan = ["renderer-skia", "i-slint-renderer-skia/vulkan"]
 system-testing = [
   "prost",
   "pbjson",
