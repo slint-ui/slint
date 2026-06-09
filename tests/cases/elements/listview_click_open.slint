@@ -3,8 +3,8 @@
 
 import { ListView } from "std-widgets.slint";
 
-Item := Text {
-    property <int> index;
+component Item inherits Text {
+    in-out property <int> index;
     text: "I'm item #" + index;
     Rectangle {
         border-width: 1px;
@@ -12,14 +12,14 @@ Item := Text {
     }
 }
 
-export TestCase := Window {
+export component TestCase inherits Window {
     width:  300phx;
     height: 300phx;
 
-    property <int> last_clicked: -1;
+    in-out property <int> last_clicked: -1;
 
-    property <length> item-height: 25phx;
-    property <length> listview-y <=> lv.viewport_y;
+    in-out property <length> item-height: 25phx;
+    in-out property <length> listview-y <=> lv.viewport_y;
 
     lv := ListView {
         for i in 200: r := Item {
@@ -41,7 +41,7 @@ export TestCase := Window {
                 }
                 TouchArea {
                     clicked => {
-                        last-clicked = i;
+                        root.last-clicked = i;
                     }
                 }
             }

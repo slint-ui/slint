@@ -704,8 +704,8 @@ jobs:
         steps:
             - uses: actions/checkout@v6
             - uses: ./.github/actions/install-linux-dependencies
-            - name: Install Android API level 30
-              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30"
+            - name: Install Android API platforms
+              run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30" "platforms;android-35" "build-tools;35.0.1"
             - name: Cache cargo-apk
               id: cargo-apk-cache
               uses: actions/cache@v5
@@ -722,6 +722,9 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   target: aarch64-linux-android
+            # The AAB packages all three ABIs; cargo-apk only needs arm64-v8a.
+            - name: Add extra Android Rust targets for the AAB
+              run: rustup target add armv7-linux-androideabi x86_64-linux-android
 
             - name: dump keystore
               run: |
@@ -740,7 +743,33 @@ jobs:
               run: cargo apk build -p home-automation --target aarch64-linux-android --lib --release
             - name: Build slint-viewer
               run: cargo apk build -p slint-viewer --target aarch64-linux-android --lib --release --features remote
+
+            # Play Store accepts only AABs for new submissions, so build one
+            # alongside the APK.
+            - name: Set up JDK 17 for Android Gradle Plugin
+              uses: actions/setup-java@v5
+              with:
+                  distribution: temurin
+                  java-version: "17"
+            - name: Set up Gradle
+              uses: gradle/actions/setup-gradle@v6
+              with:
+                  # Installs Gradle on PATH; the AAB project has no wrapper jar.
+                  gradle-version: "8.10.2"
+            # Split so a failure of one install doesn't mask the other's diagnostic.
+            - name: Install cargo-ndk
+              run: cargo install cargo-ndk --locked
+            - name: Install resvg
+              run: cargo install resvg --locked
+            - name: Build slint-viewer AAB
+              env:
+                  ANDROID_KEYSTORE_PATH: ${{ env.CARGO_APK_RELEASE_KEYSTORE }}
+                  ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+              run: tools/viewer/android-aab/build-aab.sh
+
+            # Upload whatever built so a Gradle failure doesn't drop the APKs.
             - name: "upload APK artifact"
+              if: always()
               uses: actions/upload-artifact@v7
               with:
                   name: android-demo
@@ -752,3 +781,4 @@ jobs:
                     target/release/apk/usecases_lib.apk
                     target/release/apk/home_automation_lib.apk
                     target/release/apk/slint-viewer.apk
+                    tools/viewer/android-aab/app/build/outputs/bundle/release/app-release.aab

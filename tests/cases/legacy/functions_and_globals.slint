@@ -1,0 +1,66 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+global G := {
+    property <string> hello: "hello";
+    function meh(w: string) -> string {
+        return hello + " " + w;
+    }
+}
+
+SubCompo := Rectangle {
+    public pure function hello() -> color { red }
+}
+
+export global PubGlob := {
+    public function beh(a: int, b: int) -> int { a + b + 10 }
+}
+
+TestCase := Rectangle {
+
+    property <int> c: 100000;
+    private property <int> one: 1 + Math.round((x / 1px) - (y / 1px));
+
+    function foo() {}
+    function the_function(a: int, b: int) -> int { foo(); a + b + c + one }
+
+    if true : Rectangle {
+        background: the_function(1, 2) > 3 ? blue: sc.hello();
+    }
+
+    sc := SubCompo {
+
+    }
+
+    public function pub(a: int, b: int) -> int { a + b + c }
+
+    public function set_c(p: int) { c = p }
+
+
+    property <bool> test: the_function(4500, 20) == 104521 && G.meh("world") == "hello world" && sc.hello() == Colors.red;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+assert_eq!(instance.invoke_pub(20, 2), 100022);
+assert_eq!(instance.global::<PubGlob<'_>>().invoke_beh(2, 2), 14);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+assert_eq(instance.invoke_pub(20, 2), 100022);
+assert_eq(instance.global<PubGlob>().invoke_beh(2, 2), 14);
+```
+
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+assert.equal(instance.pub(20, 2), 100022);
+assert.equal(instance.PubGlob.beh(2, 2), 14);
+```
+*/
