@@ -39,11 +39,7 @@ wgpu-28 = [
 unstable-wgpu-28 = ["i-slint-core/unstable-wgpu-28", "wgpu-28"]
 wgpu-29 = ["i-slint-core/wgpu-29", "dep:wgpu-29", "dep:spin_on", "dep:ash", "dep:windows-core"]
 unstable-wgpu-29 = ["i-slint-core/unstable-wgpu-29", "wgpu-29"]
-# Enables `SkiaRenderer::default_software`. The default surface uses
-# softbuffer; the headless `take_snapshot` path uses `wrap_pixels` instead
-# and never instantiates it.
-software = ["softbuffer"]
-default = ["software"]
+default = ["softbuffer"]
 
 [dependencies]
 i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-parley"] }

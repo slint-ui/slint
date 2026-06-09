@@ -44,7 +44,7 @@ mod cached_image;
 mod font_cache;
 mod itemrenderer;
 
-#[cfg(skia_backend_software)]
+#[cfg(skia_backend_softbuffer)]
 pub mod software_surface;
 
 #[cfg(target_vendor = "apple")]
@@ -79,11 +79,12 @@ cfg_if::cfg_if! {
         type DefaultSurface = opengl_surface::OpenGLSurface;
     } else if #[cfg(skia_backend_metal)] {
         type DefaultSurface = metal_surface::MetalSurface;
-    } else if #[cfg(skia_backend_software)] {
+    } else if #[cfg(skia_backend_softbuffer)] {
         type DefaultSurface = software_surface::SoftwareSurface;
     }
 }
 
+#[cfg(skia_windowed)]
 fn create_default_surface(
     context: &SkiaSharedContext,
     window_handle: Arc<dyn raw_window_handle::HasWindowHandle + Sync + Send>,
@@ -99,7 +100,7 @@ fn create_default_surface(
         requested_graphics_api,
     ) {
         Ok(gpu_surface) => Ok(Box::new(gpu_surface) as Box<dyn Surface>),
-        #[cfg(skia_backend_software)]
+        #[cfg(skia_backend_softbuffer)]
         Err(err) => {
             i_slint_core::debug_log!(
                 "Failed to initialize Skia GPU renderer: {} . Falling back to software rendering",
@@ -114,7 +115,7 @@ fn create_default_surface(
             )
             .map(|r| Box::new(r) as Box<dyn Surface>)
         }
-        #[cfg(not(skia_backend_software))]
+        #[cfg(not(skia_backend_softbuffer))]
         Err(err) => Err(err),
     }
 }
@@ -190,6 +191,7 @@ pub struct SkiaRenderer {
 }
 
 impl SkiaRenderer {
+    #[cfg(skia_windowed)]
     pub fn default(context: &SkiaSharedContext) -> Self {
         Self {
             maybe_window_adapter: Default::default(),
@@ -223,19 +225,26 @@ impl SkiaRenderer {
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
             surface: Default::default(),
-            surface_factory: |context,
-                              window_handle,
-                              display_handle,
-                              size,
-                              requested_graphics_api| {
-                software_surface::SoftwareSurface::new(
-                    context,
-                    window_handle,
-                    display_handle,
-                    size,
-                    requested_graphics_api,
-                )
-                .map(|r| Box::new(r) as Box<dyn Surface>)
+            surface_factory: |_context,
+                              _window_handle,
+                              _display_handle,
+                              _size,
+                              _requested_graphics_api| {
+                #[cfg(skia_backend_softbuffer)]
+                {
+                    software_surface::SoftwareSurface::new(
+                        _context,
+                        _window_handle,
+                        _display_handle,
+                        _size,
+                        _requested_graphics_api,
+                    )
+                    .map(|r| Box::new(r) as Box<dyn Surface>)
+                }
+                #[cfg(not(skia_backend_softbuffer))]
+                Err(PlatformError::Other(
+                    "Skia software rendering needs the 'softbuffer' feature".into(),
+                ))
             },
             pre_present_callback: Default::default(),
             partial_rendering_state: PartialRenderingState::default().into(),
