@@ -761,11 +761,6 @@ jobs:
               run: cargo install cargo-ndk --locked
             - name: Install resvg
               run: cargo install resvg --locked
-            - name: Read workspace version
-              run: |
-                  SLINT_VERSION=$(awk -F'"' '/^version = / { print $2; exit }' Cargo.toml)
-                  [ -n "$SLINT_VERSION" ] || { echo "can't read workspace version from Cargo.toml" >&2; exit 1; }
-                  echo "SLINT_VERSION=$SLINT_VERSION" >> "$GITHUB_ENV"
             - name: Build slint-viewer AAB
               env:
                   ANDROID_KEYSTORE_PATH: ${{ env.CARGO_APK_RELEASE_KEYSTORE }}
