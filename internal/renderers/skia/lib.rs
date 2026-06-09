@@ -44,7 +44,7 @@ mod cached_image;
 mod font_cache;
 mod itemrenderer;
 
-#[cfg(skia_backend_softbuffer)]
+#[cfg(skia_backend_software)]
 pub mod software_surface;
 
 #[cfg(target_vendor = "apple")]
@@ -225,26 +225,19 @@ impl SkiaRenderer {
             rendering_metrics_collector: Default::default(),
             rendering_first_time: Default::default(),
             surface: Default::default(),
-            surface_factory: |_context,
-                              _window_handle,
-                              _display_handle,
-                              _size,
-                              _requested_graphics_api| {
-                #[cfg(skia_backend_softbuffer)]
-                {
-                    software_surface::SoftwareSurface::new(
-                        _context,
-                        _window_handle,
-                        _display_handle,
-                        _size,
-                        _requested_graphics_api,
-                    )
-                    .map(|r| Box::new(r) as Box<dyn Surface>)
-                }
-                #[cfg(not(skia_backend_softbuffer))]
-                Err(PlatformError::Other(
-                    "Skia software rendering needs the 'softbuffer' feature".into(),
-                ))
+            surface_factory: |context,
+                              window_handle,
+                              display_handle,
+                              size,
+                              requested_graphics_api| {
+                software_surface::SoftwareSurface::new(
+                    context,
+                    window_handle,
+                    display_handle,
+                    size,
+                    requested_graphics_api,
+                )
+                .map(|r| Box::new(r) as Box<dyn Surface>)
             },
             pre_present_callback: Default::default(),
             partial_rendering_state: PartialRenderingState::default().into(),
