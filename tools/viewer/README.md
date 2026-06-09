@@ -85,7 +85,7 @@ the dialog if no callback was set on the button.
 ## Result code
 
 The program returns with the following error code:
- - If the command line argument parsing fails, the exit code will be *1*
+ - If the command line argument parsing or argument validation fails, the exit code will be *2*
  - If the .slint compilation fails, the compilation error will be printed to stderr and the exit code
    will be *-1*
  - If a Window is closed, the exit code will be *0*
