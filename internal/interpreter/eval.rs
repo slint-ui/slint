@@ -734,6 +734,8 @@ fn call_builtin_function(
             Value::Number(i_slint_core::animations::animation_tick() as f64)
         }
         BuiltinFunction::Debug => {
+            use corelib::debug_log::*;
+
             let to_print: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
             let location = source_location.as_ref().and_then(|location| {
@@ -742,7 +744,7 @@ fn call_builtin_function(
                         location.span.offset,
                         i_slint_compiler::diagnostics::ByteFormat::Utf8,
                     );
-                    corelib::debug_log::DebugLogLocation {
+                    LogMessageLocation {
                         path: file.path().to_string_lossy().to_shared_string(),
                         line,
                         column,
@@ -754,12 +756,17 @@ fn call_builtin_function(
             if let Some(root) = root_weak.upgrade()
                 && let Some(ctx) = corelib::window::context_for_root(&root)
             {
-                ctx.dispatch_debug_log(location.as_ref(), format_args!("{to_print}"));
-            } else {
-                corelib::debug_log::debug_log_with_location(
+                ctx.dispatch_log_message(LogMessage::new(
+                    LogMessageSource::SlintCode,
                     location.as_ref(),
                     format_args!("{to_print}"),
-                );
+                ));
+            } else {
+                log_message(LogMessage::new(
+                    corelib::debug_log::LogMessageSource::SlintCode,
+                    location.as_ref(),
+                    format_args!("{to_print}"),
+                ));
             }
             Value::Void
         }

@@ -3,10 +3,11 @@
 
 use i_slint_core::api::ComponentHandle;
 
-fn set_global_debug_handler(
-    handler: Option<i_slint_core::debug_log::DebugLogHandler>,
-) -> Option<i_slint_core::debug_log::DebugLogHandler> {
-    i_slint_backend_selector::with_global_context(|ctx| ctx.set_debug_handler(handler)).unwrap()
+fn set_global_log_message_handler(
+    handler: Option<i_slint_core::debug_log::LogMessageHandler>,
+) -> Option<i_slint_core::debug_log::LogMessageHandler> {
+    i_slint_backend_selector::with_global_context(|ctx| ctx.set_log_message_handler(handler))
+        .unwrap()
 }
 
 #[test]
@@ -60,11 +61,10 @@ fn context_debug_handler_overrides_platform() {
     use std::rc::Rc;
 
     let captured = Rc::new(RefCell::new(Vec::new()));
-    let previous = set_global_debug_handler(Some(Box::new({
+    let previous = set_global_log_message_handler(Some(Box::new({
         let captured = captured.clone();
-        move |_location: Option<&i_slint_core::debug_log::DebugLogLocation>,
-              arguments: core::fmt::Arguments<'_>| {
-            captured.borrow_mut().push(arguments.to_string());
+        move |message: i_slint_core::debug_log::LogMessage<'_>| {
+            captured.borrow_mut().push(message.message_arguments().to_string());
         }
     })));
 
@@ -89,7 +89,7 @@ fn context_debug_handler_overrides_platform() {
         .is_empty()
     );
 
-    set_global_debug_handler(previous);
+    set_global_log_message_handler(previous);
 }
 
 #[test]
@@ -126,11 +126,10 @@ fn global_debug_messages_use_context_handler() {
     use std::rc::Rc;
 
     let captured = Rc::new(RefCell::new(Vec::new()));
-    let previous = set_global_debug_handler(Some(Box::new({
+    let previous = set_global_log_message_handler(Some(Box::new({
         let captured = captured.clone();
-        move |_location: Option<&i_slint_core::debug_log::DebugLogLocation>,
-              arguments: core::fmt::Arguments<'_>| {
-            captured.borrow_mut().push(arguments.to_string());
+        move |message: i_slint_core::debug_log::LogMessage<'_>| {
+            captured.borrow_mut().push(message.message_arguments().to_string());
         }
     })));
 
@@ -164,7 +163,7 @@ fn global_debug_messages_use_context_handler() {
         .is_empty()
     );
 
-    set_global_debug_handler(previous);
+    set_global_log_message_handler(previous);
 }
 
 #[test]

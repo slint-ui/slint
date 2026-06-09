@@ -399,7 +399,7 @@ fn handle_preview_message(msg: PreviewToLspMessage, ctx: &language::Context) {
             };
         }
         DebugMessage { location, message } => {
-            eprintln!("{}", common::preview_debug_message_to_string(location, message));
+            eprintln!("{}", common::preview_log_message_to_string(location, message));
         }
 
         Diagnostics { .. }

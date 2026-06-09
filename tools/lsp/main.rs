@@ -714,7 +714,7 @@ async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Conte
             )?
         }
         M::DebugMessage { location, message } => {
-            eprintln!("{}", common::preview_debug_message_to_string(&location, &message));
+            eprintln!("{}", common::preview_log_message_to_string(&location, &message));
         }
         M::ConnectRemote { addresses, port } => {
             tracing::debug!("Preview asked to connect remote at {addresses:?}:{port}");

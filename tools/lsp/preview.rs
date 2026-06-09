@@ -1573,10 +1573,11 @@ fn set_preview_factory(
 
     let _ = i_slint_core::window::WindowInner::from_pub(app_window.window())
         .context()
-        .set_debug_handler(Some(Box::new(|location, arguments| {
-            let message = arguments.to_string();
-            let location =
-                location.map(|location| (location.path.clone(), location.line, location.column));
+        .set_log_message_handler(Some(Box::new(|log_message| {
+            let message = log_message.message_arguments().to_string();
+            let location = log_message
+                .location()
+                .map(|location| (location.path.clone(), location.line, location.column));
             PREVIEW_STATE.with_borrow_mut(|state| {
                 let to_lsp = state.to_lsp.try_borrow();
                 let Some(to_lsp) = to_lsp.ok() else { return };

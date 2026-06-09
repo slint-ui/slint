@@ -222,7 +222,7 @@ fn main() -> Result<()> {
 
     if args.auto_reload {
         select_backend(args.backend.as_deref())?;
-        install_debug_handler()?;
+        install_log_message_handler()?;
 
         let live = i_slint_live_preview::live_component::LiveReloadingComponent::new(
             compiler,
@@ -259,7 +259,7 @@ fn main() -> Result<()> {
         };
 
         select_backend(args.backend.as_deref())?;
-        install_debug_handler()?;
+        install_log_message_handler()?;
 
         let component = c.create()?;
         setup_instance(&component, &args.on, args.load_data.as_deref())?;
@@ -283,10 +283,10 @@ fn select_backend(backend: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-fn install_debug_handler() -> Result<()> {
+fn install_log_message_handler() -> Result<()> {
     let _ = i_slint_backend_selector::with_global_context(|ctx| {
-        ctx.set_debug_handler(Some(Box::new(move |location, arguments| {
-            debug::debug_handler(location, arguments);
+        ctx.set_log_message_handler(Some(Box::new(move |message| {
+            debug::log_message_handler(&message);
         })))
     })?;
     Ok(())
