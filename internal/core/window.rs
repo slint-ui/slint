@@ -1707,7 +1707,7 @@ impl WindowInner {
     ///
     /// `is_open_setter` keeps the parent component's `PopupWindow::is-open` property in sync with this
     /// popup: it is invoked immediately with `true`, and again with `false` when the popup is closed
-    /// through any path (see [`Self::close_popup_impl`]). Pass a no-op closure for popups (such as
+    /// through any path (see `close_popup_impl`). Pass a no-op closure for popups (such as
     /// menus) that do not expose `is-open`.
     pub fn show_popup(
         &self,
