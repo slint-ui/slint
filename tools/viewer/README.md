@@ -45,6 +45,9 @@ slint-viewer path/to/myfile.slint
    Set `SLINT_SCALE_FACTOR` to override the default scale factor of 1.
  - `--check`: Compile the file, print any diagnostics, and exit without opening a window.
    Exit status is 1 on errors, 0 otherwise (warnings still print).
+ - `--diagnostics-format <human|json>`: Format for compiler diagnostics.
+   `human` (default) prints colored output to stderr;
+   `json` emits a single array on stdout for tooling.
 
 Instead of a path to a file, one can use `-` for the standard input or the standard output.
 
@@ -86,7 +89,7 @@ the dialog if no callback was set on the button.
 The program returns with the following error code:
  - If the command line argument parsing or argument validation fails, the exit code will be *2*
  - If the .slint compilation fails, the compilation error will be printed to stderr and the exit code
-   will be *-1*
+   will be *-1*, except for `--check` and `--screenshot` which exit with *1*
  - If a Window is closed, the exit code will be *0*
  - If a Dialog is closed with the "Ok" or "Closed" or "Yes" button, the exit code will be *0*
  - If a Dialog is closed with the "Cancel" or "No" button, or using the close button in the window

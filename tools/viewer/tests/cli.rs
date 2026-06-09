@@ -126,7 +126,7 @@ fn syntax_error_is_reported() {
     let out = tmp.path().join("out.png");
     let (code, _stdout, stderr) =
         run(&["--screenshot", out.to_str().unwrap(), f.path().to_str().unwrap()]);
-    assert_eq!(code, COMPILE_ERROR_EXIT);
+    assert_eq!(code, 1);
     assert!(stderr.contains("Parse error"), "stderr was:\n{stderr}");
     assert!(!out.exists(), "screenshot file should not have been written");
 }
@@ -138,7 +138,7 @@ fn file_with_no_component_is_reported() {
     let out = tmp.path().join("out.png");
     let (code, _stdout, stderr) =
         run(&["--screenshot", out.to_str().unwrap(), f.path().to_str().unwrap()]);
-    assert_eq!(code, COMPILE_ERROR_EXIT);
+    assert_eq!(code, 1);
     assert!(stderr.contains("No component found"), "stderr was:\n{stderr}");
     assert!(!out.exists(), "screenshot file should not have been written");
 }
@@ -180,6 +180,116 @@ fn check_conflicts_with_screenshot() {
         run(&["--check", "--screenshot", out.to_str().unwrap(), f.path().to_str().unwrap()]);
     assert_eq!(code, 2);
     assert!(stderr.contains("--check") && stderr.contains("--screenshot"), "stderr was:\n{stderr}");
+}
+
+// --- JSON diagnostics format -------------------------------------------
+
+#[test]
+fn check_json_error_is_valid_json() {
+    let f = write_slint("export component Bad { Text { letter-spacing: 1em; } }\n");
+    let (code, stdout, _stderr) =
+        run(&["--check", "--diagnostics-format", "json", f.path().to_str().unwrap()]);
+    assert_eq!(code, 1);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("stdout is JSON");
+    let array = parsed.as_array().expect("top-level is an array");
+    assert_eq!(array.len(), 1);
+    let entry = &array[0];
+    assert_eq!(entry["level"], "error");
+    assert!(entry["message"].as_str().unwrap().contains("Invalid unit 'em'"));
+    assert!(entry["line"].as_u64().unwrap() >= 1);
+    assert!(entry["column"].as_u64().unwrap() >= 1);
+    assert_eq!(entry["file"].as_str().unwrap(), f.path().to_str().unwrap());
+}
+
+#[test]
+fn check_json_valid_file_is_empty_array() {
+    let f = write_slint("export component Ok { Text { text: \"hi\"; } }\n");
+    let (code, stdout, stderr) =
+        run(&["--check", "--diagnostics-format", "json", f.path().to_str().unwrap()]);
+    assert_eq!(code, 0, "stderr was:\n{stderr}");
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("stdout is JSON");
+    assert!(parsed.as_array().unwrap().is_empty());
+}
+
+#[test]
+fn check_warning_only_exits_zero() {
+    let f = write_slint("export Test := Rectangle { background: blue; }\n");
+    let (code, stdout, _stderr) =
+        run(&["--check", "--diagnostics-format", "json", f.path().to_str().unwrap()]);
+    assert_eq!(code, 0);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("stdout is JSON");
+    let array = parsed.as_array().unwrap();
+    assert_eq!(array.len(), 1);
+    assert_eq!(array[0]["level"], "warning");
+}
+
+#[test]
+fn diagnostics_format_json_applies_on_screenshot_errors() {
+    let f = write_slint("export component Bad { Text { letter-spacing: 1em; } }\n");
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("out.png");
+    let (code, stdout, _stderr) = run(&[
+        "--screenshot",
+        out.to_str().unwrap(),
+        "--diagnostics-format",
+        "json",
+        f.path().to_str().unwrap(),
+    ]);
+    assert_eq!(code, 1);
+    assert!(!out.exists(), "screenshot should not be written on error");
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("stdout is JSON");
+    assert_eq!(parsed.as_array().unwrap()[0]["level"], "error");
+}
+
+#[test]
+fn diagnostics_format_json_applies_on_run_path_errors() {
+    // Without `--check`, the viewer still prints diagnostics for compilation
+    // errors before attempting to run, and `--diagnostics-format json`
+    // controls how they're emitted.
+    let f = write_slint("export component Bad { Text { letter-spacing: 1em; } }\n");
+    let (code, stdout, _stderr) =
+        run(&["--diagnostics-format", "json", f.path().to_str().unwrap()]);
+    assert_eq!(code, COMPILE_ERROR_EXIT);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).expect("stdout is JSON");
+    let array = parsed.as_array().expect("top-level is an array");
+    assert_eq!(array.len(), 1);
+    assert_eq!(array[0]["level"], "error");
+}
+
+#[test]
+fn json_conflicts_with_auto_reload() {
+    let f = write_slint("export component Ok { }\n");
+    let (code, _stdout, stderr) =
+        run(&["--auto-reload", "--diagnostics-format", "json", f.path().to_str().unwrap()]);
+    assert_eq!(code, 2);
+    assert!(
+        stderr.contains("--diagnostics-format json") && stderr.contains("--auto-reload"),
+        "stderr was:\n{stderr}"
+    );
+}
+
+#[test]
+fn json_conflicts_with_screenshot_stdout() {
+    let f = write_slint("export component Ok { }\n");
+    let (code, _stdout, stderr) =
+        run(&["--screenshot", "-", "--diagnostics-format", "json", f.path().to_str().unwrap()]);
+    assert_eq!(code, 2);
+    assert!(
+        stderr.contains("--diagnostics-format json") && stderr.contains("--screenshot -"),
+        "stderr was:\n{stderr}"
+    );
+}
+
+#[test]
+fn json_conflicts_with_save_data_stdout() {
+    let f = write_slint("export component Ok { }\n");
+    let (code, _stdout, stderr) =
+        run(&["--save-data", "-", "--diagnostics-format", "json", f.path().to_str().unwrap()]);
+    assert_eq!(code, 2);
+    assert!(
+        stderr.contains("--diagnostics-format json") && stderr.contains("--save-data -"),
+        "stderr was:\n{stderr}"
+    );
 }
 
 // --- Screenshot rendering ----------------------------------------------
