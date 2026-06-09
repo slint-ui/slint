@@ -104,15 +104,20 @@ struct Cli {
     #[arg(long, value_name = "json file", action)]
     save_data: Option<std::path::PathBuf>,
 
-    /// Render the component to an image file and exit instead of opening a window.
-    /// The file format is inferred from the extension (e.g. .png, .jpg).
-    /// Use `-` to write a PNG to standard output. The component is rendered at its
-    /// preferred size with a headless renderer (Skia's software rasterizer when the
-    /// `renderer-skia` feature is enabled, otherwise Slint's software renderer); pass
-    /// `--backend` to pick another renderer. Set `SLINT_SCALE_FACTOR` to override the
-    /// default scale factor of 1. Incompatible with `--auto-reload` and `--remote`.
+    /// Render the component to an image and exit.
+    /// The format follows the extension (e.g. `.png`, `.jpg`);
+    /// use `-` to write a PNG to standard output.
     #[arg(long, value_name = "image file", action)]
     screenshot: Option<std::path::PathBuf>,
+
+    /// Compile, print any diagnostics, and exit without opening a window.
+    /// Exit status is 1 on errors, 0 otherwise (warnings still print).
+    #[arg(
+        long,
+        action,
+        conflicts_with_all = ["auto_reload", "screenshot", "save_data", "load_data", "on", "remote"],
+    )]
+    check: bool,
 
     /// Specify callbacks handler.
     /// The first argument is the callback name, and the second argument is a string that is going
@@ -219,6 +224,12 @@ fn main() -> Result<()> {
     }
 
     let compiler = init_compiler(&args);
+
+    if args.check {
+        let result = poll_ready(compiler.build_from_path(args.path()));
+        result.print_diagnostics();
+        std::process::exit(if result.has_errors() { 1 } else { 0 });
+    }
 
     if args.auto_reload {
         select_backend(args.backend.as_deref())?;

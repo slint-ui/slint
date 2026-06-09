@@ -40,12 +40,11 @@ slint-viewer path/to/myfile.slint
  - `--backend <backend>`: Override the Slint rendering backend
  - `--on <callback> <handler>`: Set a callback handler, see [callback handler](#callback-handlers)
  - `--component <name>`: Load the component with the given name. If not specified, load the last exported component
- - `--screenshot <file>`: Render the component to an image file and exit instead of opening a window.
-   The file format is inferred from the extension (e.g. `.png`, `.jpg`). Use `-` to write a PNG to
-   standard output. The component is rendered at its preferred size with a headless renderer (Skia's
-   software rasterizer when the `renderer-skia` feature is enabled, otherwise Slint's software
-   renderer), unless `--backend` is also given. Set `SLINT_SCALE_FACTOR` to override the default
-   scale factor of 1. This option is incompatible with `--auto-reload`.
+ - `--screenshot <file>`: Render the component to an image and exit.
+   The format follows the extension (e.g. `.png`, `.jpg`); use `-` to write a PNG to standard output.
+   Set `SLINT_SCALE_FACTOR` to override the default scale factor of 1.
+ - `--check`: Compile the file, print any diagnostics, and exit without opening a window.
+   Exit status is 1 on errors, 0 otherwise (warnings still print).
 
 Instead of a path to a file, one can use `-` for the standard input or the standard output.
 

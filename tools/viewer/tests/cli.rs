@@ -143,6 +143,45 @@ fn file_with_no_component_is_reported() {
     assert!(!out.exists(), "screenshot file should not have been written");
 }
 
+// --- Check mode --------------------------------------------------------
+
+#[test]
+fn check_valid_file_exits_zero() {
+    let f = write_slint("export component Ok { Text { text: \"hi\"; } }\n");
+    let (code, _stdout, stderr) = run(&["--check", f.path().to_str().unwrap()]);
+    assert_eq!(code, 0, "stderr was:\n{stderr}");
+}
+
+#[test]
+fn check_syntax_error_exits_one() {
+    let f = write_slint("export component Bad { Text { letter-spacing: 1em; } }\n");
+    let (code, _stdout, stderr) = run(&["--check", f.path().to_str().unwrap()]);
+    assert_eq!(code, 1, "stderr was:\n{stderr}");
+    assert!(stderr.contains("Invalid unit 'em'"), "stderr was:\n{stderr}");
+}
+
+#[test]
+fn check_conflicts_with_auto_reload() {
+    let f = write_slint("export component Ok { }\n");
+    let (code, _stdout, stderr) = run(&["--check", "--auto-reload", f.path().to_str().unwrap()]);
+    assert_eq!(code, 2);
+    assert!(
+        stderr.contains("--check") && stderr.contains("--auto-reload"),
+        "stderr was:\n{stderr}"
+    );
+}
+
+#[test]
+fn check_conflicts_with_screenshot() {
+    let f = write_slint("export component Ok { }\n");
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("out.png");
+    let (code, _stdout, stderr) =
+        run(&["--check", "--screenshot", out.to_str().unwrap(), f.path().to_str().unwrap()]);
+    assert_eq!(code, 2);
+    assert!(stderr.contains("--check") && stderr.contains("--screenshot"), "stderr was:\n{stderr}");
+}
+
 // --- Screenshot rendering ----------------------------------------------
 
 // Cases known to produce the same RGB output as their reference under both
