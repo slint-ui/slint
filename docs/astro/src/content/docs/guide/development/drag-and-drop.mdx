@@ -58,7 +58,9 @@ Both `can-drop` and `dropped` return a <Link type="DragAction" />: `DragAction.c
 
 ## Drag actions
 
-A `DragArea` declares which actions it permits (`allow-copy`, `allow-move`, `allow-link`). When no modifier key is pressed, the proposed action is the first allowed of move, copy, link; modifier keys request a specific action (Ctrl -> copy, Shift -> move, Ctrl+Shift -> link).
+A `DragArea` declares which actions it permits (`allow-copy`, `allow-move`, `allow-link`).
+When no modifier key is pressed, the proposed action is the first allowed of move, copy, link;
+modifier keys request a specific action (Ctrl -> copy, Shift -> move, Ctrl+Shift -> link). On macOS, use Command (⌘) instead of Ctrl.
 The target picks the final action in `can-drop` (for hover) and `dropped` (final answer), the runtime clamps each against the source's allowed set, and when the drop completes the source's `drag-finished(action)` fires so a "move" source can remove the original data.
 
 ```slint no-test
