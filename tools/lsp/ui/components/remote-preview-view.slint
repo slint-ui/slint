@@ -7,6 +7,7 @@ import { EditorSpaceSettings } from "styling.slint";
 
 component PhonePreview {
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+    in property <image> background-image;
 
     width: 190px;
     height: 380px;
@@ -28,7 +29,7 @@ component PhonePreview {
         Image {
             y: parent.height - self.height;
             width: 100%;
-            source: root.dark-color-scheme ? @image-url("../../../viewer/remote/assets/bg-frame.svg") : @image-url("../../../viewer/remote/assets/bg-frame-light.svg");
+            source: background-image;
         }
 
         Rectangle {
@@ -50,8 +51,8 @@ component PhonePreview {
             VerticalLayout {
                 spacing: 6px;
                 Text {
-                    text: @tr("Connect...");
-                    font-size: 13px;
+                    text: @tr("Slint Viewer");
+                    font-size: 16px;
                     font-weight: 100;
                     color: root.dark-color-scheme ? #eeeeee : #333333;
                 }
@@ -67,21 +68,28 @@ export component RemotePreviewView inherits Rectangle {
     preferred-width: 900px;
     preferred-height: 620px;
 
-    private property <int> selected-index: -1;
-    private property <string> manual-entry;
+    property <int> selected-index: -1;
+    property <string> manual-entry;
 
-    private property <bool> selection-is-compatible:
+    property <bool> selection-is-compatible:
         selected-index >= 0
         && selected-index < Api.remote-discovered-viewers.length
         && Api.remote-discovered-viewers[selected-index].compatible;
 
-    private property <bool> connecting: Api.remote-connection-state == RemoteConnectionState.Connecting;
+    property <bool> connecting: Api.remote-connection-state == RemoteConnectionState.Connecting;
+    property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+    property <image> background-image: root.dark-color-scheme ? @image-url("../../../viewer/remote/assets/bg-frame.svg") : @image-url("../../../viewer/remote/assets/bg-frame-light.svg");
 
     Rectangle {
-        background: Palette.color-scheme == ColorScheme.dark
+        background: dark-color-scheme
             ? @linear-gradient(180deg, #202124, #111214)
             : @linear-gradient(180deg, #f8fafc, #e8ecf2);
     }
+    // Image {
+    //     y: parent.height - self.height;
+    //     width: 100%;
+    //     source: background-image;
+    // }
 
     VerticalLayout {
         padding-left: 32px;
@@ -255,9 +263,22 @@ export component RemotePreviewView inherits Rectangle {
             Rectangle {
                 width: 260px;
                 vertical-stretch: 1;
-                PhonePreview {
-                    x: (parent.width - self.width) / 2;
-                    y: (parent.height - self.height) / 2;
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: EditorSpaceSettings.default-spacing * 2;
+
+                    PhonePreview {
+                        background-image: background-image;
+                    }
+
+                    Text {
+                        text: @tr("Start Slint Viewer on your device using the same Wi-Fi.");
+                        horizontal-alignment: center;
+                        wrap: word-wrap;
+                        color: Palette.foreground;
+                        opacity: 0.72;
+                    }
                 }
             }
         }
