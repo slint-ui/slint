@@ -8,6 +8,9 @@
 compile_error!("The `remote` feature is required when building for Android");
 
 #[cfg(all(target_os = "android", feature = "remote"))]
+mod debug;
+
+#[cfg(all(target_os = "android", feature = "remote"))]
 mod remote;
 
 #[cfg(all(target_os = "android", feature = "remote"))]

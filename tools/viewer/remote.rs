@@ -3,7 +3,6 @@
 
 use std::{net::SocketAddr, rc::Rc};
 
-use i_slint_compiler::diagnostics::Spanned;
 use i_slint_core::InternalToken;
 use i_slint_core::SharedString;
 use i_slint_live_preview::protocol::{PreviewComponent, PreviewToLspMessage, lsp_types};
@@ -12,6 +11,21 @@ use slint::ComponentHandle as _;
 
 slint::slint! {
     export { EmptyWindow } from "remote/main.slint";
+}
+
+// CARGO_PKG_VERSION tracks the workspace version, so it is the Slint version.
+const SLINT_VERSION: &str = concat!("Slint ", env!("CARGO_PKG_VERSION"));
+// Set by CI when building binaries (desktop, Android, iOS) so users can report
+// which build they are running. Empty for local developer builds.
+const BUILD_NUMBER: Option<&str> = option_env!("SLINT_BUILD_NUMBER");
+
+fn build_info() -> SharedString {
+    let debug_suffix = if cfg!(debug_assertions) { " (debug build)" } else { "" };
+    match BUILD_NUMBER {
+        Some(n) => slint::format!("Build {n}{debug_suffix}"),
+        None if !debug_suffix.is_empty() => SharedString::from(debug_suffix.trim_start()),
+        None => SharedString::default(),
+    }
 }
 
 pub fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Result<()> {
@@ -36,6 +50,25 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     );
 
     let mut compiler = init_compiler(Rc::downgrade(&connection));
+
+    // Forward all debug output to the LSP, so that the LSP can show it to the user.
+    // Slint Viewer itself only displays the previewed app, so it has no UI of its own to show debug messages in.
+    let connection_weak = Rc::downgrade(&connection);
+    let _ = i_slint_backend_selector::with_global_context(|ctx| {
+        ctx.set_debug_handler(Some(Box::new(move |location, arguments| {
+            let location = crate::debug::debug_handler(location, arguments);
+            let Some(connection) = connection_weak.upgrade() else {
+                return;
+            };
+
+            connection
+                .send(PreviewToLspMessage::DebugMessage {
+                    location,
+                    message: arguments.to_string(),
+                })
+                .ok();
+        })))
+    })?;
 
     let mut placeholder = EmptyWindow::new()?;
 
@@ -107,6 +140,8 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
 
     placeholder.set_address(SharedString::from(address.as_str()));
     placeholder.set_name(SharedString::from(device_name.as_str()));
+    placeholder.set_slint_version(SharedString::from(SLINT_VERSION));
+    placeholder.set_build_info(build_info());
     placeholder.show()?;
 
     let mut last_connection = None;
@@ -238,27 +273,6 @@ async fn build_and_show(
     // Send the (possibly empty) list so the editor clears stale errors.
     send_diagnostics(&compilation_result, &preview_component.url, connection);
 
-    let connection = Rc::downgrade(connection);
-    component.set_debug_handler(
-        move |location, message| {
-            let Some(connection) = connection.upgrade() else {
-                return;
-            };
-            let location = location.and_then(|location| {
-                location.source_file().map(|file| {
-                    let (line, column) = file.line_column(
-                        location.span.offset,
-                        i_slint_compiler::diagnostics::ByteFormat::Utf8,
-                    );
-                    (file.path().to_owned(), line, column)
-                })
-            });
-            connection
-                .send(PreviewToLspMessage::DebugMessage { location, message: message.into() })
-                .ok();
-        },
-        i_slint_core::InternalToken,
-    );
     let new_instance = component
         .create_with_existing_window(placeholder.window())
         .map_err(|err| anyhow::anyhow!("Cannot create component instance: {err}"))?;
@@ -281,6 +295,8 @@ fn swap_to_placeholder(
     fresh.set_address(SharedString::from(address));
     fresh.set_name(SharedString::from(name));
     fresh.set_message(SharedString::from(message));
+    fresh.set_slint_version(SharedString::from(SLINT_VERSION));
+    fresh.set_build_info(build_info());
     fresh.show().map_err(|err| anyhow::anyhow!("Cannot show placeholder: {err}"))?;
     *placeholder = fresh;
     *user_instance = None;

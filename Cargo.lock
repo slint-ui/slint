@@ -5415,6 +5415,7 @@ dependencies = [
  "icu_normalizer",
  "image",
  "ksni",
+ "log",
  "lyon_algorithms",
  "lyon_extra",
  "lyon_geom",
@@ -10663,7 +10664,6 @@ dependencies = [
  "i-slint-renderer-femtovg",
  "i-slint-renderer-skia",
  "i-slint-renderer-software",
- "log",
  "num-traits",
  "once_cell",
  "pin-weak",
@@ -10905,7 +10905,6 @@ dependencies = [
  "anyhow",
  "async-compat",
  "clap",
- "env_logger",
  "i-slint-backend-android-activity",
  "i-slint-backend-selector",
  "i-slint-compiler",
@@ -10926,6 +10925,8 @@ dependencies = [
  "tikv-jemallocator",
  "tokio",
  "tracing",
+ "tracing-log",
+ "tracing-subscriber",
  "zeroconf-tokio",
 ]
 
@@ -11508,7 +11509,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "system_tray"
+name = "system-tray"
 version = "1.16.0"
 dependencies = [
  "slint",

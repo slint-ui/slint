@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 slint::slint! {
-    export { MainWindow, ExampleTray } from "system_tray.slint";
+    export { MainWindow, ExampleTray } from "system-tray.slint";
 }
 
 fn main() {

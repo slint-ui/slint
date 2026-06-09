@@ -12,6 +12,7 @@ use crate::platform::{EventLoopProxy, Platform, WindowAdapter, WindowEvent};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::Cell;
+use core::cell::RefCell;
 use pin_weak::rc::PinWeak;
 
 /// Type alias for the closure type installed via [`set_window_event_hook`].
@@ -88,6 +89,7 @@ pub(crate) struct SlintContextInner {
     pub(crate) window_shown_hook:
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
     pub(crate) window_event_hook: core::cell::RefCell<Option<WindowEventHook>>,
+    pub(crate) debug_handler: RefCell<Option<crate::debug_log::DebugLogHandler>>,
     #[cfg(all(unix, not(target_os = "macos")))]
     xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "shared-parley")]
@@ -130,6 +132,7 @@ impl SlintContext {
             ),
             window_shown_hook: Default::default(),
             window_event_hook: Default::default(),
+            debug_handler: Default::default(),
             #[cfg(all(unix, not(target_os = "macos")))]
             xdg_app_id: Default::default(),
             #[cfg(feature = "shared-parley")]
@@ -234,6 +237,28 @@ impl SlintContext {
     /// backends that track the system setting; `Property::set` short-circuits no-op writes.
     pub fn set_platform_default_font_size(&self, size: Option<LogicalLength>) {
         self.0.as_ref().project_ref().platform_default_font_size.set(size);
+    }
+
+    #[doc(hidden)]
+    pub fn dispatch_debug_log(
+        &self,
+        location: Option<&crate::debug_log::DebugLogLocation>,
+        arguments: core::fmt::Arguments<'_>,
+    ) {
+        if let Some(handler) = self.0.debug_handler.borrow().as_ref() {
+            handler(location, arguments);
+        } else {
+            self.0.platform.debug_log(arguments);
+        }
+    }
+
+    #[doc(hidden)]
+    pub fn set_debug_handler(
+        &self,
+        handler: Option<crate::debug_log::DebugLogHandler>,
+    ) -> Option<crate::debug_log::DebugLogHandler> {
+        let mut slot = self.0.debug_handler.borrow_mut();
+        core::mem::replace(&mut *slot, handler)
     }
 
     /// Add one to the counter of "things keeping the event loop alive".

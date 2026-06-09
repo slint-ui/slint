@@ -113,9 +113,6 @@ pub fn set_callback_handler<
 }
 
 pub fn debug(s: SharedString) {
-    #[cfg(feature = "log")]
-    log::debug!("{s}");
-    #[cfg(not(feature = "log"))]
     i_slint_core::debug_log!("{s}");
 }
 
@@ -176,7 +173,6 @@ pub mod re_exports {
     };
     pub use i_slint_core::animations::{EasingCurve, animation_tick, current_tick};
     pub use i_slint_core::api::LogicalPosition;
-    pub use i_slint_core::bring_all_to_front;
     pub use i_slint_core::callbacks::Callback;
     pub use i_slint_core::context::SlintContext;
     pub use i_slint_core::data_transfer::DataTransfer;
@@ -200,6 +196,7 @@ pub mod re_exports {
     pub use i_slint_core::lengths::{
         LogicalLength, LogicalPoint, LogicalRect, logical_position_to_api,
     };
+    pub use i_slint_core::macos_bring_all_windows_to_front;
     pub use i_slint_core::menus::{Menu, MenuFromItemTree, MenuVTable};
     pub use i_slint_core::model::*;
     pub use i_slint_core::open_url;

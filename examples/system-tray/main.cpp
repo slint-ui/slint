@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-#include "system_tray.h"
+#include "system-tray.h"
 
 #include <slint.h>
 

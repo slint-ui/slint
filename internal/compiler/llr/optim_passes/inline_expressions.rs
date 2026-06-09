@@ -169,7 +169,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::StringToStyledText => ALLOC_COST,
         BuiltinFunction::ColorToStyledText => ALLOC_COST,
         BuiltinFunction::OpenUrl => isize::MAX,
-        BuiltinFunction::BringAllToFront => isize::MAX,
+        BuiltinFunction::MacosBringAllWindowsToFront => isize::MAX,
     }
 }
 

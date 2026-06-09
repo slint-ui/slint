@@ -71,12 +71,9 @@ let registry = "";
 let server: Server | undefined;
 
 function npmEnv(): NodeJS.ProcessEnv {
-    // setup-node (in the publish workflow) exports NPM_CONFIG_USERCONFIG pointing
-    // at its own .npmrc (npmjs auth, always-auth=true). npm/pnpm lowercase env
-    // keys when reading config, so that would collide with — and shadow — the
-    // npm_config_userconfig we set here, and publishing to the local registry
-    // would fail with ENEEDAUTH. Drop any case variant of the inherited value and
-    // point npm/pnpm only at our throwaway .npmrc.
+    // Drop any case variant of NPM_CONFIG_USERCONFIG: setup-node sets it to
+    // its own .npmrc, which would shadow the one we set below (npm/pnpm
+    // lowercase env keys when reading config).
     const env: NodeJS.ProcessEnv = {};
     for (const [key, value] of Object.entries(process.env)) {
         if (key.toLowerCase() !== "npm_config_userconfig") {

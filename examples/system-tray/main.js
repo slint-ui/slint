@@ -4,7 +4,7 @@
 
 import * as slint from "slint-ui";
 
-const ui = slint.loadFile(new URL("system_tray.slint", import.meta.url));
+const ui = slint.loadFile(new URL("system-tray.slint", import.meta.url));
 const main_window = new ui.MainWindow();
 const tray = new ui.ExampleTray();
 

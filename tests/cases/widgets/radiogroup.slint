@@ -11,7 +11,7 @@ export component TestCase inherits Window {
     in-out property <string> last-selected;
     in-out property <int> red-toggled-count: 0;
     in-out property <int> green-toggled-count: 0;
-    in-out property <string> current-value <=> group.current-value;
+    out property <string> current-value: group.current-value;
     out property <bool> has-focus <=> group.has-focus;
     out property <bool> test: current-value == "" && selected-count == 0;
 
@@ -178,6 +178,7 @@ slint_testing::mock_elapsed_time(0);
 assert_eq!(instance.get_current_value(), SharedString::from("Red"));
 assert_eq!(instance.get_red_checked(), true);
 assert_eq!(instance.get_blue_checked(), false);
+
 ```
 
 */

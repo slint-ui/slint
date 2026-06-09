@@ -292,8 +292,8 @@ pub unsafe extern "C" fn slint_open_url(
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn slint_bring_all_to_front() {
-    i_slint_core::bring_all_to_front()
+pub extern "C" fn slint_macos_bring_all_windows_to_front() {
+    i_slint_core::macos_bring_all_windows_to_front()
 }
 
 #[unsafe(no_mangle)]

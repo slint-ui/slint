@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 [project]
-name = "system_tray"
+name = "system-tray"
 version = "1.17.0"
 description = "Slint SystemTrayIcon Python Example"
 requires-python = ">=3.12"

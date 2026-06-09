@@ -4335,8 +4335,8 @@ fn compile_builtin_function_call(
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(sp::open_url(&#url, #window_adapter_tokens.window()).is_ok())
         }
-        BuiltinFunction::BringAllToFront => {
-            quote!(sp::bring_all_to_front())
+        BuiltinFunction::MacosBringAllWindowsToFront => {
+            quote!(sp::macos_bring_all_windows_to_front())
         }
         BuiltinFunction::ParseMarkdown => {
             let format_string = a.next().unwrap();

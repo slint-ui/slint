@@ -1,5 +1,5 @@
 {
-    "name": "system_tray",
+    "name": "system-tray",
     "version": "1.17.0",
     "main": "main.js",
     "type": "module",
