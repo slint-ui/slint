@@ -309,6 +309,8 @@ The types used for properties in .slint design markup each translate to specific
 | `brush` | `Brush` | |
 | `keys` | `Keys` | |
 | `image` | `ImageData` | |
+| `styled-text` | `StyledText` | Styled text parsed from markdown or plain text. Use `StyledText.fromMarkdown()` or `StyledText.fromPlainText()` to create instances. |
+| `data-transfer` | `DataTransfer` | Data associated with a drag-drop transfer. |
 | `length` | `Number` | |
 | `physical_length` | `Number` | |
 | `duration` | `Number` | The number of milliseconds |
@@ -316,6 +318,7 @@ The types used for properties in .slint design markup each translate to specific
 | `relative-font-size` | `Number` | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`. |
 | structure | `Object` | Structures are mapped to JavaScript objects where each structure field is a property. |
 | array | `Model` | |
+| `Point` | `{ x: number; y: number }` | A two-dimensional point with `x` and `y` coordinates. |
 
 ### Arrays and Models
 
