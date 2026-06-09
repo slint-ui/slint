@@ -5495,6 +5495,7 @@ dependencies = [
 name = "i-slint-backend-testing"
 version = "1.17.0"
 dependencies = [
+ "cfg_aliases",
  "i-slint-common",
  "i-slint-core",
  "i-slint-renderer-skia",
