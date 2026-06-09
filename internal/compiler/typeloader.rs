@@ -213,6 +213,7 @@ impl Snapshotter {
             global_type_registry: self.snapshot_type_register(&type_loader.global_type_registry),
             compiler_config: type_loader.compiler_config.clone(),
             resolved_style: type_loader.resolved_style.clone(),
+            revision: type_loader.revision,
         })
     }
 
@@ -919,6 +920,9 @@ pub struct TypeLoader {
     /// The style that was specified in the compiler configuration, but resolved. So "native" for example is resolved to the concrete
     /// style.
     pub resolved_style: String,
+    /// The revision in the TypeLoader marks changes to the TypeLoader.
+    /// Any changes should increase the revision number via [Self::bump_revision]
+    revision: u64,
     all_documents: LoadedDocuments,
 }
 
@@ -943,6 +947,7 @@ impl TypeLoader {
             },
             compiler_config,
             resolved_style: style.clone(),
+            revision: 0,
             all_documents: Default::default(),
         };
 
@@ -967,6 +972,14 @@ impl TypeLoader {
         myself
     }
 
+    fn bump_revision(&mut self) {
+        self.revision = self.revision.wrapping_add(1);
+    }
+
+    pub fn revision(&self) -> u64 {
+        self.revision
+    }
+
     /// Drop a document from the TypeLoader and invalidate all of its dependencies.
     /// Returns the list of all (transitive) dependencies.
     ///
@@ -975,6 +988,7 @@ impl TypeLoader {
     pub fn drop_document(&mut self, path: &Path) -> Result<HashSet<PathBuf>, std::io::Error> {
         let dependencies = self.invalidate_document(path);
         self.all_documents.docs.remove(path);
+        self.bump_revision();
 
         if self.all_documents.currently_loading.contains_key(path) {
             Err(std::io::Error::new(ErrorKind::InvalidInput, format!("{path:?} is still loading")))
@@ -1022,6 +1036,7 @@ impl TypeLoader {
             extra_deps.extend(self.invalidate_document(dep));
         }
         extra_deps.extend(deps);
+        self.bump_revision();
         extra_deps
     }
 
@@ -1525,6 +1540,7 @@ impl TypeLoader {
                 .insert(path.clone());
         }
         state.tl.all_documents.docs.insert(path, (LoadedDocument::Document(doc), parse_errors));
+        state.tl.bump_revision();
     }
 
     async fn load_file_impl<'a>(
@@ -2418,10 +2434,42 @@ fn test_snapshotting() {
     assert_eq!(root_element.borrow().base_type.to_string(), "Rectangle");
 
     let copy = snapshot(&type_loader).unwrap();
+    assert_eq!(copy.revision(), type_loader.revision());
 
     let doc = copy.get_document(&path).unwrap();
     let c = doc.inner_components.first().unwrap();
     assert_eq!(c.id, "Foobar");
     let root_element = c.root_element.clone();
     assert_eq!(root_element.borrow().base_type.to_string(), "Rectangle");
+}
+
+#[test]
+fn test_watch_paths_revision_bumps_on_mutations() {
+    let mut type_loader = TypeLoader::new(
+        crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter),
+        &mut BuildDiagnostics::default(),
+    );
+
+    assert_eq!(type_loader.revision(), 0);
+
+    let path = PathBuf::from("/tmp/test-revision.slint");
+    let mut diag = BuildDiagnostics::default();
+    spin_on::spin_on(type_loader.load_file(
+        &path,
+        &path,
+        "export component Foobar inherits Rectangle { }".to_string(),
+        false,
+        &mut diag,
+    ));
+    assert!(!diag.has_errors());
+    let after_load = type_loader.revision();
+    assert_ne!(after_load, 0);
+
+    type_loader.invalidate_document(&path);
+    let after_invalidate = type_loader.revision();
+    assert_ne!(after_invalidate, after_load);
+
+    type_loader.drop_document(&path).unwrap();
+    let after_drop = type_loader.revision();
+    assert_ne!(after_drop, after_invalidate);
 }
