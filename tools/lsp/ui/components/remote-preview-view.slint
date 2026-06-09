@@ -50,32 +50,9 @@ component PhonePreview {
             VerticalLayout {
                 spacing: 6px;
                 Text {
-                    text: @tr("Connect Live Preview to");
+                    text: @tr("Connect...");
                     font-size: 13px;
                     font-weight: 100;
-                    color: root.dark-color-scheme ? #eeeeee : #333333;
-                }
-                Text {
-                    text: @tr("Slint Viewer");
-                    font-size: 17px;
-                    font-weight: 500;
-                    color: root.dark-color-scheme ? white : #111111;
-                }
-            }
-
-            VerticalLayout {
-                spacing: 6px;
-                Text {
-                    text: @tr("Waiting for Live Preview");
-                    horizontal-alignment: center;
-                    font-size: 12px;
-                    color: root.dark-color-scheme ? #eeeeee : #333333;
-                }
-                Text {
-                    text: @tr("1.17.0");
-                    horizontal-alignment: center;
-                    font-size: 11px;
-                    opacity: 0.7;
                     color: root.dark-color-scheme ? #eeeeee : #333333;
                 }
             }
