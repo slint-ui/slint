@@ -53,7 +53,7 @@ component PhonePreview {
                 Text {
                     text: @tr("Slint Viewer");
                     font-size: 16px;
-                    font-weight: 100;
+                    font-weight: FontWeight.extra-bold;
                     color: root.dark-color-scheme ? #eeeeee : #333333;
                 }
             }
@@ -109,7 +109,7 @@ export component RemotePreviewView inherits Rectangle {
                         ? @tr("Previewing on {}.", Api.remote-connection-target)
                         : @tr("Searching for a device…");
                     font-size: 24px;
-                    font-weight: 700;
+                    font-weight: FontWeight.bold;
                     color: Palette.foreground;
                 }
                 Text {
@@ -140,7 +140,7 @@ export component RemotePreviewView inherits Rectangle {
 
                     Text {
                         text: @tr("Devices");
-                        font-weight: 700;
+                        font-weight: FontWeight.bold;
                         color: Palette.foreground;
                     }
 
@@ -157,7 +157,7 @@ export component RemotePreviewView inherits Rectangle {
                             Text {
                                 text: @tr("Searching the local network…");
                                 horizontal-alignment: center;
-                                font-weight: 700;
+                                font-weight: FontWeight.bold;
                                 color: Palette.foreground;
                             }
                             Text {
@@ -190,7 +190,7 @@ export component RemotePreviewView inherits Rectangle {
                                         Text {
                                             text: device.name;
                                             color: i == root.selected-index ? Palette.accent-foreground : Palette.foreground;
-                                            font-weight: 700;
+                                            font-weight: FontWeight.bold;
                                         }
                                         Text {
                                             text: (device.addresses.length > 0 ? device.addresses[0] : device.host) + ":" + device.port;
@@ -225,7 +225,7 @@ export component RemotePreviewView inherits Rectangle {
                     if Api.remote-connection-state == RemoteConnectionState.Connected: Text {
                         text: @tr("Connected to {}. Switch to Local to disconnect.", Api.remote-connection-target);
                         color: #2a2;
-                        font-weight: 700;
+                        font-weight: FontWeight.bold;
                     }
                     if Api.remote-connection-state == RemoteConnectionState.Failed: Text {
                         text: Api.remote-connection-error != ""
@@ -267,6 +267,7 @@ export component RemotePreviewView inherits Rectangle {
                 VerticalLayout {
                     alignment: center;
                     spacing: EditorSpaceSettings.default-spacing * 2;
+                    cross-axis-alignment: center;
 
                     PhonePreview {
                         background-image: background-image;
@@ -274,10 +275,10 @@ export component RemotePreviewView inherits Rectangle {
 
                     Text {
                         text: @tr("Start Slint Viewer on your device using the same Wi-Fi.");
-                        horizontal-alignment: center;
+                        horizontal-alignment: left;
                         wrap: word-wrap;
                         color: Palette.foreground;
-                        opacity: 0.72;
+                        opacity: 0.80;
                     }
                 }
             }
