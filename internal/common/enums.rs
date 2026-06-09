@@ -680,6 +680,19 @@ macro_rules! for_each_enums {
                 /// This variant is reported when the operating system is none of the above.
                 Other,
             }
+
+            /// Snap mode for the flickable
+            #[non_exhaustive]
+            enum SnapMode {
+                /// No snapping at all
+                None,
+                /// Snapping position at the start. Item's start is snapped to the start
+                Start,
+                /// Snapping position at the center. Item's center is snapped to the center
+                Center,
+                /// Snapping position at the end. Item's end is snapped to the end
+                End,
+            }
         ];
     };
 }
