@@ -1,0 +1,34 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Idle-screen variants for Play Store listing screenshots, driven by
+// `slint-viewer --screenshot --component <variant>`. Each variant sets the
+// preferred size the store expects.
+
+import { EmptyWindow } from "../remote/main.slint";
+
+// take-screenshots.sh sets these via `slint-viewer --load-data`. The global
+// works around `--load-data` only seeing properties declared on the exported
+// root component.
+export global ScreenshotData {
+    in property <string> slint-version;
+    in property <string> build-info;
+}
+
+component IdleBase inherits EmptyWindow {
+    name: "Studio iPad";
+    address: "192.168.1.42:8765";
+    slint-version: ScreenshotData.slint-version;
+    build-info: ScreenshotData.build-info;
+}
+
+// Logical sizes; physical PNG = these * SLINT_SCALE_FACTOR (3 → 1080x2400).
+export component PhonePortrait inherits IdleBase {
+    preferred-width: 360px;
+    preferred-height: 800px;
+}
+
+export component Tablet10 inherits IdleBase {
+    preferred-width: 600px;
+    preferred-height: 960px;
+}
