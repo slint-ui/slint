@@ -2,8 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 #![doc = include_str!("README.md")]
+#![cfg_attr(slint_nightly_test, feature(non_exhaustive_omitted_patterns_lint))]
+#![cfg_attr(slint_nightly_test, warn(non_exhaustive_omitted_patterns))]
 
 mod debug;
+mod print_diagnostics;
 mod screenshot;
 
 #[cfg(feature = "remote")]
@@ -119,6 +122,11 @@ struct Cli {
     )]
     check: bool,
 
+    /// Format for compiler diagnostics: `human` (colored, to stderr) or `json`
+    /// (a single array on stdout).
+    #[arg(long, value_name = "format", default_value = "human")]
+    diagnostics_format: print_diagnostics::DiagnosticsFormat,
+
     /// Specify callbacks handler.
     /// The first argument is the callback name, and the second argument is a string that is going
     /// to be passed to the shell to be executed. Occurrences of `$1` will be replaced by the first argument,
@@ -188,6 +196,28 @@ fn main() -> Result<()> {
         }
     }
 
+    // JSON goes to stdout, so reject other flags that claim stdout. Auto-reload
+    // uses its own diagnostic renderer that doesn't honor the format.
+    if args.diagnostics_format == print_diagnostics::DiagnosticsFormat::Json {
+        let is_stdout = |p: &std::path::Path| p == std::path::Path::new("-");
+        if args.screenshot.as_deref().is_some_and(is_stdout) {
+            eprintln!(
+                "--diagnostics-format json conflicts with --screenshot - (both write to stdout)"
+            );
+            std::process::exit(2);
+        }
+        if args.save_data.as_deref().is_some_and(is_stdout) {
+            eprintln!(
+                "--diagnostics-format json conflicts with --save-data - (both write to stdout)"
+            );
+            std::process::exit(2);
+        }
+        if args.auto_reload {
+            eprintln!("--diagnostics-format json is not supported with --auto-reload");
+            std::process::exit(2);
+        }
+    }
+
     if args.remote {
         #[cfg(feature = "remote")]
         {
@@ -227,7 +257,7 @@ fn main() -> Result<()> {
 
     if args.check {
         let result = poll_ready(compiler.build_from_path(args.path()));
-        result.print_diagnostics();
+        print_diagnostics::print_diagnostics(&result, args.diagnostics_format);
         std::process::exit(if result.has_errors() { 1 } else { 0 });
     }
 
@@ -261,7 +291,7 @@ fn main() -> Result<()> {
         instance.run()?;
     } else {
         let result = poll_ready(compiler.build_from_path(args.path()));
-        result.print_diagnostics();
+        print_diagnostics::print_diagnostics(&result, args.diagnostics_format);
         if result.has_errors() {
             std::process::exit(-1);
         }
@@ -554,6 +584,7 @@ fn execute_cmd(cmd: &str, callback_args: &[Value]) -> Result<()> {
     let callback_args = callback_args
         .iter()
         .map(|v| {
+            #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
             Ok(match v {
                 Value::Number(x) => x.to_string(),
                 Value::String(x) => x.to_string(),

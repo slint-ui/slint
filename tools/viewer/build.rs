@@ -4,6 +4,7 @@
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-env-changed=CARGO_FEATURE_REMOTE");
+    println!("cargo:rustc-check-cfg=cfg(slint_nightly_test)");
     // The slint!{} macro in remote.rs needs the experimental
     // new_with_existing_window constructor.
     if std::env::var_os("CARGO_FEATURE_REMOTE").is_some() {
