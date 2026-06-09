@@ -5481,6 +5481,7 @@ name = "i-slint-backend-selector"
 version = "1.17.0"
 dependencies = [
  "cfg-if",
+ "cfg_aliases",
  "i-slint-backend-linuxkms",
  "i-slint-backend-testing",
  "i-slint-backend-winit",
