@@ -295,7 +295,6 @@ async fn lsp_main(
     let root_path = full_path.clone();
     let url = Url::from_file_path(full_path)
         .map_err(|_| format!("Failed to convert {} to URL!", cli.file))?;
-    file_watcher.update_watched_paths(std::iter::once(root_path.clone()))?;
     language::show_preview(
         PreviewComponent { url: url.clone(), component: cli.component },
         &mut ctx,
@@ -306,7 +305,8 @@ async fn lsp_main(
     language::reload_document(&mut ctx, url)
         .await
         .map_err(|err| format!("Failed to load file: {}: {err}", cli.file))?;
-    sync_file_watcher(&mut file_watcher, &ctx, &root_path)?;
+    let mut watch_paths_revision = None;
+    sync_file_watcher_if_needed(&mut file_watcher, &ctx, &root_path, &mut watch_paths_revision)?;
 
     const RECOMPILE_IDLE_TIMEOUT: Duration = Duration::from_millis(50);
     loop {
@@ -337,9 +337,15 @@ async fn lsp_main(
                         tracing::error!("Failed document reload: {err}");
                     }
                 }
-                sync_file_watcher(&mut file_watcher, &ctx, &root_path)?;
             }
         }
+
+        sync_file_watcher_if_needed(
+            &mut file_watcher,
+            &ctx,
+            &root_path,
+            &mut watch_paths_revision,
+        )?;
     }
 }
 
@@ -355,11 +361,17 @@ async fn trigger_editor_file_watcher(
     language::trigger_file_watcher(ctx, url, kind).await
 }
 
-fn sync_file_watcher(
+fn sync_file_watcher_if_needed(
     watcher: &mut FileWatcher,
     ctx: &language::Context,
     root_path: &std::path::Path,
+    watch_paths_revision: &mut Option<u64>,
 ) -> Result<()> {
+    let current_revision = ctx.document_cache.revision();
+    if watch_paths_revision.is_some_and(|rev| rev == current_revision) {
+        return Ok(());
+    }
+
     watcher.update_watched_paths(
         std::iter::once(root_path.to_path_buf()).chain(
             ctx.document_cache
@@ -370,6 +382,7 @@ fn sync_file_watcher(
                 .filter_map(|url| common::uri_to_file(&url)),
         ),
     )?;
+    *watch_paths_revision = Some(current_revision);
     Ok(())
 }
 

@@ -571,6 +571,9 @@ async fn run_main_loop(
     )
     .unwrap();
 
+    let mut watch_paths_revision = None;
+    sync_file_watcher_if_needed(&mut file_watcher, &ctx, &mut watch_paths_revision)?;
+
     loop {
         let recompile_idle_timeout =
             if ctx.pending_recompile.is_empty() { Duration::MAX } else { RECOMPILE_IDLE_TIMEOUT };
@@ -624,10 +627,25 @@ async fn run_main_loop(
             }
         }
 
-        // make sure to always update the watched paths
-        let paths_to_watch = ctx.document_cache.all_paths_to_watch();
-        file_watcher.update_watched_paths(paths_to_watch).ok();
+        sync_file_watcher_if_needed(&mut file_watcher, &ctx, &mut watch_paths_revision)?;
     }
+}
+
+fn sync_file_watcher_if_needed(
+    watcher: &mut FileWatcher<LspFileWatcherImpl>,
+    ctx: &Context,
+    watch_paths_revision: &mut Option<u64>,
+) -> Result<()> {
+    let current_revision = ctx.document_cache.revision();
+    if watch_paths_revision.is_some_and(|rev| rev == current_revision) {
+        return Ok(());
+    }
+
+    watcher
+        .update_watched_paths(ctx.document_cache.all_paths_to_watch())
+        .map_err(|err| std::io::Error::other(format!("Failed to update watched paths: {err:?}")))?;
+    *watch_paths_revision = Some(current_revision);
+    Ok(())
 }
 
 async fn handle_lsp_message(

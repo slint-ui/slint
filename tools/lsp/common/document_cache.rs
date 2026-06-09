@@ -280,6 +280,10 @@ impl DocumentCache {
         self.type_loader.global_type_registry.borrow()
     }
 
+    pub fn revision(&self) -> u64 {
+        self.type_loader.revision()
+    }
+
     fn invalidate_everything(&mut self) {
         let all_files = self.type_loader.all_files().cloned().collect::<Vec<_>>();
 
