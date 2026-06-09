@@ -170,16 +170,16 @@ fn main() -> Result<()> {
     if args.screenshot.is_some() {
         if args.auto_reload {
             eprintln!("Cannot pass both --auto-reload and --screenshot");
-            std::process::exit(-1);
+            std::process::exit(2);
         }
         if args.save_data.is_some() {
             eprintln!("Cannot pass both --save-data and --screenshot");
-            std::process::exit(-1);
+            std::process::exit(2);
         }
         #[cfg(feature = "remote")]
         if args.remote {
             eprintln!("Cannot pass both --remote and --screenshot");
-            std::process::exit(-1);
+            std::process::exit(2);
         }
     }
 
@@ -200,7 +200,7 @@ fn main() -> Result<()> {
 
     if args.auto_reload && args.save_data.is_some() {
         eprintln!("Cannot pass both --auto-reload and --save-data");
-        std::process::exit(-1);
+        std::process::exit(2);
     }
 
     #[cfg(feature = "gettext")]
