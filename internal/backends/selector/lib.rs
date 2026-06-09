@@ -35,6 +35,17 @@ fn create_linuxkms_backend() -> Result<Box<dyn Platform + 'static>, PlatformErro
     Ok(Box::new(i_slint_backend_linuxkms::BackendBuilder::default().build()?))
 }
 
+#[cfg(all(feature = "mcp", any(feature = "renderer-software", feature = "renderer-skia")))]
+fn create_headless_backend() -> Result<Box<dyn Platform + 'static>, PlatformError> {
+    Ok(Box::new(i_slint_backend_testing::TestingBackend::new(
+        i_slint_backend_testing::TestingBackendOptions {
+            mock_time: false,
+            threading: true,
+            ..Default::default()
+        },
+    )))
+}
+
 cfg_if::cfg_if! {
     if #[cfg(target_os = "android")] {
         const DEFAULT_BACKEND_NAME: &str = "";
@@ -68,6 +79,12 @@ cfg_if::cfg_if! {
                 ("Winit", create_winit_backend as fn() -> Result<Box<(dyn Platform + 'static)>, PlatformError>),
                 #[cfg(all(feature = "i-slint-backend-linuxkms", target_os = "linux"))]
                 ("LinuxKMS", create_linuxkms_backend as fn() -> Result<Box<(dyn Platform + 'static)>, PlatformError>),
+                // Last-resort headless fallback when MCP is enabled — lets the
+                // MCP server keep working in environments where no display is
+                // available. Only kicks in if every graphical backend above
+                // failed to initialize.
+                #[cfg(all(feature = "mcp", any(feature = "renderer-software", feature = "renderer-skia")))]
+                ("Headless", create_headless_backend as fn() -> Result<Box<(dyn Platform + 'static)>, PlatformError>),
                 ("", || Err(PlatformError::NoPlatform)),
             ];
 
@@ -110,7 +127,15 @@ cfg_if::cfg_if! {
                 },
                 #[cfg(feature = "backend-testing")]
                 "testing" => return Ok(Box::new(i_slint_backend_testing::TestingBackend::new(
-                    i_slint_backend_testing::TestingBackendOptions { mock_time: false, threading: true },
+                    i_slint_backend_testing::TestingBackendOptions { mock_time: false, threading: true, ..Default::default() },
+                ))),
+                #[cfg(all(feature = "mcp", any(feature = "renderer-software", feature = "renderer-skia")))]
+                "headless" => return Ok(Box::new(i_slint_backend_testing::TestingBackend::new(
+                    i_slint_backend_testing::TestingBackendOptions {
+                        mock_time: false,
+                        threading: true,
+                        renderer_name: (!_renderer.is_empty()).then(|| _renderer.into()),
+                    },
                 ))),
                 _ => {},
             }

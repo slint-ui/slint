@@ -39,26 +39,33 @@ renderer-skia = [
   "dep:i-slint-renderer-skia",
   "i-slint-backend-winit?/renderer-skia",
   "i-slint-backend-linuxkms?/renderer-skia",
+  "i-slint-backend-testing?/renderer-skia",
 ]
 renderer-skia-opengl = [
   "i-slint-backend-winit?/renderer-skia-opengl",
   "i-slint-backend-linuxkms?/renderer-skia-opengl",
+  "i-slint-backend-testing?/renderer-skia-opengl",
   "i-slint-renderer-skia/opengl",
 ]
 renderer-skia-vulkan = [
   "i-slint-backend-winit?/renderer-skia-vulkan",
   "i-slint-backend-linuxkms?/renderer-skia-vulkan",
+  "i-slint-backend-testing?/renderer-skia-vulkan",
   "i-slint-renderer-skia/vulkan",
 ]
-renderer-software = ["i-slint-backend-winit?/renderer-software", "i-slint-backend-linuxkms?/renderer-software"]
+renderer-software = [
+  "i-slint-backend-winit?/renderer-software",
+  "i-slint-backend-linuxkms?/renderer-software",
+  "i-slint-backend-testing?/renderer-software",
+]
 
 rtti = ["i-slint-core/rtti", "i-slint-backend-qt?/rtti"]
 accessibility = ["i-slint-backend-winit?/accessibility"]
 
 raw-window-handle-06 = ["i-slint-core/raw-window-handle-06", "i-slint-backend-winit?/raw-window-handle-06"]
 
-system-testing = ["i-slint-backend-testing/system-testing"]
-mcp = ["i-slint-backend-testing/mcp"]
+system-testing = ["renderer-software", "i-slint-backend-testing/system-testing"]
+mcp = ["renderer-software", "i-slint-backend-testing/mcp"]
 
 unstable-wgpu-28 = [
   "i-slint-core/unstable-wgpu-28",
