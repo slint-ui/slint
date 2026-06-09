@@ -696,6 +696,28 @@ jobs:
                 https://api.github.com/repos/slint-ui/slint-cpp-templates-stm32/actions/workflows/ci.yaml/dispatches \
                 -d '{"ref":"main"}'
 
+    play-store-screenshots:
+        # Render the idle screen at Play Store resolutions with the host viewer
+        # from slint-viewer-binary; upload the PNGs as an artifact.
+        needs: slint-viewer-binary
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: actions/download-artifact@v8
+              with:
+                  name: slint-viewer-linux
+            - name: Extract slint-viewer
+              run: tar xzf slint-viewer-linux.tar.gz
+            - name: Generate screenshots
+              env:
+                  SLINT_VIEWER_BIN: ${{ github.workspace }}/slint-viewer/slint-viewer
+              run: tools/viewer/play-store/take-screenshots.sh "${{ github.workspace }}/play-store-screenshots"
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: play-store-screenshots
+                  path: play-store-screenshots/*.png
+
     android:
         env:
             CARGO_APK_RELEASE_KEYSTORE: /home/runner/.android/release.keystore
