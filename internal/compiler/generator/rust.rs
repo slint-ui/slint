@@ -3673,20 +3673,23 @@ fn compile_builtin_function_call(
                     access_member(is_open_ref, ctx).then(|p| quote!(#p.set(value);))
                 });
                 component_access_tokens.then(|component_access_tokens| {
-                    // Keep the parent's `is-open` in sync: the runtime invokes this setter with `true`
-                    // immediately and with `false` from every close path (see window.rs).
-                    let is_open_setup = if let Some(set_expr) = &is_open_set_expr {
-                        quote! {
-                            let is_open_self_weak = _self.self_weak.get().unwrap().clone();
-                            window.set_popup_is_open_setter(popup_id, sp::Box::new(move |value: bool| {
-                                if let Some(is_open_self) = is_open_self_weak.upgrade() {
-                                    let _self = is_open_self.as_pin_ref();
-                                    #set_expr
-                                }
-                            }));
-                        }
-                    } else {
-                        quote!()
+                    // Keep the parent's `is-open` in sync: `show_popup` invokes this setter with `true`
+                    // immediately and with `false` from every close path (see window.rs). Passing it
+                    // directly into `show_popup` avoids an extra registration call and a second popup
+                    // lookup. Menus and `is-open`-less popups get a no-op setter.
+                    let (is_open_self_weak_decl, is_open_setter) = match &is_open_set_expr {
+                        Some(set_expr) => (
+                            quote!(let is_open_self_weak = _self.self_weak.get().unwrap().clone();),
+                            quote! {
+                                sp::Box::new(move |value: bool| {
+                                    if let Some(is_open_self) = is_open_self_weak.upgrade() {
+                                        let _self = is_open_self.as_pin_ref();
+                                        #set_expr
+                                    }
+                                })
+                            },
+                        ),
+                        None => (quote!(), quote!(sp::Box::new(|_| {}))),
                     };
                     quote!({
                     let parent_item = #parent_item;
@@ -3707,15 +3710,16 @@ fn compile_builtin_function_call(
                         let _self = popup_instance_vrc_for_position.as_pin_ref(); #position
                     });
 
+                    #is_open_self_weak_decl
                     let popup_id = window.show_popup(
                         &sp::VRc::into_dyn(popup_instance.into()),
                         access_position,
                         #close_policy,
                         parent_item,
                         #window_kind,
+                        #is_open_setter,
                     );
                     #component_access_tokens.#popup_id_name.set(Some(popup_id));
-                    #is_open_setup
                     #popup_window_id::user_init(popup_instance_vrc.clone());
                 })
                 })
@@ -3810,7 +3814,8 @@ fn compile_builtin_function_call(
                     access_position,
                     sp::PopupClosePolicy::CloseOnClickOutside,
                     #context_menu_rc,
-                    sp::WindowKind::Menu
+                    sp::WindowKind::Menu,
+                    sp::Box::new(|_| {}),
                 );
                 #set_id;
                 #popup_id::user_init(popup_instance_vrc);

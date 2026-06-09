@@ -147,12 +147,12 @@ public:
         slint_windowrc_set_component(&inner, &item_tree_rc);
     }
 
-    template<typename Component, typename Parent, typename PosGetter>
-    uint32_t
-    show_popup(const Parent *parent_component, PosGetter pos,
-               cbindgen_private::PopupClosePolicy close_policy,
-               cbindgen_private::ItemRc parent_item,
-               cbindgen_private::WindowKind window_kind = cbindgen_private::WindowKind::Popup) const
+    template<typename Component, typename Parent, typename PosGetter, typename IsOpenSetter>
+    uint32_t show_popup(const Parent *parent_component, PosGetter pos,
+                        cbindgen_private::PopupClosePolicy close_policy,
+                        cbindgen_private::ItemRc parent_item,
+                        cbindgen_private::WindowKind window_kind,
+                        IsOpenSetter is_open_setter) const
     {
         using SharedGlobals = decltype(parent_component->globals);
         SharedGlobals _own_globals = nullptr;
@@ -173,6 +173,9 @@ public:
         };
 
         auto position_data = new PopupPositionData { std::move(pos), popup };
+        // Keeps the parent component's `PopupWindow::is-open` property in sync: invoked with `true`
+        // when the popup is shown and with `false` from every close path.
+        auto is_open_data = new IsOpenSetter(std::move(is_open_setter));
         auto id = cbindgen_private::slint_windowrc_show_popup(
                 &inner, &popup_dyn,
                 [](void *user_data, LogicalPosition *pos) {
@@ -180,7 +183,12 @@ public:
                     *pos = data->pos(data->popup_component);
                 },
                 [](void *user_data) { delete reinterpret_cast<PopupPositionData *>(user_data); },
-                position_data, close_policy, &parent_item, window_kind);
+                position_data, close_policy, &parent_item, window_kind,
+                [](void *user_data, bool is_open) {
+                    (*reinterpret_cast<IsOpenSetter *>(user_data))(is_open);
+                },
+                [](void *user_data) { delete reinterpret_cast<IsOpenSetter *>(user_data); },
+                is_open_data);
         popup->user_init();
         return id;
     }
@@ -232,7 +240,9 @@ public:
                 },
                 [](void *user_data) { delete reinterpret_cast<LogicalPosition *>(user_data); },
                 position_data, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
-                &context_menu_rc, cbindgen_private::WindowKind::Menu);
+                &context_menu_rc, cbindgen_private::WindowKind::Menu,
+                // Menus do not expose `is-open`, so the setter is a no-op.
+                [](void *, bool) {}, [](void *) {}, nullptr);
         popup->user_init();
         return id;
     }

@@ -458,9 +458,10 @@ pub struct PopupWindow {
     /// Called during re-evaluation of the position tracker to re-subscribe to dependencies.
     /// IMPORTANT: This position is relative to the parent
     position_access: Box<dyn Fn() -> LogicalPosition>,
-    /// Keeps the parent component's `PopupWindow::is-open` property in sync. Called with `false` from
-    /// `close_popup_impl` on every close path. Defaults to a no-op for popups whose parent does not
-    /// read `is-open` (and for menus / tooltips / the C++ backend, which do not register a setter).
+    /// Keeps the parent component's `PopupWindow::is-open` property in sync. Provided to
+    /// [`WindowInner::show_popup`], invoked with `true` when the popup is shown and with `false` from
+    /// `close_popup_impl` on every close path. It is a no-op for popups whose parent does not read
+    /// `is-open` (menus and tooltips).
     is_open_setter: Box<dyn Fn(bool)>,
     // tracks all relevant properties and reacts on changes
     properties_tracker: Pin<Box<PropertyTracker<true, PopupWindowPropertiesTracker>>>,
@@ -1703,6 +1704,11 @@ impl WindowInner {
 
     /// Show a popup at the given position relative to the `parent_item` and returns its ID.
     /// The returned ID will always be non-zero.
+    ///
+    /// `is_open_setter` keeps the parent component's `PopupWindow::is-open` property in sync with this
+    /// popup: it is invoked immediately with `true`, and again with `false` when the popup is closed
+    /// through any path (see [`Self::close_popup_impl`]). Pass a no-op closure for popups (such as
+    /// menus) that do not expose `is-open`.
     pub fn show_popup(
         &self,
         popup_componentrc: &ItemTreeRc,
@@ -1710,6 +1716,7 @@ impl WindowInner {
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
         window_kind: WindowKind,
+        is_open_setter: Box<dyn Fn(bool)>,
     ) -> NonZeroU32 {
         // Popups live in their own ItemTree, which was invisible to any
         // earlier instantiation pass; materialize it before the layout queries below.
@@ -1856,6 +1863,11 @@ impl WindowInner {
                 .unwrap_or_default()
         };
 
+        // Reflect the freshly shown popup in the parent's `is-open` property; the matching `false` is
+        // emitted from `close_popup_impl` on every close path. Called before the popup is stored so we
+        // do not hold a borrow on `active_popups` while running user-provided code.
+        is_open_setter(true);
+
         self.active_popups.borrow_mut().push(PopupWindow {
             popup_id,
             location,
@@ -1865,31 +1877,13 @@ impl WindowInner {
             parent_item: parent_item.downgrade(),
             window_kind,
             position_access: popup_access_position,
-            is_open_setter: Box::new(|_| {}),
+            is_open_setter,
             properties_tracker,
         });
 
         self.update_popup_properties(popup_id);
 
         popup_id
-    }
-
-    /// Register a setter that keeps the parent component's `PopupWindow::is-open` property in sync with
-    /// the popup identified by `popup_id`. The setter is invoked immediately with `true`, and again
-    /// with `false` when the popup is closed through any path. This is additive (it does not change the
-    /// `show_popup` signature or the C ABI) so it can be called by the code generators right after
-    /// `show_popup` returns.
-    pub fn set_popup_is_open_setter(
-        &self,
-        popup_id: NonZeroU32,
-        is_open_setter: Box<dyn Fn(bool)>,
-    ) {
-        is_open_setter(true);
-        if let Some(popup) =
-            self.active_popups.borrow_mut().iter_mut().find(|p| p.popup_id == popup_id)
-        {
-            popup.is_open_setter = is_open_setter;
-        }
     }
 
     /// Attempt to show a native popup menu
@@ -2267,6 +2261,12 @@ pub mod ffi {
         }
     }
 
+    impl WithUserData<extern "C" fn(user_data: *mut c_void, is_open: bool)> {
+        fn call(&self, is_open: bool) {
+            (self.callback)(self.user_data, is_open)
+        }
+    }
+
     /// Same layout as WindowAdapterRc
     #[repr(C)]
     pub struct WindowAdapterRcOpaque(*const c_void, *const c_void);
@@ -2437,9 +2437,17 @@ pub mod ffi {
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
         window_kind: WindowKind,
+        is_open_setter: extern "C" fn(user_data: *mut c_void, is_open: bool),
+        is_open_setter_drop_user_data: extern "C" fn(user_data: *mut c_void),
+        is_open_setter_user_data: *mut c_void,
     ) -> NonZeroU32 {
         unsafe {
             let with_user_data = WithUserData { callback: position, drop_user_data, user_data };
+            let is_open_with_user_data = WithUserData {
+                callback: is_open_setter,
+                drop_user_data: is_open_setter_drop_user_data,
+                user_data: is_open_setter_user_data,
+            };
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
             WindowInner::from_pub(window_adapter.window()).show_popup(
                 popup,
@@ -2447,6 +2455,7 @@ pub mod ffi {
                 close_policy,
                 parent_item,
                 window_kind,
+                Box::new(move |is_open| is_open_with_user_data.call(is_open)),
             )
         }
     }
