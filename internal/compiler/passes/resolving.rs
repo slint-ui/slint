@@ -1905,9 +1905,9 @@ impl Expression {
         if expected_closure_arg_type.is_some() {
             let mut current = node.clone();
             loop {
-                let first_meaningful_child = current.children().find(|n| {
-                    matches!(n.kind(), SyntaxKind::Expression | SyntaxKind::Closure)
-                });
+                let first_meaningful_child = current
+                    .children()
+                    .find(|n| matches!(n.kind(), SyntaxKind::Expression | SyntaxKind::Closure));
                 match first_meaningful_child {
                     Some(child) if child.kind() == SyntaxKind::Closure => {
                         return Self::from_closure_node(
