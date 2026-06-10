@@ -27,14 +27,14 @@ type ItemTreeRc<C> = vtable::VRc<crate::item_tree::ItemTreeVTable, C>;
 /// Represents the relationship between model row and instance collection index
 /// of an element
 #[derive(Default, Clone, Debug)]
-struct ItemIndex {
+struct ItemIndexRelashionShip {
     /// The position of the item in the model
     row: usize,
     /// The index of the item in the instances collection
     instance_index: usize,
 }
 
-impl ItemIndex {
+impl ItemIndexRelashionShip {
     /// get the instance index from the model index `row`
     fn get_instance_index(&self, row: usize) -> usize {
         self.instance_index.wrapping_add(row.wrapping_sub(self.row))
@@ -133,7 +133,7 @@ impl<C: RepeatedItemTree> Default for RepeaterInner<C> {
 #[repr(C)]
 pub struct RepeaterLayoutState {
     /// The relation between the model row index and the instance collection index
-    pub item_index: ItemIndex,
+    pub item_index: ItemIndexRelashionShip,
     /// The average visible item height (cached between frames).
     pub cached_item_height: Coord,
     /// The viewport_y value from the previous layout pass.
@@ -597,6 +597,8 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         self.data().project_ref().instance_generation.register_as_dependency();
     }
 
+    /// Get the model of the repeater
+    /// If the model is dirty the tracker to this repeater will be set up
     fn model(self: Pin<&Self>) -> ModelRc<C::Data> {
         let model = self.data().project_ref().model;
 
@@ -1013,36 +1015,284 @@ mod tests {
     use crate::items::{AccessibleRole, ItemRc, ItemVTable, MouseCursor, RenderingResult};
     use crate::layout::LayoutInfo;
     use crate::lengths::{LogicalRect, LogicalSize};
+    use crate::model::VecModel;
     use crate::slice::Slice;
     use crate::window::{WindowAdapter, WindowAdapterRc};
     use alloc::rc::Rc;
+    use core::sync::atomic;
+    use std::vec;
+    use vtable::VRc;
 
     type ItemRendererRef<'a> = &'a mut dyn crate::item_rendering::ItemRenderer;
 
-    struct Value(Vec<i32>);
-    crate::item_tree::ItemTreeVTable_static!(static TEST_COMPONENT_VT for Value);
-    impl RepeatedItemTree for Value {
+    // Simple Item used in the tests for mocking
+    #[derive(Default)]
+    struct SimpleItem {
+        index: i32,
+        instantiated: bool,
+    }
+    crate::item_tree::ItemTreeVTable_static!(static TEST_COMPONENT_VT for SimpleItem);
+    impl RepeatedItemTree for SimpleItem {
         type Data = i32;
 
         fn update(&self, index: usize, data: Self::Data) {}
     }
-
-    #[test]
-    fn test() {
-        let mut repeater: Repeater<Value> = Repeater::default();
-
-        let model = Property::<ModelRc<i32>>::default();
-
-        let model = ModelRc::<i32>::default();
-
-        repeater.set_model_binding({ move || model.clone() });
-
-        let inner = repeater.0.inner.borrow();
-        assert_eq!(inner.instances.len(), 0, "We don't have any items yet in the model");
-        assert_eq!(inner.layout_state.item_index.row, 0);
+    impl SimpleItem {
+        fn new(index: i32) -> VRc<ItemTreeVTable, Self> {
+            let mut _self = Self::default();
+            _self.index = index;
+            let self_rc = VRc::new(_self);
+            self_rc
+        }
     }
 
-    impl crate::items::Item for Value {
+    #[test]
+    fn test_adding_element() {
+        let mut repeater: Repeater<SimpleItem> = Repeater::default();
+        let mut repeater = core::pin::pin!(repeater);
+        let model: Rc<VecModel<i32>> = Rc::new(VecModel::from(Vec::new()));
+
+        repeater.set_model_binding({
+            let model = model.clone();
+            move || ModelRc::from(model.clone())
+        });
+        repeater.as_ref().model(); // Setup tracker
+
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.instances.len(), 0, "We don't have any items yet in the model");
+            assert_eq!(inner.layout_state.item_index.row, 0);
+        }
+
+        model.push(0);
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.instances.len(), 1, "We added one element");
+            assert_eq!(inner.layout_state.item_index.row, 0);
+            assert_eq!(inner.layout_state.item_index.instance_index, 0);
+        }
+
+        // Append
+        model.push(1);
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.instances.len(), 2);
+            assert_eq!(
+                inner.layout_state.item_index.row, 0,
+                "We appended the item so we don't have to adapt"
+            );
+            assert_eq!(inner.layout_state.item_index.instance_index, 0);
+        }
+
+        // Prepend
+        model.insert(0, 2);
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(inner.instances.len(), 3);
+            assert_eq!(
+                inner.layout_state.item_index.row, 1,
+                "We inserted an element before the current element so we have to adapt"
+            );
+            assert_eq!(inner.layout_state.item_index.instance_index, 1);
+        }
+    }
+
+    #[test]
+    fn test_remove_elements() {
+        let mut repeater: Repeater<SimpleItem> = Repeater::default();
+        let mut repeater = core::pin::pin!(repeater);
+        let model: Rc<VecModel<i32>> = Rc::new(VecModel::from(Vec::from_iter(2..6)));
+
+        repeater.set_model_binding({
+            let model = model.clone();
+            move || ModelRc::from(model.clone())
+        });
+        repeater.as_ref().model(); // Setup tracker
+
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(model.row_count(), 4);
+            assert_eq!(
+                inner.instances.len(),
+                0,
+                "We didn't instantiate one yet because ensure updated was not yet called"
+            );
+            assert_eq!(inner.layout_state.item_index.row, 0);
+            assert_eq!(inner.layout_state.item_index.instance_index, 0);
+        }
+
+        // Create instances
+        static COUNTER: atomic::AtomicI32 = atomic::AtomicI32::new(0);
+        repeater.as_ref().ensure_updated(|| {
+            let index = COUNTER.fetch_add(1, atomic::Ordering::Relaxed);
+            SimpleItem::new(index)
+        });
+
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(model.row_count(), 4);
+            assert_eq!(inner.instances.len(), 4);
+            assert_eq!(inner.layout_state.item_index.row, 0);
+            assert_eq!(inner.layout_state.item_index.instance_index, 0);
+        }
+
+        // Point as current element to the 3th one
+        {
+            let mut inner = repeater.0.inner.borrow_mut();
+            inner.layout_state.item_index.row = 2;
+            assert_eq!(model.row_data(inner.layout_state.item_index.row), Some(4));
+        }
+
+        // Remove one after the current element
+        assert_eq!(model.remove(3), 5);
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(model.row_count(), 3);
+            assert_eq!(inner.instances.len(), 3);
+            assert_eq!(inner.layout_state.item_index.row, 2);
+            assert_eq!(inner.layout_state.item_index.instance_index, 0);
+            assert_eq!(model.row_data(inner.layout_state.item_index.row), Some(4));
+        }
+
+        // Remove one before the current element
+        assert_eq!(model.remove(1), 3);
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(model.row_count(), 2);
+            assert_eq!(inner.instances.len(), 2);
+            assert_eq!(inner.layout_state.item_index.row, 1);
+            assert_eq!(inner.layout_state.item_index.instance_index, 0);
+            assert_eq!(model.row_data(inner.layout_state.item_index.row), Some(4));
+        }
+
+        // Remove current item
+        assert_eq!(model.remove(1), 4);
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(model.row_count(), 1);
+            assert_eq!(inner.instances.len(), 1);
+            assert_eq!(inner.layout_state.item_index.row, 0, "row points now to the previous one");
+            assert_eq!(inner.layout_state.item_index.instance_index, 0);
+            assert_eq!(
+                model.row_data(inner.layout_state.item_index.row),
+                Some(2),
+                "row points now to the previous one"
+            );
+        }
+
+        // Remove last element
+        assert_eq!(model.remove(0), 3);
+        {
+            let inner = repeater.0.inner.borrow();
+            assert_eq!(model.row_count(), 0);
+            assert_eq!(inner.instances.len(), 0);
+            assert_eq!(inner.layout_state.item_index.row, 0, "row points now to the previous one");
+            assert_eq!(inner.layout_state.item_index.instance_index, 0);
+            assert_eq!(model.row_data(inner.layout_state.item_index.row), None, "Should be empty");
+        }
+    }
+
+    // Currently changing the instance_index is not yet supported
+    // #[test]
+    // fn test_remove_elements() {
+    //     let mut repeater: Repeater<SimpleItem> = Repeater::default();
+    //     let mut repeater = core::pin::pin!(repeater);
+    //     let model: Rc<VecModel<i32>> = Rc::new(VecModel::from(Vec::from_iter(2..6)));
+
+    //     repeater.set_model_binding({
+    //         let model = model.clone();
+    //         move || ModelRc::from(model.clone())
+    //     });
+    //     repeater.as_ref().model(); // Setup tracker
+
+    //     {
+    //         let inner = repeater.0.inner.borrow();
+    //         assert_eq!(model.row_count(), 4);
+    //         assert_eq!(
+    //             inner.instances.len(),
+    //             0,
+    //             "We didn't instantiate one yet because ensure updated was not yet called"
+    //         );
+    //         assert_eq!(inner.layout_state.item_index.row, 0);
+    //         assert_eq!(inner.layout_state.item_index.instance_index, 0);
+    //     }
+
+    //     // Create instances
+    //     static COUNTER: atomic::AtomicI32 = atomic::AtomicI32::new(0);
+    //     repeater.as_ref().ensure_updated(|| {
+    //         let index = COUNTER.fetch_add(1, atomic::Ordering::Relaxed);
+    //         SimpleItem::new(index)
+    //     });
+
+    //     {
+    //         let inner = repeater.0.inner.borrow();
+    //         assert_eq!(model.row_count(), 4);
+    //         assert_eq!(inner.instances.len(), 4);
+    //         assert_eq!(inner.layout_state.item_index.row, 0);
+    //         assert_eq!(inner.layout_state.item_index.instance_index, 0);
+    //     }
+
+    //     // Point as current element to the 3th one
+    //     {
+    //         let mut inner = repeater.0.inner.borrow_mut();
+    //         inner.layout_state.item_index.row = 2;
+    //         inner.layout_state.item_index.instance_index = 2;
+    //         assert_eq!(model.row_data(inner.layout_state.item_index.row), Some(4));
+    //     }
+
+    //     // Remove one after the current element
+    //     assert_eq!(model.remove(3), 5);
+    //     {
+    //         let inner = repeater.0.inner.borrow();
+    //         assert_eq!(model.row_count(), 3);
+    //         assert_eq!(inner.instances.len(), 3);
+    //         assert_eq!(inner.layout_state.item_index.row, 2);
+    //         assert_eq!(inner.layout_state.item_index.instance_index, 2);
+    //         assert_eq!(model.row_data(inner.layout_state.item_index.row), Some(4));
+    //     }
+
+    //     // Remove one before the current element
+    //     assert_eq!(model.remove(1), 3);
+    //     {
+    //         let inner = repeater.0.inner.borrow();
+    //         assert_eq!(model.row_count(), 2);
+    //         assert_eq!(inner.instances.len(), 2);
+    //         assert_eq!(inner.layout_state.item_index.row, 1);
+    //         assert_eq!(inner.layout_state.item_index.instance_index, 1);
+    //         assert_eq!(model.row_data(inner.layout_state.item_index.row), Some(4));
+    //     }
+
+    //     // Remove current item
+    //     assert_eq!(model.remove(1), 4);
+    //     {
+    //         let inner = repeater.0.inner.borrow();
+    //         assert_eq!(model.row_count(), 1);
+    //         assert_eq!(inner.instances.len(), 1);
+    //         assert_eq!(inner.layout_state.item_index.row, 0, "row points now to the previous one");
+    //         assert_eq!(inner.layout_state.item_index.instance_index, 0);
+    //         assert_eq!(
+    //             model.row_data(inner.layout_state.item_index.row),
+    //             Some(2),
+    //             "row points now to the previous one"
+    //         );
+    //     }
+
+    //     // Remove last element
+    //     assert_eq!(model.remove(0), 3);
+    //     {
+    //         let inner = repeater.0.inner.borrow();
+    //         assert_eq!(model.row_count(), 0);
+    //         assert_eq!(inner.instances.len(), 0);
+    //         assert_eq!(inner.layout_state.item_index.row, 0, "row points now to the previous one");
+    //         assert_eq!(inner.layout_state.item_index.instance_index, 0);
+    //         assert_eq!(model.row_data(inner.layout_state.item_index.row), None, "Should be empty");
+    //     }
+    // }
+
+    // Trait implementations
+    // ###############################################################################
+
+    impl crate::items::Item for SimpleItem {
         fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
 
         fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
@@ -1136,7 +1386,7 @@ mod tests {
         }
     }
 
-    impl ItemTree for Value {
+    impl ItemTree for SimpleItem {
         fn visit_children_item(
             self: core::pin::Pin<&Self>,
             _1: isize,
@@ -1172,8 +1422,7 @@ mod tests {
             false
         }
 
-        fn ensure_instantiated(self: core::pin::Pin<&Self>) -> bool {
-            unimplemented!("Not implemented");
+        fn ensure_instantiated(mut self: core::pin::Pin<&Self>) -> bool {
             false
         }
 
