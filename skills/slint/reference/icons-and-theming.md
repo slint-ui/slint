@@ -5,10 +5,14 @@
 Use `Image` with an SVG asset file:
 
 ```slint
-Image {
-    source: @image-url("icons/folder.svg");
-    width: 24px; height: 24px;
-    colorize: Palette.foreground;   // repaint a monochrome icon to match the theme
+import { Palette } from "std-widgets.slint";
+
+component FolderIcon {
+    Image {
+        source: @image-url("icons/folder.svg");
+        width: 24px; height: 24px;
+        colorize: Palette.foreground;   // repaint a monochrome icon to match the theme
+    }
 }
 ```
 
@@ -25,6 +29,8 @@ brush, so a single monochrome asset works in both color schemes.
   `out property <brush> bg: dark ? #1e2025 : #ffffff;` Bind `dark` to the palette
   with an optional user override:
   ```slint
+  import { Palette } from "std-widgets.slint";
+
   export enum ThemePreference { system, light, dark }
 
   export global Theme {
