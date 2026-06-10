@@ -1395,6 +1395,7 @@ mod dispatch_result_tests {
                 VerticalLayout {
                     DragArea {
                         data: Api.make-data();
+                        allow-copy: true;
                         Rectangle { background: #abc; }
                     }
                     DropArea {
@@ -1437,6 +1438,7 @@ mod dispatch_result_tests {
                 height: 200px;
                 DragArea {
                     data: Api.make-data();
+                    allow-copy: true;
                     Rectangle { background: #abc; }
                 }
             }

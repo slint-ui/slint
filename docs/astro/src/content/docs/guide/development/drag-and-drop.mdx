@@ -33,6 +33,7 @@ export component Example inherits Window {
             background: #f0c000;
             DragArea {
                 data: Api.string-to-transfer("Hello World");
+                allow-copy: true;
             }
             Text { text: "Drag me"; }
         }
@@ -58,7 +59,10 @@ Both `can-drop` and `dropped` return a <Link type="DragAction" />: `DragAction.c
 
 ## Drag actions
 
-A `DragArea` declares which actions it permits (`allow-copy`, `allow-move`, `allow-link`) and a `preferred-action` that applies when no modifier is pressed.
+A `DragArea` declares which actions it permits (`allow-copy`, `allow-move`, `allow-link`).
+At least one must be set to true; a `DragArea` that permits no action never starts a drag (the compiler warns).
+When no modifier key is pressed, the proposed action is the first allowed of move, copy, link;
+modifier keys request a specific action (Ctrl -> copy, Shift -> move, Ctrl+Shift -> link). On macOS, use Command (⌘) instead of Ctrl.
 The target picks the final action in `can-drop` (for hover) and `dropped` (final answer), the runtime clamps each against the source's allowed set, and when the drop completes the source's `drag-finished(action)` fires so a "move" source can remove the original data.
 
 ```slint no-test
@@ -66,7 +70,6 @@ DragArea {
     data: Api.make-data();
     allow-copy: false;
     allow-move: true;
-    preferred-action: DragAction.move;
     // Dim the source while the drag is in flight.
     opacity: self.dragging ? 0.4 : 1.0;
     drag-finished(action) => {
