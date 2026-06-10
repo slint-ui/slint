@@ -1,35 +1,29 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export component TestCase inherits Window {
+component TestCase inherits TextInput {
     width: 100phx;
     height: 100phx;
-
-    forward-focus: ti;
-
-    ti := TextInput {
-        single-line: false;
-    }
-
-    in-out property<string> test_text <=> ti.text;
-    in-out property<int> test_cursor_pos: ti.cursor_position_byte_offset;
-    in-out property<int> test_anchor_pos: ti.anchor_position_byte_offset;
+    single-line: false;
+    in-out property<string> test_text: self.text;
+    in-out property<int> test_cursor_pos: self.cursor_position_byte_offset;
+    in-out property<int> test_anchor_pos: self.anchor_position_byte_offset;
     in-out property<bool> has_selection: self.test_cursor_pos != self.test_anchor_pos;
-    in-out property<bool> input_focused: ti.has_focus;
+    in-out property<bool> input_focused: self.has_focus;
 
     callback do_undo();
-    do_undo => { ti.undo(); }
+    do_undo => { self.undo(); }
 
     callback do_redo();
-    do_redo => { ti.redo(); }
+    do_redo => { self.redo(); }
 
     callback do_select_all();
-    do_select_all => { ti.select_all(); }
+    do_select_all => { self.select_all(); }
 }
 
 /*
 ```rust
-const BACK_CODE: char = '\u{0008}';
+const BACK_CODE: char = '\u{0008}'; // backspace \b
 
 fn ctrl_key(instance: &TestCase, key: &str, shift: bool) {
     slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Control.into(), true);
@@ -37,6 +31,8 @@ fn ctrl_key(instance: &TestCase, key: &str, shift: bool) {
         slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Shift.into(), true);
     }
     slint_testing::send_keyboard_string_sequence(instance, key);
+
+    // release
     slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Control.into(), false);
     if shift {
         slint_testing::send_keyboard_char(instance, slint::private_unstable_api::re_exports::Key::Shift.into(), false);
@@ -100,11 +96,15 @@ assert_eq!(instance.get_test_text(), "Hello");
 ctrl_key(&instance, "z", false);
 assert_eq!(instance.get_test_text(), "");
 
+// Ctrl+Shift+Z (Linux/macOS) + Ctrl+Y (Windows)
 ctrl_key(&instance, "z", true);
+ctrl_key(&instance, "y", false);
 assert_eq!(instance.get_test_text(), "Hello");
 ctrl_key(&instance, "z", true);
+ctrl_key(&instance, "y", false);
 assert_eq!(instance.get_test_text(), "Hello\n");
 ctrl_key(&instance, "z", true);
+ctrl_key(&instance, "y", false);
 assert_eq!(instance.get_test_text(), "Hello\nWorld");
 ```
 */
