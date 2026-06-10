@@ -2355,6 +2355,36 @@ pub unsafe extern "C" fn slint_textinput_paste(
     }
 }
 
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_textinput_undo(
+    text_input: Pin<&TextInput>,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+) {
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let self_rc = ItemRc::new(self_component.clone(), self_index);
+        text_input.undo(window_adapter, &self_rc);
+    }
+}
+
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_textinput_redo(
+    text_input: Pin<&TextInput>,
+    window_adapter: *const crate::window::ffi::WindowAdapterRcOpaque,
+    self_component: &vtable::VRc<crate::item_tree::ItemTreeVTable>,
+    self_index: u32,
+) {
+    unsafe {
+        let window_adapter = &*(window_adapter as *const Rc<dyn WindowAdapter>);
+        let self_rc = ItemRc::new(self_component.clone(), self_index);
+        text_input.redo(window_adapter, &self_rc);
+    }
+}
+
 pub fn slint_text_item_fontmetrics(
     window_adapter: &Rc<dyn WindowAdapter>,
     item_ref: Pin<ItemRef<'_>>,
