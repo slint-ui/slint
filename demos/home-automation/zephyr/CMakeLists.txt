@@ -39,9 +39,6 @@ set(SLINT_FEATURE_SDF_FONTS ON CACHE BOOL "" FORCE)
 set(DEFAULT_SLINT_EMBED_RESOURCES "embed-for-software-renderer-with-sdf" CACHE STRING "")
 set(BUILD_SHARED_LIBS OFF)
 
-# Work around gcc_s linker issue?
-set(Rust_CARGO_TARGET_LINK_NATIVE_LIBS "" CACHE INTERNAL "" FORCE)
-
 # TODO: FetchContent?
 add_subdirectory(../../.. slint_build)
 
