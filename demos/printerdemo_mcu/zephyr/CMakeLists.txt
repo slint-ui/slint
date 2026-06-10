@@ -51,7 +51,4 @@ target_sources(app PRIVATE ../../zephyr-common/slint-zephyr.cpp main.cpp)
 target_include_directories(app PRIVATE ../../zephyr-common)
 target_link_libraries(app PRIVATE Slint::Slint)
 
-# Workaround for Slint render_by_line type mismatch on 32-bit ARM
-target_compile_options(app PRIVATE -fpermissive)
-
 slint_target_sources(app ../ui/printerdemo.slint)
