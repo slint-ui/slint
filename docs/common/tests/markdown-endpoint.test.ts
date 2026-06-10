@@ -6,6 +6,9 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
     markdownStaticPaths,
     renderMarkdownResponse,
@@ -14,6 +17,17 @@ import {
 
 function entry(over: Partial<MarkdownDocEntry>): MarkdownDocEntry {
     return { id: "", data: {}, body: "", ...over };
+}
+
+// A fake project root holding code files that `?raw` imports resolve to.
+function projectRootWith(files: Record<string, string>): string {
+    const root = mkdtempSync(join(tmpdir(), "md-endpoint-test-"));
+    for (const [path, content] of Object.entries(files)) {
+        const abs = join(root, path);
+        mkdirSync(join(abs, ".."), { recursive: true });
+        writeFileSync(abs, content);
+    }
+    return root;
 }
 
 test("root index (empty id) maps to the index.md slug", () => {
@@ -94,4 +108,98 @@ test("unknown link types are passed through unchanged", async () => {
     );
     const text = await res.text();
     assert.match(text, /<Link type="Nope" \/>/);
+});
+
+test("a ?raw import feeding <Code> becomes a fenced block", async () => {
+    const projectRoot = projectRootWith({
+        "src/content/code/hello.sh": "echo hello\n",
+    });
+    const res = renderMarkdownResponse(
+        entry({
+            body: [
+                "import script from '/src/content/code/hello.sh?raw'",
+                "",
+                '<Code code={script} lang="bash" />',
+            ].join("\n"),
+        }),
+        { projectRoot },
+    );
+    const text = await res.text();
+    assert.match(text, /```bash\necho hello\n```/);
+    // The consumed import line is gone.
+    assert.doesNotMatch(text, /import script/);
+});
+
+test("extractLines() slices a 1-based inclusive range and title is kept", async () => {
+    const projectRoot = projectRootWith({
+        "src/content/code/app.slint": "l1\nl2\nl3\nl4\nl5\n",
+    });
+    const res = renderMarkdownResponse(
+        entry({
+            body: [
+                'import appWindow from "/src/content/code/app.slint?raw"',
+                '<Code code={extractLines(appWindow, 2 ,4)} lang="slint" title="app.slint" />',
+            ].join("\n"),
+        }),
+        { projectRoot },
+    );
+    const text = await res.text();
+    assert.match(text, /```slint title="app\.slint"\nl2\nl3\nl4\n```/);
+});
+
+test("relative ?raw imports resolve against the page's directory", async () => {
+    const projectRoot = projectRootWith({
+        "scripts/build.sh": "make\n",
+    });
+    const res = renderMarkdownResponse(
+        entry({
+            filePath: "src/content/docs/guide/page.mdx",
+            body: [
+                "import script from './../../../../scripts/build.sh?raw'",
+                '<Code code={script} lang="bash" />',
+            ].join("\n"),
+        }),
+        { projectRoot },
+    );
+    const text = await res.text();
+    assert.match(text, /```bash\nmake\n```/);
+});
+
+test("an unreadable ?raw import fails the build", () => {
+    const projectRoot = projectRootWith({});
+    const body = [
+        "import gone from '/src/content/code/missing.cpp?raw'",
+        '<Code code={gone} lang="cpp" />',
+    ].join("\n");
+    assert.throws(
+        () => renderMarkdownResponse(entry({ body }), { projectRoot }),
+        /cannot read "\/src\/content\/code\/missing\.cpp\?raw"/,
+    );
+});
+
+test("a <Code> expression that is not a ?raw import fails the build", () => {
+    const projectRoot = projectRootWith({});
+    const body = '<Code code={someNewHelper(x)} lang="cpp" />';
+    assert.throws(
+        () => renderMarkdownResponse(entry({ body }), { projectRoot }),
+        /does not reference a \?raw import/,
+    );
+});
+
+test("a ?raw import that no recognized <Code> consumes fails the build", () => {
+    const projectRoot = projectRootWith({
+        "src/content/code/hello.sh": "echo hello\n",
+    });
+    const body = "import script from '/src/content/code/hello.sh?raw'";
+    assert.throws(
+        () => renderMarkdownResponse(entry({ body }), { projectRoot }),
+        /feeds no <Code/,
+    );
+});
+
+test("without projectRoot, code imports are left as-is", async () => {
+    const body = "import script from '/src/content/code/x.sh?raw'";
+    const res = renderMarkdownResponse(entry({ body }));
+    const text = await res.text();
+    assert.match(text, /import script from/);
 });
