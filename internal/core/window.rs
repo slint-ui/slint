@@ -459,12 +459,22 @@ pub struct PopupWindow {
     /// IMPORTANT: This position is relative to the parent
     position_access: Box<dyn Fn() -> LogicalPosition>,
     /// Keeps the parent component's `PopupWindow::is-open` property in sync. Provided to
-    /// [`WindowInner::show_popup`], invoked with `true` when the popup is shown and with `false` from
-    /// `close_popup_impl` on every close path. It is a no-op for popups whose parent does not read
-    /// `is-open` (menus and tooltips).
+    /// [`WindowInner::show_popup`], invoked with `true` when the popup is shown and with `false` when
+    /// this `PopupWindow` is dropped (see the `Drop` impl below). It is a no-op for popups whose
+    /// parent does not read `is-open` (menus and tooltips).
     is_open_setter: Box<dyn Fn(bool)>,
     // tracks all relevant properties and reacts on changes
     properties_tracker: Pin<Box<PropertyTracker<true, PopupWindowPropertiesTracker>>>,
+}
+
+impl Drop for PopupWindow {
+    fn drop(&mut self) {
+        // Dropping the `PopupWindow` is the single choke point that every close path funnels through
+        // (click-outside, selection, programmatic `close()`, sibling replacement, window change,
+        // Escape, and tearing down the window itself), so flip the parent's `is-open` back to false
+        // here rather than in any individual close function.
+        (self.is_open_setter)(false);
+    }
 }
 
 #[pin_project::pin_project]
@@ -1707,8 +1717,8 @@ impl WindowInner {
     ///
     /// `is_open_setter` keeps the parent component's `PopupWindow::is-open` property in sync with this
     /// popup: it is invoked immediately with `true`, and again with `false` when the popup is closed
-    /// through any path (see `close_popup_impl`). Pass a no-op closure for popups (such as
-    /// menus) that do not expose `is-open`.
+    /// through any path (the `Drop` impl of [`PopupWindow`] handles the `false`). Pass a no-op closure
+    /// for popups (such as menus) that do not expose `is-open`.
     pub fn show_popup(
         &self,
         popup_componentrc: &ItemTreeRc,
@@ -1864,8 +1874,9 @@ impl WindowInner {
         };
 
         // Reflect the freshly shown popup in the parent's `is-open` property; the matching `false` is
-        // emitted from `close_popup_impl` on every close path. Called before the popup is stored so we
-        // do not hold a borrow on `active_popups` while running user-provided code.
+        // emitted when the stored `PopupWindow` is dropped (see its `Drop` impl), which every close
+        // path funnels through. Called before the popup is stored so we do not hold a borrow on
+        // `active_popups` while running user-provided code.
         is_open_setter(true);
 
         self.active_popups.borrow_mut().push(PopupWindow {
@@ -1909,10 +1920,9 @@ impl WindowInner {
     }
 
     // Close the popup associated with the given popup window.
+    // The parent's `is-open` property is reset to false when `current_popup` is dropped (see the
+    // `Drop` impl for `PopupWindow`), which every close path eventually does.
     fn close_popup_impl(&self, current_popup: &PopupWindow) {
-        // Single choke point for every close path (click-outside, selection, programmatic close(),
-        // sibling replacement, window change, Escape): flip the parent's `is-open` back to false.
-        (current_popup.is_open_setter)(false);
         match &current_popup.location {
             PopupWindowLocation::ChildWindow(offset) => {
                 // Refresh the area that was previously covered by the popup.

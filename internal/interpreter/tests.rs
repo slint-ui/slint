@@ -276,7 +276,7 @@ export component TestCase {
     instance.invoke("show-a2", &[]).unwrap();
     assert_eq!(instance.get_property("a2-open").unwrap(), Value::from(true), "a2 after show");
 
-    // Programmatic close() resets is-open to false through `close_popup_impl`.
+    // Programmatic close() drops the `PopupWindow`, whose `Drop` impl resets is-open to false.
     instance.invoke("close-a", &[]).unwrap();
     assert_eq!(instance.get_property("a-open").unwrap(), Value::from(false), "a after close");
 }

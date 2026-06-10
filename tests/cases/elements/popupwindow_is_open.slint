@@ -110,4 +110,36 @@ assert_eq!(instance.get_b_open(), true);
 slint_testing::send_mouse_click(&instance, 155., 35.);
 assert_eq!(instance.get_b_open(), false);
 ```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_a_open(), false);
+assert_eq(instance.get_a2_open(), false);
+assert_eq(instance.get_b_open(), false);
+
+// --------- `a`: close-on-click — opens on click, closes again on the next click
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_a_open(), true);
+assert_eq(instance.get_a2_open(), false);
+
+// Any click dismisses a close-on-click popup, which must reset is-open to false.
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_a_open(), false);
+
+// --------- `a2`: a second instance of the same component opens/closes independently
+slint_testing::send_mouse_click(&instance, 55., 5.);
+assert_eq(instance.get_a2_open(), true);
+assert_eq(instance.get_a_open(), false);
+slint_testing::send_mouse_click(&instance, 55., 5.);
+assert_eq(instance.get_a2_open(), false);
+
+// --------- `b`: no-auto-close, closed via close()
+slint_testing::send_mouse_click(&instance, 155., 5.);
+assert_eq(instance.get_b_open(), true);
+
+// Clicking inside `b`'s popup calls close(), which must reset is-open to false.
+slint_testing::send_mouse_click(&instance, 155., 35.);
+assert_eq(instance.get_b_open(), false);
+```
 */
