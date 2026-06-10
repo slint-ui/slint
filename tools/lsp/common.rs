@@ -95,8 +95,13 @@ pub trait PreviewToLsp {
         selection: lsp_types::Range,
         take_focus: bool,
     ) -> Result<()> {
-        let file = lsp_types::Url::from_file_path(file)
-            .map_err(|_| "Failed to convert URL".to_string())?;
+        let file = match lsp_types::Url::from_file_path(file) {
+            Ok(file) => file,
+            Err(()) => {
+                tracing::error!("Failed to convert file path to URL for ShowDocument: {file}");
+                return Err("Failed to convert file path to URL".to_string().into());
+            }
+        };
         if selection.start.character == 0 || selection.end.character == 0 {
             return Ok(());
         }
@@ -112,7 +117,11 @@ pub trait PreviewToLsp {
             }
             object
         };
-        self.send(&PreviewToLspMessage::TelemetryEvent(object))
+        if let Err(err) = self.send(&PreviewToLspMessage::TelemetryEvent(object)) {
+            tracing::error!("Failed to send telemetry event: {err}");
+            return Err(err);
+        }
+        Ok(())
     }
 }
 

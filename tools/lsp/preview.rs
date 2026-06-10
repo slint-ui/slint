@@ -63,7 +63,7 @@ pub fn run(
             "type".to_string(),
             serde_json::to_value("preview_opened").unwrap(),
         )])
-        .unwrap();
+        .ok();
     app_window.window().set_fullscreen(fullscreen);
 
     tracing::debug!("Preview: requesting state from LSP");
@@ -573,7 +573,7 @@ fn set_code_binding(
         "type".to_string(),
         serde_json::to_value("property_changed").unwrap(),
     )])
-    .unwrap();
+    .ok();
 
     set_binding(
         element_url,
@@ -690,7 +690,7 @@ fn show_component(name: slint::SharedString, url: slint::SharedString) {
         lsp_types::Range::new(start, start),
         false,
     )
-    .unwrap();
+    .ok();
 }
 
 fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32, take_focus: bool) {
@@ -730,7 +730,7 @@ fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32, ta
             lsp_types::Range::new(s, e),
             take_focus,
         )
-        .unwrap();
+        .ok();
     }
 }
 
@@ -1378,7 +1378,7 @@ async fn reload_timer_function() {
                 lsp_types::Range::new(pos, pos),
                 false,
             )
-            .unwrap();
+            .ok();
         }
     }
 }
@@ -1877,7 +1877,7 @@ fn set_selected_element(
             lsp_types::Range::new(pos, pos),
             false,
         )
-        .unwrap();
+        .ok();
     }
 }
 
