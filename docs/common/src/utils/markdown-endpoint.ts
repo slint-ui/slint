@@ -130,9 +130,10 @@ function resolveLinkComponents(
 // `import name from "…?raw"` hands the file's text to a `<Code>` component at
 // build time. The served markdown is the unprocessed MDX, so without help the
 // reader sees the import line where the HTML page shows code. Inline the file
-// content as a fenced code block and drop the consumed import. Components
-// whose source can't be resolved are left as-is so the regular build checks
-// surface the problem.
+// content as a fenced code block and drop the consumed import. Anything that
+// doesn't parse fails the build: a silent pass-through would let a syntax
+// change (a new Astro major, a new authoring pattern) quietly degrade the
+// served markdown again.
 const RAW_IMPORT_RE =
     /^import\s+(\w+)\s+from\s+["']([^"']+)\?raw["'];?[ \t]*\n?/gm;
 const CODE_COMPONENT_RE = /<Code\s([^>]*?)\/>/g;
@@ -145,6 +146,7 @@ function inlineRawCodeImports(
     projectRoot: string,
     entryFilePath?: string,
 ): string {
+    const page = entryFilePath ?? "<unknown page>";
     // The imported files: binding name -> file content.
     const sources = new Map<string, string>();
     for (const [, name, importPath] of body.matchAll(RAW_IMPORT_RE)) {
@@ -155,16 +157,20 @@ function inlineRawCodeImports(
             : entryFilePath
               ? join(projectRoot, dirname(entryFilePath), importPath)
               : undefined;
-        try {
-            if (resolved) {
-                sources.set(name, readFileSync(resolved, "utf-8"));
-            }
-        } catch {
-            // Unreadable file: keep the import and its <Code> usage verbatim.
+        if (resolved === undefined) {
+            throw new Error(
+                `${page}: cannot resolve the relative import "${importPath}?raw" without the entry's filePath`,
+            );
         }
-    }
-    if (sources.size === 0) {
-        return body;
+        try {
+            sources.set(name, readFileSync(resolved, "utf-8"));
+        } catch {
+            // Astro itself resolves the import during the build, so a read
+            // failure here means this endpoint resolved the path differently.
+            throw new Error(
+                `${page}: cannot read "${importPath}?raw" (resolved to ${resolved}) — fix the path resolution in the markdown endpoint`,
+            );
+        }
     }
 
     const inlined = new Set<string>();
@@ -174,7 +180,9 @@ function inlineRawCodeImports(
         const name = sliced?.[1] ?? codeExpr.trim();
         let content = sources.get(name);
         if (content === undefined) {
-            return whole;
+            throw new Error(
+                `${page}: \`${whole}\` does not reference a ?raw import — teach the markdown endpoint this syntax`,
+            );
         }
         if (sliced) {
             content = content
@@ -194,10 +202,15 @@ function inlineRawCodeImports(
         return `${fence}${info}\n${content.replace(/\n+$/, "")}\n${fence}`;
     });
 
-    // Drop the import lines whose code is now inlined.
-    return out.replace(RAW_IMPORT_RE, (whole, name) =>
-        inlined.has(name) ? "" : whole,
-    );
+    for (const name of sources.keys()) {
+        if (!inlined.has(name)) {
+            throw new Error(
+                `${page}: the ?raw import "${name}" feeds no <Code …/> the markdown endpoint recognizes — teach it the new syntax`,
+            );
+        }
+    }
+    // Every import is consumed at this point; drop the import lines.
+    return out.replace(RAW_IMPORT_RE, "");
 }
 
 // Convert an HTML page href like "reference/common/#anchor" into the

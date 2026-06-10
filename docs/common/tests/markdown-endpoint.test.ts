@@ -165,16 +165,36 @@ test("relative ?raw imports resolve against the page's directory", async () => {
     assert.match(text, /```bash\nmake\n```/);
 });
 
-test("unresolvable code imports leave the MDX untouched", async () => {
+test("an unreadable ?raw import fails the build", () => {
     const projectRoot = projectRootWith({});
     const body = [
         "import gone from '/src/content/code/missing.cpp?raw'",
         '<Code code={gone} lang="cpp" />',
     ].join("\n");
-    const res = renderMarkdownResponse(entry({ body }), { projectRoot });
-    const text = await res.text();
-    assert.match(text, /import gone from/);
-    assert.match(text, /<Code code=\{gone\} lang="cpp" \/>/);
+    assert.throws(
+        () => renderMarkdownResponse(entry({ body }), { projectRoot }),
+        /cannot read "\/src\/content\/code\/missing\.cpp\?raw"/,
+    );
+});
+
+test("a <Code> expression that is not a ?raw import fails the build", () => {
+    const projectRoot = projectRootWith({});
+    const body = '<Code code={someNewHelper(x)} lang="cpp" />';
+    assert.throws(
+        () => renderMarkdownResponse(entry({ body }), { projectRoot }),
+        /does not reference a \?raw import/,
+    );
+});
+
+test("a ?raw import that no recognized <Code> consumes fails the build", () => {
+    const projectRoot = projectRootWith({
+        "src/content/code/hello.sh": "echo hello\n",
+    });
+    const body = "import script from '/src/content/code/hello.sh?raw'";
+    assert.throws(
+        () => renderMarkdownResponse(entry({ body }), { projectRoot }),
+        /feeds no <Code/,
+    );
 });
 
 test("without projectRoot, code imports are left as-is", async () => {
