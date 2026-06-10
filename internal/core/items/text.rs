@@ -2087,7 +2087,7 @@ impl TextInput {
         self.undo_items.set(items);
     }
 
-    fn undo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+    pub fn undo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
         let mut items = self.undo_items.take();
         let Some(last) = items.pop() else {
             return;
@@ -2132,7 +2132,7 @@ impl TextInput {
         Self::FIELD_OFFSETS.edited().apply_pin(self).call(&());
     }
 
-    fn redo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+    pub fn redo(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
         let mut items = self.redo_items.take();
         let Some(last) = items.pop() else {
             return;
