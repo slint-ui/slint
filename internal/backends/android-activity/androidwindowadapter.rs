@@ -245,7 +245,7 @@ impl AndroidWindowAdapter {
                 self.window.try_dispatch_event(WindowEvent::WindowActiveChanged(true))?;
             }
             PollEvent::Main(MainEvent::LostFocus) => {
-                self.window.try_dispatch_event(WindowEvent::WindowActiveChanged(true))?;
+                self.window.try_dispatch_event(WindowEvent::WindowActiveChanged(false))?;
             }
             PollEvent::Main(MainEvent::ConfigChanged { .. }) => {
                 let scale_factor =
