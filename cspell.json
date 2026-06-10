@@ -335,7 +335,9 @@
         "**/*.gltf",
         "**/*.po",
         "**/*.pot",
-        "**/*.svg"
+        "**/*.svg",
+        "target/**",
+        "**/node_modules/**"
     ],
     "overrides": [
         {
