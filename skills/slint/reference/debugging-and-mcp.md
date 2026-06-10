@@ -19,11 +19,8 @@
 - `debug("msg", expr)` prints to stderr at runtime.
 - `SLINT_DEBUG_PERFORMANCE=refresh_lazy,console` prints frame diagnostics.
 - `SLINT_BACKEND=winit-skia` / `winit-femtovg` / `winit-software` selects the
-  backend and renderer. With `--features slint/mcp`, `SLINT_BACKEND=headless`
-  runs with no display at all (see the MCP section); without that feature,
-  headless Linux needs `winit-software` under
-  `xvfb-run -a -s "-screen 0 1360x900x24"` (the winit X11 path needs
-  `libxkbcommon-x11`).
+  backend and renderer; `SLINT_BACKEND=headless` (needs `--features slint/mcp`)
+  runs with no display at all — see the MCP section.
 - `Window::take_snapshot()` (Rust) renders the window to a pixel buffer.
 
 ## Check a `.slint` file (`slint-viewer --check`)
