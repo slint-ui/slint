@@ -129,6 +129,3 @@ label = "Slint Viewer"
 
 [[package.metadata.android.uses_permission]]
 name = "android.permission.INTERNET"
-
-[[package.metadata.android.uses_permission]]
-name = "android.permission.CHANGE_WIFI_MULTICAST_STATE"
