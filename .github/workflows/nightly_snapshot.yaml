@@ -706,18 +706,21 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install Android API platforms
               run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30" "platforms;android-35" "build-tools;35.0.1"
-            - name: Cache cargo-apk
-              id: cargo-apk-cache
+            - name: Cache cargo-apk, cargo-ndk and resvg
+              id: cargo-tools-cache
               uses: actions/cache@v5
               with:
-                  path: ~/.cargo/bin/cargo-apk
-                  key: cargo-apk-cache
-            # Only build cargo-apk if not cached
+                  path: |
+                      ~/.cargo/bin/cargo-apk
+                      ~/.cargo/bin/cargo-ndk
+                      ~/.cargo/bin/resvg
+                  key: android-cargo-tools-cache
+            # Only build the tools if not cached
             - uses: dtolnay/rust-toolchain@stable
-              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
-            - name: Install cargo-apk
-              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
-              run: cargo install cargo-apk
+              if: steps.cargo-tools-cache.outputs.cache-hit != 'true'
+            - name: Install cargo-apk, cargo-ndk and resvg
+              if: steps.cargo-tools-cache.outputs.cache-hit != 'true'
+              run: cargo install --locked cargo-apk cargo-ndk resvg
 
             - uses: ./.github/actions/setup-rust
               with:
@@ -756,11 +759,6 @@ jobs:
               with:
                   # Installs Gradle on PATH; the AAB project has no wrapper jar.
                   gradle-version: "8.10.2"
-            # Split so a failure of one install doesn't mask the other's diagnostic.
-            - name: Install cargo-ndk
-              run: cargo install cargo-ndk --locked
-            - name: Install resvg
-              run: cargo install resvg --locked
             - name: Build slint-viewer AAB
               env:
                   ANDROID_KEYSTORE_PATH: ${{ env.CARGO_APK_RELEASE_KEYSTORE }}
