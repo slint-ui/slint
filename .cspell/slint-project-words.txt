@@ -365,6 +365,7 @@ machdep
 Macronix
 mainwindow
 MALLOC
+manylinux
 materialui
 matplot
 maturin
@@ -466,6 +467,7 @@ protoc
 protox
 Pseudonymized
 psram
+purelib
 pyclass
 pyftsubset
 pyfunction
@@ -473,6 +475,7 @@ pymethods
 pymodule
 pyobject
 pypi
+pypiserver
 pyproject
 pystruct
 pytest
