@@ -1277,7 +1277,11 @@ impl HasFont for TextInput {
 
 impl RenderString for TextInput {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
-        PlainOrStyledText::Plain(self.as_ref().visual_representation(None).text.clone())
+        // Size from the raw text, not `visual_representation`: the latter reads
+        // the cursor/selection/preedit properties, which would make text_size
+        // (and thus layout) depend on them - reflowing on every cursor blink or
+        // selection change. The persistent box size only depends on the text.
+        PlainOrStyledText::Plain(self.text())
     }
 }
 

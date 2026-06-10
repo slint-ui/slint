@@ -354,6 +354,7 @@ pub trait HasFont {
 }
 
 #[allow(missing_docs)]
+#[derive(Clone)]
 pub enum PlainOrStyledText {
     Plain(SharedString),
     Styled(crate::styled_text::StyledText),
