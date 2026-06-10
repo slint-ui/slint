@@ -48,7 +48,7 @@ const DECELERATION: f32 = 2000.;
 /// Fixed-duration animation used for wheel scrolling, where we don't have enough phase
 /// information to derive a fling velocity.
 /// The unit is: millisecond
-const WHEEL_SCROLL_DURATION: Duration = Duration::from_millis(180);
+const WHEEL_SCROLL_DURATION: Duration = Duration::from_millis(250);
 /// The maximum duration between a move and a release event to start an animation
 /// If the duration is larger than this value, no animation will be executed because
 /// it is not desired
