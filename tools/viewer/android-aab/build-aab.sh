@@ -1,18 +1,17 @@
 #!/bin/bash
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
-# cSpell: ignore androidkey xxxhdpi jniLibs
+# cSpell: ignore xxxhdpi jniLibs
 #
 # Build the slint-viewer Android App Bundle for Play Store upload.
 #
 # Defaults: SLINT_VERSION from the workspace Cargo.toml, SLINT_BUILD_NUMBER
 # from the git commit count. Override either as env vars.
 #
-# Signing (omit for an unsigned local bundle):
+# Signing (omit all three for an unsigned local bundle):
 #   ANDROID_KEYSTORE_PATH      upload keystore path
-#   ANDROID_KEYSTORE_PASSWORD  upload keystore password
-#   ANDROID_KEY_ALIAS          key alias, defaults to "androidkey"
-#   ANDROID_KEY_PASSWORD       key password, defaults to keystore password
+#   ANDROID_KEYSTORE_PASSWORD  upload keystore password, also unlocks the key
+#   ANDROID_KEYSTORE_ALIAS     alias of the signing key in the keystore
 #
 # Requires: cargo-ndk; Android SDK + NDK with ANDROID_HOME / ANDROID_NDK_HOME
 # set; gradle 8.9+ on PATH (AGP 8.7); JDK 17; the three Android rust targets
@@ -26,6 +25,12 @@ PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$PROJECT_DIR/../../.." && pwd)"
 
 [ -n "${ANDROID_HOME:-}" ] || { echo "set ANDROID_HOME to your Android SDK" >&2; exit 1; }
+
+# Check the signing setup before the long Rust build so it fails fast.
+if [ -n "${ANDROID_KEYSTORE_PATH:-}" ]; then
+    [ -n "${ANDROID_KEYSTORE_PASSWORD:-}" ] || { echo "set ANDROID_KEYSTORE_PASSWORD" >&2; exit 1; }
+    [ -n "${ANDROID_KEYSTORE_ALIAS:-}" ] || { echo "set ANDROID_KEYSTORE_ALIAS" >&2; exit 1; }
+fi
 
 if [ -z "${SLINT_VERSION:-}" ]; then
     SLINT_VERSION=$(awk -F'"' '/^version = / { print $2; exit }' "$REPO_ROOT/Cargo.toml")
