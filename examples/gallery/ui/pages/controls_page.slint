@@ -196,9 +196,6 @@ export component ControlsPage inherits Page {
                 title: @tr("Horizontal Orientation");
                 enabled: GallerySettings.widgets-enabled;
                 orientation: Orientation.horizontal;
-                selected(value) => {
-                    debug("RadioGroup selected: ", value);
-                }
                 RadioButton { text: @tr("Start"); }
                 RadioButton { text: @tr("Center"); checked: true; }
                 RadioButton { text: @tr("End"); }
