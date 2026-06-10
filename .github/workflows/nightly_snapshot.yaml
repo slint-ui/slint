@@ -744,11 +744,10 @@ jobs:
               run: cargo apk build -p usecases --target aarch64-linux-android --lib --release
             - name: Build home automation demo
               run: cargo apk build -p home-automation --target aarch64-linux-android --lib --release
-            - name: Build slint-viewer
-              run: cargo apk build -p slint-viewer --target aarch64-linux-android --lib --release --features remote
 
-            # Play Store accepts only AABs for new submissions, so build one
-            # alongside the APK.
+            # Play Store accepts only AABs for new submissions. Build the
+            # bundle, then derive the nightly slint-viewer APK from it so the
+            # viewer is only compiled once.
             - name: Set up JDK 17 for Android Gradle Plugin
               uses: actions/setup-java@v5
               with:
@@ -765,6 +764,21 @@ jobs:
                   ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
                   ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
               run: tools/viewer/android-aab/build-aab.sh
+            # A universal APK works on every ABI the bundle carries.
+            - name: Build slint-viewer APK from the AAB
+              env:
+                  ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+                  ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+              run: |
+                  curl --fail -L -o bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
+                  java -jar bundletool.jar build-apks --mode=universal \
+                      --bundle=tools/viewer/android-aab/app/build/outputs/bundle/release/app-release.aab \
+                      --output=slint-viewer.apks \
+                      --ks="$CARGO_APK_RELEASE_KEYSTORE" \
+                      --ks-pass="pass:$ANDROID_KEYSTORE_PASSWORD" \
+                      --ks-key-alias="$ANDROID_KEYSTORE_ALIAS"
+                  mkdir -p target/release/apk
+                  unzip -p slint-viewer.apks universal.apk > target/release/apk/slint-viewer.apk
 
             # Upload whatever built so a Gradle failure doesn't drop the APKs.
             - name: "upload APK artifact"
