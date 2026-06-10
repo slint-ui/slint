@@ -5,40 +5,41 @@ description: Expert guidance for Slint GUI development — .slint language and l
 
 # Slint Development Skill
 
-Use when building, debugging, or reviewing apps that use [Slint](https://slint.dev),
-a declarative GUI toolkit for native UIs across desktop, embedded, mobile, and web.
+For building, debugging, or reviewing apps that use [Slint](https://slint.dev),
+a declarative GUI toolkit for desktop, embedded, mobile, and web.
 
-## When to Use
+## Workflow
 
-- Writing or debugging `.slint` files
-- Integrating Slint with Rust, C++, JavaScript, or Python
-- Layout, binding, rendering, or event-handling issues
-- Enabling the Slint MCP server for runtime inspection
-- Reviewing Slint-specific code patterns
+1. Match the project's Slint version (`Cargo.toml`/`Cargo.lock`,
+   `package.json`, `pyproject.toml`, or the CMake `find_package`/`FetchContent`
+   line) and consult that version's docs for exact APIs rather than guessing.
+2. After editing: in an IDE with the Slint extension, trust the post-edit
+   diagnostics; in a terminal, `slint-viewer --screenshot` checks and renders
+   one file in a single step
+   ([debugging-and-mcp.md](reference/debugging-and-mcp.md)).
+3. Never declare UI work done without looking at a render — a screenshot for
+   appearance, the MCP server for interactions. Review against
+   [polish.md](reference/polish.md).
+4. Offer to run `slint-viewer --auto-reload ui/main.slint` so the user watches
+   changes live while you edit.
 
-## How to Help
-
-- Prefer idiomatic Slint patterns; match the user's language binding and version.
-- Most "won't compile" / "won't fill" / "padding ignored" questions are answered
-  in `reference/gotchas.md` and `reference/language-and-layout.md` — check there.
-- Suggest the MCP server when runtime inspection or interaction would help.
-- When unsure about an element/property, check the version's docs (below) rather
-  than guessing — the API is small and precise.
+Most "won't compile" / "won't fill" / "padding ignored" questions are answered
+in [gotchas.md](reference/gotchas.md) and
+[language-and-layout.md](reference/language-and-layout.md).
 
 ## Reference Files (read on demand)
 
-This entry point is short by design. Open the relevant file when needed:
-
 | File | Read when… |
 |---|---|
-| `setup.md` | Starting a project / wiring the build (Rust/C++/Node/Python). |
-| `reference/language-and-layout.md` | Writing components; an element won't size/fill as expected. |
-| `reference/gotchas.md` | A file won't compile, or colors/units/math/transforms/enums behave oddly. |
-| `reference/events-and-overlays.md` | Clicks/keys/modifiers, or popovers/menus/context menus. |
-| `reference/drawing-and-theming.md` | Custom vector graphics (`Path`), or light/dark theming. |
-| `reference/interop.md` | Connecting the UI to host-language logic (models, callbacks, globals). |
-| `reference/debugging-and-mcp.md` | Runtime debugging, headless/CI rendering, screenshots, the MCP server. |
-| `tools-install.md` | Installing `slint-lsp` (language server) or `slint-viewer` (preview / screenshots). |
+| [setup.md](setup.md) | Starting a project / wiring the build (Rust/C++/Node/Python). |
+| [language-and-layout.md](reference/language-and-layout.md) | Writing components; an element won't size/fill as expected. |
+| [gotchas.md](reference/gotchas.md) | A file won't compile, or colors/units/math/enums behave oddly. |
+| [events-and-overlays.md](reference/events-and-overlays.md) | Clicks/keys/modifiers, or popovers/menus/context menus. |
+| [icons-and-theming.md](reference/icons-and-theming.md) | Icons, or light/dark theming. |
+| [interop.md](reference/interop.md) | Connecting the UI to host-language logic (models, callbacks, globals). |
+| [polish.md](reference/polish.md) | The UI works but looks rough; reviewing a rendered screenshot. |
+| [debugging-and-mcp.md](reference/debugging-and-mcp.md) | Runtime debugging, headless/CI rendering, screenshots, the MCP server. |
+| [tools-install.md](tools-install.md) | Installing `slint-lsp` (language server) or `slint-viewer` (preview / screenshots). |
 
 ## `.slint` in 30 seconds
 
@@ -62,12 +63,11 @@ component Counter inherits Rectangle {     // root element decides fill behavior
 
 Property directions: `in` / `out` / `in-out` / `private`. Two-way bind: `a <=> b`.
 Control flow: `if cond : E {}`, `for it[i] in model : E {}`. Shared state & host
-interop: `export global Foo { ... }`. One-time code: `init => { ... }`. Details
-are in the reference files.
+interop: `export global Foo { ... }`. One-time code: `init => { ... }`.
 
-## Documentation Reference
+## Documentation
 
-Latest: https://slint.dev/docs — Language guide, Reference (elements, properties,
-types, widgets), Language integrations (Rust/C++/Node/Python), Tutorials. Pin a
-version with `https://releases.slint.dev/<version>/docs` (e.g. `…/1.15.1/docs`).
-Consult these for exact element/property signatures rather than guessing.
+Latest: https://slint.dev/docs. Pin a version with
+`https://releases.slint.dev/<version>/docs` (e.g. `…/1.15.1/docs`). The skill
+files cover what agents commonly get wrong; the docs are the authority on
+element, property, and widget signatures.

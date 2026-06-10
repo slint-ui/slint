@@ -13,7 +13,7 @@ Both must be on `PATH`. If a tool reports it can't find `slint-lsp` or
 ## Prebuilt binaries (preferred)
 
 Released alongside every Slint release on
-[github.com/slint-ui/slint/releases/latest](https://github.com/slint-ui/slint/releases/latest).
+<https://github.com/slint-ui/slint/releases/latest>.
 Download the archive for your platform, extract, and drop the binaries on
 `PATH`.
 

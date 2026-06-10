@@ -1,51 +1,46 @@
 # Gotchas & Common Compile Errors
 
-These bite almost everyone at least once.
+Compiler messages are quoted verbatim — match the error you see against the
+bold text.
 
-- **Units.** `length` (`px`, `pt`, `rem`, …) and `int`/`float` are distinct types.
-  Convert with `value * 1px` or `len / 1px`. Slint has no `em` — the compiler
-  lists the valid units (`%, phx, px, cm, mm, in, pt, rem, s, ms, deg, grad,
-  turn, rad`). For font-size-relative spacing use `rem`, not a hand-converted
-  `px` (rewriting `0.04em` → `0.4px` silently breaks scaling).
-- **Colors.** Use hex literals (`#rgb`, `#rrggbb`, `#rrggbbaa`) or the color
-  functions: `rgb(r,g,b)`, `rgba(r,g,b,a)` (alpha `0.0..1.0`), `hsv(h,s,v[,a])`,
-  and **`oklch(l, c, h[, a])`** — so OKLCH design tokens can be used directly,
-  e.g. `oklch(0.55, 0.17, 256)`. In `oklch`, `l` is lightness `0..1`, `c` is
-  chroma (a number, or a `%` where `100% == 0.4`), `h` is hue in degrees (a number
-  or an `angle`), `a` is alpha `0..1`. (There is `hsv` but no `hsl`.) Convert a
-  color back with `.to-oklch()` / `.to-hsv()`. Color helpers: `.brighter(f)`,
-  `.darker(f)`, `.with-alpha(a)`, `.transparentize(f)`, `.mix(other, f)`; read
-  channels with `.red`/`.green`/`.blue`/`.alpha`.
-- **Math functions** come in two callable forms (not bare names, generally):
-  - methods on a number: `x.floor()`, `x.ceil()`, `x.round()`, `x.sqrt()`,
-    `x.mod(y)`, `x.abs()`, `x.clamp(lo, hi)`, `x.max(y)`, `x.min(y)`,
-    `x.to-fixed(2)` (→ string), `x.to-precision(3)`;
-  - the `Math` namespace: `Math.max(a, b)`, `Math.min`, `Math.clamp`,
-    `Math.round`, `Math.floor`, `Math.pow`, `Math.sin`, `Math.atan2`, …
-  Use these instead of guessing a bare `floor(...)`. Integer division yields a
-  float, so wrap with `.floor()` when assigning to an `int`.
-- **Transforms** are available on every element: `transform-rotation` (angle),
-  `transform-scale-x` / `transform-scale-y` / `transform-scale` (percent or
-  factor), and `transform-origin` (point). They apply visually to the element
-  and its descendants; the layout box stays the same.
-- **Enum values** are written `EnumName.value`, usually lowercase for builtins:
-  `PointerEventKind.down`, `PointerEventButton.right`, `ColorScheme.dark`. Special
-  keys use the `Key` namespace with CamelCase: `Key.Return`, `Key.Escape`,
-  `Key.UpArrow`, `Key.Backspace`.
+- **`Invalid unit 'em'`** — Slint has no `em`; the message lists the valid
+  units. For font-size-relative spacing use `rem`, not a hand-converted `px`
+  (rewriting `0.04em` → `0.4px` silently breaks scaling).
+- **`Cannot convert float to length. Use an unit, or multiply by 1px to
+  convert explicitly`** (likewise `int to length`, `float to angle`, …) —
+  unit types and plain numbers are distinct. Convert with `value * 1px` /
+  `len / 1px`, `* 1deg` / `/ 1deg` for angles (trigonometric functions take
+  and return `angle`).
+- **`Unknown unqualified identifier 'hsl'`** — there is `hsv` but no `hsl`.
+  Colors: hex literals, `rgb()`, `rgba()` (alpha `0.0..1.0`), `hsv()`, and
+  `oklch(l, c, h)` (`l` is `0..1`; a `%` chroma maps `100%` → `0.4`). Helpers
+  like `.mix()`, `.with-alpha()`, `.brighter()` and the full signatures are on
+  the docs' colors & brushes page.
+- **`padding only has effect on layout elements`** (warning; likewise
+  `spacing`) — see [language-and-layout.md](language-and-layout.md) for the
+  wrap-in-a-layout fix.
+- **Literal `${name}` or `{name}` shows up in the UI** (no diagnostic) —
+  string interpolation is backslash-brace: `"Count: \{root.count}"`.
+- **Math**: bare names (`floor(x)`, `max(a, b)`), methods (`x.floor()`,
+  `x.clamp(lo, hi)`), and the `Math` namespace all work. But `/` never does
+  integer division — the result is a float, and assigning it to an `int`
+  silently truncates toward zero; use `.floor()`/`.round()`/`.ceil()` to pick
+  the rounding you mean.
+- **Enum values** are `EnumName.value`, lowercase for builtins
+  (`PointerEventKind.down`, `ColorScheme.dark`); special keys are CamelCase in
+  the `Key` namespace (`Key.Escape`, `Key.UpArrow`).
+- **Transforms** (`transform-rotation`, `transform-scale`, `transform-origin`)
+  apply visually to the element and its descendants; the layout box stays the
+  same.
 - **Gradients**: `@linear-gradient(angle, color stop%, …)`,
-  `@radial-gradient(circle, color stop%, …)`, and
-  `@conic-gradient(color start-deg, …, color end-deg)`. Radial is
-  centered-circle only — it can't be offset/sized like CSS. Repeating patterns
-  can be faked with hard color stops.
-- **Animations**: `animate width { duration: 200ms; easing: cubic-bezier(0.4,0,0.2,1); }`.
-  You animate *properties*, declared inside the element whose property changes.
-- **`padding`/`spacing` are ignored on non-layout elements** — see
-  `reference/language-and-layout.md`.
-- **Only bind a property when you're overriding the default.** Leaving
-  `visible`, `enabled`, `clip`, `opacity`, `x`, … unbound lets the compiler
-  mark them constant; binding to the default value loses that optimization.
-  Inside a layout it's worse: an explicit `x: 0` overrides the computed
-  position.
+  `@radial-gradient(circle [radius] [at x y], color stop%, …)` (always
+  circular; radius and center are new in 1.17), and
+  `@conic-gradient([from angle] [at x y], color deg, …)`.
+- **Animations** are declared on *properties*, inside the element whose
+  property changes: `animate width { duration: 200ms; }`.
+- **Only bind a property when overriding the default.** An unbound `visible`,
+  `opacity`, `x`, … stays compiler-constant; inside a layout an explicit
+  `x: 0` even overrides the computed position.
 
-For "element won't fill / is centered" and "padding does nothing", see the Layout
-& Sizing section in `reference/language-and-layout.md`.
+For "element won't fill / is centered" and "padding does nothing", see
+[language-and-layout.md](language-and-layout.md).
