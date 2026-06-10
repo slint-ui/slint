@@ -14,17 +14,8 @@ component PhonePreview {
 
     Rectangle {
         border-radius: 34px;
-        background: root.dark-color-scheme ? #141414 : #1f2025;
-    }
-
-    Rectangle {
-        x: 8px;
-        y: 8px;
-        width: parent.width - 16px;
-        height: parent.height - 16px;
-        border-radius: 28px;
-        clip: true;
         background: root.dark-color-scheme ? @linear-gradient(180deg, #1C1C1C, black) : @linear-gradient(0deg, #D7D9DD, white);
+        clip: true;
 
         Image {
             y: parent.height - self.height;
@@ -57,6 +48,11 @@ component PhonePreview {
                     color: root.dark-color-scheme ? #eeeeee : #333333;
                 }
             }
+        }
+        Rectangle {
+            border-radius: parent.border-radius;
+            border-color: root.dark-color-scheme ? #141414 : #1f2025;
+            border-width: 5px;
         }
     }
 }
@@ -126,10 +122,10 @@ export component RemotePreviewView inherits Rectangle {
         HorizontalLayout {
             spacing: 28px;
 
-            Rectangle {
+            devices-frame := Rectangle {
                 horizontal-stretch: 1;
                 vertical-stretch: 1;
-                background: Palette.background.with-alpha(0.88);
+                background: Palette.background.with-alpha(0.9);
                 border-color: Palette.border;
                 border-width: 1px;
                 border-radius: 8px;
