@@ -1,6 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
-// cSpell: ignore getenv androidkey
+// cSpell: ignore getenv
 
 plugins {
     id("com.android.application")
@@ -30,9 +30,8 @@ android {
             create("release") {
                 storeFile = file(keystorePath)
                 storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: "androidkey"
-                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
-                    ?: System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEYSTORE_ALIAS")
+                keyPassword = storePassword
             }
         }
     }

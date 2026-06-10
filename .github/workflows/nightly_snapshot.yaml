@@ -706,18 +706,21 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install Android API platforms
               run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30" "platforms;android-35" "build-tools;35.0.1"
-            - name: Cache cargo-apk
-              id: cargo-apk-cache
+            - name: Cache cargo-apk, cargo-ndk and resvg
+              id: cargo-tools-cache
               uses: actions/cache@v5
               with:
-                  path: ~/.cargo/bin/cargo-apk
-                  key: cargo-apk-cache
-            # Only build cargo-apk if not cached
+                  path: |
+                      ~/.cargo/bin/cargo-apk
+                      ~/.cargo/bin/cargo-ndk
+                      ~/.cargo/bin/resvg
+                  key: android-cargo-tools-cache
+            # Only build the tools if not cached
             - uses: dtolnay/rust-toolchain@stable
-              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
-            - name: Install cargo-apk
-              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
-              run: cargo install cargo-apk
+              if: steps.cargo-tools-cache.outputs.cache-hit != 'true'
+            - name: Install cargo-apk, cargo-ndk and resvg
+              if: steps.cargo-tools-cache.outputs.cache-hit != 'true'
+              run: cargo install --locked cargo-apk cargo-ndk resvg
 
             - uses: ./.github/actions/setup-rust
               with:
@@ -741,11 +744,10 @@ jobs:
               run: cargo apk build -p usecases --target aarch64-linux-android --lib --release
             - name: Build home automation demo
               run: cargo apk build -p home-automation --target aarch64-linux-android --lib --release
-            - name: Build slint-viewer
-              run: cargo apk build -p slint-viewer --target aarch64-linux-android --lib --release --features remote
 
-            # Play Store accepts only AABs for new submissions, so build one
-            # alongside the APK.
+            # Play Store accepts only AABs for new submissions. Build the
+            # bundle, then derive the nightly slint-viewer APK from it so the
+            # viewer is only compiled once.
             - name: Set up JDK 17 for Android Gradle Plugin
               uses: actions/setup-java@v5
               with:
@@ -756,16 +758,27 @@ jobs:
               with:
                   # Installs Gradle on PATH; the AAB project has no wrapper jar.
                   gradle-version: "8.10.2"
-            # Split so a failure of one install doesn't mask the other's diagnostic.
-            - name: Install cargo-ndk
-              run: cargo install cargo-ndk --locked
-            - name: Install resvg
-              run: cargo install resvg --locked
             - name: Build slint-viewer AAB
               env:
                   ANDROID_KEYSTORE_PATH: ${{ env.CARGO_APK_RELEASE_KEYSTORE }}
                   ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+                  ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
               run: tools/viewer/android-aab/build-aab.sh
+            # A universal APK works on every ABI the bundle carries.
+            - name: Build slint-viewer APK from the AAB
+              env:
+                  ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+                  ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+              run: |
+                  curl --fail -L -o bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
+                  java -jar bundletool.jar build-apks --mode=universal \
+                      --bundle=tools/viewer/android-aab/app/build/outputs/bundle/release/app-release.aab \
+                      --output=slint-viewer.apks \
+                      --ks="$CARGO_APK_RELEASE_KEYSTORE" \
+                      --ks-pass="pass:$ANDROID_KEYSTORE_PASSWORD" \
+                      --ks-key-alias="$ANDROID_KEYSTORE_ALIAS"
+                  mkdir -p target/release/apk
+                  unzip -p slint-viewer.apks universal.apk > target/release/apk/slint-viewer.apk
 
             # Upload whatever built so a Gradle failure doesn't drop the APKs.
             - name: "upload APK artifact"
@@ -777,7 +790,6 @@ jobs:
                     target/release/apk/energy-monitor.apk
                     target/release/apk/todo_lib.apk
                     target/release/apk/weather_demo.apk
-                    target/release/apk/usecases_lib.apk
                     target/release/apk/usecases_lib.apk
                     target/release/apk/home_automation_lib.apk
                     target/release/apk/slint-viewer.apk
