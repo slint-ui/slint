@@ -12,10 +12,11 @@ mod internal_tests;
 pub use internal_tests::*;
 pub mod testing_backend;
 pub use testing_backend::get_mocked_time;
+// Exported unconditionally so the backend selector can instantiate the
+// headless backend.
+pub use testing_backend::{TestingBackend, TestingBackendOptions};
 #[cfg(feature = "internal")]
-pub use testing_backend::{
-    TestingBackend, TestingBackendOptions, TestingWindow, mock_elapsed_time,
-};
+pub use testing_backend::{TestingWindow, mock_elapsed_time};
 #[cfg(all(feature = "ffi", not(test)))]
 mod ffi;
 #[cfg(any(feature = "system-testing", feature = "mcp"))]
@@ -35,7 +36,11 @@ pub mod systest;
 /// Instead, use [`mock_elapsed_time()`] to advance the simulate (mock) time Slint uses.
 pub fn init_no_event_loop() {
     i_slint_core::platform::set_platform(Box::new(testing_backend::TestingBackend::new(
-        testing_backend::TestingBackendOptions { mock_time: true, threading: false },
+        testing_backend::TestingBackendOptions {
+            mock_time: true,
+            threading: false,
+            ..Default::default()
+        },
     )))
     .expect("platform already initialized");
 }
@@ -50,7 +55,11 @@ pub fn init_no_event_loop() {
 /// Instead, use [`mock_elapsed_time()`] to advance the simulate (mock) time Slint uses.
 pub fn init_integration_test_with_mock_time() {
     i_slint_core::platform::set_platform(Box::new(testing_backend::TestingBackend::new(
-        testing_backend::TestingBackendOptions { mock_time: true, threading: true },
+        testing_backend::TestingBackendOptions {
+            mock_time: true,
+            threading: true,
+            ..Default::default()
+        },
     )))
     .expect("platform already initialized");
 }
@@ -62,7 +71,11 @@ pub fn init_integration_test_with_mock_time() {
 /// Calling it when the rendering backend is already initialized will panic.
 pub fn init_integration_test_with_system_time() {
     i_slint_core::platform::set_platform(Box::new(testing_backend::TestingBackend::new(
-        testing_backend::TestingBackendOptions { mock_time: false, threading: true },
+        testing_backend::TestingBackendOptions {
+            mock_time: false,
+            threading: true,
+            ..Default::default()
+        },
     )))
     .expect("platform already initialized");
 }

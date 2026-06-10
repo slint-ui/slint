@@ -5248,6 +5248,7 @@ name = "i-slint-backend-selector"
 version = "1.17.0"
 dependencies = [
  "cfg-if",
+ "cfg_aliases",
  "i-slint-backend-android-activity",
  "i-slint-backend-linuxkms",
  "i-slint-backend-qt",
@@ -5269,11 +5270,14 @@ dependencies = [
  "async-net",
  "base64 0.22.1",
  "byteorder",
+ "cfg_aliases",
  "futures-lite",
  "httparse",
  "i-slint-common",
  "i-slint-core",
  "i-slint-core-macros",
+ "i-slint-renderer-skia",
+ "i-slint-renderer-software",
  "image",
  "include_dir",
  "pbjson",

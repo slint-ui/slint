@@ -10,6 +10,8 @@ fn main() {
        skia_backend_metal: { all(target_vendor = "apple", not(feature = "opengl")) },
        skia_backend_vulkan: { feature = "vulkan" },
        skia_backend_software: { not(target_os = "android") },
+       skia_backend_softbuffer: { all(skia_backend_software, feature = "softbuffer") },
+       skia_windowed: { any(skia_backend_vulkan, skia_backend_opengl, skia_backend_metal, skia_backend_softbuffer) },
     }
 
     println!("cargo:rustc-check-cfg=cfg(slint_nightly_test)");

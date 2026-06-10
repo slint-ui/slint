@@ -135,6 +135,11 @@ SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=9315 cargo run -p my-app --features slint
 
 Do not add `mcp` to the `[features]` section of your `Cargo.toml` — use the `--features` flag on the command line instead.
 
+On a machine with no display server (CI, container, agent sandbox), also set `SLINT_BACKEND=headless` so `take_screenshot` works without Xvfb or a GPU.
+Suffix the value (`headless-software`, `headless-skia`) to force a specific rasterizer.
+If `SLINT_BACKEND` is unset and the regular backend fails to initialize, the headless backend kicks in as a fallback.
+This is an MCP-oriented entry point; the exact value may change between Slint releases.
+
 **Step 2**: Connect to the running application's MCP server at `http://localhost:9315/mcp` using Streamable HTTP transport and use the available tools to inspect and interact with the UI.
 
 When scripting or verifying the server from the command line, use `curl` — it is the most reliable approach for raw JSON-RPC. Prefer `curl` over built-in HTTP fetch tools, which agents sometimes reach for but which are less predictable for this use case:

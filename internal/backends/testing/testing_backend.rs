@@ -142,6 +142,13 @@ fn is_fixed_test_font(family: &Option<SharedString>) -> bool {
 pub struct TestingBackendOptions {
     pub mock_time: bool,
     pub threading: bool,
+    /// When set, windows embed a real rasterizer so headless rendering
+    /// (e.g. `Window::take_snapshot`) works. Recognized names: `software`,
+    /// `skia`; an empty string or `default` picks the best available.
+    /// When `None`, the backend keeps its mock renderer with fixed font
+    /// metrics.
+    #[cfg(supports_headless)]
+    pub renderer_name: Option<SharedString>,
 }
 
 pub struct TestingBackend {
@@ -150,6 +157,8 @@ pub struct TestingBackend {
     mock_time: bool,
     pub open_url: Rc<RefCell<Option<SharedString>>>,
     pub debug_logs: Rc<RefCell<Vec<String>>>,
+    #[cfg(supports_headless)]
+    renderer_name: Option<SharedString>,
 }
 
 impl TestingBackend {
@@ -160,6 +169,8 @@ impl TestingBackend {
             mock_time: options.mock_time,
             open_url: Default::default(),
             debug_logs: Default::default(),
+            #[cfg(supports_headless)]
+            renderer_name: options.renderer_name,
         }
     }
 }
@@ -168,6 +179,9 @@ impl i_slint_core::platform::Platform for TestingBackend {
     fn create_window_adapter(
         &self,
     ) -> Result<Rc<dyn WindowAdapter>, i_slint_core::platform::PlatformError> {
+        #[cfg(supports_headless)]
+        let renderer =
+            self.renderer_name.as_ref().map(|name| create_headless_renderer(name)).transpose()?;
         let window = Rc::new_cyclic(|self_weak| TestingWindow {
             window: i_slint_core::api::Window::new(self_weak.clone() as _),
             size: Default::default(),
@@ -177,6 +191,10 @@ impl i_slint_core::platform::Platform for TestingBackend {
             open_url: self.open_url.clone(),
             debug_logs: self.debug_logs.clone(),
             native_popup: Cell::new(false),
+            #[cfg(supports_headless)]
+            renderer_name: self.renderer_name.clone(),
+            #[cfg(supports_headless)]
+            renderer,
         });
         ALL_TESTING_WINDOWS.with(|list| list.borrow_mut().push(Rc::downgrade(&window)));
         Ok(window)
@@ -271,6 +289,14 @@ pub struct TestingWindow {
     pub open_url: Rc<RefCell<Option<SharedString>>>,
     pub debug_logs: Rc<RefCell<Vec<String>>>,
     native_popup: Cell<bool>,
+    /// Remembered for child popups, so they pick the same rasterizer.
+    #[cfg(supports_headless)]
+    renderer_name: Option<SharedString>,
+    /// Rasterizer returned by `WindowAdapter::renderer` when headless
+    /// rendering was requested, so every `RendererSealed` call routes through
+    /// it. `None` keeps the mock renderer with its fixed test font metrics.
+    #[cfg(supports_headless)]
+    renderer: Option<Box<dyn Renderer>>,
 }
 
 impl TestingWindow {
@@ -323,6 +349,13 @@ impl WindowAdapterInternal for TestingWindow {
 
     fn create_child_window_adapter(&self, _kind: WindowKind) -> Option<Rc<dyn WindowAdapter>> {
         if self.native_popup.get() {
+            #[cfg(supports_headless)]
+            let renderer = self
+                .renderer_name
+                .as_ref()
+                .map(|name| create_headless_renderer(name))
+                .transpose()
+                .ok()?;
             let window = Rc::new_cyclic(|self_weak| TestingWindow {
                 window: i_slint_core::api::Window::new(self_weak.clone() as _),
                 size: Default::default(),
@@ -332,6 +365,10 @@ impl WindowAdapterInternal for TestingWindow {
                 open_url: self.open_url.clone(),
                 debug_logs: self.debug_logs.clone(),
                 native_popup: self.native_popup.clone(),
+                #[cfg(supports_headless)]
+                renderer_name: self.renderer_name.clone(),
+                #[cfg(supports_headless)]
+                renderer,
             });
             Some(window)
         } else {
@@ -357,6 +394,10 @@ impl WindowAdapter for TestingWindow {
     }
 
     fn renderer(&self) -> &dyn Renderer {
+        #[cfg(supports_headless)]
+        if let Some(renderer) = &self.renderer {
+            return &**renderer;
+        }
         self
     }
 
@@ -525,6 +566,42 @@ impl RendererSealed for TestingWindow {
 
     fn supports_transformations(&self) -> bool {
         true
+    }
+}
+
+/// Pick the rasterizer for the headless backend.
+/// `""` / `"default"` picks Skia software when compiled in, else the
+/// built-in software renderer.
+#[cfg(supports_headless)]
+fn create_headless_renderer(name: &str) -> Result<Box<dyn Renderer>, PlatformError> {
+    match name {
+        #[cfg(skia_headless)]
+        "" | "default" | "skia" | "skia-software" => {
+            std::thread_local! {
+                /// Shared across all windows so they reuse Skia resources.
+                static SHARED_CONTEXT: i_slint_renderer_skia::SkiaSharedContext =
+                    Default::default();
+            }
+            SHARED_CONTEXT.with(|context| {
+                Ok(Box::new(i_slint_renderer_skia::SkiaRenderer::default_software(context)) as _)
+            })
+        }
+        #[cfg(all(feature = "renderer-software", not(skia_headless)))]
+        "" | "default" => Ok(Box::new(i_slint_renderer_software::SoftwareRenderer::new())),
+        #[cfg(feature = "renderer-software")]
+        "sw" | "software" => Ok(Box::new(i_slint_renderer_software::SoftwareRenderer::new())),
+        other => {
+            let available: &[&str] = &[
+                #[cfg(feature = "renderer-software")]
+                "software",
+                #[cfg(skia_headless)]
+                "skia",
+            ];
+            Err(PlatformError::Other(format!(
+                "Unknown headless renderer {other:?} (available: {})",
+                available.join(", ")
+            )))
+        }
     }
 }
 
