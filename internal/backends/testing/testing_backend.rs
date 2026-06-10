@@ -142,8 +142,11 @@ fn is_fixed_test_font(family: &Option<SharedString>) -> bool {
 pub struct TestingBackendOptions {
     pub mock_time: bool,
     pub threading: bool,
-    /// Headless renderer choice. Recognized names: `software`, `skia`.
-    /// `None` or empty picks the best available.
+    /// When set, windows embed a real rasterizer so headless rendering
+    /// (e.g. `Window::take_snapshot`) works. Recognized names: `software`,
+    /// `skia`; an empty string or `default` picks the best available.
+    /// When `None`, the backend keeps its mock renderer with fixed font
+    /// metrics, as the test drivers expect.
     #[cfg(headless)]
     pub renderer_name: Option<SharedString>,
 }
@@ -177,7 +180,8 @@ impl i_slint_core::platform::Platform for TestingBackend {
         &self,
     ) -> Result<Rc<dyn WindowAdapter>, i_slint_core::platform::PlatformError> {
         #[cfg(headless)]
-        let renderer = create_headless_renderer(self.renderer_name.as_deref())?;
+        let renderer =
+            self.renderer_name.as_ref().map(|name| create_headless_renderer(name)).transpose()?;
         let window = Rc::new_cyclic(|self_weak| TestingWindow {
             window: i_slint_core::api::Window::new(self_weak.clone() as _),
             size: Default::default(),
@@ -288,10 +292,11 @@ pub struct TestingWindow {
     /// Remembered for child popups, so they pick the same rasterizer.
     #[cfg(headless)]
     renderer_name: Option<SharedString>,
-    /// Rasterizer returned by `WindowAdapter::renderer` when headless is on,
-    /// so every `RendererSealed` call routes through it.
+    /// Rasterizer returned by `WindowAdapter::renderer` when headless
+    /// rendering was requested, so every `RendererSealed` call routes through
+    /// it. `None` keeps the mock renderer with its fixed test font metrics.
     #[cfg(headless)]
-    renderer: Box<dyn Renderer>,
+    renderer: Option<Box<dyn Renderer>>,
 }
 
 impl TestingWindow {
@@ -345,7 +350,10 @@ impl WindowAdapterInternal for TestingWindow {
     fn create_child_window_adapter(&self, _kind: WindowKind) -> Option<Rc<dyn WindowAdapter>> {
         if self.native_popup.get() {
             #[cfg(headless)]
-            let renderer = create_headless_renderer(self.renderer_name.as_deref()).ok()?;
+            let renderer = match &self.renderer_name {
+                Some(name) => Some(create_headless_renderer(name).ok()?),
+                None => None,
+            };
             let window = Rc::new_cyclic(|self_weak| TestingWindow {
                 window: i_slint_core::api::Window::new(self_weak.clone() as _),
                 size: Default::default(),
@@ -385,9 +393,10 @@ impl WindowAdapter for TestingWindow {
 
     fn renderer(&self) -> &dyn Renderer {
         #[cfg(headless)]
-        return &*self.renderer;
-        #[cfg(not(headless))]
-        return self;
+        if let Some(renderer) = &self.renderer {
+            return &**renderer;
+        }
+        self
     }
 
     fn update_window_properties(&self, properties: i_slint_core::window::WindowProperties<'_>) {
@@ -560,13 +569,13 @@ impl RendererSealed for TestingWindow {
 }
 
 /// Pick the rasterizer for the headless backend.
-/// `None` / `""` / `"default"` picks Skia software when compiled in, else the
+/// `""` / `"default"` picks Skia software when compiled in, else the
 /// built-in software renderer.
 #[cfg(headless)]
-fn create_headless_renderer(name: Option<&str>) -> Result<Box<dyn Renderer>, PlatformError> {
+fn create_headless_renderer(name: &str) -> Result<Box<dyn Renderer>, PlatformError> {
     // `SkiaRenderer::default_software` isn't built on Android; fall through
     // to the software renderer there.
-    match name.unwrap_or("") {
+    match name {
         #[cfg(all(feature = "renderer-skia", not(target_os = "android")))]
         "" | "default" | "skia" | "skia-software" => {
             Ok(Box::new(i_slint_renderer_skia::SkiaRenderer::default_software(

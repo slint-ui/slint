@@ -41,7 +41,7 @@ fn create_headless_backend() -> Result<Box<dyn Platform + 'static>, PlatformErro
         i_slint_backend_testing::TestingBackendOptions {
             mock_time: false,
             threading: true,
-            ..Default::default()
+            renderer_name: Some(Default::default()),
         },
     )))
 }
@@ -134,7 +134,7 @@ cfg_if::cfg_if! {
                     i_slint_backend_testing::TestingBackendOptions {
                         mock_time: false,
                         threading: true,
-                        renderer_name: (!_renderer.is_empty()).then(|| _renderer.into()),
+                        renderer_name: Some(_renderer.into()),
                     },
                 ))),
                 _ => {},
