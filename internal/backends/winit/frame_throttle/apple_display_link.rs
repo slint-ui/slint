@@ -126,7 +126,7 @@ pub(super) fn try_create(
 #[cfg(ios_and_friends)]
 pub(super) fn try_create(
     window_adapter: Weak<WinitWindowAdapter>,
-    _winit_window: &winit::window::Window,
+    _winit_window: &dyn winit::window::Window,
 ) -> Option<Box<dyn super::FrameThrottle>> {
     use objc2::sel;
 
