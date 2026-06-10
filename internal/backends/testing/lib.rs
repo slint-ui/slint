@@ -12,10 +12,8 @@ mod internal_tests;
 pub use internal_tests::*;
 pub mod testing_backend;
 pub use testing_backend::get_mocked_time;
-// `TestingBackend` and `TestingBackendOptions` are part of the public API
-// because the backend selector instantiates them for `SLINT_BACKEND=headless`.
-// The deeper-internal surface (`TestingWindow`, the raw-millisecond
-// `mock_elapsed_time`, the `internal_tests` helpers) stays gated.
+// Exported unconditionally so the backend selector can instantiate the
+// headless backend.
 pub use testing_backend::{TestingBackend, TestingBackendOptions};
 #[cfg(feature = "internal")]
 pub use testing_backend::{TestingWindow, mock_elapsed_time};

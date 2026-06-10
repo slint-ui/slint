@@ -227,7 +227,7 @@ flag on the command line instead.
 ### Running Without a Display
 
 On a machine with no display server (CI, container, agent sandbox) the regular
-backend can't open a window, so `take_screenshot` and the other tools would not
+backend can't open a window, so `take_screenshot` and the other tools won't
 work. Set `SLINT_BACKEND=headless` to run the app under a windowless,
 software-rasterized backend instead:
 
@@ -240,8 +240,8 @@ The headless backend uses Skia's software rasterizer when `slint/renderer-skia`
 is enabled, otherwise the built-in software renderer. Suffix the value
 (`headless-software`, `headless-skia`) to force a specific rasterizer. If
 `SLINT_BACKEND` is unset and the configured graphical backend fails to
-initialize (for example because no display is available), the headless backend
-is used as a fallback automatically.
+initialize (for example because no display is available), Slint falls back to
+the headless backend automatically.
 
 This is an unstable, MCP-oriented entry point — the exact value of
 `SLINT_BACKEND` may change between Slint releases. Use it from automation, not

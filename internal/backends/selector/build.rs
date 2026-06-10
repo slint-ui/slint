@@ -8,7 +8,7 @@ fn main() {
     println!("cargo:rustc-check-cfg=cfg(no_qt)");
 
     cfg_aliases::cfg_aliases! {
-        headless: { any(feature = "renderer-software", feature = "renderer-skia") },
+        supports_headless: { any(feature = "renderer-software", feature = "renderer-skia") },
     }
 
     // This is part code tries to detect automatically what default style to use and tries to

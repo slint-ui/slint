@@ -136,7 +136,7 @@ SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=9315 cargo run -p my-app --features slint
 Do not add `mcp` to the `[features]` section of your `Cargo.toml` — use the `--features` flag on the command line instead.
 
 On a machine with no display server (CI, container, agent sandbox), also set `SLINT_BACKEND=headless` so `take_screenshot` works without Xvfb or a GPU.
-Suffix the value (`headless-software`, `headless-skia`) to force a specific rasterizer; the default picks Skia software when `renderer-skia` is enabled, otherwise the built-in software renderer.
+Suffix the value (`headless-software`, `headless-skia`) to force a specific rasterizer.
 If `SLINT_BACKEND` is unset and the regular backend fails to initialize, the headless backend kicks in as a fallback.
 This is an MCP-oriented entry point; the exact value may change between Slint releases.
 
