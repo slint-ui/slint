@@ -19,10 +19,20 @@
 - `debug("msg", expr)` prints to stderr at runtime.
 - `SLINT_DEBUG_PERFORMANCE=refresh_lazy,console` prints frame diagnostics.
 - `SLINT_BACKEND=winit-skia` / `winit-femtovg` / `winit-software` selects the
-  renderer. `winit-software` is the choice for headless/CI/GPU-less machines;
-  on headless Linux run under `xvfb-run -a -s "-screen 0 1360x900x24"` (the
-  winit X11 path needs `libxkbcommon-x11`).
+  backend and renderer. With `--features slint/mcp`, `SLINT_BACKEND=headless`
+  runs with no display at all (see the MCP section); without that feature,
+  headless Linux needs `winit-software` under
+  `xvfb-run -a -s "-screen 0 1360x900x24"` (the winit X11 path needs
+  `libxkbcommon-x11`).
 - `Window::take_snapshot()` (Rust) renders the window to a pixel buffer.
+
+## Check a `.slint` file (`slint-viewer --check`)
+
+`slint-viewer --check ui/main.slint` compiles the file and prints diagnostics
+without opening a window (Slint >= 1.17): exit 1 on errors, 0 otherwise
+(warnings still print). `--diagnostics-format json` emits them as a JSON
+array on stdout instead. `-I`/`-L`/`--style` apply. Use this as the fast
+per-file compile check; the host build is only needed for the interop side.
 
 ## Headless screenshots of a `.slint` file (`slint-viewer --screenshot`)
 
@@ -41,8 +51,7 @@ slint-viewer --screenshot out.png --load-data props.json ui/main.slint
   `SLINT_SCALE_FACTOR` apply.
 - `Error: take_snapshot() called on window with invalid size` means the
   component's preferred size is zero — give the root explicit
-  `width`/`height`. A nonzero exit with diagnostics on stderr makes the
-  command double as a quick compile check of one file, no host build needed.
+  `width`/`height`. (For compile checking alone, use `--check` instead.)
 - `--load-data file.json` sets the root component's properties *and* `global`
   singletons — dot-qualify (`{"Theme.dark": true}`) or nest
   (`{"AppData": {"rows": [...]}}`). It runs no host-language logic, so for
@@ -71,8 +80,18 @@ the port is taken), and pass `--features slint/mcp` on the command line (do
 SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=9315 cargo run --features slint/mcp
 ```
 
-Headless (no windowing system):
-`SLINT_BACKEND=winit-software xvfb-run -a -s "-screen 0 1360x900x24" cargo run --features slint/mcp`.
+**Headless** (CI, container, agent sandbox — no display server or GPU): also
+set `SLINT_BACKEND=headless`; the whole MCP toolset including
+`take_screenshot` then works with no X/Wayland/Xvfb. Suffix a renderer
+(`headless-software`, `headless-skia`) to force a specific rasterizer. If
+`SLINT_BACKEND` is unset and the regular backend fails to initialize, the
+headless backend kicks in as a fallback. It is an MCP-oriented entry point
+(needs the `slint/mcp` feature) and the exact value may change between
+releases:
+
+```sh
+SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=9315 SLINT_BACKEND=headless cargo run --features slint/mcp
+```
 
 Connect to `http://localhost:9315/mcp` (Streamable HTTP / JSON-RPC). From a
 shell, `curl` is the most reliable client — include the `Accept` header:
