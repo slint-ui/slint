@@ -20,11 +20,14 @@ mod preview;
 pub mod util;
 
 use common::Result;
+use i_slint_compiler::EmbedResourcesKind;
 use language::*;
 
 use lsp_types::{
-    DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams,
-    DidOpenTextDocumentParams, FileChangeType, InitializeParams, Url,
+    ClientCapabilities, DidChangeTextDocumentParams, DidChangeWatchedFilesParams,
+    DidCloseTextDocumentParams, DidOpenTextDocumentParams, FileChangeType, FileSystemWatcher,
+    GlobPattern, InitializeParams, OneOf, Registration, RegistrationParams, RelativePattern,
+    Unregistration, UnregistrationParams, Url, WatchKind,
     notification::{
         DidChangeConfiguration, DidChangeTextDocument, DidChangeWatchedFiles, DidCloseTextDocument,
         DidOpenTextDocument, Notification,
@@ -37,6 +40,7 @@ use itertools::Itertools;
 use lsp_server::{Connection, ErrorCode, IoThreads, Message, RequestId, Response};
 use std::future::Future;
 use std::io::Write as _;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::sync::{Arc, atomic};
 use std::task::{Poll, Waker};
@@ -66,6 +70,24 @@ use tikv_jemallocator::Jemalloc;
 static GLOBAL: Jemalloc = Jemalloc;
 
 const RECOMPILE_IDLE_TIMEOUT: Duration = Duration::from_millis(50);
+
+pub(crate) fn supports_dynamic_watched_files(capabilities: &ClientCapabilities) -> bool {
+    capabilities
+        .workspace
+        .as_ref()
+        .and_then(|workspace| workspace.did_change_watched_files)
+        .and_then(|watched_files| watched_files.dynamic_registration)
+        .unwrap_or(false)
+}
+
+fn supports_relative_watched_file_patterns(capabilities: &ClientCapabilities) -> bool {
+    capabilities
+        .workspace
+        .as_ref()
+        .and_then(|workspace| workspace.did_change_watched_files)
+        .and_then(|watched_files| watched_files.relative_pattern_support)
+        .unwrap_or(false)
+}
 
 #[derive(Clone, clap::Parser)]
 #[command(author, version, about, long_about = None)]
@@ -392,7 +414,21 @@ async fn main_loop(
 #[derive(Debug)]
 enum FileWatcherError {
     WorkerStopped,
+    ClientRequestFailed(String),
+    InvalidWatchPath(PathBuf),
 }
+
+impl std::fmt::Display for FileWatcherError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::WorkerStopped => f.write_str("file watcher worker stopped"),
+            Self::ClientRequestFailed(err) => write!(f, "client request failed: {err}"),
+            Self::InvalidWatchPath(path) => write!(f, "invalid watch path: {}", path.display()),
+        }
+    }
+}
+
+impl std::error::Error for FileWatcherError {}
 
 // A file watcher implementation that receives file change events from the LSP's DidChangeWatchedFiles notifications
 //
@@ -401,9 +437,160 @@ enum FileWatcherError {
 // E.g. if a directory is renamed, VS Code will just send a delete event for the old path, and a create event for the new path.
 // The slint_interpreter::FileWatcher will reconcile this and send a delete event for all files in the renamed directory,
 // and create events for all relevant files in the new directory.
-struct LspFileWatcherImpl {}
+#[derive(Debug)]
+struct ActiveWatcherRegistration {
+    registration_id: String,
+    watcher: FileSystemWatcher,
+}
+
+struct LspFileWatcherImpl {
+    server_notifier: ServerNotifier,
+    runtime_handle: tokio::runtime::Handle,
+    dynamic_registration_supported: bool,
+    relative_pattern_supported: bool,
+    next_registration_id: u64,
+    registrations_by_path: std::collections::HashMap<PathBuf, ActiveWatcherRegistration>,
+}
 
 impl LspFileWatcherImpl {
+    fn new(
+        server_notifier: ServerNotifier,
+        runtime_handle: tokio::runtime::Handle,
+        client_capabilities: &ClientCapabilities,
+    ) -> Self {
+        let dynamic_registration_supported = supports_dynamic_watched_files(client_capabilities);
+        if !dynamic_registration_supported {
+            tracing::warn!(
+                "Client does not support dynamic watched files! File watching will be disabled, and changes to files on disk will not be detected by the LSP."
+            );
+        }
+
+        Self {
+            server_notifier,
+            runtime_handle,
+            dynamic_registration_supported,
+            relative_pattern_supported: supports_relative_watched_file_patterns(
+                client_capabilities,
+            ),
+            next_registration_id: 0,
+            registrations_by_path: Default::default(),
+        }
+    }
+
+    fn normalize_watch_path(path: &Path) -> PathBuf {
+        i_slint_compiler::pathutils::clean_path(path)
+    }
+
+    fn absolute_watch_dir(path: &Path) -> std::result::Result<PathBuf, FileWatcherError> {
+        let absolute = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            std::env::current_dir()
+                .map_err(|_| FileWatcherError::InvalidWatchPath(path.to_path_buf()))?
+                .join(path)
+        };
+
+        Ok(i_slint_compiler::pathutils::clean_path(&absolute))
+    }
+
+    fn watch_pattern_for_dir(
+        &self,
+        path: &Path,
+    ) -> std::result::Result<FileSystemWatcher, FileWatcherError> {
+        let absolute = Self::absolute_watch_dir(path)?;
+        let watcher = if self.relative_pattern_supported {
+            if let Ok(base_uri) = Url::from_file_path(&absolute) {
+                FileSystemWatcher {
+                    glob_pattern: GlobPattern::Relative(RelativePattern {
+                        base_uri: OneOf::Right(base_uri),
+                        pattern: "*".to_owned(),
+                    }),
+                    kind: Some(WatchKind::Create | WatchKind::Change | WatchKind::Delete),
+                }
+            } else {
+                FileSystemWatcher {
+                    glob_pattern: GlobPattern::String(format!(
+                        "{}/{}",
+                        absolute.to_string_lossy().replace('\\', "/"),
+                        "*"
+                    )),
+                    kind: Some(WatchKind::Create | WatchKind::Change | WatchKind::Delete),
+                }
+            }
+        } else {
+            FileSystemWatcher {
+                glob_pattern: GlobPattern::String(format!(
+                    "{}/{}",
+                    absolute.to_string_lossy().replace('\\', "/"),
+                    "*"
+                )),
+                kind: Some(WatchKind::Create | WatchKind::Change | WatchKind::Delete),
+            }
+        };
+        Ok(watcher)
+    }
+
+    fn send_request<T>(&self, params: T::Params) -> std::result::Result<T::Result, FileWatcherError>
+    where
+        T: lsp_types::request::Request,
+    {
+        self.runtime_handle.block_on(async {
+            let future = self
+                .server_notifier
+                .send_request::<T>(params)
+                .map_err(|err| FileWatcherError::ClientRequestFailed(err.to_string()))?;
+            future.await.map_err(|err| FileWatcherError::ClientRequestFailed(err.to_string()))
+        })
+    }
+
+    fn register_watch(&mut self, path: &Path) -> std::result::Result<(), FileWatcherError> {
+        let path = Self::normalize_watch_path(path);
+        if self.registrations_by_path.contains_key(&path) {
+            return Ok(());
+        }
+        tracing::trace!(?path, "Registering watched path");
+
+        let watcher = self.watch_pattern_for_dir(&path)?;
+        let registration_id =
+            format!("slint.file_watcher.registration.{}", self.next_registration_id);
+        let params = RegistrationParams {
+            registrations: vec![Registration {
+                id: registration_id.clone(),
+                method: DidChangeWatchedFiles::METHOD.to_string(),
+                register_options: Some(
+                    serde_json::to_value(lsp_types::DidChangeWatchedFilesRegistrationOptions {
+                        watchers: vec![watcher.clone()],
+                    })
+                    .map_err(|err| FileWatcherError::ClientRequestFailed(err.to_string()))?,
+                ),
+            }],
+        };
+        self.send_request::<lsp_types::request::RegisterCapability>(params)?;
+        self.next_registration_id += 1;
+        self.registrations_by_path
+            .insert(path, ActiveWatcherRegistration { registration_id, watcher });
+        Ok(())
+    }
+
+    fn unregister_watch(&mut self, path: &Path) -> std::result::Result<(), FileWatcherError> {
+        let path = Self::normalize_watch_path(path);
+        let Some(registration) = self.registrations_by_path.get(&path) else {
+            return Ok(());
+        };
+
+        tracing::trace!(?path, ?registration.watcher, "Unregistering watched path");
+
+        let params = UnregistrationParams {
+            unregisterations: vec![Unregistration {
+                id: registration.registration_id.clone(),
+                method: DidChangeWatchedFiles::METHOD.to_string(),
+            }],
+        };
+        self.send_request::<lsp_types::request::UnregisterCapability>(params)?;
+        self.registrations_by_path.remove(&path);
+        Ok(())
+    }
+
     fn process_file_watcher_event(
         watcher: &mut FileWatcher<Self>,
         event: DidChangeWatchedFilesParams,
@@ -437,16 +624,18 @@ impl LspFileWatcherImpl {
 impl file_watcher::FileWatcherImpl for LspFileWatcherImpl {
     type Error = FileWatcherError;
 
-    fn watch(&mut self, _path: &std::path::Path) -> std::result::Result<(), Self::Error> {
-        // noop, we're already watching everything 👀
-        // TODO: Change watch path registration of the language client
-        Ok(())
+    fn watch(&mut self, path: &std::path::Path) -> std::result::Result<(), Self::Error> {
+        if !self.dynamic_registration_supported {
+            return Ok(());
+        }
+        self.register_watch(path)
     }
 
-    fn unwatch(&mut self, _path: &std::path::Path) -> std::result::Result<(), Self::Error> {
-        // noop, we're already watching everything 👀
-        // TODO: Change watch path registration of the language client
-        Ok(())
+    fn unwatch(&mut self, path: &std::path::Path) -> std::result::Result<(), Self::Error> {
+        if !self.dynamic_registration_supported {
+            return Ok(());
+        }
+        self.unregister_watch(path)
     }
 
     fn worker_stopped_error() -> Self::Error {
@@ -527,6 +716,7 @@ async fn run_main_loop(
     };
 
     let (from_lsp_sender, mut from_lsp_receiver) = mpsc::unbounded_channel();
+    let server_notifier_for_watcher = server_notifier.clone();
     let mut ctx = Context {
         document_cache: crate::common::DocumentCache::new(compiler_config),
         preview_config: Default::default(),
@@ -567,7 +757,17 @@ async fn run_main_loop(
         true,
         // We don't need the event_sink in the worker thread, we just send the events directly
         // from the main thread to the file watchers worker thread.
-        move |_event_sink| Ok(LspFileWatcherImpl {}),
+        {
+            let runtime_handle = tokio::runtime::Handle::current();
+            let client_capabilities = ctx.init_param.capabilities.clone();
+            move |_event_sink| {
+                Ok(LspFileWatcherImpl::new(
+                    server_notifier_for_watcher.clone(),
+                    runtime_handle.clone(),
+                    &client_capabilities,
+                ))
+            }
+        },
     )
     .unwrap();
 
@@ -834,6 +1034,7 @@ async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Conte
                 crate::language::send_files_to_preview(ctx, &files);
             }
         }
+
         M::SendWorkspaceEdit { label, edit } => {
             let sn = ctx.server_notifier.clone();
             let _ = send_workspace_edit(sn, label, Ok(edit)).await;
@@ -875,4 +1076,93 @@ async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Conte
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    fn test_watcher(
+        dynamic_registration_supported: bool,
+        relative_pattern_supported: bool,
+    ) -> LspFileWatcherImpl {
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+        LspFileWatcherImpl {
+            server_notifier: ServerNotifier::dummy(),
+            runtime_handle: rt.handle().clone(),
+            dynamic_registration_supported,
+            relative_pattern_supported,
+            next_registration_id: 0,
+            registrations_by_path: Default::default(),
+        }
+    }
+
+    fn test_capabilities(dynamic_registration: Option<bool>) -> ClientCapabilities {
+        let mut capabilities = ClientCapabilities::default();
+        capabilities.workspace = Some(lsp_types::WorkspaceClientCapabilities::default());
+        capabilities.workspace.as_mut().unwrap().did_change_watched_files =
+            Some(lsp_types::DidChangeWatchedFilesClientCapabilities {
+                dynamic_registration,
+                relative_pattern_support: None,
+            });
+        capabilities
+    }
+
+    #[test]
+    fn dynamic_watched_files_capability_helper_behaves_as_expected() {
+        assert!(!supports_dynamic_watched_files(&ClientCapabilities::default()));
+        assert!(!supports_dynamic_watched_files(&test_capabilities(Some(false))));
+        assert!(supports_dynamic_watched_files(&test_capabilities(Some(true))));
+    }
+
+    #[test]
+    fn watched_directory_uses_relative_pattern_when_supported() {
+        let watcher = test_watcher(true, true);
+        let pattern = watcher.watch_pattern_for_dir(Path::new("tests")).unwrap();
+        let expected_dir = i_slint_compiler::pathutils::clean_path(
+            &std::env::current_dir().unwrap().join("tests"),
+        );
+
+        assert_eq!(
+            pattern,
+            FileSystemWatcher {
+                glob_pattern: GlobPattern::Relative(RelativePattern {
+                    base_uri: OneOf::Right(Url::from_file_path(expected_dir).unwrap()),
+                    pattern: "*".to_owned(),
+                }),
+                kind: Some(WatchKind::Create | WatchKind::Change | WatchKind::Delete),
+            }
+        );
+    }
+
+    #[test]
+    fn watched_directory_falls_back_to_string_pattern_without_relative_support() {
+        let watcher = test_watcher(true, false);
+        let pattern = watcher.watch_pattern_for_dir(Path::new("tests")).unwrap();
+        let expected_dir = i_slint_compiler::pathutils::clean_path(
+            &std::env::current_dir().unwrap().join("tests"),
+        );
+        let expected = format!("{}/{}", expected_dir.to_string_lossy().replace('\\', "/"), "*");
+
+        assert_eq!(
+            pattern,
+            FileSystemWatcher {
+                glob_pattern: GlobPattern::String(expected),
+                kind: Some(WatchKind::Create | WatchKind::Change | WatchKind::Delete),
+            }
+        );
+    }
+
+    #[test]
+    fn watch_and_unwatch_are_noops_without_dynamic_registration() {
+        let mut watcher = test_watcher(false, true);
+        let path = Path::new("tests");
+
+        file_watcher::FileWatcherImpl::watch(&mut watcher, path).unwrap();
+        file_watcher::FileWatcherImpl::unwatch(&mut watcher, path).unwrap();
+
+        assert!(watcher.registrations_by_path.is_empty());
+        assert_eq!(watcher.next_registration_id, 0);
+    }
 }

@@ -3,6 +3,7 @@
 
 //! Data structures common between LSP and previewer
 
+use i_slint_compiler::EmbedResourcesKind;
 use i_slint_compiler::diagnostics::{BuildDiagnostics, SourceFile};
 use i_slint_compiler::object_tree::Document;
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
@@ -72,6 +73,17 @@ impl Default for CompilerConfiguration {
 impl CompilerConfiguration {
     fn build(mut self) -> (i_slint_compiler::CompilerConfiguration, Option<OpenImportCallback>) {
         let mut result = default_cc();
+
+        // make sure to always at least list the resources
+        // Otherwise the LSP won't know to list them and thus won't know to watch them for changes,
+        // which also means the preview won't receive updates.
+        if matches!(
+            result.embed_resources,
+            EmbedResourcesKind::Nothing | EmbedResourcesKind::OnlyBuiltinResources
+        ) {
+            result.embed_resources = EmbedResourcesKind::ListAllResources;
+        }
+
         result.include_paths = std::mem::take(&mut self.include_paths);
         result.library_paths = std::mem::take(&mut self.library_paths);
         result.style = std::mem::take(&mut self.style);

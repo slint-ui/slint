@@ -160,45 +160,6 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
     }
 }
 
-async fn register_file_watcher(ctx: &Context) -> common::Result<()> {
-    use lsp_types::notification::Notification;
-
-    if ctx
-        .init_param
-        .capabilities
-        .workspace
-        .as_ref()
-        .and_then(|ws| ws.did_change_watched_files)
-        .and_then(|wf| wf.dynamic_registration)
-        .unwrap_or(false)
-    {
-        let fs_watcher = lsp_types::DidChangeWatchedFilesRegistrationOptions {
-            watchers: vec![lsp_types::FileSystemWatcher {
-                glob_pattern: lsp_types::GlobPattern::String("**/*".to_string()),
-                kind: Some(
-                    lsp_types::WatchKind::Change
-                        | lsp_types::WatchKind::Delete
-                        | lsp_types::WatchKind::Create,
-                ),
-            }],
-        };
-        let server_notifier = { ctx.server_notifier.clone() };
-        server_notifier
-            .send_request::<lsp_types::request::RegisterCapability>(
-                lsp_types::RegistrationParams {
-                    registrations: vec![lsp_types::Registration {
-                        id: "slint.file_watcher.registration".to_string(),
-                        method: lsp_types::notification::DidChangeWatchedFiles::METHOD.to_string(),
-                        register_options: Some(serde_json::to_value(fs_watcher).unwrap()),
-                    }],
-                },
-            )?
-            .await?;
-    }
-
-    Ok(())
-}
-
 pub struct Context {
     pub document_cache: common::DocumentCache,
     pub preview_config: PreviewConfig,
@@ -1569,7 +1530,6 @@ fn get_highlights_for_position(
 }
 
 pub async fn startup_lsp(ctx: &mut Context) -> common::Result<()> {
-    register_file_watcher(ctx).await?;
     load_configuration(ctx).await
 }
 
