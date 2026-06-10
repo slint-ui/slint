@@ -24,6 +24,30 @@ use pin_project::pin_project;
 
 type ItemTreeRc<C> = vtable::VRc<crate::item_tree::ItemTreeVTable, C>;
 
+/// Represents the relationship between model row and instance collection index
+/// of an element
+#[derive(Default, Clone, Debug)]
+struct ItemIndex {
+    /// The position of the item in the model
+    row: usize,
+    /// The index of the item in the instances collection
+    instance_index: usize,
+}
+
+impl ItemIndex {
+    /// get the instance index from the model index `row`
+    fn get_instance_index(&self, row: usize) -> usize {
+        self.instance_index.wrapping_add(row.wrapping_sub(self.row))
+    }
+
+    fn get_instance_index_opt(&self, row: usize) -> Option<usize> {
+        row.checked_sub(self.row).map_or_else(
+            || self.instance_index.checked_add(row).and_then(|res| res.checked_sub(self.row)),
+            |res| self.instance_index.checked_add(res),
+        )
+    }
+}
+
 /// ItemTree that can be instantiated by a repeater.
 pub trait RepeatedItemTree:
     crate::item_tree::ItemTree + vtable::HasStaticVTable<ItemTreeVTable> + 'static
@@ -108,14 +132,14 @@ impl<C: RepeatedItemTree> Default for RepeaterInner<C> {
 #[derive(Default, Clone, Debug)]
 #[repr(C)]
 pub struct RepeaterLayoutState {
-    /// The model row index of the first instance in the collection.
-    pub offset: usize,
+    /// The relation between the model row index and the instance collection index
+    pub item_index: ItemIndex,
     /// The average visible item height (cached between frames).
     pub cached_item_height: Coord,
     /// The viewport_y value from the previous layout pass.
     /// It is used to detect if we are scrolling up or down
     pub previous_viewport_y: Coord,
-    /// The y position of the item at `offset`.
+    /// The y position of the item at `item_index`.
     pub anchor_y: Coord,
 }
 
@@ -127,6 +151,21 @@ trait RepeaterInstanceOps {
 
     /// Replace the range `position..position+remove` with `add` new empty/dirty slots.
     fn splice(&mut self, position: usize, remove: usize, add: usize);
+
+    /// Clears the instance collection
+    fn clear(&mut self) {
+        self.splice(0, self.len(), 0);
+    }
+
+    /// Prepends `add` number of items before the first item
+    fn prepend(&mut self, add: usize) {
+        self.splice(0, 0, add);
+    }
+
+    /// inserts `add` items at index `index`
+    fn insert(&mut self, index: usize, add: usize) {
+        self.splice(index, 0, add);
+    }
 
     /// If dirty, ensure the instance is created, initialized, and updated
     /// for `row`. Returns `true` if freshly created.
@@ -204,15 +243,15 @@ fn update_visible_instances(
             total_height / count as Coord
         } else {
             // No items exist yet. Create one to measure.
-            state.offset = state.offset.min(row_count - 1);
+            state.item_index.row = state.item_index.row.min(row_count - 1);
             ops.splice(0, ops.len(), 1);
-            changed |= ops.ensure_updated(0, state.offset);
+            changed |= ops.ensure_updated(0, state.item_index.row);
             ops.height(0).unwrap_or(0 as Coord)
         }
     };
 
-    if state.offset >= row_count {
-        state.offset = row_count - 1;
+    if state.item_index.row >= row_count {
+        state.item_index.row = row_count - 1;
     }
 
     let one_and_a_half_screen = listview_height * 3 as Coord / 2 as Coord;
@@ -224,12 +263,12 @@ fn update_visible_instances(
     {
         // Jumping more than 1.5 screens: random seek.
         ops.splice(0, ops.len(), 0);
-        state.offset = ((-vp_y / element_height).floor() as usize).min(row_count - 1);
-        (state.offset, 0 as Coord)
+        state.item_index.row = ((-vp_y / element_height).floor() as usize).min(row_count - 1);
+        (state.item_index.row, 0 as Coord)
     } else if vp_y < state.previous_viewport_y {
         // Scrolled down: find the new offset by walking existing instances.
         let mut it_y = first_item_y + vp_y;
-        let mut new_off = state.offset;
+        let mut new_off = state.item_index.row;
         for i in 0..ops.len() {
             changed |= ops.ensure_updated(i, new_off);
             let h = ops.height(i).unwrap_or(0 as Coord);
@@ -242,15 +281,15 @@ fn update_visible_instances(
         (new_off, it_y)
     } else {
         // Scrolled up: will instantiate items before offset in the loop below.
-        (state.offset, first_item_y + vp_y)
+        (state.item_index.row, first_item_y + vp_y)
     };
 
     let mut loop_count = 0;
     loop {
         // Fill gap before new_offset using already-instantiated items.
-        while new_offset > state.offset && new_offset_y > 0 as Coord {
+        while new_offset > state.item_index.row && new_offset_y > 0 as Coord {
             new_offset -= 1;
-            new_offset_y -= ops.height(new_offset - state.offset).unwrap_or(0 as Coord);
+            new_offset_y -= ops.height(new_offset - state.item_index.row).unwrap_or(0 as Coord);
         }
         // If there is still a gap, create new instances before the current ones.
         let mut prepend_count = 0;
@@ -262,14 +301,16 @@ fn update_visible_instances(
             prepend_count += 1;
         }
         if prepend_count > 0 {
-            state.offset = new_offset;
+            state.item_index.row = new_offset;
         }
-        debug_assert!(new_offset >= state.offset && new_offset <= state.offset + ops.len());
+        debug_assert!(
+            new_offset >= state.item_index.row && new_offset <= state.item_index.row + ops.len()
+        );
 
         // Layout items until we fill the view, starting with already-instantiated ones.
         let mut y = new_offset_y;
         let mut idx = new_offset;
-        let instances_begin = new_offset - state.offset;
+        let instances_begin = new_offset - state.item_index.row;
         for i in instances_begin..ops.len() {
             if idx >= row_count {
                 break;
@@ -300,10 +341,10 @@ fn update_visible_instances(
         }
 
         // Clean up instances that are not shown.
-        if new_offset != state.offset {
-            let remove_count = new_offset - state.offset;
+        if new_offset != state.item_index.row {
+            let remove_count = new_offset - state.item_index.row;
             ops.splice(0, remove_count, 0);
-            state.offset = new_offset;
+            state.item_index.row = new_offset;
         }
         let keep = idx - new_offset;
         if ops.len() > keep {
@@ -316,7 +357,7 @@ fn update_visible_instances(
 
         // Recompute coordinates for the scrollbar.
         state.cached_item_height = (y - new_offset_y) / ops.len() as Coord;
-        state.anchor_y = state.cached_item_height * state.offset as Coord;
+        state.anchor_y = state.cached_item_height * state.item_index.row as Coord;
         viewport_height.set(LogicalLength::new(state.cached_item_height * row_count as Coord));
         viewport_width.set(LogicalLength::new(vp_width));
         let new_viewport_y = -state.anchor_y + new_offset_y;
@@ -427,7 +468,9 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
     fn row_changed(self: Pin<&Self>, row: usize) {
         let mut inner = self.inner.borrow_mut();
         let inner = &mut *inner;
-        if let Some(c) = inner.instances.get_mut(row.wrapping_sub(inner.layout_state.offset)) {
+        if let Some(c) =
+            inner.instances.get_mut(row.wrapping_sub(inner.layout_state.item_index.row))
+        {
             if !self.model.is_dirty() {
                 if let Some(comp) = c.1.as_ref() {
                     let model = self.project_ref().model.get_untracked();
@@ -442,20 +485,20 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
     /// Notify the peers that rows were added
     fn row_added(self: Pin<&Self>, mut index: usize, mut count: usize) {
         let mut inner = self.inner.borrow_mut();
-        if index < inner.layout_state.offset {
-            if index + count <= inner.layout_state.offset {
+        if index < inner.layout_state.item_index.row {
+            if index + count <= inner.layout_state.item_index.row {
                 // Entirely before the visible range: shift the offset.
-                inner.layout_state.offset += count;
+                inner.layout_state.item_index.row += count;
                 self.is_dirty.set(true);
                 for c in inner.instances.iter_mut() {
                     c.0 = RepeatedInstanceState::Dirty;
                 }
                 return;
             }
-            count -= inner.layout_state.offset - index;
+            count -= inner.layout_state.item_index.row - index;
             index = 0;
         } else {
-            index -= inner.layout_state.offset;
+            index -= inner.layout_state.item_index.row;
         }
         if count == 0 || index > inner.instances.len() {
             return;
@@ -473,21 +516,21 @@ impl<T: RepeatedItemTree> ModelChangeListener for RepeaterTracker<T> {
     /// Notify the peers that rows were removed
     fn row_removed(self: Pin<&Self>, mut index: usize, mut count: usize) {
         let mut inner = self.inner.borrow_mut();
-        if index < inner.layout_state.offset {
-            if index + count <= inner.layout_state.offset {
+        if index < inner.layout_state.item_index.row {
+            if index + count <= inner.layout_state.item_index.row {
                 // Entirely before the visible range: shift the offset.
-                inner.layout_state.offset -= count;
+                inner.layout_state.item_index.row -= count;
                 self.is_dirty.set(true);
                 for c in inner.instances.iter_mut() {
                     c.0 = RepeatedInstanceState::Dirty;
                 }
                 return;
             }
-            count -= inner.layout_state.offset - index;
-            inner.layout_state.offset = index;
+            count -= inner.layout_state.item_index.row - index;
+            inner.layout_state.item_index.row = index;
             index = 0;
         } else {
-            index -= inner.layout_state.offset;
+            index -= inner.layout_state.item_index.row;
         }
         if count == 0 || index >= inner.instances.len() {
             return;
@@ -580,7 +623,7 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         let model = self.model();
         let changed = if self.data().project_ref().is_dirty.get() {
             let count = model.row_count();
-            let offset = self.0.inner.borrow().layout_state.offset;
+            let offset = self.0.inner.borrow().layout_state.item_index.row;
             let mut ops = RustRepeaterOps { inner: &self.0.inner, init: &init, model: &model };
             self.data().is_dirty.set(false);
             update_all_instances(&mut ops, offset, count);
@@ -712,8 +755,8 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     pub fn range(&self) -> core::ops::Range<usize> {
         let inner = self.0.inner.borrow();
         core::ops::Range {
-            start: inner.layout_state.offset,
-            end: inner.layout_state.offset + inner.instances.len(),
+            start: inner.layout_state.item_index.row,
+            end: inner.layout_state.item_index.row + inner.instances.len(),
         }
     }
 
@@ -721,7 +764,10 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
     /// The index should be within [`Self::range()`]
     pub fn instance_at(&self, index: usize) -> Option<ItemTreeRc<C>> {
         let inner = self.0.inner.borrow();
-        inner.instances.get(index.checked_sub(inner.layout_state.offset)?).and_then(|c| c.1.clone())
+        inner
+            .instances
+            .get(index.checked_sub(inner.layout_state.item_index.row)?)
+            .and_then(|c| c.1.clone())
     }
 
     /// Return true if the Repeater as empty
@@ -946,5 +992,271 @@ mod ffi {
             listview_width,
             listview_height,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::SharedString;
+    use crate::accessibility::{
+        AccessibilityAction, AccessibleStringProperty, SupportedAccessibilityAction,
+    };
+    use crate::input::{
+        FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, InternalKeyEvent,
+        KeyEventResult, MouseEvent,
+    };
+    use crate::item_tree::{
+        IndexRange, ItemTree, ItemTreeNode, ItemTreeWeak, ItemVisitorVTable, ItemWeak,
+        VisitChildrenResult,
+    };
+    use crate::items::{AccessibleRole, ItemRc, ItemVTable, MouseCursor, RenderingResult};
+    use crate::layout::LayoutInfo;
+    use crate::lengths::{LogicalRect, LogicalSize};
+    use crate::slice::Slice;
+    use crate::window::{WindowAdapter, WindowAdapterRc};
+    use alloc::rc::Rc;
+
+    type ItemRendererRef<'a> = &'a mut dyn crate::item_rendering::ItemRenderer;
+
+    struct Value(Vec<i32>);
+    crate::item_tree::ItemTreeVTable_static!(static TEST_COMPONENT_VT for Value);
+    impl RepeatedItemTree for Value {
+        type Data = i32;
+
+        fn update(&self, index: usize, data: Self::Data) {}
+    }
+
+    #[test]
+    fn test() {
+        let mut repeater: Repeater<Value> = Repeater::default();
+
+        let model = Property::<ModelRc<i32>>::default();
+
+        let model = ModelRc::<i32>::default();
+
+        repeater.set_model_binding({ move || model.clone() });
+
+        let inner = repeater.0.inner.borrow();
+        assert_eq!(inner.instances.len(), 0, "We don't have any items yet in the model");
+        assert_eq!(inner.layout_state.item_index.row, 0);
+    }
+
+    impl crate::items::Item for Value {
+        fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+        fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
+        fn layout_info(
+            self: Pin<&Self>,
+            _orientation: Orientation,
+            _cross_axis_constraint: Coord,
+            _window_adapter: &Rc<dyn WindowAdapter>,
+            _self_rc: &ItemRc,
+        ) -> LayoutInfo {
+            unimplemented!("Not implemented");
+            LayoutInfo { stretch: 1., ..LayoutInfo::default() }
+        }
+
+        fn input_event_filter_before_children(
+            self: Pin<&Self>,
+            _: &MouseEvent,
+            _window_adapter: &Rc<dyn WindowAdapter>,
+            _self_rc: &ItemRc,
+            _: &mut MouseCursor,
+        ) -> InputEventFilterResult {
+            unimplemented!("Not implemented");
+            InputEventFilterResult::ForwardAndIgnore
+        }
+
+        fn input_event(
+            self: Pin<&Self>,
+            _: &MouseEvent,
+            _window_adapter: &Rc<dyn WindowAdapter>,
+            _self_rc: &ItemRc,
+            _: &mut MouseCursor,
+        ) -> InputEventResult {
+            unimplemented!("Not implemented");
+            InputEventResult::EventIgnored
+        }
+
+        fn capture_key_event(
+            self: Pin<&Self>,
+            _: &InternalKeyEvent,
+            _window_adapter: &Rc<dyn WindowAdapter>,
+            _self_rc: &ItemRc,
+        ) -> KeyEventResult {
+            unimplemented!("Not implemented");
+            KeyEventResult::EventIgnored
+        }
+
+        fn key_event(
+            self: Pin<&Self>,
+            _: &InternalKeyEvent,
+            _window_adapter: &Rc<dyn WindowAdapter>,
+            _self_rc: &ItemRc,
+        ) -> KeyEventResult {
+            unimplemented!("Not implemented");
+            KeyEventResult::EventIgnored
+        }
+
+        fn focus_event(
+            self: Pin<&Self>,
+            _: &FocusEvent,
+            _window_adapter: &Rc<dyn WindowAdapter>,
+            _self_rc: &ItemRc,
+        ) -> FocusEventResult {
+            unimplemented!("Not implemented");
+            FocusEventResult::FocusIgnored
+        }
+
+        fn render(
+            self: Pin<&Self>,
+            backend: &mut ItemRendererRef,
+            self_rc: &ItemRc,
+            size: LogicalSize,
+        ) -> RenderingResult {
+            unimplemented!("Not implemented");
+            RenderingResult::ContinueRenderingChildren
+        }
+
+        fn bounding_rect(
+            self: core::pin::Pin<&Self>,
+            _window_adapter: &Rc<dyn WindowAdapter>,
+            _self_rc: &ItemRc,
+            geometry: LogicalRect,
+        ) -> LogicalRect {
+            unimplemented!("Not implemented");
+            geometry
+        }
+
+        fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+            unimplemented!("Not implemented");
+            false
+        }
+    }
+
+    impl ItemTree for Value {
+        fn visit_children_item(
+            self: core::pin::Pin<&Self>,
+            _1: isize,
+            _2: crate::item_tree::TraversalOrder,
+            _3: vtable::VRefMut<crate::item_tree::ItemVisitorVTable>,
+        ) -> crate::item_tree::VisitChildrenResult {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn get_item_ref(
+            self: core::pin::Pin<&Self>,
+            index: u32,
+        ) -> core::pin::Pin<vtable::VRef<'_, crate::items::ItemVTable>> {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn get_item_tree(self: core::pin::Pin<&Self>) -> Slice<'_, ItemTreeNode> {
+            unimplemented!("Not implemented");
+            Slice::default()
+        }
+
+        fn parent_node(self: core::pin::Pin<&Self>, result: &mut ItemWeak) {
+            unimplemented!("Not implemented");
+            *result = ItemWeak::default();
+        }
+
+        fn embed_component(
+            self: core::pin::Pin<&Self>,
+            _parent_component: &ItemTreeWeak,
+            _item_tree_index: u32,
+        ) -> bool {
+            unimplemented!("Not implemented");
+            false
+        }
+
+        fn ensure_instantiated(self: core::pin::Pin<&Self>) -> bool {
+            unimplemented!("Not implemented");
+            false
+        }
+
+        fn layout_info(self: core::pin::Pin<&Self>, o: Orientation) -> LayoutInfo {
+            // return LayoutInfo {
+            //     max: wi.width.get_internal().0,
+            //     max_percent: 100.,
+            //     min: wi.width.get_internal().0,
+            //     min_percent: 100.,
+            //     preferred: wi.width.get_internal().0,
+            //     stretch: 1.,
+            // };
+            unimplemented!("Not needed for this test")
+        }
+
+        fn subtree_index(self: core::pin::Pin<&Self>) -> usize {
+            unimplemented!("Not implemented");
+            0
+        }
+
+        fn get_subtree_range(self: core::pin::Pin<&Self>, subtree_index: u32) -> IndexRange {
+            unimplemented!("Not implemented");
+            IndexRange { start: 0, end: 0 }
+        }
+
+        fn get_subtree(
+            self: core::pin::Pin<&Self>,
+            subtree_index: u32,
+            component_index: usize,
+            result: &mut ItemTreeWeak,
+        ) {
+            unimplemented!("Not implemented");
+        }
+
+        fn accessible_role(self: Pin<&Self>, _: u32) -> AccessibleRole {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn accessible_string_property(
+            self: Pin<&Self>,
+            _: u32,
+            _: AccessibleStringProperty,
+            _: &mut crate::SharedString,
+        ) -> bool {
+            unimplemented!("Not implemented");
+            false
+        }
+
+        fn item_element_infos(self: Pin<&Self>, _: u32, _: &mut SharedString) -> bool {
+            unimplemented!("Not implemented");
+            false
+        }
+
+        fn window_adapter(
+            self: Pin<&Self>,
+            _do_create: bool,
+            result: &mut Option<WindowAdapterRc>,
+        ) {
+            unimplemented!("Not implemented");
+            *result = None;
+        }
+
+        fn item_geometry(self: Pin<&Self>, _: u32) -> crate::lengths::LogicalRect {
+            unimplemented!("Not implemented");
+            crate::lengths::LogicalRect::new(
+                euclid::Point2D::new(0 as Coord, 0 as Coord),
+                euclid::Size2D::new(100 as Coord, 100 as Coord),
+            )
+        }
+
+        fn accessibility_action(
+            self: core::pin::Pin<&Self>,
+            _: u32,
+            _: &crate::accessibility::AccessibilityAction,
+        ) {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn supported_accessibility_actions(
+            self: core::pin::Pin<&Self>,
+            _: u32,
+        ) -> crate::accessibility::SupportedAccessibilityAction {
+            unimplemented!("Not needed for this test")
+        }
     }
 }
