@@ -1,6 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+
 /** Minimal structural shape of an `astro:content` collection entry. */
 export interface MarkdownDocEntry {
     /** Collection id; the root index page has an empty id. */
@@ -9,6 +12,11 @@ export interface MarkdownDocEntry {
     data: Record<string, unknown>;
     /** Raw markdown body. */
     body?: string;
+    /**
+     * Source file path relative to the project root (Astro's
+     * `entry.filePath`). Needed to resolve relative `?raw` imports.
+     */
+    filePath?: string;
 }
 
 /** A `linkMap` entry: the in-prose `<Link>` component resolves a `type` to an href. */
@@ -28,6 +36,12 @@ export interface MarkdownEndpointOptions {
      * (the generated C++/Python/Node API references) omit this.
      */
     linkMap?: Record<string, MarkdownLinkTarget>;
+    /**
+     * Absolute path of the Astro project root. When set, `?raw` imports and
+     * the `<Code>` components consuming them are inlined as fenced code
+     * blocks. Sites whose pages don't import code from files omit this.
+     */
+    projectRoot?: string;
 }
 
 /**
@@ -48,6 +62,9 @@ export function renderMarkdownResponse(
 ): Response {
     const data = entry.data;
     let body = entry.body ?? "";
+    if (options.projectRoot) {
+        body = inlineRawCodeImports(body, options.projectRoot, entry.filePath);
+    }
     if (options.linkMap) {
         body = resolveLinkComponents(
             body,
@@ -107,6 +124,80 @@ function resolveLinkComponents(
         const label = parsed.label ?? type;
         return `[${label}](${basePath}${toMarkdownHref(linkMap[type].href)})`;
     });
+}
+
+// Pages include code examples via Vite raw imports —
+// `import name from "…?raw"` hands the file's text to a `<Code>` component at
+// build time. The served markdown is the unprocessed MDX, so without help the
+// reader sees the import line where the HTML page shows code. Inline the file
+// content as a fenced code block and drop the consumed import. Components
+// whose source can't be resolved are left as-is so the regular build checks
+// surface the problem.
+const RAW_IMPORT_RE =
+    /^import\s+(\w+)\s+from\s+["']([^"']+)\?raw["'];?[ \t]*\n?/gm;
+const CODE_COMPONENT_RE = /<Code\s([^>]*?)\/>/g;
+// Mirrors `extractLines()` from utils.ts: a 1-based inclusive line range.
+const EXTRACT_LINES_RE =
+    /^\s*extractLines\(\s*(\w+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)\s*$/;
+
+function inlineRawCodeImports(
+    body: string,
+    projectRoot: string,
+    entryFilePath?: string,
+): string {
+    // The imported files: binding name -> file content.
+    const sources = new Map<string, string>();
+    for (const [, name, importPath] of body.matchAll(RAW_IMPORT_RE)) {
+        // Project-absolute imports (`/src/…`) resolve against the project
+        // root; relative ones against the page's own directory.
+        const resolved = importPath.startsWith("/")
+            ? join(projectRoot, importPath)
+            : entryFilePath
+              ? join(projectRoot, dirname(entryFilePath), importPath)
+              : undefined;
+        try {
+            if (resolved) {
+                sources.set(name, readFileSync(resolved, "utf-8"));
+            }
+        } catch {
+            // Unreadable file: keep the import and its <Code> usage verbatim.
+        }
+    }
+    if (sources.size === 0) {
+        return body;
+    }
+
+    const inlined = new Set<string>();
+    const out = body.replace(CODE_COMPONENT_RE, (whole, attrs: string) => {
+        const codeExpr = /\bcode=\{([^}]*)\}/.exec(attrs)?.[1] ?? "";
+        const sliced = EXTRACT_LINES_RE.exec(codeExpr);
+        const name = sliced?.[1] ?? codeExpr.trim();
+        let content = sources.get(name);
+        if (content === undefined) {
+            return whole;
+        }
+        if (sliced) {
+            content = content
+                .split("\n")
+                .slice(Number(sliced[2]) - 1, Number(sliced[3]))
+                .join("\n");
+        }
+        inlined.add(name);
+        const lang = /\blang="([^"]*)"/.exec(attrs)?.[1] ?? "";
+        const title = /\btitle="([^"]*)"/.exec(attrs)?.[1];
+        // A fence must be longer than any backtick run in the content.
+        let fence = "```";
+        while (content.includes(fence)) {
+            fence += "`";
+        }
+        const info = lang + (title ? ` title="${title}"` : "");
+        return `${fence}${info}\n${content.replace(/\n+$/, "")}\n${fence}`;
+    });
+
+    // Drop the import lines whose code is now inlined.
+    return out.replace(RAW_IMPORT_RE, (whole, name) =>
+        inlined.has(name) ? "" : whole,
+    );
 }
 
 // Convert an HTML page href like "reference/common/#anchor" into the
