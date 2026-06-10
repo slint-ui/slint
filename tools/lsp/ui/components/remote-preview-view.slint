@@ -85,11 +85,11 @@ export component RemotePreviewView inherits Rectangle {
             ? @linear-gradient(180deg, #202124, #111214)
             : @linear-gradient(180deg, #f8fafc, #e8ecf2);
     }
-    // Image {
-    //     y: parent.height - self.height;
-    //     width: 100%;
-    //     source: background-image;
-    // }
+    Image {
+        y: parent.height - self.height;
+        width: 100%;
+        source: background-image;
+    }
 
     VerticalLayout {
         padding-left: 32px;
@@ -159,12 +159,7 @@ export component RemotePreviewView inherits Rectangle {
                                 horizontal-alignment: center;
                                 font-weight: FontWeight.bold;
                                 color: Palette.foreground;
-                            }
-                            Text {
-                                text: @tr("Start Slint Viewer on a nearby phone or tablet.");
-                                horizontal-alignment: center;
-                                color: Palette.foreground;
-                                opacity: 0.68;
+                                font-size: 12px;
                             }
                         }
 
@@ -279,6 +274,7 @@ export component RemotePreviewView inherits Rectangle {
                         wrap: word-wrap;
                         color: Palette.foreground;
                         opacity: 0.80;
+                        font-size: 14px;
                     }
                 }
             }
