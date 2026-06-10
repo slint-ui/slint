@@ -473,15 +473,20 @@ async fn run_main_loop(
         tokio::select! {
             msg = from_lsp_receiver.recv() => {
                 if let Some(msg) = msg {
-                    if handle_lsp_message(
+                    match handle_lsp_message(
                         msg,
                         &connection,
                         &mut rh,
                         &mut ctx,
-                    ).await? {
-                        tracing::debug!("LSP shutdown requested");
-                        adapter_thread.join().expect("Failed to join adapter thread");
-                        return Ok(());
+                    ).await
+                    {
+                        Ok(true) => {
+                            tracing::debug!("LSP shutdown requested");
+                            adapter_thread.join().expect("Failed to join adapter thread");
+                            return Ok(());
+                        }
+                        Ok(false) => {}
+                        Err(e) => tracing::error!("Error handling LSP message: {e}"),
                     }
                 } else {
                     adapter_thread.join().expect("Failed to join adapter thread");
@@ -517,6 +522,7 @@ async fn handle_lsp_message(
     rh: &mut RequestHandler,
     ctx: &mut Context,
 ) -> Result<bool> {
+    tracing::trace!("Handling LSP message: {msg:?}");
     match msg {
         Message::Request(req) => {
             // ignore errors when shutdown
