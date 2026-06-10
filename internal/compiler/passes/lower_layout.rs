@@ -1674,6 +1674,7 @@ fn lower_dialog_layout(
                                         )),
                                         visibility: PropertyVisibility::InOut,
                                         pure: None,
+                                        is_from_interface: false,
                                     });
                             }
                         }

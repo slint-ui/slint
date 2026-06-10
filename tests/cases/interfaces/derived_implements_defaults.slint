@@ -29,32 +29,29 @@ export component TestCase inherits Base {
 /*
 ```rust
 let instance = TestCase::new().unwrap();
-// TODO: Interface properties aren't part of the public API
-// assert_eq!(instance.get_text(), "Hello");
-// assert_eq!(instance.get_enabled(), true);
-// assert_eq!(instance.get_precision(), 2);
-// assert_eq!(instance.get_confidence(), 0.5);
+assert_eq!(instance.get_text(), "Hello");
+assert_eq!(instance.get_enabled(), true);
+assert_eq!(instance.get_precision(), 2);
+assert_eq!(instance.get_confidence(), 0.5);
 assert!(instance.get_test());
 ```
 
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-// TODO: Interface properties aren't part of the public API
-// assert_eq(instance.get_text(), "Hello");
-// assert_eq(instance.get_enabled(), true);
-// assert_eq(instance.get_precision(), 2);
-// assert_eq(instance.get_confidence(), 0.5);
+assert_eq(instance.get_text(), "Hello");
+assert_eq(instance.get_enabled(), true);
+assert_eq(instance.get_precision(), 2);
+assert_eq(instance.get_confidence(), 0.5);
 assert(instance.get_test());
 ```
 
 ```js
 var instance = new slint.TestCase({});
-// TODO: Interface properties aren't part of the public API
-// assert.equal(instance.text, "Hello");
-// assert.equal(instance.enabled, true);
-// assert.equal(instance.precision, 2);
-// assert.equal(instance.confidence, 0.5);
+assert.equal(instance.text, "Hello");
+assert.equal(instance.enabled, true);
+assert.equal(instance.precision, 2);
+assert.equal(instance.confidence, 0.5);
 assert(instance.test);
 ```
 */

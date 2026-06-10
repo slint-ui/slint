@@ -642,6 +642,8 @@ pub struct PropertyDeclaration {
     pub visibility: PropertyVisibility,
     /// For function or callback: whether it is declared as `pure` (None for private function for which this has to be deduced)
     pub pure: Option<bool>,
+    /// Whether this declaration is part of an interface and therefore exposed in the native API language
+    pub is_from_interface: bool,
 }
 
 impl PropertyDeclaration {
@@ -1328,6 +1330,7 @@ impl Element {
                     property_type: prop_type,
                     node: Some(prop_decl.clone().into()),
                     visibility,
+                    is_from_interface: base_type == ElementType::Interface,
                     ..Default::default()
                 },
             );
@@ -1553,6 +1556,7 @@ impl Element {
                 node: Some(func.clone().into()),
                 visibility,
                 pure,
+                is_from_interface: base_type == ElementType::Interface,
                 ..Default::default()
             };
 
@@ -1906,7 +1910,11 @@ impl Element {
         }
 
         interfaces::apply_default_property_values(&r, &implemented_interface);
-        interfaces::validate_function_implementations(&r.borrow(), &implemented_interface, diag);
+        interfaces::validate_function_implementations(
+            &mut r.borrow_mut(),
+            &implemented_interface,
+            diag,
+        );
 
         r
     }
