@@ -39,9 +39,6 @@ set(DEFAULT_SLINT_EMBED_RESOURCES "embed-for-software-renderer" CACHE STRING "")
 # set(CMAKE_BUILD_TYPE Release)
 set(BUILD_SHARED_LIBS OFF)
 
-# Work around gcc_s linker issue?
-set(Rust_CARGO_TARGET_LINK_NATIVE_LIBS "" CACHE INTERNAL "" FORCE)
-
 # TODO: FetchContent?
 add_subdirectory(../../.. slint_build)
 
