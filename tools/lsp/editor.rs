@@ -16,9 +16,9 @@ use lsp_server::{Message, RequestId};
 use lsp_types::{FileChangeType, MessageType, Url, notification::Notification};
 
 use crate::{
-    common::{self, Result, document_cache::OpenImportCallback},
+    common::{self, LspToPreviews, Result, document_cache::OpenImportCallback},
     language, preview,
-    preview::connector::{EmbeddedLspToPreview, SwitchableLspToPreview},
+    preview::connector::EmbeddedLspToPreview,
 };
 
 pub fn editor_main() {
@@ -236,7 +236,7 @@ async fn lsp_main(
     )?;
 
     // Wrap to_preview in Rc for sharing with the import callback and Context
-    let to_preview = Rc::new(SwitchableLspToPreview::with_one(to_preview));
+    let to_preview = LspToPreviews::with_one(to_preview);
 
     let open_import_callback = {
         let to_preview = Rc::clone(&to_preview);
@@ -398,10 +398,16 @@ fn handle_preview_message(msg: PreviewToLspMessage, ctx: &language::Context) {
                 _ => tracing::info!("Preview: {}", message.message),
             };
         }
+        DebugMessage { location, message } => {
+            eprintln!("{}", common::preview_debug_message_to_string(location, message));
+        }
+
         Diagnostics { .. }
         | ShowDocument { .. }
         | PreviewTypeChanged { .. }
-        | TelemetryEvent(..) => {
+        | TelemetryEvent(..)
+        | ConnectRemote { .. }
+        | DisconnectRemote => {
             tracing::debug!("Ignoring message from preview: {msg:?}");
         }
         SendWorkspaceEdit { .. } => {

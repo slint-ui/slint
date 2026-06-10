@@ -156,10 +156,6 @@ impl RendererSealed for SkiaWGPURenderer {
         self.renderer.register_font_from_path(path)
     }
 
-    fn default_font_size(&self) -> i_slint_core::lengths::LogicalLength {
-        self.renderer.default_font_size()
-    }
-
     fn set_rendering_notifier(
         &self,
         callback: Box<dyn i_slint_core::api::RenderingNotifier>,

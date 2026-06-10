@@ -34,6 +34,7 @@ on:
 env:
     MACOSX_DEPLOYMENT_TARGET: "11.0"
     SLINT_COMPILER_DENY_WARNINGS: 1
+    SLINT_BUILD_NUMBER: ${{ github.run_number }}
 
 jobs:
     files-changed:
@@ -47,6 +48,7 @@ jobs:
         material_components: ${{ inputs.full || steps.filter.outputs.material_components == 'true' }}
         internal: ${{ inputs.full || steps.filter.outputs.internal == 'true' }}
         api_cpp: ${{ inputs.full || steps.filter.outputs.api_cpp == 'true' }}
+        android_backend: ${{ inputs.full || steps.filter.outputs.android_backend == 'true' }}
         api_python: ${{ inputs.full || steps.filter.outputs.api_python == 'true' }}
         api_node: ${{ inputs.full || steps.filter.outputs.api_node == 'true' }}
         api_rs: ${{ inputs.full || steps.filter.outputs.api_rs == 'true' }}
@@ -528,7 +530,7 @@ jobs:
 
     android:
         needs: files-changed
-        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_rs == 'true' || needs.files-changed.outputs.examples == 'true' }}
+        if: ${{ needs.files-changed.outputs.internal == 'true' || needs.files-changed.outputs.api_rs == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.android_backend == 'true' }}
         runs-on: ubuntu-latest
         env:
             RUSTFLAGS: -D warnings
@@ -568,6 +570,30 @@ jobs:
 
             - name: Build slint-viewer for Android
               run: cargo apk build -p slint-viewer --target aarch64-linux-android --lib --features remote
+
+    android_cpp:
+        needs: files-changed
+        if: ${{ needs.files-changed.outputs.api_cpp == 'true' || needs.files-changed.outputs.examples == 'true' || needs.files-changed.outputs.android_backend == 'true' }}
+        runs-on: ubuntu-latest
+        env:
+            CARGO_INCREMENTAL: false
+            CARGO_PROFILE_DEV_DEBUG: 0
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/install-linux-dependencies
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: aarch64-linux-android
+            - uses: actions/setup-java@v5
+              with:
+                  distribution: temurin
+                  java-version: '17'
+            - uses: gradle/actions/setup-gradle@v6
+            - name: Build usecases demo APK (Gradle end-to-end)
+              working-directory: demos/usecases/cpp/android
+              env:
+                  ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_LATEST_HOME }}
+              run: gradle assembleDebug
 
     test-figma-inspector:
         needs: files-changed

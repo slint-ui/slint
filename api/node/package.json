@@ -24,8 +24,9 @@
     "@types/capture-console": "1.0.5",
     "@types/node": "catalog:",
     "capture-console": "1.0.2",
-    "image-js": "1.6.0",
+    "image-js": "1.6.1",
     "typescript": "catalog:",
+    "verdaccio": "6.7.2",
     "vitest": "catalog:"
   },
   "engines": {
@@ -50,6 +51,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@napi-rs/cli": "3.6.2"
+    "@napi-rs/cli": "3.7.0"
   }
 }

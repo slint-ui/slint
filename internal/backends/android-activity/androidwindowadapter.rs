@@ -367,7 +367,7 @@ impl AndroidWindowAdapter {
                             self.long_press.replace(Some(LongPressDetection { position, _timer }));
                             if let Some(p) = motion_event.pointers().next() {
                                 WindowInner::from_pub(&self.window).process_touch_input(
-                                    p.pointer_id() as u64,
+                                    p.pointer_id(),
                                     touch_pos(&p),
                                     TouchPhase::Started,
                                 );
@@ -378,7 +378,7 @@ impl AndroidWindowAdapter {
                             self.long_press.take();
                             if let Some(p) = motion_event.pointers().next() {
                                 WindowInner::from_pub(&self.window).process_touch_input(
-                                    p.pointer_id() as u64,
+                                    p.pointer_id(),
                                     touch_pos(&p),
                                     TouchPhase::Ended,
                                 );
@@ -401,7 +401,7 @@ impl AndroidWindowAdapter {
                             let runtime_window = WindowInner::from_pub(&self.window);
                             for p in motion_event.pointers() {
                                 runtime_window.process_touch_input(
-                                    p.pointer_id() as u64,
+                                    p.pointer_id(),
                                     touch_pos(&p),
                                     TouchPhase::Moved,
                                 );
@@ -414,7 +414,7 @@ impl AndroidWindowAdapter {
                             let idx = motion_event.pointer_index();
                             if let Some(p) = motion_event.pointers().nth(idx) {
                                 WindowInner::from_pub(&self.window).process_touch_input(
-                                    p.pointer_id() as u64,
+                                    p.pointer_id(),
                                     touch_pos(&p),
                                     TouchPhase::Started,
                                 );
@@ -425,7 +425,7 @@ impl AndroidWindowAdapter {
                             let idx = motion_event.pointer_index();
                             if let Some(p) = motion_event.pointers().nth(idx) {
                                 WindowInner::from_pub(&self.window).process_touch_input(
-                                    p.pointer_id() as u64,
+                                    p.pointer_id(),
                                     touch_pos(&p),
                                     TouchPhase::Ended,
                                 );
@@ -443,7 +443,7 @@ impl AndroidWindowAdapter {
                             let runtime_window = WindowInner::from_pub(&self.window);
                             for p in motion_event.pointers() {
                                 runtime_window.process_touch_input(
-                                    p.pointer_id() as u64,
+                                    p.pointer_id(),
                                     touch_pos(&p),
                                     TouchPhase::Cancelled,
                                 );

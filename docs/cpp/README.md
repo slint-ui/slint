@@ -50,8 +50,8 @@ pnpm -C docs/cpp test     # node --test, no extra deps
 - [Node.js](https://nodejs.org/) (v22+) and [pnpm](https://pnpm.io/)
 - [Doxygen](https://www.doxygen.nl/) for `gen:api`
 - A Rust toolchain for `gen:api` (it runs `cargo xtask generate_cppdocs_headers`
-  to produce the cbindgen headers) and for `thirdparty`
-- [cargo-about](https://github.com/EmbarkStudios/cargo-about) for `thirdparty`
+  to produce the cbindgen headers) and for `thirdparty` (which runs
+  `cargo xtask license` to produce the third-party license list)
 
 `gen:api` generates the cbindgen headers itself and points Doxygen at them, so
 no manual setup is needed. To use pre-generated headers (or skip the Rust

@@ -5,9 +5,9 @@ export component Test inherits Window {
     MenuBar {
         Menu {
             title: "File";
-            ToolTip {
-//          >      <error{ToolTip cannot be used inside non-item elements}
-                text: "No tooltip here";
+            Tooltip {
+//          >      <error{Tooltip cannot be added to Menu}
+                text: @markdown("No tooltip here");
             }
         }
     }

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore binfmt testui
+// cSpell: ignore binfmt GETNONCLIENTMETRICS NONCLIENTMETRICSW testui
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![warn(missing_docs)]
@@ -703,6 +703,35 @@ impl i_slint_core::platform::Platform for Backend {
                 *self.xdg_watcher.borrow_mut() = Some(handle);
             }
         }
+        #[cfg(target_os = "windows")]
+        if let Some(ctx) = _ctx.upgrade() {
+            use windows::Win32::UI::HiDpi::SystemParametersInfoForDpi;
+            use windows::Win32::UI::WindowsAndMessaging::{
+                NONCLIENTMETRICSW, SPI_GETNONCLIENTMETRICS,
+            };
+            let mut metrics = NONCLIENTMETRICSW {
+                cbSize: core::mem::size_of::<NONCLIENTMETRICSW>() as u32,
+                ..NONCLIENTMETRICSW::default()
+            };
+            let ok = unsafe {
+                SystemParametersInfoForDpi(
+                    SPI_GETNONCLIENTMETRICS.0,
+                    metrics.cbSize,
+                    Some(&mut metrics as *mut _ as *mut core::ffi::c_void),
+                    0,
+                    96,
+                )
+            }
+            .is_ok();
+            // `lfMessageFont.lfHeight` is in pixels at 96 DPI = Slint logical pixels;
+            // negative means em height, positive means cell height — magnitude is fine here.
+            let height = metrics.lfMessageFont.lfHeight.unsigned_abs();
+            if ok && height > 0 {
+                ctx.set_platform_default_font_size(Some(
+                    i_slint_core::lengths::LogicalLength::new(height as f32),
+                ));
+            }
+        }
     }
 
     fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
@@ -1126,7 +1155,7 @@ fn create_renderer(
                 if #[cfg(enable_skia_renderer)] {
                     renderer::skia::WinitSkiaRenderer::new_wgpu_28_suspended(shared_data)
                 } else {
-                    return Err("unstable-wgpu-28 was enabled but no renderer was selected. Please select renderer-skia*".into())
+                    Err("unstable-wgpu-28 was enabled but no renderer was selected. Please select renderer-skia*".into())
                 }
             }
         }
@@ -1138,7 +1167,7 @@ fn create_renderer(
                 } else if #[cfg(all(enable_femtovg_renderer, feature = "renderer-femtovg-wgpu"))] {
                     renderer::femtovg::WGPUFemtoVGRenderer::new_suspended(shared_data)
                 } else {
-                    return Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
+                    Err("unstable-wgpu-29 was enabled but no renderer was selected. Please select either renderer-skia* or renderer-femtovg-wgpu".into())
                 }
             }
         }

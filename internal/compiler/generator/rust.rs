@@ -381,6 +381,22 @@ fn generate_public_component(
 
     let experimental = compiler_config.enable_experimental;
 
+    let new_with_existing_window_impl: Option<TokenStream> = match llr.top_level_type {
+        llr::TopLevelComponentType::Window => Some(quote!(
+            #[cfg(#experimental)]
+            pub fn new_with_existing_window(window: &slint::Window) -> ::core::result::Result<Self, slint::PlatformError> {
+                slint::private_unstable_api::ensure_backend()?;
+                let inner = #inner_component_id::new()?;
+                #init_bundle_translations
+                inner.globals.get().unwrap().create_window_from_existing(window)?;
+                #inner_component_id::user_init(sp::VRc::map(inner.clone(), |x| x));
+                #ensure_tree_instantiated
+                ::core::result::Result::Ok(Self(inner))
+            }
+        )),
+        llr::TopLevelComponentType::SystemTrayIcon => None,
+    };
+
     // Window-rooted components get the full `ComponentHandle` impl. SystemTrayIcon
     // gets an inherent impl with no `window()` accessor: a tray icon is not a
     // `slint::Window` and the previous accessor's body would panic at runtime.
@@ -497,6 +513,8 @@ fn generate_public_component(
                 ::core::result::Result::Ok(Self(inner))
             }
 
+            #new_with_existing_window_impl
+
             #property_and_callback_accessors
         }
 
@@ -599,6 +617,16 @@ fn generate_shared_globals(
             fn create_window_from_context(&self, ctx: sp::SlintContext) -> sp::Result<(), slint::PlatformError> {
                 let adapter = ctx.platform().create_window_adapter()?;
                 sp::WindowInner::from_pub(adapter.window()).set_context(ctx);
+                let root_rc = self.root_item_tree_weak.upgrade().unwrap();
+                sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
+                #apply_constant_scale_factor
+                self.window_adapter.set(adapter).map_err(|_|()).expect("The window shouldn't be initialized before this call");
+                sp::Ok(())
+            }
+
+            #[cfg(#experimental)]
+            fn create_window_from_existing(&self, window: &slint::Window) -> sp::Result<(), slint::PlatformError> {
+                let adapter = sp::WindowInner::from_pub(window).window_adapter();
                 let root_rc = self.root_item_tree_weak.upgrade().unwrap();
                 sp::WindowInner::from_pub(adapter.window()).set_component(&root_rc);
                 #apply_constant_scale_factor
@@ -3358,26 +3386,44 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 sp::LinearGradientBrush::new(#angle as _, [#(#stops),*])
             ))
         }
-        Expression::RadialGradient { stops } => {
+        Expression::RadialGradient { center, radius, stops } => {
             let stops = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
                 quote!(sp::GradientStop{ color: #color, position: #position as _ })
             });
-            quote!(slint::Brush::RadialGradient(
-                sp::RadialGradientBrush::new_circle([#(#stops),*])
-            ))
+            let brush_expr = quote!(sp::RadialGradientBrush::new_circle([#(#stops),*]));
+            let brush_expr = if let Some((cx, cy)) = center {
+                let cx = compile_expression(cx, ctx);
+                let cy = compile_expression(cy, ctx);
+                quote!(#brush_expr.with_center(#cx as f32, #cy as f32))
+            } else {
+                brush_expr
+            };
+            let brush_expr = if let Some(r) = radius {
+                let r = compile_expression(r, ctx);
+                quote!(#brush_expr.with_radius(#r as f32))
+            } else {
+                brush_expr
+            };
+            quote!(slint::Brush::RadialGradient(#brush_expr))
         }
-        Expression::ConicGradient { from_angle, stops } => {
+        Expression::ConicGradient { from_angle, center, stops } => {
             let from_angle = compile_expression(from_angle, ctx);
             let stops = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
                 quote!(sp::GradientStop{ color: #color, position: #position as _ })
             });
-            quote!(slint::Brush::ConicGradient(
-                sp::ConicGradientBrush::new(#from_angle as _, [#(#stops),*])
-            ))
+            let brush_expr = quote!(sp::ConicGradientBrush::new(#from_angle as _, [#(#stops),*]));
+            let brush_expr = if let Some((cx, cy)) = center {
+                let cx = compile_expression(cx, ctx);
+                let cy = compile_expression(cy, ctx);
+                quote!(#brush_expr.with_center(#cx as f32, #cy as f32))
+            } else {
+                brush_expr
+            };
+            quote!(slint::Brush::ConicGradient(#brush_expr))
         }
         Expression::EnumerationValue(value) => {
             let base_ident = ident(&value.enumeration.name);
@@ -3600,19 +3646,19 @@ fn compile_builtin_function_call(
                     Some(&parent_ctx),
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
-                let is_tooltip = popup.is_tooltip;
                 let close_policy = compile_expression(close_policy, ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
-                let globals_init = if !is_tooltip {
-                    quote! {
-                        if let Some(popup_window_adapter) = window.create_popup_window_adapter() {
-                            shared_global.clone_with_window_adapter(popup_window_adapter)
-                        } else {
-                            shared_global.clone()
-                        }
-                    }
+                let window_kind = if popup.is_tooltip {
+                    quote!(sp::WindowKind::ToolTip)
                 } else {
-                    quote! { shared_global.clone() }
+                    quote!(sp::WindowKind::Popup)
+                };
+                let globals_init = quote! {
+                    if let Some(popup_window_adapter) = window.create_child_window_adapter(#window_kind) {
+                        shared_global.clone_with_window_adapter(popup_window_adapter)
+                    } else {
+                        shared_global.clone()
+                    }
                 };
                 component_access_tokens.then(|component_access_tokens| quote!({
                     let parent_item = #parent_item;
@@ -3639,10 +3685,9 @@ fn compile_builtin_function_call(
                             access_position,
                             #close_policy,
                             parent_item,
-                            #is_tooltip,
-                            false,
-                        ))
-                    );
+                            #window_kind,
+                        )
+                    ));
                     #popup_window_id::user_init(popup_instance_vrc.clone());
                 }))
             } else {
@@ -3728,7 +3773,6 @@ fn compile_builtin_function_call(
             let set_id = context_menu
                 .clone()
                 .then(|context_menu| quote!(#context_menu.popup_id.set(Some(id))));
-
             let slint_show = quote! {
                 #close_popup
                 let access_position = sp::Box::new(move || position);
@@ -3737,8 +3781,7 @@ fn compile_builtin_function_call(
                     access_position,
                     sp::PopupClosePolicy::CloseOnClickOutside,
                     #context_menu_rc,
-                    false,
-                    true,
+                    sp::WindowKind::Menu
                 );
                 #set_id;
                 #popup_id::user_init(popup_instance_vrc);
@@ -4263,8 +4306,8 @@ fn compile_builtin_function_call(
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(sp::open_url(&#url, #window_adapter_tokens.window()).is_ok())
         }
-        BuiltinFunction::BringAllToFront => {
-            quote!(sp::bring_all_to_front())
+        BuiltinFunction::MacosBringAllWindowsToFront => {
+            quote!(sp::macos_bring_all_windows_to_front())
         }
         BuiltinFunction::ParseMarkdown => {
             let format_string = a.next().unwrap();

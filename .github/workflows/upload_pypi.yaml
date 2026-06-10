@@ -16,6 +16,10 @@ jobs:
     build_binaries:
         env:
             MACOSX_DEPLOYMENT_TARGET: "11.0"
+            # Use fat LTO for the published Python wheels: smaller size and better runtime perf.
+            # Workspace [profile.release] uses cargo defaults to keep dev release builds fast.
+            CARGO_PROFILE_RELEASE_LTO: "fat"
+            CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
         strategy:
             matrix:
                 platform:
@@ -68,7 +72,7 @@ jobs:
               with:
                   target: "aarch64-apple-ios aarch64-apple-ios-sim"
             - name: Build iOS wheels
-              uses: pypa/cibuildwheel@v3.4.1
+              uses: pypa/cibuildwheel@v4.0.0
               with:
                   package-dir: api/python/slint
                   output-dir: wheelhouse

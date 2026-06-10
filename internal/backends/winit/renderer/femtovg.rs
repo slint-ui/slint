@@ -221,7 +221,7 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
             },
         )?);
 
-        let size = winit_window.inner_size();
+        let size = winit_window.surface_size();
 
         self.renderer.set_surface(
             Box::new(winit_window.clone())

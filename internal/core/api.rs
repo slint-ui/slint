@@ -33,6 +33,13 @@ impl From<crate::input::KeyEventResult> for WindowEventDispatchResult {
     }
 }
 
+impl From<Option<crate::window::MouseDispatchResult>> for WindowEventDispatchResult {
+    /// `None` (no component to dispatch to) and `accepted: false` both map to `Ignored`.
+    fn from(value: Option<crate::window::MouseDispatchResult>) -> Self {
+        if value.is_some_and(|r| r.accepted) { Self::Accepted } else { Self::Ignored }
+    }
+}
+
 /// A position represented in the coordinate space of logical pixels. That is the space before applying
 /// a display device specific scale factor.
 #[derive(Debug, Default, Copy, Clone, PartialEq)]
@@ -656,41 +663,44 @@ impl Window {
         let event_for_hook =
             self.0.context().0.window_event_hook.borrow().is_some().then(|| event.clone());
         let dispatch_result = match event {
-            crate::platform::WindowEvent::PointerPressed { position, button } => {
-                self.0.process_mouse_input(MouseEvent::Pressed {
+            crate::platform::WindowEvent::PointerPressed { position, button } => self
+                .0
+                .process_mouse_input(MouseEvent::Pressed {
                     position: position.to_euclid().cast(),
                     button,
                     click_count: 0,
                     touch_finger_id: 0,
-                });
-                WindowEventDispatchResult::Accepted
-            }
-            crate::platform::WindowEvent::PointerReleased { position, button } => {
-                self.0.process_mouse_input(MouseEvent::Released {
+                })
+                .into(),
+            crate::platform::WindowEvent::PointerReleased { position, button } => self
+                .0
+                .process_mouse_input(MouseEvent::Released {
                     position: position.to_euclid().cast(),
                     button,
                     click_count: 0,
                     touch_finger_id: 0,
-                });
-                WindowEventDispatchResult::Accepted
-            }
-            crate::platform::WindowEvent::PointerMoved { position } => {
-                self.0.process_mouse_input(MouseEvent::Moved {
+                })
+                .into(),
+            crate::platform::WindowEvent::PointerMoved { position } => self
+                .0
+                .process_mouse_input(MouseEvent::Moved {
                     position: position.to_euclid().cast(),
                     touch_finger_id: 0,
-                });
-                WindowEventDispatchResult::Accepted
-            }
-            crate::platform::WindowEvent::PointerScrolled { position, delta_x, delta_y } => {
-                self.0.process_mouse_input(MouseEvent::Wheel {
+                })
+                .into(),
+            crate::platform::WindowEvent::PointerScrolled { position, delta_x, delta_y } => self
+                .0
+                .process_mouse_input(MouseEvent::Wheel {
                     position: position.to_euclid().cast(),
                     delta_x: delta_x as _,
                     delta_y: delta_y as _,
                     phase: TouchPhase::Cancelled,
-                });
-                WindowEventDispatchResult::Accepted
-            }
+                })
+                .into(),
             crate::platform::WindowEvent::PointerExited => {
+                // Teardown event — the runtime always acts on it (clears hover/grab state
+                // and dispatches Exit to the item stack), so report Accepted unconditionally
+                // rather than asking the hit-test whether anything consumed it.
                 self.0.process_mouse_input(MouseEvent::Exit);
                 WindowEventDispatchResult::Accepted
             }
@@ -1213,10 +1223,6 @@ mod weak_handle {
 
 pub use weak_handle::*;
 
-/// This trait provides the necessary functionality for allowing creating strongly-referenced
-/// clones and conversion into a weak pointer for a Global slint component.
-///
-/// This trait is implemented by the [generated component](index.html#generated-components)
 /// Adds the specified function to an internal queue, notifies the event loop to wake up.
 /// Once woken up, any queued up functions will be invoked.
 ///

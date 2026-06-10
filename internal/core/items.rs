@@ -1228,6 +1228,8 @@ pub struct PropertyAnimation {
     pub direction: AnimationDirection,
     #[rtti_field]
     pub easing: crate::animations::EasingCurve,
+    #[rtti_field]
+    pub enabled: bool,
 }
 
 impl Default for PropertyAnimation {
@@ -1240,6 +1242,7 @@ impl Default for PropertyAnimation {
             iteration_count: 1.,
             direction: Default::default(),
             easing: Default::default(),
+            enabled: true,
         }
     }
 }
@@ -1401,7 +1404,18 @@ impl WindowItem {
         let first_item = ItemRc::new_root(item_tree);
         let window_item = next_window_item(&first_item).unwrap();
         Self::resolve_font_property(&window_item, Self::font_size)
-            .unwrap_or_else(|| first_item.window_adapter().unwrap().renderer().default_font_size())
+            .or_else(|| Self::platform_default_font_size(&first_item))
+            .unwrap_or(crate::textlayout::DEFAULT_FONT_SIZE)
+    }
+
+    /// Returns the default font size reported by the platform (e.g. iOS Dynamic Type),
+    /// or `None` when the backend doesn't report one. Used as fallback when no
+    /// `default-font-size` is set in the .slint code, before the renderer's built-in
+    /// default applies.
+    fn platform_default_font_size(item: &ItemRc) -> Option<LogicalLength> {
+        item.window_adapter().and_then(|adapter| {
+            WindowInner::from_pub(adapter.window()).context().platform_default_font_size()
+        })
     }
 
     fn resolve_font_property<T>(
@@ -1467,6 +1481,7 @@ impl WindowItem {
                         &window_item_rc,
                         crate::items::WindowItem::font_size,
                     )
+                    .or_else(|| Self::platform_default_font_size(self_rc))
                 } else {
                     Some(local_font_size)
                 }
@@ -1565,7 +1580,7 @@ pub struct ContextMenu {
     pub popup_id: Cell<Option<NonZeroU32>>,
     pub enabled: Property<bool>,
     #[cfg(target_os = "android")]
-    long_press_timer: Cell<Option<crate::timers::Timer>>,
+    long_press_timer: crate::timers::Timer,
 }
 
 impl Item for ContextMenu {
@@ -1610,10 +1625,9 @@ impl Item for ContextMenu {
             }
             #[cfg(target_os = "android")]
             MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
-                let timer = crate::timers::Timer::default();
                 let self_weak = _self_rc.downgrade();
                 let position = *position;
-                timer.start(
+                self.long_press_timer.start(
                     crate::timers::TimerMode::SingleShot,
                     WindowInner::from_pub(_window_adapter.window())
                         .context()
@@ -1625,14 +1639,11 @@ impl Item for ContextMenu {
                         self_.show.call(&(LogicalPosition::from_euclid(position),));
                     },
                 );
-                self.long_press_timer.set(Some(timer));
                 InputEventResult::GrabMouse
             }
             #[cfg(target_os = "android")]
             MouseEvent::Released { .. } | MouseEvent::Exit => {
-                if let Some(timer) = self.long_press_timer.take() {
-                    timer.stop();
-                }
+                self.long_press_timer.stop();
                 InputEventResult::EventIgnored
             }
             #[cfg(target_os = "android")]
@@ -1773,7 +1784,10 @@ pub unsafe extern "C" fn slint_contextmenu_is_open(
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct BoxShadow {
-    pub border_radius: Property<LogicalLength>,
+    pub border_top_left_radius: Property<LogicalLength>,
+    pub border_top_right_radius: Property<LogicalLength>,
+    pub border_bottom_left_radius: Property<LogicalLength>,
+    pub border_bottom_right_radius: Property<LogicalLength>,
     // Shadow specific properties
     pub offset_x: Property<LogicalLength>,
     pub offset_y: Property<LogicalLength>,
@@ -1782,6 +1796,17 @@ pub struct BoxShadow {
     pub spread: Property<LogicalLength>,
     pub inset: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
+}
+
+impl BoxShadow {
+    pub fn logical_border_radius(self: Pin<&Self>) -> LogicalBorderRadius {
+        LogicalBorderRadius::from_lengths(
+            self.border_top_left_radius(),
+            self.border_top_right_radius(),
+            self.border_bottom_right_radius(),
+            self.border_bottom_left_radius(),
+        )
+    }
 }
 
 impl Item for BoxShadow {
@@ -1959,8 +1984,7 @@ pub struct TooltipArea {
     pub has_hover: Property<bool>,
     pub mouse_x: Property<LogicalLength>,
     pub mouse_y: Property<LogicalLength>,
-    pub text: Property<SharedString>,
-    pub placement: Property<ToolTipPlacement>,
+    pub text: Property<crate::styled_text::StyledText>,
     pub delay: Property<i64>,
     pub offset: Property<LogicalLength>,
     pub show: Callback<VoidArg>,
@@ -2011,7 +2035,9 @@ impl Item for TooltipArea {
             self.schedule_show(self_rc);
         }
 
-        InputEventFilterResult::ForwardAndInterceptGrab
+        // Observe without claiming: siblings still receive the event; the routing tracks
+        // this item on its observers side-list and delivers Exit when the pointer leaves.
+        InputEventFilterResult::ForwardAndObserve
     }
 
     fn input_event(
@@ -2021,16 +2047,10 @@ impl Item for TooltipArea {
         _self_rc: &ItemRc,
         _: &mut MouseCursor,
     ) -> InputEventResult {
-        match event {
-            // Accept move/exit so this passive tracker stays in the routing lifecycle and
-            // continues receiving leave transitions, but ignore other interaction semantics.
-            MouseEvent::Moved { .. } => InputEventResult::EventAccepted,
-            MouseEvent::Exit => {
-                self.set_hover_state(false, _self_rc);
-                InputEventResult::EventAccepted
-            }
-            _ => InputEventResult::EventIgnored,
+        if matches!(event, MouseEvent::Exit) {
+            self.set_hover_state(false, _self_rc);
         }
+        InputEventResult::EventIgnored
     }
 
     fn capture_key_event(

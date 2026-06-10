@@ -174,7 +174,9 @@ enum WinitWindowOrNone {
         #[cfg(target_os = "ios")]
         keyboard_curve_sampler: super::ios::KeyboardCurveSampler,
         #[cfg(target_os = "ios")]
-        _color_scheme_observer: Option<super::ios::ColorSchemeObserver>,
+        _color_scheme_observer: Option<super::ios::TraitChangeObserver>,
+        #[cfg(target_os = "ios")]
+        _font_size_observer: Option<super::ios::TraitChangeObserver>,
     },
     None(RefCell<WindowAttributes>),
 }
@@ -496,10 +498,15 @@ impl WinitWindowAdapter {
         };
 
         // winit doesn't surface iOS appearance, so query the view's trait
-        // collection directly; the matching live observer is installed below as
-        // part of the `HasWindow` variant so its lifetime is tied to the window.
+        // collection directly; the matching live observers are installed below as
+        // part of the `HasWindow` variant so their lifetime is tied to the window.
         #[cfg(target_os = "ios")]
-        self.set_color_scheme(crate::ios::current_color_scheme(&content_view));
+        {
+            self.set_color_scheme(crate::ios::current_color_scheme(&content_view));
+            self.set_platform_default_font_size(crate::ios::current_default_font_size(
+                &content_view,
+            ));
+        }
 
         let frame_throttle = crate::frame_throttle::create_frame_throttle(
             self.self_weak.clone(),
@@ -539,6 +546,11 @@ impl WinitWindowAdapter {
             ),
             #[cfg(target_os = "ios")]
             _color_scheme_observer: crate::ios::install_color_scheme_observer(
+                &content_view,
+                self.self_weak.clone(),
+            ),
+            #[cfg(target_os = "ios")]
+            _font_size_observer: crate::ios::install_font_size_observer(
                 &content_view,
                 self.self_weak.clone(),
             ),
@@ -898,6 +910,11 @@ impl WinitWindowAdapter {
         }
     }
 
+    #[cfg(target_os = "ios")]
+    pub fn set_platform_default_font_size(&self, size: i_slint_core::lengths::LogicalLength) {
+        WindowInner::from_pub(self.window()).context().set_platform_default_font_size(Some(size));
+    }
+
     pub fn window_state_event(&self) {
         let Some(winit_window) = self.winit_window_or_none.borrow().as_window() else { return };
 
@@ -1100,6 +1117,12 @@ impl WinitWindowAdapter {
             if self.pending_redraw.get() {
                 self.draw()?;
             };
+
+            // On iOS making an already-created window visible doesn't generate a fresh
+            // RedrawRequested. winit's one initial RedrawRequested is delivered while the window is
+            // created (during `resumed`), so a window first shown later misses it and stays blank.
+            #[cfg(ios_and_friends)]
+            self.request_redraw();
 
             Ok(())
         } else {
@@ -1446,6 +1469,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                             corelib::items::InputType::Text
                             | corelib::items::InputType::Number
                             | corelib::items::InputType::Decimal
+                            | corelib::items::InputType::Search
                             | _ => winit::window::ImePurpose::Normal,
                         },
                     )

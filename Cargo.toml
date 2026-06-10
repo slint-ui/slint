@@ -40,7 +40,7 @@ members = [
   'examples/uefi-demo',
   'examples/async-io',
   'examples/dnd-kanban',
-  'examples/system_tray',
+  'examples/system-tray',
   'demos/weather-demo',
   'demos/usecases/rust',
   'helper_crates/const-field-offset',
@@ -74,6 +74,8 @@ members = [
   'tests/manual/module-builds/blogica',
   'tests/manual/module-builds/blogicb',
   'tests/manual/module-builds/app',
+  'tests/issues/test-11836-project/test-app',
+  'tests/issues/test-11836-project/test-library',
   'tests/backends/',
   'tools/compiler',
   'docs/slint-doc-generator',
@@ -96,7 +98,7 @@ default-members = [
   'examples/todo/rust',
   'examples/virtual_keyboard/rust',
   'examples/carousel/rust',
-  'examples/system_tray',
+  'examples/system-tray',
   'demos/energy-monitor',
   'internal/backends/winit',
   'internal/backends/qt',
@@ -167,7 +169,8 @@ itertools = { version = "0.14" }
 log = { version = "0.4.17" }
 notify = { version = "8.0.0", default-features = false, features = ["macos_kqueue"] }
 tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3" }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-log = { version = "0.2" }
 resvg = { version = "0.47.0", default-features = false, features = ["text", "raster-images"] }
 rowan = { version = "0.16.1" }
 rustybuzz = { version = "0.20.0" }
@@ -197,7 +200,7 @@ wgpu-28 = { package = "wgpu", version = "28", default-features = false }
 wgpu-29 = { package = "wgpu", version = "29", default-features = false }
 input = { version = "0.9.0", default-features = false }
 tr = { version = "0.1", default-features = false }
-fontique = { version = "0.9.0" }
+fontique = { version = "0.10.0" }
 # Pinned to match parley's version
 read-fonts = { version = "0.39" }
 # Pinned to match parley's version
@@ -211,7 +214,6 @@ objc2 = { version = "0.6.3" }
 lsp-types = "0.95.0"
 
 [profile.release]
-lto = true
 panic = "abort"
 
 [profile.dev]

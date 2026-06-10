@@ -14,6 +14,7 @@ alsa
 amdgpu
 amet
 Amoled
+androideabi
 Appbar
 appicon
 appiconset
@@ -22,6 +23,7 @@ appmain
 appsink
 appview
 ARCHS
+armeabi
 armhf
 arrayvec
 assetcatalog
@@ -136,6 +138,7 @@ devenv
 dfaure
 dgettext
 directx
+dists
 divp
 divq
 divr
@@ -448,6 +451,7 @@ prediv
 Preedit
 PREMUL
 premultiplication
+premultiply
 PRIMASK
 printk
 println
@@ -480,6 +484,7 @@ QXGA
 radiobuttontile
 Raleway
 Randriana
+rasterizer
 rasterizes
 RBUTTONUP
 rects
@@ -634,6 +639,7 @@ unpic
 Unpremul
 unsendable
 usbc
+userconfig
 usecases
 usize
 usvg

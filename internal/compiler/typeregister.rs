@@ -346,8 +346,8 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
                 PropertyVisibility::Input,
             ),
             (
-                "accessible-live",
-                Type::Enumeration(BUILTIN.with(|e| e.enums.AccessibleLive.clone())),
+                "accessible-live-region",
+                Type::Enumeration(BUILTIN.with(|e| e.enums.AccessibleLiveRegion.clone())),
                 PropertyVisibility::Input,
             ),
         ]))
@@ -512,22 +512,33 @@ impl TypeRegister {
 
         crate::load_builtins::load_builtins(&mut register);
 
-        for e in register.elements.values() {
-            if let ElementType::Builtin(b) = e {
-                for accepted_child_type_name in b.additional_accepted_child_types.keys() {
-                    register
-                        .context_restricted_types
-                        .entry(accepted_child_type_name.clone())
-                        .or_default()
-                        .insert(b.native_class.class_name.clone());
-                }
-                if b.additional_accept_self {
-                    register
-                        .context_restricted_types
-                        .entry(b.native_class.class_name.clone())
-                        .or_default()
-                        .insert(b.native_class.class_name.clone());
-                }
+        // Walk every builtin reachable from an exported one and register each
+        // accepted child as context-restricted to its parent, so internal types
+        // like `MenuItem` report "can only be within Menu" instead of "Unknown".
+        let mut visited: HashSet<SmolStr> = HashSet::new();
+        let mut to_visit: Vec<Rc<BuiltinElement>> = register
+            .elements
+            .values()
+            .filter_map(|e| match e {
+                ElementType::Builtin(b) => Some(b.clone()),
+                _ => None,
+            })
+            .collect();
+        while let Some(b) = to_visit.pop() {
+            let parent = b.native_class.class_name.clone();
+            if !visited.insert(parent.clone()) {
+                continue;
+            }
+            for (child_name, child_type) in &b.additional_accepted_child_types {
+                register
+                    .context_restricted_types
+                    .entry(child_name.clone())
+                    .or_default()
+                    .insert(parent.clone());
+                to_visit.push(child_type.clone());
+            }
+            if b.additional_accept_self {
+                register.context_restricted_types.entry(parent.clone()).or_default().insert(parent);
             }
         }
 

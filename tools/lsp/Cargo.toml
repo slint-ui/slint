@@ -24,7 +24,7 @@ icon = ["../../logo/slint-logo.icns"]
 name = "slint-lsp"
 path = "main.rs"
 
-[[bin]]
+[[example]]
 name = "slint-editor"
 path = "editor_main.rs"
 
@@ -86,7 +86,7 @@ preview-builtin = ["preview-engine"]
 ## Support the external preview optionally used by e.g. the VSCode plugin
 preview-external = []
 ## Support the remote preview via a WebSocket connection
-preview-remote = []
+preview-remote = ["preview-engine", "preview-builtin"]
 
 default = ["backend-default", "renderer-femtovg", "renderer-software", "preview"]
 
@@ -99,7 +99,7 @@ clru = { workspace = true }
 dissimilar = "1.0.7"
 itertools = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tracing-subscriber = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 smol_str = { workspace = true }

@@ -40,7 +40,13 @@ ComboBox {
 
 ### current-value
 <SlintProperty propName="current-value" typeName="string" defaultValue='""' propertyVisibility="in-out">
-The currently selected text
+The currently selected text.
+
+:::caution[Note]
+To change the selection from host code (Rust, C++, JavaScript, Python), write to
+`current-index`. Writes to `current-value` are not supported — they don't change
+the selection. The visible state continues to reflect `model[current-index]`.
+:::
 </SlintProperty>
 
 ### enabled
@@ -49,7 +55,7 @@ Defaults to true. When false, the combobox can't be interacted with
 </SlintProperty>
 
 ### has-focus
-<SlintProperty propName="has-focus" typeName="bool" defaultValue="false" propertyVisibility="out">
+<SlintProperty propName="has-focus" typeName="bool" propertyVisibility="out">
 Set to true when the combobox has keyboard focus.
 </SlintProperty>
 

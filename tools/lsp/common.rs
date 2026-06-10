@@ -19,10 +19,10 @@ pub mod component_catalog;
 pub mod document_cache;
 pub use document_cache::DocumentCache;
 pub use i_slint_compiler::diagnostics::ByteFormat;
+mod lsp_to_previews;
 pub mod rename_component;
 pub mod rename_element_id;
-mod switchable;
-pub use switchable::SwitchableLspToPreview;
+pub use lsp_to_previews::LspToPreviews;
 #[cfg(test)]
 pub mod test;
 #[cfg(any(test, feature = "preview-engine"))]
@@ -113,6 +113,19 @@ pub trait PreviewToLsp {
             object
         };
         self.send(&PreviewToLspMessage::TelemetryEvent(object))
+    }
+}
+
+/// Converts a debug message from the preview to a string to be logged by the LSP
+#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
+pub fn preview_debug_message_to_string(
+    location: &Option<(std::path::PathBuf, usize, usize)>,
+    message: &str,
+) -> String {
+    if let Some((file, line, column)) = location {
+        format!("DEBUG {file}:{line}:{column}> {message}", file = file.display())
+    } else {
+        format!("DEBUG> {message}")
     }
 }
 
@@ -581,13 +594,8 @@ impl ComponentInformation {
 /// or `None` otherwise.
 #[cfg(any(test, feature = "preview-engine"))]
 pub fn poll_once<F: std::future::Future>(future: F) -> Option<F::Output> {
-    struct DummyWaker();
-    impl std::task::Wake for DummyWaker {
-        fn wake(self: std::sync::Arc<Self>) {}
-    }
-
-    let waker = std::sync::Arc::new(DummyWaker()).into();
-    let mut ctx = std::task::Context::from_waker(&waker);
+    let waker = std::task::Waker::noop();
+    let mut ctx = std::task::Context::from_waker(waker);
 
     let future = std::pin::pin!(future);
 

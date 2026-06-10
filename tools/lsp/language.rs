@@ -12,7 +12,7 @@ mod signature_help;
 #[cfg(test)]
 pub mod test;
 
-use crate::common::SwitchableLspToPreview;
+use crate::common::LspToPreviews;
 use crate::common::uri_to_file;
 use crate::{common, util};
 
@@ -53,20 +53,12 @@ use std::rc::Rc;
 
 const POPULATE_COMMAND: &str = "slint/populate";
 pub const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
-#[cfg(feature = "preview-remote")]
-pub const CONNECT_REMOTE_PREVIEW_COMMAND: &str = "slint/connectRemotePreview";
-#[cfg(feature = "preview-remote")]
-pub const DISCONNECT_REMOTE_PREVIEW_COMMAND: &str = "slint/disconnectRemotePreview";
 
 fn command_list() -> Vec<String> {
     vec![
         POPULATE_COMMAND.into(),
         #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
         SHOW_PREVIEW_COMMAND.into(),
-        #[cfg(feature = "preview-remote")]
-        CONNECT_REMOTE_PREVIEW_COMMAND.into(),
-        #[cfg(feature = "preview-remote")]
-        DISCONNECT_REMOTE_PREVIEW_COMMAND.into(),
     ]
 }
 
@@ -127,7 +119,11 @@ pub fn send_state_to_preview(ctx: &Context) {
     }
 }
 
-#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
+// Callers live in the native LSP (main.rs / editor.rs); not used from WASM.
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
+))]
 pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
     for url in files {
         if let Some(node) = ctx.document_cache.get_document(url).and_then(|doc| doc.node.as_ref()) {
@@ -209,7 +205,7 @@ pub struct Context {
     pub to_show: Option<PreviewComponent>,
     /// File currently open in the editor
     pub open_urls: HashSet<lsp_types::Url>,
-    pub to_preview: Rc<SwitchableLspToPreview>,
+    pub to_preview: Rc<LspToPreviews>,
     /// Files to recompile after all other operations are done
     /// (i.e. recompilations triggered by updates to unopened files)
     pub pending_recompile: HashSet<lsp_types::Url>,
@@ -458,17 +454,6 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                     }
                 });
                 return Ok(None::<serde_json::Value>);
-            }
-            #[cfg(feature = "preview-remote")]
-            CONNECT_REMOTE_PREVIEW_COMMAND => {
-                return crate::preview::connector::remote::connect_remote_preview_command(
-                    &params.arguments,
-                    ctx,
-                );
-            }
-            #[cfg(feature = "preview-remote")]
-            DISCONNECT_REMOTE_PREVIEW_COMMAND => {
-                crate::preview::connector::remote::disconnect_remote_preview_command(ctx);
             }
             _ => {
                 tracing::error!("Received unknown command {}", params.command.as_str());

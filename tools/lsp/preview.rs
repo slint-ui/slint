@@ -45,6 +45,8 @@ mod preview_data;
 use ext::ElementRcNodeExt;
 mod outline;
 mod properties;
+#[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
+pub mod remote;
 pub mod ui;
 mod undo_redo;
 
@@ -143,6 +145,9 @@ pub struct PreviewState {
     loading_state: PreviewFutureState,
 
     pub to_lsp: RefCell<Option<Rc<dyn common::PreviewToLsp>>>,
+
+    #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
+    pub remote_discovery: Rc<remote::RemoteDiscovery>,
 }
 
 impl PreviewState {
@@ -1415,7 +1420,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                 let timer = slint::Timer::default();
                 timer.start(
                     slint::TimerMode::SingleShot,
-                    core::time::Duration::from_millis(50),
+                    i_slint_live_preview::REBUILD_DEBOUNCE,
                     || {
                         let _ = slint::spawn_local(reload_timer_function());
                     },
@@ -1566,28 +1571,26 @@ fn set_preview_factory(
     // Ensure that any popups are closed as they are related to the old factory
     i_slint_core::window::WindowInner::from_pub(app_window.window()).close_all_popups();
 
-    compiled.set_debug_handler(
-        |location, text| {
-            let location = location.as_ref().and_then(|l| {
-                l.source_file.as_ref().map(|f| {
-                    let (line, column) = f.line_column(l.span.offset, common::ByteFormat::Utf8);
-
-                    (f.clone(), line, column)
-                })
+    let _ = i_slint_core::window::WindowInner::from_pub(app_window.window())
+        .context()
+        .set_debug_handler(Some(Box::new(|location, arguments| {
+            let message = arguments.to_string();
+            let location =
+                location.map(|location| (location.path.clone(), location.line, location.column));
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                let to_lsp = state.to_lsp.try_borrow();
+                let Some(to_lsp) = to_lsp.ok() else { return };
+                if let Some(to_lsp) = &*to_lsp {
+                    to_lsp
+                        .send(&PreviewToLspMessage::DebugMessage {
+                            location: location.as_ref().map(|(path, line, column)| {
+                                (std::path::PathBuf::from(path.as_str()), *line, *column)
+                            }),
+                            message: message.clone(),
+                        })
+                        .ok();
+                }
             });
-            if let Some((file, line, column)) = &location {
-                i_slint_core::debug_log!(
-                    "DEBUG {}:{line}:{column}> {text}",
-                    file.path().display(),
-                );
-            } else {
-                i_slint_core::debug_log!("DEBUG> {text}");
-            }
-
-            let location = location.as_ref().map(|(file, line, column)| {
-                (file.path().to_string_lossy().to_string().into(), *line, *column)
-            });
-            let text = text.to_string();
             let _ = slint::invoke_from_event_loop(move || {
                 PREVIEW_STATE.with_borrow(|preview_state| {
                     if let Some(api) = preview_state.api.upgrade() {
@@ -1595,14 +1598,12 @@ fn set_preview_factory(
                             &api,
                             ui::LogMessageLevel::Debug,
                             location,
-                            &text,
+                            &message,
                         );
                     }
                 });
             });
-        },
-        i_slint_core::InternalToken,
-    );
+        })));
 
     let factory = slint::ComponentFactory::new(move |ctx: FactoryContext| {
         let instance = compiled.create_embedded(ctx).unwrap();
@@ -1618,6 +1619,27 @@ fn set_preview_factory(
 
 /// Highlight the element pointed at the offset in the path.
 /// When the URL is None, remove the highlight.
+pub fn set_remote_connection_state(
+    state: i_slint_live_preview::protocol::RemoteConnectionState,
+    target: String,
+    error: Option<String>,
+) {
+    use i_slint_live_preview::protocol::RemoteConnectionState as R;
+    PREVIEW_STATE.with_borrow(|preview_state| {
+        let _ = preview_state.api.upgrade_in_event_loop(move |api| {
+            let ui_state = match state {
+                R::Disconnected => ui::RemoteConnectionState::Disconnected,
+                R::Connecting => ui::RemoteConnectionState::Connecting,
+                R::Connected => ui::RemoteConnectionState::Connected,
+                R::Failed => ui::RemoteConnectionState::Failed,
+            };
+            api.set_remote_connection_state(ui_state);
+            api.set_remote_connection_target(target.into());
+            api.set_remote_connection_error(error.unwrap_or_default().into());
+        });
+    });
+}
+
 pub fn highlight(url: Option<Url>, offset: TextSize) {
     let Some(path) = url.as_ref().and_then(|u| Url::to_file_path(u).ok()) else {
         element_selection::unselect_element();

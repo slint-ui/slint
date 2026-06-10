@@ -84,6 +84,10 @@ pub struct EventLoopState {
     /// Set to true when pumping events for the shortest amount of time possible.
     pumping_events_instantly: bool,
 
+    /// Allocates small i32 finger ids for iOS's pointer-valued touch ids.
+    #[cfg(target_os = "ios")]
+    touch_finger_ids: crate::ios::TouchFingerIdAllocator,
+
     custom_application_handler: Option<Box<dyn crate::CustomApplicationHandler>>,
 }
 
@@ -100,7 +104,33 @@ impl EventLoopState {
             current_resize_direction: Default::default(),
             pending_mouse_move: Default::default(),
             pumping_events_instantly: Default::default(),
+            #[cfg(target_os = "ios")]
+            touch_finger_ids: Default::default(),
             custom_application_handler,
+        }
+    }
+
+    /// Maps a winit finger id to the i32 finger id used by the core library.
+    /// On all platforms but iOS the raw id is a small integer; iOS stores a
+    /// pointer address in it, which TouchFingerIdAllocator maps to a small id.
+    fn map_touch_finger_id(
+        &mut self,
+        finger_id: winit::event::FingerId,
+        phase: corelib::input::TouchPhase,
+    ) -> Option<i32> {
+        #[cfg(not(target_os = "ios"))]
+        {
+            let _ = phase;
+            Some(i32::try_from(finger_id.into_raw()).expect("winit touch id out of i32 range"))
+        }
+        #[cfg(target_os = "ios")]
+        match phase {
+            corelib::input::TouchPhase::Started | corelib::input::TouchPhase::Moved => {
+                self.touch_finger_ids.id_for(finger_id.into_raw() as u64)
+            }
+            corelib::input::TouchPhase::Ended | corelib::input::TouchPhase::Cancelled => {
+                self.touch_finger_ids.take(finger_id.into_raw() as u64)
+            }
         }
     }
 
@@ -384,11 +414,10 @@ impl winit::application::ApplicationHandler for EventLoopState {
                 }
 
                 if let PointerSource::Touch { finger_id, .. } = source {
-                    runtime_window.process_touch_input(
-                        finger_id.into_raw() as u64,
-                        pos,
-                        corelib::input::TouchPhase::Moved,
-                    );
+                    let phase = corelib::input::TouchPhase::Moved;
+                    if let Some(finger_id) = self.map_touch_finger_id(finger_id, phase) {
+                        runtime_window.process_touch_input(finger_id, pos, phase);
+                    }
                 } else {
                     // winit sends this event at a very high frequency. So, bunch up consecutive
                     // cursor moved events and dispatch them as soon as any other kind of event
@@ -398,11 +427,10 @@ impl winit::application::ApplicationHandler for EventLoopState {
             }
             WindowEvent::PointerLeft { kind, primary, .. } => {
                 if let winit::event::PointerKind::Touch(finger_id) = kind {
-                    runtime_window.process_touch_input(
-                        finger_id.into_raw() as u64,
-                        self.cursor_pos,
-                        corelib::input::TouchPhase::Cancelled,
-                    );
+                    let phase = corelib::input::TouchPhase::Cancelled;
+                    if let Some(finger_id) = self.map_touch_finger_id(finger_id, phase) {
+                        runtime_window.process_touch_input(finger_id, self.cursor_pos, phase);
+                    }
                 } else if primary {
                     // On the html canvas, we don't get the mouse move or release event outside the canvas, so we cancel the event
                     if cfg!(target_arch = "wasm32") || !self.pressed {
@@ -441,14 +469,13 @@ impl winit::application::ApplicationHandler for EventLoopState {
                     S::Mouse(B::Forward) => PointerEventButton::Forward,
                     S::Mouse(_) => PointerEventButton::Other,
                     S::Touch { finger_id, .. } => {
-                        runtime_window.process_touch_input(
-                            finger_id.into_raw() as u64,
-                            pos,
-                            match state {
-                                winit::event::ElementState::Pressed => TouchPhase::Started,
-                                winit::event::ElementState::Released => TouchPhase::Ended,
-                            },
-                        );
+                        let phase = match state {
+                            winit::event::ElementState::Pressed => TouchPhase::Started,
+                            winit::event::ElementState::Released => TouchPhase::Ended,
+                        };
+                        if let Some(finger_id) = self.map_touch_finger_id(finger_id, phase) {
+                            runtime_window.process_touch_input(finger_id, pos, phase);
+                        }
                         return;
                     }
                     S::TabletTool { .. } => PointerEventButton::Other,

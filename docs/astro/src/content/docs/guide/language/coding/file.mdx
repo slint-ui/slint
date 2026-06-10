@@ -345,7 +345,7 @@ path on disk:
 
 <Tabs syncKey="dev-language">
 <TabItem label="C++">
-* Specify `LIBRARY_PATHS` with <LangRefLink lang="cpp" relpath="cmake_reference#slint-target-sources">`slint_target_sources`</LangRefLink>. For example:
+* Specify `LIBRARY_PATHS` with <LangRefLink lang="cpp" relpath="cmake-reference/slint-target-sources/">`slint_target_sources`</LangRefLink>. For example:
 
 ```cmake
 slint_target_sources(my_application
@@ -375,7 +375,7 @@ fn main() {
 
 </TabItem>
 <TabItem label="NodeJS">
-* Provide the `libraryPaths` map with <LangRefLink lang="nodejs" relpath="functions/loadFile">`loadFile`</LangRefLink> in `LoadFileOptions`. For example:
+* Provide the `libraryPaths` map with <LangRefLink lang="nodejs" relpath="api/functions/loadFile/">`loadFile`</LangRefLink> in `LoadFileOptions`. For example:
 
 ```javascript
 let ui = slint.loadFile("/path/to/main.slint", {
@@ -387,7 +387,7 @@ let ui = slint.loadFile("/path/to/main.slint", {
 
 </TabItem>
 <TabItem label="Python">
-* Provide the `library_paths` dict with <LangRefLink lang="python" relpath="slint#load_file">`load_file`</LangRefLink>. For example:
+* Provide the `library_paths` dict with <LangRefLink lang="python" relpath="api/functions/load_file/">`load_file`</LangRefLink>. For example:
 
 ```python
 ui = slint.load_file(

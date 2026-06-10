@@ -85,6 +85,10 @@
                 "structslint",
                 "namespaceslint",
                 "compilerconfiguration",
+                "componentweakhandle",
+                "listmodel",
+                "skiarenderer",
+                "softwarerenderer",
                 "tschüß",
                 "TSCHÜSS",
                 "ὈΔΥΣΣΕΎΣ",
@@ -331,7 +335,9 @@
         "**/*.gltf",
         "**/*.po",
         "**/*.pot",
-        "**/*.svg"
+        "**/*.svg",
+        "target/**",
+        "**/node_modules/**"
     ],
     "overrides": [
         {

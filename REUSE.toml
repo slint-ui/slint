@@ -164,7 +164,7 @@ path = [
   ".cursor-plugin/*.json",
   "skills/.claude-plugin/*.json",
   "skills/.cursor-plugin/*.json",
-  "skills/**/SKILL.md",
+  "skills/**/*.md",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
@@ -236,6 +236,7 @@ path = [
   "tools/lsp/ui/assets/library.svg",
   "tools/lsp/ui/assets/list-tree.svg",
   "tools/lsp/ui/assets/settings.svg",
+  "tools/viewer/remote/assets/**.svg",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Codicon Icons <https://github.com/microsoft/vscode-codicons/>"
@@ -327,4 +328,16 @@ SPDX-License-Identifier = "CC-BY-4.0"
 path = ["examples/bevy/bevy-hosts-slint/**.gltf"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright (c) 2024 e-verse"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["examples/**/android/**/gradle-wrapper.properties"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
+SPDX-License-Identifier = "GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0"
+
+[[annotations]]
+path = ["demos/**/android/**/gradle-wrapper.properties"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "MIT"

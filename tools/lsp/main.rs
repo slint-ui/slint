@@ -3,7 +3,7 @@
 
 #![cfg(not(target_arch = "wasm32"))]
 #![allow(clippy::await_holding_refcell_ref)]
-#![deny(clippy::print_stderr, clippy::print_stdout, clippy::disallowed_methods)]
+#![deny(clippy::print_stdout, clippy::disallowed_methods)]
 
 #[cfg(all(feature = "preview-engine", not(feature = "preview-builtin")))]
 compile_error!(
@@ -40,9 +40,7 @@ use std::sync::{Arc, atomic};
 use std::task::{Poll, Waker};
 use std::time::Duration;
 
-use crate::common::{SwitchableLspToPreview, document_cache::CompilerConfiguration};
-#[cfg(feature = "preview-remote")]
-use crate::preview::connector::remote::RemoteLspToPreview;
+use crate::common::{LspToPreviews, document_cache::CompilerConfiguration};
 use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl};
 
 #[cfg(not(any(
@@ -345,8 +343,7 @@ async fn main_loop(
         ServerNotifier { sender: connection.sender.clone(), queue: request_queue.clone() };
 
     #[cfg(not(feature = "preview-engine"))]
-    let to_preview =
-        Rc::new(SwitchableLspToPreview::with_one(common::DummyLspToPreview::default()));
+    let to_preview = LspToPreviews::with_one(common::DummyLspToPreview::default());
     #[cfg(feature = "preview-engine")]
     let to_preview = {
         use i_slint_live_preview::protocol::PreviewTarget;
@@ -358,21 +355,16 @@ async fn main_loop(
         );
         let embedded_preview: Box<dyn common::LspToPreview> =
             Box::new(preview::connector::EmbeddedLspToPreview::new(sn.clone()));
-        #[cfg(feature = "preview-remote")]
-        let remote_preview: Box<dyn common::LspToPreview> = Box::new(
-            preview::connector::remote::RemoteLspToPreview::new(sn, preview_to_lsp_sender.clone()),
-        );
-        Rc::new(
-            preview::connector::SwitchableLspToPreview::new(
-                std::collections::HashMap::from([
-                    (PreviewTarget::ChildProcess, child_preview),
-                    (PreviewTarget::EmbeddedWasm, embedded_preview),
-                    (PreviewTarget::Remote, remote_preview),
-                ]),
-                PreviewTarget::ChildProcess,
-            )
-            .unwrap(),
+        LspToPreviews::new(
+            std::collections::HashMap::from([
+                (PreviewTarget::ChildProcess, child_preview),
+                (PreviewTarget::EmbeddedWasm, embedded_preview),
+            ]),
+            PreviewTarget::ChildProcess,
+            #[cfg(feature = "preview-remote")]
+            preview_to_lsp_sender.clone(),
         )
+        .unwrap()
     };
 
     let result = run_main_loop(
@@ -401,7 +393,7 @@ async fn run_main_loop(
     preview_to_lsp_sender: mpsc::UnboundedSender<PreviewToLspMessage>,
     #[cfg_attr(not(feature = "preview-engine"), allow(unused_mut))]
     mut preview_to_lsp_receiver: mpsc::UnboundedReceiver<PreviewToLspMessage>,
-    to_preview: Rc<SwitchableLspToPreview>,
+    to_preview: Rc<LspToPreviews>,
 ) -> Result<()> {
     let mut rh = RequestHandler::default();
     register_request_handlers(&mut rh);
@@ -475,28 +467,26 @@ async fn run_main_loop(
 
     startup_lsp(&mut ctx).await?;
 
-    #[cfg(feature = "preview-remote")]
-    ctx.to_preview
-        .with_preview_target_async::<RemoteLspToPreview, ()>(async |preview| {
-            preview.start_browsing().await;
-        })
-        .await;
-
     loop {
         let recompile_idle_timeout =
             if ctx.pending_recompile.is_empty() { Duration::MAX } else { RECOMPILE_IDLE_TIMEOUT };
         tokio::select! {
             msg = from_lsp_receiver.recv() => {
                 if let Some(msg) = msg {
-                    if handle_lsp_message(
+                    match handle_lsp_message(
                         msg,
                         &connection,
                         &mut rh,
                         &mut ctx,
-                    ).await? {
-                        tracing::debug!("LSP shutdown requested");
-                        adapter_thread.join().expect("Failed to join adapter thread");
-                        return Ok(());
+                    ).await
+                    {
+                        Ok(true) => {
+                            tracing::debug!("LSP shutdown requested");
+                            adapter_thread.join().expect("Failed to join adapter thread");
+                            return Ok(());
+                        }
+                        Ok(false) => {}
+                        Err(e) => tracing::error!("Error handling LSP message: {e}"),
                     }
                 } else {
                     adapter_thread.join().expect("Failed to join adapter thread");
@@ -532,6 +522,7 @@ async fn handle_lsp_message(
     rh: &mut RequestHandler,
     ctx: &mut Context,
 ) -> Result<bool> {
+    tracing::trace!("Handling LSP message: {msg:?}");
     match msg {
         Message::Request(req) => {
             // ignore errors when shutdown
@@ -705,7 +696,7 @@ async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Conte
         }
         M::PreviewTypeChanged { target } => {
             tracing::debug!("Preview type changed: {target:?}");
-            ctx.to_preview.set_preview_target(target)?;
+            ctx.to_preview.set_local_target(target)?;
         }
         M::RequestState { files } => {
             tracing::debug!("Preview requested state");
@@ -727,6 +718,32 @@ async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Conte
             ctx.server_notifier.send_notification::<lsp_types::notification::TelemetryEvent>(
                 lsp_types::OneOf::Left(object),
             )?
+        }
+        M::DebugMessage { location, message } => {
+            eprintln!("{}", common::preview_debug_message_to_string(&location, &message));
+        }
+        M::ConnectRemote { addresses, port } => {
+            tracing::debug!("Preview asked to connect remote at {addresses:?}:{port}");
+            #[cfg(feature = "preview-remote")]
+            if let Some(remote) = ctx.to_preview.remote() {
+                // `connect()` emits Connecting / Connected / Failed itself and
+                // rejects empty `addresses` up front.
+                let preview_to_lsp_sender = ctx.preview_to_lsp_sender.clone();
+                let future = remote.connect(addresses.clone(), port);
+                crate::common::spawn_local(async move {
+                    if future.await.is_ok() {
+                        let _ = preview_to_lsp_sender
+                            .send(PreviewToLspMessage::RequestState { files: Vec::new() });
+                    }
+                });
+            }
+        }
+        M::DisconnectRemote => {
+            tracing::debug!("Preview asked to disconnect remote");
+            #[cfg(feature = "preview-remote")]
+            if let Some(remote) = ctx.to_preview.remote() {
+                crate::common::spawn_local(remote.disconnect());
+            }
         }
     }
     Ok(())

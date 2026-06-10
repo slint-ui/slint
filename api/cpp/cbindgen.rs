@@ -38,11 +38,8 @@ fn enums(path: &Path) -> anyhow::Result<()> {
         (Orientation) => {
             Some(None)
         };
-        (AccessibleLive) => {
+        (AccessibleLiveRegion) => {
             Some(None)
-        };
-        (AccessibleRole) => {
-            Some(Some("testing"))
         };
         ($_:ident) => {
             None
@@ -326,7 +323,6 @@ fn gen_corelib(
         "ClippedImage",
         "TouchArea",
         "TooltipArea",
-        "ToolTip",
         "FocusScope",
         "KeyBinding",
         "SwipeGestureHandler",
@@ -373,7 +369,6 @@ fn gen_corelib(
         "PointerEvent",
         "PointerScrollEvent",
         "Rect",
-        "SortOrder",
         "BitmapFont",
         "DataTransferOpaque",
     ]
@@ -412,12 +407,13 @@ fn gen_corelib(
         "slint_data_transfer_drop",
         "slint_data_transfer_clone",
         "slint_data_transfer_eq",
-        "slint_data_transfer_set_plaintext",
+        "slint_data_transfer_set_plain_text",
         "slint_data_transfer_set_image",
-        "slint_data_transfer_has_plaintext",
+        "slint_data_transfer_has_plain_text",
         "slint_data_transfer_has_image",
-        "slint_data_transfer_fetch_plaintext",
-        "slint_data_transfer_fetch_image",
+        "slint_data_transfer_is_empty",
+        "slint_data_transfer_plain_text",
+        "slint_data_transfer_image",
         "slint_data_transfer_set_user_data",
         "slint_data_transfer_user_data",
         "slint_data_transfer_clear_user_data",
@@ -573,7 +569,8 @@ fn gen_corelib(
         ),
         (
             vec!["Brush", "LinearGradient", "GradientStop", "RadialGradient", "ConicGradientBrush",
-                 "slint_conic_gradient_normalize_stops", "slint_conic_gradient_apply_rotation"],
+                 "slint_conic_gradient_normalize_stops", "slint_conic_gradient_apply_rotation",
+                 "slint_brush_compare_equal"],
             "slint_brush_internal.h",
             "",
         ),
@@ -584,12 +581,13 @@ fn gen_corelib(
                 "slint_data_transfer_drop",
                 "slint_data_transfer_clone",
                 "slint_data_transfer_eq",
-                "slint_data_transfer_set_plaintext",
+                "slint_data_transfer_set_plain_text",
                 "slint_data_transfer_set_image",
-                "slint_data_transfer_has_plaintext",
+                "slint_data_transfer_has_plain_text",
                 "slint_data_transfer_has_image",
-                "slint_data_transfer_fetch_plaintext",
-                "slint_data_transfer_fetch_image",
+                "slint_data_transfer_is_empty",
+                "slint_data_transfer_plain_text",
+                "slint_data_transfer_image",
                 "slint_data_transfer_set_user_data",
                 "slint_data_transfer_user_data",
                 "slint_data_transfer_clear_user_data",
@@ -643,7 +641,7 @@ fn gen_corelib(
             "slint_windowrc_set_component",
             "slint_windowrc_show_popup",
             "slint_windowrc_close_popup",
-            "slint_windowrc_create_popup_window_adapter",
+            "slint_windowrc_create_child_window_adapter",
             "slint_windowrc_set_rendering_notifier",
             "slint_windowrc_request_redraw",
             "slint_windowrc_on_close_requested",
@@ -677,6 +675,7 @@ fn gen_corelib(
             "ConicGradientBrush",
             "slint_conic_gradient_normalize_stops",
             "slint_conic_gradient_apply_rotation",
+            "slint_brush_compare_equal",
             "PHYSICAL_REGION_MAX_SIZE",
         ]
         .into_iter()

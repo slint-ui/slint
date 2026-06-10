@@ -4,6 +4,7 @@
 mod apply_default_properties_from_style;
 mod binding_analysis;
 mod border_radius;
+mod check_drag_area;
 mod check_expressions;
 mod check_public_api;
 mod clip;
@@ -36,6 +37,7 @@ mod lower_menus;
 mod lower_platform;
 mod lower_popups;
 mod lower_property_to_element;
+mod lower_radiogroup;
 mod lower_repeated_rows;
 mod lower_shadows;
 mod lower_states;
@@ -111,8 +113,9 @@ pub async fn run_passes(
 
     collect_libraries::collect_libraries(doc);
     collect_subcomponents::collect_subcomponents(doc);
-    lower_tabwidget::lower_tabwidget(doc, type_loader, diag).await;
     lower_tooltips::lower_tooltips(doc, type_loader, diag).await;
+    lower_tabwidget::lower_tabwidget(doc, type_loader, diag).await;
+    lower_radiogroup::lower_radiogroup(doc, type_loader, diag).await;
     lower_menus::lower_menus(doc, type_loader, diag).await;
     lower_component_container::lower_component_container(doc, type_loader, diag);
     collect_subcomponents::collect_subcomponents(doc);
@@ -151,6 +154,7 @@ pub async fn run_passes(
 
     doc.visit_all_used_components(|component| {
         border_radius::handle_border_radius(component, diag);
+        check_drag_area::check_drag_area(component, diag);
         deprecated_rotation_origin::handle_rotation_origin(component, diag);
         flickable::handle_flickable(component, &global_type_registry.borrow());
         lower_layout::lower_layouts(component, type_loader, &style_metrics, diag);

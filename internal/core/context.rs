@@ -7,16 +7,34 @@ use crate::graphics::Color;
 use crate::input::InternalKeyboardModifierState;
 use crate::item_tree::{ItemRc, ItemTreeRc};
 use crate::items::ColorScheme;
+use crate::lengths::LogicalLength;
 use crate::platform::{EventLoopProxy, Platform, WindowAdapter, WindowEvent};
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::cell::Cell;
+use core::cell::RefCell;
 use pin_weak::rc::PinWeak;
 
-pub(crate) type WindowEventHook =
+/// Type alias for the closure type installed via [`set_window_event_hook`].
+/// Exposed so callers (notably tests) can save and restore a previously-installed hook.
+pub type WindowEventHook =
     Box<dyn Fn(&Rc<dyn WindowAdapter>, &WindowEvent, WindowEventDispatchResult)>;
 
 /// Result of dispatching a window event through Slint's runtime.
+///
+/// For pointer events (`PointerPressed`, `PointerReleased`, `PointerMoved`,
+/// `PointerScrolled`), the mapping is:
+/// - [`Accepted`](Self::Accepted) — an item consumed the event (returned
+///   `EventAccepted`, `GrabMouse`, or `StartDrag`; or, for a drag in flight, a
+///   `DropArea` accepted the rewritten `DragMove`/`Drop`).
+/// - [`Ignored`](Self::Ignored) — the event reached no item that wanted it, or
+///   there was no component to dispatch to. Hover-only handling (e.g. a
+///   `TouchArea` that updates `has-hover` on `PointerMoved` without otherwise
+///   consuming) is reported as `Ignored`.
+///
+/// [`PointerExited`](crate::platform::WindowEvent::PointerExited) is a teardown
+/// event: the runtime always acts on it, so it is reported as `Accepted` even
+/// when no item was under the cursor.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WindowEventDispatchResult {
     /// A receiver handled the event (e.g. a key handler consumed it, or the
@@ -26,7 +44,7 @@ pub enum WindowEventDispatchResult {
     /// prevented the window from closing).
     Rejected,
     /// The event fell through without being handled (e.g. a key event with no
-    /// matching handler).
+    /// matching handler, or a pointer event that no item consumed).
     Ignored,
 }
 
@@ -62,9 +80,16 @@ pub(crate) struct SlintContextInner {
     /// transparent color when the platform doesn't expose one.
     #[pin]
     pub(crate) accent_color: Property<Color>,
+    /// Process-wide default font size as reported by the platform (e.g. iOS Dynamic
+    /// Type). Backends write here; `WindowItem::resolved_default_font_size` consults it
+    /// before falling back to `textlayout::DEFAULT_FONT_SIZE`. `None` when the backend
+    /// doesn't report one.
+    #[pin]
+    pub(crate) platform_default_font_size: Property<Option<LogicalLength>>,
     pub(crate) window_shown_hook:
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
     pub(crate) window_event_hook: core::cell::RefCell<Option<WindowEventHook>>,
+    pub(crate) debug_handler: RefCell<Option<crate::debug_log::DebugLogHandler>>,
     #[cfg(all(unix, not(target_os = "macos")))]
     xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "shared-parley")]
@@ -101,8 +126,13 @@ impl SlintContext {
 
             color_scheme: Property::new_named(ColorScheme::Unknown, "SlintContext::color_scheme"),
             accent_color: Property::new_named(Color::default(), "SlintContext::accent_color"),
+            platform_default_font_size: Property::new_named(
+                None,
+                "SlintContext::platform_default_font_size",
+            ),
             window_shown_hook: Default::default(),
             window_event_hook: Default::default(),
+            debug_handler: Default::default(),
             #[cfg(all(unix, not(target_os = "macos")))]
             xdg_app_id: Default::default(),
             #[cfg(feature = "shared-parley")]
@@ -194,6 +224,41 @@ impl SlintContext {
     /// platform's system-theme observer; `Property::set` short-circuits no-op writes.
     pub fn set_accent_color(&self, color: Color) {
         self.0.as_ref().project_ref().accent_color.set(color);
+    }
+
+    /// Returns the platform-reported default font size, or `None` if the backend doesn't
+    /// report one. Reads register a property dependency, so bindings re-evaluate when the
+    /// platform reports a change (e.g. the user adjusts the system text size).
+    pub fn platform_default_font_size(&self) -> Option<LogicalLength> {
+        self.0.as_ref().project_ref().platform_default_font_size.get()
+    }
+
+    /// Backend-side write path for the platform-reported default font size. Called by
+    /// backends that track the system setting; `Property::set` short-circuits no-op writes.
+    pub fn set_platform_default_font_size(&self, size: Option<LogicalLength>) {
+        self.0.as_ref().project_ref().platform_default_font_size.set(size);
+    }
+
+    #[doc(hidden)]
+    pub fn dispatch_debug_log(
+        &self,
+        location: Option<&crate::debug_log::DebugLogLocation>,
+        arguments: core::fmt::Arguments<'_>,
+    ) {
+        if let Some(handler) = self.0.debug_handler.borrow().as_ref() {
+            handler(location, arguments);
+        } else {
+            self.0.platform.debug_log(arguments);
+        }
+    }
+
+    #[doc(hidden)]
+    pub fn set_debug_handler(
+        &self,
+        handler: Option<crate::debug_log::DebugLogHandler>,
+    ) -> Option<crate::debug_log::DebugLogHandler> {
+        let mut slot = self.0.debug_handler.borrow_mut();
+        core::mem::replace(&mut *slot, handler)
     }
 
     /// Add one to the counter of "things keeping the event loop alive".

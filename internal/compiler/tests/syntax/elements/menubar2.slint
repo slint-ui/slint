@@ -57,13 +57,13 @@ export component A inherits Window {
         }
 
         MenuItem {
-//      >       <error{Unknown element 'MenuItem'}
+//      >       <error{MenuItem can only be within a Menu element}
             Menu {}
-//          >   <error{Menu can only be within the following elements: ContextMenuArea, SystemTrayIcon}
+//          >   <error{Menu can only be within the following elements: ContextMenuArea, Menu, MenuBar, SystemTrayIcon}
         }
 
         Menu {}
-//      >   <error{Menu can only be within the following elements: ContextMenuArea, SystemTrayIcon}
+//      >   <error{Menu can only be within the following elements: ContextMenuArea, Menu, MenuBar, SystemTrayIcon}
     }
 }
 

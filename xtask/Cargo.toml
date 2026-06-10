@@ -15,6 +15,7 @@ publish = false
 
 [dependencies]
 anyhow = "1.0"
+cargo_metadata = "0.19"
 cbindgen = { workspace = true }
 clap = { workspace = true }
 const_format = "0.2"
@@ -22,6 +23,7 @@ i-slint-common = { workspace = true, features = ["default"] }
 proc-macro2 = "1.0.11"
 regex = "1.4"
 serde_json = { workspace = true }
+spdx = { version = "0.10.9", features = ["text"] }
 toml_edit = { workspace = true }
 which = "8.0"
 xshell = "0.2.1"

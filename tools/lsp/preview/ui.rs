@@ -231,6 +231,9 @@ pub fn create_ui(
     super::outline::setup(&api);
     super::undo_redo::setup(&api);
 
+    #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
+    super::remote::setup(&app_window, to_lsp);
+
     #[cfg(target_vendor = "apple")]
     api.set_control_key_name("command".into());
 

@@ -184,7 +184,7 @@ test("loadSource", () => {
     ]);
 });
 
-test("non-windowed components have no `window` property", () => {
+test("accessing `window` on non-windowed components throws", () => {
     const source = `
         export component Win inherits Window {
             in-out property <string> name: "world";
@@ -198,8 +198,8 @@ test("non-windowed components have no `window` property", () => {
     const win = new mod.Win();
     const tray = new mod.Tray();
 
-    expect("window" in win).toBe(true);
-    expect("window" in tray).toBe(false);
+    expect(win.window).toBeDefined();
+    expect(() => tray.window).toThrow();
 });
 
 test("loadSource constructor parameters", () => {

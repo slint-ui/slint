@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// SIZE=220x130
+// BASE_THRESHOLD=3
+//ignore: software
+
+export component TestCase inherits Window {
+    width: 220px;
+    height: 130px;
+    background: #f3f5f8;
+
+    Rectangle {
+        x: 40px;
+        y: 30px;
+        width: 130px;
+        height: 58px;
+        background: #4f8cff;
+        border-radius: 0px;
+        border-top-left-radius: 28px;
+        border-top-right-radius: 8px;
+        border-bottom-right-radius: 28px;
+        border-bottom-left-radius: 8px;
+        drop-shadow-color: #ff0000cc;
+        drop-shadow-offset-x: 18px;
+        drop-shadow-offset-y: 18px;
+        drop-shadow-blur: 10px;
+    }
+}

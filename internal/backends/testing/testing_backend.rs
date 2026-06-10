@@ -8,7 +8,9 @@ use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSiz
 use i_slint_core::platform::PlatformError;
 use i_slint_core::renderer::{Renderer, RendererSealed};
 use i_slint_core::textlayout::sharedparley;
-use i_slint_core::window::{InputMethodRequest, WindowAdapter, WindowAdapterInternal, WindowInner};
+use i_slint_core::window::{
+    InputMethodRequest, WindowAdapter, WindowAdapterInternal, WindowInner, WindowKind,
+};
 
 use i_slint_core::SharedString;
 use i_slint_core::items::TextWrap;
@@ -319,7 +321,7 @@ impl WindowAdapterInternal for TestingWindow {
         self.all_item_trees.0.borrow_mut().remove(&item_tree.as_ptr());
     }
 
-    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+    fn create_child_window_adapter(&self, _kind: WindowKind) -> Option<Rc<dyn WindowAdapter>> {
         if self.native_popup.get() {
             let window = Rc::new_cyclic(|self_weak| TestingWindow {
                 window: i_slint_core::api::Window::new(self_weak.clone() as _),
@@ -511,10 +513,6 @@ impl RendererSealed for TestingWindow {
         let ctx = self.slint_context().ok_or("slint platform not initialized")?;
         ctx.font_context().borrow_mut().collection.register_fonts(contents.into(), None);
         Ok(())
-    }
-
-    fn default_font_size(&self) -> LogicalLength {
-        sharedparley::DEFAULT_FONT_SIZE
     }
 
     fn set_window_adapter(&self, _window_adapter: &Rc<dyn WindowAdapter>) {

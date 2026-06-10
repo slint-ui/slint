@@ -12,7 +12,11 @@ add_library(todo_lib STATIC app.cpp)
 slint_target_sources(todo_lib ../ui/todo.slint NAMESPACE todo_ui)
 target_link_libraries(todo_lib PUBLIC Slint::Slint)
 
-add_executable(todo main.cpp)
+if(ANDROID)
+    add_library(todo SHARED main.cpp)
+else()
+    add_executable(todo main.cpp)
+endif()
 target_link_libraries(todo PRIVATE todo_lib)
 
 if(SLINT_BUILD_TESTING AND SLINT_FEATURE_TESTING AND SLINT_FEATURE_EXPERIMENTAL)

@@ -71,10 +71,17 @@ if (typeInfo.href !== "") {
 const enumContent = await getEnumContent(enumName);
 const structContent = await getStructContent(structName);
 
-const defaultValue_ = defaultValue ? defaultValue : typeInfo.defaultValue;
+const isOutput = propertyVisibility === "out";
+const defaultValue_ = defaultValue
+    ? defaultValue
+    : isOutput
+      ? ""
+      : typeInfo.defaultValue;
 
-if (!defaultValue_) {
+if (!defaultValue_ && !isOutput) {
     console.error("No defaultValue for:", propName);
+} else if (defaultValue && isOutput) {
+    console.error("defaultValue set on out property:", propName);
 }
 
 if ((enumName || structName) && !Astro.slots.has("default")) {
@@ -95,7 +102,7 @@ if ((enumName || structName) && !Astro.slots.has("default")) {
       </a>
     )}
     {propertyVisibility && <code>{`(${propertyVisibility})`}</code>}
-    <span class="default-value">default: <code class="plain-code" dir="auto">{defaultValue_}</code></span><br>
+    {defaultValue_ && <span class="default-value">default: <code class="plain-code" dir="auto">{defaultValue_}</code></span>}<br>
   </p>
    <slot/>
    {enumName && <Fragment set:html={enumContent}/>}

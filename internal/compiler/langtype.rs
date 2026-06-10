@@ -539,8 +539,9 @@ impl ElementType {
                     None => {
                         let base_type = component.root_element.borrow().base_type.clone();
                         if base_type == tr.empty_type() {
-                            if Self::can_be_special_child_element(name, tr) {
-                                return tr.lookup_element(name);
+                            let element = tr.lookup_element(name)?;
+                            if matches!(&element, ElementType::Builtin(b) if b.can_be_declared_without_children_slot) {
+                                return Ok(element);
                             }
                             return Err(format!("'{}' cannot have children. Only components with @children can have children", component.id));
                         }
@@ -550,8 +551,11 @@ impl ElementType {
                 base_type.lookup_type_for_child_element(name, tr)
             }
             Self::Builtin(builtin) => {
-                if Self::can_be_special_child_element(name, tr) {
-                    return tr.lookup_element(name);
+                let looked_up = tr.lookup_element(name);
+                if let Ok(ElementType::Builtin(b)) = &looked_up
+                    && b.can_be_declared_without_children_slot
+                {
+                    return Ok(ElementType::Builtin(b.clone()));
                 }
                 if builtin.disallow_global_types_as_child_elements {
                     if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
@@ -567,6 +571,8 @@ impl ElementType {
                     valid_children.sort();
 
                     let err = if valid_children.is_empty() {
+                        // No whitelist to suggest from; prefer "Unknown element" for typos.
+                        looked_up?;
                         format!("{} cannot have children elements", builtin.native_class.class_name,)
                     } else {
                         format!(
@@ -578,7 +584,7 @@ impl ElementType {
                     };
                     return Err(err);
                 }
-                let err = match tr.lookup_element(name) {
+                let err = match looked_up {
                     Err(e) => e,
                     Ok(t) => {
                         if !tr.expose_internal_types
@@ -608,14 +614,6 @@ impl ElementType {
                 }
             })
         }
-    }
-
-    fn can_be_special_child_element(name: &str, tr: &TypeRegister) -> bool {
-        let is_special_builtin = matches!(
-            tr.lookup_element(name),
-            Ok(ElementType::Builtin(b)) if b.can_be_declared_without_children_slot
-        );
-        is_special_builtin
     }
 
     /// Assume this is a builtin type, panic if it isn't
