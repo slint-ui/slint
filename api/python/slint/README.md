@@ -213,28 +213,9 @@ singleton.
 
 ### Type Mappings
 
-Each type used for properties in the Slint Language translates to a specific type in Python. The following table summarizes
-the mapping:
-
-| `.slint` Type | Python Type | Notes |
-| ------------- | ----------- | ----- |
-| `int`         | `int`       |       |
-| `float`       | `float`     |       |
-| `bool`        | `bool`      |       |
-| `string`      | `str`       |       |
-| `color`       | `slint.Color` |     |
-| `brush`       | `slint.Brush` |     |
-| `image`       | `slint.Image` |     |
-| `styled-text` | `slint.StyledText` | |
-| `data-transfer` | `slint.DataTransfer` | |
-| `length`      | `float`     |       |
-| `physical_length` | `float` |       |
-| `duration`    | `float`     | The number of milliseconds |
-| `angle`       | `float`     | The angle in degrees |
-| `relative-font-size` | `float` | Relative font size factor that is multiplied with the window's default font size. |
-| structure     | `dict`/`Struct` | When reading, structures are mapped to data classes, when writing dicts are also accepted. |
-| array         | `slint.Model` |     |
-| `Point`       | `slint.LogicalPosition` | A struct with `x` and `y` fields, representing logical coordinates. |
+Each type used for properties in the Slint Language translates to a specific type in Python. See the
+[type mappings table](https://docs.slint.dev/latest/docs/python/#type-mappings) in the Slint Python documentation for the
+complete list.
 
 ### Arrays and Models
 
