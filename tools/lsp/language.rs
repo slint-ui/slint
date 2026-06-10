@@ -172,6 +172,9 @@ async fn register_file_watcher(ctx: &Context) -> common::Result<()> {
         .and_then(|wf| wf.dynamic_registration)
         .unwrap_or(false)
     {
+        tracing::trace!(
+            "Client supports dynamic file watcher registration, registering for all files"
+        );
         let fs_watcher = lsp_types::DidChangeWatchedFilesRegistrationOptions {
             watchers: vec![lsp_types::FileSystemWatcher {
                 glob_pattern: lsp_types::GlobPattern::String("**/*".to_string()),
@@ -974,7 +977,19 @@ pub async fn delete_document(ctx: &mut Context, url: lsp_types::Url) -> common::
     // The preview cares about resources and slint files, so forward everything
     ctx.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
 
-    drop_document_impl(ctx, url)
+    #[cfg(feature = "preview-engine")]
+    let version = ctx.document_cache.document_version(&url);
+
+    let result = drop_document_impl(ctx, url.clone());
+
+    // make sure to clear the diagnostics on this file.
+    // This is especially important for deleted files, but also for renamed files to clear the diagnostics on the old file.
+    // Otherwise they will stick around forever (e.g. in VS Code).
+    #[cfg(feature = "preview-engine")]
+    let _ =
+        common::lsp_to_editor::notify_lsp_diagnostics(&ctx.server_notifier, url, version, vec![]);
+
+    result
 }
 
 pub async fn trigger_file_watcher(
