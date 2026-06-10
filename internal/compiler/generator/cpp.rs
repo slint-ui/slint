@@ -4843,18 +4843,23 @@ fn compile_builtin_function_call(
                 let close_policy = compile_expression(close_policy, ctx);
                 let window_kind = if popup.is_tooltip { "slint::cbindgen_private::WindowKind::ToolTip" } else { "slint::cbindgen_private::WindowKind::Popup" };
                 // Keep the parent's `is-open` property in sync. The setter is passed directly into
-                // `show_popup`, so there is no extra registration call and no second popup lookup. It
-                // captures a weak handle to the current component (like `_self.self_weak` in Rust) and
-                // re-derives it on every close. Popups without `is-open` get a no-op setter.
+                // `show_popup`, so there is no extra registration call and no second popup lookup. The
+                // `false` is delivered when the popup is dropped, which may be long after this frame, so
+                // we cannot capture a raw `self`. We capture a weak *mapped* handle to the current
+                // component instance -- the C++ equivalent of Rust's `self_weak`, which for a
+                // sub-component points at that sub-component itself rather than at the enclosing item
+                // tree (`self->self_weak`). Popups without `is-open` get a no-op setter.
                 let is_open_setter = match is_open_args.first() {
                     Some(llr::Expression::PropertyReference(is_open_ref)) => {
                         let self_ty = ident(&ctx.current_sub_component().expect("ShowPopupWindow is invoked on a sub-component").name);
                         let set_is_open = access_member(is_open_ref, ctx).then(|p| format!("{p}.set(is_open)"));
                         format!(
-                            "[weak = self->self_weak](bool is_open) {{ \
+                            "[weak = vtable::VWeakMapped<slint::private_api::ItemTreeVTable, const {self_ty}>( \
+                                    vtable::VRcMapped<slint::private_api::ItemTreeVTable, const {self_ty}>(self->self_weak.lock().value(), self))] \
+                             (bool is_open) {{ \
                                 auto rc = weak.lock(); \
                                 if (!rc) return; \
-                                [[maybe_unused]] auto self = reinterpret_cast<const {self_ty}*>((*rc).borrow().instance); \
+                                [[maybe_unused]] auto self = &**rc; \
                                 {set_is_open}; \
                             }}"
                         )
