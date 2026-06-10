@@ -96,7 +96,7 @@ mod cubic_bezier {
             }
 
             // Newton's method.
-            let mut t = x - from / (to - from);
+            let mut t = (x - from) / (to - from);
             for _ in 0..8 {
                 let x2 = self.x(t);
 
