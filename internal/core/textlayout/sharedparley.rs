@@ -1795,7 +1795,7 @@ fn cached_text_input_paragraphs<'a>(
             };
             create_text_paragraphs(layout_builder, font_context, text, None, Color::default())
         },
-        cacheable.then_some(cache).flatten(),
+        cache.filter(|_| cacheable),
     )
 }
 
