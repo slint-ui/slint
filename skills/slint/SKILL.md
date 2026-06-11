@@ -28,7 +28,9 @@ Most "won't compile" / "won't fill" / "padding ignored" questions are answered
 in [gotchas.md](reference/gotchas.md) and
 [language-and-layout.md](reference/language-and-layout.md).
 
-## Reference Files (read on demand)
+## Reference Files
+
+Skim the matching file *before* building in that area, not only when stuck.
 
 | File | Read when… |
 |---|---|

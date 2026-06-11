@@ -46,6 +46,7 @@ software-renderer-path = ["i-slint-renderer-software/path"]
 gettext = ["i-slint-core/gettext-rs"]
 accessibility = ["i-slint-backend-selector/accessibility"]
 system-testing = ["i-slint-backend-selector/system-testing"]
+mcp = ["std", "i-slint-backend-selector/mcp"]
 
 std = [
   "i-slint-core/default",
