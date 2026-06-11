@@ -333,6 +333,7 @@ module.exports = grammar({
           $.value,
           $.gradient_call,
           $.image_call,
+          $.commands_call,
           $.reference_identifier,
           $.simple_identifier,
           $.function_call,
@@ -597,6 +598,14 @@ module.exports = grammar({
         optional(seq(",", "nine-slice", "(", repeat($._int_number), ")")),
         ")",
       ),
+
+    commands_call: ($) =>
+        seq(
+            field("name", "@commands"),
+            "(",
+            field("commands", $.string_value),
+            ")"
+        ),
 
     typed_identifier: ($) =>
       seq(field("name", $.simple_identifier), ":", field("type", $.type)),

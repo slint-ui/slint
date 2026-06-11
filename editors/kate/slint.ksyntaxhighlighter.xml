@@ -45,6 +45,7 @@
       <item>@tr</item>
       <item>@children</item>
       <item>@image-url</item>
+      <item>@commands</item>
       <item>@linear-gradient</item>
       <item>@radial-gradient</item>
       <item>@conic-gradient</item>

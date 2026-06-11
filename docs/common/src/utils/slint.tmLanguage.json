@@ -632,7 +632,7 @@
                     "include": "#boolean"
                 },
                 {
-                    "begin": "(@(tr|linear-gradient|radial-gradient|conic-gradient|image-url))\\s*(\\()",
+                    "begin": "(@(tr|linear-gradient|radial-gradient|conic-gradient|image-url|commands))\\s*(\\()",
                     "end": "(\\))",
                     "beginCaptures": {
                         "1": {

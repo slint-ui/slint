@@ -183,6 +183,9 @@
 (image_call
   "@image-url" @attribute)
 
+(commands
+  "@commands" @attribute)
+
 (tr
   "@tr" @attribute)
 
