@@ -56,6 +56,11 @@ export enum RemoteConnectionState {
     Failed,
 }
 
+export enum PreviewMode {
+    Local,
+    Remote,
+}
+
 /// What kind of layout we are working with
 export enum LayoutKind {
     None,
@@ -612,7 +617,7 @@ export global Api {
     in-out property <bool> redo-enabled: false;
 
     // ## Remote preview
-    in-out property <bool> remote-dialog-open;
+    in-out property <PreviewMode> preview-mode: PreviewMode.Local;
     in-out property <[RemoteViewerInfo]> remote-discovered-viewers;
     in-out property <RemoteConnectionState> remote-connection-state;
     in-out property <string> remote-connection-error;
