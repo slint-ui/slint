@@ -744,12 +744,14 @@ fn call_builtin_function(
                         location.span.offset,
                         i_slint_compiler::diagnostics::ByteFormat::Utf8,
                     );
-                    LogMessageLocation {
-                        path: file.path().to_string_lossy().to_shared_string(),
-                        line,
-                        column,
-                    }
+                    let path = file.path().to_string_lossy();
+                    (line, column, path)
                 })
+            });
+            let location = location.as_ref().map(|(line, column, path)| LogMessageLocation {
+                path,
+                line: *line,
+                column: *column,
             });
             let root_weak =
                 vtable::VWeak::into_dyn(local_context.component_instance.root_weak().clone());
@@ -758,13 +760,13 @@ fn call_builtin_function(
             {
                 ctx.dispatch_log_message(LogMessage::new(
                     LogMessageSource::SlintCode,
-                    location.as_ref(),
+                    location,
                     format_args!("{to_print}"),
                 ));
             } else {
                 log_message(LogMessage::new(
-                    corelib::debug_log::LogMessageSource::SlintCode,
-                    location.as_ref(),
+                    LogMessageSource::SlintCode,
+                    location,
                     format_args!("{to_print}"),
                 ));
             }

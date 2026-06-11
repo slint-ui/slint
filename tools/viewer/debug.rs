@@ -9,7 +9,7 @@ pub fn log_message_handler(
     let arguments = message.message_arguments();
     let location = message
         .location()
-        .map(|location| (PathBuf::from(location.path.as_str()), location.line, location.column));
+        .map(|location| (PathBuf::from(location.path), location.line, location.column));
     if let Some((file, line, column)) = &location {
         tracing::info!("DEBUG {file}:{line}:{column}> {arguments}", file = file.display());
     } else {

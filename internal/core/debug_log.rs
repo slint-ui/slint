@@ -1,13 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::SharedString;
-
 /// Location information attached to a log message.
 #[derive(Clone, Debug)]
-pub struct LogMessageLocation {
+pub struct LogMessageLocation<'a> {
     /// The file path of the source that emitted the log message
-    pub path: SharedString,
+    pub path: &'a str,
     /// the line number of the call that emitted the log message (1-based)
     pub line: usize,
     /// The column of the call that emitted the log message (1-based)
@@ -28,14 +26,14 @@ pub enum LogMessageSource {
 /// Opaque log message, emitted by [`crate::debug_log!`] as well as the Slint `debug()` function.
 pub struct LogMessage<'a> {
     source: LogMessageSource,
-    location: Option<&'a LogMessageLocation>,
+    location: Option<LogMessageLocation<'a>>,
     arguments: core::fmt::Arguments<'a>,
 }
 
 impl<'a> LogMessage<'a> {
     pub fn new(
         source: LogMessageSource,
-        location: Option<&'a LogMessageLocation>,
+        location: Option<LogMessageLocation<'a>>,
         arguments: core::fmt::Arguments<'a>,
     ) -> Self {
         Self { source, location, arguments }
@@ -45,8 +43,8 @@ impl<'a> LogMessage<'a> {
         self.source
     }
 
-    pub fn location(&self) -> Option<&LogMessageLocation> {
-        self.location
+    pub fn location(&self) -> Option<LogMessageLocation<'_>> {
+        self.location.clone()
     }
 
     pub fn message_arguments(&self) -> core::fmt::Arguments<'a> {
@@ -99,11 +97,7 @@ macro_rules! debug_log {
     ($($t:tt)*) => ($crate::debug_log::log_message(
         $crate::debug_log::LogMessage::new(
             $crate::debug_log::LogMessageSource::Runtime,
-            Some(&$crate::debug_log::LogMessageLocation {
-                path: ::core::file!().into(),
-                line: ::core::line!() as usize,
-                column: ::core::column!() as usize,
-            }),
+            None,
             format_args!($($t)*),
         )
     ))

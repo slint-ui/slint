@@ -23,7 +23,7 @@ use i_slint_live_preview::protocol::{
     PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
 };
 use lsp_types::Url;
-use slint::{PlatformError, SharedString};
+use slint::{PlatformError, SharedString, ToSharedString};
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
@@ -1575,23 +1575,28 @@ fn set_preview_factory(
         .context()
         .set_log_message_handler(Some(Box::new(|log_message| {
             let message = log_message.message_arguments().to_string();
-            let location = log_message
-                .location()
-                .map(|location| (location.path.clone(), location.line, location.column));
+            let location = log_message.location();
             PREVIEW_STATE.with_borrow_mut(|state| {
                 let to_lsp = state.to_lsp.try_borrow();
                 let Some(to_lsp) = to_lsp.ok() else { return };
                 if let Some(to_lsp) = &*to_lsp {
                     to_lsp
                         .send(&PreviewToLspMessage::DebugMessage {
-                            location: location.as_ref().map(|(path, line, column)| {
-                                (std::path::PathBuf::from(path.as_str()), *line, *column)
+                            location: location.as_ref().map(|location| {
+                                (
+                                    std::path::PathBuf::from(location.path),
+                                    location.line,
+                                    location.column,
+                                )
                             }),
                             message: message.clone(),
                         })
                         .ok();
                 }
             });
+            let location = location
+                .as_ref()
+                .map(|location| (location.path.to_shared_string(), location.line, location.column));
             let _ = slint::invoke_from_event_loop(move || {
                 PREVIEW_STATE.with_borrow(|preview_state| {
                     if let Some(api) = preview_state.api.upgrade() {
