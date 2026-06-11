@@ -539,7 +539,7 @@ macro_rules! for_each_enums {
             /// It indicates that an element is a live region whose content changes should be
             /// announced by assistive technologies.
             #[non_exhaustive]
-            enum AccessibleLiveRegion {
+            enum AccessibleLiveness {
                 /// The element is not a live region.
                 Off,
                 /// Updates are announced when the user is idle.

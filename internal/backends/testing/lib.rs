@@ -142,4 +142,4 @@ pub fn configure_test_fonts() {
     .unwrap();
 }
 
-pub use i_slint_core::items::{AccessibleLiveRegion, AccessibleRole, Orientation};
+pub use i_slint_core::items::{AccessibleLiveness, AccessibleRole, Orientation};
