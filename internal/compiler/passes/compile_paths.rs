@@ -77,9 +77,7 @@ pub fn compile_paths(
                     )))
                     .into()
                 }
-                expr if expr.ty() == Type::PathData => {
-                    commands_expr.into()
-                }
+                expr if expr.ty() == Type::PathData => commands_expr,
                 _ => {
                     diag.push_error(
                         "The commands property only accepts strings".into(),
