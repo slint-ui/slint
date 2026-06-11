@@ -2248,9 +2248,10 @@ component Close {
 ///
 /// When not part of a layout, its width or height defaults to 100% of the parent element when not specified.
 ///
-/// A path can be defined in two different ways:
+/// A path can be defined in three different ways:
 ///
 /// -   Using SVG path commands as a string
+/// -   Using SVG path commands inside `@commands` macro as a pathdata
 /// -   Using path command elements in `.slint` markup.
 ///
 /// The coordinates used in the geometric commands are within the imaginary coordinate system of the path.
@@ -2347,6 +2348,15 @@ export component Path {
     //! ### Commands
     //! <SlintProperty propName="commands" typeName="string">
     //! A string providing the commands according to the SVG path specification.
+    //! ```slint
+    //! commands: "M5 12h14";
+    //! ```
+    //!
+    //! Alternatively, the commands can be provided using the `@commands` macro, which allows it to be compiled ahead of time.
+    //! Most suitable for `no_std` environments, where string commands parsing is not available.
+    //! ```slint
+    //! commands: @commands("M5 12h14");
+    //! ```
     //! This property can only be set in a binding and cannot be accessed in an expression.
     //! </SlintProperty>
     //!
