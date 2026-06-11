@@ -14,13 +14,13 @@ export component TestCase inherits Window {
         spacing: 8px;
         padding: 12px;
         Row {
-            // Simple inset shadow with blur. The red child overlaps the shadow edge on
-            // one side, proving the inset shadow is rendered below children.
+            // Simple inner shadow with blur. The red child overlaps the shadow edge on
+            // one side, proving the inner shadow is rendered below children.
             Rectangle {
                 height: 64px;
                 background: lightyellow;
-                inset-shadow-color: #000000c0;
-                inset-shadow-blur: 8px;
+                inner-shadow-color: #000000c0;
+                inner-shadow-blur: 8px;
 
                 Rectangle {
                     width: 16px;
@@ -30,33 +30,33 @@ export component TestCase inherits Window {
                     background: red;
                 }
             }
-            // Inset shadow with offset (shadow appears stronger on the bottom-right interior)
+            // Inner shadow with offset (shadow appears stronger on the bottom-right interior)
             Rectangle {
                 height: 64px;
                 background: lightyellow;
-                inset-shadow-color: #000000c0;
-                inset-shadow-blur: 6px;
-                inset-shadow-offset-x: 4px;
-                inset-shadow-offset-y: 4px;
+                inner-shadow-color: #000000c0;
+                inner-shadow-blur: 6px;
+                inner-shadow-offset-x: 4px;
+                inner-shadow-offset-y: 4px;
             }
         }
         Row {
-            // Inset shadow with rounded corners
+            // Inner shadow with rounded corners
             Rectangle {
                 height: 64px;
                 background: lightyellow;
                 border-radius: 12px;
-                inset-shadow-color: #000000c0;
-                inset-shadow-blur: 8px;
+                inner-shadow-color: #000000c0;
+                inner-shadow-blur: 8px;
             }
-            // Inset shadow with positive spread (makes the shadow band thicker)
+            // Inner shadow with positive spread (makes the shadow band thicker)
             Rectangle {
                 height: 64px;
                 background: lightyellow;
                 border-radius: 8px;
-                inset-shadow-color: #000000c0;
-                inset-shadow-blur: 6px;
-                inset-shadow-spread: 5px;
+                inner-shadow-color: #000000c0;
+                inner-shadow-blur: 6px;
+                inner-shadow-spread: 5px;
             }
         }
     }

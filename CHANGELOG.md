@@ -43,7 +43,7 @@ All notable changes to this project are documented in this file.
  - Deprecated calling `init()` explicitly (#11696)
  - Added `ToolTip` element
  - Added `minimized`, `maximized`, `close`, and `hide` on `Window`
- - Added `drop-shadow-spread` and `inset-shadow-{color,blur,offset-x,offset-y,spread}` properties to rectangle. (Only supported in Skia)
+ - Added `drop-shadow-spread` and `inner-shadow-{color,blur,offset-x,offset-y,spread}` properties to rectangle. (Only supported in Skia)
  - added `Platform.macos-bring-all-windows-to-front()`
  - Fixed percentage size in children impacting parent layout (#3346)
  - Re-evaluate property bindings when a callback handler is changed from native code (#9551)

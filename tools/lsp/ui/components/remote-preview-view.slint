@@ -136,11 +136,11 @@ export component RemotePreviewView inherits Rectangle {
                 border-width: 1px;
                 border-radius: 8px;
 
-                inset-shadow-blur: 10px;
-                inset-shadow-color: black.with-alpha(0.1);
-                inset-shadow-offset-x: 3px;
-                inset-shadow-offset-y: 3px;
-                inset-shadow-spread: 1px;
+                inner-shadow-blur: 10px;
+                inner-shadow-color: black.with-alpha(0.1);
+                inner-shadow-offset-x: 3px;
+                inner-shadow-offset-y: 3px;
+                inner-shadow-spread: 1px;
 
                 VerticalLayout {
                     padding: EditorSpaceSettings.default-padding * 2;
@@ -158,10 +158,10 @@ export component RemotePreviewView inherits Rectangle {
                         border-width: 1px;
                         border-color: Palette.border;
                         vertical-stretch: 1;
-                        inset-shadow-blur: 5px;
-                        inset-shadow-color: black.with-alpha(0.1);
-                        inset-shadow-offset-x: 5px;
-                        inset-shadow-offset-y: 5px;
+                        inner-shadow-blur: 5px;
+                        inner-shadow-color: black.with-alpha(0.1);
+                        inner-shadow-offset-x: 5px;
+                        inner-shadow-offset-y: 5px;
 
                         if Api.remote-discovered-viewers.length == 0: VerticalLayout {
                             alignment: center;
@@ -221,10 +221,10 @@ export component RemotePreviewView inherits Rectangle {
 
                     Rectangle {
                         border-radius: 4px;
-                        inset-shadow-blur: 5px;
-                        inset-shadow-color: black.with-alpha(0.15);
-                        inset-shadow-offset-x: 5px;
-                        inset-shadow-offset-y: 5px;
+                        inner-shadow-blur: 5px;
+                        inner-shadow-color: black.with-alpha(0.15);
+                        inner-shadow-offset-x: 5px;
+                        inner-shadow-offset-y: 5px;
                         background: root.dark-color-scheme ? #1C1C1C : #D7D9DD;
                         min-width: manual-le.preferred-width;
                         manual-le := LineEdit {

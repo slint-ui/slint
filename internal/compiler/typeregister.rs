@@ -223,12 +223,12 @@ pub const RESERVED_DROP_SHADOW_PROPERTIES: &[(&str, Type)] = &[
     ("drop-shadow-color", Type::Color),
 ];
 
-pub const RESERVED_INSET_SHADOW_PROPERTIES: &[(&str, Type)] = &[
-    ("inset-shadow-offset-x", Type::LogicalLength),
-    ("inset-shadow-offset-y", Type::LogicalLength),
-    ("inset-shadow-blur", Type::LogicalLength),
-    ("inset-shadow-spread", Type::LogicalLength),
-    ("inset-shadow-color", Type::Color),
+pub const RESERVED_INNER_SHADOW_PROPERTIES: &[(&str, Type)] = &[
+    ("inner-shadow-offset-x", Type::LogicalLength),
+    ("inner-shadow-offset-y", Type::LogicalLength),
+    ("inner-shadow-blur", Type::LogicalLength),
+    ("inner-shadow-spread", Type::LogicalLength),
+    ("inner-shadow-color", Type::Color),
 ];
 
 pub const RESERVED_TRANSFORM_PROPERTIES: &[(&str, Type)] = &[
@@ -291,7 +291,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         .chain(RESERVED_LAYOUT_PROPERTIES.iter())
         .chain(RESERVED_OTHER_PROPERTIES.iter())
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
-        .chain(RESERVED_INSET_SHADOW_PROPERTIES.iter())
+        .chain(RESERVED_INNER_SHADOW_PROPERTIES.iter())
         .chain(RESERVED_TRANSFORM_PROPERTIES.iter())
         .chain(DEPRECATED_ROTATION_ORIGIN_PROPERTIES.iter())
         .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input))

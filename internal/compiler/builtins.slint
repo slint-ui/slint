@@ -199,6 +199,10 @@ component BorderRectangle inherits BasicBorderRectangle {
     //! To achieve the graphical effect of a visually elevated shape that shows a shadow effect underneath the frame of
     //! an element, it's possible to set the following `drop-shadow` properties:
     //!
+    //! The CSS equivalent is `box-shadow`: `box-shadow: 2px 2px 4px 1px black` translates to
+    //! `drop-shadow-offset-x: 2px; drop-shadow-offset-y: 2px; drop-shadow-blur: 4px;
+    //! drop-shadow-spread: 1px; drop-shadow-color: black;`.
+    //!
     //! ### drop-shadow-blur
     //! <SlintProperty propName="drop-shadow-blur" typeName="length"/>
     //! The radius of the shadow that also describes the level of blur applied to the shadow. Negative values are ignored and zero means no blur.
@@ -221,30 +225,34 @@ component BorderRectangle inherits BasicBorderRectangle {
     //! Grows (positive) or shrinks (negative) the shadow shape on all sides before the blur is applied.
     //! Equivalent to the spread radius in CSS `box-shadow`. Currently only supported by the Skia renderer.
     //!
-    //! ## Inset Shadows
+    //! ## Inner Shadows
     //!
-    //! Inset shadows are rendered inside the element's geometry (inverted from drop shadows), giving
+    //! Inner shadows are rendered inside the element's geometry (inverted from drop shadows), giving
     //! the appearance of an inwards-cast shadow. They follow the same parameters as drop shadows.
     //! Currently only supported by the Skia renderer.
     //!
-    //! ### inset-shadow-blur
-    //! <SlintProperty propName="inset-shadow-blur" typeName="length"/>
-    //! The blur radius of the inset shadow.
+    //! The CSS equivalent is `box-shadow` with the `inset` keyword: `box-shadow: inset 2px 2px 4px 1px black`
+    //! translates to `inner-shadow-offset-x: 2px; inner-shadow-offset-y: 2px; inner-shadow-blur: 4px;
+    //! inner-shadow-spread: 1px; inner-shadow-color: black;`.
     //!
-    //! ### inset-shadow-color
-    //! <SlintProperty propName="inset-shadow-color" typeName="color"/>
-    //! The base color of the inset shadow.
+    //! ### inner-shadow-blur
+    //! <SlintProperty propName="inner-shadow-blur" typeName="length"/>
+    //! The blur radius of the inner shadow.
     //!
-    //! ### inset-shadow-offset-x
-    //! <SlintProperty propName="inset-shadow-offset-x" typeName="length"/>
-    //! Horizontal offset of the inset shadow inside the element.
+    //! ### inner-shadow-color
+    //! <SlintProperty propName="inner-shadow-color" typeName="color"/>
+    //! The base color of the inner shadow.
     //!
-    //! ### inset-shadow-offset-y
-    //! <SlintProperty propName="inset-shadow-offset-y" typeName="length"/>
-    //! Vertical offset of the inset shadow inside the element.
+    //! ### inner-shadow-offset-x
+    //! <SlintProperty propName="inner-shadow-offset-x" typeName="length"/>
+    //! Horizontal offset of the inner shadow inside the element.
     //!
-    //! ### inset-shadow-spread
-    //! <SlintProperty propName="inset-shadow-spread" typeName="length"/>
+    //! ### inner-shadow-offset-y
+    //! <SlintProperty propName="inner-shadow-offset-y" typeName="length"/>
+    //! Vertical offset of the inner shadow inside the element.
+    //!
+    //! ### inner-shadow-spread
+    //! <SlintProperty propName="inner-shadow-spread" typeName="length"/>
     //! Positive spread thickens the shadow band along the element's interior boundary; negative spread
     //! thins it.
     //-default_size_binding:expands_to_parent_geometry
