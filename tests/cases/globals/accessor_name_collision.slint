@@ -1,0 +1,74 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A callback named `set-xxx` or `get-xxx` must not clash with the generated accessor
+// functions of a property named `xxx`, and a property named `on-xxx` must not clash
+// with the generated `on_xxx` function of a callback named `xxx`.
+
+export global State {
+    in-out property <int> sort-dir: 1;
+    callback set-sort-dir(int);
+    set-sort-dir(v) => { self.sort-dir = v; }
+
+    out property <int> value: 10;
+    pure callback get-value() -> int;
+    get-value() => { return self.value; }
+
+    in-out property <bool> on-toggle;
+    callback toggle();
+    toggle() => { self.on-toggle = !self.on-toggle; }
+}
+
+export component TestCase inherits Window {
+    in-out property <int> sort-dir <=> State.sort-dir;
+    callback set-sort-dir <=> State.set-sort-dir;
+
+    out property <bool> test: State.sort-dir == 1 && State.get-value() == 10;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.invoke_set_sort_dir(2);
+assert_eq!(instance.get_sort_dir(), 2);
+instance.set_sort_dir(3);
+assert_eq!(instance.global::<State<'_>>().get_sort_dir(), 3);
+assert_eq!(instance.global::<State<'_>>().invoke_get_value(), 10);
+instance.global::<State<'_>>().invoke_set_sort_dir(4);
+assert_eq!(instance.get_sort_dir(), 4);
+assert!(!instance.global::<State<'_>>().get_on_toggle());
+instance.global::<State<'_>>().invoke_toggle();
+assert!(instance.global::<State<'_>>().get_on_toggle());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+instance.invoke_set_sort_dir(2);
+assert_eq(instance.get_sort_dir(), 2);
+instance.set_sort_dir(3);
+assert_eq(instance.global<State>().get_sort_dir(), 3);
+assert_eq(instance.global<State>().invoke_get_value(), 10);
+instance.global<State>().invoke_set_sort_dir(4);
+assert_eq(instance.get_sort_dir(), 4);
+assert(!instance.global<State>().get_on_toggle());
+instance.global<State>().invoke_toggle();
+assert(instance.global<State>().get_on_toggle());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+instance.set_sort_dir(2);
+assert.equal(instance.sort_dir, 2);
+instance.sort_dir = 3;
+assert.equal(instance.State.sort_dir, 3);
+assert.equal(instance.State.get_value(), 10);
+instance.State.set_sort_dir(4);
+assert.equal(instance.sort_dir, 4);
+instance.State.toggle();
+assert(instance.State.on_toggle);
+```
+*/

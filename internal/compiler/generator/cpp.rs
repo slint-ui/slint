@@ -643,8 +643,8 @@ fn generate_model_two_way_binding(
     field_access: &[SmolStr],
 ) -> String {
     let body_sc = &ctx.compilation_unit.sub_components[info.body_sub_component];
-    let data_prop_name = ident(&body_sc.properties[info.data_prop].name);
-    let index_prop_name = ident(&body_sc.properties[info.index_prop].name);
+    let data_prop_name = field_name(&body_sc.properties[info.data_prop].name);
+    let index_prop_name = field_name(&body_sc.properties[info.index_prop].name);
     let repeater_index = usize::from(info.repeater_index);
 
     // Determine the C++ class name of `self` so we can cast back from
@@ -1460,7 +1460,7 @@ fn generate_public_component(
                 "SystemTrayIcon",
                 "TopLevelComponentType::SystemTrayIcon expects the root item to be a SystemTrayIcon"
             );
-            let tray_field = ident(&tray_item.name);
+            let tray_field = field_name(&tray_item.name);
             (
                 format!("{tray_field}.visible.set(true);"),
                 format!("{tray_field}.visible.set(false);"),
@@ -1605,7 +1605,8 @@ fn generate_item_tree(
                 let mut compo_offset = String::new();
                 let mut sub_component = &root.sub_components[sub_tree.root];
                 for i in &node.sub_component_path {
-                    let next_sub_component_name = ident(&sub_component.sub_components[*i].name);
+                    let next_sub_component_name =
+                        field_name(&sub_component.sub_components[*i].name);
                     write!(
                         compo_offset,
                         "offsetof({}, {}) + ",
@@ -1634,7 +1635,7 @@ fn generate_item_tree(
                     item.ty.cpp_vtable_getter,
                     compo_offset,
                     &ident(&sub_component.name),
-                    ident(&item.name),
+                    field_name(&item.name),
                 ));
             }
         }
@@ -2228,7 +2229,7 @@ fn generate_sub_component(
     }
 
     for property in component.properties.iter() {
-        let cpp_name = ident(&property.name);
+        let cpp_name = field_name(&property.name);
         let ty =
             format_smolstr!("slint::private_api::Property<{}>", property.ty.cpp_type().unwrap());
         target_struct.members.push((
@@ -2237,7 +2238,7 @@ fn generate_sub_component(
         ));
     }
     for callback in component.callbacks.iter() {
-        let cpp_name = ident(&callback.name);
+        let cpp_name = field_name(&callback.name);
         let param_types = callback.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
         let ty = format_smolstr!(
             "slint::private_api::Callback<{}({})>",
@@ -2280,7 +2281,7 @@ fn generate_sub_component(
     let mut ensure_instantiated_stmts: Vec<String> = Vec::new();
 
     for sub in &component.sub_components {
-        let field_name = ident(&sub.name);
+        let sub_field = field_name(&sub.name);
         let sub_sc = &root.sub_components[sub.ty];
         let local_tree_index: u32 = sub.index_in_tree as _;
         let local_index_of_first_child: u32 = sub.index_of_first_child_in_tree as _;
@@ -2299,9 +2300,9 @@ fn generate_sub_component(
         };
 
         init.push(format!(
-            "this->{field_name}.init(globals, self_weak.into_dyn(), {global_index}, {global_children});"
+            "this->{sub_field}.init(globals, self_weak.into_dyn(), {global_index}, {global_children});"
         ));
-        user_init.push(format!("this->{field_name}.user_init();"));
+        user_init.push(format!("this->{sub_field}.user_init();"));
 
         let sub_component_repeater_count = sub_sc.repeater_count(root);
         if sub_component_repeater_count > 0 {
@@ -2314,29 +2315,29 @@ fn generate_sub_component(
 
             children_visitor_cases.push(format!(
                 "\n        {case_code} {{
-                        return self->{field_name}.visit_dynamic_children(dyn_index - {repeater_offset}, order, visitor);
+                        return self->{sub_field}.visit_dynamic_children(dyn_index - {repeater_offset}, order, visitor);
                     }}",
             ));
             subtrees_ranges_cases.push(format!(
                 "\n        {case_code} {{
-                        return self->{field_name}.subtree_range(dyn_index - {repeater_offset});
+                        return self->{sub_field}.subtree_range(dyn_index - {repeater_offset});
                     }}",
             ));
             subtrees_components_cases.push(format!(
                 "\n        {case_code} {{
-                        self->{field_name}.subtree_component(dyn_index - {repeater_offset}, subtree_index, result);
+                        self->{sub_field}.subtree_component(dyn_index - {repeater_offset}, subtree_index, result);
                         return;
                     }}",
             ));
             ensure_instantiated_stmts
-                .push(format!("_changed |= self->{field_name}.ensure_instantiated();"));
+                .push(format!("_changed |= self->{sub_field}.ensure_instantiated();"));
         }
 
         target_struct.members.push((
             field_access,
             Declaration::Var(Var {
                 ty: ident(&sub_sc.name),
-                name: field_name,
+                name: sub_field,
                 ..Default::default()
             }),
         ));
@@ -2391,7 +2392,7 @@ fn generate_sub_component(
             field_access,
             Declaration::Var(Var {
                 ty: format_smolstr!("slint::cbindgen_private::{}", ident(&item.ty.class_name)),
-                name: ident(&item.name),
+                name: field_name(&item.name),
                 init: Some("{}".to_owned()),
                 ..Default::default()
             }),
@@ -2563,49 +2564,50 @@ fn generate_sub_component(
         }),
     ));
 
-    let mut dispatch_item_function = |name: &str,
-                                      signature: &str,
-                                      forward_args: &str,
-                                      code: Vec<String>| {
-        let mut code = ["[[maybe_unused]] auto self = this;".into()]
-            .into_iter()
-            .chain(code)
-            .collect::<Vec<_>>();
+    let mut dispatch_item_function =
+        |name: &str, signature: &str, forward_args: &str, code: Vec<String>| {
+            let mut code = ["[[maybe_unused]] auto self = this;".into()]
+                .into_iter()
+                .chain(code)
+                .collect::<Vec<_>>();
 
-        let mut else_ = "";
-        for sub in &component.sub_components {
-            let sub_sc = &ctx.compilation_unit.sub_components[sub.ty];
-            let sub_items_count = sub_sc.child_item_count(ctx.compilation_unit);
-            code.push(format!("{else_}if (index == {}) {{", sub.index_in_tree,));
-            code.push(format!("    return self->{}.{name}(0{forward_args});", ident(&sub.name)));
-            if sub_items_count > 1 {
+            let mut else_ = "";
+            for sub in &component.sub_components {
+                let sub_sc = &ctx.compilation_unit.sub_components[sub.ty];
+                let sub_items_count = sub_sc.child_item_count(ctx.compilation_unit);
+                code.push(format!("{else_}if (index == {}) {{", sub.index_in_tree,));
                 code.push(format!(
-                    "}} else if (index >= {} && index < {}) {{",
-                    sub.index_of_first_child_in_tree,
-                    sub.index_of_first_child_in_tree + sub_items_count - 1
-                        + sub_sc.repeater_count(ctx.compilation_unit)
+                    "    return self->{}.{name}(0{forward_args});",
+                    field_name(&sub.name)
                 ));
-                code.push(format!(
-                    "    return self->{}.{name}(index - {}{forward_args});",
-                    ident(&sub.name),
-                    sub.index_of_first_child_in_tree - 1
-                ));
+                if sub_items_count > 1 {
+                    code.push(format!(
+                        "}} else if (index >= {} && index < {}) {{",
+                        sub.index_of_first_child_in_tree,
+                        sub.index_of_first_child_in_tree + sub_items_count - 1
+                            + sub_sc.repeater_count(ctx.compilation_unit)
+                    ));
+                    code.push(format!(
+                        "    return self->{}.{name}(index - {}{forward_args});",
+                        field_name(&sub.name),
+                        sub.index_of_first_child_in_tree - 1
+                    ));
+                }
+                else_ = "} else ";
             }
-            else_ = "} else ";
-        }
-        let ret =
-            if signature.contains("->") && !signature.contains("-> void") { "{}" } else { "" };
-        code.push(format!("{else_}return {ret};"));
-        target_struct.members.push((
-            field_access,
-            Declaration::Function(Function {
-                name: name.into(),
-                signature: signature.into(),
-                statements: Some(code),
-                ..Default::default()
-            }),
-        ));
-    };
+            let ret =
+                if signature.contains("->") && !signature.contains("-> void") { "{}" } else { "" };
+            code.push(format!("{else_}return {ret};"));
+            target_struct.members.push((
+                field_access,
+                Declaration::Function(Function {
+                    name: name.into(),
+                    signature: signature.into(),
+                    statements: Some(code),
+                    ..Default::default()
+                }),
+            ));
+        };
 
     let mut item_geometry_cases = vec!["switch (index) {".to_string()];
     item_geometry_cases.extend(
@@ -3115,7 +3117,7 @@ fn generate_global(
     let mut global_struct = Struct { name: ident(&global.name), ..Default::default() };
 
     for property in global.properties.iter() {
-        let cpp_name = ident(&property.name);
+        let cpp_name = field_name(&property.name);
         let ty =
             format_smolstr!("slint::private_api::Property<{}>", property.ty.cpp_type().unwrap());
         global_struct.members.push((
@@ -3127,7 +3129,7 @@ fn generate_global(
         ));
     }
     for callback in global.callbacks.iter().filter(|p| p.use_count.get() > 0) {
-        let cpp_name = ident(&callback.name);
+        let cpp_name = field_name(&callback.name);
         let param_types = callback.args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
         let ty = format_smolstr!(
             "slint::private_api::Callback<{}({})>",
@@ -3501,7 +3503,7 @@ fn follow_sub_component_path<'a>(
     let mut compo_path = String::new();
     let mut sub_component = &compilation_unit.sub_components[root];
     for i in sub_component_path {
-        let sub_component_name = ident(&sub_component.sub_components[*i].name);
+        let sub_component_name = field_name(&sub_component.sub_components[*i].name);
         write!(compo_path, "{sub_component_name}.").unwrap();
         sub_component = &compilation_unit.sub_components[sub_component.sub_components[*i].ty];
     }
@@ -3528,11 +3530,13 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                 );
                 match &local_reference.reference {
                     llr::LocalMemberIndex::Property(property_index) => {
-                        let property_name = ident(&sub_component.properties[*property_index].name);
+                        let property_name =
+                            field_name(&sub_component.properties[*property_index].name);
                         path.with_member(format!("->{compo_path}{property_name}"))
                     }
                     llr::LocalMemberIndex::Callback(callback_index) => {
-                        let callback_name = ident(&sub_component.callbacks[*callback_index].name);
+                        let callback_name =
+                            field_name(&sub_component.callbacks[*callback_index].name);
                         path.with_member(format!("->{compo_path}{callback_name}"))
                     }
                     llr::LocalMemberIndex::Function(function_index) => {
@@ -3540,7 +3544,7 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                         path.with_member(format!("->{compo_path}fn_{function_name}"))
                     }
                     llr::LocalMemberIndex::Native { item_index, prop_name } => {
-                        let item_name = ident(&sub_component.items[*item_index].name);
+                        let item_name = field_name(&sub_component.items[*item_index].name);
                         if prop_name.is_empty()
                             || matches!(
                                 sub_component.items[*item_index].ty.lookup_property(prop_name),
@@ -3559,7 +3563,8 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
             } else if let Some(current_global) = ctx.current_global() {
                 match &local_reference.reference {
                     llr::LocalMemberIndex::Property(property_index) => {
-                        let property_name = ident(&current_global.properties[*property_index].name);
+                        let property_name =
+                            field_name(&current_global.properties[*property_index].name);
                         MemberAccess::Direct(format!("this->{property_name}"))
                     }
                     llr::LocalMemberIndex::Function(function_index) => {
@@ -3567,7 +3572,8 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
                         MemberAccess::Direct(format!("this->fn_{function_name}"))
                     }
                     llr::LocalMemberIndex::Callback(callback_index) => {
-                        let callback_name = ident(&current_global.callbacks[*callback_index].name);
+                        let callback_name =
+                            field_name(&current_global.callbacks[*callback_index].name);
                         MemberAccess::Direct(format!("this->{callback_name}"))
                     }
                     _ => unreachable!(),
@@ -3578,17 +3584,19 @@ fn access_member(reference: &llr::MemberReference, ctx: &EvaluationContext) -> M
         }
         llr::MemberReference::Global { global_index, member } => {
             let global = &ctx.compilation_unit.globals[*global_index];
+            // Builtin globals are structs from the C++ runtime library whose fields keep
+            // the declared names
+            let field = |name| if global.is_builtin { ident(name) } else { field_name(name) };
             let name = match member {
-                llr::LocalMemberIndex::Property(property_index) => ident(
-                    &ctx.compilation_unit.globals[*global_index].properties[*property_index].name,
-                ),
-                llr::LocalMemberIndex::Callback(callback_index) => ident(
-                    &ctx.compilation_unit.globals[*global_index].callbacks[*callback_index].name,
-                ),
-                llr::LocalMemberIndex::Function(function_index) => ident(&format!(
-                    "fn_{}",
-                    &ctx.compilation_unit.globals[*global_index].functions[*function_index].name,
-                )),
+                llr::LocalMemberIndex::Property(property_index) => {
+                    field(&global.properties[*property_index].name)
+                }
+                llr::LocalMemberIndex::Callback(callback_index) => {
+                    field(&global.callbacks[*callback_index].name)
+                }
+                llr::LocalMemberIndex::Function(function_index) => {
+                    ident(&format!("fn_{}", &global.functions[*function_index].name))
+                }
                 _ => unreachable!(),
             };
             if matches!(ctx.current_scope, EvaluationScope::Global(i) if i == *global_index) {
@@ -3613,6 +3621,15 @@ fn access_local_member(reference: &llr::LocalMemberReference, ctx: &EvaluationCo
 /// Returns the C++ field name for the change-tracker property of a callback.
 fn callback_tracker_name(callback_name: &str) -> SmolStr {
     format_smolstr!("callback_tracker_{}", callback_name.replace('-', "_"))
+}
+
+/// Returns the name of the C++ field holding a property, callback, item, or sub-component
+/// instance.
+/// The prefix keeps the field apart from generated member functions
+/// (e.g. a callback named `set-foo` and the `set_foo` setter of a property `foo`)
+/// and from reserved members such as `repeater_0` or `self_weak`.
+fn field_name(name: &str) -> SmolStr {
+    format_smolstr!("field_{}", concatenate_ident(name))
 }
 
 /// Returns the C++ code to access the change-tracker `Property<uint8_t>` for an exported callback.
