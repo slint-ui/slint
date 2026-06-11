@@ -165,7 +165,7 @@ impl PlatformTray {
             hmenu: Cell::new(None),
             tip: RefCell::new(tip),
         });
-        unsafe { SetWindowLongPtrW(inner.hwnd, GWLP_USERDATA, &*inner as *const Inner as isize) };
+        unsafe { SetWindowLongPtrW(inner.hwnd, GWLP_USERDATA, &*inner as *const Inner as _) };
 
         Ok(Self { inner })
     }
@@ -263,7 +263,7 @@ impl Drop for PlatformTray {
 
             // Detach from the window before destroying it so any pending messages
             // resolve through DefWindowProc.
-            SetWindowLongPtrW(self.inner.hwnd, GWLP_USERDATA, 0);
+            SetWindowLongPtrW(self.inner.hwnd, GWLP_USERDATA, 0 as _);
             if let Some(m) = self.inner.hmenu.take() {
                 let _ = DestroyMenu(m);
             }
