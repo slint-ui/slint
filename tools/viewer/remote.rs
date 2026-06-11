@@ -10,7 +10,7 @@ use i_slint_live_preview::remote::{Connection, ConnectionMessage, init_compiler}
 use slint::ComponentHandle as _;
 
 slint::slint! {
-    export { EmptyWindow } from "remote/main.slint";
+    export { RemoteViewerWindow, RemoteViewerState } from "remote/main.slint";
 }
 
 // CARGO_PKG_VERSION tracks the workspace version, so it is the Slint version.
@@ -70,7 +70,7 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
         })))
     })?;
 
-    let mut placeholder = EmptyWindow::new()?;
+    let mut placeholder = RemoteViewerWindow::new()?;
 
     #[cfg(not(target_vendor = "apple"))]
     let mdns = enable_mdns.then(mdns_sd::ServiceDaemon::new).transpose()?;
@@ -183,6 +183,7 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
             ConnectionMessage::HighlightFromEditor { .. } => {}
             ConnectionMessage::Connected { remote_addr } => {
                 placeholder.set_message(SharedString::from(format!("Connected to {remote_addr}")));
+                placeholder.set_state(RemoteViewerState::Connected);
                 last_connection = Some(remote_addr);
             }
             ConnectionMessage::Disconnected { remote_addr } => {
@@ -196,6 +197,7 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                         &address,
                         &device_name,
                         "",
+                        RemoteViewerState::WaitingForConnection,
                     )?;
                 }
             }
@@ -215,7 +217,7 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
 async fn build_and_show(
     compiler: &slint_interpreter::Compiler,
     preview_component: &PreviewComponent,
-    placeholder: &mut EmptyWindow,
+    placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
     connection: &Rc<Connection>,
     address: &str,
@@ -253,7 +255,14 @@ async fn build_and_show(
             .map(|d| d.to_string())
             .collect::<Vec<_>>()
             .join("\n");
-        swap_to_placeholder(placeholder, user_instance, address, name, &message)?;
+        swap_to_placeholder(
+            placeholder,
+            user_instance,
+            address,
+            name,
+            &message,
+            RemoteViewerState::PreviewError,
+        )?;
         return Ok(());
     }
 
@@ -266,7 +275,14 @@ async fn build_and_show(
         // No compile errors but no component — skip send_diagnostics so we don't clobber
         // unrelated LSP diagnostics for this URI.
         tracing::error!("Component not found");
-        swap_to_placeholder(placeholder, user_instance, address, name, "Component not found")?;
+        swap_to_placeholder(
+            placeholder,
+            user_instance,
+            address,
+            name,
+            "Component not found",
+            RemoteViewerState::PreviewError,
+        )?;
         return Ok(());
     };
 
@@ -279,24 +295,28 @@ async fn build_and_show(
 
     new_instance.show().map_err(|err| anyhow::anyhow!("Cannot show component: {err}"))?;
     *user_instance = Some(new_instance);
+    // The placeholder is hidden now, but keep its state property truthful.
+    placeholder.set_state(RemoteViewerState::Previewing);
     Ok(())
 }
 
 /// Reinstall a fresh placeholder onto the existing window and drop the user instance.
 fn swap_to_placeholder(
-    placeholder: &mut EmptyWindow,
+    placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
     address: &str,
     name: &str,
     message: &str,
+    state: RemoteViewerState,
 ) -> anyhow::Result<()> {
-    let fresh = EmptyWindow::new_with_existing_window(placeholder.window())
+    let fresh = RemoteViewerWindow::new_with_existing_window(placeholder.window())
         .map_err(|err| anyhow::anyhow!("Cannot create placeholder: {err}"))?;
     fresh.set_address(SharedString::from(address));
     fresh.set_name(SharedString::from(name));
     fresh.set_message(SharedString::from(message));
     fresh.set_slint_version(SharedString::from(SLINT_VERSION));
     fresh.set_build_info(build_info());
+    fresh.set_state(state);
     fresh.show().map_err(|err| anyhow::anyhow!("Cannot show placeholder: {err}"))?;
     *placeholder = fresh;
     *user_instance = None;

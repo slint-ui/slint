@@ -3,12 +3,24 @@
 
 import { Palette, Button } from "std-widgets.slint";
 
-export component EmptyWindow inherits Window {
+export enum RemoteViewerState {
+    /// No editor is connected (startup, and after a disconnect).
+    waiting-for-connection,
+    /// An editor is connected but no preview has been requested yet.
+    connected,
+    /// A user component is shown; this window is hidden.
+    previewing,
+    /// The last build failed; `message` holds the error text.
+    preview-error,
+}
+
+export component RemoteViewerWindow inherits Window {
     in property <string> name;
     in property <string> address;
     in property <string> message;
     in property <string> slint-version;
     in property <string> build-info;
+    in property <RemoteViewerState> state;
 
     property <bool> has-name: name != "";
     property <bool> showing-name: true;
