@@ -2349,13 +2349,17 @@ export component Path {
     //! <SlintProperty propName="commands" typeName="string">
     //! A string providing the commands according to the SVG path specification.
     //! ```slint
-    //! commands: "M5 12h14";
+    //! export component Example inherits Path {
+    //!     commands: "M5 12h14";
+    //! }
     //! ```
     //!
     //! Alternatively, the commands can be provided using the `@commands` macro, which allows it to be compiled ahead of time.
     //! Most suitable for `no_std` environments, where string commands parsing is not available.
     //! ```slint
-    //! commands: @commands("M5 12h14");
+    //! export component Example inherits Path {
+    //!     commands: @commands("M5 12h14");
+    //! }
     //! ```
     //! This property can only be set in a binding and cannot be accessed in an expression.
     //! </SlintProperty>
@@ -2839,7 +2843,8 @@ export global Platform {
     /// to the top of the window stack. On other platforms this function is a no-op.
     ///
     /// This corresponds to the standard macOS **Window › Bring All to Front** menu item.
-    function macos-bring-all-windows-to-front() { }
+    function macos-bring-all-windows-to-front() {
+    }
     /// The decimal separator currently used for localized float to string and vice versa conversions
     /// For more information about localization and how to change the decimal separator see <Link type="translations" label="translations page"/>.
     out property <string> decimal-separator;
