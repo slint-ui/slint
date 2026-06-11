@@ -4815,7 +4815,9 @@ fn compile_builtin_function_call(
             format!("{}.text_input_focused()", access_window_field(ctx))
         }
         BuiltinFunction::ShowPopupWindow => {
-            if let [llr::Expression::NumberLiteral(popup_index), close_policy, llr::Expression::PropertyReference(parent_ref)] =
+            // A trailing argument may carry the synthesized `is-open` property reference, resolved in
+            // this call's own frame (see lower_show_popup_window).
+            if let [llr::Expression::NumberLiteral(popup_index), close_policy, llr::Expression::PropertyReference(parent_ref), is_open_args @ ..] =
                 arguments
             {
                 let mut component_access = MemberAccess::Direct("self".into());
@@ -4840,6 +4842,30 @@ fn compile_builtin_function_call(
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
                 let close_policy = compile_expression(close_policy, ctx);
                 let window_kind = if popup.is_tooltip { "slint::cbindgen_private::WindowKind::ToolTip" } else { "slint::cbindgen_private::WindowKind::Popup" };
+                // Keep the parent's `is-open` property in sync. The setter is passed directly into
+                // `show_popup`, so there is no extra registration call and no second popup lookup. The
+                // `false` is delivered when the popup is dropped, which may be long after this frame, so
+                // we cannot capture a raw `self`. We capture a weak *mapped* handle to the current
+                // component instance -- the C++ equivalent of Rust's `self_weak`, which for a
+                // sub-component points at that sub-component itself rather than at the enclosing item
+                // tree (`self->self_weak`). Popups without `is-open` get a no-op setter.
+                let is_open_setter = match is_open_args.first() {
+                    Some(llr::Expression::PropertyReference(is_open_ref)) => {
+                        let self_ty = ident(&ctx.current_sub_component().expect("ShowPopupWindow is invoked on a sub-component").name);
+                        let set_is_open = access_member(is_open_ref, ctx).then(|p| format!("{p}.set(is_open)"));
+                        format!(
+                            "[weak = vtable::VWeakMapped<slint::private_api::ItemTreeVTable, const {self_ty}>( \
+                                    vtable::VRcMapped<slint::private_api::ItemTreeVTable, const {self_ty}>(self->self_weak.lock().value(), self))] \
+                             (bool is_open) {{ \
+                                auto rc = weak.lock(); \
+                                if (!rc) return; \
+                                [[maybe_unused]] auto self = &**rc; \
+                                {set_is_open}; \
+                            }}"
+                        )
+                    }
+                    _ => "[](bool) {}".to_string(),
+                };
                 component_access.then(|component_access| format!(
                     // Use a block statement to create own globals and popup instance
                     "{window}.close_popup({component_access}->popup_id_{popup_index}); \
@@ -4848,7 +4874,8 @@ fn compile_builtin_function_call(
                                                                         [=](auto self) {{ return {position}; }},  \
                                                                         {close_policy},  \
                                                                         {{ {parent_component} }},  \
-                                                                        {window_kind})"
+                                                                        {window_kind},  \
+                                                                        {is_open_setter})"
                 ))
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {arguments:?}")

@@ -350,6 +350,9 @@ fn inline_element(
     for p in root_component.popup_windows.borrow_mut().iter_mut() {
         fixup_reference(&mut p.x, &mapping);
         fixup_reference(&mut p.y, &mapping);
+        if let Some(is_open) = &mut p.is_open {
+            fixup_reference(is_open, &mapping);
+        }
     }
     for t in root_component.timers.borrow_mut().iter_mut() {
         fixup_reference(&mut t.interval, &mapping);
@@ -502,6 +505,9 @@ fn duplicate_sub_component(
     for p in new_component.popup_windows.borrow_mut().iter_mut() {
         fixup_reference(&mut p.x, mapping);
         fixup_reference(&mut p.y, mapping);
+        if let Some(is_open) = &mut p.is_open {
+            fixup_reference(is_open, mapping);
+        }
     }
     for t in new_component.timers.borrow_mut().iter_mut() {
         fixup_reference(&mut t.interval, mapping);
@@ -540,6 +546,7 @@ fn duplicate_popup(p: &PopupWindow, mapping: &mut Mapping, priority_delta: i32) 
             .expect("Parent element must be in the mapping")
             .clone(),
         is_tooltip: p.is_tooltip,
+        is_open: p.is_open.clone(),
     }
 }
 

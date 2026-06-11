@@ -1137,6 +1137,7 @@ fn call_builtin_function(
                     corelib::items::PopupClosePolicy::CloseOnClickOutside,
                     &item_rc,
                     WindowKind::Menu,
+                    Box::new(|_| {}),
                 );
                 context_menu_elem.popup_id.set(Some(id));
             });

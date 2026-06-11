@@ -98,6 +98,12 @@ fn do_move_declarations(component: &Rc<Component>) {
     component.popup_windows.borrow_mut().iter_mut().for_each(|p| {
         fixup_reference(&mut p.x);
         fixup_reference(&mut p.y);
+        // `is_open` references the synthesized property on this (the parent) component; it must be
+        // remapped to the moved-to-root property just like `x`/`y`, otherwise the runtime setter
+        // (see the interpreter's `show_popup`) cannot find it once the declaration is hoisted.
+        if let Some(is_open) = &mut p.is_open {
+            fixup_reference(is_open);
+        }
         visit_all_named_references(&p.component, &mut fixup_reference)
     });
     component.timers.borrow_mut().iter_mut().for_each(|t| {
