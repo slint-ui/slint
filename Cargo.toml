@@ -218,3 +218,14 @@ panic = "abort"
 
 [profile.dev]
 panic = "abort"
+
+# Always build resvg and its hot-path dependencies with optimizations,
+# as it otherwise causes freezes to load large SVGs in debug builds.
+[profile.dev.package.resvg]
+opt-level = 3
+[profile.dev.package.usvg]
+opt-level = 3
+[profile.dev.package.tiny-skia]
+opt-level = 3
+[profile.dev.package.rgb]
+opt-level = 3
