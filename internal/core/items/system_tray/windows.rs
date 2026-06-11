@@ -462,8 +462,9 @@ fn notify_icon_data(hwnd: HWND, hicon: HICON, tip: &[u16]) -> NOTIFYICONDATAW {
         hIcon: hicon,
         ..Default::default()
     };
-    let n = tip.len().min(data.szTip.len() - 1);
-    data.szTip[..n].copy_from_slice(&tip[..n]);
+    let sz_tip = std::ptr::addr_of_mut!(data.szTip);
+    let n = tip.len().min(unsafe { (*sz_tip).len() } - 1);
+    unsafe { std::ptr::copy_nonoverlapping(tip.as_ptr(), (*sz_tip).as_mut_ptr(), n) };
     data
 }
 
