@@ -77,6 +77,9 @@ pub fn compile_paths(
                     )))
                     .into()
                 }
+                expr if expr.ty() == Type::PathData => {
+                    commands_expr.into()
+                }
                 _ => {
                     diag.push_error(
                         "The commands property only accepts strings".into(),
@@ -146,7 +149,7 @@ pub fn compile_paths(
     });
 }
 
-fn compile_path_from_string_literal(
+pub fn compile_path_from_string_literal(
     commands: &str,
 ) -> Result<BindingExpression, lyon_extra::parser::ParseError> {
     let mut builder = lyon_path::Path::builder();

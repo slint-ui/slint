@@ -261,6 +261,9 @@ fn parse_at_keyword(p: &mut impl Parser) {
         "keys" => {
             parse_keys(p);
         }
+        "commands" => {
+            parse_commands(p);
+        }
         _ => {
             p.consume();
             p.test(SyntaxKind::Identifier); // consume the identifier, so that autocomplete works
@@ -755,4 +758,29 @@ fn parse_image_url(p: &mut impl Parser) {
     if !p.expect(SyntaxKind::RParent) {
         p.until(SyntaxKind::RParent);
     }
+}
+
+#[cfg_attr(test, parser_test)]
+/// ```test,AtCommands
+/// @commands("M 20 4 L 9 15 M 21 19 L 3 19 M 9 15 L 4 10")
+/// ```
+fn parse_commands(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::AtCommands);
+    p.expect(SyntaxKind::At);
+    debug_assert_eq!(p.peek().as_str(), "commands");
+    p.expect(SyntaxKind::Identifier); // "commands"
+    p.expect(SyntaxKind::LParent);
+
+    let peek = p.peek();
+    if peek.kind() != SyntaxKind::StringLiteral
+        || !peek.as_str().starts_with('"')
+        || !peek.as_str().ends_with('"')
+    {
+        p.error("@commands requires a plain string literal (no string templates)");
+        p.until(SyntaxKind::RParent);
+        return;
+    }
+    p.consume();
+
+    p.expect(SyntaxKind::RParent);
 }

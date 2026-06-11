@@ -375,12 +375,14 @@ declare_syntax! {
         // FIXME: the test should test that as alternative rather than several of them (but it can also be a literal)
         Expression-> [ ?Expression, ?FunctionCallExpression, ?IndexExpression, ?SelfAssignment,
                        ?ConditionalExpression, ?QualifiedName, ?BinaryExpression, ?Array, ?ObjectLiteral,
-                       ?UnaryOpExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl, ?AtGradient, ?AtTr,
+                       ?UnaryOpExpression, ?CodeBlock, ?StringTemplate, ?AtImageUrl, ?AtCommands,?AtGradient, ?AtTr,
                        ?MemberAccess, ?AtKeys ],
         /// Concatenate the children Expressions and StringLiteral to make a string
         StringTemplate -> [*Expression],
         /// `@image-url("foo.png")`
         AtImageUrl -> [],
+        /// `@commands("M 20 4 L 9 15 M 21 19 L 3 19 M 9 15 L 4 10")`
+        AtCommands -> [],
         /// `@linear-gradient(...)` or `@radial-gradient(...)`
         AtGradient -> [*Expression],
         /// `@tr("foo", ...)`  // the string is a StringLiteral

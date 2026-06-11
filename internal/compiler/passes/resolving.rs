@@ -212,7 +212,15 @@ impl Expression {
             }
         };
         if !matches!(ctx.property_type, Type::Callback { .. } | Type::Function { .. }) {
-            e.maybe_convert_to(ctx.property_type.clone(), &node, ctx.diag)
+            // Skip type checking for Path with @commands
+            if e.ty() == Type::PathData
+                && ctx.property_type == Type::String
+                && ctx.property_name == Some("commands")
+            {
+                e
+            } else {
+                e.maybe_convert_to(ctx.property_type.clone(), &node, ctx.diag)
+            }
         } else {
             // Binding to a callback or function shouldn't happen
             assert!(ctx.diag.has_errors());
@@ -377,6 +385,11 @@ impl Expression {
                         #[cfg(feature = "slint-sc")]
                         ctx.diag.slint_sc_error("@image-url() expressions are", &node);
                         Some(Self::from_at_image_url_node(node.into(), ctx))
+                    }
+                    SyntaxKind::AtCommands => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("@commands() expressions are", &node);
+                        Some(Self::from_at_commands_node(node.into(), ctx))
                     }
                     SyntaxKind::AtGradient => {
                         #[cfg(feature = "slint-sc")]
@@ -586,6 +599,22 @@ impl Expression {
             resource_ref,
             source_location: Some(node.to_source_location()),
             nine_slice,
+        }
+    }
+    fn from_at_commands_node(node: syntax_nodes::AtCommands, ctx: &mut LookupCtx) -> Self {
+        let Some(string_token) = node.child_token(SyntaxKind::StringLiteral) else {
+            return Expression::Invalid;
+        };
+
+        let s = string_token.text();
+        let commands_str = &s[1..s.len() - 1];
+
+        match super::compile_paths::compile_path_from_string_literal(commands_str) {
+            Ok(binding) => binding.expression, // ?
+            Err(e) => {
+                ctx.diag.push_error(format!("Error parsing SVG path commands ({e})"), &node);
+                Expression::Invalid
+            }
         }
     }
 
