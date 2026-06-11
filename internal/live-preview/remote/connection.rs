@@ -206,11 +206,15 @@ impl Connection {
                                         Ok(stream) => {
                                             tracing::info!("Websocket established with {addr:?}");
                                             if let Some((_old_sink, old_handle)) = current_session.take() {
-                                                tracing::error!(
-                                                    "Second connection while we were already connected, dropping old connection"
-                                                );
-                                                old_handle.abort();
-                                                // The aborted task can't run its end-of-loop
+                                                // A finished handle is just a stale session left
+                                                // behind by an earlier disconnect, not a takeover.
+                                                if !old_handle.is_finished() {
+                                                    tracing::warn!(
+                                                        "Second connection while we were already connected, dropping old connection"
+                                                    );
+                                                    old_handle.abort();
+                                                }
+                                                // An aborted task can't run its end-of-loop
                                                 // cleanup, so reset the shared state here so
                                                 // the new client starts from a clean cache.
                                                 inner_file_cache.clear();
@@ -438,6 +442,14 @@ impl Connection {
                             break;
                         }
                         Ok(Message::Frame(_)) => unreachable!(),
+                        Err(tokio_tungstenite::tungstenite::Error::Protocol(
+                            tokio_tungstenite::tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
+                        )) => {
+                            // The peer vanished without a close handshake (process killed,
+                            // network drop) — a normal way for a session to end.
+                            tracing::info!("Connection lost");
+                            break;
+                        }
                         Err(err) => {
                             tracing::error!("WebSocket error: {err}");
                             break;

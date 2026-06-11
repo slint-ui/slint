@@ -161,7 +161,7 @@ impl RemoteLspToPreview {
             let (socket_sender, socket_receiver) = stream.split();
             let replaced = Arc::new(AtomicBool::new(false));
             #[allow(clippy::disallowed_methods)]
-            let Some(old) = connection.lock().await.replace(RemoteLspConnection {
+            let Some(mut old) = connection.lock().await.replace(RemoteLspConnection {
                 sender: socket_sender,
                 task: tokio::task::spawn_local(Self::receive_task(
                     socket_receiver,
@@ -178,6 +178,9 @@ impl RemoteLspToPreview {
 
             tracing::info!("Closing previous connection to remote preview server");
             old.replaced.store(true, Ordering::Relaxed);
+            // Close handshake so the old viewer sees a clean end of session
+            // instead of a connection reset.
+            old.sender.close().await.ok();
             old.task.abort();
 
             Ok(())
@@ -237,6 +240,14 @@ impl RemoteLspToPreview {
                     connection_state_handle.error = Some(format!("I/O error: {err}"));
                     return;
                 }
+                Err(tokio_tungstenite_wasm::Error::Protocol(
+                    tokio_tungstenite_wasm::error::ProtocolError::ResetWithoutClosingHandshake,
+                )) => {
+                    // The viewer vanished without a close handshake (app killed,
+                    // network drop) — a normal way for a session to end.
+                    tracing::info!("Connection to remote viewer lost");
+                    return;
+                }
                 Err(err) => {
                     tracing::error!("WebSocket error: {err}");
                 }
@@ -247,7 +258,10 @@ impl RemoteLspToPreview {
     pub fn disconnect(&self) -> impl Future<Output = ()> + 'static {
         let connection = self.connection.clone();
         async move {
-            if let Some(connection) = connection.lock().await.take() {
+            if let Some(mut connection) = connection.lock().await.take() {
+                // Close handshake so the viewer sees a clean end of session
+                // instead of a connection reset.
+                connection.sender.close().await.ok();
                 connection.task.abort();
             }
         }
