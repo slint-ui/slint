@@ -1565,7 +1565,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 .with_title("child window")
                 .with_decorations(false)
                 .with_visible(true)
-                .with_type(WindowType::Popup);
+                .with_window_type(WindowType::Popup);
 
             if let Ok(parent) = winit_window.window_handle() {
                 window_attributes =

@@ -77,7 +77,7 @@ lyon_path = { workspace = true }
 pin-weak = "1"
 scoped-tls-hkt = "0.1"
 strum = { workspace = true }
-winit = { git = "https://github.com/Murmele/winit.git", rev = "78bfc78c697a4b077e9be31a6e70a2bc0574abf6", default-features = false }
+winit = { git = "https://github.com/Murmele/winit.git", rev = "19df2cd216f8211fe0b79e3762ee923a527735c0", default-features = false }
 raw-window-handle = { version = "0.6", features = ["alloc"] }
 scopeguard = { version = "1.1.0", default-features = false }
 
@@ -112,8 +112,8 @@ accesskit_winit = { version = "0.32", optional = true, default-features = false,
 copypasta = { version = "0.10", default-features = false }
 
 [target.'cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32", target_os = "android")))'.dependencies]
-winit-wayland = { git = "https://github.com/Murmele/winit.git", rev = "78bfc78c697a4b077e9be31a6e70a2bc0574abf6", optional = true}
-winit-x11 = { git = "https://github.com/Murmele/winit.git", rev = "78bfc78c697a4b077e9be31a6e70a2bc0574abf6", optional = true}
+winit-wayland = { git = "https://github.com/Murmele/winit.git", rev = "19df2cd216f8211fe0b79e3762ee923a527735c0", optional = true}
+winit-x11 = { git = "https://github.com/Murmele/winit.git", rev = "19df2cd216f8211fe0b79e3762ee923a527735c0", optional = true}
 # Use same version and executor as accesskit
 zbus = { version = "5.14.0", default-features = false, features = ["async-io"] }
 futures = { version = "0.3.31" }
