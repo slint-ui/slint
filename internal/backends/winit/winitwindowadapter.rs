@@ -308,6 +308,9 @@ pub struct WinitWindowAdapter {
     maximized: Cell<bool>,
     minimized: Cell<bool>,
     fullscreen: Cell<bool>,
+    /// Specifies if the current platform supports native popup
+    /// with winit or not
+    support_native_popup: Cell<bool>,
 
     pub(crate) renderer: Box<dyn WinitCompatibleRenderer>,
     /// We cache the size because winit_window.surface_size() can return different value between calls (eg, on X11)
@@ -361,6 +364,12 @@ impl WinitWindowAdapter {
         #[cfg(all(muda, target_os = "macos"))] muda_enable_default_menu_bar: bool,
         parent: Weak<Self>,
     ) -> Rc<Self> {
+        #[cfg(any(target_os = "windows", target_os = "macos"))]
+        let support_native_popup = true;
+
+        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+        let support_native_popup = false; // We don't know it yet
+
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             shared_backend_data: shared_backend_data.clone(),
             window: corelib::api::Window::new(self_weak.clone() as _),
@@ -392,6 +401,7 @@ impl WinitWindowAdapter {
             muda_enable_default_menu_bar,
             window_icon_cache_key: Default::default(),
             parent,
+            support_native_popup: Cell::new(support_native_popup),
         });
 
         // The renderer must be set, because otherwise for text layout infos the scale factor is not available
@@ -425,12 +435,15 @@ impl WinitWindowAdapter {
                     winit_wayland::WindowAttributesWayland::default()
                         .with_name(xdg_app_id.as_str(), ""),
                 ));
+                self.support_native_popup.set(true);
             }
             #[cfg(feature = "x11")]
             if winit_x11::ActiveEventLoopExtX11::is_x11(active_event_loop) {
                 window_attributes = window_attributes.with_platform_attributes(Box::new(
                     winit_x11::WindowAttributesX11::default().with_name(xdg_app_id.as_str(), ""),
                 ));
+                // Currently x11 does not support native popups
+                self.support_native_popup.set(false);
             }
         }
 
@@ -1540,6 +1553,10 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     }
 
     fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+        if !self.support_native_popup.get() {
+            return None;
+        }
+
         if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
             use crate::winit::window::WindowType;
             use raw_window_handle::HasWindowHandle;
