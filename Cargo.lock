@@ -5534,7 +5534,6 @@ dependencies = [
  "tokio",
  "tokio-tungstenite 0.29.0",
  "tracing",
- "zeroconf-tokio",
 ]
 
 [[package]]
@@ -10880,6 +10879,7 @@ version = "1.17.0"
 dependencies = [
  "anyhow",
  "async-compat",
+ "block2 0.6.2",
  "clap",
  "i-slint-backend-android-activity",
  "i-slint-backend-selector",
@@ -10892,6 +10892,8 @@ dependencies = [
  "itertools 0.14.0",
  "jni 0.22.4",
  "mdns-sd",
+ "objc2-foundation 0.3.2",
+ "objc2-ui-kit 0.3.2",
  "serde_json",
  "shlex 2.0.1",
  "slint",
@@ -10903,7 +10905,7 @@ dependencies = [
  "tracing",
  "tracing-log",
  "tracing-subscriber",
- "zeroconf-tokio",
+ "zeroconf",
 ]
 
 [[package]]
@@ -14638,18 +14640,6 @@ checksum = "5b52318880bad5d5a081f7ac4251b5144e73dfa859cbcd10562d9433eeed6b72"
 dependencies = [
  "quote",
  "syn 2.0.117",
-]
-
-[[package]]
-name = "zeroconf-tokio"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b7eebfa4a31245de0d62ec17bdbd767575560743fd7c8237cac776dd420587f"
-dependencies = [
- "log",
- "tokio",
- "tokio-util",
- "zeroconf",
 ]
 
 [[package]]
