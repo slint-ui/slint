@@ -77,6 +77,18 @@ export component RemotePreviewView inherits Rectangle {
         && Api.remote-discovered-viewers[selected-index].compatible;
 
     property <bool> connecting: Api.remote-connection-state == RemoteConnectionState.Connecting;
+
+    function connect-to-device(index: int) {
+        if !root.connecting
+            && index >= 0
+            && index < Api.remote-discovered-viewers.length
+            && Api.remote-discovered-viewers[index].compatible
+            && Api.remote-discovered-viewers[index].addresses.length > 0 {
+            Api.remote-connect(
+                Api.remote-discovered-viewers[index].addresses,
+                Api.remote-discovered-viewers[index].port);
+        }
+    }
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
     property <image> background-image: root.dark-color-scheme ? @image-url("../../../viewer/remote/assets/bg-frame.svg") : @image-url("../../../viewer/remote/assets/bg-frame-light.svg");
 
@@ -187,6 +199,11 @@ export component RemotePreviewView inherits Rectangle {
                                         root.selected-index = i;
                                         root.manual-entry = "";
                                     }
+                                    double-clicked => {
+                                        root.selected-index = i;
+                                        root.manual-entry = "";
+                                        root.connect-to-device(i);
+                                    }
                                 }
 
                                 device-layout := HorizontalLayout {
@@ -265,13 +282,8 @@ export component RemotePreviewView inherits Rectangle {
                             clicked => {
                                 if root.manual-entry != "" {
                                     Api.remote-connect-manual(root.manual-entry);
-                                } else if root.selected-index >= 0
-                                    && root.selected-index < Api.remote-discovered-viewers.length
-                                    && Api.remote-discovered-viewers[root.selected-index].compatible
-                                    && Api.remote-discovered-viewers[root.selected-index].addresses.length > 0 {
-                                    Api.remote-connect(
-                                        Api.remote-discovered-viewers[root.selected-index].addresses,
-                                        Api.remote-discovered-viewers[root.selected-index].port);
+                                } else {
+                                    root.connect-to-device(root.selected-index);
                                 }
                             }
                         }
