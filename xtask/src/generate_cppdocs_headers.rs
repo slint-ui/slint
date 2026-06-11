@@ -39,6 +39,7 @@ pub fn generate(experimental: bool) -> Result<(), Box<dyn std::error::Error>> {
         gettext: true,
         accessibility: true,
         system_testing: true,
+        mcp: false,
         freestanding: true,
         experimental,
     };

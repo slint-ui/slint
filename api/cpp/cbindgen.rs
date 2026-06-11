@@ -1132,6 +1132,7 @@ declare_features! {
     gettext
     accessibility
     system_testing
+    mcp
     freestanding
     experimental
 }

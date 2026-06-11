@@ -19,6 +19,10 @@ component FolderIcon {
 SVGs scale cleanly at any size, and `colorize` repaints the whole image with a
 brush, so a single monochrome asset works in both color schemes.
 
+If a design specifies glyphs as raw geometry and ships no asset files, **generate
+`.svg` files** from it and use them via `Image` — don't hand-draw glyphs as inline
+`Path` elements. (`Path` is for shapes you compute or animate, not icon sets.)
+
 ## Theming & Light/Dark
 
 - `Palette.color-scheme` (from `std-widgets.slint`) reflects the OS light/dark
