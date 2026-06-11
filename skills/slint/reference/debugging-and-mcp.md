@@ -27,8 +27,7 @@
 
 `slint-viewer --check ui/main.slint` compiles the file and prints diagnostics
 without opening a window (Slint >= 1.17): exit 1 on errors, 0 otherwise
-(warnings still print). `--diagnostics-format json` emits them as a JSON
-array on stdout instead. `-I`/`-L`/`--style` apply. Use this as the fast
+(warnings still print). `-I`/`-L`/`--style` apply. Use this as the fast
 per-file compile check; the host build is only needed for the interop side.
 
 ## Headless screenshots of a `.slint` file (`slint-viewer --screenshot`)

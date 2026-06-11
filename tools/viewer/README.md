@@ -45,9 +45,6 @@ slint-viewer path/to/myfile.slint
    Set `SLINT_SCALE_FACTOR` to override the default scale factor of 1.
  - `--check`: Compile the file, print any diagnostics, and exit without opening a window.
    Exit status is 1 on errors, 0 otherwise (warnings still print).
- - `--diagnostics-format <human|json>`: Format for compiler diagnostics.
-   `human` (default) prints colored output to stderr;
-   `json` emits a single array on stdout for tooling.
 
 Instead of a path to a file, one can use `-` for the standard input or the standard output.
 

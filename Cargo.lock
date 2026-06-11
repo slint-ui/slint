@@ -10929,7 +10929,6 @@ dependencies = [
  "itertools 0.14.0",
  "jni 0.22.4",
  "mdns-sd 0.17.2",
- "serde",
  "serde_json",
  "shlex",
  "slint",

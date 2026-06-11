@@ -53,7 +53,7 @@ pub fn take_screenshot(args: &Cli) -> Result<()> {
 
     let compiler = init_compiler(args);
     let result = poll_ready(compiler.build_from_path(args.path()));
-    crate::print_diagnostics::print_diagnostics(&result, args.diagnostics_format);
+    result.print_diagnostics();
     if result.has_errors() {
         std::process::exit(1);
     }

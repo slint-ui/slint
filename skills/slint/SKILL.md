@@ -15,8 +15,7 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
    line) and consult that version's docs for exact APIs rather than guessing.
 2. After editing: in an IDE with the Slint extension, trust the post-edit
    diagnostics; in a terminal, `slint-viewer --check ui/main.slint` compiles
-   one file and prints diagnostics (`--diagnostics-format json` for
-   machine-readable output), and `slint-viewer --screenshot` renders it
+   one file and prints diagnostics, and `slint-viewer --screenshot` renders it
    ([debugging-and-mcp.md](reference/debugging-and-mcp.md)).
 3. Never declare UI work done without looking at a render — a screenshot for
    appearance, the MCP server for interactions. Review against
