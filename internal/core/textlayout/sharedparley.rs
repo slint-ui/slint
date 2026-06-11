@@ -75,6 +75,10 @@ struct CachedParagraphs {
 
 /// Parameters that determine the line-breaking, alignment and vertical offset of
 /// a `Layout`. Equal params -> the already-broken paragraphs can be reused as-is.
+///
+/// Wrap mode is deliberately *not* here: it is baked into the shaped glyphs and
+/// lives on `CachedParagraphs`, because a wrap change requires reshaping the
+/// paragraphs, not just re-running `break_all_lines`/`align`.
 #[derive(Clone, Copy, PartialEq)]
 struct BreakParams {
     max_width_bits: Option<u32>,
@@ -94,6 +98,15 @@ impl BreakParams {
             text_overflow: options.text_overflow,
         }
     }
+}
+
+/// Whether `layout` must recompute the per-paragraph line breaks and alignment
+/// (`break_all_lines`/`align`, O(total text)), or can reuse the breaks already
+/// baked into the cached paragraphs - the fast path that makes scrolling cheap.
+#[derive(Clone, Copy, PartialEq)]
+enum LineBreaking {
+    Reuse,
+    Recompute,
 }
 
 type InnerTextLayoutCache = crate::item_rendering::ItemCache<CachedParagraphs>;
@@ -534,10 +547,7 @@ fn layout(
     mut paragraphs: Vec<TextParagraph>,
     scale_factor: ScaleFactor,
     options: LayoutOptions,
-    // When true the paragraphs are already broken/aligned with the same params,
-    // so the per-paragraph `break_all_lines`/`align` (O(total text)) is skipped
-    // and only the cheap y-position/size accounting is redone.
-    reuse_broken: bool,
+    line_breaking: LineBreaking,
 ) -> Layout {
     let max_physical_width = options.max_width.map(|max_width| max_width * scale_factor);
     let max_physical_height = options.max_height.map(|max_height| max_height * scale_factor);
@@ -568,7 +578,7 @@ fn layout(
 
     let mut para_y = 0.0;
     for para in paragraphs.iter_mut() {
-        if !reuse_broken {
+        if line_breaking == LineBreaking::Recompute {
             para.layout.break_all_lines(max_physical_width.map(|width| width.get()));
             para.layout.align(
                 parley_alignment(options.horizontal_align),
@@ -615,9 +625,13 @@ struct CachedParagraphsGuard<'a> {
 }
 
 impl CachedParagraphsGuard<'_> {
-    /// Whether `layout` can reuse the existing line breaks for `params`.
-    fn can_reuse_breaks(&self, params: &BreakParams) -> bool {
-        self.broken_with.as_ref() == Some(params)
+    /// Whether `layout` can reuse the existing line breaks for `params`, or must recompute them.
+    fn line_breaking_for(&self, params: &BreakParams) -> LineBreaking {
+        if self.broken_with.as_ref() == Some(params) {
+            LineBreaking::Reuse
+        } else {
+            LineBreaking::Recompute
+        }
     }
     /// Record the params the paragraphs are now broken with (kept on put-back).
     fn set_broken_with(&mut self, params: BreakParams) {
@@ -640,11 +654,11 @@ impl Drop for CachedParagraphsGuard<'_> {
 /// `shape` and storing the result. Falls back to shaping without caching when no
 /// cache / item is available.
 fn cached_paragraphs<'a>(
-    cache: Option<&'a TextLayoutCache>,
     item_rc: Option<&crate::item_tree::ItemRc>,
     wrap: TextWrap,
     font_context: &mut parley::FontContext,
     shape: &dyn Fn(&mut parley::FontContext) -> Vec<TextParagraph>,
+    cache: Option<&'a TextLayoutCache>,
 ) -> CachedParagraphsGuard<'a> {
     let Some((cache, item_rc)) = cache.zip(item_rc) else {
         return CachedParagraphsGuard {
@@ -700,9 +714,13 @@ fn get_or_create_text_paragraphs<'a>(
     scale_factor: ScaleFactor,
     font_context: &mut parley::FontContext,
 ) -> CachedParagraphsGuard<'a> {
-    cached_paragraphs(cache, item_rc, text.wrap(), font_context, &|font_context| {
-        shape_paragraphs(text, item_rc, scale_factor, font_context)
-    })
+    cached_paragraphs(
+        item_rc,
+        text.wrap(),
+        font_context,
+        &|font_context| shape_paragraphs(text, item_rc, scale_factor, font_context),
+        cache,
+    )
 }
 
 struct ElisionInfo {
@@ -1227,14 +1245,14 @@ pub fn draw_text(
         text_overflow,
     };
     let break_params = BreakParams::new(&options, scale_factor);
-    let reuse_broken = guard.can_reuse_breaks(&break_params);
+    let line_breaking = guard.line_breaking_for(&break_params);
     let layout = layout(
         &layout_builder,
         &mut font_ctx,
         guard.paragraphs.take().unwrap_or_default(),
         scale_factor,
         options,
-        reuse_broken,
+        line_breaking,
     );
     guard.set_broken_with(break_params);
 
@@ -1317,14 +1335,14 @@ pub fn link_under_cursor(
         text_overflow: text.overflow(),
     };
     let break_params = BreakParams::new(&options, scale_factor);
-    let reuse_broken = guard.can_reuse_breaks(&break_params);
+    let line_breaking = guard.line_breaking_for(&break_params);
     let layout = layout(
         &layout_builder,
         font_context,
         guard.paragraphs.take().unwrap_or_default(),
         scale_factor,
         options,
-        reuse_broken,
+        line_breaking,
     );
     guard.set_broken_with(break_params);
 
@@ -1420,26 +1438,26 @@ pub fn draw_text_input<R: GlyphRenderer>(
     // The selection foreground color is applied per paragraph at draw time, so a
     // selection drag no longer reshapes the whole document every frame.
     let mut guard = cached_text_input_paragraphs(
-        cache,
         item_rc,
         text_input,
         &visual_representation,
         &layout_builder,
         &mut font_ctx,
+        cache,
     );
 
     let options = LayoutOptions::new_from_textinput(text_input, Some(width), Some(height));
     let max_physical_width = options.max_width.map(|w| (w * scale_factor).get());
     let alignment = parley_alignment(options.horizontal_align);
     let break_params = BreakParams::new(&options, scale_factor);
-    let reuse_broken = guard.can_reuse_breaks(&break_params);
+    let line_breaking = guard.line_breaking_for(&break_params);
     let layout = layout(
         &layout_builder,
         &mut font_ctx,
         guard.paragraphs.take().unwrap_or_default(),
         scale_factor,
         options,
-        reuse_broken,
+        line_breaking,
     );
     guard.set_broken_with(break_params);
 
@@ -1567,12 +1585,14 @@ pub fn text_size(
 ) -> Option<LogicalSize> {
     let scale_factor = renderer.scale_factor()?;
 
-    // Evaluate properties before borrowing font_context: both font_request()
-    // and text() can trigger property bindings that re-enter text_size for
-    // other elements, which would panic on a second borrow_mut(). After this
-    // they are clean, so the shaping closure below can read them again (now
-    // re-entrancy free) inside the cache's dependency tracker, ensuring the
-    // entry is invalidated when the text or font changes.
+    // Evaluate the text/font bindings now, before borrowing font_context. They
+    // can re-enter text_size for other elements (which borrows font_context
+    // again -> panic on a second borrow_mut()); flushing them here, while
+    // nothing is borrowed, gets that re-entrancy out of the way. font_request is
+    // reused below; text() is read only to flush its binding - it is then
+    // deliberately re-read (not reused) inside the shaping closure, where the
+    // cache's dependency tracker records it so the entry is invalidated when the
+    // text changes. Reusing the value here would not register that dependency.
     let font_request = text_item.font_request(item_rc);
     let _ = text_item.text();
 
@@ -1582,8 +1602,11 @@ pub fn text_size(
     let layout_builder =
         LayoutWithoutLineBreaksBuilder::new(Some(font_request), text_wrap, None, scale_factor);
 
-    let mut guard =
-        cached_paragraphs(cache, Some(item_rc), text_wrap, &mut font_ctx, &|font_context| {
+    let mut guard = cached_paragraphs(
+        Some(item_rc),
+        text_wrap,
+        &mut font_ctx,
+        &|font_context| {
             // Read text/font inside the tracker so changes invalidate the cache.
             let _track_font = text_item.font_request(item_rc);
             create_text_paragraphs(
@@ -1593,7 +1616,9 @@ pub fn text_size(
                 None,
                 Color::default(),
             )
-        });
+        },
+        cache,
+    );
 
     let options = LayoutOptions {
         max_width,
@@ -1603,14 +1628,14 @@ pub fn text_size(
         text_overflow: TextOverflow::Clip,
     };
     let break_params = BreakParams::new(&options, scale_factor);
-    let reuse_broken = guard.can_reuse_breaks(&break_params);
+    let line_breaking = guard.line_breaking_for(&break_params);
     let layout = layout(
         &layout_builder,
         &mut font_ctx,
         guard.paragraphs.take().unwrap_or_default(),
         scale_factor,
         options,
-        reuse_broken,
+        line_breaking,
     );
     guard.set_broken_with(break_params);
     let size = PhysicalSize::from_lengths(layout.max_width, layout.height) / scale_factor;
@@ -1715,24 +1740,24 @@ pub fn text_input_byte_offset_for_position(
     let mut font_ctx = ctx.font_context().borrow_mut();
 
     let mut guard = cached_text_input_paragraphs(
-        cache,
         item_rc,
         text_input,
         &visual_representation,
         &layout_builder,
         &mut font_ctx,
+        cache,
     );
 
     let options = LayoutOptions::new_from_textinput(text_input, Some(width), Some(height));
     let break_params = BreakParams::new(&options, scale_factor);
-    let reuse_broken = guard.can_reuse_breaks(&break_params);
+    let line_breaking = guard.line_breaking_for(&break_params);
     let layout = layout(
         &layout_builder,
         &mut font_ctx,
         guard.paragraphs.take().unwrap_or_default(),
         scale_factor,
         options,
-        reuse_broken,
+        line_breaking,
     );
     guard.set_broken_with(break_params);
     let byte_offset = layout.byte_offset_from_point(pos);
@@ -1746,17 +1771,16 @@ pub fn text_input_byte_offset_for_position(
 /// text inside the closure so the cache invalidates on text changes but not on
 /// cursor/selection moves.
 fn cached_text_input_paragraphs<'a>(
-    cache: Option<&'a TextLayoutCache>,
     item_rc: &crate::item_tree::ItemRc,
     text_input: Pin<&crate::items::TextInput>,
     visual_representation: &crate::items::TextInputVisualRepresentation,
     layout_builder: &LayoutWithoutLineBreaksBuilder,
     font_context: &mut parley::FontContext,
+    cache: Option<&'a TextLayoutCache>,
 ) -> CachedParagraphsGuard<'a> {
     let cacheable = visual_representation.preedit_range.is_empty()
         && !matches!(text_input.input_type(), crate::items::InputType::Password);
     cached_paragraphs(
-        cacheable.then_some(cache).flatten(),
         Some(item_rc),
         text_input.wrap(),
         font_context,
@@ -1771,6 +1795,7 @@ fn cached_text_input_paragraphs<'a>(
             };
             create_text_paragraphs(layout_builder, font_context, text, None, Color::default())
         },
+        cacheable.then_some(cache).flatten(),
     )
 }
 
@@ -1813,24 +1838,24 @@ pub fn text_input_cursor_rect_for_byte_offset(
     let byte_offset = visual_representation.map_byte_offset_from_actual_to_visual_text(byte_offset);
 
     let mut guard = cached_text_input_paragraphs(
-        cache,
         item_rc,
         text_input,
         &visual_representation,
         &layout_builder,
         &mut font_ctx,
+        cache,
     );
 
     let options = LayoutOptions::new_from_textinput(text_input, Some(width), Some(height));
     let break_params = BreakParams::new(&options, scale_factor);
-    let reuse_broken = guard.can_reuse_breaks(&break_params);
+    let line_breaking = guard.line_breaking_for(&break_params);
     let layout = layout(
         &layout_builder,
         &mut font_ctx,
         guard.paragraphs.take().unwrap_or_default(),
         scale_factor,
         options,
-        reuse_broken,
+        line_breaking,
     );
     guard.set_broken_with(break_params);
     let cursor_rect = layout.cursor_rect_for_byte_offset(byte_offset, cursor_width);
