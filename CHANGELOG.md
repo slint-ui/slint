@@ -38,6 +38,8 @@ All notable changes to this project are documented in this file.
  - Added two-way bindings to model row data. (#2013)
  - `@markdown()`: Fixed interpolation in link URLs and colors
  - Added `accessible-orientation` and `accessible-live-region` properties
+ - `FocusScope`: Added `consume-focus-click` property to let the pointer press that transfers the
+   focus propagate to elements behind the `FocusScope` when set to false. (#12044)
  - Added `DragArea` and `DropArea` elements for drag and drop support within a window.
  - Added `data-transfer` type
  - Deprecated calling `init()` explicitly (#11696)
