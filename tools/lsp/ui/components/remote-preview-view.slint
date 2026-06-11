@@ -225,7 +225,9 @@ export component RemotePreviewView inherits Rectangle {
                         inset-shadow-offset-x: 5px;
                         inset-shadow-offset-y: 5px;
                         background: root.dark-color-scheme ? #1C1C1C : #D7D9DD;
-                        LineEdit {
+                        min-width: manual-le.preferred-width;
+                        manual-le := LineEdit {
+                            width: 100%;
                             placeholder-text: @tr("Manual host:port, for example 192.168.1.42:9000");
                             text <=> root.manual-entry;
                             edited => {
