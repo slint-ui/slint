@@ -4,6 +4,7 @@
 mod apply_default_properties_from_style;
 mod binding_analysis;
 mod border_radius;
+mod check_builtin_shadowing;
 mod check_drag_area;
 mod check_expressions;
 mod check_public_api;
@@ -336,6 +337,7 @@ pub fn run_import_passes(
     purity_check::purity_check(doc, diag);
     focus_handling::replace_forward_focus_bindings_with_focus_functions(doc, diag);
     check_expressions::check_expressions(doc, diag);
+    check_builtin_shadowing::check_builtin_shadowing(doc, diag);
     windows::warn_about_child_windows(doc, diag);
     unique_id::check_unique_id(doc, diag);
 }

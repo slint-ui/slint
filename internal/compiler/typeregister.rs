@@ -368,6 +368,7 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
             resolved_name: name,
             is_local_to_component: false,
             is_in_direct_base: false,
+            is_shadowable: false,
             property_visibility: visibility,
             declared_pure: None,
             builtin_function,
@@ -386,6 +387,7 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
                         resolved_name: format!("{pre}-{suf}").into(),
                         is_local_to_component: false,
                         is_in_direct_base: false,
+                        is_shadowable: false,
                         property_visibility: crate::object_tree::PropertyVisibility::InOut,
                         declared_pure: None,
                         builtin_function: None,
@@ -587,7 +589,6 @@ impl TypeRegister {
         }
 
         let font_metrics_prop = crate::langtype::BuiltinPropertyInfo {
-            ty: font_metrics_type(),
             property_visibility: PropertyVisibility::Output,
             default_value: BuiltinPropertyDefault::WithElement(|elem| {
                 crate::expression_tree::Expression::FunctionCall {
@@ -598,7 +599,7 @@ impl TypeRegister {
                     source_location: None,
                 }
             }),
-            docs: None,
+            ..crate::langtype::BuiltinPropertyInfo::new(font_metrics_type())
         };
 
         match &mut register.elements.get_mut("TextInput").unwrap() {

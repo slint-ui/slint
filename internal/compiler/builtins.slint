@@ -18,6 +18,15 @@
    another properties. These binding will be then set by the compiler.
    `output` property mean that the property can be modified by the native Item,
    otherwise it is assumed the native item don't write to that property.
+
+   A property, callback, or function can be preceded by a `//-shadowable` comment.
+   Components may declare a member with the same name as a shadowable member: this is
+   a warning instead of an error, and the declaration shadows the builtin member.
+   Members added to an already released element must be marked shadowable, so that
+   older code that already declares a member with that name keeps compiling.
+   This only works for members that the compiler itself never accesses by name —
+   no default binding, and no compiler pass that looks the name up on user elements —
+   as such accesses would resolve to the shadowing declaration and generate wrong code.
  */
 
  component Empty {
@@ -1508,8 +1517,10 @@ component WindowItem {
     /// \default true if 'SLINT_FULLSCREEN' environment variable is set, otherwise false
     in-out property <bool> full-screen;
     /// Whether the window is minimized. Setting this to true minimizes the window.
+    //-shadowable
     in-out property <bool> minimized;
     /// Whether the window is maximized. Setting this to true maximizes the window.
+    //-shadowable
     in-out property <bool> maximized;
     /// The background brush of the `Window`.
     /// \default depends on the style
@@ -1544,10 +1555,12 @@ component WindowItem {
     /// Request that the window be closed. This triggers the `close-requested` callback,
     /// giving the application a chance to cancel the close. Returns `true` if the close
     /// was dispatched, or `false` if the application declined.
+    //-shadowable
     function close() -> bool {
     }
     /// Hide this window. This also drops the strong reference on the window, so if this was
     /// the last reference, the event loop will quit.
+    //-shadowable
     function hide() {
     }
 }

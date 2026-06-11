@@ -384,6 +384,13 @@ pub struct BuiltinPropertyInfo {
     pub property_visibility: PropertyVisibility,
     /// Raw `///` doc comment from builtins.slint, if any.
     pub docs: Option<String>,
+    /// True when a component may declare a member of the same name, shadowing this one
+    /// (`//-shadowable` annotation in builtins.slint).
+    /// Members added to a builtin element after its initial release should be marked
+    /// shadowable so that older code that already declares the name keeps compiling —
+    /// unless a compiler pass accesses the member by name, in which case shadowing
+    /// would generate wrong code and the member must not be marked.
+    pub shadowable: bool,
 }
 
 impl BuiltinPropertyInfo {
@@ -393,6 +400,7 @@ impl BuiltinPropertyInfo {
             default_value: BuiltinPropertyDefault::None,
             property_visibility: PropertyVisibility::InOut,
             docs: None,
+            shadowable: false,
         }
     }
 
@@ -408,6 +416,7 @@ impl From<BuiltinFunction> for BuiltinPropertyInfo {
             default_value: BuiltinPropertyDefault::BuiltinFunction(function),
             property_visibility: PropertyVisibility::Public,
             docs: None,
+            shadowable: false,
         }
     }
 }
@@ -470,6 +479,7 @@ impl ElementType {
                         declared_pure: None,
                         is_local_to_component: false,
                         is_in_direct_base: false,
+                        is_shadowable: p.shadowable,
                         builtin_function: match &p.default_value {
                             BuiltinPropertyDefault::BuiltinFunction(f) => Some(f.clone()),
                             _ => None,
@@ -492,6 +502,7 @@ impl ElementType {
                     declared_pure: None,
                     is_local_to_component: false,
                     is_in_direct_base: false,
+                    is_shadowable: false,
                     builtin_function: None,
                 }
             }
@@ -877,6 +888,9 @@ pub struct PropertyLookupResult<'a> {
     pub is_local_to_component: bool,
     /// True if the property in the direct base of the component (for protected visibility purposes)
     pub is_in_direct_base: bool,
+    /// True if a local declaration may shadow this member. Only builtin element
+    /// members marked `//-shadowable` in builtins.slint are shadowable.
+    pub is_shadowable: bool,
 
     /// If the property is a builtin function
     pub builtin_function: Option<BuiltinFunction>,
@@ -905,6 +919,7 @@ impl<'a> PropertyLookupResult<'a> {
             declared_pure: None,
             is_local_to_component: false,
             is_in_direct_base: false,
+            is_shadowable: false,
             builtin_function: None,
         }
     }
