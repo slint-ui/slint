@@ -28,6 +28,24 @@ fn build_info() -> SharedString {
     }
 }
 
+/// Events driving the remote main loop: messages from the editor connection plus, on
+/// iOS, app lifecycle notifications.
+enum Event {
+    Connection(ConnectionMessage),
+    /// The app returned to the foreground after having been suspended: re-announce
+    /// the mDNS service (see [`announce_mdns`] for why the old announcement may be
+    /// dead). Only iOS has the lifecycle observers that send this.
+    #[cfg_attr(not(target_os = "ios"), allow(dead_code))]
+    Resumed,
+}
+
+#[cfg(target_vendor = "apple")]
+mod apple;
+#[cfg(target_vendor = "apple")]
+use apple::announce_mdns;
+#[cfg(target_os = "ios")]
+use apple::observe_foregrounding;
+
 pub fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Result<()> {
     slint_interpreter::spawn_local(async_compat::Compat::new(async move {
         if let Err(err) = run_async(address, enable_mdns).await {
@@ -40,11 +58,14 @@ pub fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Result<()>
 }
 
 async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Result<()> {
-    let (message_sender, mut message_receiver) = tokio::sync::mpsc::unbounded_channel();
+    let (event_sender, mut event_receiver) = tokio::sync::mpsc::unbounded_channel();
+
+    #[cfg(target_os = "ios")]
+    observe_foregrounding(event_sender.clone());
 
     let connection = Rc::new(
         Connection::listen(address, device_name_override(), move |msg| {
-            let _ = message_sender.send(msg);
+            let _ = event_sender.send(Event::Connection(msg));
         })
         .await?,
     );
@@ -81,49 +102,7 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
         mdns.as_ref().map(|mdns| mdns.register(service)).transpose()?;
     }
     #[cfg(target_vendor = "apple")]
-    let mut mdns = enable_mdns
-        .then(|| {
-            use zeroconf_tokio::prelude::{TMdnsService as _, TTxtRecord as _};
-
-            let mut service = zeroconf_tokio::MdnsService::new(
-                zeroconf_tokio::ServiceType::new(
-                    i_slint_live_preview::protocol::SERVICE_TYPE_NAME,
-                    i_slint_live_preview::protocol::SERVICE_TYPE_PROTOCOL,
-                )?,
-                connection.local_port(),
-            );
-            // Deliberately don't set a name: with a NULL/empty instance name Bonjour
-            // substitutes the system default service name, which is the user-assigned
-            // device name (e.g. "Simon's iPhone" on iOS, the computer name on macOS).
-            // This is the friendly name we want to show in the editor.
-            let mut txt = zeroconf_tokio::TxtRecord::new();
-            txt.insert(
-                i_slint_live_preview::protocol::TXT_PROTOCOLS_KEY,
-                i_slint_live_preview::protocol::PROTOCOL_SUBPROTOCOL,
-            )?;
-            txt.insert(
-                i_slint_live_preview::protocol::TXT_SLINT_VERSION_KEY,
-                i_slint_live_preview::protocol::SLINT_VERSION,
-            )?;
-            service.set_txt_record(txt);
-            zeroconf_tokio::MdnsServiceAsync::new(service)
-        })
-        .transpose()
-        .inspect_err(|err| tracing::error!("Failed to initialize mDNS: {err}"))
-        .ok()
-        .flatten();
-
-    #[cfg(target_vendor = "apple")]
-    if let Some(mdns) = &mut mdns {
-        match mdns.start().await {
-            Ok(registration) => connection.set_device_name(registration.name().to_owned()),
-            Err(err) => tracing::error!("Failed to announce service: {err}"),
-        }
-    }
-    // Snapshot after the Apple Bonjour overwrite above so the UI label matches the
-    // advertised mDNS instance. Re-read `connection.device_name()` here (not at the
-    // set_property sites) if a future change starts mutating the name post-registration.
-    let device_name = connection.device_name();
+    let mut mdns = if enable_mdns { announce_mdns(&connection).await } else { None };
 
     let local_port = connection.local_port();
     let local_ip_str: Vec<String> = connection
@@ -139,7 +118,9 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     let address = local_ip_str.join("\n");
 
     placeholder.set_address(SharedString::from(address.as_str()));
-    placeholder.set_name(SharedString::from(device_name.as_str()));
+    // Read after the Apple Bonjour overwrite above so the UI label matches the
+    // advertised mDNS instance.
+    placeholder.set_name(SharedString::from(connection.device_name().as_str()));
     placeholder.set_slint_version(SharedString::from(SLINT_VERSION));
     placeholder.set_build_info(build_info());
     placeholder.show()?;
@@ -147,7 +128,21 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     let mut last_connection = None;
     let mut user_instance: Option<slint_interpreter::ComponentInstance> = None;
     let mut current_preview: Option<PreviewComponent> = None;
-    while let Some(msg) = message_receiver.recv().await {
+    while let Some(event) = event_receiver.recv().await {
+        let msg = match event {
+            Event::Connection(msg) => msg,
+            Event::Resumed => {
+                #[cfg(target_vendor = "apple")]
+                if enable_mdns {
+                    // Withdraw the old announcement first: re-registering while it is
+                    // still alive would trigger Bonjour's conflict rename.
+                    drop(mdns.take());
+                    mdns = announce_mdns(&connection).await;
+                    placeholder.set_name(SharedString::from(connection.device_name().as_str()));
+                }
+                continue;
+            }
+        };
         match msg {
             ConnectionMessage::SetConfiguration { config } => {
                 compiler.set_style(config.style);
@@ -162,7 +157,7 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                     &mut user_instance,
                     &connection,
                     &address,
-                    &device_name,
+                    &connection.device_name(),
                 )
                 .await?;
                 current_preview = Some(preview_component);
@@ -176,7 +171,7 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                     &mut user_instance,
                     &connection,
                     &address,
-                    &device_name,
+                    &connection.device_name(),
                 )
                 .await?;
             }
@@ -195,7 +190,7 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                         &mut placeholder,
                         &mut user_instance,
                         &address,
-                        &device_name,
+                        &connection.device_name(),
                         "",
                         RemoteViewerState::WaitingForConnection,
                     )?;
@@ -208,6 +203,10 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     mdns.map(|mdns| mdns.shutdown())
         .transpose()
         .inspect_err(|err| tracing::error!("mdns shutdown: {err}"))?;
+
+    // Keep the Bonjour announcement alive until the message loop ends.
+    #[cfg(target_vendor = "apple")]
+    drop(mdns);
 
     Ok(())
 }
