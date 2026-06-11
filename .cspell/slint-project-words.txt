@@ -526,6 +526,7 @@ serde
 setattr
 SETFL
 Shaderiv
+shadowable
 sharedfontique
 sharedstring
 sharedvector
