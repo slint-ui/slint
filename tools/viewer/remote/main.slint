@@ -93,7 +93,8 @@ export component RemoteViewerWindow inherits Window {
 
     VerticalLayout {
         alignment: space-between;
-        padding-left: 24px;
+        padding-left: max(root.safe-area-insets.left, 24px);
+        padding-right: max(root.safe-area-insets.right, 24px);
         padding-top: root.safe-area-insets.top + 146px;
         padding-bottom: root.safe-area-insets.bottom;
         visible: root.state != RemoteViewerState.preview-error;
@@ -166,8 +167,8 @@ export component RemoteViewerWindow inherits Window {
 
     VerticalLayout {
         alignment: center;
-        padding-left: 24px;
-        padding-right: 24px;
+        padding-left: max(root.safe-area-insets.left, 24px);
+        padding-right: max(root.safe-area-insets.right, 24px);
         padding-top: root.safe-area-insets.top;
         padding-bottom: root.safe-area-insets.bottom;
 
