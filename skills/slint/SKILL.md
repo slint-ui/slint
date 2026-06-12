@@ -20,7 +20,10 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
 3. Never declare UI work done without looking at a render — a screenshot for
    appearance, the MCP server for interactions. Review against
    [polish.md](reference/polish.md).
-4. Offer to run `slint-viewer --auto-reload ui/main.slint` so the user watches
+4. Share the render when the host supports it: inline the screenshot in chat
+   apps, or print its absolute path and summarize the visual checks in CLI-only
+   environments.
+5. Offer to run `slint-viewer --auto-reload ui/main.slint` so the user watches
    changes live while you edit.
 
 Most "won't compile" / "won't fill" / "padding ignored" questions are answered

@@ -56,6 +56,10 @@ slint-viewer --screenshot out.png --load-data props.json ui/main.slint
 Rule of thumb: **viewer** for previewing components/layout/theme; **MCP
 server** for the running app with real data and interactions.
 
+When the assistant host can display local images inline, include the rendered
+screenshot in the chat. In CLI-only hosts, print the absolute image path and
+summarize what was visually checked.
+
 ## MCP Server for AI-Assisted Debugging
 
 Slint **1.17+** ships an embedded MCP server: walk the UI tree, read
