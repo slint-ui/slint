@@ -439,7 +439,7 @@ jobs:
         uses: ./.github/workflows/tree_sitter.yaml
         with:
             latest: false
-            tag: "v0.26.5"
+            tag: "v0.26.9"
 
     # Test that the formater don't introduce slint compilation error
     fmt_test:
