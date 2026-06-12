@@ -378,7 +378,6 @@ async fn main_loop(
         cli_args,
         request_queue,
         server_notifier,
-        preview_to_lsp_sender,
         preview_to_lsp_receiver,
         to_preview.clone(),
     )
@@ -472,7 +471,6 @@ async fn run_main_loop(
     cli_args: Cli,
     request_queue: OutgoingRequestQueue,
     server_notifier: ServerNotifier,
-    preview_to_lsp_sender: mpsc::UnboundedSender<PreviewToLspMessage>,
     #[cfg_attr(not(feature = "preview-engine"), allow(unused_mut))]
     mut preview_to_lsp_receiver: mpsc::UnboundedReceiver<PreviewToLspMessage>,
     to_preview: Rc<LspToPreviews>,
@@ -537,7 +535,6 @@ async fn run_main_loop(
         open_urls: Default::default(),
         to_preview,
         pending_recompile: Default::default(),
-        preview_to_lsp_sender,
     };
 
     let connection = Arc::new(connection);
@@ -860,16 +857,9 @@ async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Conte
             tracing::debug!("Preview asked to connect remote at {addresses:?}:{port}");
             #[cfg(feature = "preview-remote")]
             if let Some(remote) = ctx.to_preview.remote() {
-                // `connect()` emits Connecting / Connected / Failed itself and
-                // rejects empty `addresses` up front.
-                let preview_to_lsp_sender = ctx.preview_to_lsp_sender.clone();
-                let future = remote.connect(addresses.clone(), port);
-                crate::common::spawn_local(async move {
-                    if future.await.is_ok() {
-                        let _ = preview_to_lsp_sender
-                            .send(PreviewToLspMessage::RequestState { files: Vec::new() });
-                    }
-                });
+                // `connect()` owns the dialog state and has the preview
+                // state pushed once connected.
+                crate::common::spawn_local(remote.connect(addresses, port));
             }
         }
         M::DisconnectRemote => {
