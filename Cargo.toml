@@ -195,10 +195,10 @@ unicode-segmentation = { version = "1.12.0" }
 icu_normalizer = { version = "2", default-features = false, features = ["compiled_data"] }
 
 glow = { version = "0.17" }
-tikv-jemallocator = { version = "0.6" }
+tikv-jemallocator = { version = "0.7" }
 wgpu-28 = { package = "wgpu", version = "28", default-features = false }
 wgpu-29 = { package = "wgpu", version = "29", default-features = false }
-input = { version = "0.9.0", default-features = false }
+input = { version = "0.10.0", default-features = false }
 tr = { version = "0.1", default-features = false }
 fontique = { version = "0.10.0" }
 # Pinned to match parley's version

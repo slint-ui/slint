@@ -296,7 +296,7 @@ fn resolve_packages(
             wanted.insert(id.clone());
         }
         let (Some(node), Some(parent)) = (nodes.get(&id), packages.get(&id)) else { continue };
-        let active: HashSet<&str> = node.features.iter().map(String::as_str).collect();
+        let active: HashSet<&str> = node.features.iter().map(|f| f.as_str()).collect();
         for dep in &node.deps {
             let non_dev: Vec<_> = dep
                 .dep_kinds
