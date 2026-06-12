@@ -9,7 +9,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-#[derive(Debug, Default, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
 struct ProjectFileData {
     #[serde(alias = "library-paths")]
@@ -24,7 +24,7 @@ struct ProjectFileData {
     enable_experimental_features: Option<bool>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct ProjectFile {
     source_path: PathBuf,
     data: ProjectFileData,
@@ -66,34 +66,34 @@ impl ProjectFile {
     }
 
     pub fn into_compiler_configuration(
-        self,
+        &self,
         output_format: crate::generator::OutputFormat,
     ) -> crate::CompilerConfiguration {
-        let Self { source_path, data } = self;
         let mut compiler_config = crate::CompilerConfiguration::new(output_format);
-        let project_directory = crate::pathutils::dirname(&source_path);
+        let project_directory = crate::pathutils::dirname(&self.source_path);
 
-        if let Some(include_directories) = data.include_directories {
+        if let Some(include_directories) = &self.data.include_directories {
             compiler_config.include_paths = include_directories
-                .into_iter()
+                .iter()
+                .cloned()
                 .map(|path| resolve_relative_path(&project_directory, path))
                 .collect();
         }
 
-        if let Some(library_paths) = data.library_paths {
+        if let Some(library_paths) = &self.data.library_paths {
             compiler_config.library_paths = library_paths
-                .into_iter()
+                .iter()
                 .map(|(library_name, path)| {
-                    (library_name, resolve_relative_path(&project_directory, path))
+                    (library_name.clone(), resolve_relative_path(&project_directory, path.clone()))
                 })
                 .collect();
         }
 
-        if let Some(style) = data.style {
-            compiler_config.style = Some(style);
+        if let Some(style) = &self.data.style {
+            compiler_config.style = Some(style.clone());
         }
 
-        if let Some(enable_experimental_features) = data.enable_experimental_features {
+        if let Some(enable_experimental_features) = self.data.enable_experimental_features {
             compiler_config.enable_experimental = enable_experimental_features;
         }
 
