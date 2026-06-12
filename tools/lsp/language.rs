@@ -170,30 +170,21 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
 #[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
 fn send_referenced_fonts(ctx: &Context, doc_url: &Url, sent: &mut HashSet<PathBuf>) {
     let Some(doc) = ctx.document_cache.get_document(doc_url) else { return };
-    let Some(doc_node) = doc.node.as_ref() else { return };
-    let doc_path = doc_node.source_file.path();
-    for import in &doc.imports {
-        // Match the compiler's font-import classification: only bare `import "x.ttf"`
-        // (FileImport) counts as a font, not `import {X} from "x.ttf"`.
-        if !matches!(import.import_kind, i_slint_compiler::typeloader::ImportKind::FileImport)
-            || !i_slint_compiler::pathutils::is_font_file(&import.file)
-        {
+    // `custom_fonts` holds the resolved path of every font import that
+    // passed the compiler's existence check, plus remote URLs.
+    for (font_path, _) in &doc.custom_fonts {
+        let font_path = PathBuf::from(font_path.as_str());
+        if i_slint_compiler::pathutils::is_url(&font_path) {
             continue;
         }
-        let import_path = PathBuf::from(&import.file);
-        let resolved = i_slint_compiler::pathutils::join(doc_path, &import_path)
-            .unwrap_or(import_path);
-        if i_slint_compiler::pathutils::is_url(&resolved) {
+        if !sent.insert(font_path.clone()) {
             continue;
         }
-        if !sent.insert(resolved.clone()) {
-            continue;
-        }
-        let Ok(font_url) = Url::from_file_path(&resolved) else {
-            tracing::warn!("Cannot convert font path to URL: {}", resolved.display());
+        let Ok(font_url) = Url::from_file_path(&font_path) else {
+            tracing::warn!("Cannot convert font path to URL: {}", font_path.display());
             continue;
         };
-        match std::fs::read(&resolved) {
+        match std::fs::read(&font_path) {
             Ok(contents) => {
                 tracing::debug!(
                     "Sending font {} ({} bytes) to preview",
@@ -206,7 +197,7 @@ fn send_referenced_fonts(ctx: &Context, doc_url: &Url, sent: &mut HashSet<PathBu
                 });
             }
             Err(err) => {
-                tracing::warn!("Failed to read font {}: {err}", resolved.display());
+                tracing::warn!("Failed to read font {}: {err}", font_path.display());
             }
         }
     }
