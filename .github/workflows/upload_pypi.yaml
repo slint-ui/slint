@@ -63,6 +63,23 @@ jobs:
               with:
                 name: python-package-distributions-${{ matrix.platform.runner }}-${{ strategy.job-index }}
                 path: api/python/slint/wheelhouse/*.whl
+            # The opt-in slint-dev wheel ships the same crate built with the
+            # system-testing and mcp features (see api/python/slint-dev). It is
+            # published alongside slint so `slint[dev]` resolves the matching
+            # version. Note: PyPI trusted publishing must also be configured for
+            # the slint-dev project, not just slint.
+            - name: Build the development binary wheel (slint-dev)
+              uses: PyO3/maturin-action@v1
+              with:
+                  working-directory: api/python/slint-dev
+                  target: ${{ matrix.platform.target }}
+                  args: --release --out wheelhouse --find-interpreter
+                  container: ${{ matrix.platform.container }}
+            - name: Store the development distribution packages
+              uses: actions/upload-artifact@v7
+              with:
+                name: python-package-distributions-dev-${{ matrix.platform.runner }}-${{ strategy.job-index }}
+                path: api/python/slint-dev/wheelhouse/*.whl
 
     ios_binaries:
         runs-on: macos-14

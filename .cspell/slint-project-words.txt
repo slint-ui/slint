@@ -131,6 +131,7 @@ defconfig
 defmt
 defதோசை
 deinit
+delenv
 depfile
 deque
 devcode
@@ -367,6 +368,7 @@ MALLOC
 materialui
 matplot
 maturin
+mcp
 mcus
 MCUX
 mdbook
