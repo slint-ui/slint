@@ -46,6 +46,7 @@ export component RemoteViewerWindow inherits Window {
     TouchArea {
         y: 0;
         height: root.safe-area-insets.top + 246px;
+        enabled: root.state != RemoteViewerState.preview-error;
 
         clicked => {
             hidden-input.select-all();
@@ -75,6 +76,7 @@ export component RemoteViewerWindow inherits Window {
         padding-left: 24px;
         padding-top: root.safe-area-insets.top + 146px;
         padding-bottom: root.safe-area-insets.bottom;
+        visible: root.state != RemoteViewerState.preview-error;
         VerticalLayout {
             alignment: start;
             spacing: 8px;
@@ -148,10 +150,10 @@ export component RemoteViewerWindow inherits Window {
         padding-top: root.safe-area-insets.top;
         padding-bottom: root.safe-area-insets.bottom;
 
-        if message != "": Text {
+        if root.state == RemoteViewerState.preview-error && message != "": Text {
             text: message;
             horizontal-alignment: center;
-            font-weight: 400;
+            wrap: word-wrap;
         }
     }
 }
