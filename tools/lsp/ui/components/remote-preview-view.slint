@@ -210,13 +210,14 @@ export component RemotePreviewView inherits Rectangle {
                                     spacing: EditorSpaceSettings.default-spacing;
                                     VerticalLayout {
                                         horizontal-stretch: 1;
-                                        Text {
+                                        if device.name != "": Text {
                                             text: device.name;
+                                            font-size: 14px;
                                             color: i == root.selected-index ? Palette.accent-foreground : Palette.foreground;
                                             font-weight: FontWeight.bold;
                                         }
 
-                                        Text {
+                                        if device.name == "": Text {
                                             text: (device.addresses.length > 0 ? device.addresses[0] : device.host) + ":" + device.port;
                                             color: i == root.selected-index ? Palette.accent-foreground : Palette.foreground;
                                             opacity: 0.7;
