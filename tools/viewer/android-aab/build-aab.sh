@@ -53,7 +53,7 @@ fi
 # F-Droid reproducibility hints:
 # - SOURCE_DATE_EPOCH stamps AGP zip entries.
 # - --remap-path-prefix scrubs source paths from rustc-embedded strings.
-# - --frozen pins Cargo.lock.
+# - --locked pins Cargo.lock.
 export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(git -C "$REPO_ROOT" log -1 --pretty=%ct)}"
 CARGO_HOME_PATH="${CARGO_HOME:-$HOME/.cargo}"
 REMAP_FLAGS="--remap-path-prefix=$CARGO_HOME_PATH=/cargo --remap-path-prefix=$REPO_ROOT=/build"
@@ -72,7 +72,7 @@ mkdir -p "$JNI_DIR"
 
 cd "$REPO_ROOT"
 cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 --platform 26 -o "$JNI_DIR" \
-    build --release --frozen -p slint-viewer --lib --features remote
+    build --release --locked -p slint-viewer --lib --features remote
 
 cd "$PROJECT_DIR"
 gradle --no-daemon bundleRelease
