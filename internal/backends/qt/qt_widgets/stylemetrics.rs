@@ -33,6 +33,7 @@ pub struct NativeStyleMetrics {
     pub layout_spacing: Property<LogicalLength>,
     pub layout_padding: Property<LogicalLength>,
     pub text_cursor_width: Property<LogicalLength>,
+    pub password_character: Property<SharedString>,
     pub window_background: Property<Color>,
     pub default_text_color: Property<Color>,
     pub textedit_background: Property<Color>,
@@ -65,6 +66,7 @@ impl NativeStyleMetrics {
             layout_spacing: Default::default(),
             layout_padding: Default::default(),
             text_cursor_width: Default::default(),
+            password_character: Default::default(),
             window_background: Default::default(),
             default_text_color: Default::default(),
             textedit_background: Default::default(),
@@ -116,6 +118,11 @@ impl NativeStyleMetrics {
             return qApp->style()->pixelMetric(QStyle::PM_TextCursorWidth);
         });
         self.text_cursor_width.set(LogicalLength::new(text_cursor_width.max(0.0)));
+        let password_character = cpp!(unsafe [] -> i32 as "int" {
+            return qApp->style()->styleHint(QStyle::SH_LineEdit_PasswordCharacter, nullptr, nullptr);
+        });
+        let password_character = char::from_u32(password_character as u32).unwrap_or('\u{25cf}');
+        self.password_character.set(password_character.to_string().into());
         let window_background = cpp!(unsafe[] -> u32 as "QRgb" {
             return qApp->palette().color(QPalette::Window).rgba();
         });

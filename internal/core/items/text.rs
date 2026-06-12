@@ -743,6 +743,8 @@ pub struct TextInput {
     pub vertical_alignment: Property<TextVerticalAlignment>,
     pub wrap: Property<TextWrap>,
     pub input_type: Property<InputType>,
+    /// Mask glyph for password input; empty keeps the style default. First char only.
+    pub password_character: Property<SharedString>,
     pub letter_spacing: Property<LogicalLength>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
@@ -1277,7 +1279,7 @@ impl HasFont for TextInput {
 
 impl RenderString for TextInput {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
-        PlainOrStyledText::Plain(self.as_ref().visual_representation(None).text.clone())
+        PlainOrStyledText::Plain(self.as_ref().visual_representation().text.clone())
     }
 }
 
@@ -1377,17 +1379,15 @@ pub struct TextInputVisualRepresentation {
 impl TextInputVisualRepresentation {
     /// If the given `TextInput` renders a password, then all characters in this `TextInputVisualRepresentation` are replaced
     /// with the password character and the selection/preedit-ranges/cursor position are adjusted.
-    /// If `password_character_fn` is Some, it is called lazily to query the password character, otherwise a default is used.
-    fn apply_password_character_substitution(
-        &mut self,
-        text_input: Pin<&TextInput>,
-        password_character_fn: Option<fn() -> char>,
-    ) {
+    fn apply_password_character_substitution(&mut self, text_input: Pin<&TextInput>) {
         if !matches!(text_input.input_type(), InputType::Password) {
             return;
         }
 
-        let password_character = password_character_fn.map_or('●', |f| f());
+        // The `password-character` property carries the style default (injected from
+        // StyleMetrics) or a caller override; fall back only if it is unset.
+        let password_character =
+            text_input.password_character().chars().next().unwrap_or('\u{25cf}');
 
         let text = &mut self.text;
         let fixup_range = |r: &mut core::ops::Range<usize>| {
@@ -1949,10 +1949,7 @@ impl TextInput {
     /// Returns a [`TextInputVisualRepresentation`] struct that contains all the fields necessary for rendering the text input,
     /// after making adjustments such as applying a substitution of characters for password input fields, or making sure
     /// that the selection start is always less or equal than the selection end.
-    pub fn visual_representation(
-        self: Pin<&Self>,
-        password_character_fn: Option<fn() -> char>,
-    ) -> TextInputVisualRepresentation {
+    pub fn visual_representation(self: Pin<&Self>) -> TextInputVisualRepresentation {
         let mut text = self.text();
 
         let preedit_text = self.preedit_text();
@@ -2007,7 +2004,7 @@ impl TextInput {
             text_color,
             cursor_color,
         };
-        repr.apply_password_character_substitution(self, password_character_fn);
+        repr.apply_password_character_substitution(self);
         repr
     }
 

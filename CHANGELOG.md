@@ -33,6 +33,8 @@ All notable changes to this project are documented in this file.
 
 ### Slint language
 
+ - Added `password-character` property to `TextInput`, to override the glyph used to mask
+   password input when the active font lacks the default one.
  - Added `is-open` output property to `PopupWindow`, reflecting whether the popup is currently shown.
    It can be used to style the element that opened the popup, such as a ComboBox's arrow. (#456)
  - Added new `SystemTrayIcon` element.

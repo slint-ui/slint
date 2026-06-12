@@ -1678,6 +1678,9 @@ export component TextInput {
     ///  Use this to configure `TextInput` for editing special input, such as password fields.
     /// \default text
     in property <InputType> input-type;
+    /// The glyph that masks each character in a `password` input; first character only, empty keeps the default.
+    /// \default provided at run-time by the selected widget style
+    in property <string> password-character;
     // Internal, undocumented property, only exposed for tests.
     out property <int> cursor-position_byte-offset;
     // Internal, undocumented property, only exposed for tests.
@@ -3042,6 +3045,7 @@ export global NativeStyleMetrics {
     out property <length> layout-spacing;
     out property <length> layout-padding;
     out property <length> text-cursor-width;
+    out property <string> password-character;
     out property <color> window-background;
     out property <color> default-text-color;
     out property <color> textedit-background;

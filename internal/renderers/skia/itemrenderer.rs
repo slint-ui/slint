@@ -695,7 +695,7 @@ impl ItemRenderer for SkiaItemRenderer<'_> {
         size: LogicalSize,
     ) {
         let restore = self.save_canvas_and_pixel_align_origin();
-        sharedparley::draw_text_input(self, text_input, self_rc, size, None);
+        sharedparley::draw_text_input(self, text_input, self_rc, size);
         if restore {
             self.canvas.restore();
         }

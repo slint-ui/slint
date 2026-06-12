@@ -1256,7 +1256,6 @@ pub fn draw_text_input(
     text_input: Pin<&crate::items::TextInput>,
     item_rc: &crate::item_tree::ItemRc,
     size: LogicalSize,
-    password_character: Option<fn() -> char>,
 ) {
     let width = size.width_length();
     let height = size.height_length();
@@ -1264,7 +1263,7 @@ pub fn draw_text_input(
         return;
     }
 
-    let visual_representation = text_input.visual_representation(password_character);
+    let visual_representation = text_input.visual_representation();
 
     let Some(platform_fill_brush) =
         item_renderer.platform_text_fill_brush(visual_representation.text_color, size)
@@ -1498,7 +1497,7 @@ pub fn text_input_byte_offset_for_position(
         None,
         scale_factor,
     );
-    let visual_representation = text_input.visual_representation(None);
+    let visual_representation = text_input.visual_representation();
 
     let Some(ctx) = renderer.slint_context() else {
         return 0;
@@ -1550,7 +1549,7 @@ pub fn text_input_cursor_rect_for_byte_offset(
         );
     }
 
-    let visual_representation = text_input.visual_representation(None);
+    let visual_representation = text_input.visual_representation();
     let cursor_width = text_input.text_cursor_width() * scale_factor;
 
     let Some(ctx) = renderer.slint_context() else {

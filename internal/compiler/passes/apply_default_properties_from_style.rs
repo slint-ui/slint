@@ -34,6 +34,12 @@ pub fn apply_default_properties_from_style(
                             SmolStr::new_static("text-cursor-width"),
                         ))
                     });
+                    elem.set_binding_if_not_set("password-character".into(), || {
+                        Expression::PropertyReference(NamedReference::new(
+                            &style_metrics.root_element,
+                            SmolStr::new_static("password-character"),
+                        ))
+                    });
                     elem.set_binding_if_not_set("color".into(), || {
                         Expression::PropertyReference(NamedReference::new(
                             &palette.root_element,
