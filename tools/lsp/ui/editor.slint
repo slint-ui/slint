@@ -255,9 +255,7 @@ component ProjectCard inherits Rectangle {
     border-radius: 8px;
     border-width: selected ? 2px : 1px;
     border-color: selected ? StudioTheme.accent-strong : StudioTheme.border;
-    background: enabled
-        ? (touch.has-hover ? StudioTheme.panel-subtle : StudioTheme.panel-bg)
-        : StudioTheme.panel-subtle;
+    background: enabled ? (touch.has-hover ? StudioTheme.panel-subtle : StudioTheme.panel-bg) : StudioTheme.panel-subtle;
     opacity: enabled ? 1 : 0.5;
     animate background, border-color { duration: 140ms; }
 
@@ -507,6 +505,7 @@ export component EditorUi inherits Window {
     min-width: 1040px;
     min-height: 680px;
     title: "Slint Visual Editor";
+    always-on-top: Api.always-on-top;
     background: StudioTheme.app-bg;
     default-font-family: "Inter";
 
@@ -666,10 +665,7 @@ export component EditorUi inherits Window {
     }
 
     function pointer-inside-phone(window-x: length, window-y: length) -> bool {
-        return window-x >= root.phone-left()
-            && window-x <= root.phone-left() + root.phone-width()
-            && window-y >= root.phone-top()
-            && window-y <= root.phone-top() + root.phone-height();
+        return window-x >= root.phone-left() && window-x <= root.phone-left() + root.phone-width() && window-y >= root.phone-top() && window-y <= root.phone-top() + root.phone-height();
     }
 
     function update-visual-drag(kind: PrototypeComponentKind, window-x: length, window-y: length) {
@@ -735,9 +731,7 @@ export component EditorUi inherits Window {
     }
 
     function rectangle-radius-label() -> string {
-        if root.rectangle-top-left-radius == root.rectangle-top-right-radius
-            && root.rectangle-top-left-radius == root.rectangle-bottom-right-radius
-            && root.rectangle-top-left-radius == root.rectangle-bottom-left-radius {
+        if root.rectangle-top-left-radius == root.rectangle-top-right-radius && root.rectangle-top-left-radius == root.rectangle-bottom-right-radius && root.rectangle-top-left-radius == root.rectangle-bottom-left-radius {
             return "\{root.rectangle-top-left-radius / 1px}";
         }
         return "Mixed";
@@ -928,7 +922,9 @@ export component EditorUi inherits Window {
                 HorizontalLayout {
                     spacing: 0px;
 
-                    Rectangle { width: 286px; }
+                    Rectangle {
+                        width: 286px;
+                    }
 
                     Rectangle {
                         horizontal-stretch: 1;
@@ -955,7 +951,9 @@ export component EditorUi inherits Window {
                         }
                     }
 
-                    Rectangle { width: 306px; }
+                    Rectangle {
+                        width: 306px;
+                    }
                 }
             }
 
@@ -1018,17 +1016,57 @@ export component EditorUi inherits Window {
                                 width: parent.width;
                                 spacing: 6px;
 
-                                SectionTitle { label: "PROJECT"; }
-                                PrimerNavRow { label: "slint-mobile"; glyph: "DIR"; }
-                                PrimerNavRow { label: "ui"; glyph: "DIR"; indent: 16px; }
-                                PrimerNavRow { label: "main.slint"; glyph: "SL"; indent: 32px; selected: true; }
-                                PrimerNavRow { label: "assets"; glyph: "DIR"; indent: 16px; }
-                                PrimerNavRow { label: "theme.slint"; glyph: "SL"; indent: 32px; }
+                                SectionTitle {
+                                    label: "PROJECT";
+                                }
 
-                                Rectangle { height: 12px; }
-                                SectionTitle { label: "RECENT"; }
-                                PrimerNavRow { label: "login-flow.slint"; glyph: "SL"; }
-                                PrimerNavRow { label: "settings-panel.slint"; glyph: "SL"; }
+                                PrimerNavRow {
+                                    label: "slint-mobile";
+                                    glyph: "DIR";
+                                }
+
+                                PrimerNavRow {
+                                    label: "ui";
+                                    glyph: "DIR";
+                                    indent: 16px;
+                                }
+
+                                PrimerNavRow {
+                                    label: "main.slint";
+                                    glyph: "SL";
+                                    indent: 32px;
+                                    selected: true;
+                                }
+
+                                PrimerNavRow {
+                                    label: "assets";
+                                    glyph: "DIR";
+                                    indent: 16px;
+                                }
+
+                                PrimerNavRow {
+                                    label: "theme.slint";
+                                    glyph: "SL";
+                                    indent: 32px;
+                                }
+
+                                Rectangle {
+                                    height: 12px;
+                                }
+
+                                SectionTitle {
+                                    label: "RECENT";
+                                }
+
+                                PrimerNavRow {
+                                    label: "login-flow.slint";
+                                    glyph: "SL";
+                                }
+
+                                PrimerNavRow {
+                                    label: "settings-panel.slint";
+                                    glyph: "SL";
+                                }
                             }
                         }
 
@@ -1041,17 +1079,27 @@ export component EditorUi inherits Window {
                                 width: parent.width;
                                 spacing: 10px;
 
-                                SectionTitle { label: "SLINT BUILT-INS"; }
+                                SectionTitle {
+                                    label: "SLINT BUILT-INS";
+                                }
 
                                 PrimerActionListRow {
                                     kind: PrototypeComponentKind.rectangle;
                                     label: "Rectangle";
                                     detail: "Surface, panel, shape";
                                     glyph: "R";
-                                    drag-started(kind, x, y) => { root.update-visual-drag(kind, x, y); }
-                                    drag-moved(kind, x, y) => { root.update-visual-drag(kind, x, y); }
-                                    drag-ended(kind, x, y) => { root.finish-visual-drag(kind, x, y); }
-                                    drag-cancelled(kind) => { root.cancel-visual-drag(kind); }
+                                    drag-started(kind, x, y) => {
+                                        root.update-visual-drag(kind, x, y);
+                                    }
+                                    drag-moved(kind, x, y) => {
+                                        root.update-visual-drag(kind, x, y);
+                                    }
+                                    drag-ended(kind, x, y) => {
+                                        root.finish-visual-drag(kind, x, y);
+                                    }
+                                    drag-cancelled(kind) => {
+                                        root.cancel-visual-drag(kind);
+                                    }
                                 }
 
                                 PrimerActionListRow {
@@ -1059,10 +1107,18 @@ export component EditorUi inherits Window {
                                     label: "Text";
                                     detail: "Label or display copy";
                                     glyph: "T";
-                                    drag-started(kind, x, y) => { root.update-visual-drag(kind, x, y); }
-                                    drag-moved(kind, x, y) => { root.update-visual-drag(kind, x, y); }
-                                    drag-ended(kind, x, y) => { root.finish-visual-drag(kind, x, y); }
-                                    drag-cancelled(kind) => { root.cancel-visual-drag(kind); }
+                                    drag-started(kind, x, y) => {
+                                        root.update-visual-drag(kind, x, y);
+                                    }
+                                    drag-moved(kind, x, y) => {
+                                        root.update-visual-drag(kind, x, y);
+                                    }
+                                    drag-ended(kind, x, y) => {
+                                        root.finish-visual-drag(kind, x, y);
+                                    }
+                                    drag-cancelled(kind) => {
+                                        root.cancel-visual-drag(kind);
+                                    }
                                 }
 
                                 PrimerActionListRow {
@@ -1070,10 +1126,18 @@ export component EditorUi inherits Window {
                                     label: "Image";
                                     detail: "Bitmap or vector asset";
                                     glyph: "IMG";
-                                    drag-started(kind, x, y) => { root.update-visual-drag(kind, x, y); }
-                                    drag-moved(kind, x, y) => { root.update-visual-drag(kind, x, y); }
-                                    drag-ended(kind, x, y) => { root.finish-visual-drag(kind, x, y); }
-                                    drag-cancelled(kind) => { root.cancel-visual-drag(kind); }
+                                    drag-started(kind, x, y) => {
+                                        root.update-visual-drag(kind, x, y);
+                                    }
+                                    drag-moved(kind, x, y) => {
+                                        root.update-visual-drag(kind, x, y);
+                                    }
+                                    drag-ended(kind, x, y) => {
+                                        root.finish-visual-drag(kind, x, y);
+                                    }
+                                    drag-cancelled(kind) => {
+                                        root.cancel-visual-drag(kind);
+                                    }
                                 }
                             }
                         }
@@ -1323,12 +1387,8 @@ export component EditorUi inherits Window {
 
                             for corner in 4: Rectangle {
                                 property <length> corner-radius: root.rectangle-corner-radius(corner);
-                                property <length> handle-x: corner == 1 || corner == 2
-                                    ? root.placed-width() - (20px + corner-radius * 32 / 52)
-                                    : 20px + corner-radius * 32 / 52;
-                                property <length> handle-y: corner >= 2
-                                    ? root.placed-height() - (20px + corner-radius * 32 / 52)
-                                    : 20px + corner-radius * 32 / 52;
+                                property <length> handle-x: corner == 1 || corner == 2 ? root.placed-width() - (20px + corner-radius * 32 / 52) : 20px + corner-radius * 32 / 52;
+                                property <length> handle-y: corner >= 2 ? root.placed-height() - (20px + corner-radius * 32 / 52) : 20px + corner-radius * 32 / 52;
                                 property <bool> active: root.radius-dragging && root.radius-drag-corner == corner;
                                 property <bool> single-active: active && root.radius-drag-single-corner;
 
@@ -1364,7 +1424,6 @@ export component EditorUi inherits Window {
                                     }
                                 }
                             }
-
                         }
 
                         if root.canvas-drop-hover: Rectangle {
@@ -1422,23 +1481,56 @@ export component EditorUi inherits Window {
 
                         InspectorSection {
                             title: "LAYOUT";
-                            PropertyField { name: "X"; value: root.selection == CanvasSelectionKind.artboard ? "0" : "\{root.placed-x / 1px}"; }
-                            PropertyField { name: "Y"; value: root.selection == CanvasSelectionKind.artboard ? "0" : "\{root.placed-y / 1px}"; }
-                            PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.artboard ? "\{root.phone-width() / 1px}" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-width / 1px}" : root.selection == CanvasSelectionKind.image ? "282" : "280"; }
-                            PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.artboard ? "\{root.phone-height() / 1px}" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-height / 1px}" : root.selection == CanvasSelectionKind.image ? "168" : "104"; }
+                            PropertyField {
+                                name: "X";
+                                value: root.selection == CanvasSelectionKind.artboard ? "0" : "\{root.placed-x / 1px}";
+                            }
+
+                            PropertyField {
+                                name: "Y";
+                                value: root.selection == CanvasSelectionKind.artboard ? "0" : "\{root.placed-y / 1px}";
+                            }
+
+                            PropertyField {
+                                name: "Width";
+                                value: root.selection == CanvasSelectionKind.artboard ? "\{root.phone-width() / 1px}" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-width / 1px}" : root.selection == CanvasSelectionKind.image ? "282" : "280";
+                            }
+
+                            PropertyField {
+                                name: "Height";
+                                value: root.selection == CanvasSelectionKind.artboard ? "\{root.phone-height() / 1px}" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-height / 1px}" : root.selection == CanvasSelectionKind.image ? "168" : "104";
+                            }
                         }
 
                         InspectorSection {
                             title: "APPEARANCE";
-                            PropertyField { name: "Opacity"; value: "100%"; }
-                            PropertyField { name: "Fill"; value: root.selection == CanvasSelectionKind.text ? "#20252d" : root.selection == CanvasSelectionKind.image ? "gradient" : "#dbeafe"; }
-                            PropertyField { name: "Radius"; value: root.selection == CanvasSelectionKind.artboard ? "34" : root.selection == CanvasSelectionKind.rectangle ? root.rectangle-radius-label() : "18"; }
+                            PropertyField {
+                                name: "Opacity";
+                                value: "100%";
+                            }
+
+                            PropertyField {
+                                name: "Fill";
+                                value: root.selection == CanvasSelectionKind.text ? "#20252d" : root.selection == CanvasSelectionKind.image ? "gradient" : "#dbeafe";
+                            }
+
+                            PropertyField {
+                                name: "Radius";
+                                value: root.selection == CanvasSelectionKind.artboard ? "34" : root.selection == CanvasSelectionKind.rectangle ? root.rectangle-radius-label() : "18";
+                            }
                         }
 
                         InspectorSection {
                             title: "SOURCE";
-                            PropertyField { name: "Element"; value: root.selection-title(); }
-                            PropertyField { name: "File"; value: "main.slint"; }
+                            PropertyField {
+                                name: "Element";
+                                value: root.selection-title();
+                            }
+
+                            PropertyField {
+                                name: "File";
+                                value: "main.slint";
+                            }
                         }
                     }
                 }

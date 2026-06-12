@@ -285,6 +285,10 @@ async fn lsp_main(
     let mut ctx = language::Context {
         document_cache: common::DocumentCache::new(compiler_config),
         preview_config: Default::default(),
+        #[cfg(feature = "preview-engine")]
+        preview_user_settings: crate::user_settings::load_preview_user_settings(),
+        #[cfg(not(feature = "preview-engine"))]
+        preview_user_settings: i_slint_live_preview::protocol::PreviewUserSettings::default(),
         server_notifier: notifier,
         init_param: Default::default(),
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
@@ -327,7 +331,7 @@ async fn lsp_main(
             }
             msg = from_preview_rx.recv() => {
                 match msg {
-                    Some(msg) => handle_preview_message(msg, &ctx),
+                    Some(msg) => handle_preview_message(msg, &mut ctx),
                     None => {
                         tracing::debug!("Preview->LSP channel closed, exiting");
                         break Ok(());
@@ -392,16 +396,15 @@ fn sync_file_watcher_if_needed(
     Ok(())
 }
 
-fn handle_preview_message(msg: PreviewToLspMessage, ctx: &language::Context) {
+fn handle_preview_message(msg: PreviewToLspMessage, ctx: &mut language::Context) {
     use PreviewToLspMessage::*;
     match &msg {
         RequestState { files } => {
-            if files.is_empty() {
-                tracing::debug!("Preview requested state, re-sending all documents");
-                language::send_state_to_preview(ctx);
-            } else {
-                language::send_files_to_preview(ctx, files);
-            }
+            tracing::debug!("Preview requested state");
+            language::send_requested_state_to_preview(ctx, files);
+        }
+        UpdateUserSettings { settings } => {
+            language::update_preview_user_settings(ctx, settings.clone());
         }
         SendShowMessage { message } => {
             match message.typ {

@@ -7,8 +7,10 @@ use lsp_types::{Diagnostic, Url};
 
 use i_slint_live_preview::file_watcher::FileChangeKind;
 
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
+use std::rc::Rc;
 
 use crate::{
     common,
@@ -17,6 +19,34 @@ use crate::{
 };
 
 use super::Context;
+
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+#[derive(Default)]
+struct CapturePreview {
+    messages: Rc<RefCell<Vec<i_slint_live_preview::protocol::LspToPreviewMessage>>>,
+}
+
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+impl common::LspToPreview for CapturePreview {
+    fn send(&self, message: &i_slint_live_preview::protocol::LspToPreviewMessage) {
+        self.messages.borrow_mut().push(message.clone());
+    }
+
+    fn preview_target(&self) -> i_slint_live_preview::protocol::PreviewTarget {
+        i_slint_live_preview::protocol::PreviewTarget::Dummy
+    }
+}
+
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+pub(crate) type CapturedPreviewMessages =
+    Rc<RefCell<Vec<i_slint_live_preview::protocol::LspToPreviewMessage>>>;
+
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+pub(crate) fn preview_capture() -> (Rc<LspToPreviews>, CapturedPreviewMessages) {
+    let capture = CapturePreview::default();
+    let messages = capture.messages.clone();
+    (LspToPreviews::with_one(capture), messages)
+}
 
 /// Note: Use Rusts .. syntax to extend the context with additional values, e.g.:
 /// ```ignore
@@ -29,6 +59,7 @@ pub fn mock_context() -> Context {
     crate::language::Context {
         document_cache: empty_document_cache(),
         preview_config: Default::default(),
+        preview_user_settings: Default::default(),
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
@@ -73,6 +104,7 @@ pub fn loaded_document_cache_with_file_name(
     let mut ctx = crate::language::Context {
         document_cache: dc,
         preview_config: Default::default(),
+        preview_user_settings: Default::default(),
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
         to_show: None,
@@ -315,6 +347,31 @@ fn preview_file_recompiled_when_dependency_changes() {
         ctx.pending_recompile.contains(&main_url),
         "Preview file should be in pending_recompile when its dependency changes"
     );
+}
+
+#[test]
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+fn request_state_resends_only_targeted_files_when_present() {
+    let (capture, messages) = preview_capture();
+    let mut ctx = mock_context();
+
+    let (url, _diag) = load(
+        &mut ctx,
+        &std::env::current_dir().unwrap().join("xxx/main.slint"),
+        r#"export component Main { }"#,
+    );
+
+    ctx.to_preview = capture;
+    messages.borrow_mut().clear();
+
+    crate::language::send_requested_state_to_preview(&ctx, &[url]);
+
+    let messages = messages.borrow();
+    assert_eq!(messages.len(), 1);
+    assert!(matches!(
+        messages[0],
+        i_slint_live_preview::protocol::LspToPreviewMessage::SetContents { .. }
+    ));
 }
 
 /// Test for issue #11304

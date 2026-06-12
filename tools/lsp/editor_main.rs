@@ -12,6 +12,12 @@ mod fmt;
 mod language;
 #[cfg(feature = "preview-engine")]
 mod preview;
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(feature = "preview-external", feature = "preview-engine")
+))]
+#[path = "preview/user_settings.rs"]
+mod user_settings;
 mod util;
 
 use crate::common::Result;
