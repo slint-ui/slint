@@ -29,6 +29,7 @@ export type KnownType =
     | "int"
     | "keys"
     | "length"
+    | "pathdata"
     | "percent"
     | "physical-length"
     | "Edges"
@@ -118,6 +119,11 @@ export function getTypeInfo(typeName: KnownType): TypeInfo {
             return {
                 href: linkMap.length.href,
                 defaultValue: "0px",
+            };
+        case "pathdata":
+            return {
+                href: linkMap.pathdata.href,
+                defaultValue: "an empty pathdata",
             };
         case "percent":
             return {

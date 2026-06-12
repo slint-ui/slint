@@ -161,6 +161,9 @@
     "Path": {
         "href": "reference/elements/path/"
     },
+    "pathdata": {
+        "href": "reference/primitive-types/#pathdata"
+    },
     "percent": {
         "href": "reference/primitive-types/#percent"
     },
