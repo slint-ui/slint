@@ -68,6 +68,7 @@ export component RemoteViewerWindow inherits Window {
         enabled: root.state != RemoteViewerState.preview-error;
 
         clicked => {
+            root.showing-name = !root.showing-name;
             root.copy-to-clipboard(root.address, @tr("IP copied to clipboard"));
         }
     }
