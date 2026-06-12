@@ -106,6 +106,18 @@ npm install --save-dev slint-ui-dev
 SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=9315 node app.js
 ```
 
+**Python** (`slint`): install the optional `slint-dev` wheel at the same
+version as `slint` (`uv add "slint[dev]"`). It carries the MCP-enabled binary,
+which `slint` loads automatically — but only when `SLINT_MCP_PORT` (or
+`SLINT_TEST_SERVER`) is set, so ordinary runs stay on the lean release binary.
+Set the variable before importing slint (there is nothing to import from
+`slint-dev`):
+
+```sh
+uv add "slint[dev]"
+SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=9315 uv run app.py
+```
+
 Connect to `http://localhost:9315/mcp` (Streamable HTTP / JSON-RPC). From a
 shell, `curl` is the most reliable client — include the `Accept` header:
 

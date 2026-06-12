@@ -33,6 +33,18 @@ backend-winit-wayland = ["slint-interpreter/backend-winit-wayland"]
 backend-linuxkms = ["slint-interpreter/backend-linuxkms"]
 backend-linuxkms-noseat = ["slint-interpreter/backend-linuxkms-noseat"]
 backend-testing = ["i-slint-backend-selector/backend-testing"]
+
+# The features below are additive and binary-compatible with the default build:
+# they don't change the PyO3 surface, only enabling extra runtime behavior, and
+# the servers auto-start (through the backend selector) when the matching
+# environment variable is set. `system-testing` (SLINT_TEST_SERVER) and `mcp`
+# (SLINT_MCP_PORT) are what the shipped "dev" wheel enables; see
+# ../slint-dev/pyproject.toml. `dev-dist` only renames the native module so the
+# dev wheel can ship its own binary alongside the lean one.
+system-testing = ["i-slint-backend-selector/system-testing"]
+mcp = ["i-slint-backend-selector/mcp"]
+dev-dist = []
+
 renderer-femtovg = ["slint-interpreter/renderer-femtovg"]
 renderer-femtovg-wgpu = ["slint-interpreter/renderer-femtovg-wgpu"]
 renderer-skia = ["slint-interpreter/renderer-skia"]
