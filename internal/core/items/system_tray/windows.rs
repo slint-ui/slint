@@ -453,18 +453,19 @@ fn create_hicon(icon: &Image) -> Result<HICON, Error> {
 // trailing fields (`szInfo`, `szInfoTitle`, `guidItem`, …) are zero-initialized
 // via `Default::default()`, which also NUL-terminates `szTip` past the copy.
 fn notify_icon_data(hwnd: HWND, hicon: HICON, tip: &[u16]) -> NOTIFYICONDATAW {
-    let mut data = NOTIFYICONDATAW {
+    let mut buf = [0u16; 128];
+    let n = tip.len().min(buf.len() - 1);
+    buf[..n].copy_from_slice(&tip[..n]);
+    NOTIFYICONDATAW {
         cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
         hWnd: hwnd,
         uID: TRAY_UID,
         uFlags: NIF_MESSAGE | NIF_ICON | NIF_TIP,
         uCallbackMessage: WM_TRAYICON,
         hIcon: hicon,
+        szTip: buf,
         ..Default::default()
-    };
-    let n = tip.len().min(data.szTip.len() - 1);
-    data.szTip[..n].copy_from_slice(&tip[..n]);
-    data
+    }
 }
 
 fn append_menu_entry(
