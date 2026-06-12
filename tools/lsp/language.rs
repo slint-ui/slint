@@ -96,6 +96,7 @@ fn create_populate_command(
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn send_state_to_preview(ctx: &Context) {
     let mut doc_count = 0;
+    #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
     let mut fonts_sent = HashSet::<PathBuf>::new();
     for (url, node) in ctx.document_cache.all_url_documents() {
         if url.scheme() == "builtin" {
@@ -107,6 +108,7 @@ pub fn send_state_to_preview(ctx: &Context) {
             url: VersionedUrl::new(url.clone(), version),
             contents: node.text().to_string().into(),
         });
+        #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
         send_referenced_fonts(ctx, &url, &mut fonts_sent);
         doc_count += 1;
     }
@@ -131,6 +133,7 @@ pub fn send_state_to_preview(ctx: &Context) {
     any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
 ))]
 pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
+    #[cfg(feature = "preview-remote")]
     let mut fonts_sent = HashSet::<PathBuf>::new();
     for url in files {
         if let Some(node) = ctx.document_cache.get_document(url).and_then(|doc| doc.node.as_ref()) {
@@ -141,6 +144,7 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
                 url: VersionedUrl::new(url.clone(), version),
                 contents,
             });
+            #[cfg(feature = "preview-remote")]
             send_referenced_fonts(ctx, url, &mut fonts_sent);
             continue;
         }
@@ -165,10 +169,13 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
 }
 
 /// Read each font file imported by the `.slint` at `doc_url` and push it
-/// to the preview via `SetContents`. `sent` is used to skip fonts already
-/// transferred in this round (e.g. referenced by several `.slint` files).
-#[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
+/// to the remote viewer via `SetContents`. Only the remote viewer needs
+/// font bytes pushed: local previews read fonts from disk. `sent` is used
+/// to skip fonts already transferred in this round (e.g. referenced by
+/// several `.slint` files).
+#[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
 fn send_referenced_fonts(ctx: &Context, doc_url: &Url, sent: &mut HashSet<PathBuf>) {
+    let Some(remote) = ctx.to_preview.remote() else { return };
     let Some(doc) = ctx.document_cache.get_document(doc_url) else { return };
     // `custom_fonts` holds the resolved path of every font import that
     // passed the compiler's existence check, plus remote URLs.
@@ -187,11 +194,11 @@ fn send_referenced_fonts(ctx: &Context, doc_url: &Url, sent: &mut HashSet<PathBu
         match std::fs::read(&font_path) {
             Ok(contents) => {
                 tracing::debug!(
-                    "Sending font {} ({} bytes) to preview",
+                    "Sending font {} ({} bytes) to remote viewer",
                     font_url,
                     contents.len()
                 );
-                ctx.to_preview.send(&LspToPreviewMessage::SetContents {
+                remote.send(&LspToPreviewMessage::SetContents {
                     url: VersionedUrl::new(font_url, None),
                     contents,
                 });
