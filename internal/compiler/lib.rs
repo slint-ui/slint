@@ -34,6 +34,7 @@ pub mod lookup;
 pub mod namedreference;
 pub mod object_tree;
 pub mod parser;
+pub mod project_file;
 pub mod source_path;
 pub mod symbol_counters;
 #[cfg(feature = "bundle-translations")]

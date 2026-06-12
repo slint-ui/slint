@@ -2396,6 +2396,8 @@ dependencies = [
  "resvg",
  "rowan",
  "rspolib",
+ "serde",
+ "serde_json",
  "skrifa",
  "smol_str 0.3.6",
  "strum",
