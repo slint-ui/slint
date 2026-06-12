@@ -462,9 +462,12 @@ fn notify_icon_data(hwnd: HWND, hicon: HICON, tip: &[u16]) -> NOTIFYICONDATAW {
         hIcon: hicon,
         ..Default::default()
     };
-    let sz_tip = std::ptr::addr_of_mut!(data.szTip);
-    let n = tip.len().min(unsafe { (*sz_tip).len() } - 1);
-    unsafe { std::ptr::copy_nonoverlapping(tip.as_ptr(), (*sz_tip).as_mut_ptr(), n) };
+    // szTip is [u16; 128] per NOTIFYICONDATAW ABI:
+    // https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/UI/Shell/struct.NOTIFYICONDATAW.html
+    const SZTIP_LEN: usize = 128;
+    let sz_tip = &raw mut data.szTip;
+    let n = tip.len().min(SZTIP_LEN - 1);
+    unsafe { std::ptr::copy_nonoverlapping(tip.as_ptr(), sz_tip.cast::<u16>(), n) };
     data
 }
 
