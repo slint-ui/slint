@@ -4423,6 +4423,71 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             sub_expression,
             ctx,
         ),
+        Expression::SolveFlexboxLayoutWithMeasure {
+            data,
+            repeater_indices,
+            measure_cells,
+            default_cells,
+        } => {
+            let data = compile_expression(data, ctx);
+            let repeater_indices = compile_expression(repeater_indices, ctx);
+            // cbindgen does not expose `LayoutInfo::preferred_bounded()`, so
+            // inline it: preferred_bounded = max(min(preferred, max), min).
+            let mut v_cases = String::new();
+            let mut h_cases = String::new();
+            for (i, item) in measure_cells.iter().enumerate() {
+                if let Either::Left((h_info, v_info)) = item {
+                    let v = compile_expression(v_info, ctx);
+                    let h = compile_expression(h_info, ctx);
+                    v_cases.push_str(&format!(
+                        "case {i}: {{ auto li = {v}; nh = std::max(std::min(li.preferred, li.max), li.min); break; }}\n"
+                    ));
+                    h_cases.push_str(&format!(
+                        "case {i}: {{ auto li = {h}; nw = std::max(std::min(li.preferred, li.max), li.min); break; }}\n"
+                    ));
+                }
+            }
+            // Preferred (default-constraint) size per cell, returned when taffy
+            // asks for a dimension without a known cross-axis size.
+            let mut pref_w = String::new();
+            let mut pref_h = String::new();
+            for item in default_cells {
+                if let Either::Left((h_info, v_info)) = item {
+                    let h = compile_expression(h_info, ctx);
+                    let v = compile_expression(v_info, ctx);
+                    pref_w.push_str(&format!(
+                        "[&]{{ auto li = {h}; return std::max(std::min(li.preferred, li.max), li.min); }}(),\n"
+                    ));
+                    pref_h.push_str(&format!(
+                        "[&]{{ auto li = {v}; return std::max(std::min(li.preferred, li.max), li.min); }}(),\n"
+                    ));
+                }
+            }
+            format!(
+                "slint::private_api::solve_flexbox_layout_with_measure({data}, {repeater_indices}, \
+                 [&](uintptr_t index, std::optional<float> known_w, std::optional<float> known_h) \
+                 -> std::pair<float, float> {{\n\
+                    const float pref_w[] = {{ {pref_w} }};\n\
+                    const float pref_h[] = {{ {pref_h} }};\n\
+                    const size_t cell_count = sizeof(pref_w) / sizeof(float);\n\
+                    float w = known_w.value_or(index < cell_count ? pref_w[index] : 0.0f);\n\
+                    float h = known_h.value_or(index < cell_count ? pref_h[index] : 0.0f);\n\
+                    if (known_w.has_value() && !known_h.has_value()) {{\n\
+                        [[maybe_unused]] float measure_known_w = w;\n\
+                        float nh = h;\n\
+                        switch (index) {{\n{v_cases}default: break;\n}}\n\
+                        return {{ w, nh }};\n\
+                    }}\n\
+                    if (known_h.has_value() && !known_w.has_value()) {{\n\
+                        [[maybe_unused]] float measure_known_h = h;\n\
+                        float nw = w;\n\
+                        switch (index) {{\n{h_cases}default: break;\n}}\n\
+                        return {{ nw, h }};\n\
+                    }}\n\
+                    return {{ w, h }};\n\
+                 }})"
+            )
+        }
         Expression::WithGridInputData {
             cells_variable,
             repeater_indices_var_name,
