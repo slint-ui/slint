@@ -79,7 +79,7 @@ i-slint-live-preview = { workspace = true, features = ["file-watcher", "live-com
 i-slint-backend-selector = { workspace = true }
 
 clap = { workspace = true }
-shlex = "1"
+shlex = "2"
 image = { workspace = true }
 itertools = { workspace = true }
 serde_json = { workspace = true }
@@ -95,7 +95,7 @@ tracing-log = { workspace = true }
 tempfile = "3"
 
 [target.'cfg(not(any(target_vendor = "apple", target_arch = "wasm32")))'.dependencies]
-mdns-sd = { version = "0.17.0", default-features = false, features = ["async"], optional = true }
+mdns-sd = { version = "0.20.0", default-features = false, features = ["async"], optional = true }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 zeroconf-tokio = { version = "0.3.2", optional = true }
