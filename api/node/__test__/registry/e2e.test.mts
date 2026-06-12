@@ -277,7 +277,15 @@ async function binaryInstalled(dir: string): Promise<boolean> {
 for (const pm of ["npm", "pnpm"] as const) {
     test(`${pm}: installing slint-ui pulls in the binary and loads`, async () => {
         const dir = await consumerProject(`${pm}-prod`);
-        await install(pm, dir, [`slint-ui@${VERSION}`]);
+        const { stdout, stderr } = await install(pm, dir, [
+            `slint-ui@${VERSION}`,
+        ]);
+        // pnpm >= 10 ignores dependency build scripts and (in newer versions)
+        // fails the install over them; slint-ui must not have any.
+        assert.ok(
+            !`${stdout}${stderr}`.includes("Ignored build scripts"),
+            "the install must not trip over ignored build scripts",
+        );
         // The matching platform binary package is installed automatically…
         assert.ok(
             await binaryInstalled(dir),
