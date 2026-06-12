@@ -381,18 +381,18 @@ component PrimerActionListRow inherits Rectangle {
     touch := TouchArea {
         mouse-cursor: pointer;
 
-        pointer-event(event) => {
-            if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+        changed pressed => {
+            if self.pressed {
                 AppState.dragging-kind = root.kind;
                 root.drag-started(root.kind, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
-            } else if event.kind == PointerEventKind.move && self.pressed {
-                AppState.dragging-kind = root.kind;
-                root.drag-moved(root.kind, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
-            } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
+            } else {
                 root.drag-ended(root.kind, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
-            } else if event.kind == PointerEventKind.cancel {
-                root.drag-cancelled(root.kind);
             }
+        }
+
+        moved => {
+            AppState.dragging-kind = root.kind;
+            root.drag-moved(root.kind, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
         }
     }
 }
@@ -473,6 +473,11 @@ export component VisualEditorPrototype inherits Window {
     property <length> canvas-drop-y: 0px;
     property <length> placed-x: 54px;
     property <length> placed-y: 196px;
+    property <length> rectangle-width: 282px;
+    property <length> rectangle-height: 104px;
+    property <length> rectangle-max-radius: min(rectangle-width, rectangle-height) / 2;
+    property <length> rectangle-resize-right: 0px;
+    property <length> rectangle-resize-bottom: 0px;
     property <length> rectangle-radius: 18px;
     property <length> rectangle-top-left-radius: 18px;
     property <length> rectangle-top-right-radius: 18px;
@@ -481,6 +486,8 @@ export component VisualEditorPrototype inherits Window {
     property <bool> radius-dragging: false;
     property <int> radius-drag-corner: -1;
     property <bool> radius-drag-single-corner: false;
+    property <bool> rectangle-moving: false;
+    property <int> rectangle-resize-corner: -1;
     property <string> search-text: "";
 
     function selection-title() -> string {
@@ -519,6 +526,8 @@ export component VisualEditorPrototype inherits Window {
         root.placed-kind = kind;
         if kind == PrototypeComponentKind.rectangle {
             root.selection = CanvasSelectionKind.rectangle;
+            root.rectangle-width = 282px;
+            root.rectangle-height = 104px;
             root.set-all-rectangle-radii(18px);
         } else if kind == PrototypeComponentKind.text {
             root.selection = CanvasSelectionKind.text;
@@ -546,7 +555,7 @@ export component VisualEditorPrototype inherits Window {
             return 282px;
         }
         if root.placed-kind == PrototypeComponentKind.rectangle {
-            return 282px;
+            return root.rectangle-width;
         }
         return 280px;
     }
@@ -556,7 +565,7 @@ export component VisualEditorPrototype inherits Window {
             return 168px;
         }
         if root.placed-kind == PrototypeComponentKind.rectangle {
-            return 104px;
+            return root.rectangle-height;
         }
         return 32px;
     }
@@ -685,6 +694,62 @@ export component VisualEditorPrototype inherits Window {
         root.radius-dragging = false;
         root.radius-drag-corner = -1;
         root.radius-drag-single-corner = false;
+    }
+
+    function begin-moving-rectangle() {
+        root.rectangle-moving = true;
+        root.selection = CanvasSelectionKind.rectangle;
+    }
+
+    function move-rectangle-by(delta-x: length, delta-y: length) {
+        root.rectangle-moving = true;
+        root.selection = CanvasSelectionKind.rectangle;
+        root.placed-x = (root.placed-x + delta-x).clamp(16px, 390px - root.rectangle-width - 16px);
+        root.placed-y = (root.placed-y + delta-y).clamp(54px, 720px - root.rectangle-height - 24px);
+    }
+
+    function finish-moving-rectangle() {
+        root.rectangle-moving = false;
+    }
+
+    function resize-rectangle(corner: int, window-x: length, window-y: length) {
+        root.rectangle-resize-corner = corner;
+        root.selection = CanvasSelectionKind.rectangle;
+        if corner == 0 {
+            root.rectangle-resize-right = root.placed-x + root.rectangle-width;
+            root.rectangle-resize-bottom = root.placed-y + root.rectangle-height;
+            root.placed-x = (window-x - root.phone-left()).clamp(16px, root.rectangle-resize-right - 80px);
+            root.placed-y = (window-y - root.phone-top()).clamp(54px, root.rectangle-resize-bottom - 44px);
+            root.rectangle-width = root.rectangle-resize-right - root.placed-x;
+            root.rectangle-height = root.rectangle-resize-bottom - root.placed-y;
+        } else if corner == 1 {
+            root.rectangle-resize-bottom = root.placed-y + root.rectangle-height;
+            root.rectangle-width = (window-x - root.phone-left() - root.placed-x).clamp(80px, 390px - root.placed-x - 16px);
+            root.placed-y = (window-y - root.phone-top()).clamp(54px, root.rectangle-resize-bottom - 44px);
+            root.rectangle-height = root.rectangle-resize-bottom - root.placed-y;
+        } else if corner == 2 {
+            root.rectangle-width = (window-x - root.phone-left() - root.placed-x).clamp(80px, 390px - root.placed-x - 16px);
+            root.rectangle-height = (window-y - root.phone-top() - root.placed-y).clamp(44px, 720px - root.placed-y - 24px);
+        } else {
+            root.rectangle-resize-right = root.placed-x + root.rectangle-width;
+            root.placed-x = (window-x - root.phone-left()).clamp(16px, root.rectangle-resize-right - 80px);
+            root.rectangle-width = root.rectangle-resize-right - root.placed-x;
+            root.rectangle-height = (window-y - root.phone-top() - root.placed-y).clamp(44px, 720px - root.placed-y - 24px);
+        }
+        root.clamp-rectangle-radii();
+    }
+
+    function finish-resizing-rectangle(corner: int, window-x: length, window-y: length) {
+        root.resize-rectangle(corner, window-x, window-y);
+        root.rectangle-resize-corner = -1;
+    }
+
+    function clamp-rectangle-radii() {
+        root.rectangle-top-left-radius = root.rectangle-top-left-radius.clamp(0px, root.rectangle-max-radius);
+        root.rectangle-top-right-radius = root.rectangle-top-right-radius.clamp(0px, root.rectangle-max-radius);
+        root.rectangle-bottom-right-radius = root.rectangle-bottom-right-radius.clamp(0px, root.rectangle-max-radius);
+        root.rectangle-bottom-left-radius = root.rectangle-bottom-left-radius.clamp(0px, root.rectangle-max-radius);
+        root.rectangle-radius = root.rectangle-radius.clamp(0px, root.rectangle-max-radius);
     }
 
     if !root.wizard-visible: editor := Rectangle {
@@ -997,8 +1062,28 @@ export component VisualEditorPrototype inherits Window {
                             border-color: root.selection == CanvasSelectionKind.rectangle ? StudioTheme.accent-strong : #93c5fd;
 
                             TouchArea {
+                                mouse-cursor: move;
+                                private property <bool> moved-during-press: false;
+
+                                changed pressed => {
+                                    if self.pressed {
+                                        root.begin-moving-rectangle();
+                                        self.moved-during-press = false;
+                                    } else {
+                                        root.finish-moving-rectangle();
+                                    }
+                                }
+
+                                moved => {
+                                    self.moved-during-press = true;
+                                    root.move-rectangle-by(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
+                                }
+
                                 clicked => {
-                                    root.selection = CanvasSelectionKind.rectangle;
+                                    if !self.moved-during-press {
+                                        root.selection = CanvasSelectionKind.rectangle;
+                                    }
+                                    self.moved-during-press = false;
                                 }
                             }
                         }
@@ -1062,6 +1147,37 @@ export component VisualEditorPrototype inherits Window {
                                 border-radius: 5px;
                                 background: StudioTheme.accent-strong;
                             }
+
+                            for corner in 4: Rectangle {
+                                visible: root.placed-kind == PrototypeComponentKind.rectangle;
+                                property <bool> active: root.rectangle-resize-corner == corner;
+
+                                x: corner == 1 || corner == 2 ? parent.width - 6px : -6px;
+                                y: corner >= 2 ? parent.height - 6px : -6px;
+                                width: 12px;
+                                height: 12px;
+                                border-radius: 2px;
+                                background: active ? StudioTheme.accent-strong : white;
+                                border-width: 2px;
+                                border-color: StudioTheme.accent-strong;
+
+                                TouchArea {
+                                    mouse-cursor: corner == 0 || corner == 2 ? nwse-resize : nesw-resize;
+
+                                    changed pressed => {
+                                        if self.pressed {
+                                            root.rectangle-resize-corner = corner;
+                                            root.selection = CanvasSelectionKind.rectangle;
+                                        } else {
+                                            root.finish-resizing-rectangle(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+                                        }
+                                    }
+
+                                    moved => {
+                                        root.resize-rectangle(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+                                    }
+                                }
+                            }
                         }
 
                         if root.placed-kind == PrototypeComponentKind.rectangle && root.selection == CanvasSelectionKind.rectangle: radius-guide := Rectangle {
@@ -1094,18 +1210,22 @@ export component VisualEditorPrototype inherits Window {
 
                                 TouchArea {
                                     mouse-cursor: pointer;
+                                    private property <bool> shift-mode: false;
+
                                     pointer-event(event) => {
-                                        if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
-                                            root.update-rectangle-radius(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, event.modifiers.shift);
-                                        } else if event.kind == PointerEventKind.move && self.pressed {
-                                            root.update-rectangle-radius(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, event.modifiers.shift);
-                                        } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
-                                            root.finish-rectangle-radius(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, event.modifiers.shift);
-                                        } else if event.kind == PointerEventKind.cancel {
-                                            root.radius-dragging = false;
-                                            root.radius-drag-corner = -1;
-                                            root.radius-drag-single-corner = false;
+                                        self.shift-mode = event.modifiers.shift;
+                                    }
+
+                                    changed pressed => {
+                                        if self.pressed {
+                                            root.update-rectangle-radius(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, self.shift-mode);
+                                        } else {
+                                            root.finish-rectangle-radius(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, self.shift-mode);
                                         }
+                                    }
+
+                                    moved => {
+                                        root.update-rectangle-radius(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, self.shift-mode);
                                     }
                                 }
                             }
@@ -1169,8 +1289,8 @@ export component VisualEditorPrototype inherits Window {
                             title: "LAYOUT";
                             PropertyField { name: "X"; value: root.selection == CanvasSelectionKind.artboard ? "0" : "\{root.placed-x / 1px}"; }
                             PropertyField { name: "Y"; value: root.selection == CanvasSelectionKind.artboard ? "0" : "\{root.placed-y / 1px}"; }
-                            PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.artboard ? "390" : root.selection == CanvasSelectionKind.image ? "282" : "280"; }
-                            PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.artboard ? "720" : root.selection == CanvasSelectionKind.image ? "168" : "104"; }
+                            PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.artboard ? "390" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-width / 1px}" : root.selection == CanvasSelectionKind.image ? "282" : "280"; }
+                            PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.artboard ? "720" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-height / 1px}" : root.selection == CanvasSelectionKind.image ? "168" : "104"; }
                         }
 
                         InspectorSection {
