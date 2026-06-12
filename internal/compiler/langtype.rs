@@ -226,6 +226,7 @@ impl Type {
                 | Self::Enumeration(_)
                 | Self::Keys
                 | Self::DataTransfer
+                | Self::PathData
                 | Self::ElementReference
                 | Self::Struct { .. }
                 | Self::Array(_)
@@ -285,7 +286,8 @@ impl Type {
             | (Type::PhysicalLength, Type::Rem)
             | (Type::Percent, Type::Float32)
             | (Type::Brush, Type::Color)
-            | (Type::Color, Type::Brush) => true,
+            | (Type::Color, Type::Brush)
+            | (Type::String, Type::PathData) => true,
             (Type::Array(a), Type::Model) if a.is_property_type() => true,
             (Type::Struct(a), Type::Struct(b)) => can_convert_struct(&a.fields, &b.fields),
             (Type::UnitProduct(u), o) => match o.as_unit_product() {

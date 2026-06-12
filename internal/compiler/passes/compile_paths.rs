@@ -63,6 +63,25 @@ pub fn compile_paths(
                         }
                     }
                 }
+                Expression::Cast { from, to: Type::PathData } if from.ty() == Type::String => {
+                    if let Expression::StringLiteral(commands) = from.as_ref() {
+                        match compile_path_from_string_literal(commands) {
+                            Ok(binding) => binding,
+                            Err(e) => {
+                                diag.push_error(
+                                    format!("Error parsing SVG commands ({e})"),
+                                    &commands_expr,
+                                );
+                                return;
+                            }
+                        }
+                    } else {
+                        Expression::PathData(crate::expression_tree::Path::Commands(Box::new(
+                            (**from).clone(),
+                        )))
+                    }
+                }
+                expr if expr.ty() == Type::PathData => commands_expr.expression,
                 expr if expr.ty() == Type::String => {
                     #[cfg(feature = "software-renderer")]
                     if _embed_resources == EmbedResourcesKind::EmbedTextures {
@@ -75,7 +94,6 @@ pub fn compile_paths(
                     Expression::PathData(crate::expression_tree::Path::Commands(Box::new(
                         commands_expr.expression,
                     )))
-                    .into()
                 }
                 _ => {
                     diag.push_error(
@@ -136,19 +154,19 @@ pub fn compile_paths(
                 }
             }
 
-            Expression::PathData(crate::expression_tree::Path::Elements(path_data)).into()
+            Expression::PathData(crate::expression_tree::Path::Elements(path_data))
         };
 
         elem_
             .borrow_mut()
             .bindings
-            .insert(SmolStr::new_static("elements"), RefCell::new(path_data_binding));
+            .insert(SmolStr::new_static("elements"), RefCell::new(path_data_binding.into()));
     });
 }
 
-fn compile_path_from_string_literal(
+pub fn compile_path_from_string_literal(
     commands: &str,
-) -> Result<BindingExpression, lyon_extra::parser::ParseError> {
+) -> Result<Expression, lyon_extra::parser::ParseError> {
     let mut builder = lyon_path::Path::builder();
     let mut parser = lyon_extra::parser::PathParser::new();
     parser.parse(
@@ -220,5 +238,5 @@ fn compile_path_from_string_literal(
         })
         .collect();
 
-    Ok(Expression::PathData(Path::Events(events, points)).into())
+    Ok(Expression::PathData(Path::Events(events, points)))
 }

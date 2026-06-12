@@ -378,6 +378,11 @@ impl Expression {
                         ctx.diag.slint_sc_error("@image-url() expressions are", &node);
                         Some(Self::from_at_image_url_node(node.into(), ctx))
                     }
+                    SyntaxKind::AtPathData => {
+                        #[cfg(feature = "slint-sc")]
+                        ctx.diag.slint_sc_error("@pathdata() expressions are", &node);
+                        Some(Self::from_at_path_data_node(node.into(), ctx))
+                    }
                     SyntaxKind::AtGradient => {
                         #[cfg(feature = "slint-sc")]
                         ctx.diag.slint_sc_error("@gradient expressions are", &node);
@@ -586,6 +591,23 @@ impl Expression {
             resource_ref,
             source_location: Some(node.to_source_location()),
             nine_slice,
+        }
+    }
+
+    fn from_at_path_data_node(node: syntax_nodes::AtPathData, ctx: &mut LookupCtx) -> Self {
+        let Some(string_token) = node.child_token(SyntaxKind::StringLiteral) else {
+            return Expression::Invalid;
+        };
+
+        let s = string_token.text();
+        let commands_str = &s[1..s.len() - 1];
+
+        match super::compile_paths::compile_path_from_string_literal(commands_str) {
+            Ok(binding) => binding,
+            Err(e) => {
+                ctx.diag.push_error(format!("Error parsing SVG path commands ({e})"), &node);
+                Expression::Invalid
+            }
         }
     }
 

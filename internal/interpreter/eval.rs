@@ -260,6 +260,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 (Value::Number(n), Type::String) => {
                     Value::String(i_slint_core::string::shared_string_from_number(n))
                 }
+                (Value::String(s), Type::PathData) => Value::PathData(PathData::Commands(s)),
                 (Value::Number(n), Type::Color) => Color::from_argb_encoded(n as u32).into(),
                 (Value::Brush(brush), Type::Color) => brush.color().into(),
                 (Value::EnumerationValue(_, val), Type::String) => Value::String(val.into()),

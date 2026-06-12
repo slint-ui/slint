@@ -477,6 +477,7 @@ impl TypeRegister {
         register.insert_type(Type::ComponentFactory);
         register.insert_type(Type::Duration);
         register.insert_type(Type::Image);
+        register.insert_type(Type::PathData);
         register.insert_type(Type::Bool);
         register.insert_type(Type::Model);
         register.insert_type(Type::Percent);
