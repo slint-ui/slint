@@ -530,7 +530,6 @@ async fn run_main_loop(
         preview_config: Default::default(),
         server_notifier,
         init_param,
-        rename_accessors_policy: Default::default(),
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         to_show: Default::default(),
         open_urls: Default::default(),

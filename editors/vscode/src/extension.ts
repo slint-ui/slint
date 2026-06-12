@@ -289,6 +289,29 @@ export function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand("slint.newProject", newProject),
+        vscode.commands.registerCommand(
+            "slint.renameWithHostAccessors",
+            async (uri: string, position: { line: number; character: number }) => {
+                // The CodeAction invokes us with the LSP-shaped uri + position
+                // of the declaration. Prompt for the new name and forward to
+                // the LSP-side command which runs the slint rename + scanner
+                // and sends back the workspace/applyEdit.
+                const newName = await vscode.window.showInputBox({
+                    title: "Rename Slint declaration and its Rust/C++ accessors",
+                    prompt: "Enter the new name. The Rust/C++ call sites will be rewritten textually; review the preview before applying.",
+                    validateInput: (value) => {
+                        if (!value.trim()) {
+                            return "Name cannot be empty";
+                        }
+                        return null;
+                    },
+                });
+                if (!newName) {
+                    return;
+                }
+                await lsp_commands.renameWithHostAccessors(uri, position, newName);
+            },
+        ),
     );
 
     startTelemetryTimer(context, telemetryLogger);

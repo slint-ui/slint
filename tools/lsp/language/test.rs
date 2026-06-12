@@ -31,8 +31,6 @@ pub fn mock_context() -> Context {
         preview_config: Default::default(),
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
-        #[cfg(not(target_arch = "wasm32"))]
-        rename_accessors_policy: Default::default(),
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         to_show: None,
         open_urls: HashSet::new(),
@@ -77,8 +75,6 @@ pub fn loaded_document_cache_with_file_name(
         preview_config: Default::default(),
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
-        #[cfg(not(target_arch = "wasm32"))]
-        rename_accessors_policy: Default::default(),
         to_show: None,
         open_urls: Default::default(),
         to_preview: LspToPreviews::with_one(common::DummyLspToPreview::default()),
