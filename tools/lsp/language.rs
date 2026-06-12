@@ -170,9 +170,10 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
 
 /// Read each font file imported by the `.slint` at `doc_url` and push it
 /// to the remote viewer via `SetContents`. Only the remote viewer needs
-/// font bytes pushed: local previews read fonts from disk. `sent` is used
-/// to skip fonts already transferred in this round (e.g. referenced by
-/// several `.slint` files).
+/// font bytes pushed: local previews read fonts from disk. Fonts in `sent`
+/// are skipped: callers seed it with fonts that were already transferred
+/// (e.g. referenced by an earlier document in the same batch, or sent
+/// before the current edit).
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
 fn send_referenced_fonts(ctx: &Context, doc_url: &Url, sent: &mut HashSet<PathBuf>) {
     let Some(remote) = ctx.to_preview.remote() else { return };
@@ -854,8 +855,21 @@ pub(crate) async fn load_document_impl(
                 url: VersionedUrl::new(url.clone(), version),
                 contents: content.clone().into(),
             });
+            // Fonts imported before this edit were pushed to the remote viewer
+            // already; seed the sent set with them so only fonts added by this
+            // edit are transferred.
+            #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
+            let mut fonts_sent: HashSet<PathBuf> = ctx
+                .document_cache
+                .get_document(&url)
+                .map(|doc| {
+                    doc.custom_fonts.iter().map(|(p, _)| PathBuf::from(p.as_str())).collect()
+                })
+                .unwrap_or_default();
             let dependencies: HashSet<Url> = ctx.document_cache.invalidate_url(&url);
             let _ = ctx.document_cache.load_url(&url, version, content, &mut diag).await;
+            #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
+            send_referenced_fonts(ctx, &url, &mut fonts_sent);
             dependencies
         }
         FileAction::IgnoreFile => return Default::default(),
