@@ -15,7 +15,7 @@ publish = false
 
 [dependencies]
 anyhow = "1.0"
-cargo_metadata = "0.19"
+cargo_metadata = "0.23"
 cbindgen = { workspace = true }
 clap = { workspace = true }
 const_format = "0.2"
