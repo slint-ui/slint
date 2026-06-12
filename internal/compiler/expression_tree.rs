@@ -368,9 +368,14 @@ impl BuiltinFunction {
             | BuiltinFunction::Pow
             | BuiltinFunction::Exp
             | BuiltinFunction::ATan
-            | BuiltinFunction::ATan2
-            | BuiltinFunction::ToFixed
-            | BuiltinFunction::ToPrecision => true,
+            | BuiltinFunction::ATan2 => true,
+            // The result depends on the locale's decimal separator, like DecimalSeparator.
+            // The constant propagation folds the locale-independent cases and promotes
+            // their binding back to constant.
+            BuiltinFunction::ToFixed
+            | BuiltinFunction::ToPrecision
+            | BuiltinFunction::StringToFloat
+            | BuiltinFunction::StringIsFloat => false,
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
             BuiltinFunction::ShowPopupWindow
             | BuiltinFunction::ClosePopupWindow
@@ -378,9 +383,7 @@ impl BuiltinFunction {
             | BuiltinFunction::ShowPopupMenuInternal => false,
             BuiltinFunction::SetSelectionOffsets => false,
             BuiltinFunction::ItemFontMetrics => false, // depends also on Window's font properties
-            BuiltinFunction::StringToFloat
-            | BuiltinFunction::StringIsFloat
-            | BuiltinFunction::StringIsEmpty
+            BuiltinFunction::StringIsEmpty
             | BuiltinFunction::StringCharacterCount
             | BuiltinFunction::StringToLowercase
             | BuiltinFunction::StringToUppercase
@@ -1335,7 +1338,20 @@ impl Expression {
             Expression::ArrayIndex { array, index } => {
                 array.is_constant(ga) && index.is_constant(ga)
             }
-            Expression::Cast { from, .. } => from.is_constant(ga),
+            Expression::Cast { from, to } => {
+                // Converting a float to string depends on the locale's decimal separator,
+                // unless the result contains none, like for integer literals.
+                // The constant propagation folds the remaining constant cases and
+                // promotes their binding back to constant.
+                if *to == Type::String
+                    && from.ty() == Type::Float32
+                    && !matches!(&**from, Expression::NumberLiteral(n, Unit::None)
+                        if locale_independent_number_to_string(*n).is_some())
+                {
+                    return false;
+                }
+                from.is_constant(ga)
+            }
             // This is conservative: the return value is the last expression in the block, but
             // we kind of mean "pure" here too, so ensure the whole body is OK.
             Expression::CodeBlock(sub) => sub.iter().all(|s| s.is_constant(ga)),
@@ -1746,6 +1762,13 @@ fn model_inner_type(model: &Expression) -> Type {
             _ => Type::Invalid,
         },
     }
+}
+
+/// Converts a float to a string when the result contains no decimal separator,
+/// and is therefore the same in every locale.
+pub fn locale_independent_number_to_string(n: f64) -> Option<SmolStr> {
+    let string = format_smolstr!("{}", i_slint_common::FormattedNumber(n));
+    (!string.contains('.')).then_some(string)
 }
 
 /// The right hand side of a two way binding
