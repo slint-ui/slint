@@ -27,9 +27,7 @@ use i_slint_compiler::{diagnostics::BuildDiagnostics, langtype::Type};
 use i_slint_live_preview::protocol::PreviewComponent;
 use i_slint_live_preview::{
     file_watcher::FileChangeKind,
-    protocol::{
-        LspToPreviewMessage, PreviewConfig, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
-    },
+    protocol::{LspToPreviewMessage, PreviewConfig, SourceFileVersion, VersionedUrl},
 };
 
 use itertools::Itertools;
@@ -216,8 +214,6 @@ pub struct Context {
     /// Files to recompile after all other operations are done
     /// (i.e. recompilations triggered by updates to unopened files)
     pub pending_recompile: HashSet<lsp_types::Url>,
-    #[cfg_attr(not(feature = "preview-remote"), allow(dead_code))]
-    pub preview_to_lsp_sender: tokio::sync::mpsc::UnboundedSender<PreviewToLspMessage>,
 }
 
 /// An error from a LSP request
