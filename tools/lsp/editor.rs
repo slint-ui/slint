@@ -425,7 +425,8 @@ fn handle_preview_message(msg: PreviewToLspMessage, ctx: &language::Context) {
         | PreviewTypeChanged { .. }
         | TelemetryEvent(..)
         | ConnectRemote { .. }
-        | DisconnectRemote => {
+        | DisconnectRemote
+        | Pong => {
             tracing::debug!("Ignoring message from preview: {msg:?}");
         }
         SendWorkspaceEdit { .. } => {
