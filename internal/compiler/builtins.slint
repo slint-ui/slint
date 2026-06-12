@@ -2837,6 +2837,10 @@ export global Platform {
     /// style name without the suffix. Use <Link type="Palette" label="Palette"/>'s `color-scheme` to
     /// determine the currently used scheme.
     out property <string> style-name;
+    /// The decimal separator used when converting between `float` and `string`.
+    /// It defaults to the dot (`.`) and is determined by the locale.
+    /// See the <Link type="translations" label="translations guide"/> for details.
+    out property <string> decimal-separator;
     /// Opens the specified URL in an external browser. This function invokes the platform's URL opening mechanism.
     /// Returns `true` on success, or `false` if the platform doesn't support opening URLs or the operation failed.
     ///
@@ -2862,9 +2866,6 @@ export global Platform {
     ///
     /// This corresponds to the standard macOS **Window › Bring All to Front** menu item.
     function macos-bring-all-windows-to-front() { }
-    /// The decimal separator currently used for localized float to string and vice versa conversions
-    /// For more information about localization and how to change the decimal separator see <Link type="translations" label="translations page"/>.
-    out property <string> decimal-separator;
 }
 
 export component NativeButton {
