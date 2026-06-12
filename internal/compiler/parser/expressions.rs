@@ -768,7 +768,7 @@ fn parse_path_data(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::AtPathData);
     p.expect(SyntaxKind::At);
     debug_assert_eq!(p.peek().as_str(), "pathdata");
-    p.expect(SyntaxKind::Identifier); // "pathdata"  
+    p.expect(SyntaxKind::Identifier); // "pathdata"
     p.expect(SyntaxKind::LParent);
 
     let peek = p.peek();
