@@ -606,6 +606,7 @@ export component Main { }
             let mut ctx = crate::language::Context {
                 document_cache: common::DocumentCache::new(config),
                 preview_config: Default::default(),
+                preview_user_settings: Default::default(),
                 server_notifier: crate::ServerNotifier::dummy(),
                 init_param: Default::default(),
                 to_show: None,

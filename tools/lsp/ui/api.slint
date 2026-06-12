@@ -298,10 +298,19 @@ export global Api {
     // ## General preview state:
     // enable editing mode
     in property <bool> show-preview-ui: true;
+    in property <bool> suppress-preview-user-settings-updates: false;
     // std-widgets are used (=> show style dropdown)
     in-out property <bool> uses-widgets;
     in-out property <bool> always-on-top;
     in property <bool> focus-previewed-element;
+    callback preview-user-settings-changed(
+        always-on-top: bool,
+        show-library: bool,
+        show-properties: bool,
+        show-outline: bool,
+        show-simulation-data: bool,
+        show-console: bool,
+    );
 
     // ## Component Data for ComponentList:
     // All the components
