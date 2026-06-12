@@ -21,3 +21,20 @@ import * as vscode from "vscode";
 export function showPreview(url: LspURI, component: string): Thenable<unknown> {
     return vscode.commands.executeCommand("slint/showPreview", url, component);
 }
+
+// Send the LSP-side `slint/renameWithHostAccessors` command. The LSP runs the
+// Slint rename, merges in textual rewrites of the generated Rust/C++
+// accessor at workspace call sites, and sends back a `workspace/applyEdit`
+// for the editor to apply.
+export function renameWithHostAccessors(
+    uri: LspURI,
+    position: { line: number; character: number },
+    newName: string,
+): Thenable<unknown> {
+    return vscode.commands.executeCommand(
+        "slint/renameWithHostAccessors",
+        uri,
+        position,
+        newName,
+    );
+}

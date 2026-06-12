@@ -31,30 +31,6 @@ const HOST_FILE_EXTENSIONS: &[&str] = &["rs", "cpp", "cc", "cxx", "h", "hpp", "h
 /// Directory names skipped during the walk.
 const SKIP_DIRS: &[&str] = &["target", "build", "out", "dist", "node_modules", ".git"];
 
-/// User policy for extending a Slint rename with host-language accessor
-/// edits. Mapped from the `slint.renameAccessorsInHostLanguages` workspace
-/// configuration.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum RenameAccessorsPolicy {
-    /// No host-language edits. Current behavior.
-    #[default]
-    Never,
-    /// Extend every `textDocument/rename` `WorkspaceEdit` with the scanner's
-    /// host-language edits.
-    Always,
-}
-
-impl RenameAccessorsPolicy {
-    /// Parse the string form used in the workspace config.
-    pub fn parse(s: &str) -> Option<Self> {
-        match s {
-            "never" => Some(Self::Never),
-            "always" => Some(Self::Always),
-            _ => None,
-        }
-    }
-}
-
 /// Hard limits on scan work. `textDocument/rename` is synchronous in the LSP;
 /// an unbounded scan would stall the server.
 #[derive(Debug, Clone, Copy)]
@@ -94,9 +70,8 @@ impl std::fmt::Display for HostLanguageScanError {
             ),
             Self::TooManyFiles { limit } => write!(
                 f,
-                "Cannot scan host-language files: workspace exceeds {limit} \
-                 files. Disable slint.renameAccessorsInHostLanguages or \
-                 narrow the workspace folder.",
+                "Cannot scan host-language files: workspace exceeds {limit} files. \
+                 Narrow the workspace folder.",
             ),
         }
     }
@@ -307,14 +282,15 @@ fn has_host_extension(path: &Path) -> bool {
 /// Find every word-boundary-aligned occurrence of any old accessor name in
 /// `contents`, paired with the replacement text.
 ///
-/// The walk maintains a small lexer state so matches inside line comments,
-/// block comments, double-quoted string literals, and short char literals
-/// (`'X'`, `'\\X'`) are skipped. The lexer is intentionally minimal -- raw
-/// strings, byte strings, Rust lifetimes (`'a`), nested block comments,
-/// and language-specific escapes aren't handled. False positives in those
-/// contexts are an accepted v1 limitation; users opted in via
-/// `slint.renameAccessorsInHostLanguages = "always"` and should review the
-/// proposed edits before applying.
+/// This is a flat textual scan with no awareness of comments, string
+/// literals, raw strings, lifetimes, or any other language construct. The
+/// rename is *textual by design*: the feature is reached through a CodeAction
+/// that produces a `WorkspaceEdit` shown in the editor's rename-preview UI,
+/// and the user reviews proposed edits before applying. Selectively skipping
+/// some contexts (comments, strings) while still rewriting unrelated types
+/// that happen to share the accessor name was inconsistent enough to mislead
+/// users about what the tool actually does; the simpler flat scan is honest
+/// about the trade-off.
 ///
 /// Word boundaries treat any non-ASCII byte as if it extended an identifier,
 /// so a UTF-8 continuation byte adjacent to a match defeats the boundary --
@@ -327,123 +303,38 @@ fn scan_file_contents(
     contents: &str,
     accessors: &[(String, String)],
 ) -> Vec<(std::ops::Range<usize>, String)> {
-    #[derive(Clone, Copy, PartialEq, Eq)]
-    enum LexState {
-        Code,
-        LineComment,
-        BlockComment,
-        String,
-    }
-
     let bytes = contents.as_bytes();
     let mut matches = Vec::new();
-    let mut state = LexState::Code;
     let mut i = 0;
     while i < bytes.len() {
-        match state {
-            LexState::Code => {
-                if bytes[i] == b'/' && bytes.get(i + 1) == Some(&b'/') {
-                    state = LexState::LineComment;
-                    i += 2;
-                    continue;
-                }
-                if bytes[i] == b'/' && bytes.get(i + 1) == Some(&b'*') {
-                    state = LexState::BlockComment;
-                    i += 2;
-                    continue;
-                }
-                if bytes[i] == b'"' {
-                    state = LexState::String;
-                    i += 1;
-                    continue;
-                }
-                // Char literal: `'X'` or `'\\X'` (any single escape).
-                // Lifetimes look like `'a` without a closing quote; we
-                // peek ahead and only skip if a matching `'` is present
-                // within a short distance, otherwise treat `'` as a
-                // plain code byte and fall through.
-                if bytes[i] == b'\''
-                    && let Some(end) = try_consume_char_literal(bytes, i)
-                {
-                    i = end;
-                    continue;
-                }
-                // Try matching each accessor needle at the current position.
-                let mut matched_len = 0;
-                for (old, new) in accessors {
-                    let needle = old.as_bytes();
-                    if bytes[i..].starts_with(needle) {
-                        let end = i + needle.len();
-                        let after_ok = end == bytes.len() || !extends_identifier(bytes[end]);
-                        let (effective_start, before_ok) =
-                            if i >= 2 && bytes[i - 2] == b'r' && bytes[i - 1] == b'#' {
-                                let s = i - 2;
-                                (s, s == 0 || !extends_identifier(bytes[s - 1]))
-                            } else {
-                                (i, i == 0 || !extends_identifier(bytes[i - 1]))
-                            };
-                        if before_ok && after_ok {
-                            matches.push((effective_start..end, new.clone()));
-                            matched_len = needle.len();
-                            break;
-                        }
-                    }
-                }
-                if matched_len > 0 {
-                    i += matched_len;
-                } else {
-                    i += utf8_char_len(bytes, i);
+        let mut matched_len = 0;
+        for (old, new) in accessors {
+            let needle = old.as_bytes();
+            if bytes[i..].starts_with(needle) {
+                let end = i + needle.len();
+                let after_ok = end == bytes.len() || !extends_identifier(bytes[end]);
+                let (effective_start, before_ok) =
+                    if i >= 2 && bytes[i - 2] == b'r' && bytes[i - 1] == b'#' {
+                        let s = i - 2;
+                        (s, s == 0 || !extends_identifier(bytes[s - 1]))
+                    } else {
+                        (i, i == 0 || !extends_identifier(bytes[i - 1]))
+                    };
+                if before_ok && after_ok {
+                    matches.push((effective_start..end, new.clone()));
+                    matched_len = needle.len();
+                    break;
                 }
             }
-            LexState::LineComment => {
-                if bytes[i] == b'\n' {
-                    state = LexState::Code;
-                }
-                i += 1;
-            }
-            LexState::BlockComment => {
-                if bytes[i] == b'*' && bytes.get(i + 1) == Some(&b'/') {
-                    state = LexState::Code;
-                    i += 2;
-                    continue;
-                }
-                i += 1;
-            }
-            LexState::String => {
-                if bytes[i] == b'\\' && i + 1 < bytes.len() {
-                    i += 2; // skip escape sequence (\" included)
-                    continue;
-                }
-                if bytes[i] == b'"' {
-                    state = LexState::Code;
-                }
-                i += 1;
-            }
+        }
+        if matched_len > 0 {
+            i += matched_len;
+        } else {
+            i += utf8_char_len(bytes, i);
         }
     }
     matches.sort_by_key(|(r, _)| r.start);
     matches
-}
-
-/// If `bytes[i]` starts a short char literal (`'X'` or `'\\X'`), return the
-/// byte offset just past the closing quote; otherwise return `None`. The
-/// caller should then treat `'` as a plain code byte (Rust lifetimes look
-/// like `'a` without a closing quote).
-fn try_consume_char_literal(bytes: &[u8], i: usize) -> Option<usize> {
-    debug_assert_eq!(bytes[i], b'\'');
-    // `'\X'` where X is any single byte (covers `'\n'`, `'\''`, `'\"'`, etc.)
-    if bytes.get(i + 1) == Some(&b'\\') && i + 3 < bytes.len() && bytes[i + 3] == b'\'' {
-        return Some(i + 4);
-    }
-    // `'X'` where X is one UTF-8 code point.
-    if i + 1 < bytes.len() && bytes[i + 1] != b'\'' {
-        let char_len = utf8_char_len(bytes, i + 1);
-        let close = i + 1 + char_len;
-        if bytes.get(close) == Some(&b'\'') {
-            return Some(close + 1);
-        }
-    }
-    None
 }
 
 /// Returns the length of the UTF-8 code point starting at `bytes[i]`,
@@ -529,70 +420,19 @@ mod tests {
     }
 
     #[test]
-    fn skip_matches_inside_line_comments() {
-        let contents = "let x = obj.get_count(); // get_count again here\n";
-        let edits =
-            scan_file_contents(contents, &pairs(DeclarationKind::Property, "count", "total"));
-        assert_eq!(edits.len(), 1, "only the live call should match, got {edits:?}");
-        assert_eq!(&contents[edits[0].0.clone()], "get_count");
-    }
-
-    #[test]
-    fn skip_matches_inside_block_comments() {
-        let contents = "/* old API used obj.get_count() */\nobj.get_count();";
-        let edits =
-            scan_file_contents(contents, &pairs(DeclarationKind::Property, "count", "total"));
-        assert_eq!(edits.len(), 1, "match inside block comment must be skipped, got {edits:?}");
-    }
-
-    #[test]
-    fn skip_matches_inside_string_literals() {
+    fn textual_scan_does_match_inside_comments_and_strings() {
+        // The scanner is flat textual — it deliberately doesn't try to skip
+        // comments or string literals. The reshape (PR feedback) committed
+        // to "users review the rename preview before applying" rather than
+        // selectively skipping some contexts but not others.
         let contents = r#"
-            let msg = "see obj.get_count for details";
+            // see obj.get_count for details
+            let msg = "obj.get_count is great";
             obj.get_count();
         "#;
         let edits =
             scan_file_contents(contents, &pairs(DeclarationKind::Property, "count", "total"));
-        assert_eq!(edits.len(), 1, "match inside string literal must be skipped, got {edits:?}");
-    }
-
-    #[test]
-    fn string_escapes_do_not_close_string_prematurely() {
-        // The escaped \" must not be interpreted as the end of the string.
-        let contents = "let s = \"a\\\" get_count not here\"; obj.get_count();";
-        let edits =
-            scan_file_contents(contents, &pairs(DeclarationKind::Property, "count", "total"));
-        assert_eq!(edits.len(), 1);
-    }
-
-    #[test]
-    fn skip_matches_inside_char_literals() {
-        // The `"` inside the char literal must not flip the lexer into
-        // String state; otherwise the subsequent real call site is missed.
-        let contents = "let c = '\"'; obj.get_count();";
-        let edits =
-            scan_file_contents(contents, &pairs(DeclarationKind::Property, "count", "total"));
-        assert_eq!(edits.len(), 1);
-        assert_eq!(&contents[edits[0].0.clone()], "get_count");
-    }
-
-    #[test]
-    fn lifetime_is_not_consumed_as_char_literal() {
-        // `'a` in `&'a T` is a lifetime, not a char literal. The lexer must
-        // not enter Char state and swallow the rest of the file.
-        let contents = "fn f<'a>(x: &'a u32) { obj.get_count(); }";
-        let edits =
-            scan_file_contents(contents, &pairs(DeclarationKind::Property, "count", "total"));
-        assert_eq!(edits.len(), 1);
-    }
-
-    #[test]
-    fn escaped_char_literal_is_consumed() {
-        // `'\n'`, `'\''`, `'\"'` etc. should all be skipped wholesale.
-        let contents = "let n = '\\n'; let q = '\\''; obj.get_count();";
-        let edits =
-            scan_file_contents(contents, &pairs(DeclarationKind::Property, "count", "total"));
-        assert_eq!(edits.len(), 1);
+        assert_eq!(edits.len(), 3, "all three textual matches should fire, got {edits:?}");
     }
 
     #[test]

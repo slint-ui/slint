@@ -287,7 +287,6 @@ async fn lsp_main(
         preview_config: Default::default(),
         server_notifier: notifier,
         init_param: Default::default(),
-        rename_accessors_policy: Default::default(),
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
         to_show: Default::default(),
         open_urls: Default::default(),

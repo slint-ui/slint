@@ -168,17 +168,6 @@
           "type": "string",
           "default": "",
           "description": "The path to the slint-lsp. Leave empty to use the packaged LSP"
-        },
-        "slint.renameAccessorsInHostLanguages": {
-          "type": "string",
-          "enum": ["never", "always"],
-          "enumDescriptions": [
-            "Leave Rust/C++ files untouched. Default.",
-            "Extend each rename WorkspaceEdit with textual rewrites of the generated accessor names in workspace .rs/.cpp/header files."
-          ],
-          "default": "never",
-          "description": "Whether renaming a Slint property/callback/function should also rewrite the generated Rust/C++ accessor at call sites in workspace source files.",
-          "markdownDescription": "When renaming a property, callback, or function in a `.slint` file, also rewrite the generated Rust/C++ accessor (`get_<name>`, `set_<name>`, `invoke_<name>`, `on_<name>`) at call sites in workspace `.rs`, `.cpp`, and header files.\n\n- `\"never\"` (default) leaves host-language files untouched.\n- `\"always\"` walks the workspace folder containing the renamed `.slint` and proposes textual replacements.\n\nThe scanner is intentionally simple and may produce false positives in unrelated code that happens to use the same accessor name. **Review the rename preview before applying.**"
         }
       }
     },

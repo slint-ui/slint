@@ -4278,8 +4278,8 @@ mod host_language_rename_tests {
         token.unwrap()
     }
 
-    /// Run the same flow as the LSP Rename handler under
-    /// `RenameAccessorsPolicy::Always`: slint rename + classify + scan + merge.
+    /// Run the same flow as the LSP "Rename property and Rust/C++ accessors"
+    /// CodeAction command: slint rename + classify + scan + merge.
     fn perform_rename(
         document_cache: &common::DocumentCache,
         folders: &[WorkspaceFolder],
@@ -4602,10 +4602,11 @@ export component App inherits Window {
         assert!(!by_url.contains_key(&rs), ".rs must NOT be touched on OutsideWorkspace");
     }
 
-    /// Scanner respects the comment lexer: an unrelated `get_count` inside a
-    /// Rust comment must not be rewritten.
+    /// The scanner is textual by design (post-reshape): occurrences inside
+    /// comments are also rewritten, and the user reviews the rename preview
+    /// before applying.
     #[test]
-    fn rust_comment_call_site_is_not_rewritten() {
+    fn textual_rename_includes_rust_comment_mentions() {
         let tmp = tempdir();
         let (cache, url, folders) = setup(
             &tmp,
@@ -4623,9 +4624,10 @@ export component App inherits Window {
         let edit = perform_rename(&cache, &folders, &url, "", "total");
         let by_url = edits_by_url(&edit);
         let rust_edits = by_url.get(&rs_url(&tmp, "src/main.rs")).expect("missing .rs edits");
-        // Exactly one rewrite -- the call site, not the comment.
-        assert_eq!(rust_edits.len(), 1);
-        assert_eq!(rust_edits[0], "get_total");
+        // Both the comment mention and the live call rewrite -- the user
+        // reviews the diff in the rename preview.
+        assert_eq!(rust_edits.len(), 2);
+        assert!(rust_edits.iter().all(|t| t == "get_total"));
     }
 
     /// Property rename should rewrite the same `get_<n>`/`set_<n>` accessors
@@ -4715,9 +4717,10 @@ export component App inherits Window {
 
     /// C++ comment skipping: `//` and `/* ... */` work for C++ too, since the
     /// lexer is generic enough to cover both languages' single-line and
-    /// block-comment syntax.
+    /// The scanner is textual by design (post-reshape): C++ comments are also
+    /// rewritten, same as Rust comments.
     #[test]
-    fn cpp_comment_call_site_is_not_rewritten() {
+    fn textual_rename_includes_cpp_comment_mentions() {
         let tmp = tempdir();
         let (cache, url, folders) = setup(
             &tmp,
@@ -4741,8 +4744,9 @@ export component App inherits Window {
         let by_url = edits_by_url(&edit);
         let cpp = Url::from_file_path(tmp.path().join("src/main.cpp")).unwrap();
         let cpp_edits = by_url.get(&cpp).expect("missing .cpp edits");
-        // Only the real call site; not the two comment mentions.
-        assert_eq!(cpp_edits.len(), 1);
-        assert_eq!(cpp_edits[0], "get_total");
+        // All three textual matches rewrite -- two comment mentions plus the
+        // live call. User reviews the preview.
+        assert_eq!(cpp_edits.len(), 3);
+        assert!(cpp_edits.iter().all(|t| t == "get_total"));
     }
 }
