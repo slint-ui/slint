@@ -4,8 +4,6 @@
 // cSpell: ignore ngettext npgettext pgettext unraisable
 use std::cell::{Cell, RefCell};
 
-use pyo3_stub_gen::{define_stub_info_gatherer, derive::gen_stub_pyfunction};
-
 mod data_transfer;
 mod geometry;
 mod image;
@@ -49,7 +47,6 @@ thread_local! {
     static EVENT_LOOP_EXCEPTION: RefCell<Option<PyErr>> = RefCell::new(None)
 }
 
-#[gen_stub_pyfunction]
 #[pyfunction]
 fn run_event_loop(py: Python<'_>) -> Result<(), PyErr> {
     EVENT_LOOP_EXCEPTION.replace(None);
@@ -61,19 +58,16 @@ fn run_event_loop(py: Python<'_>) -> Result<(), PyErr> {
     EVENT_LOOP_EXCEPTION.take().map_or(Ok(()), |err| Err(err))
 }
 
-#[gen_stub_pyfunction]
 #[pyfunction]
 fn quit_event_loop() -> Result<(), errors::PyEventLoopError> {
     slint_interpreter::quit_event_loop().map_err(|e| e.into())
 }
 
-#[gen_stub_pyfunction]
 #[pyfunction]
 fn set_xdg_app_id(app_id: String) -> Result<(), errors::PyPlatformError> {
     slint_interpreter::set_xdg_app_id(app_id).map_err(|e| e.into())
 }
 
-#[gen_stub_pyfunction]
 #[pyfunction]
 fn invoke_from_event_loop(callable: Py<PyAny>) -> Result<(), errors::PyEventLoopError> {
     slint_interpreter::invoke_from_event_loop(move || {
@@ -86,7 +80,6 @@ fn invoke_from_event_loop(callable: Py<PyAny>) -> Result<(), errors::PyEventLoop
     .map_err(|e| e.into())
 }
 
-#[gen_stub_pyfunction]
 #[pyfunction]
 fn init_translations(_py: Python<'_>, translations: Bound<PyAny>) -> PyResult<()> {
     i_slint_backend_selector::with_global_context(|ctx| {
@@ -103,7 +96,6 @@ fn init_translations(_py: Python<'_>, translations: Bound<PyAny>) -> PyResult<()
 /// Returns the list of optional capabilities that were compiled into the loaded
 /// native binary. This is how Python can tell whether the "dev" binary (with
 /// system-testing and MCP support) was loaded, or just the default lean one.
-#[gen_stub_pyfunction]
 #[pyfunction]
 fn build_features() -> Vec<String> {
     let mut features = Vec::new();
@@ -242,5 +234,3 @@ fn register_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
 
     Ok(())
 }
-
-define_stub_info_gatherer!(stub_info);
