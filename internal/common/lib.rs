@@ -32,7 +32,11 @@ impl core::fmt::Display for FormattedNumber {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         // Number from which the increment of f32 is 1, so that we print enough precision
         // to be able to represent all integers
-        if self.0 < 16777216. { write!(f, "{}", self.0 as f32) } else { write!(f, "{}", self.0) }
+        if self.0.abs() < 16777216. {
+            write!(f, "{}", self.0 as f32)
+        } else {
+            write!(f, "{}", self.0)
+        }
     }
 }
 
@@ -125,9 +129,9 @@ fn test_formatted_number() {
     assert_eq!(format(0.), "0");
     assert_eq!(format(16777216.), "16777216");
     assert_eq!(format(16777217.), "16777217");
-    // Negative numbers take the f32 path, which can't represent -16777217 exactly
-    assert_eq!(format(-16777217.), "-16777216");
+    assert_eq!(format(-16777217.), "-16777217");
     assert_eq!(format(16777215.5), "16777216");
+    assert_eq!(format(-16777215.5), "-16777216");
     assert_eq!(format(f64::NAN), "NaN");
 }
 

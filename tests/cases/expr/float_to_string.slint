@@ -8,7 +8,7 @@
 export component TestCase {
     in-out property <float> v1: 16777216;
     in-out property <float> v2: 16777218;
-    in-out property <float> v3: -16777217;
+    in-out property <float> v3: -16777218;
     in-out property <float> v4: 16777215.5;
     in-out property <float> v5: 4.25;
     in-out property <float> v6: 42;
@@ -16,7 +16,7 @@ export component TestCase {
     // Converted from a constant
     out property <string> c1: 16777216;
     out property <string> c2: 16777218;
-    out property <string> c3: -16777217;
+    out property <string> c3: -16777218;
     out property <string> c4: 16777215.5;
     out property <string> c5: 4.25;
     out property <string> c6: 42;
@@ -31,7 +31,7 @@ export component TestCase {
 
     out property <bool> test:
         c1 == r1 && c2 == r2 && c3 == r3 && c4 == r4 && c5 == r5 && c6 == r6
-        && c1 == "16777216" && c2 == "16777218" && c3 == "-16777216"
+        && c1 == "16777216" && c2 == "16777218" && c3 == "-16777218"
         && c4 == "16777216" && c5 == "4.25" && c6 == "42";
 }
 
