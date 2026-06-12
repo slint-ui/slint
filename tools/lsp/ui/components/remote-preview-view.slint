@@ -172,6 +172,7 @@ export component RemotePreviewView inherits Rectangle {
                         inner-shadow-color: black.with-alpha(0.1);
                         inner-shadow-offset-x: 5px;
                         inner-shadow-offset-y: 5px;
+                        clip: true;
 
                         if Api.remote-discovered-viewers.length == 0: VerticalLayout {
                             alignment: center;
