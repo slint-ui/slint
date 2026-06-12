@@ -4,7 +4,7 @@
 //include_path: ../../../demos/printerdemo/ui/images/
 
 component FixedWidthImage inherits Image {
-    source: @image-url("cat.jpg");
+    source: @image-url("../../../demos/printerdemo/ui/images/cat.jpg");
     width: 500phx;
 }
 
@@ -36,14 +36,14 @@ component TestCase inherits Rectangle {
 
     image_with_missing_width := Image {
         x:0;y:0;
-        source: @image-url("cat.jpg");
+        source: @image-url("../../../demos/printerdemo/ui/images/cat.jpg");
         height: 600phx;
         property <bool> expected_width_ok: self.width == 400phx;
     }
 
     image_with_missing_width_clipped := Image {
         x:0;y:0;
-        source: @image-url("cat.jpg");
+        source: @image-url("../../../demos/printerdemo/ui/images/cat.jpg");
         height: 600phx;
         source-clip-width: 20;
         source-clip-height: 20;
