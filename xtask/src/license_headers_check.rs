@@ -549,6 +549,7 @@ static LICENSE_LOCATION_FOR_FILE: LazyLock<Vec<(regex::Regex, LicenseLocation)>>
             ("\\.conf$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.cpp$", LicenseLocation::Tag(LicenseTagStyle::cpp_style_comment_style())),
             ("\\.css$", LicenseLocation::NoLicense),
+            ("\\.dict$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
             ("\\.gitattributes$", LicenseLocation::NoLicense),
             ("\\.gitignore$", LicenseLocation::NoLicense),
             ("\\.gltf$", LicenseLocation::NoLicense),
