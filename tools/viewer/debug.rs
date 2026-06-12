@@ -3,12 +3,13 @@
 
 use std::path::PathBuf;
 
-pub fn debug_handler(
-    location: Option<&i_slint_core::debug_log::DebugLogLocation>,
-    arguments: core::fmt::Arguments,
+pub fn log_message_handler(
+    message: &i_slint_core::debug_log::LogMessage<'_>,
 ) -> Option<(PathBuf, usize, usize)> {
-    let location = location
-        .map(|location| (PathBuf::from(location.path.as_str()), location.line, location.column));
+    let arguments = message.message_arguments();
+    let location = message
+        .location()
+        .map(|location| (PathBuf::from(location.path), location.line, location.column));
     if let Some((file, line, column)) = &location {
         tracing::info!("DEBUG {file}:{line}:{column}> {arguments}", file = file.display());
     } else {

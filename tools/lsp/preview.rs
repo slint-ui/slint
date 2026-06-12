@@ -23,7 +23,7 @@ use i_slint_live_preview::protocol::{
     PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
 };
 use lsp_types::Url;
-use slint::{PlatformError, SharedString};
+use slint::{PlatformError, SharedString, ToSharedString};
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
@@ -71,7 +71,7 @@ pub fn run(
             "type".to_string(),
             serde_json::to_value("preview_opened").unwrap(),
         )])
-        .unwrap();
+        .ok();
     app_window.window().set_fullscreen(fullscreen);
 
     tracing::debug!("Preview: requesting state from LSP");
@@ -581,7 +581,7 @@ fn set_code_binding(
         "type".to_string(),
         serde_json::to_value("property_changed").unwrap(),
     )])
-    .unwrap();
+    .ok();
 
     set_binding(
         element_url,
@@ -698,7 +698,7 @@ fn show_component(name: slint::SharedString, url: slint::SharedString) {
         lsp_types::Range::new(start, start),
         false,
     )
-    .unwrap();
+    .ok();
 }
 
 fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32, take_focus: bool) {
@@ -738,7 +738,7 @@ fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32, ta
             lsp_types::Range::new(s, e),
             take_focus,
         )
-        .unwrap();
+        .ok();
     }
 }
 
@@ -1386,7 +1386,7 @@ async fn reload_timer_function() {
                 lsp_types::Range::new(pos, pos),
                 false,
             )
-            .unwrap();
+            .ok();
         }
     }
 }
@@ -1581,24 +1581,30 @@ fn set_preview_factory(
 
     let _ = i_slint_core::window::WindowInner::from_pub(app_window.window())
         .context()
-        .set_debug_handler(Some(Box::new(|location, arguments| {
-            let message = arguments.to_string();
-            let location =
-                location.map(|location| (location.path.clone(), location.line, location.column));
+        .set_log_message_handler(Some(Box::new(|log_message| {
+            let message = log_message.message_arguments().to_string();
+            let location = log_message.location();
             PREVIEW_STATE.with_borrow_mut(|state| {
                 let to_lsp = state.to_lsp.try_borrow();
                 let Some(to_lsp) = to_lsp.ok() else { return };
                 if let Some(to_lsp) = &*to_lsp {
                     to_lsp
                         .send(&PreviewToLspMessage::DebugMessage {
-                            location: location.as_ref().map(|(path, line, column)| {
-                                (std::path::PathBuf::from(path.as_str()), *line, *column)
+                            location: location.as_ref().map(|location| {
+                                (
+                                    std::path::PathBuf::from(location.path),
+                                    location.line,
+                                    location.column,
+                                )
                             }),
                             message: message.clone(),
                         })
                         .ok();
                 }
             });
+            let location = location
+                .as_ref()
+                .map(|location| (location.path.to_shared_string(), location.line, location.column));
             let _ = slint::invoke_from_event_loop(move || {
                 PREVIEW_STATE.with_borrow(|preview_state| {
                     if let Some(api) = preview_state.api.upgrade() {
@@ -1884,7 +1890,7 @@ fn set_selected_element(
             lsp_types::Range::new(pos, pos),
             false,
         )
-        .unwrap();
+        .ok();
     }
 }
 

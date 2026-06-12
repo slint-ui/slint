@@ -113,7 +113,11 @@ pub fn set_callback_handler<
 }
 
 pub fn debug(s: SharedString) {
-    i_slint_core::debug_log!("{s}");
+    i_slint_core::debug_log::log_message(i_slint_core::debug_log::LogMessage::new(
+        i_slint_core::debug_log::LogMessageSource::SlintCode,
+        None,
+        format_args!("{s}"),
+    ));
 }
 
 pub fn ensure_backend() -> Result<(), crate::PlatformError> {

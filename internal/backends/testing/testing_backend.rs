@@ -261,7 +261,7 @@ impl i_slint_core::platform::Platform for TestingBackend {
 
     fn debug_log(&self, arguments: core::fmt::Arguments) {
         self.debug_logs.borrow_mut().push(arguments.to_string());
-        i_slint_core::debug_log::default_debug_log(arguments);
+        i_slint_core::debug_log::default_log_message(arguments);
     }
 }
 
