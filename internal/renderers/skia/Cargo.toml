@@ -31,7 +31,6 @@ wgpu-28 = [
   "i-slint-core/wgpu-28",
   "dep:wgpu-28",
   "dep:spin_on",
-  "dep:metal",
   "dep:foreign-types",
   "dep:ash",
   "dep:windows-core",
@@ -93,7 +92,6 @@ objc2-core-foundation = { version = "0.3.2", default-features = false, features 
 skia-safe = { version = "0.97.2", features = ["metal"] }
 raw-window-metal = "1.0"
 
-metal = { version = "0.31", optional = true }
 foreign-types = { version = "0.5.0", optional = true }
 wgpu-28 = { workspace = true, optional = true, features = ["metal"] }
 wgpu-29 = { workspace = true, optional = true, features = ["metal"] }
