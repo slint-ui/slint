@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore BITMAPINFO BITMAPINFOHEADER BOTTOMALIGN Hotspot HSTRING ICONINFO LEFTALIGN NOTIFYICONDATAW PCWSTR RETURNCMD SZTIP TRAYICON WNDCLASSW
+// cSpell: ignore BITMAPINFO BITMAPINFOHEADER BOTTOMALIGN Hotspot HSTRING ICONINFO LEFTALIGN NOTIFYICONDATAW PCWSTR RETURNCMD TRAYICON WNDCLASSW
 //! Windows system tray backend using the `Shell_NotifyIconW` API directly.
 //!
 //! Everything here runs on the Slint event-loop thread, which on Windows is the
@@ -453,22 +453,19 @@ fn create_hicon(icon: &Image) -> Result<HICON, Error> {
 // trailing fields (`szInfo`, `szInfoTitle`, `guidItem`, …) are zero-initialized
 // via `Default::default()`, which also NUL-terminates `szTip` past the copy.
 fn notify_icon_data(hwnd: HWND, hicon: HICON, tip: &[u16]) -> NOTIFYICONDATAW {
-    let mut data = NOTIFYICONDATAW {
+    let mut buf = [0u16; 128];
+    let n = tip.len().min(buf.len() - 1);
+    buf[..n].copy_from_slice(&tip[..n]);
+    NOTIFYICONDATAW {
         cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
         hWnd: hwnd,
         uID: TRAY_UID,
         uFlags: NIF_MESSAGE | NIF_ICON | NIF_TIP,
         uCallbackMessage: WM_TRAYICON,
         hIcon: hicon,
+        szTip: buf,
         ..Default::default()
-    };
-    // szTip is [u16; 128] per NOTIFYICONDATAW ABI:
-    // https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/UI/Shell/struct.NOTIFYICONDATAW.html
-    const SZTIP_LEN: usize = 128;
-    let sz_tip = &raw mut data.szTip;
-    let n = tip.len().min(SZTIP_LEN - 1);
-    unsafe { std::ptr::copy_nonoverlapping(tip.as_ptr(), sz_tip.cast::<u16>(), n) };
-    data
+    }
 }
 
 fn append_menu_entry(
