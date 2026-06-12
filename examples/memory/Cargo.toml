@@ -14,7 +14,7 @@ path = "main.rs"
 name = "memory"
 
 [dependencies]
-rand = "0.9"
+rand = "0.10"
 slint = { path = "../../api/rs/slint" }
 
 [build-dependencies]
