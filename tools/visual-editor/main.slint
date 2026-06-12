@@ -29,10 +29,6 @@ export enum CanvasSelectionKind {
     image,
 }
 
-global DragBridge {
-    pure callback make-data(kind: int) -> data-transfer;
-}
-
 global StudioTheme {
     out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
     out property <color> app-bg: dark ? #0d1117 : #f6f8fa;
@@ -331,13 +327,19 @@ component PrimerActionListRow inherits Rectangle {
     in property <string> label;
     in property <string> detail;
     in property <string> glyph;
-    callback selected(PrototypeComponentKind);
+    callback drag-started(PrototypeComponentKind, length, length);
+    callback drag-moved(PrototypeComponentKind, length, length);
+    callback drag-ended(PrototypeComponentKind, length, length);
+    callback drag-cancelled(PrototypeComponentKind);
+
+    property <bool> dragging: AppState.dragging-kind == root.kind;
 
     height: 70px;
     border-radius: 8px;
     border-width: 1px;
-    border-color: dragger.dragging ? StudioTheme.accent-strong : StudioTheme.border;
-    background: dragger.dragging ? StudioTheme.accent.with-alpha(0.08) : StudioTheme.panel-bg;
+    border-color: root.dragging ? StudioTheme.accent-strong : StudioTheme.border;
+    background: root.dragging ? StudioTheme.accent.with-alpha(0.08) : StudioTheme.panel-bg;
+    opacity: root.dragging ? 0.45 : 1;
     animate background, border-color { duration: 130ms; }
 
     HorizontalLayout {
@@ -376,27 +378,29 @@ component PrimerActionListRow inherits Rectangle {
         }
     }
 
-    dragger := DragArea {
-        data: DragBridge.make-data(root.kind == PrototypeComponentKind.rectangle ? 1 : root.kind == PrototypeComponentKind.text ? 2 : 3);
-        allow-copy: true;
-        allow-move: false;
-        allow-link: false;
-        drag-image-offset-x: 20;
-        drag-image-offset-y: 20;
+    touch := TouchArea {
+        mouse-cursor: pointer;
 
-        changed dragging => {
-            if self.dragging {
+        pointer-event(event) => {
+            if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
                 AppState.dragging-kind = root.kind;
-            } else if AppState.dragging-kind == root.kind {
-                AppState.dragging-kind = PrototypeComponentKind.none;
+                root.drag-started(root.kind, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+            } else if event.kind == PointerEventKind.move && self.pressed {
+                AppState.dragging-kind = root.kind;
+                root.drag-moved(root.kind, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+            } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
+                root.drag-ended(root.kind, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+            } else if event.kind == PointerEventKind.cancel {
+                root.drag-cancelled(root.kind);
             }
         }
-
     }
 }
 
 global AppState {
     in-out property <PrototypeComponentKind> dragging-kind: PrototypeComponentKind.none;
+    in-out property <length> drag-x: 0px;
+    in-out property <length> drag-y: 0px;
 }
 
 component PropertyField inherits Rectangle {
@@ -464,6 +468,11 @@ export component VisualEditorPrototype inherits Window {
     property <CanvasSelectionKind> selection: CanvasSelectionKind.artboard;
     property <PrototypeComponentKind> placed-kind: PrototypeComponentKind.none;
     property <bool> canvas-drop-hover: false;
+    property <PrototypeComponentKind> canvas-drop-kind: PrototypeComponentKind.none;
+    property <length> canvas-drop-x: 0px;
+    property <length> canvas-drop-y: 0px;
+    property <length> placed-x: 54px;
+    property <length> placed-y: 196px;
     property <string> search-text: "";
 
     function selection-title() -> string {
@@ -507,6 +516,91 @@ export component VisualEditorPrototype inherits Window {
         } else if kind == PrototypeComponentKind.image {
             root.selection = CanvasSelectionKind.image;
         }
+    }
+
+    function place-component-at(kind: PrototypeComponentKind, drop-x: length, drop-y: length) {
+        root.place-component(kind);
+        if kind == PrototypeComponentKind.rectangle {
+            root.placed-x = clamp(drop-x - 141px, 24px, 84px);
+            root.placed-y = clamp(drop-y - 52px, 72px, 592px);
+        } else if kind == PrototypeComponentKind.text {
+            root.placed-x = clamp(drop-x - 140px, 24px, 86px);
+            root.placed-y = clamp(drop-y - 16px, 72px, 660px);
+        } else if kind == PrototypeComponentKind.image {
+            root.placed-x = clamp(drop-x - 141px, 24px, 84px);
+            root.placed-y = clamp(drop-y - 84px, 72px, 528px);
+        }
+    }
+
+    function placed-width() -> length {
+        if root.placed-kind == PrototypeComponentKind.image {
+            return 282px;
+        }
+        if root.placed-kind == PrototypeComponentKind.rectangle {
+            return 282px;
+        }
+        return 280px;
+    }
+
+    function placed-height() -> length {
+        if root.placed-kind == PrototypeComponentKind.image {
+            return 168px;
+        }
+        if root.placed-kind == PrototypeComponentKind.rectangle {
+            return 104px;
+        }
+        return 32px;
+    }
+
+    function canvas-width() -> length {
+        return root.width - 286px - 306px;
+    }
+
+    function canvas-height() -> length {
+        return root.height - 54px;
+    }
+
+    function phone-left() -> length {
+        return 286px + (root.canvas-width() - 390px) / 2;
+    }
+
+    function phone-top() -> length {
+        return 54px + max(72px, (root.canvas-height() - 720px) / 2);
+    }
+
+    function pointer-inside-phone(window-x: length, window-y: length) -> bool {
+        return window-x >= root.phone-left()
+            && window-x <= root.phone-left() + 390px
+            && window-y >= root.phone-top()
+            && window-y <= root.phone-top() + 720px;
+    }
+
+    function update-visual-drag(kind: PrototypeComponentKind, window-x: length, window-y: length) {
+        AppState.dragging-kind = kind;
+        AppState.drag-x = window-x;
+        AppState.drag-y = window-y;
+        root.canvas-drop-kind = kind;
+        root.canvas-drop-x = window-x - root.phone-left();
+        root.canvas-drop-y = window-y - root.phone-top();
+        root.canvas-drop-hover = root.pointer-inside-phone(window-x, window-y);
+    }
+
+    function finish-visual-drag(kind: PrototypeComponentKind, window-x: length, window-y: length) {
+        root.update-visual-drag(kind, window-x, window-y);
+        if root.canvas-drop-hover {
+            root.place-component-at(kind, root.canvas-drop-x, root.canvas-drop-y);
+        }
+        AppState.dragging-kind = PrototypeComponentKind.none;
+        root.canvas-drop-hover = false;
+        root.canvas-drop-kind = PrototypeComponentKind.none;
+    }
+
+    function cancel-visual-drag(kind: PrototypeComponentKind) {
+        if AppState.dragging-kind == kind {
+            AppState.dragging-kind = PrototypeComponentKind.none;
+        }
+        root.canvas-drop-hover = false;
+        root.canvas-drop-kind = PrototypeComponentKind.none;
     }
 
     if !root.wizard-visible: editor := Rectangle {
@@ -682,9 +776,10 @@ export component VisualEditorPrototype inherits Window {
                                     label: "Rectangle";
                                     detail: "Surface, panel, shape";
                                     glyph: "R";
-                                    selected(kind) => {
-                                        root.place-component(kind);
-                                    }
+                                    drag-started(kind, x, y) => { root.update-visual-drag(kind, x, y); }
+                                    drag-moved(kind, x, y) => { root.update-visual-drag(kind, x, y); }
+                                    drag-ended(kind, x, y) => { root.finish-visual-drag(kind, x, y); }
+                                    drag-cancelled(kind) => { root.cancel-visual-drag(kind); }
                                 }
 
                                 PrimerActionListRow {
@@ -692,9 +787,10 @@ export component VisualEditorPrototype inherits Window {
                                     label: "Text";
                                     detail: "Label or display copy";
                                     glyph: "T";
-                                    selected(kind) => {
-                                        root.place-component(kind);
-                                    }
+                                    drag-started(kind, x, y) => { root.update-visual-drag(kind, x, y); }
+                                    drag-moved(kind, x, y) => { root.update-visual-drag(kind, x, y); }
+                                    drag-ended(kind, x, y) => { root.finish-visual-drag(kind, x, y); }
+                                    drag-cancelled(kind) => { root.cancel-visual-drag(kind); }
                                 }
 
                                 PrimerActionListRow {
@@ -702,9 +798,10 @@ export component VisualEditorPrototype inherits Window {
                                     label: "Image";
                                     detail: "Bitmap or vector asset";
                                     glyph: "IMG";
-                                    selected(kind) => {
-                                        root.place-component(kind);
-                                    }
+                                    drag-started(kind, x, y) => { root.update-visual-drag(kind, x, y); }
+                                    drag-moved(kind, x, y) => { root.update-visual-drag(kind, x, y); }
+                                    drag-ended(kind, x, y) => { root.finish-visual-drag(kind, x, y); }
+                                    drag-cancelled(kind) => { root.cancel-visual-drag(kind); }
                                 }
                             }
                         }
@@ -803,8 +900,8 @@ export component VisualEditorPrototype inherits Window {
                         }
 
                         if root.placed-kind == PrototypeComponentKind.rectangle: Rectangle {
-                            x: 54px;
-                            y: 196px;
+                            x: root.placed-x;
+                            y: root.placed-y;
                             width: 282px;
                             height: 104px;
                             border-radius: 18px;
@@ -820,8 +917,8 @@ export component VisualEditorPrototype inherits Window {
                         }
 
                         if root.placed-kind == PrototypeComponentKind.text: Text {
-                            x: 54px;
-                            y: 206px;
+                            x: root.placed-x;
+                            y: root.placed-y;
                             width: 280px;
                             text: "Design in Slint";
                             color: StudioTheme.phone-text;
@@ -836,8 +933,8 @@ export component VisualEditorPrototype inherits Window {
                         }
 
                         if root.placed-kind == PrototypeComponentKind.image: Rectangle {
-                            x: 54px;
-                            y: 188px;
+                            x: root.placed-x;
+                            y: root.placed-y;
                             width: 282px;
                             height: 168px;
                             border-radius: 20px;
@@ -862,10 +959,10 @@ export component VisualEditorPrototype inherits Window {
                         }
 
                         if root.placed-kind != PrototypeComponentKind.none && root.selection != CanvasSelectionKind.artboard: Rectangle {
-                            x: 46px;
-                            y: root.placed-kind == PrototypeComponentKind.image ? 180px : 188px;
-                            width: 298px;
-                            height: root.placed-kind == PrototypeComponentKind.image ? 184px : 120px;
+                            x: root.placed-x - 8px;
+                            y: root.placed-y - 8px;
+                            width: root.placed-width() + 16px;
+                            height: root.placed-height() + 16px;
                             border-width: 1px;
                             border-color: StudioTheme.accent-strong;
 
@@ -879,23 +976,6 @@ export component VisualEditorPrototype inherits Window {
                             }
                         }
 
-                        drop := DropArea {
-                            can-drop(event) => {
-                                root.canvas-drop-hover = AppState.dragging-kind != PrototypeComponentKind.none;
-                                return AppState.dragging-kind == PrototypeComponentKind.none ? DragAction.none : DragAction.copy;
-                            }
-
-                            dropped(event) => {
-                                root.place-component(AppState.dragging-kind);
-                                root.canvas-drop-hover = false;
-                                return DragAction.copy;
-                            }
-
-                            changed contains-drag => {
-                                root.canvas-drop-hover = self.contains-drag && AppState.dragging-kind != PrototypeComponentKind.none;
-                            }
-                        }
-
                         if root.canvas-drop-hover: Rectangle {
                             x: 24px;
                             y: 70px;
@@ -905,6 +985,17 @@ export component VisualEditorPrototype inherits Window {
                             border-width: 2px;
                             border-color: StudioTheme.accent-strong;
                             background: StudioTheme.accent.with-alpha(0.08);
+                        }
+
+                        if root.canvas-drop-hover: Rectangle {
+                            x: root.canvas-drop-x - 18px;
+                            y: root.canvas-drop-y - 18px;
+                            width: 36px;
+                            height: 36px;
+                            border-radius: 18px;
+                            background: StudioTheme.accent.with-alpha(0.16);
+                            border-width: 2px;
+                            border-color: StudioTheme.accent-strong;
                         }
                     }
                 }
@@ -940,8 +1031,8 @@ export component VisualEditorPrototype inherits Window {
 
                         InspectorSection {
                             title: "LAYOUT";
-                            PropertyField { name: "X"; value: root.selection == CanvasSelectionKind.artboard ? "0" : "54"; }
-                            PropertyField { name: "Y"; value: root.selection == CanvasSelectionKind.artboard ? "0" : "196"; }
+                            PropertyField { name: "X"; value: root.selection == CanvasSelectionKind.artboard ? "0" : "\{root.placed-x / 1px}"; }
+                            PropertyField { name: "Y"; value: root.selection == CanvasSelectionKind.artboard ? "0" : "\{root.placed-y / 1px}"; }
                             PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.artboard ? "390" : root.selection == CanvasSelectionKind.image ? "282" : "280"; }
                             PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.artboard ? "720" : root.selection == CanvasSelectionKind.image ? "168" : "104"; }
                         }
@@ -959,6 +1050,53 @@ export component VisualEditorPrototype inherits Window {
                             PropertyField { name: "File"; value: "main.slint"; }
                         }
                     }
+                }
+            }
+        }
+
+        if AppState.dragging-kind != PrototypeComponentKind.none: Rectangle {
+            x: AppState.drag-x - 46px;
+            y: AppState.drag-y - 24px;
+            width: AppState.dragging-kind == PrototypeComponentKind.image ? 106px : 96px;
+            height: 48px;
+            border-radius: 8px;
+            background: StudioTheme.panel-bg;
+            border-width: 1px;
+            border-color: StudioTheme.accent-strong;
+            drop-shadow-blur: 18px;
+            drop-shadow-offset-y: 8px;
+            drop-shadow-color: StudioTheme.dark ? #00000080 : #33415535;
+
+            HorizontalLayout {
+                padding-left: 10px;
+                padding-right: 10px;
+                spacing: 8px;
+                cross-axis-alignment: center;
+
+                Rectangle {
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 5px;
+                    background: AppState.dragging-kind == PrototypeComponentKind.rectangle ? #dbeafe : AppState.dragging-kind == PrototypeComponentKind.text ? #fef3c7 : #dcfce7;
+                    border-width: 1px;
+                    border-color: AppState.dragging-kind == PrototypeComponentKind.rectangle ? #93c5fd : AppState.dragging-kind == PrototypeComponentKind.text ? #fbbf24 : #86efac;
+
+                    Text {
+                        text: AppState.dragging-kind == PrototypeComponentKind.rectangle ? "R" : AppState.dragging-kind == PrototypeComponentKind.text ? "T" : "IMG";
+                        color: AppState.dragging-kind == PrototypeComponentKind.rectangle ? #1d4ed8 : AppState.dragging-kind == PrototypeComponentKind.text ? #92400e : #166534;
+                        font-size: 10px;
+                        font-weight: 900;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                Text {
+                    text: AppState.dragging-kind == PrototypeComponentKind.rectangle ? "Rectangle" : AppState.dragging-kind == PrototypeComponentKind.text ? "Text" : "Image";
+                    color: StudioTheme.text;
+                    font-size: 12px;
+                    font-weight: 800;
+                    vertical-alignment: center;
                 }
             }
         }
