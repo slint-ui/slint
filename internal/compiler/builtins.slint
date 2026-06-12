@@ -2278,7 +2278,7 @@ component Close {
 /// A path can be defined in three different ways:
 ///
 /// -   Using SVG path commands as a string
-/// -   Using SVG path commands inside `@pathdata` macro as a [pathdata](../../primitive-types/#pathdata)
+/// -   Using SVG path commands inside the <Link type="pathdata" label="`@pathdata` macro" />
 /// -   Using path command elements in `.slint` markup.
 ///
 /// The coordinates used in the geometric commands are within the imaginary coordinate system of the path.
@@ -2381,7 +2381,7 @@ export component Path {
     //! }
     //! ```
     //!
-    //! Alternatively, the commands can be provided using the [`@pathdata`](../primitive-types/#pathdata) macro, which allows it to be compiled ahead of time.
+    //! Alternatively, the commands can be provided using the <Link type="pathdata" label="`@pathdata` macro" />, which allows it to be compiled ahead of time.
     //! Most suitable for `no_std` environments, where string commands parsing is not available.
     //! ```slint
     //! export component Example inherits Path {
@@ -2390,7 +2390,7 @@ export component Path {
     //! ```
     //! This property can only be set in a binding and cannot be accessed in an expression.
     //!
-    //! See also [`pathdata`](../primitive-types/#pathdata).
+    //! See also <Link type="pathdata" />.
     //! </SlintProperty>
     //!
     //! ## Path Using SVG Path Elements
