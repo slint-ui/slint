@@ -17,6 +17,12 @@ mod fmt;
 mod language;
 #[cfg(feature = "preview-engine")]
 mod preview;
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(feature = "preview-external", feature = "preview-engine")
+))]
+#[path = "preview/user_settings.rs"]
+mod user_settings;
 pub mod util;
 
 use common::Result;
@@ -45,7 +51,7 @@ use std::time::Duration;
 use crate::common::{LspToPreviews, document_cache::CompilerConfiguration};
 use i_slint_live_preview::{
     file_watcher::{self, FileChangeKind, FileWatcher},
-    protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl},
+    protocol::{LspToPreviewMessage, PreviewToLspMessage, PreviewUserSettings, VersionedUrl},
 };
 
 #[cfg(not(any(
@@ -530,6 +536,7 @@ async fn run_main_loop(
     let mut ctx = Context {
         document_cache: crate::common::DocumentCache::new(compiler_config),
         preview_config: Default::default(),
+        preview_user_settings: PreviewUserSettings::default(),
         server_notifier,
         init_param,
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
@@ -605,7 +612,9 @@ async fn run_main_loop(
                 // Messages from the native preview come in here:
                 #[cfg(feature = "preview-engine")]
                 {
-                    if let Some(msg) = _msg && let Err(err) = handle_preview_to_lsp_message(msg, &ctx).await {
+                    if let Some(msg) =
+                        _msg && let Err(err) = handle_preview_to_lsp_message(msg, &mut ctx).await
+                    {
                         tracing::error!("handle_preview_to_lsp_message: {err}");
                     }
                 }
@@ -804,7 +813,10 @@ async fn send_workspace_edit(
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
-async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Context) -> Result<()> {
+async fn handle_preview_to_lsp_message(
+    message: PreviewToLspMessage,
+    ctx: &mut Context,
+) -> Result<()> {
     use PreviewToLspMessage as M;
     match message {
         M::Diagnostics { uri, version, diagnostics } => {
@@ -834,11 +846,10 @@ async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Conte
         }
         M::RequestState { files } => {
             tracing::debug!("Preview requested state");
-            if files.is_empty() {
-                crate::language::send_state_to_preview(ctx);
-            } else {
-                crate::language::send_files_to_preview(ctx, &files);
-            }
+            crate::language::send_requested_state_to_preview(ctx, &files);
+        }
+        M::UpdateUserSettings { settings } => {
+            crate::language::update_preview_user_settings(ctx, settings);
         }
         M::SendWorkspaceEdit { label, edit } => {
             let sn = ctx.server_notifier.clone();

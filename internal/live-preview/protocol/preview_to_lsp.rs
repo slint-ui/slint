@@ -30,6 +30,8 @@ pub enum PreviewToLspMessage {
         #[serde(default)]
         files: Vec<Url>,
     },
+    /// Update the LSP-owned preview UI settings.
+    UpdateUserSettings { settings: super::PreviewUserSettings },
     /// Pass a `WorkspaceEdit` on to the editor
     SendWorkspaceEdit { label: Option<String>, edit: lsp_types::WorkspaceEdit },
     /// Pass a `ShowMessage` notification on to the editor

@@ -5,7 +5,7 @@ use std::{collections::HashMap, path::PathBuf};
 
 use lsp_types::Url;
 
-use super::VersionedUrl;
+use super::{PreviewUserSettings, VersionedUrl};
 
 /// The Component to preview
 #[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
@@ -42,6 +42,9 @@ pub enum LspToPreviewMessage {
     },
     SetConfiguration {
         config: PreviewConfig,
+    },
+    SetUserSettings {
+        settings: PreviewUserSettings,
     },
     ShowPreview(PreviewComponent),
     HighlightFromEditor {

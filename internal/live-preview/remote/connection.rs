@@ -12,8 +12,8 @@ use std::{
 use crate::REBUILD_DEBOUNCE;
 use crate::protocol::{
     LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PreviewComponent, PreviewConfig,
-    PreviewToLspMessage, SLINT_PROTOCOLS_HEADER, SLINT_VERSION, SLINT_VERSION_HEADER,
-    SourceFileVersion,
+    PreviewToLspMessage, PreviewUserSettings, SLINT_PROTOCOLS_HEADER, SLINT_VERSION,
+    SLINT_VERSION_HEADER, SourceFileVersion,
 };
 #[cfg(not(target_vendor = "apple"))]
 use crate::protocol::{TXT_PROTOCOLS_KEY, TXT_SLINT_VERSION_KEY};
@@ -110,6 +110,9 @@ pub enum ConnectionMessage {
     },
     SetConfiguration {
         config: PreviewConfig,
+    },
+    SetUserSettings {
+        settings: PreviewUserSettings,
     },
     ShowPreview {
         preview_component: PreviewComponent,
@@ -418,6 +421,11 @@ impl Connection {
                                         LspToPreviewMessage::SetConfiguration { config } => {
                                             message_handler(ConnectionMessage::SetConfiguration {
                                                 config,
+                                            });
+                                        }
+                                        LspToPreviewMessage::SetUserSettings { settings } => {
+                                            message_handler(ConnectionMessage::SetUserSettings {
+                                                settings,
                                             });
                                         }
                                         LspToPreviewMessage::ShowPreview(preview_component) => {

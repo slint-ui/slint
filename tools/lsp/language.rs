@@ -28,7 +28,8 @@ use i_slint_live_preview::protocol::PreviewComponent;
 use i_slint_live_preview::{
     file_watcher::FileChangeKind,
     protocol::{
-        LspToPreviewMessage, PreviewConfig, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
+        LspToPreviewMessage, PreviewConfig, PreviewToLspMessage, PreviewUserSettings,
+        SourceFileVersion, VersionedUrl,
     },
 };
 
@@ -116,6 +117,10 @@ pub fn send_state_to_preview(ctx: &Context) {
     ctx.to_preview
         .send(&LspToPreviewMessage::SetConfiguration { config: ctx.preview_config.clone() });
 
+    ctx.to_preview.send(&LspToPreviewMessage::SetUserSettings {
+        settings: ctx.preview_user_settings.clone(),
+    });
+
     if let Some(c) = ctx.to_show.clone() {
         tracing::debug!("Sending state to preview: {} documents, showing {}", doc_count, c.url);
         ctx.to_preview.send(&LspToPreviewMessage::ShowPreview(c));
@@ -127,7 +132,30 @@ pub fn send_state_to_preview(ctx: &Context) {
     }
 }
 
-// Callers live in the native LSP (main.rs / editor.rs); not used from WASM.
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+pub fn send_requested_state_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
+    if files.is_empty() {
+        send_state_to_preview(ctx);
+    } else {
+        send_files_to_preview(ctx, files);
+    }
+}
+
+pub fn update_preview_user_settings(ctx: &mut Context, settings: PreviewUserSettings) {
+    if ctx.preview_user_settings != settings {
+        ctx.preview_user_settings = settings;
+        #[cfg(all(
+            not(target_arch = "wasm32"),
+            any(feature = "preview-external", feature = "preview-engine")
+        ))]
+        if let Err(err) =
+            crate::user_settings::save_preview_user_settings(&ctx.preview_user_settings)
+        {
+            tracing::warn!("Failed to save preview user settings: {err}");
+        }
+    }
+}
+
 #[cfg(all(
     not(target_arch = "wasm32"),
     any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
@@ -211,6 +239,22 @@ fn send_referenced_fonts(ctx: &Context, doc_url: &Url, sent: &mut HashSet<PathBu
     }
 }
 
+#[cfg(all(target_arch = "wasm32", any(feature = "preview-external", feature = "preview-engine")))]
+pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
+    for url in files {
+        if let Some(node) = ctx.document_cache.get_document(url).and_then(|doc| doc.node.as_ref()) {
+            let version = ctx.document_cache.document_version_by_path(node.source_file.path());
+            ctx.to_preview.send(&LspToPreviewMessage::SetContents {
+                url: VersionedUrl::new(url.clone(), version),
+                contents: node.text().to_string().into(),
+            });
+        } else {
+            tracing::warn!("WASM LSP cannot re-send uncached file to preview: {url}");
+            ctx.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
+        }
+    }
+}
+
 async fn register_file_watcher(ctx: &Context) -> common::Result<()> {
     use lsp_types::notification::Notification;
 
@@ -256,6 +300,7 @@ async fn register_file_watcher(ctx: &Context) -> common::Result<()> {
 pub struct Context {
     pub document_cache: common::DocumentCache,
     pub preview_config: PreviewConfig,
+    pub preview_user_settings: PreviewUserSettings,
     pub server_notifier: crate::ServerNotifier,
     pub init_param: InitializeParams,
     /// The last component for which the user clicked "show preview"
@@ -1649,6 +1694,13 @@ fn get_highlights_for_position(
 
 pub async fn startup_lsp(ctx: &mut Context) -> common::Result<()> {
     register_file_watcher(ctx).await?;
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        any(feature = "preview-external", feature = "preview-engine")
+    ))]
+    {
+        ctx.preview_user_settings = crate::user_settings::load_preview_user_settings();
+    }
     load_configuration(ctx).await
 }
 
@@ -1775,8 +1827,18 @@ pub mod tests {
 
     use crate::language::test::{
         complex_document_cache, loaded_document_cache, loaded_document_cache_with_file_name,
+        preview_capture,
     };
+    use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewConfig, PreviewUserSettings};
     use lsp_types::WorkspaceEdit;
+    use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
+
+    fn mock_context_with_preview_capture() -> (Context, Rc<RefCell<Vec<LspToPreviewMessage>>>) {
+        let (capture, messages) = preview_capture();
+        let mut ctx = test::mock_context();
+        ctx.to_preview = capture;
+        (ctx, messages)
+    }
 
     #[test]
     fn test_load_document_invalid_contents() {
@@ -2371,6 +2433,73 @@ export global NoPreviewForGlobal {}
             assert!(token.text().starts_with("NoPreviewFor"));
             assert_eq!(get_code_actions(&mut dc, token, &capabilities), None);
         }
+    }
+
+    #[test]
+    fn send_requested_state_to_preview_keeps_configuration_and_user_settings_separate() {
+        let (mut ctx, messages) = mock_context_with_preview_capture();
+        ctx.preview_config = PreviewConfig {
+            hide_ui: Some(true),
+            style: "custom-style".into(),
+            include_paths: vec![PathBuf::from("/includes")],
+            library_paths: HashMap::from([("widgets".into(), PathBuf::from("/libraries/widgets"))]),
+            format_utf8: false,
+            enable_experimental: true,
+        };
+        ctx.preview_user_settings = PreviewUserSettings {
+            version: PreviewUserSettings::CURRENT_VERSION,
+            always_on_top: true,
+            show_library: true,
+            show_properties: false,
+            show_outline: true,
+            show_simulation_data: false,
+            show_console: true,
+        };
+
+        send_requested_state_to_preview(&ctx, &[]);
+
+        let messages = messages.borrow();
+        assert_eq!(messages.len(), 2);
+        assert!(matches!(
+            &messages[0],
+            LspToPreviewMessage::SetConfiguration { config } if config == &ctx.preview_config
+        ));
+        assert!(matches!(
+            &messages[1],
+            LspToPreviewMessage::SetUserSettings { settings } if settings == &ctx.preview_user_settings
+        ));
+    }
+
+    #[test]
+    fn update_preview_user_settings_updates_state_without_echoing_to_preview() {
+        let (mut ctx, messages) = mock_context_with_preview_capture();
+        ctx.preview_config = PreviewConfig {
+            hide_ui: Some(false),
+            style: "stable".into(),
+            include_paths: vec![PathBuf::from("/compile/include")],
+            library_paths: HashMap::from([("stdlib".into(), PathBuf::from("/compile/lib"))]),
+            format_utf8: true,
+            enable_experimental: false,
+        };
+        let initial_config = ctx.preview_config.clone();
+        let settings = PreviewUserSettings {
+            version: PreviewUserSettings::CURRENT_VERSION,
+            always_on_top: false,
+            show_library: true,
+            show_properties: true,
+            show_outline: false,
+            show_simulation_data: true,
+            show_console: false,
+        };
+
+        update_preview_user_settings(&mut ctx, settings.clone());
+        update_preview_user_settings(&mut ctx, settings.clone());
+
+        assert_eq!(ctx.preview_config, initial_config);
+        assert_eq!(ctx.preview_user_settings, settings);
+
+        let messages = messages.borrow();
+        assert!(messages.is_empty());
     }
 
     #[test]
