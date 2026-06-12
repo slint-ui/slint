@@ -335,7 +335,8 @@ macro_rules! for_each_enums {
                 Password,
                 /// This will only accept and render number characters (0-9)
                 Number,
-                /// This will accept and render characters if it's valid part of a decimal
+                /// This will accept and render characters if it's valid part of a decimal,
+                /// using the decimal separator of the current locale
                 Decimal,
                 /// This identifies the input field as a search box. Characters are rendered normally,
                 /// but assistive technologies are informed that the field is used for searching or

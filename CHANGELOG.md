@@ -52,6 +52,8 @@ All notable changes to this project are documented in this file.
  - TextInput: allow setting the accessibility value
  - Add landmark accessible roles to `AccessibleRole` (#11831)
  - `animate`: Added `enabled` boolean to toggle animations on/off (defaults to `true`). (#9604)
+ - Conversions between `float` and `string` now use the locale's decimal separator,
+   which is exposed as `Platform.decimal-separator`. (#10857)
 
 ### Widgets
 
