@@ -14,6 +14,11 @@ export enum LeftPaneMode {
     library,
 }
 
+export enum CanvasOrientation {
+    portrait,
+    landscape,
+}
+
 export enum PrototypeComponentKind {
     none,
     rectangle,
@@ -183,6 +188,47 @@ component PrimerSegmentedTab inherits Rectangle {
         font-weight: root.selected ? 700 : 500;
         horizontal-alignment: center;
         vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component OrientationIconButton inherits Rectangle {
+    in property <bool> landscape: false;
+    in property <bool> selected: false;
+    callback clicked;
+
+    width: 34px;
+    height: 30px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: selected ? StudioTheme.accent-strong : StudioTheme.border;
+    background: selected ? StudioTheme.accent.with-alpha(0.14) : touch.has-hover ? StudioTheme.panel-subtle : StudioTheme.panel-bg;
+    animate background, border-color { duration: 120ms; }
+
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: root.landscape ? 18px : 12px;
+        height: root.landscape ? 12px : 18px;
+        border-radius: 3px;
+        border-width: 2px;
+        border-color: root.selected ? StudioTheme.accent-strong : StudioTheme.muted;
+        background: transparent;
+
+        Rectangle {
+            x: root.landscape ? parent.width - 5px : (parent.width - 4px) / 2;
+            y: root.landscape ? (parent.height - 4px) / 2 : parent.height - 5px;
+            width: root.landscape ? 2px : 4px;
+            height: root.landscape ? 4px : 2px;
+            border-radius: 1px;
+            background: root.selected ? StudioTheme.accent-strong : StudioTheme.muted;
+        }
     }
 
     touch := TouchArea {
@@ -464,6 +510,7 @@ export component VisualEditorPrototype inherits Window {
 
     property <bool> wizard-visible: true;
     property <ProjectKind> selected-project: ProjectKind.mobile;
+    property <CanvasOrientation> canvas-orientation: CanvasOrientation.portrait;
     property <LeftPaneMode> left-mode: LeftPaneMode.files;
     property <CanvasSelectionKind> selection: CanvasSelectionKind.artboard;
     property <PrototypeComponentKind> placed-kind: PrototypeComponentKind.none;
@@ -539,14 +586,14 @@ export component VisualEditorPrototype inherits Window {
     function place-component-at(kind: PrototypeComponentKind, drop-x: length, drop-y: length) {
         root.place-component(kind);
         if kind == PrototypeComponentKind.rectangle {
-            root.placed-x = clamp(drop-x - 141px, 24px, 84px);
-            root.placed-y = clamp(drop-y - 52px, 72px, 592px);
+            root.placed-x = (drop-x - 141px).clamp(24px, root.phone-width() - 306px);
+            root.placed-y = (drop-y - 52px).clamp(72px, root.phone-height() - 128px);
         } else if kind == PrototypeComponentKind.text {
-            root.placed-x = clamp(drop-x - 140px, 24px, 86px);
-            root.placed-y = clamp(drop-y - 16px, 72px, 660px);
+            root.placed-x = (drop-x - 140px).clamp(24px, root.phone-width() - 304px);
+            root.placed-y = (drop-y - 16px).clamp(72px, root.phone-height() - 56px);
         } else if kind == PrototypeComponentKind.image {
-            root.placed-x = clamp(drop-x - 141px, 24px, 84px);
-            root.placed-y = clamp(drop-y - 84px, 72px, 528px);
+            root.placed-x = (drop-x - 141px).clamp(24px, root.phone-width() - 306px);
+            root.placed-y = (drop-y - 84px).clamp(72px, root.phone-height() - 192px);
         }
     }
 
@@ -570,27 +617,57 @@ export component VisualEditorPrototype inherits Window {
         return 32px;
     }
 
+    function clamp-elements-to-phone() {
+        if root.placed-kind == PrototypeComponentKind.rectangle {
+            root.rectangle-width = root.rectangle-width.clamp(80px, root.phone-width() - 32px);
+            root.rectangle-height = root.rectangle-height.clamp(44px, root.phone-height() - 78px);
+            root.placed-x = root.placed-x.clamp(16px, root.phone-width() - root.rectangle-width - 16px);
+            root.placed-y = root.placed-y.clamp(54px, root.phone-height() - root.rectangle-height - 24px);
+            root.clamp-rectangle-radii();
+        } else if root.placed-kind != PrototypeComponentKind.none {
+            root.placed-x = root.placed-x.clamp(24px, root.phone-width() - root.placed-width() - 24px);
+            root.placed-y = root.placed-y.clamp(72px, root.phone-height() - root.placed-height() - 24px);
+        }
+    }
+
+    function set-canvas-orientation(orientation: CanvasOrientation) {
+        root.canvas-orientation = orientation;
+        root.clamp-elements-to-phone();
+    }
+
     function canvas-width() -> length {
         return root.width - 286px - 306px;
     }
 
     function canvas-height() -> length {
-        return root.height - 54px;
+        return root.height - 54px - 42px;
+    }
+
+    function phone-width() -> length {
+        return root.canvas-orientation == CanvasOrientation.portrait ? 390px : 720px;
+    }
+
+    function phone-height() -> length {
+        return root.canvas-orientation == CanvasOrientation.portrait ? 720px : 390px;
+    }
+
+    function phone-canvas-top() -> length {
+        return max(40px, (root.canvas-height() - root.phone-height()) / 2);
     }
 
     function phone-left() -> length {
-        return 286px + (root.canvas-width() - 390px) / 2;
+        return 286px + (root.canvas-width() - root.phone-width()) / 2;
     }
 
     function phone-top() -> length {
-        return 54px + max(72px, (root.canvas-height() - 720px) / 2);
+        return 54px + 42px + root.phone-canvas-top();
     }
 
     function pointer-inside-phone(window-x: length, window-y: length) -> bool {
         return window-x >= root.phone-left()
-            && window-x <= root.phone-left() + 390px
+            && window-x <= root.phone-left() + root.phone-width()
             && window-y >= root.phone-top()
-            && window-y <= root.phone-top() + 720px;
+            && window-y <= root.phone-top() + root.phone-height();
     }
 
     function update-visual-drag(kind: PrototypeComponentKind, window-x: length, window-y: length) {
@@ -704,8 +781,8 @@ export component VisualEditorPrototype inherits Window {
     function move-rectangle-by(delta-x: length, delta-y: length) {
         root.rectangle-moving = true;
         root.selection = CanvasSelectionKind.rectangle;
-        root.placed-x = (root.placed-x + delta-x).clamp(16px, 390px - root.rectangle-width - 16px);
-        root.placed-y = (root.placed-y + delta-y).clamp(54px, 720px - root.rectangle-height - 24px);
+        root.placed-x = (root.placed-x + delta-x).clamp(16px, root.phone-width() - root.rectangle-width - 16px);
+        root.placed-y = (root.placed-y + delta-y).clamp(54px, root.phone-height() - root.rectangle-height - 24px);
     }
 
     function finish-moving-rectangle() {
@@ -724,17 +801,17 @@ export component VisualEditorPrototype inherits Window {
             root.rectangle-height = root.rectangle-resize-bottom - root.placed-y;
         } else if corner == 1 {
             root.rectangle-resize-bottom = root.placed-y + root.rectangle-height;
-            root.rectangle-width = (window-x - root.phone-left() - root.placed-x).clamp(80px, 390px - root.placed-x - 16px);
+            root.rectangle-width = (window-x - root.phone-left() - root.placed-x).clamp(80px, root.phone-width() - root.placed-x - 16px);
             root.placed-y = (window-y - root.phone-top()).clamp(54px, root.rectangle-resize-bottom - 44px);
             root.rectangle-height = root.rectangle-resize-bottom - root.placed-y;
         } else if corner == 2 {
-            root.rectangle-width = (window-x - root.phone-left() - root.placed-x).clamp(80px, 390px - root.placed-x - 16px);
-            root.rectangle-height = (window-y - root.phone-top() - root.placed-y).clamp(44px, 720px - root.placed-y - 24px);
+            root.rectangle-width = (window-x - root.phone-left() - root.placed-x).clamp(80px, root.phone-width() - root.placed-x - 16px);
+            root.rectangle-height = (window-y - root.phone-top() - root.placed-y).clamp(44px, root.phone-height() - root.placed-y - 24px);
         } else {
             root.rectangle-resize-right = root.placed-x + root.rectangle-width;
             root.placed-x = (window-x - root.phone-left()).clamp(16px, root.rectangle-resize-right - 80px);
             root.rectangle-width = root.rectangle-resize-right - root.placed-x;
-            root.rectangle-height = (window-y - root.phone-top() - root.placed-y).clamp(44px, 720px - root.placed-y - 24px);
+            root.rectangle-height = (window-y - root.phone-top() - root.placed-y).clamp(44px, root.phone-height() - root.placed-y - 24px);
         }
         root.clamp-rectangle-radii();
     }
@@ -833,6 +910,50 @@ export component VisualEditorPrototype inherits Window {
                             vertical-alignment: center;
                         }
                     }
+                }
+            }
+
+            Rectangle {
+                height: 42px;
+                background: StudioTheme.panel-bg;
+
+                Rectangle {
+                    y: parent.height - 1px;
+                    height: 1px;
+                    background: StudioTheme.border;
+                }
+
+                HorizontalLayout {
+                    spacing: 0px;
+
+                    Rectangle { width: 286px; }
+
+                    Rectangle {
+                        horizontal-stretch: 1;
+
+                        HorizontalLayout {
+                            alignment: center;
+                            cross-axis-alignment: center;
+                            spacing: 8px;
+
+                            OrientationIconButton {
+                                selected: root.canvas-orientation == CanvasOrientation.portrait;
+                                clicked => {
+                                    root.set-canvas-orientation(CanvasOrientation.portrait);
+                                }
+                            }
+
+                            OrientationIconButton {
+                                landscape: true;
+                                selected: root.canvas-orientation == CanvasOrientation.landscape;
+                                clicked => {
+                                    root.set-canvas-orientation(CanvasOrientation.landscape);
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle { width: 306px; }
                 }
             }
 
@@ -980,7 +1101,7 @@ export component VisualEditorPrototype inherits Window {
 
                     phone-shadow := Rectangle {
                         x: (parent.width - phone.width) / 2;
-                        y: max(82px, (parent.height - phone.height) / 2 + 18px);
+                        y: root.phone-canvas-top() + 18px;
                         width: phone.width;
                         height: phone.height;
                         border-radius: 34px;
@@ -991,9 +1112,9 @@ export component VisualEditorPrototype inherits Window {
 
                     phone := Rectangle {
                         x: (parent.width - self.width) / 2;
-                        y: max(72px, (parent.height - self.height) / 2);
-                        width: 390px;
-                        height: 720px;
+                        y: root.phone-canvas-top();
+                        width: root.phone-width();
+                        height: root.phone-height();
                         border-radius: 34px;
                         border-width: root.selection == CanvasSelectionKind.artboard ? 2px : 1px;
                         border-color: root.selection == CanvasSelectionKind.artboard ? StudioTheme.accent-strong : StudioTheme.border;
@@ -1006,9 +1127,11 @@ export component VisualEditorPrototype inherits Window {
                             }
                         }
 
-                        Rectangle {
-                            y: 0px;
-                            height: 42px;
+                        if root.canvas-orientation == CanvasOrientation.portrait: Rectangle {
+                            x: 1px;
+                            y: 1px;
+                            width: parent.width - 2px;
+                            height: 41px;
                             background: #f8fafc;
 
                             Rectangle {
@@ -1021,16 +1144,43 @@ export component VisualEditorPrototype inherits Window {
                             }
                         }
 
-                        Rectangle {
+                        if root.canvas-orientation == CanvasOrientation.portrait: Rectangle {
                             y: 42px;
+                            x: 1px;
+                            width: parent.width - 2px;
                             height: 1px;
                             background: #e5e7eb;
                         }
 
+                        if root.canvas-orientation == CanvasOrientation.landscape: Rectangle {
+                            x: 1px;
+                            y: 1px;
+                            width: 41px;
+                            height: parent.height - 2px;
+                            background: #f8fafc;
+
+                            Rectangle {
+                                x: 13px;
+                                y: (parent.height - self.height) / 2;
+                                width: 16px;
+                                height: 74px;
+                                border-radius: 8px;
+                                background: #111827;
+                            }
+                        }
+
+                        if root.canvas-orientation == CanvasOrientation.landscape: Rectangle {
+                            x: 42px;
+                            y: 1px;
+                            width: 1px;
+                            height: parent.height - 2px;
+                            background: #e5e7eb;
+                        }
+
                         VerticalLayout {
-                            y: 78px;
-                            x: 30px;
-                            width: parent.width - 60px;
+                            y: root.canvas-orientation == CanvasOrientation.portrait ? 78px : 42px;
+                            x: root.canvas-orientation == CanvasOrientation.portrait ? 30px : 78px;
+                            width: root.canvas-orientation == CanvasOrientation.portrait ? parent.width - 60px : parent.width - 108px;
                             spacing: 12px;
                             alignment: start;
 
@@ -1289,8 +1439,8 @@ export component VisualEditorPrototype inherits Window {
                             title: "LAYOUT";
                             PropertyField { name: "X"; value: root.selection == CanvasSelectionKind.artboard ? "0" : "\{root.placed-x / 1px}"; }
                             PropertyField { name: "Y"; value: root.selection == CanvasSelectionKind.artboard ? "0" : "\{root.placed-y / 1px}"; }
-                            PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.artboard ? "390" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-width / 1px}" : root.selection == CanvasSelectionKind.image ? "282" : "280"; }
-                            PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.artboard ? "720" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-height / 1px}" : root.selection == CanvasSelectionKind.image ? "168" : "104"; }
+                            PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.artboard ? "\{root.phone-width() / 1px}" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-width / 1px}" : root.selection == CanvasSelectionKind.image ? "282" : "280"; }
+                            PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.artboard ? "\{root.phone-height() / 1px}" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-height / 1px}" : root.selection == CanvasSelectionKind.image ? "168" : "104"; }
                         }
 
                         InspectorSection {
