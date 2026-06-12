@@ -738,6 +738,41 @@ jobs:
             update: true
             save_if: false
 
+    # Cross-compiled build for 32-bit Windows, to catch Win32-specific compilation errors,
+    # e.g. packed struct alignment. Build only, no tests, default features only,
+    # and skia excluded:
+    # rust-skia has no prebuilt binaries for i686-pc-windows-msvc.
+    win32_build:
+        if: ${{ inputs.full }}
+        runs-on: ubuntu-24.04
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: i686-pc-windows-msvc
+                  key: x-win32
+            # The runner image ships versioned LLVM binaries, but cc-rs invokes the unversioned
+            # llvm-lib when archiving C code (e.g. for the ring crate); the llvm meta package
+            # provides the unversioned tool names.
+            - name: Install LLVM tools
+              run: sudo apt-get update && sudo apt-get install -y llvm
+            - uses: baptiste0928/cargo-install@v3
+              with:
+                  crate: cargo-xwin
+            # The splat cache is keyed by the architectures it was created for (DONE marker), so
+            # keep the cache key specific to x86 to avoid reusing a cache without the x86 libraries.
+            - name: Cache xwin Windows SDK
+              uses: actions/cache@v4
+              with:
+                  path: ~/.cache/cargo-xwin
+                  key: cargo-xwin-sdk-x86
+            - name: Build (i686-pc-windows-msvc)
+              env:
+                  # cargo-xwin defaults to splatting only x86_64 and aarch64 CRT/SDK libraries;
+                  # request the 32-bit ones instead.
+                  XWIN_ARCH: x86
+              run: cargo xwin build --target i686-pc-windows-msvc --locked --workspace --exclude doctests --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --exclude slint-sc --exclude ffmpeg --exclude gstreamer-player --exclude material-gallery --exclude test-driver-screenshots --exclude slint-doc-generator --exclude i-slint-renderer-skia
+
     qa-tree-sitter-latest:
         if: ${{ inputs.full }}
         uses: ./.github/workflows/tree_sitter.yaml
