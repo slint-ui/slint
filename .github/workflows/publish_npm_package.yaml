@@ -243,7 +243,5 @@ jobs:
               run: node --test __test__/registry/e2e.test.mts
             - name: Build and publish packages
               if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
               run: |
                   node "$GITHUB_WORKSPACE/api/node/scripts/packaging.mts" publish-all "$GITHUB_WORKSPACE/api/node" https://registry.npmjs.org/ "$PUBLISH_DIST_TAG"
