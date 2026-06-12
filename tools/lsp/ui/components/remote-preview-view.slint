@@ -118,7 +118,8 @@ export component RemotePreviewView inherits Rectangle {
                 Text {
                     text: Api.remote-connection-state == RemoteConnectionState.Connected
                         ? @tr("Connected to {}.", best-device-name)
-                        : @tr("Searching for a device…");
+                        : (Api.remote-discovered-viewers.length > 0 ? @tr("Select a discovered device to connect.")
+                        : @tr("Searching for a device…"));
                     font-size: 24px;
                     font-weight: FontWeight.bold;
                     color: Palette.foreground;
@@ -127,9 +128,7 @@ export component RemotePreviewView inherits Rectangle {
                 Text {
                     text: Api.remote-connection-state == RemoteConnectionState.Connected
                         ? @tr("Live preview is running on the connected device.")
-                        : (Api.remote-discovered-viewers.length > 0
-                        ? @tr("Select a discovered device to connect.")
-                        : @tr("Open Slint Viewer on your phone; it will appear below."));
+                        : "";
                     wrap: word-wrap;
                     color: Palette.foreground;
                     opacity: 0.72;
@@ -210,6 +209,12 @@ export component RemotePreviewView inherits Rectangle {
                                     ? Palette.accent-background
                                     : (touch.has-hover ? Palette.alternate-background : transparent);
 
+                                Rectangle {
+                                    y: parent.height - self.height;
+                                    height: 1px;
+                                    background: Palette.border.with-alpha(0.2);
+                                }
+
                                 touch := TouchArea {
                                     clicked => {
                                         root.selected-index = i;
@@ -231,7 +236,6 @@ export component RemotePreviewView inherits Rectangle {
                                             text: device.name;
                                             font-size: 14px;
                                             color: i == root.selected-index ? Palette.accent-foreground : Palette.foreground;
-                                            font-weight: FontWeight.bold;
                                         }
 
                                         if device.name == "": Text {
