@@ -474,8 +474,13 @@ export component VisualEditorPrototype inherits Window {
     property <length> placed-x: 54px;
     property <length> placed-y: 196px;
     property <length> rectangle-radius: 18px;
+    property <length> rectangle-top-left-radius: 18px;
+    property <length> rectangle-top-right-radius: 18px;
+    property <length> rectangle-bottom-right-radius: 18px;
+    property <length> rectangle-bottom-left-radius: 18px;
     property <bool> radius-dragging: false;
     property <int> radius-drag-corner: -1;
+    property <bool> radius-drag-single-corner: false;
     property <string> search-text: "";
 
     function selection-title() -> string {
@@ -514,7 +519,7 @@ export component VisualEditorPrototype inherits Window {
         root.placed-kind = kind;
         if kind == PrototypeComponentKind.rectangle {
             root.selection = CanvasSelectionKind.rectangle;
-            root.rectangle-radius = 18px;
+            root.set-all-rectangle-radii(18px);
         } else if kind == PrototypeComponentKind.text {
             root.selection = CanvasSelectionKind.text;
         } else if kind == PrototypeComponentKind.image {
@@ -607,6 +612,49 @@ export component VisualEditorPrototype inherits Window {
         root.canvas-drop-kind = PrototypeComponentKind.none;
     }
 
+    function rectangle-corner-radius(corner: int) -> length {
+        if corner == 0 {
+            return root.rectangle-top-left-radius;
+        }
+        if corner == 1 {
+            return root.rectangle-top-right-radius;
+        }
+        if corner == 2 {
+            return root.rectangle-bottom-right-radius;
+        }
+        return root.rectangle-bottom-left-radius;
+    }
+
+    function set-rectangle-corner-radius(corner: int, value: length) {
+        if corner == 0 {
+            root.rectangle-top-left-radius = value;
+        } else if corner == 1 {
+            root.rectangle-top-right-radius = value;
+        } else if corner == 2 {
+            root.rectangle-bottom-right-radius = value;
+        } else {
+            root.rectangle-bottom-left-radius = value;
+        }
+        root.rectangle-radius = value;
+    }
+
+    function set-all-rectangle-radii(value: length) {
+        root.rectangle-top-left-radius = value;
+        root.rectangle-top-right-radius = value;
+        root.rectangle-bottom-right-radius = value;
+        root.rectangle-bottom-left-radius = value;
+        root.rectangle-radius = value;
+    }
+
+    function rectangle-radius-label() -> string {
+        if root.rectangle-top-left-radius == root.rectangle-top-right-radius
+            && root.rectangle-top-left-radius == root.rectangle-bottom-right-radius
+            && root.rectangle-top-left-radius == root.rectangle-bottom-left-radius {
+            return "\{root.rectangle-top-left-radius / 1px}";
+        }
+        return "Mixed";
+    }
+
     function rectangle-radius-for-corner(corner: int, phone-x: length, phone-y: length) -> length {
         if corner == 0 {
             return (min(phone-x - root.placed-x, phone-y - root.placed-y) - 20px).clamp(0px, 32px) * 52 / 32;
@@ -620,17 +668,23 @@ export component VisualEditorPrototype inherits Window {
         return (min(phone-x - root.placed-x, root.placed-y + root.placed-height() - phone-y) - 20px).clamp(0px, 32px) * 52 / 32;
     }
 
-    function update-rectangle-radius(corner: int, window-x: length, window-y: length) {
+    function update-rectangle-radius(corner: int, window-x: length, window-y: length, single-corner: bool) {
         root.radius-dragging = true;
         root.radius-drag-corner = corner;
-        root.rectangle-radius = root.rectangle-radius-for-corner(corner, window-x - root.phone-left(), window-y - root.phone-top());
+        root.radius-drag-single-corner = single-corner;
+        if single-corner {
+            root.set-rectangle-corner-radius(corner, root.rectangle-radius-for-corner(corner, window-x - root.phone-left(), window-y - root.phone-top()));
+        } else {
+            root.set-all-rectangle-radii(root.rectangle-radius-for-corner(corner, window-x - root.phone-left(), window-y - root.phone-top()));
+        }
         root.selection = CanvasSelectionKind.rectangle;
     }
 
-    function finish-rectangle-radius(corner: int, window-x: length, window-y: length) {
-        root.update-rectangle-radius(corner, window-x, window-y);
+    function finish-rectangle-radius(corner: int, window-x: length, window-y: length, single-corner: bool) {
+        root.update-rectangle-radius(corner, window-x, window-y, single-corner);
         root.radius-dragging = false;
         root.radius-drag-corner = -1;
+        root.radius-drag-single-corner = false;
     }
 
     if !root.wizard-visible: editor := Rectangle {
@@ -934,7 +988,10 @@ export component VisualEditorPrototype inherits Window {
                             y: root.placed-y;
                             width: 282px;
                             height: 104px;
-                            border-radius: root.rectangle-radius;
+                            border-top-left-radius: root.rectangle-top-left-radius;
+                            border-top-right-radius: root.rectangle-top-right-radius;
+                            border-bottom-right-radius: root.rectangle-bottom-right-radius;
+                            border-bottom-left-radius: root.rectangle-bottom-left-radius;
                             background: #dbeafe;
                             border-width: root.selection == CanvasSelectionKind.rectangle ? 2px : 1px;
                             border-color: root.selection == CanvasSelectionKind.rectangle ? StudioTheme.accent-strong : #93c5fd;
@@ -1014,37 +1071,40 @@ export component VisualEditorPrototype inherits Window {
                             height: root.placed-height();
 
                             for corner in 4: Rectangle {
+                                property <length> corner-radius: root.rectangle-corner-radius(corner);
                                 property <length> handle-x: corner == 1 || corner == 2
-                                    ? root.placed-width() - (20px + root.rectangle-radius * 32 / 52)
-                                    : 20px + root.rectangle-radius * 32 / 52;
+                                    ? root.placed-width() - (20px + corner-radius * 32 / 52)
+                                    : 20px + corner-radius * 32 / 52;
                                 property <length> handle-y: corner >= 2
-                                    ? root.placed-height() - (20px + root.rectangle-radius * 32 / 52)
-                                    : 20px + root.rectangle-radius * 32 / 52;
+                                    ? root.placed-height() - (20px + corner-radius * 32 / 52)
+                                    : 20px + corner-radius * 32 / 52;
                                 property <bool> active: root.radius-dragging && root.radius-drag-corner == corner;
+                                property <bool> single-active: active && root.radius-drag-single-corner;
 
                                 x: handle-x - 8px;
                                 y: handle-y - 8px;
                                 width: 16px;
                                 height: 16px;
                                 border-radius: 8px;
-                                background: active ? white : StudioTheme.accent-strong;
+                                background: single-active ? #facc15 : active ? white : StudioTheme.accent-strong;
                                 border-width: 2px;
-                                border-color: StudioTheme.accent-strong;
+                                border-color: single-active ? #a16207 : StudioTheme.accent-strong;
                                 drop-shadow-blur: active ? 10px : 0px;
-                                drop-shadow-color: StudioTheme.accent.with-alpha(0.45);
+                                drop-shadow-color: single-active ? #facc1588 : StudioTheme.accent.with-alpha(0.45);
 
                                 TouchArea {
                                     mouse-cursor: pointer;
                                     pointer-event(event) => {
                                         if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
-                                            root.update-rectangle-radius(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+                                            root.update-rectangle-radius(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, event.modifiers.shift);
                                         } else if event.kind == PointerEventKind.move && self.pressed {
-                                            root.update-rectangle-radius(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+                                            root.update-rectangle-radius(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, event.modifiers.shift);
                                         } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
-                                            root.finish-rectangle-radius(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+                                            root.finish-rectangle-radius(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, event.modifiers.shift);
                                         } else if event.kind == PointerEventKind.cancel {
                                             root.radius-dragging = false;
                                             root.radius-drag-corner = -1;
+                                            root.radius-drag-single-corner = false;
                                         }
                                     }
                                 }
@@ -1117,7 +1177,7 @@ export component VisualEditorPrototype inherits Window {
                             title: "APPEARANCE";
                             PropertyField { name: "Opacity"; value: "100%"; }
                             PropertyField { name: "Fill"; value: root.selection == CanvasSelectionKind.text ? "#20252d" : root.selection == CanvasSelectionKind.image ? "gradient" : "#dbeafe"; }
-                            PropertyField { name: "Radius"; value: root.selection == CanvasSelectionKind.artboard ? "34" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-radius / 1px}" : "18"; }
+                            PropertyField { name: "Radius"; value: root.selection == CanvasSelectionKind.artboard ? "34" : root.selection == CanvasSelectionKind.rectangle ? root.rectangle-radius-label() : "18"; }
                         }
 
                         InspectorSection {
