@@ -9,11 +9,11 @@ component PhonePreview {
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
     in property <image> background-image;
 
-    width: 190px;
-    height: 380px;
+    width: 150px;
+    height: 300px;
 
     Rectangle {
-        border-radius: 34px;
+        border-radius: 27px;
         background: root.dark-color-scheme ? @linear-gradient(180deg, #1C1C1C, black) : @linear-gradient(0deg, #D7D9DD, white);
         drop-shadow-blur: 10px;
         drop-shadow-color: black.with-alpha(0.5);
@@ -27,25 +27,25 @@ component PhonePreview {
 
         Rectangle {
             x: (parent.width - self.width) / 2;
-            y: 10px;
-            width: 62px;
-            height: 18px;
-            border-radius: 9px;
+            y: 8px;
+            width: 49px;
+            height: 14px;
+            border-radius: 7px;
             background: #111111;
         }
 
         VerticalLayout {
-            padding-left: 20px;
-            padding-right: 20px;
-            padding-top: 92px;
-            padding-bottom: 24px;
+            padding-left: 16px;
+            padding-right: 16px;
+            padding-top: 72px;
+            padding-bottom: 19px;
             alignment: space-between;
 
             VerticalLayout {
                 spacing: 6px;
                 Text {
                     text: @tr("Slint Viewer");
-                    font-size: 16px;
+                    font-size: 13px;
                     font-weight: FontWeight.extra-bold;
                     color: root.dark-color-scheme ? #eeeeee : #333333;
                 }
@@ -62,10 +62,8 @@ component PhonePreview {
 
 export component RemotePreviewView inherits Rectangle {
     background: Palette.background;
-    min-width: 640px;
-    min-height: 420px;
-    preferred-width: 900px;
-    preferred-height: 620px;
+    width: 740px;
+    height: 600px;
     clip: true;
 
     property <int> selected-index: -1;
@@ -91,6 +89,8 @@ export component RemotePreviewView inherits Rectangle {
     }
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
     property <image> background-image: root.dark-color-scheme ? @image-url("../../../viewer/remote/assets/bg-frame.svg") : @image-url("../../../viewer/remote/assets/bg-frame-light.svg");
+    property <string> best-device-name: Api.remote-discovered-viewers[selected-index].name != "" ? Api.remote-discovered-viewers[selected-index].name
+        : Api.remote-connection-target;
 
     Rectangle {
         background: root.dark-color-scheme ? @linear-gradient(180deg, #1C1C1C, black) : @linear-gradient(0deg, #D7D9DD, white);
@@ -117,15 +117,18 @@ export component RemotePreviewView inherits Rectangle {
                 spacing: 6px;
                 Text {
                     text: Api.remote-connection-state == RemoteConnectionState.Connected
-                        ? @tr("Previewing on {}.", Api.remote-connection-target)
-                        : @tr("Searching for a device…");
+                        ? @tr("Connected to {}.", best-device-name)
+                        : (Api.remote-discovered-viewers.length > 0 ? @tr("Select a discovered device to connect.")
+                        : @tr("Searching for a device…"));
                     font-size: 24px;
                     font-weight: FontWeight.bold;
                     color: Palette.foreground;
                 }
 
                 Text {
-                    text: @tr("Open Slint Viewer on your phone and ensure it is on the same Wi-Fi.");
+                    text: Api.remote-connection-state == RemoteConnectionState.Connected
+                        ? @tr("Live preview is running on the connected device.")
+                        : "";
                     wrap: word-wrap;
                     color: Palette.foreground;
                     opacity: 0.72;
@@ -174,16 +177,28 @@ export component RemotePreviewView inherits Rectangle {
                         inner-shadow-color: black.with-alpha(0.1);
                         inner-shadow-offset-x: 5px;
                         inner-shadow-offset-y: 5px;
+                        clip: true;
 
-                        if Api.remote-discovered-viewers.length == 0: VerticalLayout {
-                            alignment: center;
-                            spacing: EditorSpaceSettings.default-spacing;
-                            Text {
-                                text: @tr("Searching the local network…");
-                                horizontal-alignment: center;
-                                font-weight: FontWeight.bold;
-                                color: Palette.foreground;
-                                font-size: 12px;
+                        if Api.remote-discovered-viewers.length == 0: HorizontalLayout {
+                            alignment: start;
+                            spacing: EditorSpaceSettings.default-spacing * 2;
+                            padding: EditorSpaceSettings.default-padding * 2;
+
+                            PhonePreview {
+                                background-image: background-image;
+                            }
+
+                            VerticalLayout {
+                                padding: EditorSpaceSettings.default-padding * 2;
+                                Text {
+                                    text: @tr("Start Slint Viewer on your device using the same Wi-Fi.");
+                                    wrap: word-wrap;
+                                    color: Palette.foreground;
+                                    opacity: 0.80;
+                                    font-size: 14px;
+                                    width: 200px;
+                                    horizontal-alignment: left;
+                                }
                             }
                         }
 
@@ -193,6 +208,12 @@ export component RemotePreviewView inherits Rectangle {
                                 background: i == root.selected-index
                                     ? Palette.accent-background
                                     : (touch.has-hover ? Palette.alternate-background : transparent);
+
+                                Rectangle {
+                                    y: parent.height - self.height;
+                                    height: 1px;
+                                    background: Palette.border.with-alpha(0.2);
+                                }
 
                                 touch := TouchArea {
                                     clicked => {
@@ -211,13 +232,13 @@ export component RemotePreviewView inherits Rectangle {
                                     spacing: EditorSpaceSettings.default-spacing;
                                     VerticalLayout {
                                         horizontal-stretch: 1;
-                                        Text {
+                                        if device.name != "": Text {
                                             text: device.name;
+                                            font-size: 14px;
                                             color: i == root.selected-index ? Palette.accent-foreground : Palette.foreground;
-                                            font-weight: FontWeight.bold;
                                         }
 
-                                        Text {
+                                        if device.name == "": Text {
                                             text: (device.addresses.length > 0 ? device.addresses[0] : device.host) + ":" + device.port;
                                             color: i == root.selected-index ? Palette.accent-foreground : Palette.foreground;
                                             opacity: 0.7;
@@ -258,11 +279,6 @@ export component RemotePreviewView inherits Rectangle {
                         text: @tr("Connecting to {}…", Api.remote-connection-target);
                         color: Palette.foreground;
                     }
-                    if Api.remote-connection-state == RemoteConnectionState.Connected: Text {
-                        text: @tr("Connected to {}. Switch to Local to disconnect.", Api.remote-connection-target);
-                        color: #2a2;
-                        font-weight: FontWeight.bold;
-                    }
                     if Api.remote-connection-state == RemoteConnectionState.Failed: Text {
                         text: Api.remote-connection-error != ""
                             ? Api.remote-connection-error
@@ -287,30 +303,6 @@ export component RemotePreviewView inherits Rectangle {
                                 }
                             }
                         }
-                    }
-                }
-            }
-
-            Rectangle {
-                width: 260px;
-                vertical-stretch: 1;
-
-                VerticalLayout {
-                    alignment: center;
-                    spacing: EditorSpaceSettings.default-spacing * 2;
-                    cross-axis-alignment: center;
-
-                    PhonePreview {
-                        background-image: background-image;
-                    }
-
-                    Text {
-                        text: @tr("Start Slint Viewer on your device using the same Wi-Fi.");
-                        horizontal-alignment: left;
-                        wrap: word-wrap;
-                        color: Palette.foreground;
-                        opacity: 0.80;
-                        font-size: 14px;
                     }
                 }
             }

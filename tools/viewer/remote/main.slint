@@ -26,11 +26,30 @@ export component RemoteViewerWindow inherits Window {
     property <bool> showing-name: true;
 
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+    property <string> toast-message;
 
     hidden-input := TextInput {
         enabled: false;
         visible: false;
         text: root.address;
+    }
+
+    function show-toast(message: string) {
+        root.toast-message = message;
+        if hide-toast-timer.running == false {
+            hide-toast-timer.start();
+        } else {
+            hide-toast-timer.restart();
+        }
+
+        toast.opacity = 1;
+    }
+
+    function copy-to-clipboard(text: string, toast-message: string) {
+        hidden-input.text = text;
+        hidden-input.select-all();
+        hidden-input.copy();
+        root.show-toast(toast-message);
     }
 
     Rectangle {
@@ -46,17 +65,19 @@ export component RemoteViewerWindow inherits Window {
     TouchArea {
         y: 0;
         height: root.safe-area-insets.top + 246px;
+        enabled: root.state != RemoteViewerState.preview-error;
 
         clicked => {
-            hidden-input.select-all();
-            hidden-input.copy();
-            if hide-toast-timer.running == false {
-                hide-toast-timer.start();
-            } else {
-                hide-toast-timer.restart();
-            }
+            root.showing-name = !root.showing-name;
+            root.copy-to-clipboard(root.address, @tr("IP copied to clipboard"));
+        }
+    }
 
-            toast.opacity = 1;
+    TouchArea {
+        enabled: root.state == RemoteViewerState.preview-error && root.message != "";
+
+        clicked => {
+            root.copy-to-clipboard(root.message, @tr("Error copied to clipboard"));
         }
     }
 
@@ -75,6 +96,7 @@ export component RemoteViewerWindow inherits Window {
         padding-left: 24px;
         padding-top: root.safe-area-insets.top + 146px;
         padding-bottom: root.safe-area-insets.bottom;
+        visible: root.state != RemoteViewerState.preview-error;
         VerticalLayout {
             alignment: start;
             spacing: 8px;
@@ -95,6 +117,7 @@ export component RemoteViewerWindow inherits Window {
                 text: root.showing-name && root.has-name ? name : address;
                 font-size: 1.41rem;
                 font-weight: 400;
+                wrap: word-wrap;
             }
         }
 
@@ -134,7 +157,7 @@ export component RemoteViewerWindow inherits Window {
             border-radius: parent.border-radius;
             background: root.dark-color-scheme ? #212121 : #f6f7f8;
             Text {
-                text: @tr("IP copied to clipboard");
+                text: root.toast-message;
                 font-weight: 400;
             }
         }
@@ -148,10 +171,10 @@ export component RemoteViewerWindow inherits Window {
         padding-top: root.safe-area-insets.top;
         padding-bottom: root.safe-area-insets.bottom;
 
-        if message != "": Text {
+        if root.state == RemoteViewerState.preview-error && message != "": Text {
             text: message;
             horizontal-alignment: center;
-            font-weight: 400;
+            wrap: word-wrap;
         }
     }
 }
