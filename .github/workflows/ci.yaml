@@ -753,9 +753,10 @@ jobs:
                   key: x-win32
             # The runner image ships versioned LLVM binaries, but cc-rs invokes the unversioned
             # llvm-lib when archiving C code (e.g. for the ring crate); the llvm meta package
-            # provides the unversioned tool names.
-            - name: Install LLVM tools
-              run: sudo apt-get update && sudo apt-get install -y llvm
+            # provides the unversioned tool names. nasm assembles aws-lc-sys' x86 assembly
+            # (pulled in via rustls/aws-lc-rs, e.g. by the servo example and live-preview).
+            - name: Install LLVM tools and nasm
+              run: sudo apt-get update && sudo apt-get install -y llvm nasm
             - uses: baptiste0928/cargo-install@v3
               with:
                   crate: cargo-xwin
@@ -771,6 +772,12 @@ jobs:
                   # cargo-xwin defaults to splatting only x86_64 and aarch64 CRT/SDK libraries;
                   # request the 32-bit ones instead.
                   XWIN_ARCH: x86
+                  # aws-lc-sys' x86 C sources guard against assembly without SSE2 and only key
+                  # off __SSE2__, which clang-cl's /arch:SSE2 does not define. Enable SSE2 (the
+                  # baseline for 32-bit Windows anyway) via -msse2; cargo-xwin appends $CFLAGS to
+                  # the target's CFLAGS, so this augments rather than replaces its include flags.
+                  CFLAGS: -msse2
+                  CXXFLAGS: -msse2
               run: cargo xwin build --target i686-pc-windows-msvc --locked --workspace --exclude doctests --exclude slint-node --exclude pyslint --exclude test-driver-node --exclude test-driver-nodejs --exclude test-driver-cpp --exclude test-driver-python --exclude mcu-board-support --exclude mcu-embassy --exclude printerdemo_mcu --exclude uefi-demo --exclude slint-cpp --exclude slint-python --exclude slint-sc --exclude ffmpeg --exclude gstreamer-player --exclude material-gallery --exclude test-driver-screenshots --exclude slint-doc-generator --exclude i-slint-renderer-skia
 
     qa-tree-sitter-latest:
