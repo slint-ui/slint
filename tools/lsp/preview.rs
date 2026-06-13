@@ -149,6 +149,9 @@ pub struct PreviewState {
     resources: HashSet<Url>,
     dependencies: HashSet<Url>,
     pub config: PreviewConfig,
+    /// The most recent user settings synced with the LSP, used to suppress
+    /// redundant updates when the UI re-reports settings we just applied.
+    last_user_settings: PreviewUserSettings,
     current_previewed_component: Option<PreviewComponent>,
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
@@ -230,15 +233,26 @@ fn delete_document(url: &lsp_types::Url) {
 }
 
 pub(super) fn set_user_settings(settings: PreviewUserSettings) {
-    PREVIEW_STATE.with_borrow(|preview_state| {
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if let Some(app_window) = &preview_state.app_window {
             ui::apply_preview_user_settings(app_window, &settings);
         }
+        // Remember what the UI now reflects so the deferred `changed` handlers
+        // it triggers don't echo these same values straight back to the LSP.
+        preview_state.last_user_settings = settings;
     });
 }
 
 pub(super) fn update_user_settings_from_ui(settings: PreviewUserSettings) {
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        // The Slint `changed` handlers that drive this are deferred, so a flag
+        // set while applying inbound settings would already be cleared by the
+        // time they run. Compare against the last synced settings instead.
+        if preview_state.last_user_settings == settings {
+            return;
+        }
+        preview_state.last_user_settings = settings.clone();
+
         if let Some(to_lsp) = preview_state.to_lsp.borrow().as_ref() {
             if let Err(err) = to_lsp.send(&PreviewToLspMessage::UpdateUserSettings { settings }) {
                 tracing::warn!("Failed to send preview user settings update: {err}");
@@ -2182,6 +2196,38 @@ mod tests {
         assert!(matches!(
             &messages[0],
             PreviewToLspMessage::UpdateUserSettings { settings: emitted } if emitted == &settings
+        ));
+    }
+
+    #[test]
+    fn ui_echo_of_applied_settings_is_not_sent_back() {
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        reset_preview_state(messages.clone());
+
+        let settings = PreviewUserSettings {
+            version: PreviewUserSettings::CURRENT_VERSION,
+            always_on_top: true,
+            show_library: false,
+            show_properties: true,
+            show_outline: false,
+            show_simulation_data: true,
+            show_console: false,
+        };
+
+        // The LSP pushes settings; the deferred `changed` handlers then report
+        // the same values back. That echo must not be forwarded to the LSP.
+        set_user_settings(settings.clone());
+        update_user_settings_from_ui(settings.clone());
+        assert!(messages.borrow().is_empty());
+
+        // A genuine user change still gets through.
+        let changed = PreviewUserSettings { show_console: true, ..settings };
+        update_user_settings_from_ui(changed.clone());
+        let messages = messages.borrow();
+        assert_eq!(messages.len(), 1);
+        assert!(matches!(
+            &messages[0],
+            PreviewToLspMessage::UpdateUserSettings { settings: emitted } if emitted == &changed
         ));
     }
 }
