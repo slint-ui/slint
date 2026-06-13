@@ -569,7 +569,8 @@ export default defineConfig({
                         {
                             label: "Slint website",
                             url: "https://slint.dev",
-                            description: "product overview, pricing, and showcase",
+                            description:
+                                "product overview, pricing, and showcase",
                         },
                         {
                             label: "Slint on GitHub",

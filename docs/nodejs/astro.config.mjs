@@ -62,7 +62,8 @@ export default defineConfig({
                         {
                             label: "Slint language docs",
                             url: "https://docs.slint.dev/latest/docs/slint/",
-                            description: "the .slint language, elements, and widgets",
+                            description:
+                                "the .slint language, elements, and widgets",
                         },
                         {
                             label: "Slint website",
