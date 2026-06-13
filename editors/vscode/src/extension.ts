@@ -291,7 +291,10 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand("slint.newProject", newProject),
         vscode.commands.registerCommand(
             "slint.renameWithHostAccessors",
-            async (uri: string, position: { line: number; character: number }) => {
+            async (
+                uri: string,
+                position: { line: number; character: number },
+            ) => {
                 // The CodeAction invokes us with the LSP-shaped uri + position
                 // of the declaration. Prompt for the new name and forward to
                 // the LSP-side command which runs the slint rename + scanner
@@ -309,7 +312,11 @@ export function activate(context: vscode.ExtensionContext) {
                 if (!newName) {
                     return;
                 }
-                await lsp_commands.renameWithHostAccessors(uri, position, newName);
+                await lsp_commands.renameWithHostAccessors(
+                    uri,
+                    position,
+                    newName,
+                );
             },
         ),
     );
