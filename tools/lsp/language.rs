@@ -861,7 +861,7 @@ pub fn rename_with_host_accessors_command(
         return Err(bad("no token at position"));
     };
     let Some(decl) = common::rename_component::find_declaration_node(document_cache, &token) else {
-        return Err(bad("position is not a renameable declaration"));
+        return Err(bad("position is not a declaration that can be renamed"));
     };
 
     let mut workspace_edit = decl
