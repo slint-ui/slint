@@ -256,6 +256,13 @@ fn apply_interface_property_declaration(
     interface_name: &SmolStr,
     diag: &mut BuildDiagnostics,
 ) {
+    if matches!(prop_decl.property_type, Type::Invalid) {
+        // The interface's own declaration is invalid (e.g. an unknown property type). A diagnostic
+        // was already emitted when the interface was parsed, so there is nothing meaningful to apply
+        // or conflict-check here.
+        return;
+    }
+
     let lookup_result = e.lookup_property(unresolved_prop_name);
 
     fn find_conflicting_node(
@@ -268,12 +275,10 @@ fn apply_interface_property_declaration(
     if lookup_result.property_type != Type::Invalid {
         if lookup_result.is_local_to_component {
             let property_type_name = match prop_decl.property_type {
-                Type::Invalid => Err(()),
-                Type::Callback { .. } => Ok("callback"),
-                Type::Function { .. } => Ok("function"),
-                _ => Ok("property"),
-            }
-            .expect("Expected valid property type");
+                Type::Callback { .. } => "callback",
+                Type::Function { .. } => "function",
+                _ => "property",
+            };
 
             let local_property_node = find_conflicting_node(e, unresolved_prop_name)
                 .expect("Expected local property to have a syntax node");
