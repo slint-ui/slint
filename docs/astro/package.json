@@ -27,6 +27,7 @@
     "playwright-ctrf-json-reporter": "catalog:",
     "remark-parse": "catalog:",
     "sharp": "catalog:",
+    "starlight-llms-txt": "0.10.0",
     "starlight-sidebar-topics": "0.7.1",
     "typescript": "catalog:",
     "unified": "catalog:",

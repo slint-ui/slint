@@ -3,6 +3,7 @@
 
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import starlightLlmsTxt from "starlight-llms-txt";
 import sitemap from "@astrojs/sitemap";
 import starlightTypeDoc from "starlight-typedoc";
 import { slintStarlightFaviconHead } from "@slint/common-files/src/utils/starlight-favicon-head";
@@ -53,6 +54,26 @@ export default defineConfig({
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
             plugins: [
+                starlightLlmsTxt({
+                    projectName: "Slint for JavaScript & TypeScript",
+                    description:
+                        "The JavaScript and TypeScript (Node.js) API documentation for Slint, a declarative GUI toolkit. Covers using `.slint` user interfaces from Node.js and TypeScript.",
+                    optionalLinks: [
+                        {
+                            label: "Slint language docs",
+                            url: "https://docs.slint.dev/latest/docs/slint/",
+                            description: "the .slint language, elements, and widgets",
+                        },
+                        {
+                            label: "Slint website",
+                            url: "https://slint.dev",
+                        },
+                        {
+                            label: "Slint on GitHub",
+                            url: "https://github.com/slint-ui/slint",
+                        },
+                    ],
+                }),
                 starlightTypeDoc({
                     entryPoints: ["../../api/node/typescript/index.ts"],
                     tsconfig: "../../api/node/tsconfig.json",

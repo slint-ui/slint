@@ -3,6 +3,7 @@
 
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import starlightLlmsTxt from "starlight-llms-txt";
 import sitemap from "@astrojs/sitemap";
 import { slintStarlightFaviconHead } from "@slint/common-files/src/utils/starlight-favicon-head";
 import {
@@ -61,6 +62,26 @@ export default defineConfig({
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
             plugins: [
+                starlightLlmsTxt({
+                    projectName: "Slint for C++",
+                    description:
+                        "The C++ API documentation for Slint, a declarative GUI toolkit. Covers integrating `.slint` user interfaces into C++ applications, the CMake build setup, and the C++ API.",
+                    optionalLinks: [
+                        {
+                            label: "Slint language docs",
+                            url: "https://docs.slint.dev/latest/docs/slint/",
+                            description: "the .slint language, elements, and widgets",
+                        },
+                        {
+                            label: "Slint website",
+                            url: "https://slint.dev",
+                        },
+                        {
+                            label: "Slint on GitHub",
+                            url: "https://github.com/slint-ui/slint",
+                        },
+                    ],
+                }),
                 // Internal links are relative so they resolve under the deploy
                 // base path (e.g. /master/docs/cpp/); root-absolute links would
                 // not be rewritten with the base by Astro.

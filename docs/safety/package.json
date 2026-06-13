@@ -17,6 +17,7 @@
   "dependencies": {
     "@astrojs/check": "catalog:",
     "@astrojs/starlight": "catalog:",
+    "starlight-llms-txt": "0.10.0",
     "@slint/common-files": "workspace:*",
     "@types/node": "catalog:",
     "astro": "catalog:",

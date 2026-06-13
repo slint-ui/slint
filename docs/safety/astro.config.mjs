@@ -3,6 +3,7 @@
 // @ts-check
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import starlightLlmsTxt from "starlight-llms-txt";
 import mermaid from "astro-mermaid";
 import {
     SLINT_STARLIGHT_TRAILING_SLASH,
@@ -47,7 +48,29 @@ export default defineConfig({
                 Header: "@slint/common-files/src/components/Header.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
-            plugins: [slintStarlightLinksValidatorPlugin({ errorOnRelativeLinks: false })],
+            plugins: [
+                slintStarlightLinksValidatorPlugin({ errorOnRelativeLinks: false }),
+                starlightLlmsTxt({
+                    projectName: "Slint Safety",
+                    description:
+                        "Functional safety documentation for Slint, a declarative GUI toolkit, including safety-related guidance and processes.",
+                    optionalLinks: [
+                        {
+                            label: "Slint language docs",
+                            url: "https://docs.slint.dev/latest/docs/slint/",
+                            description: "the .slint language, elements, and widgets",
+                        },
+                        {
+                            label: "Slint website",
+                            url: "https://slint.dev",
+                        },
+                        {
+                            label: "Slint on GitHub",
+                            url: "https://github.com/slint-ui/slint",
+                        },
+                    ],
+                }),
+            ],
             social: slintStarlightSocial,
             sidebar: [
                 { label: "Slint SC Safety Manual", slug: "index" },

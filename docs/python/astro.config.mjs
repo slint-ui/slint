@@ -3,6 +3,7 @@
 
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import starlightLlmsTxt from "starlight-llms-txt";
 import sitemap from "@astrojs/sitemap";
 import { slintStarlightFaviconHead } from "@slint/common-files/src/utils/starlight-favicon-head";
 import { starlightExpandAllSidebarGroups } from "@slint/common-files/src/utils/starlight-expand-all-sidebar-groups";
@@ -52,6 +53,26 @@ export default defineConfig({
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
             plugins: [
+                starlightLlmsTxt({
+                    projectName: "Slint for Python",
+                    description:
+                        "The Python API documentation for Slint, a declarative GUI toolkit. Covers using `.slint` user interfaces from Python.",
+                    optionalLinks: [
+                        {
+                            label: "Slint language docs",
+                            url: "https://docs.slint.dev/latest/docs/slint/",
+                            description: "the .slint language, elements, and widgets",
+                        },
+                        {
+                            label: "Slint website",
+                            url: "https://slint.dev",
+                        },
+                        {
+                            label: "Slint on GitHub",
+                            url: "https://github.com/slint-ui/slint",
+                        },
+                    ],
+                }),
                 slintStarlightLinksValidatorPlugin({
                     exclude: ({ link }) => {
                         const p = (link.split("?")[0] ?? "").trim();
