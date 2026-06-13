@@ -50,16 +50,17 @@ export component PreviewUi inherits Window {
     in-out property <bool> select-mode: false;
 
     function notify-preview-user-settings-changed() {
-        if !Api.suppress-preview-user-settings-updates {
-            Api.preview-user-settings-changed(
-                Api.always-on-top,
-                root.library-widget,
-                root.properties-widget,
-                root.outline-widget,
-                root.data-widget,
-                root.console-panel-expanded,
-            );
-        }
+        // Redundant updates (e.g. the deferred `changed` handlers fired right
+        // after the LSP pushed settings) are filtered out on the Rust side by
+        // comparing against the last synced settings.
+        Api.preview-user-settings-changed(
+            Api.always-on-top,
+            root.library-widget,
+            root.properties-widget,
+            root.outline-widget,
+            root.data-widget,
+            root.console-panel-expanded,
+        );
     }
 
     changed always-on-top => {

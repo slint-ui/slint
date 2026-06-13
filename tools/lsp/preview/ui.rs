@@ -114,8 +114,10 @@ pub fn preview_user_settings_from_values(
 }
 
 pub fn apply_preview_user_settings(app_window: &AppWindow, settings: &PreviewUserSettings) {
+    // The `changed` handlers triggered by these setters run deferred and report
+    // back through `preview::update_user_settings_from_ui`, which dedupes them
+    // against the last synced settings, so no echo guard is needed here.
     let api = app_window.api();
-    api.set_suppress_preview_user_settings_updates(true);
     api.set_always_on_top(settings.always_on_top);
 
     match app_window {
@@ -128,8 +130,6 @@ pub fn apply_preview_user_settings(app_window: &AppWindow, settings: &PreviewUse
         }
         AppWindow::Editor(_) => {}
     }
-
-    api.set_suppress_preview_user_settings_updates(false);
 }
 
 pub fn setup_preview_user_settings(api: &Api<'_>) {
