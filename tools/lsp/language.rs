@@ -96,6 +96,8 @@ fn create_populate_command(
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
 pub fn send_state_to_preview(ctx: &Context) {
     let mut doc_count = 0;
+    #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
+    let mut fonts_sent = HashSet::<PathBuf>::new();
     for (url, node) in ctx.document_cache.all_url_documents() {
         if url.scheme() == "builtin" {
             continue;
@@ -103,9 +105,11 @@ pub fn send_state_to_preview(ctx: &Context) {
         let version = ctx.document_cache.document_version(&url);
 
         ctx.to_preview.send(&LspToPreviewMessage::SetContents {
-            url: VersionedUrl::new(url, version),
+            url: VersionedUrl::new(url.clone(), version),
             contents: node.text().to_string().into(),
         });
+        #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
+        send_referenced_fonts(ctx, &url, &mut fonts_sent);
         doc_count += 1;
     }
 
@@ -129,6 +133,8 @@ pub fn send_state_to_preview(ctx: &Context) {
     any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
 ))]
 pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
+    #[cfg(feature = "preview-remote")]
+    let mut fonts_sent = HashSet::<PathBuf>::new();
     for url in files {
         if let Some(node) = ctx.document_cache.get_document(url).and_then(|doc| doc.node.as_ref()) {
             let version = ctx.document_cache.document_version_by_path(node.source_file.path());
@@ -138,6 +144,8 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
                 url: VersionedUrl::new(url.clone(), version),
                 contents,
             });
+            #[cfg(feature = "preview-remote")]
+            send_referenced_fonts(ctx, url, &mut fonts_sent);
             continue;
         }
         let Some(path) = url.to_file_path().ok() else {
@@ -155,6 +163,49 @@ pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
             Err(err) => {
                 tracing::warn!("Failed to read file {}: {err}", path.display());
                 ctx.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
+            }
+        }
+    }
+}
+
+/// Read each font file imported by the `.slint` at `doc_url` and push it
+/// to the remote viewer via `SetContents`. Only the remote viewer needs
+/// font bytes pushed: local previews read fonts from disk. Fonts in `sent`
+/// are skipped: callers seed it with fonts that were already transferred
+/// (e.g. referenced by an earlier document in the same batch, or sent
+/// before the current edit).
+#[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
+fn send_referenced_fonts(ctx: &Context, doc_url: &Url, sent: &mut HashSet<PathBuf>) {
+    let Some(remote) = ctx.to_preview.remote() else { return };
+    let Some(doc) = ctx.document_cache.get_document(doc_url) else { return };
+    // `custom_fonts` holds the resolved path of every font import that
+    // passed the compiler's existence check, plus remote URLs.
+    for (font_path, _) in &doc.custom_fonts {
+        let font_path = PathBuf::from(font_path.as_str());
+        if i_slint_compiler::pathutils::is_url(&font_path) {
+            continue;
+        }
+        if !sent.insert(font_path.clone()) {
+            continue;
+        }
+        let Ok(font_url) = Url::from_file_path(&font_path) else {
+            tracing::warn!("Cannot convert font path to URL: {}", font_path.display());
+            continue;
+        };
+        match std::fs::read(&font_path) {
+            Ok(contents) => {
+                tracing::debug!(
+                    "Sending font {} ({} bytes) to remote viewer",
+                    font_url,
+                    contents.len()
+                );
+                remote.send(&LspToPreviewMessage::SetContents {
+                    url: VersionedUrl::new(font_url, None),
+                    contents,
+                });
+            }
+            Err(err) => {
+                tracing::warn!("Failed to read font {}: {err}", font_path.display());
             }
         }
     }
@@ -804,8 +855,21 @@ pub(crate) async fn load_document_impl(
                 url: VersionedUrl::new(url.clone(), version),
                 contents: content.clone().into(),
             });
+            // Fonts imported before this edit were pushed to the remote viewer
+            // already; seed the sent set with them so only fonts added by this
+            // edit are transferred.
+            #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
+            let mut fonts_sent: HashSet<PathBuf> = ctx
+                .document_cache
+                .get_document(&url)
+                .map(|doc| {
+                    doc.custom_fonts.iter().map(|(p, _)| PathBuf::from(p.as_str())).collect()
+                })
+                .unwrap_or_default();
             let dependencies: HashSet<Url> = ctx.document_cache.invalidate_url(&url);
             let _ = ctx.document_cache.load_url(&url, version, content, &mut diag).await;
+            #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
+            send_referenced_fonts(ctx, &url, &mut fonts_sent);
             dependencies
         }
         FileAction::IgnoreFile => return Default::default(),

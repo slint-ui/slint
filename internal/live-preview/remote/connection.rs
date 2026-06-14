@@ -122,6 +122,11 @@ pub enum ConnectionMessage {
         url: Option<Url>,
         offset: u32,
     },
+    /// The viewer should register this font with the renderer.
+    RegisterFont {
+        url: Url,
+        contents: Arc<[u8]>,
+    },
 }
 
 pub struct Connection {
@@ -370,6 +375,18 @@ impl Connection {
                                                 contents.len()
                                             );
                                             if !is_supported(url.url()) {
+                                                continue;
+                                            }
+                                            // Fonts are registered with the renderer directly
+                                            // and not consulted by the compiler, so they don't
+                                            // go in the file cache.
+                                            if i_slint_compiler::pathutils::is_font_file(
+                                                url.url().path(),
+                                            ) {
+                                                message_handler(ConnectionMessage::RegisterFont {
+                                                    url: url.url().clone(),
+                                                    contents: contents.into(),
+                                                });
                                                 continue;
                                             }
                                             let versioned_content = VersionedFileContent {
