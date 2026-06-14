@@ -1414,6 +1414,16 @@ mod flexbox_taffy {
         pub fn new(params: FlexboxLayoutParams) -> Self {
             let mut taffy = TaffyTree::<usize>::new();
 
+            // Cross-axis (width) upper bound for a column item: never wider than
+            // the container's content box, so height-for-width items (e.g. wrapped
+            // Text) measure against a real width.
+            let column_cross_cap = match params.flex_direction {
+                TaffyFlexDirection::Column | TaffyFlexDirection::ColumnReverse => params
+                    .container_width
+                    .map(|cw| (cw - params.padding_h.begin - params.padding_h.end).max(0 as Coord)),
+                _ => None,
+            };
+
             // Create child nodes from Slint constraints
             let mut children: Vec<NodeId> = params
                 .cells_h
@@ -1443,6 +1453,13 @@ mod flexbox_taffy {
                         }
                     };
 
+                    let max_width = h_constraint.max.min(column_cross_cap.unwrap_or(Coord::MAX));
+                    let max_width_dim = if max_width < Coord::MAX {
+                        Dimension::length(max_width as _)
+                    } else {
+                        Dimension::auto()
+                    };
+
                     taffy
                         .new_leaf_with_context(
                             Style {
@@ -1451,12 +1468,21 @@ mod flexbox_taffy {
                                     width: match params.flex_direction {
                                         TaffyFlexDirection::Column
                                         | TaffyFlexDirection::ColumnReverse => {
-                                            // Cross-axis for column
-                                            if let Some(cw) = params.container_width {
-                                                // Fit inside the container's content box (subtract padding)
-                                                let pad =
-                                                    params.padding_h.begin + params.padding_h.end;
-                                                Dimension::length((cw - pad).max(0 as Coord) as _)
+                                            // Stretching items get `auto` width so they
+                                            // size to their flex *line's* cross size (the
+                                            // per-column width when wrapped), not the whole
+                                            // container. A per-item `flex-align-self`
+                                            // overrides the container's alignment.
+                                            let stretches = match cell_h.flex_align_self {
+                                                FlexboxLayoutAlignSelf::Auto => {
+                                                    params.cross_axis_alignment
+                                                        == CrossAxisAlignment::Stretch
+                                                }
+                                                FlexboxLayoutAlignSelf::Stretch => true,
+                                                _ => false,
+                                            };
+                                            if stretches {
+                                                Dimension::auto()
                                             } else if preferred_width > 0 as Coord {
                                                 Dimension::length(preferred_width as _)
                                             } else {
@@ -1488,11 +1514,7 @@ mod flexbox_taffy {
                                     ),
                                 },
                                 max_size: Size {
-                                    width: if h_constraint.max < Coord::MAX {
-                                        Dimension::length(h_constraint.max as _)
-                                    } else {
-                                        Dimension::auto()
-                                    },
+                                    width: max_width_dim,
                                     height: if let Some(vc) = v_constraint {
                                         if vc.max < Coord::MAX {
                                             Dimension::length(vc.max as _)
