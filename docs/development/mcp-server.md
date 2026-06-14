@@ -60,6 +60,8 @@ Both transports use `generational_arena::Index` internally. The proto `Handle` t
 
 Handles are generational: if an element is evicted and its arena slot reused, stale handles are detected because the generation won't match.
 
+Window handles and element handles share the same `{index, generation}` shape, so clients (especially LLM agents) easily confuse them. To disambiguate, `tool_definitions()` gives the `windowHandle` and `elementHandle` parameters distinct `description`s, and the `initialize` instructions spell out that the two kinds are not interchangeable and where each one comes from.
+
 ### FIFO Eviction
 
 The element arena is capped at 10,000 entries (`ELEMENT_HANDLE_CAP`). When the cap is exceeded, the oldest handles are evicted (FIFO order), with one exception: root element handles for tracked windows are never evicted — they are pushed to the back of the queue instead.
