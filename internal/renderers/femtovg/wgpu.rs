@@ -195,9 +195,17 @@ impl GraphicsBackend for WGPUBackend {
             wgpu::CurrentSurfaceTexture::Validation => {
                 return Err("WGPU surface validation error in get_current_texture".into());
             }
-            wgpu::CurrentSurfaceTexture::Outdated
+            stale @ (wgpu::CurrentSurfaceTexture::Outdated
             | wgpu::CurrentSurfaceTexture::Suboptimal(_)
-            | wgpu::CurrentSurfaceTexture::Lost => {
+            | wgpu::CurrentSurfaceTexture::Lost) => {
+                // `Suboptimal` carries a live `SurfaceTexture`; matched with `_` it is not bound,
+                // so the temporary returned by `get_current_texture()` keeps it alive for the
+                // whole arm — i.e. across the `surface.configure()` below. wgpu forbids
+                // reconfiguring a surface while an acquired surface texture is still alive and
+                // panics with "`SurfaceOutput` must be dropped before a new `Surface` is made".
+                // Drop it first. This is the common FIRST-frame status on Wayland, so without the
+                // drop the renderer panics on startup. (`Outdated`/`Lost` carry nothing → no-op.)
+                drop(stale);
                 let mut device = self.device.borrow_mut();
                 let device = device.as_mut().unwrap();
                 surface.configure(device, self.surface_config.borrow().as_ref().unwrap());
