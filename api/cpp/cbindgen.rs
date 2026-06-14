@@ -38,7 +38,7 @@ fn enums(path: &Path) -> anyhow::Result<()> {
         (Orientation) => {
             Some(None)
         };
-        (AccessibleLiveRegion) => {
+        (AccessibleLiveness) => {
             Some(None)
         };
         ($_:ident) => {
@@ -1132,6 +1132,7 @@ declare_features! {
     gettext
     accessibility
     system_testing
+    mcp
     freestanding
     experimental
 }

@@ -471,6 +471,7 @@ mod phase_breakdown {
             reexports,
             &mut diag,
             &type_registry,
+            false,
         ));
     }
 
@@ -496,6 +497,7 @@ mod phase_breakdown {
             reexports,
             &mut diag,
             &type_registry,
+            false,
         );
 
         // Benchmark just run_passes

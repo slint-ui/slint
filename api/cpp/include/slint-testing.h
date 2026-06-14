@@ -391,16 +391,16 @@ public:
     }
 
     /// Returns the accessible-live-region of that element, if any.
-    std::optional<AccessibleLiveRegion> accessible_live_region() const
+    std::optional<AccessibleLiveness> accessible_live_region() const
     {
         if (auto str = get_accessible_string_property(
                     cbindgen_private::AccessibleStringProperty::LiveRegion)) {
             if (*str == "off")
-                return AccessibleLiveRegion::Off;
+                return AccessibleLiveness::Off;
             if (*str == "polite")
-                return AccessibleLiveRegion::Polite;
+                return AccessibleLiveness::Polite;
             if (*str == "assertive")
-                return AccessibleLiveRegion::Assertive;
+                return AccessibleLiveness::Assertive;
         }
         return std::nullopt;
     }

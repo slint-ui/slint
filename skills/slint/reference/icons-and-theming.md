@@ -19,15 +19,18 @@ component FolderIcon {
 SVGs scale cleanly at any size, and `colorize` repaints the whole image with a
 brush, so a single monochrome asset works in both color schemes.
 
+If a design specifies glyphs as raw geometry and ships no asset files, **generate
+`.svg` files** from it and use them via `Image` — don't hand-draw glyphs as inline
+`Path` elements. (`Path` is for shapes you compute or animate, not icon sets.)
+
 ## Theming & Light/Dark
 
 - `Palette.color-scheme` (from `std-widgets.slint`) reflects the OS light/dark
   setting and updates live; it's also settable to force a scheme for native
   widgets.
-- A clean pattern: one `export global Theme` holding every color/length token as
-  `out property`s selected by a `dark` bool, e.g.
-  `out property <brush> bg: dark ? #1e2025 : #ffffff;` Bind `dark` to the palette
-  with an optional user override:
+- A clean pattern: one `export global Theme` holding every color/length token
+  as `out property`s selected by a `dark` bool, bound to the palette with an
+  optional user override:
   ```slint
   import { Palette } from "std-widgets.slint";
 
@@ -39,6 +42,11 @@ brush, so a single monochrome asset works in both color schemes.
           preference == ThemePreference.dark ? true
           : preference == ThemePreference.light ? false
           : Palette.color-scheme == ColorScheme.dark;
+      out property <brush> bg: dark ? #1e2025 : #ffffff;
+  }
+
+  export component Card inherits Rectangle {
+      background: Theme.bg;   // reacts to scheme and preference changes
   }
   ```
-  Every component then reads `Theme.bg` etc., so theme switching is automatic.
+  Every component reads `Theme.bg` etc., so theme switching is automatic.

@@ -1,16 +1,20 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use std::collections::HashSet;
+use std::sync::Arc;
 use std::{net::SocketAddr, rc::Rc};
 
 use i_slint_core::InternalToken;
 use i_slint_core::SharedString;
+use i_slint_core::textlayout::sharedparley::fontique;
+use i_slint_core::window::WindowInner;
 use i_slint_live_preview::protocol::{PreviewComponent, PreviewToLspMessage, lsp_types};
 use i_slint_live_preview::remote::{Connection, ConnectionMessage, init_compiler};
 use slint::ComponentHandle as _;
 
 slint::slint! {
-    export { EmptyWindow } from "remote/main.slint";
+    export { RemoteViewerWindow, RemoteViewerState } from "remote/main.slint";
 }
 
 // CARGO_PKG_VERSION tracks the workspace version, so it is the Slint version.
@@ -28,6 +32,24 @@ fn build_info() -> SharedString {
     }
 }
 
+/// Events driving the remote main loop: messages from the editor connection plus, on
+/// iOS, app lifecycle notifications.
+enum Event {
+    Connection(ConnectionMessage),
+    /// The app returned to the foreground after having been suspended: re-announce
+    /// the mDNS service (see [`announce_mdns`] for why the old announcement may be
+    /// dead). Only iOS has the lifecycle observers that send this.
+    #[cfg_attr(not(target_os = "ios"), allow(dead_code))]
+    Resumed,
+}
+
+#[cfg(target_vendor = "apple")]
+mod apple;
+#[cfg(target_vendor = "apple")]
+use apple::announce_mdns;
+#[cfg(target_os = "ios")]
+use apple::observe_foregrounding;
+
 pub fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Result<()> {
     slint_interpreter::spawn_local(async_compat::Compat::new(async move {
         if let Err(err) = run_async(address, enable_mdns).await {
@@ -40,11 +62,14 @@ pub fn run(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Result<()>
 }
 
 async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Result<()> {
-    let (message_sender, mut message_receiver) = tokio::sync::mpsc::unbounded_channel();
+    let (event_sender, mut event_receiver) = tokio::sync::mpsc::unbounded_channel();
+
+    #[cfg(target_os = "ios")]
+    observe_foregrounding(event_sender.clone());
 
     let connection = Rc::new(
         Connection::listen(address, device_name_override(), move |msg| {
-            let _ = message_sender.send(msg);
+            let _ = event_sender.send(Event::Connection(msg));
         })
         .await?,
     );
@@ -55,8 +80,8 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     // Slint Viewer itself only displays the previewed app, so it has no UI of its own to show debug messages in.
     let connection_weak = Rc::downgrade(&connection);
     let _ = i_slint_backend_selector::with_global_context(|ctx| {
-        ctx.set_debug_handler(Some(Box::new(move |location, arguments| {
-            let location = crate::debug::debug_handler(location, arguments);
+        ctx.set_log_message_handler(Some(Box::new(move |message| {
+            let location = crate::debug::log_message_handler(&message);
             let Some(connection) = connection_weak.upgrade() else {
                 return;
             };
@@ -64,13 +89,13 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
             connection
                 .send(PreviewToLspMessage::DebugMessage {
                     location,
-                    message: arguments.to_string(),
+                    message: message.message_arguments().to_string(),
                 })
                 .ok();
         })))
     })?;
 
-    let mut placeholder = EmptyWindow::new()?;
+    let mut placeholder = RemoteViewerWindow::new()?;
 
     #[cfg(not(target_vendor = "apple"))]
     let mdns = enable_mdns.then(mdns_sd::ServiceDaemon::new).transpose()?;
@@ -81,49 +106,7 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
         mdns.as_ref().map(|mdns| mdns.register(service)).transpose()?;
     }
     #[cfg(target_vendor = "apple")]
-    let mut mdns = enable_mdns
-        .then(|| {
-            use zeroconf_tokio::prelude::{TMdnsService as _, TTxtRecord as _};
-
-            let mut service = zeroconf_tokio::MdnsService::new(
-                zeroconf_tokio::ServiceType::new(
-                    i_slint_live_preview::protocol::SERVICE_TYPE_NAME,
-                    i_slint_live_preview::protocol::SERVICE_TYPE_PROTOCOL,
-                )?,
-                connection.local_port(),
-            );
-            // Deliberately don't set a name: with a NULL/empty instance name Bonjour
-            // substitutes the system default service name, which is the user-assigned
-            // device name (e.g. "Simon's iPhone" on iOS, the computer name on macOS).
-            // This is the friendly name we want to show in the editor.
-            let mut txt = zeroconf_tokio::TxtRecord::new();
-            txt.insert(
-                i_slint_live_preview::protocol::TXT_PROTOCOLS_KEY,
-                i_slint_live_preview::protocol::PROTOCOL_SUBPROTOCOL,
-            )?;
-            txt.insert(
-                i_slint_live_preview::protocol::TXT_SLINT_VERSION_KEY,
-                i_slint_live_preview::protocol::SLINT_VERSION,
-            )?;
-            service.set_txt_record(txt);
-            zeroconf_tokio::MdnsServiceAsync::new(service)
-        })
-        .transpose()
-        .inspect_err(|err| tracing::error!("Failed to initialize mDNS: {err}"))
-        .ok()
-        .flatten();
-
-    #[cfg(target_vendor = "apple")]
-    if let Some(mdns) = &mut mdns {
-        match mdns.start().await {
-            Ok(registration) => connection.set_device_name(registration.name().to_owned()),
-            Err(err) => tracing::error!("Failed to announce service: {err}"),
-        }
-    }
-    // Snapshot after the Apple Bonjour overwrite above so the UI label matches the
-    // advertised mDNS instance. Re-read `connection.device_name()` here (not at the
-    // set_property sites) if a future change starts mutating the name post-registration.
-    let device_name = connection.device_name();
+    let mut mdns = if enable_mdns { announce_mdns(&connection).await } else { None };
 
     let local_port = connection.local_port();
     let local_ip_str: Vec<String> = connection
@@ -139,7 +122,9 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     let address = local_ip_str.join("\n");
 
     placeholder.set_address(SharedString::from(address.as_str()));
-    placeholder.set_name(SharedString::from(device_name.as_str()));
+    // Read after the Apple Bonjour overwrite above so the UI label matches the
+    // advertised mDNS instance.
+    placeholder.set_name(SharedString::from(connection.device_name().as_str()));
     placeholder.set_slint_version(SharedString::from(SLINT_VERSION));
     placeholder.set_build_info(build_info());
     placeholder.show()?;
@@ -147,7 +132,22 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     let mut last_connection = None;
     let mut user_instance: Option<slint_interpreter::ComponentInstance> = None;
     let mut current_preview: Option<PreviewComponent> = None;
-    while let Some(msg) = message_receiver.recv().await {
+    let mut registered_fonts = HashSet::<lsp_types::Url>::new();
+    while let Some(event) = event_receiver.recv().await {
+        let msg = match event {
+            Event::Connection(msg) => msg,
+            Event::Resumed => {
+                #[cfg(target_vendor = "apple")]
+                if enable_mdns {
+                    // Withdraw the old announcement first: re-registering while it is
+                    // still alive would trigger Bonjour's conflict rename.
+                    drop(mdns.take());
+                    mdns = announce_mdns(&connection).await;
+                    placeholder.set_name(SharedString::from(connection.device_name().as_str()));
+                }
+                continue;
+            }
+        };
         match msg {
             ConnectionMessage::SetConfiguration { config } => {
                 compiler.set_style(config.style);
@@ -162,7 +162,7 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                     &mut user_instance,
                     &connection,
                     &address,
-                    &device_name,
+                    &connection.device_name(),
                 )
                 .await?;
                 current_preview = Some(preview_component);
@@ -176,13 +176,30 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                     &mut user_instance,
                     &connection,
                     &address,
-                    &device_name,
+                    &connection.device_name(),
                 )
                 .await?;
             }
             ConnectionMessage::HighlightFromEditor { .. } => {}
+            ConnectionMessage::RegisterFont { url, contents } => {
+                let len = contents.len();
+                if !registered_fonts.insert(url.clone()) {
+                    tracing::debug!("Font {url} already registered, skipping");
+                    continue;
+                }
+                // Wrap the already-Arc-backed bytes in a Blob without copying.
+                let blob = fontique::Blob::new(Arc::new(contents));
+                WindowInner::from_pub(placeholder.window())
+                    .context()
+                    .font_context()
+                    .borrow_mut()
+                    .collection
+                    .register_fonts(blob, None);
+                tracing::debug!("Registered font {url} ({len} bytes)");
+            }
             ConnectionMessage::Connected { remote_addr } => {
                 placeholder.set_message(SharedString::from(format!("Connected to {remote_addr}")));
+                placeholder.set_state(RemoteViewerState::Connected);
                 last_connection = Some(remote_addr);
             }
             ConnectionMessage::Disconnected { remote_addr } => {
@@ -194,8 +211,9 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                         &mut placeholder,
                         &mut user_instance,
                         &address,
-                        &device_name,
+                        &connection.device_name(),
                         "",
+                        RemoteViewerState::WaitingForConnection,
                     )?;
                 }
             }
@@ -207,6 +225,10 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
         .transpose()
         .inspect_err(|err| tracing::error!("mdns shutdown: {err}"))?;
 
+    // Keep the Bonjour announcement alive until the message loop ends.
+    #[cfg(target_vendor = "apple")]
+    drop(mdns);
+
     Ok(())
 }
 
@@ -215,7 +237,7 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
 async fn build_and_show(
     compiler: &slint_interpreter::Compiler,
     preview_component: &PreviewComponent,
-    placeholder: &mut EmptyWindow,
+    placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
     connection: &Rc<Connection>,
     address: &str,
@@ -253,7 +275,14 @@ async fn build_and_show(
             .map(|d| d.to_string())
             .collect::<Vec<_>>()
             .join("\n");
-        swap_to_placeholder(placeholder, user_instance, address, name, &message)?;
+        swap_to_placeholder(
+            placeholder,
+            user_instance,
+            address,
+            name,
+            &message,
+            RemoteViewerState::PreviewError,
+        )?;
         return Ok(());
     }
 
@@ -266,7 +295,14 @@ async fn build_and_show(
         // No compile errors but no component — skip send_diagnostics so we don't clobber
         // unrelated LSP diagnostics for this URI.
         tracing::error!("Component not found");
-        swap_to_placeholder(placeholder, user_instance, address, name, "Component not found")?;
+        swap_to_placeholder(
+            placeholder,
+            user_instance,
+            address,
+            name,
+            "Component not found",
+            RemoteViewerState::PreviewError,
+        )?;
         return Ok(());
     };
 
@@ -279,24 +315,28 @@ async fn build_and_show(
 
     new_instance.show().map_err(|err| anyhow::anyhow!("Cannot show component: {err}"))?;
     *user_instance = Some(new_instance);
+    // The placeholder is hidden now, but keep its state property truthful.
+    placeholder.set_state(RemoteViewerState::Previewing);
     Ok(())
 }
 
 /// Reinstall a fresh placeholder onto the existing window and drop the user instance.
 fn swap_to_placeholder(
-    placeholder: &mut EmptyWindow,
+    placeholder: &mut RemoteViewerWindow,
     user_instance: &mut Option<slint_interpreter::ComponentInstance>,
     address: &str,
     name: &str,
     message: &str,
+    state: RemoteViewerState,
 ) -> anyhow::Result<()> {
-    let fresh = EmptyWindow::new_with_existing_window(placeholder.window())
+    let fresh = RemoteViewerWindow::new_with_existing_window(placeholder.window())
         .map_err(|err| anyhow::anyhow!("Cannot create placeholder: {err}"))?;
     fresh.set_address(SharedString::from(address));
     fresh.set_name(SharedString::from(name));
     fresh.set_message(SharedString::from(message));
     fresh.set_slint_version(SharedString::from(SLINT_VERSION));
     fresh.set_build_info(build_info());
+    fresh.set_state(state);
     fresh.show().map_err(|err| anyhow::anyhow!("Cannot show placeholder: {err}"))?;
     *placeholder = fresh;
     *user_instance = None;

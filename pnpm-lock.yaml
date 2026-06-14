@@ -91,14 +91,13 @@ importers:
         version: 6.15.0
 
   api/node:
-    dependencies:
-      '@napi-rs/cli':
-        specifier: 3.7.0
-        version: 3.7.0(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(@types/node@24.12.0)
     devDependencies:
       '@biomejs/biome':
         specifier: 'catalog:'
         version: 2.4.16
+      '@napi-rs/cli':
+        specifier: 3.7.0
+        version: 3.7.0(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(@types/node@24.12.0)
       '@types/capture-console':
         specifier: 1.0.5
         version: 1.0.5

@@ -18,6 +18,13 @@ export component TestCase {
     // \{ cannot be in a slint macro, so we add it here, because we wanna execute the Test with
     // compiled source (otherwise bundling translations is not possible)
     out property <string> same_or_diff: "\{the-decimal-separator}";
+
+    // Conversions of constant expressions must use the same locale-dependent rules as
+    // conversions of runtime values, and update when the locale changes
+    out property <string> const_float_as_string: 1.5;
+    out property <string> const_int_as_string: 42;
+    out property <string> const_to_fixed: 1.5.to-fixed(2);
+    out property <bool> const_is_float: "1,5".is-float();
 }
 
 /*
@@ -25,11 +32,19 @@ export component TestCase {
 ```rust
 let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_the_decimal_separator(), "."); // We didn't set any decimal separator yet
+assert_eq!(instance.get_const_float_as_string(), "1.5");
+assert_eq!(instance.get_const_int_as_string(), "42");
+assert_eq!(instance.get_const_to_fixed(), "1.50");
+assert_eq!(instance.get_const_is_float(), false);
 
 assert!(slint::select_bundled_translation("fr").is_ok());
 assert_eq!(instance.get_the_decimal_separator(), ",");
 instance.set_value(-5.5);
 assert_eq!(instance.get_float_as_string(), "-5,5");
+assert_eq!(instance.get_const_float_as_string(), "1,5");
+assert_eq!(instance.get_const_int_as_string(), "42");
+assert_eq!(instance.get_const_to_fixed(), "1,50");
+assert_eq!(instance.get_const_is_float(), true);
 
 instance.set_value_string("5.5".into());
 assert_eq!(instance.get_is_float(), false);
@@ -42,6 +57,9 @@ assert!(slint::select_bundled_translation("en").is_ok());
 assert_eq!(instance.get_the_decimal_separator(), ".");
 instance.set_value(7.123);
 assert_eq!(instance.get_float_as_string(), "7.123");
+assert_eq!(instance.get_const_float_as_string(), "1.5");
+assert_eq!(instance.get_const_to_fixed(), "1.50");
+assert_eq!(instance.get_const_is_float(), false);
 
 instance.set_value_string("5,5".into());
 assert_eq!(instance.get_is_float(), false);
@@ -58,11 +76,19 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 
 assert_eq(instance.get_the_decimal_separator(), ".");
+assert_eq(instance.get_const_float_as_string(), "1.5");
+assert_eq(instance.get_const_int_as_string(), "42");
+assert_eq(instance.get_const_to_fixed(), "1.50");
+assert_eq(instance.get_const_is_float(), false);
 
 assert(slint::select_bundled_translation("fr"));
 assert_eq(instance.get_the_decimal_separator(), ",");
 instance.set_value(-5.5);
 assert_eq(instance.get_float_as_string(), "-5,5");
+assert_eq(instance.get_const_float_as_string(), "1,5");
+assert_eq(instance.get_const_int_as_string(), "42");
+assert_eq(instance.get_const_to_fixed(), "1,50");
+assert_eq(instance.get_const_is_float(), true);
 
 instance.set_value_string("5.5");
 assert_eq(instance.get_is_float(), false);
@@ -75,6 +101,9 @@ assert(slint::select_bundled_translation("en"));
 assert_eq(instance.get_the_decimal_separator(), ".");
 instance.set_value(7.123);
 assert_eq(instance.get_float_as_string(), "7.123");
+assert_eq(instance.get_const_float_as_string(), "1.5");
+assert_eq(instance.get_const_to_fixed(), "1.50");
+assert_eq(instance.get_const_is_float(), false);
 
 instance.set_value_string("5,5");
 assert_eq(instance.get_is_float(), false);

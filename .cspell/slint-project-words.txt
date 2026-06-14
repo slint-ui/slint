@@ -131,6 +131,7 @@ defconfig
 defmt
 defதோசை
 deinit
+delenv
 depfile
 deque
 devcode
@@ -229,6 +230,7 @@ framebuffers
 freetype
 frontends
 Fsvg
+fullsize
 Fullwidth
 fvar
 Fwww
@@ -363,9 +365,11 @@ machdep
 Macronix
 mainwindow
 MALLOC
+manylinux
 materialui
 matplot
 maturin
+mcp
 mcus
 MCUX
 mdbook
@@ -463,6 +467,7 @@ protoc
 protox
 Pseudonymized
 psram
+purelib
 pyclass
 pyftsubset
 pyfunction
@@ -470,6 +475,7 @@ pymethods
 pymodule
 pyobject
 pypi
+pypiserver
 pyproject
 pystruct
 pytest
@@ -526,6 +532,7 @@ serde
 setattr
 SETFL
 Shaderiv
+shadowable
 sharedfontique
 sharedstring
 sharedvector

@@ -734,6 +734,8 @@ fn call_builtin_function(
             Value::Number(i_slint_core::animations::animation_tick() as f64)
         }
         BuiltinFunction::Debug => {
+            use corelib::debug_log::*;
+
             let to_print: SharedString =
                 eval_expression(&arguments[0], local_context).try_into().unwrap();
             let location = source_location.as_ref().and_then(|location| {
@@ -742,24 +744,31 @@ fn call_builtin_function(
                         location.span.offset,
                         i_slint_compiler::diagnostics::ByteFormat::Utf8,
                     );
-                    corelib::debug_log::DebugLogLocation {
-                        path: file.path().to_string_lossy().to_shared_string(),
-                        line,
-                        column,
-                    }
+                    let path = file.path().to_string_lossy();
+                    (line, column, path)
                 })
+            });
+            let location = location.as_ref().map(|(line, column, path)| LogMessageLocation {
+                path,
+                line: *line,
+                column: *column,
             });
             let root_weak =
                 vtable::VWeak::into_dyn(local_context.component_instance.root_weak().clone());
             if let Some(root) = root_weak.upgrade()
                 && let Some(ctx) = corelib::window::context_for_root(&root)
             {
-                ctx.dispatch_debug_log(location.as_ref(), format_args!("{to_print}"));
-            } else {
-                corelib::debug_log::debug_log_with_location(
-                    location.as_ref(),
+                ctx.dispatch_log_message(LogMessage::new(
+                    LogMessageSource::SlintCode,
+                    location,
                     format_args!("{to_print}"),
-                );
+                ));
+            } else {
+                log_message(LogMessage::new(
+                    LogMessageSource::SlintCode,
+                    location,
+                    format_args!("{to_print}"),
+                ));
             }
             Value::Void
         }
@@ -1137,6 +1146,7 @@ fn call_builtin_function(
                     corelib::items::PopupClosePolicy::CloseOnClickOutside,
                     &item_rc,
                     WindowKind::Menu,
+                    Box::new(|_| {}),
                 );
                 context_menu_elem.popup_id.set(Some(id));
             });
@@ -1841,6 +1851,8 @@ fn call_item_member_function(nr: &NamedReference, local_context: &mut EvalLocalC
             "cut" => textinput.cut(&window_adapter, &item_rc),
             "copy" => textinput.copy(&window_adapter, &item_rc),
             "paste" => textinput.paste(&window_adapter, &item_rc),
+            "undo" => textinput.undo(&window_adapter, &item_rc),
+            "redo" => textinput.redo(&window_adapter, &item_rc),
             _ => panic!("internal: Unknown member function {name} called on TextInput"),
         }
     } else if let Some(s) = ItemRef::downcast_pin::<corelib::items::SwipeGestureHandler>(item_ref) {

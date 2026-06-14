@@ -15,20 +15,24 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
    line) and consult that version's docs for exact APIs rather than guessing.
 2. After editing: in an IDE with the Slint extension, trust the post-edit
    diagnostics; in a terminal, `slint-viewer --check ui/main.slint` compiles
-   one file and prints diagnostics (`--diagnostics-format json` for
-   machine-readable output), and `slint-viewer --screenshot` renders it
+   one file and prints diagnostics, and `slint-viewer --screenshot` renders it
    ([debugging-and-mcp.md](reference/debugging-and-mcp.md)).
 3. Never declare UI work done without looking at a render — a screenshot for
    appearance, the MCP server for interactions. Review against
    [polish.md](reference/polish.md).
-4. Offer to run `slint-viewer --auto-reload ui/main.slint` so the user watches
+4. Share the render when the host supports it: inline the screenshot in chat
+   apps, or print its absolute path and summarize the visual checks in CLI-only
+   environments.
+5. Offer to run `slint-viewer --auto-reload ui/main.slint` so the user watches
    changes live while you edit.
 
 Most "won't compile" / "won't fill" / "padding ignored" questions are answered
 in [gotchas.md](reference/gotchas.md) and
 [language-and-layout.md](reference/language-and-layout.md).
 
-## Reference Files (read on demand)
+## Reference Files
+
+Skim the matching file *before* building in that area, not only when stuck.
 
 | File | Read when… |
 |---|---|

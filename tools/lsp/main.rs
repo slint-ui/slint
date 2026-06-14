@@ -1,5 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+//
+// cspell:ignore unwatch
 
 #![cfg(not(target_arch = "wasm32"))]
 #![allow(clippy::await_holding_refcell_ref)]
@@ -22,7 +24,7 @@ use language::*;
 
 use lsp_types::{
     DidChangeTextDocumentParams, DidChangeWatchedFilesParams, DidCloseTextDocumentParams,
-    DidOpenTextDocumentParams, InitializeParams, Url,
+    DidOpenTextDocumentParams, FileChangeType, InitializeParams, Url,
     notification::{
         DidChangeConfiguration, DidChangeTextDocument, DidChangeWatchedFiles, DidCloseTextDocument,
         DidOpenTextDocument, Notification,
@@ -41,7 +43,10 @@ use std::task::{Poll, Waker};
 use std::time::Duration;
 
 use crate::common::{LspToPreviews, document_cache::CompilerConfiguration};
-use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl};
+use i_slint_live_preview::{
+    file_watcher::{self, FileChangeKind, FileWatcher},
+    protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl},
+};
 
 #[cfg(not(any(
     target_os = "openbsd",
@@ -384,6 +389,83 @@ async fn main_loop(
     result
 }
 
+#[derive(Debug)]
+enum FileWatcherError {
+    WorkerStopped,
+}
+
+// A file watcher implementation that receives file change events from the LSP's DidChangeWatchedFiles notifications
+//
+// It uses the slint_interpreter::FileWatcher to reconcile events.
+//
+// E.g. if a directory is renamed, VS Code will just send a delete event for the old path, and a create event for the new path.
+// The slint_interpreter::FileWatcher will reconcile this and send a delete event for all files in the renamed directory,
+// and create events for all relevant files in the new directory.
+struct LspFileWatcherImpl {}
+
+impl LspFileWatcherImpl {
+    fn process_file_watcher_event(
+        watcher: &mut FileWatcher<Self>,
+        event: DidChangeWatchedFilesParams,
+    ) {
+        let events: Vec<_> = event
+            .changes
+            .into_iter()
+            .filter_map(|event| {
+                tracing::debug!("Watched file changed: {} (type: {:?})", event.uri, event.typ);
+                common::uri_to_file(&event.uri).and_then(|path| {
+                    let ty = match event.typ {
+                        FileChangeType::DELETED => FileChangeKind::Deleted,
+                        FileChangeType::CREATED => FileChangeKind::Created,
+                        FileChangeType::CHANGED => FileChangeKind::Changed,
+                        _ => {
+                            tracing::debug!("Unknown FileChangeType: {:?}", event.typ);
+                            return None;
+                        }
+                    };
+                    Some((path, ty))
+                })
+            })
+            .collect();
+
+        if let Err(err) = watcher.event_sink().send(Ok(events)) {
+            tracing::error!("Failed to process file change event: {err:?}");
+        }
+    }
+}
+
+impl file_watcher::FileWatcherImpl for LspFileWatcherImpl {
+    type Error = FileWatcherError;
+
+    fn watch(&mut self, _path: &std::path::Path) -> std::result::Result<(), Self::Error> {
+        // noop, we're already watching everything 👀
+        // TODO: Change watch path registration of the language client
+        Ok(())
+    }
+
+    fn unwatch(&mut self, _path: &std::path::Path) -> std::result::Result<(), Self::Error> {
+        // noop, we're already watching everything 👀
+        // TODO: Change watch path registration of the language client
+        Ok(())
+    }
+
+    fn worker_stopped_error() -> Self::Error {
+        FileWatcherError::WorkerStopped
+    }
+
+    fn is_transient_watch_error(_err: &Self::Error) -> bool {
+        false
+    }
+
+    fn needs_direct_file_watches() -> bool {
+        // noop, we're already watching everything 👀
+        //
+        // TODO: It's unclear from the LSP specification if direct file watches are needed.
+        // So likely this needs to be `true` if we switch to minimizing the LSP watch paths.
+        false
+    }
+}
+
 async fn run_main_loop(
     connection: Connection,
     init_param: InitializeParams,
@@ -467,6 +549,31 @@ async fn run_main_loop(
 
     startup_lsp(&mut ctx).await?;
 
+    let (file_watcher_sender, mut file_watcher_receiver) = mpsc::unbounded_channel();
+
+    let mut file_watcher = FileWatcher::<LspFileWatcherImpl>::start_with_impl(
+        move |fs_event| {
+            file_watcher_sender.send(fs_event).unwrap();
+        },
+        |err| {
+            tracing::error!("File watcher error: {err:?}");
+        },
+        // Pass through events from files that are not in the watch list.
+        // This ensures the LSP will still manage to detect file changed events in the majority of
+        // cases, even if the file is missing from the watch list for any reason.
+        //
+        // This ensures that adding our own FileWatcher reconciliation on top of the file change
+        // events doesn't regress the LSP.
+        true,
+        // We don't need the event_sink in the worker thread, we just send the events directly
+        // from the main thread to the file watchers worker thread.
+        move |_event_sink| Ok(LspFileWatcherImpl {}),
+    )
+    .unwrap();
+
+    let mut watch_paths_revision = None;
+    sync_file_watcher_if_needed(&mut file_watcher, &ctx, &mut watch_paths_revision)?;
+
     loop {
         let recompile_idle_timeout =
             if ctx.pending_recompile.is_empty() { Duration::MAX } else { RECOMPILE_IDLE_TIMEOUT };
@@ -478,6 +585,7 @@ async fn run_main_loop(
                         &connection,
                         &mut rh,
                         &mut ctx,
+                        &mut file_watcher
                     ).await
                     {
                         Ok(true) => {
@@ -502,6 +610,11 @@ async fn run_main_loop(
                     }
                 }
             }
+            file_event = file_watcher_receiver.recv() => {
+                if let Some(file_event) = file_event {
+                    trigger_file_watcher(&mut ctx, common::file_to_uri(&file_event.path).unwrap(), file_event.kind).await.ok();
+                }
+            }
             _ = tokio::time::sleep(recompile_idle_timeout) => {
                 tracing::debug!("LSP recompiling");
                 let pending_recompile = std::mem::take(&mut ctx.pending_recompile);
@@ -513,7 +626,26 @@ async fn run_main_loop(
                 }
             }
         }
+
+        sync_file_watcher_if_needed(&mut file_watcher, &ctx, &mut watch_paths_revision)?;
     }
+}
+
+fn sync_file_watcher_if_needed(
+    watcher: &mut FileWatcher<LspFileWatcherImpl>,
+    ctx: &Context,
+    watch_paths_revision: &mut Option<u64>,
+) -> Result<()> {
+    let current_revision = ctx.document_cache.revision();
+    if watch_paths_revision.is_some_and(|rev| rev == current_revision) {
+        return Ok(());
+    }
+
+    watcher
+        .update_watched_paths(ctx.document_cache.all_paths_to_watch())
+        .map_err(|err| std::io::Error::other(format!("Failed to update watched paths: {err:?}")))?;
+    *watch_paths_revision = Some(current_revision);
+    Ok(())
 }
 
 async fn handle_lsp_message(
@@ -521,6 +653,7 @@ async fn handle_lsp_message(
     connection: &Arc<Connection>,
     rh: &mut RequestHandler,
     ctx: &mut Context,
+    file_watcher: &mut FileWatcher<LspFileWatcherImpl>,
 ) -> Result<bool> {
     tracing::trace!("Handling LSP message: {msg:?}");
     match msg {
@@ -535,7 +668,7 @@ async fn handle_lsp_message(
             // should not be receiving responses, since they're handled in the dedicated thread
         }
         Message::Notification(notification) => {
-            handle_notification(notification, ctx).await?;
+            handle_notification(notification, ctx, file_watcher).await?;
         }
     }
     Ok(false)
@@ -576,7 +709,11 @@ fn crossbeam_tokio_adapter(
     }
 }
 
-async fn handle_notification(req: lsp_server::Notification, ctx: &mut Context) -> Result<()> {
+async fn handle_notification(
+    req: lsp_server::Notification,
+    ctx: &mut Context,
+    file_watcher: &mut FileWatcher<LspFileWatcherImpl>,
+) -> Result<()> {
     match &*req.method {
         DidOpenTextDocument::METHOD => {
             let params: DidOpenTextDocumentParams = serde_json::from_value(req.params)?;
@@ -610,10 +747,7 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &mut Context) -
         DidChangeConfiguration::METHOD => load_configuration(ctx).await,
         DidChangeWatchedFiles::METHOD => {
             let params: DidChangeWatchedFilesParams = serde_json::from_value(req.params)?;
-            for fe in params.changes {
-                tracing::debug!("Watched file changed: {} (type: {:?})", fe.uri, fe.typ);
-                trigger_file_watcher(ctx, fe.uri, fe.typ).await?;
-            }
+            LspFileWatcherImpl::process_file_watcher_event(file_watcher, params);
             Ok(())
         }
 
@@ -720,7 +854,7 @@ async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Conte
             )?
         }
         M::DebugMessage { location, message } => {
-            eprintln!("{}", common::preview_debug_message_to_string(&location, &message));
+            eprintln!("{}", common::preview_log_message_to_string(&location, &message));
         }
         M::ConnectRemote { addresses, port } => {
             tracing::debug!("Preview asked to connect remote at {addresses:?}:{port}");

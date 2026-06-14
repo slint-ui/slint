@@ -149,6 +149,9 @@
     "Models": {
         "href": "guide/language/coding/repetition-and-data-models/#models"
     },
+    "MathRef": {
+        "href": "reference/global-functions/math/"
+    },
     "NumericTypes": {
         "href": "reference/primitive-types/#numeric-types"
     },
@@ -238,6 +241,9 @@
     },
     "Types": {
         "href": "reference/primitive-types/"
+    },
+    "NumberStringConversion": {
+        "href": "reference/primitive-types/#converting-between-numbers-and-strings"
     },
     "VerticalBox": {
         "href": "reference/std-widgets/layouts/verticalbox/"

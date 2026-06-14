@@ -33,6 +33,8 @@ All notable changes to this project are documented in this file.
 
 ### Slint language
 
+ - Added `is-open` output property to `PopupWindow`, reflecting whether the popup is currently shown.
+   It can be used to style the element that opened the popup, such as a ComboBox's arrow. (#456)
  - Added new `SystemTrayIcon` element.
  - Added `cross-axis-alignment` property to `VerticalLayout` and `HorizontalLayout` for cross-axis alignment. (#2587)
  - Added two-way bindings to model row data. (#2013)
@@ -45,13 +47,15 @@ All notable changes to this project are documented in this file.
  - Deprecated calling `init()` explicitly (#11696)
  - Added `ToolTip` element
  - Added `minimized`, `maximized`, `close`, and `hide` on `Window`
- - Added `drop-shadow-spread` and `inset-shadow-{color,blur,offset-x,offset-y,spread}` properties to rectangle. (Only supported in Skia)
+ - Added `drop-shadow-spread` and `inner-shadow-{color,blur,offset-x,offset-y,spread}` properties to rectangle. (Only supported in Skia)
  - added `Platform.macos-bring-all-windows-to-front()`
  - Fixed percentage size in children impacting parent layout (#3346)
  - Re-evaluate property bindings when a callback handler is changed from native code (#9551)
  - TextInput: allow setting the accessibility value
  - Add landmark accessible roles to `AccessibleRole` (#11831)
  - `animate`: Added `enabled` boolean to toggle animations on/off (defaults to `true`). (#9604)
+ - Conversions between `float` and `string` now use the locale's decimal separator,
+   which is exposed as `Platform.decimal-separator`. (#10857)
 
 ### Widgets
 
@@ -84,6 +88,8 @@ All notable changes to this project are documented in this file.
  - exposed StyledText markdown parsing API.
  - Added `ArrayModel.splice` to remove and/or insert values at a given index, following the semantics of `Array.prototype.splice`.
  - Added public API to create `keys`
+ - `npm install slint-ui` no longer falls back to building from source when no pre-built binary matches the
+   platform; the install script that did this made pnpm >= 10 fail the installation.
 
 ### Python
 

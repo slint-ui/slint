@@ -2813,6 +2813,9 @@ pub fn show_popup(
         .and_then(|window_adapter| window_adapter.get().cloned())
         .unwrap_or_else(|| parent_window_adapter.clone());
 
+    // Keep a weak handle to the parent before `parent_comp` is moved into `instantiate`, so the
+    // is-open setter (built below) can re-derive the parent instance when the popup closes.
+    let parent_comp_weak = popup.is_open.is_some().then(|| parent_comp.clone());
     let inst = instantiate(
         compiled,
         Some(parent_comp),
@@ -2829,16 +2832,38 @@ pub fn show_popup(
     });
     close_popup(element.clone(), instance, parent_window_adapter.clone());
     let window_kind = if popup.is_tooltip { WindowKind::ToolTip } else { WindowKind::Popup };
-    instance.description.popup_ids.borrow_mut().insert(
-        element.borrow().id.clone(),
-        WindowInner::from_pub(parent_window_adapter.window()).show_popup(
-            &vtable::VRc::into_dyn(inst.clone()),
-            access_position,
-            close_policy,
-            parent_item,
-            window_kind,
-        ),
+    // Keep the parent's `is-open` property in sync: `show_popup` invokes this with `true` now and with
+    // `false` from every close path. Passing it directly into `show_popup` avoids an extra registration
+    // call and a second popup lookup. Popups without `is-open` get a no-op setter.
+    let is_open_setter: Box<dyn Fn(bool)> =
+        if let (Some(is_open), Some(parent_comp_weak)) = (&popup.is_open, parent_comp_weak) {
+            let is_open_element = is_open.element();
+            let is_open_name = is_open.name().to_string();
+            Box::new(move |value: bool| {
+                if let Some(parent) = parent_comp_weak.upgrade() {
+                    generativity::make_guard!(guard);
+                    let compo_box = parent.unerase(guard);
+                    let instance_ref = compo_box.borrow_instance();
+                    let _ = crate::eval::store_property(
+                        instance_ref,
+                        &is_open_element,
+                        &is_open_name,
+                        Value::Bool(value),
+                    );
+                }
+            })
+        } else {
+            Box::new(|_| {})
+        };
+    let popup_id = WindowInner::from_pub(parent_window_adapter.window()).show_popup(
+        &vtable::VRc::into_dyn(inst.clone()),
+        access_position,
+        close_policy,
+        parent_item,
+        window_kind,
+        is_open_setter,
     );
+    instance.description.popup_ids.borrow_mut().insert(element.borrow().id.clone(), popup_id);
     inst.run_setup_code();
 }
 

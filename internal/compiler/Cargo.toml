@@ -75,6 +75,7 @@ swash = { workspace = true, optional = true, features = ["scale", "render", "std
 skrifa = { workspace = true, optional = true }
 fdsm = { version = "0.8.0", optional = true }
 fdsm-ttf-parser = { version = "0.2", optional = true }
+# Keep in sync with the nalgebra version used by fdsm
 nalgebra = { version = "0.34.0", optional = true }
 rayon = { workspace = true, optional = true }
 # translations

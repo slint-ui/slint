@@ -832,7 +832,7 @@ impl ElementHandle {
     }
 
     /// Returns the value of the `accessible-live-region` property, if present.
-    pub fn accessible_live_region(&self) -> Option<crate::AccessibleLiveRegion> {
+    pub fn accessible_live_region(&self) -> Option<crate::AccessibleLiveness> {
         if self.element_index != 0 {
             return None;
         }

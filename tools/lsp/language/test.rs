@@ -5,6 +5,8 @@
 
 use lsp_types::{Diagnostic, Url};
 
+use i_slint_live_preview::file_watcher::FileChangeKind;
+
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
@@ -305,7 +307,7 @@ fn preview_file_recompiled_when_dependency_changes() {
     spin_on::spin_on(crate::language::trigger_file_watcher(
         &mut ctx,
         dep_url.clone(),
-        lsp_types::FileChangeType::CHANGED,
+        FileChangeKind::Changed,
     ))
     .unwrap();
 
@@ -368,7 +370,7 @@ mod missing_imports {
         spin_on::spin_on(crate::language::trigger_file_watcher(
             &mut ctx,
             dep_url,
-            lsp_types::FileChangeType::CREATED,
+            FileChangeKind::Created,
         ))
         .unwrap();
 

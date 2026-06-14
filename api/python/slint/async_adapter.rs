@@ -4,7 +4,6 @@
 use std::rc::Rc;
 
 use pyo3::prelude::*;
-use pyo3_stub_gen::{derive::gen_stub_pyclass, derive::gen_stub_pymethods};
 
 #[cfg(unix)]
 struct PyFdWrapper(std::os::fd::RawFd);
@@ -32,14 +31,12 @@ struct AdapterInner {
     writable_callback: Option<Py<PyAny>>,
 }
 
-#[gen_stub_pyclass]
 #[pyclass(unsendable)]
 pub struct AsyncAdapter {
     inner: Option<Rc<AdapterInner>>,
     task: Option<slint_interpreter::JoinHandle<()>>,
 }
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl AsyncAdapter {
     #[new]

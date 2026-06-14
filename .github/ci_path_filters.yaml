@@ -50,6 +50,8 @@ docs_build:
  - 'helper_crates/**'
  - 'tools/lsp/**'
  - 'tests/doctests/**'
+ # The doctests compile the slint snippets in the skill files
+ - 'skills/**'
  - *js_config
  - *ci_config
 

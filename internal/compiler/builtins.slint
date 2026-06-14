@@ -18,6 +18,15 @@
    another properties. These binding will be then set by the compiler.
    `output` property mean that the property can be modified by the native Item,
    otherwise it is assumed the native item don't write to that property.
+
+   A property, callback, or function can be preceded by a `//-shadowable` comment.
+   Components may declare a member with the same name as a shadowable member: this is
+   a warning instead of an error, and the declaration shadows the builtin member.
+   Members added to an already released element must be marked shadowable, so that
+   older code that already declares a member with that name keeps compiling.
+   This only works for members that the compiler itself never accesses by name —
+   no default binding, and no compiler pass that looks the name up on user elements —
+   as such accesses would resolve to the shadowing declaration and generate wrong code.
  */
 
  component Empty {
@@ -199,6 +208,10 @@ component BorderRectangle inherits BasicBorderRectangle {
     //! To achieve the graphical effect of a visually elevated shape that shows a shadow effect underneath the frame of
     //! an element, it's possible to set the following `drop-shadow` properties:
     //!
+    //! The CSS equivalent is `box-shadow`: `box-shadow: 2px 2px 4px 1px black` translates to
+    //! `drop-shadow-offset-x: 2px; drop-shadow-offset-y: 2px; drop-shadow-blur: 4px;
+    //! drop-shadow-spread: 1px; drop-shadow-color: black;`.
+    //!
     //! ### drop-shadow-blur
     //! <SlintProperty propName="drop-shadow-blur" typeName="length"/>
     //! The radius of the shadow that also describes the level of blur applied to the shadow. Negative values are ignored and zero means no blur.
@@ -221,30 +234,34 @@ component BorderRectangle inherits BasicBorderRectangle {
     //! Grows (positive) or shrinks (negative) the shadow shape on all sides before the blur is applied.
     //! Equivalent to the spread radius in CSS `box-shadow`. Currently only supported by the Skia renderer.
     //!
-    //! ## Inset Shadows
+    //! ## Inner Shadows
     //!
-    //! Inset shadows are rendered inside the element's geometry (inverted from drop shadows), giving
+    //! Inner shadows are rendered inside the element's geometry (inverted from drop shadows), giving
     //! the appearance of an inwards-cast shadow. They follow the same parameters as drop shadows.
     //! Currently only supported by the Skia renderer.
     //!
-    //! ### inset-shadow-blur
-    //! <SlintProperty propName="inset-shadow-blur" typeName="length"/>
-    //! The blur radius of the inset shadow.
+    //! The CSS equivalent is `box-shadow` with the `inset` keyword: `box-shadow: inset 2px 2px 4px 1px black`
+    //! translates to `inner-shadow-offset-x: 2px; inner-shadow-offset-y: 2px; inner-shadow-blur: 4px;
+    //! inner-shadow-spread: 1px; inner-shadow-color: black;`.
     //!
-    //! ### inset-shadow-color
-    //! <SlintProperty propName="inset-shadow-color" typeName="color"/>
-    //! The base color of the inset shadow.
+    //! ### inner-shadow-blur
+    //! <SlintProperty propName="inner-shadow-blur" typeName="length"/>
+    //! The blur radius of the inner shadow.
     //!
-    //! ### inset-shadow-offset-x
-    //! <SlintProperty propName="inset-shadow-offset-x" typeName="length"/>
-    //! Horizontal offset of the inset shadow inside the element.
+    //! ### inner-shadow-color
+    //! <SlintProperty propName="inner-shadow-color" typeName="color"/>
+    //! The base color of the inner shadow.
     //!
-    //! ### inset-shadow-offset-y
-    //! <SlintProperty propName="inset-shadow-offset-y" typeName="length"/>
-    //! Vertical offset of the inset shadow inside the element.
+    //! ### inner-shadow-offset-x
+    //! <SlintProperty propName="inner-shadow-offset-x" typeName="length"/>
+    //! Horizontal offset of the inner shadow inside the element.
     //!
-    //! ### inset-shadow-spread
-    //! <SlintProperty propName="inset-shadow-spread" typeName="length"/>
+    //! ### inner-shadow-offset-y
+    //! <SlintProperty propName="inner-shadow-offset-y" typeName="length"/>
+    //! Vertical offset of the inner shadow inside the element.
+    //!
+    //! ### inner-shadow-spread
+    //! <SlintProperty propName="inner-shadow-spread" typeName="length"/>
     //! Positive spread thickens the shadow band along the element's interior boundary; negative spread
     //! thins it.
     //-default_size_binding:expands_to_parent_geometry
@@ -1507,8 +1524,10 @@ component WindowItem {
     /// \default true if 'SLINT_FULLSCREEN' environment variable is set, otherwise false
     in-out property <bool> full-screen;
     /// Whether the window is minimized. Setting this to true minimizes the window.
+    //-shadowable
     in-out property <bool> minimized;
     /// Whether the window is maximized. Setting this to true maximizes the window.
+    //-shadowable
     in-out property <bool> maximized;
     /// The background brush of the `Window`.
     /// \default depends on the style
@@ -1543,10 +1562,12 @@ component WindowItem {
     /// Request that the window be closed. This triggers the `close-requested` callback,
     /// giving the application a chance to cancel the close. Returns `true` if the close
     /// was dispatched, or `false` if the application declined.
+    //-shadowable
     function close() -> bool {
     }
     /// Hide this window. This also drops the strong reference on the window, so if this was
     /// the last reference, the event loop will quit.
+    //-shadowable
     function hide() {
     }
 }
@@ -1714,6 +1735,12 @@ export component TextInput {
     }
     /// Pastes the text content of the clipboard at the cursor position.
     function paste() {
+    }
+    /// Undoes the last text operation.
+    function undo() {
+    }
+    /// Redoes the last undone text operation.
+    function redo() {
     }
     //! ### focus()
     //! Call this function to focus the text input and make it receive future keyboard events.
@@ -2483,6 +2510,11 @@ export component PopupWindow {
     /// By default, a PopupWindow closes when the user clicks. Set this to false to prevent that behavior and close it manually using the `close()` function.
     /// \default close-on-click
     in property <PopupClosePolicy> close-policy; // constexpr hardcoded in typeregister.rs
+    /// Use this read-only property to style the element that opened the popup, for example
+    /// to rotate a ComboBox's arrow while the dropdown is open.
+    /// `true` while the popup is shown on the screen, and `false` once it is closed, for example
+    /// when dismissed by a click, by a selection, or by a programmatic `close()`.
+    out property <bool> is-open;
     //! ## Functions
     //!
     //! ### show()
@@ -2812,6 +2844,10 @@ export global Platform {
     /// style name without the suffix. Use <Link type="Palette" label="Palette"/>'s `color-scheme` to
     /// determine the currently used scheme.
     out property <string> style-name;
+    /// The decimal separator used when converting between `float` and `string`.
+    /// It defaults to the dot (`.`) and is determined by the locale.
+    /// See the <Link type="translations" label="translations guide"/> for details.
+    out property <string> decimal-separator;
     /// Opens the specified URL in an external browser. This function invokes the platform's URL opening mechanism.
     /// Returns `true` on success, or `false` if the platform doesn't support opening URLs or the operation failed.
     ///
@@ -2837,9 +2873,6 @@ export global Platform {
     ///
     /// This corresponds to the standard macOS **Window › Bring All to Front** menu item.
     function macos-bring-all-windows-to-front() { }
-    /// The decimal separator currently used for localized float to string and vice versa conversions
-    /// For more information about localization and how to change the decimal separator see <Link type="translations" label="translations page"/>.
-    out property <string> decimal-separator;
 }
 
 export component NativeButton {

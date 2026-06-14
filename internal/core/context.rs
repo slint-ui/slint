@@ -89,7 +89,7 @@ pub(crate) struct SlintContextInner {
     pub(crate) window_shown_hook:
         core::cell::RefCell<Option<Box<dyn FnMut(&Rc<dyn crate::platform::WindowAdapter>)>>>,
     pub(crate) window_event_hook: core::cell::RefCell<Option<WindowEventHook>>,
-    pub(crate) debug_handler: RefCell<Option<crate::debug_log::DebugLogHandler>>,
+    pub(crate) log_message_handler: RefCell<Option<crate::debug_log::LogMessageHandler>>,
     #[cfg(all(unix, not(target_os = "macos")))]
     xdg_app_id: core::cell::RefCell<Option<crate::SharedString>>,
     #[cfg(feature = "shared-parley")]
@@ -132,7 +132,7 @@ impl SlintContext {
             ),
             window_shown_hook: Default::default(),
             window_event_hook: Default::default(),
-            debug_handler: Default::default(),
+            log_message_handler: Default::default(),
             #[cfg(all(unix, not(target_os = "macos")))]
             xdg_app_id: Default::default(),
             #[cfg(feature = "shared-parley")]
@@ -240,24 +240,20 @@ impl SlintContext {
     }
 
     #[doc(hidden)]
-    pub fn dispatch_debug_log(
-        &self,
-        location: Option<&crate::debug_log::DebugLogLocation>,
-        arguments: core::fmt::Arguments<'_>,
-    ) {
-        if let Some(handler) = self.0.debug_handler.borrow().as_ref() {
-            handler(location, arguments);
+    pub fn dispatch_log_message(&self, message: crate::debug_log::LogMessage<'_>) {
+        if let Some(handler) = self.0.log_message_handler.borrow().as_ref() {
+            handler(message);
         } else {
-            self.0.platform.debug_log(arguments);
+            self.0.platform.debug_log(message.message_arguments());
         }
     }
 
     #[doc(hidden)]
-    pub fn set_debug_handler(
+    pub fn set_log_message_handler(
         &self,
-        handler: Option<crate::debug_log::DebugLogHandler>,
-    ) -> Option<crate::debug_log::DebugLogHandler> {
-        let mut slot = self.0.debug_handler.borrow_mut();
+        handler: Option<crate::debug_log::LogMessageHandler>,
+    ) -> Option<crate::debug_log::LogMessageHandler> {
+        let mut slot = self.0.log_message_handler.borrow_mut();
         core::mem::replace(&mut *slot, handler)
     }
 
