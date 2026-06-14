@@ -736,6 +736,16 @@ impl ComponentCompiler {
         self.config.style.as_ref()
     }
 
+    /// Enables or disables diagnostics for redundant default property bindings.
+    pub fn set_warn_redundant_default_properties(&mut self, warn: bool) {
+        self.config.warn_redundant_default_properties = warn;
+    }
+
+    /// Returns whether diagnostics for redundant default property bindings are enabled.
+    pub fn warn_redundant_default_properties(&self) -> bool {
+        self.config.warn_redundant_default_properties
+    }
+
     /// The domain used for translations
     pub fn set_translation_domain(&mut self, domain: String) {
         self.config.translation_domain = Some(domain);
@@ -904,6 +914,16 @@ impl Compiler {
     /// Returns the widget style the compiler is currently using when compiling .slint files.
     pub fn style(&self) -> Option<&String> {
         self.config.style.as_ref()
+    }
+
+    /// Enables or disables diagnostics for redundant default property bindings.
+    pub fn set_warn_redundant_default_properties(&mut self, warn: bool) {
+        self.config.warn_redundant_default_properties = warn;
+    }
+
+    /// Returns whether diagnostics for redundant default property bindings are enabled.
+    pub fn warn_redundant_default_properties(&self) -> bool {
+        self.config.warn_redundant_default_properties
     }
 
     /// The domain used for translations

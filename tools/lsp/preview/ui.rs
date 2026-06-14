@@ -275,6 +275,7 @@ pub fn set_diagnostics(api: &Api<'_>, diagnostics: &[slint_interpreter::Diagnost
             let level = match d.level() {
                 DiagnosticLevel::Error => LogMessageLevel::Error,
                 DiagnosticLevel::Warning => LogMessageLevel::Warning,
+                DiagnosticLevel::Info => LogMessageLevel::Info,
                 DiagnosticLevel::Note => LogMessageLevel::Note,
                 _ => LogMessageLevel::Debug,
             };
@@ -286,6 +287,7 @@ pub fn set_diagnostics(api: &Api<'_>, diagnostics: &[slint_interpreter::Diagnost
                 (_, DiagnosticLevel::Error) => DiagnosticSummary::Errors,
                 (DiagnosticSummary::Errors, DiagnosticLevel::Warning) => DiagnosticSummary::Errors,
                 (_, DiagnosticLevel::Warning) => DiagnosticSummary::Warnings,
+                (acc, DiagnosticLevel::Info) => acc,
                 // Ignore Note level diagnostics for the summary.
                 // If there is only a note, that's not relevant enough to bother the user.
                 (acc, DiagnosticLevel::Note) => acc,

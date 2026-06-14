@@ -258,6 +258,8 @@ pub enum DiagnosticLevel {
     Error,
     /// The diagnostic found is a warning.
     Warning,
+    /// The diagnostic found is informational.
+    Info,
     /// The diagnostic is an note to further help with the error or warning
     Note,
 }
@@ -408,6 +410,12 @@ impl BuildDiagnostics {
     pub fn push_warning(&mut self, message: String, source: &dyn Spanned) {
         self.push_warning_with_span(message, source.to_source_location());
     }
+    pub fn push_info_with_span(&mut self, message: String, span: SourceLocation) {
+        self.push_diagnostic_with_span(message, span, DiagnosticLevel::Info)
+    }
+    pub fn push_info(&mut self, message: String, source: &dyn Spanned) {
+        self.push_info_with_span(message, source.to_source_location());
+    }
     pub fn push_note_with_span(&mut self, message: String, span: SourceLocation) {
         self.push_diagnostic_with_span(message, span, DiagnosticLevel::Note)
     }
@@ -475,6 +483,7 @@ impl BuildDiagnostics {
                 let annotate_snippets_level = match d.level {
                     DiagnosticLevel::Error => annotate_snippets::Level::ERROR,
                     DiagnosticLevel::Warning => annotate_snippets::Level::WARNING,
+                    DiagnosticLevel::Info => annotate_snippets::Level::INFO,
                     DiagnosticLevel::Note => annotate_snippets::Level::NOTE,
                 };
                 let message = annotate_snippets_level.primary_title(d.message());
@@ -568,7 +577,13 @@ impl BuildDiagnostics {
                         result.extend(proc_macro::TokenStream::from(
                             quote::quote_spanned!(span => const _ : () = { #[deprecated(note = #message)] const WARNING: () = (); WARNING };)
                         ));
-                    },
+                    }
+                    DiagnosticLevel::Info => {
+                        let message = format!("info: {message}");
+                        result.extend(proc_macro::TokenStream::from(
+                            quote::quote_spanned!(span => const _ : () = { #[deprecated(note = #message)] const INFO: () = (); INFO };)
+                        ));
+                    }
                     DiagnosticLevel::Note => {
                         // TODO: Notes are not (yet) supported in proc-macros, we'll just print them as warnings for now.
                         // We can fix this once proc-macro diagnostics support notes
@@ -576,7 +591,7 @@ impl BuildDiagnostics {
                         result.extend(proc_macro::TokenStream::from(
                             quote::quote_spanned!(span => const _ : () = { #[deprecated(note = #message)] const NOTE: () = (); NOTE };)
                         ));
-                    },
+                    }
                 }
             }),
         );

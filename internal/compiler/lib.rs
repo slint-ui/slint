@@ -187,6 +187,13 @@ pub struct CompilerConfiguration {
     /// Generate debug hooks to inspect/override properties.
     pub debug_hooks: Option<std::hash::RandomState>,
 
+    /// Emit warnings when a property binding explicitly sets the same value
+    /// the compiler would use by default.
+    ///
+    /// This is on by default so tooling can surface redundant defaults, but
+    /// can be disabled for compatibility-sensitive integrations.
+    pub warn_redundant_default_properties: bool,
+
     pub components_to_generate: ComponentSelection,
 
     /// The name of the library when compiling as a library.
@@ -249,6 +256,17 @@ impl CompilerConfiguration {
 
         let debug_info = std::env::var_os("SLINT_EMIT_DEBUG_INFO").is_some();
 
+        let warn_redundant_default_properties = match std::env::var(
+            "SLINT_WARN_REDUNDANT_DEFAULT_PROPERTIES",
+        ) {
+            Ok(var) => var.parse::<bool>().unwrap_or_else(|_| {
+                panic!(
+                    "SLINT_WARN_REDUNDANT_DEFAULT_PROPERTIES has incorrect value. Must be either unset, 'true' or 'false'"
+                )
+            }),
+            Err(_) => true,
+        };
+
         #[cfg(feature = "slint-sc")]
         let slint_sc = matches!(output_format, OutputFormat::SlintSc);
 
@@ -281,6 +299,7 @@ impl CompilerConfiguration {
             error_on_binding_loop_with_window_layout: false,
             debug_info,
             debug_hooks: None,
+            warn_redundant_default_properties,
             components_to_generate: ComponentSelection::ExportedWindows,
             #[cfg(all(feature = "software-renderer", feature = "sdf-fonts"))]
             use_sdf_fonts: false,

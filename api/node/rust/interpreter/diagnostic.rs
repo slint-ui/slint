@@ -12,6 +12,9 @@ pub enum JsDiagnosticLevel {
     /// The diagnostic found is a warning.
     Warning,
 
+    /// The diagnostic found is informational.
+    Info,
+
     /// The diagnostic is a note to further help with the error or warning.
     Note,
 }
@@ -21,6 +24,7 @@ impl From<DiagnosticLevel> for JsDiagnosticLevel {
         match diagnostic_level {
             DiagnosticLevel::Error => JsDiagnosticLevel::Error,
             DiagnosticLevel::Warning => JsDiagnosticLevel::Warning,
+            DiagnosticLevel::Info => JsDiagnosticLevel::Info,
             DiagnosticLevel::Note => JsDiagnosticLevel::Note,
             _ => unimplemented!(),
         }

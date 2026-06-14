@@ -68,6 +68,16 @@ impl Compiler {
         self.compiler.set_library_paths(libraries)
     }
 
+    #[getter]
+    fn get_warn_redundant_default_properties(&self) -> PyResult<bool> {
+        Ok(self.compiler.warn_redundant_default_properties())
+    }
+
+    #[setter]
+    fn set_warn_redundant_default_properties(&mut self, warn: bool) {
+        self.compiler.set_warn_redundant_default_properties(warn)
+    }
+
     #[setter]
     fn set_translation_domain(&mut self, domain: String) {
         self.compiler.set_translation_domain(domain)
@@ -100,6 +110,7 @@ impl PyDiagnostic {
         match self.0.level() {
             slint_interpreter::DiagnosticLevel::Error => PyDiagnosticLevel::Error,
             slint_interpreter::DiagnosticLevel::Warning => PyDiagnosticLevel::Warning,
+            slint_interpreter::DiagnosticLevel::Info => PyDiagnosticLevel::Info,
             slint_interpreter::DiagnosticLevel::Note => PyDiagnosticLevel::Note,
             _ => unimplemented!(),
         }
@@ -135,6 +146,7 @@ impl PyDiagnostic {
 pub enum PyDiagnosticLevel {
     Error,
     Warning,
+    Info,
     Note,
 }
 

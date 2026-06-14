@@ -8,7 +8,7 @@
 
 extern crate proc_macro;
 
-use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::diagnostics::{BuildDiagnostics, DiagnosticLevel};
 use i_slint_compiler::parser::SyntaxKind;
 use i_slint_compiler::*;
 use proc_macro::{Spacing, TokenStream, TokenTree};
@@ -422,7 +422,7 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     result.extend(quote! {const _ : ::core::option::Option<&'static str> = ::core::option_env!("SLINT_STYLE");});
 
     let mut result = TokenStream::from(result);
-    if !diag.is_empty() {
+    if diag.iter().any(|diag| !matches!(diag.level(), DiagnosticLevel::Info)) {
         result.extend(diag.report_macro_diagnostic(&tokens));
     }
     result

@@ -98,6 +98,16 @@ impl JsComponentCompiler {
         self.internal.style().cloned()
     }
 
+    #[napi(setter)]
+    pub fn set_warn_redundant_default_properties(&mut self, warn: bool) {
+        self.internal.set_warn_redundant_default_properties(warn);
+    }
+
+    #[napi(getter)]
+    pub fn warn_redundant_default_properties(&self) -> bool {
+        self.internal.warn_redundant_default_properties()
+    }
+
     #[napi(getter)]
     pub fn diagnostics(&self) -> Vec<JsDiagnostic> {
         self.diagnostics.iter().map(|d| JsDiagnostic::from(d.clone())).collect()

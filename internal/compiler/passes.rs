@@ -50,6 +50,7 @@ pub mod materialize_fake_properties;
 pub mod move_declarations;
 mod optimize_useless_rectangles;
 mod purity_check;
+mod redundant_default_properties;
 mod remove_aliases;
 mod remove_return;
 mod remove_unused_properties;
@@ -159,6 +160,9 @@ pub async fn run_passes(
         deprecated_rotation_origin::handle_rotation_origin(component, diag);
         flickable::handle_flickable(component, &global_type_registry.borrow());
         lower_layout::lower_layouts(component, type_loader, &style_metrics, diag);
+        if type_loader.compiler_config.warn_redundant_default_properties {
+            redundant_default_properties::warn_redundant_default_properties(component, diag);
+        }
         default_geometry::default_geometry(component, diag);
         lower_layout::synthesize_layoutinfo_v_with_constraint(component);
         lower_layout::synthesize_layoutinfo_h_with_constraint(component);

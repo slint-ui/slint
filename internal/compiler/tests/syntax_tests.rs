@@ -23,7 +23,8 @@
 //! should be an additional character to the left, which is useful if the diagnostic starts or ends
 //! in the first or second column, where otherwise the `//` is located.
 //!
-//! Warnings with `> <warning{expected_message}` are also supported.
+//! Warnings with `> <warning{expected_message}` and info diagnostics with
+//! `> <info{expected_message}` are also supported.
 //!
 //! The newlines are replaced by `↵` in the error message. Also the manifest dir (CARGO_MANIFEST_DIR) is replaced by `📂`.
 //!
@@ -125,7 +126,7 @@ fn extract_expected_diags(source: &str) -> Vec<ExpectedDiagnostic> {
     // carets refers to the number of lines to go back. This is useful when one line of code produces multiple
     // errors or warnings.
     let re = regex::Regex::new(
-        r"\n *//[^\n\^\|<>]*((\^)|(\|)|((>)?( *<)?))(\^*)(<*)(error|warning|note)\{([^\n]*)\}",
+        r"\n *//[^\n\^\|<>]*((\^)|(\|)|((>)?( *<)?))(\^*)(<*)(error|warning|info|note)\{([^\n]*)\}",
     )
     .unwrap();
 
@@ -193,6 +194,7 @@ fn extract_expected_diags(source: &str) -> Vec<ExpectedDiagnostic> {
         let expected_diag_level = match warning_or_error {
             "warning" => DiagnosticLevel::Warning,
             "error" => DiagnosticLevel::Error,
+            "info" => DiagnosticLevel::Info,
             "note" => DiagnosticLevel::Note,
             _ => panic!("Unsupported diagnostic level {warning_or_error}"),
         };
@@ -360,6 +362,7 @@ fn update(
             let level = match d.level() {
                 DiagnosticLevel::Error => "error",
                 DiagnosticLevel::Warning => "warning",
+                DiagnosticLevel::Info => "info",
                 DiagnosticLevel::Note => "note",
                 _ => todo!(),
             };
@@ -445,6 +448,9 @@ fn process_file_source(
     .collect();
     compiler_config.embed_resources = i_slint_compiler::EmbedResourcesKind::OnlyBuiltinResources;
     compiler_config.enable_experimental = true;
+    if source.contains("config:no_warn_redundant_default_properties") {
+        compiler_config.warn_redundant_default_properties = false;
+    }
     compiler_config.style = Some("fluent".into());
     compiler_config.components_to_generate =
         if source.contains("config:generate_all_exported_windows") {
