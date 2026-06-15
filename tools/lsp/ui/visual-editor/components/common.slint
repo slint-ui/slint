@@ -348,6 +348,61 @@ export component PropertyField inherits Rectangle {
     }
 }
 
+export component ColorPropertyField inherits Rectangle {
+    in property <string> name;
+    in property <color> color-value;
+    in property <string> value;
+
+    height: 34px;
+
+    HorizontalLayout {
+        spacing: 10px;
+
+        Text {
+            width: 80px;
+            text: root.name;
+            color: StudioTheme.muted;
+            font-size: 12px;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+            height: 32px;
+            border-radius: 6px;
+            border-width: 1px;
+            border-color: StudioTheme.border;
+            background: StudioTheme.panel-subtle;
+
+            HorizontalLayout {
+                padding-left: 8px;
+                padding-right: 10px;
+                spacing: 8px;
+                cross-axis-alignment: center;
+
+                Rectangle {
+                    width: 16px;
+                    height: 16px;
+                    border-radius: 4px;
+                    border-width: 1px;
+                    border-color: StudioTheme.border;
+                    background: root.color-value;
+                }
+
+                Text {
+                    horizontal-stretch: 1;
+                    text: root.value;
+                    color: StudioTheme.text;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+            }
+        }
+    }
+}
+
 export component InspectorSection inherits VerticalLayout {
     in property <string> title;
     spacing: 10px;

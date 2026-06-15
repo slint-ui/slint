@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import {
-    CanvasSelectionKind, InspectorSection, MutedLabel, PropertyField, StudioTheme,
+    CanvasSelectionKind, ColorPropertyField, InspectorSection, MutedLabel, PropertyField, StudioTheme,
 } from "common.slint";
 
 export component InspectorPane inherits Rectangle {
@@ -18,6 +18,8 @@ export component InspectorPane inherits Rectangle {
     in property <length> image-width;
     in property <length> image-height;
     in property <string> rectangle-radius-label;
+    in property <color> phone-background;
+    in property <string> phone-background-label;
 
     width: 306px;
     background: StudioTheme.panel-bg;
@@ -79,22 +81,27 @@ export component InspectorPane inherits Rectangle {
             }
         }
 
-        InspectorSection {
+        if root.selection != CanvasSelectionKind.artboard: InspectorSection {
             title: "LAYOUT";
-            PropertyField { name: "X"; value: root.selection == CanvasSelectionKind.artboard ? "0" : "\{root.placed-x / 1px}"; }
-            PropertyField { name: "Y"; value: root.selection == CanvasSelectionKind.artboard ? "0" : "\{root.placed-y / 1px}"; }
-            PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.artboard ? "\{root.phone-width / 1px}" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-width / 1px}" : root.selection == CanvasSelectionKind.text ? "\{root.text-width / 1px}" : root.selection == CanvasSelectionKind.image ? "\{root.image-width / 1px}" : "280"; }
-            PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.artboard ? "\{root.phone-height / 1px}" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-height / 1px}" : root.selection == CanvasSelectionKind.text ? "\{root.text-height / 1px}" : root.selection == CanvasSelectionKind.image ? "\{root.image-height / 1px}" : "104"; }
+            PropertyField { name: "X"; value: "\{root.placed-x / 1px}"; }
+            PropertyField { name: "Y"; value: "\{root.placed-y / 1px}"; }
+            PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-width / 1px}" : root.selection == CanvasSelectionKind.text ? "\{root.text-width / 1px}" : root.selection == CanvasSelectionKind.image ? "\{root.image-width / 1px}" : "280"; }
+            PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-height / 1px}" : root.selection == CanvasSelectionKind.text ? "\{root.text-height / 1px}" : root.selection == CanvasSelectionKind.image ? "\{root.image-height / 1px}" : "104"; }
         }
 
         InspectorSection {
             title: "APPEARANCE";
-            PropertyField { name: "Opacity"; value: "100%"; }
-            PropertyField { name: "Fill"; value: root.selection == CanvasSelectionKind.text ? "#20252d" : root.selection == CanvasSelectionKind.rectangle ? "#fde68a" : root.selection == CanvasSelectionKind.image ? "gradient" : "#dbeafe"; }
-            PropertyField { name: "Radius"; value: root.selection == CanvasSelectionKind.artboard ? "34" : root.selection == CanvasSelectionKind.rectangle ? root.rectangle-radius-label : "18"; }
+            if root.selection == CanvasSelectionKind.artboard: ColorPropertyField {
+                name: "Background";
+                color-value: root.phone-background;
+                value: root.phone-background-label;
+            }
+            if root.selection != CanvasSelectionKind.artboard: PropertyField { name: "Opacity"; value: "100%"; }
+            if root.selection != CanvasSelectionKind.artboard: PropertyField { name: "Fill"; value: root.selection == CanvasSelectionKind.text ? "#20252d" : root.selection == CanvasSelectionKind.rectangle ? "#fde68a" : root.selection == CanvasSelectionKind.image ? "gradient" : "#dbeafe"; }
+            if root.selection != CanvasSelectionKind.artboard: PropertyField { name: "Radius"; value: root.selection == CanvasSelectionKind.rectangle ? root.rectangle-radius-label : "18"; }
         }
 
-        InspectorSection {
+        if root.selection != CanvasSelectionKind.artboard: InspectorSection {
             title: "SOURCE";
             PropertyField { name: "Element"; value: root.selection-title(); }
             PropertyField { name: "File"; value: "main.slint"; }
