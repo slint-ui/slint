@@ -7,7 +7,12 @@ module.exports = grammar({
   name: "slint",
 
   extras: ($) => [/[\s\r\n]+/, $.line_comment, $.block_comment],
-  conflicts: ($) => [[$._assignment_value_block], [$.assignment_block]],
+  conflicts: ($) => [
+    [$._assignment_value_block],
+    [$.assignment_block],
+    // Caused by accepting arbitrary expressions in the radial-gradient/conical-gradient without a separator!
+    [$._unary_prec_operator, $.add_prec_operator]
+],
 
   externals: ($) => [$.block_comment],
 
@@ -332,7 +337,7 @@ module.exports = grammar({
       seq("animate", choice("*", commaSep1($.expression)), $.animate_body),
 
     animate_option_identifier: (_) =>
-      choice("delay", "duration", "iteration-count", "direction", "easing"),
+      choice("delay", "duration", "iteration-count", "direction", "easing", "enabled"),
 
     animate_option: ($) =>
       seq(
@@ -667,6 +672,12 @@ module.exports = grammar({
             "arguments",
             seq(
               field("type", $.radial_gradient_kind),
+              optional(field("radius", $.length_value)),
+              optional(seq(
+                "at",
+                field("center_x", $.expression),
+                field("center_y", $.expression),
+              )),
               ",",
               field("colors", commaSep2($.gradient_color)),
               optional(","),
@@ -680,7 +691,13 @@ module.exports = grammar({
           field(
             "arguments",
             seq(
-              optional(seq("from", field("from_angle", $.angle_value), ",")),
+              optional(seq("from", field("from_angle", $.angle_value))),
+              optional(seq(
+                "at",
+                field("center_x", $.expression),
+                field("center_y", $.expression),
+              )),
+              optional(","),
               field("colors", commaSep2($.conic_gradient_color)),
               optional(","),
             ),
