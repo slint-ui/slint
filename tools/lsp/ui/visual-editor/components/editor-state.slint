@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import {
-    AppState, CanvasOrientation, CanvasSelectionKind, EditorMetrics, LeftPaneMode, PrototypeComponentKind,
+    AppState, CanvasCorner, CanvasOrientation, CanvasSelectionKind, EditorMetrics, LeftPaneMode,
+    PrototypeComponentKind,
 } from "common.slint";
 
 export component EditorState inherits Rectangle {
@@ -135,6 +136,14 @@ export component EditorState inherits Rectangle {
             && window-y <= root.phone-top() + root.phone-height();
     }
 
+    pure function corner-on-left(corner: CanvasCorner) -> bool {
+        return corner == CanvasCorner.top-left || corner == CanvasCorner.bottom-left;
+    }
+
+    pure function corner-on-top(corner: CanvasCorner) -> bool {
+        return corner == CanvasCorner.top-left || corner == CanvasCorner.top-right;
+    }
+
     public function update-visual-drag(kind: PrototypeComponentKind, window-x: length, window-y: length) {
         AppState.dragging-kind = kind;
         AppState.drag-x = window-x;
@@ -168,16 +177,16 @@ export component EditorState inherits Rectangle {
         root.placed-y = y.clamp(0px, root.phone-height() - root.rectangle-height);
     }
 
-    public function resize-rectangle-to(corner: int, x: length, y: length, width: length, height: length) {
+    public function resize-rectangle-to(corner: CanvasCorner, x: length, y: length, width: length, height: length) {
         root.selection = CanvasSelectionKind.rectangle;
-        if corner == 0 || corner == 3 {
+        if root.corner-on-left(corner) {
             root.rectangle-width = width.clamp(80px, x + width);
             root.placed-x = (x + width - root.rectangle-width).clamp(0px, root.phone-width() - root.rectangle-width);
         } else {
             root.placed-x = x.clamp(0px, root.phone-width() - 80px);
             root.rectangle-width = width.clamp(80px, root.phone-width() - root.placed-x);
         }
-        if corner == 0 || corner == 1 {
+        if root.corner-on-top(corner) {
             root.rectangle-height = height.clamp(44px, y + height);
             root.placed-y = (y + height - root.rectangle-height).clamp(0px, root.phone-height() - root.rectangle-height);
         } else {
@@ -187,7 +196,7 @@ export component EditorState inherits Rectangle {
         root.clamp-rectangle-radii();
     }
 
-    public function update-rectangle-radius(corner: int, radius: length, single-corner: bool) {
+    public function update-rectangle-radius(corner: CanvasCorner, radius: length, single-corner: bool) {
         root.selection = CanvasSelectionKind.rectangle;
         if single-corner {
             root.set-rectangle-corner-radius(corner, radius);
@@ -200,13 +209,13 @@ export component EditorState inherits Rectangle {
         return min(root.rectangle-width, root.rectangle-height) / 2;
     }
 
-    function set-rectangle-corner-radius(corner: int, value: length) {
+    function set-rectangle-corner-radius(corner: CanvasCorner, value: length) {
         let radius = value.clamp(0px, root.rectangle-max-radius());
-        if corner == 0 {
+        if corner == CanvasCorner.top-left {
             root.rectangle-top-left-radius = radius;
-        } else if corner == 1 {
+        } else if corner == CanvasCorner.top-right {
             root.rectangle-top-right-radius = radius;
-        } else if corner == 2 {
+        } else if corner == CanvasCorner.bottom-right {
             root.rectangle-bottom-right-radius = radius;
         } else {
             root.rectangle-bottom-left-radius = radius;
@@ -234,16 +243,16 @@ export component EditorState inherits Rectangle {
         root.placed-y = y.clamp(0px, root.phone-height() - root.text-height);
     }
 
-    public function resize-text-to(corner: int, x: length, y: length, width: length, height: length) {
+    public function resize-text-to(corner: CanvasCorner, x: length, y: length, width: length, height: length) {
         root.selection = CanvasSelectionKind.text;
-        if corner == 0 || corner == 3 {
+        if root.corner-on-left(corner) {
             root.text-width = width.clamp(80px, x + width);
             root.placed-x = (x + width - root.text-width).clamp(0px, root.phone-width() - root.text-width);
         } else {
             root.placed-x = x.clamp(0px, root.phone-width() - 80px);
             root.text-width = width.clamp(80px, root.phone-width() - root.placed-x);
         }
-        if corner == 0 || corner == 1 {
+        if root.corner-on-top(corner) {
             root.text-height = height.clamp(32px, y + height);
             root.placed-y = (y + height - root.text-height).clamp(0px, root.phone-height() - root.text-height);
         } else {
@@ -258,16 +267,16 @@ export component EditorState inherits Rectangle {
         root.placed-y = y.clamp(0px, root.phone-height() - root.image-height);
     }
 
-    public function resize-image-to(corner: int, x: length, y: length, width: length, height: length) {
+    public function resize-image-to(corner: CanvasCorner, x: length, y: length, width: length, height: length) {
         root.selection = CanvasSelectionKind.image;
-        if corner == 0 || corner == 3 {
+        if root.corner-on-left(corner) {
             root.image-width = width.clamp(80px, x + width);
             root.placed-x = (x + width - root.image-width).clamp(0px, root.phone-width() - root.image-width);
         } else {
             root.placed-x = x.clamp(0px, root.phone-width() - 80px);
             root.image-width = width.clamp(80px, root.phone-width() - root.placed-x);
         }
-        if corner == 0 || corner == 1 {
+        if root.corner-on-top(corner) {
             root.image-height = height.clamp(44px, y + height);
             root.placed-y = (y + height - root.image-height).clamp(0px, root.phone-height() - root.image-height);
         } else {

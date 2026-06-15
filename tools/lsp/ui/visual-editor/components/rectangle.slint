@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { EditorMetrics, StudioTheme } from "common.slint";
+import { CanvasCorner, EditorMetrics, StudioTheme } from "common.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
 
 export component RectangleOnCanvas inherits MoveResizeFrame {
@@ -9,12 +9,12 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
     in property <length> top-right-radius;
     in property <length> bottom-right-radius;
     in property <length> bottom-left-radius;
-    callback radius-changed(int, length, bool);
+    callback radius-changed(CanvasCorner, length, bool);
 
     width: 240px;
     height: 96px;
 
-    function radius-from-handle(corner: int, pointer-x: length, pointer-y: length) -> length {
+    function radius-from-handle(corner: CanvasCorner, pointer-x: length, pointer-y: length) -> length {
         let from-left = root.corner-on-left(corner) ? pointer-x : root.width - pointer-x;
         let from-top = root.corner-on-top(corner) ? pointer-y : root.height - pointer-y;
         return (min(from-left, from-top) - EditorMetrics.radius-handle-inset).clamp(0px, root.max-corner-radius());
@@ -24,14 +24,14 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
         return min(root.width, root.height) / 2;
     }
 
-    function corner-radius(corner: int) -> length {
-        if corner == 0 {
+    function corner-radius(corner: CanvasCorner) -> length {
+        if corner == CanvasCorner.top-left {
             return root.top-left-radius;
         }
-        if corner == 1 {
+        if corner == CanvasCorner.top-right {
             return root.top-right-radius;
         }
-        if corner == 2 {
+        if corner == CanvasCorner.bottom-right {
             return root.bottom-right-radius;
         }
         return root.bottom-left-radius;
@@ -49,7 +49,12 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
         border-color: root.active ? StudioTheme.accent-strong : #f59e0b;
     }
 
-    for corner in 4: Rectangle {
+    for corner in [
+        CanvasCorner.top-left,
+        CanvasCorner.top-right,
+        CanvasCorner.bottom-right,
+        CanvasCorner.bottom-left,
+    ]: Rectangle {
         property <length> radius: root.corner-radius(corner);
         property <length> handle-center-x: root.corner-on-left(corner)
             ? EditorMetrics.radius-handle-inset + radius

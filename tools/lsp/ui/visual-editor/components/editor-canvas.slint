@@ -3,7 +3,8 @@
 
 import { Api } from "../../api.slint";
 import {
-    CanvasOrientation, CanvasSelectionKind, EditorMetrics, PrototypeComponentKind, StudioTheme,
+    CanvasCorner, CanvasOrientation, CanvasSelectionKind, EditorMetrics, PrototypeComponentKind,
+    StudioTheme,
 } from "common.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
 import { RectangleOnCanvas } from "rectangle.slint";
@@ -105,12 +106,12 @@ export component EditorCanvas inherits Rectangle {
 
     callback selected(CanvasSelectionKind);
     callback move-rectangle-to(length, length);
-    callback resize-rectangle-to(int, length, length, length, length);
-    callback update-rectangle-radius(int, length, bool);
+    callback resize-rectangle-to(CanvasCorner, length, length, length, length);
+    callback update-rectangle-radius(CanvasCorner, length, bool);
     callback move-text-to(length, length);
-    callback resize-text-to(int, length, length, length, length);
+    callback resize-text-to(CanvasCorner, length, length, length, length);
     callback move-image-to(length, length);
-    callback resize-image-to(int, length, length, length, length);
+    callback resize-image-to(CanvasCorner, length, length, length, length);
 
     horizontal-stretch: 1;
     background: StudioTheme.canvas;
