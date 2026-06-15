@@ -185,9 +185,9 @@ public:
     {
         assert_main_thread();
         std::array<interpreter::Value, sizeof...(Args)> args_values { into_slint_value(args)... };
-        cbindgen_private::Slice<cbindgen_private::Value *> args_slice {
-            reinterpret_cast<cbindgen_private::Value **>(args_values.data()), args_values.size()
-        };
+        auto args_slice = slint::private_api::make_slice(
+                reinterpret_cast<cbindgen_private::Value **>(args_values.data()),
+                args_values.size());
         interpreter::Value val(cbindgen_private::slint_live_preview_invoke(
                 inner, string_to_slice(name), args_slice));
         return val;
