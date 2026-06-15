@@ -6,11 +6,14 @@ import { MoveResizeFrame } from "move-resize-frame.slint";
 
 export component Rectangle2OnCanvas inherits Rectangle {
     in property <bool> active;
-    in property <length> radius;
+    in property <length> top-left-radius;
+    in property <length> top-right-radius;
+    in property <length> bottom-right-radius;
+    in property <length> bottom-left-radius;
     callback selected();
     callback moved-to(length, length);
     callback resized-to(int, length, length, length, length);
-    callback radius-changed(length);
+    callback radius-changed(int, length, bool);
 
     width: 240px;
     height: 96px;
@@ -18,7 +21,24 @@ export component Rectangle2OnCanvas inherits Rectangle {
     function radius-from-handle(corner: int, pointer-x: length, pointer-y: length) -> length {
         let from-left = corner == 0 || corner == 3 ? pointer-x : root.width - pointer-x;
         let from-top = corner == 0 || corner == 1 ? pointer-y : root.height - pointer-y;
-        return (min(from-left, from-top) - 10px).clamp(0px, max(0px, min(root.width, root.height) / 2 - 10px));
+        return (min(from-left, from-top) - 10px).clamp(0px, root.max-corner-radius());
+    }
+
+    function max-corner-radius() -> length {
+        return min(root.width, root.height) / 2;
+    }
+
+    function corner-radius(corner: int) -> length {
+        if corner == 0 {
+            return root.top-left-radius;
+        }
+        if corner == 1 {
+            return root.top-right-radius;
+        }
+        if corner == 2 {
+            return root.bottom-right-radius;
+        }
+        return root.bottom-left-radius;
     }
 
     MoveResizeFrame {
@@ -30,7 +50,10 @@ export component Rectangle2OnCanvas inherits Rectangle {
         resized-to(corner, x, y, width, height) => { root.resized-to(corner, root.x + x, root.y + y, width, height); }
 
         Rectangle {
-            border-radius: root.radius;
+            border-top-left-radius: root.top-left-radius;
+            border-top-right-radius: root.top-right-radius;
+            border-bottom-right-radius: root.bottom-right-radius;
+            border-bottom-left-radius: root.bottom-left-radius;
             background: #fde68a;
             border-width: root.active ? 2px : 1px;
             border-color: root.active ? StudioTheme.accent-strong : #f59e0b;
@@ -48,8 +71,9 @@ export component Rectangle2OnCanvas inherits Rectangle {
         for corner in 4: Rectangle {
             property <bool> on-left: corner == 0 || corner == 3;
             property <bool> on-top: corner == 0 || corner == 1;
-            property <length> handle-center-x: on-left ? 10px + root.radius : root.width - 10px - root.radius;
-            property <length> handle-center-y: on-top ? 10px + root.radius : root.height - 10px - root.radius;
+            property <length> radius: root.corner-radius(corner);
+            property <length> handle-center-x: on-left ? 10px + radius : root.width - 10px - radius;
+            property <length> handle-center-y: on-top ? 10px + radius : root.height - 10px - radius;
 
             visible: root.active;
             x: handle-center-x - 5px;
@@ -63,6 +87,11 @@ export component Rectangle2OnCanvas inherits Rectangle {
 
             TouchArea {
                 mouse-cursor: pointer;
+                private property <bool> shift-mode: false;
+
+                pointer-event(event) => {
+                    self.shift-mode = event.modifiers.shift;
+                }
 
                 changed pressed => {
                     if self.pressed {
@@ -73,7 +102,7 @@ export component Rectangle2OnCanvas inherits Rectangle {
                 moved => {
                     let pointer-x = parent.x + self.mouse-x;
                     let pointer-y = parent.y + self.mouse-y;
-                    root.radius-changed(root.radius-from-handle(corner, pointer-x, pointer-y));
+                    root.radius-changed(corner, root.radius-from-handle(corner, pointer-x, pointer-y), self.shift-mode);
                 }
             }
         }

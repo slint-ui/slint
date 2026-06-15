@@ -19,7 +19,10 @@ export component EditorCanvas inherits Rectangle {
     in property <length> placed-y;
     in property <length> rectangle2-width;
     in property <length> rectangle2-height;
-    in property <length> rectangle2-radius;
+    in property <length> rectangle2-top-left-radius;
+    in property <length> rectangle2-top-right-radius;
+    in property <length> rectangle2-bottom-right-radius;
+    in property <length> rectangle2-bottom-left-radius;
     in property <length> text-width;
     in property <length> text-height;
     in property <length> image-width;
@@ -44,7 +47,7 @@ export component EditorCanvas inherits Rectangle {
     callback cancel-resizing-rectangle();
     callback move-rectangle2-to(length, length);
     callback resize-rectangle2-to(int, length, length, length, length);
-    callback update-rectangle2-radius(length);
+    callback update-rectangle2-radius(int, length, bool);
     callback move-text-to(length, length);
     callback resize-text-to(int, length, length, length, length);
     callback move-image-to(length, length);
@@ -276,7 +279,10 @@ export component EditorCanvas inherits Rectangle {
             y: root.placed-y;
             width: root.rectangle2-width;
             height: root.rectangle2-height;
-            radius: root.rectangle2-radius;
+            top-left-radius: root.rectangle2-top-left-radius;
+            top-right-radius: root.rectangle2-top-right-radius;
+            bottom-right-radius: root.rectangle2-bottom-right-radius;
+            bottom-left-radius: root.rectangle2-bottom-left-radius;
             active: root.selection == CanvasSelectionKind.rectangle2;
             selected => {
                 root.selected(CanvasSelectionKind.rectangle2);
@@ -287,8 +293,8 @@ export component EditorCanvas inherits Rectangle {
             resized-to(corner, x, y, width, height) => {
                 root.resize-rectangle2-to(corner, x, y, width, height);
             }
-            radius-changed(radius) => {
-                root.update-rectangle2-radius(radius);
+            radius-changed(corner, radius, single-corner) => {
+                root.update-rectangle2-radius(corner, radius, single-corner);
             }
         }
 
