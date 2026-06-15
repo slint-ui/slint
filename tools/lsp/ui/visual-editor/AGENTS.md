@@ -71,3 +71,34 @@ switch between the portrait and landscape editor states.
 
 After every interaction, call `take_screenshot` again and inspect the image.
 If the client supports it always then show the image inline in the chat.
+
+## Move, Resize, Rotate, and Key Handling
+
+The visual editor uses transformed selection chrome. Be careful with pointer
+coordinates:
+
+- Use absolute pointer coordinates for screen-space interactions such as moving
+  items and ordinary corner resize. Store the absolute pointer position on press
+  with `self.absolute-position.x + self.mouse-x` / `self.absolute-position.y +
+  self.mouse-y`, then compare later absolute pointer positions against that.
+- Do not use `self.mouse-x - press-x` from a `TouchArea` inside a rotated wrapper
+  for move or resize. Those local coordinates are affected by the transform and
+  have repeatedly broken normal drag/reposition behavior.
+- For rotated resize, convert the absolute screen-space delta into local item
+  axes using the inverse rotation before applying width/height changes. At
+  `0deg`, the math must match the old unrotated resize behavior exactly.
+- Keep final bounds and minimum-size clamping in `EditorState`; `MoveResizeFrame`
+  should emit requested geometry and let state clamp it.
+- If a pointer interaction depends on keyboard state, focus the editor
+  `FocusScope` when the interaction starts. Use `Key.Shift` and `Key.ShiftR` in
+  `capture-key-pressed` / `capture-key-released` for live Shift state, then pass
+  that bool down. `event.modifiers.shift` on `pointer-event` is only a fallback
+  snapshot; it does not update when the user presses or releases Shift without a
+  pointer event.
+- Use `KeyBinding` / `@keys(...)` for one-shot shortcuts. Use
+  press/release state for modal interactions such as proportional resize,
+  rotation snapping, and radius editing.
+
+Before declaring changes in this area done, manually verify all of these in the
+MCP viewer: drag-to-reposition, normal corner resize, Shift-proportional resize,
+rotation, Shift-rotation snapping, and radius editing.
