@@ -154,6 +154,7 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                 compiler.compiler_configuration(InternalToken).enable_experimental =
                     config.enable_experimental;
             }
+            ConnectionMessage::SetUserSettings { .. } => {}
             ConnectionMessage::ShowPreview { preview_component } => {
                 build_and_show(
                     &compiler,

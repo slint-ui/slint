@@ -509,6 +509,7 @@ export component EditorUi inherits Window {
     title: "Slint Visual Editor";
     background: StudioTheme.app-bg;
     default-font-family: "Inter";
+    always-on-top: Api.always-on-top;
 
     property <bool> wizard-visible: true;
     property <ProjectKind> selected-project: ProjectKind.mobile;
