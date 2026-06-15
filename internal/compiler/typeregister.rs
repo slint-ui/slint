@@ -645,7 +645,7 @@ impl TypeRegister {
             ElementType::Builtin(b) => {
                 let path = Rc::get_mut(b).unwrap();
                 path.properties.get_mut("commands").unwrap().property_visibility =
-                    PropertyVisibility::Fake;
+                    PropertyVisibility::InOut;
             }
 
             _ => unreachable!(),
