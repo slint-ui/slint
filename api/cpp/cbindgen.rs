@@ -29,30 +29,12 @@ fn enums(path: &Path) -> anyhow::Result<()> {
     // can come first, with the source-compat aliases referring back to it.
     let mut lang_section: Vec<u8> = Vec::new();
     let mut slint_compat: Vec<u8> = Vec::new();
-    let mut slint_other: Vec<u8> = Vec::new();
-
-    // For PrivateEnum entries whose body must NOT live in `slint::cbindgen_private`
-    // (historical C++ public surface that isn't part of `slint::language`).
-    // Returns the optional sub-namespace under `slint::`.
-    macro_rules! priv_routing {
-        (Orientation) => {
-            Some(None)
-        };
-        (AccessibleLiveness) => {
-            Some(None)
-        };
-        ($_:ident) => {
-            None
-        };
-    }
 
     macro_rules! print_enums {
          ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
              $({
-                #[allow(unused_assignments)]
-                let mut sub_namespace: Option<&'static str> = None;
-                let target: &mut dyn Write = match (stringify!($vis), stringify!($Name)) {
-                    ("pub", _) => {
+                let target: &mut dyn Write = match stringify!($vis) {
+                    "pub" => {
                         // body lives in `slint::language`; alias into `cbindgen_private`,
                         // and (for enums that historically lived in `slint::`) also into `slint::`.
                         writeln!(enums_priv, "using slint::language::{};", stringify!($Name))?;
@@ -61,27 +43,8 @@ fn enums(path: &Path) -> anyhow::Result<()> {
                         }
                         &mut lang_section
                     }
-                    ("", _) => {
-                        // Private enums mostly live in `cbindgen_private`. A handful keep their
-                        // historical `slint::` (or `slint::testing`) home for source compatibility.
-                        match priv_routing!($Name) {
-                            Some(ns) => {
-                                sub_namespace = ns;
-                                let qualified = match ns {
-                                    Some(ns) => format!("slint::{}::{}", ns, stringify!($Name)),
-                                    None => format!("slint::{}", stringify!($Name)),
-                                };
-                                writeln!(enums_priv, "using {};", qualified)?;
-                                &mut slint_other
-                            }
-                            None => &mut enums_priv as &mut dyn Write,
-                        }
-                    }
-                    _ => unreachable!(),
+                    _ => &mut enums_priv as &mut dyn Write,
                 };
-                if let Some(ns) = sub_namespace {
-                    writeln!(target, "namespace {} {{", ns)?;
-                }
                 $(writeln!(target, "///{}", $enum_doc)?;)*
                 writeln!(target, "enum class {} {{", stringify!($Name))?;
                 $(
@@ -89,9 +52,6 @@ fn enums(path: &Path) -> anyhow::Result<()> {
                     writeln!(target, "    {},", stringify!($Value).trim_start_matches("r#"))?;
                 )*
                 writeln!(target, "}};")?;
-                if sub_namespace.is_some() {
-                    writeln!(target, "}}")?;
-                }
              })*
          }
     }
@@ -101,7 +61,6 @@ fn enums(path: &Path) -> anyhow::Result<()> {
     enums_pub.write_all(&lang_section)?;
     writeln!(enums_pub, "}} // namespace language")?;
     enums_pub.write_all(&slint_compat)?;
-    enums_pub.write_all(&slint_other)?;
     writeln!(enums_pub, "}}")?;
     writeln!(enums_priv, "}}")?;
 
@@ -242,10 +201,10 @@ fn live_preview_enums(path: &Path) -> anyhow::Result<()> {
     macro_rules! collect_enums {
         ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
             $({
-                let namespace = match (stringify!($vis), stringify!($Name)) {
-                    ("pub", _) => "slint::language",
-                    (_, "Orientation") | (_, "AccessibleLiveness") => "slint",
-                    _ => "slint::cbindgen_private",
+                let namespace = if stringify!($vis) == "pub" {
+                    "slint::language"
+                } else {
+                    "slint::cbindgen_private"
                 };
                 enums.push((
                     namespace,
@@ -261,7 +220,7 @@ fn live_preview_enums(path: &Path) -> anyhow::Result<()> {
     }
     i_slint_common::for_each_enums!(collect_enums);
 
-    for target_namespace in ["slint", "slint::language", "slint::cbindgen_private"] {
+    for target_namespace in ["slint::language", "slint::cbindgen_private"] {
         writeln!(file, "namespace {target_namespace} {{")?;
         for (_, ty, enum_name, values) in enums.iter().filter(|e| e.0 == target_namespace) {
             writeln!(
