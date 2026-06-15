@@ -10,9 +10,9 @@ import {
 export component LeftPane inherits Rectangle {
     in-out property <LeftPaneMode> mode;
     in-out property <string> search-text;
-    callback drag-started(PrototypeComponentKind, length, length);
-    callback drag-moved(PrototypeComponentKind, length, length);
-    callback drag-ended(PrototypeComponentKind, length, length);
+    callback drag-started(PrototypeComponentKind, Point);
+    callback drag-moved(PrototypeComponentKind, Point);
+    callback drag-ended(PrototypeComponentKind, Point);
 
     width: EditorMetrics.left-pane-width;
     background: StudioTheme.panel-bg;
@@ -97,9 +97,9 @@ export component LeftPane inherits Rectangle {
                     label: "Rectangle";
                     detail: "Surface, panel, shape";
                     glyph: "R";
-                    drag-started(kind, x, y) => { root.drag-started(kind, x, y); }
-                    drag-moved(kind, x, y) => { root.drag-moved(kind, x, y); }
-                    drag-ended(kind, x, y) => { root.drag-ended(kind, x, y); }
+                    drag-started(kind, position) => { root.drag-started(kind, position); }
+                    drag-moved(kind, position) => { root.drag-moved(kind, position); }
+                    drag-ended(kind, position) => { root.drag-ended(kind, position); }
                 }
 
                 PrimerActionListRow {
@@ -107,9 +107,9 @@ export component LeftPane inherits Rectangle {
                     label: "Text";
                     detail: "Label or display copy";
                     glyph: "T";
-                    drag-started(kind, x, y) => { root.drag-started(kind, x, y); }
-                    drag-moved(kind, x, y) => { root.drag-moved(kind, x, y); }
-                    drag-ended(kind, x, y) => { root.drag-ended(kind, x, y); }
+                    drag-started(kind, position) => { root.drag-started(kind, position); }
+                    drag-moved(kind, position) => { root.drag-moved(kind, position); }
+                    drag-ended(kind, position) => { root.drag-ended(kind, position); }
                 }
 
                 PrimerActionListRow {
@@ -117,9 +117,9 @@ export component LeftPane inherits Rectangle {
                     label: "Image";
                     detail: "Bitmap or vector asset";
                     glyph: "IMG";
-                    drag-started(kind, x, y) => { root.drag-started(kind, x, y); }
-                    drag-moved(kind, x, y) => { root.drag-moved(kind, x, y); }
-                    drag-ended(kind, x, y) => { root.drag-ended(kind, x, y); }
+                    drag-started(kind, position) => { root.drag-started(kind, position); }
+                    drag-moved(kind, position) => { root.drag-moved(kind, position); }
+                    drag-ended(kind, position) => { root.drag-ended(kind, position); }
                 }
             }
         }

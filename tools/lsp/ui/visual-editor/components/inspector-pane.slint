@@ -8,16 +8,12 @@ import {
 
 export component InspectorPane inherits Rectangle {
     in property <CanvasSelectionKind> selection;
-    in property <length> placed-x;
-    in property <length> placed-y;
+    in property <Point> placed-position;
     in property <length> phone-width;
     in property <length> phone-height;
-    in property <length> rectangle-width;
-    in property <length> rectangle-height;
-    in property <length> text-width;
-    in property <length> text-height;
-    in property <length> image-width;
-    in property <length> image-height;
+    in property <Size> rectangle-size;
+    in property <Size> text-size;
+    in property <Size> image-size;
     in property <angle> selected-rotation;
     in property <string> rectangle-radius-label;
     in property <color> phone-background;
@@ -84,10 +80,10 @@ export component InspectorPane inherits Rectangle {
 
         if root.selection != CanvasSelectionKind.artboard: InspectorSection {
             title: "LAYOUT";
-            PropertyField { name: "X"; value: (root.placed-x / 1px).to-fixed(0); }
-            PropertyField { name: "Y"; value: (root.placed-y / 1px).to-fixed(0); }
-            PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.rectangle ? (root.rectangle-width / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.text ? (root.text-width / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.image ? (root.image-width / 1px).to-fixed(0) : "280"; }
-            PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.rectangle ? (root.rectangle-height / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.text ? (root.text-height / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.image ? (root.image-height / 1px).to-fixed(0) : "104"; }
+            PropertyField { name: "X"; value: (root.placed-position.x / 1px).to-fixed(0); }
+            PropertyField { name: "Y"; value: (root.placed-position.y / 1px).to-fixed(0); }
+            PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.rectangle ? (root.rectangle-size.width / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.text ? (root.text-size.width / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.image ? (root.image-size.width / 1px).to-fixed(0) : "280"; }
+            PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.rectangle ? (root.rectangle-size.height / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.text ? (root.text-size.height / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.image ? (root.image-size.height / 1px).to-fixed(0) : "104"; }
             PropertyField { name: "Rotation"; value: (root.selected-rotation / 1deg).round(); }
         }
 

@@ -5,10 +5,10 @@ import { AppState, ImagePlaceholder, PrototypeComponentKind, StudioTheme } from 
 
 export component DragPreview inherits Rectangle {
     visible: AppState.dragging-kind != PrototypeComponentKind.none;
-    width: AppState.drag-preview-width;
-    height: AppState.drag-preview-height;
-    x: AppState.drag-preview-x;
-    y: AppState.drag-preview-y;
+    width: AppState.drag-preview-size.width;
+    height: AppState.drag-preview-size.height;
+    x: AppState.drag-preview-position.x;
+    y: AppState.drag-preview-position.y;
     border-radius: AppState.dragging-kind == PrototypeComponentKind.image ? 16px : 8px;
     background: transparent;
     border-width: 0px;

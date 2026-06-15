@@ -14,8 +14,7 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
     width: 240px;
     height: 96px;
     out property <bool> radius-tooltip-visible: false;
-    out property <length> radius-tooltip-x: 0px;
-    out property <length> radius-tooltip-y: 0px;
+    out property <Point> radius-tooltip-position: { x: 0px, y: 0px };
     out property <length> radius-tooltip-value: 0px;
     private property <bool> radius-handle-active: false;
 
@@ -96,8 +95,7 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
                     root.selected();
                     root.interaction-started();
                     root.radius-tooltip-visible = true;
-                    root.radius-tooltip-x = pointer-x;
-                    root.radius-tooltip-y = pointer-y;
+                    root.radius-tooltip-position = { x: pointer-x, y: pointer-y };
                     root.radius-tooltip-value = root.corner-radius(corner);
                 } else {
                     root.radius-tooltip-visible = false;
@@ -109,8 +107,7 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
                 let pointer-y = parent.y + self.mouse-y;
                 let radius = root.radius-from-handle(corner, pointer-x, pointer-y);
                 root.radius-tooltip-visible = true;
-                root.radius-tooltip-x = pointer-x;
-                root.radius-tooltip-y = pointer-y;
+                root.radius-tooltip-position = { x: pointer-x, y: pointer-y };
                 root.radius-tooltip-value = radius;
                 root.radius-changed(corner, radius, root.shift-pressed || self.event-shift-pressed);
             }
