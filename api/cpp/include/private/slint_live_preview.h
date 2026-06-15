@@ -72,11 +72,11 @@ inline slint::Image from_slint_value(const slint::interpreter::Value &val, const
     return val.to_image().value();
 }
 /// duration
-inline long int from_slint_value(const slint::interpreter::Value &val, const long int *)
+inline std::int64_t from_slint_value(const slint::interpreter::Value &val, const std::int64_t *)
 {
     return val.to_number().value();
 }
-inline interpreter::Value into_slint_value(const long int &val)
+inline interpreter::Value into_slint_value(const std::int64_t &val)
 {
     return double(val);
 }
