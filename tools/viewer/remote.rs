@@ -1,10 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+use std::collections::HashSet;
+use std::sync::Arc;
 use std::{net::SocketAddr, rc::Rc};
 
 use i_slint_core::InternalToken;
 use i_slint_core::SharedString;
+use i_slint_core::textlayout::sharedparley::fontique;
+use i_slint_core::window::WindowInner;
 use i_slint_live_preview::protocol::{PreviewComponent, PreviewToLspMessage, lsp_types};
 use i_slint_live_preview::remote::{Connection, ConnectionMessage, init_compiler};
 use slint::ComponentHandle as _;
@@ -105,9 +109,15 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     let mut mdns = if enable_mdns { announce_mdns(&connection).await } else { None };
 
     let local_port = connection.local_port();
-    let local_ip_str: Vec<String> = connection
-        .local_ips()
-        .into_iter()
+    let mut local_ips = connection.local_ips();
+    // Prefer IPv4: when any IPv4 address is present, drop the IPv6 ones so the
+    // display isn't cluttered with link-local addresses no one types. Fall back
+    // to IPv6 only when that's all we have.
+    if local_ips.iter().any(std::net::IpAddr::is_ipv4) {
+        local_ips.retain(std::net::IpAddr::is_ipv4);
+    }
+    let local_ip_str: Vec<String> = local_ips
+        .iter()
         .map(|ip| match ip {
             std::net::IpAddr::V4(ipv4_addr) => format!("{ipv4_addr}:{local_port}"),
             std::net::IpAddr::V6(ipv6_addr) => {
@@ -128,6 +138,7 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     let mut last_connection = None;
     let mut user_instance: Option<slint_interpreter::ComponentInstance> = None;
     let mut current_preview: Option<PreviewComponent> = None;
+    let mut registered_fonts = HashSet::<lsp_types::Url>::new();
     while let Some(event) = event_receiver.recv().await {
         let msg = match event {
             Event::Connection(msg) => msg,
@@ -176,6 +187,22 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
                 .await?;
             }
             ConnectionMessage::HighlightFromEditor { .. } => {}
+            ConnectionMessage::RegisterFont { url, contents } => {
+                let len = contents.len();
+                if !registered_fonts.insert(url.clone()) {
+                    tracing::debug!("Font {url} already registered, skipping");
+                    continue;
+                }
+                // Wrap the already-Arc-backed bytes in a Blob without copying.
+                let blob = fontique::Blob::new(Arc::new(contents));
+                WindowInner::from_pub(placeholder.window())
+                    .context()
+                    .font_context()
+                    .borrow_mut()
+                    .collection
+                    .register_fonts(blob, None);
+                tracing::debug!("Registered font {url} ({len} bytes)");
+            }
             ConnectionMessage::Connected { remote_addr } => {
                 placeholder.set_message(SharedString::from(format!("Connected to {remote_addr}")));
                 placeholder.set_state(RemoteViewerState::Connected);

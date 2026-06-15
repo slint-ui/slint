@@ -128,6 +128,41 @@ const TOOLS: &[ToolDef] = &[
     },
 ];
 
+/// Human-readable description for a handle-typed input field. Window and element
+/// handles are structurally identical (`{index, generation}` objects), so without
+/// these descriptions their input schemas would be byte-for-byte identical and
+/// agents routinely confuse the two. The text spells out where each kind of
+/// handle comes from and that they are not interchangeable.
+fn handle_field_description(field_name: &str) -> Option<&'static str> {
+    match field_name {
+        "windowHandle" => Some(
+            "A window handle (NOT an element handle). Obtain it from list_windows. \
+             Window and element handles look identical but are not interchangeable: \
+             passing an element handle here is incorrect.",
+        ),
+        "elementHandle" => Some(
+            "An element handle (NOT a window handle). Obtain it from get_element_tree, \
+             find_elements_by_id, query_element_descendants, or a window's rootElementHandle \
+             (from get_window_properties). Window and element handles look identical but are \
+             not interchangeable: passing a window handle here is incorrect.",
+        ),
+        _ => None,
+    }
+}
+
+/// Annotate handle-typed properties of an input schema with a `description` so
+/// `windowHandle` and `elementHandle` read differently to the client.
+fn annotate_handle_fields(schema: &mut Value) {
+    let Some(props) = schema.get_mut("properties").and_then(|p| p.as_object_mut()) else {
+        return;
+    };
+    for (name, prop) in props.iter_mut() {
+        if let (Some(desc), Some(obj)) = (handle_field_description(name), prop.as_object_mut()) {
+            obj.insert("description".to_string(), Value::String(desc.to_string()));
+        }
+    }
+}
+
 fn tool_definitions() -> Value {
     let tools: Vec<Value> = TOOLS
         .iter()
@@ -136,6 +171,8 @@ fn tool_definitions() -> Value {
                 mcp_schemas::proto_input_schema(def.request_type).unwrap_or_else(|| {
                     panic!("no proto schema for {}", def.request_type);
                 });
+
+            annotate_handle_fields(&mut schema);
 
             // Add "required" array: all fields except those listed as optional
             if let Some(all_fields) = mcp_schemas::proto_field_names(def.request_type) {
@@ -464,6 +501,13 @@ async fn handle_mcp_request(state: &IntrospectionState, body: &str) -> Option<Va
                     "Values are uint64 encoded as strings (protobuf JSON convention). ",
                     "Zero-valued fields may be omitted by the serializer, so {} means {\"index\": \"0\", \"generation\": \"0\"}. ",
                     "When sending handles back, you may omit zero fields or include them — both work.\n\n",
+
+                    "IMPORTANT: window handles and element handles are SEPARATE, NON-INTERCHANGEABLE kinds, ",
+                    "even though they share this {index, generation} shape. ",
+                    "Window handles come from list_windows (use them for windowHandle parameters). ",
+                    "Element handles come from get_element_tree, find_elements_by_id, query_element_descendants, ",
+                    "or a window's rootElementHandle (use them for elementHandle parameters). ",
+                    "Do not reuse a window handle as an element handle or vice versa — they are not interchangeable.\n\n",
 
                     "# Enum values\n\n",
                     "Enum fields accept PascalCase strings:\n",
@@ -1071,6 +1115,30 @@ mod tests {
         ));
         let resp = resp.unwrap();
         assert_eq!(resp["error"]["code"], -32600);
+    }
+
+    #[test]
+    fn test_handle_field_schemas_are_distinct() {
+        // The window and element handle schemas would otherwise be byte-identical
+        // {index, generation} objects. Verify the disambiguating descriptions are
+        // present and differ, so clients can tell the two kinds apart.
+        let defs = tool_definitions();
+        let tools = defs["tools"].as_array().unwrap();
+        let find = |name: &str| tools.iter().find(|t| t["name"] == name).unwrap().clone();
+
+        let window_tool = find("get_window_properties");
+        let window_desc = window_tool["inputSchema"]["properties"]["windowHandle"]["description"]
+            .as_str()
+            .expect("windowHandle should have a description");
+        let element_tool = find("get_element_properties");
+        let element_desc =
+            element_tool["inputSchema"]["properties"]["elementHandle"]["description"]
+                .as_str()
+                .expect("elementHandle should have a description");
+
+        assert!(window_desc.contains("window handle"));
+        assert!(element_desc.contains("element handle"));
+        assert_ne!(window_desc, element_desc);
     }
 
     #[test]

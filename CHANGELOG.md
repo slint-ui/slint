@@ -86,6 +86,8 @@ All notable changes to this project are documented in this file.
  - exposed StyledText markdown parsing API.
  - Added `ArrayModel.splice` to remove and/or insert values at a given index, following the semantics of `Array.prototype.splice`.
  - Added public API to create `keys`
+ - `npm install slint-ui` no longer falls back to building from source when no pre-built binary matches the
+   platform; the install script that did this made pnpm >= 10 fail the installation.
 
 ### Python
 

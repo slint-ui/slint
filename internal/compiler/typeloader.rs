@@ -1588,6 +1588,8 @@ impl TypeLoader {
         )
         .await;
 
+        let ignore_missing_font_files =
+            state.borrow().tl.compiler_config.resource_url_mapper.is_some();
         if state.borrow().diag.has_errors() {
             // If there was error (esp parse error) we don't want to report further error in this document.
             // because they might be nonsense (TODO: we should check that the parse error were really in this document).
@@ -1603,6 +1605,7 @@ impl TypeLoader {
                 reexports,
                 &mut ignore_diag,
                 &dependency_registry,
+                ignore_missing_font_files,
             );
             return (path.to_owned(), doc);
         }
@@ -1614,6 +1617,7 @@ impl TypeLoader {
             reexports,
             state.diag,
             &dependency_registry,
+            ignore_missing_font_files,
         );
         (path.to_owned(), doc)
     }
