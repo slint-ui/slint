@@ -57,7 +57,10 @@ export component InspectorPane inherits Rectangle {
         return "Selection";
     }
 
-    EdgeDivider { }
+    EdgeDivider {
+        // dont center an edge divider
+        x: 0px;
+    }
 
     VerticalLayout {
         padding: 16px;
