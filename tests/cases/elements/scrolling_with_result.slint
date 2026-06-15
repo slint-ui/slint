@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Adapted from /tests/cases/elements/flickable_button_click.slint
+// Clicking and scrolling on a flickable component
+import { Button } from "std-widgets.slint";
+export component TestCase inherits Window {
+    width: 500px;
+    height: 500px;
+
+    flick := Flickable {
+        x: parent.width / 4;
+        y: 0px;
+        width: parent.width / 2;
+        height: parent.height;
+        VerticalLayout {
+            for i in 100: Button {
+                property <int> index: i;
+                text: "Button " + i;
+            }
+        }
+    }
+}
+
+/*
+```rust
+// Test that mouse exit events are dispatched while scrolling
+use slint::*;
+use i_slint_core::context::WindowEventDispatchResult::*;
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+
+let pressed_position = LogicalPosition::new(250., 10.);
+let res = window.dispatch_event_with_result(platform::WindowEvent::PointerPressed { position: pressed_position, button: platform::PointerEventButton::Left });
+assert_eq!(res.unwrap(), Accepted);
+
+let res = window.dispatch_event_with_result(platform::WindowEvent::PointerReleased { position: pressed_position, button: platform::PointerEventButton::Left });
+assert_eq!(res.unwrap(), Accepted);
+
+// Moved cursor up
+let moved_position = LogicalPosition::new(250., 0.);
+let res = window.dispatch_event_with_result(platform::WindowEvent::PointerMoved { position: moved_position });
+assert_eq!(res.unwrap(), Accepted);
+
+// Moved cursor off component to corner
+let moved_position = LogicalPosition::new(500., 500.);
+let res = window.dispatch_event_with_result(platform::WindowEvent::PointerPressed { position: moved_position, button: platform::PointerEventButton::Left });
+assert_eq!(res.unwrap(), Ignored);
+
+// Scrolling
+let res1 = instance.window().dispatch_event_with_result(platform::WindowEvent::PointerScrolled { position: LogicalPosition::new(250.0, 100.0), delta_x: 0.0, delta_y: -75.0 });
+let res2 = instance.window().dispatch_event_with_result(platform::WindowEvent::PointerScrolled { position: LogicalPosition::new(500.0, 100.0), delta_x: 0.0, delta_y: -75.0 });
+assert_eq!(res1.unwrap(), Accepted);
+assert_eq!(res2.unwrap(), Ignored);
+```
+*/

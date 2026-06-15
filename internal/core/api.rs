@@ -644,10 +644,10 @@ impl Window {
     /// the top left corner of the window.
     ///
     /// This function panics if there is an error processing the event.
-    /// Use [`Self::try_dispatch_event()`] to handle the error.
+    /// Use [`Self::dispatch_event_with_result()`] to handle the error.
     #[track_caller]
     pub fn dispatch_event(&self, event: crate::platform::WindowEvent) {
-        self.try_dispatch_event(event).unwrap()
+        self.dispatch_event_with_result(event).unwrap();
     }
 
     /// Dispatch a window event to the scene.
@@ -660,6 +660,22 @@ impl Window {
         &self,
         event: crate::platform::WindowEvent,
     ) -> Result<(), PlatformError> {
+        self.dispatch_event_with_result(event).map(|_| ())
+    }
+
+    /// Dispatch a window event to the scene.
+    ///
+    /// Use this when you're implementing your own backend and want to forward user input events.
+    ///
+    /// Any position fields in the event must be in the logical pixel coordinate system relative to
+    /// the top left corner of the window.
+    ///
+    /// Returns a [context::WindowEventDispatchResult] allowing the caller to know whether the
+    /// result was accepted or not.
+    pub fn dispatch_event_with_result(
+        &self,
+        event: crate::platform::WindowEvent,
+    ) -> Result<WindowEventDispatchResult, PlatformError> {
         // Only clone the event when a hook is installed to avoid allocation on the hot path.
         let event_for_hook = self
             .0
@@ -763,7 +779,7 @@ impl Window {
         {
             hook(&self.0.window_adapter(), &event_for_hook, dispatch_result);
         }
-        Ok(())
+        Ok(dispatch_result)
     }
 
     /// Returns true if there is an animation currently active on any property in the Window; false otherwise.

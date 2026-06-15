@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Resizing window
+export component TestCase inherits Window {
+    width: 400px;
+    height: 400px;
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+    }
+}
+
+/*
+```rust
+use slint::*;
+use i_slint_core::context::WindowEventDispatchResult::*;
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+
+// Assert ScaleFactorChanged always accepted
+let res = window.dispatch_event_with_result(platform::WindowEvent::ScaleFactorChanged { scale_factor: 2.0 });
+assert_eq!(res.unwrap(), Accepted);
+let res = window.dispatch_event_with_result(platform::WindowEvent::ScaleFactorChanged { scale_factor: 1.0 });
+assert_eq!(res.unwrap(), Accepted);
+
+// Assert Resized always accepted
+let res = window.dispatch_event_with_result(platform::WindowEvent::Resized { size: slint::LogicalSize::new(800.0, 600.0) });
+assert_eq!(res.unwrap(), Accepted);
+
+// Assert WindowActiveChanged always accepted
+let res = window.dispatch_event_with_result(platform::WindowEvent::WindowActiveChanged(true));
+assert_eq!(res.unwrap(), Accepted);
+let res = window.dispatch_event_with_result(platform::WindowEvent::WindowActiveChanged(false));
+assert_eq!(res.unwrap(), Accepted);
+```
+*/

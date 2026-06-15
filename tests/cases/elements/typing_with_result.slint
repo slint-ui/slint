@@ -1,0 +1,79 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Adapted from from tests/cases/elements/popupwindow_size_fixed_layout.slint
+// Clicking and typing in a text area with and without focus
+import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+export component TestCase {
+    in-out property <bool> show;
+    in-out property <string> input_text <=> input.text;
+
+    width: 600px;
+    height: 400px;
+
+    VerticalLayout {
+        input := TextInput {
+            text: "Edit me";
+            visible: show;
+            horizontal-alignment: center;
+        }
+
+        HorizontalLayout {
+            Button {
+                text: root.show ? "Hide Buttons" : "Show buttons";
+
+                clicked => {
+                    show = !show;
+                }
+            }
+
+            Rectangle {
+                Text {
+                    text: "Empty rectangle";
+                }
+            }
+        }
+    }
+}
+
+/*
+
+```rust
+use slint::*;
+use i_slint_core::context::WindowEventDispatchResult::*;
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+
+// Typing without text input
+assert_eq!(instance.get_show(), false);
+let res = window.dispatch_event_with_result(platform::WindowEvent::KeyPressed { text: ' '.into() });
+assert_eq!(res.unwrap(), Ignored);
+
+// Showing text area
+let position = LogicalPosition::new(25., 300.);
+let res1 = window.dispatch_event_with_result(platform::WindowEvent::PointerPressed { position, button: platform::PointerEventButton::Left });
+let res2 = window.dispatch_event_with_result(platform::WindowEvent::PointerReleased { position, button: platform::PointerEventButton::Left });
+assert_eq!(res1.unwrap(), Accepted);
+assert_eq!(res2.unwrap(), Accepted);
+assert_eq!(instance.get_show(), true);
+
+// Typing without focus
+let res = window.dispatch_event_with_result(platform::WindowEvent::KeyPressed { text: ' '.into() });
+assert_eq!(res.unwrap(), Ignored);
+
+// Focusing text area
+let position = LogicalPosition::new(300., 0.);
+let res1 = window.dispatch_event_with_result(platform::WindowEvent::PointerPressed { position, button: platform::PointerEventButton::Left });
+let res2 = window.dispatch_event_with_result(platform::WindowEvent::PointerReleased { position, button: platform::PointerEventButton::Left });
+assert_eq!(res1.unwrap(), Accepted);
+assert_eq!(res2.unwrap(), Accepted);
+
+// Typing again with focus
+let res = window.dispatch_event_with_result(platform::WindowEvent::KeyPressed { text: ' '.into() });
+assert_eq!(res.unwrap(), Accepted);
+assert_eq!(instance.get_input_text(), "Edit  me");
+```
+*/
+
+
