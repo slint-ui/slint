@@ -6,24 +6,9 @@
 # (docs-mcp.slint.dev). See scripts/docs-mcp/collect-and-upload.mjs and the
 # separate `docs-mcp` Worker project.
 #
-# How to wire it: call this reusable workflow from the same caller workflow that
-# runs build_docs.yaml, AFTER it, so the docs-* artifacts from this run are
-# available. Example (in the caller, e.g. .github/workflows/slint.yaml):
-#
-#   build-docs:
-#     uses: ./.github/workflows/build_docs.yaml
-#     with: { app-id: "..." }
-#     secrets: inherit
-#   upload-docs-mcp:
-#     needs: build-docs
-#     uses: ./.github/workflows/docs-mcp-upload.yaml
-#     with:
-#       release: ${{ inputs.release }}
-#       r2-bucket: slint-docs-mcp
-#     secrets:
-#       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-#       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-#       R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+# Must run after build_docs.yaml in the SAME workflow run, so it can download the
+# docs-* artifacts that build produced. The caller is the `upload-docs-mcp` job in
+# nightly_snapshot.yaml (which needs `docs` and is gated on publish).
 
 name: Upload docs to docs-mcp R2
 
