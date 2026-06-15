@@ -169,8 +169,8 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Generate the live-preview `into_slint_value`/`from_slint_value` for the builtin enums (which
-/// aren't in any document), each in its enum's namespace so ADL finds it.
+/// Generate the live-preview `into_slint_value`/`from_slint_value` for the builtin enums and
+/// structs (which aren't in any document), each in its type's namespace so ADL finds it.
 fn live_preview_enums(path: &Path) -> anyhow::Result<()> {
     let mut file = BufWriter::new(
         std::fs::File::create(path.join("slint_live_preview_enums.h"))
@@ -253,6 +253,56 @@ fn live_preview_enums(path: &Path) -> anyhow::Result<()> {
         }
         writeln!(file, "}} // namespace {target_namespace}")?;
     }
+
+    // The public builtin structs (in slint::language) converted field by field, in their namespace
+    // so ADL finds them. StandardListViewItem is hand-written; DropEvent needs DataTransfer.
+    let mut structs: Vec<(String, Vec<String>)> = Vec::new();
+    macro_rules! collect_structs {
+        ($( $(#[$attr:meta])* $vis:vis struct $Name:ident {
+            $( $(#[$field_attr:meta])* $field:ident : $ty:ty,)*
+        })*) => {
+            $(
+                if stringify!($vis) == "pub"
+                    && !matches!(stringify!($Name), "StandardListViewItem" | "DropEvent")
+                {
+                    structs.push((
+                        stringify!($Name).to_string(),
+                        vec![$(stringify!($field).to_string()),*],
+                    ));
+                }
+            )*
+        };
+    }
+    i_slint_common::for_each_builtin_structs!(collect_structs);
+
+    writeln!(file, "namespace slint::language {{")?;
+    for (name, fields) in &structs {
+        let ty = format!("slint::language::{name}");
+        writeln!(file, "inline slint::interpreter::Value into_slint_value(const {ty} &self) {{")?;
+        writeln!(file, "    using slint::private_api::live_preview::into_slint_value;")?;
+        writeln!(file, "    slint::interpreter::Struct s;")?;
+        for field in fields {
+            writeln!(file, "    s.set_field(\"{field}\", into_slint_value(self.{field}));")?;
+        }
+        writeln!(file, "    return s;")?;
+        writeln!(file, "}}")?;
+        writeln!(
+            file,
+            "inline {ty} from_slint_value(const slint::interpreter::Value &val, const {ty} *) {{"
+        )?;
+        writeln!(file, "    auto s = val.to_struct().value();")?;
+        writeln!(file, "    {ty} r;")?;
+        for field in fields {
+            writeln!(
+                file,
+                "    r.{field} = slint::private_api::live_preview::from_slint_value<std::decay_t<decltype(r.{field})>>(s.get_field(\"{field}\").value());"
+            )?;
+        }
+        writeln!(file, "    return r;")?;
+        writeln!(file, "}}")?;
+    }
+    writeln!(file, "}} // namespace slint::language")?;
+
     file.flush()?;
     Ok(())
 }
