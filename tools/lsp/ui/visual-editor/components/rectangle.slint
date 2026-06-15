@@ -13,6 +13,10 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
 
     width: 240px;
     height: 96px;
+    out property <bool> radius-tooltip-visible: false;
+    out property <length> radius-tooltip-x: 0px;
+    out property <length> radius-tooltip-y: 0px;
+    out property <length> radius-tooltip-value: 0px;
 
     function radius-from-handle(corner: CanvasCorner, pointer-x: length, pointer-y: length) -> length {
         let from-left = root.corner-on-left(corner) ? pointer-x : root.width - pointer-x;
@@ -81,14 +85,27 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
 
             changed pressed => {
                 if self.pressed {
+                    let pointer-x = parent.x + self.mouse-x;
+                    let pointer-y = parent.y + self.mouse-y;
                     root.selected();
+                    root.radius-tooltip-visible = true;
+                    root.radius-tooltip-x = pointer-x;
+                    root.radius-tooltip-y = pointer-y;
+                    root.radius-tooltip-value = root.corner-radius(corner);
+                } else {
+                    root.radius-tooltip-visible = false;
                 }
             }
 
             moved => {
                 let pointer-x = parent.x + self.mouse-x;
                 let pointer-y = parent.y + self.mouse-y;
-                root.radius-changed(corner, root.radius-from-handle(corner, pointer-x, pointer-y), self.shift-mode);
+                let radius = root.radius-from-handle(corner, pointer-x, pointer-y);
+                root.radius-tooltip-visible = true;
+                root.radius-tooltip-x = pointer-x;
+                root.radius-tooltip-y = pointer-y;
+                root.radius-tooltip-value = radius;
+                root.radius-changed(corner, radius, self.shift-mode);
             }
         }
     }
