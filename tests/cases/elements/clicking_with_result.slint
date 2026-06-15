@@ -1,0 +1,71 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Adapted from tests/cases/elements/popupwindow_size_fixed_layout.slint
+// Clicking on toggle buttons
+import { Button, VerticalBox, HorizontalBox } from "std-widgets.slint";
+export component TestCase {
+    in-out property <bool> show;
+
+    width: 600px;
+    height: 400px;
+
+    VerticalLayout {
+        if show: HorizontalLayout {
+            Button {
+                text: "Button left";
+            }
+
+            Button {
+                text: "Button middle";
+            }
+
+            Button {
+                text: "Button right";
+            }
+        }
+
+        HorizontalLayout {
+            Button {
+                text: root.show ? "Hide Buttons" : "Show buttons";
+
+                clicked => {
+                    show = !show;
+                }
+            }
+
+            Rectangle {
+                Text {
+                    text: "Empty rectangle";
+                }
+            }
+        }
+    }
+}
+
+/*
+
+```rust
+use slint::*;
+use i_slint_core::context::WindowEventDispatchResult::*;
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+
+// Click show button
+let pressed_position = LogicalPosition::new(0., 0.);
+let res1 = window.dispatch_event_with_result(platform::WindowEvent::PointerPressed { position: pressed_position, button: platform::PointerEventButton::Left });
+let res2 = window.dispatch_event_with_result(platform::WindowEvent::PointerReleased { position: pressed_position, button: platform::PointerEventButton::Left });
+
+assert_eq!(res1.unwrap(), Accepted);
+assert_eq!(res2.unwrap(), Accepted);
+
+// Click rectangle
+let pressed_position = LogicalPosition::new(600., 400.);
+let res1 = window.dispatch_event_with_result(platform::WindowEvent::PointerPressed { position: pressed_position, button: platform::PointerEventButton::Left });
+let res2 = window.dispatch_event_with_result(platform::WindowEvent::PointerReleased { position: pressed_position, button: platform::PointerEventButton::Left });
+
+assert_eq!(res1.unwrap(), Ignored);
+assert_eq!(res2.unwrap(), Ignored);
+```
+*/
