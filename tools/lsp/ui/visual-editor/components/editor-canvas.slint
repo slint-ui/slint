@@ -5,6 +5,7 @@ import { Api } from "../../api.slint";
 import {
     CanvasOrientation, CanvasSelectionKind, PrototypeComponentKind, StudioTheme,
 } from "common.slint";
+import { Rectangle2OnCanvas } from "rectangle2.slint";
 
 export component EditorCanvas inherits Rectangle {
     in property <CanvasOrientation> orientation;
@@ -33,6 +34,7 @@ export component EditorCanvas inherits Rectangle {
     callback resize-rectangle(int, length, length);
     callback finish-resizing-rectangle(int, length, length);
     callback cancel-resizing-rectangle();
+    callback move-rectangle2-to(length, length);
     callback update-rectangle-radius(int, length, length, bool);
     callback finish-rectangle-radius(int, length, length, bool);
 
@@ -58,6 +60,9 @@ export component EditorCanvas inherits Rectangle {
         if root.placed-kind == PrototypeComponentKind.rectangle {
             return root.rectangle-width;
         }
+        if root.placed-kind == PrototypeComponentKind.rectangle2 {
+            return 240px;
+        }
         return 280px;
     }
 
@@ -67,6 +72,9 @@ export component EditorCanvas inherits Rectangle {
         }
         if root.placed-kind == PrototypeComponentKind.rectangle {
             return root.rectangle-height;
+        }
+        if root.placed-kind == PrototypeComponentKind.rectangle2 {
+            return 96px;
         }
         return 32px;
     }
@@ -232,6 +240,18 @@ export component EditorCanvas inherits Rectangle {
             }
         }
 
+        if root.placed-kind == PrototypeComponentKind.rectangle2: Rectangle2OnCanvas {
+            x: root.placed-x;
+            y: root.placed-y;
+            active: root.selection == CanvasSelectionKind.rectangle2;
+            selected => {
+                root.selected(CanvasSelectionKind.rectangle2);
+            }
+            moved-to(x, y) => {
+                root.move-rectangle2-to(x, y);
+            }
+        }
+
         if root.placed-kind == PrototypeComponentKind.image: Rectangle {
             x: root.placed-x;
             y: root.placed-y;
@@ -258,7 +278,9 @@ export component EditorCanvas inherits Rectangle {
             }
         }
 
-        if root.placed-kind != PrototypeComponentKind.none && root.selection != CanvasSelectionKind.artboard: Rectangle {
+        if root.placed-kind != PrototypeComponentKind.none
+                && root.placed-kind != PrototypeComponentKind.rectangle2
+                && root.selection != CanvasSelectionKind.artboard: Rectangle {
             x: root.placed-x - 8px;
             y: root.placed-y - 8px;
             width: root.placed-width() + 16px;

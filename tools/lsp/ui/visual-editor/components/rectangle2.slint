@@ -1,0 +1,72 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { StudioTheme } from "common.slint";
+
+export component Rectangle2OnCanvas inherits Rectangle {
+    in property <bool> active;
+    callback selected();
+    callback moved-to(length, length);
+
+    property <length> target-x;
+    property <length> target-y;
+
+    width: 240px;
+    height: 96px;
+
+    Rectangle {
+        border-radius: 12px;
+        background: #fde68a;
+        border-width: root.active ? 2px : 1px;
+        border-color: root.active ? StudioTheme.accent-strong : #f59e0b;
+
+        Text {
+            text: "Rectangle 2";
+            color: #78350f;
+            font-size: 14px;
+            font-weight: 800;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+
+        TouchArea {
+            mouse-cursor: move;
+
+            changed pressed => {
+                if self.pressed {
+                    root.selected();
+                }
+            }
+
+            moved => {
+                root.target-x = ((root.x + self.mouse-x - self.pressed-x) / 1px).round() * 1px;
+                root.target-y = ((root.y + self.mouse-y - self.pressed-y) / 1px).round() * 1px;
+                root.moved-to(root.target-x, root.target-y);
+            }
+
+            clicked => {
+                root.selected();
+            }
+        }
+    }
+
+    if root.active: Rectangle {
+        x: -8px;
+        y: -8px;
+        width: parent.width + 16px;
+        height: parent.height + 16px;
+        border-width: 1px;
+        border-color: StudioTheme.accent-strong;
+
+        for corner in 4: Rectangle {
+            x: corner == 1 || corner == 2 ? parent.width - 6px : -6px;
+            y: corner >= 2 ? parent.height - 6px : -6px;
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            background: white;
+            border-width: 2px;
+            border-color: StudioTheme.accent-strong;
+        }
+    }
+}

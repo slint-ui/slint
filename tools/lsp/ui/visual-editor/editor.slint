@@ -4,12 +4,7 @@
 import { Api } from "../api.slint";
 import { ProjectKind, StartupWizard } from "startup-wizard.slint";
 import {
-    AppState,
-    CanvasOrientation,
-    CanvasSelectionKind,
-    LeftPaneMode,
-    PrototypeComponentKind,
-    StudioTheme,
+    AppState, CanvasOrientation, CanvasSelectionKind, LeftPaneMode, PrototypeComponentKind, StudioTheme,
 } from "components/common.slint";
 import { CanvasToolbar } from "components/canvas-toolbar.slint";
 import { DragPreview } from "components/drag-preview.slint";
@@ -24,9 +19,9 @@ export component EditorUi inherits Window {
     min-width: 1040px;
     min-height: 680px;
     title: "Slint Visual Editor";
-    always-on-top: Api.always-on-top;
     background: StudioTheme.app-bg;
     default-font-family: "Inter";
+    always-on-top: Api.always-on-top;
 
     property <bool> wizard-visible: true;
     property <ProjectKind> selected-project: ProjectKind.mobile;
@@ -68,6 +63,8 @@ export component EditorUi inherits Window {
             root.rectangle-width = 282px;
             root.rectangle-height = 104px;
             root.set-all-rectangle-radii(18px);
+        } else if kind == PrototypeComponentKind.rectangle2 {
+            root.selection = CanvasSelectionKind.rectangle2;
         } else if kind == PrototypeComponentKind.text {
             root.selection = CanvasSelectionKind.text;
         } else if kind == PrototypeComponentKind.image {
@@ -80,6 +77,9 @@ export component EditorUi inherits Window {
         if kind == PrototypeComponentKind.rectangle {
             root.placed-x = (drop-x - 141px).clamp(24px, root.phone-width() - 306px);
             root.placed-y = (drop-y - 52px).clamp(72px, root.phone-height() - 128px);
+        } else if kind == PrototypeComponentKind.rectangle2 {
+            root.placed-x = (drop-x - 120px).clamp(24px, root.phone-width() - 264px);
+            root.placed-y = (drop-y - 48px).clamp(72px, root.phone-height() - 120px);
         } else if kind == PrototypeComponentKind.text {
             root.placed-x = (drop-x - 140px).clamp(24px, root.phone-width() - 304px);
             root.placed-y = (drop-y - 16px).clamp(72px, root.phone-height() - 56px);
@@ -96,6 +96,9 @@ export component EditorUi inherits Window {
         if root.placed-kind == PrototypeComponentKind.rectangle {
             return root.rectangle-width;
         }
+        if root.placed-kind == PrototypeComponentKind.rectangle2 {
+            return 240px;
+        }
         return 280px;
     }
 
@@ -105,6 +108,9 @@ export component EditorUi inherits Window {
         }
         if root.placed-kind == PrototypeComponentKind.rectangle {
             return root.rectangle-height;
+        }
+        if root.placed-kind == PrototypeComponentKind.rectangle2 {
+            return 96px;
         }
         return 32px;
     }
@@ -116,6 +122,9 @@ export component EditorUi inherits Window {
             root.placed-x = root.placed-x.clamp(16px, root.phone-width() - root.rectangle-width - 16px);
             root.placed-y = root.placed-y.clamp(54px, root.phone-height() - root.rectangle-height - 24px);
             root.clamp-rectangle-radii();
+        } else if root.placed-kind == PrototypeComponentKind.rectangle2 {
+            root.placed-x = root.placed-x.clamp(16px, root.phone-width() - 240px - 16px);
+            root.placed-y = root.placed-y.clamp(54px, root.phone-height() - 96px - 24px);
         } else if root.placed-kind != PrototypeComponentKind.none {
             root.placed-x = root.placed-x.clamp(24px, root.phone-width() - root.placed-width() - 24px);
             root.placed-y = root.placed-y.clamp(72px, root.phone-height() - root.placed-height() - 24px);
@@ -156,7 +165,10 @@ export component EditorUi inherits Window {
     }
 
     function pointer-inside-phone(window-x: length, window-y: length) -> bool {
-        return window-x >= root.phone-left() && window-x <= root.phone-left() + root.phone-width() && window-y >= root.phone-top() && window-y <= root.phone-top() + root.phone-height();
+        return window-x >= root.phone-left()
+            && window-x <= root.phone-left() + root.phone-width()
+            && window-y >= root.phone-top()
+            && window-y <= root.phone-top() + root.phone-height();
     }
 
     function update-visual-drag(kind: PrototypeComponentKind, window-x: length, window-y: length) {
@@ -206,7 +218,9 @@ export component EditorUi inherits Window {
     }
 
     function rectangle-radius-label() -> string {
-        if root.rectangle-top-left-radius == root.rectangle-top-right-radius && root.rectangle-top-left-radius == root.rectangle-bottom-right-radius && root.rectangle-top-left-radius == root.rectangle-bottom-left-radius {
+        if root.rectangle-top-left-radius == root.rectangle-top-right-radius
+            && root.rectangle-top-left-radius == root.rectangle-bottom-right-radius
+            && root.rectangle-top-left-radius == root.rectangle-bottom-left-radius {
             return "\{root.rectangle-top-left-radius / 1px}";
         }
         return "Mixed";
@@ -252,6 +266,12 @@ export component EditorUi inherits Window {
         root.selection = CanvasSelectionKind.rectangle;
         root.placed-x = (root.placed-x + delta-x).clamp(16px, root.phone-width() - root.rectangle-width - 16px);
         root.placed-y = (root.placed-y + delta-y).clamp(54px, root.phone-height() - root.rectangle-height - 24px);
+    }
+
+    function move-rectangle2-to(x: length, y: length) {
+        root.selection = CanvasSelectionKind.rectangle2;
+        root.placed-x = x.clamp(16px, root.phone-width() - 240px - 16px);
+        root.placed-y = y.clamp(54px, root.phone-height() - 96px - 24px);
     }
 
     function begin-resizing-rectangle(corner: int) {
@@ -322,15 +342,9 @@ export component EditorUi inherits Window {
                 LeftPane {
                     mode <=> root.left-mode;
                     search-text <=> root.search-text;
-                    drag-started(kind, x, y) => {
-                        root.update-visual-drag(kind, x, y);
-                    }
-                    drag-moved(kind, x, y) => {
-                        root.update-visual-drag(kind, x, y);
-                    }
-                    drag-ended(kind, x, y) => {
-                        root.finish-visual-drag(kind, x, y);
-                    }
+                    drag-started(kind, x, y) => { root.update-visual-drag(kind, x, y); }
+                    drag-moved(kind, x, y) => { root.update-visual-drag(kind, x, y); }
+                    drag-ended(kind, x, y) => { root.finish-visual-drag(kind, x, y); }
                 }
 
                 EditorCanvas {
@@ -352,33 +366,16 @@ export component EditorUi inherits Window {
                     radius-drag-corner: root.radius-drag-corner;
                     radius-drag-single-corner: root.radius-drag-single-corner;
                     rectangle-resize-corner: root.rectangle-resize-corner;
-                    selected(kind) => {
-                        root.selection = kind;
-                    }
-                    begin-moving-rectangle => {
-                        root.begin-moving-rectangle();
-                    }
-                    move-rectangle-by(delta-x, delta-y) => {
-                        root.move-rectangle-by(delta-x, delta-y);
-                    }
-                    begin-resizing-rectangle(corner) => {
-                        root.begin-resizing-rectangle(corner);
-                    }
-                    resize-rectangle(corner, x, y) => {
-                        root.resize-rectangle(corner, x, y);
-                    }
-                    finish-resizing-rectangle(corner, x, y) => {
-                        root.finish-resizing-rectangle(corner, x, y);
-                    }
-                    cancel-resizing-rectangle => {
-                        root.cancel-resizing-rectangle();
-                    }
-                    update-rectangle-radius(corner, x, y, single-corner) => {
-                        root.update-rectangle-radius(corner, x, y, single-corner);
-                    }
-                    finish-rectangle-radius(corner, x, y, single-corner) => {
-                        root.finish-rectangle-radius(corner, x, y, single-corner);
-                    }
+                    selected(kind) => { root.selection = kind; }
+                    begin-moving-rectangle => { root.begin-moving-rectangle(); }
+                    move-rectangle-by(delta-x, delta-y) => { root.move-rectangle-by(delta-x, delta-y); }
+                    begin-resizing-rectangle(corner) => { root.begin-resizing-rectangle(corner); }
+                    resize-rectangle(corner, x, y) => { root.resize-rectangle(corner, x, y); }
+                    finish-resizing-rectangle(corner, x, y) => { root.finish-resizing-rectangle(corner, x, y); }
+                    cancel-resizing-rectangle => { root.cancel-resizing-rectangle(); }
+                    move-rectangle2-to(x, y) => { root.move-rectangle2-to(x, y); }
+                    update-rectangle-radius(corner, x, y, single-corner) => { root.update-rectangle-radius(corner, x, y, single-corner); }
+                    finish-rectangle-radius(corner, x, y, single-corner) => { root.finish-rectangle-radius(corner, x, y, single-corner); }
                 }
 
                 InspectorPane {

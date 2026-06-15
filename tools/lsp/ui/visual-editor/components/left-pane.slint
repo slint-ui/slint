@@ -105,6 +105,16 @@ export component LeftPane inherits Rectangle {
                 }
 
                 PrimerActionListRow {
+                    kind: PrototypeComponentKind.rectangle2;
+                    label: "Rectangle 2";
+                    detail: "Move-only test shape";
+                    glyph: "R2";
+                    drag-started(kind, x, y) => { root.drag-started(kind, x, y); }
+                    drag-moved(kind, x, y) => { root.drag-moved(kind, x, y); }
+                    drag-ended(kind, x, y) => { root.drag-ended(kind, x, y); }
+                }
+
+                PrimerActionListRow {
                     kind: PrototypeComponentKind.text;
                     label: "Text";
                     detail: "Label or display copy";
