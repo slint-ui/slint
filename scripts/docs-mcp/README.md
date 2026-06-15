@@ -60,7 +60,7 @@ See the docs-mcp project README. CI needs these on **slint-ui/slint**:
 - secret `CLOUDFLARE_ACCOUNT_ID`
 - secrets `R2_ACCESS_KEY_ID` + `R2_SECRET_ACCESS_KEY` — an **R2 API token**
   (dashboard: R2 → Manage R2 API Tokens), **not** the Workers API token
-- the R2 bucket name passed as the `r2-bucket` input (placeholder guards the job
-  until set)
+- the bucket `slint-docs-mcp`, passed as the `r2-bucket` input by the caller
+  (`nightly_snapshot.yaml`)
 
 The workflow installs `rclone` on the runner.

@@ -19,7 +19,7 @@
 #     uses: ./.github/workflows/docs-mcp-upload.yaml
 #     with:
 #       release: ${{ inputs.release }}
-#       r2-bucket: slint-docs-mcp        # TODO(owner): real bucket name
+#       r2-bucket: slint-docs-mcp
 #     secrets:
 #       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 #       R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -37,11 +37,8 @@ on:
         description: "Release build? Publishes under the version number instead of master."
       r2-bucket:
         type: string
-        # TODO(owner): set to the real bucket name (or pass it from the caller).
-        # While it is the placeholder below, the job no-ops as a safety guard.
-        default: "REPLACE_ME_r2_bucket"
-        required: false
-        description: "Destination R2 bucket name."
+        required: true
+        description: "Destination R2 bucket name (the caller passes slint-docs-mcp)."
       docs-version:
         type: string
         default: ""
@@ -60,8 +57,6 @@ on:
 jobs:
   upload:
     runs-on: ubuntu-24.04
-    # Safety guard: do nothing until the owner has configured a real bucket.
-    if: ${{ inputs.r2-bucket != 'REPLACE_ME_r2_bucket' }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
