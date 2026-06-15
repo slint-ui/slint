@@ -136,6 +136,13 @@ export component EditorState inherits Rectangle {
             && window-y <= root.phone-top() + root.phone-height();
     }
 
+    function preview-inside-phone(drop-x: length, drop-y: length, preview-width: length, preview-height: length) -> bool {
+        return drop-x >= 0px
+            && drop-y >= 0px
+            && drop-x + preview-width <= root.phone-width()
+            && drop-y + preview-height <= root.phone-height();
+    }
+
     pure function default-component-width(kind: PrototypeComponentKind) -> length {
         if kind == PrototypeComponentKind.rectangle {
             return 160px;
@@ -194,7 +201,12 @@ export component EditorState inherits Rectangle {
         AppState.drag-preview-y = window-y - root.drag-preview-y-offset(kind);
         root.canvas-drop-x = AppState.drag-preview-x - root.phone-left();
         root.canvas-drop-y = AppState.drag-preview-y - root.phone-top();
-        root.canvas-drop-hover = root.pointer-inside-phone(window-x, window-y);
+        root.canvas-drop-hover = root.preview-inside-phone(
+            root.canvas-drop-x,
+            root.canvas-drop-y,
+            AppState.drag-preview-width,
+            AppState.drag-preview-height,
+        );
     }
 
     public function finish-visual-drag(kind: PrototypeComponentKind, window-x: length, window-y: length) {
