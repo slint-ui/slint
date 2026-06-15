@@ -6,6 +6,9 @@ import { CanvasCorner, EditorMetrics, StudioTheme } from "common.slint";
 export component MoveResizeFrame inherits Rectangle {
     in property <bool> active;
     out property <bool> frame-hover: move-touch.has-hover;
+    out property <bool> move-pressed: move-touch.pressed;
+    out property <bool> move-dragging: false;
+    private property <length> drag-threshold: 2px;
     callback selected();
     callback moved-to(length, length);
     callback resized-to(CanvasCorner, length, length, length, length);
@@ -36,14 +39,26 @@ export component MoveResizeFrame inherits Rectangle {
 
     move-touch := TouchArea {
         mouse-cursor: move;
+        private property <length> press-x: 0px;
+        private property <length> press-y: 0px;
 
         changed pressed => {
             if self.pressed {
+                root.move-dragging = false;
+                self.press-x = self.mouse-x;
+                self.press-y = self.mouse-y;
                 root.selected();
+            } else {
+                root.move-dragging = false;
             }
         }
 
         moved => {
+            let moved-far-enough = (self.mouse-x - self.press-x).abs() >= root.drag-threshold
+                || (self.mouse-y - self.press-y).abs() >= root.drag-threshold;
+            if self.pressed && moved-far-enough {
+                root.move-dragging = true;
+            }
             let target-x = ((root.x + self.mouse-x - self.pressed-x) / 1px).round() * 1px;
             let target-y = ((root.y + self.mouse-y - self.pressed-y) / 1px).round() * 1px;
             root.moved-to(target-x, target-y);
@@ -56,7 +71,7 @@ export component MoveResizeFrame inherits Rectangle {
 
     @children
 
-    if root.active: Rectangle {
+    if root.active && !root.move-dragging: Rectangle {
         border-width: 1px;
         border-color: StudioTheme.accent-strong;
 
