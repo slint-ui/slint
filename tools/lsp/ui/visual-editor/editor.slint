@@ -44,7 +44,10 @@ export component EditorUi inherits Window {
     property <length> rectangle-height: 104px;
     property <length> rectangle2-width: 240px;
     property <length> rectangle2-height: 96px;
-    property <length> rectangle2-radius: 12px;
+    property <length> rectangle2-top-left-radius: 12px;
+    property <length> rectangle2-top-right-radius: 12px;
+    property <length> rectangle2-bottom-right-radius: 12px;
+    property <length> rectangle2-bottom-left-radius: 12px;
     property <length> text-width: 280px;
     property <length> text-height: 32px;
     property <length> image-width: 282px;
@@ -74,7 +77,7 @@ export component EditorUi inherits Window {
             root.selection = CanvasSelectionKind.rectangle2;
             root.rectangle2-width = 240px;
             root.rectangle2-height = 96px;
-            root.rectangle2-radius = 12px;
+            root.set-all-rectangle2-radii(12px);
         } else if kind == PrototypeComponentKind.text {
             root.selection = CanvasSelectionKind.text;
             root.text-width = 280px;
@@ -326,17 +329,45 @@ export component EditorUi inherits Window {
         root.clamp-rectangle2-radius();
     }
 
-    function update-rectangle2-radius(radius: length) {
+    function update-rectangle2-radius(corner: int, radius: length, single-corner: bool) {
         root.selection = CanvasSelectionKind.rectangle2;
-        root.rectangle2-radius = radius.clamp(0px, root.rectangle2-max-radius());
+        if single-corner {
+            root.set-rectangle2-corner-radius(corner, radius);
+        } else {
+            root.set-all-rectangle2-radii(radius);
+        }
     }
 
     function rectangle2-max-radius() -> length {
-        return max(0px, min(root.rectangle2-width, root.rectangle2-height) / 2 - 10px);
+        return min(root.rectangle2-width, root.rectangle2-height) / 2;
+    }
+
+    function set-rectangle2-corner-radius(corner: int, value: length) {
+        let radius = value.clamp(0px, root.rectangle2-max-radius());
+        if corner == 0 {
+            root.rectangle2-top-left-radius = radius;
+        } else if corner == 1 {
+            root.rectangle2-top-right-radius = radius;
+        } else if corner == 2 {
+            root.rectangle2-bottom-right-radius = radius;
+        } else {
+            root.rectangle2-bottom-left-radius = radius;
+        }
+    }
+
+    function set-all-rectangle2-radii(value: length) {
+        let radius = value.clamp(0px, root.rectangle2-max-radius());
+        root.rectangle2-top-left-radius = radius;
+        root.rectangle2-top-right-radius = radius;
+        root.rectangle2-bottom-right-radius = radius;
+        root.rectangle2-bottom-left-radius = radius;
     }
 
     function clamp-rectangle2-radius() {
-        root.rectangle2-radius = root.rectangle2-radius.clamp(0px, root.rectangle2-max-radius());
+        root.rectangle2-top-left-radius = root.rectangle2-top-left-radius.clamp(0px, root.rectangle2-max-radius());
+        root.rectangle2-top-right-radius = root.rectangle2-top-right-radius.clamp(0px, root.rectangle2-max-radius());
+        root.rectangle2-bottom-right-radius = root.rectangle2-bottom-right-radius.clamp(0px, root.rectangle2-max-radius());
+        root.rectangle2-bottom-left-radius = root.rectangle2-bottom-left-radius.clamp(0px, root.rectangle2-max-radius());
     }
 
     function move-text-to(x: length, y: length) {
@@ -471,7 +502,10 @@ export component EditorUi inherits Window {
                     placed-y: root.placed-y;
                     rectangle2-width: root.rectangle2-width;
                     rectangle2-height: root.rectangle2-height;
-                    rectangle2-radius: root.rectangle2-radius;
+                    rectangle2-top-left-radius: root.rectangle2-top-left-radius;
+                    rectangle2-top-right-radius: root.rectangle2-top-right-radius;
+                    rectangle2-bottom-right-radius: root.rectangle2-bottom-right-radius;
+                    rectangle2-bottom-left-radius: root.rectangle2-bottom-left-radius;
                     text-width: root.text-width;
                     text-height: root.text-height;
                     image-width: root.image-width;
@@ -495,7 +529,7 @@ export component EditorUi inherits Window {
                     cancel-resizing-rectangle => { root.cancel-resizing-rectangle(); }
                     move-rectangle2-to(x, y) => { root.move-rectangle2-to(x, y); }
                     resize-rectangle2-to(corner, x, y, width, height) => { root.resize-rectangle2-to(corner, x, y, width, height); }
-                    update-rectangle2-radius(radius) => { root.update-rectangle2-radius(radius); }
+                    update-rectangle2-radius(corner, radius, single-corner) => { root.update-rectangle2-radius(corner, radius, single-corner); }
                     move-text-to(x, y) => { root.move-text-to(x, y); }
                     resize-text-to(corner, x, y, width, height) => { root.resize-text-to(corner, x, y, width, height); }
                     move-image-to(x, y) => { root.move-image-to(x, y); }
