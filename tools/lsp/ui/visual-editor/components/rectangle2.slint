@@ -6,23 +6,31 @@ import { MoveResizeFrame } from "move-resize-frame.slint";
 
 export component Rectangle2OnCanvas inherits Rectangle {
     in property <bool> active;
+    in property <length> radius;
     callback selected();
     callback moved-to(length, length);
     callback resized-to(int, length, length, length, length);
+    callback radius-changed(length);
 
     width: 240px;
     height: 96px;
+
+    function radius-from-handle(corner: int, pointer-x: length, pointer-y: length) -> length {
+        let from-left = corner == 0 || corner == 3 ? pointer-x : root.width - pointer-x;
+        let from-top = corner == 0 || corner == 1 ? pointer-y : root.height - pointer-y;
+        return (min(from-left, from-top) - 10px).clamp(0px, max(0px, min(root.width, root.height) / 2 - 10px));
+    }
 
     MoveResizeFrame {
         width: root.width;
         height: root.height;
         active: root.active;
         selected => { root.selected(); }
-        moved-to(x, y) => { root.moved-to(x, y); }
-        resized-to(corner, x, y, width, height) => { root.resized-to(corner, x, y, width, height); }
+        moved-to(x, y) => { root.moved-to(root.x + x, root.y + y); }
+        resized-to(corner, x, y, width, height) => { root.resized-to(corner, root.x + x, root.y + y, width, height); }
 
         Rectangle {
-            border-radius: 12px;
+            border-radius: root.radius;
             background: #fde68a;
             border-width: root.active ? 2px : 1px;
             border-color: root.active ? StudioTheme.accent-strong : #f59e0b;
@@ -34,6 +42,39 @@ export component Rectangle2OnCanvas inherits Rectangle {
                 font-weight: 800;
                 horizontal-alignment: center;
                 vertical-alignment: center;
+            }
+        }
+
+        for corner in 4: Rectangle {
+            property <bool> on-left: corner == 0 || corner == 3;
+            property <bool> on-top: corner == 0 || corner == 1;
+            property <length> handle-center-x: on-left ? 10px + root.radius : root.width - 10px - root.radius;
+            property <length> handle-center-y: on-top ? 10px + root.radius : root.height - 10px - root.radius;
+
+            visible: root.active;
+            x: handle-center-x - 5px;
+            y: handle-center-y - 5px;
+            width: 10px;
+            height: 10px;
+            border-radius: 5px;
+            background: #00000000;
+            border-width: 1px;
+            border-color: StudioTheme.accent-strong;
+
+            TouchArea {
+                mouse-cursor: pointer;
+
+                changed pressed => {
+                    if self.pressed {
+                        root.selected();
+                    }
+                }
+
+                moved => {
+                    let pointer-x = parent.x + self.mouse-x;
+                    let pointer-y = parent.y + self.mouse-y;
+                    root.radius-changed(root.radius-from-handle(corner, pointer-x, pointer-y));
+                }
             }
         }
     }
