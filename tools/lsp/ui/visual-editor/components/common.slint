@@ -1,8 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Palette, ScrollView } from "std-widgets.slint";
-
 import { Palette } from "std-widgets.slint";
 
 export enum LeftPaneMode {
@@ -41,9 +39,6 @@ export global StudioTheme {
     out property <color> soft-border: dark ? #21262d : #eaeef2;
     out property <color> accent: #0078d4;
     out property <color> accent-strong: #0a84ff;
-    out property <color> success: #2da44e;
-    out property <color> attention: #bf8700;
-    out property <color> danger: #cf222e;
     out property <color> canvas: dark ? #070a0f : #eef2f7;
     out property <color> phone-bg: dark ? #f7f8fb : #ffffff;
     out property <color> phone-text: #20252d;
@@ -242,7 +237,6 @@ export component PrimerActionListRow inherits Rectangle {
     callback drag-started(PrototypeComponentKind, length, length);
     callback drag-moved(PrototypeComponentKind, length, length);
     callback drag-ended(PrototypeComponentKind, length, length);
-    callback drag-cancelled(PrototypeComponentKind);
 
     property <bool> dragging: AppState.dragging-kind == root.kind;
 
@@ -364,4 +358,3 @@ export component InspectorSection inherits VerticalLayout {
 
     @children
 }
-

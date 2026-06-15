@@ -3,7 +3,7 @@
 
 import { ScrollView } from "std-widgets.slint";
 import {
-    AppState, LeftPaneMode, PrimerActionListRow, PrimerNavRow, PrimerSegmentedTab,
+    LeftPaneMode, PrimerActionListRow, PrimerNavRow, PrimerSegmentedTab,
     PrimerTextInput, PrototypeComponentKind, SectionTitle, StudioTheme,
 } from "common.slint";
 
@@ -13,7 +13,6 @@ export component LeftPane inherits Rectangle {
     callback drag-started(PrototypeComponentKind, length, length);
     callback drag-moved(PrototypeComponentKind, length, length);
     callback drag-ended(PrototypeComponentKind, length, length);
-    callback drag-cancelled(PrototypeComponentKind);
 
     width: 286px;
     background: StudioTheme.panel-bg;
@@ -103,7 +102,6 @@ export component LeftPane inherits Rectangle {
                     drag-started(kind, x, y) => { root.drag-started(kind, x, y); }
                     drag-moved(kind, x, y) => { root.drag-moved(kind, x, y); }
                     drag-ended(kind, x, y) => { root.drag-ended(kind, x, y); }
-                    drag-cancelled(kind) => { root.drag-cancelled(kind); }
                 }
 
                 PrimerActionListRow {
@@ -114,7 +112,6 @@ export component LeftPane inherits Rectangle {
                     drag-started(kind, x, y) => { root.drag-started(kind, x, y); }
                     drag-moved(kind, x, y) => { root.drag-moved(kind, x, y); }
                     drag-ended(kind, x, y) => { root.drag-ended(kind, x, y); }
-                    drag-cancelled(kind) => { root.drag-cancelled(kind); }
                 }
 
                 PrimerActionListRow {
@@ -125,7 +122,6 @@ export component LeftPane inherits Rectangle {
                     drag-started(kind, x, y) => { root.drag-started(kind, x, y); }
                     drag-moved(kind, x, y) => { root.drag-moved(kind, x, y); }
                     drag-ended(kind, x, y) => { root.drag-ended(kind, x, y); }
-                    drag-cancelled(kind) => { root.drag-cancelled(kind); }
                 }
             }
         }
