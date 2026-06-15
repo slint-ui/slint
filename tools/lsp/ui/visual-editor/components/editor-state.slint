@@ -23,14 +23,17 @@ export component EditorState inherits Rectangle {
     out property <length> placed-y: 196px;
     out property <length> rectangle-width: 240px;
     out property <length> rectangle-height: 96px;
+    out property <angle> rectangle-rotation: 0deg;
     out property <length> rectangle-top-left-radius: 12px;
     out property <length> rectangle-top-right-radius: 12px;
     out property <length> rectangle-bottom-right-radius: 12px;
     out property <length> rectangle-bottom-left-radius: 12px;
     out property <length> text-width: 280px;
     out property <length> text-height: 32px;
+    out property <angle> text-rotation: 0deg;
     out property <length> image-width: 282px;
     out property <length> image-height: 168px;
+    out property <angle> image-rotation: 0deg;
 
     width: 0px;
     height: 0px;
@@ -46,15 +49,18 @@ export component EditorState inherits Rectangle {
             root.selection = CanvasSelectionKind.rectangle;
             root.rectangle-width = root.default-component-width(kind);
             root.rectangle-height = root.default-component-height(kind);
+            root.rectangle-rotation = 0deg;
             root.set-all-rectangle-radii(12px);
         } else if kind == PrototypeComponentKind.text {
             root.selection = CanvasSelectionKind.text;
             root.text-width = root.default-component-width(kind);
             root.text-height = root.default-component-height(kind);
+            root.text-rotation = 0deg;
         } else if kind == PrototypeComponentKind.image {
             root.selection = CanvasSelectionKind.image;
             root.image-width = root.default-component-width(kind);
             root.image-height = root.default-component-height(kind);
+            root.image-rotation = 0deg;
         }
     }
 
@@ -217,6 +223,24 @@ export component EditorState inherits Rectangle {
         return "Mixed";
     }
 
+    public pure function normalized-angle(value: angle) -> angle {
+        let normalized = value.mod(360deg);
+        return normalized < 0deg ? normalized + 360deg : normalized;
+    }
+
+    public pure function selected-rotation() -> angle {
+        if root.selection == CanvasSelectionKind.rectangle {
+            return root.normalized-angle(root.rectangle-rotation);
+        }
+        if root.selection == CanvasSelectionKind.text {
+            return root.normalized-angle(root.text-rotation);
+        }
+        if root.selection == CanvasSelectionKind.image {
+            return root.normalized-angle(root.image-rotation);
+        }
+        return 0deg;
+    }
+
     public function move-rectangle-to(x: length, y: length) {
         root.selection = CanvasSelectionKind.rectangle;
         root.placed-x = x.clamp(0px, root.phone-width() - root.rectangle-width);
@@ -240,6 +264,11 @@ export component EditorState inherits Rectangle {
             root.rectangle-height = height.clamp(44px, root.phone-height() - root.placed-y);
         }
         root.clamp-rectangle-radii();
+    }
+
+    public function rotate-rectangle-to(rotation: angle) {
+        root.selection = CanvasSelectionKind.rectangle;
+        root.rectangle-rotation = rotation;
     }
 
     public function update-rectangle-radius(corner: CanvasCorner, radius: length, single-corner: bool) {
@@ -307,6 +336,11 @@ export component EditorState inherits Rectangle {
         }
     }
 
+    public function rotate-text-to(rotation: angle) {
+        root.selection = CanvasSelectionKind.text;
+        root.text-rotation = rotation;
+    }
+
     public function move-image-to(x: length, y: length) {
         root.selection = CanvasSelectionKind.image;
         root.placed-x = x.clamp(0px, root.phone-width() - root.image-width);
@@ -329,5 +363,10 @@ export component EditorState inherits Rectangle {
             root.placed-y = y.clamp(0px, root.phone-height() - 44px);
             root.image-height = height.clamp(44px, root.phone-height() - root.placed-y);
         }
+    }
+
+    public function rotate-image-to(rotation: angle) {
+        root.selection = CanvasSelectionKind.image;
+        root.image-rotation = rotation;
     }
 }

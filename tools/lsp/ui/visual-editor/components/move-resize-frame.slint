@@ -5,13 +5,20 @@ import { CanvasCorner, EditorMetrics, StudioTheme } from "common.slint";
 
 export component MoveResizeFrame inherits Rectangle {
     in property <bool> active;
+    in property <angle> rotation: 0deg;
     out property <bool> frame-hover: move-touch.has-hover;
     out property <bool> move-pressed: move-touch.pressed;
     out property <bool> move-dragging: false;
+    out property <bool> rotating: false;
+    out property <bool> rotation-tooltip-visible: false;
+    out property <length> rotation-tooltip-x: 0px;
+    out property <length> rotation-tooltip-y: 0px;
+    out property <angle> rotation-tooltip-value: 0deg;
     private property <length> drag-threshold: 2px;
     callback selected();
     callback moved-to(length, length);
     callback resized-to(CanvasCorner, length, length, length, length);
+    callback rotated-to(angle);
 
     public pure function corner-on-left(corner: CanvasCorner) -> bool {
         return corner == CanvasCorner.top-left || corner == CanvasCorner.bottom-left;
@@ -23,6 +30,10 @@ export component MoveResizeFrame inherits Rectangle {
 
     pure function corner-resize-cursor-is-forward-diagonal(corner: CanvasCorner) -> bool {
         return corner == CanvasCorner.top-left || corner == CanvasCorner.bottom-right;
+    }
+
+    pure function rotation-cursor-is-forward-diagonal(corner: CanvasCorner) -> bool {
+        return corner == CanvasCorner.top-right || corner == CanvasCorner.bottom-left;
     }
 
     pure function resize-handle-x(corner: CanvasCorner) -> length {
@@ -37,45 +48,95 @@ export component MoveResizeFrame inherits Rectangle {
             : root.height - EditorMetrics.selection-handle-size / 2;
     }
 
-    move-touch := TouchArea {
-        mouse-cursor: move;
-        private property <length> press-x: 0px;
-        private property <length> press-y: 0px;
-
-        changed pressed => {
-            if self.pressed {
-                root.move-dragging = false;
-                self.press-x = self.mouse-x;
-                self.press-y = self.mouse-y;
-                root.selected();
-            } else {
-                root.move-dragging = false;
-            }
-        }
-
-        moved => {
-            let moved-far-enough = (self.mouse-x - self.press-x).abs() >= root.drag-threshold
-                || (self.mouse-y - self.press-y).abs() >= root.drag-threshold;
-            if self.pressed && moved-far-enough {
-                root.move-dragging = true;
-            }
-            if root.move-dragging {
-                let target-x = ((root.x + self.mouse-x - self.pressed-x) / 1px).round() * 1px;
-                let target-y = ((root.y + self.mouse-y - self.pressed-y) / 1px).round() * 1px;
-                root.moved-to(target-x, target-y);
-            }
-        }
-
-        clicked => {
-            root.selected();
-        }
+    pure function rotation-zone-x(corner: CanvasCorner) -> length {
+        return root.corner-on-left(corner)
+            ? -EditorMetrics.selection-handle-size / 2 - EditorMetrics.rotation-zone-gap - EditorMetrics.rotation-zone-size
+            : root.width + EditorMetrics.selection-handle-size / 2 + EditorMetrics.rotation-zone-gap;
     }
 
-    @children
+    pure function rotation-zone-y(corner: CanvasCorner) -> length {
+        return root.corner-on-top(corner)
+            ? -EditorMetrics.selection-handle-size / 2 - EditorMetrics.rotation-zone-gap - EditorMetrics.rotation-zone-size
+            : root.height + EditorMetrics.selection-handle-size / 2 + EditorMetrics.rotation-zone-gap;
+    }
 
-    if root.active && !root.move-dragging: Rectangle {
-        border-width: 1px;
-        border-color: StudioTheme.accent-strong;
+    pure function local-to-parent-x(local-x: length, local-y: length) -> length {
+        let from-center-x = local-x - root.width / 2;
+        let from-center-y = local-y - root.height / 2;
+        return root.x + root.width / 2 + from-center-x * root.rotation.cos() - from-center-y * root.rotation.sin();
+    }
+
+    pure function local-to-parent-y(local-x: length, local-y: length) -> length {
+        let from-center-x = local-x - root.width / 2;
+        let from-center-y = local-y - root.height / 2;
+        return root.y + root.height / 2 + from-center-x * root.rotation.sin() + from-center-y * root.rotation.cos();
+    }
+
+    pure function pointer-angle(local-x: length, local-y: length) -> angle {
+        return atan2((local-y - root.height / 2) / 1px, (local-x - root.width / 2) / 1px) + root.rotation;
+    }
+
+    pure function snapped-rotation(value: angle) -> angle {
+        return (value / 15deg).round() * 15deg;
+    }
+
+    rotated := Rectangle {
+        width: root.width;
+        height: root.height;
+        transform-origin: { x: root.width / 2, y: root.height / 2 };
+        transform-rotation: root.rotation;
+
+        move-touch := TouchArea {
+            width: root.width;
+            height: root.height;
+            mouse-cursor: move;
+            private property <length> press-x: 0px;
+            private property <length> press-y: 0px;
+            private property <length> start-x: 0px;
+            private property <length> start-y: 0px;
+
+            changed pressed => {
+                if self.pressed {
+                    root.move-dragging = false;
+                    self.press-x = self.mouse-x;
+                    self.press-y = self.mouse-y;
+                    self.start-x = root.x;
+                    self.start-y = root.y;
+                    root.selected();
+                } else {
+                    root.move-dragging = false;
+                }
+            }
+
+            moved => {
+                let moved-far-enough = (self.mouse-x - self.press-x).abs() >= root.drag-threshold
+                    || (self.mouse-y - self.press-y).abs() >= root.drag-threshold;
+                if self.pressed && moved-far-enough {
+                    root.move-dragging = true;
+                }
+                if root.move-dragging {
+                    let local-delta-x = self.mouse-x - self.press-x;
+                    let local-delta-y = self.mouse-y - self.press-y;
+                    let delta-x = local-delta-x * root.rotation.cos() - local-delta-y * root.rotation.sin();
+                    let delta-y = local-delta-x * root.rotation.sin() + local-delta-y * root.rotation.cos();
+                    let target-x = ((self.start-x + delta-x) / 1px).round() * 1px;
+                    let target-y = ((self.start-y + delta-y) / 1px).round() * 1px;
+                    root.moved-to(target-x, target-y);
+                }
+            }
+
+            clicked => {
+                root.selected();
+            }
+        }
+
+        @children
+
+        if root.active && !root.move-dragging: Rectangle {
+            width: root.width;
+            height: root.height;
+            border-width: 1px;
+            border-color: StudioTheme.accent-strong;
 
         for corner in [
             CanvasCorner.top-left,
@@ -83,51 +144,125 @@ export component MoveResizeFrame inherits Rectangle {
             CanvasCorner.bottom-right,
             CanvasCorner.bottom-left,
         ]: Rectangle {
-            x: root.resize-handle-x(corner);
-            y: root.resize-handle-y(corner);
-            width: EditorMetrics.selection-handle-size;
-            height: EditorMetrics.selection-handle-size;
-            border-radius: 2px;
-            background: white;
-            border-width: 2px;
-            border-color: StudioTheme.accent-strong;
+            x: root.rotation-zone-x(corner);
+            y: root.rotation-zone-y(corner);
+            width: EditorMetrics.rotation-zone-size;
+            height: EditorMetrics.rotation-zone-size;
+            background: transparent;
 
             TouchArea {
-                mouse-cursor: root.corner-resize-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize;
-                private property <length> start-x;
-                private property <length> start-y;
-                private property <length> start-width;
-                private property <length> start-height;
-                private property <length> start-pointer-x;
-                private property <length> start-pointer-y;
+                mouse-cursor: root.rotation-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize;
+                private property <bool> shift-mode: false;
+                private property <angle> start-rotation;
+                private property <angle> start-pointer-angle;
+
+                pointer-event(event) => {
+                    self.shift-mode = event.modifiers.shift;
+                }
 
                 changed pressed => {
                     if self.pressed {
-                        let pointer-x = self.absolute-position.x + self.mouse-x;
-                        let pointer-y = self.absolute-position.y + self.mouse-y;
-
+                        let local-x = parent.x + self.mouse-x;
+                        let local-y = parent.y + self.mouse-y;
                         root.selected();
-                        self.start-x = root.x;
-                        self.start-y = root.y;
-                        self.start-width = root.width;
-                        self.start-height = root.height;
-                        self.start-pointer-x = pointer-x;
-                        self.start-pointer-y = pointer-y;
+                        root.rotating = true;
+                        root.rotation-tooltip-visible = true;
+                        self.shift-mode = false;
+                        self.start-rotation = root.rotation;
+                        self.start-pointer-angle = root.pointer-angle(local-x, local-y);
+                        root.rotation-tooltip-x = root.local-to-parent-x(local-x, local-y);
+                        root.rotation-tooltip-y = root.local-to-parent-y(local-x, local-y);
+                        root.rotation-tooltip-value = root.rotation;
+                    } else {
+                        root.rotating = false;
+                        root.rotation-tooltip-visible = false;
                     }
                 }
 
                 moved => {
-                    let pointer-x = self.absolute-position.x + self.mouse-x;
-                    let pointer-y = self.absolute-position.y + self.mouse-y;
-                    let delta-x = pointer-x - self.start-pointer-x;
-                    let delta-y = pointer-y - self.start-pointer-y;
-                    let target-x = root.corner-on-left(corner) ? self.start-x + delta-x : self.start-x;
-                    let target-y = root.corner-on-top(corner) ? self.start-y + delta-y : self.start-y;
-                    let target-width = root.corner-on-left(corner) ? self.start-width - delta-x : self.start-width + delta-x;
-                    let target-height = root.corner-on-top(corner) ? self.start-height - delta-y : self.start-height + delta-y;
-                    root.resized-to(corner, target-x, target-y, target-width, target-height);
+                    let local-x = parent.x + self.mouse-x;
+                    let local-y = parent.y + self.mouse-y;
+                    let angle = self.start-rotation + root.pointer-angle(local-x, local-y) - self.start-pointer-angle;
+                    let target-angle = self.shift-mode ? root.snapped-rotation(angle) : angle;
+                    root.rotation-tooltip-visible = true;
+                    root.rotation-tooltip-x = root.local-to-parent-x(local-x, local-y);
+                    root.rotation-tooltip-y = root.local-to-parent-y(local-x, local-y);
+                    root.rotation-tooltip-value = target-angle;
+                    root.rotated-to(target-angle);
                 }
             }
         }
+
+        if !root.rotating: Rectangle {
+            width: root.width;
+            height: root.height;
+            for corner in [
+                CanvasCorner.top-left,
+                CanvasCorner.top-right,
+                CanvasCorner.bottom-right,
+                CanvasCorner.bottom-left,
+            ]: Rectangle {
+                x: root.resize-handle-x(corner);
+                y: root.resize-handle-y(corner);
+                width: EditorMetrics.selection-handle-size;
+                height: EditorMetrics.selection-handle-size;
+                border-radius: 2px;
+                background: white;
+                border-width: 2px;
+                border-color: StudioTheme.accent-strong;
+
+                TouchArea {
+                    mouse-cursor: root.corner-resize-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize;
+                    private property <length> start-width;
+                    private property <length> start-height;
+                    private property <length> start-center-x;
+                    private property <length> start-center-y;
+                    private property <length> start-pointer-x;
+                    private property <length> start-pointer-y;
+                    private property <length> fixed-corner-x;
+                    private property <length> fixed-corner-y;
+
+                    changed pressed => {
+                        if self.pressed {
+                            let pointer-x = parent.x + self.mouse-x;
+                            let pointer-y = parent.y + self.mouse-y;
+                            let opposite-x = root.corner-on-left(corner) ? 1 : -1;
+                            let opposite-y = root.corner-on-top(corner) ? 1 : -1;
+                            let local-opposite-x = opposite-x * root.width / 2;
+                            let local-opposite-y = opposite-y * root.height / 2;
+
+                            root.selected();
+                            self.start-width = root.width;
+                            self.start-height = root.height;
+                            self.start-center-x = root.x + root.width / 2;
+                            self.start-center-y = root.y + root.height / 2;
+                            self.start-pointer-x = pointer-x;
+                            self.start-pointer-y = pointer-y;
+                            self.fixed-corner-x = self.start-center-x + local-opposite-x * root.rotation.cos() - local-opposite-y * root.rotation.sin();
+                            self.fixed-corner-y = self.start-center-y + local-opposite-x * root.rotation.sin() + local-opposite-y * root.rotation.cos();
+                        }
+                    }
+
+                    moved => {
+                        let pointer-x = parent.x + self.mouse-x;
+                        let pointer-y = parent.y + self.mouse-y;
+                        let local-delta-x = pointer-x - self.start-pointer-x;
+                        let local-delta-y = pointer-y - self.start-pointer-y;
+                        let target-width = root.corner-on-left(corner) ? self.start-width - local-delta-x : self.start-width + local-delta-x;
+                        let target-height = root.corner-on-top(corner) ? self.start-height - local-delta-y : self.start-height + local-delta-y;
+                        let opposite-x = root.corner-on-left(corner) ? 1 : -1;
+                        let opposite-y = root.corner-on-top(corner) ? 1 : -1;
+                        let target-center-x = self.fixed-corner-x - opposite-x * target-width / 2 * root.rotation.cos()
+                            + opposite-y * target-height / 2 * root.rotation.sin();
+                        let target-center-y = self.fixed-corner-y - opposite-x * target-width / 2 * root.rotation.sin()
+                            - opposite-y * target-height / 2 * root.rotation.cos();
+                        let target-x = target-center-x - target-width / 2;
+                        let target-y = target-center-y - target-height / 2;
+                        root.resized-to(corner, target-x, target-y, target-width, target-height);
+                    }
+                }
+            }
+        }
+    }
     }
 }

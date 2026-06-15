@@ -81,27 +81,37 @@ export component EditorCanvas inherits Rectangle {
     in property <length> placed-y;
     in property <length> rectangle-width;
     in property <length> rectangle-height;
+    in property <angle> rectangle-rotation;
     in property <length> rectangle-top-left-radius;
     in property <length> rectangle-top-right-radius;
     in property <length> rectangle-bottom-right-radius;
     in property <length> rectangle-bottom-left-radius;
     in property <length> text-width;
     in property <length> text-height;
+    in property <angle> text-rotation;
     in property <length> image-width;
     in property <length> image-height;
+    in property <angle> image-rotation;
     private property <bool> radius-tooltip-visible: false;
     private property <length> radius-tooltip-x: 0px;
     private property <length> radius-tooltip-y: 0px;
     private property <length> radius-tooltip-value: 0px;
+    private property <bool> rotation-tooltip-visible: false;
+    private property <length> rotation-tooltip-x: 0px;
+    private property <length> rotation-tooltip-y: 0px;
+    private property <angle> rotation-tooltip-value: 0deg;
 
     callback selected(CanvasSelectionKind);
     callback move-rectangle-to(length, length);
     callback resize-rectangle-to(CanvasCorner, length, length, length, length);
+    callback rotate-rectangle-to(angle);
     callback update-rectangle-radius(CanvasCorner, length, bool);
     callback move-text-to(length, length);
     callback resize-text-to(CanvasCorner, length, length, length, length);
+    callback rotate-text-to(angle);
     callback move-image-to(length, length);
     callback resize-image-to(CanvasCorner, length, length, length, length);
+    callback rotate-image-to(angle);
 
     horizontal-stretch: 1;
     background: StudioTheme.canvas;
@@ -120,6 +130,11 @@ export component EditorCanvas inherits Rectangle {
 
     function phone-canvas-top() -> length {
         return max(40px, (root.height - root.phone-height()) / 2);
+    }
+
+    function normalized-angle(value: angle) -> angle {
+        let normalized = value.mod(360deg);
+        return normalized < 0deg ? normalized + 360deg : normalized;
     }
 
     for row in 28: Rectangle {
@@ -182,6 +197,7 @@ export component EditorCanvas inherits Rectangle {
             y: root.placed-y;
             width: root.rectangle-width;
             height: root.rectangle-height;
+            rotation: root.rectangle-rotation;
             top-left-radius: root.rectangle-top-left-radius;
             top-right-radius: root.rectangle-top-right-radius;
             bottom-right-radius: root.rectangle-bottom-right-radius;
@@ -195,6 +211,9 @@ export component EditorCanvas inherits Rectangle {
             }
             resized-to(corner, x, y, width, height) => {
                 root.resize-rectangle-to(corner, x, y, width, height);
+            }
+            rotated-to(rotation) => {
+                root.rotate-rectangle-to(rotation);
             }
             radius-changed(corner, radius, single-corner) => {
                 root.update-rectangle-radius(corner, radius, single-corner);
@@ -211,20 +230,32 @@ export component EditorCanvas inherits Rectangle {
             changed radius-tooltip-value => {
                 root.radius-tooltip-value = self.radius-tooltip-value;
             }
+            changed rotation-tooltip-visible => {
+                root.rotation-tooltip-visible = self.rotation-tooltip-visible;
+            }
+            changed rotation-tooltip-x => {
+                root.rotation-tooltip-x = self.rotation-tooltip-x;
+            }
+            changed rotation-tooltip-y => {
+                root.rotation-tooltip-y = self.rotation-tooltip-y;
+            }
+            changed rotation-tooltip-value => {
+                root.rotation-tooltip-value = self.rotation-tooltip-value;
+            }
         }
 
         if root.placed-kind == PrototypeComponentKind.rectangle && root.radius-tooltip-visible: Rectangle {
             x: root.radius-tooltip-x - self.width - 12px;
             y: root.radius-tooltip-y - self.height - 12px;
-            width: tip.width + 14px;
-            height: tip.height + 8px;
+            width: radius-tip.width + 14px;
+            height: radius-tip.height + 8px;
             border-radius: 6px;
             background: StudioTheme.accent-strong;
             drop-shadow-blur: 12px;
             drop-shadow-offset-y: 4px;
             drop-shadow-color: #33415535;
 
-            tip := Text {
+            radius-tip := Text {
                 text: "Radius \{(root.radius-tooltip-value / 1px).to-fixed(0)}";
                 color: white;
                 font-size: 12px;
@@ -238,6 +269,7 @@ export component EditorCanvas inherits Rectangle {
             y: root.placed-y;
             width: root.text-width;
             height: root.text-height;
+            rotation: root.text-rotation;
             active: root.selection == CanvasSelectionKind.text;
             selected => {
                 root.selected(CanvasSelectionKind.text);
@@ -247,6 +279,21 @@ export component EditorCanvas inherits Rectangle {
             }
             resized-to(corner, x, y, width, height) => {
                 root.resize-text-to(corner, x, y, width, height);
+            }
+            rotated-to(rotation) => {
+                root.rotate-text-to(rotation);
+            }
+            changed rotation-tooltip-visible => {
+                root.rotation-tooltip-visible = self.rotation-tooltip-visible;
+            }
+            changed rotation-tooltip-x => {
+                root.rotation-tooltip-x = self.rotation-tooltip-x;
+            }
+            changed rotation-tooltip-y => {
+                root.rotation-tooltip-y = self.rotation-tooltip-y;
+            }
+            changed rotation-tooltip-value => {
+                root.rotation-tooltip-value = self.rotation-tooltip-value;
             }
 
             Text {
@@ -265,6 +312,7 @@ export component EditorCanvas inherits Rectangle {
             y: root.placed-y;
             width: root.image-width;
             height: root.image-height;
+            rotation: root.image-rotation;
             active: root.selection == CanvasSelectionKind.image;
             selected => {
                 root.selected(CanvasSelectionKind.image);
@@ -275,11 +323,46 @@ export component EditorCanvas inherits Rectangle {
             resized-to(corner, x, y, width, height) => {
                 root.resize-image-to(corner, x, y, width, height);
             }
+            rotated-to(rotation) => {
+                root.rotate-image-to(rotation);
+            }
+            changed rotation-tooltip-visible => {
+                root.rotation-tooltip-visible = self.rotation-tooltip-visible;
+            }
+            changed rotation-tooltip-x => {
+                root.rotation-tooltip-x = self.rotation-tooltip-x;
+            }
+            changed rotation-tooltip-y => {
+                root.rotation-tooltip-y = self.rotation-tooltip-y;
+            }
+            changed rotation-tooltip-value => {
+                root.rotation-tooltip-value = self.rotation-tooltip-value;
+            }
 
             ImagePlaceholder {
                 width: parent.width;
                 height: parent.height;
                 active: root.selection == CanvasSelectionKind.image;
+            }
+        }
+
+        if root.rotation-tooltip-visible: Rectangle {
+            x: root.rotation-tooltip-x - self.width - 12px;
+            y: root.rotation-tooltip-y - self.height - 12px;
+            width: rotation-tip.width + 14px;
+            height: rotation-tip.height + 8px;
+            border-radius: 6px;
+            background: StudioTheme.accent-strong;
+            drop-shadow-blur: 12px;
+            drop-shadow-offset-y: 4px;
+            drop-shadow-color: #33415535;
+
+            rotation-tip := Text {
+                text: "Rotation \{(root.normalized-angle(root.rotation-tooltip-value) / 1deg).round()}°";
+                color: white;
+                font-size: 12px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
             }
         }
 

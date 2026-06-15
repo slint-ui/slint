@@ -74,18 +74,24 @@ export component EditorUi inherits Window {
                     image-height: state.image-height;
                     rectangle-width: state.rectangle-width;
                     rectangle-height: state.rectangle-height;
+                    rectangle-rotation: state.rectangle-rotation;
                     rectangle-top-left-radius: state.rectangle-top-left-radius;
                     rectangle-top-right-radius: state.rectangle-top-right-radius;
                     rectangle-bottom-right-radius: state.rectangle-bottom-right-radius;
                     rectangle-bottom-left-radius: state.rectangle-bottom-left-radius;
+                    text-rotation: state.text-rotation;
+                    image-rotation: state.image-rotation;
                     selected(kind) => { state.selection = kind; }
                     move-rectangle-to(x, y) => { state.move-rectangle-to(x, y); }
                     resize-rectangle-to(corner, x, y, width, height) => { state.resize-rectangle-to(corner, x, y, width, height); }
+                    rotate-rectangle-to(rotation) => { state.rotate-rectangle-to(rotation); }
                     update-rectangle-radius(corner, radius, single-corner) => { state.update-rectangle-radius(corner, radius, single-corner); }
                     move-text-to(x, y) => { state.move-text-to(x, y); }
                     resize-text-to(corner, x, y, width, height) => { state.resize-text-to(corner, x, y, width, height); }
+                    rotate-text-to(rotation) => { state.rotate-text-to(rotation); }
                     move-image-to(x, y) => { state.move-image-to(x, y); }
                     resize-image-to(corner, x, y, width, height) => { state.resize-image-to(corner, x, y, width, height); }
+                    rotate-image-to(rotation) => { state.rotate-image-to(rotation); }
                 }
 
                 InspectorPane {
@@ -100,6 +106,7 @@ export component EditorUi inherits Window {
                     text-height: state.text-height;
                     image-width: state.image-width;
                     image-height: state.image-height;
+                    selected-rotation: state.selected-rotation();
                     rectangle-radius-label: state.rectangle-radius-label();
                     phone-background: StudioTheme.phone-bg;
                     phone-background-label: StudioTheme.dark ? "#f7f8fb" : "#ffffff";
