@@ -79,9 +79,9 @@ export component EditorUi inherits Window {
                     LeftPane {
                         mode <=> state.left-mode;
                         search-text <=> state.search-text;
-                        drag-started(kind, x, y) => { state.update-visual-drag(kind, x, y); }
-                        drag-moved(kind, x, y) => { state.update-visual-drag(kind, x, y); }
-                        drag-ended(kind, x, y) => { state.finish-visual-drag(kind, x, y); }
+                        drag-started(kind, position) => { state.update-visual-drag(kind, position); }
+                        drag-moved(kind, position) => { state.update-visual-drag(kind, position); }
+                        drag-ended(kind, position) => { state.finish-visual-drag(kind, position); }
                     }
 
                     EditorCanvas {
@@ -90,16 +90,11 @@ export component EditorUi inherits Window {
                         shift-pressed: editor.shift-pressed;
                         placed-kind: state.placed-kind;
                         canvas-drop-hover: state.canvas-drop-hover;
-                        canvas-drop-x: state.canvas-drop-x;
-                        canvas-drop-y: state.canvas-drop-y;
-                        placed-x: state.placed-x;
-                        placed-y: state.placed-y;
-                        text-width: state.text-width;
-                        text-height: state.text-height;
-                        image-width: state.image-width;
-                        image-height: state.image-height;
-                        rectangle-width: state.rectangle-width;
-                        rectangle-height: state.rectangle-height;
+                        canvas-drop-position: state.canvas-drop-position;
+                        placed-position: state.placed-position;
+                        text-size: state.text-size;
+                        image-size: state.image-size;
+                        rectangle-size: state.rectangle-size;
                         rectangle-rotation: state.rectangle-rotation;
                         rectangle-top-left-radius: state.rectangle-top-left-radius;
                         rectangle-top-right-radius: state.rectangle-top-right-radius;
@@ -109,30 +104,26 @@ export component EditorUi inherits Window {
                         image-rotation: state.image-rotation;
                         selected(kind) => { state.selection = kind; }
                         interaction-started => { editor.focus(); }
-                        move-rectangle-to(x, y) => { state.move-rectangle-to(x, y); }
-                        resize-rectangle-to(corner, x, y, width, height) => { state.resize-rectangle-to(corner, x, y, width, height); }
+                        move-rectangle-to(position) => { state.move-rectangle-to(position); }
+                        resize-rectangle-to(corner, position, size) => { state.resize-rectangle-to(corner, position, size); }
                         rotate-rectangle-to(rotation) => { state.rotate-rectangle-to(rotation); }
                         update-rectangle-radius(corner, radius, single-corner) => { state.update-rectangle-radius(corner, radius, single-corner); }
-                        move-text-to(x, y) => { state.move-text-to(x, y); }
-                        resize-text-to(corner, x, y, width, height) => { state.resize-text-to(corner, x, y, width, height); }
+                        move-text-to(position) => { state.move-text-to(position); }
+                        resize-text-to(corner, position, size) => { state.resize-text-to(corner, position, size); }
                         rotate-text-to(rotation) => { state.rotate-text-to(rotation); }
-                        move-image-to(x, y) => { state.move-image-to(x, y); }
-                        resize-image-to(corner, x, y, width, height) => { state.resize-image-to(corner, x, y, width, height); }
+                        move-image-to(position) => { state.move-image-to(position); }
+                        resize-image-to(corner, position, size) => { state.resize-image-to(corner, position, size); }
                         rotate-image-to(rotation) => { state.rotate-image-to(rotation); }
                     }
 
                     InspectorPane {
                         selection: state.selection;
-                        placed-x: state.placed-x;
-                        placed-y: state.placed-y;
+                        placed-position: state.placed-position;
                         phone-width: state.phone-width();
                         phone-height: state.phone-height();
-                        rectangle-width: state.rectangle-width;
-                        rectangle-height: state.rectangle-height;
-                        text-width: state.text-width;
-                        text-height: state.text-height;
-                        image-width: state.image-width;
-                        image-height: state.image-height;
+                        rectangle-size: state.rectangle-size;
+                        text-size: state.text-size;
+                        image-size: state.image-size;
                         selected-rotation: state.selected-rotation();
                         rectangle-radius-label: state.rectangle-radius-label();
                         phone-background: StudioTheme.phone-bg;

@@ -76,43 +76,36 @@ export component EditorCanvas inherits Rectangle {
     in property <bool> shift-pressed: false;
     in property <PrototypeComponentKind> placed-kind;
     in property <bool> canvas-drop-hover;
-    in property <length> canvas-drop-x;
-    in property <length> canvas-drop-y;
-    in property <length> placed-x;
-    in property <length> placed-y;
-    in property <length> rectangle-width;
-    in property <length> rectangle-height;
+    in property <Point> canvas-drop-position;
+    in property <Point> placed-position;
+    in property <Size> rectangle-size;
     in property <angle> rectangle-rotation;
     in property <length> rectangle-top-left-radius;
     in property <length> rectangle-top-right-radius;
     in property <length> rectangle-bottom-right-radius;
     in property <length> rectangle-bottom-left-radius;
-    in property <length> text-width;
-    in property <length> text-height;
+    in property <Size> text-size;
     in property <angle> text-rotation;
-    in property <length> image-width;
-    in property <length> image-height;
+    in property <Size> image-size;
     in property <angle> image-rotation;
     private property <bool> radius-tooltip-visible: false;
-    private property <length> radius-tooltip-x: 0px;
-    private property <length> radius-tooltip-y: 0px;
+    private property <Point> radius-tooltip-position: { x: 0px, y: 0px };
     private property <length> radius-tooltip-value: 0px;
     private property <bool> rotation-tooltip-visible: false;
-    private property <length> rotation-tooltip-x: 0px;
-    private property <length> rotation-tooltip-y: 0px;
+    private property <Point> rotation-tooltip-position: { x: 0px, y: 0px };
     private property <angle> rotation-tooltip-value: 0deg;
 
     callback selected(CanvasSelectionKind);
     callback interaction-started();
-    callback move-rectangle-to(length, length);
-    callback resize-rectangle-to(CanvasCorner, length, length, length, length);
+    callback move-rectangle-to(Point);
+    callback resize-rectangle-to(CanvasCorner, Point, Size);
     callback rotate-rectangle-to(angle);
     callback update-rectangle-radius(CanvasCorner, length, bool);
-    callback move-text-to(length, length);
-    callback resize-text-to(CanvasCorner, length, length, length, length);
+    callback move-text-to(Point);
+    callback resize-text-to(CanvasCorner, Point, Size);
     callback rotate-text-to(angle);
-    callback move-image-to(length, length);
-    callback resize-image-to(CanvasCorner, length, length, length, length);
+    callback move-image-to(Point);
+    callback resize-image-to(CanvasCorner, Point, Size);
     callback rotate-image-to(angle);
 
     horizontal-stretch: 1;
@@ -195,10 +188,10 @@ export component EditorCanvas inherits Rectangle {
         }
 
         if root.placed-kind == PrototypeComponentKind.rectangle: RectangleOnCanvas {
-            x: root.placed-x;
-            y: root.placed-y;
-            width: root.rectangle-width;
-            height: root.rectangle-height;
+            x: root.placed-position.x;
+            y: root.placed-position.y;
+            width: root.rectangle-size.width;
+            height: root.rectangle-size.height;
             shift-pressed: root.shift-pressed;
             rotation: root.rectangle-rotation;
             top-left-radius: root.rectangle-top-left-radius;
@@ -209,11 +202,11 @@ export component EditorCanvas inherits Rectangle {
             selected => {
                 root.selected(CanvasSelectionKind.rectangle);
             }
-            moved-to(x, y) => {
-                root.move-rectangle-to(x, y);
+            moved-to(position) => {
+                root.move-rectangle-to(position);
             }
-            resized-to(corner, x, y, width, height) => {
-                root.resize-rectangle-to(corner, x, y, width, height);
+            resized-to(corner, position, size) => {
+                root.resize-rectangle-to(corner, position, size);
             }
             interaction-started => {
                 root.interaction-started();
@@ -227,11 +220,11 @@ export component EditorCanvas inherits Rectangle {
             changed radius-tooltip-visible => {
                 root.radius-tooltip-visible = self.radius-tooltip-visible;
             }
-            changed radius-tooltip-x => {
-                root.radius-tooltip-x = root.placed-x + self.radius-tooltip-x;
-            }
-            changed radius-tooltip-y => {
-                root.radius-tooltip-y = root.placed-y + self.radius-tooltip-y;
+            changed radius-tooltip-position => {
+                root.radius-tooltip-position = {
+                    x: root.placed-position.x + self.radius-tooltip-position.x,
+                    y: root.placed-position.y + self.radius-tooltip-position.y,
+                };
             }
             changed radius-tooltip-value => {
                 root.radius-tooltip-value = self.radius-tooltip-value;
@@ -239,11 +232,8 @@ export component EditorCanvas inherits Rectangle {
             changed rotation-tooltip-visible => {
                 root.rotation-tooltip-visible = self.rotation-tooltip-visible;
             }
-            changed rotation-tooltip-x => {
-                root.rotation-tooltip-x = self.rotation-tooltip-x;
-            }
-            changed rotation-tooltip-y => {
-                root.rotation-tooltip-y = self.rotation-tooltip-y;
+            changed rotation-tooltip-position => {
+                root.rotation-tooltip-position = self.rotation-tooltip-position;
             }
             changed rotation-tooltip-value => {
                 root.rotation-tooltip-value = self.rotation-tooltip-value;
@@ -251,8 +241,8 @@ export component EditorCanvas inherits Rectangle {
         }
 
         if root.placed-kind == PrototypeComponentKind.rectangle && root.radius-tooltip-visible: Rectangle {
-            x: root.radius-tooltip-x - self.width - 12px;
-            y: root.radius-tooltip-y - self.height - 12px;
+            x: root.radius-tooltip-position.x - self.width - 12px;
+            y: root.radius-tooltip-position.y - self.height - 12px;
             width: radius-tip.width + 14px;
             height: radius-tip.height + 8px;
             border-radius: 6px;
@@ -271,21 +261,21 @@ export component EditorCanvas inherits Rectangle {
         }
 
         if root.placed-kind == PrototypeComponentKind.text: MoveResizeFrame {
-            x: root.placed-x;
-            y: root.placed-y;
-            width: root.text-width;
-            height: root.text-height;
+            x: root.placed-position.x;
+            y: root.placed-position.y;
+            width: root.text-size.width;
+            height: root.text-size.height;
             shift-pressed: root.shift-pressed;
             rotation: root.text-rotation;
             active: root.selection == CanvasSelectionKind.text;
             selected => {
                 root.selected(CanvasSelectionKind.text);
             }
-            moved-to(x, y) => {
-                root.move-text-to(x, y);
+            moved-to(position) => {
+                root.move-text-to(position);
             }
-            resized-to(corner, x, y, width, height) => {
-                root.resize-text-to(corner, x, y, width, height);
+            resized-to(corner, position, size) => {
+                root.resize-text-to(corner, position, size);
             }
             interaction-started => {
                 root.interaction-started();
@@ -296,11 +286,8 @@ export component EditorCanvas inherits Rectangle {
             changed rotation-tooltip-visible => {
                 root.rotation-tooltip-visible = self.rotation-tooltip-visible;
             }
-            changed rotation-tooltip-x => {
-                root.rotation-tooltip-x = self.rotation-tooltip-x;
-            }
-            changed rotation-tooltip-y => {
-                root.rotation-tooltip-y = self.rotation-tooltip-y;
+            changed rotation-tooltip-position => {
+                root.rotation-tooltip-position = self.rotation-tooltip-position;
             }
             changed rotation-tooltip-value => {
                 root.rotation-tooltip-value = self.rotation-tooltip-value;
@@ -318,21 +305,21 @@ export component EditorCanvas inherits Rectangle {
         }
 
         if root.placed-kind == PrototypeComponentKind.image: MoveResizeFrame {
-            x: root.placed-x;
-            y: root.placed-y;
-            width: root.image-width;
-            height: root.image-height;
+            x: root.placed-position.x;
+            y: root.placed-position.y;
+            width: root.image-size.width;
+            height: root.image-size.height;
             shift-pressed: root.shift-pressed;
             rotation: root.image-rotation;
             active: root.selection == CanvasSelectionKind.image;
             selected => {
                 root.selected(CanvasSelectionKind.image);
             }
-            moved-to(x, y) => {
-                root.move-image-to(x, y);
+            moved-to(position) => {
+                root.move-image-to(position);
             }
-            resized-to(corner, x, y, width, height) => {
-                root.resize-image-to(corner, x, y, width, height);
+            resized-to(corner, position, size) => {
+                root.resize-image-to(corner, position, size);
             }
             interaction-started => {
                 root.interaction-started();
@@ -343,11 +330,8 @@ export component EditorCanvas inherits Rectangle {
             changed rotation-tooltip-visible => {
                 root.rotation-tooltip-visible = self.rotation-tooltip-visible;
             }
-            changed rotation-tooltip-x => {
-                root.rotation-tooltip-x = self.rotation-tooltip-x;
-            }
-            changed rotation-tooltip-y => {
-                root.rotation-tooltip-y = self.rotation-tooltip-y;
+            changed rotation-tooltip-position => {
+                root.rotation-tooltip-position = self.rotation-tooltip-position;
             }
             changed rotation-tooltip-value => {
                 root.rotation-tooltip-value = self.rotation-tooltip-value;
@@ -361,8 +345,8 @@ export component EditorCanvas inherits Rectangle {
         }
 
         if root.rotation-tooltip-visible: Rectangle {
-            x: root.rotation-tooltip-x - self.width - 12px;
-            y: root.rotation-tooltip-y - self.height - 12px;
+            x: root.rotation-tooltip-position.x - self.width - 12px;
+            y: root.rotation-tooltip-position.y - self.height - 12px;
             width: rotation-tip.width + 14px;
             height: rotation-tip.height + 8px;
             border-radius: 6px;
