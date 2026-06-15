@@ -44,6 +44,10 @@ export component EditorUi inherits Window {
     property <length> rectangle-height: 104px;
     property <length> rectangle2-width: 240px;
     property <length> rectangle2-height: 96px;
+    property <length> text-width: 280px;
+    property <length> text-height: 32px;
+    property <length> image-width: 282px;
+    property <length> image-height: 168px;
     property <length> rectangle-max-radius: min(rectangle-width, rectangle-height) / 2;
     property <length> rectangle-resize-right: 0px;
     property <length> rectangle-resize-bottom: 0px;
@@ -71,8 +75,12 @@ export component EditorUi inherits Window {
             root.rectangle2-height = 96px;
         } else if kind == PrototypeComponentKind.text {
             root.selection = CanvasSelectionKind.text;
+            root.text-width = 280px;
+            root.text-height = 32px;
         } else if kind == PrototypeComponentKind.image {
             root.selection = CanvasSelectionKind.image;
+            root.image-width = 282px;
+            root.image-height = 168px;
         }
     }
 
@@ -85,17 +93,20 @@ export component EditorUi inherits Window {
             root.placed-x = (drop-x - root.rectangle2-width / 2).clamp(24px, root.phone-width() - root.rectangle2-width - 24px);
             root.placed-y = (drop-y - root.rectangle2-height / 2).clamp(72px, root.phone-height() - root.rectangle2-height - 24px);
         } else if kind == PrototypeComponentKind.text {
-            root.placed-x = (drop-x - 140px).clamp(24px, root.phone-width() - 304px);
-            root.placed-y = (drop-y - 16px).clamp(72px, root.phone-height() - 56px);
+            root.placed-x = (drop-x - root.text-width / 2).clamp(24px, root.phone-width() - root.text-width - 24px);
+            root.placed-y = (drop-y - root.text-height / 2).clamp(72px, root.phone-height() - root.text-height - 24px);
         } else if kind == PrototypeComponentKind.image {
-            root.placed-x = (drop-x - 141px).clamp(24px, root.phone-width() - 306px);
-            root.placed-y = (drop-y - 84px).clamp(72px, root.phone-height() - 192px);
+            root.placed-x = (drop-x - root.image-width / 2).clamp(24px, root.phone-width() - root.image-width - 24px);
+            root.placed-y = (drop-y - root.image-height / 2).clamp(72px, root.phone-height() - root.image-height - 24px);
         }
     }
 
     function placed-width() -> length {
         if root.placed-kind == PrototypeComponentKind.image {
-            return 282px;
+            return root.image-width;
+        }
+        if root.placed-kind == PrototypeComponentKind.text {
+            return root.text-width;
         }
         if root.placed-kind == PrototypeComponentKind.rectangle {
             return root.rectangle-width;
@@ -108,7 +119,10 @@ export component EditorUi inherits Window {
 
     function placed-height() -> length {
         if root.placed-kind == PrototypeComponentKind.image {
-            return 168px;
+            return root.image-height;
+        }
+        if root.placed-kind == PrototypeComponentKind.text {
+            return root.text-height;
         }
         if root.placed-kind == PrototypeComponentKind.rectangle {
             return root.rectangle-height;
@@ -131,6 +145,16 @@ export component EditorUi inherits Window {
             root.rectangle2-height = root.rectangle2-height.clamp(44px, root.phone-height() - 78px);
             root.placed-x = root.placed-x.clamp(16px, root.phone-width() - root.rectangle2-width - 16px);
             root.placed-y = root.placed-y.clamp(54px, root.phone-height() - root.rectangle2-height - 24px);
+        } else if root.placed-kind == PrototypeComponentKind.text {
+            root.text-width = root.text-width.clamp(80px, root.phone-width() - 32px);
+            root.text-height = root.text-height.clamp(32px, root.phone-height() - 78px);
+            root.placed-x = root.placed-x.clamp(16px, root.phone-width() - root.text-width - 16px);
+            root.placed-y = root.placed-y.clamp(54px, root.phone-height() - root.text-height - 24px);
+        } else if root.placed-kind == PrototypeComponentKind.image {
+            root.image-width = root.image-width.clamp(80px, root.phone-width() - 32px);
+            root.image-height = root.image-height.clamp(44px, root.phone-height() - 78px);
+            root.placed-x = root.placed-x.clamp(16px, root.phone-width() - root.image-width - 16px);
+            root.placed-y = root.placed-y.clamp(54px, root.phone-height() - root.image-height - 24px);
         } else if root.placed-kind != PrototypeComponentKind.none {
             root.placed-x = root.placed-x.clamp(24px, root.phone-width() - root.placed-width() - 24px);
             root.placed-y = root.placed-y.clamp(72px, root.phone-height() - root.placed-height() - 24px);
@@ -298,6 +322,54 @@ export component EditorUi inherits Window {
         }
     }
 
+    function move-text-to(x: length, y: length) {
+        root.selection = CanvasSelectionKind.text;
+        root.placed-x = x.clamp(16px, root.phone-width() - root.text-width - 16px);
+        root.placed-y = y.clamp(54px, root.phone-height() - root.text-height - 24px);
+    }
+
+    function resize-text-to(corner: int, x: length, y: length, width: length, height: length) {
+        root.selection = CanvasSelectionKind.text;
+        if corner == 0 || corner == 3 {
+            root.text-width = width.clamp(80px, x + width - 16px);
+            root.placed-x = (x + width - root.text-width).clamp(16px, root.phone-width() - root.text-width - 16px);
+        } else {
+            root.placed-x = x.clamp(16px, root.phone-width() - 80px - 16px);
+            root.text-width = width.clamp(80px, root.phone-width() - root.placed-x - 16px);
+        }
+        if corner == 0 || corner == 1 {
+            root.text-height = height.clamp(32px, y + height - 54px);
+            root.placed-y = (y + height - root.text-height).clamp(54px, root.phone-height() - root.text-height - 24px);
+        } else {
+            root.placed-y = y.clamp(54px, root.phone-height() - 32px - 24px);
+            root.text-height = height.clamp(32px, root.phone-height() - root.placed-y - 24px);
+        }
+    }
+
+    function move-image-to(x: length, y: length) {
+        root.selection = CanvasSelectionKind.image;
+        root.placed-x = x.clamp(16px, root.phone-width() - root.image-width - 16px);
+        root.placed-y = y.clamp(54px, root.phone-height() - root.image-height - 24px);
+    }
+
+    function resize-image-to(corner: int, x: length, y: length, width: length, height: length) {
+        root.selection = CanvasSelectionKind.image;
+        if corner == 0 || corner == 3 {
+            root.image-width = width.clamp(80px, x + width - 16px);
+            root.placed-x = (x + width - root.image-width).clamp(16px, root.phone-width() - root.image-width - 16px);
+        } else {
+            root.placed-x = x.clamp(16px, root.phone-width() - 80px - 16px);
+            root.image-width = width.clamp(80px, root.phone-width() - root.placed-x - 16px);
+        }
+        if corner == 0 || corner == 1 {
+            root.image-height = height.clamp(44px, y + height - 54px);
+            root.placed-y = (y + height - root.image-height).clamp(54px, root.phone-height() - root.image-height - 24px);
+        } else {
+            root.placed-y = y.clamp(54px, root.phone-height() - 44px - 24px);
+            root.image-height = height.clamp(44px, root.phone-height() - root.placed-y - 24px);
+        }
+    }
+
     function begin-resizing-rectangle(corner: int) {
         root.rectangle-resize-corner = corner;
         root.selection = CanvasSelectionKind.rectangle;
@@ -382,6 +454,10 @@ export component EditorUi inherits Window {
                     placed-y: root.placed-y;
                     rectangle2-width: root.rectangle2-width;
                     rectangle2-height: root.rectangle2-height;
+                    text-width: root.text-width;
+                    text-height: root.text-height;
+                    image-width: root.image-width;
+                    image-height: root.image-height;
                     rectangle-width: root.rectangle-width;
                     rectangle-height: root.rectangle-height;
                     rectangle-top-left-radius: root.rectangle-top-left-radius;
@@ -401,6 +477,10 @@ export component EditorUi inherits Window {
                     cancel-resizing-rectangle => { root.cancel-resizing-rectangle(); }
                     move-rectangle2-to(x, y) => { root.move-rectangle2-to(x, y); }
                     resize-rectangle2-to(corner, x, y, width, height) => { root.resize-rectangle2-to(corner, x, y, width, height); }
+                    move-text-to(x, y) => { root.move-text-to(x, y); }
+                    resize-text-to(corner, x, y, width, height) => { root.resize-text-to(corner, x, y, width, height); }
+                    move-image-to(x, y) => { root.move-image-to(x, y); }
+                    resize-image-to(corner, x, y, width, height) => { root.resize-image-to(corner, x, y, width, height); }
                     update-rectangle-radius(corner, x, y, single-corner) => { root.update-rectangle-radius(corner, x, y, single-corner); }
                     finish-rectangle-radius(corner, x, y, single-corner) => { root.finish-rectangle-radius(corner, x, y, single-corner); }
                 }
@@ -415,6 +495,10 @@ export component EditorUi inherits Window {
                     rectangle-height: root.rectangle-height;
                     rectangle2-width: root.rectangle2-width;
                     rectangle2-height: root.rectangle2-height;
+                    text-width: root.text-width;
+                    text-height: root.text-height;
+                    image-width: root.image-width;
+                    image-height: root.image-height;
                     rectangle-radius-label: root.rectangle-radius-label();
                 }
             }

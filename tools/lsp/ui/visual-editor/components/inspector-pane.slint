@@ -15,6 +15,10 @@ export component InspectorPane inherits Rectangle {
     in property <length> rectangle-height;
     in property <length> rectangle2-width;
     in property <length> rectangle2-height;
+    in property <length> text-width;
+    in property <length> text-height;
+    in property <length> image-width;
+    in property <length> image-height;
     in property <string> rectangle-radius-label;
 
     width: 306px;
@@ -59,6 +63,7 @@ export component InspectorPane inherits Rectangle {
     }
 
     Rectangle {
+        x: 0px;
         width: 1px;
         background: StudioTheme.border;
     }
@@ -86,8 +91,8 @@ export component InspectorPane inherits Rectangle {
             title: "LAYOUT";
             PropertyField { name: "X"; value: root.selection == CanvasSelectionKind.artboard ? "0" : "\{root.placed-x / 1px}"; }
             PropertyField { name: "Y"; value: root.selection == CanvasSelectionKind.artboard ? "0" : "\{root.placed-y / 1px}"; }
-            PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.artboard ? "\{root.phone-width / 1px}" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-width / 1px}" : root.selection == CanvasSelectionKind.rectangle2 ? "\{root.rectangle2-width / 1px}" : root.selection == CanvasSelectionKind.image ? "282" : "280"; }
-            PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.artboard ? "\{root.phone-height / 1px}" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-height / 1px}" : root.selection == CanvasSelectionKind.rectangle2 ? "\{root.rectangle2-height / 1px}" : root.selection == CanvasSelectionKind.image ? "168" : "104"; }
+            PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.artboard ? "\{root.phone-width / 1px}" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-width / 1px}" : root.selection == CanvasSelectionKind.rectangle2 ? "\{root.rectangle2-width / 1px}" : root.selection == CanvasSelectionKind.text ? "\{root.text-width / 1px}" : root.selection == CanvasSelectionKind.image ? "\{root.image-width / 1px}" : "280"; }
+            PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.artboard ? "\{root.phone-height / 1px}" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-height / 1px}" : root.selection == CanvasSelectionKind.rectangle2 ? "\{root.rectangle2-height / 1px}" : root.selection == CanvasSelectionKind.text ? "\{root.text-height / 1px}" : root.selection == CanvasSelectionKind.image ? "\{root.image-height / 1px}" : "104"; }
         }
 
         InspectorSection {

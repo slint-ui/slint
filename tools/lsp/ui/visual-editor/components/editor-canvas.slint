@@ -5,6 +5,7 @@ import { Api } from "../../api.slint";
 import {
     CanvasOrientation, CanvasSelectionKind, PrototypeComponentKind, StudioTheme,
 } from "common.slint";
+import { MoveResizeFrame } from "move-resize-frame.slint";
 import { Rectangle2OnCanvas } from "rectangle2.slint";
 
 export component EditorCanvas inherits Rectangle {
@@ -18,6 +19,10 @@ export component EditorCanvas inherits Rectangle {
     in property <length> placed-y;
     in property <length> rectangle2-width;
     in property <length> rectangle2-height;
+    in property <length> text-width;
+    in property <length> text-height;
+    in property <length> image-width;
+    in property <length> image-height;
     in property <length> rectangle-width;
     in property <length> rectangle-height;
     in property <length> rectangle-top-left-radius;
@@ -38,6 +43,10 @@ export component EditorCanvas inherits Rectangle {
     callback cancel-resizing-rectangle();
     callback move-rectangle2-to(length, length);
     callback resize-rectangle2-to(int, length, length, length, length);
+    callback move-text-to(length, length);
+    callback resize-text-to(int, length, length, length, length);
+    callback move-image-to(length, length);
+    callback resize-image-to(int, length, length, length, length);
     callback update-rectangle-radius(int, length, length, bool);
     callback finish-rectangle-radius(int, length, length, bool);
 
@@ -58,7 +67,10 @@ export component EditorCanvas inherits Rectangle {
 
     function placed-width() -> length {
         if root.placed-kind == PrototypeComponentKind.image {
-            return 282px;
+            return root.image-width;
+        }
+        if root.placed-kind == PrototypeComponentKind.text {
+            return root.text-width;
         }
         if root.placed-kind == PrototypeComponentKind.rectangle {
             return root.rectangle-width;
@@ -71,7 +83,10 @@ export component EditorCanvas inherits Rectangle {
 
     function placed-height() -> length {
         if root.placed-kind == PrototypeComponentKind.image {
-            return 168px;
+            return root.image-height;
+        }
+        if root.placed-kind == PrototypeComponentKind.text {
+            return root.text-height;
         }
         if root.placed-kind == PrototypeComponentKind.rectangle {
             return root.rectangle-height;
@@ -227,19 +242,30 @@ export component EditorCanvas inherits Rectangle {
             }
         }
 
-        if root.placed-kind == PrototypeComponentKind.text: Text {
+        if root.placed-kind == PrototypeComponentKind.text: MoveResizeFrame {
             x: root.placed-x;
             y: root.placed-y;
-            width: 280px;
-            text: "Design in Slint";
-            color: StudioTheme.phone-text;
-            font-size: 24px;
-            font-weight: 800;
+            width: root.text-width;
+            height: root.text-height;
+            active: root.selection == CanvasSelectionKind.text;
+            selected => {
+                root.selected(CanvasSelectionKind.text);
+            }
+            moved-to(x, y) => {
+                root.move-text-to(x, y);
+            }
+            resized-to(corner, x, y, width, height) => {
+                root.resize-text-to(corner, x, y, width, height);
+            }
 
-            TouchArea {
-                clicked => {
-                    root.selected(CanvasSelectionKind.text);
-                }
+            Text {
+                width: parent.width;
+                height: parent.height;
+                text: "Design in Slint";
+                color: StudioTheme.phone-text;
+                font-size: 24px;
+                font-weight: 800;
+                vertical-alignment: center;
             }
         }
 
@@ -260,35 +286,45 @@ export component EditorCanvas inherits Rectangle {
             }
         }
 
-        if root.placed-kind == PrototypeComponentKind.image: Rectangle {
+        if root.placed-kind == PrototypeComponentKind.image: MoveResizeFrame {
             x: root.placed-x;
             y: root.placed-y;
-            width: 282px;
-            height: 168px;
-            border-radius: 20px;
-            background: @linear-gradient(135deg, #bae6fd, #bbf7d0);
-            border-width: root.selection == CanvasSelectionKind.image ? 2px : 1px;
-            border-color: root.selection == CanvasSelectionKind.image ? StudioTheme.accent-strong : #67e8f9;
-
-            Text {
-                text: "IMAGE";
-                color: #155e75;
-                font-size: 14px;
-                font-weight: 900;
-                horizontal-alignment: center;
-                vertical-alignment: center;
+            width: root.image-width;
+            height: root.image-height;
+            active: root.selection == CanvasSelectionKind.image;
+            selected => {
+                root.selected(CanvasSelectionKind.image);
+            }
+            moved-to(x, y) => {
+                root.move-image-to(x, y);
+            }
+            resized-to(corner, x, y, width, height) => {
+                root.resize-image-to(corner, x, y, width, height);
             }
 
-            TouchArea {
-                clicked => {
-                    root.selected(CanvasSelectionKind.image);
+            Rectangle {
+                width: parent.width;
+                height: parent.height;
+                border-radius: 20px;
+                background: @linear-gradient(135deg, #bae6fd, #bbf7d0);
+                border-width: root.selection == CanvasSelectionKind.image ? 2px : 1px;
+                border-color: root.selection == CanvasSelectionKind.image ? StudioTheme.accent-strong : #67e8f9;
+
+                Text {
+                    width: parent.width;
+                    height: parent.height;
+                    text: "IMAGE";
+                    color: #155e75;
+                    font-size: 14px;
+                    font-weight: 900;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
                 }
             }
         }
 
-        if root.placed-kind != PrototypeComponentKind.none
-                && root.placed-kind != PrototypeComponentKind.rectangle2
-                && root.selection != CanvasSelectionKind.artboard: Rectangle {
+        if root.placed-kind == PrototypeComponentKind.rectangle
+                && root.selection == CanvasSelectionKind.rectangle: Rectangle {
             x: root.placed-x - 8px;
             y: root.placed-y - 8px;
             width: root.placed-width() + 16px;
