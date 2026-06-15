@@ -64,6 +64,15 @@ export component EditorCanvas inherits Rectangle {
         background: StudioTheme.dark ? #ffffff08 : #00000008;
     }
 
+    TouchArea {
+        width: root.width;
+        height: root.height;
+
+        clicked => {
+            root.selected(CanvasSelectionKind.artboard);
+        }
+    }
+
     Rectangle {
         x: (parent.width - phone.width) / 2;
         y: root.phone-canvas-top() + 18px;
@@ -81,8 +90,8 @@ export component EditorCanvas inherits Rectangle {
         width: root.phone-width();
         height: root.phone-height();
         border-radius: 34px;
-        border-width: root.selection == CanvasSelectionKind.artboard ? 2px : 1px;
-        border-color: root.selection == CanvasSelectionKind.artboard ? StudioTheme.accent-strong : StudioTheme.border;
+        border-width: 1px;
+        border-color: StudioTheme.border;
         background: StudioTheme.phone-bg;
         clip: true;
 
