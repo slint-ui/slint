@@ -9,6 +9,10 @@ TS="${TREE_SITTER_CLI:-tree-sitter}"
 
 cd "${SCRIPT_DIR}"
 
+# Generate & build early to catch errors in the grammar quickly
+$TS generate
+$TS build
+
 # Always start from a clean "generated tests" dir
 rm -rf test/corpus/gen
 mkdir -p ./test/corpus/gen/tests/
@@ -20,8 +24,6 @@ find ../../tests/cases -type d -exec ./test-to-corpus.py --tests-directory {} --
 find ../../examples -type d -exec ./test-to-corpus.py --tests-directory {} --corpus-directory ./test/corpus/gen/examples \;
 find ../../demos -type d -exec ./test-to-corpus.py --tests-directory {} --corpus-directory ./test/corpus/gen/demos \;
 
-$TS generate
-$TS build
 # First run the tests with -u to update all tests that can be updated
 # It's okay if this fails, this means there's a parse error, but the re-run will catch this with a better output
 $TS test -u > /dev/null || true;
