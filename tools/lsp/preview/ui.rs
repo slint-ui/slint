@@ -6,10 +6,10 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
+use super::editor_user_settings::EditorUserSettings;
 use super::user_settings::PreviewUserSettings;
 use i_slint_compiler::parser::TextRange;
 use i_slint_compiler::{expression_tree, langtype};
-use super::editor_user_settings::EditorUserSettings;
 
 use i_slint_core::DataTransfer;
 use itertools::Itertools;
