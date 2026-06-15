@@ -3,14 +3,12 @@
 
 mod lsp_to_preview;
 mod preview_to_lsp;
-mod settings;
 mod versioned_url;
 
 pub use lsp_to_preview::{
     LspToPreviewMessage, PreviewComponent, PreviewConfig, RemoteConnectionState,
 };
 pub use preview_to_lsp::{PreviewTarget, PreviewToLspMessage};
-pub use settings::PreviewUserSettings;
 pub use versioned_url::VersionedUrl;
 
 pub use lsp_types;
