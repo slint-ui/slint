@@ -375,6 +375,7 @@ component PrimerActionListRow inherits Rectangle {
     in property <string> label;
     in property <string> detail;
     in property <string> glyph;
+    in property <bool> custom-touch: true;
     callback drag-started(PrototypeComponentKind, length, length);
     callback drag-moved(PrototypeComponentKind, length, length);
     callback drag-ended(PrototypeComponentKind, length, length);
@@ -426,7 +427,7 @@ component PrimerActionListRow inherits Rectangle {
         }
     }
 
-    touch := TouchArea {
+    if custom-touch: TouchArea {
         mouse-cursor: pointer;
 
         changed pressed => {
@@ -443,6 +444,9 @@ component PrimerActionListRow inherits Rectangle {
             root.drag-moved(root.kind, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
         }
     }
+
+    // allow children so that the editor can place a dragarea in here
+    @children
 }
 
 global AppState {
@@ -1036,45 +1040,32 @@ export component EditorUi inherits Window {
                         if root.left-mode == LeftPaneMode.library: ScrollView {
                             vertical-stretch: 1;
                             viewport-width: self.width;
-                            viewport-height: library-list.preferred-height;
 
-                            library-list := VerticalLayout {
+                            VerticalLayout {
                                 width: parent.width;
-                                spacing: 10px;
+                                for category in Api.known-components: VerticalLayout {
+                                    width: parent.width;
+                                    spacing: 10px;
+                                    SectionTitle {
+                                        label: category.category;
+                                    }
 
-                                SectionTitle { label: "SLINT BUILT-INS"; }
+                                    VerticalLayout {
+                                        width: parent.width;
+                                        spacing: 10px;
 
-                                PrimerActionListRow {
-                                    kind: PrototypeComponentKind.rectangle;
-                                    label: "Rectangle";
-                                    detail: "Surface, panel, shape";
-                                    glyph: "R";
-                                    drag-started(kind, x, y) => { root.update-visual-drag(kind, x, y); }
-                                    drag-moved(kind, x, y) => { root.update-visual-drag(kind, x, y); }
-                                    drag-ended(kind, x, y) => { root.finish-visual-drag(kind, x, y); }
-                                    drag-cancelled(kind) => { root.cancel-visual-drag(kind); }
-                                }
+                                        for component in category.components: PrimerActionListRow {
+                                            label: component.name;
+                                            detail: component.pretty-location;
+                                            glyph: "X";
+                                            custom-touch: false;
 
-                                PrimerActionListRow {
-                                    kind: PrototypeComponentKind.text;
-                                    label: "Text";
-                                    detail: "Label or display copy";
-                                    glyph: "T";
-                                    drag-started(kind, x, y) => { root.update-visual-drag(kind, x, y); }
-                                    drag-moved(kind, x, y) => { root.update-visual-drag(kind, x, y); }
-                                    drag-ended(kind, x, y) => { root.finish-visual-drag(kind, x, y); }
-                                    drag-cancelled(kind) => { root.cancel-visual-drag(kind); }
-                                }
-
-                                PrimerActionListRow {
-                                    kind: PrototypeComponentKind.image;
-                                    label: "Image";
-                                    detail: "Bitmap or vector asset";
-                                    glyph: "IMG";
-                                    drag-started(kind, x, y) => { root.update-visual-drag(kind, x, y); }
-                                    drag-moved(kind, x, y) => { root.update-visual-drag(kind, x, y); }
-                                    drag-ended(kind, x, y) => { root.finish-visual-drag(kind, x, y); }
-                                    drag-cancelled(kind) => { root.cancel-visual-drag(kind); }
+                                            DragArea {
+                                                data: Api.new-component-data(component.index);
+                                                allow-copy: true;
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

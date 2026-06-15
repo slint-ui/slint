@@ -1208,22 +1208,24 @@ fn extract_resources(
     result
 }
 
-fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, success: bool) {
+fn finish_parsing() {
     set_status_text("");
+}
 
-    if !success {
-        // No need to update everything...
+fn previewed_component_changed() {
+    // TODO: Return early on !success (see previous finish_parsing implementation)
+    let (Some(previewed_url), preview_component, source_code) =
+        PREVIEW_STATE.with_borrow(|preview_state| {
+            let pc = preview_state.current_component();
+            (
+                pc.as_ref().map(|pc| pc.url.clone()),
+                pc.as_ref().and_then(|pc| pc.component.clone()),
+                preview_state.source_code.clone(),
+            )
+        })
+    else {
         return;
-    }
-
-    let (previewed_url, component, source_code) = PREVIEW_STATE.with_borrow(|preview_state| {
-        let pc = preview_state.current_component();
-        (
-            pc.as_ref().map(|pc| pc.url.clone()),
-            pc.as_ref().and_then(|pc| pc.component.clone()),
-            preview_state.source_code.clone(),
-        )
-    });
+    };
 
     if let Some(document_cache) = document_cache() {
         let mut document_cache = document_cache.snapshot().unwrap();
@@ -1240,7 +1242,7 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
             }
         }
 
-        let uses_widgets = document_cache.uses_widgets(preview_url);
+        let uses_widgets = document_cache.uses_widgets(&previewed_url);
 
         let mut components = Vec::new();
         component_catalog::builtin_components(&document_cache, &mut components);
@@ -1254,12 +1256,12 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
             component_catalog::file_local_components(&document_cache, &url, &mut components);
         }
 
-        let index = if let Some(component) = component {
+        let index = if let Some(component) = preview_component.as_ref() {
             components
                 .iter()
                 .position(|ci| {
-                    ci.name == component
-                        && ci.defined_at.as_ref().map(|da| da.url()) == previewed_url.as_ref()
+                    &ci.name == component
+                        && ci.defined_at.as_ref().map(|da| da.url()) == Some(&previewed_url)
                 })
                 .unwrap_or(usize::MAX)
         } else {
@@ -1285,19 +1287,21 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
                 if let Some(app_window) = &preview_state.app_window {
                     let win = i_slint_core::window::WindowInner::from_pub(app_window.window())
                         .window_adapter();
-                    let palettes = ui::palette::collect_palette(&document_cache, preview_url, &win);
+                    let palettes =
+                        ui::palette::collect_palette(&document_cache, &previewed_url, &win);
                     ui::palette::set_palette(&api, palettes);
                 }
                 ui::ui_set_uses_widgets(&api, uses_widgets);
+                eprintln!("Setting components");
                 ui::ui_set_known_components(&api, &preview_state.known_components, index);
-                let component = document_cache.get_document(preview_url).and_then(|doc| {
-                    match previewed_component.as_ref() {
+                let component = document_cache.get_document(&previewed_url).and_then(|doc| {
+                    match preview_component.as_ref() {
                         Some(c_id) => doc.inner_components.iter().find(|c| c.id == c_id).cloned(),
                         None => doc.last_exported_component(),
                     }
                 });
                 outline::reset_outline(&api, component);
-                ui::ui_set_preview_data(&api, preview_data, previewed_component);
+                ui::ui_set_preview_data(&api, preview_data, preview_component.clone());
             }
         });
     }
@@ -1644,7 +1648,7 @@ async fn reload_preview_impl(
 
     update_preview_area(compiled, behavior, open_import_callback, source_file_versions, format)?;
 
-    finish_parsing(&component.url, loaded_component_name, success);
+    finish_parsing();
     Ok(())
 }
 
@@ -2059,6 +2063,7 @@ fn update_preview_area(
                 compiled,
                 Box::new(move |instance| {
                     if let Some(rtl) = instance.definition().raw_type_loader() {
+                        eprintln!("Setting document cache");
                         shared_document_cache.replace(Some(Rc::new(
                             common::DocumentCache::new_from_raw_parts(
                                 rtl,
@@ -2070,6 +2075,7 @@ fn update_preview_area(
                     }
 
                     shared_handle.replace(Some(instance));
+                    previewed_component_changed();
                 }),
                 behavior,
             );
