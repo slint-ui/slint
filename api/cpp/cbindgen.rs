@@ -255,7 +255,7 @@ fn live_preview_enums(path: &Path) -> anyhow::Result<()> {
     }
 
     // The public builtin structs (in slint::language) converted field by field, in their namespace
-    // so ADL finds them. StandardListViewItem is hand-written; DropEvent needs DataTransfer.
+    // so ADL finds them. StandardListViewItem is hand-written.
     let mut structs: Vec<(String, Vec<String>)> = Vec::new();
     macro_rules! collect_structs {
         ($( $(#[$attr:meta])* $vis:vis struct $Name:ident {
@@ -263,7 +263,7 @@ fn live_preview_enums(path: &Path) -> anyhow::Result<()> {
         })*) => {
             $(
                 if stringify!($vis) == "pub"
-                    && !matches!(stringify!($Name), "StandardListViewItem" | "DropEvent")
+                    && !matches!(stringify!($Name), "StandardListViewItem")
                 {
                     structs.push((
                         stringify!($Name).to_string(),
