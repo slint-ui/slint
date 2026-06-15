@@ -128,12 +128,12 @@ fn inline_element(
     );
 
     // Copy insertion points so we can extend/adjust without mutating the source component.
-    let inlined_cips_orig = inlined_component.child_insertion_points.borrow();
-    let mut inlined_cips = inlined_cips_orig.clone();
+    let inlined_insertion_points_orig = inlined_component.child_insertion_points.borrow();
+    let mut inlined_insertion_points = inlined_insertion_points_orig.clone();
 
     // Ensure @children CIP exists if it's missing but the component is a builtin that accepts children.
     // This preserves the implicit-children behavior for builtins without explicit placeholders.
-    if !inlined_cips.contains_key("_children") {
+    if !inlined_insertion_points.contains_key("_children") {
         if let Some(builtin) = inlined_component.root_element.borrow().builtin_type() {
             if !builtin.is_non_item_type && !builtin.disallow_global_types_as_child_elements {
                 let cip_node = inlined_component
@@ -152,7 +152,7 @@ fn inline_element(
                     .or_else(|| root_component.node.as_ref().map(|n| n.clone().into()))
                     .expect("Missing syntax node for implicit @children insertion point");
 
-                inlined_cips.insert(
+                inlined_insertion_points.insert(
                     "_children".into(),
                     ChildrenInsertionPoint {
                         parent: inlined_component.root_element.clone(),
@@ -198,7 +198,7 @@ fn inline_element(
             // Keep the existing behavior and avoid reporting "_children" as an unknown named slot here.
             continue;
         }
-        if !inlined_cips.contains_key(slot_name.as_str()) {
+        if !inlined_insertion_points.contains_key(slot_name.as_str()) {
             for child in children {
                 diag.push_error(
                     format!("Unknown slot '{slot_name}' in '{}'", inlined_component.id),
@@ -233,7 +233,7 @@ fn inline_element(
     let mut insertions_by_parent: HashMap<ByAddress<ElementRc>, (ElementRc, Vec<SlotInsertion>)> =
         HashMap::new();
 
-    for (slot_name, inlined_cip) in inlined_cips.iter() {
+    for (slot_name, inlined_cip) in inlined_insertion_points.iter() {
         let children = children_by_slot.remove(slot_name.as_str()).unwrap_or_default();
         if let Some(insertion_element) = mapping.get(&element_key(inlined_cip.parent.clone())) {
             insertions_by_parent
@@ -284,8 +284,9 @@ fn inline_element(
                         new_children.splice(adjusted_index..adjusted_index, insertion.children);
                     }
 
-                    let mut root_cips = root_component.child_insertion_points.borrow_mut();
-                    for (root_slot_name, cip) in root_cips.iter_mut() {
+                    let mut root_insertion_points =
+                        root_component.child_insertion_points.borrow_mut();
+                    for (root_slot_name, cip) in root_insertion_points.iter_mut() {
                         let forwarded_match = forwarded_sources_by_target
                             .get(insertion.slot_name.as_str())
                             .is_some_and(|sources| {
@@ -302,11 +303,11 @@ fn inline_element(
                             };
                         }
                     }
-                    if root_cips.is_empty()
+                    if root_insertion_points.is_empty()
                         && Rc::ptr_eq(elem, &root_component.root_element)
                         && insertion.slot_name == "_children"
                     {
-                        root_cips.insert(
+                        root_insertion_points.insert(
                             "_children".into(),
                             ChildrenInsertionPoint {
                                 parent: insertion.insertion_element.clone(),
@@ -330,8 +331,9 @@ fn inline_element(
                             .splice(adjusted_index..adjusted_index, insertion.children);
                     }
 
-                    let mut root_cips = root_component.child_insertion_points.borrow_mut();
-                    for (root_slot_name, cip) in root_cips.iter_mut() {
+                    let mut root_insertion_points =
+                        root_component.child_insertion_points.borrow_mut();
+                    for (root_slot_name, cip) in root_insertion_points.iter_mut() {
                         let forwarded_match = forwarded_sources_by_target
                             .get(insertion.slot_name.as_str())
                             .is_some_and(|sources| {
@@ -348,11 +350,11 @@ fn inline_element(
                             };
                         }
                     }
-                    if root_cips.is_empty()
+                    if root_insertion_points.is_empty()
                         && Rc::ptr_eq(elem, &root_component.root_element)
                         && insertion.slot_name == "_children"
                     {
-                        root_cips.insert(
+                        root_insertion_points.insert(
                             "_children".into(),
                             ChildrenInsertionPoint {
                                 parent: insertion.insertion_element.clone(),
@@ -410,8 +412,8 @@ fn inline_element(
 
     let mut moved_into_popup = HashSet::new();
     if let Some(children) = move_children_into_popup {
-        let inlined_cips = inlined_component.child_insertion_points.borrow();
-        let inlined_cip = inlined_cips.get("_children").unwrap();
+        let inlined_insertion_points = inlined_component.child_insertion_points.borrow();
+        let inlined_cip = inlined_insertion_points.get("_children").unwrap();
 
         let insertion_element = mapping.get(&element_key(inlined_cip.parent.clone())).unwrap();
         debug_assert!(!std::rc::Weak::ptr_eq(
@@ -433,8 +435,8 @@ fn inline_element(
             .borrow_mut()
             .children
             .splice(inlined_cip.insertion_index..inlined_cip.insertion_index, children);
-        let mut root_cips = root_component.child_insertion_points.borrow_mut();
-        for cip in root_cips.values_mut() {
+        let mut root_insertion_points = root_component.child_insertion_points.borrow_mut();
+        for cip in root_insertion_points.values_mut() {
             if Rc::ptr_eq(&cip.parent, elem) {
                 *cip = ChildrenInsertionPoint {
                     parent: insertion_element.clone(),
@@ -443,8 +445,8 @@ fn inline_element(
                 };
             }
         }
-        if root_cips.is_empty() {
-            root_cips.insert(
+        if root_insertion_points.is_empty() {
+            root_insertion_points.insert(
                 "_children".into(),
                 ChildrenInsertionPoint {
                     parent: insertion_element.clone(),
