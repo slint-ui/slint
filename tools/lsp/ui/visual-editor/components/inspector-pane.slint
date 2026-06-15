@@ -1,0 +1,98 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    CanvasSelectionKind, InspectorSection, MutedLabel, PropertyField, StudioTheme,
+} from "common.slint";
+
+export component InspectorPane inherits Rectangle {
+    in property <CanvasSelectionKind> selection;
+    in property <length> placed-x;
+    in property <length> placed-y;
+    in property <length> phone-width;
+    in property <length> phone-height;
+    in property <length> rectangle-width;
+    in property <length> rectangle-height;
+    in property <string> rectangle-radius-label;
+
+    width: 306px;
+    background: StudioTheme.panel-bg;
+
+    function selection-title() -> string {
+        if root.selection == CanvasSelectionKind.rectangle {
+            return "Rectangle";
+        }
+        if root.selection == CanvasSelectionKind.text {
+            return "Text";
+        }
+        if root.selection == CanvasSelectionKind.image {
+            return "Image";
+        }
+        if root.selection == CanvasSelectionKind.artboard {
+            return "Mobile screen";
+        }
+        return "Nothing selected";
+    }
+
+    function selection-kind-label() -> string {
+        if root.selection == CanvasSelectionKind.rectangle {
+            return "Built-in element";
+        }
+        if root.selection == CanvasSelectionKind.text {
+            return "Text element";
+        }
+        if root.selection == CanvasSelectionKind.image {
+            return "Image element";
+        }
+        if root.selection == CanvasSelectionKind.artboard {
+            return "Window";
+        }
+        return "Selection";
+    }
+
+    Rectangle {
+        width: 1px;
+        background: StudioTheme.border;
+    }
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 18px;
+
+        VerticalLayout {
+            spacing: 4px;
+
+            Text {
+                text: root.selection-title();
+                color: StudioTheme.text;
+                font-size: 18px;
+                font-weight: 900;
+            }
+
+            MutedLabel {
+                text: root.selection-kind-label();
+            }
+        }
+
+        InspectorSection {
+            title: "LAYOUT";
+            PropertyField { name: "X"; value: root.selection == CanvasSelectionKind.artboard ? "0" : "\{root.placed-x / 1px}"; }
+            PropertyField { name: "Y"; value: root.selection == CanvasSelectionKind.artboard ? "0" : "\{root.placed-y / 1px}"; }
+            PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.artboard ? "\{root.phone-width / 1px}" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-width / 1px}" : root.selection == CanvasSelectionKind.image ? "282" : "280"; }
+            PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.artboard ? "\{root.phone-height / 1px}" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-height / 1px}" : root.selection == CanvasSelectionKind.image ? "168" : "104"; }
+        }
+
+        InspectorSection {
+            title: "APPEARANCE";
+            PropertyField { name: "Opacity"; value: "100%"; }
+            PropertyField { name: "Fill"; value: root.selection == CanvasSelectionKind.text ? "#20252d" : root.selection == CanvasSelectionKind.image ? "gradient" : "#dbeafe"; }
+            PropertyField { name: "Radius"; value: root.selection == CanvasSelectionKind.artboard ? "34" : root.selection == CanvasSelectionKind.rectangle ? root.rectangle-radius-label : "18"; }
+        }
+
+        InspectorSection {
+            title: "SOURCE";
+            PropertyField { name: "Element"; value: root.selection-title(); }
+            PropertyField { name: "File"; value: "main.slint"; }
+        }
+    }
+}

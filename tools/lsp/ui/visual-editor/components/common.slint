@@ -1,0 +1,367 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette, ScrollView } from "std-widgets.slint";
+
+import { Palette } from "std-widgets.slint";
+
+export enum LeftPaneMode {
+    files,
+    library,
+}
+
+export enum CanvasOrientation {
+    portrait,
+    landscape,
+}
+
+export enum PrototypeComponentKind {
+    none,
+    rectangle,
+    text,
+    image,
+}
+
+export enum CanvasSelectionKind {
+    none,
+    artboard,
+    rectangle,
+    text,
+    image,
+}
+
+export global StudioTheme {
+    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
+    out property <color> app-bg: dark ? #0d1117 : #f6f8fa;
+    out property <color> panel-bg: dark ? #11161d : #ffffff;
+    out property <color> panel-subtle: dark ? #161b22 : #f6f8fa;
+    out property <color> text: dark ? #f0f6fc : #1f2328;
+    out property <color> muted: dark ? #8b949e : #6e7781;
+    out property <color> border: dark ? #30363d : #d0d7de;
+    out property <color> soft-border: dark ? #21262d : #eaeef2;
+    out property <color> accent: #0078d4;
+    out property <color> accent-strong: #0a84ff;
+    out property <color> success: #2da44e;
+    out property <color> attention: #bf8700;
+    out property <color> danger: #cf222e;
+    out property <color> canvas: dark ? #070a0f : #eef2f7;
+    out property <color> phone-bg: dark ? #f7f8fb : #ffffff;
+    out property <color> phone-text: #20252d;
+}
+
+export component BodyLabel inherits Text {
+    color: StudioTheme.text;
+    font-size: 13px;
+    font-weight: 500;
+    overflow: elide;
+}
+
+export component MutedLabel inherits Text {
+    color: StudioTheme.muted;
+    font-size: 12px;
+    overflow: elide;
+}
+
+export component SectionTitle inherits Text {
+    in property <string> label;
+    text: label;
+    color: StudioTheme.muted;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0px;
+}
+
+export component PrimerTextInput inherits Rectangle {
+    in-out property <string> text <=> editor.text;
+    in property <string> placeholder: "";
+    in property <string> leading-text: "";
+
+    height: 34px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: editor.has-focus ? StudioTheme.accent-strong : StudioTheme.border;
+    background: StudioTheme.panel-bg;
+    animate border-color { duration: 120ms; }
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 8px;
+
+        if root.leading-text != "": Text {
+            text: root.leading-text;
+            color: StudioTheme.muted;
+            font-size: 14px;
+            font-weight: 700;
+            vertical-alignment: center;
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+
+            editor := TextInput {
+                width: parent.width;
+                height: parent.height;
+                text: "";
+                color: StudioTheme.text;
+                font-size: 13px;
+                single-line: true;
+                wrap: no-wrap;
+                vertical-alignment: center;
+                selection-background-color: StudioTheme.accent.with-alpha(0.28);
+            }
+
+            if editor.text == "": Text {
+                x: editor.x;
+                y: editor.y;
+                width: editor.width;
+                height: editor.height;
+                text: root.placeholder;
+                color: StudioTheme.muted;
+                font-size: 13px;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
+
+export component PrimerSegmentedTab inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked;
+
+    height: 30px;
+    horizontal-stretch: 1;
+    border-radius: 6px;
+    background: selected ? StudioTheme.panel-bg : touch.has-hover ? StudioTheme.panel-subtle : transparent;
+    border-width: selected ? 1px : 0px;
+    border-color: StudioTheme.border;
+    animate background { duration: 120ms; }
+
+    Text {
+        text: root.label;
+        color: root.selected ? StudioTheme.text : StudioTheme.muted;
+        font-size: 12px;
+        font-weight: root.selected ? 700 : 500;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+export component OrientationIconButton inherits Rectangle {
+    in property <bool> landscape: false;
+    in property <bool> selected: false;
+    callback clicked;
+
+    width: 34px;
+    height: 30px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: selected ? StudioTheme.accent-strong : StudioTheme.border;
+    background: selected ? StudioTheme.accent.with-alpha(0.14) : touch.has-hover ? StudioTheme.panel-subtle : StudioTheme.panel-bg;
+    animate background, border-color { duration: 120ms; }
+
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: root.landscape ? 18px : 12px;
+        height: root.landscape ? 12px : 18px;
+        border-radius: 3px;
+        border-width: 2px;
+        border-color: root.selected ? StudioTheme.accent-strong : StudioTheme.muted;
+        background: transparent;
+
+        Rectangle {
+            x: root.landscape ? parent.width - 5px : (parent.width - 4px) / 2;
+            y: root.landscape ? (parent.height - 4px) / 2 : parent.height - 5px;
+            width: root.landscape ? 2px : 4px;
+            height: root.landscape ? 4px : 2px;
+            border-radius: 1px;
+            background: root.selected ? StudioTheme.accent-strong : StudioTheme.muted;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+export component PrimerNavRow inherits Rectangle {
+    in property <string> label;
+    in property <string> glyph;
+    in property <bool> selected: false;
+    in property <length> indent: 0px;
+
+    height: 30px;
+    border-radius: 6px;
+    background: selected ? StudioTheme.accent.with-alpha(0.13) : touch.has-hover ? StudioTheme.panel-subtle : transparent;
+
+    HorizontalLayout {
+        padding-left: 8px + root.indent;
+        padding-right: 8px;
+        spacing: 8px;
+
+        Text {
+            text: root.glyph;
+            color: root.selected ? StudioTheme.accent-strong : StudioTheme.muted;
+            font-size: 12px;
+            font-weight: 800;
+            vertical-alignment: center;
+        }
+
+        Text {
+            text: root.label;
+            color: root.selected ? StudioTheme.text : StudioTheme.muted;
+            font-size: 13px;
+            font-weight: root.selected ? 700 : 500;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+    }
+}
+
+export component PrimerActionListRow inherits Rectangle {
+    in property <PrototypeComponentKind> kind;
+    in property <string> label;
+    in property <string> detail;
+    in property <string> glyph;
+    callback drag-started(PrototypeComponentKind, length, length);
+    callback drag-moved(PrototypeComponentKind, length, length);
+    callback drag-ended(PrototypeComponentKind, length, length);
+    callback drag-cancelled(PrototypeComponentKind);
+
+    property <bool> dragging: AppState.dragging-kind == root.kind;
+
+    height: 70px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: root.dragging ? StudioTheme.accent-strong : StudioTheme.border;
+    background: root.dragging ? StudioTheme.accent.with-alpha(0.08) : StudioTheme.panel-bg;
+    opacity: root.dragging ? 0.45 : 1;
+    animate background, border-color { duration: 130ms; }
+
+    HorizontalLayout {
+        padding: 12px;
+        spacing: 12px;
+
+        Rectangle {
+            width: 42px;
+            height: 42px;
+            border-radius: 7px;
+            background: root.kind == PrototypeComponentKind.rectangle ? #dbeafe : root.kind == PrototypeComponentKind.text ? #fef3c7 : #dcfce7;
+            border-width: 1px;
+            border-color: root.kind == PrototypeComponentKind.rectangle ? #93c5fd : root.kind == PrototypeComponentKind.text ? #fbbf24 : #86efac;
+
+            Text {
+                text: root.glyph;
+                color: root.kind == PrototypeComponentKind.rectangle ? #1d4ed8 : root.kind == PrototypeComponentKind.text ? #92400e : #166534;
+                font-size: 13px;
+                font-weight: 900;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        VerticalLayout {
+            spacing: 3px;
+            alignment: center;
+
+            BodyLabel {
+                text: root.label;
+            }
+
+            MutedLabel {
+                text: root.detail;
+            }
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+
+        changed pressed => {
+            if self.pressed {
+                AppState.dragging-kind = root.kind;
+                root.drag-started(root.kind, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+            } else {
+                root.drag-ended(root.kind, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+            }
+        }
+
+        moved => {
+            AppState.dragging-kind = root.kind;
+            root.drag-moved(root.kind, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+        }
+    }
+}
+
+export global AppState {
+    in-out property <PrototypeComponentKind> dragging-kind: PrototypeComponentKind.none;
+    in-out property <length> drag-x: 0px;
+    in-out property <length> drag-y: 0px;
+}
+
+export component PropertyField inherits Rectangle {
+    in property <string> name;
+    in property <string> value;
+
+    height: 34px;
+
+    HorizontalLayout {
+        spacing: 10px;
+
+        Text {
+            width: 80px;
+            text: root.name;
+            color: StudioTheme.muted;
+            font-size: 12px;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+            height: 32px;
+            border-radius: 6px;
+            border-width: 1px;
+            border-color: StudioTheme.border;
+            background: StudioTheme.panel-subtle;
+
+            Text {
+                x: 10px;
+                width: parent.width - 20px;
+                text: root.value;
+                color: StudioTheme.text;
+                font-size: 12px;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+    }
+}
+
+export component InspectorSection inherits VerticalLayout {
+    in property <string> title;
+    spacing: 10px;
+
+    SectionTitle {
+        label: root.title;
+    }
+
+    @children
+}
+
