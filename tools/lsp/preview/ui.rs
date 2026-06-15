@@ -9,6 +9,7 @@ use std::{collections::HashMap, iter::once, rc::Rc};
 use super::user_settings::PreviewUserSettings;
 use i_slint_compiler::parser::TextRange;
 use i_slint_compiler::{expression_tree, langtype};
+use super::editor_user_settings::EditorUserSettings;
 
 use i_slint_core::DataTransfer;
 use itertools::Itertools;
@@ -132,6 +133,11 @@ pub fn apply_preview_user_settings(app_window: &AppWindow, settings: &PreviewUse
     }
 }
 
+pub fn apply_editor_user_settings(app_window: &AppWindow, settings: &EditorUserSettings) {
+    let api = app_window.api();
+    api.set_always_on_top(settings.always_on_top);
+}
+
 pub fn setup_preview_user_settings(api: &Api<'_>) {
     api.on_preview_user_settings_changed(
         |always_on_top,
@@ -148,6 +154,7 @@ pub fn setup_preview_user_settings(api: &Api<'_>) {
                 show_simulation_data,
                 show_console,
             ));
+            preview::update_editor_settings_from_ui(EditorUserSettings { always_on_top });
         },
     );
 }

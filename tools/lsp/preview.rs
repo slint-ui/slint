@@ -13,6 +13,7 @@ use crate::common::{
 };
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
+use editor_user_settings::{EDITOR_SETTINGS_FILE, EditorUserSettings};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
@@ -46,6 +47,7 @@ mod ext;
 pub mod macos_titlebar;
 mod preview_data;
 use ext::ElementRcNodeExt;
+pub mod editor_user_settings;
 mod outline;
 mod properties;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
@@ -80,7 +82,7 @@ pub fn run(
     to_lsp
         .send(&PreviewToLspMessage::RequestState {
             files: Vec::new(),
-            settings: vec![PREVIEW_SETTINGS_FILE.into()],
+            settings: vec![PREVIEW_SETTINGS_FILE.into(), EDITOR_SETTINGS_FILE.into()],
         })
         .unwrap();
 
@@ -158,6 +160,7 @@ pub struct PreviewState {
     /// The most recent user settings synced with the LSP, used to suppress
     /// redundant updates when the UI re-reports settings we just applied.
     last_user_settings: PreviewUserSettings,
+    last_editor_settings: EditorUserSettings,
     current_previewed_component: Option<PreviewComponent>,
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
@@ -239,21 +242,29 @@ fn delete_document(url: &lsp_types::Url) {
 }
 
 pub(super) fn set_user_settings(name: String, contents: String) {
-    // The LSP forwards any stored settings blob; only react to the one we own.
-    if name != PREVIEW_SETTINGS_FILE {
-        return;
+    if name == PREVIEW_SETTINGS_FILE {
+        let Some(settings) = PreviewUserSettings::deserialize(&contents) else {
+            return;
+        };
+        PREVIEW_STATE.with_borrow_mut(|preview_state| {
+            if let Some(app_window) = &preview_state.app_window {
+                ui::apply_preview_user_settings(app_window, &settings);
+            }
+            // Remember what the UI now reflects so the deferred `changed` handlers
+            // it triggers don't echo these same values straight back to the LSP.
+            preview_state.last_user_settings = settings;
+        });
+    } else if name == EDITOR_SETTINGS_FILE {
+        let Some(settings) = EditorUserSettings::deserialize(&contents) else {
+            return;
+        };
+        PREVIEW_STATE.with_borrow_mut(|preview_state| {
+            if let Some(app_window) = &preview_state.app_window {
+                ui::apply_editor_user_settings(app_window, &settings);
+            }
+            preview_state.last_editor_settings = settings;
+        });
     }
-    let Some(settings) = PreviewUserSettings::deserialize(&contents) else {
-        return;
-    };
-    PREVIEW_STATE.with_borrow_mut(|preview_state| {
-        if let Some(app_window) = &preview_state.app_window {
-            ui::apply_preview_user_settings(app_window, &settings);
-        }
-        // Remember what the UI now reflects so the deferred `changed` handlers
-        // it triggers don't echo these same values straight back to the LSP.
-        preview_state.last_user_settings = settings;
-    });
 }
 
 pub(super) fn update_user_settings_from_ui(settings: PreviewUserSettings) {
@@ -273,6 +284,25 @@ pub(super) fn update_user_settings_from_ui(settings: PreviewUserSettings) {
             };
             if let Err(err) = to_lsp.send(&message) {
                 tracing::warn!("Failed to send preview user settings update: {err}");
+            }
+        }
+    });
+}
+
+pub(super) fn update_editor_settings_from_ui(settings: EditorUserSettings) {
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        if preview_state.last_editor_settings == settings {
+            return;
+        }
+        preview_state.last_editor_settings = settings.clone();
+
+        if let Some(to_lsp) = preview_state.to_lsp.borrow().as_ref() {
+            let message = PreviewToLspMessage::UpdateUserSettings {
+                name: EDITOR_SETTINGS_FILE.into(),
+                contents: settings.serialize(),
+            };
+            if let Err(err) = to_lsp.send(&message) {
+                tracing::warn!("Failed to send editor user settings update: {err}");
             }
         }
     });
