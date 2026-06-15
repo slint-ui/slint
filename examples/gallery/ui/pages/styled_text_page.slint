@@ -1,13 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { GroupBox, VerticalBox, HorizontalBox } from "std-widgets.slint";
+import { GroupBox, VerticalBox } from "std-widgets.slint";
 import { Page } from "page.slint";
 
 export component StyledTextPage inherits Page {
     show-enable-switch: false;
     title: @tr("Styled Text");
     description: @tr("StyledText demos");
+    alignment: start;
 
     VerticalBox {
         GroupBox {
