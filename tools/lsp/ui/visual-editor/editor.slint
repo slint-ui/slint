@@ -3,13 +3,8 @@
 
 import { Palette, ScrollView } from "std-widgets.slint";
 
-import { Api } from "api.slint";
-
-export enum ProjectKind {
-    mobile,
-    desktop,
-    embedded,
-}
+import { Api } from "../api.slint";
+import { ProjectKind, StartupWizard } from "startup-wizard.slint";
 
 export enum LeftPaneMode {
     files,
@@ -75,45 +70,6 @@ component SectionTitle inherits Text {
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0px;
-}
-
-component PrimerButton inherits Rectangle {
-    in property <string> label;
-    in property <bool> primary: false;
-    in property <bool> enabled: true;
-    callback clicked;
-
-    height: 34px;
-    min-width: 94px;
-    border-radius: 6px;
-    border-width: 1px;
-    border-color: primary ? StudioTheme.accent-strong : StudioTheme.border;
-    background: !enabled ? StudioTheme.panel-subtle : primary ? (touch.pressed ? #0066b8 : StudioTheme.accent) : touch.has-hover ? StudioTheme.panel-subtle : StudioTheme.panel-bg;
-    opacity: enabled ? 1 : 0.48;
-    animate background { duration: 120ms; }
-
-    HorizontalLayout {
-        padding-left: 13px;
-        padding-right: 13px;
-        alignment: center;
-
-        Text {
-            text: root.label;
-            color: root.primary ? white : StudioTheme.text;
-            font-size: 13px;
-            font-weight: 700;
-            horizontal-alignment: center;
-            vertical-alignment: center;
-        }
-    }
-
-    touch := TouchArea {
-        enabled: root.enabled;
-        mouse-cursor: root.enabled ? pointer : default;
-        clicked => {
-            root.clicked();
-        }
-    }
 }
 
 component PrimerTextInput inherits Rectangle {
@@ -237,97 +193,6 @@ component OrientationIconButton inherits Rectangle {
         mouse-cursor: pointer;
         clicked => {
             root.clicked();
-        }
-    }
-}
-
-component ProjectCard inherits Rectangle {
-    in property <ProjectKind> kind;
-    in property <string> title;
-    in property <string> detail;
-    in property <string> glyph;
-    in property <bool> enabled: true;
-    in property <bool> selected: false;
-    callback picked(ProjectKind);
-    callback accepted(ProjectKind);
-
-    height: 118px;
-    border-radius: 8px;
-    border-width: selected ? 2px : 1px;
-    border-color: selected ? StudioTheme.accent-strong : StudioTheme.border;
-    background: enabled
-        ? (touch.has-hover ? StudioTheme.panel-subtle : StudioTheme.panel-bg)
-        : StudioTheme.panel-subtle;
-    opacity: enabled ? 1 : 0.5;
-    animate background, border-color { duration: 140ms; }
-
-    HorizontalLayout {
-        padding: 16px;
-        spacing: 14px;
-
-        Rectangle {
-            width: 42px;
-            height: 42px;
-            border-radius: 8px;
-            background: root.kind == ProjectKind.mobile ? StudioTheme.accent : root.kind == ProjectKind.desktop ? StudioTheme.success : StudioTheme.attention;
-
-            Text {
-                text: root.glyph;
-                color: white;
-                font-size: 16px;
-                font-weight: 800;
-                horizontal-alignment: center;
-                vertical-alignment: center;
-            }
-        }
-
-        VerticalLayout {
-            alignment: center;
-            spacing: 5px;
-
-            HorizontalLayout {
-                spacing: 8px;
-
-                Text {
-                    text: root.title;
-                    color: StudioTheme.text;
-                    font-size: 16px;
-                    font-weight: 800;
-                }
-
-                if !root.enabled: Rectangle {
-                    width: 82px;
-                    height: 22px;
-                    border-radius: 11px;
-                    background: StudioTheme.panel-subtle;
-                    Text {
-                        text: "Coming soon";
-                        color: StudioTheme.muted;
-                        font-size: 11px;
-                        font-weight: 700;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
-                }
-            }
-
-            Text {
-                text: root.detail;
-                color: StudioTheme.muted;
-                font-size: 13px;
-                wrap: word-wrap;
-            }
-        }
-    }
-
-    touch := TouchArea {
-        enabled: root.enabled;
-        mouse-cursor: root.enabled ? pointer : default;
-        clicked => {
-            root.picked(root.kind);
-        }
-        double-clicked => {
-            root.accepted(root.kind);
         }
     }
 }
@@ -519,6 +384,12 @@ export component EditorUi inherits Window {
     property <PrototypeComponentKind> placed-kind: PrototypeComponentKind.none;
     property <bool> canvas-drop-hover: false;
     property <PrototypeComponentKind> canvas-drop-kind: PrototypeComponentKind.none;
+
+    function open-project() {
+        root.wizard-visible = false;
+        root.left-mode = LeftPaneMode.library;
+        root.selection = CanvasSelectionKind.artboard;
+    }
     property <length> canvas-drop-x: 0px;
     property <length> canvas-drop-y: 0px;
     property <length> placed-x: 54px;
@@ -1494,155 +1365,10 @@ export component EditorUi inherits Window {
         }
     }
 
-    if root.wizard-visible: wizard := Rectangle {
-        background: StudioTheme.dark ? @linear-gradient(180deg, #111827, #020617) : @linear-gradient(0deg, #d7d9dd, white);
-
-        Image {
-            y: parent.height - self.height;
-            width: 100%;
-            source: StudioTheme.dark ? @image-url("../../viewer/remote/assets/bg-frame.svg") : @image-url("../../viewer/remote/assets/bg-frame-light.svg");
-        }
-
-        VerticalLayout {
-            padding-left: 64px;
-            padding-right: 64px;
-            padding-top: 54px;
-            padding-bottom: 46px;
-            spacing: 28px;
-
-            HorizontalLayout {
-                spacing: 12px;
-
-                Rectangle {
-                    width: 36px;
-                    height: 36px;
-                    border-radius: 8px;
-                    background: StudioTheme.accent;
-
-                    Text {
-                        text: "S";
-                        color: white;
-                        font-size: 18px;
-                        font-weight: 900;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
-                }
-
-                Text {
-                    text: "Slinterface Pro";
-                    color: StudioTheme.dark ? white : #111827;
-                    font-size: 18px;
-                    font-weight: 900;
-                    vertical-alignment: center;
-                }
-            }
-
-            Rectangle {
-                vertical-stretch: 1;
-            }
-
-            HorizontalLayout {
-                spacing: 56px;
-
-                VerticalLayout {
-                    width: 480px;
-                    spacing: 8px;
-                    alignment: center;
-
-                    Text {
-                        text: "Create a Slint project";
-                        color: StudioTheme.dark ? white : #111827;
-                        font-size: 42px;
-                        font-weight: 900;
-                        wrap: word-wrap;
-                    }
-
-                    Text {
-                        text: "It's time to get Slinty.";
-                        color: StudioTheme.dark ? #d1d5db : #4b5563;
-                        font-size: 17px;
-                        wrap: word-wrap;
-                    }
-                }
-
-                Rectangle {
-                    width: 460px;
-                    min-height: 420px;
-                    border-radius: 8px;
-                    border-width: 1px;
-                    border-color: StudioTheme.dark ? #ffffff2c : StudioTheme.border;
-                    background: StudioTheme.dark ? #0f172acc : #fffffff2;
-
-                    VerticalLayout {
-                        padding: 18px;
-                        spacing: 12px;
-
-                        Text {
-                            text: "Choose a project type";
-                            color: StudioTheme.text;
-                            font-size: 16px;
-                            font-weight: 800;
-                        }
-
-                        ProjectCard {
-                            kind: ProjectKind.mobile;
-                            title: "Mobile";
-                            detail: "Phone-sized canvas with touch-first defaults.";
-                            glyph: "M";
-                            selected: root.selected-project == ProjectKind.mobile;
-                            picked(kind) => {
-                                root.selected-project = kind;
-                            }
-                            accepted(kind) => {
-                                root.selected-project = kind;
-                                root.wizard-visible = false;
-                                root.left-mode = LeftPaneMode.library;
-                                root.selection = CanvasSelectionKind.artboard;
-                            }
-                        }
-
-                        ProjectCard {
-                            kind: ProjectKind.desktop;
-                            title: "Desktop";
-                            detail: "Responsive windows and richer navigation.";
-                            glyph: "D";
-                            enabled: false;
-                        }
-
-                        ProjectCard {
-                            kind: ProjectKind.embedded;
-                            title: "Embedded";
-                            detail: "Device displays, memory budgets, direct input.";
-                            glyph: "E";
-                            enabled: false;
-                        }
-
-                        Rectangle {
-                            vertical-stretch: 1;
-                        }
-
-                        HorizontalLayout {
-                            alignment: end;
-                            spacing: 10px;
-
-                            PrimerButton {
-                                label: "Create";
-                                primary: true;
-                                clicked => {
-                                    root.wizard-visible = false;
-                                    root.left-mode = LeftPaneMode.library;
-                                    root.selection = CanvasSelectionKind.artboard;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            Rectangle {
-                vertical-stretch: 1;
-            }
+    if root.wizard-visible: StartupWizard {
+        selected-project <=> root.selected-project;
+        opened => {
+            root.open-project();
         }
     }
 }
