@@ -33,7 +33,10 @@ const _pyBase = _pyAtRoot
 // Version-correct URLs to the sibling docs' llms.txt (see docs/astro for the
 // rationale: the deploy rewrites "/<version>/docs" -> "/latest/docs" + host for
 // the Cloudflare "latest" copy).
-const _docsRoot = `${_pyOrigin}${PYTHON_DOCS_BASE_PATH}`.replace(/python\/$/, "");
+const _docsRoot = `${_pyOrigin}${PYTHON_DOCS_BASE_PATH}`.replace(
+    /python\/$/,
+    "",
+);
 const siblingLlms = (/** @type {string} */ lang) =>
     `${_docsRoot}${lang}/llms.txt`;
 
