@@ -8,7 +8,7 @@ use lsp_types::Url;
 use i_slint_live_preview::file_watcher::FileChangeKind;
 
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::editor_preview;
@@ -52,16 +52,12 @@ pub(crate) fn preview_capture() -> (Rc<LspToPreviews>, CapturedPreviewMessages) 
 }
 
 pub fn mock_context() -> Context {
+    let document_cache = empty_document_cache();
     crate::language::Context {
-        session: editor_preview::EditorSession {
-            document_cache: empty_document_cache(),
-            preview_config: Default::default(),
-            #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-            to_show: None,
-            open_urls: HashSet::new(),
-            to_preview: LspToPreviews::with_one(editor_preview::DummyLspToPreview::default()),
-            pending_recompile: Default::default(),
-        },
+        session: editor_preview::EditorSession::new(
+            document_cache,
+            LspToPreviews::with_one(editor_preview::DummyLspToPreview::default()),
+        ),
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
         host_language_rename_dont_ask_again: Default::default(),

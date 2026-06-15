@@ -41,6 +41,7 @@ pub type OpenImportCallback = Rc<
         -> Pin<Box<dyn Future<Output = Option<std::io::Result<(SourceFileVersion, String)>>>>>,
 >;
 
+#[derive(Clone)]
 pub struct CompilerConfiguration {
     pub include_paths: Vec<std::path::PathBuf>,
     pub library_paths: HashMap<String, std::path::PathBuf>,
@@ -89,6 +90,7 @@ pub struct DocumentCache {
     open_import_callback: Option<OpenImportCallback>,
     source_file_versions: Rc<RefCell<SourceFileVersionMap>>,
     pub format: crate::ByteFormat,
+    config: CompilerConfiguration,
 }
 
 #[cfg(feature = "preview-engine")]
@@ -137,9 +139,10 @@ impl DocumentCache {
         (open_import_callback, source_file_versions)
     }
 
-    pub fn new(config: CompilerConfiguration) -> Self {
+    pub fn new(mut config: CompilerConfiguration) -> Self {
         let format = config.format;
-        let (mut compiler_config, open_import_callback) = config.build();
+        let (mut compiler_config, open_import_callback) = config.clone().build();
+        config.enable_experimental = compiler_config.enable_experimental;
 
         let (open_import_callback, source_file_versions) = Self::wire_up_import_fallback(
             &mut compiler_config,
@@ -152,6 +155,7 @@ impl DocumentCache {
             open_import_callback,
             source_file_versions,
             format,
+            config,
         }
     }
 
@@ -167,7 +171,17 @@ impl DocumentCache {
             source_file_versions,
         );
 
-        Self { type_loader, open_import_callback, source_file_versions, format }
+        let config = CompilerConfiguration {
+            include_paths: type_loader.compiler_config.include_paths.clone(),
+            library_paths: type_loader.compiler_config.library_paths.clone(),
+            style: type_loader.compiler_config.style.clone(),
+            open_import_callback: None,
+            resource_url_mapper: type_loader.compiler_config.resource_url_mapper.clone(),
+            format,
+            enable_experimental: type_loader.compiler_config.enable_experimental,
+        };
+
+        Self { type_loader, open_import_callback, source_file_versions, format, config }
     }
 
     pub fn snapshot(&self) -> Option<Self> {
@@ -298,43 +312,42 @@ impl DocumentCache {
         }
     }
 
-    /// Apply a new configuration to the document cache
+    /// Re-apply a complete configuration to the document cache
     ///
     /// This will invalidate and reload all loaded documents.
     ///
     /// Returns the new compiler configuration and the set of paths that were reloaded.
     pub async fn reconfigure(
         &mut self,
-        style: Option<String>,
-        include_paths: Option<Vec<PathBuf>>,
-        library_paths: Option<HashMap<String, PathBuf>>,
-        enable_experimental: bool,
+        config: CompilerConfiguration,
         diag: &mut BuildDiagnostics,
     ) -> (CompilerConfiguration, HashSet<lsp_types::Url>) {
-        if let Some(s) = style {
-            if s.is_empty() {
-                self.type_loader.compiler_config.style = None;
-            } else {
-                self.type_loader.compiler_config.style = Some(s);
-            }
+        let mut compiler_config = config.clone().build().0;
+        compiler_config.enable_experimental = config.enable_experimental;
+        let (open_import_callback, source_file_versions) = Self::wire_up_import_fallback(
+            &mut compiler_config,
+            config.open_import_callback.clone(),
+            self.source_file_versions.clone(),
+        );
+
+        if self.type_loader.compiler_config.enable_experimental
+            != compiler_config.enable_experimental
+        {
+            *self.type_loader.global_type_registry.borrow_mut() =
+                Rc::into_inner(if compiler_config.enable_experimental {
+                    TypeRegister::builtin_experimental(&self.type_loader.symbol_counters)
+                } else {
+                    TypeRegister::builtin(&self.type_loader.symbol_counters)
+                })
+                .unwrap()
+                .into_inner();
         }
 
-        if let Some(ip) = include_paths {
-            self.type_loader.compiler_config.include_paths = ip;
-        }
-
-        if let Some(lp) = library_paths {
-            self.type_loader.compiler_config.library_paths = lp;
-        }
-
-        if enable_experimental && !self.type_loader.compiler_config.enable_experimental {
-            self.type_loader.compiler_config.enable_experimental = true;
-            *self.type_loader.global_type_registry.borrow_mut() = Rc::into_inner(
-                TypeRegister::builtin_experimental(&self.type_loader.symbol_counters),
-            )
-            .unwrap()
-            .into_inner();
-        }
+        self.config = config.clone();
+        self.open_import_callback = open_import_callback;
+        self.source_file_versions = source_file_versions;
+        self.format = config.format;
+        self.type_loader.compiler_config = compiler_config;
 
         self.invalidate_everything();
 
@@ -345,7 +358,9 @@ impl DocumentCache {
             self.reload_cached_file(url, diag).await;
         }
 
-        (self.compiler_configuration(), all_urls)
+        let mut config = config;
+        config.open_import_callback = None;
+        (config, all_urls)
     }
 
     pub async fn preload_builtins(&mut self) {
@@ -408,15 +423,13 @@ impl DocumentCache {
     }
 
     pub fn compiler_configuration(&self) -> CompilerConfiguration {
-        CompilerConfiguration {
-            include_paths: self.type_loader.compiler_config.include_paths.clone(),
-            library_paths: self.type_loader.compiler_config.library_paths.clone(),
-            style: self.type_loader.compiler_config.style.clone(),
-            open_import_callback: None, // We need to re-generate this anyway
-            resource_url_mapper: self.type_loader.compiler_config.resource_url_mapper.clone(),
-            format: self.format,
-            enable_experimental: self.type_loader.compiler_config.enable_experimental,
-        }
+        let mut config = self.config.clone();
+        config.open_import_callback = None;
+        config
+    }
+
+    pub(crate) fn configuration_with_import_callback(&self) -> CompilerConfiguration {
+        self.config.clone()
     }
 
     fn element_at_document_and_offset(
@@ -522,6 +535,24 @@ mod tests {
     fn test_document_version() {
         let (dc, url, _) = complex_document_cache();
         assert_eq!(dc.document_version(&url), Some(42));
+    }
+
+    #[test]
+    fn test_snapshot_preserves_editor_configuration() {
+        let config = CompilerConfiguration {
+            style: Some("fluent".into()),
+            resource_url_mapper: Some(Rc::new(|_| Box::pin(async { None }))),
+            format: crate::ByteFormat::Utf16,
+            ..Default::default()
+        };
+
+        let snapshot = DocumentCache::new(config).snapshot().expect("snapshot");
+        let config = snapshot.compiler_configuration();
+
+        assert_eq!(config.style.as_deref(), Some("fluent"));
+        assert!(config.resource_url_mapper.is_some());
+        assert!(config.open_import_callback.is_none());
+        assert_eq!(config.format, crate::ByteFormat::Utf16);
     }
 
     #[test]

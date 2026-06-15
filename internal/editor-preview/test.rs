@@ -162,15 +162,10 @@ pub fn empty_document_cache_with_experimental() -> crate::DocumentCache {
 
 /// Create an `EditorSession` around `document_cache` that sends nowhere.
 pub fn session_with(document_cache: crate::DocumentCache) -> crate::EditorSession {
-    crate::EditorSession {
+    crate::EditorSession::new(
         document_cache,
-        preview_config: Default::default(),
-        #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-        to_show: None,
-        open_urls: Default::default(),
-        to_preview: crate::LspToPreviews::with_one(crate::DummyLspToPreview::default()),
-        pending_recompile: Default::default(),
-    }
+        crate::LspToPreviews::with_one(crate::DummyLspToPreview::default()),
+    )
 }
 
 /// Create a `DocumentCache` with one document loaded into it.

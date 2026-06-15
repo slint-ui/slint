@@ -43,6 +43,7 @@ use clap::{Args, Parser, Subcommand};
 use itertools::Itertools;
 use lsp_server::{Connection, ErrorCode, IoThreads, Message, Response};
 use std::io::Write as _;
+use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
@@ -426,14 +427,21 @@ async fn run_main_loop(
     register_request_handlers(&mut rh);
 
     let to_preview_clone = to_preview.clone();
+    let startup_include_paths =
+        (!cli_args.include_paths.is_empty()).then(|| cli_args.include_paths.clone());
+    let library_paths: std::collections::HashMap<String, std::path::PathBuf> = cli_args
+        .library_paths
+        .iter()
+        .filter_map(|entry| {
+            entry.split('=').collect_tuple().map(|(key, value)| (key.into(), value.into()))
+        })
+        .collect();
+    let startup_library_paths = (!library_paths.is_empty()).then(|| library_paths.clone());
+    let startup_style = (!cli_args.style.is_empty()).then(|| cli_args.style.clone());
     let compiler_config = CompilerConfiguration {
         style: Some(if cli_args.style.is_empty() { "fluent".into() } else { cli_args.style }),
         include_paths: cli_args.include_paths,
-        library_paths: cli_args
-            .library_paths
-            .iter()
-            .filter_map(|entry| entry.split('=').collect_tuple().map(|(k, v)| (k.into(), v.into())))
-            .collect(),
+        library_paths,
         open_import_callback: Some(Rc::new(move |path| {
             let to_preview = to_preview_clone.clone();
             // let server_notifier = server_notifier_.clone();
@@ -471,17 +479,18 @@ async fn run_main_loop(
         enable_experimental: false,
     };
 
+    let document_cache = crate::editor_preview::DocumentCache::new(compiler_config);
+    let mut session = crate::editor_preview::EditorSession::new(document_cache, to_preview);
+    session.set_startup_config_overrides(editor_preview::SessionConfigOverrides {
+        include_paths: startup_include_paths,
+        library_paths: startup_library_paths,
+        style: startup_style,
+        ..Default::default()
+    });
+
     let (from_lsp_sender, mut from_lsp_receiver) = mpsc::unbounded_channel();
     let mut ctx = Context {
-        session: crate::editor_preview::EditorSession {
-            document_cache: crate::editor_preview::DocumentCache::new(compiler_config),
-            preview_config: Default::default(),
-            #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-            to_show: Default::default(),
-            open_urls: Default::default(),
-            to_preview,
-            pending_recompile: Default::default(),
-        },
+        session,
         server_notifier,
         init_param,
         host_language_rename_dont_ask_again: Default::default(),
@@ -600,8 +609,14 @@ fn sync_file_watcher_if_needed(
         return Ok(());
     }
 
+    let watched_paths = ctx
+        .session
+        .document_cache
+        .all_paths_to_watch()
+        .into_iter()
+        .chain(ctx.session.active_project_file_path().map(Path::to_path_buf));
     watcher
-        .update_watched_paths(ctx.session.document_cache.all_paths_to_watch())
+        .update_watched_paths(watched_paths)
         .map_err(|err| std::io::Error::other(format!("Failed to update watched paths: {err:?}")))?;
     *watch_paths_revision = Some(current_revision);
     Ok(())
