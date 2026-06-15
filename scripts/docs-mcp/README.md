@@ -35,8 +35,8 @@ The docs sites emit one clean `.md` per page via the per-page Markdown endpoint
 (`docs/common/src/utils/markdown-endpoint.ts` + `[...slug].md.ts`). The collector
 globs every `*.md` under each site's build output and preserves its slug, so AI
 Search gets clean per-page chunks and the MCP server returns real slugs + exact
-reads (no `llms-full.txt` splitting). The aggregate `llms*.txt` files are `.txt`,
-so they're ignored.
+reads. Only the per-page `*.md` files are uploaded; the site-wide aggregate
+`.txt` outputs are skipped.
 
 ## Upload
 
