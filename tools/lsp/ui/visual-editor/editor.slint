@@ -1,370 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Palette, ScrollView } from "std-widgets.slint";
-
 import { Api } from "../api.slint";
 import { ProjectKind, StartupWizard } from "startup-wizard.slint";
-
-export enum LeftPaneMode {
-    files,
-    library,
-}
-
-export enum CanvasOrientation {
-    portrait,
-    landscape,
-}
-
-export enum PrototypeComponentKind {
-    none,
-    rectangle,
-    text,
-    image,
-}
-
-export enum CanvasSelectionKind {
-    none,
-    artboard,
-    rectangle,
-    text,
-    image,
-}
-
-global StudioTheme {
-    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
-    out property <color> app-bg: dark ? #0d1117 : #f6f8fa;
-    out property <color> panel-bg: dark ? #11161d : #ffffff;
-    out property <color> panel-subtle: dark ? #161b22 : #f6f8fa;
-    out property <color> text: dark ? #f0f6fc : #1f2328;
-    out property <color> muted: dark ? #8b949e : #6e7781;
-    out property <color> border: dark ? #30363d : #d0d7de;
-    out property <color> soft-border: dark ? #21262d : #eaeef2;
-    out property <color> accent: #0078d4;
-    out property <color> accent-strong: #0a84ff;
-    out property <color> success: #2da44e;
-    out property <color> attention: #bf8700;
-    out property <color> danger: #cf222e;
-    out property <color> canvas: dark ? #070a0f : #eef2f7;
-    out property <color> phone-bg: dark ? #f7f8fb : #ffffff;
-    out property <color> phone-text: #20252d;
-}
-
-component BodyLabel inherits Text {
-    color: StudioTheme.text;
-    font-size: 13px;
-    font-weight: 500;
-    overflow: elide;
-}
-
-component MutedLabel inherits Text {
-    color: StudioTheme.muted;
-    font-size: 12px;
-    overflow: elide;
-}
-
-component SectionTitle inherits Text {
-    in property <string> label;
-    text: label;
-    color: StudioTheme.muted;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0px;
-}
-
-component PrimerTextInput inherits Rectangle {
-    in-out property <string> text <=> editor.text;
-    in property <string> placeholder: "";
-    in property <string> leading-text: "";
-
-    height: 34px;
-    border-radius: 6px;
-    border-width: 1px;
-    border-color: editor.has-focus ? StudioTheme.accent-strong : StudioTheme.border;
-    background: StudioTheme.panel-bg;
-    animate border-color { duration: 120ms; }
-
-    HorizontalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
-        spacing: 8px;
-
-        if root.leading-text != "": Text {
-            text: root.leading-text;
-            color: StudioTheme.muted;
-            font-size: 14px;
-            font-weight: 700;
-            vertical-alignment: center;
-        }
-
-        Rectangle {
-            horizontal-stretch: 1;
-
-            editor := TextInput {
-                width: parent.width;
-                height: parent.height;
-                text: "";
-                color: StudioTheme.text;
-                font-size: 13px;
-                single-line: true;
-                wrap: no-wrap;
-                vertical-alignment: center;
-                selection-background-color: StudioTheme.accent.with-alpha(0.28);
-            }
-
-            if editor.text == "": Text {
-                x: editor.x;
-                y: editor.y;
-                width: editor.width;
-                height: editor.height;
-                text: root.placeholder;
-                color: StudioTheme.muted;
-                font-size: 13px;
-                vertical-alignment: center;
-            }
-        }
-    }
-}
-
-component PrimerSegmentedTab inherits Rectangle {
-    in property <string> label;
-    in property <bool> selected;
-    callback clicked;
-
-    height: 30px;
-    horizontal-stretch: 1;
-    border-radius: 6px;
-    background: selected ? StudioTheme.panel-bg : touch.has-hover ? StudioTheme.panel-subtle : transparent;
-    border-width: selected ? 1px : 0px;
-    border-color: StudioTheme.border;
-    animate background { duration: 120ms; }
-
-    Text {
-        text: root.label;
-        color: root.selected ? StudioTheme.text : StudioTheme.muted;
-        font-size: 12px;
-        font-weight: root.selected ? 700 : 500;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-    }
-
-    touch := TouchArea {
-        mouse-cursor: pointer;
-        clicked => {
-            root.clicked();
-        }
-    }
-}
-
-component OrientationIconButton inherits Rectangle {
-    in property <bool> landscape: false;
-    in property <bool> selected: false;
-    callback clicked;
-
-    width: 34px;
-    height: 30px;
-    border-radius: 6px;
-    border-width: 1px;
-    border-color: selected ? StudioTheme.accent-strong : StudioTheme.border;
-    background: selected ? StudioTheme.accent.with-alpha(0.14) : touch.has-hover ? StudioTheme.panel-subtle : StudioTheme.panel-bg;
-    animate background, border-color { duration: 120ms; }
-
-    Rectangle {
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
-        width: root.landscape ? 18px : 12px;
-        height: root.landscape ? 12px : 18px;
-        border-radius: 3px;
-        border-width: 2px;
-        border-color: root.selected ? StudioTheme.accent-strong : StudioTheme.muted;
-        background: transparent;
-
-        Rectangle {
-            x: root.landscape ? parent.width - 5px : (parent.width - 4px) / 2;
-            y: root.landscape ? (parent.height - 4px) / 2 : parent.height - 5px;
-            width: root.landscape ? 2px : 4px;
-            height: root.landscape ? 4px : 2px;
-            border-radius: 1px;
-            background: root.selected ? StudioTheme.accent-strong : StudioTheme.muted;
-        }
-    }
-
-    touch := TouchArea {
-        mouse-cursor: pointer;
-        clicked => {
-            root.clicked();
-        }
-    }
-}
-
-component PrimerNavRow inherits Rectangle {
-    in property <string> label;
-    in property <string> glyph;
-    in property <bool> selected: false;
-    in property <length> indent: 0px;
-
-    height: 30px;
-    border-radius: 6px;
-    background: selected ? StudioTheme.accent.with-alpha(0.13) : touch.has-hover ? StudioTheme.panel-subtle : transparent;
-
-    HorizontalLayout {
-        padding-left: 8px + root.indent;
-        padding-right: 8px;
-        spacing: 8px;
-
-        Text {
-            text: root.glyph;
-            color: root.selected ? StudioTheme.accent-strong : StudioTheme.muted;
-            font-size: 12px;
-            font-weight: 800;
-            vertical-alignment: center;
-        }
-
-        Text {
-            text: root.label;
-            color: root.selected ? StudioTheme.text : StudioTheme.muted;
-            font-size: 13px;
-            font-weight: root.selected ? 700 : 500;
-            vertical-alignment: center;
-            overflow: elide;
-        }
-    }
-
-    touch := TouchArea {
-        mouse-cursor: pointer;
-    }
-}
-
-component PrimerActionListRow inherits Rectangle {
-    in property <PrototypeComponentKind> kind;
-    in property <string> label;
-    in property <string> detail;
-    in property <string> glyph;
-    callback drag-started(PrototypeComponentKind, length, length);
-    callback drag-moved(PrototypeComponentKind, length, length);
-    callback drag-ended(PrototypeComponentKind, length, length);
-    callback drag-cancelled(PrototypeComponentKind);
-
-    property <bool> dragging: AppState.dragging-kind == root.kind;
-
-    height: 70px;
-    border-radius: 8px;
-    border-width: 1px;
-    border-color: root.dragging ? StudioTheme.accent-strong : StudioTheme.border;
-    background: root.dragging ? StudioTheme.accent.with-alpha(0.08) : StudioTheme.panel-bg;
-    opacity: root.dragging ? 0.45 : 1;
-    animate background, border-color { duration: 130ms; }
-
-    HorizontalLayout {
-        padding: 12px;
-        spacing: 12px;
-
-        Rectangle {
-            width: 42px;
-            height: 42px;
-            border-radius: 7px;
-            background: root.kind == PrototypeComponentKind.rectangle ? #dbeafe : root.kind == PrototypeComponentKind.text ? #fef3c7 : #dcfce7;
-            border-width: 1px;
-            border-color: root.kind == PrototypeComponentKind.rectangle ? #93c5fd : root.kind == PrototypeComponentKind.text ? #fbbf24 : #86efac;
-
-            Text {
-                text: root.glyph;
-                color: root.kind == PrototypeComponentKind.rectangle ? #1d4ed8 : root.kind == PrototypeComponentKind.text ? #92400e : #166534;
-                font-size: 13px;
-                font-weight: 900;
-                horizontal-alignment: center;
-                vertical-alignment: center;
-            }
-        }
-
-        VerticalLayout {
-            spacing: 3px;
-            alignment: center;
-
-            BodyLabel {
-                text: root.label;
-            }
-
-            MutedLabel {
-                text: root.detail;
-            }
-        }
-    }
-
-    touch := TouchArea {
-        mouse-cursor: pointer;
-
-        changed pressed => {
-            if self.pressed {
-                AppState.dragging-kind = root.kind;
-                root.drag-started(root.kind, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
-            } else {
-                root.drag-ended(root.kind, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
-            }
-        }
-
-        moved => {
-            AppState.dragging-kind = root.kind;
-            root.drag-moved(root.kind, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
-        }
-    }
-}
-
-global AppState {
-    in-out property <PrototypeComponentKind> dragging-kind: PrototypeComponentKind.none;
-    in-out property <length> drag-x: 0px;
-    in-out property <length> drag-y: 0px;
-}
-
-component PropertyField inherits Rectangle {
-    in property <string> name;
-    in property <string> value;
-
-    height: 34px;
-
-    HorizontalLayout {
-        spacing: 10px;
-
-        Text {
-            width: 80px;
-            text: root.name;
-            color: StudioTheme.muted;
-            font-size: 12px;
-            vertical-alignment: center;
-            overflow: elide;
-        }
-
-        Rectangle {
-            horizontal-stretch: 1;
-            height: 32px;
-            border-radius: 6px;
-            border-width: 1px;
-            border-color: StudioTheme.border;
-            background: StudioTheme.panel-subtle;
-
-            Text {
-                x: 10px;
-                width: parent.width - 20px;
-                text: root.value;
-                color: StudioTheme.text;
-                font-size: 12px;
-                vertical-alignment: center;
-                overflow: elide;
-            }
-        }
-    }
-}
-
-component InspectorSection inherits VerticalLayout {
-    in property <string> title;
-    spacing: 10px;
-
-    SectionTitle {
-        label: root.title;
-    }
-
-    @children
-}
+import {
+    AppState, CanvasOrientation, CanvasSelectionKind, LeftPaneMode, PrototypeComponentKind, StudioTheme,
+} from "components/common.slint";
+import { CanvasToolbar } from "components/canvas-toolbar.slint";
+import { DragPreview } from "components/drag-preview.slint";
+import { EditorCanvas } from "components/editor-canvas.slint";
+import { EditorTopBar } from "components/top-bar.slint";
+import { InspectorPane } from "components/inspector-pane.slint";
+import { LeftPane } from "components/left-pane.slint";
 
 export component EditorUi inherits Window {
     preferred-width: 1360px;
@@ -383,7 +30,6 @@ export component EditorUi inherits Window {
     property <CanvasSelectionKind> selection: CanvasSelectionKind.artboard;
     property <PrototypeComponentKind> placed-kind: PrototypeComponentKind.none;
     property <bool> canvas-drop-hover: false;
-    property <PrototypeComponentKind> canvas-drop-kind: PrototypeComponentKind.none;
 
     function open-project() {
         root.wizard-visible = false;
@@ -407,41 +53,8 @@ export component EditorUi inherits Window {
     property <bool> radius-dragging: false;
     property <int> radius-drag-corner: -1;
     property <bool> radius-drag-single-corner: false;
-    property <bool> rectangle-moving: false;
     property <int> rectangle-resize-corner: -1;
     property <string> search-text: "";
-
-    function selection-title() -> string {
-        if root.selection == CanvasSelectionKind.rectangle {
-            return "Rectangle";
-        }
-        if root.selection == CanvasSelectionKind.text {
-            return "Text";
-        }
-        if root.selection == CanvasSelectionKind.image {
-            return "Image";
-        }
-        if root.selection == CanvasSelectionKind.artboard {
-            return "Mobile screen";
-        }
-        return "Nothing selected";
-    }
-
-    function selection-kind-label() -> string {
-        if root.selection == CanvasSelectionKind.rectangle {
-            return "Built-in element";
-        }
-        if root.selection == CanvasSelectionKind.text {
-            return "Text element";
-        }
-        if root.selection == CanvasSelectionKind.image {
-            return "Image element";
-        }
-        if root.selection == CanvasSelectionKind.artboard {
-            return "Window";
-        }
-        return "Selection";
-    }
 
     function place-component(kind: PrototypeComponentKind) {
         root.placed-kind = kind;
@@ -548,7 +161,6 @@ export component EditorUi inherits Window {
         AppState.dragging-kind = kind;
         AppState.drag-x = window-x;
         AppState.drag-y = window-y;
-        root.canvas-drop-kind = kind;
         root.canvas-drop-x = window-x - root.phone-left();
         root.canvas-drop-y = window-y - root.phone-top();
         root.canvas-drop-hover = root.pointer-inside-phone(window-x, window-y);
@@ -561,7 +173,6 @@ export component EditorUi inherits Window {
         }
         AppState.dragging-kind = PrototypeComponentKind.none;
         root.canvas-drop-hover = false;
-        root.canvas-drop-kind = PrototypeComponentKind.none;
     }
 
     function cancel-visual-drag(kind: PrototypeComponentKind) {
@@ -569,20 +180,6 @@ export component EditorUi inherits Window {
             AppState.dragging-kind = PrototypeComponentKind.none;
         }
         root.canvas-drop-hover = false;
-        root.canvas-drop-kind = PrototypeComponentKind.none;
-    }
-
-    function rectangle-corner-radius(corner: int) -> length {
-        if corner == 0 {
-            return root.rectangle-top-left-radius;
-        }
-        if corner == 1 {
-            return root.rectangle-top-right-radius;
-        }
-        if corner == 2 {
-            return root.rectangle-bottom-right-radius;
-        }
-        return root.rectangle-bottom-left-radius;
     }
 
     function set-rectangle-corner-radius(corner: int, value: length) {
@@ -648,19 +245,18 @@ export component EditorUi inherits Window {
     }
 
     function begin-moving-rectangle() {
-        root.rectangle-moving = true;
         root.selection = CanvasSelectionKind.rectangle;
     }
 
     function move-rectangle-by(delta-x: length, delta-y: length) {
-        root.rectangle-moving = true;
         root.selection = CanvasSelectionKind.rectangle;
         root.placed-x = (root.placed-x + delta-x).clamp(16px, root.phone-width() - root.rectangle-width - 16px);
         root.placed-y = (root.placed-y + delta-y).clamp(54px, root.phone-height() - root.rectangle-height - 24px);
     }
 
-    function finish-moving-rectangle() {
-        root.rectangle-moving = false;
+    function begin-resizing-rectangle(corner: int) {
+        root.rectangle-resize-corner = corner;
+        root.selection = CanvasSelectionKind.rectangle;
     }
 
     function resize-rectangle(corner: int, window-x: length, window-y: length) {
@@ -695,6 +291,10 @@ export component EditorUi inherits Window {
         root.rectangle-resize-corner = -1;
     }
 
+    function cancel-resizing-rectangle() {
+        root.rectangle-resize-corner = -1;
+    }
+
     function clamp-rectangle-radii() {
         root.rectangle-top-left-radius = root.rectangle-top-left-radius.clamp(0px, root.rectangle-max-radius);
         root.rectangle-top-right-radius = root.rectangle-top-right-radius.clamp(0px, root.rectangle-max-radius);
@@ -707,662 +307,70 @@ export component EditorUi inherits Window {
         background: StudioTheme.app-bg;
 
         VerticalLayout {
-            topbar := Rectangle {
-                height: 54px;
-                background: StudioTheme.panel-bg;
-                border-width: 0px;
+            EditorTopBar { }
 
-                Rectangle {
-                    y: parent.height - 1px;
-                    height: 1px;
-                    background: StudioTheme.border;
-                }
-
-                HorizontalLayout {
-                    padding-left: 18px;
-                    padding-right: 18px;
-                    spacing: 16px;
-                    cross-axis-alignment: center;
-
-                    HorizontalLayout {
-                        spacing: 10px;
-                        horizontal-stretch: 1;
-                        cross-axis-alignment: center;
-
-                        Rectangle {
-                            width: 28px;
-                            height: 28px;
-                            border-radius: 7px;
-                            background: StudioTheme.accent;
-
-                            Text {
-                                text: "S";
-                                color: white;
-                                font-size: 15px;
-                                font-weight: 900;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                            }
-                        }
-
-                        Text {
-                            text: "Slinterface Pro";
-                            color: StudioTheme.text;
-                            font-size: 15px;
-                            font-weight: 800;
-                            vertical-alignment: center;
-                        }
-
-                        Rectangle {
-                            width: 1px;
-                            height: 24px;
-                            background: StudioTheme.soft-border;
-                        }
-
-                        Text {
-                            text: "Mobile / main.slint";
-                            color: StudioTheme.muted;
-                            font-size: 13px;
-                            vertical-alignment: center;
-                        }
-                    }
-
-                    Rectangle {
-                        width: 82px;
-                        height: 34px;
-                        border-radius: 17px;
-                        background: StudioTheme.panel-subtle;
-                        border-width: 1px;
-                        border-color: StudioTheme.border;
-
-                        Text {
-                            text: "100%";
-                            color: StudioTheme.text;
-                            font-size: 12px;
-                            font-weight: 800;
-                            horizontal-alignment: center;
-                            vertical-alignment: center;
-                        }
-                    }
-                }
-            }
-
-            Rectangle {
-                height: 42px;
-                background: StudioTheme.panel-bg;
-
-                Rectangle {
-                    y: parent.height - 1px;
-                    height: 1px;
-                    background: StudioTheme.border;
-                }
-
-                HorizontalLayout {
-                    spacing: 0px;
-
-                    Rectangle { width: 286px; }
-
-                    Rectangle {
-                        horizontal-stretch: 1;
-
-                        HorizontalLayout {
-                            alignment: center;
-                            cross-axis-alignment: center;
-                            spacing: 8px;
-
-                            OrientationIconButton {
-                                selected: root.canvas-orientation == CanvasOrientation.portrait;
-                                clicked => {
-                                    root.set-canvas-orientation(CanvasOrientation.portrait);
-                                }
-                            }
-
-                            OrientationIconButton {
-                                landscape: true;
-                                selected: root.canvas-orientation == CanvasOrientation.landscape;
-                                clicked => {
-                                    root.set-canvas-orientation(CanvasOrientation.landscape);
-                                }
-                            }
-                        }
-                    }
-
-                    Rectangle { width: 306px; }
+            CanvasToolbar {
+                orientation: root.canvas-orientation;
+                orientation-selected(orientation) => {
+                    root.set-canvas-orientation(orientation);
                 }
             }
 
             HorizontalLayout {
                 vertical-stretch: 1;
-                spacing: 0px;
 
-                left := Rectangle {
-                    width: 286px;
-                    background: StudioTheme.panel-bg;
-
-                    Rectangle {
-                        x: parent.width - 1px;
-                        width: 1px;
-                        background: StudioTheme.border;
-                    }
-
-                    VerticalLayout {
-                        padding: 14px;
-                        spacing: 14px;
-
-                        Rectangle {
-                            height: 38px;
-                            border-radius: 8px;
-                            background: StudioTheme.panel-subtle;
-                            HorizontalLayout {
-                                padding: 4px;
-                                spacing: 4px;
-
-                                PrimerSegmentedTab {
-                                    label: "Files";
-                                    selected: root.left-mode == LeftPaneMode.files;
-                                    clicked => {
-                                        root.left-mode = LeftPaneMode.files;
-                                    }
-                                }
-
-                                PrimerSegmentedTab {
-                                    label: "Library";
-                                    selected: root.left-mode == LeftPaneMode.library;
-                                    clicked => {
-                                        root.left-mode = LeftPaneMode.library;
-                                    }
-                                }
-                            }
-                        }
-
-                        PrimerTextInput {
-                            text <=> root.search-text;
-                            placeholder: "Search";
-                            leading-text: "/";
-                        }
-
-                        if root.left-mode == LeftPaneMode.files: ScrollView {
-                            vertical-stretch: 1;
-                            viewport-width: self.width;
-                            viewport-height: file-list.preferred-height;
-
-                            file-list := VerticalLayout {
-                                width: parent.width;
-                                spacing: 6px;
-
-                                SectionTitle { label: "PROJECT"; }
-                                PrimerNavRow { label: "slint-mobile"; glyph: "DIR"; }
-                                PrimerNavRow { label: "ui"; glyph: "DIR"; indent: 16px; }
-                                PrimerNavRow { label: "main.slint"; glyph: "SL"; indent: 32px; selected: true; }
-                                PrimerNavRow { label: "assets"; glyph: "DIR"; indent: 16px; }
-                                PrimerNavRow { label: "theme.slint"; glyph: "SL"; indent: 32px; }
-
-                                Rectangle { height: 12px; }
-                                SectionTitle { label: "RECENT"; }
-                                PrimerNavRow { label: "login-flow.slint"; glyph: "SL"; }
-                                PrimerNavRow { label: "settings-panel.slint"; glyph: "SL"; }
-                            }
-                        }
-
-                        if root.left-mode == LeftPaneMode.library: ScrollView {
-                            vertical-stretch: 1;
-                            viewport-width: self.width;
-                            viewport-height: library-list.preferred-height;
-
-                            library-list := VerticalLayout {
-                                width: parent.width;
-                                spacing: 10px;
-
-                                SectionTitle { label: "SLINT BUILT-INS"; }
-
-                                PrimerActionListRow {
-                                    kind: PrototypeComponentKind.rectangle;
-                                    label: "Rectangle";
-                                    detail: "Surface, panel, shape";
-                                    glyph: "R";
-                                    drag-started(kind, x, y) => { root.update-visual-drag(kind, x, y); }
-                                    drag-moved(kind, x, y) => { root.update-visual-drag(kind, x, y); }
-                                    drag-ended(kind, x, y) => { root.finish-visual-drag(kind, x, y); }
-                                    drag-cancelled(kind) => { root.cancel-visual-drag(kind); }
-                                }
-
-                                PrimerActionListRow {
-                                    kind: PrototypeComponentKind.text;
-                                    label: "Text";
-                                    detail: "Label or display copy";
-                                    glyph: "T";
-                                    drag-started(kind, x, y) => { root.update-visual-drag(kind, x, y); }
-                                    drag-moved(kind, x, y) => { root.update-visual-drag(kind, x, y); }
-                                    drag-ended(kind, x, y) => { root.finish-visual-drag(kind, x, y); }
-                                    drag-cancelled(kind) => { root.cancel-visual-drag(kind); }
-                                }
-
-                                PrimerActionListRow {
-                                    kind: PrototypeComponentKind.image;
-                                    label: "Image";
-                                    detail: "Bitmap or vector asset";
-                                    glyph: "IMG";
-                                    drag-started(kind, x, y) => { root.update-visual-drag(kind, x, y); }
-                                    drag-moved(kind, x, y) => { root.update-visual-drag(kind, x, y); }
-                                    drag-ended(kind, x, y) => { root.finish-visual-drag(kind, x, y); }
-                                    drag-cancelled(kind) => { root.cancel-visual-drag(kind); }
-                                }
-                            }
-                        }
-                    }
+                LeftPane {
+                    mode <=> root.left-mode;
+                    search-text <=> root.search-text;
+                    drag-started(kind, x, y) => { root.update-visual-drag(kind, x, y); }
+                    drag-moved(kind, x, y) => { root.update-visual-drag(kind, x, y); }
+                    drag-ended(kind, x, y) => { root.finish-visual-drag(kind, x, y); }
                 }
 
-                canvas := Rectangle {
-                    horizontal-stretch: 1;
-                    background: StudioTheme.canvas;
-
-                    Rectangle {
-                        background: StudioTheme.canvas;
-                    }
-
-                    // Subtle grid.
-                    for row in 28: Rectangle {
-                        y: row * 32px;
-                        height: 1px;
-                        background: StudioTheme.dark ? #ffffff08 : #00000008;
-                    }
-
-                    for col in 48: Rectangle {
-                        x: col * 32px;
-                        width: 1px;
-                        background: StudioTheme.dark ? #ffffff08 : #00000008;
-                    }
-
-                    phone-shadow := Rectangle {
-                        x: (parent.width - phone.width) / 2;
-                        y: root.phone-canvas-top() + 18px;
-                        width: phone.width;
-                        height: phone.height;
-                        border-radius: 34px;
-                        drop-shadow-color: StudioTheme.dark ? #00000080 : #64748b30;
-                        drop-shadow-blur: 30px;
-                        drop-shadow-offset-y: 18px;
-                    }
-
-                    phone := Rectangle {
-                        x: (parent.width - self.width) / 2;
-                        y: root.phone-canvas-top();
-                        width: root.phone-width();
-                        height: root.phone-height();
-                        border-radius: 34px;
-                        border-width: root.selection == CanvasSelectionKind.artboard ? 2px : 1px;
-                        border-color: root.selection == CanvasSelectionKind.artboard ? StudioTheme.accent-strong : StudioTheme.border;
-                        background: StudioTheme.phone-bg;
-                        clip: true;
-
-                        touch := TouchArea {
-                            clicked => {
-                                root.selection = CanvasSelectionKind.artboard;
-                            }
-                        }
-
-                        if root.canvas-orientation == CanvasOrientation.portrait: Rectangle {
-                            x: 1px;
-                            y: 1px;
-                            width: parent.width - 2px;
-                            height: 41px;
-                            background: #f8fafc;
-
-                            Rectangle {
-                                x: (parent.width - self.width) / 2;
-                                y: 13px;
-                                width: 74px;
-                                height: 16px;
-                                border-radius: 8px;
-                                background: #111827;
-                            }
-                        }
-
-                        if root.canvas-orientation == CanvasOrientation.portrait: Rectangle {
-                            y: 42px;
-                            x: 1px;
-                            width: parent.width - 2px;
-                            height: 1px;
-                            background: #e5e7eb;
-                        }
-
-                        if root.canvas-orientation == CanvasOrientation.landscape: Rectangle {
-                            x: 1px;
-                            y: 1px;
-                            width: 41px;
-                            height: parent.height - 2px;
-                            background: #f8fafc;
-
-                            Rectangle {
-                                x: 13px;
-                                y: (parent.height - self.height) / 2;
-                                width: 16px;
-                                height: 74px;
-                                border-radius: 8px;
-                                background: #111827;
-                            }
-                        }
-
-                        if root.canvas-orientation == CanvasOrientation.landscape: Rectangle {
-                            x: 42px;
-                            y: 1px;
-                            width: 1px;
-                            height: parent.height - 2px;
-                            background: #e5e7eb;
-                        }
-
-                        ComponentContainer {
-                            component-factory: Api.preview-area;
-                        }
-
-                        if root.placed-kind == PrototypeComponentKind.rectangle: Rectangle {
-                            x: root.placed-x;
-                            y: root.placed-y;
-                            width: root.rectangle-width;
-                            height: root.rectangle-height;
-                            border-top-left-radius: root.rectangle-top-left-radius;
-                            border-top-right-radius: root.rectangle-top-right-radius;
-                            border-bottom-right-radius: root.rectangle-bottom-right-radius;
-                            border-bottom-left-radius: root.rectangle-bottom-left-radius;
-                            background: #dbeafe;
-                            border-width: root.selection == CanvasSelectionKind.rectangle ? 2px : 1px;
-                            border-color: root.selection == CanvasSelectionKind.rectangle ? StudioTheme.accent-strong : #93c5fd;
-
-                            TouchArea {
-                                mouse-cursor: move;
-                                private property <bool> moved-during-press: false;
-
-                                changed pressed => {
-                                    if self.pressed {
-                                        root.begin-moving-rectangle();
-                                        self.moved-during-press = false;
-                                    } else {
-                                        root.finish-moving-rectangle();
-                                    }
-                                }
-
-                                moved => {
-                                    self.moved-during-press = true;
-                                    root.move-rectangle-by(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
-                                }
-
-                                clicked => {
-                                    if !self.moved-during-press {
-                                        root.selection = CanvasSelectionKind.rectangle;
-                                    }
-                                    self.moved-during-press = false;
-                                }
-                            }
-                        }
-
-                        if root.placed-kind == PrototypeComponentKind.text: Text {
-                            x: root.placed-x;
-                            y: root.placed-y;
-                            width: 280px;
-                            text: "Design in Slint";
-                            color: StudioTheme.phone-text;
-                            font-size: 24px;
-                            font-weight: 800;
-
-                            TouchArea {
-                                clicked => {
-                                    root.selection = CanvasSelectionKind.text;
-                                }
-                            }
-                        }
-
-                        if root.placed-kind == PrototypeComponentKind.image: Rectangle {
-                            x: root.placed-x;
-                            y: root.placed-y;
-                            width: 282px;
-                            height: 168px;
-                            border-radius: 20px;
-                            background: @linear-gradient(135deg, #bae6fd, #bbf7d0);
-                            border-width: root.selection == CanvasSelectionKind.image ? 2px : 1px;
-                            border-color: root.selection == CanvasSelectionKind.image ? StudioTheme.accent-strong : #67e8f9;
-
-                            Text {
-                                text: "IMAGE";
-                                color: #155e75;
-                                font-size: 14px;
-                                font-weight: 900;
-                                horizontal-alignment: center;
-                                vertical-alignment: center;
-                            }
-
-                            TouchArea {
-                                clicked => {
-                                    root.selection = CanvasSelectionKind.image;
-                                }
-                            }
-                        }
-
-                        if root.placed-kind != PrototypeComponentKind.none && root.selection != CanvasSelectionKind.artboard: selection-box := Rectangle {
-                            x: root.placed-x - 8px;
-                            y: root.placed-y - 8px;
-                            width: root.placed-width() + 16px;
-                            height: root.placed-height() + 16px;
-                            border-width: 1px;
-                            border-color: StudioTheme.accent-strong;
-
-                            for corner in 4: Rectangle {
-                                visible: root.placed-kind != PrototypeComponentKind.rectangle;
-                                x: corner == 1 || corner == 2 ? parent.width - 5px : -5px;
-                                y: corner >= 2 ? parent.height - 5px : -5px;
-                                width: 10px;
-                                height: 10px;
-                                border-radius: 5px;
-                                background: StudioTheme.accent-strong;
-                            }
-
-                            for corner in 4: Rectangle {
-                                visible: root.placed-kind == PrototypeComponentKind.rectangle;
-                                property <bool> active: root.rectangle-resize-corner == corner;
-
-                                x: corner == 1 || corner == 2 ? parent.width - 6px : -6px;
-                                y: corner >= 2 ? parent.height - 6px : -6px;
-                                width: 12px;
-                                height: 12px;
-                                border-radius: 2px;
-                                background: active ? StudioTheme.accent-strong : white;
-                                border-width: 2px;
-                                border-color: StudioTheme.accent-strong;
-
-                                TouchArea {
-                                    mouse-cursor: corner == 0 || corner == 2 ? nwse-resize : nesw-resize;
-
-                                    changed pressed => {
-                                        if self.pressed {
-                                            root.rectangle-resize-corner = corner;
-                                            root.selection = CanvasSelectionKind.rectangle;
-                                        } else {
-                                            root.finish-resizing-rectangle(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
-                                        }
-                                    }
-
-                                    moved => {
-                                        root.resize-rectangle(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
-                                    }
-                                }
-                            }
-                        }
-
-                        if root.placed-kind == PrototypeComponentKind.rectangle && root.selection == CanvasSelectionKind.rectangle: radius-guide := Rectangle {
-                            x: root.placed-x;
-                            y: root.placed-y;
-                            width: root.placed-width();
-                            height: root.placed-height();
-
-                            for corner in 4: Rectangle {
-                                property <length> corner-radius: root.rectangle-corner-radius(corner);
-                                property <length> handle-x: corner == 1 || corner == 2
-                                    ? root.placed-width() - (20px + corner-radius * 32 / 52)
-                                    : 20px + corner-radius * 32 / 52;
-                                property <length> handle-y: corner >= 2
-                                    ? root.placed-height() - (20px + corner-radius * 32 / 52)
-                                    : 20px + corner-radius * 32 / 52;
-                                property <bool> active: root.radius-dragging && root.radius-drag-corner == corner;
-                                property <bool> single-active: active && root.radius-drag-single-corner;
-
-                                x: handle-x - 8px;
-                                y: handle-y - 8px;
-                                width: 16px;
-                                height: 16px;
-                                border-radius: 8px;
-                                background: single-active ? #facc15 : active ? StudioTheme.accent-strong : white;
-                                border-width: 2px;
-                                border-color: single-active ? #a16207 : StudioTheme.accent-strong;
-                                drop-shadow-blur: active ? 10px : 0px;
-                                drop-shadow-color: single-active ? #facc1588 : StudioTheme.accent.with-alpha(0.45);
-
-                                TouchArea {
-                                    mouse-cursor: pointer;
-                                    private property <bool> shift-mode: false;
-
-                                    pointer-event(event) => {
-                                        self.shift-mode = event.modifiers.shift;
-                                    }
-
-                                    changed pressed => {
-                                        if self.pressed {
-                                            root.update-rectangle-radius(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, self.shift-mode);
-                                        } else {
-                                            root.finish-rectangle-radius(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, self.shift-mode);
-                                        }
-                                    }
-
-                                    moved => {
-                                        root.update-rectangle-radius(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, self.shift-mode);
-                                    }
-                                }
-                            }
-
-                        }
-
-                        if root.canvas-drop-hover: Rectangle {
-                            x: 24px;
-                            y: 70px;
-                            width: parent.width - 48px;
-                            height: parent.height - 96px;
-                            border-radius: 24px;
-                            border-width: 2px;
-                            border-color: StudioTheme.accent-strong;
-                            background: StudioTheme.accent.with-alpha(0.08);
-                        }
-
-                        if root.canvas-drop-hover: Rectangle {
-                            x: root.canvas-drop-x - 18px;
-                            y: root.canvas-drop-y - 18px;
-                            width: 36px;
-                            height: 36px;
-                            border-radius: 18px;
-                            background: StudioTheme.accent.with-alpha(0.16);
-                            border-width: 2px;
-                            border-color: StudioTheme.accent-strong;
-                        }
-                    }
+                EditorCanvas {
+                    orientation: root.canvas-orientation;
+                    selection: root.selection;
+                    placed-kind: root.placed-kind;
+                    canvas-drop-hover: root.canvas-drop-hover;
+                    canvas-drop-x: root.canvas-drop-x;
+                    canvas-drop-y: root.canvas-drop-y;
+                    placed-x: root.placed-x;
+                    placed-y: root.placed-y;
+                    rectangle-width: root.rectangle-width;
+                    rectangle-height: root.rectangle-height;
+                    rectangle-top-left-radius: root.rectangle-top-left-radius;
+                    rectangle-top-right-radius: root.rectangle-top-right-radius;
+                    rectangle-bottom-right-radius: root.rectangle-bottom-right-radius;
+                    rectangle-bottom-left-radius: root.rectangle-bottom-left-radius;
+                    radius-dragging: root.radius-dragging;
+                    radius-drag-corner: root.radius-drag-corner;
+                    radius-drag-single-corner: root.radius-drag-single-corner;
+                    rectangle-resize-corner: root.rectangle-resize-corner;
+                    selected(kind) => { root.selection = kind; }
+                    begin-moving-rectangle => { root.begin-moving-rectangle(); }
+                    move-rectangle-by(delta-x, delta-y) => { root.move-rectangle-by(delta-x, delta-y); }
+                    begin-resizing-rectangle(corner) => { root.begin-resizing-rectangle(corner); }
+                    resize-rectangle(corner, x, y) => { root.resize-rectangle(corner, x, y); }
+                    finish-resizing-rectangle(corner, x, y) => { root.finish-resizing-rectangle(corner, x, y); }
+                    cancel-resizing-rectangle => { root.cancel-resizing-rectangle(); }
+                    update-rectangle-radius(corner, x, y, single-corner) => { root.update-rectangle-radius(corner, x, y, single-corner); }
+                    finish-rectangle-radius(corner, x, y, single-corner) => { root.finish-rectangle-radius(corner, x, y, single-corner); }
                 }
 
-                inspector := Rectangle {
-                    width: 306px;
-                    background: StudioTheme.panel-bg;
-
-                    Rectangle {
-                        x: 0px;
-                        width: 1px;
-                        background: StudioTheme.border;
-                    }
-
-                    VerticalLayout {
-                        padding: 16px;
-                        spacing: 18px;
-
-                        VerticalLayout {
-                            spacing: 4px;
-
-                            Text {
-                                text: root.selection-title();
-                                color: StudioTheme.text;
-                                font-size: 18px;
-                                font-weight: 900;
-                            }
-
-                            MutedLabel {
-                                text: root.selection-kind-label();
-                            }
-                        }
-
-                        InspectorSection {
-                            title: "LAYOUT";
-                            PropertyField { name: "X"; value: root.selection == CanvasSelectionKind.artboard ? "0" : "\{root.placed-x / 1px}"; }
-                            PropertyField { name: "Y"; value: root.selection == CanvasSelectionKind.artboard ? "0" : "\{root.placed-y / 1px}"; }
-                            PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.artboard ? "\{root.phone-width() / 1px}" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-width / 1px}" : root.selection == CanvasSelectionKind.image ? "282" : "280"; }
-                            PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.artboard ? "\{root.phone-height() / 1px}" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-height / 1px}" : root.selection == CanvasSelectionKind.image ? "168" : "104"; }
-                        }
-
-                        InspectorSection {
-                            title: "APPEARANCE";
-                            PropertyField { name: "Opacity"; value: "100%"; }
-                            PropertyField { name: "Fill"; value: root.selection == CanvasSelectionKind.text ? "#20252d" : root.selection == CanvasSelectionKind.image ? "gradient" : "#dbeafe"; }
-                            PropertyField { name: "Radius"; value: root.selection == CanvasSelectionKind.artboard ? "34" : root.selection == CanvasSelectionKind.rectangle ? root.rectangle-radius-label() : "18"; }
-                        }
-
-                        InspectorSection {
-                            title: "SOURCE";
-                            PropertyField { name: "Element"; value: root.selection-title(); }
-                            PropertyField { name: "File"; value: "main.slint"; }
-                        }
-                    }
+                InspectorPane {
+                    selection: root.selection;
+                    placed-x: root.placed-x;
+                    placed-y: root.placed-y;
+                    phone-width: root.phone-width();
+                    phone-height: root.phone-height();
+                    rectangle-width: root.rectangle-width;
+                    rectangle-height: root.rectangle-height;
+                    rectangle-radius-label: root.rectangle-radius-label();
                 }
             }
         }
 
-        if AppState.dragging-kind != PrototypeComponentKind.none: Rectangle {
-            x: AppState.drag-x - 46px;
-            y: AppState.drag-y - 24px;
-            width: AppState.dragging-kind == PrototypeComponentKind.image ? 106px : 96px;
-            height: 48px;
-            border-radius: 8px;
-            background: StudioTheme.panel-bg;
-            border-width: 1px;
-            border-color: StudioTheme.accent-strong;
-            drop-shadow-blur: 18px;
-            drop-shadow-offset-y: 8px;
-            drop-shadow-color: StudioTheme.dark ? #00000080 : #33415535;
-
-            HorizontalLayout {
-                padding-left: 10px;
-                padding-right: 10px;
-                spacing: 8px;
-                cross-axis-alignment: center;
-
-                Rectangle {
-                    width: 24px;
-                    height: 24px;
-                    border-radius: 5px;
-                    background: AppState.dragging-kind == PrototypeComponentKind.rectangle ? #dbeafe : AppState.dragging-kind == PrototypeComponentKind.text ? #fef3c7 : #dcfce7;
-                    border-width: 1px;
-                    border-color: AppState.dragging-kind == PrototypeComponentKind.rectangle ? #93c5fd : AppState.dragging-kind == PrototypeComponentKind.text ? #fbbf24 : #86efac;
-
-                    Text {
-                        text: AppState.dragging-kind == PrototypeComponentKind.rectangle ? "R" : AppState.dragging-kind == PrototypeComponentKind.text ? "T" : "IMG";
-                        color: AppState.dragging-kind == PrototypeComponentKind.rectangle ? #1d4ed8 : AppState.dragging-kind == PrototypeComponentKind.text ? #92400e : #166534;
-                        font-size: 10px;
-                        font-weight: 900;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
-                }
-
-                Text {
-                    text: AppState.dragging-kind == PrototypeComponentKind.rectangle ? "Rectangle" : AppState.dragging-kind == PrototypeComponentKind.text ? "Text" : "Image";
-                    color: StudioTheme.text;
-                    font-size: 12px;
-                    font-weight: 800;
-                    vertical-alignment: center;
-                }
-            }
-        }
+        DragPreview { }
     }
 
     if root.wizard-visible: StartupWizard {
