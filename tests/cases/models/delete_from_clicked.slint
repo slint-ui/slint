@@ -1,6 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// C++ live preview: interpreted models don't write back
+//ignore: cpp-live-preview
+
 export global Glob {
     in-out property <[string]> model: ["Hello", "World"];
     in-out property <bool> condition: true;

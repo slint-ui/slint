@@ -209,6 +209,10 @@ jobs:
                   target: i686-unknown-linux-gnu
             - name: Run tests
               run: cargo test -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features
+            - name: Run tests with live-preview
+              env:
+                  SLINT_LIVE_PREVIEW: 1
+              run: cargo test -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features --features live-preview
 
     cpp_cmake_matrix:
         needs: files-changed
