@@ -16,6 +16,8 @@ export component EditorCanvas inherits Rectangle {
     in property <length> canvas-drop-y;
     in property <length> placed-x;
     in property <length> placed-y;
+    in property <length> rectangle2-width;
+    in property <length> rectangle2-height;
     in property <length> rectangle-width;
     in property <length> rectangle-height;
     in property <length> rectangle-top-left-radius;
@@ -35,6 +37,7 @@ export component EditorCanvas inherits Rectangle {
     callback finish-resizing-rectangle(int, length, length);
     callback cancel-resizing-rectangle();
     callback move-rectangle2-to(length, length);
+    callback resize-rectangle2-to(int, length, length, length, length);
     callback update-rectangle-radius(int, length, length, bool);
     callback finish-rectangle-radius(int, length, length, bool);
 
@@ -61,7 +64,7 @@ export component EditorCanvas inherits Rectangle {
             return root.rectangle-width;
         }
         if root.placed-kind == PrototypeComponentKind.rectangle2 {
-            return 240px;
+            return root.rectangle2-width;
         }
         return 280px;
     }
@@ -74,7 +77,7 @@ export component EditorCanvas inherits Rectangle {
             return root.rectangle-height;
         }
         if root.placed-kind == PrototypeComponentKind.rectangle2 {
-            return 96px;
+            return root.rectangle2-height;
         }
         return 32px;
     }
@@ -243,12 +246,17 @@ export component EditorCanvas inherits Rectangle {
         if root.placed-kind == PrototypeComponentKind.rectangle2: Rectangle2OnCanvas {
             x: root.placed-x;
             y: root.placed-y;
+            width: root.rectangle2-width;
+            height: root.rectangle2-height;
             active: root.selection == CanvasSelectionKind.rectangle2;
             selected => {
                 root.selected(CanvasSelectionKind.rectangle2);
             }
             moved-to(x, y) => {
                 root.move-rectangle2-to(x, y);
+            }
+            resized-to(corner, x, y, width, height) => {
+                root.resize-rectangle2-to(corner, x, y, width, height);
             }
         }
 
