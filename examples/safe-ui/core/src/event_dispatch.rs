@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+// cSpell:ignore FFFD
+
 use crate::{
     ffi_event::{FfiEvent, FfiEventTag, FfiPointerButton},
     platform,
