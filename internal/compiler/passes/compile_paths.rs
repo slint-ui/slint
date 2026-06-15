@@ -139,7 +139,7 @@ pub fn compile_paths(
                 }
             }
 
-            if elem.is_binding_set("elements", false) {
+            if elem.is_binding_set("commands", false) {
                 if path_data.is_empty() {
                     // Just Path subclass that had elements declared earlier, since path_data is empty we should retain the
                     // existing elements
@@ -160,7 +160,7 @@ pub fn compile_paths(
         elem_
             .borrow_mut()
             .bindings
-            .insert(SmolStr::new_static("elements"), RefCell::new(path_data_binding.into()));
+            .insert(SmolStr::new_static("commands"), RefCell::new(path_data_binding.into()));
     });
 }
 

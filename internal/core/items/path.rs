@@ -38,7 +38,7 @@ use i_slint_core_macros::*;
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct Path {
-    pub elements: Property<PathData>,
+    pub commands: Property<PathData>,
     pub fill: Property<Brush>,
     pub fill_rule: Property<FillRule>,
     pub stroke: Property<Brush>,
@@ -162,7 +162,7 @@ impl Path {
         self: Pin<&Self>,
         self_rc: &ItemRc,
     ) -> Option<(LogicalVector, PathDataIterator)> {
-        let mut elements_iter = self.elements().iter()?;
+        let mut elements_iter = self.commands().iter()?;
 
         let stroke_width = self.stroke_width();
         let geometry = self_rc.geometry();
