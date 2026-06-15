@@ -35,86 +35,114 @@ export component EditorUi inherits Window {
         window-height: root.height;
     }
 
-    if !root.wizard-visible: editor := Rectangle {
-        background: StudioTheme.app-bg;
+    if !root.wizard-visible: editor := FocusScope {
+        width: root.width;
+        height: root.height;
+        property <bool> shift-pressed: false;
 
-        VerticalLayout {
-            EditorTopBar { }
-
-            CanvasToolbar {
-                orientation: state.canvas-orientation;
-                orientation-selected(orientation) => {
-                    state.set-canvas-orientation(orientation);
-                }
+        capture-key-pressed(event) => {
+            if event.text == Key.Shift || event.text == Key.ShiftR {
+                self.shift-pressed = true;
+                return accept;
             }
-
-            HorizontalLayout {
-                vertical-stretch: 1;
-
-                LeftPane {
-                    mode <=> state.left-mode;
-                    search-text <=> state.search-text;
-                    drag-started(kind, x, y) => { state.update-visual-drag(kind, x, y); }
-                    drag-moved(kind, x, y) => { state.update-visual-drag(kind, x, y); }
-                    drag-ended(kind, x, y) => { state.finish-visual-drag(kind, x, y); }
-                }
-
-                EditorCanvas {
-                    orientation: state.canvas-orientation;
-                    selection: state.selection;
-                    placed-kind: state.placed-kind;
-                    canvas-drop-hover: state.canvas-drop-hover;
-                    canvas-drop-x: state.canvas-drop-x;
-                    canvas-drop-y: state.canvas-drop-y;
-                    placed-x: state.placed-x;
-                    placed-y: state.placed-y;
-                    text-width: state.text-width;
-                    text-height: state.text-height;
-                    image-width: state.image-width;
-                    image-height: state.image-height;
-                    rectangle-width: state.rectangle-width;
-                    rectangle-height: state.rectangle-height;
-                    rectangle-rotation: state.rectangle-rotation;
-                    rectangle-top-left-radius: state.rectangle-top-left-radius;
-                    rectangle-top-right-radius: state.rectangle-top-right-radius;
-                    rectangle-bottom-right-radius: state.rectangle-bottom-right-radius;
-                    rectangle-bottom-left-radius: state.rectangle-bottom-left-radius;
-                    text-rotation: state.text-rotation;
-                    image-rotation: state.image-rotation;
-                    selected(kind) => { state.selection = kind; }
-                    move-rectangle-to(x, y) => { state.move-rectangle-to(x, y); }
-                    resize-rectangle-to(corner, x, y, width, height) => { state.resize-rectangle-to(corner, x, y, width, height); }
-                    rotate-rectangle-to(rotation) => { state.rotate-rectangle-to(rotation); }
-                    update-rectangle-radius(corner, radius, single-corner) => { state.update-rectangle-radius(corner, radius, single-corner); }
-                    move-text-to(x, y) => { state.move-text-to(x, y); }
-                    resize-text-to(corner, x, y, width, height) => { state.resize-text-to(corner, x, y, width, height); }
-                    rotate-text-to(rotation) => { state.rotate-text-to(rotation); }
-                    move-image-to(x, y) => { state.move-image-to(x, y); }
-                    resize-image-to(corner, x, y, width, height) => { state.resize-image-to(corner, x, y, width, height); }
-                    rotate-image-to(rotation) => { state.rotate-image-to(rotation); }
-                }
-
-                InspectorPane {
-                    selection: state.selection;
-                    placed-x: state.placed-x;
-                    placed-y: state.placed-y;
-                    phone-width: state.phone-width();
-                    phone-height: state.phone-height();
-                    rectangle-width: state.rectangle-width;
-                    rectangle-height: state.rectangle-height;
-                    text-width: state.text-width;
-                    text-height: state.text-height;
-                    image-width: state.image-width;
-                    image-height: state.image-height;
-                    selected-rotation: state.selected-rotation();
-                    rectangle-radius-label: state.rectangle-radius-label();
-                    phone-background: StudioTheme.phone-bg;
-                    phone-background-label: StudioTheme.dark ? "#f7f8fb" : "#ffffff";
-                }
-            }
+            reject
         }
 
-        DragPreview { }
+        capture-key-released(event) => {
+            if event.text == Key.Shift || event.text == Key.ShiftR {
+                self.shift-pressed = false;
+                return accept;
+            }
+            reject
+        }
+
+        focus-lost => {
+            self.shift-pressed = false;
+        }
+
+        Rectangle {
+            background: StudioTheme.app-bg;
+
+            VerticalLayout {
+                EditorTopBar { }
+
+                CanvasToolbar {
+                    orientation: state.canvas-orientation;
+                    orientation-selected(orientation) => {
+                        state.set-canvas-orientation(orientation);
+                    }
+                }
+
+                HorizontalLayout {
+                    vertical-stretch: 1;
+
+                    LeftPane {
+                        mode <=> state.left-mode;
+                        search-text <=> state.search-text;
+                        drag-started(kind, x, y) => { state.update-visual-drag(kind, x, y); }
+                        drag-moved(kind, x, y) => { state.update-visual-drag(kind, x, y); }
+                        drag-ended(kind, x, y) => { state.finish-visual-drag(kind, x, y); }
+                    }
+
+                    EditorCanvas {
+                        orientation: state.canvas-orientation;
+                        selection: state.selection;
+                        shift-pressed: editor.shift-pressed;
+                        placed-kind: state.placed-kind;
+                        canvas-drop-hover: state.canvas-drop-hover;
+                        canvas-drop-x: state.canvas-drop-x;
+                        canvas-drop-y: state.canvas-drop-y;
+                        placed-x: state.placed-x;
+                        placed-y: state.placed-y;
+                        text-width: state.text-width;
+                        text-height: state.text-height;
+                        image-width: state.image-width;
+                        image-height: state.image-height;
+                        rectangle-width: state.rectangle-width;
+                        rectangle-height: state.rectangle-height;
+                        rectangle-rotation: state.rectangle-rotation;
+                        rectangle-top-left-radius: state.rectangle-top-left-radius;
+                        rectangle-top-right-radius: state.rectangle-top-right-radius;
+                        rectangle-bottom-right-radius: state.rectangle-bottom-right-radius;
+                        rectangle-bottom-left-radius: state.rectangle-bottom-left-radius;
+                        text-rotation: state.text-rotation;
+                        image-rotation: state.image-rotation;
+                        selected(kind) => { state.selection = kind; }
+                        resize-started => { editor.focus(); }
+                        move-rectangle-to(x, y) => { state.move-rectangle-to(x, y); }
+                        resize-rectangle-to(corner, x, y, width, height) => { state.resize-rectangle-to(corner, x, y, width, height); }
+                        rotate-rectangle-to(rotation) => { state.rotate-rectangle-to(rotation); }
+                        update-rectangle-radius(corner, radius, single-corner) => { state.update-rectangle-radius(corner, radius, single-corner); }
+                        move-text-to(x, y) => { state.move-text-to(x, y); }
+                        resize-text-to(corner, x, y, width, height) => { state.resize-text-to(corner, x, y, width, height); }
+                        rotate-text-to(rotation) => { state.rotate-text-to(rotation); }
+                        move-image-to(x, y) => { state.move-image-to(x, y); }
+                        resize-image-to(corner, x, y, width, height) => { state.resize-image-to(corner, x, y, width, height); }
+                        rotate-image-to(rotation) => { state.rotate-image-to(rotation); }
+                    }
+
+                    InspectorPane {
+                        selection: state.selection;
+                        placed-x: state.placed-x;
+                        placed-y: state.placed-y;
+                        phone-width: state.phone-width();
+                        phone-height: state.phone-height();
+                        rectangle-width: state.rectangle-width;
+                        rectangle-height: state.rectangle-height;
+                        text-width: state.text-width;
+                        text-height: state.text-height;
+                        image-width: state.image-width;
+                        image-height: state.image-height;
+                        selected-rotation: state.selected-rotation();
+                        rectangle-radius-label: state.rectangle-radius-label();
+                        phone-background: StudioTheme.phone-bg;
+                        phone-background-label: StudioTheme.dark ? "#f7f8fb" : "#ffffff";
+                    }
+                }
+            }
+
+            DragPreview { }
+        }
     }
 
     if root.wizard-visible: StartupWizard {
