@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { StudioTheme } from "common.slint";
+import { MoveResizeFrame } from "move-resize-frame.slint";
 
 export component Rectangle2OnCanvas inherits Rectangle {
     in property <bool> active;
@@ -12,99 +13,27 @@ export component Rectangle2OnCanvas inherits Rectangle {
     width: 240px;
     height: 96px;
 
-    Rectangle {
-        border-radius: 12px;
-        background: #fde68a;
-        border-width: root.active ? 2px : 1px;
-        border-color: root.active ? StudioTheme.accent-strong : #f59e0b;
+    MoveResizeFrame {
+        width: root.width;
+        height: root.height;
+        active: root.active;
+        selected => { root.selected(); }
+        moved-to(x, y) => { root.moved-to(x, y); }
+        resized-to(corner, x, y, width, height) => { root.resized-to(corner, x, y, width, height); }
 
-        Text {
-            text: "Rectangle 2";
-            color: #78350f;
-            font-size: 14px;
-            font-weight: 800;
-            horizontal-alignment: center;
-            vertical-alignment: center;
-        }
+        Rectangle {
+            border-radius: 12px;
+            background: #fde68a;
+            border-width: root.active ? 2px : 1px;
+            border-color: root.active ? StudioTheme.accent-strong : #f59e0b;
 
-        TouchArea {
-            mouse-cursor: move;
-
-            changed pressed => {
-                if self.pressed {
-                    root.selected();
-                }
-            }
-
-            moved => {
-                let target-x = ((root.x + self.mouse-x - self.pressed-x) / 1px).round() * 1px;
-                let target-y = ((root.y + self.mouse-y - self.pressed-y) / 1px).round() * 1px;
-                root.moved-to(target-x, target-y);
-            }
-
-            clicked => {
-                root.selected();
-            }
-        }
-    }
-
-    if root.active: Rectangle {
-        x: -8px;
-        y: -8px;
-        width: parent.width + 16px;
-        height: parent.height + 16px;
-        border-width: 1px;
-        border-color: StudioTheme.accent-strong;
-
-        for corner in 4: Rectangle {
-            property <bool> on-left: corner == 0 || corner == 3;
-            property <bool> on-top: corner == 0 || corner == 1;
-            property <bool> diagonal-down: corner == 0 || corner == 2;
-
-            x: on-left ? -6px : parent.width - 6px;
-            y: on-top ? -6px : parent.height - 6px;
-            width: 12px;
-            height: 12px;
-            border-radius: 2px;
-            background: white;
-            border-width: 2px;
-            border-color: StudioTheme.accent-strong;
-
-            TouchArea {
-                mouse-cursor: parent.diagonal-down ? nwse-resize : nesw-resize;
-                private property <length> start-x;
-                private property <length> start-y;
-                private property <length> start-width;
-                private property <length> start-height;
-                private property <length> start-pointer-x;
-                private property <length> start-pointer-y;
-
-                changed pressed => {
-                    if self.pressed {
-                        let pointer-x = self.absolute-position.x + self.mouse-x;
-                        let pointer-y = self.absolute-position.y + self.mouse-y;
-
-                        root.selected();
-                        self.start-x = root.x;
-                        self.start-y = root.y;
-                        self.start-width = root.width;
-                        self.start-height = root.height;
-                        self.start-pointer-x = pointer-x;
-                        self.start-pointer-y = pointer-y;
-                    }
-                }
-
-                moved => {
-                    let pointer-x = self.absolute-position.x + self.mouse-x;
-                    let pointer-y = self.absolute-position.y + self.mouse-y;
-                    let delta-x = pointer-x - self.start-pointer-x;
-                    let delta-y = pointer-y - self.start-pointer-y;
-                    let target-x = parent.on-left ? self.start-x + delta-x : self.start-x;
-                    let target-y = parent.on-top ? self.start-y + delta-y : self.start-y;
-                    let target-width = parent.on-left ? self.start-width - delta-x : self.start-width + delta-x;
-                    let target-height = parent.on-top ? self.start-height - delta-y : self.start-height + delta-y;
-                    root.resized-to(corner, target-x, target-y, target-width, target-height);
-                }
+            Text {
+                text: "Rectangle 2";
+                color: #78350f;
+                font-size: 14px;
+                font-weight: 800;
+                horizontal-alignment: center;
+                vertical-alignment: center;
             }
         }
     }
