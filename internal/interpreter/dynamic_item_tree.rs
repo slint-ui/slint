@@ -37,7 +37,7 @@ use i_slint_core::slice::Slice;
 use i_slint_core::styled_text::StyledText;
 use i_slint_core::timers::Timer;
 use i_slint_core::window::{WindowAdapterRc, WindowInner, WindowKind};
-use i_slint_core::{Brush, Color, DataTransfer, Property, SharedString, SharedVector};
+use i_slint_core::{Brush, Color, DataTransfer, PathData, Property, SharedString, SharedVector};
 #[cfg(feature = "internal")]
 use itertools::Either;
 use once_cell::unsync::{Lazy, OnceCell};
@@ -1297,13 +1297,13 @@ pub(crate) fn generate_item_tree<'id>(
             Type::ArrayOfU16 => property_info::<SharedVector<u16>>(),
             Type::Function { .. } | Type::Callback { .. } => return None,
             Type::StyledText => property_info::<StyledText>(),
+            Type::PathData => property_info::<PathData>(),
             // These can't be used in properties
             Type::Invalid
             | Type::Void
             | Type::InferredProperty
             | Type::InferredCallback
             | Type::Model
-            | Type::PathData
             | Type::UnitProduct(_)
             | Type::ElementReference => panic!("bad type {ty:?} for property {name}"),
         })
