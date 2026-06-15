@@ -763,7 +763,7 @@ jobs:
             # The splat cache is keyed by the architectures it was created for (DONE marker), so
             # keep the cache key specific to x86 to avoid reusing a cache without the x86 libraries.
             - name: Cache xwin Windows SDK
-              uses: actions/cache@v4
+              uses: actions/cache@v5
               with:
                   path: ~/.cache/cargo-xwin
                   key: cargo-xwin-sdk-x86

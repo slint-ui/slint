@@ -91,7 +91,7 @@ jobs:
               with:
                   target: "aarch64-apple-ios aarch64-apple-ios-sim"
             - name: Build iOS wheels
-              uses: pypa/cibuildwheel@v4.0.0
+              uses: pypa/cibuildwheel@v4.1.0
               with:
                   package-dir: api/python/slint
                   output-dir: wheelhouse
