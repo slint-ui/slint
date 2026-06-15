@@ -13,8 +13,6 @@ export component InspectorPane inherits Rectangle {
     in property <length> phone-height;
     in property <length> rectangle-width;
     in property <length> rectangle-height;
-    in property <length> rectangle2-width;
-    in property <length> rectangle2-height;
     in property <length> text-width;
     in property <length> text-height;
     in property <length> image-width;
@@ -27,9 +25,6 @@ export component InspectorPane inherits Rectangle {
     function selection-title() -> string {
         if root.selection == CanvasSelectionKind.rectangle {
             return "Rectangle";
-        }
-        if root.selection == CanvasSelectionKind.rectangle2 {
-            return "Rectangle 2";
         }
         if root.selection == CanvasSelectionKind.text {
             return "Text";
@@ -46,9 +41,6 @@ export component InspectorPane inherits Rectangle {
     function selection-kind-label() -> string {
         if root.selection == CanvasSelectionKind.rectangle {
             return "Built-in element";
-        }
-        if root.selection == CanvasSelectionKind.rectangle2 {
-            return "Prototype element";
         }
         if root.selection == CanvasSelectionKind.text {
             return "Text element";
@@ -91,14 +83,14 @@ export component InspectorPane inherits Rectangle {
             title: "LAYOUT";
             PropertyField { name: "X"; value: root.selection == CanvasSelectionKind.artboard ? "0" : "\{root.placed-x / 1px}"; }
             PropertyField { name: "Y"; value: root.selection == CanvasSelectionKind.artboard ? "0" : "\{root.placed-y / 1px}"; }
-            PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.artboard ? "\{root.phone-width / 1px}" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-width / 1px}" : root.selection == CanvasSelectionKind.rectangle2 ? "\{root.rectangle2-width / 1px}" : root.selection == CanvasSelectionKind.text ? "\{root.text-width / 1px}" : root.selection == CanvasSelectionKind.image ? "\{root.image-width / 1px}" : "280"; }
-            PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.artboard ? "\{root.phone-height / 1px}" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-height / 1px}" : root.selection == CanvasSelectionKind.rectangle2 ? "\{root.rectangle2-height / 1px}" : root.selection == CanvasSelectionKind.text ? "\{root.text-height / 1px}" : root.selection == CanvasSelectionKind.image ? "\{root.image-height / 1px}" : "104"; }
+            PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.artboard ? "\{root.phone-width / 1px}" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-width / 1px}" : root.selection == CanvasSelectionKind.text ? "\{root.text-width / 1px}" : root.selection == CanvasSelectionKind.image ? "\{root.image-width / 1px}" : "280"; }
+            PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.artboard ? "\{root.phone-height / 1px}" : root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-height / 1px}" : root.selection == CanvasSelectionKind.text ? "\{root.text-height / 1px}" : root.selection == CanvasSelectionKind.image ? "\{root.image-height / 1px}" : "104"; }
         }
 
         InspectorSection {
             title: "APPEARANCE";
             PropertyField { name: "Opacity"; value: "100%"; }
-            PropertyField { name: "Fill"; value: root.selection == CanvasSelectionKind.text ? "#20252d" : root.selection == CanvasSelectionKind.rectangle2 ? "#fde68a" : root.selection == CanvasSelectionKind.image ? "gradient" : "#dbeafe"; }
+            PropertyField { name: "Fill"; value: root.selection == CanvasSelectionKind.text ? "#20252d" : root.selection == CanvasSelectionKind.rectangle ? "#fde68a" : root.selection == CanvasSelectionKind.image ? "gradient" : "#dbeafe"; }
             PropertyField { name: "Radius"; value: root.selection == CanvasSelectionKind.artboard ? "34" : root.selection == CanvasSelectionKind.rectangle ? root.rectangle-radius-label : "18"; }
         }
 

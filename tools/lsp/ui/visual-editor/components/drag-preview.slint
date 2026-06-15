@@ -7,7 +7,7 @@ export component DragPreview inherits Rectangle {
     visible: AppState.dragging-kind != PrototypeComponentKind.none;
     x: AppState.drag-x - 46px;
     y: AppState.drag-y - 24px;
-    width: AppState.dragging-kind == PrototypeComponentKind.image || AppState.dragging-kind == PrototypeComponentKind.rectangle2 ? 106px : 96px;
+    width: AppState.dragging-kind == PrototypeComponentKind.image ? 106px : 96px;
     height: 48px;
     border-radius: 8px;
     background: StudioTheme.panel-bg;
@@ -27,13 +27,13 @@ export component DragPreview inherits Rectangle {
             width: 24px;
             height: 24px;
             border-radius: 5px;
-            background: AppState.dragging-kind == PrototypeComponentKind.rectangle ? #dbeafe : AppState.dragging-kind == PrototypeComponentKind.rectangle2 ? #fde68a : AppState.dragging-kind == PrototypeComponentKind.text ? #fef3c7 : #dcfce7;
+            background: AppState.dragging-kind == PrototypeComponentKind.rectangle ? #fde68a : AppState.dragging-kind == PrototypeComponentKind.text ? #fef3c7 : #dcfce7;
             border-width: 1px;
-            border-color: AppState.dragging-kind == PrototypeComponentKind.rectangle ? #93c5fd : AppState.dragging-kind == PrototypeComponentKind.rectangle2 ? #f59e0b : AppState.dragging-kind == PrototypeComponentKind.text ? #fbbf24 : #86efac;
+            border-color: AppState.dragging-kind == PrototypeComponentKind.rectangle ? #f59e0b : AppState.dragging-kind == PrototypeComponentKind.text ? #fbbf24 : #86efac;
 
             Text {
-                text: AppState.dragging-kind == PrototypeComponentKind.rectangle ? "R" : AppState.dragging-kind == PrototypeComponentKind.rectangle2 ? "R2" : AppState.dragging-kind == PrototypeComponentKind.text ? "T" : "IMG";
-                color: AppState.dragging-kind == PrototypeComponentKind.rectangle ? #1d4ed8 : AppState.dragging-kind == PrototypeComponentKind.rectangle2 ? #78350f : AppState.dragging-kind == PrototypeComponentKind.text ? #92400e : #166534;
+                text: AppState.dragging-kind == PrototypeComponentKind.rectangle ? "R" : AppState.dragging-kind == PrototypeComponentKind.text ? "T" : "IMG";
+                color: AppState.dragging-kind == PrototypeComponentKind.rectangle ? #78350f : AppState.dragging-kind == PrototypeComponentKind.text ? #92400e : #166534;
                 font-size: 10px;
                 font-weight: 900;
                 horizontal-alignment: center;
@@ -42,7 +42,7 @@ export component DragPreview inherits Rectangle {
         }
 
         Text {
-            text: AppState.dragging-kind == PrototypeComponentKind.rectangle ? "Rectangle" : AppState.dragging-kind == PrototypeComponentKind.rectangle2 ? "Rectangle 2" : AppState.dragging-kind == PrototypeComponentKind.text ? "Text" : "Image";
+            text: AppState.dragging-kind == PrototypeComponentKind.rectangle ? "Rectangle" : AppState.dragging-kind == PrototypeComponentKind.text ? "Text" : "Image";
             color: StudioTheme.text;
             font-size: 12px;
             font-weight: 800;
