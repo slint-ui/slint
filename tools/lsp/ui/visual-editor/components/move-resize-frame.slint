@@ -32,7 +32,7 @@ export component MoveResizeFrame inherits Rectangle {
     private property <length> free-resize-width: 0px;
     private property <length> free-resize-height: 0px;
     callback selected();
-    callback resize-started();
+    callback interaction-started();
     callback moved-to(length, length);
     callback resized-to(CanvasCorner, length, length, length, length);
     callback rotated-to(angle);
@@ -178,6 +178,8 @@ export component MoveResizeFrame inherits Rectangle {
             mouse-cursor: move;
             private property <length> press-x: 0px;
             private property <length> press-y: 0px;
+            private property <length> pointer-press-x: 0px;
+            private property <length> pointer-press-y: 0px;
             private property <length> start-x: 0px;
             private property <length> start-y: 0px;
 
@@ -186,6 +188,8 @@ export component MoveResizeFrame inherits Rectangle {
                     root.move-dragging = false;
                     self.press-x = self.mouse-x;
                     self.press-y = self.mouse-y;
+                    self.pointer-press-x = self.absolute-position.x + self.mouse-x;
+                    self.pointer-press-y = self.absolute-position.y + self.mouse-y;
                     self.start-x = root.x;
                     self.start-y = root.y;
                     root.selected();
@@ -195,16 +199,16 @@ export component MoveResizeFrame inherits Rectangle {
             }
 
             moved => {
-                let moved-far-enough = (self.mouse-x - self.press-x).abs() >= root.drag-threshold
-                    || (self.mouse-y - self.press-y).abs() >= root.drag-threshold;
+                let pointer-x = self.absolute-position.x + self.mouse-x;
+                let pointer-y = self.absolute-position.y + self.mouse-y;
+                let delta-x = pointer-x - self.pointer-press-x;
+                let delta-y = pointer-y - self.pointer-press-y;
+                let moved-far-enough = delta-x.abs() >= root.drag-threshold
+                    || delta-y.abs() >= root.drag-threshold;
                 if self.pressed && moved-far-enough {
                     root.move-dragging = true;
                 }
                 if root.move-dragging {
-                    let local-delta-x = self.mouse-x - self.press-x;
-                    let local-delta-y = self.mouse-y - self.press-y;
-                    let delta-x = local-delta-x * root.rotation.cos() - local-delta-y * root.rotation.sin();
-                    let delta-y = local-delta-x * root.rotation.sin() + local-delta-y * root.rotation.cos();
                     let target-x = ((self.start-x + delta-x) / 1px).round() * 1px;
                     let target-y = ((self.start-y + delta-y) / 1px).round() * 1px;
                     root.moved-to(target-x, target-y);
@@ -255,12 +259,12 @@ export component MoveResizeFrame inherits Rectangle {
 
             TouchArea {
                 mouse-cursor: root.rotation-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize;
-                private property <bool> shift-mode: false;
+                private property <bool> event-shift-pressed: false;
                 private property <angle> start-rotation;
                 private property <angle> start-pointer-angle;
 
                 pointer-event(event) => {
-                    self.shift-mode = event.modifiers.shift;
+                    self.event-shift-pressed = event.modifiers.shift;
                 }
 
                 changed pressed => {
@@ -268,9 +272,9 @@ export component MoveResizeFrame inherits Rectangle {
                         let local-x = parent.x + self.mouse-x;
                         let local-y = parent.y + self.mouse-y;
                         root.selected();
+                        root.interaction-started();
                         root.rotating = true;
                         root.rotation-tooltip-visible = true;
-                        self.shift-mode = false;
                         self.start-rotation = root.rotation;
                         self.start-pointer-angle = root.pointer-angle(local-x, local-y);
                         root.rotation-tooltip-x = root.local-to-parent-x(local-x, local-y);
@@ -286,7 +290,7 @@ export component MoveResizeFrame inherits Rectangle {
                     let local-x = parent.x + self.mouse-x;
                     let local-y = parent.y + self.mouse-y;
                     let angle = self.start-rotation + root.pointer-angle(local-x, local-y) - self.start-pointer-angle;
-                    let target-angle = self.shift-mode ? root.snapped-rotation(angle) : angle;
+                    let target-angle = (root.shift-pressed || self.event-shift-pressed) ? root.snapped-rotation(angle) : angle;
                     root.rotation-tooltip-visible = true;
                     root.rotation-tooltip-x = root.local-to-parent-x(local-x, local-y);
                     root.rotation-tooltip-y = root.local-to-parent-y(local-x, local-y);
@@ -336,7 +340,7 @@ export component MoveResizeFrame inherits Rectangle {
                             let local-opposite-y = opposite-y * root.height / 2;
 
                             root.selected();
-                            root.resize-started();
+                            root.interaction-started();
                             root.resize-corner = corner;
                             root.resize-pressed = true;
                             root.resize-shift-pressed = root.shift-pressed || self.event-shift-pressed;

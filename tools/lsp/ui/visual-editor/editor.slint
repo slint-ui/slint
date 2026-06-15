@@ -108,7 +108,7 @@ export component EditorUi inherits Window {
                         text-rotation: state.text-rotation;
                         image-rotation: state.image-rotation;
                         selected(kind) => { state.selection = kind; }
-                        resize-started => { editor.focus(); }
+                        interaction-started => { editor.focus(); }
                         move-rectangle-to(x, y) => { state.move-rectangle-to(x, y); }
                         resize-rectangle-to(corner, x, y, width, height) => { state.resize-rectangle-to(corner, x, y, width, height); }
                         rotate-rectangle-to(rotation) => { state.rotate-rectangle-to(rotation); }
