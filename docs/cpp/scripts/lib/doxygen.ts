@@ -192,7 +192,7 @@ export class DoxygenConverter {
 
     private loadCompound(refid: string): XmlElement | undefined {
         const cached = this.compoundCache.get(refid);
-        if (cached) return cached;
+        if (cached) { return cached; }
         let source: string;
         try {
             source = readFileSync(join(this.xmlDir, `${refid}.xml`), "utf8");
@@ -201,7 +201,7 @@ export class DoxygenConverter {
         }
         const doc = parseXml(source);
         const def = child(doc, "compounddef");
-        if (!def) return undefined;
+        if (!def) { return undefined; }
         this.compoundCache.set(refid, def);
         return def;
     }
@@ -212,7 +212,7 @@ export class DoxygenConverter {
             .filter((e) => e.kind === "namespace")
             .map((e) => e.name);
         for (const entry of entries) {
-            if (!PAGE_KINDS.has(entry.kind)) continue;
+            if (!PAGE_KINDS.has(entry.kind)) { continue; }
             const slug = compoundSlug(
                 entry.kind,
                 entry.name,
@@ -221,7 +221,7 @@ export class DoxygenConverter {
             this.compoundTargets.set(entry.refid, { slug });
 
             const def = this.loadCompound(entry.refid);
-            if (!def) continue;
+            if (!def) { continue; }
 
             // Namespace free functions and enums are pages of their own; resolve
             // cross-references to those pages rather than to a namespace anchor.
@@ -237,9 +237,9 @@ export class DoxygenConverter {
 
             const seen = new Map<string, number>();
             for (const section of children(def, "sectiondef")) {
-                if (isHiddenSection(section.attrs.kind ?? "")) continue;
+                if (isHiddenSection(section.attrs.kind ?? "")) { continue; }
                 for (const member of children(section, "memberdef")) {
-                    if (isInternalMember(member)) continue;
+                    if (isInternalMember(member)) { continue; }
                     const pageSlug = ownPageSlug.get(member.attrs.id);
                     if (pageSlug) {
                         this.memberTargets.set(member.attrs.id, {
@@ -269,11 +269,11 @@ export class DoxygenConverter {
 
         const pages: GeneratedPage[] = [];
         for (const entry of entries) {
-            if (!PAGE_KINDS.has(entry.kind)) continue;
+            if (!PAGE_KINDS.has(entry.kind)) { continue; }
             const def = this.loadCompound(entry.refid);
-            if (!def) continue;
+            if (!def) { continue; }
             const target = this.compoundTargets.get(entry.refid);
-            if (!target) continue;
+            if (!target) { continue; }
             this.currentSlug = target.slug;
             pages.push({
                 slug: target.slug,
@@ -306,8 +306,9 @@ export class DoxygenConverter {
         const description = firstLine(
             this.renderBlocks(child(page.members[0], "briefdescription")),
         );
-        if (description)
+        if (description) {
             out.push(`description: ${frontmatterString(description)}`);
+        }
         out.push("---", "");
         for (const member of page.members) {
             out.push(...this.renderMemberBody(member));
@@ -339,7 +340,7 @@ export class DoxygenConverter {
         // Bucket each type under the longest namespace name that prefixes it.
         const typesByNamespace = new Map<string, IndexEntry[]>();
         for (const type of entries) {
-            if (!TYPE_KINDS.has(type.kind)) continue;
+            if (!TYPE_KINDS.has(type.kind)) { continue; }
             let owner = "";
             for (const ns of namespaceSet) {
                 if (
@@ -357,7 +358,7 @@ export class DoxygenConverter {
         const groupFor = (ns: IndexEntry): SidebarGroup => {
             const items: SidebarItem[] = [];
             const nsSlug = this.compoundTargets.get(ns.refid)?.slug;
-            if (nsSlug) items.push({ label: "Overview", slug: nsSlug });
+            if (nsSlug) { items.push({ label: "Overview", slug: nsSlug }); }
 
             // Nested namespaces come first, above the (often long) type list.
             const childGroups = namespaces
@@ -371,7 +372,7 @@ export class DoxygenConverter {
                 .sort((a, b) => a.name.localeCompare(b.name));
             for (const type of types) {
                 const slug = this.compoundTargets.get(type.refid)?.slug;
-                if (slug) items.push({ label: leafOf(type.name), slug });
+                if (slug) { items.push({ label: leafOf(type.name), slug }); }
             }
 
             // Free functions and enums are pages of their own; link to them.
@@ -403,7 +404,7 @@ export class DoxygenConverter {
         enums: MemberPage[];
     } {
         const def = this.loadCompound(ns.refid);
-        if (!def) return { functions: [], enums: [] };
+        if (!def) { return { functions: [], enums: [] }; }
         const slugFor = (name: string): string =>
             compoundSlug(
                 "function",
@@ -416,7 +417,7 @@ export class DoxygenConverter {
         const enums: MemberPage[] = [];
         for (const section of children(def, "sectiondef")) {
             const kind = section.attrs.kind ?? "";
-            if (kind !== "func" && kind !== "enum") continue;
+            if (kind !== "func" && kind !== "enum") { continue; }
             for (const member of children(section, "memberdef")) {
                 if (
                     member.attrs.prot === "private" ||
@@ -427,7 +428,7 @@ export class DoxygenConverter {
                 const name = textContent(
                     child(member, "name") ?? emptyElement(),
                 ).trim();
-                if (!name) continue;
+                if (!name) { continue; }
                 if (kind === "enum") {
                     enums.push({
                         kind: "enum",
@@ -482,8 +483,9 @@ export class DoxygenConverter {
         out.push("---");
         out.push(`title: ${frontmatterString(qualifiedTitle(entry))}`);
         const description = firstLine(brief);
-        if (description)
+        if (description) {
             out.push(`description: ${frontmatterString(description)}`);
+        }
         out.push("---");
         out.push("");
 
@@ -521,21 +523,21 @@ export class DoxygenConverter {
 
         out.push(...this.renderInheritance(def));
 
-        if (brief.trim()) out.push("", brief);
+        if (brief.trim()) { out.push("", brief); }
         const detailed = this.renderBlocks(child(def, "detaileddescription"));
-        if (detailed.trim()) out.push("", detailed);
+        if (detailed.trim()) { out.push("", detailed); }
 
         out.push(...this.renderInnerCompounds(entry, def));
 
         // A namespace's free functions and enums live on their own pages; list
         // them as links here and skip their inline sections below.
         const isNamespace = entry.kind === "namespace";
-        if (isNamespace) out.push(...this.renderNamespaceMemberLists(entry));
+        if (isNamespace) { out.push(...this.renderNamespaceMemberLists(entry)); }
 
         for (const section of children(def, "sectiondef")) {
             const kind = section.attrs.kind ?? "";
-            if (isHiddenSection(kind)) continue;
-            if (isNamespace && (kind === "func" || kind === "enum")) continue;
+            if (isHiddenSection(kind)) { continue; }
+            if (isNamespace && (kind === "func" || kind === "enum")) { continue; }
             out.push(...this.renderSection(section));
         }
 
@@ -550,7 +552,7 @@ export class DoxygenConverter {
         const { functions, enums } = this.namespaceMemberPages(entry);
         const out: string[] = [];
         const list = (heading: string, pages: MemberPage[]): void => {
-            if (pages.length === 0) return;
+            if (pages.length === 0) { return; }
             out.push("", `## ${heading}`);
             for (const page of pages) {
                 out.push(
@@ -565,7 +567,7 @@ export class DoxygenConverter {
 
     private renderTemplateLine(def: XmlElement): string | undefined {
         const list = child(def, "templateparamlist");
-        if (!list) return undefined;
+        if (!list) { return undefined; }
         const params = children(list, "param").map((p) => {
             const type = textContent(child(p, "type") ?? emptyElement()).trim();
             const declname = textContent(
@@ -584,10 +586,12 @@ export class DoxygenConverter {
         const derived = children(def, "derivedcompoundref")
             .map((b) => this.linkForCompoundRef(b))
             .filter(Boolean);
-        if (bases.length > 0)
+        if (bases.length > 0) {
             lines.push("", `**Inherits** ${bases.join(", ")}.`);
-        if (derived.length > 0)
+        }
+        if (derived.length > 0) {
             lines.push("", `**Inherited by** ${derived.join(", ")}.`);
+        }
         return lines;
     }
 
@@ -617,7 +621,7 @@ export class DoxygenConverter {
         const namespaces = children(def, "innernamespace");
         if (namespaces.length > 0) {
             out.push("", "## Namespaces");
-            for (const n of namespaces) out.push(`- ${link(n)}`);
+            for (const n of namespaces) { out.push(`- ${link(n)}`); }
         }
         const classes = children(def, "innerclass").filter(
             (c) => c.attrs.prot !== "private",
@@ -626,7 +630,7 @@ export class DoxygenConverter {
             // C++ classes and structs are listed together; the kind distinction
             // is immaterial to users, so the heading is kind-neutral.
             out.push("", "## Types");
-            for (const c of classes) out.push(`- ${link(c)}`);
+            for (const c of classes) { out.push(`- ${link(c)}`); }
         }
         return out;
     }
@@ -635,14 +639,14 @@ export class DoxygenConverter {
         const members = children(section, "memberdef").filter(
             (m) => m.attrs.prot !== "private" && !isInternalMember(m),
         );
-        if (members.length === 0) return [];
+        if (members.length === 0) { return []; }
         const kind = section.attrs.kind ?? "";
         const headerEl = child(section, "header");
         const title = headerEl
             ? textContent(headerEl).trim()
             : (SECTION_TITLES[kind] ?? "Members");
         const out: string[] = ["", `## ${title}`];
-        for (const member of members) out.push(...this.renderMember(member));
+        for (const member of members) { out.push(...this.renderMember(member)); }
         return out;
     }
 
@@ -673,13 +677,13 @@ export class DoxygenConverter {
      * undefined for anything that can't be re-implemented in a subclass.
      */
     private virtualMarker(member: XmlElement): string | undefined {
-        if (member.attrs.kind !== "function") return undefined;
+        if (member.attrs.kind !== "function") { return undefined; }
         const virt = member.attrs.virt;
-        if (virt !== "virtual" && virt !== "pure-virtual") return undefined;
+        if (virt !== "virtual" && virt !== "pure-virtual") { return undefined; }
         // Doxygen has no `final` attribute; the keyword (when present) trails the
         // signature in `argsstring`, e.g. `() const override final`.
         const args = textContent(child(member, "argsstring") ?? emptyElement());
-        if (/\bfinal\b/.test(args)) return undefined;
+        if (/\bfinal\b/.test(args)) { return undefined; }
         return virt === "pure-virtual" ? "(pure virtual)" : "(virtual)";
     }
 
@@ -703,18 +707,18 @@ export class DoxygenConverter {
         }
 
         const brief = this.renderBlocks(child(member, "briefdescription"));
-        if (brief.trim()) out.push("", brief);
+        if (brief.trim()) { out.push("", brief); }
         const detailed = this.renderBlocks(
             child(member, "detaileddescription"),
         );
-        if (detailed.trim()) out.push("", detailed);
+        if (detailed.trim()) { out.push("", detailed); }
         return out;
     }
 
     /** Render a member signature: Shiki-highlighted with type links when a highlighter is set. */
     private renderSignature(member: XmlElement): string {
         const { text, links } = this.buildSignature(member);
-        if (!this.highlighter) return signatureFallback(text, links);
+        if (!this.highlighter) { return signatureFallback(text, links); }
         return this.highlighter.codeToHtml(text, {
             lang: "cpp",
             themes: { light: "light-plus", dark: "dark-plus" },
@@ -770,13 +774,13 @@ export class DoxygenConverter {
         ];
         let text = "";
         const prefix: string[] = [];
-        if (member.attrs.explicit === "yes") prefix.push("explicit");
-        if (member.attrs.static === "yes") prefix.push("static");
-        if (member.attrs.constexpr === "yes") prefix.push("constexpr");
+        if (member.attrs.explicit === "yes") { prefix.push("explicit"); }
+        if (member.attrs.static === "yes") { prefix.push("static"); }
+        if (member.attrs.constexpr === "yes") { prefix.push("constexpr"); }
         // `virtual` is intentionally omitted from the signature: overridable
         // virtual functions are flagged by the `(virtual)` heading marker
         // instead. (It stays in SPECIFIERS so it is stripped from `definition`.)
-        if (prefix.length > 0) text += `${prefix.join(" ")} `;
+        if (prefix.length > 0) { text += `${prefix.join(" ")} `; }
 
         // Return type from <type>, recording links for resolvable refs.
         const typeStart = text.length;
@@ -794,13 +798,13 @@ export class DoxygenConverter {
                     );
                     const start = text.length;
                     text += t;
-                    if (url) links.push({ start, end: text.length, url });
+                    if (url) { links.push({ start, end: text.length, url }); }
                 } else {
                     text += textContent(node);
                 }
             }
         }
-        if (text.length > typeStart) text += " ";
+        if (text.length > typeStart) { text += " "; }
 
         // Qualified name = <definition> minus leading specifiers and return type.
         let qualified = textContent(
@@ -831,7 +835,7 @@ export class DoxygenConverter {
             let pos = 0;
             for (const param of children(member, "param")) {
                 const type = child(param, "type");
-                if (!type) continue;
+                if (!type) { continue; }
                 for (const ref of collectRefs(type)) {
                     const t = textContent(ref).trim();
                     const url = this.resolveTargetUrl(
@@ -839,9 +843,9 @@ export class DoxygenConverter {
                         ref.attrs.kindref,
                         ref.attrs.external,
                     );
-                    if (!t || !url) continue;
+                    if (!t || !url) { continue; }
                     const idx = args.indexOf(t, pos);
-                    if (idx < 0) continue;
+                    if (idx < 0) { continue; }
                     links.push({
                         start: base + idx,
                         end: base + idx + t.length,
@@ -868,7 +872,7 @@ export class DoxygenConverter {
         kindref?: string,
         external?: string,
     ): string | undefined {
-        if (!refid) return undefined;
+        if (!refid) { return undefined; }
         const target =
             this.memberTargets.get(refid) ??
             (kindref === "compound"
@@ -879,7 +883,7 @@ export class DoxygenConverter {
             const anchor = target.anchor ? `#${target.anchor}` : "";
             return `${relativeUrl(this.currentSlug, target.slug)}${anchor}`;
         }
-        if (external) return `${CPPREFERENCE_BASE}${refid}`;
+        if (external) { return `${CPPREFERENCE_BASE}${refid}`; }
         return undefined;
     }
 
@@ -887,7 +891,7 @@ export class DoxygenConverter {
 
     /** Render an optional description element as block-level Markdown. */
     private renderBlocks(element: XmlElement | undefined): string {
-        if (!element) return "";
+        if (!element) { return ""; }
         return this.renderBlockChildren(element.children);
     }
 
@@ -895,7 +899,7 @@ export class DoxygenConverter {
         const blocks: string[] = [];
         for (const node of nodes) {
             const rendered = this.renderBlockNode(node);
-            if (rendered.trim()) blocks.push(rendered.trim());
+            if (rendered.trim()) { blocks.push(rendered.trim()); }
         }
         return blocks.join("\n\n");
     }
@@ -913,19 +917,20 @@ export class DoxygenConverter {
         const titleEl = child(node, "title");
         if (titleEl) {
             const title = this.inline(titleEl.children).trim();
-            if (title) parts.push(`${"#".repeat(level)} ${title}`);
+            if (title) { parts.push(`${"#".repeat(level)} ${title}`); }
         }
         const body = node.children.filter(
             (c) => !(isElement(c) && c.name === "title"),
         );
         const rendered = this.renderBlockChildren(body);
-        if (rendered) parts.push(rendered);
+        if (rendered) { parts.push(rendered); }
         return parts.join("\n\n");
     }
 
     private renderBlockNode(node: XmlNode): string {
-        if (!isElement(node))
+        if (!isElement(node)) {
             return node.value.trim() ? this.inline([node]) : "";
+        }
         switch (node.name) {
             case "para":
                 return this.renderParaWithBlocks(node);
@@ -979,16 +984,16 @@ export class DoxygenConverter {
         const segments: string[] = [];
         let inlineRun: XmlNode[] = [];
         const flush = (): void => {
-            if (inlineRun.length === 0) return;
+            if (inlineRun.length === 0) { return; }
             const text = this.inline(inlineRun).trim();
-            if (text) segments.push(text);
+            if (text) { segments.push(text); }
             inlineRun = [];
         };
         for (const node of para.children) {
             if (isElement(node) && BLOCK_NAMES.has(node.name)) {
                 flush();
                 const block = this.renderBlockNode(node);
-                if (block.trim()) segments.push(block.trim());
+                if (block.trim()) { segments.push(block.trim()); }
             } else {
                 inlineRun.push(node);
             }
@@ -1019,16 +1024,16 @@ export class DoxygenConverter {
     private renderSimpleSect(node: XmlElement): string {
         const kind = node.attrs.kind ?? "";
         const body = this.renderBlocks(node).trim();
-        if (kind === "return") return `**Returns:** ${collapse(body)}`;
-        if (kind === "see") return `**See also:** ${collapse(body)}`;
-        if (kind === "since") return `**Since:** ${collapse(body)}`;
+        if (kind === "return") { return `**Returns:** ${collapse(body)}`; }
+        if (kind === "see") { return `**See also:** ${collapse(body)}`; }
+        if (kind === "since") { return `**Since:** ${collapse(body)}`; }
         if (kind === "par") {
             const titleEl = child(node, "title");
             const title = titleEl ? textContent(titleEl).trim() : "";
             return title ? `**${title}**\n\n${body}` : body;
         }
         const aside = ASIDE_KIND[kind];
-        if (aside) return `:::${aside}\n${body}\n:::`;
+        if (aside) { return `:::${aside}\n${body}\n:::`; }
         return body;
     }
 
@@ -1052,7 +1057,7 @@ export class DoxygenConverter {
             const namePart = names.map((n) => `\`${n}\``).join(", ");
             rows.push(`- ${namePart}${desc ? ` — ${desc}` : ""}`);
         }
-        if (rows.length === 0) return "";
+        if (rows.length === 0) { return ""; }
         return `**${label}:**\n\n${rows.join("\n")}`;
     }
 
@@ -1063,8 +1068,9 @@ export class DoxygenConverter {
     }
 
     private inlineNode(node: XmlNode): string {
-        if (!isElement(node))
+        if (!isElement(node)) {
             return escapeInline(node.value.replace(/\s+/g, " "));
+        }
         switch (node.name) {
             case "ref":
                 return this.renderRef(node);
@@ -1097,13 +1103,13 @@ export class DoxygenConverter {
         const text =
             this.inline(node.children).trim() || textContent(node).trim();
         const refid = node.attrs.refid;
-        if (!refid) return text;
+        if (!refid) { return text; }
         const url = this.resolveTargetUrl(
             refid,
             node.attrs.kindref,
             node.attrs.external,
         );
-        if (!url) return `\`${text}\``;
+        if (!url) { return `\`${text}\``; }
         return `[${text}](${url})`;
     }
 }
@@ -1127,11 +1133,11 @@ function escapeHtml(text: string): string {
 function collectRefs(node: XmlElement): XmlElement[] {
     const refs: XmlElement[] = [];
     const walk = (n: XmlNode): void => {
-        if (!isElement(n)) return;
-        if (n.name === "ref") refs.push(n);
-        for (const c of n.children) walk(c);
+        if (!isElement(n)) { return; }
+        if (n.name === "ref") { refs.push(n); }
+        for (const c of n.children) { walk(c); }
     };
-    for (const c of node.children) walk(c);
+    for (const c of node.children) { walk(c); }
     return refs;
 }
 
@@ -1145,7 +1151,7 @@ function signatureFallback(text: string, links: SignatureLink[]): string {
     let html = "";
     let pos = 0;
     for (const link of sorted) {
-        if (link.start < pos) continue;
+        if (link.start < pos) { continue; }
         html += escapeHtml(text.slice(pos, link.start));
         html += `<a href="${link.url}">${escapeHtml(
             text.slice(link.start, link.end),
@@ -1215,7 +1221,7 @@ function stripTicks(text: string): string {
 
 /** Verbatim text of a `<codeline>`, turning Doxygen's `<sp/>` markers into spaces. */
 function codeText(node: XmlNode): string {
-    if (!isElement(node)) return node.value;
+    if (!isElement(node)) { return node.value; }
     if (node.name === "sp") {
         const count = Number.parseInt(node.attrs.value ?? "1", 10);
         return " ".repeat(Number.isNaN(count) ? 1 : Math.max(count, 1));
