@@ -83,10 +83,10 @@ export component InspectorPane inherits Rectangle {
 
         if root.selection != CanvasSelectionKind.artboard: InspectorSection {
             title: "LAYOUT";
-            PropertyField { name: "X"; value: "\{root.placed-x / 1px}"; }
-            PropertyField { name: "Y"; value: "\{root.placed-y / 1px}"; }
-            PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-width / 1px}" : root.selection == CanvasSelectionKind.text ? "\{root.text-width / 1px}" : root.selection == CanvasSelectionKind.image ? "\{root.image-width / 1px}" : "280"; }
-            PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.rectangle ? "\{root.rectangle-height / 1px}" : root.selection == CanvasSelectionKind.text ? "\{root.text-height / 1px}" : root.selection == CanvasSelectionKind.image ? "\{root.image-height / 1px}" : "104"; }
+            PropertyField { name: "X"; value: (root.placed-x / 1px).to-fixed(0); }
+            PropertyField { name: "Y"; value: (root.placed-y / 1px).to-fixed(0); }
+            PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.rectangle ? (root.rectangle-width / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.text ? (root.text-width / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.image ? (root.image-width / 1px).to-fixed(0) : "280"; }
+            PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.rectangle ? (root.rectangle-height / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.text ? (root.text-height / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.image ? (root.image-height / 1px).to-fixed(0) : "104"; }
         }
 
         InspectorSection {
