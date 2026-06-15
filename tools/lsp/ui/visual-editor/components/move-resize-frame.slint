@@ -5,6 +5,7 @@ import { CanvasCorner, EditorMetrics, StudioTheme } from "common.slint";
 
 export component MoveResizeFrame inherits Rectangle {
     in property <bool> active;
+    out property <bool> frame-hover: move-touch.has-hover;
     callback selected();
     callback moved-to(length, length);
     callback resized-to(CanvasCorner, length, length, length, length);
@@ -33,7 +34,7 @@ export component MoveResizeFrame inherits Rectangle {
             : root.height - EditorMetrics.selection-handle-size / 2;
     }
 
-    TouchArea {
+    move-touch := TouchArea {
         mouse-cursor: move;
 
         changed pressed => {
