@@ -23,7 +23,7 @@ on:
       r2-bucket:
         type: string
         required: true
-        description: "Destination R2 bucket name (the caller passes slint-docs-mcp)."
+        description: "Destination R2 bucket name."
       docs-version:
         type: string
         default: ""
