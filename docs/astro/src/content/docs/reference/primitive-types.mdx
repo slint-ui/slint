@@ -369,11 +369,10 @@ See <Link type="DragAndDrop" /> for an end-to-end example.
 
 ## Paths
 ### pathdata
-<SlintProperty propName="pathdata" typeName="pathdata" defaultValue='empty pathdata'>
+<SlintProperty propName="pathdata" typeName="pathdata" defaultValue='an empty pathdata'>
+A `pathdata` value is a compiled series of SVG path commands.
 
-The `pathdata` type is a reference to a SVG path commands.
-
-A `pathdata` value can be constructed from a string literal with the `@pathdata("...")` construct.
+It can be constructed at compile-time with the `@pathdata("...")` macro, or you can implicitly cast from a string to construct it at runtime.
 
 For example: `@pathdata("M 19 4 L 10 4 M 14 20 L 5 20 M 15 4 L 9 20")`.
 
