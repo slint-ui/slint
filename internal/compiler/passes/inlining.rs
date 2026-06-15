@@ -133,35 +133,35 @@ fn inline_element(
 
     // Ensure @children CIP exists if it's missing but the component is a builtin that accepts children.
     // This preserves the implicit-children behavior for builtins without explicit placeholders.
-    if !inlined_insertion_points.contains_key("_children") {
-        if let Some(builtin) = inlined_component.root_element.borrow().builtin_type() {
-            if !builtin.is_non_item_type && !builtin.disallow_global_types_as_child_elements {
-                let cip_node = inlined_component
-                    .node
-                    .as_ref()
-                    .map(|n| n.clone().into())
-                    .or_else(|| {
-                        inlined_component
-                            .root_element
-                            .borrow()
-                            .debug
-                            .first()
-                            .map(|debug| debug.node.clone().into())
-                    })
-                    .or_else(|| elem_mut.debug.first().map(|debug| debug.node.clone().into()))
-                    .or_else(|| root_component.node.as_ref().map(|n| n.clone().into()))
-                    .expect("Missing syntax node for implicit @children insertion point");
+    if !inlined_insertion_points.contains_key("_children")
+        && let Some(builtin) = inlined_component.root_element.borrow().builtin_type()
+        && !builtin.is_non_item_type
+        && !builtin.disallow_global_types_as_child_elements
+    {
+        let cip_node = inlined_component
+            .node
+            .as_ref()
+            .map(|n| n.clone().into())
+            .or_else(|| {
+                inlined_component
+                    .root_element
+                    .borrow()
+                    .debug
+                    .first()
+                    .map(|debug| debug.node.clone().into())
+            })
+            .or_else(|| elem_mut.debug.first().map(|debug| debug.node.clone().into()))
+            .or_else(|| root_component.node.as_ref().map(|n| n.clone().into()))
+            .expect("Missing syntax node for implicit @children insertion point");
 
-                inlined_insertion_points.insert(
-                    "_children".into(),
-                    ChildrenInsertionPoint {
-                        parent: inlined_component.root_element.clone(),
-                        insertion_index: inlined_component.root_element.borrow().children.len(),
-                        node: cip_node,
-                    },
-                );
-            }
-        }
+        inlined_insertion_points.insert(
+            "_children".into(),
+            ChildrenInsertionPoint {
+                parent: inlined_component.root_element.clone(),
+                insertion_index: inlined_component.root_element.borrow().children.len(),
+                node: cip_node,
+            },
+        );
     }
 
     // Group instance children by slot target (named slot or default _children).

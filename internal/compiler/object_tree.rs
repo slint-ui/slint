@@ -1915,7 +1915,7 @@ impl Element {
             }
 
             let target_node = se.child_node(SyntaxKind::DeclaredIdentifier).unwrap();
-            let target = parser::identifier_text(&target_node.clone().into()).unwrap_or_default();
+            let target = parser::identifier_text(&target_node.clone()).unwrap_or_default();
 
             if target == "children" || target == "_children" {
                 diag.push_error(
@@ -2095,7 +2095,7 @@ impl Element {
                         ChildrenInsertionPoint {
                             parent: r.clone(),
                             insertion_index: r.borrow().children.len(),
-                            node: se.into(),
+                            node: se,
                         },
                     );
                 }
@@ -2114,7 +2114,7 @@ impl Element {
                     continue;
                 }
                 let name = parser::identifier_text(
-                    &se.child_node(SyntaxKind::DeclaredIdentifier).unwrap().into(),
+                    &se.child_node(SyntaxKind::DeclaredIdentifier).unwrap(),
                 )
                 .unwrap_or_default();
                 if name == "children" || name == "_children" {
@@ -2150,7 +2150,7 @@ impl Element {
                         ChildrenInsertionPoint {
                             parent: r.clone(),
                             insertion_index: r.borrow().children.len(),
-                            node: se.into(),
+                            node: se,
                         },
                     );
                 }
@@ -2160,7 +2160,7 @@ impl Element {
                     continue;
                 }
                 let name = parser::identifier_text(
-                    &se.child_node(SyntaxKind::DeclaredIdentifier).unwrap().into(),
+                    &se.child_node(SyntaxKind::DeclaredIdentifier).unwrap(),
                 )
                 .unwrap_or_default();
                 if name == "children" || name == "_children" {
@@ -2198,7 +2198,7 @@ impl Element {
                     ElementType::Component(_) => {}
                     _ => {
                         diag.push_error(
-                            format!("Slot assignments can only be used on components"),
+                            "Slot assignments can only be used on components".to_string(),
                             &se,
                         );
                     }

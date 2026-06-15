@@ -735,14 +735,12 @@ impl<'a> DefaultParser<'a> {
                 SyntaxKind::LBrace => depth += 1,
                 SyntaxKind::RBrace => depth -= 1,
                 SyntaxKind::Identifier if depth == 1 && self.tokens[idx].as_str() == "slot" => {
-                    if let Some(name_idx) = self.next_non_trivia_token(idx + 1) {
-                        if self.tokens[name_idx].kind == SyntaxKind::Identifier {
-                            if let Some(semi_idx) = self.next_non_trivia_token(name_idx + 1) {
-                                if self.tokens[semi_idx].kind == SyntaxKind::Semicolon {
-                                    slots.insert(self.tokens[name_idx].text.clone());
-                                }
-                            }
-                        }
+                    if let Some(name_idx) = self.next_non_trivia_token(idx + 1)
+                        && self.tokens[name_idx].kind == SyntaxKind::Identifier
+                        && let Some(semi_idx) = self.next_non_trivia_token(name_idx + 1)
+                        && self.tokens[semi_idx].kind == SyntaxKind::Semicolon
+                    {
+                        slots.insert(self.tokens[name_idx].text.clone());
                     }
                 }
                 _ => {}
