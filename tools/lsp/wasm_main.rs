@@ -15,7 +15,7 @@ use common::LspToPreviews;
 use common::{DocumentCache, Result};
 use i_slint_live_preview::{
     file_watcher::FileChangeKind,
-    protocol::{LspToPreviewMessage, PreviewToLspMessage, PreviewUserSettings, VersionedUrl},
+    protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl},
 };
 use js_sys::Function;
 pub use language::{Context, RequestHandler};
@@ -290,7 +290,6 @@ pub fn create(
         ctx: ReentryGuard::new(Context {
             document_cache,
             preview_config: Default::default(),
-            preview_user_settings: PreviewUserSettings::default(),
             init_param,
             server_notifier,
             to_show: Default::default(),
@@ -370,11 +369,11 @@ impl SlintServer {
                     .set_local_target(target)
                     .map_err(|err| js_sys::Error::new(&format!("{err}")))?;
             }
-            M::RequestState { files } => {
-                crate::language::send_requested_state_to_preview(&ctx, &files);
+            M::RequestState { files, settings } => {
+                crate::language::send_requested_state_to_preview(&ctx, &files, &settings);
             }
-            M::UpdateUserSettings { settings } => {
-                crate::language::update_preview_user_settings(&mut ctx, settings);
+            M::UpdateUserSettings { name, contents } => {
+                crate::language::store_user_settings(&name, &contents);
             }
             M::SendWorkspaceEdit { label, edit } => {
                 forward_workspace_edit(ctx.server_notifier.clone(), label, Ok(edit));

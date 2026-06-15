@@ -21,8 +21,7 @@ mod preview;
     not(target_arch = "wasm32"),
     any(feature = "preview-external", feature = "preview-engine")
 ))]
-#[path = "preview/user_settings.rs"]
-mod user_settings;
+mod settings_store;
 pub mod util;
 
 use common::Result;
@@ -51,7 +50,7 @@ use std::time::Duration;
 use crate::common::{LspToPreviews, document_cache::CompilerConfiguration};
 use i_slint_live_preview::{
     file_watcher::{self, FileChangeKind, FileWatcher},
-    protocol::{LspToPreviewMessage, PreviewToLspMessage, PreviewUserSettings, VersionedUrl},
+    protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl},
 };
 
 #[cfg(not(any(
@@ -536,7 +535,6 @@ async fn run_main_loop(
     let mut ctx = Context {
         document_cache: crate::common::DocumentCache::new(compiler_config),
         preview_config: Default::default(),
-        preview_user_settings: PreviewUserSettings::default(),
         server_notifier,
         init_param,
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
@@ -844,12 +842,12 @@ async fn handle_preview_to_lsp_message(
             tracing::debug!("Preview type changed: {target:?}");
             ctx.to_preview.set_local_target(target)?;
         }
-        M::RequestState { files } => {
+        M::RequestState { files, settings } => {
             tracing::debug!("Preview requested state");
-            crate::language::send_requested_state_to_preview(ctx, &files);
+            crate::language::send_requested_state_to_preview(ctx, &files, &settings);
         }
-        M::UpdateUserSettings { settings } => {
-            crate::language::update_preview_user_settings(ctx, settings);
+        M::UpdateUserSettings { name, contents } => {
+            crate::language::store_user_settings(&name, &contents);
         }
         M::SendWorkspaceEdit { label, edit } => {
             let sn = ctx.server_notifier.clone();
@@ -877,8 +875,10 @@ async fn handle_preview_to_lsp_message(
                 let future = remote.connect(addresses.clone(), port);
                 crate::common::spawn_local(async move {
                     if future.await.is_ok() {
-                        let _ = preview_to_lsp_sender
-                            .send(PreviewToLspMessage::RequestState { files: Vec::new() });
+                        let _ = preview_to_lsp_sender.send(PreviewToLspMessage::RequestState {
+                            files: Vec::new(),
+                            settings: Vec::new(),
+                        });
                     }
                 });
             }

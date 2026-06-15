@@ -289,10 +289,6 @@ async fn lsp_main(
     let mut ctx = language::Context {
         document_cache: common::DocumentCache::new(compiler_config),
         preview_config: Default::default(),
-        #[cfg(feature = "preview-engine")]
-        preview_user_settings: crate::user_settings::load_preview_user_settings(),
-        #[cfg(not(feature = "preview-engine"))]
-        preview_user_settings: i_slint_live_preview::protocol::PreviewUserSettings::default(),
         server_notifier: notifier,
         init_param: Default::default(),
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
@@ -404,12 +400,12 @@ fn sync_file_watcher_if_needed(
 fn handle_preview_message(msg: PreviewToLspMessage, ctx: &mut language::Context) {
     use PreviewToLspMessage::*;
     match &msg {
-        RequestState { files } => {
+        RequestState { files, settings } => {
             tracing::debug!("Preview requested state");
-            language::send_requested_state_to_preview(ctx, files);
+            language::send_requested_state_to_preview(ctx, files, settings);
         }
-        UpdateUserSettings { settings } => {
-            language::update_preview_user_settings(ctx, settings.clone());
+        UpdateUserSettings { name, contents } => {
+            language::store_user_settings(name, contents);
         }
         SendShowMessage { message } => {
             match message.typ {

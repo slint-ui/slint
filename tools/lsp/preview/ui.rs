@@ -6,9 +6,9 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
+use super::user_settings::PreviewUserSettings;
 use i_slint_compiler::parser::TextRange;
 use i_slint_compiler::{expression_tree, langtype};
-use i_slint_live_preview::protocol::PreviewUserSettings;
 
 use i_slint_core::DataTransfer;
 use itertools::Itertools;
@@ -1627,8 +1627,8 @@ mod tests {
     fn preview_user_settings_from_values_maps_all_toggles() {
         assert_eq!(
             super::preview_user_settings_from_values(true, false, true, false, true, false),
-            i_slint_live_preview::protocol::PreviewUserSettings {
-                version: i_slint_live_preview::protocol::PreviewUserSettings::CURRENT_VERSION,
+            super::PreviewUserSettings {
+                version: super::PreviewUserSettings::CURRENT_VERSION,
                 always_on_top: true,
                 show_library: false,
                 show_properties: true,

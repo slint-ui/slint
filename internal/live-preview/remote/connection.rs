@@ -12,8 +12,8 @@ use std::{
 use crate::REBUILD_DEBOUNCE;
 use crate::protocol::{
     LspToPreviewMessage, PROTOCOL_SUBPROTOCOL, PreviewComponent, PreviewConfig,
-    PreviewToLspMessage, PreviewUserSettings, SLINT_PROTOCOLS_HEADER, SLINT_VERSION,
-    SLINT_VERSION_HEADER, SourceFileVersion,
+    PreviewToLspMessage, SLINT_PROTOCOLS_HEADER, SLINT_VERSION, SLINT_VERSION_HEADER,
+    SourceFileVersion,
 };
 #[cfg(not(target_vendor = "apple"))]
 use crate::protocol::{TXT_PROTOCOLS_KEY, TXT_SLINT_VERSION_KEY};
@@ -112,7 +112,8 @@ pub enum ConnectionMessage {
         config: PreviewConfig,
     },
     SetUserSettings {
-        settings: PreviewUserSettings,
+        name: String,
+        contents: String,
     },
     ShowPreview {
         preview_component: PreviewComponent,
@@ -423,9 +424,10 @@ impl Connection {
                                                 config,
                                             });
                                         }
-                                        LspToPreviewMessage::SetUserSettings { settings } => {
+                                        LspToPreviewMessage::SetUserSettings { name, contents } => {
                                             message_handler(ConnectionMessage::SetUserSettings {
-                                                settings,
+                                                name,
+                                                contents,
                                             });
                                         }
                                         LspToPreviewMessage::ShowPreview(preview_component) => {
@@ -521,8 +523,10 @@ impl Connection {
             }
         }
         if request_file
-            && let Err(err) =
-                self.send(PreviewToLspMessage::RequestState { files: vec![url.clone()] })
+            && let Err(err) = self.send(PreviewToLspMessage::RequestState {
+                files: vec![url.clone()],
+                settings: vec![],
+            })
         {
             // The Loading entry we just inserted will never be resolved by the
             // websocket task — remove it so the senders inside (including ours)
