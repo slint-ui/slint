@@ -7,6 +7,8 @@
 #include "catch2/catch_all.hpp"
 
 #include <slint.h>
+#include <condition_variable>
+#include <mutex>
 #include <thread>
 
 TEST_CASE("C++ Singleshot Timers")
@@ -152,12 +154,29 @@ TEST_CASE("Quit from event")
 TEST_CASE("Event from thread")
 {
     std::atomic<int> called = 0;
+    std::mutex mutex;
+    std::condition_variable cond;
+    bool loop_running = false;
+
     auto t = std::thread([&] {
+        // Wait until the event loop is running, otherwise the post races the
+        // loop's lazy setup and could hit a not-yet-installed proxy.
+        std::unique_lock lock(mutex);
+        cond.wait(lock, [&] { return loop_running; });
+        lock.unlock();
         called += 10;
         slint::invoke_from_event_loop([&] {
             called += 100;
             slint::quit_event_loop();
         });
+    });
+
+    // The timer fires from within the running loop, where the proxy is ready,
+    // so use it to release the worker.
+    slint::Timer::single_shot(std::chrono::milliseconds(0), [&] {
+        std::unique_lock lock(mutex);
+        loop_running = true;
+        cond.notify_one();
     });
 
     slint::run_event_loop();
@@ -168,7 +187,16 @@ TEST_CASE("Event from thread")
 TEST_CASE("Blocking Event from thread")
 {
     std::atomic<int> called = 0;
+    std::mutex mutex;
+    std::condition_variable cond;
+    bool loop_running = false;
+
     auto t = std::thread([&] {
+        // Wait until the event loop is running, otherwise the post races the
+        // loop's lazy setup and could hit a not-yet-installed proxy.
+        std::unique_lock lock(mutex);
+        cond.wait(lock, [&] { return loop_running; });
+        lock.unlock();
         // test returning a, unique_ptr because it is movable-only
         std::unique_ptr foo =
                 slint::blocking_invoke_from_event_loop([&] { return std::make_unique<int>(42); });
@@ -179,6 +207,14 @@ TEST_CASE("Blocking Event from thread")
             xxx = 888999;
         });
         REQUIRE(xxx == 888999);
+    });
+
+    // The timer fires from within the running loop, where the proxy is ready,
+    // so use it to release the worker.
+    slint::Timer::single_shot(std::chrono::milliseconds(0), [&] {
+        std::unique_lock lock(mutex);
+        loop_running = true;
+        cond.notify_one();
     });
 
     slint::run_event_loop();
