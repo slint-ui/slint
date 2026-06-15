@@ -1,13 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { CanvasOrientation, OrientationIconButton, StudioTheme } from "common.slint";
+import {
+    CanvasOrientation, EditorMetrics, OrientationIconButton, StudioTheme,
+} from "common.slint";
 
 export component CanvasToolbar inherits Rectangle {
     in property <CanvasOrientation> orientation;
     callback orientation-selected(CanvasOrientation);
 
-    height: 42px;
+    height: EditorMetrics.canvas-toolbar-height;
     background: StudioTheme.panel-bg;
 
     Rectangle {
@@ -17,7 +19,7 @@ export component CanvasToolbar inherits Rectangle {
     }
 
     HorizontalLayout {
-        Rectangle { width: 286px; }
+        Rectangle { width: EditorMetrics.left-pane-width; }
 
         Rectangle {
             horizontal-stretch: 1;
@@ -44,6 +46,6 @@ export component CanvasToolbar inherits Rectangle {
             }
         }
 
-        Rectangle { width: 306px; }
+        Rectangle { width: EditorMetrics.inspector-pane-width; }
     }
 }

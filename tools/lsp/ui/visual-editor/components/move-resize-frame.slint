@@ -1,13 +1,37 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { StudioTheme } from "common.slint";
+import { EditorMetrics, StudioTheme } from "common.slint";
 
 export component MoveResizeFrame inherits Rectangle {
     in property <bool> active;
     callback selected();
     callback moved-to(length, length);
     callback resized-to(int, length, length, length, length);
+
+    public pure function corner-on-left(corner: int) -> bool {
+        return corner == 0 || corner == 3;
+    }
+
+    public pure function corner-on-top(corner: int) -> bool {
+        return corner == 0 || corner == 1;
+    }
+
+    pure function corner-resize-cursor-is-forward-diagonal(corner: int) -> bool {
+        return corner == 0 || corner == 2;
+    }
+
+    pure function resize-handle-x(corner: int) -> length {
+        return root.corner-on-left(corner)
+            ? -EditorMetrics.selection-handle-size / 2
+            : root.width - EditorMetrics.selection-handle-size / 2;
+    }
+
+    pure function resize-handle-y(corner: int) -> length {
+        return root.corner-on-top(corner)
+            ? -EditorMetrics.selection-handle-size / 2
+            : root.height - EditorMetrics.selection-handle-size / 2;
+    }
 
     TouchArea {
         mouse-cursor: move;
@@ -36,21 +60,17 @@ export component MoveResizeFrame inherits Rectangle {
         border-color: StudioTheme.accent-strong;
 
         for corner in 4: Rectangle {
-            property <bool> on-left: corner == 0 || corner == 3;
-            property <bool> on-top: corner == 0 || corner == 1;
-            property <bool> diagonal-down: corner == 0 || corner == 2;
-
-            x: on-left ? -6px : parent.width - 6px;
-            y: on-top ? -6px : parent.height - 6px;
-            width: 12px;
-            height: 12px;
+            x: root.resize-handle-x(corner);
+            y: root.resize-handle-y(corner);
+            width: EditorMetrics.selection-handle-size;
+            height: EditorMetrics.selection-handle-size;
             border-radius: 2px;
             background: white;
             border-width: 2px;
             border-color: StudioTheme.accent-strong;
 
             TouchArea {
-                mouse-cursor: parent.diagonal-down ? nwse-resize : nesw-resize;
+                mouse-cursor: root.corner-resize-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize;
                 private property <length> start-x;
                 private property <length> start-y;
                 private property <length> start-width;
@@ -78,10 +98,10 @@ export component MoveResizeFrame inherits Rectangle {
                     let pointer-y = self.absolute-position.y + self.mouse-y;
                     let delta-x = pointer-x - self.start-pointer-x;
                     let delta-y = pointer-y - self.start-pointer-y;
-                    let target-x = parent.on-left ? self.start-x + delta-x : self.start-x;
-                    let target-y = parent.on-top ? self.start-y + delta-y : self.start-y;
-                    let target-width = parent.on-left ? self.start-width - delta-x : self.start-width + delta-x;
-                    let target-height = parent.on-top ? self.start-height - delta-y : self.start-height + delta-y;
+                    let target-x = root.corner-on-left(corner) ? self.start-x + delta-x : self.start-x;
+                    let target-y = root.corner-on-top(corner) ? self.start-y + delta-y : self.start-y;
+                    let target-width = root.corner-on-left(corner) ? self.start-width - delta-x : self.start-width + delta-x;
+                    let target-height = root.corner-on-top(corner) ? self.start-height - delta-y : self.start-height + delta-y;
                     root.resized-to(corner, target-x, target-y, target-width, target-height);
                 }
             }

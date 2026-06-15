@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { StudioTheme } from "common.slint";
+import { EditorMetrics, StudioTheme } from "common.slint";
 
 export component EditorTopBar inherits Rectangle {
-    height: 54px;
+    height: EditorMetrics.top-bar-height;
     background: StudioTheme.panel-bg;
 
     Rectangle {
