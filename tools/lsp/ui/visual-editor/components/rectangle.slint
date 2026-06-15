@@ -38,15 +38,13 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
     }
 
     Rectangle {
-        width: root.width;
-        height: root.height;
         border-top-left-radius: root.top-left-radius;
         border-top-right-radius: root.top-right-radius;
         border-bottom-right-radius: root.bottom-right-radius;
         border-bottom-left-radius: root.bottom-left-radius;
-        background: #fde68a;
+        background: StudioTheme.panel-bg;
         border-width: root.active ? 2px : 1px;
-        border-color: root.active ? StudioTheme.accent-strong : #f59e0b;
+        border-color: root.active ? StudioTheme.accent-strong : StudioTheme.border;
     }
 
     for corner in [

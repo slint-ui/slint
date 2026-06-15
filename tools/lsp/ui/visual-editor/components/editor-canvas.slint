@@ -4,7 +4,7 @@
 import { Api } from "../../api.slint";
 import {
     CanvasCorner, CanvasOrientation, CanvasSelectionKind, EditorMetrics, PrototypeComponentKind,
-    StudioTheme,
+    ImagePlaceholder, StudioTheme,
 } from "common.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
 import { RectangleOnCanvas } from "rectangle.slint";
@@ -58,9 +58,6 @@ component PhoneChrome inherits Rectangle {
 }
 
 component CanvasDropTarget inherits Rectangle {
-    in property <length> pointer-x;
-    in property <length> pointer-y;
-
     Rectangle {
         x: 24px;
         y: 70px;
@@ -70,17 +67,6 @@ component CanvasDropTarget inherits Rectangle {
         border-width: 2px;
         border-color: StudioTheme.accent-strong;
         background: StudioTheme.accent.with-alpha(0.08);
-    }
-
-    Rectangle {
-        x: root.pointer-x - self.width / 2;
-        y: root.pointer-y - self.height / 2;
-        width: 36px;
-        height: 36px;
-        border-radius: self.width / 2;
-        background: StudioTheme.accent.with-alpha(0.16);
-        border-width: 2px;
-        border-color: StudioTheme.accent-strong;
     }
 }
 
@@ -254,19 +240,13 @@ export component EditorCanvas inherits Rectangle {
                 root.resize-image-to(corner, x, y, width, height);
             }
 
-            Rectangle {
+            ImagePlaceholder {
                 width: parent.width;
                 height: parent.height;
-                border-radius: 20px;
-                background: @linear-gradient(135deg, #bae6fd, #bbf7d0);
-                border-width: root.selection == CanvasSelectionKind.image ? 2px : 1px;
-                border-color: root.selection == CanvasSelectionKind.image ? StudioTheme.accent-strong : #67e8f9;
+                active: root.selection == CanvasSelectionKind.image;
             }
         }
 
-        if root.canvas-drop-hover: CanvasDropTarget {
-            pointer-x: root.canvas-drop-x;
-            pointer-y: root.canvas-drop-y;
-        }
+        if root.canvas-drop-hover: CanvasDropTarget { }
     }
 }

@@ -73,6 +73,41 @@ export component EdgeDivider inherits Rectangle {
     background: StudioTheme.border;
 }
 
+export component ImagePlaceholder inherits Rectangle {
+    in property <bool> active: false;
+
+    border-radius: 16px;
+    background: StudioTheme.panel-subtle;
+    border-width: root.active ? 2px : 1px;
+    border-color: root.active ? StudioTheme.accent-strong : StudioTheme.border;
+
+    Rectangle {
+        width: 48px;
+        height: 36px;
+        border-radius: 6px;
+        border-width: 2px;
+        border-color: StudioTheme.muted.with-alpha(0.65);
+
+        Rectangle {
+            x: 30px;
+            y: 8px;
+            width: 7px;
+            height: 7px;
+            border-radius: 3.5px;
+            background: StudioTheme.muted.with-alpha(0.7);
+        }
+
+        Rectangle {
+            x: 9px;
+            y: 22px;
+            width: 30px;
+            height: 5px;
+            border-radius: 2.5px;
+            background: StudioTheme.muted.with-alpha(0.55);
+        }
+    }
+}
+
 export component BodyLabel inherits Text {
     color: StudioTheme.text;
     font-size: 13px;
@@ -353,6 +388,10 @@ export global AppState {
     in-out property <PrototypeComponentKind> dragging-kind: PrototypeComponentKind.none;
     in-out property <length> drag-x: 0px;
     in-out property <length> drag-y: 0px;
+    in-out property <length> drag-preview-x: 0px;
+    in-out property <length> drag-preview-y: 0px;
+    in-out property <length> drag-preview-width: 96px;
+    in-out property <length> drag-preview-height: 48px;
 }
 
 export component PropertyField inherits Rectangle {
