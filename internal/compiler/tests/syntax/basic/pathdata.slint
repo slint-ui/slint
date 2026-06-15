@@ -1,0 +1,20 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export TestCase := Rectangle {
+//              ><warning{':=' to declare a component is deprecated. The new syntax declare components with 'component MyComponent {'. Read the documentation for more info}
+    p := Path {
+        commands: @pathdata("M 14 12 L 18 16 L 22 12 M 18 16 L 18 7 M 2 16 L 6.039 6.31 C 6.116658 6.1237254 6.298686 6.0024 6.5005 6.0024 C 6.702314 6.0024 6.884342 6.1237254 6.962 6.31 L 11 16 M 3.304 13 L 9.696 13");
+    }
+
+    property <pathdata> pd1: p.commands;
+
+    Path {
+        commands: pd1;
+    }
+
+    property <string> pd2str: pd1;
+//                            >  <error{Cannot convert pathdata to string}
+
+    property <pathdata> pd2: pd1;
+}
