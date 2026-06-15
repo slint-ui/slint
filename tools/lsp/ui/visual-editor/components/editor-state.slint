@@ -60,34 +60,34 @@ export component EditorState inherits Rectangle {
     function place-component-at(kind: PrototypeComponentKind, drop-x: length, drop-y: length) {
         root.place-component(kind);
         if kind == PrototypeComponentKind.rectangle {
-            root.placed-x = (drop-x - root.rectangle-width / 2).clamp(24px, root.phone-width() - root.rectangle-width - 24px);
-            root.placed-y = (drop-y - root.rectangle-height / 2).clamp(72px, root.phone-height() - root.rectangle-height - 24px);
+            root.placed-x = (drop-x - root.rectangle-width / 2).clamp(0px, root.phone-width() - root.rectangle-width);
+            root.placed-y = (drop-y - root.rectangle-height / 2).clamp(0px, root.phone-height() - root.rectangle-height);
         } else if kind == PrototypeComponentKind.text {
-            root.placed-x = (drop-x - root.text-width / 2).clamp(24px, root.phone-width() - root.text-width - 24px);
-            root.placed-y = (drop-y - root.text-height / 2).clamp(72px, root.phone-height() - root.text-height - 24px);
+            root.placed-x = (drop-x - root.text-width / 2).clamp(0px, root.phone-width() - root.text-width);
+            root.placed-y = (drop-y - root.text-height / 2).clamp(0px, root.phone-height() - root.text-height);
         } else if kind == PrototypeComponentKind.image {
-            root.placed-x = (drop-x - root.image-width / 2).clamp(24px, root.phone-width() - root.image-width - 24px);
-            root.placed-y = (drop-y - root.image-height / 2).clamp(72px, root.phone-height() - root.image-height - 24px);
+            root.placed-x = (drop-x - root.image-width / 2).clamp(0px, root.phone-width() - root.image-width);
+            root.placed-y = (drop-y - root.image-height / 2).clamp(0px, root.phone-height() - root.image-height);
         }
     }
 
     function clamp-elements-to-phone() {
         if root.placed-kind == PrototypeComponentKind.rectangle {
-            root.rectangle-width = root.rectangle-width.clamp(80px, root.phone-width() - 32px);
-            root.rectangle-height = root.rectangle-height.clamp(44px, root.phone-height() - 78px);
-            root.placed-x = root.placed-x.clamp(16px, root.phone-width() - root.rectangle-width - 16px);
-            root.placed-y = root.placed-y.clamp(54px, root.phone-height() - root.rectangle-height - 24px);
+            root.rectangle-width = root.rectangle-width.clamp(80px, root.phone-width());
+            root.rectangle-height = root.rectangle-height.clamp(44px, root.phone-height());
+            root.placed-x = root.placed-x.clamp(0px, root.phone-width() - root.rectangle-width);
+            root.placed-y = root.placed-y.clamp(0px, root.phone-height() - root.rectangle-height);
             root.clamp-rectangle-radii();
         } else if root.placed-kind == PrototypeComponentKind.text {
-            root.text-width = root.text-width.clamp(80px, root.phone-width() - 32px);
-            root.text-height = root.text-height.clamp(32px, root.phone-height() - 78px);
-            root.placed-x = root.placed-x.clamp(16px, root.phone-width() - root.text-width - 16px);
-            root.placed-y = root.placed-y.clamp(54px, root.phone-height() - root.text-height - 24px);
+            root.text-width = root.text-width.clamp(80px, root.phone-width());
+            root.text-height = root.text-height.clamp(32px, root.phone-height());
+            root.placed-x = root.placed-x.clamp(0px, root.phone-width() - root.text-width);
+            root.placed-y = root.placed-y.clamp(0px, root.phone-height() - root.text-height);
         } else if root.placed-kind == PrototypeComponentKind.image {
-            root.image-width = root.image-width.clamp(80px, root.phone-width() - 32px);
-            root.image-height = root.image-height.clamp(44px, root.phone-height() - 78px);
-            root.placed-x = root.placed-x.clamp(16px, root.phone-width() - root.image-width - 16px);
-            root.placed-y = root.placed-y.clamp(54px, root.phone-height() - root.image-height - 24px);
+            root.image-width = root.image-width.clamp(80px, root.phone-width());
+            root.image-height = root.image-height.clamp(44px, root.phone-height());
+            root.placed-x = root.placed-x.clamp(0px, root.phone-width() - root.image-width);
+            root.placed-y = root.placed-y.clamp(0px, root.phone-height() - root.image-height);
         }
     }
 
@@ -160,25 +160,25 @@ export component EditorState inherits Rectangle {
 
     public function move-rectangle-to(x: length, y: length) {
         root.selection = CanvasSelectionKind.rectangle;
-        root.placed-x = x.clamp(16px, root.phone-width() - root.rectangle-width - 16px);
-        root.placed-y = y.clamp(54px, root.phone-height() - root.rectangle-height - 24px);
+        root.placed-x = x.clamp(0px, root.phone-width() - root.rectangle-width);
+        root.placed-y = y.clamp(0px, root.phone-height() - root.rectangle-height);
     }
 
     public function resize-rectangle-to(corner: int, x: length, y: length, width: length, height: length) {
         root.selection = CanvasSelectionKind.rectangle;
         if corner == 0 || corner == 3 {
-            root.rectangle-width = width.clamp(80px, x + width - 16px);
-            root.placed-x = (x + width - root.rectangle-width).clamp(16px, root.phone-width() - root.rectangle-width - 16px);
+            root.rectangle-width = width.clamp(80px, x + width);
+            root.placed-x = (x + width - root.rectangle-width).clamp(0px, root.phone-width() - root.rectangle-width);
         } else {
-            root.placed-x = x.clamp(16px, root.phone-width() - 80px - 16px);
-            root.rectangle-width = width.clamp(80px, root.phone-width() - root.placed-x - 16px);
+            root.placed-x = x.clamp(0px, root.phone-width() - 80px);
+            root.rectangle-width = width.clamp(80px, root.phone-width() - root.placed-x);
         }
         if corner == 0 || corner == 1 {
-            root.rectangle-height = height.clamp(44px, y + height - 54px);
-            root.placed-y = (y + height - root.rectangle-height).clamp(54px, root.phone-height() - root.rectangle-height - 24px);
+            root.rectangle-height = height.clamp(44px, y + height);
+            root.placed-y = (y + height - root.rectangle-height).clamp(0px, root.phone-height() - root.rectangle-height);
         } else {
-            root.placed-y = y.clamp(54px, root.phone-height() - 44px - 24px);
-            root.rectangle-height = height.clamp(44px, root.phone-height() - root.placed-y - 24px);
+            root.placed-y = y.clamp(0px, root.phone-height() - 44px);
+            root.rectangle-height = height.clamp(44px, root.phone-height() - root.placed-y);
         }
         root.clamp-rectangle-radii();
     }
@@ -226,49 +226,49 @@ export component EditorState inherits Rectangle {
 
     public function move-text-to(x: length, y: length) {
         root.selection = CanvasSelectionKind.text;
-        root.placed-x = x.clamp(16px, root.phone-width() - root.text-width - 16px);
-        root.placed-y = y.clamp(54px, root.phone-height() - root.text-height - 24px);
+        root.placed-x = x.clamp(0px, root.phone-width() - root.text-width);
+        root.placed-y = y.clamp(0px, root.phone-height() - root.text-height);
     }
 
     public function resize-text-to(corner: int, x: length, y: length, width: length, height: length) {
         root.selection = CanvasSelectionKind.text;
         if corner == 0 || corner == 3 {
-            root.text-width = width.clamp(80px, x + width - 16px);
-            root.placed-x = (x + width - root.text-width).clamp(16px, root.phone-width() - root.text-width - 16px);
+            root.text-width = width.clamp(80px, x + width);
+            root.placed-x = (x + width - root.text-width).clamp(0px, root.phone-width() - root.text-width);
         } else {
-            root.placed-x = x.clamp(16px, root.phone-width() - 80px - 16px);
-            root.text-width = width.clamp(80px, root.phone-width() - root.placed-x - 16px);
+            root.placed-x = x.clamp(0px, root.phone-width() - 80px);
+            root.text-width = width.clamp(80px, root.phone-width() - root.placed-x);
         }
         if corner == 0 || corner == 1 {
-            root.text-height = height.clamp(32px, y + height - 54px);
-            root.placed-y = (y + height - root.text-height).clamp(54px, root.phone-height() - root.text-height - 24px);
+            root.text-height = height.clamp(32px, y + height);
+            root.placed-y = (y + height - root.text-height).clamp(0px, root.phone-height() - root.text-height);
         } else {
-            root.placed-y = y.clamp(54px, root.phone-height() - 32px - 24px);
-            root.text-height = height.clamp(32px, root.phone-height() - root.placed-y - 24px);
+            root.placed-y = y.clamp(0px, root.phone-height() - 32px);
+            root.text-height = height.clamp(32px, root.phone-height() - root.placed-y);
         }
     }
 
     public function move-image-to(x: length, y: length) {
         root.selection = CanvasSelectionKind.image;
-        root.placed-x = x.clamp(16px, root.phone-width() - root.image-width - 16px);
-        root.placed-y = y.clamp(54px, root.phone-height() - root.image-height - 24px);
+        root.placed-x = x.clamp(0px, root.phone-width() - root.image-width);
+        root.placed-y = y.clamp(0px, root.phone-height() - root.image-height);
     }
 
     public function resize-image-to(corner: int, x: length, y: length, width: length, height: length) {
         root.selection = CanvasSelectionKind.image;
         if corner == 0 || corner == 3 {
-            root.image-width = width.clamp(80px, x + width - 16px);
-            root.placed-x = (x + width - root.image-width).clamp(16px, root.phone-width() - root.image-width - 16px);
+            root.image-width = width.clamp(80px, x + width);
+            root.placed-x = (x + width - root.image-width).clamp(0px, root.phone-width() - root.image-width);
         } else {
-            root.placed-x = x.clamp(16px, root.phone-width() - 80px - 16px);
-            root.image-width = width.clamp(80px, root.phone-width() - root.placed-x - 16px);
+            root.placed-x = x.clamp(0px, root.phone-width() - 80px);
+            root.image-width = width.clamp(80px, root.phone-width() - root.placed-x);
         }
         if corner == 0 || corner == 1 {
-            root.image-height = height.clamp(44px, y + height - 54px);
-            root.placed-y = (y + height - root.image-height).clamp(54px, root.phone-height() - root.image-height - 24px);
+            root.image-height = height.clamp(44px, y + height);
+            root.placed-y = (y + height - root.image-height).clamp(0px, root.phone-height() - root.image-height);
         } else {
-            root.placed-y = y.clamp(54px, root.phone-height() - 44px - 24px);
-            root.image-height = height.clamp(44px, root.phone-height() - root.placed-y - 24px);
+            root.placed-y = y.clamp(0px, root.phone-height() - 44px);
+            root.image-height = height.clamp(44px, root.phone-height() - root.placed-y);
         }
     }
 }
