@@ -44,31 +44,31 @@ export component EditorState inherits Rectangle {
         root.placed-kind = kind;
         if kind == PrototypeComponentKind.rectangle {
             root.selection = CanvasSelectionKind.rectangle;
-            root.rectangle-width = 240px;
-            root.rectangle-height = 96px;
+            root.rectangle-width = root.default-component-width(kind);
+            root.rectangle-height = root.default-component-height(kind);
             root.set-all-rectangle-radii(12px);
         } else if kind == PrototypeComponentKind.text {
             root.selection = CanvasSelectionKind.text;
-            root.text-width = 280px;
-            root.text-height = 32px;
+            root.text-width = root.default-component-width(kind);
+            root.text-height = root.default-component-height(kind);
         } else if kind == PrototypeComponentKind.image {
             root.selection = CanvasSelectionKind.image;
-            root.image-width = 282px;
-            root.image-height = 168px;
+            root.image-width = root.default-component-width(kind);
+            root.image-height = root.default-component-height(kind);
         }
     }
 
     function place-component-at(kind: PrototypeComponentKind, drop-x: length, drop-y: length) {
         root.place-component(kind);
         if kind == PrototypeComponentKind.rectangle {
-            root.placed-x = (drop-x - root.rectangle-width / 2).clamp(0px, root.phone-width() - root.rectangle-width);
-            root.placed-y = (drop-y - root.rectangle-height / 2).clamp(0px, root.phone-height() - root.rectangle-height);
+            root.placed-x = drop-x.clamp(0px, root.phone-width() - root.rectangle-width);
+            root.placed-y = drop-y.clamp(0px, root.phone-height() - root.rectangle-height);
         } else if kind == PrototypeComponentKind.text {
-            root.placed-x = (drop-x - root.text-width / 2).clamp(0px, root.phone-width() - root.text-width);
-            root.placed-y = (drop-y - root.text-height / 2).clamp(0px, root.phone-height() - root.text-height);
+            root.placed-x = drop-x.clamp(0px, root.phone-width() - root.text-width);
+            root.placed-y = drop-y.clamp(0px, root.phone-height() - root.text-height);
         } else if kind == PrototypeComponentKind.image {
-            root.placed-x = (drop-x - root.image-width / 2).clamp(0px, root.phone-width() - root.image-width);
-            root.placed-y = (drop-y - root.image-height / 2).clamp(0px, root.phone-height() - root.image-height);
+            root.placed-x = drop-x.clamp(0px, root.phone-width() - root.image-width);
+            root.placed-y = drop-y.clamp(0px, root.phone-height() - root.image-height);
         }
     }
 
@@ -136,6 +136,46 @@ export component EditorState inherits Rectangle {
             && window-y <= root.phone-top() + root.phone-height();
     }
 
+    pure function default-component-width(kind: PrototypeComponentKind) -> length {
+        if kind == PrototypeComponentKind.rectangle {
+            return 160px;
+        }
+        if kind == PrototypeComponentKind.image {
+            return 160px;
+        }
+        if kind == PrototypeComponentKind.text {
+            return 220px;
+        }
+        return 96px;
+    }
+
+    pure function default-component-height(kind: PrototypeComponentKind) -> length {
+        if kind == PrototypeComponentKind.rectangle {
+            return 64px;
+        }
+        if kind == PrototypeComponentKind.image {
+            return 96px;
+        }
+        if kind == PrototypeComponentKind.text {
+            return 40px;
+        }
+        return 48px;
+    }
+
+    pure function drag-preview-pointer-gap() -> length {
+        return 12px;
+    }
+
+    pure function drag-preview-y-offset(kind: PrototypeComponentKind) -> length {
+        if kind == PrototypeComponentKind.text {
+            return 120px;
+        }
+        if kind == PrototypeComponentKind.rectangle {
+            return 96px;
+        }
+        return root.default-component-height(kind) + root.drag-preview-pointer-gap();
+    }
+
     pure function corner-on-left(corner: CanvasCorner) -> bool {
         return corner == CanvasCorner.top-left || corner == CanvasCorner.bottom-left;
     }
@@ -148,8 +188,12 @@ export component EditorState inherits Rectangle {
         AppState.dragging-kind = kind;
         AppState.drag-x = window-x;
         AppState.drag-y = window-y;
-        root.canvas-drop-x = window-x - root.phone-left();
-        root.canvas-drop-y = window-y - root.phone-top();
+        AppState.drag-preview-width = root.default-component-width(kind);
+        AppState.drag-preview-height = root.default-component-height(kind);
+        AppState.drag-preview-x = window-x - AppState.drag-preview-width - root.drag-preview-pointer-gap();
+        AppState.drag-preview-y = window-y - root.drag-preview-y-offset(kind);
+        root.canvas-drop-x = AppState.drag-preview-x - root.phone-left();
+        root.canvas-drop-y = AppState.drag-preview-y - root.phone-top();
         root.canvas-drop-hover = root.pointer-inside-phone(window-x, window-y);
     }
 

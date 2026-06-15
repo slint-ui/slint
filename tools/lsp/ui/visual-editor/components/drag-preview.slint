@@ -1,54 +1,35 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { AppState, PrototypeComponentKind, StudioTheme } from "common.slint";
+import { AppState, ImagePlaceholder, PrototypeComponentKind, StudioTheme } from "common.slint";
 
 export component DragPreview inherits Rectangle {
-    private property <length> pointer-gap: 24px;
-
     visible: AppState.dragging-kind != PrototypeComponentKind.none;
-    width: max(96px, content.preferred-width);
-    height: max(48px, content.preferred-height);
-    x: AppState.drag-x - root.width - root.pointer-gap;
-    y: AppState.drag-y - 2 * root.height - root.pointer-gap;
-    border-radius: 8px;
-    background: StudioTheme.panel-bg;
-    border-width: 1px;
-    border-color: StudioTheme.accent-strong;
+    width: AppState.drag-preview-width;
+    height: AppState.drag-preview-height;
+    x: AppState.drag-preview-x;
+    y: AppState.drag-preview-y;
+    border-radius: AppState.dragging-kind == PrototypeComponentKind.image ? 16px : 8px;
+    background: transparent;
+    border-width: 0px;
     drop-shadow-blur: 18px;
     drop-shadow-offset-y: 8px;
     drop-shadow-color: StudioTheme.dark ? #00000080 : #33415535;
 
-    content := HorizontalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
-        spacing: 8px;
-        cross-axis-alignment: center;
-
-        Rectangle {
-            width: 24px;
-            height: 24px;
-            border-radius: 5px;
-            background: AppState.dragging-kind == PrototypeComponentKind.rectangle ? #fde68a : AppState.dragging-kind == PrototypeComponentKind.text ? #fef3c7 : #dcfce7;
-            border-width: 1px;
-            border-color: AppState.dragging-kind == PrototypeComponentKind.rectangle ? #f59e0b : AppState.dragging-kind == PrototypeComponentKind.text ? #fbbf24 : #86efac;
-
-            Text {
-                text: AppState.dragging-kind == PrototypeComponentKind.rectangle ? "R" : AppState.dragging-kind == PrototypeComponentKind.text ? "T" : "IMG";
-                color: AppState.dragging-kind == PrototypeComponentKind.rectangle ? #78350f : AppState.dragging-kind == PrototypeComponentKind.text ? #92400e : #166534;
-                font-size: 10px;
-                font-weight: 900;
-                horizontal-alignment: center;
-                vertical-alignment: center;
-            }
-        }
-
-        Text {
-            text: AppState.dragging-kind == PrototypeComponentKind.rectangle ? "Rectangle" : AppState.dragging-kind == PrototypeComponentKind.text ? "Text" : "Image";
-            color: StudioTheme.text;
-            font-size: 12px;
-            font-weight: 800;
-            vertical-alignment: center;
-        }
+    if AppState.dragging-kind == PrototypeComponentKind.rectangle: Rectangle {
+        border-radius: 8px;
+        background: StudioTheme.panel-bg;
+        border-width: 1px;
+        border-color: StudioTheme.border;
     }
+
+    if AppState.dragging-kind == PrototypeComponentKind.text: Text {
+        text: "Design in Slint";
+        color: StudioTheme.phone-text;
+        font-size: 24px;
+        font-weight: 800;
+        vertical-alignment: center;
+    }
+
+    if AppState.dragging-kind == PrototypeComponentKind.image: ImagePlaceholder { }
 }
