@@ -38,6 +38,9 @@ pub use i_slint_backend_testing;
 #[cfg(feature = "slint-interpreter")]
 pub use slint_interpreter;
 
+#[cfg(feature = "live-preview")]
+pub use i_slint_live_preview;
+
 #[cfg(target_os = "android")]
 mod android {
     unsafe extern "C" {
