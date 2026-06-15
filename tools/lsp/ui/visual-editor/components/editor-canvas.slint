@@ -121,13 +121,13 @@ export component EditorCanvas inherits Rectangle {
     for row in 28: Rectangle {
         y: row * 32px;
         height: 1px;
-        background: StudioTheme.dark ? #ffffff08 : #00000008;
+        background: StudioTheme.dark ? #ffffff0a : #00000008;
     }
 
     for col in 48: Rectangle {
         x: col * 32px;
         width: 1px;
-        background: StudioTheme.dark ? #ffffff08 : #00000008;
+        background: StudioTheme.dark ? #ffffff0a : #00000008;
     }
 
     TouchArea {
@@ -145,7 +145,7 @@ export component EditorCanvas inherits Rectangle {
         width: phone.width;
         height: phone.height;
         border-radius: EditorMetrics.phone-frame-radius;
-        drop-shadow-color: StudioTheme.dark ? #00000080 : #64748b30;
+        drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b30;
         drop-shadow-blur: 30px;
         drop-shadow-offset-y: 18px;
     }

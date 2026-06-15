@@ -37,18 +37,22 @@ export enum CanvasCorner {
 
 export global StudioTheme {
     out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
-    out property <color> app-bg: dark ? #0d1117 : #f6f8fa;
-    out property <color> panel-bg: dark ? #11161d : #ffffff;
-    out property <color> panel-subtle: dark ? #161b22 : #f6f8fa;
-    out property <color> text: dark ? #f0f6fc : #1f2328;
-    out property <color> muted: dark ? #8b949e : #6e7781;
-    out property <color> border: dark ? #30363d : #d0d7de;
-    out property <color> soft-border: dark ? #21262d : #eaeef2;
-    out property <color> accent: #0078d4;
-    out property <color> accent-strong: #0a84ff;
-    out property <color> canvas: dark ? #070a0f : #eef2f7;
+    out property <color> app-bg: dark ? #2c2c2c : #f6f8fa;
+    out property <color> panel-bg: dark ? #2c2c2c : #ffffff;
+    out property <color> panel-subtle: dark ? #383838 : #f6f8fa;
+    out property <color> text: dark ? #f1f1f1 : #1f2328;
+    out property <color> muted: dark ? #b7b7b7 : #6e7781;
+    out property <color> border: dark ? #494949 : #d0d7de;
+    out property <color> soft-border: dark ? #3f3f3f : #eaeef2;
+    out property <color> accent: #0d99ff;
+    out property <color> accent-strong: #52aeff;
+    out property <color> canvas: dark ? #1f1f1f : #eef2f7;
     out property <color> phone-bg: dark ? #f7f8fb : #ffffff;
     out property <color> phone-text: #20252d;
+    out property <color> object-bg: #ffffff;
+    out property <color> object-subtle: #f6f8fa;
+    out property <color> object-border: #d0d7de;
+    out property <color> object-muted: #6e7781;
 }
 
 export global EditorMetrics {
@@ -77,16 +81,16 @@ export component ImagePlaceholder inherits Rectangle {
     in property <bool> active: false;
 
     border-radius: 16px;
-    background: StudioTheme.panel-subtle;
+    background: StudioTheme.object-subtle;
     border-width: root.active ? 2px : 1px;
-    border-color: root.active ? StudioTheme.accent-strong : StudioTheme.border;
+    border-color: root.active ? StudioTheme.accent-strong : StudioTheme.object-border;
 
     Rectangle {
         width: 48px;
         height: 36px;
         border-radius: 6px;
         border-width: 2px;
-        border-color: StudioTheme.muted.with-alpha(0.65);
+        border-color: StudioTheme.object-muted.with-alpha(0.65);
 
         Rectangle {
             x: 30px;
@@ -94,7 +98,7 @@ export component ImagePlaceholder inherits Rectangle {
             width: 7px;
             height: 7px;
             border-radius: 3.5px;
-            background: StudioTheme.muted.with-alpha(0.7);
+            background: StudioTheme.object-muted.with-alpha(0.7);
         }
 
         Rectangle {
@@ -103,7 +107,7 @@ export component ImagePlaceholder inherits Rectangle {
             width: 30px;
             height: 5px;
             border-radius: 2.5px;
-            background: StudioTheme.muted.with-alpha(0.55);
+            background: StudioTheme.object-muted.with-alpha(0.55);
         }
     }
 }
