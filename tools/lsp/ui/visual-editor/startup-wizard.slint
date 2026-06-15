@@ -11,13 +11,13 @@ export enum ProjectKind {
 
 global WizardTheme {
     out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
-    out property <color> panel-bg: dark ? #11161d : #ffffff;
-    out property <color> panel-subtle: dark ? #161b22 : #f6f8fa;
-    out property <color> text: dark ? #f0f6fc : #1f2328;
-    out property <color> muted: dark ? #8b949e : #6e7781;
-    out property <color> border: dark ? #30363d : #d0d7de;
-    out property <color> accent: #0078d4;
-    out property <color> accent-strong: #0a84ff;
+    out property <color> panel-bg: dark ? #2c2c2c : #ffffff;
+    out property <color> panel-subtle: dark ? #383838 : #f6f8fa;
+    out property <color> text: dark ? #f1f1f1 : #1f2328;
+    out property <color> muted: dark ? #b7b7b7 : #6e7781;
+    out property <color> border: dark ? #494949 : #d0d7de;
+    out property <color> accent: #0d99ff;
+    out property <color> accent-strong: #52aeff;
     out property <color> success: #2da44e;
     out property <color> attention: #bf8700;
 }
@@ -232,7 +232,7 @@ export component StartupWizard inherits Rectangle {
     in-out property <ProjectKind> selected-project: ProjectKind.mobile;
     callback opened;
 
-    background: WizardTheme.dark ? @linear-gradient(180deg, #111827, #020617) : @linear-gradient(0deg, #d7d9dd, white);
+    background: WizardTheme.dark ? @linear-gradient(180deg, #333333, #242424) : @linear-gradient(0deg, #d7d9dd, white);
 
     Image {
         y: parent.height - self.height;
@@ -268,7 +268,7 @@ export component StartupWizard inherits Rectangle {
 
             Text {
                 text: "Slinterface Pro";
-                color: WizardTheme.dark ? white : #111827;
+                color: WizardTheme.dark ? #f1f1f1 : #111827;
                 font-size: 18px;
                 font-weight: 900;
                 vertical-alignment: center;
@@ -284,7 +284,7 @@ export component StartupWizard inherits Rectangle {
 
             Text {
                 text: "Create a Slint project";
-                color: WizardTheme.dark ? white : #111827;
+                color: WizardTheme.dark ? #f1f1f1 : #111827;
                 font-size: 38px;
                 font-weight: 900;
                 horizontal-alignment: center;
@@ -293,7 +293,7 @@ export component StartupWizard inherits Rectangle {
 
             Text {
                 text: "It's time to get Slinty.";
-                color: WizardTheme.dark ? #d1d5db : #4b5563;
+                color: WizardTheme.dark ? #c9c9c9 : #4b5563;
                 font-size: 17px;
                 horizontal-alignment: center;
                 wrap: word-wrap;
@@ -305,8 +305,8 @@ export component StartupWizard inherits Rectangle {
             max-width: 1000px;
             border-radius: 8px;
             border-width: 1px;
-            border-color: WizardTheme.dark ? #ffffff2c : WizardTheme.border;
-            background: WizardTheme.dark ? #0f172acc : #fffffff2;
+            border-color: WizardTheme.dark ? #555555 : WizardTheme.border;
+            background: WizardTheme.dark ? #2c2c2ce6 : #fffffff2;
 
             HorizontalLayout {
                 padding: 18px;
