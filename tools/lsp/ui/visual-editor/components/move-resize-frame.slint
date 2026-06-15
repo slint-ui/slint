@@ -59,9 +59,11 @@ export component MoveResizeFrame inherits Rectangle {
             if self.pressed && moved-far-enough {
                 root.move-dragging = true;
             }
-            let target-x = ((root.x + self.mouse-x - self.pressed-x) / 1px).round() * 1px;
-            let target-y = ((root.y + self.mouse-y - self.pressed-y) / 1px).round() * 1px;
-            root.moved-to(target-x, target-y);
+            if root.move-dragging {
+                let target-x = ((root.x + self.mouse-x - self.pressed-x) / 1px).round() * 1px;
+                let target-y = ((root.y + self.mouse-y - self.pressed-y) / 1px).round() * 1px;
+                root.moved-to(target-x, target-y);
+            }
         }
 
         clicked => {
