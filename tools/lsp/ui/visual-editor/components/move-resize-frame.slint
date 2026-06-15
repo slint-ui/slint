@@ -9,8 +9,6 @@ export component MoveResizeFrame inherits Rectangle {
     callback moved-to(length, length);
     callback resized-to(int, length, length, length, length);
 
-    @children
-
     TouchArea {
         mouse-cursor: move;
 
@@ -30,6 +28,8 @@ export component MoveResizeFrame inherits Rectangle {
             root.selected();
         }
     }
+
+    @children
 
     if root.active: Rectangle {
         x: -8px;
