@@ -44,6 +44,28 @@ export global StudioTheme {
     out property <color> phone-text: #20252d;
 }
 
+export global EditorMetrics {
+    out property <length> left-pane-width: 286px;
+    out property <length> inspector-pane-width: 306px;
+    out property <length> top-bar-height: 54px;
+    out property <length> canvas-toolbar-height: 42px;
+    out property <length> phone-portrait-width: 390px;
+    out property <length> phone-portrait-height: 720px;
+    out property <length> phone-landscape-width: 720px;
+    out property <length> phone-landscape-height: 390px;
+    out property <length> phone-frame-radius: 34px;
+    out property <length> phone-status-bar-size: 42px;
+    out property <length> phone-outer-padding: 1px;
+    out property <length> selection-handle-size: 12px;
+    out property <length> radius-handle-size: 10px;
+    out property <length> radius-handle-inset: 10px;
+}
+
+export component EdgeDivider inherits Rectangle {
+    width: 1px;
+    background: StudioTheme.border;
+}
+
 export component BodyLabel inherits Text {
     color: StudioTheme.text;
     font-size: 13px;

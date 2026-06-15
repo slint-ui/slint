@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import {
-    CanvasSelectionKind, ColorPropertyField, InspectorSection, MutedLabel, PropertyField, StudioTheme,
+    CanvasSelectionKind, ColorPropertyField, EdgeDivider, EditorMetrics, InspectorSection, MutedLabel,
+    PropertyField, StudioTheme,
 } from "common.slint";
 
 export component InspectorPane inherits Rectangle {
@@ -21,7 +22,7 @@ export component InspectorPane inherits Rectangle {
     in property <color> phone-background;
     in property <string> phone-background-label;
 
-    width: 306px;
+    width: EditorMetrics.inspector-pane-width;
     background: StudioTheme.panel-bg;
 
     function selection-title() -> string {
@@ -56,11 +57,7 @@ export component InspectorPane inherits Rectangle {
         return "Selection";
     }
 
-    Rectangle {
-        x: 0px;
-        width: 1px;
-        background: StudioTheme.border;
-    }
+    EdgeDivider { }
 
     VerticalLayout {
         padding: 16px;

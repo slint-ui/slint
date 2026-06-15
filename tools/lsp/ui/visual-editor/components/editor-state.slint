@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import {
-    AppState, CanvasOrientation, CanvasSelectionKind, LeftPaneMode, PrototypeComponentKind,
+    AppState, CanvasOrientation, CanvasSelectionKind, EditorMetrics, LeftPaneMode, PrototypeComponentKind,
 } from "common.slint";
 
 export component EditorState inherits Rectangle {
@@ -97,19 +97,23 @@ export component EditorState inherits Rectangle {
     }
 
     function canvas-width() -> length {
-        return root.window-width - 286px - 306px;
+        return root.window-width - EditorMetrics.left-pane-width - EditorMetrics.inspector-pane-width;
     }
 
     function canvas-height() -> length {
-        return root.window-height - 54px - 42px;
+        return root.window-height - EditorMetrics.top-bar-height - EditorMetrics.canvas-toolbar-height;
     }
 
     public pure function phone-width() -> length {
-        return root.canvas-orientation == CanvasOrientation.portrait ? 390px : 720px;
+        return root.canvas-orientation == CanvasOrientation.portrait
+            ? EditorMetrics.phone-portrait-width
+            : EditorMetrics.phone-landscape-width;
     }
 
     public pure function phone-height() -> length {
-        return root.canvas-orientation == CanvasOrientation.portrait ? 720px : 390px;
+        return root.canvas-orientation == CanvasOrientation.portrait
+            ? EditorMetrics.phone-portrait-height
+            : EditorMetrics.phone-landscape-height;
     }
 
     function phone-canvas-top() -> length {
@@ -117,11 +121,11 @@ export component EditorState inherits Rectangle {
     }
 
     function phone-left() -> length {
-        return 286px + (root.canvas-width() - root.phone-width()) / 2;
+        return EditorMetrics.left-pane-width + (root.canvas-width() - root.phone-width()) / 2;
     }
 
     function phone-top() -> length {
-        return 54px + 42px + root.phone-canvas-top();
+        return EditorMetrics.top-bar-height + EditorMetrics.canvas-toolbar-height + root.phone-canvas-top();
     }
 
     function pointer-inside-phone(window-x: length, window-y: length) -> bool {

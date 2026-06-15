@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { StudioTheme } from "common.slint";
+import { EditorMetrics, StudioTheme } from "common.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
 
 export component RectangleOnCanvas inherits MoveResizeFrame {
@@ -15,9 +15,9 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
     height: 96px;
 
     function radius-from-handle(corner: int, pointer-x: length, pointer-y: length) -> length {
-        let from-left = corner == 0 || corner == 3 ? pointer-x : root.width - pointer-x;
-        let from-top = corner == 0 || corner == 1 ? pointer-y : root.height - pointer-y;
-        return (min(from-left, from-top) - 10px).clamp(0px, root.max-corner-radius());
+        let from-left = root.corner-on-left(corner) ? pointer-x : root.width - pointer-x;
+        let from-top = root.corner-on-top(corner) ? pointer-y : root.height - pointer-y;
+        return (min(from-left, from-top) - EditorMetrics.radius-handle-inset).clamp(0px, root.max-corner-radius());
     }
 
     function max-corner-radius() -> length {
@@ -50,18 +50,20 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
     }
 
     for corner in 4: Rectangle {
-        property <bool> on-left: corner == 0 || corner == 3;
-        property <bool> on-top: corner == 0 || corner == 1;
         property <length> radius: root.corner-radius(corner);
-        property <length> handle-center-x: on-left ? 10px + radius : root.width - 10px - radius;
-        property <length> handle-center-y: on-top ? 10px + radius : root.height - 10px - radius;
+        property <length> handle-center-x: root.corner-on-left(corner)
+            ? EditorMetrics.radius-handle-inset + radius
+            : root.width - EditorMetrics.radius-handle-inset - radius;
+        property <length> handle-center-y: root.corner-on-top(corner)
+            ? EditorMetrics.radius-handle-inset + radius
+            : root.height - EditorMetrics.radius-handle-inset - radius;
 
         visible: root.active;
-        x: handle-center-x - 5px;
-        y: handle-center-y - 5px;
-        width: 10px;
-        height: 10px;
-        border-radius: 5px;
+        x: handle-center-x - EditorMetrics.radius-handle-size / 2;
+        y: handle-center-y - EditorMetrics.radius-handle-size / 2;
+        width: EditorMetrics.radius-handle-size;
+        height: EditorMetrics.radius-handle-size;
+        border-radius: EditorMetrics.radius-handle-size / 2;
         background: #00000000;
         border-width: 1px;
         border-color: StudioTheme.accent-strong;

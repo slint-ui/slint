@@ -3,10 +3,85 @@
 
 import { Api } from "../../api.slint";
 import {
-    CanvasOrientation, CanvasSelectionKind, PrototypeComponentKind, StudioTheme,
+    CanvasOrientation, CanvasSelectionKind, EditorMetrics, PrototypeComponentKind, StudioTheme,
 } from "common.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
 import { RectangleOnCanvas } from "rectangle.slint";
+
+component PhoneChrome inherits Rectangle {
+    in property <CanvasOrientation> orientation;
+
+    background: StudioTheme.phone-bg;
+    clip: true;
+
+    Rectangle {
+        x: EditorMetrics.phone-outer-padding;
+        y: EditorMetrics.phone-outer-padding;
+        width: root.orientation == CanvasOrientation.portrait
+            ? parent.width - 2 * EditorMetrics.phone-outer-padding
+            : EditorMetrics.phone-status-bar-size - EditorMetrics.phone-outer-padding;
+        height: root.orientation == CanvasOrientation.portrait
+            ? EditorMetrics.phone-status-bar-size - EditorMetrics.phone-outer-padding
+            : parent.height - 2 * EditorMetrics.phone-outer-padding;
+        background: #f8fafc;
+
+        Rectangle {
+            x: root.orientation == CanvasOrientation.portrait
+                ? (parent.width - self.width) / 2
+                : 12px;
+            y: root.orientation == CanvasOrientation.portrait
+                ? 13px
+                : (parent.height - self.height) / 2;
+            width: root.orientation == CanvasOrientation.portrait ? 74px : 16px;
+            height: root.orientation == CanvasOrientation.portrait ? 16px : 74px;
+            border-radius: 8px;
+            background: #111827;
+        }
+    }
+
+    Rectangle {
+        x: root.orientation == CanvasOrientation.portrait
+            ? EditorMetrics.phone-outer-padding
+            : EditorMetrics.phone-status-bar-size;
+        y: root.orientation == CanvasOrientation.portrait
+            ? EditorMetrics.phone-status-bar-size
+            : EditorMetrics.phone-outer-padding;
+        width: root.orientation == CanvasOrientation.portrait
+            ? parent.width - 2 * EditorMetrics.phone-outer-padding
+            : 1px;
+        height: root.orientation == CanvasOrientation.portrait
+            ? 1px
+            : parent.height - 2 * EditorMetrics.phone-outer-padding;
+        background: #e5e7eb;
+    }
+}
+
+component CanvasDropTarget inherits Rectangle {
+    in property <length> pointer-x;
+    in property <length> pointer-y;
+
+    Rectangle {
+        x: 24px;
+        y: 70px;
+        width: parent.width - 48px;
+        height: parent.height - 96px;
+        border-radius: 24px;
+        border-width: 2px;
+        border-color: StudioTheme.accent-strong;
+        background: StudioTheme.accent.with-alpha(0.08);
+    }
+
+    Rectangle {
+        x: root.pointer-x - self.width / 2;
+        y: root.pointer-y - self.height / 2;
+        width: 36px;
+        height: 36px;
+        border-radius: self.width / 2;
+        background: StudioTheme.accent.with-alpha(0.16);
+        border-width: 2px;
+        border-color: StudioTheme.accent-strong;
+    }
+}
 
 export component EditorCanvas inherits Rectangle {
     in property <CanvasOrientation> orientation;
@@ -41,11 +116,15 @@ export component EditorCanvas inherits Rectangle {
     background: StudioTheme.canvas;
 
     function phone-width() -> length {
-        return root.orientation == CanvasOrientation.portrait ? 390px : 720px;
+        return root.orientation == CanvasOrientation.portrait
+            ? EditorMetrics.phone-portrait-width
+            : EditorMetrics.phone-landscape-width;
     }
 
     function phone-height() -> length {
-        return root.orientation == CanvasOrientation.portrait ? 720px : 390px;
+        return root.orientation == CanvasOrientation.portrait
+            ? EditorMetrics.phone-portrait-height
+            : EditorMetrics.phone-landscape-height;
     }
 
     function phone-canvas-top() -> length {
@@ -78,7 +157,7 @@ export component EditorCanvas inherits Rectangle {
         y: root.phone-canvas-top() + 18px;
         width: phone.width;
         height: phone.height;
-        border-radius: 34px;
+        border-radius: EditorMetrics.phone-frame-radius;
         drop-shadow-color: StudioTheme.dark ? #00000080 : #64748b30;
         drop-shadow-blur: 30px;
         drop-shadow-offset-y: 18px;
@@ -89,11 +168,9 @@ export component EditorCanvas inherits Rectangle {
         y: root.phone-canvas-top();
         width: root.phone-width();
         height: root.phone-height();
-        border-radius: 34px;
+        border-radius: EditorMetrics.phone-frame-radius;
         border-width: 1px;
         border-color: StudioTheme.border;
-        background: StudioTheme.phone-bg;
-        clip: true;
 
         touch := TouchArea {
             clicked => {
@@ -101,54 +178,8 @@ export component EditorCanvas inherits Rectangle {
             }
         }
 
-        if root.orientation == CanvasOrientation.portrait: Rectangle {
-            x: 1px;
-            y: 1px;
-            width: parent.width - 2px;
-            height: 41px;
-            background: #f8fafc;
-
-            Rectangle {
-                x: (parent.width - self.width) / 2;
-                y: 13px;
-                width: 74px;
-                height: 16px;
-                border-radius: 8px;
-                background: #111827;
-            }
-        }
-
-        if root.orientation == CanvasOrientation.portrait: Rectangle {
-            y: 42px;
-            x: 1px;
-            width: parent.width - 2px;
-            height: 1px;
-            background: #e5e7eb;
-        }
-
-        if root.orientation == CanvasOrientation.landscape: Rectangle {
-            x: 1px;
-            y: 1px;
-            width: 41px;
-            height: parent.height - 2px;
-            background: #f8fafc;
-
-            Rectangle {
-                x: 13px;
-                y: (parent.height - self.height) / 2;
-                width: 16px;
-                height: 74px;
-                border-radius: 8px;
-                background: #111827;
-            }
-        }
-
-        if root.orientation == CanvasOrientation.landscape: Rectangle {
-            x: 42px;
-            y: 1px;
-            width: 1px;
-            height: parent.height - 2px;
-            background: #e5e7eb;
+        PhoneChrome {
+            orientation: root.orientation;
         }
 
         ComponentContainer {
@@ -232,26 +263,9 @@ export component EditorCanvas inherits Rectangle {
             }
         }
 
-        if root.canvas-drop-hover: Rectangle {
-            x: 24px;
-            y: 70px;
-            width: parent.width - 48px;
-            height: parent.height - 96px;
-            border-radius: 24px;
-            border-width: 2px;
-            border-color: StudioTheme.accent-strong;
-            background: StudioTheme.accent.with-alpha(0.08);
-        }
-
-        if root.canvas-drop-hover: Rectangle {
-            x: root.canvas-drop-x - 18px;
-            y: root.canvas-drop-y - 18px;
-            width: 36px;
-            height: 36px;
-            border-radius: 18px;
-            background: StudioTheme.accent.with-alpha(0.16);
-            border-width: 2px;
-            border-color: StudioTheme.accent-strong;
+        if root.canvas-drop-hover: CanvasDropTarget {
+            pointer-x: root.canvas-drop-x;
+            pointer-y: root.canvas-drop-y;
         }
     }
 }

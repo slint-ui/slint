@@ -3,7 +3,7 @@
 
 import { ScrollView } from "std-widgets.slint";
 import {
-    LeftPaneMode, PrimerActionListRow, PrimerNavRow, PrimerSegmentedTab,
+    EdgeDivider, EditorMetrics, LeftPaneMode, PrimerActionListRow, PrimerNavRow, PrimerSegmentedTab,
     PrimerTextInput, PrototypeComponentKind, SectionTitle, StudioTheme,
 } from "common.slint";
 
@@ -14,13 +14,11 @@ export component LeftPane inherits Rectangle {
     callback drag-moved(PrototypeComponentKind, length, length);
     callback drag-ended(PrototypeComponentKind, length, length);
 
-    width: 286px;
+    width: EditorMetrics.left-pane-width;
     background: StudioTheme.panel-bg;
 
-    Rectangle {
-        x: parent.width - 1px;
-        width: 1px;
-        background: StudioTheme.border;
+    EdgeDivider {
+        x: parent.width - self.width;
     }
 
     VerticalLayout {
