@@ -18,6 +18,7 @@ export component InspectorPane inherits Rectangle {
     in property <length> text-height;
     in property <length> image-width;
     in property <length> image-height;
+    in property <angle> selected-rotation;
     in property <string> rectangle-radius-label;
     in property <color> phone-background;
     in property <string> phone-background-label;
@@ -87,6 +88,7 @@ export component InspectorPane inherits Rectangle {
             PropertyField { name: "Y"; value: (root.placed-y / 1px).to-fixed(0); }
             PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.rectangle ? (root.rectangle-width / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.text ? (root.text-width / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.image ? (root.image-width / 1px).to-fixed(0) : "280"; }
             PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.rectangle ? (root.rectangle-height / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.text ? (root.text-height / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.image ? (root.image-height / 1px).to-fixed(0) : "104"; }
+            PropertyField { name: "Rotation"; value: (root.selected-rotation / 1deg).round(); }
         }
 
         InspectorSection {
