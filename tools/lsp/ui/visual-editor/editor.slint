@@ -3,12 +3,11 @@
 
 import { Api } from "../api.slint";
 import { ProjectKind, StartupWizard } from "startup-wizard.slint";
-import {
-    AppState, CanvasOrientation, CanvasSelectionKind, LeftPaneMode, PrototypeComponentKind, StudioTheme,
-} from "components/common.slint";
+import { StudioTheme } from "components/common.slint";
 import { CanvasToolbar } from "components/canvas-toolbar.slint";
 import { DragPreview } from "components/drag-preview.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
+import { EditorState } from "components/editor-state.slint";
 import { EditorTopBar } from "components/top-bar.slint";
 import { InspectorPane } from "components/inspector-pane.slint";
 import { LeftPane } from "components/left-pane.slint";
@@ -25,446 +24,15 @@ export component EditorUi inherits Window {
 
     property <bool> wizard-visible: true;
     property <ProjectKind> selected-project: ProjectKind.mobile;
-    property <CanvasOrientation> canvas-orientation: CanvasOrientation.portrait;
-    property <LeftPaneMode> left-mode: LeftPaneMode.files;
-    property <CanvasSelectionKind> selection: CanvasSelectionKind.artboard;
-    property <PrototypeComponentKind> placed-kind: PrototypeComponentKind.none;
-    property <bool> canvas-drop-hover: false;
 
     function open-project() {
         root.wizard-visible = false;
-        root.left-mode = LeftPaneMode.library;
-        root.selection = CanvasSelectionKind.artboard;
-    }
-    property <length> canvas-drop-x: 0px;
-    property <length> canvas-drop-y: 0px;
-    property <length> placed-x: 54px;
-    property <length> placed-y: 196px;
-    property <length> rectangle-width: 282px;
-    property <length> rectangle-height: 104px;
-    property <length> rectangle2-width: 240px;
-    property <length> rectangle2-height: 96px;
-    property <length> rectangle2-top-left-radius: 12px;
-    property <length> rectangle2-top-right-radius: 12px;
-    property <length> rectangle2-bottom-right-radius: 12px;
-    property <length> rectangle2-bottom-left-radius: 12px;
-    property <length> text-width: 280px;
-    property <length> text-height: 32px;
-    property <length> image-width: 282px;
-    property <length> image-height: 168px;
-    property <length> rectangle-max-radius: min(rectangle-width, rectangle-height) / 2;
-    property <length> rectangle-resize-right: 0px;
-    property <length> rectangle-resize-bottom: 0px;
-    property <length> rectangle-radius: 18px;
-    property <length> rectangle-top-left-radius: 18px;
-    property <length> rectangle-top-right-radius: 18px;
-    property <length> rectangle-bottom-right-radius: 18px;
-    property <length> rectangle-bottom-left-radius: 18px;
-    property <bool> radius-dragging: false;
-    property <int> radius-drag-corner: -1;
-    property <bool> radius-drag-single-corner: false;
-    property <int> rectangle-resize-corner: -1;
-    property <string> search-text: "";
-
-    function place-component(kind: PrototypeComponentKind) {
-        root.placed-kind = kind;
-        if kind == PrototypeComponentKind.rectangle {
-            root.selection = CanvasSelectionKind.rectangle;
-            root.rectangle-width = 282px;
-            root.rectangle-height = 104px;
-            root.set-all-rectangle-radii(18px);
-        } else if kind == PrototypeComponentKind.rectangle2 {
-            root.selection = CanvasSelectionKind.rectangle2;
-            root.rectangle2-width = 240px;
-            root.rectangle2-height = 96px;
-            root.set-all-rectangle2-radii(12px);
-        } else if kind == PrototypeComponentKind.text {
-            root.selection = CanvasSelectionKind.text;
-            root.text-width = 280px;
-            root.text-height = 32px;
-        } else if kind == PrototypeComponentKind.image {
-            root.selection = CanvasSelectionKind.image;
-            root.image-width = 282px;
-            root.image-height = 168px;
-        }
+        state.open-project();
     }
 
-    function place-component-at(kind: PrototypeComponentKind, drop-x: length, drop-y: length) {
-        root.place-component(kind);
-        if kind == PrototypeComponentKind.rectangle {
-            root.placed-x = (drop-x - 141px).clamp(24px, root.phone-width() - 306px);
-            root.placed-y = (drop-y - 52px).clamp(72px, root.phone-height() - 128px);
-        } else if kind == PrototypeComponentKind.rectangle2 {
-            root.placed-x = (drop-x - root.rectangle2-width / 2).clamp(24px, root.phone-width() - root.rectangle2-width - 24px);
-            root.placed-y = (drop-y - root.rectangle2-height / 2).clamp(72px, root.phone-height() - root.rectangle2-height - 24px);
-        } else if kind == PrototypeComponentKind.text {
-            root.placed-x = (drop-x - root.text-width / 2).clamp(24px, root.phone-width() - root.text-width - 24px);
-            root.placed-y = (drop-y - root.text-height / 2).clamp(72px, root.phone-height() - root.text-height - 24px);
-        } else if kind == PrototypeComponentKind.image {
-            root.placed-x = (drop-x - root.image-width / 2).clamp(24px, root.phone-width() - root.image-width - 24px);
-            root.placed-y = (drop-y - root.image-height / 2).clamp(72px, root.phone-height() - root.image-height - 24px);
-        }
-    }
-
-    function placed-width() -> length {
-        if root.placed-kind == PrototypeComponentKind.image {
-            return root.image-width;
-        }
-        if root.placed-kind == PrototypeComponentKind.text {
-            return root.text-width;
-        }
-        if root.placed-kind == PrototypeComponentKind.rectangle {
-            return root.rectangle-width;
-        }
-        if root.placed-kind == PrototypeComponentKind.rectangle2 {
-            return root.rectangle2-width;
-        }
-        return 280px;
-    }
-
-    function placed-height() -> length {
-        if root.placed-kind == PrototypeComponentKind.image {
-            return root.image-height;
-        }
-        if root.placed-kind == PrototypeComponentKind.text {
-            return root.text-height;
-        }
-        if root.placed-kind == PrototypeComponentKind.rectangle {
-            return root.rectangle-height;
-        }
-        if root.placed-kind == PrototypeComponentKind.rectangle2 {
-            return root.rectangle2-height;
-        }
-        return 32px;
-    }
-
-    function clamp-elements-to-phone() {
-        if root.placed-kind == PrototypeComponentKind.rectangle {
-            root.rectangle-width = root.rectangle-width.clamp(80px, root.phone-width() - 32px);
-            root.rectangle-height = root.rectangle-height.clamp(44px, root.phone-height() - 78px);
-            root.placed-x = root.placed-x.clamp(16px, root.phone-width() - root.rectangle-width - 16px);
-            root.placed-y = root.placed-y.clamp(54px, root.phone-height() - root.rectangle-height - 24px);
-            root.clamp-rectangle-radii();
-        } else if root.placed-kind == PrototypeComponentKind.rectangle2 {
-            root.rectangle2-width = root.rectangle2-width.clamp(80px, root.phone-width() - 32px);
-            root.rectangle2-height = root.rectangle2-height.clamp(44px, root.phone-height() - 78px);
-            root.placed-x = root.placed-x.clamp(16px, root.phone-width() - root.rectangle2-width - 16px);
-            root.placed-y = root.placed-y.clamp(54px, root.phone-height() - root.rectangle2-height - 24px);
-            root.clamp-rectangle2-radius();
-        } else if root.placed-kind == PrototypeComponentKind.text {
-            root.text-width = root.text-width.clamp(80px, root.phone-width() - 32px);
-            root.text-height = root.text-height.clamp(32px, root.phone-height() - 78px);
-            root.placed-x = root.placed-x.clamp(16px, root.phone-width() - root.text-width - 16px);
-            root.placed-y = root.placed-y.clamp(54px, root.phone-height() - root.text-height - 24px);
-        } else if root.placed-kind == PrototypeComponentKind.image {
-            root.image-width = root.image-width.clamp(80px, root.phone-width() - 32px);
-            root.image-height = root.image-height.clamp(44px, root.phone-height() - 78px);
-            root.placed-x = root.placed-x.clamp(16px, root.phone-width() - root.image-width - 16px);
-            root.placed-y = root.placed-y.clamp(54px, root.phone-height() - root.image-height - 24px);
-        } else if root.placed-kind != PrototypeComponentKind.none {
-            root.placed-x = root.placed-x.clamp(24px, root.phone-width() - root.placed-width() - 24px);
-            root.placed-y = root.placed-y.clamp(72px, root.phone-height() - root.placed-height() - 24px);
-        }
-    }
-
-    function set-canvas-orientation(orientation: CanvasOrientation) {
-        root.canvas-orientation = orientation;
-        root.clamp-elements-to-phone();
-    }
-
-    function canvas-width() -> length {
-        return root.width - 286px - 306px;
-    }
-
-    function canvas-height() -> length {
-        return root.height - 54px - 42px;
-    }
-
-    function phone-width() -> length {
-        return root.canvas-orientation == CanvasOrientation.portrait ? 390px : 720px;
-    }
-
-    function phone-height() -> length {
-        return root.canvas-orientation == CanvasOrientation.portrait ? 720px : 390px;
-    }
-
-    function phone-canvas-top() -> length {
-        return max(40px, (root.canvas-height() - root.phone-height()) / 2);
-    }
-
-    function phone-left() -> length {
-        return 286px + (root.canvas-width() - root.phone-width()) / 2;
-    }
-
-    function phone-top() -> length {
-        return 54px + 42px + root.phone-canvas-top();
-    }
-
-    function pointer-inside-phone(window-x: length, window-y: length) -> bool {
-        return window-x >= root.phone-left()
-            && window-x <= root.phone-left() + root.phone-width()
-            && window-y >= root.phone-top()
-            && window-y <= root.phone-top() + root.phone-height();
-    }
-
-    function update-visual-drag(kind: PrototypeComponentKind, window-x: length, window-y: length) {
-        AppState.dragging-kind = kind;
-        AppState.drag-x = window-x;
-        AppState.drag-y = window-y;
-        root.canvas-drop-x = window-x - root.phone-left();
-        root.canvas-drop-y = window-y - root.phone-top();
-        root.canvas-drop-hover = root.pointer-inside-phone(window-x, window-y);
-    }
-
-    function finish-visual-drag(kind: PrototypeComponentKind, window-x: length, window-y: length) {
-        root.update-visual-drag(kind, window-x, window-y);
-        if root.canvas-drop-hover {
-            root.place-component-at(kind, root.canvas-drop-x, root.canvas-drop-y);
-        }
-        AppState.dragging-kind = PrototypeComponentKind.none;
-        root.canvas-drop-hover = false;
-    }
-
-    function cancel-visual-drag(kind: PrototypeComponentKind) {
-        if AppState.dragging-kind == kind {
-            AppState.dragging-kind = PrototypeComponentKind.none;
-        }
-        root.canvas-drop-hover = false;
-    }
-
-    function set-rectangle-corner-radius(corner: int, value: length) {
-        if corner == 0 {
-            root.rectangle-top-left-radius = value;
-        } else if corner == 1 {
-            root.rectangle-top-right-radius = value;
-        } else if corner == 2 {
-            root.rectangle-bottom-right-radius = value;
-        } else {
-            root.rectangle-bottom-left-radius = value;
-        }
-        root.rectangle-radius = value;
-    }
-
-    function set-all-rectangle-radii(value: length) {
-        root.rectangle-top-left-radius = value;
-        root.rectangle-top-right-radius = value;
-        root.rectangle-bottom-right-radius = value;
-        root.rectangle-bottom-left-radius = value;
-        root.rectangle-radius = value;
-    }
-
-    function rectangle-radius-label() -> string {
-        if root.rectangle-top-left-radius == root.rectangle-top-right-radius
-            && root.rectangle-top-left-radius == root.rectangle-bottom-right-radius
-            && root.rectangle-top-left-radius == root.rectangle-bottom-left-radius {
-            return "\{root.rectangle-top-left-radius / 1px}";
-        }
-        return "Mixed";
-    }
-
-    function rectangle-radius-for-corner(corner: int, phone-x: length, phone-y: length) -> length {
-        if corner == 0 {
-            return (min(phone-x - root.placed-x, phone-y - root.placed-y) - 20px).clamp(0px, 32px) * 52 / 32;
-        }
-        if corner == 1 {
-            return (min(root.placed-x + root.placed-width() - phone-x, phone-y - root.placed-y) - 20px).clamp(0px, 32px) * 52 / 32;
-        }
-        if corner == 2 {
-            return (min(root.placed-x + root.placed-width() - phone-x, root.placed-y + root.placed-height() - phone-y) - 20px).clamp(0px, 32px) * 52 / 32;
-        }
-        return (min(phone-x - root.placed-x, root.placed-y + root.placed-height() - phone-y) - 20px).clamp(0px, 32px) * 52 / 32;
-    }
-
-    function update-rectangle-radius(corner: int, window-x: length, window-y: length, single-corner: bool) {
-        root.radius-dragging = true;
-        root.radius-drag-corner = corner;
-        root.radius-drag-single-corner = single-corner;
-        if single-corner {
-            root.set-rectangle-corner-radius(corner, root.rectangle-radius-for-corner(corner, window-x - root.phone-left(), window-y - root.phone-top()));
-        } else {
-            root.set-all-rectangle-radii(root.rectangle-radius-for-corner(corner, window-x - root.phone-left(), window-y - root.phone-top()));
-        }
-        root.selection = CanvasSelectionKind.rectangle;
-    }
-
-    function finish-rectangle-radius(corner: int, window-x: length, window-y: length, single-corner: bool) {
-        root.update-rectangle-radius(corner, window-x, window-y, single-corner);
-        root.radius-dragging = false;
-        root.radius-drag-corner = -1;
-        root.radius-drag-single-corner = false;
-    }
-
-    function begin-moving-rectangle() {
-        root.selection = CanvasSelectionKind.rectangle;
-    }
-
-    function move-rectangle-by(delta-x: length, delta-y: length) {
-        root.selection = CanvasSelectionKind.rectangle;
-        root.placed-x = (root.placed-x + delta-x).clamp(16px, root.phone-width() - root.rectangle-width - 16px);
-        root.placed-y = (root.placed-y + delta-y).clamp(54px, root.phone-height() - root.rectangle-height - 24px);
-    }
-
-    function move-rectangle2-to(x: length, y: length) {
-        root.selection = CanvasSelectionKind.rectangle2;
-        root.placed-x = x.clamp(16px, root.phone-width() - root.rectangle2-width - 16px);
-        root.placed-y = y.clamp(54px, root.phone-height() - root.rectangle2-height - 24px);
-    }
-
-    function resize-rectangle2-to(corner: int, x: length, y: length, width: length, height: length) {
-        root.selection = CanvasSelectionKind.rectangle2;
-        if corner == 0 || corner == 3 {
-            root.rectangle2-width = width.clamp(80px, x + width - 16px);
-            root.placed-x = (x + width - root.rectangle2-width).clamp(16px, root.phone-width() - root.rectangle2-width - 16px);
-        } else {
-            root.placed-x = x.clamp(16px, root.phone-width() - 80px - 16px);
-            root.rectangle2-width = width.clamp(80px, root.phone-width() - root.placed-x - 16px);
-        }
-        if corner == 0 || corner == 1 {
-            root.rectangle2-height = height.clamp(44px, y + height - 54px);
-            root.placed-y = (y + height - root.rectangle2-height).clamp(54px, root.phone-height() - root.rectangle2-height - 24px);
-        } else {
-            root.placed-y = y.clamp(54px, root.phone-height() - 44px - 24px);
-            root.rectangle2-height = height.clamp(44px, root.phone-height() - root.placed-y - 24px);
-        }
-        root.clamp-rectangle2-radius();
-    }
-
-    function update-rectangle2-radius(corner: int, radius: length, single-corner: bool) {
-        root.selection = CanvasSelectionKind.rectangle2;
-        if single-corner {
-            root.set-rectangle2-corner-radius(corner, radius);
-        } else {
-            root.set-all-rectangle2-radii(radius);
-        }
-    }
-
-    function rectangle2-max-radius() -> length {
-        return min(root.rectangle2-width, root.rectangle2-height) / 2;
-    }
-
-    function set-rectangle2-corner-radius(corner: int, value: length) {
-        let radius = value.clamp(0px, root.rectangle2-max-radius());
-        if corner == 0 {
-            root.rectangle2-top-left-radius = radius;
-        } else if corner == 1 {
-            root.rectangle2-top-right-radius = radius;
-        } else if corner == 2 {
-            root.rectangle2-bottom-right-radius = radius;
-        } else {
-            root.rectangle2-bottom-left-radius = radius;
-        }
-    }
-
-    function set-all-rectangle2-radii(value: length) {
-        let radius = value.clamp(0px, root.rectangle2-max-radius());
-        root.rectangle2-top-left-radius = radius;
-        root.rectangle2-top-right-radius = radius;
-        root.rectangle2-bottom-right-radius = radius;
-        root.rectangle2-bottom-left-radius = radius;
-    }
-
-    function clamp-rectangle2-radius() {
-        root.rectangle2-top-left-radius = root.rectangle2-top-left-radius.clamp(0px, root.rectangle2-max-radius());
-        root.rectangle2-top-right-radius = root.rectangle2-top-right-radius.clamp(0px, root.rectangle2-max-radius());
-        root.rectangle2-bottom-right-radius = root.rectangle2-bottom-right-radius.clamp(0px, root.rectangle2-max-radius());
-        root.rectangle2-bottom-left-radius = root.rectangle2-bottom-left-radius.clamp(0px, root.rectangle2-max-radius());
-    }
-
-    function move-text-to(x: length, y: length) {
-        root.selection = CanvasSelectionKind.text;
-        root.placed-x = x.clamp(16px, root.phone-width() - root.text-width - 16px);
-        root.placed-y = y.clamp(54px, root.phone-height() - root.text-height - 24px);
-    }
-
-    function resize-text-to(corner: int, x: length, y: length, width: length, height: length) {
-        root.selection = CanvasSelectionKind.text;
-        if corner == 0 || corner == 3 {
-            root.text-width = width.clamp(80px, x + width - 16px);
-            root.placed-x = (x + width - root.text-width).clamp(16px, root.phone-width() - root.text-width - 16px);
-        } else {
-            root.placed-x = x.clamp(16px, root.phone-width() - 80px - 16px);
-            root.text-width = width.clamp(80px, root.phone-width() - root.placed-x - 16px);
-        }
-        if corner == 0 || corner == 1 {
-            root.text-height = height.clamp(32px, y + height - 54px);
-            root.placed-y = (y + height - root.text-height).clamp(54px, root.phone-height() - root.text-height - 24px);
-        } else {
-            root.placed-y = y.clamp(54px, root.phone-height() - 32px - 24px);
-            root.text-height = height.clamp(32px, root.phone-height() - root.placed-y - 24px);
-        }
-    }
-
-    function move-image-to(x: length, y: length) {
-        root.selection = CanvasSelectionKind.image;
-        root.placed-x = x.clamp(16px, root.phone-width() - root.image-width - 16px);
-        root.placed-y = y.clamp(54px, root.phone-height() - root.image-height - 24px);
-    }
-
-    function resize-image-to(corner: int, x: length, y: length, width: length, height: length) {
-        root.selection = CanvasSelectionKind.image;
-        if corner == 0 || corner == 3 {
-            root.image-width = width.clamp(80px, x + width - 16px);
-            root.placed-x = (x + width - root.image-width).clamp(16px, root.phone-width() - root.image-width - 16px);
-        } else {
-            root.placed-x = x.clamp(16px, root.phone-width() - 80px - 16px);
-            root.image-width = width.clamp(80px, root.phone-width() - root.placed-x - 16px);
-        }
-        if corner == 0 || corner == 1 {
-            root.image-height = height.clamp(44px, y + height - 54px);
-            root.placed-y = (y + height - root.image-height).clamp(54px, root.phone-height() - root.image-height - 24px);
-        } else {
-            root.placed-y = y.clamp(54px, root.phone-height() - 44px - 24px);
-            root.image-height = height.clamp(44px, root.phone-height() - root.placed-y - 24px);
-        }
-    }
-
-    function begin-resizing-rectangle(corner: int) {
-        root.rectangle-resize-corner = corner;
-        root.selection = CanvasSelectionKind.rectangle;
-    }
-
-    function resize-rectangle(corner: int, window-x: length, window-y: length) {
-        root.rectangle-resize-corner = corner;
-        root.selection = CanvasSelectionKind.rectangle;
-        if corner == 0 {
-            root.rectangle-resize-right = root.placed-x + root.rectangle-width;
-            root.rectangle-resize-bottom = root.placed-y + root.rectangle-height;
-            root.placed-x = (window-x - root.phone-left()).clamp(16px, root.rectangle-resize-right - 80px);
-            root.placed-y = (window-y - root.phone-top()).clamp(54px, root.rectangle-resize-bottom - 44px);
-            root.rectangle-width = root.rectangle-resize-right - root.placed-x;
-            root.rectangle-height = root.rectangle-resize-bottom - root.placed-y;
-        } else if corner == 1 {
-            root.rectangle-resize-bottom = root.placed-y + root.rectangle-height;
-            root.rectangle-width = (window-x - root.phone-left() - root.placed-x).clamp(80px, root.phone-width() - root.placed-x - 16px);
-            root.placed-y = (window-y - root.phone-top()).clamp(54px, root.rectangle-resize-bottom - 44px);
-            root.rectangle-height = root.rectangle-resize-bottom - root.placed-y;
-        } else if corner == 2 {
-            root.rectangle-width = (window-x - root.phone-left() - root.placed-x).clamp(80px, root.phone-width() - root.placed-x - 16px);
-            root.rectangle-height = (window-y - root.phone-top() - root.placed-y).clamp(44px, root.phone-height() - root.placed-y - 24px);
-        } else {
-            root.rectangle-resize-right = root.placed-x + root.rectangle-width;
-            root.placed-x = (window-x - root.phone-left()).clamp(16px, root.rectangle-resize-right - 80px);
-            root.rectangle-width = root.rectangle-resize-right - root.placed-x;
-            root.rectangle-height = (window-y - root.phone-top() - root.placed-y).clamp(44px, root.phone-height() - root.placed-y - 24px);
-        }
-        root.clamp-rectangle-radii();
-    }
-
-    function finish-resizing-rectangle(corner: int, window-x: length, window-y: length) {
-        root.resize-rectangle(corner, window-x, window-y);
-        root.rectangle-resize-corner = -1;
-    }
-
-    function cancel-resizing-rectangle() {
-        root.rectangle-resize-corner = -1;
-    }
-
-    function clamp-rectangle-radii() {
-        root.rectangle-top-left-radius = root.rectangle-top-left-radius.clamp(0px, root.rectangle-max-radius);
-        root.rectangle-top-right-radius = root.rectangle-top-right-radius.clamp(0px, root.rectangle-max-radius);
-        root.rectangle-bottom-right-radius = root.rectangle-bottom-right-radius.clamp(0px, root.rectangle-max-radius);
-        root.rectangle-bottom-left-radius = root.rectangle-bottom-left-radius.clamp(0px, root.rectangle-max-radius);
-        root.rectangle-radius = root.rectangle-radius.clamp(0px, root.rectangle-max-radius);
+    state := EditorState {
+        window-width: root.width;
+        window-height: root.height;
     }
 
     if !root.wizard-visible: editor := Rectangle {
@@ -474,9 +42,9 @@ export component EditorUi inherits Window {
             EditorTopBar { }
 
             CanvasToolbar {
-                orientation: root.canvas-orientation;
+                orientation: state.canvas-orientation;
                 orientation-selected(orientation) => {
-                    root.set-canvas-orientation(orientation);
+                    state.set-canvas-orientation(orientation);
                 }
             }
 
@@ -484,75 +52,55 @@ export component EditorUi inherits Window {
                 vertical-stretch: 1;
 
                 LeftPane {
-                    mode <=> root.left-mode;
-                    search-text <=> root.search-text;
-                    drag-started(kind, x, y) => { root.update-visual-drag(kind, x, y); }
-                    drag-moved(kind, x, y) => { root.update-visual-drag(kind, x, y); }
-                    drag-ended(kind, x, y) => { root.finish-visual-drag(kind, x, y); }
+                    mode <=> state.left-mode;
+                    search-text <=> state.search-text;
+                    drag-started(kind, x, y) => { state.update-visual-drag(kind, x, y); }
+                    drag-moved(kind, x, y) => { state.update-visual-drag(kind, x, y); }
+                    drag-ended(kind, x, y) => { state.finish-visual-drag(kind, x, y); }
                 }
 
                 EditorCanvas {
-                    orientation: root.canvas-orientation;
-                    selection: root.selection;
-                    placed-kind: root.placed-kind;
-                    canvas-drop-hover: root.canvas-drop-hover;
-                    canvas-drop-x: root.canvas-drop-x;
-                    canvas-drop-y: root.canvas-drop-y;
-                    placed-x: root.placed-x;
-                    placed-y: root.placed-y;
-                    rectangle2-width: root.rectangle2-width;
-                    rectangle2-height: root.rectangle2-height;
-                    rectangle2-top-left-radius: root.rectangle2-top-left-radius;
-                    rectangle2-top-right-radius: root.rectangle2-top-right-radius;
-                    rectangle2-bottom-right-radius: root.rectangle2-bottom-right-radius;
-                    rectangle2-bottom-left-radius: root.rectangle2-bottom-left-radius;
-                    text-width: root.text-width;
-                    text-height: root.text-height;
-                    image-width: root.image-width;
-                    image-height: root.image-height;
-                    rectangle-width: root.rectangle-width;
-                    rectangle-height: root.rectangle-height;
-                    rectangle-top-left-radius: root.rectangle-top-left-radius;
-                    rectangle-top-right-radius: root.rectangle-top-right-radius;
-                    rectangle-bottom-right-radius: root.rectangle-bottom-right-radius;
-                    rectangle-bottom-left-radius: root.rectangle-bottom-left-radius;
-                    radius-dragging: root.radius-dragging;
-                    radius-drag-corner: root.radius-drag-corner;
-                    radius-drag-single-corner: root.radius-drag-single-corner;
-                    rectangle-resize-corner: root.rectangle-resize-corner;
-                    selected(kind) => { root.selection = kind; }
-                    begin-moving-rectangle => { root.begin-moving-rectangle(); }
-                    move-rectangle-by(delta-x, delta-y) => { root.move-rectangle-by(delta-x, delta-y); }
-                    begin-resizing-rectangle(corner) => { root.begin-resizing-rectangle(corner); }
-                    resize-rectangle(corner, x, y) => { root.resize-rectangle(corner, x, y); }
-                    finish-resizing-rectangle(corner, x, y) => { root.finish-resizing-rectangle(corner, x, y); }
-                    cancel-resizing-rectangle => { root.cancel-resizing-rectangle(); }
-                    move-rectangle2-to(x, y) => { root.move-rectangle2-to(x, y); }
-                    resize-rectangle2-to(corner, x, y, width, height) => { root.resize-rectangle2-to(corner, x, y, width, height); }
-                    update-rectangle2-radius(corner, radius, single-corner) => { root.update-rectangle2-radius(corner, radius, single-corner); }
-                    move-text-to(x, y) => { root.move-text-to(x, y); }
-                    resize-text-to(corner, x, y, width, height) => { root.resize-text-to(corner, x, y, width, height); }
-                    move-image-to(x, y) => { root.move-image-to(x, y); }
-                    resize-image-to(corner, x, y, width, height) => { root.resize-image-to(corner, x, y, width, height); }
-                    update-rectangle-radius(corner, x, y, single-corner) => { root.update-rectangle-radius(corner, x, y, single-corner); }
-                    finish-rectangle-radius(corner, x, y, single-corner) => { root.finish-rectangle-radius(corner, x, y, single-corner); }
+                    orientation: state.canvas-orientation;
+                    selection: state.selection;
+                    placed-kind: state.placed-kind;
+                    canvas-drop-hover: state.canvas-drop-hover;
+                    canvas-drop-x: state.canvas-drop-x;
+                    canvas-drop-y: state.canvas-drop-y;
+                    placed-x: state.placed-x;
+                    placed-y: state.placed-y;
+                    text-width: state.text-width;
+                    text-height: state.text-height;
+                    image-width: state.image-width;
+                    image-height: state.image-height;
+                    rectangle-width: state.rectangle-width;
+                    rectangle-height: state.rectangle-height;
+                    rectangle-top-left-radius: state.rectangle-top-left-radius;
+                    rectangle-top-right-radius: state.rectangle-top-right-radius;
+                    rectangle-bottom-right-radius: state.rectangle-bottom-right-radius;
+                    rectangle-bottom-left-radius: state.rectangle-bottom-left-radius;
+                    selected(kind) => { state.selection = kind; }
+                    move-rectangle-to(x, y) => { state.move-rectangle-to(x, y); }
+                    resize-rectangle-to(corner, x, y, width, height) => { state.resize-rectangle-to(corner, x, y, width, height); }
+                    update-rectangle-radius(corner, radius, single-corner) => { state.update-rectangle-radius(corner, radius, single-corner); }
+                    move-text-to(x, y) => { state.move-text-to(x, y); }
+                    resize-text-to(corner, x, y, width, height) => { state.resize-text-to(corner, x, y, width, height); }
+                    move-image-to(x, y) => { state.move-image-to(x, y); }
+                    resize-image-to(corner, x, y, width, height) => { state.resize-image-to(corner, x, y, width, height); }
                 }
 
                 InspectorPane {
-                    selection: root.selection;
-                    placed-x: root.placed-x;
-                    placed-y: root.placed-y;
-                    phone-width: root.phone-width();
-                    phone-height: root.phone-height();
-                    rectangle-width: root.rectangle-width;
-                    rectangle-height: root.rectangle-height;
-                    rectangle2-width: root.rectangle2-width;
-                    rectangle2-height: root.rectangle2-height;
-                    text-width: root.text-width;
-                    text-height: root.text-height;
-                    image-width: root.image-width;
-                    image-height: root.image-height;
-                    rectangle-radius-label: root.rectangle-radius-label();
+                    selection: state.selection;
+                    placed-x: state.placed-x;
+                    placed-y: state.placed-y;
+                    phone-width: state.phone-width();
+                    phone-height: state.phone-height();
+                    rectangle-width: state.rectangle-width;
+                    rectangle-height: state.rectangle-height;
+                    text-width: state.text-width;
+                    text-height: state.text-height;
+                    image-width: state.image-width;
+                    image-height: state.image-height;
+                    rectangle-radius-label: state.rectangle-radius-label();
                 }
             }
         }

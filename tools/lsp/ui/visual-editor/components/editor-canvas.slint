@@ -6,7 +6,7 @@ import {
     CanvasOrientation, CanvasSelectionKind, PrototypeComponentKind, StudioTheme,
 } from "common.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
-import { Rectangle2OnCanvas } from "rectangle2.slint";
+import { RectangleOnCanvas } from "rectangle.slint";
 
 export component EditorCanvas inherits Rectangle {
     in property <CanvasOrientation> orientation;
@@ -17,43 +17,25 @@ export component EditorCanvas inherits Rectangle {
     in property <length> canvas-drop-y;
     in property <length> placed-x;
     in property <length> placed-y;
-    in property <length> rectangle2-width;
-    in property <length> rectangle2-height;
-    in property <length> rectangle2-top-left-radius;
-    in property <length> rectangle2-top-right-radius;
-    in property <length> rectangle2-bottom-right-radius;
-    in property <length> rectangle2-bottom-left-radius;
-    in property <length> text-width;
-    in property <length> text-height;
-    in property <length> image-width;
-    in property <length> image-height;
     in property <length> rectangle-width;
     in property <length> rectangle-height;
     in property <length> rectangle-top-left-radius;
     in property <length> rectangle-top-right-radius;
     in property <length> rectangle-bottom-right-radius;
     in property <length> rectangle-bottom-left-radius;
-    in property <bool> radius-dragging;
-    in property <int> radius-drag-corner;
-    in property <bool> radius-drag-single-corner;
-    in property <int> rectangle-resize-corner;
+    in property <length> text-width;
+    in property <length> text-height;
+    in property <length> image-width;
+    in property <length> image-height;
 
     callback selected(CanvasSelectionKind);
-    callback begin-moving-rectangle();
-    callback move-rectangle-by(length, length);
-    callback begin-resizing-rectangle(int);
-    callback resize-rectangle(int, length, length);
-    callback finish-resizing-rectangle(int, length, length);
-    callback cancel-resizing-rectangle();
-    callback move-rectangle2-to(length, length);
-    callback resize-rectangle2-to(int, length, length, length, length);
-    callback update-rectangle2-radius(int, length, bool);
+    callback move-rectangle-to(length, length);
+    callback resize-rectangle-to(int, length, length, length, length);
+    callback update-rectangle-radius(int, length, bool);
     callback move-text-to(length, length);
     callback resize-text-to(int, length, length, length, length);
     callback move-image-to(length, length);
     callback resize-image-to(int, length, length, length, length);
-    callback update-rectangle-radius(int, length, length, bool);
-    callback finish-rectangle-radius(int, length, length, bool);
 
     horizontal-stretch: 1;
     background: StudioTheme.canvas;
@@ -68,51 +50,6 @@ export component EditorCanvas inherits Rectangle {
 
     function phone-canvas-top() -> length {
         return max(40px, (root.height - root.phone-height()) / 2);
-    }
-
-    function placed-width() -> length {
-        if root.placed-kind == PrototypeComponentKind.image {
-            return root.image-width;
-        }
-        if root.placed-kind == PrototypeComponentKind.text {
-            return root.text-width;
-        }
-        if root.placed-kind == PrototypeComponentKind.rectangle {
-            return root.rectangle-width;
-        }
-        if root.placed-kind == PrototypeComponentKind.rectangle2 {
-            return root.rectangle2-width;
-        }
-        return 280px;
-    }
-
-    function placed-height() -> length {
-        if root.placed-kind == PrototypeComponentKind.image {
-            return root.image-height;
-        }
-        if root.placed-kind == PrototypeComponentKind.text {
-            return root.text-height;
-        }
-        if root.placed-kind == PrototypeComponentKind.rectangle {
-            return root.rectangle-height;
-        }
-        if root.placed-kind == PrototypeComponentKind.rectangle2 {
-            return root.rectangle2-height;
-        }
-        return 32px;
-    }
-
-    function rectangle-corner-radius(corner: int) -> length {
-        if corner == 0 {
-            return root.rectangle-top-left-radius;
-        }
-        if corner == 1 {
-            return root.rectangle-top-right-radius;
-        }
-        if corner == 2 {
-            return root.rectangle-bottom-right-radius;
-        }
-        return root.rectangle-bottom-left-radius;
     }
 
     for row in 28: Rectangle {
@@ -209,41 +146,27 @@ export component EditorCanvas inherits Rectangle {
             component-factory: Api.preview-area;
         }
 
-        if root.placed-kind == PrototypeComponentKind.rectangle: Rectangle {
+        if root.placed-kind == PrototypeComponentKind.rectangle: RectangleOnCanvas {
             x: root.placed-x;
             y: root.placed-y;
             width: root.rectangle-width;
             height: root.rectangle-height;
-            border-top-left-radius: root.rectangle-top-left-radius;
-            border-top-right-radius: root.rectangle-top-right-radius;
-            border-bottom-right-radius: root.rectangle-bottom-right-radius;
-            border-bottom-left-radius: root.rectangle-bottom-left-radius;
-            background: #dbeafe;
-            border-width: root.selection == CanvasSelectionKind.rectangle ? 2px : 1px;
-            border-color: root.selection == CanvasSelectionKind.rectangle ? StudioTheme.accent-strong : #93c5fd;
-
-            TouchArea {
-                mouse-cursor: move;
-                private property <bool> moved-during-press: false;
-
-                changed pressed => {
-                    if self.pressed {
-                        root.begin-moving-rectangle();
-                        self.moved-during-press = false;
-                    }
-                }
-
-                moved => {
-                    self.moved-during-press = true;
-                    root.move-rectangle-by(self.mouse-x - self.pressed-x, self.mouse-y - self.pressed-y);
-                }
-
-                clicked => {
-                    if !self.moved-during-press {
-                        root.selected(CanvasSelectionKind.rectangle);
-                    }
-                    self.moved-during-press = false;
-                }
+            top-left-radius: root.rectangle-top-left-radius;
+            top-right-radius: root.rectangle-top-right-radius;
+            bottom-right-radius: root.rectangle-bottom-right-radius;
+            bottom-left-radius: root.rectangle-bottom-left-radius;
+            active: root.selection == CanvasSelectionKind.rectangle;
+            selected => {
+                root.selected(CanvasSelectionKind.rectangle);
+            }
+            moved-to(x, y) => {
+                root.move-rectangle-to(x, y);
+            }
+            resized-to(corner, x, y, width, height) => {
+                root.resize-rectangle-to(corner, x, y, width, height);
+            }
+            radius-changed(corner, radius, single-corner) => {
+                root.update-rectangle-radius(corner, radius, single-corner);
             }
         }
 
@@ -271,30 +194,6 @@ export component EditorCanvas inherits Rectangle {
                 font-size: 24px;
                 font-weight: 800;
                 vertical-alignment: center;
-            }
-        }
-
-        if root.placed-kind == PrototypeComponentKind.rectangle2: Rectangle2OnCanvas {
-            x: root.placed-x;
-            y: root.placed-y;
-            width: root.rectangle2-width;
-            height: root.rectangle2-height;
-            top-left-radius: root.rectangle2-top-left-radius;
-            top-right-radius: root.rectangle2-top-right-radius;
-            bottom-right-radius: root.rectangle2-bottom-right-radius;
-            bottom-left-radius: root.rectangle2-bottom-left-radius;
-            active: root.selection == CanvasSelectionKind.rectangle2;
-            selected => {
-                root.selected(CanvasSelectionKind.rectangle2);
-            }
-            moved-to(x, y) => {
-                root.move-rectangle2-to(x, y);
-            }
-            resized-to(corner, x, y, width, height) => {
-                root.resize-rectangle2-to(corner, x, y, width, height);
-            }
-            radius-changed(corner, radius, single-corner) => {
-                root.update-rectangle2-radius(corner, radius, single-corner);
             }
         }
 
@@ -331,114 +230,6 @@ export component EditorCanvas inherits Rectangle {
                     font-weight: 900;
                     horizontal-alignment: center;
                     vertical-alignment: center;
-                }
-            }
-        }
-
-        if root.placed-kind == PrototypeComponentKind.rectangle
-                && root.selection == CanvasSelectionKind.rectangle: Rectangle {
-            x: root.placed-x - 8px;
-            y: root.placed-y - 8px;
-            width: root.placed-width() + 16px;
-            height: root.placed-height() + 16px;
-            border-width: 1px;
-            border-color: StudioTheme.accent-strong;
-
-            for corner in 4: Rectangle {
-                visible: root.placed-kind != PrototypeComponentKind.rectangle;
-                x: corner == 1 || corner == 2 ? parent.width - 5px : -5px;
-                y: corner >= 2 ? parent.height - 5px : -5px;
-                width: 10px;
-                height: 10px;
-                border-radius: 5px;
-                background: StudioTheme.accent-strong;
-            }
-
-            for corner in 4: Rectangle {
-                visible: root.placed-kind == PrototypeComponentKind.rectangle;
-                property <bool> active: root.rectangle-resize-corner == corner;
-
-                x: corner == 1 || corner == 2 ? parent.width - 6px : -6px;
-                y: corner >= 2 ? parent.height - 6px : -6px;
-                width: 12px;
-                height: 12px;
-                border-radius: 2px;
-                background: active ? StudioTheme.accent-strong : white;
-                border-width: 2px;
-                border-color: StudioTheme.accent-strong;
-
-                TouchArea {
-                    mouse-cursor: corner == 0 || corner == 2 ? nwse-resize : nesw-resize;
-                    private property <bool> moved-during-press: false;
-
-                    changed pressed => {
-                        if self.pressed {
-                            self.moved-during-press = false;
-                            root.begin-resizing-rectangle(corner);
-                        } else {
-                            if self.moved-during-press {
-                                root.finish-resizing-rectangle(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
-                            } else {
-                                root.cancel-resizing-rectangle();
-                            }
-                        }
-                    }
-
-                    moved => {
-                        self.moved-during-press = true;
-                        root.resize-rectangle(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
-                    }
-                }
-            }
-        }
-
-        if root.placed-kind == PrototypeComponentKind.rectangle && root.selection == CanvasSelectionKind.rectangle: Rectangle {
-            x: root.placed-x;
-            y: root.placed-y;
-            width: root.placed-width();
-            height: root.placed-height();
-
-            for corner in 4: Rectangle {
-                property <length> corner-radius: root.rectangle-corner-radius(corner);
-                property <length> handle-x: corner == 1 || corner == 2
-                    ? root.placed-width() - (20px + corner-radius * 32 / 52)
-                    : 20px + corner-radius * 32 / 52;
-                property <length> handle-y: corner >= 2
-                    ? root.placed-height() - (20px + corner-radius * 32 / 52)
-                    : 20px + corner-radius * 32 / 52;
-                property <bool> active: root.radius-dragging && root.radius-drag-corner == corner;
-                property <bool> single-active: active && root.radius-drag-single-corner;
-
-                x: handle-x - 8px;
-                y: handle-y - 8px;
-                width: 16px;
-                height: 16px;
-                border-radius: 8px;
-                background: single-active ? #facc15 : active ? StudioTheme.accent-strong : white;
-                border-width: 2px;
-                border-color: single-active ? #a16207 : StudioTheme.accent-strong;
-                drop-shadow-blur: active ? 10px : 0px;
-                drop-shadow-color: single-active ? #facc1588 : StudioTheme.accent.with-alpha(0.45);
-
-                TouchArea {
-                    mouse-cursor: pointer;
-                    private property <bool> shift-mode: false;
-
-                    pointer-event(event) => {
-                        self.shift-mode = event.modifiers.shift;
-                    }
-
-                    changed pressed => {
-                        if self.pressed {
-                            root.update-rectangle-radius(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, self.shift-mode);
-                        } else {
-                            root.finish-rectangle-radius(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, self.shift-mode);
-                        }
-                    }
-
-                    moved => {
-                        root.update-rectangle-radius(corner, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y, self.shift-mode);
-                    }
                 }
             }
         }

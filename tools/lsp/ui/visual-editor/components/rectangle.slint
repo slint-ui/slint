@@ -4,7 +4,7 @@
 import { StudioTheme } from "common.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
 
-export component Rectangle2OnCanvas inherits Rectangle {
+export component RectangleOnCanvas inherits Rectangle {
     in property <bool> active;
     in property <length> top-left-radius;
     in property <length> top-right-radius;
@@ -59,7 +59,7 @@ export component Rectangle2OnCanvas inherits Rectangle {
             border-color: root.active ? StudioTheme.accent-strong : #f59e0b;
 
             Text {
-                text: "Rectangle 2";
+                text: "Rectangle";
                 color: #78350f;
                 font-size: 14px;
                 font-weight: 800;

@@ -16,7 +16,6 @@ export enum CanvasOrientation {
 export enum PrototypeComponentKind {
     none,
     rectangle,
-    rectangle2,
     text,
     image,
 }
@@ -25,7 +24,6 @@ export enum CanvasSelectionKind {
     none,
     artboard,
     rectangle,
-    rectangle2,
     text,
     image,
 }
@@ -258,13 +256,13 @@ export component PrimerActionListRow inherits Rectangle {
             width: 42px;
             height: 42px;
             border-radius: 7px;
-            background: root.kind == PrototypeComponentKind.rectangle ? #dbeafe : root.kind == PrototypeComponentKind.rectangle2 ? #fde68a : root.kind == PrototypeComponentKind.text ? #fef3c7 : #dcfce7;
+            background: root.kind == PrototypeComponentKind.rectangle ? #fde68a : root.kind == PrototypeComponentKind.text ? #fef3c7 : #dcfce7;
             border-width: 1px;
-            border-color: root.kind == PrototypeComponentKind.rectangle ? #93c5fd : root.kind == PrototypeComponentKind.rectangle2 ? #f59e0b : root.kind == PrototypeComponentKind.text ? #fbbf24 : #86efac;
+            border-color: root.kind == PrototypeComponentKind.rectangle ? #f59e0b : root.kind == PrototypeComponentKind.text ? #fbbf24 : #86efac;
 
             Text {
                 text: root.glyph;
-                color: root.kind == PrototypeComponentKind.rectangle ? #1d4ed8 : root.kind == PrototypeComponentKind.rectangle2 ? #78350f : root.kind == PrototypeComponentKind.text ? #92400e : #166534;
+                color: root.kind == PrototypeComponentKind.rectangle ? #78350f : root.kind == PrototypeComponentKind.text ? #92400e : #166534;
                 font-size: 13px;
                 font-weight: 900;
                 horizontal-alignment: center;
