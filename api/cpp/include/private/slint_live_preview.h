@@ -398,4 +398,7 @@ from_slint_value(const slint::interpreter::Value &value,
 
 } // namespace slint::private_api::live_preview
 
+// Builtin enum conversions (generated); after LiveReloadingComponent, which they call into.
+#    include "private/slint_live_preview_enums.h"
+
 #endif // SLINT_FEATURE_LIVE_PREVIEW

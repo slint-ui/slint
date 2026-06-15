@@ -210,6 +210,94 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Generate the live-preview `into_slint_value`/`from_slint_value` for the builtin enums (which
+/// aren't in any document), each in its enum's namespace so ADL finds it.
+fn live_preview_enums(path: &Path) -> anyhow::Result<()> {
+    let mut file = BufWriter::new(
+        std::fs::File::create(path.join("slint_live_preview_enums.h"))
+            .context("Error creating slint_live_preview_enums.h file")?,
+    );
+    writeln!(file, "#pragma once")?;
+    writeln!(file, "// This file is auto-generated from {}", file!())?;
+
+    // must match the enums' runtime `strum` kebab-case serialization
+    fn to_kebab_case(value: &str) -> String {
+        let mut result = String::with_capacity(value.len());
+        for c in value.chars() {
+            if c.is_ascii_uppercase() {
+                if !result.is_empty() {
+                    result.push('-');
+                }
+                result.push(c.to_ascii_lowercase());
+            } else {
+                result.push(c);
+            }
+        }
+        result
+    }
+
+    // (namespace, type, interpreter name, [(variant, value)]); namespace mirrors enums() for ADL
+    #[allow(clippy::type_complexity)]
+    let mut enums: Vec<(&str, String, String, Vec<(String, String)>)> = Vec::new();
+    macro_rules! collect_enums {
+        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+            $({
+                let namespace = match (stringify!($vis), stringify!($Name)) {
+                    ("pub", _) => "slint::language",
+                    (_, "Orientation") | (_, "AccessibleLiveness") => "slint",
+                    _ => "slint::cbindgen_private",
+                };
+                enums.push((
+                    namespace,
+                    format!("slint::cbindgen_private::{}", stringify!($Name)),
+                    stringify!($Name).replace('_', "-"),
+                    vec![$({
+                        let variant = stringify!($Value).trim_start_matches("r#");
+                        (variant.to_string(), to_kebab_case(variant))
+                    }),*],
+                ));
+            })*
+        };
+    }
+    i_slint_common::for_each_enums!(collect_enums);
+
+    for target_namespace in ["slint", "slint::language", "slint::cbindgen_private"] {
+        writeln!(file, "namespace {target_namespace} {{")?;
+        for (_, ty, enum_name, values) in enums.iter().filter(|e| e.0 == target_namespace) {
+            writeln!(
+                file,
+                "inline slint::interpreter::Value into_slint_value([[maybe_unused]] const {ty} &self) {{"
+            )?;
+            writeln!(file, "    switch (self) {{")?;
+            for (variant, value_str) in values {
+                writeln!(
+                    file,
+                    "    case {ty}::{variant}: return slint::private_api::live_preview::LiveReloadingComponent::value_from_enum(\"{enum_name}\", \"{value_str}\");"
+                )?;
+            }
+            writeln!(file, "    }}")?;
+            writeln!(file, "    return {{}};")?;
+            writeln!(file, "}}")?;
+            writeln!(
+                file,
+                "inline {ty} from_slint_value(const slint::interpreter::Value &val, const {ty} *) {{"
+            )?;
+            writeln!(
+                file,
+                "    auto value_str = slint::private_api::live_preview::LiveReloadingComponent::get_enum_value(val);"
+            )?;
+            for (variant, value_str) in values {
+                writeln!(file, "    if (value_str == \"{value_str}\") return {ty}::{variant};")?;
+            }
+            writeln!(file, "    return {{}};")?;
+            writeln!(file, "}}")?;
+        }
+        writeln!(file, "}} // namespace {target_namespace}")?;
+    }
+    file.flush()?;
+    Ok(())
+}
+
 fn ensure_cargo_rerun_for_crate(
     crate_dir: &Path,
     dependencies: &mut Vec<PathBuf>,
@@ -1161,6 +1249,9 @@ pub fn gen_all(
     }
     if enabled_features.interpreter {
         gen_interpreter(root_dir, &gen_dir, &mut deps)?;
+    }
+    if enabled_features.live_preview {
+        live_preview_enums(&gen_dir)?;
     }
     Ok(deps)
 }
