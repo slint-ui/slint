@@ -4,11 +4,13 @@
 import { AppState, PrototypeComponentKind, StudioTheme } from "common.slint";
 
 export component DragPreview inherits Rectangle {
+    private property <length> pointer-gap: 24px;
+
     visible: AppState.dragging-kind != PrototypeComponentKind.none;
-    x: AppState.drag-x - 46px;
-    y: AppState.drag-y - 24px;
-    width: AppState.dragging-kind == PrototypeComponentKind.image ? 106px : 96px;
-    height: 48px;
+    width: max(96px, content.preferred-width);
+    height: max(48px, content.preferred-height);
+    x: AppState.drag-x - root.width - root.pointer-gap;
+    y: AppState.drag-y - 2 * root.height - root.pointer-gap;
     border-radius: 8px;
     background: StudioTheme.panel-bg;
     border-width: 1px;
@@ -17,7 +19,7 @@ export component DragPreview inherits Rectangle {
     drop-shadow-offset-y: 8px;
     drop-shadow-color: StudioTheme.dark ? #00000080 : #33415535;
 
-    HorizontalLayout {
+    content := HorizontalLayout {
         padding-left: 10px;
         padding-right: 10px;
         spacing: 8px;
