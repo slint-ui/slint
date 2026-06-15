@@ -4,15 +4,11 @@
 import { StudioTheme } from "common.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
 
-export component RectangleOnCanvas inherits Rectangle {
-    in property <bool> active;
+export component RectangleOnCanvas inherits MoveResizeFrame {
     in property <length> top-left-radius;
     in property <length> top-right-radius;
     in property <length> bottom-right-radius;
     in property <length> bottom-left-radius;
-    callback selected();
-    callback moved-to(length, length);
-    callback resized-to(int, length, length, length, length);
     callback radius-changed(int, length, bool);
 
     width: 240px;
@@ -41,60 +37,53 @@ export component RectangleOnCanvas inherits Rectangle {
         return root.bottom-left-radius;
     }
 
-    MoveResizeFrame {
+    Rectangle {
         width: root.width;
         height: root.height;
-        active: root.active;
-        selected => { root.selected(); }
-        moved-to(x, y) => { root.moved-to(root.x + x, root.y + y); }
-        resized-to(corner, x, y, width, height) => { root.resized-to(corner, root.x + x, root.y + y, width, height); }
+        border-top-left-radius: root.top-left-radius;
+        border-top-right-radius: root.top-right-radius;
+        border-bottom-right-radius: root.bottom-right-radius;
+        border-bottom-left-radius: root.bottom-left-radius;
+        background: #fde68a;
+        border-width: root.active ? 2px : 1px;
+        border-color: root.active ? StudioTheme.accent-strong : #f59e0b;
+    }
 
-        Rectangle {
-            border-top-left-radius: root.top-left-radius;
-            border-top-right-radius: root.top-right-radius;
-            border-bottom-right-radius: root.bottom-right-radius;
-            border-bottom-left-radius: root.bottom-left-radius;
-            background: #fde68a;
-            border-width: root.active ? 2px : 1px;
-            border-color: root.active ? StudioTheme.accent-strong : #f59e0b;
-        }
+    for corner in 4: Rectangle {
+        property <bool> on-left: corner == 0 || corner == 3;
+        property <bool> on-top: corner == 0 || corner == 1;
+        property <length> radius: root.corner-radius(corner);
+        property <length> handle-center-x: on-left ? 10px + radius : root.width - 10px - radius;
+        property <length> handle-center-y: on-top ? 10px + radius : root.height - 10px - radius;
 
-        for corner in 4: Rectangle {
-            property <bool> on-left: corner == 0 || corner == 3;
-            property <bool> on-top: corner == 0 || corner == 1;
-            property <length> radius: root.corner-radius(corner);
-            property <length> handle-center-x: on-left ? 10px + radius : root.width - 10px - radius;
-            property <length> handle-center-y: on-top ? 10px + radius : root.height - 10px - radius;
+        visible: root.active;
+        x: handle-center-x - 5px;
+        y: handle-center-y - 5px;
+        width: 10px;
+        height: 10px;
+        border-radius: 5px;
+        background: #00000000;
+        border-width: 1px;
+        border-color: StudioTheme.accent-strong;
 
-            visible: root.active;
-            x: handle-center-x - 5px;
-            y: handle-center-y - 5px;
-            width: 10px;
-            height: 10px;
-            border-radius: 5px;
-            background: #00000000;
-            border-width: 1px;
-            border-color: StudioTheme.accent-strong;
+        TouchArea {
+            mouse-cursor: pointer;
+            private property <bool> shift-mode: false;
 
-            TouchArea {
-                mouse-cursor: pointer;
-                private property <bool> shift-mode: false;
+            pointer-event(event) => {
+                self.shift-mode = event.modifiers.shift;
+            }
 
-                pointer-event(event) => {
-                    self.shift-mode = event.modifiers.shift;
+            changed pressed => {
+                if self.pressed {
+                    root.selected();
                 }
+            }
 
-                changed pressed => {
-                    if self.pressed {
-                        root.selected();
-                    }
-                }
-
-                moved => {
-                    let pointer-x = parent.x + self.mouse-x;
-                    let pointer-y = parent.y + self.mouse-y;
-                    root.radius-changed(corner, root.radius-from-handle(corner, pointer-x, pointer-y), self.shift-mode);
-                }
+            moved => {
+                let pointer-x = parent.x + self.mouse-x;
+                let pointer-y = parent.y + self.mouse-y;
+                root.radius-changed(corner, root.radius-from-handle(corner, pointer-x, pointer-y), self.shift-mode);
             }
         }
     }
