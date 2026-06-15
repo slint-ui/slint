@@ -27,6 +27,16 @@ const _safetyBase = _safetyAtRoot
     : SAFETY_DOCS_BASE_PATH.replace(/\/*$/, "/");
 
 // https://astro.build/config
+// Version-correct URL to the Slint language docs' llms.txt (see docs/astro for
+// the rationale: the deploy rewrites "/<version>/docs" -> "/latest/docs" + host
+// for the Cloudflare "latest" copy).
+const _docsRoot = `${_safetyOrigin}${SAFETY_DOCS_BASE_PATH}`.replace(
+    /safety\/$/,
+    "",
+);
+const siblingLlms = (/** @type {string} */ lang) =>
+    `${_docsRoot}${lang}/llms.txt`;
+
 export default defineConfig({
     site: _safetySite,
     ...(_safetyBase ? { base: _safetyBase } : {}),
@@ -56,8 +66,8 @@ export default defineConfig({
                         "Functional safety documentation for Slint, a declarative GUI toolkit, including safety-related guidance and processes.",
                     optionalLinks: [
                         {
-                            label: "Slint language docs",
-                            url: "https://docs.slint.dev/latest/docs/slint/",
+                            label: "Slint language docs (llms.txt)",
+                            url: siblingLlms("slint"),
                             description: "the .slint language, elements, and widgets",
                         },
                         {
@@ -69,6 +79,7 @@ export default defineConfig({
                             url: "https://github.com/slint-ui/slint",
                         },
                     ],
+                    customSelectors: { all: ["a.sl-anchor-link"] },
                 }),
             ],
             social: slintStarlightSocial,

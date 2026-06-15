@@ -31,6 +31,15 @@ const experimentalDocs = process.env.SLINT_ENABLE_EXPERIMENTAL_FEATURES === "1";
 const sidebarHref = (/** @type {string} */ url) =>
     url.startsWith(BASE_PATH) ? url.slice(BASE_PATH.length) : url;
 
+// Absolute, version-correct URLs to the sibling docs' llms.txt files. In CI,
+// BASE_PATH is "/<version>/docs/slint/" and BASE_URL is the host; the deploy
+// then rewrites "/<version>/docs" -> "/latest/docs" (and the host) for the
+// Cloudflare "latest" copy, so the versioned (Netlify) and latest (Cloudflare)
+// copies each link to their own sibling.
+const docsRoot = `${BASE_URL}${BASE_PATH}`.replace(/slint\/$/, "");
+const siblingLlms = (/** @type {string} */ lang) =>
+    `${docsRoot}${lang}/llms.txt`;
+
 // https://astro.build/config
 export default defineConfig({
     site: `${BASE_URL}${BASE_PATH}`,
@@ -567,6 +576,21 @@ export default defineConfig({
                     ].join("\n\n"),
                     optionalLinks: [
                         {
+                            label: "Slint C++ API (llms.txt)",
+                            url: siblingLlms("cpp"),
+                            description: "C++ API reference",
+                        },
+                        {
+                            label: "Slint JavaScript/TypeScript API (llms.txt)",
+                            url: siblingLlms("node"),
+                            description: "Node.js / TypeScript API reference",
+                        },
+                        {
+                            label: "Slint Python API (llms.txt)",
+                            url: siblingLlms("python"),
+                            description: "Python API reference",
+                        },
+                        {
                             label: "Slint website",
                             url: "https://slint.dev",
                             description:
@@ -578,6 +602,7 @@ export default defineConfig({
                             description: "source code and issue tracker",
                         },
                     ],
+                    customSelectors: { all: ["a.sl-anchor-link"] },
                     customSets: [
                         {
                             label: "Guide",

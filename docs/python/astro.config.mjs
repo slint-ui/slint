@@ -30,6 +30,13 @@ const _pyBase = _pyAtRoot
     ? undefined
     : PYTHON_DOCS_BASE_PATH.replace(/\/*$/, "/");
 
+// Version-correct URLs to the sibling docs' llms.txt (see docs/astro for the
+// rationale: the deploy rewrites "/<version>/docs" -> "/latest/docs" + host for
+// the Cloudflare "latest" copy).
+const _docsRoot = `${_pyOrigin}${PYTHON_DOCS_BASE_PATH}`.replace(/python\/$/, "");
+const siblingLlms = (/** @type {string} */ lang) =>
+    `${_docsRoot}${lang}/llms.txt`;
+
 export default defineConfig({
     site: _pySite,
     ...(_pyBase ? { base: _pyBase } : {}),
@@ -59,10 +66,18 @@ export default defineConfig({
                         "The Python API documentation for Slint, a declarative GUI toolkit. Covers using `.slint` user interfaces from Python.",
                     optionalLinks: [
                         {
-                            label: "Slint language docs",
-                            url: "https://docs.slint.dev/latest/docs/slint/",
+                            label: "Slint language docs (llms.txt)",
+                            url: siblingLlms("slint"),
                             description:
                                 "the .slint language, elements, and widgets",
+                        },
+                        {
+                            label: "Slint C++ API (llms.txt)",
+                            url: siblingLlms("cpp"),
+                        },
+                        {
+                            label: "Slint JavaScript/TypeScript API (llms.txt)",
+                            url: siblingLlms("node"),
                         },
                         {
                             label: "Slint website",
@@ -73,6 +88,7 @@ export default defineConfig({
                             url: "https://github.com/slint-ui/slint",
                         },
                     ],
+                    customSelectors: { all: ["a.sl-anchor-link"] },
                 }),
                 slintStarlightLinksValidatorPlugin({
                     exclude: ({ link }) => {

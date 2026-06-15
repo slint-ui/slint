@@ -38,6 +38,13 @@ const _cppBase = _cppAtRoot
     ? undefined
     : CPP_DOCS_BASE_PATH.replace(/\/*$/, "/");
 
+// Version-correct URLs to the sibling docs' llms.txt (see docs/astro for the
+// rationale: the deploy rewrites "/<version>/docs" -> "/latest/docs" + host for
+// the Cloudflare "latest" copy).
+const _docsRoot = `${_cppOrigin}${CPP_DOCS_BASE_PATH}`.replace(/cpp\/$/, "");
+const siblingLlms = (/** @type {string} */ lang) =>
+    `${_docsRoot}${lang}/llms.txt`;
+
 export default defineConfig({
     site: _cppSite,
     ...(_cppBase ? { base: _cppBase } : {}),
@@ -68,10 +75,18 @@ export default defineConfig({
                         "The C++ API documentation for Slint, a declarative GUI toolkit. Covers integrating `.slint` user interfaces into C++ applications, the CMake build setup, and the C++ API.",
                     optionalLinks: [
                         {
-                            label: "Slint language docs",
-                            url: "https://docs.slint.dev/latest/docs/slint/",
+                            label: "Slint language docs (llms.txt)",
+                            url: siblingLlms("slint"),
                             description:
                                 "the .slint language, elements, and widgets",
+                        },
+                        {
+                            label: "Slint JavaScript/TypeScript API (llms.txt)",
+                            url: siblingLlms("node"),
+                        },
+                        {
+                            label: "Slint Python API (llms.txt)",
+                            url: siblingLlms("python"),
                         },
                         {
                             label: "Slint website",
@@ -82,6 +97,7 @@ export default defineConfig({
                             url: "https://github.com/slint-ui/slint",
                         },
                     ],
+                    customSelectors: { all: ["a.sl-anchor-link"] },
                 }),
                 // Internal links are relative so they resolve under the deploy
                 // base path (e.g. /master/docs/cpp/); root-absolute links would

@@ -31,6 +31,13 @@ const _nodeBase = _nodeAtRoot
     ? undefined
     : NODE_DOCS_BASE_PATH.replace(/\/*$/, "/");
 
+// Version-correct URLs to the sibling docs' llms.txt (see docs/astro for the
+// rationale: the deploy rewrites "/<version>/docs" -> "/latest/docs" + host for
+// the Cloudflare "latest" copy).
+const _docsRoot = `${_nodeOrigin}${NODE_DOCS_BASE_PATH}`.replace(/node\/$/, "");
+const siblingLlms = (/** @type {string} */ lang) =>
+    `${_docsRoot}${lang}/llms.txt`;
+
 export default defineConfig({
     site: _nodeSite,
     ...(_nodeBase ? { base: _nodeBase } : {}),
@@ -60,10 +67,18 @@ export default defineConfig({
                         "The JavaScript and TypeScript (Node.js) API documentation for Slint, a declarative GUI toolkit. Covers using `.slint` user interfaces from Node.js and TypeScript.",
                     optionalLinks: [
                         {
-                            label: "Slint language docs",
-                            url: "https://docs.slint.dev/latest/docs/slint/",
+                            label: "Slint language docs (llms.txt)",
+                            url: siblingLlms("slint"),
                             description:
                                 "the .slint language, elements, and widgets",
+                        },
+                        {
+                            label: "Slint C++ API (llms.txt)",
+                            url: siblingLlms("cpp"),
+                        },
+                        {
+                            label: "Slint Python API (llms.txt)",
+                            url: siblingLlms("python"),
                         },
                         {
                             label: "Slint website",
@@ -74,6 +89,7 @@ export default defineConfig({
                             url: "https://github.com/slint-ui/slint",
                         },
                     ],
+                    customSelectors: { all: ["a.sl-anchor-link"] },
                 }),
                 starlightTypeDoc({
                     entryPoints: ["../../api/node/typescript/index.ts"],
