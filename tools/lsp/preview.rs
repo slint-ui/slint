@@ -20,8 +20,7 @@ use i_slint_core::DataTransfer;
 use i_slint_core::component_factory::FactoryContext;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_live_preview::protocol::{
-    PreviewComponent, PreviewConfig, PreviewToLspMessage, PreviewUserSettings, SourceFileVersion,
-    VersionedUrl,
+    PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
 };
 use lsp_types::Url;
 use slint::{PlatformError, SharedString, ToSharedString};
@@ -31,6 +30,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use user_settings::{PREVIEW_SETTINGS_FILE, PreviewUserSettings};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -52,6 +52,7 @@ mod properties;
 pub mod remote;
 pub mod ui;
 mod undo_redo;
+pub mod user_settings;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run(
@@ -76,7 +77,12 @@ pub fn run(
     app_window.window().set_fullscreen(fullscreen);
 
     tracing::debug!("Preview: requesting state from LSP");
-    to_lsp.send(&PreviewToLspMessage::RequestState { files: Vec::new() }).unwrap();
+    to_lsp
+        .send(&PreviewToLspMessage::RequestState {
+            files: Vec::new(),
+            settings: vec![PREVIEW_SETTINGS_FILE.into()],
+        })
+        .unwrap();
 
     let app_window_clone = PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
@@ -232,7 +238,14 @@ fn delete_document(url: &lsp_types::Url) {
     }
 }
 
-pub(super) fn set_user_settings(settings: PreviewUserSettings) {
+pub(super) fn set_user_settings(name: String, contents: String) {
+    // The LSP forwards any stored settings blob; only react to the one we own.
+    if name != PREVIEW_SETTINGS_FILE {
+        return;
+    }
+    let Some(settings) = PreviewUserSettings::deserialize(&contents) else {
+        return;
+    };
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if let Some(app_window) = &preview_state.app_window {
             ui::apply_preview_user_settings(app_window, &settings);
@@ -254,7 +267,11 @@ pub(super) fn update_user_settings_from_ui(settings: PreviewUserSettings) {
         preview_state.last_user_settings = settings.clone();
 
         if let Some(to_lsp) = preview_state.to_lsp.borrow().as_ref() {
-            if let Err(err) = to_lsp.send(&PreviewToLspMessage::UpdateUserSettings { settings }) {
+            let message = PreviewToLspMessage::UpdateUserSettings {
+                name: PREVIEW_SETTINGS_FILE.into(),
+                contents: settings.serialize(),
+            };
+            if let Err(err) = to_lsp.send(&message) {
                 tracing::warn!("Failed to send preview user settings update: {err}");
             }
         }
@@ -2133,7 +2150,7 @@ pub mod test {
 mod tests {
     use super::*;
     use crate::common::PreviewToLsp;
-    use i_slint_live_preview::protocol::{PreviewToLspMessage, PreviewUserSettings};
+    use i_slint_live_preview::protocol::PreviewToLspMessage;
     use std::{cell::RefCell, rc::Rc};
 
     #[derive(Default)]
@@ -2169,8 +2186,8 @@ mod tests {
             show_simulation_data: true,
             show_console: false,
         };
-        set_user_settings(settings.clone());
-        set_user_settings(settings.clone());
+        set_user_settings(PREVIEW_SETTINGS_FILE.into(), settings.serialize());
+        set_user_settings(PREVIEW_SETTINGS_FILE.into(), settings.serialize());
 
         assert!(messages.borrow().is_empty());
     }
@@ -2195,7 +2212,8 @@ mod tests {
         assert_eq!(messages.len(), 1);
         assert!(matches!(
             &messages[0],
-            PreviewToLspMessage::UpdateUserSettings { settings: emitted } if emitted == &settings
+            PreviewToLspMessage::UpdateUserSettings { name, contents }
+                if name == PREVIEW_SETTINGS_FILE && contents == &settings.serialize()
         ));
     }
 
@@ -2216,7 +2234,7 @@ mod tests {
 
         // The LSP pushes settings; the deferred `changed` handlers then report
         // the same values back. That echo must not be forwarded to the LSP.
-        set_user_settings(settings.clone());
+        set_user_settings(PREVIEW_SETTINGS_FILE.into(), settings.serialize());
         update_user_settings_from_ui(settings.clone());
         assert!(messages.borrow().is_empty());
 
@@ -2227,7 +2245,8 @@ mod tests {
         assert_eq!(messages.len(), 1);
         assert!(matches!(
             &messages[0],
-            PreviewToLspMessage::UpdateUserSettings { settings: emitted } if emitted == &changed
+            PreviewToLspMessage::UpdateUserSettings { name, contents }
+                if name == PREVIEW_SETTINGS_FILE && contents == &changed.serialize()
         ));
     }
 }

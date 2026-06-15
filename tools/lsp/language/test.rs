@@ -59,7 +59,6 @@ pub fn mock_context() -> Context {
     crate::language::Context {
         document_cache: empty_document_cache(),
         preview_config: Default::default(),
-        preview_user_settings: Default::default(),
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
@@ -127,7 +126,6 @@ fn load_content_with_document_cache(
     let mut ctx = crate::language::Context {
         document_cache: dc,
         preview_config: Default::default(),
-        preview_user_settings: Default::default(),
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
         to_show: None,
@@ -375,7 +373,7 @@ fn preview_file_recompiled_when_dependency_changes() {
 
 #[test]
 #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
-fn request_state_resends_only_targeted_files_when_present() {
+fn request_state_re_sends_only_targeted_files_when_present() {
     let (capture, messages) = preview_capture();
     let mut ctx = mock_context();
 
@@ -388,7 +386,7 @@ fn request_state_resends_only_targeted_files_when_present() {
     ctx.to_preview = capture;
     messages.borrow_mut().clear();
 
-    crate::language::send_requested_state_to_preview(&ctx, &[url]);
+    crate::language::send_requested_state_to_preview(&ctx, &[url], &[]);
 
     let messages = messages.borrow();
     assert_eq!(messages.len(), 1);

@@ -16,8 +16,7 @@ mod preview;
     not(target_arch = "wasm32"),
     any(feature = "preview-external", feature = "preview-engine")
 ))]
-#[path = "preview/user_settings.rs"]
-mod user_settings;
+mod settings_store;
 mod util;
 
 use crate::common::Result;

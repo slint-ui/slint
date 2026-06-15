@@ -257,7 +257,9 @@ impl RemoteLspToPreview {
 
         // Have the LSP push configuration, file contents, and the previewed
         // component, so the viewer leaves its idle screen on its own.
-        shared.preview_to_lsp_sender.send(PreviewToLspMessage::RequestState { files: Vec::new() });
+        shared
+            .preview_to_lsp_sender
+            .send(PreviewToLspMessage::RequestState { files: Vec::new(), settings: Vec::new() });
 
         Ok(())
     }
