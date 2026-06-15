@@ -1,0 +1,133 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { ScrollView } from "std-widgets.slint";
+import {
+    AppState, LeftPaneMode, PrimerActionListRow, PrimerNavRow, PrimerSegmentedTab,
+    PrimerTextInput, PrototypeComponentKind, SectionTitle, StudioTheme,
+} from "common.slint";
+
+export component LeftPane inherits Rectangle {
+    in-out property <LeftPaneMode> mode;
+    in-out property <string> search-text;
+    callback drag-started(PrototypeComponentKind, length, length);
+    callback drag-moved(PrototypeComponentKind, length, length);
+    callback drag-ended(PrototypeComponentKind, length, length);
+    callback drag-cancelled(PrototypeComponentKind);
+
+    width: 286px;
+    background: StudioTheme.panel-bg;
+
+    Rectangle {
+        x: parent.width - 1px;
+        width: 1px;
+        background: StudioTheme.border;
+    }
+
+    VerticalLayout {
+        padding: 14px;
+        spacing: 14px;
+
+        Rectangle {
+            height: 38px;
+            border-radius: 8px;
+            background: StudioTheme.panel-subtle;
+
+            HorizontalLayout {
+                padding: 4px;
+                spacing: 4px;
+
+                PrimerSegmentedTab {
+                    label: "Files";
+                    selected: root.mode == LeftPaneMode.files;
+                    clicked => {
+                        root.mode = LeftPaneMode.files;
+                    }
+                }
+
+                PrimerSegmentedTab {
+                    label: "Library";
+                    selected: root.mode == LeftPaneMode.library;
+                    clicked => {
+                        root.mode = LeftPaneMode.library;
+                    }
+                }
+            }
+        }
+
+        PrimerTextInput {
+            text <=> root.search-text;
+            placeholder: "Search";
+            leading-text: "/";
+        }
+
+        if root.mode == LeftPaneMode.files: ScrollView {
+            vertical-stretch: 1;
+            viewport-width: self.width;
+            viewport-height: file-list.preferred-height;
+
+            file-list := VerticalLayout {
+                width: parent.width;
+                spacing: 6px;
+
+                SectionTitle { label: "PROJECT"; }
+                PrimerNavRow { label: "slint-mobile"; glyph: "DIR"; }
+                PrimerNavRow { label: "ui"; glyph: "DIR"; indent: 16px; }
+                PrimerNavRow { label: "main.slint"; glyph: "SL"; indent: 32px; selected: true; }
+                PrimerNavRow { label: "assets"; glyph: "DIR"; indent: 16px; }
+                PrimerNavRow { label: "theme.slint"; glyph: "SL"; indent: 32px; }
+
+                Rectangle { height: 12px; }
+                SectionTitle { label: "RECENT"; }
+                PrimerNavRow { label: "login-flow.slint"; glyph: "SL"; }
+                PrimerNavRow { label: "settings-panel.slint"; glyph: "SL"; }
+            }
+        }
+
+        if root.mode == LeftPaneMode.library: ScrollView {
+            vertical-stretch: 1;
+            viewport-width: self.width;
+            viewport-height: library-list.preferred-height;
+
+            library-list := VerticalLayout {
+                width: parent.width;
+                spacing: 10px;
+
+                SectionTitle { label: "SLINT BUILT-INS"; }
+
+                PrimerActionListRow {
+                    kind: PrototypeComponentKind.rectangle;
+                    label: "Rectangle";
+                    detail: "Surface, panel, shape";
+                    glyph: "R";
+                    drag-started(kind, x, y) => { root.drag-started(kind, x, y); }
+                    drag-moved(kind, x, y) => { root.drag-moved(kind, x, y); }
+                    drag-ended(kind, x, y) => { root.drag-ended(kind, x, y); }
+                    drag-cancelled(kind) => { root.drag-cancelled(kind); }
+                }
+
+                PrimerActionListRow {
+                    kind: PrototypeComponentKind.text;
+                    label: "Text";
+                    detail: "Label or display copy";
+                    glyph: "T";
+                    drag-started(kind, x, y) => { root.drag-started(kind, x, y); }
+                    drag-moved(kind, x, y) => { root.drag-moved(kind, x, y); }
+                    drag-ended(kind, x, y) => { root.drag-ended(kind, x, y); }
+                    drag-cancelled(kind) => { root.drag-cancelled(kind); }
+                }
+
+                PrimerActionListRow {
+                    kind: PrototypeComponentKind.image;
+                    label: "Image";
+                    detail: "Bitmap or vector asset";
+                    glyph: "IMG";
+                    drag-started(kind, x, y) => { root.drag-started(kind, x, y); }
+                    drag-moved(kind, x, y) => { root.drag-moved(kind, x, y); }
+                    drag-ended(kind, x, y) => { root.drag-ended(kind, x, y); }
+                    drag-cancelled(kind) => { root.drag-cancelled(kind); }
+                }
+            }
+        }
+    }
+}

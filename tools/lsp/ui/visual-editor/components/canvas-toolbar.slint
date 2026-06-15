@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CanvasOrientation, OrientationIconButton, StudioTheme } from "common.slint";
+
+export component CanvasToolbar inherits Rectangle {
+    in property <CanvasOrientation> orientation;
+    callback orientation-selected(CanvasOrientation);
+
+    height: 42px;
+    background: StudioTheme.panel-bg;
+
+    Rectangle {
+        y: parent.height - 1px;
+        height: 1px;
+        background: StudioTheme.border;
+    }
+
+    HorizontalLayout {
+        Rectangle { width: 286px; }
+
+        Rectangle {
+            horizontal-stretch: 1;
+
+            HorizontalLayout {
+                alignment: center;
+                cross-axis-alignment: center;
+                spacing: 8px;
+
+                OrientationIconButton {
+                    selected: root.orientation == CanvasOrientation.portrait;
+                    clicked => {
+                        root.orientation-selected(CanvasOrientation.portrait);
+                    }
+                }
+
+                OrientationIconButton {
+                    landscape: true;
+                    selected: root.orientation == CanvasOrientation.landscape;
+                    clicked => {
+                        root.orientation-selected(CanvasOrientation.landscape);
+                    }
+                }
+            }
+        }
+
+        Rectangle { width: 306px; }
+    }
+}
