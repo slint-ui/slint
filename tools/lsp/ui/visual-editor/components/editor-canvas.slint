@@ -220,17 +220,6 @@ export component EditorCanvas inherits Rectangle {
                 background: @linear-gradient(135deg, #bae6fd, #bbf7d0);
                 border-width: root.selection == CanvasSelectionKind.image ? 2px : 1px;
                 border-color: root.selection == CanvasSelectionKind.image ? StudioTheme.accent-strong : #67e8f9;
-
-                Text {
-                    width: parent.width;
-                    height: parent.height;
-                    text: "IMAGE";
-                    color: #155e75;
-                    font-size: 14px;
-                    font-weight: 900;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                }
             }
         }
 

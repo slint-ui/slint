@@ -57,15 +57,6 @@ export component RectangleOnCanvas inherits Rectangle {
             background: #fde68a;
             border-width: root.active ? 2px : 1px;
             border-color: root.active ? StudioTheme.accent-strong : #f59e0b;
-
-            Text {
-                text: "Rectangle";
-                color: #78350f;
-                font-size: 14px;
-                font-weight: 800;
-                horizontal-alignment: center;
-                vertical-alignment: center;
-            }
         }
 
         for corner in 4: Rectangle {
