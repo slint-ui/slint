@@ -78,10 +78,10 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
 
         touch := TouchArea {
             mouse-cursor: pointer;
-            private property <bool> shift-mode: false;
+            private property <bool> event-shift-pressed: false;
 
             pointer-event(event) => {
-                self.shift-mode = event.modifiers.shift;
+                self.event-shift-pressed = event.modifiers.shift;
             }
 
             changed has-hover => {
@@ -94,6 +94,7 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
                     let pointer-x = parent.x + self.mouse-x;
                     let pointer-y = parent.y + self.mouse-y;
                     root.selected();
+                    root.interaction-started();
                     root.radius-tooltip-visible = true;
                     root.radius-tooltip-x = pointer-x;
                     root.radius-tooltip-y = pointer-y;
@@ -111,7 +112,7 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
                 root.radius-tooltip-x = pointer-x;
                 root.radius-tooltip-y = pointer-y;
                 root.radius-tooltip-value = radius;
-                root.radius-changed(corner, radius, self.shift-mode);
+                root.radius-changed(corner, radius, root.shift-pressed || self.event-shift-pressed);
             }
         }
     }

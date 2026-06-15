@@ -103,7 +103,7 @@ export component EditorCanvas inherits Rectangle {
     private property <angle> rotation-tooltip-value: 0deg;
 
     callback selected(CanvasSelectionKind);
-    callback resize-started();
+    callback interaction-started();
     callback move-rectangle-to(length, length);
     callback resize-rectangle-to(CanvasCorner, length, length, length, length);
     callback rotate-rectangle-to(angle);
@@ -215,8 +215,8 @@ export component EditorCanvas inherits Rectangle {
             resized-to(corner, x, y, width, height) => {
                 root.resize-rectangle-to(corner, x, y, width, height);
             }
-            resize-started => {
-                root.resize-started();
+            interaction-started => {
+                root.interaction-started();
             }
             rotated-to(rotation) => {
                 root.rotate-rectangle-to(rotation);
@@ -287,8 +287,8 @@ export component EditorCanvas inherits Rectangle {
             resized-to(corner, x, y, width, height) => {
                 root.resize-text-to(corner, x, y, width, height);
             }
-            resize-started => {
-                root.resize-started();
+            interaction-started => {
+                root.interaction-started();
             }
             rotated-to(rotation) => {
                 root.rotate-text-to(rotation);
@@ -334,8 +334,8 @@ export component EditorCanvas inherits Rectangle {
             resized-to(corner, x, y, width, height) => {
                 root.resize-image-to(corner, x, y, width, height);
             }
-            resize-started => {
-                root.resize-started();
+            interaction-started => {
+                root.interaction-started();
             }
             rotated-to(rotation) => {
                 root.rotate-image-to(rotation);
