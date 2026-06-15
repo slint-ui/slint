@@ -17,6 +17,7 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
     out property <length> radius-tooltip-x: 0px;
     out property <length> radius-tooltip-y: 0px;
     out property <length> radius-tooltip-value: 0px;
+    private property <bool> radius-handle-active: false;
 
     function radius-from-handle(corner: CanvasCorner, pointer-x: length, pointer-y: length) -> length {
         let from-left = root.corner-on-left(corner) ? pointer-x : root.width - pointer-x;
@@ -47,7 +48,7 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
         border-bottom-right-radius: root.bottom-right-radius;
         border-bottom-left-radius: root.bottom-left-radius;
         background: StudioTheme.object-bg;
-        border-width: root.active ? 2px : 1px;
+        border-width: root.active ? (root.frame-hover ? 2phx : 1phx) : 1px;
         border-color: root.active ? StudioTheme.accent-strong : StudioTheme.object-border;
     }
 
@@ -65,7 +66,7 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
             ? EditorMetrics.radius-handle-inset + radius
             : root.height - EditorMetrics.radius-handle-inset - radius;
 
-        visible: root.active;
+        visible: root.active && (root.frame-hover || root.radius-handle-active);
         x: handle-center-x - EditorMetrics.radius-handle-size / 2;
         y: handle-center-y - EditorMetrics.radius-handle-size / 2;
         width: EditorMetrics.radius-handle-size;
@@ -75,7 +76,7 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
         border-width: 1px;
         border-color: StudioTheme.accent-strong;
 
-        TouchArea {
+        touch := TouchArea {
             mouse-cursor: pointer;
             private property <bool> shift-mode: false;
 
@@ -83,7 +84,12 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
                 self.shift-mode = event.modifiers.shift;
             }
 
+            changed has-hover => {
+                root.radius-handle-active = self.has-hover || self.pressed;
+            }
+
             changed pressed => {
+                root.radius-handle-active = self.has-hover || self.pressed;
                 if self.pressed {
                     let pointer-x = parent.x + self.mouse-x;
                     let pointer-y = parent.y + self.mouse-y;
