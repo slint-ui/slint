@@ -89,6 +89,10 @@ export component EditorCanvas inherits Rectangle {
     in property <length> text-height;
     in property <length> image-width;
     in property <length> image-height;
+    private property <bool> radius-tooltip-visible: false;
+    private property <length> radius-tooltip-x: 0px;
+    private property <length> radius-tooltip-y: 0px;
+    private property <length> radius-tooltip-value: 0px;
 
     callback selected(CanvasSelectionKind);
     callback move-rectangle-to(length, length);
@@ -194,6 +198,38 @@ export component EditorCanvas inherits Rectangle {
             }
             radius-changed(corner, radius, single-corner) => {
                 root.update-rectangle-radius(corner, radius, single-corner);
+            }
+            changed radius-tooltip-visible => {
+                root.radius-tooltip-visible = self.radius-tooltip-visible;
+            }
+            changed radius-tooltip-x => {
+                root.radius-tooltip-x = root.placed-x + self.radius-tooltip-x;
+            }
+            changed radius-tooltip-y => {
+                root.radius-tooltip-y = root.placed-y + self.radius-tooltip-y;
+            }
+            changed radius-tooltip-value => {
+                root.radius-tooltip-value = self.radius-tooltip-value;
+            }
+        }
+
+        if root.placed-kind == PrototypeComponentKind.rectangle && root.radius-tooltip-visible: Rectangle {
+            x: root.radius-tooltip-x - self.width - 12px;
+            y: root.radius-tooltip-y - self.height - 12px;
+            width: tip.width + 14px;
+            height: tip.height + 8px;
+            border-radius: 6px;
+            background: StudioTheme.accent-strong;
+            drop-shadow-blur: 12px;
+            drop-shadow-offset-y: 4px;
+            drop-shadow-color: #33415535;
+
+            tip := Text {
+                text: "Radius \{(root.radius-tooltip-value / 1px).to-fixed(0)}";
+                color: white;
+                font-size: 12px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
             }
         }
 
