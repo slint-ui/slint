@@ -234,6 +234,43 @@ public:
         slint::cbindgen_private::slint_interpreter_value_enum_to_string(value.inner, &result);
         return result;
     }
+
+    // Conversions for the dedicated Value variants, which abuse the friend on Value
+    static slint::interpreter::Value value_from_data_transfer(const slint::DataTransfer &data)
+    {
+        return slint::interpreter::Value(
+                cbindgen_private::slint_interpreter_value_new_data_transfer(&data));
+    }
+    static slint::DataTransfer data_transfer_from_value(const slint::interpreter::Value &value)
+    {
+        if (auto *p = cbindgen_private::slint_interpreter_value_to_data_transfer(value.inner)) {
+            return *p;
+        }
+        return {};
+    }
+    static slint::interpreter::Value value_from_keys(const slint::Keys &keys)
+    {
+        return slint::interpreter::Value(cbindgen_private::slint_interpreter_value_new_keys(&keys));
+    }
+    static slint::Keys keys_from_value(const slint::interpreter::Value &value)
+    {
+        if (auto *p = cbindgen_private::slint_interpreter_value_to_keys(value.inner)) {
+            return *p;
+        }
+        return {};
+    }
+    static slint::interpreter::Value value_from_styled_text(const slint::StyledText &text)
+    {
+        return slint::interpreter::Value(
+                cbindgen_private::slint_interpreter_value_new_styled_text(&text));
+    }
+    static slint::StyledText styled_text_from_value(const slint::interpreter::Value &value)
+    {
+        if (auto *p = cbindgen_private::slint_interpreter_value_to_styled_text(value.inner)) {
+            return *p;
+        }
+        return {};
+    }
 };
 
 class LiveReloadModelWrapperBase : public private_api::ModelChangeListener
@@ -397,6 +434,37 @@ from_slint_value(const slint::interpreter::Value &value,
 }
 
 } // namespace slint::private_api::live_preview
+
+// Conversions for the dedicated Value variants, in slint:: so ADL finds them; after
+// LiveReloadingComponent, whose friend accessors they call into.
+namespace slint {
+inline slint::interpreter::Value into_slint_value(const slint::DataTransfer &val)
+{
+    return private_api::live_preview::LiveReloadingComponent::value_from_data_transfer(val);
+}
+inline slint::DataTransfer from_slint_value(const slint::interpreter::Value &val,
+                                            const slint::DataTransfer *)
+{
+    return private_api::live_preview::LiveReloadingComponent::data_transfer_from_value(val);
+}
+inline slint::interpreter::Value into_slint_value(const slint::Keys &val)
+{
+    return private_api::live_preview::LiveReloadingComponent::value_from_keys(val);
+}
+inline slint::Keys from_slint_value(const slint::interpreter::Value &val, const slint::Keys *)
+{
+    return private_api::live_preview::LiveReloadingComponent::keys_from_value(val);
+}
+inline slint::interpreter::Value into_slint_value(const slint::StyledText &val)
+{
+    return private_api::live_preview::LiveReloadingComponent::value_from_styled_text(val);
+}
+inline slint::StyledText from_slint_value(const slint::interpreter::Value &val,
+                                          const slint::StyledText *)
+{
+    return private_api::live_preview::LiveReloadingComponent::styled_text_from_value(val);
+}
+} // namespace slint
 
 // Builtin enum conversions (generated); after LiveReloadingComponent, which they call into.
 #    include "private/slint_live_preview_enums.h"
