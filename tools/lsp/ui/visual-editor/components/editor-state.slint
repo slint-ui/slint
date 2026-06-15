@@ -173,16 +173,6 @@ export component EditorState inherits Rectangle {
         return 12px;
     }
 
-    pure function drag-preview-y-offset(kind: PrototypeComponentKind) -> length {
-        if kind == PrototypeComponentKind.text {
-            return 120px;
-        }
-        if kind == PrototypeComponentKind.rectangle {
-            return 96px;
-        }
-        return root.default-component-height(kind) + root.drag-preview-pointer-gap();
-    }
-
     pure function corner-on-left(corner: CanvasCorner) -> bool {
         return corner == CanvasCorner.top-left || corner == CanvasCorner.bottom-left;
     }
@@ -197,8 +187,8 @@ export component EditorState inherits Rectangle {
         AppState.drag-y = window-y;
         AppState.drag-preview-width = root.default-component-width(kind);
         AppState.drag-preview-height = root.default-component-height(kind);
-        AppState.drag-preview-x = window-x - AppState.drag-preview-width - root.drag-preview-pointer-gap();
-        AppState.drag-preview-y = window-y - root.drag-preview-y-offset(kind);
+        AppState.drag-preview-x = window-x - AppState.drag-preview-width / 2;
+        AppState.drag-preview-y = window-y - AppState.drag-preview-height / 2;
         root.canvas-drop-x = AppState.drag-preview-x - root.phone-left();
         root.canvas-drop-y = AppState.drag-preview-y - root.phone-top();
         root.canvas-drop-hover = root.preview-inside-phone(
