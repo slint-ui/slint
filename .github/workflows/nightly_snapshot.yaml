@@ -473,6 +473,17 @@ jobs:
                 mkdir -p $output_path/demos/android
                 cp -a ../android/* $output_path/demos/android/
 
+                # A directory listing so the published folder is browsable.
+                {
+                  echo '<!DOCTYPE html><meta charset="utf-8"><title>Slint Android demos</title>'
+                  echo '<h1>Slint Android demos</h1>'
+                  echo '<p>Install an APK on a device, or use the AAB for Play Store uploads.</p><ul>'
+                  for f in $(cd $output_path/demos/android && ls *.apk *.aab 2>/dev/null); do
+                    echo "<li><a href=\"$f\">$f</a></li>"
+                  done
+                  echo '</ul>'
+                } > $output_path/demos/android/index.html
+
                 rm -rf $output_path/wasm-interpreter
                 mkdir -p $output_path/wasm-interpreter
                 cp -a ../api/wasm-interpreter/pkg/* ./$output_path/wasm-interpreter/
@@ -772,7 +783,7 @@ jobs:
               run: |
                   curl --fail -L -o bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
                   java -jar bundletool.jar build-apks --mode=universal \
-                      --bundle=tools/viewer/android-aab/app/build/outputs/bundle/release/app-release.aab \
+                      --bundle=tools/viewer/android-aab/app/build/outputs/bundle/release/slint-viewer.aab \
                       --output=slint-viewer.apks \
                       --ks="$CARGO_APK_RELEASE_KEYSTORE" \
                       --ks-pass="pass:$ANDROID_KEYSTORE_PASSWORD" \
@@ -780,17 +791,16 @@ jobs:
                   mkdir -p target/release/apk
                   unzip -p slint-viewer.apks universal.apk > target/release/apk/slint-viewer.apk
 
-            # Upload whatever built so a Gradle failure doesn't drop the APKs.
+            # Flatten into one directory so the artifact holds bare files.
+            - name: Collect Android artifacts
+              if: always()
+              run: |
+                  mkdir -p android-demo
+                  cp -a target/release/apk/*.apk android-demo/ || true
+                  cp -a tools/viewer/android-aab/app/build/outputs/bundle/release/slint-viewer.aab android-demo/ || true
             - name: "upload APK artifact"
               if: always()
               uses: actions/upload-artifact@v7
               with:
                   name: android-demo
-                  path: |
-                    target/release/apk/energy-monitor.apk
-                    target/release/apk/todo_lib.apk
-                    target/release/apk/weather_demo.apk
-                    target/release/apk/usecases_lib.apk
-                    target/release/apk/home_automation_lib.apk
-                    target/release/apk/slint-viewer.apk
-                    tools/viewer/android-aab/app/build/outputs/bundle/release/app-release.aab
+                  path: android-demo/

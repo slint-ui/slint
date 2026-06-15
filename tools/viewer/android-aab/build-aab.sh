@@ -17,7 +17,7 @@
 # set; gradle 8.9+ on PATH (AGP 8.7); JDK 17; the three Android rust targets
 # (rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android).
 #
-# Output: app/build/outputs/bundle/release/app-release.aab
+# Output: app/build/outputs/bundle/release/slint-viewer.aab
 
 set -euo pipefail
 
@@ -77,4 +77,8 @@ cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 --platform 26 -o "$JNI_DIR" \
 cd "$PROJECT_DIR"
 gradle --no-daemon bundleRelease
 
-echo "AAB built at: $PROJECT_DIR/app/build/outputs/bundle/release/app-release.aab"
+# Gradle names the bundle app-release.aab; rename it to the app.
+BUNDLE_DIR="$PROJECT_DIR/app/build/outputs/bundle/release"
+mv -f "$BUNDLE_DIR/app-release.aab" "$BUNDLE_DIR/slint-viewer.aab"
+
+echo "AAB built at: $BUNDLE_DIR/slint-viewer.aab"
