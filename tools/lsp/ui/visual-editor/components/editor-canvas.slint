@@ -73,6 +73,7 @@ component CanvasDropTarget inherits Rectangle {
 export component EditorCanvas inherits Rectangle {
     in property <CanvasOrientation> orientation;
     in property <CanvasSelectionKind> selection;
+    in property <bool> shift-pressed: false;
     in property <PrototypeComponentKind> placed-kind;
     in property <bool> canvas-drop-hover;
     in property <length> canvas-drop-x;
@@ -102,6 +103,7 @@ export component EditorCanvas inherits Rectangle {
     private property <angle> rotation-tooltip-value: 0deg;
 
     callback selected(CanvasSelectionKind);
+    callback resize-started();
     callback move-rectangle-to(length, length);
     callback resize-rectangle-to(CanvasCorner, length, length, length, length);
     callback rotate-rectangle-to(angle);
@@ -197,6 +199,7 @@ export component EditorCanvas inherits Rectangle {
             y: root.placed-y;
             width: root.rectangle-width;
             height: root.rectangle-height;
+            shift-pressed: root.shift-pressed;
             rotation: root.rectangle-rotation;
             top-left-radius: root.rectangle-top-left-radius;
             top-right-radius: root.rectangle-top-right-radius;
@@ -211,6 +214,9 @@ export component EditorCanvas inherits Rectangle {
             }
             resized-to(corner, x, y, width, height) => {
                 root.resize-rectangle-to(corner, x, y, width, height);
+            }
+            resize-started => {
+                root.resize-started();
             }
             rotated-to(rotation) => {
                 root.rotate-rectangle-to(rotation);
@@ -269,6 +275,7 @@ export component EditorCanvas inherits Rectangle {
             y: root.placed-y;
             width: root.text-width;
             height: root.text-height;
+            shift-pressed: root.shift-pressed;
             rotation: root.text-rotation;
             active: root.selection == CanvasSelectionKind.text;
             selected => {
@@ -279,6 +286,9 @@ export component EditorCanvas inherits Rectangle {
             }
             resized-to(corner, x, y, width, height) => {
                 root.resize-text-to(corner, x, y, width, height);
+            }
+            resize-started => {
+                root.resize-started();
             }
             rotated-to(rotation) => {
                 root.rotate-text-to(rotation);
@@ -312,6 +322,7 @@ export component EditorCanvas inherits Rectangle {
             y: root.placed-y;
             width: root.image-width;
             height: root.image-height;
+            shift-pressed: root.shift-pressed;
             rotation: root.image-rotation;
             active: root.selection == CanvasSelectionKind.image;
             selected => {
@@ -322,6 +333,9 @@ export component EditorCanvas inherits Rectangle {
             }
             resized-to(corner, x, y, width, height) => {
                 root.resize-image-to(corner, x, y, width, height);
+            }
+            resize-started => {
+                root.resize-started();
             }
             rotated-to(rotation) => {
                 root.rotate-image-to(rotation);
