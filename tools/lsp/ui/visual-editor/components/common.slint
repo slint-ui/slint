@@ -28,6 +28,13 @@ export enum CanvasSelectionKind {
     image,
 }
 
+export enum CanvasCorner {
+    top-left,
+    top-right,
+    bottom-right,
+    bottom-left,
+}
+
 export global StudioTheme {
     out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
     out property <color> app-bg: dark ? #0d1117 : #f6f8fa;

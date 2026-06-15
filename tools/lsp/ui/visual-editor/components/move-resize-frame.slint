@@ -1,33 +1,33 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { EditorMetrics, StudioTheme } from "common.slint";
+import { CanvasCorner, EditorMetrics, StudioTheme } from "common.slint";
 
 export component MoveResizeFrame inherits Rectangle {
     in property <bool> active;
     callback selected();
     callback moved-to(length, length);
-    callback resized-to(int, length, length, length, length);
+    callback resized-to(CanvasCorner, length, length, length, length);
 
-    public pure function corner-on-left(corner: int) -> bool {
-        return corner == 0 || corner == 3;
+    public pure function corner-on-left(corner: CanvasCorner) -> bool {
+        return corner == CanvasCorner.top-left || corner == CanvasCorner.bottom-left;
     }
 
-    public pure function corner-on-top(corner: int) -> bool {
-        return corner == 0 || corner == 1;
+    public pure function corner-on-top(corner: CanvasCorner) -> bool {
+        return corner == CanvasCorner.top-left || corner == CanvasCorner.top-right;
     }
 
-    pure function corner-resize-cursor-is-forward-diagonal(corner: int) -> bool {
-        return corner == 0 || corner == 2;
+    pure function corner-resize-cursor-is-forward-diagonal(corner: CanvasCorner) -> bool {
+        return corner == CanvasCorner.top-left || corner == CanvasCorner.bottom-right;
     }
 
-    pure function resize-handle-x(corner: int) -> length {
+    pure function resize-handle-x(corner: CanvasCorner) -> length {
         return root.corner-on-left(corner)
             ? -EditorMetrics.selection-handle-size / 2
             : root.width - EditorMetrics.selection-handle-size / 2;
     }
 
-    pure function resize-handle-y(corner: int) -> length {
+    pure function resize-handle-y(corner: CanvasCorner) -> length {
         return root.corner-on-top(corner)
             ? -EditorMetrics.selection-handle-size / 2
             : root.height - EditorMetrics.selection-handle-size / 2;
@@ -59,7 +59,12 @@ export component MoveResizeFrame inherits Rectangle {
         border-width: 1px;
         border-color: StudioTheme.accent-strong;
 
-        for corner in 4: Rectangle {
+        for corner in [
+            CanvasCorner.top-left,
+            CanvasCorner.top-right,
+            CanvasCorner.bottom-right,
+            CanvasCorner.bottom-left,
+        ]: Rectangle {
             x: root.resize-handle-x(corner);
             y: root.resize-handle-y(corner);
             width: EditorMetrics.selection-handle-size;
