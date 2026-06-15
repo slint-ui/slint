@@ -217,8 +217,8 @@ public:
 
     slint::Window &window() const
     {
-        const cbindgen_private::WindowAdapterRcOpaque *win_ptr = nullptr;
-        cbindgen_private::slint_live_preview_window(inner, &win_ptr);
+        const cbindgen_private::WindowAdapterRcOpaque *win_ptr =
+                cbindgen_private::slint_live_preview_window(inner);
         return const_cast<slint::Window &>(*reinterpret_cast<const slint::Window *>(win_ptr));
     }
 
