@@ -59,7 +59,6 @@ pub fn mock_context() -> Context {
     crate::language::Context {
         document_cache: empty_document_cache(),
         preview_config: Default::default(),
-        preview_user_settings: Default::default(),
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
         #[cfg(any(feature = "preview-external", feature = "preview-engine"))]
@@ -104,7 +103,6 @@ pub fn loaded_document_cache_with_file_name(
     let mut ctx = crate::language::Context {
         document_cache: dc,
         preview_config: Default::default(),
-        preview_user_settings: Default::default(),
         server_notifier: crate::ServerNotifier::dummy(),
         init_param: Default::default(),
         to_show: None,
@@ -364,7 +362,7 @@ fn request_state_resends_only_targeted_files_when_present() {
     ctx.to_preview = capture;
     messages.borrow_mut().clear();
 
-    crate::language::send_requested_state_to_preview(&ctx, &[url]);
+    crate::language::send_requested_state_to_preview(&ctx, &[url], &[]);
 
     let messages = messages.borrow();
     assert_eq!(messages.len(), 1);

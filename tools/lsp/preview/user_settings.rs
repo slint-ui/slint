@@ -1,264 +1,167 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::common;
-use i_slint_live_preview::protocol::PreviewUserSettings;
-use std::{
-    fs::{self, File, OpenOptions},
-    io::{BufReader, Write},
-    path::{Path, PathBuf},
-    sync::atomic::{AtomicU64, Ordering},
-};
+//! Preview-owned user settings.
+//!
+//! These settings belong to the (native) preview UI, not to the protocol or
+//! the LSP. The preview serializes them to a string and hands them to the LSP
+//! for storage under [`PREVIEW_SETTINGS_FILE`]; the LSP persists the blob
+//! verbatim and never interprets it (see `crate::settings_store`).
 
-const SETTINGS_FILE_NAME: &str = "preview-user-settings.json";
-static TEMP_FILE_COUNTER: AtomicU64 = AtomicU64::new(0);
+/// Name of the file the preview stores its settings in. The LSP treats this as
+/// an opaque key.
+pub const PREVIEW_SETTINGS_FILE: &str = "preview-user-settings.json";
 
-#[cfg(not(target_arch = "wasm32"))]
-fn preview_user_settings_path() -> Option<PathBuf> {
-    let project_dirs = directories::ProjectDirs::from("dev", "Slint", "slint-lsp")?;
-    Some(preview_user_settings_path_from_config_dir(project_dirs.config_dir()))
+/// Preview UI state persisted for the local user.
+///
+/// This intentionally excludes editor/compile configuration (`PreviewConfig`)
+/// and geometry. Version 1 is the initial frozen shape.
+#[derive(Clone, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(try_from = "PreviewUserSettingsSerde", rename_all = "snake_case")]
+pub struct PreviewUserSettings {
+    pub version: u32,
+    pub always_on_top: bool,
+    pub show_library: bool,
+    pub show_properties: bool,
+    pub show_outline: bool,
+    pub show_simulation_data: bool,
+    pub show_console: bool,
 }
 
-pub fn load_preview_user_settings() -> PreviewUserSettings {
-    preview_user_settings_path()
-        .as_deref()
-        .map_or_else(PreviewUserSettings::default, load_preview_user_settings_from_path)
-}
+impl PreviewUserSettings {
+    pub const CURRENT_VERSION: u32 = 1;
 
-pub fn save_preview_user_settings(settings: &PreviewUserSettings) -> common::Result<()> {
-    preview_user_settings_path().as_deref().map_or_else(
-        || {
-            Err(std::io::Error::other("cannot determine OS config directory for preview settings")
-                .into())
-        },
-        |path| save_preview_user_settings_to_path(path, settings),
-    )
-}
-
-#[cfg(target_arch = "wasm32")]
-fn preview_user_settings_path() -> Option<PathBuf> {
-    None
-}
-
-fn preview_user_settings_path_from_config_dir(config_dir: &Path) -> PathBuf {
-    config_dir.join(SETTINGS_FILE_NAME)
-}
-
-fn load_preview_user_settings_from_path(path: &Path) -> PreviewUserSettings {
-    let Ok(file) = File::open(path) else {
-        if path.exists() {
-            tracing::warn!("Ignoring unreadable preview user settings at {}", path.display());
-        } else {
-            tracing::debug!("No preview user settings at {}, using defaults", path.display());
-        }
-        return PreviewUserSettings::default();
-    };
-
-    let reader = BufReader::new(file);
-    match serde_json::from_reader(reader) {
-        Ok(settings) => settings,
-        Err(err) => {
-            tracing::warn!("Ignoring malformed preview user settings at {}: {err}", path.display());
-            PreviewUserSettings::default()
-        }
+    /// Serialize to the string stored on disk by the LSP.
+    pub fn serialize(&self) -> String {
+        // Serializing this plain struct cannot fail.
+        let mut json = serde_json::to_string_pretty(self).expect("serializing settings");
+        json.push('\n');
+        json
     }
-}
 
-fn save_preview_user_settings_to_path(
-    path: &Path,
-    settings: &PreviewUserSettings,
-) -> common::Result<()> {
-    let parent = path.parent().ok_or_else(|| {
-        std::io::Error::other(format!("preview settings path has no parent: {}", path.display()))
-    })?;
-    fs::create_dir_all(parent)?;
-
-    let mut temp_path_counter = TEMP_FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let mut temp_path = temp_path_for(path, temp_path_counter);
-    let write_result = (|| -> common::Result<()> {
-        let mut file = loop {
-            match OpenOptions::new().write(true).create_new(true).open(&temp_path) {
-                Ok(file) => break file,
-                Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
-                    temp_path_counter = temp_path_counter.wrapping_add(1);
-                    temp_path = temp_path_for(path, temp_path_counter);
-                }
-                Err(err) => return Err(err.into()),
+    /// Parse settings received from the LSP, returning `None` (and warning) if
+    /// the stored blob is malformed or of an unsupported version.
+    pub fn deserialize(contents: &str) -> Option<Self> {
+        match serde_json::from_str(contents) {
+            Ok(settings) => Some(settings),
+            Err(err) => {
+                tracing::warn!("Ignoring malformed preview user settings: {err}");
+                None
             }
-        };
-        serde_json::to_writer_pretty(&mut file, settings)?;
-        file.write_all(b"\n")?;
-        file.sync_all()?;
-        drop(file);
-        replace_file(&temp_path, path)?;
-        Ok(())
-    })();
-
-    if write_result.is_err() {
-        let _ = fs::remove_file(&temp_path);
+        }
     }
-
-    write_result
 }
 
-fn temp_path_for(path: &Path, counter: u64) -> PathBuf {
-    let file_name = path.file_name().and_then(|name| name.to_str()).unwrap_or("settings");
-    path.with_file_name(format!(".{}.{}.{}.tmp", file_name, std::process::id(), counter))
+#[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+struct PreviewUserSettingsSerde {
+    version: u32,
+    #[serde(default)]
+    always_on_top: bool,
+    #[serde(default)]
+    show_library: bool,
+    #[serde(default)]
+    show_properties: bool,
+    #[serde(default)]
+    show_outline: bool,
+    #[serde(default)]
+    show_simulation_data: bool,
+    #[serde(default)]
+    show_console: bool,
 }
 
-#[cfg(windows)]
-fn replace_file(from: &Path, to: &Path) -> std::io::Result<()> {
-    use std::os::windows::ffi::OsStrExt;
+impl TryFrom<PreviewUserSettingsSerde> for PreviewUserSettings {
+    type Error = String;
 
-    // `fs::rename()` does not reliably replace an existing destination on Windows.
-    // We write to a temporary file first, then use `MoveFileExW` so repeated saves
-    // replace the existing settings file without a delete-then-rename gap.
-    const MOVEFILE_REPLACE_EXISTING: u32 = 0x1;
-    const MOVEFILE_WRITE_THROUGH: u32 = 0x8;
+    fn try_from(value: PreviewUserSettingsSerde) -> Result<Self, Self::Error> {
+        if value.version != Self::CURRENT_VERSION {
+            return Err(format!(
+                "unsupported PreviewUserSettings version {}, expected {}",
+                value.version,
+                Self::CURRENT_VERSION
+            ));
+        }
 
-    #[link(name = "kernel32")]
-    extern "system" {
-        fn MoveFileExW(
-            lpExistingFileName: *const u16,
-            lpNewFileName: *const u16,
-            dwFlags: u32,
-        ) -> i32;
+        Ok(Self {
+            version: value.version,
+            always_on_top: value.always_on_top,
+            show_library: value.show_library,
+            show_properties: value.show_properties,
+            show_outline: value.show_outline,
+            show_simulation_data: value.show_simulation_data,
+            show_console: value.show_console,
+        })
     }
-
-    let from: Vec<u16> = from.as_os_str().encode_wide().chain([0]).collect();
-    let to: Vec<u16> = to.as_os_str().encode_wide().chain([0]).collect();
-    let ok = unsafe {
-        MoveFileExW(from.as_ptr(), to.as_ptr(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)
-    };
-    if ok != 0 { Ok(()) } else { Err(std::io::Error::last_os_error()) }
 }
 
-#[cfg(not(windows))]
-fn replace_file(from: &Path, to: &Path) -> std::io::Result<()> {
-    fs::rename(from, to)
+impl Default for PreviewUserSettings {
+    fn default() -> Self {
+        Self {
+            version: Self::CURRENT_VERSION,
+            always_on_top: false,
+            show_library: false,
+            show_properties: false,
+            show_outline: false,
+            show_simulation_data: false,
+            show_console: false,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{
-        fs,
-        time::{SystemTime, UNIX_EPOCH},
-    };
-
-    fn unique_config_dir(test_name: &str) -> PathBuf {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system time before UNIX_EPOCH")
-            .as_nanos();
-        std::env::temp_dir()
-            .join("preview-user-settings-tests")
-            .join(format!("{test_name}-{}-{nanos}", std::process::id()))
-    }
-
-    fn clean_dir(path: &Path) {
-        let _ = fs::remove_dir_all(path);
-    }
+    use serde_json::json;
 
     #[test]
-    fn settings_path_is_inside_config_dir() {
-        let config_dir = unique_config_dir("path");
+    fn preview_user_settings_serializes_with_version_and_view_toggles() {
         assert_eq!(
-            preview_user_settings_path_from_config_dir(&config_dir),
-            config_dir.join(SETTINGS_FILE_NAME)
+            serde_json::to_value(PreviewUserSettings::default()).unwrap(),
+            json!({
+                "version": 1,
+                "always_on_top": false,
+                "show_library": false,
+                "show_properties": false,
+                "show_outline": false,
+                "show_simulation_data": false,
+                "show_console": false,
+            })
         );
     }
 
     #[test]
-    fn load_defaults_when_file_is_missing() {
-        let config_dir = unique_config_dir("missing");
-        clean_dir(&config_dir);
-        let settings_path = preview_user_settings_path_from_config_dir(&config_dir);
-
-        assert_eq!(
-            load_preview_user_settings_from_path(&settings_path),
-            PreviewUserSettings::default()
-        );
-        assert!(!settings_path.exists());
-    }
-
-    #[test]
-    fn load_defaults_when_file_is_malformed() {
-        let config_dir = unique_config_dir("malformed");
-        let settings_path = preview_user_settings_path_from_config_dir(&config_dir);
-        fs::create_dir_all(config_dir).unwrap();
-        fs::write(&settings_path, b"{ this is not json").unwrap();
-
-        assert_eq!(
-            load_preview_user_settings_from_path(&settings_path),
-            PreviewUserSettings::default()
-        );
-    }
-
-    #[test]
-    fn load_preserves_older_subset_fields() {
-        let config_dir = unique_config_dir("subset");
-        clean_dir(&config_dir);
-        let settings_path = preview_user_settings_path_from_config_dir(&config_dir);
-        fs::create_dir_all(&config_dir).unwrap();
-        fs::write(
-            &settings_path,
-            br#"{
-  "version": 1,
-  "always_on_top": true
-}"#,
-        )
-        .unwrap();
-
-        assert_eq!(
-            load_preview_user_settings_from_path(&settings_path),
-            PreviewUserSettings {
-                version: PreviewUserSettings::CURRENT_VERSION,
-                always_on_top: true,
-                show_library: false,
-                show_properties: false,
-                show_outline: false,
-                show_simulation_data: false,
-                show_console: false,
-            }
-        );
-    }
-
-    #[test]
-    fn save_overwrites_existing_file_atomically() {
-        let config_dir = unique_config_dir("roundtrip");
-        clean_dir(&config_dir);
-        let settings_path = preview_user_settings_path_from_config_dir(&config_dir);
+    fn serialize_round_trips_through_deserialize() {
         let settings = PreviewUserSettings {
             version: PreviewUserSettings::CURRENT_VERSION,
             always_on_top: true,
-            show_library: true,
-            show_properties: false,
-            show_outline: true,
-            show_simulation_data: false,
-            show_console: true,
-        };
-        let updated = PreviewUserSettings {
-            version: PreviewUserSettings::CURRENT_VERSION,
-            always_on_top: false,
             show_library: false,
             show_properties: true,
             show_outline: false,
             show_simulation_data: true,
             show_console: false,
         };
+        assert_eq!(PreviewUserSettings::deserialize(&settings.serialize()), Some(settings));
+    }
 
-        save_preview_user_settings_to_path(&settings_path, &settings).unwrap();
-        save_preview_user_settings_to_path(&settings_path, &updated).unwrap();
+    #[test]
+    fn deserialize_preserves_older_subset_fields() {
+        assert_eq!(
+            PreviewUserSettings::deserialize("{ \"version\": 1, \"always_on_top\": true }"),
+            Some(PreviewUserSettings { always_on_top: true, ..PreviewUserSettings::default() })
+        );
+    }
 
-        assert!(settings_path.exists());
-        assert_eq!(load_preview_user_settings_from_path(&settings_path), updated);
-
-        let temp_files = fs::read_dir(&config_dir)
-            .unwrap()
-            .filter_map(|entry| entry.ok().map(|entry| entry.file_name()))
-            .filter(|name| name.to_string_lossy().contains(".tmp"))
-            .count();
-        assert_eq!(temp_files, 0);
+    #[test]
+    fn deserialize_rejects_malformed_or_mismatched_version() {
+        assert_eq!(PreviewUserSettings::deserialize("{ this is not json"), None);
+        assert_eq!(PreviewUserSettings::deserialize("{ \"show_console\": true }"), None);
+        assert_eq!(
+            PreviewUserSettings::deserialize(
+                "{ \"version\": 2, \"always_on_top\": false, \"show_library\": false, \
+                 \"show_properties\": false, \"show_outline\": false, \
+                 \"show_simulation_data\": false, \"show_console\": false }"
+            ),
+            None
+        );
     }
 }

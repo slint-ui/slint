@@ -30,8 +30,8 @@ pub fn lsp_to_preview(message: LspToPreviewMessage) {
         M::SetConfiguration { config } => {
             preview::config_changed(config);
         }
-        M::SetUserSettings { settings } => {
-            preview::set_user_settings(settings);
+        M::SetUserSettings { name, contents } => {
+            preview::set_user_settings(name, contents);
         }
         M::ShowPreview(pc) => {
             tracing::debug!(
