@@ -88,6 +88,13 @@ export component MoveResizeFrame inherits Rectangle {
         );
     }
 
+    pure function child-local-point(child-position: Point, point: Point) -> Point {
+        return {
+            x: child-position.x + point.x,
+            y: child-position.y + point.y,
+        };
+    }
+
     pure function parent-delta-to-local(delta: Point, rotation: angle) -> Point {
         return {
             x: delta.x * rotation.cos() + delta.y * rotation.sin(),
@@ -103,11 +110,10 @@ export component MoveResizeFrame inherits Rectangle {
     }
 
     pure function position-for-fixed-corner(corner: CanvasCorner, fixed-parent-point: Point, size: Size, rotation: angle) -> Point {
-        let opposite-x = root.opposite-corner-local-x-sign(corner);
-        let opposite-y = root.opposite-corner-local-y-sign(corner);
+        let fixed-local-point = root.opposite-corner-local-point(corner, size);
         let fixed-delta = root.local-delta-to-parent({
-            x: opposite-x * size.width / 2,
-            y: opposite-y * size.height / 2,
+            x: fixed-local-point.x - size.width / 2,
+            y: fixed-local-point.y - size.height / 2,
         }, rotation);
         return {
             x: fixed-parent-point.x - fixed-delta.x - size.width / 2,
@@ -131,12 +137,28 @@ export component MoveResizeFrame inherits Rectangle {
         return root.corner-on-top(corner) ? -1 : 1;
     }
 
-    pure function opposite-corner-local-x-sign(corner: CanvasCorner) -> float {
-        return -root.corner-local-x-sign(corner);
+    pure function corner-local-point(corner: CanvasCorner, size: Size) -> Point {
+        return {
+            x: size.width / 2 + root.corner-local-x-sign(corner) * size.width / 2,
+            y: size.height / 2 + root.corner-local-y-sign(corner) * size.height / 2,
+        };
     }
 
-    pure function opposite-corner-local-y-sign(corner: CanvasCorner) -> float {
-        return -root.corner-local-y-sign(corner);
+    pure function opposite-corner-local-point(corner: CanvasCorner, size: Size) -> Point {
+        return root.corner-local-point(root.opposite-corner(corner), size);
+    }
+
+    pure function opposite-corner(corner: CanvasCorner) -> CanvasCorner {
+        if corner == CanvasCorner.top-left {
+            return CanvasCorner.bottom-right;
+        }
+        if corner == CanvasCorner.top-right {
+            return CanvasCorner.bottom-left;
+        }
+        if corner == CanvasCorner.bottom-right {
+            return CanvasCorner.top-left;
+        }
+        return CanvasCorner.top-right;
     }
 
     pure function proportional-resizing() -> bool {
@@ -203,22 +225,13 @@ export component MoveResizeFrame inherits Rectangle {
             height: root.height;
             mouse-cursor: move;
             private property <Point> move-start-position: { x: 0px, y: 0px };
-            private property <Size> move-start-size: { width: 0px, height: 0px };
-            private property <angle> move-start-rotation: 0deg;
             private property <Point> move-start-pointer: { x: 0px, y: 0px };
 
             changed pressed => {
                 if self.pressed {
                     root.move-dragging = false;
                     self.move-start-position = { x: root.x, y: root.y };
-                    self.move-start-size = { width: root.width, height: root.height };
-                    self.move-start-rotation = root.rotation;
-                    self.move-start-pointer = root.local-point-to-parent-at(
-                        { x: self.mouse-x, y: self.mouse-y },
-                        self.move-start-position,
-                        self.move-start-size,
-                        self.move-start-rotation,
-                    );
+                    self.move-start-pointer = root.local-point-to-parent({ x: self.mouse-x, y: self.mouse-y });
                     root.selected();
                 } else {
                     root.move-dragging = false;
@@ -298,15 +311,17 @@ export component MoveResizeFrame inherits Rectangle {
 
                     changed pressed => {
                         if self.pressed {
-                            let local-x = parent.x + self.mouse-x;
-                            let local-y = parent.y + self.mouse-y;
+                            let local-point = root.child-local-point(
+                                { x: parent.x, y: parent.y },
+                                { x: self.mouse-x, y: self.mouse-y },
+                            );
                             root.selected();
                             root.interaction-started();
                             root.rotating = true;
                             root.rotation-tooltip-visible = true;
                             self.start-rotation = root.rotation;
-                            self.start-pointer-angle = root.pointer-angle(local-x, local-y);
-                            root.rotation-tooltip-position = root.local-point-to-parent({ x: local-x, y: local-y });
+                            self.start-pointer-angle = root.pointer-angle(local-point.x, local-point.y);
+                            root.rotation-tooltip-position = root.local-point-to-parent(local-point);
                             root.rotation-tooltip-value = root.rotation;
                         } else {
                             root.rotating = false;
@@ -315,12 +330,14 @@ export component MoveResizeFrame inherits Rectangle {
                     }
 
                     moved => {
-                        let local-x = parent.x + self.mouse-x;
-                        let local-y = parent.y + self.mouse-y;
-                        let angle = self.start-rotation + root.pointer-angle(local-x, local-y) - self.start-pointer-angle;
+                        let local-point = root.child-local-point(
+                            { x: parent.x, y: parent.y },
+                            { x: self.mouse-x, y: self.mouse-y },
+                        );
+                        let angle = self.start-rotation + root.pointer-angle(local-point.x, local-point.y) - self.start-pointer-angle;
                         let target-angle = (root.shift-pressed || self.event-shift-pressed) ? root.snapped-rotation(angle) : angle;
                         root.rotation-tooltip-visible = true;
-                        root.rotation-tooltip-position = root.local-point-to-parent({ x: local-x, y: local-y });
+                        root.rotation-tooltip-position = root.local-point-to-parent(local-point);
                         root.rotation-tooltip-value = target-angle;
                         root.rotated-to(target-angle);
                     }
@@ -359,14 +376,10 @@ export component MoveResizeFrame inherits Rectangle {
 
                         changed pressed => {
                             if self.pressed {
-                                let pointer = root.local-point-to-parent({
-                                    x: parent.x + self.mouse-x,
-                                    y: parent.y + self.mouse-y,
-                                });
-                                let opposite-x = root.opposite-corner-local-x-sign(corner);
-                                let opposite-y = root.opposite-corner-local-y-sign(corner);
-                                let local-opposite-x = opposite-x * root.width / 2;
-                                let local-opposite-y = opposite-y * root.height / 2;
+                                let pointer = root.local-point-to-parent(root.child-local-point(
+                                    { x: parent.x, y: parent.y },
+                                    { x: self.mouse-x, y: self.mouse-y },
+                                ));
 
                                 root.selected();
                                 root.interaction-started();
@@ -377,10 +390,7 @@ export component MoveResizeFrame inherits Rectangle {
                                 root.resize-start-rotation = root.rotation;
                                 root.resize-start-pointer = pointer;
                                 root.resize-fixed-corner = root.local-point-to-parent-at(
-                                    {
-                                        x: root.width / 2 + local-opposite-x,
-                                        y: root.height / 2 + local-opposite-y,
-                                    },
+                                    root.opposite-corner-local-point(corner, root.resize-start-size),
                                     { x: root.x, y: root.y },
                                     root.resize-start-size,
                                     root.resize-start-rotation,
@@ -394,10 +404,10 @@ export component MoveResizeFrame inherits Rectangle {
                         }
 
                         moved => {
-                            root.store-free-resize-target(root.local-point-to-parent({
-                                x: parent.x + self.mouse-x,
-                                y: parent.y + self.mouse-y,
-                            }));
+                            root.store-free-resize-target(root.local-point-to-parent(root.child-local-point(
+                                { x: parent.x, y: parent.y },
+                                { x: self.mouse-x, y: self.mouse-y },
+                            )));
                             root.emit-resize-target();
                         }
                     }
