@@ -393,20 +393,23 @@ pub fn lower_layouts(
     });
 
     *component.root_constraints.borrow_mut() =
-        LayoutConstraints::new(&component.root_element, diag, DiagnosticLevel::Error);
+        LayoutConstraints::new(&component.root_element, Some((diag, DiagnosticLevel::Error)));
+
+    // A popup is not visited as a component on its own, so set the constraints of its root here.
+    // A redundant size constraint on a popup root is only a warning (not an error like on a window
+    // root) for compatibility with older versions of Slint that did not report it.
+    for popup in component.popup_windows.borrow().iter() {
+        *popup.component.root_constraints.borrow_mut() = LayoutConstraints::new(
+            &popup.component.root_element,
+            Some((&mut *diag, DiagnosticLevel::Warning)),
+        );
+    }
 
     recurse_elem_including_sub_components(
         component,
         &Option::default(),
         &mut |elem, parent_layout_type| {
             let component = elem.borrow().enclosing_component.upgrade().unwrap();
-
-            // Popups have their own layout constraints
-            for popup in component.popup_windows.borrow_mut().iter() {
-                let component = &popup.component;
-                *component.root_constraints.borrow_mut() =
-                    LayoutConstraints::new(&component.root_element, diag, DiagnosticLevel::Error);
-            }
 
             lower_element_layout(
                 &component,
@@ -1842,8 +1845,10 @@ fn create_layout_item(
         fix_explicit_percent("width", &rep_comp.root_element);
         fix_explicit_percent("height", &rep_comp.root_element);
 
-        *rep_comp.root_constraints.borrow_mut() =
-            LayoutConstraints::new(&rep_comp.root_element, diag, DiagnosticLevel::Error);
+        *rep_comp.root_constraints.borrow_mut() = LayoutConstraints::new(
+            &rep_comp.root_element,
+            Some((&mut *diag, DiagnosticLevel::Error)),
+        );
         rep_comp.root_element.borrow_mut().child_of_layout = true;
         (
             Some(if r.is_conditional_element {
@@ -1857,7 +1862,7 @@ fn create_layout_item(
         (None, item_element.clone())
     };
 
-    let constraints = LayoutConstraints::new(&actual_elem, diag, DiagnosticLevel::Error);
+    let constraints = LayoutConstraints::new(&actual_elem, Some((diag, DiagnosticLevel::Error)));
     CreateLayoutItemResult {
         item: LayoutItem { element: item_element.clone(), constraints },
         elem: actual_elem,

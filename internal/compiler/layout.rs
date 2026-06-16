@@ -198,11 +198,15 @@ pub struct LayoutConstraints {
 }
 
 impl LayoutConstraints {
-    /// Build the constraints for the given element
+    /// Build the constraints for the given element.
     ///
-    /// Report diagnostics when both constraints and fixed size are set
-    /// (one can set the level to warning to keep compatibility to old version of Slint)
-    pub fn new(element: &ElementRc, diag: &mut BuildDiagnostics, level: DiagnosticLevel) -> Self {
+    /// When `diag` is `Some`, a redundant size constraint (e.g. both `width` and `min-width`) is
+    /// reported at the given level; pass `None` to compute the constraints without reporting (e.g.
+    /// when another pass owns that diagnostic).
+    pub fn new(
+        element: &ElementRc,
+        mut diag: Option<(&mut BuildDiagnostics, DiagnosticLevel)>,
+    ) -> Self {
         let mut constraints = Self {
             min_width: binding_reference(element, "min-width"),
             max_width: binding_reference(element, "max-width"),
@@ -226,7 +230,8 @@ impl LayoutConstraints {
                         &other_prop.element(),
                         other_prop.name(),
                         |old, enclosing2, d2| {
-                            if Weak::ptr_eq(enclosing1, enclosing2)
+                            if let Some((diag, level)) = &mut diag
+                                && Weak::ptr_eq(enclosing1, enclosing2)
                                 && old.priority.saturating_add(d2)
                                     <= binding.priority.saturating_add(depth)
                             {
@@ -236,7 +241,7 @@ impl LayoutConstraints {
                                         other_prop.name()
                                     ),
                                     binding.to_source_location(),
-                                    level,
+                                    *level,
                                 );
                             }
                         },
