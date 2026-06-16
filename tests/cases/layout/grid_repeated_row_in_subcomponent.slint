@@ -35,20 +35,20 @@ export component TestCase inherits Window {
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-assert(instance.get_test());
 assert_eq(instance.get_inner_min_height(), 120.);
+assert(instance.get_test());
 ```
 
 ```rust
 let instance = TestCase::new().unwrap();
-assert!(instance.get_test());
 assert_eq!(instance.get_inner_min_height(), 120.);
+assert!(instance.get_test());
 ```
 
 ```js
 var instance = new slint.TestCase();
-assert(instance.test);
 assert.equal(instance.inner_min_height, 120.);
+assert(instance.test);
 ```
 
 */
