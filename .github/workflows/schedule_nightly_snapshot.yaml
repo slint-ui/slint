@@ -14,9 +14,12 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        branch:
-          - pre-release/1.16
-          - master
+        # Exactly one branch has `snapshots_only: false`: it owns the `nightly` tag and the VS Code extension.
+        include:
+          - branch: pre-release/1.17
+            snapshots_only: false
+          - branch: master
+            snapshots_only: true
 
     steps:
       - uses: actions/checkout@v6
@@ -37,4 +40,4 @@ jobs:
         if: steps.recent.outputs.has_commits == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh workflow run "Nightly snapshot" --ref ${{ matrix.branch }} --repo ${{ github.repository }} -f private=false
+        run: gh workflow run "Nightly snapshot" --ref ${{ matrix.branch }} --repo ${{ github.repository }} -f private=false -f snapshots_only=${{ matrix.snapshots_only }}

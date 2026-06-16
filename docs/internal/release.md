@@ -32,7 +32,9 @@ Use this branch to collect fixes and run testing (apply cherry-picks here).
     git push origin origin/master:pre-release/<major.minor>
     ```
 
- 2. Change .github/workflows/schedule_nightly_snapshot.yaml to include that pre-release branch in the matrix.
+ 2. Change .github/workflows/schedule_nightly_snapshot.yaml to include that pre-release branch in the matrix
+    with `snapshots_only: false`, and switch `master` to `snapshots_only: true`.
+    Exactly one branch has `snapshots_only: false`: it owns the `nightly` tag and the VS Code extension.
     This commit needs to be done in the `master` branch.
 
  3. Send a discussion in the ["Show And Tell" category](https://github.com/slint-ui/slint/discussions/categories/show-and-tell)
@@ -141,6 +143,9 @@ In the mean time, the version in the master branch can be updated
 * Notify Torizon guys to update the base images that contain Slint or create PR for https://github.com/commontorizon/Containerfiles
 
 * [Update tree-sitter configurations for editors](https://github.com/slint-ui/wiki/blob/309a3b0327731ba2cfb229595e0fa7209ba868c6/infrastructure/release_checklist.md?plain=1#L91)
+
+* In `.github/workflows/schedule_nightly_snapshot.yaml` (on `master`), give the `snapshots_only: false` slot back to
+  `master`: set the released branch to `snapshots_only: true` and `master` to `snapshots_only: false`.
 
 ## Patch Releases
 

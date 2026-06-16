@@ -12,6 +12,11 @@ on:
                 default: true
                 required: false
                 description: "Private build? True means artifacts are only built. False means the artefacts are published (docs, vscode extension) to the web/marketplace"
+            snapshots_only:
+                type: boolean
+                default: false
+                required: false
+                description: "Only publish the website snapshots (docs, demos, editor). True skips the VS Code extension and the `nightly` release tag, so a single branch can own them. Ignored for private builds."
             release:
                 type: boolean
                 default: false
@@ -298,12 +303,12 @@ jobs:
               with:
                   pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
                   registryUrl: https://marketplace.visualstudio.com
-                  dryRun: ${{ github.event.inputs.private == 'true' || (github.ref != 'refs/heads/master' && github.event.inputs.release != 'true') }}
+                  dryRun: ${{ github.event.inputs.private == 'true' || github.event.inputs.snapshots_only == 'true' }}
                   packagePath: editors/vscode
                   dependencies: false
             - name: Publish to Open VSX Registry
               continue-on-error: true
-              if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
+              if: ${{ github.event.inputs.private != 'true' && github.event.inputs.snapshots_only != 'true' }}
               uses: HaaLeo/publish-vscode-extension@v2
               with:
                   pat: ${{ secrets.OPENVSX_PAT }}
@@ -578,7 +583,7 @@ jobs:
                 git push
 
     prepare_release:
-        if: github.event.inputs.private != 'true'
+        if: github.event.inputs.private != 'true' && (github.event.inputs.snapshots_only != 'true' || github.event.inputs.release == 'true')
         needs: [cpp_package, slint-viewer-binary, slint-lsp-binary, build-figma-plugin]
         runs-on: ubuntu-22.04
         permissions:
@@ -685,7 +690,7 @@ jobs:
                   tag: v${{ steps.version.outputs.VERSION }}
                   commit: ${{ github.sha }}
             - uses: ncipollo/release-action@v1
-              if: github.event.inputs.release != 'true' && github.ref == 'refs/heads/master'
+              if: github.event.inputs.release != 'true' && github.event.inputs.private != 'true'
               with:
                   allowUpdates: true
                   prerelease: true
@@ -697,7 +702,7 @@ jobs:
                   tag: nightly
                   commit: ${{ github.sha }}
             - name: trigger stm32 build
-              if: github.ref == 'refs/heads/master'
+              if: github.event.inputs.private != 'true'
               run: |
                 curl -L \
                 -X POST \
