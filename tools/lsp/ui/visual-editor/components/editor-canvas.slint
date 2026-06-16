@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, DropMark } from "../../api.slint";
+import { Api, DropMark, SelectionRectangle } from "../../api.slint";
 import { EditorPalette } from "../../components/styling.slint";
 import {
     CanvasCorner, CanvasOrientation, CanvasSelectionKind, EditorMetrics, PrototypeComponentKind,
@@ -96,6 +96,14 @@ export component EditorCanvas inherits Rectangle {
     private property <bool> rotation-tooltip-visible: false;
     private property <Point> rotation-tooltip-position: { x: 0px, y: 0px };
     private property <angle> rotation-tooltip-value: 0deg;
+    // Bounding rectangles of the currently selected element, in phone-content coordinates.
+    // Guard on highlight-index >= 0: after Api.unselect(), the backend still populates
+    // current-element with the component root (for the property panel), which would make
+    // highlight-positions return a component-sized rect. That rect's move-touch would
+    // silently swallow all subsequent clicks, preventing re-selection.
+    property <[SelectionRectangle]> selections: Api.selection.highlight-index >= 0
+        ? Api.highlight-positions(Api.current-element.source-uri, Api.current-element.offset)
+        : [];
 
     callback selected(CanvasSelectionKind);
     callback interaction-started();
@@ -151,6 +159,7 @@ export component EditorCanvas inherits Rectangle {
         height: root.height;
 
         clicked => {
+            Api.unselect();
             root.selected(CanvasSelectionKind.artboard);
         }
     }
@@ -177,6 +186,7 @@ export component EditorCanvas inherits Rectangle {
 
         touch := TouchArea {
             clicked => {
+                Api.unselect();
                 root.selected(CanvasSelectionKind.artboard);
             }
         }
@@ -218,6 +228,30 @@ export component EditorCanvas inherits Rectangle {
             }
         }
 
+        // Click to select the real previewed element.
+        // Sits on top of the live preview so it intercepts clicks.
+        // pressed-x/y are already in content coordinates, matching what the backend expects.
+        selection-area := TouchArea {
+            x: EditorMetrics.phone-outer-padding;
+            y: EditorMetrics.phone-outer-padding;
+            width: parent.width - (2 * EditorMetrics.phone-outer-padding);
+            height: parent.height - (2 * EditorMetrics.phone-outer-padding);
+            mouse-cursor: crosshair;
+            clicked => {
+                Api.select-at(self.pressed-x, self.pressed-y, false);
+                }
+        }
+
+        // Selection frame(s) for the currently selected element. Rendered after
+        // selection-area so the active frame intercepts clicks on the selected element.
+        for s[idx] in root.selections: MoveResizeFrame {
+            x: s.x + EditorMetrics.phone-outer-padding;
+            y: s.y + EditorMetrics.phone-outer-padding;
+            width: s.width;
+            height: s.height;
+            rotation: s.angle;
+            active: true;
+        }
 
         if root.placed-kind == PrototypeComponentKind.rectangle: RectangleOnCanvas {
             x: root.placed-position.x;
