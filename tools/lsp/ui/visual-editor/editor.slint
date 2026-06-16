@@ -11,6 +11,7 @@ import { EditorState } from "components/editor-state.slint";
 import { EditorTopBar } from "components/top-bar.slint";
 import { InspectorPane } from "components/inspector-pane.slint";
 import { LeftPane } from "components/left-pane.slint";
+import { EditorMetrics } from "components/common.slint";
 
 export component EditorUi inherits Window {
     preferred-width: 1360px;
@@ -33,6 +34,17 @@ export component EditorUi inherits Window {
     state := EditorState {
         window-width: root.width;
         window-height: root.height;
+    }
+    Rectangle {
+        y: 0;
+        height: EditorMetrics.top-bar-height;
+        drag-area := TouchArea {
+            moved => {
+                if self.pressed {
+                    Api.request-window-drag();
+                }
+            }
+        }
     }
 
     if !root.wizard-visible: editor := FocusScope {
