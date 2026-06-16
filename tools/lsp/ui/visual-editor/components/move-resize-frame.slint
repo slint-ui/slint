@@ -24,8 +24,10 @@ export component MoveResizeFrame inherits Rectangle {
     private property <angle> resize-start-rotation: 0deg;
     private property <Point> free-resize-position: { x: 0px, y: 0px };
     private property <Size> free-resize-size: { width: 0px, height: 0px };
+    in property <bool> resizable: true;
     callback selected();
     callback interaction-started();
+    callback interaction-ended();
     callback moved-to(Point);
     callback resized-to(CanvasCorner, Point, Size);
     callback rotated-to(angle);
@@ -234,6 +236,9 @@ export component MoveResizeFrame inherits Rectangle {
                     self.move-start-pointer = root.local-point-to-parent({ x: self.mouse-x, y: self.mouse-y });
                     root.selected();
                 } else {
+                    if root.move-dragging {
+                        root.interaction-ended();
+                    }
                     root.move-dragging = false;
                 }
             }
@@ -363,6 +368,7 @@ export component MoveResizeFrame inherits Rectangle {
                     border-color: StudioTheme.accent-strong;
 
                     TouchArea {
+                        enabled: root.resizable;
                         mouse-cursor: root.corner-resize-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize;
                         private property <bool> event-shift-pressed: false;
 
@@ -398,6 +404,9 @@ export component MoveResizeFrame inherits Rectangle {
                                 root.store-free-resize-target(pointer);
                                 root.emit-resize-target();
                             } else {
+                                if root.resize-pressed {
+                                    root.interaction-ended();
+                                }
                                 root.resize-pressed = false;
                                 root.resize-shift-pressed = false;
                             }
