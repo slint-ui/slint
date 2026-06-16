@@ -427,8 +427,41 @@ fn handle_preview_message(msg: PreviewToLspMessage, ctx: &mut language::Context)
         | DisconnectRemote => {
             tracing::debug!("Ignoring message from preview: {msg:?}");
         }
-        SendWorkspaceEdit { .. } => {
-            tracing::warn!("Workspace edits not yet implemented in visual editor");
+        SendWorkspaceEdit { label, edit } => {
+            handle_workspace_edit(&ctx.document_cache, label.as_deref(), edit);
+        }
+    }
+}
+
+fn handle_workspace_edit(
+    document_cache: &common::DocumentCache,
+    label: Option<&str>,
+    edit: &lsp_types::WorkspaceEdit,
+) {
+    match crate::common::text_edit::apply_workspace_edit(document_cache, edit) {
+        Ok(edited_texts) => {
+            for crate::common::text_edit::EditedText { url, contents } in edited_texts {
+                match common::uri_to_file(&url) {
+                    Some(path) => {
+                        if let Err(err) = std::fs::write(&path, &contents) {
+                            tracing::error!(
+                                "Failed to apply workspace edit '{}' to {}: {err}",
+                                label.unwrap_or("(unnamed)"),
+                                path.display()
+                            );
+                        }
+                    }
+                    None => {
+                        tracing::warn!("Cannot apply workspace edit to non-file URL: {url}");
+                    }
+                }
+            }
+        }
+        Err(err) => {
+            tracing::error!(
+                "Failed to compute workspace edit '{}': {err}",
+                label.unwrap_or("(unnamed)")
+            );
         }
     }
 }
