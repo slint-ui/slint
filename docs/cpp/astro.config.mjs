@@ -3,6 +3,7 @@
 
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import starlightLlmsTxt from "starlight-llms-txt";
 import sitemap from "@astrojs/sitemap";
 import { slintStarlightFaviconHead } from "@slint/common-files/src/utils/starlight-favicon-head";
 import {
@@ -37,6 +38,13 @@ const _cppBase = _cppAtRoot
     ? undefined
     : CPP_DOCS_BASE_PATH.replace(/\/*$/, "/");
 
+// Version-correct URLs to the sibling docs' llms.txt (see docs/astro for the
+// rationale: the deploy rewrites "/<version>/docs" -> "/latest/docs" + host for
+// the Cloudflare "latest" copy).
+const _docsRoot = `${_cppOrigin}${CPP_DOCS_BASE_PATH}`.replace(/cpp\/$/, "");
+const siblingLlms = (/** @type {string} */ lang) =>
+    `${_docsRoot}${lang}/llms.txt`;
+
 export default defineConfig({
     site: _cppSite,
     ...(_cppBase ? { base: _cppBase } : {}),
@@ -61,6 +69,36 @@ export default defineConfig({
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
             plugins: [
+                starlightLlmsTxt({
+                    projectName: "Slint for C++",
+                    description:
+                        "The C++ API documentation for Slint, a declarative GUI toolkit. Covers integrating `.slint` user interfaces into C++ applications, the CMake build setup, and the C++ API.",
+                    optionalLinks: [
+                        {
+                            label: "Slint language docs (llms.txt)",
+                            url: siblingLlms("slint"),
+                            description:
+                                "the .slint language, elements, and widgets",
+                        },
+                        {
+                            label: "Slint JavaScript/TypeScript API (llms.txt)",
+                            url: siblingLlms("node"),
+                        },
+                        {
+                            label: "Slint Python API (llms.txt)",
+                            url: siblingLlms("python"),
+                        },
+                        {
+                            label: "Slint website",
+                            url: "https://slint.dev",
+                        },
+                        {
+                            label: "Slint on GitHub",
+                            url: "https://github.com/slint-ui/slint",
+                        },
+                    ],
+                    customSelectors: { all: ["a.sl-anchor-link"] },
+                }),
                 // Internal links are relative so they resolve under the deploy
                 // base path (e.g. /master/docs/cpp/); root-absolute links would
                 // not be rewritten with the base by Astro.

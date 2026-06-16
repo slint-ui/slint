@@ -7,7 +7,7 @@
     "format:fix": "biome format --write",
     "lint": "biome lint",
     "lint:fix": "biome lint --fix",
-    "test": "node --experimental-strip-types --test tests/markdown-endpoint.test.ts"
+    "test": "node --experimental-strip-types --test tests/*.test.ts"
   },
   "dependencies": {
     "@expressive-code/core": "0.42.0",
@@ -19,6 +19,7 @@
     "@biomejs/biome": "catalog:",
     "@playwright/test": "catalog:",
     "astro": "catalog:",
+    "node-html-parser": "7.1.0",
     "playwright-ctrf-json-reporter": "catalog:",
     "starlight-links-validator": "catalog:"
   }

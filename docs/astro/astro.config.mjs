@@ -5,6 +5,7 @@ import { defineConfig } from "astro/config";
 import sitemap from "@astrojs/sitemap";
 import starlight from "@astrojs/starlight";
 import starlightSidebarTopics from "starlight-sidebar-topics";
+import starlightLlmsTxt from "starlight-llms-txt";
 import { slintStarlightFaviconHead } from "@slint/common-files/src/utils/starlight-favicon-head";
 import {
     SLINT_STARLIGHT_TRAILING_SLASH,
@@ -29,6 +30,15 @@ const experimentalDocs = process.env.SLINT_ENABLE_EXPERIMENTAL_FEATURES === "1";
 // adds base -> "/docs/../cpp/" which the browser resolves to "/cpp/").
 const sidebarHref = (/** @type {string} */ url) =>
     url.startsWith(BASE_PATH) ? url.slice(BASE_PATH.length) : url;
+
+// Absolute, version-correct URLs to the sibling docs' llms.txt files. In CI,
+// BASE_PATH is "/<version>/docs/slint/" and BASE_URL is the host; the deploy
+// then rewrites "/<version>/docs" -> "/latest/docs" (and the host) for the
+// Cloudflare "latest" copy, so the versioned (Netlify) and latest (Cloudflare)
+// copies each link to their own sibling.
+const docsRoot = `${BASE_URL}${BASE_PATH}`.replace(/slint\/$/, "");
+const siblingLlms = (/** @type {string} */ lang) =>
+    `${docsRoot}${lang}/llms.txt`;
 
 // https://astro.build/config
 export default defineConfig({
@@ -555,6 +565,65 @@ export default defineConfig({
                     },
                 ]),
                 slintStarlightLinksValidatorPlugin(),
+                starlightLlmsTxt({
+                    projectName: "Slint",
+                    description:
+                        "Slint is a declarative GUI toolkit for building native user interfaces for applications written in Rust, C++, JavaScript/TypeScript, and Python. A single `.slint` UI codebase targets embedded devices, desktop, and web, compiles to native machine code, and has a runtime that fits in under 300 KiB of RAM.",
+                    details: [
+                        "This site documents the Slint language itself: the guide, the reference for built-in elements and widgets, and a step-by-step tutorial.",
+                        "Per-language API documentation is published separately for Rust, C++, JavaScript/TypeScript, and Python (see the optional links).",
+                        "Slint is available under an open-source (GPLv3), a royalty-free, and a paid commercial license.",
+                    ].join("\n\n"),
+                    optionalLinks: [
+                        {
+                            label: "Slint C++ API (llms.txt)",
+                            url: siblingLlms("cpp"),
+                            description: "C++ API reference",
+                        },
+                        {
+                            label: "Slint JavaScript/TypeScript API (llms.txt)",
+                            url: siblingLlms("node"),
+                            description: "Node.js / TypeScript API reference",
+                        },
+                        {
+                            label: "Slint Python API (llms.txt)",
+                            url: siblingLlms("python"),
+                            description: "Python API reference",
+                        },
+                        {
+                            label: "Slint website",
+                            url: "https://slint.dev",
+                            description:
+                                "product overview, pricing, and showcase",
+                        },
+                        {
+                            label: "Slint on GitHub",
+                            url: "https://github.com/slint-ui/slint",
+                            description: "source code and issue tracker",
+                        },
+                    ],
+                    customSelectors: { all: ["a.sl-anchor-link"] },
+                    customSets: [
+                        {
+                            label: "Guide",
+                            paths: ["guide/**"],
+                            description:
+                                "conceptual guide to the Slint language, app development, platforms, and renderers",
+                        },
+                        {
+                            label: "Reference",
+                            paths: ["reference/**"],
+                            description:
+                                "reference for built-in elements, std-widgets, types, and global functions",
+                        },
+                        {
+                            label: "Tutorial",
+                            paths: ["tutorial/**"],
+                            description:
+                                "step-by-step tutorial building a memory game with Slint",
+                        },
+                    ],
+                }),
             ],
             social: slintStarlightSocial,
             favicon: "favicon.svg",

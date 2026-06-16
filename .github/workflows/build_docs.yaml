@@ -105,6 +105,14 @@ jobs:
                   mkdir -p artifact/docs
                   mv target/doc artifact/docs/rust
                   mv docs/cpp/dist artifact/docs/cpp
+            - name: "Generate llms.txt and llms-full.txt for the Rust API"
+              # The Rust docs are plain rustdoc HTML (not Starlight), so the
+              # starlight-llms-txt plugin doesn't cover them. Convert the HTML
+              # (which inlines the slint crate's re-exported API) to llms.txt.
+              run: |
+                  node --experimental-strip-types docs/common/scripts/rustdoc-to-llms.ts \
+                    --doc-root artifact/docs/rust \
+                    --crates slint,slint_interpreter,slint_build
             - name: "Upload Rust/C++ Docs Artifacts"
               uses: actions/upload-artifact@v7
               with:

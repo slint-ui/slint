@@ -3,6 +3,7 @@
 // @ts-check
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
+import starlightLlmsTxt from "starlight-llms-txt";
 import mermaid from "astro-mermaid";
 import {
     SLINT_STARLIGHT_TRAILING_SLASH,
@@ -26,6 +27,16 @@ const _safetyBase = _safetyAtRoot
     : SAFETY_DOCS_BASE_PATH.replace(/\/*$/, "/");
 
 // https://astro.build/config
+// Version-correct URL to the Slint language docs' llms.txt (see docs/astro for
+// the rationale: the deploy rewrites "/<version>/docs" -> "/latest/docs" + host
+// for the Cloudflare "latest" copy).
+const _docsRoot = `${_safetyOrigin}${SAFETY_DOCS_BASE_PATH}`.replace(
+    /safety\/$/,
+    "",
+);
+const siblingLlms = (/** @type {string} */ lang) =>
+    `${_docsRoot}${lang}/llms.txt`;
+
 export default defineConfig({
     site: _safetySite,
     ...(_safetyBase ? { base: _safetyBase } : {}),
@@ -47,7 +58,30 @@ export default defineConfig({
                 Header: "@slint/common-files/src/components/Header.astro",
                 Banner: "@slint/common-files/src/components/Banner.astro",
             },
-            plugins: [slintStarlightLinksValidatorPlugin({ errorOnRelativeLinks: false })],
+            plugins: [
+                slintStarlightLinksValidatorPlugin({ errorOnRelativeLinks: false }),
+                starlightLlmsTxt({
+                    projectName: "Slint Safety",
+                    description:
+                        "Functional safety documentation for Slint, a declarative GUI toolkit, including safety-related guidance and processes.",
+                    optionalLinks: [
+                        {
+                            label: "Slint language docs (llms.txt)",
+                            url: siblingLlms("slint"),
+                            description: "the .slint language, elements, and widgets",
+                        },
+                        {
+                            label: "Slint website",
+                            url: "https://slint.dev",
+                        },
+                        {
+                            label: "Slint on GitHub",
+                            url: "https://github.com/slint-ui/slint",
+                        },
+                    ],
+                    customSelectors: { all: ["a.sl-anchor-link"] },
+                }),
+            ],
             social: slintStarlightSocial,
             sidebar: [
                 { label: "Slint SC Safety Manual", slug: "index" },
