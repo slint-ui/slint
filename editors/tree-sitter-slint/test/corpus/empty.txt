@@ -13,7 +13,7 @@ Line comment
 --------------------------------------------------------------------------------
 
 (sourcefile
-  (comment))
+  (line_comment))
 
 ================================================================================
 Line comment with line continuation
@@ -23,7 +23,7 @@ Line comment with line continuation
 --------------------------------------------------------------------------------
 
 (sourcefile
-  (comment)
+  (line_comment)
   (import_statement
     (import_type
       (user_type_identifier))
@@ -37,7 +37,7 @@ Multiline comment
 --------------------------------------------------------------------------------
 
 (sourcefile
-  (comment))
+  (block_comment))
 
 ================================================================================
 Several comments
@@ -48,7 +48,7 @@ Several comments
 --------------------------------------------------------------------------------
 
 (sourcefile
-  (comment)
-  (comment)
-  (comment)
-  (comment))
+  (block_comment)
+  (line_comment)
+  (line_comment)
+  (block_comment))

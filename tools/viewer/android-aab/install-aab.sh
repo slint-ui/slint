@@ -18,7 +18,7 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-AAB="${1:-$PROJECT_DIR/app/build/outputs/bundle/release/app-release.aab}"
+AAB="${1:-$PROJECT_DIR/app/build/outputs/bundle/release/slint-viewer.aab}"
 [ -f "$AAB" ] || { echo "AAB not found at $AAB; run build-aab.sh first" >&2; exit 1; }
 
 [ -n "${ANDROID_KEYSTORE_PATH:-}" ] || { echo "set ANDROID_KEYSTORE_PATH for signing" >&2; exit 1; }

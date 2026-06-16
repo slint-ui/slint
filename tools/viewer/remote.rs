@@ -109,9 +109,15 @@ async fn run_async(address: Option<SocketAddr>, enable_mdns: bool) -> anyhow::Re
     let mut mdns = if enable_mdns { announce_mdns(&connection).await } else { None };
 
     let local_port = connection.local_port();
-    let local_ip_str: Vec<String> = connection
-        .local_ips()
-        .into_iter()
+    let mut local_ips = connection.local_ips();
+    // Prefer IPv4: when any IPv4 address is present, drop the IPv6 ones so the
+    // display isn't cluttered with link-local addresses no one types. Fall back
+    // to IPv6 only when that's all we have.
+    if local_ips.iter().any(std::net::IpAddr::is_ipv4) {
+        local_ips.retain(std::net::IpAddr::is_ipv4);
+    }
+    let local_ip_str: Vec<String> = local_ips
+        .iter()
         .map(|ip| match ip {
             std::net::IpAddr::V4(ipv4_addr) => format!("{ipv4_addr}:{local_port}"),
             std::net::IpAddr::V6(ipv6_addr) => {

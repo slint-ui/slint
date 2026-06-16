@@ -29,30 +29,12 @@ fn enums(path: &Path) -> anyhow::Result<()> {
     // can come first, with the source-compat aliases referring back to it.
     let mut lang_section: Vec<u8> = Vec::new();
     let mut slint_compat: Vec<u8> = Vec::new();
-    let mut slint_other: Vec<u8> = Vec::new();
-
-    // For PrivateEnum entries whose body must NOT live in `slint::cbindgen_private`
-    // (historical C++ public surface that isn't part of `slint::language`).
-    // Returns the optional sub-namespace under `slint::`.
-    macro_rules! priv_routing {
-        (Orientation) => {
-            Some(None)
-        };
-        (AccessibleLiveness) => {
-            Some(None)
-        };
-        ($_:ident) => {
-            None
-        };
-    }
 
     macro_rules! print_enums {
          ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
              $({
-                #[allow(unused_assignments)]
-                let mut sub_namespace: Option<&'static str> = None;
-                let target: &mut dyn Write = match (stringify!($vis), stringify!($Name)) {
-                    ("pub", _) => {
+                let target: &mut dyn Write = match stringify!($vis) {
+                    "pub" => {
                         // body lives in `slint::language`; alias into `cbindgen_private`,
                         // and (for enums that historically lived in `slint::`) also into `slint::`.
                         writeln!(enums_priv, "using slint::language::{};", stringify!($Name))?;
@@ -61,27 +43,8 @@ fn enums(path: &Path) -> anyhow::Result<()> {
                         }
                         &mut lang_section
                     }
-                    ("", _) => {
-                        // Private enums mostly live in `cbindgen_private`. A handful keep their
-                        // historical `slint::` (or `slint::testing`) home for source compatibility.
-                        match priv_routing!($Name) {
-                            Some(ns) => {
-                                sub_namespace = ns;
-                                let qualified = match ns {
-                                    Some(ns) => format!("slint::{}::{}", ns, stringify!($Name)),
-                                    None => format!("slint::{}", stringify!($Name)),
-                                };
-                                writeln!(enums_priv, "using {};", qualified)?;
-                                &mut slint_other
-                            }
-                            None => &mut enums_priv as &mut dyn Write,
-                        }
-                    }
-                    _ => unreachable!(),
+                    _ => &mut enums_priv as &mut dyn Write,
                 };
-                if let Some(ns) = sub_namespace {
-                    writeln!(target, "namespace {} {{", ns)?;
-                }
                 $(writeln!(target, "///{}", $enum_doc)?;)*
                 writeln!(target, "enum class {} {{", stringify!($Name))?;
                 $(
@@ -89,9 +52,6 @@ fn enums(path: &Path) -> anyhow::Result<()> {
                     writeln!(target, "    {},", stringify!($Value).trim_start_matches("r#"))?;
                 )*
                 writeln!(target, "}};")?;
-                if sub_namespace.is_some() {
-                    writeln!(target, "}}")?;
-                }
              })*
          }
     }
@@ -101,7 +61,6 @@ fn enums(path: &Path) -> anyhow::Result<()> {
     enums_pub.write_all(&lang_section)?;
     writeln!(enums_pub, "}} // namespace language")?;
     enums_pub.write_all(&slint_compat)?;
-    enums_pub.write_all(&slint_other)?;
     writeln!(enums_pub, "}}")?;
     writeln!(enums_priv, "}}")?;
 
@@ -207,6 +166,144 @@ fn builtin_structs(path: &Path) -> anyhow::Result<()> {
     writeln!(structs_pub, "namespace slint {{ using slint::language::StandardListViewItem; }}")?;
     structs_priv.flush()?;
     structs_pub.flush()?;
+    Ok(())
+}
+
+/// Generate the live-preview `into_slint_value`/`from_slint_value` for the builtin enums and
+/// structs (which aren't in any document), each in its type's namespace so ADL finds it.
+fn live_preview_enums(path: &Path) -> anyhow::Result<()> {
+    let mut file = BufWriter::new(
+        std::fs::File::create(path.join("slint_live_preview_enums.h"))
+            .context("Error creating slint_live_preview_enums.h file")?,
+    );
+    writeln!(file, "#pragma once")?;
+    writeln!(file, "// This file is auto-generated from {}", file!())?;
+
+    // must match the enums' runtime `strum` kebab-case serialization
+    fn to_kebab_case(value: &str) -> String {
+        let mut result = String::with_capacity(value.len());
+        for c in value.chars() {
+            if c.is_ascii_uppercase() {
+                if !result.is_empty() {
+                    result.push('-');
+                }
+                result.push(c.to_ascii_lowercase());
+            } else {
+                result.push(c);
+            }
+        }
+        result
+    }
+
+    // (namespace, type, interpreter name, [(variant, value)]); namespace mirrors enums() for ADL
+    #[allow(clippy::type_complexity)]
+    let mut enums: Vec<(&str, String, String, Vec<(String, String)>)> = Vec::new();
+    macro_rules! collect_enums {
+        ($( $(#[doc = $enum_doc:literal])* $(#[non_exhaustive])? $vis:vis enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+            $({
+                let namespace = if stringify!($vis) == "pub" {
+                    "slint::language"
+                } else {
+                    "slint::cbindgen_private"
+                };
+                enums.push((
+                    namespace,
+                    format!("slint::cbindgen_private::{}", stringify!($Name)),
+                    stringify!($Name).replace('_', "-"),
+                    vec![$({
+                        let variant = stringify!($Value).trim_start_matches("r#");
+                        (variant.to_string(), to_kebab_case(variant))
+                    }),*],
+                ));
+            })*
+        };
+    }
+    i_slint_common::for_each_enums!(collect_enums);
+
+    for target_namespace in ["slint::language", "slint::cbindgen_private"] {
+        writeln!(file, "namespace {target_namespace} {{")?;
+        for (_, ty, enum_name, values) in enums.iter().filter(|e| e.0 == target_namespace) {
+            writeln!(
+                file,
+                "inline slint::interpreter::Value into_slint_value([[maybe_unused]] const {ty} &self) {{"
+            )?;
+            writeln!(file, "    switch (self) {{")?;
+            for (variant, value_str) in values {
+                writeln!(
+                    file,
+                    "    case {ty}::{variant}: return slint::private_api::live_preview::LiveReloadingComponent::value_from_enum(\"{enum_name}\", \"{value_str}\");"
+                )?;
+            }
+            writeln!(file, "    }}")?;
+            writeln!(file, "    return {{}};")?;
+            writeln!(file, "}}")?;
+            writeln!(
+                file,
+                "inline {ty} from_slint_value(const slint::interpreter::Value &val, const {ty} *) {{"
+            )?;
+            writeln!(
+                file,
+                "    auto value_str = slint::private_api::live_preview::LiveReloadingComponent::get_enum_value(val);"
+            )?;
+            for (variant, value_str) in values {
+                writeln!(file, "    if (value_str == \"{value_str}\") return {ty}::{variant};")?;
+            }
+            writeln!(file, "    return {{}};")?;
+            writeln!(file, "}}")?;
+        }
+        writeln!(file, "}} // namespace {target_namespace}")?;
+    }
+
+    // The public builtin structs (in slint::language) converted field by field, in their namespace
+    // so ADL finds them. StandardListViewItem is hand-written.
+    let mut structs: Vec<(String, Vec<String>)> = Vec::new();
+    macro_rules! collect_structs {
+        ($( $(#[$attr:meta])* $vis:vis struct $Name:ident {
+            $( $(#[$field_attr:meta])* $field:ident : $ty:ty,)*
+        })*) => {
+            $(
+                if stringify!($vis) == "pub"
+                    && !matches!(stringify!($Name), "StandardListViewItem")
+                {
+                    structs.push((
+                        stringify!($Name).to_string(),
+                        vec![$(stringify!($field).to_string()),*],
+                    ));
+                }
+            )*
+        };
+    }
+    i_slint_common::for_each_builtin_structs!(collect_structs);
+
+    writeln!(file, "namespace slint::language {{")?;
+    for (name, fields) in &structs {
+        let ty = format!("slint::language::{name}");
+        writeln!(file, "inline slint::interpreter::Value into_slint_value(const {ty} &self) {{")?;
+        writeln!(file, "    using slint::private_api::live_preview::into_slint_value;")?;
+        writeln!(file, "    slint::interpreter::Struct s;")?;
+        for field in fields {
+            writeln!(file, "    s.set_field(\"{field}\", into_slint_value(self.{field}));")?;
+        }
+        writeln!(file, "    return s;")?;
+        writeln!(file, "}}")?;
+        writeln!(
+            file,
+            "inline {ty} from_slint_value(const slint::interpreter::Value &val, const {ty} *) {{"
+        )?;
+        writeln!(file, "    auto s = val.to_struct().value();")?;
+        writeln!(file, "    {ty} r;")?;
+        for field in fields {
+            writeln!(
+                file,
+                "    r.{field} = slint::private_api::live_preview::from_slint_value<std::decay_t<decltype(r.{field})>>(s.get_field(\"{field}\").value());"
+            )?;
+        }
+        writeln!(file, "    return r;")?;
+        writeln!(file, "}}")?;
+    }
+    writeln!(file, "}} // namespace slint::language")?;
+
+    file.flush()?;
     Ok(())
 }
 
@@ -1161,6 +1258,9 @@ pub fn gen_all(
     }
     if enabled_features.interpreter {
         gen_interpreter(root_dir, &gen_dir, &mut deps)?;
+    }
+    if enabled_features.live_preview {
+        live_preview_enums(&gen_dir)?;
     }
     Ok(deps)
 }

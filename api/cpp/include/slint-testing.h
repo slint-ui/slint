@@ -378,8 +378,9 @@ public:
     }
 
     /// Returns the accessible-orientation of that element, if any.
-    std::optional<Orientation> accessible_orientation() const
+    std::optional<slint::language::Orientation> accessible_orientation() const
     {
+        using slint::language::Orientation;
         if (auto str = get_accessible_string_property(
                     cbindgen_private::AccessibleStringProperty::Orientation)) {
             if (*str == "horizontal")
@@ -391,8 +392,9 @@ public:
     }
 
     /// Returns the accessible-live-region of that element, if any.
-    std::optional<AccessibleLiveness> accessible_live_region() const
+    std::optional<slint::language::AccessibleLiveness> accessible_live_region() const
     {
+        using slint::language::AccessibleLiveness;
         if (auto str = get_accessible_string_property(
                     cbindgen_private::AccessibleStringProperty::LiveRegion)) {
             if (*str == "off")
