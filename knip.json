@@ -103,6 +103,7 @@
       ]
     },
     "docs/cpp": {
+      "ignoreBinaries": ["doxygen"],
       "ignoreFiles": [
         "src/styles/api-signature.css"
       ]
