@@ -1,0 +1,108 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    CanvasSelectionKind, ColorPropertyField, EdgeDivider, EditorMetrics, InspectorSection, MutedLabel,
+    PropertyField, StudioTheme,
+} from "common.slint";
+
+export component InspectorPane inherits Rectangle {
+    in property <CanvasSelectionKind> selection;
+    in property <Point> placed-position;
+    in property <length> phone-width;
+    in property <length> phone-height;
+    in property <Size> rectangle-size;
+    in property <Size> text-size;
+    in property <Size> image-size;
+    in property <angle> selected-rotation;
+    in property <string> rectangle-radius-label;
+    in property <color> phone-background;
+    in property <string> phone-background-label;
+
+    width: EditorMetrics.inspector-pane-width;
+    background: StudioTheme.panel-bg;
+
+    function selection-title() -> string {
+        if root.selection == CanvasSelectionKind.rectangle {
+            return "Rectangle";
+        }
+        if root.selection == CanvasSelectionKind.text {
+            return "Text";
+        }
+        if root.selection == CanvasSelectionKind.image {
+            return "Image";
+        }
+        if root.selection == CanvasSelectionKind.artboard {
+            return "Mobile screen";
+        }
+        return "Nothing selected";
+    }
+
+    function selection-kind-label() -> string {
+        if root.selection == CanvasSelectionKind.rectangle {
+            return "Built-in element";
+        }
+        if root.selection == CanvasSelectionKind.text {
+            return "Text element";
+        }
+        if root.selection == CanvasSelectionKind.image {
+            return "Image element";
+        }
+        if root.selection == CanvasSelectionKind.artboard {
+            return "Window";
+        }
+        return "Selection";
+    }
+
+    EdgeDivider {
+        // dont center an edge divider
+        x: 0px;
+    }
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 18px;
+
+        VerticalLayout {
+            spacing: 4px;
+
+            Text {
+                text: root.selection-title();
+                color: StudioTheme.text;
+                font-size: 18px;
+                font-weight: 900;
+            }
+
+            MutedLabel {
+                text: root.selection-kind-label();
+            }
+        }
+
+        if root.selection != CanvasSelectionKind.artboard: InspectorSection {
+            title: "LAYOUT";
+            PropertyField { name: "X"; value: (root.placed-position.x / 1px).to-fixed(0); }
+            PropertyField { name: "Y"; value: (root.placed-position.y / 1px).to-fixed(0); }
+            PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.rectangle ? (root.rectangle-size.width / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.text ? (root.text-size.width / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.image ? (root.image-size.width / 1px).to-fixed(0) : "280"; }
+            PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.rectangle ? (root.rectangle-size.height / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.text ? (root.text-size.height / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.image ? (root.image-size.height / 1px).to-fixed(0) : "104"; }
+            PropertyField { name: "Rotation"; value: (root.selected-rotation / 1deg).round(); }
+        }
+
+        InspectorSection {
+            title: "APPEARANCE";
+            if root.selection == CanvasSelectionKind.artboard: ColorPropertyField {
+                name: "Background";
+                color-value: root.phone-background;
+                value: root.phone-background-label;
+            }
+            if root.selection != CanvasSelectionKind.artboard: PropertyField { name: "Opacity"; value: "100%"; }
+            if root.selection != CanvasSelectionKind.artboard: PropertyField { name: "Fill"; value: root.selection == CanvasSelectionKind.text ? "#20252d" : root.selection == CanvasSelectionKind.rectangle ? "#fde68a" : root.selection == CanvasSelectionKind.image ? "gradient" : "#dbeafe"; }
+            if root.selection != CanvasSelectionKind.artboard: PropertyField { name: "Radius"; value: root.selection == CanvasSelectionKind.rectangle ? root.rectangle-radius-label : "18"; }
+        }
+
+        if root.selection != CanvasSelectionKind.artboard: InspectorSection {
+            title: "SOURCE";
+            PropertyField { name: "Element"; value: root.selection-title(); }
+            PropertyField { name: "File"; value: "main.slint"; }
+        }
+    }
+}

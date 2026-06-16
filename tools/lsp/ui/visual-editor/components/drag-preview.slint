@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { AppState, ImagePlaceholder, PrototypeComponentKind, StudioTheme } from "common.slint";
+
+export component DragPreview inherits Rectangle {
+    visible: AppState.dragging-kind != PrototypeComponentKind.none;
+    width: AppState.drag-preview-size.width;
+    height: AppState.drag-preview-size.height;
+    x: AppState.drag-preview-position.x;
+    y: AppState.drag-preview-position.y;
+    border-radius: AppState.dragging-kind == PrototypeComponentKind.image ? 16px : 8px;
+    background: transparent;
+    border-width: 0px;
+    drop-shadow-blur: 18px;
+    drop-shadow-offset-y: 8px;
+    drop-shadow-color: StudioTheme.dark ? #00000055 : #33415535;
+
+    if AppState.dragging-kind == PrototypeComponentKind.rectangle: Rectangle {
+        border-radius: 8px;
+        background: StudioTheme.object-bg;
+        border-width: 1px;
+        border-color: StudioTheme.object-border;
+    }
+
+    if AppState.dragging-kind == PrototypeComponentKind.text: Text {
+        text: "Design in Slint";
+        color: StudioTheme.phone-text;
+        font-size: 24px;
+        font-weight: 800;
+        vertical-alignment: center;
+    }
+
+    if AppState.dragging-kind == PrototypeComponentKind.image: ImagePlaceholder { }
+}

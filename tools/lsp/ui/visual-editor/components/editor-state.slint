@@ -1,0 +1,372 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    AppState, CanvasCorner, CanvasOrientation, CanvasSelectionKind, EditorMetrics, LeftPaneMode,
+    PrototypeComponentKind,
+} from "common.slint";
+
+export component EditorState inherits Rectangle {
+    in property <length> window-width;
+    in property <length> window-height;
+
+    in-out property <CanvasOrientation> canvas-orientation: CanvasOrientation.portrait;
+    in-out property <LeftPaneMode> left-mode: LeftPaneMode.files;
+    in-out property <CanvasSelectionKind> selection: CanvasSelectionKind.artboard;
+    in-out property <PrototypeComponentKind> placed-kind: PrototypeComponentKind.none;
+    out property <bool> canvas-drop-hover: false;
+    in-out property <string> search-text: "";
+
+    out property <Point> canvas-drop-position: { x: 0px, y: 0px };
+    out property <Point> placed-position: { x: 54px, y: 196px };
+    out property <Size> rectangle-size: { width: 240px, height: 96px };
+    out property <angle> rectangle-rotation: 0deg;
+    out property <length> rectangle-top-left-radius: 12px;
+    out property <length> rectangle-top-right-radius: 12px;
+    out property <length> rectangle-bottom-right-radius: 12px;
+    out property <length> rectangle-bottom-left-radius: 12px;
+    out property <Size> text-size: { width: 280px, height: 32px };
+    out property <angle> text-rotation: 0deg;
+    out property <Size> image-size: { width: 282px, height: 168px };
+    out property <angle> image-rotation: 0deg;
+
+    width: 0px;
+    height: 0px;
+
+    public function open-project() {
+        root.left-mode = LeftPaneMode.library;
+        root.selection = CanvasSelectionKind.artboard;
+    }
+
+    function place-component(kind: PrototypeComponentKind) {
+        root.placed-kind = kind;
+        if kind == PrototypeComponentKind.rectangle {
+            root.selection = CanvasSelectionKind.rectangle;
+            root.rectangle-size = root.default-component-size(kind);
+            root.rectangle-rotation = 0deg;
+            root.set-all-rectangle-radii(12px);
+        } else if kind == PrototypeComponentKind.text {
+            root.selection = CanvasSelectionKind.text;
+            root.text-size = root.default-component-size(kind);
+            root.text-rotation = 0deg;
+        } else if kind == PrototypeComponentKind.image {
+            root.selection = CanvasSelectionKind.image;
+            root.image-size = root.default-component-size(kind);
+            root.image-rotation = 0deg;
+        }
+    }
+
+    function place-component-at(kind: PrototypeComponentKind, drop-position: Point) {
+        root.place-component(kind);
+        if kind == PrototypeComponentKind.rectangle {
+            root.placed-position = {
+                x: drop-position.x.clamp(0px, root.phone-width() - root.rectangle-size.width),
+                y: drop-position.y.clamp(0px, root.phone-height() - root.rectangle-size.height),
+            };
+        } else if kind == PrototypeComponentKind.text {
+            root.placed-position = {
+                x: drop-position.x.clamp(0px, root.phone-width() - root.text-size.width),
+                y: drop-position.y.clamp(0px, root.phone-height() - root.text-size.height),
+            };
+        } else if kind == PrototypeComponentKind.image {
+            root.placed-position = {
+                x: drop-position.x.clamp(0px, root.phone-width() - root.image-size.width),
+                y: drop-position.y.clamp(0px, root.phone-height() - root.image-size.height),
+            };
+        }
+    }
+
+    function clamp-elements-to-phone() {
+        if root.placed-kind == PrototypeComponentKind.rectangle {
+            root.rectangle-size = {
+                width: root.rectangle-size.width.clamp(80px, root.phone-width()),
+                height: root.rectangle-size.height.clamp(44px, root.phone-height()),
+            };
+            root.placed-position = {
+                x: root.placed-position.x.clamp(0px, root.phone-width() - root.rectangle-size.width),
+                y: root.placed-position.y.clamp(0px, root.phone-height() - root.rectangle-size.height),
+            };
+            root.clamp-rectangle-radii();
+        } else if root.placed-kind == PrototypeComponentKind.text {
+            root.text-size = {
+                width: root.text-size.width.clamp(80px, root.phone-width()),
+                height: root.text-size.height.clamp(32px, root.phone-height()),
+            };
+            root.placed-position = {
+                x: root.placed-position.x.clamp(0px, root.phone-width() - root.text-size.width),
+                y: root.placed-position.y.clamp(0px, root.phone-height() - root.text-size.height),
+            };
+        } else if root.placed-kind == PrototypeComponentKind.image {
+            root.image-size = {
+                width: root.image-size.width.clamp(80px, root.phone-width()),
+                height: root.image-size.height.clamp(44px, root.phone-height()),
+            };
+            root.placed-position = {
+                x: root.placed-position.x.clamp(0px, root.phone-width() - root.image-size.width),
+                y: root.placed-position.y.clamp(0px, root.phone-height() - root.image-size.height),
+            };
+        }
+    }
+
+    public function set-canvas-orientation(orientation: CanvasOrientation) {
+        root.canvas-orientation = orientation;
+        root.clamp-elements-to-phone();
+    }
+
+    function canvas-width() -> length {
+        return root.window-width - EditorMetrics.left-pane-width - EditorMetrics.inspector-pane-width;
+    }
+
+    function canvas-height() -> length {
+        return root.window-height - EditorMetrics.top-bar-height - EditorMetrics.canvas-toolbar-height;
+    }
+
+    public pure function phone-width() -> length {
+        return root.canvas-orientation == CanvasOrientation.portrait
+            ? EditorMetrics.phone-portrait-width
+            : EditorMetrics.phone-landscape-width;
+    }
+
+    public pure function phone-height() -> length {
+        return root.canvas-orientation == CanvasOrientation.portrait
+            ? EditorMetrics.phone-portrait-height
+            : EditorMetrics.phone-landscape-height;
+    }
+
+    function phone-canvas-top() -> length {
+        return max(40px, (root.canvas-height() - root.phone-height()) / 2);
+    }
+
+    function phone-left() -> length {
+        return EditorMetrics.left-pane-width + (root.canvas-width() - root.phone-width()) / 2;
+    }
+
+    function phone-top() -> length {
+        return EditorMetrics.top-bar-height + EditorMetrics.canvas-toolbar-height + root.phone-canvas-top();
+    }
+
+    function pointer-inside-phone(window-position: Point) -> bool {
+        return window-position.x >= root.phone-left()
+            && window-position.x <= root.phone-left() + root.phone-width()
+            && window-position.y >= root.phone-top()
+            && window-position.y <= root.phone-top() + root.phone-height();
+    }
+
+    function preview-inside-phone(drop-position: Point, preview-size: Size) -> bool {
+        return drop-position.x >= 0px
+            && drop-position.y >= 0px
+            && drop-position.x + preview-size.width <= root.phone-width()
+            && drop-position.y + preview-size.height <= root.phone-height();
+    }
+
+    pure function default-component-size(kind: PrototypeComponentKind) -> Size {
+        if kind == PrototypeComponentKind.rectangle {
+            return { width: 160px, height: 64px };
+        }
+        if kind == PrototypeComponentKind.image {
+            return { width: 160px, height: 96px };
+        }
+        if kind == PrototypeComponentKind.text {
+            return { width: 220px, height: 40px };
+        }
+        return { width: 96px, height: 48px };
+    }
+
+    pure function drag-preview-pointer-gap() -> length {
+        return 12px;
+    }
+
+    pure function corner-on-left(corner: CanvasCorner) -> bool {
+        return corner == CanvasCorner.top-left || corner == CanvasCorner.bottom-left;
+    }
+
+    pure function corner-on-top(corner: CanvasCorner) -> bool {
+        return corner == CanvasCorner.top-left || corner == CanvasCorner.top-right;
+    }
+
+    public function update-visual-drag(kind: PrototypeComponentKind, window-position: Point) {
+        AppState.dragging-kind = kind;
+        AppState.drag-position = window-position;
+        AppState.drag-preview-size = root.default-component-size(kind);
+        AppState.drag-preview-position = {
+            x: window-position.x - AppState.drag-preview-size.width / 2,
+            y: window-position.y - AppState.drag-preview-size.height / 2,
+        };
+        root.canvas-drop-position = {
+            x: AppState.drag-preview-position.x - root.phone-left(),
+            y: AppState.drag-preview-position.y - root.phone-top(),
+        };
+        root.canvas-drop-hover = root.preview-inside-phone(root.canvas-drop-position, AppState.drag-preview-size);
+    }
+
+    public function finish-visual-drag(kind: PrototypeComponentKind, window-position: Point) {
+        root.update-visual-drag(kind, window-position);
+        if root.canvas-drop-hover {
+            root.place-component-at(kind, root.canvas-drop-position);
+        }
+        AppState.dragging-kind = PrototypeComponentKind.none;
+        root.canvas-drop-hover = false;
+    }
+
+    public pure function rectangle-radius-label() -> string {
+        if root.rectangle-top-left-radius == root.rectangle-top-right-radius
+            && root.rectangle-top-left-radius == root.rectangle-bottom-right-radius
+            && root.rectangle-top-left-radius == root.rectangle-bottom-left-radius {
+            return "\{root.rectangle-top-left-radius / 1px}";
+        }
+        return "Mixed";
+    }
+
+    public pure function normalized-angle(value: angle) -> angle {
+        let normalized = value.mod(360deg);
+        return normalized < 0deg ? normalized + 360deg : normalized;
+    }
+
+    public pure function selected-rotation() -> angle {
+        if root.selection == CanvasSelectionKind.rectangle {
+            return root.normalized-angle(root.rectangle-rotation);
+        }
+        if root.selection == CanvasSelectionKind.text {
+            return root.normalized-angle(root.text-rotation);
+        }
+        if root.selection == CanvasSelectionKind.image {
+            return root.normalized-angle(root.image-rotation);
+        }
+        return 0deg;
+    }
+
+    public function move-rectangle-to(position: Point) {
+        root.selection = CanvasSelectionKind.rectangle;
+        root.placed-position = {
+            x: position.x.clamp(0px, root.phone-width() - root.rectangle-size.width),
+            y: position.y.clamp(0px, root.phone-height() - root.rectangle-size.height),
+        };
+    }
+
+    public function resize-rectangle-to(corner: CanvasCorner, position: Point, size: Size) {
+        root.selection = CanvasSelectionKind.rectangle;
+        if root.corner-on-left(corner) {
+            root.rectangle-size.width = size.width.clamp(80px, position.x + size.width);
+            root.placed-position.x = (position.x + size.width - root.rectangle-size.width).clamp(0px, root.phone-width() - root.rectangle-size.width);
+        } else {
+            root.placed-position.x = position.x.clamp(0px, root.phone-width() - 80px);
+            root.rectangle-size.width = size.width.clamp(80px, root.phone-width() - root.placed-position.x);
+        }
+        if root.corner-on-top(corner) {
+            root.rectangle-size.height = size.height.clamp(44px, position.y + size.height);
+            root.placed-position.y = (position.y + size.height - root.rectangle-size.height).clamp(0px, root.phone-height() - root.rectangle-size.height);
+        } else {
+            root.placed-position.y = position.y.clamp(0px, root.phone-height() - 44px);
+            root.rectangle-size.height = size.height.clamp(44px, root.phone-height() - root.placed-position.y);
+        }
+        root.clamp-rectangle-radii();
+    }
+
+    public function rotate-rectangle-to(rotation: angle) {
+        root.selection = CanvasSelectionKind.rectangle;
+        root.rectangle-rotation = rotation;
+    }
+
+    public function update-rectangle-radius(corner: CanvasCorner, radius: length, single-corner: bool) {
+        root.selection = CanvasSelectionKind.rectangle;
+        if single-corner {
+            root.set-rectangle-corner-radius(corner, radius);
+        } else {
+            root.set-all-rectangle-radii(radius);
+        }
+    }
+
+    function rectangle-max-radius() -> length {
+        return min(root.rectangle-size.width, root.rectangle-size.height) / 2;
+    }
+
+    function set-rectangle-corner-radius(corner: CanvasCorner, value: length) {
+        let radius = value.clamp(0px, root.rectangle-max-radius());
+        if corner == CanvasCorner.top-left {
+            root.rectangle-top-left-radius = radius;
+        } else if corner == CanvasCorner.top-right {
+            root.rectangle-top-right-radius = radius;
+        } else if corner == CanvasCorner.bottom-right {
+            root.rectangle-bottom-right-radius = radius;
+        } else {
+            root.rectangle-bottom-left-radius = radius;
+        }
+    }
+
+    function set-all-rectangle-radii(value: length) {
+        let radius = value.clamp(0px, root.rectangle-max-radius());
+        root.rectangle-top-left-radius = radius;
+        root.rectangle-top-right-radius = radius;
+        root.rectangle-bottom-right-radius = radius;
+        root.rectangle-bottom-left-radius = radius;
+    }
+
+    function clamp-rectangle-radii() {
+        root.rectangle-top-left-radius = root.rectangle-top-left-radius.clamp(0px, root.rectangle-max-radius());
+        root.rectangle-top-right-radius = root.rectangle-top-right-radius.clamp(0px, root.rectangle-max-radius());
+        root.rectangle-bottom-right-radius = root.rectangle-bottom-right-radius.clamp(0px, root.rectangle-max-radius());
+        root.rectangle-bottom-left-radius = root.rectangle-bottom-left-radius.clamp(0px, root.rectangle-max-radius());
+    }
+
+    public function move-text-to(position: Point) {
+        root.selection = CanvasSelectionKind.text;
+        root.placed-position = {
+            x: position.x.clamp(0px, root.phone-width() - root.text-size.width),
+            y: position.y.clamp(0px, root.phone-height() - root.text-size.height),
+        };
+    }
+
+    public function resize-text-to(corner: CanvasCorner, position: Point, size: Size) {
+        root.selection = CanvasSelectionKind.text;
+        if root.corner-on-left(corner) {
+            root.text-size.width = size.width.clamp(80px, position.x + size.width);
+            root.placed-position.x = (position.x + size.width - root.text-size.width).clamp(0px, root.phone-width() - root.text-size.width);
+        } else {
+            root.placed-position.x = position.x.clamp(0px, root.phone-width() - 80px);
+            root.text-size.width = size.width.clamp(80px, root.phone-width() - root.placed-position.x);
+        }
+        if root.corner-on-top(corner) {
+            root.text-size.height = size.height.clamp(32px, position.y + size.height);
+            root.placed-position.y = (position.y + size.height - root.text-size.height).clamp(0px, root.phone-height() - root.text-size.height);
+        } else {
+            root.placed-position.y = position.y.clamp(0px, root.phone-height() - 32px);
+            root.text-size.height = size.height.clamp(32px, root.phone-height() - root.placed-position.y);
+        }
+    }
+
+    public function rotate-text-to(rotation: angle) {
+        root.selection = CanvasSelectionKind.text;
+        root.text-rotation = rotation;
+    }
+
+    public function move-image-to(position: Point) {
+        root.selection = CanvasSelectionKind.image;
+        root.placed-position = {
+            x: position.x.clamp(0px, root.phone-width() - root.image-size.width),
+            y: position.y.clamp(0px, root.phone-height() - root.image-size.height),
+        };
+    }
+
+    public function resize-image-to(corner: CanvasCorner, position: Point, size: Size) {
+        root.selection = CanvasSelectionKind.image;
+        if root.corner-on-left(corner) {
+            root.image-size.width = size.width.clamp(80px, position.x + size.width);
+            root.placed-position.x = (position.x + size.width - root.image-size.width).clamp(0px, root.phone-width() - root.image-size.width);
+        } else {
+            root.placed-position.x = position.x.clamp(0px, root.phone-width() - 80px);
+            root.image-size.width = size.width.clamp(80px, root.phone-width() - root.placed-position.x);
+        }
+        if root.corner-on-top(corner) {
+            root.image-size.height = size.height.clamp(44px, position.y + size.height);
+            root.placed-position.y = (position.y + size.height - root.image-size.height).clamp(0px, root.phone-height() - root.image-size.height);
+        } else {
+            root.placed-position.y = position.y.clamp(0px, root.phone-height() - 44px);
+            root.image-size.height = size.height.clamp(44px, root.phone-height() - root.placed-position.y);
+        }
+    }
+
+    public function rotate-image-to(rotation: angle) {
+        root.selection = CanvasSelectionKind.image;
+        root.image-rotation = rotation;
+    }
+}

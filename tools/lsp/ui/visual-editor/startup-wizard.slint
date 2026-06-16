@@ -1,0 +1,412 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette } from "std-widgets.slint";
+
+export enum ProjectKind {
+    mobile,
+    desktop,
+    embedded,
+}
+
+global WizardTheme {
+    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
+    out property <color> panel-bg: dark ? #2c2c2c : #ffffff;
+    out property <color> panel-subtle: dark ? #383838 : #f6f8fa;
+    out property <color> text: dark ? #f1f1f1 : #1f2328;
+    out property <color> muted: dark ? #b7b7b7 : #6e7781;
+    out property <color> border: dark ? #494949 : #d0d7de;
+    out property <color> accent: #0d99ff;
+    out property <color> accent-strong: #52aeff;
+    out property <color> success: #2da44e;
+    out property <color> attention: #bf8700;
+}
+
+component WizardButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> primary: false;
+    in property <bool> enabled: true;
+    callback clicked;
+
+    height: 34px;
+    min-width: 94px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: primary ? WizardTheme.accent-strong : WizardTheme.border;
+    background: !enabled ? WizardTheme.panel-subtle : primary ? (touch.pressed ? #0066b8 : WizardTheme.accent) : touch.has-hover ? WizardTheme.panel-subtle : WizardTheme.panel-bg;
+    opacity: enabled ? 1 : 0.48;
+    animate background { duration: 120ms; }
+
+    HorizontalLayout {
+        padding-left: 13px;
+        padding-right: 13px;
+        alignment: center;
+
+        Text {
+            text: root.label;
+            color: root.primary ? white : WizardTheme.text;
+            font-size: 13px;
+            font-weight: 700;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component ProjectCard inherits Rectangle {
+    in property <ProjectKind> kind;
+    in property <string> title;
+    in property <string> detail;
+    in property <string> glyph;
+    in property <bool> enabled: true;
+    in property <bool> selected: false;
+    callback picked(ProjectKind);
+    callback accepted(ProjectKind);
+
+    height: 118px;
+    border-radius: 8px;
+    border-width: selected ? 2px : 1px;
+    border-color: selected ? WizardTheme.accent-strong : WizardTheme.border;
+    background: enabled
+        ? (touch.has-hover ? WizardTheme.panel-subtle : WizardTheme.panel-bg)
+        : WizardTheme.panel-subtle;
+    opacity: enabled ? 1 : 0.5;
+    animate background, border-color { duration: 140ms; }
+
+    HorizontalLayout {
+        padding: 16px;
+        spacing: 14px;
+
+        Rectangle {
+            width: 42px;
+            height: 42px;
+            border-radius: 8px;
+            background: root.kind == ProjectKind.mobile ? WizardTheme.accent
+                : root.kind == ProjectKind.desktop ? WizardTheme.success
+                : WizardTheme.attention;
+            Text {
+                text: root.glyph;
+                color: white;
+                font-size: 16px;
+                font-weight: 800;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 5px;
+
+            HorizontalLayout {
+                spacing: 8px;
+
+                Text {
+                    text: root.title;
+                    color: WizardTheme.text;
+                    font-size: 16px;
+                    font-weight: 800;
+                }
+
+                if !root.enabled: Rectangle {
+                    width: 82px;
+                    height: 22px;
+                    border-radius: 11px;
+                    background: WizardTheme.panel-subtle;
+                    Text {
+                        text: "Coming soon";
+                        color: WizardTheme.muted;
+                        font-size: 11px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            Text {
+                text: root.detail;
+                color: WizardTheme.muted;
+                font-size: 13px;
+                wrap: word-wrap;
+            }
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => {
+            root.picked(root.kind);
+        }
+        double-clicked => {
+            root.accepted(root.kind);
+        }
+    }
+}
+
+component RecentProjectCard inherits Rectangle {
+    in property <string> title;
+    in property <string> path;
+    in property <string> detail;
+    callback opened;
+
+    height: 84px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: WizardTheme.border;
+    background: touch.has-hover ? WizardTheme.panel-subtle : WizardTheme.panel-bg;
+    animate background, border-color { duration: 140ms; }
+
+    HorizontalLayout {
+        padding: 14px;
+        spacing: 12px;
+
+        Rectangle {
+            width: 40px;
+            height: 40px;
+            border-radius: 7px;
+            background: WizardTheme.success.with-alpha(0.16);
+            border-width: 1px;
+            border-color: WizardTheme.success.with-alpha(0.42);
+
+            Text {
+                text: "S";
+                color: WizardTheme.success;
+                font-size: 15px;
+                font-weight: 900;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 3px;
+            alignment: center;
+
+            Text {
+                text: root.title;
+                color: WizardTheme.text;
+                font-size: 14px;
+                font-weight: 800;
+                overflow: elide;
+            }
+
+            Text {
+                text: root.path;
+                color: WizardTheme.muted;
+                font-size: 12px;
+                overflow: elide;
+            }
+        }
+
+        Text {
+            text: root.detail;
+            color: WizardTheme.muted;
+            font-size: 12px;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.opened();
+        }
+        double-clicked => {
+            root.opened();
+        }
+    }
+}
+
+export component StartupWizard inherits Rectangle {
+    in-out property <ProjectKind> selected-project: ProjectKind.mobile;
+    callback opened;
+
+    background: WizardTheme.dark ? @linear-gradient(180deg, #333333, #242424) : @linear-gradient(0deg, #d7d9dd, white);
+
+    Image {
+        y: parent.height - self.height;
+        width: 100%;
+        source: WizardTheme.dark ? @image-url("../../../viewer/remote/assets/bg-frame.svg") : @image-url("../../../viewer/remote/assets/bg-frame-light.svg");
+    }
+
+    VerticalLayout {
+        padding-left: 64px;
+        padding-right: 64px;
+        padding-top: 40px;
+        padding-bottom: 32px;
+        spacing: 20px;
+
+        HorizontalLayout {
+            spacing: 12px;
+
+            Rectangle {
+                width: 36px;
+                height: 36px;
+                border-radius: 8px;
+                background: WizardTheme.accent;
+
+                Text {
+                    text: "S";
+                    color: white;
+                    font-size: 18px;
+                    font-weight: 900;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            Text {
+                text: "Slinterface Pro";
+                color: WizardTheme.dark ? #f1f1f1 : #111827;
+                font-size: 18px;
+                font-weight: 900;
+                vertical-alignment: center;
+            }
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+        }
+
+        VerticalLayout {
+            spacing: 10px;
+
+            Text {
+                text: "Create a Slint project";
+                color: WizardTheme.dark ? #f1f1f1 : #111827;
+                font-size: 38px;
+                font-weight: 900;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+
+            Text {
+                text: "It's time to get Slinty.";
+                color: WizardTheme.dark ? #c9c9c9 : #4b5563;
+                font-size: 17px;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+        }
+
+        Rectangle {
+            min-height: 450px;
+            max-width: 1000px;
+            border-radius: 8px;
+            border-width: 1px;
+            border-color: WizardTheme.dark ? #555555 : WizardTheme.border;
+            background: WizardTheme.dark ? #2c2c2ce6 : #fffffff2;
+
+            HorizontalLayout {
+                padding: 18px;
+                spacing: 18px;
+
+                VerticalLayout {
+                    width: 410px;
+                    spacing: 12px;
+
+                    Text {
+                        text: "Recent projects";
+                        color: WizardTheme.text;
+                        font-size: 16px;
+                        font-weight: 800;
+                    }
+
+                    RecentProjectCard {
+                        title: "Touch Kiosk Demo";
+                        path: "~/Projects/touch-kiosk-demo/ui/main.slint";
+                        detail: "Today";
+                        opened => {
+                            root.selected-project = ProjectKind.mobile;
+                            root.opened();
+                        }
+                    }
+
+                    Rectangle {
+                        vertical-stretch: 1;
+                    }
+                }
+
+                Rectangle {
+                    width: 1px;
+                    background: WizardTheme.border;
+                }
+
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    spacing: 12px;
+
+                    Text {
+                        text: "Choose a project type";
+                        color: WizardTheme.text;
+                        font-size: 16px;
+                        font-weight: 800;
+                    }
+
+                    ProjectCard {
+                        kind: ProjectKind.mobile;
+                        title: "Mobile";
+                        detail: "Phone-sized canvas with touch-first defaults.";
+                        glyph: "M";
+                        selected: root.selected-project == ProjectKind.mobile;
+                        picked(kind) => {
+                            root.selected-project = kind;
+                        }
+                        accepted(kind) => {
+                            root.selected-project = kind;
+                            root.opened();
+                        }
+                    }
+
+                    ProjectCard {
+                        kind: ProjectKind.desktop;
+                        title: "Desktop";
+                        detail: "Responsive windows and richer navigation.";
+                        glyph: "D";
+                        enabled: false;
+                    }
+
+                    ProjectCard {
+                        kind: ProjectKind.embedded;
+                        title: "Embedded";
+                        detail: "Device displays, memory budgets, direct input.";
+                        glyph: "E";
+                        enabled: false;
+                    }
+
+                    Rectangle {
+                        vertical-stretch: 1;
+                    }
+
+                    HorizontalLayout {
+                        alignment: end;
+                        spacing: 10px;
+
+                        WizardButton {
+                            label: "Create";
+                            primary: true;
+                            clicked => {
+                                root.opened();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            vertical-stretch: 1;
+        }
+    }
+}

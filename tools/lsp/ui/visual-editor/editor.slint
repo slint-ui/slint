@@ -1,0 +1,145 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api } from "../api.slint";
+import { ProjectKind, StartupWizard } from "startup-wizard.slint";
+import { StudioTheme } from "components/common.slint";
+import { CanvasToolbar } from "components/canvas-toolbar.slint";
+import { DragPreview } from "components/drag-preview.slint";
+import { EditorCanvas } from "components/editor-canvas.slint";
+import { EditorState } from "components/editor-state.slint";
+import { EditorTopBar } from "components/top-bar.slint";
+import { InspectorPane } from "components/inspector-pane.slint";
+import { LeftPane } from "components/left-pane.slint";
+
+export component EditorUi inherits Window {
+    preferred-width: 1360px;
+    preferred-height: 860px;
+    min-width: 1040px;
+    min-height: 680px;
+    title: "Slint Visual Editor";
+    background: StudioTheme.app-bg;
+    default-font-family: "Inter";
+    always-on-top: Api.always-on-top;
+
+    property <bool> wizard-visible: true;
+    property <ProjectKind> selected-project: ProjectKind.mobile;
+
+    function open-project() {
+        root.wizard-visible = false;
+        state.open-project();
+    }
+
+    state := EditorState {
+        window-width: root.width;
+        window-height: root.height;
+    }
+
+    if !root.wizard-visible: editor := FocusScope {
+        width: root.width;
+        height: root.height;
+        property <bool> shift-pressed: false;
+
+        capture-key-pressed(event) => {
+            if event.text == Key.Shift || event.text == Key.ShiftR {
+                self.shift-pressed = true;
+                return accept;
+            }
+            reject
+        }
+
+        capture-key-released(event) => {
+            if event.text == Key.Shift || event.text == Key.ShiftR {
+                self.shift-pressed = false;
+                return accept;
+            }
+            reject
+        }
+
+        focus-lost => {
+            self.shift-pressed = false;
+        }
+
+        Rectangle {
+            background: StudioTheme.app-bg;
+
+            VerticalLayout {
+                EditorTopBar { }
+
+                CanvasToolbar {
+                    orientation: state.canvas-orientation;
+                    orientation-selected(orientation) => {
+                        state.set-canvas-orientation(orientation);
+                    }
+                }
+
+                HorizontalLayout {
+                    vertical-stretch: 1;
+
+                    LeftPane {
+                        mode <=> state.left-mode;
+                        search-text <=> state.search-text;
+                        drag-started(kind, position) => { state.update-visual-drag(kind, position); }
+                        drag-moved(kind, position) => { state.update-visual-drag(kind, position); }
+                        drag-ended(kind, position) => { state.finish-visual-drag(kind, position); }
+                    }
+
+                    EditorCanvas {
+                        orientation: state.canvas-orientation;
+                        selection: state.selection;
+                        shift-pressed: editor.shift-pressed;
+                        placed-kind: state.placed-kind;
+                        canvas-drop-hover: state.canvas-drop-hover;
+                        canvas-drop-position: state.canvas-drop-position;
+                        placed-position: state.placed-position;
+                        text-size: state.text-size;
+                        image-size: state.image-size;
+                        rectangle-size: state.rectangle-size;
+                        rectangle-rotation: state.rectangle-rotation;
+                        rectangle-top-left-radius: state.rectangle-top-left-radius;
+                        rectangle-top-right-radius: state.rectangle-top-right-radius;
+                        rectangle-bottom-right-radius: state.rectangle-bottom-right-radius;
+                        rectangle-bottom-left-radius: state.rectangle-bottom-left-radius;
+                        text-rotation: state.text-rotation;
+                        image-rotation: state.image-rotation;
+                        selected(kind) => { state.selection = kind; }
+                        interaction-started => { editor.focus(); }
+                        move-rectangle-to(position) => { state.move-rectangle-to(position); }
+                        resize-rectangle-to(corner, position, size) => { state.resize-rectangle-to(corner, position, size); }
+                        rotate-rectangle-to(rotation) => { state.rotate-rectangle-to(rotation); }
+                        update-rectangle-radius(corner, radius, single-corner) => { state.update-rectangle-radius(corner, radius, single-corner); }
+                        move-text-to(position) => { state.move-text-to(position); }
+                        resize-text-to(corner, position, size) => { state.resize-text-to(corner, position, size); }
+                        rotate-text-to(rotation) => { state.rotate-text-to(rotation); }
+                        move-image-to(position) => { state.move-image-to(position); }
+                        resize-image-to(corner, position, size) => { state.resize-image-to(corner, position, size); }
+                        rotate-image-to(rotation) => { state.rotate-image-to(rotation); }
+                    }
+
+                    InspectorPane {
+                        selection: state.selection;
+                        placed-position: state.placed-position;
+                        phone-width: state.phone-width();
+                        phone-height: state.phone-height();
+                        rectangle-size: state.rectangle-size;
+                        text-size: state.text-size;
+                        image-size: state.image-size;
+                        selected-rotation: state.selected-rotation();
+                        rectangle-radius-label: state.rectangle-radius-label();
+                        phone-background: StudioTheme.phone-bg;
+                        phone-background-label: StudioTheme.dark ? "#f7f8fb" : "#ffffff";
+                    }
+                }
+            }
+
+            DragPreview { }
+        }
+    }
+
+    if root.wizard-visible: StartupWizard {
+        selected-project <=> root.selected-project;
+        opened => {
+            root.open-project();
+        }
+    }
+}

@@ -1,0 +1,390 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api, DropMark } from "../../api.slint";
+import { EditorPalette } from "../../components/styling.slint";
+import {
+    CanvasCorner, CanvasOrientation, CanvasSelectionKind, EditorMetrics, PrototypeComponentKind,
+    ImagePlaceholder, StudioTheme,
+} from "common.slint";
+import { MoveResizeFrame } from "move-resize-frame.slint";
+import { RectangleOnCanvas } from "rectangle.slint";
+
+component PhoneChrome inherits Rectangle {
+    in property <CanvasOrientation> orientation;
+
+    background: StudioTheme.phone-bg;
+    clip: true;
+
+    Rectangle {
+        x: EditorMetrics.phone-outer-padding;
+        y: EditorMetrics.phone-outer-padding;
+        width: root.orientation == CanvasOrientation.portrait
+            ? parent.width - 2 * EditorMetrics.phone-outer-padding
+            : EditorMetrics.phone-status-bar-size - EditorMetrics.phone-outer-padding;
+        height: root.orientation == CanvasOrientation.portrait
+            ? EditorMetrics.phone-status-bar-size - EditorMetrics.phone-outer-padding
+            : parent.height - 2 * EditorMetrics.phone-outer-padding;
+        background: #f8fafc;
+
+        Rectangle {
+            x: root.orientation == CanvasOrientation.portrait
+                ? (parent.width - self.width) / 2
+                : 12px;
+            y: root.orientation == CanvasOrientation.portrait
+                ? 13px
+                : (parent.height - self.height) / 2;
+            width: root.orientation == CanvasOrientation.portrait ? 74px : 16px;
+            height: root.orientation == CanvasOrientation.portrait ? 16px : 74px;
+            border-radius: 8px;
+            background: #111827;
+        }
+    }
+
+    Rectangle {
+        x: root.orientation == CanvasOrientation.portrait
+            ? EditorMetrics.phone-outer-padding
+            : EditorMetrics.phone-status-bar-size;
+        y: root.orientation == CanvasOrientation.portrait
+            ? EditorMetrics.phone-status-bar-size
+            : EditorMetrics.phone-outer-padding;
+        width: root.orientation == CanvasOrientation.portrait
+            ? parent.width - 2 * EditorMetrics.phone-outer-padding
+            : 1px;
+        height: root.orientation == CanvasOrientation.portrait
+            ? 1px
+            : parent.height - 2 * EditorMetrics.phone-outer-padding;
+        background: #e5e7eb;
+    }
+}
+
+component CanvasDropTarget inherits Rectangle {
+    Rectangle {
+        x: 24px;
+        y: 70px;
+        width: parent.width - 48px;
+        height: parent.height - 96px;
+        border-radius: 24px;
+        border-width: 2px;
+        border-color: StudioTheme.accent-strong;
+        background: StudioTheme.accent.with-alpha(0.08);
+    }
+}
+
+export component EditorCanvas inherits Rectangle {
+    in property <CanvasOrientation> orientation;
+    in property <CanvasSelectionKind> selection;
+    in property <bool> shift-pressed: false;
+    in property <PrototypeComponentKind> placed-kind;
+    in property <bool> canvas-drop-hover;
+    in property <Point> canvas-drop-position;
+    in property <Point> placed-position;
+    in property <Size> rectangle-size;
+    in property <angle> rectangle-rotation;
+    in property <length> rectangle-top-left-radius;
+    in property <length> rectangle-top-right-radius;
+    in property <length> rectangle-bottom-right-radius;
+    in property <length> rectangle-bottom-left-radius;
+    in property <Size> text-size;
+    in property <angle> text-rotation;
+    in property <Size> image-size;
+    in property <angle> image-rotation;
+    private property <bool> radius-tooltip-visible: false;
+    private property <Point> radius-tooltip-position: { x: 0px, y: 0px };
+    private property <length> radius-tooltip-value: 0px;
+    private property <bool> rotation-tooltip-visible: false;
+    private property <Point> rotation-tooltip-position: { x: 0px, y: 0px };
+    private property <angle> rotation-tooltip-value: 0deg;
+
+    callback selected(CanvasSelectionKind);
+    callback interaction-started();
+    callback move-rectangle-to(Point);
+    callback resize-rectangle-to(CanvasCorner, Point, Size);
+    callback rotate-rectangle-to(angle);
+    callback update-rectangle-radius(CanvasCorner, length, bool);
+    callback move-text-to(Point);
+    callback resize-text-to(CanvasCorner, Point, Size);
+    callback rotate-text-to(angle);
+    callback move-image-to(Point);
+    callback resize-image-to(CanvasCorner, Point, Size);
+    callback rotate-image-to(angle);
+
+    horizontal-stretch: 1;
+    background: StudioTheme.canvas;
+
+    function phone-width() -> length {
+        return root.orientation == CanvasOrientation.portrait
+            ? EditorMetrics.phone-portrait-width
+            : EditorMetrics.phone-landscape-width;
+    }
+
+    function phone-height() -> length {
+        return root.orientation == CanvasOrientation.portrait
+            ? EditorMetrics.phone-portrait-height
+            : EditorMetrics.phone-landscape-height;
+    }
+
+    function phone-canvas-top() -> length {
+        return max(40px, (root.height - root.phone-height()) / 2);
+    }
+
+    function normalized-angle(value: angle) -> angle {
+        let normalized = value.mod(360deg);
+        return normalized < 0deg ? normalized + 360deg : normalized;
+    }
+
+    for row in 28: Rectangle {
+        y: row * 32px;
+        height: 1px;
+        background: StudioTheme.dark ? #ffffff0a : #00000008;
+    }
+
+    for col in 48: Rectangle {
+        x: col * 32px;
+        width: 1px;
+        background: StudioTheme.dark ? #ffffff0a : #00000008;
+    }
+
+    TouchArea {
+        width: root.width;
+        height: root.height;
+
+        clicked => {
+            root.selected(CanvasSelectionKind.artboard);
+        }
+    }
+
+    Rectangle {
+        x: (parent.width - phone.width) / 2;
+        y: root.phone-canvas-top() + 18px;
+        width: phone.width;
+        height: phone.height;
+        border-radius: EditorMetrics.phone-frame-radius;
+        drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b30;
+        drop-shadow-blur: 30px;
+        drop-shadow-offset-y: 18px;
+    }
+
+    phone := Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: root.phone-canvas-top();
+        width: root.phone-width();
+        height: root.phone-height();
+        border-radius: EditorMetrics.phone-frame-radius;
+        border-width: 1px;
+        border-color: StudioTheme.border;
+
+        touch := TouchArea {
+            clicked => {
+                root.selected(CanvasSelectionKind.artboard);
+            }
+        }
+
+        PhoneChrome {
+            orientation: root.orientation;
+        }
+
+        ComponentContainer {
+            component-factory: Api.preview-area;
+        }
+
+        DropArea {
+            can-drop(event) => {
+                return Api.can-drop(event.data, event.position.x, event.position.y, true) ? DragAction.copy : DragAction.none;
+            }
+            dropped(event) => {
+                Api.drop(event.data, event.position.x, event.position.y);
+                return event.proposed-action;
+            }
+        }
+
+        property <DropMark> drop-mark <=> Api.drop-mark;
+        if drop-mark.x1 >= 0.0 || drop-mark.y1 >= 0.0 || drop-mark.x2 >= 0.0 || drop-mark.y2 >= 0.0: Rectangle {
+            x: drop-mark.x1;
+            y: drop-mark.y1;
+            width: drop-mark.x2 - drop-mark.x1;
+            height: drop-mark.y2 - drop-mark.y1;
+            border-color: EditorPalette.drop-mark-foreground;
+            background: EditorPalette.drop-mark-background;
+        }
+
+        if root.placed-kind == PrototypeComponentKind.rectangle: RectangleOnCanvas {
+            x: root.placed-position.x;
+            y: root.placed-position.y;
+            width: root.rectangle-size.width;
+            height: root.rectangle-size.height;
+            shift-pressed: root.shift-pressed;
+            rotation: root.rectangle-rotation;
+            top-left-radius: root.rectangle-top-left-radius;
+            top-right-radius: root.rectangle-top-right-radius;
+            bottom-right-radius: root.rectangle-bottom-right-radius;
+            bottom-left-radius: root.rectangle-bottom-left-radius;
+            active: root.selection == CanvasSelectionKind.rectangle;
+            selected => {
+                root.selected(CanvasSelectionKind.rectangle);
+            }
+            moved-to(position) => {
+                root.move-rectangle-to(position);
+            }
+            resized-to(corner, position, size) => {
+                root.resize-rectangle-to(corner, position, size);
+            }
+            interaction-started => {
+                root.interaction-started();
+            }
+            rotated-to(rotation) => {
+                root.rotate-rectangle-to(rotation);
+            }
+            radius-changed(corner, radius, single-corner) => {
+                root.update-rectangle-radius(corner, radius, single-corner);
+            }
+            changed radius-tooltip-visible => {
+                root.radius-tooltip-visible = self.radius-tooltip-visible;
+            }
+            changed radius-tooltip-position => {
+                root.radius-tooltip-position = {
+                    x: root.placed-position.x + self.radius-tooltip-position.x,
+                    y: root.placed-position.y + self.radius-tooltip-position.y,
+                };
+            }
+            changed radius-tooltip-value => {
+                root.radius-tooltip-value = self.radius-tooltip-value;
+            }
+            changed rotation-tooltip-visible => {
+                root.rotation-tooltip-visible = self.rotation-tooltip-visible;
+            }
+            changed rotation-tooltip-position => {
+                root.rotation-tooltip-position = self.rotation-tooltip-position;
+            }
+            changed rotation-tooltip-value => {
+                root.rotation-tooltip-value = self.rotation-tooltip-value;
+            }
+        }
+
+        if root.placed-kind == PrototypeComponentKind.rectangle && root.radius-tooltip-visible: Rectangle {
+            x: root.radius-tooltip-position.x - self.width - 12px;
+            y: root.radius-tooltip-position.y - self.height - 12px;
+            width: radius-tip.width + 14px;
+            height: radius-tip.height + 8px;
+            border-radius: 6px;
+            background: StudioTheme.accent-strong;
+            drop-shadow-blur: 12px;
+            drop-shadow-offset-y: 4px;
+            drop-shadow-color: #33415535;
+
+            radius-tip := Text {
+                text: "Radius \{(root.radius-tooltip-value / 1px).to-fixed(0)}";
+                color: white;
+                font-size: 12px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        if root.placed-kind == PrototypeComponentKind.text: MoveResizeFrame {
+            x: root.placed-position.x;
+            y: root.placed-position.y;
+            width: root.text-size.width;
+            height: root.text-size.height;
+            shift-pressed: root.shift-pressed;
+            rotation: root.text-rotation;
+            active: root.selection == CanvasSelectionKind.text;
+            selected => {
+                root.selected(CanvasSelectionKind.text);
+            }
+            moved-to(position) => {
+                root.move-text-to(position);
+            }
+            resized-to(corner, position, size) => {
+                root.resize-text-to(corner, position, size);
+            }
+            interaction-started => {
+                root.interaction-started();
+            }
+            rotated-to(rotation) => {
+                root.rotate-text-to(rotation);
+            }
+            changed rotation-tooltip-visible => {
+                root.rotation-tooltip-visible = self.rotation-tooltip-visible;
+            }
+            changed rotation-tooltip-position => {
+                root.rotation-tooltip-position = self.rotation-tooltip-position;
+            }
+            changed rotation-tooltip-value => {
+                root.rotation-tooltip-value = self.rotation-tooltip-value;
+            }
+
+            Text {
+                width: parent.width;
+                height: parent.height;
+                text: "Design in Slint";
+                color: StudioTheme.phone-text;
+                font-size: 24px;
+                font-weight: 800;
+                vertical-alignment: center;
+            }
+        }
+
+        if root.placed-kind == PrototypeComponentKind.image: MoveResizeFrame {
+            x: root.placed-position.x;
+            y: root.placed-position.y;
+            width: root.image-size.width;
+            height: root.image-size.height;
+            shift-pressed: root.shift-pressed;
+            rotation: root.image-rotation;
+            active: root.selection == CanvasSelectionKind.image;
+            selected => {
+                root.selected(CanvasSelectionKind.image);
+            }
+            moved-to(position) => {
+                root.move-image-to(position);
+            }
+            resized-to(corner, position, size) => {
+                root.resize-image-to(corner, position, size);
+            }
+            interaction-started => {
+                root.interaction-started();
+            }
+            rotated-to(rotation) => {
+                root.rotate-image-to(rotation);
+            }
+            changed rotation-tooltip-visible => {
+                root.rotation-tooltip-visible = self.rotation-tooltip-visible;
+            }
+            changed rotation-tooltip-position => {
+                root.rotation-tooltip-position = self.rotation-tooltip-position;
+            }
+            changed rotation-tooltip-value => {
+                root.rotation-tooltip-value = self.rotation-tooltip-value;
+            }
+
+            ImagePlaceholder {
+                width: parent.width;
+                height: parent.height;
+                active: root.selection == CanvasSelectionKind.image;
+            }
+        }
+
+        if root.rotation-tooltip-visible: Rectangle {
+            x: root.rotation-tooltip-position.x - self.width - 12px;
+            y: root.rotation-tooltip-position.y - self.height - 12px;
+            width: rotation-tip.width + 14px;
+            height: rotation-tip.height + 8px;
+            border-radius: 6px;
+            background: StudioTheme.accent-strong;
+            drop-shadow-blur: 12px;
+            drop-shadow-offset-y: 4px;
+            drop-shadow-color: #33415535;
+
+            rotation-tip := Text {
+                text: "Rotation \{(root.normalized-angle(root.rotation-tooltip-value) / 1deg).round()}°";
+                color: white;
+                font-size: 12px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+        if root.canvas-drop-hover: CanvasDropTarget { }
+    }
+}
