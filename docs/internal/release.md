@@ -33,7 +33,7 @@ Use this branch to collect fixes and run testing (apply cherry-picks here).
     ```
 
  2. Change .github/workflows/schedule_nightly_snapshot.yaml to include that pre-release branch in the matrix
-    with `mode: full-nightly`, and switch `master` to `mode: snapshot`.
+    with `mode: full-nightly`, and switch `master` to `mode: website-only`.
     Exactly one branch uses `mode: full-nightly`: it owns the `nightly` tag and the VS Code extension.
     This commit needs to be done in the `master` branch.
 
@@ -145,7 +145,7 @@ In the mean time, the version in the master branch can be updated
 * [Update tree-sitter configurations for editors](https://github.com/slint-ui/wiki/blob/309a3b0327731ba2cfb229595e0fa7209ba868c6/infrastructure/release_checklist.md?plain=1#L91)
 
 * In `.github/workflows/schedule_nightly_snapshot.yaml` (on `master`), give the `mode: full-nightly` slot back to
-  `master`: set the released branch to `mode: snapshot` and `master` to `mode: full-nightly`.
+  `master`: set the released branch to `mode: website-only` and `master` to `mode: full-nightly`.
 
 ## Patch Releases
 

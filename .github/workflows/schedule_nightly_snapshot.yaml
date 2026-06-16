@@ -19,7 +19,7 @@ jobs:
           - branch: pre-release/1.17
             mode: full-nightly
           - branch: master
-            mode: snapshot
+            mode: website-only
 
     steps:
       - uses: actions/checkout@v6

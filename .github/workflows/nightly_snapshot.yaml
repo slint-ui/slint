@@ -15,7 +15,7 @@ on:
                 options:
                     - release       # Publish a versioned release: a draft GitHub release and a non-nightly extension.
                     - full-nightly  # Publish the website snapshot, plus the VS Code extension and the `nightly` release tag.
-                    - snapshot      # Publish the website snapshot (docs, demos, editor) only.
+                    - website-only  # Publish the website snapshot (docs, demos, editor) only.
                     - test          # Build everything, publish nothing.
 
 env:
