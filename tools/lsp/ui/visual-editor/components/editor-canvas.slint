@@ -111,6 +111,11 @@ export component EditorCanvas inherits Rectangle {
     property <[SelectionRectangle]> selections: Api.selection.highlight-index >= 0
         ? Api.highlight-positions(Api.current-element.source-uri, Api.current-element.offset)
         : [];
+    // Outline-drag state: while dragging a handle the frame follows the pointer locally
+    // (no disk write); on release we commit once via Api.selected-element-resize.
+    private property <bool> selection-drag-active: false;
+    private property <Point> selection-drag-position;
+    private property <Size> selection-drag-size;
 
     callback selected(CanvasSelectionKind);
     callback interaction-started();
@@ -239,13 +244,44 @@ export component EditorCanvas inherits Rectangle {
         // selection-area so the active frame intercepts clicks on the selected element.
         // Note: This sits outside of the PhoneChrome so it doesn't get clipped.
         for s[idx] in root.selections: MoveResizeFrame {
-            // The PhoneChrome has an inner padding, so we need to offset the selection frames accordingly.
-            x: s.x + EditorMetrics.phone-outer-padding;
-            y: s.y + EditorMetrics.phone-outer-padding;
-            width: s.width;
-            height: s.height;
+            property <bool> primary: idx == Api.selection.highlight-index;
+            // During a drag the frame follows the pointer locally (no disk write).
+            // When idle it tracks the backend geometry from selections[].
+            x: root.selection-drag-active && primary
+                ? root.selection-drag-position.x
+                : s.x + EditorMetrics.phone-outer-padding;
+            y: root.selection-drag-active && primary
+                ? root.selection-drag-position.y
+                : s.y + EditorMetrics.phone-outer-padding;
+            width: root.selection-drag-active && primary ? root.selection-drag-size.width : s.width;
+            height: root.selection-drag-active && primary ? root.selection-drag-size.height : s.height;
             rotation: s.angle;
             active: true;
+            // Only allow resize for elements that have geometry outside a layout,
+            // and only when the element is not rotated (axis-aligned edits only).
+            resizable: primary && Api.selection.is-resizable && s.angle == 0deg;
+
+            resized-to(corner, position, size) => {
+                root.selection-drag-active = true;
+                root.selection-drag-position = position;
+                root.selection-drag-size = size;
+            }
+            moved-to(position) => {
+                root.selection-drag-active = true;
+                root.selection-drag-position = position;
+                root.selection-drag-size = { width: s.width, height: s.height };
+            }
+            interaction-ended => {
+                // Convert from phone (frame-parent) space back to content space
+                // by subtracting the 1px phone-outer-padding, then commit once.
+                Api.selected-element-resize(
+                    root.selection-drag-position.x - EditorMetrics.phone-outer-padding,
+                    root.selection-drag-position.y - EditorMetrics.phone-outer-padding,
+                    root.selection-drag-size.width,
+                    root.selection-drag-size.height,
+                );
+                root.selection-drag-active = false;
+            }
         }
 
         if root.placed-kind == PrototypeComponentKind.rectangle: RectangleOnCanvas {
