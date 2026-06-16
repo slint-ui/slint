@@ -1212,6 +1212,16 @@ export component EditorUi inherits Window {
                             component-factory: Api.preview-area;
                         }
 
+                        DropArea {
+                            can-drop(event) => {
+                                return Api.can-drop(event.data, event.position.x, event.position.y, true) ? DragAction.copy : DragAction.none;
+                            }
+                            dropped(event) => {
+                                Api.drop(event.data, event.position.x, event.position.y);
+                                return event.proposed-action;
+                            }
+                        }
+
                         if root.placed-kind == PrototypeComponentKind.rectangle: Rectangle {
                             x: root.placed-x;
                             y: root.placed-y;
