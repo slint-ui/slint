@@ -401,11 +401,10 @@ concept HasFromSlintValue = requires(const slint::interpreter::Value &val) {
 template<typename ModelData>
 slint::interpreter::Value into_slint_value(const std::shared_ptr<slint::Model<ModelData>> &val)
 {
-    if (!val) {
-        return {};
-    }
     if constexpr (HasFromSlintValue<ModelData>) {
-        return LiveReloadModelWrapper<ModelData>::wrap(val);
+        // A null pointer is an empty model, not a void value the property would reject.
+        return LiveReloadModelWrapper<ModelData>::wrap(
+                val ? val : std::make_shared<slint::VectorModel<ModelData>>());
     }
     return {};
 }
