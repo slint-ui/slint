@@ -30,7 +30,7 @@ All notable changes to this project are documented in this file.
  - Fixed per-corner radii for drop shadows
  - Upgraded fontique and parley to 0.10: The `unstable-fontique-09` Cargo feature is renamed to
    `unstable-fontique-010`, and the `slint::fontique_09` module to `slint::fontique_010`.
- - Get the font size from the desktop settings
+ - The default font size for application is ready from system settings on Windows and Linux.
 
 ### Slint language
 
@@ -56,8 +56,8 @@ All notable changes to this project are documented in this file.
  - `animate`: Added `enabled` boolean to toggle animations on/off (defaults to `true`). (#9604)
  - Conversions between `float` and `string` now use the locale's decimal separator,
    which is exposed as `Platform.decimal-separator`. (#10857)
- - Globals can implement callback aliasing another global callback.
- - Added InputType.search
+ - Globals can implement callbacks aliasing another global callback.
+ - Added `InputType.search` to identify search input fields and inform assistive technologies about their purpose.
  - `@conic-gradient` and `@radial-gradient` now supports `at <x> <y>` and an optional radius. (#11760)
 
 ### Widgets
@@ -73,7 +73,6 @@ All notable changes to this project are documented in this file.
  - Added `slint::platform::skia_renderer::SkiaWGPURenderer` for rendering into external WGPU textures.
  - Fixed `slint::platform::femtovg_renderer::FemtoVGRenderer` not always being accessible. (#11530)
  - Made `PointerEvent` and `PointerEventKind` types public in `language` module (#11587)
- - Moved `StandardListViewItem` and `TableColumn` to the `language` module (still re-exported from old location as deprecated)
  - Added `StyledText` struct that maps to a `styled-text` slint type and can parse markdown at runtime.
  - Added public API to create `keys`
 
@@ -120,8 +119,8 @@ All notable changes to this project are documented in this file.
  - Compiler: Report precise error location within `@markdown` and `@tr` strings. (#11577)
  - Added MCP server feature. (#11542)
  - Viewer can now work on iOS and Android.
- - Added `slint-viewer --remote` to connect to a slint LSP from a mobile device or another device
- - Added `slint-viewer --screenshot` and `slint-viewer --check`
+ - Added `slint-viewer --remote` to connect to a slint LSP from a mobile device or another device.
+ - Added `slint-viewer --screenshot` and `slint-viewer --check`.
 
 ## [1.16.1] - 2026-04-23
 
