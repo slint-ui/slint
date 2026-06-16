@@ -77,16 +77,17 @@ If the client supports it always then show the image inline in the chat.
 The visual editor uses transformed selection chrome. Be careful with pointer
 coordinates:
 
-- Use absolute pointer coordinates for screen-space interactions such as moving
-  items and ordinary corner resize. Store the absolute pointer position on press
-  with `self.absolute-position.x + self.mouse-x` / `self.absolute-position.y +
-  self.mouse-y`, then compare later absolute pointer positions against that.
+- For screen-space interactions, compare parent/window-space pointer positions,
+  not raw local deltas. If the hit target is inside the rotated selection wrapper,
+  convert `self.mouse-x` / `self.mouse-y` back through the same transform helpers
+  that draw the chrome before comparing against the captured press pointer.
 - Do not use `self.mouse-x - press-x` from a `TouchArea` inside a rotated wrapper
   for move or resize. Those local coordinates are affected by the transform and
   have repeatedly broken normal drag/reposition behavior.
-- For rotated resize, convert the absolute screen-space delta into local item
-  axes using the inverse rotation before applying width/height changes. At
-  `0deg`, the math must match the old unrotated resize behavior exactly.
+- For rotated resize, reconstruct the parent/window-space pointer position from
+  the rotated handle-local point, then convert that delta into local item axes
+  using the press-time rotation before applying width/height changes. At `0deg`,
+  the math must match the old unrotated resize behavior exactly.
 - Keep final bounds and minimum-size clamping in `EditorState`; `MoveResizeFrame`
   should emit requested geometry and let state clamp it.
 - If a pointer interaction depends on keyboard state, focus the editor
