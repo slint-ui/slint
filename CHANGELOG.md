@@ -48,7 +48,7 @@ All notable changes to this project are documented in this file.
  - Added `minimized`, `maximized`, `close`, and `hide` on `Window`
  - Added `drop-shadow-spread` and `inner-shadow-{color,blur,offset-x,offset-y,spread}` properties to rectangle. (Only supported in Skia)
  - added `Platform.macos-bring-all-windows-to-front()`
- - Added `undo()` and `redo()` functions to `TextInput`. 
+ - Added `undo()` and `redo()` functions to `TextInput`.
  - Fixed percentage size in children impacting parent layout (#3346)
  - Re-evaluate property bindings when a callback handler is changed from native code (#9551)
  - TextInput: allow setting the accessibility value
@@ -114,7 +114,7 @@ All notable changes to this project are documented in this file.
  - LSP: `@markdown` completion is now supported.
  - LSP: Fixed selection of imported sub-components in preview.
  - LSP: Update the preview highlight on hover
- - LSP: formatter preserve newlines in expression, as well as enum declarations and export lists. 
+ - LSP: formatter preserve newlines in expression, as well as enum declarations and export lists.
  - LSP: show runtime warnings in the console (eg: missing image file)
  - Improved file watcher by tracking new file and moved directories.
  - Compiler: Report precise error location within `@markdown` and `@tr` strings. (#11577)
