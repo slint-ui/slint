@@ -257,6 +257,7 @@ hidpi
 highp
 HINSTANCE
 Hira
+hlayout
 hmenu
 horizontalbox
 horizontallayout
@@ -658,6 +659,7 @@ verticalbox
 verticallayout
 VGWGPU
 viewports
+vlayout
 vref
 vscodeversion
 vtables
