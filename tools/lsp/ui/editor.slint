@@ -3,7 +3,8 @@
 
 import { Palette, ScrollView } from "std-widgets.slint";
 
-import { Api } from "api.slint";
+import { Api, DropMark } from "api.slint";
+import {EditorPalette } from "components/styling.slint";
 
 export enum ProjectKind {
     mobile,
@@ -1183,6 +1184,18 @@ export component EditorUi inherits Window {
                                 Api.drop(event.data, event.position.x, event.position.y);
                                 return event.proposed-action;
                             }
+                        }
+
+
+                        property <DropMark> drop-mark <=> Api.drop-mark;
+                        if drop-mark.x1 >= 0.0 || drop-mark.y1 >= 0.0 || drop-mark.x2 >= 0.0 || drop-mark.y2 >= 0.0: Rectangle {
+                            x: drop-mark.x1;
+                            y: drop-mark.y1;
+                            width: drop-mark.x2 - drop-mark.x1;
+                            height: drop-mark.y2 - drop-mark.y1;
+
+                            border-color: EditorPalette.drop-mark-foreground;
+                            background: EditorPalette.drop-mark-background;
                         }
 
                         if root.placed-kind == PrototypeComponentKind.rectangle: Rectangle {
