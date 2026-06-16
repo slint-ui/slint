@@ -7,7 +7,7 @@ This directory contains the `.slint` sources for the visual editor UI.
 Use the real `slint-editor` app. Do not use `slint-viewer` for visual-editor
 work, because it bypasses the embedded editor/LSP plumbing.
 
-Run the app with Skia:
+Run the app with Skia against the simple local fixture:
 
 ```sh
 SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 \
@@ -15,7 +15,7 @@ SLINT_BACKEND=winit-skia \
 cargo run -p slint-lsp --example slint-editor \
   --no-default-features \
   --features backend-winit,renderer-skia,renderer-software,preview \
-  -- examples/gallery/ui/pages/controls_page.slint
+  -- examples/visual-editor/simple_preview.slint
 ```
 
 Important:
@@ -30,6 +30,9 @@ Important:
   sandboxes when `ccache` writes under `~/Library/Caches/ccache`.
 - `SLINT_ENABLE_EXPERIMENTAL_FEATURES=1` is required because the visual editor
   uses internal/experimental types such as `component-factory`.
+- Use `examples/visual-editor/simple_preview.slint` for now. It is a minimal
+  valid target file and avoids mixing visual-editor shell work with gallery page
+  complexity.
 
 ## MCP
 
@@ -46,12 +49,35 @@ SLINT_BACKEND=winit-skia \
 cargo run -p slint-lsp --example slint-editor \
   --no-default-features \
   --features backend-winit,renderer-skia,renderer-software,preview,slint/mcp \
-  -- examples/gallery/ui/pages/controls_page.slint
+  -- examples/visual-editor/simple_preview.slint
 ```
 
 If `http://127.0.0.1:9315/mcp` is not reachable, report that MCP is unavailable
 for the current run. Do not switch to headless mode; this app is expected to run
 as a visible GUI.
+
+## Hot Reloading The Editor UI
+
+The editor automatically watches and reloads the opened target document
+(`examples/visual-editor/simple_preview.slint`). That is separate from the
+editor shell UI under `tools/lsp/ui/`, which is compiled into the app via
+`slint::include_modules!()`.
+
+To hot-reload the editor shell UI, use Slint live preview:
+
+```sh
+SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 \
+SLINT_LIVE_PREVIEW=1 \
+SLINT_BACKEND=winit-skia \
+cargo run -p slint-lsp --example slint-editor \
+  --no-default-features \
+  --features backend-winit,renderer-skia,renderer-software,preview,slint/live-preview \
+  -- examples/visual-editor/simple_preview.slint
+```
+
+This currently crashes with `accessing deleted parent (issue #6426)`, even with
+the simple preview file. Until that is fixed, use the default runtime above.
+Do not silently switch renderer or app entry point.
 
 ## Architecture
 
