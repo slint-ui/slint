@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api } from "../../api.slint";
+import { Api, DropMark } from "../../api.slint";
+import { EditorPalette } from "../../components/styling.slint";
 import {
     CanvasCorner, CanvasOrientation, CanvasSelectionKind, EditorMetrics, PrototypeComponentKind,
     ImagePlaceholder, StudioTheme,
@@ -15,6 +16,8 @@ component PhoneChrome inherits Rectangle {
     background: StudioTheme.phone-bg;
     clip: true;
 
+    @children
+
     Rectangle {
         x: EditorMetrics.phone-outer-padding;
         y: EditorMetrics.phone-outer-padding;
@@ -24,7 +27,6 @@ component PhoneChrome inherits Rectangle {
         height: root.orientation == CanvasOrientation.portrait
             ? EditorMetrics.phone-status-bar-size - EditorMetrics.phone-outer-padding
             : parent.height - 2 * EditorMetrics.phone-outer-padding;
-        background: #f8fafc;
 
         Rectangle {
             x: root.orientation == CanvasOrientation.portrait
@@ -181,11 +183,41 @@ export component EditorCanvas inherits Rectangle {
 
         PhoneChrome {
             orientation: root.orientation;
+            clip: true;
+
+            ComponentContainer {
+                x: EditorMetrics.phone-outer-padding;
+                y: EditorMetrics.phone-outer-padding;
+                width: parent.width - (2 * EditorMetrics.phone-outer-padding);
+                height: parent.height - (2 * EditorMetrics.phone-outer-padding);
+                component-factory: Api.preview-area;
+            }
+
+            DropArea {
+                x: EditorMetrics.phone-outer-padding;
+                y: EditorMetrics.phone-outer-padding;
+                width: parent.width - (2 * EditorMetrics.phone-outer-padding);
+                height: parent.height - (2 * EditorMetrics.phone-outer-padding);
+                can-drop(event) => {
+                    return Api.can-drop(event.data, event.position.x, event.position.y, true) ? DragAction.copy : DragAction.none;
+                }
+                dropped(event) => {
+                    Api.drop(event.data, event.position.x, event.position.y);
+                    return event.proposed-action;
+                }
+            }
+
+            property <DropMark> drop-mark <=> Api.drop-mark;
+            if drop-mark.x1 >= 0.0 || drop-mark.y1 >= 0.0 || drop-mark.x2 >= 0.0 || drop-mark.y2 >= 0.0: Rectangle {
+                x: drop-mark.x1 + EditorMetrics.phone-outer-padding;
+                y: drop-mark.y1 + EditorMetrics.phone-outer-padding;
+                width: drop-mark.x2 - drop-mark.x1;
+                height: drop-mark.y2 - drop-mark.y1;
+                border-color: EditorPalette.drop-mark-foreground;
+                background: EditorPalette.drop-mark-background;
+            }
         }
 
-        ComponentContainer {
-            component-factory: Api.preview-area;
-        }
 
         if root.placed-kind == PrototypeComponentKind.rectangle: RectangleOnCanvas {
             x: root.placed-position.x;

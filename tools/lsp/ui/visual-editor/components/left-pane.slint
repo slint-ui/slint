@@ -6,6 +6,8 @@ import {
     EdgeDivider, EditorMetrics, LeftPaneMode, PrimerActionListRow, PrimerNavRow, PrimerSegmentedTab,
     PrimerTextInput, PrototypeComponentKind, SectionTitle, StudioTheme,
 } from "common.slint";
+import { Api } from "../../api.slint";
+import { LibraryComponentRow } from "library-component-row.slint";
 
 export component LeftPane inherits Rectangle {
     in-out property <LeftPaneMode> mode;
@@ -90,36 +92,26 @@ export component LeftPane inherits Rectangle {
                 width: parent.width;
                 spacing: 10px;
 
-                SectionTitle { label: "SLINT BUILT-INS"; }
+                for category in Api.known-components: VerticalLayout {
+                    width: parent.width;
+                    spacing: 10px;
 
-                PrimerActionListRow {
-                    kind: PrototypeComponentKind.rectangle;
-                    label: "Rectangle";
-                    detail: "Surface, panel, shape";
-                    glyph: "R";
-                    drag-started(kind, position) => { root.drag-started(kind, position); }
-                    drag-moved(kind, position) => { root.drag-moved(kind, position); }
-                    drag-ended(kind, position) => { root.drag-ended(kind, position); }
-                }
+                    SectionTitle { label: category.category; }
 
-                PrimerActionListRow {
-                    kind: PrototypeComponentKind.text;
-                    label: "Text";
-                    detail: "Label or display copy";
-                    glyph: "T";
-                    drag-started(kind, position) => { root.drag-started(kind, position); }
-                    drag-moved(kind, position) => { root.drag-moved(kind, position); }
-                    drag-ended(kind, position) => { root.drag-ended(kind, position); }
-                }
+                    VerticalLayout {
+                        width: parent.width;
+                        spacing: 10px;
 
-                PrimerActionListRow {
-                    kind: PrototypeComponentKind.image;
-                    label: "Image";
-                    detail: "Bitmap or vector asset";
-                    glyph: "IMG";
-                    drag-started(kind, position) => { root.drag-started(kind, position); }
-                    drag-moved(kind, position) => { root.drag-moved(kind, position); }
-                    drag-ended(kind, position) => { root.drag-ended(kind, position); }
+                        for component in category.components: LibraryComponentRow {
+                            label: component.name;
+                            detail: component.pretty-location;
+
+                            DragArea {
+                                data: Api.new-component-data(component.index);
+                                allow-copy: true;
+                            }
+                        }
+                    }
                 }
             }
         }
