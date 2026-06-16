@@ -16,7 +16,14 @@ component PhoneChrome inherits Rectangle {
     background: StudioTheme.phone-bg;
     clip: true;
 
-    @children
+    Rectangle {
+        x: EditorMetrics.phone-outer-padding;
+        y: EditorMetrics.phone-outer-padding;
+        width: parent.width - (2 * EditorMetrics.phone-outer-padding);
+        height: parent.height - (2 * EditorMetrics.phone-outer-padding);
+
+        @children
+    }
 
     Rectangle {
         x: EditorMetrics.phone-outer-padding;
@@ -193,21 +200,14 @@ export component EditorCanvas inherits Rectangle {
 
         PhoneChrome {
             orientation: root.orientation;
-            clip: true;
 
             ComponentContainer {
-                x: EditorMetrics.phone-outer-padding;
-                y: EditorMetrics.phone-outer-padding;
-                width: parent.width - (2 * EditorMetrics.phone-outer-padding);
-                height: parent.height - (2 * EditorMetrics.phone-outer-padding);
+                width: 100%;
+                height: 100%;
                 component-factory: Api.preview-area;
             }
 
             DropArea {
-                x: EditorMetrics.phone-outer-padding;
-                y: EditorMetrics.phone-outer-padding;
-                width: parent.width - (2 * EditorMetrics.phone-outer-padding);
-                height: parent.height - (2 * EditorMetrics.phone-outer-padding);
                 can-drop(event) => {
                     return Api.can-drop(event.data, event.position.x, event.position.y, true) ? DragAction.copy : DragAction.none;
                 }
@@ -219,32 +219,27 @@ export component EditorCanvas inherits Rectangle {
 
             property <DropMark> drop-mark <=> Api.drop-mark;
             if drop-mark.x1 >= 0.0 || drop-mark.y1 >= 0.0 || drop-mark.x2 >= 0.0 || drop-mark.y2 >= 0.0: Rectangle {
-                x: drop-mark.x1 + EditorMetrics.phone-outer-padding;
-                y: drop-mark.y1 + EditorMetrics.phone-outer-padding;
-                width: drop-mark.x2 - drop-mark.x1;
-                height: drop-mark.y2 - drop-mark.y1;
                 border-color: EditorPalette.drop-mark-foreground;
                 background: EditorPalette.drop-mark-background;
             }
-        }
 
-        // Click to select the real previewed element.
-        // Sits on top of the live preview so it intercepts clicks.
-        // pressed-x/y are already in content coordinates, matching what the backend expects.
-        selection-area := TouchArea {
-            x: EditorMetrics.phone-outer-padding;
-            y: EditorMetrics.phone-outer-padding;
-            width: parent.width - (2 * EditorMetrics.phone-outer-padding);
-            height: parent.height - (2 * EditorMetrics.phone-outer-padding);
-            mouse-cursor: crosshair;
-            clicked => {
-                Api.select-at(self.pressed-x, self.pressed-y, false);
-                }
+            // Click to select the real previewed element.
+            // Sits on top of the live preview so it intercepts clicks.
+            // pressed-x/y are already in content coordinates, matching what the backend expects.
+            selection-area := TouchArea {
+                mouse-cursor: crosshair;
+                clicked => {
+                    Api.select-at(self.pressed-x, self.pressed-y, false);
+                    }
+            }
+
         }
 
         // Selection frame(s) for the currently selected element. Rendered after
         // selection-area so the active frame intercepts clicks on the selected element.
+        // Note: This sits outside of the PhoneChrome so it doesn't get clipped.
         for s[idx] in root.selections: MoveResizeFrame {
+            // The PhoneChrome has an inner padding, so we need to offset the selection frames accordingly.
             x: s.x + EditorMetrics.phone-outer-padding;
             y: s.y + EditorMetrics.phone-outer-padding;
             width: s.width;
