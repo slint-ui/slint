@@ -365,7 +365,14 @@ export global Api {
     in-out property <[color]> recent-colors;
 
     // ## Property Editor
-    in-out property <ElementInformation> current-element;
+    in-out property <ElementInformation> current-element: {
+        id: "title-text",
+        component-name: "MockEditor",
+        type-name: "Text",
+        source-uri: "file:///mock/editor.slint",
+        source-version: 0,
+        offset: 128,
+    };
     in-out property <[PropertyGroup]> properties: [
         {
             group-name: "Geometry",
@@ -521,7 +528,63 @@ export global Api {
     callback properties-search(string);
 
     // ## Outline
-    in-out property <[OutlineTreeNode]> outline;
+    in-out property <[OutlineTreeNode]> outline: [
+        {
+            indent-level: 0,
+            has-children: true,
+            is-expanded: true,
+            is-last-child: true,
+            icon-kind: OutlineNodeIconKind.default,
+            element-type: "MockEditor inherits Window",
+            element-id: "MockEditor",
+            uri: "file:///mock/editor.slint",
+            offset: 0,
+        },
+        {
+            indent-level: 1,
+            has-children: true,
+            is-expanded: true,
+            is-last-child: false,
+            icon-kind: OutlineNodeIconKind.rectangle,
+            element-type: "Rectangle",
+            element-id: "content-panel",
+            uri: "file:///mock/editor.slint",
+            offset: 64,
+        },
+        {
+            indent-level: 2,
+            has-children: false,
+            is-expanded: false,
+            is-last-child: false,
+            icon-kind: OutlineNodeIconKind.text,
+            element-type: "Text",
+            element-id: "title-text",
+            uri: "file:///mock/editor.slint",
+            offset: 128,
+        },
+        {
+            indent-level: 2,
+            has-children: false,
+            is-expanded: false,
+            is-last-child: true,
+            icon-kind: OutlineNodeIconKind.image,
+            element-type: "Image",
+            element-id: "hero-image",
+            uri: "file:///mock/editor.slint",
+            offset: 192,
+        },
+        {
+            indent-level: 1,
+            has-children: false,
+            is-expanded: false,
+            is-last-child: true,
+            icon-kind: OutlineNodeIconKind.default,
+            element-type: "CustomControl",
+            element-id: "actions",
+            uri: "file:///mock/editor.slint",
+            offset: 256,
+        },
+    ];
     callback outline-select-element(uri: string, offset: int, notify_editor: bool);
     // Data is either a "file:offset" for an element to move, or just a component index.
     callback outline-drop(data: data-transfer, uri: string, offset: int, location: DropLocation);
