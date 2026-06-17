@@ -34,6 +34,7 @@ fn to_severity(level: DiagnosticLevel) -> lsp_types::DiagnosticSeverity {
     match level {
         DiagnosticLevel::Error => DiagnosticSeverity::ERROR,
         DiagnosticLevel::Warning => DiagnosticSeverity::WARNING,
+        DiagnosticLevel::Info => DiagnosticSeverity::INFORMATION,
         DiagnosticLevel::Note => DiagnosticSeverity::HINT,
         _ => DiagnosticSeverity::INFORMATION,
     }

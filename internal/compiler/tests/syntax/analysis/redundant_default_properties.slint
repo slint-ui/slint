@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+component BaseTouchArea inherits TouchArea {
+    enabled: false;
+}
+
+export component Test inherits Window {
+    TouchArea {
+        enabled: true;
+//               >   <info{Property 'enabled' is explicitly set to its default value and can be removed}
+        mouse-cursor: MouseCursor.default;
+//                    >                  <info{Property 'mouse-cursor' is explicitly set to its default value and can be removed}
+        width: 100%;
+//             >   <info{Property 'width' is explicitly set to its default value and can be removed}
+        height: parent.height;
+//              >            <info{Property 'height' is explicitly set to its default value and can be removed}
+    }
+
+    Rectangle {
+        width: 100px;
+        height: 50px;
+        x: (parent.width - self.width) / 2;
+//         >                              <info{Property 'x' is explicitly set to its default value and can be removed}
+        y: (parent.height - self.height) / 2;
+//         >                                <info{Property 'y' is explicitly set to its default value and can be removed}
+    }
+
+    BaseTouchArea {
+        enabled: true;
+    }
+}

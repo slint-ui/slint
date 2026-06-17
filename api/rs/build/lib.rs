@@ -57,7 +57,7 @@ use std::env;
 use std::io::{BufWriter, Write};
 use std::path::Path;
 
-use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::diagnostics::{BuildDiagnostics, DiagnosticLevel};
 
 /// Argument of [`CompilerConfiguration::with_default_translation_context()`]
 ///
@@ -577,8 +577,8 @@ pub fn compile_with_output_path(
     let (doc, diag, loader) =
         spin_on::spin_on(i_slint_compiler::compile_syntax_node(syntax_node, diag, compiler_config));
 
-    if diag.has_errors()
-        || (!diag.is_empty() && std::env::var("SLINT_COMPILER_DENY_WARNINGS").is_ok())
+    let has_warnings = diag.iter().any(|diag| matches!(diag.level(), DiagnosticLevel::Warning));
+    if diag.has_errors() || (has_warnings && std::env::var("SLINT_COMPILER_DENY_WARNINGS").is_ok())
     {
         let vec = diag.to_string_vec();
         diag.print();
@@ -599,12 +599,11 @@ pub fn compile_with_output_path(
         }
     }
 
-    // print warnings
-    diag.diagnostics_as_string().lines().for_each(|w| {
-        if !w.is_empty() {
-            println!("cargo:warning={}", w.strip_prefix("warning: ").unwrap_or(w))
-        }
-    });
+    // Cargo build scripts only have a warning channel. Keep informational
+    // diagnostics out of it so they remain non-fatal under denied warnings.
+    for diagnostic in diag.iter().filter(|diag| matches!(diag.level(), DiagnosticLevel::Warning)) {
+        println!("cargo:warning={diagnostic}");
+    }
 
     write!(code_formatter, "{generated}").map_err(CompileError::SaveError)?;
     dependencies.push(input_slint_file_path.as_ref().to_path_buf());

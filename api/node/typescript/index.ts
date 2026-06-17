@@ -313,12 +313,20 @@ function loadSlint(loadData: LoadData): Object {
     const diagnostics = compiler.diagnostics;
 
     if (diagnostics.length > 0) {
+        const infos = diagnostics.filter(
+            (d) => d.level === napi.DiagnosticLevel.Info,
+        );
         const warnings = diagnostics.filter(
             (d) => d.level === napi.DiagnosticLevel.Warning,
         );
+        const notes = diagnostics.filter(
+            (d) => d.level === napi.DiagnosticLevel.Note,
+        );
 
         if (typeof options !== "undefined" && options.quiet !== true) {
+            infos.forEach((i) => console.info("Info: " + i));
             warnings.forEach((w) => console.warn("Warning: " + w));
+            notes.forEach((n) => console.info("Note: " + n));
         }
 
         const errors = diagnostics.filter(
