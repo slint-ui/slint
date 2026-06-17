@@ -17,50 +17,8 @@ export component EditorTopBar inherits Rectangle {
         padding-left: 18px;
         padding-right: 18px;
         spacing: 16px;
+        alignment: end;
         cross-axis-alignment: center;
-
-        HorizontalLayout {
-            spacing: 10px;
-            horizontal-stretch: 1;
-            cross-axis-alignment: center;
-
-            Rectangle {
-                width: 28px;
-                height: 28px;
-                border-radius: 7px;
-                background: StudioTheme.accent;
-
-                Text {
-                    text: "S";
-                    color: white;
-                    font-size: 15px;
-                    font-weight: 900;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                }
-            }
-
-            Text {
-                text: "Slinterface Pro";
-                color: StudioTheme.text;
-                font-size: 15px;
-                font-weight: 800;
-                vertical-alignment: center;
-            }
-
-            Rectangle {
-                width: 1px;
-                height: 24px;
-                background: StudioTheme.soft-border;
-            }
-
-            Text {
-                text: "Mobile / main.slint";
-                color: StudioTheme.muted;
-                font-size: 13px;
-                vertical-alignment: center;
-            }
-        }
 
         Rectangle {
             width: 82px;
@@ -78,6 +36,24 @@ export component EditorTopBar inherits Rectangle {
                 horizontal-alignment: center;
                 vertical-alignment: center;
             }
+        }
+    }
+
+    HorizontalLayout {
+        alignment: center;
+        cross-axis-alignment: center;
+
+        Rectangle {
+            width: 1px;
+            height: 24px;
+            background: StudioTheme.soft-border;
+        }
+
+        Text {
+            text: "Mobile / main.slint";
+            color: StudioTheme.muted;
+            font-size: 13px;
+            vertical-alignment: center;
         }
     }
 }
