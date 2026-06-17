@@ -1276,36 +1276,19 @@ fn format_match_case(
     writer: &mut impl TokenWriter,
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
-    let mut sub = node.children_with_tokens();
+    let mut sub = node.children_with_tokens().peekable();
     whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?;
     whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, "")?;
-    state.insert_whitespace(" ");
-    state.skip_all_whitespace = true;
-    for s in sub {
-        let put_newline_after = s.kind() == SyntaxKind::SubElement;
-        fold(s, writer, state)?;
-        if put_newline_after {
-            state.new_line();
-        }
-    }
-    Ok(())
-}
-
-fn format_else_match_case(
-    node: &SyntaxNode,
-    writer: &mut impl TokenWriter,
-    state: &mut FormatState,
-) -> Result<(), std::io::Error> {
-    let mut sub = node.children_with_tokens();
-    whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?;
-    whitespace_to(&mut sub, SyntaxKind::Colon, writer, state, "")?;
-    state.insert_whitespace(" ");
-    state.skip_all_whitespace = true;
-    for s in sub {
-        let put_newline_after = s.kind() == SyntaxKind::SubElement;
-        fold(s, writer, state)?;
-        if put_newline_after {
-            state.new_line();
+    if node.child_node(SyntaxKind::SubElement).is_none() {
+        whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?;
+        whitespace_to(&mut sub, SyntaxKind::RBrace, writer, state, " ")?;
+        state.skip_all_whitespace = true;
+        state.new_line();
+    } else {
+        state.insert_whitespace(" ");
+        state.skip_all_whitespace = true;
+        for s in sub {
+            fold(s, writer, state)?;
         }
     }
     Ok(())
