@@ -77,8 +77,16 @@ pub(crate) fn compute_box_layout_info(
     let expr_eval = |nr: &NamedReference| -> f32 {
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     };
-    let (cells, alignment) =
-        box_layout_data(box_layout, orientation, component, &expr_eval, None, cross_axis_size);
+    let (cells, alignment) = box_layout_data(
+        box_layout,
+        orientation,
+        component,
+        &expr_eval,
+        None,
+        cross_axis_size,
+        local_context,
+        None,
+    );
     let (padding, spacing) = padding_and_spacing(&box_layout.geometry, orientation, &expr_eval);
     if orientation == box_layout.orientation {
         core_layout::box_layout_info(Slice::from(cells.as_slice()), spacing, &padding, alignment)
@@ -179,6 +187,18 @@ pub(crate) fn solve_box_layout(
         })
     })
     .flatten();
+    // On the cross pass, the layout's real cross size (its own content size
+    // along this orientation) is known. Forward it so a wrapping perpendicular
+    // flex cell can be given its natural single-line size instead of the
+    // compact sqrt preferred (see `clamp_wrapping_flex_cross_preferred`).
+    let available_cross = (orientation != box_layout.orientation)
+        .then(|| {
+            box_layout.geometry.rect.size_reference(orientation).map(&expr_eval).map(|s| {
+                let (pad, _) = padding_and_spacing(&box_layout.geometry, orientation, &expr_eval);
+                s - pad.begin - pad.end
+            })
+        })
+        .flatten();
     let (cells, alignment) = box_layout_data(
         box_layout,
         orientation,
@@ -186,6 +206,8 @@ pub(crate) fn solve_box_layout(
         &expr_eval,
         Some(&mut repeated_indices),
         cross_axis_size,
+        local_context,
+        available_cross,
     );
     let (padding, spacing) = padding_and_spacing(&box_layout.geometry, orientation, &expr_eval);
     let size = box_layout.geometry.rect.size_reference(orientation).map(&expr_eval).unwrap_or(0.);
@@ -1089,6 +1111,8 @@ fn box_layout_data(
     expr_eval: &impl Fn(&NamedReference) -> f32,
     mut repeater_indices: Option<&mut Vec<u32>>,
     cross_axis_size: Option<f32>,
+    local_context: &mut EvalLocalContext,
+    available_cross: Option<f32>,
 ) -> (Vec<core_layout::LayoutItemInfo>, i_slint_core::items::LayoutAlignment) {
     let window_adapter = component.window_adapter();
     let mut cells = Vec::with_capacity(box_layout.elems.len());
@@ -1115,6 +1139,16 @@ fn box_layout_data(
                 orientation,
                 cross_axis,
             );
+            clamp_wrapping_flex_cross_preferred(
+                &mut layout_info,
+                &cell.element,
+                box_layout,
+                orientation,
+                component,
+                &expr_eval,
+                local_context,
+                available_cross,
+            );
             fill_layout_info_constraints(
                 &mut layout_info,
                 &cell.constraints,
@@ -1136,6 +1170,76 @@ fn box_layout_data(
         })
         .unwrap_or_default();
     (cells, alignment)
+}
+
+/// When a wrapping FlexboxLayout is a cell of a perpendicular box layout (its
+/// main axis is the parent's cross axis), a non-stretch parent gives the cell
+/// its `preferred` cross size. The flex's plain preferred is the compact
+/// sqrt-area "square" (it wraps), but with room it should fill a single line
+/// and only wrap when the available cross size can't hold it. Clamp the
+/// preferred to `min(available, unwrapped)`, so the height it is given equals
+/// the height its width was computed at: no wrap when tall, no overlap with
+/// siblings. Only at solve time (`available_cross` is `Some`); during
+/// layout-info aggregation the sqrt preferred is kept so the flex can still
+/// size a window.
+#[allow(clippy::too_many_arguments)]
+fn clamp_wrapping_flex_cross_preferred(
+    layout_info: &mut core_layout::LayoutInfo,
+    elem: &ElementRc,
+    box_layout: &i_slint_compiler::layout::BoxLayout,
+    orientation: Orientation,
+    component: InstanceRef,
+    expr_eval: &impl Fn(&NamedReference) -> f32,
+    local_context: &mut EvalLocalContext,
+    available_cross: Option<f32>,
+) {
+    let Some(available) = available_cross else { return };
+    if orientation == box_layout.orientation {
+        return;
+    }
+    let Some(fl) = i_slint_compiler::layout::FlexboxLayout::from_element(elem) else { return };
+
+    // The flex's main axis must be the parent's cross axis, and it must wrap.
+    let direction = flexbox_layout_direction(&fl, local_context);
+    let main_is_cross = matches!(
+        (direction, orientation),
+        (FlexboxLayoutDirection::Row | FlexboxLayoutDirection::RowReverse, Orientation::Horizontal)
+            | (
+                FlexboxLayoutDirection::Column | FlexboxLayoutDirection::ColumnReverse,
+                Orientation::Vertical
+            )
+    );
+    if !main_is_cross {
+        return;
+    }
+    let flex_wrap =
+        fl.flex_wrap.as_ref().map_or(i_slint_core::items::FlexboxLayoutWrap::default(), |nr| {
+            eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
+        });
+    if matches!(flex_wrap, i_slint_core::items::FlexboxLayoutWrap::NoWrap) {
+        return;
+    }
+
+    let (cells_h, cells_v, _ri) =
+        flexbox_layout_data(&fl, component, expr_eval, local_context, None, None);
+    let (cells, padding, spacing) = match orientation {
+        Orientation::Horizontal => {
+            let (padding, spacing) =
+                padding_and_spacing(&fl.geometry, Orientation::Horizontal, expr_eval);
+            (cells_h, padding, spacing)
+        }
+        Orientation::Vertical => {
+            let (padding, spacing) =
+                padding_and_spacing(&fl.geometry, Orientation::Vertical, expr_eval);
+            (cells_v, padding, spacing)
+        }
+    };
+    let unwrapped = core_layout::flexbox_layout_unwrapped_main(
+        Slice::from(cells.as_slice()),
+        spacing,
+        &padding,
+    );
+    layout_info.preferred = available.min(unwrapped);
 }
 
 pub(crate) fn fill_layout_info_constraints(
