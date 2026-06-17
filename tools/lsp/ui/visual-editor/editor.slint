@@ -23,7 +23,7 @@ export component EditorUi inherits Window {
     default-font-family: "Inter";
     always-on-top: Api.always-on-top;
 
-    property <bool> wizard-visible: true;
+    property <bool> wizard-visible: false;
     property <ProjectKind> selected-project: ProjectKind.mobile;
 
     function open-project() {
@@ -129,15 +129,14 @@ export component EditorUi inherits Window {
                     InspectorPane {
                         selection: state.selection;
                         placed-position: state.placed-position;
-                        phone-width: state.phone-width();
-                        phone-height: state.phone-height();
                         rectangle-size: state.rectangle-size;
                         text-size: state.text-size;
-                        image-size: state.image-size;
-                        selected-rotation: state.selected-rotation();
-                        rectangle-radius-label: state.rectangle-radius-label();
                         phone-background: StudioTheme.phone-bg;
                         phone-background-label: StudioTheme.dark ? "#f7f8fb" : "#ffffff";
+                        element-information: Api.current-element;
+                        local-geometry-edited(position, size) => {
+                            return state.set-selected-geometry(position, size);
+                        }
                     }
                 }
             }

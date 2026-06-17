@@ -354,6 +354,33 @@ export component EditorState inherits Rectangle {
         root.text-rotation = rotation;
     }
 
+    public function set-selected-geometry(position: Point, size: Size) -> bool {
+        if root.selection == CanvasSelectionKind.rectangle {
+            root.rectangle-size = {
+                width: size.width.clamp(80px, root.phone-width()),
+                height: size.height.clamp(44px, root.phone-height()),
+            };
+            root.placed-position = {
+                x: position.x.clamp(0px, root.phone-width() - root.rectangle-size.width),
+                y: position.y.clamp(0px, root.phone-height() - root.rectangle-size.height),
+            };
+            root.clamp-rectangle-radii();
+            return true;
+        }
+        if root.selection == CanvasSelectionKind.text {
+            root.text-size = {
+                width: size.width.clamp(80px, root.phone-width()),
+                height: size.height.clamp(32px, root.phone-height()),
+            };
+            root.placed-position = {
+                x: position.x.clamp(0px, root.phone-width() - root.text-size.width),
+                y: position.y.clamp(0px, root.phone-height() - root.text-size.height),
+            };
+            return true;
+        }
+        return false;
+    }
+
     public function move-image-to(position: Point) {
         root.selection = CanvasSelectionKind.image;
         root.placed-position = {
