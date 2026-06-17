@@ -12,26 +12,22 @@ def test_drop_event_is_a_namedtuple() -> None:
 
 def test_drop_event_default_construction() -> None:
     e = DropEvent()
-    # Boolean fields default to False; reference-typed fields default to None
+    # Reference-typed fields default to None
     # (users receive populated instances from Slint callbacks).
-    assert e.allow_copy is False
-    assert e.allow_move is False
-    assert e.allow_link is False
     assert e.data is None
     assert e.position is None
     assert e.proposed_action is None
 
 
 def test_drop_event_field_override() -> None:
-    e = DropEvent(allow_copy=True, proposed_action=DragAction.copy)
-    assert e.allow_copy is True
+    e = DropEvent(proposed_action=DragAction.copy)
     assert e.proposed_action is DragAction.copy
 
 
 def test_drop_event_namedtuple_replace() -> None:
-    e = DropEvent()._replace(allow_move=True)
-    assert e.allow_move is True
-    assert e.allow_copy is False
+    e = DropEvent()._replace(proposed_action=DragAction.move)
+    assert e.proposed_action is DragAction.move
+    assert e.data is None
 
 
 def test_drop_event_has_docstring() -> None:

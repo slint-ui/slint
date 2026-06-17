@@ -386,15 +386,12 @@ test("language builtin structs: factory overrides", () => {
 });
 
 test("language.DropEvent: factory produces a fully-shaped object", () => {
-    const evt = language.DropEvent({ allow_copy: true });
-    expect(evt.allow_copy).toStrictEqual(true);
-    expect(evt.allow_move).toStrictEqual(false);
-    expect(evt.allow_link).toStrictEqual(false);
-    expect(evt.proposed_action).toStrictEqual("none");
+    const evt = language.DropEvent({ proposed_action: "copy" });
+    expect(evt.proposed_action).toStrictEqual("copy");
     expect(evt.position).toStrictEqual({ x: 0, y: 0 });
     // The TypeScript type alias is the strict shape.
     const typed: language.DropEvent = evt;
-    expect(typed.allow_copy).toStrictEqual(true);
+    expect(typed.proposed_action).toStrictEqual("copy");
 });
 
 test("loadSource styled-text property get/set", () => {
