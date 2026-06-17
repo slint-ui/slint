@@ -395,21 +395,24 @@ pub fn lower_layouts(
     *component.root_constraints.borrow_mut() =
         LayoutConstraints::new(&component.root_element, Some((diag, DiagnosticLevel::Error)));
 
-    // A popup is not visited as a component on its own, so set the constraints of its root here.
-    // A redundant size constraint on a popup root is only a warning (not an error like on a window
-    // root) for compatibility with older versions of Slint that did not report it.
-    for popup in component.popup_windows.borrow().iter() {
-        *popup.component.root_constraints.borrow_mut() = LayoutConstraints::new(
-            &popup.component.root_element,
-            Some((&mut *diag, DiagnosticLevel::Warning)),
-        );
-    }
-
     recurse_elem_including_sub_components(
         component,
         &Option::default(),
         &mut |elem, parent_layout_type| {
             let component = elem.borrow().enclosing_component.upgrade().unwrap();
+
+            // A popup is not visited as a component on its own (it can be nested in a sub-component),
+            // so set the constraints of its root here, once per component when visiting its root. A
+            // redundant size constraint on a popup root is only a warning (not an error like on a
+            // window root) for compatibility with older versions of Slint that did not report it.
+            if Rc::ptr_eq(elem, &component.root_element) {
+                for popup in component.popup_windows.borrow().iter() {
+                    *popup.component.root_constraints.borrow_mut() = LayoutConstraints::new(
+                        &popup.component.root_element,
+                        Some((&mut *diag, DiagnosticLevel::Warning)),
+                    );
+                }
+            }
 
             lower_element_layout(
                 &component,
