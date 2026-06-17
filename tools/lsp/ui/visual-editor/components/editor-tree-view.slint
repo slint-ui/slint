@@ -1,7 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { DropLocation, OutlineNodeIconKind, OutlineTreeNode } from "../../api.slint";
+import {
+    DropLocation,
+    OutlineNodeIconKind,
+    OutlineTreeNode,
+} from "../../api.slint";
 import { AppState } from "common.slint";
 import { EditorTreeIcons } from "editor-tree-icons.slint";
 import { EditorTreeTokens } from "editor-tree-tokens.slint";
@@ -26,15 +30,17 @@ component EditorTreeRow {
     property <int> gutter-segments: max(0, level-safe - 1);
     property <bool> row-has-hover: row-touch.has-hover || disclosure-touch.has-hover;
     property <string> row-label: node.element-id != "" ? node.element-id : node.element-type;
+    property <length> row-chrome-inset: EditorTreeTokens.row-padding-inline
+        + EditorTreeTokens.disclosure-hit-size;
     property <DropLocation> active-drop-location: DropLocation.onto;
     property <bool> drop-allowed: false;
     property <image> row-icon: node.icon-kind == OutlineNodeIconKind.rectangle
         ? EditorTreeIcons.rectangle
         : node.icon-kind == OutlineNodeIconKind.image
-            ? EditorTreeIcons.image
-            : node.icon-kind == OutlineNodeIconKind.text
-                ? EditorTreeIcons.text
-                : EditorTreeIcons.default-item;
+        ? EditorTreeIcons.image
+        : node.icon-kind == OutlineNodeIconKind.text
+        ? EditorTreeIcons.text
+        : EditorTreeIcons.default-item;
 
     vertical-stretch: 0;
     horizontal-stretch: 1;
@@ -100,32 +106,38 @@ component EditorTreeRow {
 
             row-chrome := Rectangle {
                 horizontal-stretch: 1;
-                border-radius: EditorTreeTokens.row-radius;
                 height: EditorTreeTokens.row-height - 4px;
-                border-width: row-drop.contains-drag
+                background: transparent;
+
+                row-highlight := Rectangle {
+                    x: root.row-chrome-inset;
+                    width: parent.width - self.x;
+                    height: parent.height;
+                    border-radius: EditorTreeTokens.row-radius;
+                    border-width: row-drop.contains-drag
                         && root.drop-allowed
                         && root.active-drop-location == DropLocation.onto
-                    ? EditorTreeTokens.drop-target-border-width
-                    : row-focus.has-focus
+                        ? EditorTreeTokens.drop-target-border-width
+                        : row-focus.has-focus
                         ? EditorTreeTokens.focus-ring-width
                         : 0px;
-                border-color: EditorTreeTokens.accent;
-                background: root.current
-                    ? EditorTreeTokens.row-bg-current
-                    : row-drop.contains-drag
-                            && root.drop-allowed
-                            && root.active-drop-location == DropLocation.onto
+                    border-color: EditorTreeTokens.accent;
+                    background: root.current
+                        ? EditorTreeTokens.row-bg-current
+                        : row-drop.contains-drag
+                        && root.drop-allowed
+                        && root.active-drop-location == DropLocation.onto
                         ? EditorTreeTokens.drop-target-bg
-                    : root.row-has-hover
+                        : root.row-has-hover
                         ? EditorTreeTokens.row-bg-hover
                         : transparent;
 
-                if root.current: Rectangle {
-                    x: 0px - EditorTreeTokens.row-padding-inline;
-                    y: (EditorTreeTokens.row-height - self.height) / 2;
-                    width: EditorTreeTokens.current-indicator-width;
-                    border-radius: EditorTreeTokens.row-radius;
-                    background: EditorTreeTokens.accent;
+                    if root.current: Rectangle {
+                        width: EditorTreeTokens.current-indicator-width;
+                        height: parent.height;
+                        border-radius: EditorTreeTokens.row-radius;
+                        background: EditorTreeTokens.accent;
+                    }
                 }
 
                 row-drag := DragArea {
@@ -194,7 +206,6 @@ component EditorTreeRow {
                     }
 
                     HorizontalLayout {
-                        spacing: EditorTreeTokens.content-gap;
                         alignment: start;
                         cross-axis-alignment: center;
                         padding-left: EditorTreeTokens.row-padding-inline;
@@ -237,30 +248,39 @@ component EditorTreeRow {
                                 opacity: root.tree-has-hover ? 1 : 0;
                                 width: 12px;
                                 height: 12px;
-                                x: (parent.width - self.width) / 2;
+                                x: 0px;
                                 y: (parent.height - self.height) / 2;
                                 source: root.node.is-expanded ? EditorTreeIcons.chevron-down : EditorTreeIcons.chevron-right;
                                 colorize: EditorTreeTokens.muted-text;
                             }
                         }
 
-                        Image {
-                            width: EditorTreeTokens.icon-size;
-                            height: EditorTreeTokens.icon-size;
-                            vertical-alignment: center;
-                            source: root.row-icon;
-                            colorize: EditorTreeTokens.text;
-                            opacity: root.current ? 1 : 0.5;
-                        }
+                        HorizontalLayout {
+                            spacing: EditorTreeTokens.content-gap;
+                            alignment: start;
+                            cross-axis-alignment: center;
+                            padding-left: EditorTreeTokens.row-padding-inline;
+                            padding-right: EditorTreeTokens.row-padding-inline;
+                            min-height: EditorTreeTokens.row-height;
 
-                        Text {
-                            horizontal-stretch: 1;
-                            vertical-alignment: center;
-                            text: root.row-label;
-                            color: EditorTreeTokens.text;
-                            font-size: 14px;
-                            overflow: elide;
-                            wrap: no-wrap;
+                            Image {
+                                width: EditorTreeTokens.icon-size;
+                                height: EditorTreeTokens.icon-size;
+                                vertical-alignment: center;
+                                source: root.row-icon;
+                                colorize: EditorTreeTokens.text;
+                                opacity: root.current ? 1 : 0.5;
+                            }
+
+                            Text {
+                                horizontal-stretch: 1;
+                                vertical-alignment: center;
+                                text: root.row-label;
+                                color: EditorTreeTokens.text;
+                                font-size: 14px;
+                                overflow: elide;
+                                wrap: no-wrap;
+                            }
                         }
                     }
 

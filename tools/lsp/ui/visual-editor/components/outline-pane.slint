@@ -12,14 +12,19 @@ export component OutlinePane inherits Rectangle {
     background: StudioTheme.panel-bg;
 
     VerticalLayout {
-        padding-left: 12px;
-        padding-right: 12px;
+        padding-right: 10px;
         padding-top: 14px;
         padding-bottom: 12px;
-        spacing: 10px;
+        spacing: 4px;
 
-        SectionTitle {
-            label: "OUTLINE";
+        HorizontalLayout {
+            alignment: start;
+            cross-axis-alignment: center;
+            padding-left: 16px;
+
+            SectionTitle {
+                label: "OUTLINE";
+            }
         }
 
         if root.outline-data.length == 0: Rectangle {
@@ -72,7 +77,7 @@ export component OutlinePane inherits Rectangle {
 
                 root-drop-target := Rectangle {
                     width: parent.width;
-                    height: EditorTreeTokens.root-drop-height;
+                    height: root-drop-area.contains-drag ? 28px : EditorTreeTokens.root-drop-height;
                     border-radius: EditorTreeTokens.row-radius;
                     border-width: root-drop-area.contains-drag && self.drop-allowed
                         ? EditorTreeTokens.drop-target-border-width
