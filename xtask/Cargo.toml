@@ -22,6 +22,7 @@ const_format = "0.2"
 i-slint-common = { workspace = true, features = ["default"] }
 proc-macro2 = "1.0.11"
 regex = "1.4"
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 spdx = { version = "0.13.4", features = ["text"] }
 toml_edit = { workspace = true }
