@@ -18,8 +18,8 @@
     - [My MIT-licensed program links to Slint GPLv3. Can someone fork my program to build and distribute a proprietary program?](#my-mit-licensed-program-links-to-slint-gplv3-can-someone-fork-my-program-to-build-and-distribute-a-proprietary-program)
     - [My MIT-licensed program links to Slint GPLv3. How can I convey to someone that they can distribute my program as part of a proprietary licensed program?](#my-mit-licensed-program-links-to-slint-gplv3-how-can-i-convey-to-someone-that-they-can-distribute-my-program-as-part-of-a-proprietary-licensed-program)
     - [My MIT-licensed program links to Slint GPLv3. Under what license can I release the entire work i.e my Program combined with Slint?](#my-mit-licensed-program-links-to-slint-gplv3-under-what-license-can-i-release-the-entire-work-ie-my-program-combined-with-slint)
-  - [Paid License](#paid-license)
-    - [What are the paid license options?](#what-are-the-paid-license-options)
+  - [Commercial License](#commercial-license)
+    - [What are the Commercial license options?](#what-are-the-commercial-license-options)
 - [Miscellaneous](#miscellaneous)
   - [Do you provide Support?](#do-you-provide-support)
 
@@ -55,20 +55,20 @@ You can use Slint under ***any*** of the following licenses, at your choice:
 
 1. [Royalty-free license](LICENSES/LicenseRef-Slint-Royalty-free-2.0.md),
 2. [GNU GPLv3](LICENSES/GPL-3.0-only.txt),
-3. [Paid license](LICENSES/LicenseRef-Slint-Software-3.0.md).
+3. [Commercial license](LICENSES/LicenseRef-Slint-Software-3.0.md).
 
 ### Can I keep my own code under a permissive license such as MIT?
 
 Yes — whichever Slint license you use, your own source files can stay under a permissive license such as MIT or Apache-2.0.
 
-Slint itself stays under its three licenses (GPLv3, Royalty-free, or the Slint Software License), so the combined product you distribute is licensed one of two ways:
+Slint itself stays under its three licenses (GPLv3, Royalty-free, or Commercial), so the combined product you distribute is licensed one of two ways:
 
 - **Open-source the whole product? Use the GPLv3.**
   The product as a whole is then GPL: free, on any platform including embedded.
   Your own files keep their permissive headers (MIT is GPL-compatible).
-- **Want your own terms instead? Use the Royalty-free or Slint Software License.**
+- **Want your own terms instead? Use the Royalty-free or Commercial license.**
   The Royalty-free license is free for desktop, mobile, and web, as long as you show the Slint attribution.
-  The Slint Software License (our commercial license) covers embedded and lets you set your own terms.
+  The Commercial license covers embedded and lets you set your own terms.
 
 For detailed scenarios, see the [GPLv3 questions below](#gplv3).
 
@@ -98,7 +98,7 @@ You need to do one of the following:
 
 #### Scenario: What happens if my application is open-source (e.g. under MIT), forked by a different person and then redistributed?
 
-The license does not restrict users on how they license their application. In the above scenario, the user may choose to use MIT-license for their application, which can be forked by a different person and then redistributed. If the forked application also uses Slint, then the person forking the application can choose to use Slint under any one of the licenses - Royalty-free, GPLv3, or paid license.
+The license does not restrict users on how they license their application. In the above scenario, the user may choose to use MIT-license for their application, which can be forked by a different person and then redistributed. If the forked application also uses Slint, then the person forking the application can choose to use Slint under any one of the licenses - Royalty-free, GPLv3, or Commercial license.
 
 #### How are modifications to Slint itself covered under this license?
 
@@ -118,7 +118,7 @@ Refer to GPL FAQ [https://www.gnu.org/licenses/gpl-faq.en.html#LinkingWithGPL](h
 
 #### My MIT-licensed program links to Slint GPLv3. Can someone fork my program to build and distribute a proprietary program?
 
-Yes, provided the person distributing the proprietary program acquired a Slint proprietary license, such as the Slint Royalty-free license or a paid license, instead of using Slint under GPLv3. The other option would be to remove the dependency to Slint altogether.
+Yes, provided the person distributing the proprietary program acquired a Slint proprietary license, such as the Slint Royalty-free license or a Commercial license, instead of using Slint under GPLv3. The other option would be to remove the dependency to Slint altogether.
 
 #### My MIT-licensed program links to Slint GPLv3. How can I convey to someone that they can distribute my program as part of a proprietary licensed program?
 
@@ -128,9 +128,9 @@ You can add a note as part of your license that to distribute a proprietary lice
 
 While your software modules can remain under the MIT-license, the work as a whole must be licensed under the GPL.
 
-### Paid License
+### Commercial License
 
-#### What are the paid license options?
+#### What are the Commercial license options?
 
 Check out the pricing plans on our website <https://slint.dev/pricing>.
 
