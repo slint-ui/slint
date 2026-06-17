@@ -3,11 +3,29 @@
 
 // cSpell: ignore Heade
 
-import { Button, TabWidget, Palette, Switch, ScrollView} from "std-widgets.slint";
-import { Api, ComponentItem, DiagnosticSummary, PreviewMode, RemoteConnectionState } from "api.slint";
+import {
+    Button,
+    TabWidget,
+    Palette,
+    Switch,
+    ScrollView,
+} from "std-widgets.slint";
+import {
+    Api,
+    ComponentItem,
+    DiagnosticSummary,
+    PreviewMode,
+    RemoteConnectionState,
+} from "api.slint";
 
 import { EditorUi } from "./visual-editor/editor.slint";
-import { EditorSizeSettings, EditorSpaceSettings, Icons, PickerStyles, ConsoleStyles } from "./components/styling.slint";
+import {
+    EditorSizeSettings,
+    EditorSpaceSettings,
+    Icons,
+    PickerStyles,
+    ConsoleStyles,
+} from "./components/styling.slint";
 import { StatusLine } from "./components/status-line.slint";
 import { HeaderView } from "./views/header-view.slint";
 import { LibraryView } from "./views/library-view.slint";
@@ -17,7 +35,9 @@ import { PropertyView } from "./views/property-view.slint";
 import { OutlineView } from "./views/outline-view.slint";
 import { PreviewDataView } from "./views/preview-data-view.slint";
 import { WindowGlobal, WindowManager } from "windowglobal.slint";
-import { ColorPickerView } from "components/widgets/floating-brush-picker-widget.slint";
+import {
+    ColorPickerView,
+} from "components/widgets/floating-brush-picker-widget.slint";
 import { RemotePreviewView } from "components/remote-preview-view.slint";
 import { TableEditorView } from "components/spreadsheet-dialog.slint";
 import "./assets/Inter-VariableFont.ttf";
@@ -98,7 +118,7 @@ export component PreviewUi inherits Window {
         WindowGlobal.window-height = self.height;
     }
 
-    if Api.show-preview-ui : MenuBar {
+    if Api.show-preview-ui: MenuBar {
         Menu {
             title: @tr("File");
 
@@ -197,6 +217,7 @@ export component PreviewUi inherits Window {
                 checked <=> root.console-panel-expanded;
             }
         }
+
         if !Api.runs-in-slintpad: Menu {
             title: @tr("Window");
             MenuItem {
@@ -227,11 +248,10 @@ export component PreviewUi inherits Window {
         }
         if Api.show-preview-ui: FocusScope {
             key-pressed(event) => {
-                if  Api.undo-enabled && event.modifiers.control && event.text == "z" {
+                if Api.undo-enabled && event.modifiers.control && event.text == "z" {
                     Api.undo();
                     return accept;
-                } else if Api.redo-enabled && event.modifiers.control &&
-                    ((Platform.os != OperatingSystemType.windows && event.text == "Z") || (Platform.os == OperatingSystemType.windows && event.text == "y")) {
+                } else if Api.redo-enabled && event.modifiers.control && ((Platform.os != OperatingSystemType.windows && event.text == "Z") || (Platform.os == OperatingSystemType.windows && event.text == "y")) {
                     Api.redo();
                     return accept;
                 }
@@ -243,8 +263,17 @@ export component PreviewUi inherits Window {
                     vertical-stretch: 0;
                     height: self.preferred-height;
 
-                    current-style-index <=> Api.current-style-index;
-                    known-styles <=> Api.known-styles;
+                    // Don't two-way alias the ComboBox-backed `current-style`/`known-styles`
+                    // straight to the `Api` global: under the interpreter's full inlining
+                    // (used by SLINT_LIVE_PREVIEW), `remove_aliases` would fold the ComboBox's
+                    // `changed model`/`changed current-value` handlers onto the global, where the
+                    // instance elements they reference can't be resolved (issue #6426). Use
+                    // one-way bindings plus an explicit write-back instead.
+                    current-style-index: Api.current-style-index;
+                    known-styles: Api.known-styles;
+                    changed current-style-index => {
+                        Api.current-style-index = self.current-style-index;
+                    }
                     preview-mode <=> Api.preview-mode;
                     remote-mode: root.remote-mode;
                     library-widget <=> root.library-widget;
@@ -299,6 +328,7 @@ export component PreviewUi inherits Window {
                             // show a stale frame.
                             visible: Api.remote-connection-state != RemoteConnectionState.Connected;
                         }
+
                         if Api.remote-connection-state == RemoteConnectionState.Connected: Rectangle {
                             background: Palette.background;
                             VerticalLayout {
@@ -310,12 +340,14 @@ export component PreviewUi inherits Window {
                                     font-weight: 700;
                                     color: Palette.foreground;
                                 }
+
                                 Text {
                                     text: @tr("Disconnect to view here.");
                                     horizontal-alignment: center;
                                     color: Palette.foreground;
                                     opacity: 0.7;
                                 }
+
                                 HorizontalLayout {
                                     alignment: center;
                                     Button {
@@ -329,7 +361,7 @@ export component PreviewUi inherits Window {
                         }
                     }
 
-                    if properties-widget || outline-widget || data-widget : right-panel := Rectangle {
+                    if properties-widget || outline-widget || data-widget: right-panel := Rectangle {
                         width: EditorSizeSettings.property-bar-width + right-panel-border.width;
 
                         right-panel-border := Rectangle {
@@ -416,6 +448,7 @@ export component PreviewUi inherits Window {
 
                 // StatusLine { }
             }
+
             cp := ConsolePanel {
                 y: parent.height - self.height - 1px;
                 width: parent.width;
