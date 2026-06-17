@@ -1,184 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { ListView } from "std-widgets.slint";
-import { Api, DropLocation, OutlineTreeNode } from "../../api.slint";
-import { BodyLabel, MutedLabel, SectionTitle, StudioTheme } from "common.slint";
-
-component OutlineRow inherits DragArea {
-    in-out property <OutlineTreeNode> item;
-    property <bool> selected: item.uri == Api.current-element.source-uri && item.offset == Api.current-element.offset;
-
-    height: 36px;
-    data: Api.move-element-instance-data(item.uri, item.offset);
-    allow-move: true;
-
-    drop-as-child := DropArea {
-        can-drop(event) => {
-            if !root.item.is-expanded && root.item.has-children {
-                if !open-timer.running {
-                    open-timer.running = true;
-                }
-                return DragAction.none;
-            }
-            return Api.outline-can-drop(event.data, root.item.uri, root.item.offset, DropLocation.onto) ? DragAction.copy : DragAction.none;
-        }
-
-        dropped(event) => {
-            Api.outline-drop(event.data, root.item.uri, root.item.offset, DropLocation.onto);
-            return event.proposed-action;
-        }
-    }
-
-    drop-before := DropArea {
-        enabled: root.item.indent-level > 0;
-        x: indentation.width + 8px;
-        y: -self.height / 2;
-        width: parent.width - self.x;
-        height: parent.height / 3;
-
-        can-drop(event) => {
-            return Api.outline-can-drop(event.data, root.item.uri, root.item.offset, DropLocation.before) ? DragAction.copy : DragAction.none;
-        }
-
-        dropped(event) => {
-            Api.outline-drop(event.data, root.item.uri, root.item.offset, DropLocation.before);
-            return event.proposed-action;
-        }
-
-        Rectangle {
-            height: 1px;
-            background: StudioTheme.accent-strong;
-            visible: parent.contains-drag;
-        }
-    }
-
-    drop-after := DropArea {
-        enabled: root.item.indent-level > 0;
-        x: indentation.width + 8px;
-        y: parent.height - self.height / 2;
-        width: parent.width - self.x;
-        height: parent.height / 3;
-
-        can-drop(event) => {
-            return Api.outline-can-drop(event.data, root.item.uri, root.item.offset, DropLocation.after) ? DragAction.copy : DragAction.none;
-        }
-
-        dropped(event) => {
-            Api.outline-drop(event.data, root.item.uri, root.item.offset, DropLocation.after);
-            return event.proposed-action;
-        }
-
-        Rectangle {
-            height: 1px;
-            background: StudioTheme.accent-strong;
-            visible: parent.contains-drag;
-        }
-    }
-
-    open-timer := Timer {
-        running: false;
-        interval: 0.5s;
-        triggered => {
-            root.item.is-expanded = true;
-            self.running = false;
-        }
-    }
-
-    for i in root.item.indent-level: Rectangle {
-        x: 12px + i * 12px;
-        width: 1px;
-        height: 100%;
-        background: StudioTheme.border.with-alpha(0.35);
-    }
-
-    Rectangle {
-        x: 8px;
-        y: 2px;
-        width: parent.width - 16px;
-        height: parent.height - 4px;
-        border-radius: 6px;
-        background: root.selected
-            ? StudioTheme.accent.with-alpha(0.16)
-            : row-touch.has-hover || drop-as-child.contains-drag
-                ? StudioTheme.panel-subtle
-                : transparent;
-
-        animate background { duration: 150ms; }
-    }
-
-    HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 8px;
-        spacing: 6px;
-
-        indentation := Rectangle {
-            width: root.item.indent-level * 12px;
-        }
-
-        open-touch := TouchArea {
-            width: 16px;
-            height: parent.height;
-            mouse-cursor: root.item.has-children ? pointer : default;
-
-            Image {
-                x: (parent.width - self.width) / 2;
-                y: (parent.height - self.height) / 2;
-                visible: root.item.has-children;
-                width: 10px;
-                height: 10px;
-                source: @image-url("../../assets/chevron-down.svg");
-                colorize: root.selected ? StudioTheme.accent-strong : StudioTheme.muted;
-                transform-rotation: root.item.is-expanded ? 0deg : -90deg;
-                animate transform-rotation { duration: 150ms; easing: ease-out-quad; }
-            }
-
-            clicked => {
-                if root.item.has-children {
-                    root.item.is-expanded = !root.item.is-expanded;
-                }
-            }
-        }
-
-        VerticalLayout {
-            horizontal-stretch: 1;
-            spacing: 0px;
-            alignment: center;
-
-            BodyLabel {
-                text: root.item.element-id != "" ? root.item.element-id : root.item.element-type;
-                font-size: root.item.element-id != "" ? 12px : 11px;
-                font-weight: root.item.element-id != "" ? 700 : 500;
-            }
-
-            if root.item.element-id != "": MutedLabel {
-                text: root.item.element-type;
-                font-size: 11px;
-            }
-        }
-    }
-
-    row-touch := TouchArea {
-        clicked => {
-            Api.outline-select-element(root.item.uri, root.item.offset, true);
-        }
-
-        double-clicked => {
-            if root.item.has-children {
-                root.item.is-expanded = !root.item.is-expanded;
-            }
-        }
-
-        pointer-event(event) => {
-            if event.kind == PointerEventKind.cancel {
-                open-timer.running = false;
-            }
-            if self.has-hover {
-                Api.outline-select-element(root.item.uri, root.item.offset, false);
-            }
-        }
-    }
-}
+import { Api, OutlineTreeNode } from "../../api.slint";
+import { EditorTreeView } from "editor-tree-view.slint";
+import { SectionTitle, StudioTheme } from "common.slint";
 
 export component OutlinePane inherits Rectangle {
     property <[OutlineTreeNode]> outline-data <=> Api.outline;
@@ -186,6 +11,7 @@ export component OutlinePane inherits Rectangle {
     background: StudioTheme.panel-bg;
 
     VerticalLayout {
+        padding-left: 18px;
         padding-top: 14px;
         padding-bottom: 12px;
         spacing: 10px;
@@ -208,11 +34,21 @@ export component OutlinePane inherits Rectangle {
             }
         }
 
-        if root.outline-data.length > 0: ListView {
+        if root.outline-data.length > 0: tree-scroll := Flickable {
             vertical-stretch: 1;
+            viewport-width: self.width;
+            viewport-height: outline-tree.preferred-height;
 
-            for node[idx] in root.outline-data: OutlineRow {
-                item <=> node;
+            outline-tree := EditorTreeView {
+                width: tree-scroll.width;
+                accessible-name: "Current file outline";
+                rows: root.outline-data;
+                current-source-uri: Api.current-element.source-uri;
+                current-offset: Api.current-element.offset;
+                max-gutter-columns: 12;
+                row-current-requested(uri, offset) => {
+                    Api.outline-select-element(uri, offset, true);
+                }
             }
         }
     }
