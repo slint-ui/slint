@@ -6,7 +6,7 @@ import { Palette } from "std-widgets.slint";
 export global EditorTreeTokens {
     property <ColorScheme> color-scheme: Palette.color-scheme;
 
-    out property <color> row-bg-hover: color-scheme == ColorScheme.dark ? rgba(177, 186, 196, 0.12) : rgba(208, 215, 222, 0.32);
+    out property <color> row-bg-hover: color-scheme == ColorScheme.dark ? rgba(177, 186, 196, 0.05) : rgba(208, 215, 222, 0.15);
     out property <color> row-bg-current: color-scheme == ColorScheme.dark ? rgba(110, 118, 129, 0.16) : rgba(234, 238, 242, 0.8);
     out property <color> text: color-scheme == ColorScheme.dark ? #e6edf3 : #1f2328;
     out property <color> muted-text: color-scheme == ColorScheme.dark ? #848d97 : #656d76;

@@ -10,6 +10,7 @@ component EditorTreeRow {
     in property <string> current-source-uri;
     in property <int> current-offset;
     in property <int> max-gutter-columns;
+    in property <bool> show-hierarchy-guides: false;
 
     callback current-requested(string, int);
 
@@ -55,7 +56,7 @@ component EditorTreeRow {
             row-chrome := Rectangle {
                 horizontal-stretch: 1;
                 border-radius: EditorTreeTokens.row-radius;
-                min-height: EditorTreeTokens.row-height;
+                height: EditorTreeTokens.row-height - 4px;
                 background: root.current
                     ? EditorTreeTokens.row-bg-current
                     : row-touch.has-hover
@@ -68,7 +69,6 @@ component EditorTreeRow {
                     x: 0px - EditorTreeTokens.row-padding-inline;
                     y: (EditorTreeTokens.row-height - self.height) / 2;
                     width: EditorTreeTokens.current-indicator-width;
-                    height: EditorTreeTokens.current-indicator-height;
                     border-radius: EditorTreeTokens.row-radius;
                     background: EditorTreeTokens.accent;
                 }
@@ -98,7 +98,7 @@ component EditorTreeRow {
                                     width: index < root.gutter-segments ? EditorTreeTokens.toggle-width : 0px;
                                     height: EditorTreeTokens.row-height;
 
-                                    if index < root.gutter-segments: Rectangle {
+                                    if root.show-hierarchy-guides && index < root.gutter-segments: Rectangle {
                                         x: (parent.width - EditorTreeTokens.guide-width) / 2
                                             + (index >= 1 ? EditorTreeTokens.content-gap : 0px);
                                         width: EditorTreeTokens.guide-width;
@@ -156,6 +156,7 @@ export component EditorTreeView inherits VerticalLayout {
     in property <int> current-offset: -1;
     in property <string> accessible-name: "";
     in property <int> max-gutter-columns: 12;
+    in property <bool> show-hierarchy-guides: false;
 
     callback row-current-requested(string, int);
 
@@ -170,6 +171,7 @@ export component EditorTreeView inherits VerticalLayout {
         current-source-uri: root.current-source-uri;
         current-offset: root.current-offset;
         max-gutter-columns: root.max-gutter-columns;
+        show-hierarchy-guides: root.show-hierarchy-guides;
         current-requested(uri, offset) => {
             root.row-current-requested(uri, offset);
         }
