@@ -9,24 +9,22 @@ export component SimplePreview inherits Window {
     Rectangle {
         background: #f6f8fa;
 
-        Rectangle {
-            x: 51px;
-            y: 55px;
-            width: 243px;
-            height: 146px;
-            border-radius: 12px;
-            background: #ffffff;
-            border-width: 1px;
-            border-color: #d0d7de;
-
-            Text {
-                text: "Hello visual editor";
-                color: #1f2328;
-                font-size: 24px;
-                font-weight: 700;
-                horizontal-alignment: center;
-                vertical-alignment: center;
-            }
+    }
+    Rectangle {
+        width: 243px;
+        height: 120px;
+        border-radius: 12px;
+        background: #ffffff;
+        border-width: 1px;
+        border-color: #d0d7de;
+    
+        Text {
+            text: "Hello visual editor";
+            color: #1f2328;
+            font-size: 24px;
+            font-weight: 700;
+            horizontal-alignment: left;
+            vertical-alignment: center;
         }
     }
 }
