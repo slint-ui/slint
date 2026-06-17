@@ -310,6 +310,7 @@ impl FemtoVGRenderer<WGPUBackend> {
         surface_target: impl Into<i_slint_core::graphics::wgpu_29::SurfaceTarget>,
         size: PhysicalWindowSize,
         requested_graphics_api: Option<RequestedGraphicsAPI>,
+        transparent: bool,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let (instance, adapter, device, queue, surface) =
             i_slint_core::graphics::wgpu_29::init_instance_adapter_device_queue_surface(
@@ -332,6 +333,19 @@ impl FemtoVGRenderer<WGPUBackend> {
             .copied()
             .unwrap_or_else(|| swapchain_capabilities.formats[0]);
         surface_config.format = swapchain_format;
+
+        // The default `Opaque` discards the scene's alpha; pick a translucent mode if offered.
+        // Metal (CAMetalLayer) only offers `PostMultiplied`, so it must be a fallback.
+        if transparent {
+            use wgpu::CompositeAlphaMode::{PostMultiplied, PreMultiplied};
+            let advertised = &swapchain_capabilities.alpha_modes;
+            if let Some(mode) =
+                [PreMultiplied, PostMultiplied].into_iter().find(|m| advertised.contains(m))
+            {
+                surface_config.alpha_mode = mode;
+            }
+        }
+
         surface.configure(&device, &surface_config);
 
         *self.graphics_backend.instance.borrow_mut() = Some(instance.clone());

@@ -22,6 +22,7 @@ All notable changes to this project are documented in this file.
  - winit: Honor the system cursor blink rate.
  - `TextInput`: Show caret and allow selection in read-only text inputs
  - FemtoVG: Fixed rounded clip rendering when children don't fill the clip. (#11608)
+ - FemtoVG WGPU: Honor window transparency by selecting a non-opaque swapchain composite alpha mode.
  - Instantiate `for` and `if` eagerly via an update pass.
  - PopupWindow now react on change in their geometry properties after being shown (#6000)
  - iOS: Added detection of system dark/light theme
