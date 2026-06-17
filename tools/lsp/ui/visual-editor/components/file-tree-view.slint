@@ -1,0 +1,226 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { FileTreeIcons } from "file-tree-icons.slint";
+import { EditorTreeTokens } from "editor-tree-tokens.slint";
+
+component FileTreeRow inherits Rectangle {
+    in property <string> label;
+    in property <string> key;
+    in property <int> level: 1;
+    in property <bool> folder: false;
+    in-out property <bool> expanded: false;
+    in-out property <string> active-key;
+    in property <int> max-gutter-columns: 8;
+
+    property <bool> active: active-key == key;
+    property <int> level-safe: max(1, level);
+    property <int> gutter-segments: max(0, level-safe - 1);
+
+    height: EditorTreeTokens.row-height;
+    horizontal-stretch: 1;
+    border-radius: EditorTreeTokens.row-radius;
+    background: active ? EditorTreeTokens.row-bg-current : touch.has-hover ? EditorTreeTokens.row-bg-hover : transparent;
+
+    HorizontalLayout {
+        alignment: start;
+        cross-axis-alignment: center;
+        padding-left: EditorTreeTokens.row-padding-inline;
+        padding-right: EditorTreeTokens.row-padding-inline;
+        spacing: 0px;
+
+        if root.gutter-segments > 0: HorizontalLayout {
+            alignment: start;
+
+            for slot[index] in root.max-gutter-columns: Rectangle {
+                width: index < root.gutter-segments ? EditorTreeTokens.toggle-width : 0px;
+                height: EditorTreeTokens.row-height;
+
+                if index < root.gutter-segments: Rectangle {
+                    x: (parent.width - EditorTreeTokens.guide-width) / 2;
+                    width: EditorTreeTokens.guide-width;
+                    height: EditorTreeTokens.row-height;
+                    background: EditorTreeTokens.guide;
+                }
+            }
+        }
+
+        Rectangle {
+            width: EditorTreeTokens.disclosure-hit-size;
+            height: EditorTreeTokens.row-height;
+
+            Image {
+                visible: root.folder;
+                width: 12px;
+                height: 12px;
+                x: 0px;
+                y: (parent.height - self.height) / 2;
+                source: root.expanded ? FileTreeIcons.chevron-down : FileTreeIcons.chevron-right;
+                colorize: EditorTreeTokens.muted-text;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: EditorTreeTokens.content-gap;
+            alignment: start;
+            cross-axis-alignment: center;
+            padding-right: EditorTreeTokens.row-padding-inline;
+            min-height: EditorTreeTokens.row-height;
+
+            Image {
+                width: EditorTreeTokens.icon-size;
+                height: EditorTreeTokens.icon-size;
+                vertical-alignment: center;
+                source: root.folder
+                    ? root.expanded ? FileTreeIcons.directory-open : FileTreeIcons.directory
+                    : FileTreeIcons.file-code;
+                colorize: root.folder ? EditorTreeTokens.directory-icon : EditorTreeTokens.muted-text;
+            }
+
+            Text {
+                horizontal-stretch: 1;
+                vertical-alignment: center;
+                text: root.label;
+                color: EditorTreeTokens.text;
+                font-size: 13px;
+                overflow: elide;
+                wrap: no-wrap;
+            }
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.active-key = root.key;
+            if root.folder {
+                root.expanded = !root.expanded;
+            }
+        }
+    }
+}
+
+export component FileTreeView inherits VerticalLayout {
+    in-out property <string> active-key: "simple-preview";
+    private property <bool> project-expanded: true;
+    private property <bool> tools-expanded: true;
+    private property <bool> lsp-expanded: true;
+    private property <bool> ui-expanded: true;
+    private property <bool> visual-editor-expanded: true;
+    private property <bool> components-expanded: true;
+    private property <bool> assets-expanded: false;
+    private property <bool> examples-expanded: true;
+
+    alignment: start;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    spacing: 1px;
+    accessible-role: AccessibleRole.tree;
+    accessible-label: "Files";
+
+    FileTreeRow {
+        label: "gb-slint";
+        key: "gb-slint";
+        folder: true;
+        expanded <=> root.project-expanded;
+        active-key <=> root.active-key;
+    }
+
+    if root.project-expanded: FileTreeRow {
+        label: "tools";
+        key: "tools";
+        level: 2;
+        folder: true;
+        expanded <=> root.tools-expanded;
+        active-key <=> root.active-key;
+    }
+
+    if root.project-expanded && root.tools-expanded: FileTreeRow {
+        label: "lsp";
+        key: "lsp";
+        level: 3;
+        folder: true;
+        expanded <=> root.lsp-expanded;
+        active-key <=> root.active-key;
+    }
+
+    if root.project-expanded && root.tools-expanded && root.lsp-expanded: FileTreeRow {
+        label: "ui";
+        key: "ui";
+        level: 4;
+        folder: true;
+        expanded <=> root.ui-expanded;
+        active-key <=> root.active-key;
+    }
+
+    if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded: FileTreeRow {
+        label: "visual-editor";
+        key: "visual-editor";
+        level: 5;
+        folder: true;
+        expanded <=> root.visual-editor-expanded;
+        active-key <=> root.active-key;
+    }
+
+    if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded: FileTreeRow {
+        label: "components";
+        key: "components";
+        level: 6;
+        folder: true;
+        expanded <=> root.components-expanded;
+        active-key <=> root.active-key;
+    }
+
+    if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded && root.components-expanded: FileTreeRow {
+        label: "editor.slint";
+        key: "editor";
+        level: 7;
+        active-key <=> root.active-key;
+    }
+
+    if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded && root.components-expanded: FileTreeRow {
+        label: "left-pane.slint";
+        key: "left-pane";
+        level: 7;
+        active-key <=> root.active-key;
+    }
+
+    if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded && root.components-expanded: FileTreeRow {
+        label: "outline-pane.slint";
+        key: "outline-pane";
+        level: 7;
+        active-key <=> root.active-key;
+    }
+
+    if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded: FileTreeRow {
+        label: "assets";
+        key: "visual-editor-assets";
+        level: 6;
+        folder: true;
+        expanded <=> root.assets-expanded;
+        active-key <=> root.active-key;
+    }
+
+    if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded && root.assets-expanded: FileTreeRow {
+        label: "phone-shell.png";
+        key: "phone-shell";
+        level: 7;
+        active-key <=> root.active-key;
+    }
+
+    if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded: FileTreeRow {
+        label: "example";
+        key: "example";
+        level: 6;
+        folder: true;
+        expanded <=> root.examples-expanded;
+        active-key <=> root.active-key;
+    }
+
+    if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded && root.examples-expanded: FileTreeRow {
+        label: "simple_preview.slint";
+        key: "simple-preview";
+        level: 7;
+        active-key <=> root.active-key;
+    }
+}
