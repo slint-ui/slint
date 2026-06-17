@@ -11,7 +11,8 @@ export component OutlinePane inherits Rectangle {
     background: StudioTheme.panel-bg;
 
     VerticalLayout {
-        padding-left: 18px;
+        padding-left: 12px;
+        padding-right: 12px;
         padding-top: 14px;
         padding-bottom: 12px;
         spacing: 10px;
@@ -37,17 +38,28 @@ export component OutlinePane inherits Rectangle {
         if root.outline-data.length > 0: tree-scroll := Flickable {
             vertical-stretch: 1;
             viewport-width: self.width;
-            viewport-height: outline-tree.preferred-height;
+            viewport-height: tree-content.height;
 
-            outline-tree := EditorTreeView {
+            tree-content := Rectangle {
                 width: tree-scroll.width;
-                accessible-name: "Current file outline";
-                rows: root.outline-data;
-                current-source-uri: Api.current-element.source-uri;
-                current-offset: Api.current-element.offset;
-                max-gutter-columns: 12;
-                row-current-requested(uri, offset) => {
-                    Api.outline-select-element(uri, offset, true);
+                height: outline-tree.preferred-height;
+
+                tree-hover-touch := TouchArea {
+                    width: parent.width;
+                    height: parent.height;
+                }
+
+                outline-tree := EditorTreeView {
+                    width: parent.width;
+                    accessible-name: "Current file outline";
+                    rows: root.outline-data;
+                    current-source-uri: Api.current-element.source-uri;
+                    current-offset: Api.current-element.offset;
+                    max-gutter-columns: 12;
+                    content-has-hover: tree-hover-touch.has-hover;
+                    row-current-requested(uri, offset) => {
+                        Api.outline-select-element(uri, offset, true);
+                    }
                 }
             }
         }

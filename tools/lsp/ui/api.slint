@@ -274,12 +274,20 @@ export struct LogMessage {
     level: LogMessageLevel,
 }
 
+export enum OutlineNodeIconKind {
+    default,
+    rectangle,
+    image,
+    text,
+}
+
 /// A node in the outline tree
 export struct OutlineTreeNode {
     indent-level: int,
     has-children: bool,
     is-expanded: bool,
     is-last-child: bool,
+    icon-kind: OutlineNodeIconKind,
     element-type: string,
     element-id: string,
     uri: string,
