@@ -13,6 +13,7 @@ use crate::common::{
 };
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
+use editor_user_settings::{EDITOR_SETTINGS_FILE, EditorUserSettings};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
@@ -30,6 +31,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use user_settings::{PREVIEW_SETTINGS_FILE, PreviewUserSettings};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -45,12 +47,14 @@ mod ext;
 pub mod macos_titlebar;
 mod preview_data;
 use ext::ElementRcNodeExt;
+pub mod editor_user_settings;
 mod outline;
 mod properties;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
 pub mod remote;
 pub mod ui;
 mod undo_redo;
+pub mod user_settings;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run(
@@ -75,7 +79,12 @@ pub fn run(
     app_window.window().set_fullscreen(fullscreen);
 
     tracing::debug!("Preview: requesting state from LSP");
-    to_lsp.send(&PreviewToLspMessage::RequestState { files: Vec::new() }).unwrap();
+    to_lsp
+        .send(&PreviewToLspMessage::RequestState {
+            files: Vec::new(),
+            settings: vec![PREVIEW_SETTINGS_FILE.into(), EDITOR_SETTINGS_FILE.into()],
+        })
+        .unwrap();
 
     let app_window_clone = PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
@@ -148,6 +157,10 @@ pub struct PreviewState {
     resources: HashSet<Url>,
     dependencies: HashSet<Url>,
     pub config: PreviewConfig,
+    /// The most recent user settings synced with the LSP, used to suppress
+    /// redundant updates when the UI re-reports settings we just applied.
+    last_user_settings: PreviewUserSettings,
+    last_editor_settings: EditorUserSettings,
     current_previewed_component: Option<PreviewComponent>,
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
@@ -226,6 +239,73 @@ fn delete_document(url: &lsp_types::Url) {
         // Trigger a compile error now!
         load_preview(current, LoadBehavior::Reload);
     }
+}
+
+pub(super) fn set_user_settings(name: String, contents: String) {
+    if name == PREVIEW_SETTINGS_FILE {
+        let Some(settings) = PreviewUserSettings::deserialize(&contents) else {
+            return;
+        };
+        PREVIEW_STATE.with_borrow_mut(|preview_state| {
+            if let Some(app_window) = &preview_state.app_window {
+                ui::apply_preview_user_settings(app_window, &settings);
+            }
+            // Remember what the UI now reflects so the deferred `changed` handlers
+            // it triggers don't echo these same values straight back to the LSP.
+            preview_state.last_user_settings = settings;
+        });
+    } else if name == EDITOR_SETTINGS_FILE {
+        let Some(settings) = EditorUserSettings::deserialize(&contents) else {
+            return;
+        };
+        PREVIEW_STATE.with_borrow_mut(|preview_state| {
+            if let Some(app_window) = &preview_state.app_window {
+                ui::apply_editor_user_settings(app_window, &settings);
+            }
+            preview_state.last_editor_settings = settings;
+        });
+    }
+}
+
+pub(super) fn update_user_settings_from_ui(settings: PreviewUserSettings) {
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        // The Slint `changed` handlers that drive this are deferred, so a flag
+        // set while applying inbound settings would already be cleared by the
+        // time they run. Compare against the last synced settings instead.
+        if preview_state.last_user_settings == settings {
+            return;
+        }
+        preview_state.last_user_settings = settings.clone();
+
+        if let Some(to_lsp) = preview_state.to_lsp.borrow().as_ref() {
+            let message = PreviewToLspMessage::UpdateUserSettings {
+                name: PREVIEW_SETTINGS_FILE.into(),
+                contents: settings.serialize(),
+            };
+            if let Err(err) = to_lsp.send(&message) {
+                tracing::warn!("Failed to send preview user settings update: {err}");
+            }
+        }
+    });
+}
+
+pub(super) fn update_editor_settings_from_ui(settings: EditorUserSettings) {
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        if preview_state.last_editor_settings == settings {
+            return;
+        }
+        preview_state.last_editor_settings = settings.clone();
+
+        if let Some(to_lsp) = preview_state.to_lsp.borrow().as_ref() {
+            let message = PreviewToLspMessage::UpdateUserSettings {
+                name: EDITOR_SETTINGS_FILE.into(),
+                contents: settings.serialize(),
+            };
+            if let Err(err) = to_lsp.send(&message) {
+                tracing::warn!("Failed to send editor user settings update: {err}");
+            }
+        }
+    });
 }
 
 fn set_current_live_data(mut result: preview_data::PreviewDataMap) {
@@ -2073,5 +2153,110 @@ pub mod test {
     pub fn interpret_test(style: &str, source_code: &str) -> ComponentInstance {
         let code = HashMap::from([(main_test_file_name(), source_code.to_string())]);
         interpret_test_with_sources(style, code)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::common::PreviewToLsp;
+    use i_slint_live_preview::protocol::PreviewToLspMessage;
+    use std::{cell::RefCell, rc::Rc};
+
+    #[derive(Default)]
+    struct CapturePreviewToLsp {
+        messages: Rc<RefCell<Vec<PreviewToLspMessage>>>,
+    }
+
+    impl PreviewToLsp for CapturePreviewToLsp {
+        fn send(&self, message: &PreviewToLspMessage) -> crate::common::Result<()> {
+            self.messages.as_ref().borrow_mut().push(message.clone());
+            Ok(())
+        }
+    }
+
+    fn reset_preview_state(messages: Rc<RefCell<Vec<PreviewToLspMessage>>>) {
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            *state = PreviewState::default();
+            state.to_lsp = RefCell::new(Some(Rc::new(CapturePreviewToLsp { messages })));
+        });
+    }
+
+    #[test]
+    fn set_user_settings_keeps_updates_local() {
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        reset_preview_state(messages.clone());
+
+        let settings = PreviewUserSettings {
+            version: PreviewUserSettings::CURRENT_VERSION,
+            always_on_top: true,
+            show_library: false,
+            show_properties: true,
+            show_outline: false,
+            show_simulation_data: true,
+            show_console: false,
+        };
+        set_user_settings(PREVIEW_SETTINGS_FILE.into(), settings.serialize());
+        set_user_settings(PREVIEW_SETTINGS_FILE.into(), settings.serialize());
+
+        assert!(messages.borrow().is_empty());
+    }
+
+    #[test]
+    fn update_preview_user_settings_routes_updates_to_lsp() {
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        reset_preview_state(messages.clone());
+
+        let settings = PreviewUserSettings {
+            version: PreviewUserSettings::CURRENT_VERSION,
+            always_on_top: false,
+            show_library: true,
+            show_properties: false,
+            show_outline: true,
+            show_simulation_data: false,
+            show_console: true,
+        };
+        update_user_settings_from_ui(settings.clone());
+
+        let messages = messages.borrow();
+        assert_eq!(messages.len(), 1);
+        assert!(matches!(
+            &messages[0],
+            PreviewToLspMessage::UpdateUserSettings { name, contents }
+                if name == PREVIEW_SETTINGS_FILE && contents == &settings.serialize()
+        ));
+    }
+
+    #[test]
+    fn ui_echo_of_applied_settings_is_not_sent_back() {
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        reset_preview_state(messages.clone());
+
+        let settings = PreviewUserSettings {
+            version: PreviewUserSettings::CURRENT_VERSION,
+            always_on_top: true,
+            show_library: false,
+            show_properties: true,
+            show_outline: false,
+            show_simulation_data: true,
+            show_console: false,
+        };
+
+        // The LSP pushes settings; the deferred `changed` handlers then report
+        // the same values back. That echo must not be forwarded to the LSP.
+        set_user_settings(PREVIEW_SETTINGS_FILE.into(), settings.serialize());
+        update_user_settings_from_ui(settings.clone());
+        assert!(messages.borrow().is_empty());
+
+        // A genuine user change still gets through.
+        let changed = PreviewUserSettings { show_console: true, ..settings };
+        update_user_settings_from_ui(changed.clone());
+        let messages = messages.borrow();
+        assert_eq!(messages.len(), 1);
+        assert!(matches!(
+            &messages[0],
+            PreviewToLspMessage::UpdateUserSettings { name, contents }
+                if name == PREVIEW_SETTINGS_FILE && contents == &changed.serialize()
+        ));
     }
 }

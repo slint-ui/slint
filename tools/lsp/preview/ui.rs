@@ -6,6 +6,8 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
+use super::editor_user_settings::EditorUserSettings;
+use super::user_settings::PreviewUserSettings;
 use i_slint_compiler::parser::TextRange;
 use i_slint_compiler::{expression_tree, langtype};
 
@@ -92,6 +94,70 @@ impl AppWindow {
 }
 
 pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
+
+pub fn preview_user_settings_from_values(
+    always_on_top: bool,
+    show_library: bool,
+    show_properties: bool,
+    show_outline: bool,
+    show_simulation_data: bool,
+    show_console: bool,
+) -> PreviewUserSettings {
+    PreviewUserSettings {
+        version: PreviewUserSettings::CURRENT_VERSION,
+        always_on_top,
+        show_library,
+        show_properties,
+        show_outline,
+        show_simulation_data,
+        show_console,
+    }
+}
+
+pub fn apply_preview_user_settings(app_window: &AppWindow, settings: &PreviewUserSettings) {
+    // The `changed` handlers triggered by these setters run deferred and report
+    // back through `preview::update_user_settings_from_ui`, which dedupes them
+    // against the last synced settings, so no echo guard is needed here.
+    let api = app_window.api();
+    api.set_always_on_top(settings.always_on_top);
+
+    match app_window {
+        AppWindow::Preview(ui) => {
+            ui.set_library_widget(settings.show_library);
+            ui.set_properties_widget(settings.show_properties);
+            ui.set_outline_widget(settings.show_outline);
+            ui.set_data_widget(settings.show_simulation_data);
+            ui.set_console_panel_expanded(settings.show_console);
+        }
+        AppWindow::Editor(_) => {}
+    }
+}
+
+pub fn apply_editor_user_settings(app_window: &AppWindow, settings: &EditorUserSettings) {
+    let api = app_window.api();
+    api.set_always_on_top(settings.always_on_top);
+}
+
+pub fn setup_preview_user_settings(api: &Api<'_>) {
+    api.on_preview_user_settings_changed(
+        |always_on_top,
+         show_library,
+         show_properties,
+         show_outline,
+         show_simulation_data,
+         show_console| {
+            preview::update_user_settings_from_ui(preview_user_settings_from_values(
+                always_on_top,
+                show_library,
+                show_properties,
+                show_outline,
+                show_simulation_data,
+                show_console,
+            ));
+            preview::update_editor_settings_from_ui(EditorUserSettings { always_on_top });
+        },
+    );
+}
 
 pub fn create_ui(
     to_lsp: &Rc<dyn common::PreviewToLsp>,
@@ -230,6 +296,8 @@ pub fn create_ui(
     recent_colors::setup(&api, api_weak);
     super::outline::setup(&api);
     super::undo_redo::setup(&api);
+    setup_preview_user_settings(&api);
+    apply_preview_user_settings(&app_window, &PreviewUserSettings::default());
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
     super::remote::setup(&app_window, to_lsp);
@@ -1560,6 +1628,22 @@ mod tests {
         assert_eq!(t.value.code.as_str(), "DDD");
 
         assert!(it.next().is_none());
+    }
+
+    #[test]
+    fn preview_user_settings_from_values_maps_all_toggles() {
+        assert_eq!(
+            super::preview_user_settings_from_values(true, false, true, false, true, false),
+            super::PreviewUserSettings {
+                version: super::PreviewUserSettings::CURRENT_VERSION,
+                always_on_top: true,
+                show_library: false,
+                show_properties: true,
+                show_outline: false,
+                show_simulation_data: true,
+                show_console: false,
+            }
+        );
     }
 
     fn generate_preview_data(

@@ -332,7 +332,7 @@ async fn lsp_main(
             }
             msg = from_preview_rx.recv() => {
                 match msg {
-                    Some(msg) => handle_preview_message(msg, &ctx),
+                    Some(msg) => handle_preview_message(msg, &mut ctx),
                     None => {
                         tracing::debug!("Preview->LSP channel closed, exiting");
                         break Ok(());
@@ -397,16 +397,15 @@ fn sync_file_watcher_if_needed(
     Ok(())
 }
 
-fn handle_preview_message(msg: PreviewToLspMessage, ctx: &language::Context) {
+fn handle_preview_message(msg: PreviewToLspMessage, ctx: &mut language::Context) {
     use PreviewToLspMessage::*;
     match &msg {
-        RequestState { files } => {
-            if files.is_empty() {
-                tracing::debug!("Preview requested state, re-sending all documents");
-                language::send_state_to_preview(ctx);
-            } else {
-                language::send_files_to_preview(ctx, files);
-            }
+        RequestState { files, settings } => {
+            tracing::debug!("Preview requested state");
+            language::send_requested_state_to_preview(ctx, files, settings);
+        }
+        UpdateUserSettings { name, contents } => {
+            language::store_user_settings(name, contents);
         }
         SendShowMessage { message } => {
             match message.typ {

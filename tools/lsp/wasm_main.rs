@@ -340,7 +340,7 @@ impl SlintServer {
     ) -> std::result::Result<(), JsValue> {
         use PreviewToLspMessage as M;
 
-        let ctx = self.ctx.lock().await;
+        let mut ctx = self.ctx.lock().await;
 
         let Ok(message) = serde_wasm_bindgen::from_value(value) else {
             return Err(JsValue::from("Failed to convert value to PreviewToLspMessage"));
@@ -369,8 +369,11 @@ impl SlintServer {
                     .set_local_target(target)
                     .map_err(|err| js_sys::Error::new(&format!("{err}")))?;
             }
-            M::RequestState { .. } => {
-                crate::language::send_state_to_preview(&ctx);
+            M::RequestState { files, settings } => {
+                crate::language::send_requested_state_to_preview(&ctx, &files, &settings);
+            }
+            M::UpdateUserSettings { name, contents } => {
+                crate::language::store_user_settings(&name, &contents);
             }
             M::SendWorkspaceEdit { label, edit } => {
                 forward_workspace_edit(ctx.server_notifier.clone(), label, Ok(edit));
