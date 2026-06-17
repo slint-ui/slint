@@ -1,10 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { ScrollView } from "std-widgets.slint";
 import {
     CanvasSelectionKind, ColorPropertyField, EdgeDivider, EditorMetrics, InspectorSection, MutedLabel,
     PropertyField, StudioTheme,
 } from "common.slint";
+import { OutlinePane } from "outline-pane.slint";
 
 export component InspectorPane inherits Rectangle {
     in property <CanvasSelectionKind> selection;
@@ -21,6 +23,9 @@ export component InspectorPane inherits Rectangle {
 
     width: EditorMetrics.inspector-pane-width;
     background: StudioTheme.panel-bg;
+    property <length> content-x: 1px;
+    property <length> split-height: 1px;
+    property <length> inspector-height: (root.height - root.split-height) / 2;
 
     function selection-title() -> string {
         if root.selection == CanvasSelectionKind.rectangle {
@@ -59,50 +64,74 @@ export component InspectorPane inherits Rectangle {
         x: 0px;
     }
 
-    VerticalLayout {
-        padding: 16px;
-        spacing: 18px;
+    inspector-scroll := ScrollView {
+        x: root.content-x;
+        width: root.width - root.content-x;
+        height: root.inspector-height;
+        viewport-width: self.width;
+        viewport-height: inspector-content.preferred-height;
 
-        VerticalLayout {
-            spacing: 4px;
+        inspector-content := VerticalLayout {
+            width: parent.width;
+            padding: 16px;
+            spacing: 18px;
 
-            Text {
-                text: root.selection-title();
-                color: StudioTheme.text;
-                font-size: 18px;
-                font-weight: 900;
+            VerticalLayout {
+                spacing: 4px;
+
+                Text {
+                    text: root.selection-title();
+                    color: StudioTheme.text;
+                    font-size: 18px;
+                    font-weight: 900;
+                }
+
+                MutedLabel {
+                    text: root.selection-kind-label();
+                }
             }
 
-            MutedLabel {
-                text: root.selection-kind-label();
+            if root.selection != CanvasSelectionKind.artboard: InspectorSection {
+                title: "LAYOUT";
+                PropertyField { name: "X"; value: (root.placed-position.x / 1px).to-fixed(0); }
+                PropertyField { name: "Y"; value: (root.placed-position.y / 1px).to-fixed(0); }
+                PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.rectangle ? (root.rectangle-size.width / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.text ? (root.text-size.width / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.image ? (root.image-size.width / 1px).to-fixed(0) : "280"; }
+                PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.rectangle ? (root.rectangle-size.height / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.text ? (root.text-size.height / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.image ? (root.image-size.height / 1px).to-fixed(0) : "104"; }
+                PropertyField { name: "Rotation"; value: (root.selected-rotation / 1deg).round(); }
+            }
+
+            InspectorSection {
+                title: "APPEARANCE";
+                if root.selection == CanvasSelectionKind.artboard: ColorPropertyField {
+                    name: "Background";
+                    color-value: root.phone-background;
+                    value: root.phone-background-label;
+                }
+                if root.selection != CanvasSelectionKind.artboard: PropertyField { name: "Opacity"; value: "100%"; }
+                if root.selection != CanvasSelectionKind.artboard: PropertyField { name: "Fill"; value: root.selection == CanvasSelectionKind.text ? "#20252d" : root.selection == CanvasSelectionKind.rectangle ? "#fde68a" : root.selection == CanvasSelectionKind.image ? "gradient" : "#dbeafe"; }
+                if root.selection != CanvasSelectionKind.artboard: PropertyField { name: "Radius"; value: root.selection == CanvasSelectionKind.rectangle ? root.rectangle-radius-label : "18"; }
+            }
+
+            if root.selection != CanvasSelectionKind.artboard: InspectorSection {
+                title: "SOURCE";
+                PropertyField { name: "Element"; value: root.selection-title(); }
+                PropertyField { name: "File"; value: "main.slint"; }
             }
         }
+    }
 
-        if root.selection != CanvasSelectionKind.artboard: InspectorSection {
-            title: "LAYOUT";
-            PropertyField { name: "X"; value: (root.placed-position.x / 1px).to-fixed(0); }
-            PropertyField { name: "Y"; value: (root.placed-position.y / 1px).to-fixed(0); }
-            PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.rectangle ? (root.rectangle-size.width / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.text ? (root.text-size.width / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.image ? (root.image-size.width / 1px).to-fixed(0) : "280"; }
-            PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.rectangle ? (root.rectangle-size.height / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.text ? (root.text-size.height / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.image ? (root.image-size.height / 1px).to-fixed(0) : "104"; }
-            PropertyField { name: "Rotation"; value: (root.selected-rotation / 1deg).round(); }
-        }
+    Rectangle {
+        x: root.content-x;
+        y: root.inspector-height;
+        width: root.width - root.content-x;
+        height: root.split-height;
+        background: StudioTheme.border;
+    }
 
-        InspectorSection {
-            title: "APPEARANCE";
-            if root.selection == CanvasSelectionKind.artboard: ColorPropertyField {
-                name: "Background";
-                color-value: root.phone-background;
-                value: root.phone-background-label;
-            }
-            if root.selection != CanvasSelectionKind.artboard: PropertyField { name: "Opacity"; value: "100%"; }
-            if root.selection != CanvasSelectionKind.artboard: PropertyField { name: "Fill"; value: root.selection == CanvasSelectionKind.text ? "#20252d" : root.selection == CanvasSelectionKind.rectangle ? "#fde68a" : root.selection == CanvasSelectionKind.image ? "gradient" : "#dbeafe"; }
-            if root.selection != CanvasSelectionKind.artboard: PropertyField { name: "Radius"; value: root.selection == CanvasSelectionKind.rectangle ? root.rectangle-radius-label : "18"; }
-        }
-
-        if root.selection != CanvasSelectionKind.artboard: InspectorSection {
-            title: "SOURCE";
-            PropertyField { name: "Element"; value: root.selection-title(); }
-            PropertyField { name: "File"; value: "main.slint"; }
-        }
+    OutlinePane {
+        x: root.content-x;
+        y: root.inspector-height + root.split-height;
+        width: root.width - root.content-x;
+        height: root.height - self.y;
     }
 }
