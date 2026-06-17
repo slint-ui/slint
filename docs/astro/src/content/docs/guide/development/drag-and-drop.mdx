@@ -39,7 +39,7 @@ export component Example inherits Window {
         }
 
         Rectangle {
-            background: drop.contains-drag ? #80e080 : #a0a0a0;
+            background: drop.has-drag ? #80e080 : #a0a0a0;
             drop := DropArea {
                 can-drop(event) => {
                     Api.can-drop(event.data) ? DragAction.copy : DragAction.none
