@@ -398,6 +398,33 @@ export global AppState {
     in-out property <Point> drag-position: { x: 0px, y: 0px };
     in-out property <Point> drag-preview-position: { x: 0px, y: 0px };
     in-out property <Size> drag-preview-size: { width: 96px, height: 48px };
+    in-out property <bool> outline-drag-active: false;
+    in-out property <string> outline-drag-label: "";
+    in-out property <image> outline-drag-icon;
+    in-out property <Point> outline-drag-position: { x: 0px, y: 0px };
+    in-out property <Size> outline-drag-preview-size: { width: 216px, height: 32px };
+
+    pure function outline-drag-pointer-gap() -> length {
+        return 12px;
+    }
+
+    public function update-outline-drag-position(window-position: Point) {
+        self.outline-drag-position = {
+            x: window-position.x + self.outline-drag-pointer-gap(),
+            y: window-position.y + self.outline-drag-pointer-gap(),
+        };
+    }
+
+    public function start-outline-drag(label: string, icon: image, window-position: Point) {
+        self.outline-drag-active = true;
+        self.outline-drag-label = label;
+        self.outline-drag-icon = icon;
+        self.update-outline-drag-position(window-position);
+    }
+
+    public function finish-outline-drag() {
+        self.outline-drag-active = false;
+    }
 }
 
 export component PropertyField inherits Rectangle {

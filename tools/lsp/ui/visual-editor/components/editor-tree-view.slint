@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { DropLocation, OutlineNodeIconKind, OutlineTreeNode } from "../../api.slint";
+import { AppState } from "common.slint";
 import { EditorTreeIcons } from "editor-tree-icons.slint";
 import { EditorTreeTokens } from "editor-tree-tokens.slint";
 
@@ -66,6 +67,20 @@ component EditorTreeRow {
         return root.node.indent-level > 0 || location == DropLocation.onto;
     }
 
+    function pointer-window-position() -> Point {
+        return {
+            x: row-touch.absolute-position.x + row-touch.mouse-x,
+            y: row-touch.absolute-position.y + row-touch.mouse-y,
+        };
+    }
+
+    function drop-event-window-position(event: DropEvent) -> Point {
+        return {
+            x: row-drop.absolute-position.x + event.position.x,
+            y: row-drop.absolute-position.y + event.position.y,
+        };
+    }
+
     VerticalLayout {
         alignment: start;
         horizontal-stretch: 1;
@@ -120,10 +135,23 @@ component EditorTreeRow {
                     allow-move: true;
                     opacity: self.dragging ? 0.45 : 1;
 
+                    changed dragging => {
+                        if self.dragging {
+                            AppState.start-outline-drag(
+                                root.row-label,
+                                root.row-icon,
+                                root.pointer-window-position(),
+                            );
+                        } else {
+                            AppState.finish-outline-drag();
+                        }
+                    }
+
                     row-drop := DropArea {
                         width: parent.width;
                         height: parent.height;
                         can-drop(event) => {
+                            AppState.update-outline-drag-position(root.drop-event-window-position(event));
                             root.active-drop-location = root.drop-location-for-y(event.position.y);
                             if !root.can-use-drop-location(root.active-drop-location) {
                                 root.drop-allowed = false;
@@ -139,12 +167,14 @@ component EditorTreeRow {
                             return action;
                         }
                         dropped(event) => {
+                            AppState.update-outline-drag-position(root.drop-event-window-position(event));
                             root.active-drop-location = root.drop-location-for-y(event.position.y);
                             if !root.can-use-drop-location(root.active-drop-location) {
                                 root.drop-allowed = false;
                                 return DragAction.none;
                             }
                             root.drop-allowed = false;
+                            AppState.finish-outline-drag();
                             return root.dropped(
                                 event,
                                 root.node.uri,
