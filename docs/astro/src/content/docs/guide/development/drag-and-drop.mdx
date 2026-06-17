@@ -80,7 +80,8 @@ DragArea {
 }
 
 DropArea {
-    can-drop(event) => event.allow-move ? DragAction.move : DragAction.none;
+    // Accept the action the user is asking for; the runtime clamps it to what the source allows.
+    can-drop(event) => event.proposed-action;
     dropped(event) => {
         Api.accept-drop(event.data);
         return event.proposed-action;

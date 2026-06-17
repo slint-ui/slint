@@ -2018,7 +2018,7 @@ impl Item for TooltipArea {
     ) -> InputEventFilterResult {
         // Track hover in the filter stage so enter/leave transitions are reliable,
         // independent of later input handling.
-        if matches!(event, MouseEvent::DragMove(..) | MouseEvent::Drop(..)) {
+        if matches!(event, MouseEvent::DragMove { .. } | MouseEvent::Drop { .. }) {
             self.set_hover_state(false, self_rc);
             return InputEventFilterResult::ForwardAndIgnore;
         }
