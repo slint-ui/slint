@@ -10,6 +10,7 @@
     - [Who can use the Royalty-free license?](#who-can-use-the-royalty-free-license)
     - [What obligations do I need to fulfil to use the Royalty-free license?](#what-obligations-do-i-need-to-fulfil-to-use-the-royalty-free-license)
     - [Are there any limitations with the Royalty-free license?](#are-there-any-limitations-with-the-royalty-free-license)
+    - [What counts as an embedded system?](#what-counts-as-an-embedded-system)
     - [Scenario: What happens if my application is open-source (e.g. under MIT), forked by a different person and then redistributed?](#scenario-what-happens-if-my-application-is-open-source-eg-under-mit-forked-by-a-different-person-and-then-redistributed)
     - [How are modifications to Slint itself covered under this license?](#how-are-modifications-to-slint-itself-covered-under-this-license)
     - [If Slint were to be taken over by a larger company or the current owners were to have a change of heart, can they revoke existing licenses?](#if-slint-were-to-be-taken-over-by-a-larger-company-or-the-current-owners-were-to-have-a-change-of-heart-can-they-revoke-existing-licenses)
@@ -95,6 +96,12 @@ You need to do one of the following:
 3. You are not permitted to distribute an Application that exposes the APIs, in part or in total, of Slint.
 
 4. You are not permitted to remove or alter any license notices (including copyright notices, disclaimers of warranty, or limitations of liability) contained within the source code form of Slint.
+
+#### What counts as an embedded system?
+
+It's **embedded** when Slint ships as part of a hardware product or device — driving the screen of an appliance, a point-of-sale terminal, or a car dashboard, for example — even if that device uses general-purpose hardware like a built-in tablet. Embedded use needs the Commercial license.
+
+It's **not** embedded when your app runs on the user's own computer or phone as one app among many, which is the free desktop, mobile, and web case.
 
 #### Scenario: What happens if my application is open-source (e.g. under MIT), forked by a different person and then redistributed?
 

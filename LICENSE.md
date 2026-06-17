@@ -31,6 +31,9 @@ You can use the Slint framework under ***any*** of the following licenses, at yo
   The Royalty-free License is free, as long as you disclose that you use Slint (for example with the `AboutSlint` widget or the Slint badge); without that disclosure, use the Commercial license.
   A Commercial license is required for embedded systems, regardless of disclosure.
 
+The Royalty-free License is meant for software that runs on a user's own general-purpose computer or phone, as one application among the many they install.
+It does not cover software that ships as part of a hardware product or device — an embedded system — which needs the Commercial license.
+
 See the [Licensing FAQ](FAQ.md#licensing) for the details and common scenarios.
 
 ## Definitions
