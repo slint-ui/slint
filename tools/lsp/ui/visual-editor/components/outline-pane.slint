@@ -4,7 +4,7 @@
 import { Api, DropLocation, OutlineTreeNode } from "../../api.slint";
 import { EditorTreeView } from "editor-tree-view.slint";
 import { EditorTreeTokens } from "editor-tree-tokens.slint";
-import { SectionTitle, StudioTheme } from "common.slint";
+import { AppState, SectionTitle, StudioTheme } from "common.slint";
 
 export component OutlinePane inherits Rectangle {
     property <[OutlineTreeNode]> outline-data <=> Api.outline;
@@ -45,6 +45,26 @@ export component OutlinePane inherits Rectangle {
                 width: tree-scroll.width;
                 height: root-drop-target.height + outline-tree.preferred-height;
 
+                tree-drag-tracker := DropArea {
+                    width: parent.width;
+                    height: parent.height;
+                    can-drop(event) => {
+                        AppState.update-outline-drag-position({
+                            x: self.absolute-position.x + event.position.x,
+                            y: self.absolute-position.y + event.position.y,
+                        });
+                        return DragAction.none;
+                    }
+                    dropped(event) => {
+                        AppState.update-outline-drag-position({
+                            x: self.absolute-position.x + event.position.x,
+                            y: self.absolute-position.y + event.position.y,
+                        });
+                        AppState.finish-outline-drag();
+                        return DragAction.none;
+                    }
+                }
+
                 tree-hover-touch := TouchArea {
                     width: parent.width;
                     height: parent.height;
@@ -67,6 +87,10 @@ export component OutlinePane inherits Rectangle {
                         width: parent.width;
                         height: parent.height;
                         can-drop(event) => {
+                            AppState.update-outline-drag-position({
+                                x: self.absolute-position.x + event.position.x,
+                                y: self.absolute-position.y + event.position.y,
+                            });
                             root-drop-target.drop-allowed = Api.outline-can-drop(
                                 event.data,
                                 root.outline-data[0].uri,
@@ -78,6 +102,10 @@ export component OutlinePane inherits Rectangle {
                                 : DragAction.none;
                         }
                         dropped(event) => {
+                            AppState.update-outline-drag-position({
+                                x: self.absolute-position.x + event.position.x,
+                                y: self.absolute-position.y + event.position.y,
+                            });
                             root-drop-target.drop-allowed = false;
                             Api.outline-drop(
                                 event.data,
@@ -85,6 +113,7 @@ export component OutlinePane inherits Rectangle {
                                 root.outline-data[0].offset,
                                 DropLocation.onto,
                             );
+                            AppState.finish-outline-drag();
                             return event.proposed-action;
                         }
                     }
