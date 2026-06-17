@@ -39,6 +39,17 @@ const ACCEPTED: &[&str] = &[
 /// Skip dependencies reachable only through dev-dependency edges.
 const IGNORE_DEV_DEPENDENCIES: bool = true;
 
+/// The output format of the generated listing.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum Format {
+    /// Human-readable Markdown: a dependency table followed by the license texts.
+    #[default]
+    Markdown,
+    /// Machine-readable JSON: `{ "crates": [...], "licenses": [...] }`, consumed
+    /// by the Slint Viewer's in-app attribution page.
+    Json,
+}
+
 #[derive(Debug, clap::Parser)]
 pub struct LicenseCommand {
     /// Path to the `Cargo.toml` whose dependencies should be analyzed.
@@ -54,6 +65,9 @@ pub struct LicenseCommand {
     /// Enable all features of the analyzed crate.
     #[arg(long)]
     all_features: bool,
+    /// The output format.
+    #[arg(long, value_enum, default_value_t)]
+    format: Format,
     /// Where to write the result. Writes to stdout when omitted.
     #[arg(short = 'o', long)]
     output: Option<PathBuf>,
@@ -72,6 +86,7 @@ impl LicenseCommand {
                 no_default_features: self.no_default_features,
                 all_features: self.all_features,
             },
+            format: self.format,
             output: self.output.clone(),
         })
     }
@@ -88,6 +103,7 @@ pub struct Features {
 pub struct GenerateArgs {
     pub manifest_path: PathBuf,
     pub features: Features,
+    pub format: Format,
     pub output: Option<PathBuf>,
 }
 
@@ -187,7 +203,12 @@ pub fn generate(args: &GenerateArgs) -> anyhow::Result<()> {
         .collect();
     sections.sort_by(|a, b| a.name.cmp(&b.name));
 
-    let rendered = render_markdown(&rows, &sections);
+    rows.sort_by(|a, b| a.name.cmp(&b.name).then(a.version.cmp(&b.version)));
+
+    let rendered = match args.format {
+        Format::Markdown => render_markdown(&rows, &sections),
+        Format::Json => render_json(&rows, &sections),
+    };
 
     match &args.output {
         Some(path) => {
@@ -203,7 +224,9 @@ pub fn generate(args: &GenerateArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// One crate's row in the dependency table.
+/// One crate's row in the dependency table. The `Serialize` impl defines the
+/// `crates` entries of the JSON format.
+#[derive(serde::Serialize)]
 struct CrateRow {
     name: String,
     version: String,
@@ -211,7 +234,9 @@ struct CrateRow {
     license: String,
 }
 
-/// The canonical license body shown once under one license id.
+/// The canonical license body shown once under one license id. The
+/// `Serialize` impl defines the `licenses` entries of the JSON format.
+#[derive(serde::Serialize)]
 struct LicenseSection {
     id: String,
     name: String,
@@ -598,6 +623,21 @@ fn render_markdown(rows: &[CrateRow], sections: &[LicenseSection]) -> String {
         out.push_str(&format!("### <a id=\"{id}\"></a> {name}\n\n", id = s.id, name = s.name));
         out.push_str(&format!("```\n{}\n```\n\n", s.text.trim_end()));
     }
+    out
+}
+
+/// Render the dependencies and license texts as JSON for the Slint Viewer's
+/// in-app attribution page:
+/// `{ "crates": [{ name, version, author, license }], "licenses": [{ id, name, text }] }`.
+/// `rows` and `sections` are expected pre-sorted by the caller.
+fn render_json(rows: &[CrateRow], sections: &[LicenseSection]) -> String {
+    let mut out = serde_json::to_string_pretty(&serde_json::json!({
+        "crates": rows,
+        "licenses": sections,
+    }))
+    // In-memory serialization of string-only data cannot fail.
+    .expect("serializing license data to JSON");
+    out.push('\n');
     out
 }
 

@@ -14136,6 +14136,7 @@ dependencies = [
  "i-slint-common",
  "proc-macro2",
  "regex",
+ "serde",
  "serde_json",
  "spdx 0.13.4",
  "toml_edit",
