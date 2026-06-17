@@ -27,8 +27,9 @@ You can use the Slint framework under ***any*** of the following licenses, at yo
   Use Slint for free under the GPLv3 on any platform; your own files can stay MIT or Apache-2.0.
   You're not tied to the GPL, though — the Royalty-free or Commercial license works too.
 - **Do you want to keep your application proprietary?**
-  Use the Royalty-free License for free, for desktop, mobile, and web applications, as long as you disclose that you use Slint (for example with the `AboutSlint` widget or the Slint badge).
-  For embedded systems, or to avoid these conditions, use the Commercial license.
+  Both the Royalty-free and Commercial licenses cover proprietary desktop, mobile, and web applications.
+  The Royalty-free License is free, as long as you disclose that you use Slint (for example with the `AboutSlint` widget or the Slint badge); without that disclosure, use the Commercial license.
+  A Commercial license is required for embedded systems, regardless of disclosure.
 
 See the [Licensing FAQ](FAQ.md#licensing) for the details and common scenarios.
 
