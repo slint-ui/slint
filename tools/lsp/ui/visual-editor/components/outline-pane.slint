@@ -98,7 +98,7 @@ export component OutlinePane inherits Rectangle {
                                 DropLocation.onto,
                             );
                             return root-drop-target.drop-allowed
-                                ? DragAction.copy
+                                ? DragAction.move
                                 : DragAction.none;
                         }
                         dropped(event) => {
@@ -114,7 +114,7 @@ export component OutlinePane inherits Rectangle {
                                 DropLocation.onto,
                             );
                             AppState.finish-outline-drag();
-                            return DragAction.copy;
+                            return DragAction.move;
                         }
                     }
 
@@ -145,12 +145,12 @@ export component OutlinePane inherits Rectangle {
                     }
                     row-can-drop(event, uri, offset, location) => {
                         return Api.outline-can-drop(event.data, uri, offset, location)
-                            ? DragAction.copy
+                            ? DragAction.move
                             : DragAction.none;
                     }
                     row-dropped(event, uri, offset, location) => {
                         Api.outline-drop(event.data, uri, offset, location);
-                        return DragAction.copy;
+                        return DragAction.move;
                     }
                     row-current-requested(uri, offset) => {
                         Api.outline-select-element(uri, offset, true);
