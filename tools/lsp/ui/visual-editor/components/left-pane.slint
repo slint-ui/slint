@@ -3,10 +3,11 @@
 
 import { ScrollView } from "std-widgets.slint";
 import {
-    EdgeDivider, EditorMetrics, LeftPaneMode, PrimerActionListRow, PrimerNavRow, PrimerSegmentedTab,
-    PrimerTextInput, SectionTitle, StudioTheme,
+    EdgeDivider, EditorMetrics, LeftPaneMode, PrimerActionListRow, PrimerSegmentedTab, PrimerTextInput,
+    SectionTitle, StudioTheme,
 } from "common.slint";
 import { Api, PrototypeComponentKind } from "../../api.slint";
+import { FileTreeView } from "file-tree-view.slint";
 import { LibraryComponentRow } from "library-component-row.slint";
 
 export component LeftPane inherits Rectangle {
@@ -66,21 +67,8 @@ export component LeftPane inherits Rectangle {
             viewport-height: file-list.preferred-height;
             vertical-scrollbar-policy: always-off;
 
-            file-list := VerticalLayout {
+            file-list := FileTreeView {
                 width: parent.width;
-                spacing: 6px;
-
-                SectionTitle { label: "PROJECT"; }
-                PrimerNavRow { label: "slint-mobile"; glyph: "DIR"; }
-                PrimerNavRow { label: "ui"; glyph: "DIR"; indent: 16px; }
-                PrimerNavRow { label: "main.slint"; glyph: "SL"; indent: 32px; selected: true; }
-                PrimerNavRow { label: "assets"; glyph: "DIR"; indent: 16px; }
-                PrimerNavRow { label: "theme.slint"; glyph: "SL"; indent: 32px; }
-
-                Rectangle { height: 12px; }
-                SectionTitle { label: "RECENT"; }
-                PrimerNavRow { label: "login-flow.slint"; glyph: "SL"; }
-                PrimerNavRow { label: "settings-panel.slint"; glyph: "SL"; }
             }
         }
 
