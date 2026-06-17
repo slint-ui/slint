@@ -8,11 +8,12 @@ import { Palette } from "std-widgets.slint";
 component FileTreeRow inherits Rectangle {
     in property <string> label;
     in property <string> key;
+    in property <string> parent-key: "";
     in property <int> level: 1;
     in property <bool> folder: false;
     in-out property <bool> expanded: false;
     in-out property <string> active-key;
-    in-out property <int> active-folder-level;
+    in-out property <string> active-folder-key;
     in property <int> max-gutter-columns: 8;
     in property <bool> tree-has-hover: false;
 
@@ -21,8 +22,9 @@ component FileTreeRow inherits Rectangle {
     property <int> gutter-segments: max(0, level-safe - 1);
     property <bool> row-has-hover: touch.has-hover;
     property <color> folder-icon-color: #d29922;
-    property <color> selected-guide-color: Palette.color-scheme == ColorScheme.dark ? white.with-alpha(0.2) : black.with-alpha(0.2);
-    property <color> guide-color: Palette.color-scheme == ColorScheme.dark ? white.with-alpha(0.1) : black.with-alpha(0.1);
+    property <int> selected-guide-index: root.parent-key == root.active-folder-key ? root.level-safe - 2 : -1;
+    property <color> selected-guide-color: Palette.color-scheme == ColorScheme.dark ? #474747 : #c4c4c4;
+    property <color> guide-color: Palette.color-scheme == ColorScheme.dark ? #303030 : #e2e2e2;
 
     callback row-hover-changed(string, bool);
 
@@ -49,8 +51,8 @@ component FileTreeRow inherits Rectangle {
                 width: index < root.gutter-segments ? EditorTreeTokens.toggle-width : 0px;
                 height: EditorTreeTokens.row-height;
 
-                if index < root.gutter-segments && (root.tree-has-hover || index == root.active-folder-level - 1): Rectangle {
-                    property <bool> active-folder-guide: index == root.active-folder-level - 1;
+                if index < root.gutter-segments && (root.tree-has-hover || index == root.selected-guide-index): Rectangle {
+                    property <bool> active-folder-guide: index == root.selected-guide-index;
                     x: (parent.width - EditorTreeTokens.guide-width) / 2;
                     width: EditorTreeTokens.guide-width;
                     height: EditorTreeTokens.row-height;
@@ -107,7 +109,7 @@ component FileTreeRow inherits Rectangle {
         mouse-cursor: pointer;
         clicked => {
             root.active-key = root.key;
-            root.active-folder-level = root.folder ? root.level : 0;
+            root.active-folder-key = root.folder ? root.key : root.parent-key;
             if root.folder {
                 root.expanded = !root.expanded;
             }
@@ -117,7 +119,7 @@ component FileTreeRow inherits Rectangle {
 
 export component FileTreeView inherits VerticalLayout {
     in-out property <string> active-key: "simple-preview";
-    private property <int> active-folder-level: 0;
+    private property <string> active-folder-key: "example";
     private property <string> hovered-row-key: "";
     private property <bool> tree-has-hover: hovered-row-key != "";
     private property <bool> project-expanded: true;
@@ -142,7 +144,7 @@ export component FileTreeView inherits VerticalLayout {
         folder: true;
         expanded <=> root.project-expanded;
         active-key <=> root.active-key;
-        active-folder-level <=> root.active-folder-level;
+        active-folder-key <=> root.active-folder-key;
         tree-has-hover: root.tree-has-hover;
         row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
     }
@@ -150,11 +152,12 @@ export component FileTreeView inherits VerticalLayout {
     if root.project-expanded: FileTreeRow {
         label: "tools";
         key: "tools";
+        parent-key: "gb-slint";
         level: 2;
         folder: true;
         expanded <=> root.tools-expanded;
         active-key <=> root.active-key;
-        active-folder-level <=> root.active-folder-level;
+        active-folder-key <=> root.active-folder-key;
         tree-has-hover: root.tree-has-hover;
         row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
     }
@@ -162,11 +165,12 @@ export component FileTreeView inherits VerticalLayout {
     if root.project-expanded && root.tools-expanded: FileTreeRow {
         label: "lsp";
         key: "lsp";
+        parent-key: "tools";
         level: 3;
         folder: true;
         expanded <=> root.lsp-expanded;
         active-key <=> root.active-key;
-        active-folder-level <=> root.active-folder-level;
+        active-folder-key <=> root.active-folder-key;
         tree-has-hover: root.tree-has-hover;
         row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
     }
@@ -174,11 +178,12 @@ export component FileTreeView inherits VerticalLayout {
     if root.project-expanded && root.tools-expanded && root.lsp-expanded: FileTreeRow {
         label: "ui";
         key: "ui";
+        parent-key: "lsp";
         level: 4;
         folder: true;
         expanded <=> root.ui-expanded;
         active-key <=> root.active-key;
-        active-folder-level <=> root.active-folder-level;
+        active-folder-key <=> root.active-folder-key;
         tree-has-hover: root.tree-has-hover;
         row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
     }
@@ -186,11 +191,12 @@ export component FileTreeView inherits VerticalLayout {
     if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded: FileTreeRow {
         label: "visual-editor";
         key: "visual-editor";
+        parent-key: "ui";
         level: 5;
         folder: true;
         expanded <=> root.visual-editor-expanded;
         active-key <=> root.active-key;
-        active-folder-level <=> root.active-folder-level;
+        active-folder-key <=> root.active-folder-key;
         tree-has-hover: root.tree-has-hover;
         row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
     }
@@ -198,11 +204,12 @@ export component FileTreeView inherits VerticalLayout {
     if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded: FileTreeRow {
         label: "components";
         key: "components";
+        parent-key: "visual-editor";
         level: 6;
         folder: true;
         expanded <=> root.components-expanded;
         active-key <=> root.active-key;
-        active-folder-level <=> root.active-folder-level;
+        active-folder-key <=> root.active-folder-key;
         tree-has-hover: root.tree-has-hover;
         row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
     }
@@ -210,9 +217,10 @@ export component FileTreeView inherits VerticalLayout {
     if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded && root.components-expanded: FileTreeRow {
         label: "editor.slint";
         key: "editor";
+        parent-key: "components";
         level: 7;
         active-key <=> root.active-key;
-        active-folder-level <=> root.active-folder-level;
+        active-folder-key <=> root.active-folder-key;
         tree-has-hover: root.tree-has-hover;
         row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
     }
@@ -220,9 +228,10 @@ export component FileTreeView inherits VerticalLayout {
     if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded && root.components-expanded: FileTreeRow {
         label: "left-pane.slint";
         key: "left-pane";
+        parent-key: "components";
         level: 7;
         active-key <=> root.active-key;
-        active-folder-level <=> root.active-folder-level;
+        active-folder-key <=> root.active-folder-key;
         tree-has-hover: root.tree-has-hover;
         row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
     }
@@ -230,9 +239,10 @@ export component FileTreeView inherits VerticalLayout {
     if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded && root.components-expanded: FileTreeRow {
         label: "outline-pane.slint";
         key: "outline-pane";
+        parent-key: "components";
         level: 7;
         active-key <=> root.active-key;
-        active-folder-level <=> root.active-folder-level;
+        active-folder-key <=> root.active-folder-key;
         tree-has-hover: root.tree-has-hover;
         row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
     }
@@ -240,11 +250,12 @@ export component FileTreeView inherits VerticalLayout {
     if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded: FileTreeRow {
         label: "assets";
         key: "visual-editor-assets";
+        parent-key: "visual-editor";
         level: 6;
         folder: true;
         expanded <=> root.assets-expanded;
         active-key <=> root.active-key;
-        active-folder-level <=> root.active-folder-level;
+        active-folder-key <=> root.active-folder-key;
         tree-has-hover: root.tree-has-hover;
         row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
     }
@@ -252,9 +263,10 @@ export component FileTreeView inherits VerticalLayout {
     if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded && root.assets-expanded: FileTreeRow {
         label: "phone-shell.png";
         key: "phone-shell";
+        parent-key: "visual-editor-assets";
         level: 7;
         active-key <=> root.active-key;
-        active-folder-level <=> root.active-folder-level;
+        active-folder-key <=> root.active-folder-key;
         tree-has-hover: root.tree-has-hover;
         row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
     }
@@ -262,11 +274,12 @@ export component FileTreeView inherits VerticalLayout {
     if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded: FileTreeRow {
         label: "example";
         key: "example";
+        parent-key: "visual-editor";
         level: 6;
         folder: true;
         expanded <=> root.examples-expanded;
         active-key <=> root.active-key;
-        active-folder-level <=> root.active-folder-level;
+        active-folder-key <=> root.active-folder-key;
         tree-has-hover: root.tree-has-hover;
         row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
     }
@@ -274,9 +287,10 @@ export component FileTreeView inherits VerticalLayout {
     if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded && root.examples-expanded: FileTreeRow {
         label: "simple_preview.slint";
         key: "simple-preview";
+        parent-key: "example";
         level: 7;
         active-key <=> root.active-key;
-        active-folder-level <=> root.active-folder-level;
+        active-folder-key <=> root.active-folder-key;
         tree-has-hover: root.tree-has-hover;
         row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
     }
