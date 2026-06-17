@@ -30,8 +30,7 @@ component EditorTreeRow {
     property <int> gutter-segments: max(0, level-safe - 1);
     property <bool> row-has-hover: row-touch.has-hover || disclosure-touch.has-hover;
     property <string> row-label: node.element-id != "" ? node.element-id : node.element-type;
-    property <length> row-chrome-inset: EditorTreeTokens.row-padding-inline
-        + EditorTreeTokens.disclosure-hit-size;
+    property <length> row-chrome-inset: EditorTreeTokens.disclosure-hit-size;
     property <DropLocation> active-drop-location: DropLocation.onto;
     property <bool> drop-allowed: false;
     property <image> row-icon: node.icon-kind == OutlineNodeIconKind.rectangle
@@ -131,13 +130,6 @@ component EditorTreeRow {
                         : root.row-has-hover
                         ? EditorTreeTokens.row-bg-hover
                         : transparent;
-
-                    if root.current: Rectangle {
-                        width: EditorTreeTokens.current-indicator-width;
-                        height: parent.height;
-                        border-radius: EditorTreeTokens.row-radius;
-                        background: EditorTreeTokens.accent;
-                    }
                 }
 
                 row-drag := DragArea {
