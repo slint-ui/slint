@@ -1,8 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, OutlineTreeNode } from "../../api.slint";
+import { Api, DropLocation, OutlineTreeNode } from "../../api.slint";
 import { EditorTreeView } from "editor-tree-view.slint";
+import { EditorTreeTokens } from "editor-tree-tokens.slint";
 import { SectionTitle, StudioTheme } from "common.slint";
 
 export component OutlinePane inherits Rectangle {
@@ -42,14 +43,67 @@ export component OutlinePane inherits Rectangle {
 
             tree-content := Rectangle {
                 width: tree-scroll.width;
-                height: outline-tree.preferred-height;
+                height: root-drop-target.height + outline-tree.preferred-height;
 
                 tree-hover-touch := TouchArea {
                     width: parent.width;
                     height: parent.height;
                 }
 
+                root-drop-target := Rectangle {
+                    width: parent.width;
+                    height: EditorTreeTokens.root-drop-height;
+                    border-radius: EditorTreeTokens.row-radius;
+                    border-width: root-drop-area.contains-drag && self.drop-allowed
+                        ? EditorTreeTokens.drop-target-border-width
+                        : 0px;
+                    border-color: EditorTreeTokens.accent;
+                    background: root-drop-area.contains-drag && self.drop-allowed
+                        ? EditorTreeTokens.drop-target-bg
+                        : transparent;
+                    property <bool> drop-allowed: false;
+
+                    root-drop-area := DropArea {
+                        width: parent.width;
+                        height: parent.height;
+                        can-drop(event) => {
+                            root-drop-target.drop-allowed = Api.outline-can-drop(
+                                event.data,
+                                root.outline-data[0].uri,
+                                root.outline-data[0].offset,
+                                DropLocation.onto,
+                            );
+                            return root-drop-target.drop-allowed
+                                ? event.proposed-action
+                                : DragAction.none;
+                        }
+                        dropped(event) => {
+                            root-drop-target.drop-allowed = false;
+                            Api.outline-drop(
+                                event.data,
+                                root.outline-data[0].uri,
+                                root.outline-data[0].offset,
+                                DropLocation.onto,
+                            );
+                            return event.proposed-action;
+                        }
+                    }
+
+                    Text {
+                        visible: root-drop-area.contains-drag && root-drop-target.drop-allowed;
+                        x: EditorTreeTokens.row-padding-inline;
+                        width: parent.width - 2 * self.x;
+                        text: "Drop as child of root";
+                        color: EditorTreeTokens.text;
+                        font-size: 12px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                }
+
                 outline-tree := EditorTreeView {
+                    y: root-drop-target.height;
                     width: parent.width;
                     accessible-name: "Current file outline";
                     rows: root.outline-data;
@@ -57,6 +111,18 @@ export component OutlinePane inherits Rectangle {
                     current-offset: Api.current-element.offset;
                     max-gutter-columns: 12;
                     content-has-hover: tree-hover-touch.has-hover;
+                    make-row-drag-data(uri, offset) => {
+                        return Api.move-element-instance-data(uri, offset);
+                    }
+                    row-can-drop(event, uri, offset, location) => {
+                        return Api.outline-can-drop(event.data, uri, offset, location)
+                            ? event.proposed-action
+                            : DragAction.none;
+                    }
+                    row-dropped(event, uri, offset, location) => {
+                        Api.outline-drop(event.data, uri, offset, location);
+                        return event.proposed-action;
+                    }
                     row-current-requested(uri, offset) => {
                         Api.outline-select-element(uri, offset, true);
                     }

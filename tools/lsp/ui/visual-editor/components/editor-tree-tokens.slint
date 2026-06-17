@@ -8,6 +8,7 @@ export global EditorTreeTokens {
 
     out property <color> row-bg-hover: color-scheme == ColorScheme.dark ? #383838 : #f5f5f5;
     out property <color> row-bg-current: color-scheme == ColorScheme.dark ? #4a5878 : #e4f4ff;
+    out property <color> drop-target-bg: color-scheme == ColorScheme.dark ? #1f2d3d : #eaf5ff;
     out property <color> text: color-scheme == ColorScheme.dark ? #e6edf3 : #1f2328;
     out property <color> muted-text: color-scheme == ColorScheme.dark ? #848d97 : #656d76;
     out property <color> accent: color-scheme == ColorScheme.dark ? #2f81f7 : #0969da;
@@ -25,4 +26,7 @@ export global EditorTreeTokens {
     out property <length> current-indicator-height: 24px;
     out property <length> guide-width: 1px;
     out property <length> focus-ring-width: 2px;
+    out property <length> drop-target-border-width: 1px;
+    out property <length> drop-indicator-height: 2px;
+    out property <length> root-drop-height: 28px;
 }
