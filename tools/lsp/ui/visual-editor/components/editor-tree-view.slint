@@ -132,6 +132,7 @@ component EditorTreeRow {
                     width: parent.width;
                     height: parent.height;
                     data: root.make-drag-data(root.node.uri, root.node.offset);
+                    allow-copy: true;
                     allow-move: true;
                     opacity: self.dragging ? 0.45 : 1;
 
