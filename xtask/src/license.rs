@@ -48,6 +48,10 @@ pub enum Format {
     /// Machine-readable JSON: `{ "crates": [...], "licenses": [...] }`, consumed
     /// by the Slint Viewer's in-app attribution page.
     Json,
+    /// An iOS `Settings.bundle` directory (requires `-o`): a "Third-Party
+    /// Licenses" child pane listing every crate, each opening a page with its
+    /// author and license text. Surfaced in the system Settings app.
+    IosSettingsBundle,
 }
 
 #[derive(Debug, clap::Parser)]
@@ -205,23 +209,37 @@ pub fn generate(args: &GenerateArgs) -> anyhow::Result<()> {
 
     rows.sort_by(|a, b| a.name.cmp(&b.name).then(a.version.cmp(&b.version)));
 
-    let rendered = match args.format {
-        Format::Markdown => render_markdown(&rows, &sections),
-        Format::Json => render_json(&rows, &sections),
-    };
+    match args.format {
+        Format::Markdown => write_output(&args.output, render_markdown(&rows, &sections))?,
+        Format::Json => write_output(&args.output, render_json(&rows, &sections))?,
+        // Unlike the single-document formats, this writes a directory tree.
+        Format::IosSettingsBundle => {
+            let dir = args
+                .output
+                .as_deref()
+                .context("--format ios-settings-bundle requires -o <path to Settings.bundle>")?;
+            render_ios_settings_bundle(&rows, &sections, dir)?;
+        }
+    }
 
-    match &args.output {
+    Ok(())
+}
+
+/// Write a rendered document to the output path, or stdout when none is given.
+fn write_output(output: &Option<PathBuf>, rendered: String) -> anyhow::Result<()> {
+    match output {
         Some(path) => {
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent).ok();
             }
             std::fs::write(path, rendered)
-                .with_context(|| format!("Cannot write {}", path.display()))?;
+                .with_context(|| format!("Cannot write {}", path.display()))
         }
-        None => print!("{rendered}"),
+        None => {
+            print!("{rendered}");
+            Ok(())
+        }
     }
-
-    Ok(())
 }
 
 /// One crate's row in the dependency table. The `Serialize` impl defines the
@@ -639,6 +657,115 @@ fn render_json(rows: &[CrateRow], sections: &[LicenseSection]) -> String {
     .expect("serializing license data to JSON");
     out.push('\n');
     out
+}
+
+/// Write an iOS `Settings.bundle` at `out_dir` so the licenses appear in the
+/// system Settings app under the application. The root has a single
+/// "Third-Party Licenses" child pane (`Licenses.plist`) listing every crate;
+/// each crate links to its own page (`crate_NNNN.plist`) showing the author
+/// and the text of each license the crate uses.
+///
+/// `PSChildPaneSpecifier.File` references a plist by name at the bundle root
+/// (no subdirectory, no extension), so every page is a flat top-level file.
+fn render_ios_settings_bundle(
+    rows: &[CrateRow],
+    sections: &[LicenseSection],
+    out_dir: &Path,
+) -> anyhow::Result<()> {
+    std::fs::create_dir_all(out_dir)
+        .with_context(|| format!("Cannot create {}", out_dir.display()))?;
+
+    // Root: a header group plus the child pane holding the crate list.
+    let mut root = String::new();
+    plist_specifier(&mut root, &[("Type", "PSGroupSpecifier"), ("Title", "Slint Viewer")]);
+    plist_specifier(
+        &mut root,
+        &[
+            ("Type", "PSChildPaneSpecifier"),
+            ("Title", "Third-Party Licenses"),
+            ("File", "Licenses"),
+        ],
+    );
+    write_plist(&out_dir.join("Root.plist"), &root)?;
+
+    // For each crate: a child pane in the list (its `Title` becomes the pushed
+    // page's navigation-bar title) and the page itself, holding the author and
+    // the full text of each license the crate uses.
+    let mut list = String::new();
+    for (i, row) in rows.iter().enumerate() {
+        let page_file = format!("crate_{i:04}");
+        plist_specifier(
+            &mut list,
+            &[
+                ("Type", "PSChildPaneSpecifier"),
+                ("Title", &format!("{} {}", row.name, row.version)),
+                ("File", &page_file),
+            ],
+        );
+
+        let mut page = String::new();
+        if !row.author.is_empty() {
+            plist_specifier(
+                &mut page,
+                &[
+                    ("Type", "PSGroupSpecifier"),
+                    ("Title", "Copyright"),
+                    ("FooterText", &row.author),
+                ],
+            );
+        }
+        // The license ids the crate's SPDX expression references that have a
+        // body; iterate `sections` so they come out in the same sorted order.
+        let crate_ids: BTreeSet<String> =
+            match spdx::Expression::parse_mode(&row.license, spdx::ParseMode::LAX) {
+                Ok(expr) => expr.requirements().map(|r| license_string(&r.req)).collect(),
+                Err(_) => BTreeSet::new(),
+            };
+        for section in sections.iter().filter(|s| crate_ids.contains(&s.id)) {
+            plist_specifier(
+                &mut page,
+                &[
+                    ("Type", "PSGroupSpecifier"),
+                    ("Title", &section.name),
+                    ("FooterText", &section.text),
+                ],
+            );
+        }
+        write_plist(&out_dir.join(format!("{page_file}.plist")), &page)?;
+    }
+    write_plist(&out_dir.join("Licenses.plist"), &list)?;
+
+    Ok(())
+}
+
+/// Append one preference-specifier `<dict>` of string key/value pairs to a
+/// plist's `PreferenceSpecifiers` array.
+fn plist_specifier(out: &mut String, pairs: &[(&str, &str)]) {
+    out.push_str("    <dict>\n");
+    for (key, value) in pairs {
+        out.push_str(&format!(
+            "      <key>{}</key>\n      <string>{}</string>\n",
+            xml_escape(key),
+            xml_escape(value)
+        ));
+    }
+    out.push_str("    </dict>\n");
+}
+
+/// Wrap rendered preference specifiers in a complete XML plist and write it.
+fn write_plist(path: &Path, specifiers: &str) -> anyhow::Result<()> {
+    let document = format!(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+         <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n\
+         <plist version=\"1.0\">\n\
+         <dict>\n  <key>PreferenceSpecifiers</key>\n  <array>\n{specifiers}  </array>\n</dict>\n</plist>\n"
+    );
+    std::fs::write(path, document).with_context(|| format!("Cannot write {}", path.display()))
+}
+
+/// Escape text for an XML plist body (`<string>`/`<key>` content).
+fn xml_escape(s: &str) -> String {
+    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
 }
 
 /// Turn each known SPDX license id in `expression` into a link to its text
