@@ -34,7 +34,7 @@ bold text.
   same.
 - **Gradients**: `@linear-gradient(angle, color stop%, …)`,
   `@radial-gradient(circle [radius] [at x y], color stop%, …)` (always
-  circular; radius and center are new in 1.17), and
+  circular; radius and center are `(1.17+)`), and
   `@conic-gradient([from angle] [at x y], color deg, …)`.
 - **Animations** are declared on *properties*, inside the element whose
   property changes: `animate width { duration: 200ms; }`.

@@ -82,6 +82,7 @@ export default defineConfig({
                                     },
                                     "guide/tooling/live-preview",
                                     "guide/tooling/figma-inspector",
+                                    "guide/tooling/ai-coding-assistants",
                                 ],
                             },
                             {
@@ -217,10 +218,6 @@ export default defineConfig({
                                               {
                                                   label: "Overview",
                                                   slug: "guide/experimental/overview",
-                                              },
-                                              {
-                                                  label: "AI Coding Assistants",
-                                                  slug: "guide/experimental/ai-coding-assistants",
                                               },
                                               {
                                                   label: "FlexboxLayout",
