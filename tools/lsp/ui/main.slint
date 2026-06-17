@@ -243,8 +243,17 @@ export component PreviewUi inherits Window {
                     vertical-stretch: 0;
                     height: self.preferred-height;
 
-                    current-style <=> Api.current-style;
-                    known-styles <=> Api.known-styles;
+                    // Don't two-way alias the ComboBox-backed `current-style`/`known-styles`
+                    // straight to the `Api` global: under the interpreter's full inlining
+                    // (used by SLINT_LIVE_PREVIEW), `remove_aliases` would fold the ComboBox's
+                    // `changed model`/`changed current-value` handlers onto the global, where the
+                    // instance elements they reference can't be resolved (issue #6426). Use
+                    // one-way bindings plus an explicit write-back instead.
+                    current-style: Api.current-style;
+                    changed current-style => {
+                        Api.current-style = self.current-style;
+                    }
+                    known-styles: Api.known-styles;
                     preview-mode <=> Api.preview-mode;
                     remote-mode: root.remote-mode;
                     library-widget <=> root.library-widget;
