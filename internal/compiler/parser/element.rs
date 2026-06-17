@@ -67,7 +67,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
                     had_parse_error |= !parse_sub_element(&mut *p)
                 }
                 SyntaxKind::FatArrow | SyntaxKind::LParent
-                    if p.peek().as_str() != "if" && p.peek().as_str() != "match" =>
+                    if !["if", "match"].contains(&p.peek().as_str()) =>
                 {
                     parse_callback_connection(&mut *p)
                 }
@@ -112,7 +112,27 @@ pub fn parse_element_content(p: &mut impl Parser) {
                     parse_if_element(&mut *p);
                 }
                 SyntaxKind::Identifier | SyntaxKind::LParent if p.peek().as_str() == "match" => {
-                    parse_match_element(&mut *p);
+                    let mut i = 2;
+                    loop {
+                        match p.nth(i).kind() {
+                            SyntaxKind::FatArrow => {
+                                parse_callback_connection(&mut *p);
+                                break;
+                            }
+                            SyntaxKind::LBrace => {
+                                parse_match_element(&mut *p);
+                                break;
+                            }
+                            SyntaxKind::Eof => {
+                                if !had_parse_error {
+                                    p.error("Error: Expected '{'");
+                                    had_parse_error = true;
+                                }
+                                break;
+                            }
+                            _ => i += 1,
+                        }
+                    }
                 }
                 SyntaxKind::LBracket if p.peek().as_str() == "states" => {
                     parse_states(&mut *p);
