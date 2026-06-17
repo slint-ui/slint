@@ -1,0 +1,177 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { OutlineTreeNode } from "../../api.slint";
+import { EditorTreeIcons } from "editor-tree-icons.slint";
+import { EditorTreeTokens } from "editor-tree-tokens.slint";
+
+component EditorTreeRow {
+    in-out property <OutlineTreeNode> node;
+    in property <string> current-source-uri;
+    in property <int> current-offset;
+    in property <int> max-gutter-columns;
+
+    callback current-requested(string, int);
+
+    property <bool> current: node.uri == current-source-uri && node.offset == current-offset;
+    property <int> level-safe: max(1, node.indent-level + 1);
+    property <int> gutter-segments: max(0, level-safe - 1);
+    property <string> row-label: node.element-id != "" ? node.element-id : node.element-type;
+    property <image> row-icon: node.element-type == "Rectangle"
+        ? EditorTreeIcons.rectangle
+        : node.element-type == "Image"
+            ? EditorTreeIcons.image
+            : node.element-type == "Text"
+                ? EditorTreeIcons.text
+                : EditorTreeIcons.default-item;
+
+    vertical-stretch: 0;
+    horizontal-stretch: 1;
+
+    function activate() {
+        root.current-requested(root.node.uri, root.node.offset);
+        if root.node.has-children {
+            root.node.is-expanded = !root.node.is-expanded;
+        }
+    }
+
+    VerticalLayout {
+        alignment: start;
+        horizontal-stretch: 1;
+
+        row-focus := FocusScope {
+            focus-on-click: false;
+            vertical-stretch: 0;
+            horizontal-stretch: 1;
+
+            key-pressed(event) => {
+                if event.text == Key.Return || event.text == Key.Space {
+                    root.activate();
+                    return accept;
+                }
+                return reject;
+            }
+
+            row-chrome := Rectangle {
+                horizontal-stretch: 1;
+                border-radius: EditorTreeTokens.row-radius;
+                min-height: EditorTreeTokens.row-height;
+                background: root.current
+                    ? EditorTreeTokens.row-bg-current
+                    : row-touch.has-hover
+                        ? EditorTreeTokens.row-bg-hover
+                        : transparent;
+                border-width: row-focus.has-focus ? EditorTreeTokens.focus-ring-width : 0px;
+                border-color: EditorTreeTokens.accent;
+
+                if root.current: Rectangle {
+                    x: 0px - EditorTreeTokens.row-padding-inline;
+                    y: (EditorTreeTokens.row-height - self.height) / 2;
+                    width: EditorTreeTokens.current-indicator-width;
+                    height: EditorTreeTokens.current-indicator-height;
+                    border-radius: EditorTreeTokens.row-radius;
+                    background: EditorTreeTokens.accent;
+                }
+
+                HorizontalLayout {
+                    min-height: EditorTreeTokens.row-height;
+
+                    row-touch := TouchArea {
+                        horizontal-stretch: 1;
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.activate();
+                        }
+
+                        HorizontalLayout {
+                            spacing: EditorTreeTokens.content-gap;
+                            alignment: start;
+                            cross-axis-alignment: center;
+                            padding-left: EditorTreeTokens.row-padding-inline;
+                            padding-right: EditorTreeTokens.row-padding-inline;
+                            min-height: EditorTreeTokens.row-height;
+
+                            if root.gutter-segments > 0: HorizontalLayout {
+                                alignment: start;
+
+                                for slot[index] in root.max-gutter-columns: Rectangle {
+                                    width: index < root.gutter-segments ? EditorTreeTokens.toggle-width : 0px;
+                                    height: EditorTreeTokens.row-height;
+
+                                    if index < root.gutter-segments: Rectangle {
+                                        x: (parent.width - EditorTreeTokens.guide-width) / 2
+                                            + (index >= 1 ? EditorTreeTokens.content-gap : 0px);
+                                        width: EditorTreeTokens.guide-width;
+                                        height: EditorTreeTokens.row-height;
+                                        background: EditorTreeTokens.guide;
+                                    }
+                                }
+                            }
+
+                            Rectangle {
+                                width: EditorTreeTokens.toggle-width;
+                                min-height: EditorTreeTokens.row-height;
+
+                                VerticalLayout {
+                                    alignment: center;
+
+                                    Image {
+                                        visible: root.node.has-children;
+                                        width: 12px;
+                                        height: 12px;
+                                        source: root.node.is-expanded ? EditorTreeIcons.chevron-down : EditorTreeIcons.chevron-right;
+                                        colorize: EditorTreeTokens.muted-text;
+                                    }
+                                }
+                            }
+
+                            Image {
+                                width: EditorTreeTokens.icon-size;
+                                height: EditorTreeTokens.icon-size;
+                                vertical-alignment: center;
+                                source: root.row-icon;
+                                colorize: EditorTreeTokens.directory-icon;
+                            }
+
+                            Text {
+                                horizontal-stretch: 1;
+                                vertical-alignment: center;
+                                text: root.row-label;
+                                color: EditorTreeTokens.text;
+                                font-size: 14px;
+                                overflow: elide;
+                                wrap: no-wrap;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component EditorTreeView inherits VerticalLayout {
+    in property <[OutlineTreeNode]> rows: [];
+    in property <string> current-source-uri: "";
+    in property <int> current-offset: -1;
+    in property <string> accessible-name: "";
+    in property <int> max-gutter-columns: 12;
+
+    callback row-current-requested(string, int);
+
+    alignment: start;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    accessible-role: AccessibleRole.list;
+    accessible-label: root.accessible-name;
+
+    for row[i] in root.rows: EditorTreeRow {
+        node <=> row;
+        current-source-uri: root.current-source-uri;
+        current-offset: root.current-offset;
+        max-gutter-columns: root.max-gutter-columns;
+        current-requested(uri, offset) => {
+            root.row-current-requested(uri, offset);
+        }
+    }
+}
