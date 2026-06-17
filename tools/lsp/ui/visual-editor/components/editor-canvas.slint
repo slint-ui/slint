@@ -103,6 +103,7 @@ export component EditorCanvas inherits Rectangle {
     private property <Size> selection-drag-size;
 
     callback selected(CanvasSelectionKind);
+    callback real-element-selected();
     callback interaction-started();
     callback move-rectangle-to(Point);
     callback resize-rectangle-to(CanvasCorner, Point, Size);
@@ -220,7 +221,8 @@ export component EditorCanvas inherits Rectangle {
                 mouse-cursor: crosshair;
                 clicked => {
                     Api.select-at(self.pressed-x, self.pressed-y, false);
-                    }
+                    root.real-element-selected();
+                }
             }
 
         }

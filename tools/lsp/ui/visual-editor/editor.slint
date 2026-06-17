@@ -68,6 +68,15 @@ export component EditorUi inherits Window {
             reject
         }
 
+        key-pressed(event) => {
+            if (event.text == Key.Delete || event.text == Key.Backspace)
+                && Api.selection.highlight-index >= 0 {
+                Api.selected-element-delete();
+                return accept;
+            }
+            reject
+        }
+
         focus-lost => {
             self.shift-pressed = false;
         }
@@ -112,7 +121,11 @@ export component EditorUi inherits Window {
                         rectangle-bottom-left-radius: state.rectangle-bottom-left-radius;
                         text-rotation: state.text-rotation;
                         image-rotation: state.image-rotation;
-                        selected(kind) => { state.selection = kind; }
+                        selected(kind) => {
+                            state.selection = kind;
+                            editor.focus();
+                        }
+                        real-element-selected => { editor.focus(); }
                         interaction-started => { editor.focus(); }
                         move-rectangle-to(position) => { state.move-rectangle-to(position); }
                         resize-rectangle-to(corner, position, size) => { state.resize-rectangle-to(corner, position, size); }
@@ -137,6 +150,7 @@ export component EditorUi inherits Window {
                         local-geometry-edited(position, size) => {
                             return state.set-selected-geometry(position, size);
                         }
+                        element-selected => { editor.focus(); }
                     }
                 }
             }

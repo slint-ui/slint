@@ -8,6 +8,7 @@ import { AppState, SectionTitle, StudioTheme } from "common.slint";
 
 export component OutlinePane inherits Rectangle {
     property <[OutlineTreeNode]> outline-data <=> Api.outline;
+    callback element-selected();
 
     background: StudioTheme.panel-bg;
 
@@ -159,6 +160,7 @@ export component OutlinePane inherits Rectangle {
                     }
                     row-current-requested(uri, offset) => {
                         Api.outline-select-element(uri, offset, true);
+                        root.element-selected();
                     }
                 }
             }
