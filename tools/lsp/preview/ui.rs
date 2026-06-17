@@ -24,6 +24,7 @@ use crate::preview::{self, DragItem, SelectionNotification, preview_data, proper
 use crate::wasm_prelude::*;
 
 mod brushes;
+mod file_tree;
 pub mod log_messages;
 pub mod palette;
 mod property_view;
@@ -318,6 +319,7 @@ pub fn create_ui(
     brushes::setup(&api);
     log_messages::setup(&api);
     palette::setup(&api);
+    file_tree::setup(&api, api_weak.clone(), use_editor_ui);
     recent_colors::setup(&api, api_weak);
     super::outline::setup(&api);
     super::undo_redo::setup(&api);

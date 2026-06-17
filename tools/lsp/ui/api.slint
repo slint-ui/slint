@@ -308,6 +308,24 @@ export enum DropLocation {
     after,
 }
 
+export enum FileTreeNodeKind {
+    folder,
+    file,
+    image,
+}
+
+export struct FileTreeNode {
+    label: string,
+    path: string,
+    parent-path: string,
+    indent-level: int,
+    has-children: bool,
+    is-expanded: bool,
+    is-selected: bool,
+    show-selected-guide: bool,
+    kind: FileTreeNodeKind,
+}
+
 export global Api {
     // # Properties
     // ## General preview state:
@@ -597,6 +615,11 @@ export global Api {
     // Data is either a "file:offset" for an element to move, or just a component index.
     callback outline-drop(data: data-transfer, uri: string, offset: int, location: DropLocation);
     callback outline-can-drop(data: data-transfer, uri: string, offset: int, location: DropLocation) -> bool;
+
+    // ## File Tree
+    in-out property <[FileTreeNode]> file-tree;
+    callback file-tree-toggle(path: string);
+    callback file-tree-select(path: string);
 
     // ## preview data
 
