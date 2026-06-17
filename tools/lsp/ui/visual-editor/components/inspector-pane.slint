@@ -2,17 +2,17 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Api, ElementInformation, SelectionRectangle } from "../../api.slint";
-import { CanvasSelectionKind, EdgeDivider, EditorMetrics } from "common.slint";
+import { CanvasSelectionKind, EdgeDivider, EditorMetrics, StudioTheme } from "common.slint";
 import { OutlinePane } from "outline-pane.slint";
 
 global InspectorTokens {
-    out property <color> panel-bg: #ffffff;
-    out property <color> divider: #e5e5e5;
-    out property <color> field-bg: #f5f5f5;
-    out property <color> field-bg-hover: #eeeeee;
-    out property <color> field-border: #d9d9d9;
-    out property <color> text: #1e1e1e;
-    out property <color> muted: #8c8c8c;
+    out property <color> panel-bg: StudioTheme.panel-bg;
+    out property <color> divider: StudioTheme.dark ? #414141 : #e5e5e5;
+    out property <color> field-bg: StudioTheme.dark ? #383838 : #f5f5f5;
+    out property <color> field-bg-hover: StudioTheme.dark ? #414141 : #eeeeee;
+    out property <color> field-border: StudioTheme.dark ? #4b4b4b : #d9d9d9;
+    out property <color> text: StudioTheme.dark ? #f4f4f4 : #1e1e1e;
+    out property <color> muted: StudioTheme.dark ? #9a9a9a : #8c8c8c;
     out property <color> accent: #0d99ff;
     out property <length> side-padding: 15px;
     out property <length> section-title-size: 12px;
@@ -721,8 +721,8 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.is-rectangle-selection(): InspectorColorField {
-                            value: "#ffffff";
-                            swatch: #ffffff;
+                            value: StudioTheme.dark ? "#383838" : "#ffffff";
+                            swatch: StudioTheme.dark ? #383838 : #ffffff;
                             wide: true;
                             accepted(text) => {
                                 return root.commit-code("background", text);
@@ -730,8 +730,8 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.is-text-selection(): InspectorColorField {
-                            value: "#1f2328";
-                            swatch: #1f2328;
+                            value: StudioTheme.dark ? "#f4f4f4" : "#1f2328";
+                            swatch: StudioTheme.dark ? #f4f4f4 : #1f2328;
                             wide: true;
                             accepted(text) => {
                                 return root.commit-code("color", text);
@@ -779,6 +779,52 @@ export component InspectorPane inherits Rectangle {
                                 }
                             }
                         }
+
+                        // HorizontalLayout {
+                        //     spacing: InspectorTokens.column-gap;
+
+                        //     InspectorValueField {
+                        //         prefix: "A";
+                        //         value: "20";
+                        //         accepted(text) => {
+                        //             return root.commit-px-code("line-height", text);
+                        //         }
+                        //     }
+
+                        //     InspectorValueField {
+                        //         prefix: "A";
+                        //         value: "0";
+                        //         accepted(text) => {
+                        //             return root.commit-px-code("letter-spacing", text);
+                        //         }
+                        //     }
+                        // }
+
+                        // HorizontalLayout {
+                        //     spacing: InspectorTokens.column-gap;
+
+                        //     InspectorSegmentedIconControl {
+                        //         kind: "horizontal";
+                        //         selected-index: 0;
+                        //         selected(index) => {
+                        //             return root.commit-code(
+                        //                 "horizontal-alignment",
+                        //                 index == 0 ? "left" : index == 1 ? "center" : "right",
+                        //             );
+                        //         }
+                        //     }
+
+                        //     InspectorSegmentedIconControl {
+                        //         kind: "vertical";
+                        //         selected-index: 1;
+                        //         selected(index) => {
+                        //             return root.commit-code(
+                        //                 "vertical-alignment",
+                        //                 index == 0 ? "top" : index == 1 ? "center" : "bottom",
+                        //             );
+                        //         }
+                        //     }
+                        // }
                     }
                 }
             }
