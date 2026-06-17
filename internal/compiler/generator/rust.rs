@@ -3343,7 +3343,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
 
         Expression::StoreLocalVariable { name, value } => {
-            let value = compile_expression_no_parenthesis(value, ctx);
+            let value = compile_expression_to_value_no_parenthesis(value, ctx);
             let name = ident(name);
             quote!(let #name = #value;)
         }
