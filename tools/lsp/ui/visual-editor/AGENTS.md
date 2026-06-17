@@ -15,7 +15,7 @@ SLINT_BACKEND=winit-skia \
 cargo run -p slint-lsp --example slint-editor \
   --no-default-features \
   --features backend-winit,renderer-skia,renderer-software,preview \
-  -- examples/visual-editor/simple_preview.slint
+  -- tools/lsp/ui/visual-editor/example/simple_preview.slint
 ```
 
 Important:
@@ -30,7 +30,7 @@ Important:
   sandboxes when `ccache` writes under `~/Library/Caches/ccache`.
 - `SLINT_ENABLE_EXPERIMENTAL_FEATURES=1` is required because the visual editor
   uses internal/experimental types such as `component-factory`.
-- Use `examples/visual-editor/simple_preview.slint` for now. It is a minimal
+- Use `tools/lsp/ui/visual-editor/example/simple_preview.slint` for now. It is a minimal
   valid target file and avoids mixing visual-editor shell work with gallery page
   complexity.
 
@@ -49,7 +49,7 @@ SLINT_BACKEND=winit-skia \
 cargo run -p slint-lsp --example slint-editor \
   --no-default-features \
   --features backend-winit,renderer-skia,renderer-software,preview,slint/mcp \
-  -- examples/visual-editor/simple_preview.slint
+  -- tools/lsp/ui/visual-editor/example/simple_preview.slint
 ```
 
 If `http://127.0.0.1:9315/mcp` is not reachable, report that MCP is unavailable
@@ -59,7 +59,7 @@ as a visible GUI.
 ## Hot Reloading The Editor UI
 
 The editor automatically watches and reloads the opened target document
-(`examples/visual-editor/simple_preview.slint`). That is separate from the
+(`tools/lsp/ui/visual-editor/example/simple_preview.slint`). That is separate from the
 editor shell UI under `tools/lsp/ui/`, which is compiled into the app via
 `slint::include_modules!()`.
 
@@ -72,7 +72,7 @@ SLINT_BACKEND=winit-skia \
 cargo run -p slint-lsp --example slint-editor \
   --no-default-features \
   --features backend-winit,renderer-skia,renderer-software,preview,slint/live-preview \
-  -- examples/visual-editor/simple_preview.slint
+  -- tools/lsp/ui/visual-editor/example/simple_preview.slint
 ```
 
 This currently crashes with `accessing deleted parent (issue #6426)`, even with
