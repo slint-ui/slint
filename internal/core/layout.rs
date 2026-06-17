@@ -1906,18 +1906,31 @@ pub fn flexbox_layout_info_main_axis(
             + spacing * num_spacings
             + extra_pad
     } else {
-        // Wrapping: estimate a roughly square layout using only main-axis sizes.
-        // Approximate total area assuming each item is square (width == height),
-        // then take sqrt to get a reasonable main-axis extent.
-        let total_area: Coord = cells
-            .iter()
-            .map(|c| {
-                let w = c.constraint.preferred_bounded();
-                w * w
-            })
-            .sum();
-        let count = cells.len();
-        Float::sqrt(total_area as f32) as Coord + spacing * (count - 1) as Coord + extra_pad
+        // Wrapping: aim for a roughly square (pixel-area) arrangement, using only
+        // main-axis sizes so this stays independent of the cross axis. The square
+        // side is the sqrt of the total area (each item approximated as a main-axis
+        // square). Snap that up to a whole number of items, so a line holds a clean
+        // grid row instead of wrapping mid-item (which would over-count columns:
+        // e.g. 3 equal items want `A B / C`, not `A B C`).
+        // Accumulate the area in f64: with the integer Coord build, Coord-typed
+        // w*w (and its sum) would overflow for large items.
+        let total_area: f64 =
+            cells.iter().map(|c| c.constraint.preferred_bounded() as f64).map(|w| w * w).sum();
+        let target = Float::sqrt(total_area as f32) as Coord;
+        let mut acc = 0 as Coord;
+        let mut started = false;
+        for c in cells.iter() {
+            acc += if started {
+                spacing + c.constraint.preferred_bounded()
+            } else {
+                c.constraint.preferred_bounded()
+            };
+            started = true;
+            if acc >= target {
+                break;
+            }
+        }
+        acc + extra_pad
     };
     let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
     LayoutInfo {
