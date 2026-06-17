@@ -61,6 +61,13 @@ export enum PreviewMode {
     Remote,
 }
 
+export enum PrototypeComponentKind {
+    none,
+    rectangle,
+    text,
+    image,
+}
+
 /// What kind of layout we are working with
 export enum LayoutKind {
     None,
@@ -355,6 +362,7 @@ export global Api {
     in-out property <component-factory> preview-area;
 
     pure callback new-component-data(index: int) -> data-transfer;
+    pure callback new-prototype-component-data(kind: PrototypeComponentKind) -> data-transfer;
     pure callback move-element-instance-data(component-uri: string, offset: int) -> data-transfer;
 
     // set to true to resize
@@ -613,6 +621,7 @@ export global Api {
     // Add an existing component
     pure callback can-drop(data: data-transfer, x: length, y: length, on-drop-area: bool) -> bool;
     callback drop(data: data-transfer, x: length, y: length);
+    callback drop-with-geometry(data: data-transfer, hit-x: length, hit-y: length, x: length, y: length, width: length, height: length);
 
     callback rename-component(old-name: string, defined-at: string, new-name: string);
 

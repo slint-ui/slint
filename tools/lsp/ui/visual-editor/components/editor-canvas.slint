@@ -1,11 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, DropMark, SelectionRectangle } from "../../api.slint";
+import { Api, DropMark, PrototypeComponentKind, SelectionRectangle } from "../../api.slint";
 import { EditorPalette } from "../../components/styling.slint";
 import {
-    CanvasCorner, CanvasOrientation, CanvasSelectionKind, EditorMetrics, PrototypeComponentKind,
-    ImagePlaceholder, StudioTheme,
+    CanvasCorner, CanvasOrientation, CanvasSelectionKind, EditorMetrics, ImagePlaceholder,
+    StudioTheme,
 } from "common.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
 import { RectangleOnCanvas } from "rectangle.slint";
@@ -66,26 +66,11 @@ component PhoneChrome inherits Rectangle {
     }
 }
 
-component CanvasDropTarget inherits Rectangle {
-    Rectangle {
-        x: 24px;
-        y: 70px;
-        width: parent.width - 48px;
-        height: parent.height - 96px;
-        border-radius: 24px;
-        border-width: 2px;
-        border-color: StudioTheme.accent-strong;
-        background: StudioTheme.accent.with-alpha(0.08);
-    }
-}
-
 export component EditorCanvas inherits Rectangle {
     in property <CanvasOrientation> orientation;
     in property <CanvasSelectionKind> selection;
     in property <bool> shift-pressed: false;
     in property <PrototypeComponentKind> placed-kind;
-    in property <bool> canvas-drop-hover;
-    in property <Point> canvas-drop-position;
     in property <Point> placed-position;
     in property <Size> rectangle-size;
     in property <angle> rectangle-rotation;
@@ -460,7 +445,5 @@ export component EditorCanvas inherits Rectangle {
                 vertical-alignment: center;
             }
         }
-
-        if root.canvas-drop-hover: CanvasDropTarget { }
     }
 }

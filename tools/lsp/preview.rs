@@ -898,6 +898,31 @@ fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) ->
     drop_location::can_drop_at(&document_cache, position, &component)
 }
 
+fn component_name_for_prototype_kind(kind: ui::PrototypeComponentKind) -> Option<&'static str> {
+    match kind {
+        ui::PrototypeComponentKind::Rectangle => Some("Rectangle"),
+        ui::PrototypeComponentKind::Text => Some("Text"),
+        ui::PrototypeComponentKind::Image => Some("Image"),
+        ui::PrototypeComponentKind::None => None,
+    }
+}
+
+fn component_index_for_prototype_kind(kind: ui::PrototypeComponentKind) -> Option<usize> {
+    let name = component_name_for_prototype_kind(kind)?;
+    PREVIEW_STATE.with_borrow(|preview_state| {
+        preview_state
+            .known_components
+            .iter()
+            .position(|component| component.name == name && component.is_builtin)
+            .or_else(|| {
+                preview_state
+                    .known_components
+                    .iter()
+                    .position(|component| component.name == name)
+            })
+    })
+}
+
 fn drop_component(data: DataTransfer, x: f32, y: f32) {
     let Ok(DragItem::NewComponent { index: component_index }) = data.try_into() else {
         return;
@@ -917,6 +942,48 @@ fn drop_component(data: DataTransfer, x: f32, y: f32) {
 
     let drop_result = drop_location::drop_at(&document_cache, position, &component)
         .map(|(e, d)| (e, d, component.name.clone()));
+
+    if let Some((edit, drop_data, component_name)) = drop_result {
+        element_selection::select_element_at_source_code_position(
+            drop_data.path,
+            drop_data.selection_offset,
+            None,
+            SelectionNotification::AfterUpdate,
+        );
+
+        send_workspace_edit(format!("Add element {component_name}"), edit, false);
+    };
+}
+
+fn drop_component_with_geometry(
+    data: DataTransfer,
+    hit_x: f32,
+    hit_y: f32,
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+) {
+    let Ok(DragItem::NewComponent { index: component_index }) = data.try_into() else {
+        return;
+    };
+
+    let Some(document_cache) = document_cache() else {
+        return;
+    };
+
+    let hit_position = LogicalPoint::new(hit_x, hit_y);
+    let geometry = LogicalRect::new(LogicalPoint::new(x, y), LogicalSize::new(width, height));
+
+    let Some(component) = PREVIEW_STATE
+        .with_borrow(|preview_state| preview_state.known_components.get(component_index).cloned())
+    else {
+        return;
+    };
+
+    let drop_result =
+        drop_location::drop_at_with_geometry(&document_cache, hit_position, &component, geometry)
+            .map(|(e, d)| (e, d, component.name.clone()));
 
     if let Some((edit, drop_data, component_name)) = drop_result {
         element_selection::select_element_at_source_code_position(
