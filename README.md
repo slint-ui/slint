@@ -160,7 +160,7 @@ configure your favorite editor to work well with Slint.
 
 ## License
 
-See [LICENSE.md](LICENSE.md) for the licensing of the whole repository, including documentation and examples.
+See [LICENSE.md](LICENSE.md) for the licensing terms of the whole repository, including documentation and examples.
 
 You can use Slint under ***any*** of the following licenses, at your choice:
 

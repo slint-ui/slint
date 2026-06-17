@@ -59,20 +59,18 @@ You can use Slint under ***any*** of the following licenses, at your choice:
 
 ### Can I keep my own code under a permissive license such as MIT?
 
-Yes.
-Your own source files can carry MIT, Apache-2.0, or any other permissive license, whichever Slint license you use.
+Yes — whichever Slint license you use, your own source files can stay under a permissive license such as MIT or Apache-2.0.
 
-The product you ship also includes Slint, which stays under its three licenses (GPLv3, Royalty-free, or paid).
-Pick how you distribute the result:
+Slint itself stays under its three licenses (GPLv3, Royalty-free, or the Slint Software License), so the combined product you distribute is licensed one of two ways:
 
 - **Open-source the whole product? Use the GPLv3.**
   The product as a whole is then GPL: free, on any platform including embedded.
   Your own files keep their permissive headers (MIT is GPL-compatible).
-- **Prefer to set your own terms? Use the Royalty-free or paid license.**
-  The Royalty-free license is free for desktop, mobile, and web — just show the Slint attribution.
-  The paid license adds embedded and more.
+- **Want your own terms instead? Use the Royalty-free or Slint Software License.**
+  The Royalty-free license is free for desktop, mobile, and web, as long as you show the Slint attribution.
+  The Slint Software License (our commercial license) covers embedded and lets you set your own terms.
 
-For worked examples, see the [GPLv3 scenarios below](#gplv3).
+For detailed scenarios, see the [GPLv3 questions below](#gplv3).
 
 ### Royalty-free license
 

@@ -12,7 +12,7 @@ This repository contains several parts under different licenses:
 The exact license of each file is documented in its header or, where that's not possible, via [REUSE](https://reuse.software/) metadata in `REUSE.toml`.
 The full text of every license used is in the `LICENSES` folder.
 
-## Slint Framework License
+## Licenses of the Slint Framework
 
 You can use the Slint framework under ***any*** of the following licenses, at your choice:
 
@@ -24,12 +24,11 @@ You can use the Slint framework under ***any*** of the following licenses, at yo
 ### What This Means in Practice
 
 - **Do you want to build an open-source application?**
-  Use Slint for free under the GPLv3 on any platform, embedded included; your own files can stay MIT or Apache-2.0.
+  Use Slint for free under the GPLv3 on any platform; your own files can stay MIT or Apache-2.0.
   You're not tied to the GPL, though — the Royalty-free or Commercial license works too.
 - **Do you want to keep your application proprietary?**
-  Use the Royalty-free License for free for desktop, mobile, and web applications.
-  It requires you to disclose that you use Slint, for example with the `AboutSlint` widget or the Slint badge.
-  Embedded systems, and anything the Royalty-free License doesn't cover, need the Commercial license.
+  Use the Royalty-free License for free, for desktop, mobile, and web applications, as long as you disclose that you use Slint (for example with the `AboutSlint` widget or the Slint badge).
+  For embedded systems, or to avoid these conditions, use the Commercial license.
 
 See the [Licensing FAQ](FAQ.md#licensing) for the details and common scenarios.
 
