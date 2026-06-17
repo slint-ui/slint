@@ -149,7 +149,8 @@ component EditorTreeRow {
                         height: EditorTreeTokens.icon-size;
                         vertical-alignment: center;
                         source: root.row-icon;
-                        colorize: EditorTreeTokens.directory-icon;
+                        colorize: EditorTreeTokens.text;
+                        opacity: root.current ? 1 : 0.5;
                     }
 
                     Text {

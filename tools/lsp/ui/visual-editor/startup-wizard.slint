@@ -11,7 +11,7 @@ export enum ProjectKind {
 
 global WizardTheme {
     out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
-    out property <color> panel-bg: dark ? #2c2c2c : #ffffff;
+    out property <color> panel-bg: dark ? #383838 : #ffffff;
     out property <color> panel-subtle: dark ? #383838 : #f6f8fa;
     out property <color> text: dark ? #f1f1f1 : #1f2328;
     out property <color> muted: dark ? #b7b7b7 : #6e7781;
@@ -306,7 +306,7 @@ export component StartupWizard inherits Rectangle {
             border-radius: 8px;
             border-width: 1px;
             border-color: WizardTheme.dark ? #555555 : WizardTheme.border;
-            background: WizardTheme.dark ? #2c2c2ce6 : #fffffff2;
+            background: WizardTheme.dark ? #383838e6 : #fffffff2;
 
             HorizontalLayout {
                 padding: 18px;
