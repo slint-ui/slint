@@ -1878,6 +1878,27 @@ pub fn solve_flexbox_layout_with_measure(
     result
 }
 
+/// The flex's natural single-line (no-wrap) main-axis size: the size it
+/// occupies when all items sit on one line. A perpendicular parent uses this
+/// to give a non-stretch wrapping-flex cell its natural size (and only wrap
+/// when the available cross size is smaller), instead of the compact
+/// `sqrt`-area "square" that [`flexbox_layout_info_main_axis`] reports as
+/// `preferred`.
+pub fn flexbox_layout_unwrapped_main(
+    cells: Slice<FlexboxLayoutItemInfo>,
+    spacing: Coord,
+    padding: &Padding,
+) -> Coord {
+    let extra_pad = padding.begin + padding.end;
+    if cells.is_empty() {
+        return extra_pad;
+    }
+    let num_spacings = cells.len().saturating_sub(1) as Coord;
+    cells.iter().map(|c| c.constraint.preferred_bounded()).sum::<Coord>()
+        + spacing * num_spacings
+        + extra_pad
+}
+
 /// Return main-axis LayoutInfo for a FlexboxLayout.
 /// Only needs the same-axis cells, avoiding a cross-axis binding loop.
 pub fn flexbox_layout_info_main_axis(
@@ -1904,9 +1925,7 @@ pub fn flexbox_layout_info_main_axis(
     };
     let preferred = if matches!(flex_wrap, FlexboxLayoutWrap::NoWrap) {
         // No wrapping: all items on one line
-        cells.iter().map(|c| c.constraint.preferred_bounded()).sum::<Coord>()
-            + spacing * num_spacings
-            + extra_pad
+        flexbox_layout_unwrapped_main(cells, spacing, padding)
     } else {
         // Wrapping: aim for a roughly square (pixel-area) arrangement, using only
         // main-axis sizes so this stays independent of the cross axis. The square
@@ -2268,6 +2287,16 @@ pub(crate) mod ffi {
         flex_wrap: FlexboxLayoutWrap,
     ) -> LayoutInfo {
         super::flexbox_layout_info_main_axis(cells, spacing, padding, flex_wrap)
+    }
+
+    #[unsafe(no_mangle)]
+    /// Return the flex's natural single-line (no-wrap) main-axis size.
+    pub extern "C" fn slint_flexbox_layout_unwrapped_main(
+        cells: Slice<FlexboxLayoutItemInfo>,
+        spacing: Coord,
+        padding: &Padding,
+    ) -> Coord {
+        super::flexbox_layout_unwrapped_main(cells, spacing, padding)
     }
 
     #[unsafe(no_mangle)]

@@ -651,6 +651,29 @@ pub struct FlexboxLayout {
 }
 
 impl FlexboxLayout {
+    /// If `elem` is a (lowered, inline) FlexboxLayout, return its layout
+    /// description. The struct is embedded in the synthesized
+    /// `layoutinfo-{h,v}` / `layout-cache` bindings on the element.
+    pub fn from_element(elem: &ElementRc) -> Option<FlexboxLayout> {
+        use crate::expression_tree::Expression;
+        // The `layoutinfo-{h,v}` property's binding (on this element or its
+        // base component's root) holds a `ComputeFlexboxLayoutInfo` with the
+        // layout when the element is a FlexboxLayout.
+        let nr = {
+            let eb = elem.borrow();
+            eb.layout_info_prop(Orientation::Vertical)
+                .or_else(|| eb.layout_info_prop(Orientation::Horizontal))
+                .cloned()
+        }?;
+        let target = nr.element();
+        let target = target.borrow();
+        let binding = target.bindings.get(nr.name())?;
+        match binding.borrow().expression.ignore_debug_hooks() {
+            Expression::ComputeFlexboxLayoutInfo { layout, .. } => Some(layout.clone()),
+            _ => None,
+        }
+    }
+
     /// Try to determine the flex direction at compile time from a constant binding.
     /// Returns None if the direction is set at runtime.
     fn compile_time_direction(&self) -> Option<FlexboxLayoutDirection> {

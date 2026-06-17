@@ -1,0 +1,140 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Same "wrap only when needed" behavior as flexbox_column_wrap_when_needed, but
+// with a flex-direction that is only known at runtime (bound to a property, as
+// in the interactive flexbox demo). The compiler cannot tell whether the flex's
+// main axis is the parent's cross axis, so the anti-overlap clamp is emitted
+// behind a runtime direction check. This guards backend parity: the interpreter
+// evaluates the direction at runtime, and LLR codegen must do the same instead
+// of skipping the clamp (which would let the tall column wrap and overlap).
+//
+// Toggle the radio buttons to flip the flex between column and row at runtime.
+// unwrapped single-line height (column) = 40 + 5 + 40 + 5 + 40 = 130px.
+//
+// Visual aids: the magenta outline is each flex's reported box; the sibling is
+// translucent orange. The outline hugs the items and stops before the sibling.
+
+import { RadioGroup } from "std-widgets.slint";
+
+export component TestCase inherits Window {
+    width: 400px;
+    // The short container is only 90px in column mode so the column wraps into a
+    // second column; a row flex there is wider than tall, so give it more room in
+    // row mode (and grow the window to match) instead of a cramped fit.
+    height: root.row-direction ? 560px : 450px;
+    // Two radio buttons pick the direction at runtime, through a ternary so it
+    // stays a runtime value rather than a compile-time constant. The "row"
+    // button is unchecked by default, so the default direction is column --
+    // what the assertions check.
+    property <bool> row-direction: row-btn.checked;
+    property <FlexboxLayoutDirection> dir:
+        row-direction ? FlexboxLayoutDirection.row : FlexboxLayoutDirection.column;
+
+    dir-group := RadioGroup {
+        x: 5px; y: 5px;
+        orientation: Orientation.horizontal;
+        RadioButton { text: "column"; checked: true; }
+        row-btn := RadioButton { text: "row"; }
+    }
+    // Both parents are HorizontalLayouts, so "row" here is a row-in-HLayout
+    // (parallel) case -- unlike the static file's row-in-VLayout -- which is why
+    // the two look different.
+    Text {
+        x: 100px; y: 5px; width: 295px; height: 30px;
+        horizontal-alignment: right;
+        vertical-alignment: center;
+        font-size: 14px;
+        text: "(in a HorizontalLayout)";
+    }
+
+    // --- Tall: 300px is more than the 130px the column needs -> no wrap ---
+    tallFlexBg := Rectangle {
+        x: 0; y: 50px; width: 400px; height: 300px;
+        border-color: gray;
+        border-width: 1px;
+        HorizontalLayout {
+            alignment: start;
+            cross-axis-alignment: start;
+            spacing: 10px;
+            tallFlex := FlexboxLayout {
+                flex-direction: root.dir;
+                spacing: 5px;
+                t1 := Rectangle { width: 50px; height: 40px; background: #c33; }
+                t2 := Rectangle { width: 50px; height: 40px; background: #3c3; }
+                t3 := Rectangle { width: 50px; height: 40px; background: #36c; }
+            }
+            tallSibling := Rectangle { min-width: 100px; height: 130px; background: #ffa50080; }
+        }
+        // Outline of the flex's reported box: it must contain all items and not
+        // reach into the (translucent) sibling.
+        Rectangle {
+            x: tallFlex.x; y: tallFlex.y; width: tallFlex.width; height: tallFlex.height;
+            background: transparent; border-color: #f0f; border-width: 2px;
+        }
+    }
+
+    // --- Short: 90px only fits two items -> the third wraps to a 2nd column ---
+    shortFlexBg := Rectangle {
+        x: 0; y: 350px; width: 400px; height: root.row-direction ? 200px : 90px;
+        border-color: gray;
+        border-width: 1px;
+        HorizontalLayout {
+            alignment: start;
+            cross-axis-alignment: start;
+            spacing: 10px;
+            shortFlex := FlexboxLayout {
+                flex-direction: root.dir;
+                spacing: 5px;
+                s1 := Rectangle { width: 50px; height: 40px; background: #c33; }
+                s2 := Rectangle { width: 50px; height: 40px; background: #3c3; }
+                s3 := Rectangle { width: 50px; height: 40px; background: #36c; }
+            }
+            shortSibling := Rectangle { min-width: 100px; height: 80px; background: #ffa50080; }
+        }
+        Rectangle {
+            x: shortFlex.x; y: shortFlex.y; width: shortFlex.width; height: shortFlex.height;
+            background: transparent; border-color: #f0f; border-width: 2px;
+        }
+    }
+
+    // Tall: single column (same x, increasing y), one column wide, no overlap.
+    out property <bool> tall_single_column: t1.x == t2.x && t2.x == t3.x
+        && t1.y < t2.y && t2.y < t3.y
+        && tallFlex.width == 50px;
+    out property <bool> tall_no_overlap: tallSibling.x >= tallFlex.x + tallFlex.width;
+    // Short: the third item wrapped into a second column, still no overlap.
+    out property <bool> short_wraps: s3.x > s1.x && shortFlex.width > 50px;
+    out property <bool> short_no_overlap: shortSibling.x >= shortFlex.x + shortFlex.width;
+
+    out property <bool> test: tall_single_column && tall_no_overlap && short_wraps && short_no_overlap;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_tall_single_column());
+assert(handle->get_tall_no_overlap());
+assert(handle->get_short_wraps());
+assert(handle->get_short_no_overlap());
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_tall_single_column(), "tall column flex must not wrap");
+assert!(instance.get_tall_no_overlap(), "tall flex overlaps its sibling");
+assert!(instance.get_short_wraps(), "short column flex must wrap into a 2nd column");
+assert!(instance.get_short_no_overlap(), "short flex overlaps its sibling");
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.tall_single_column);
+assert(instance.tall_no_overlap);
+assert(instance.short_wraps);
+assert(instance.short_no_overlap);
+assert(instance.test);
+```
+*/

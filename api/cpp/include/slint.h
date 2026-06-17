@@ -265,6 +265,13 @@ inline cbindgen_private::LayoutInfo flexbox_layout_info_main_axis(
                                                                  flex_wrap);
 }
 
+inline float flexbox_layout_unwrapped_main(
+        cbindgen_private::Slice<cbindgen_private::FlexboxLayoutItemInfo> cells, float spacing,
+        const cbindgen_private::Padding &padding)
+{
+    return cbindgen_private::slint_flexbox_layout_unwrapped_main(cells, spacing, &padding);
+}
+
 inline cbindgen_private::LayoutInfo flexbox_layout_info_cross_axis(
         cbindgen_private::Slice<cbindgen_private::FlexboxLayoutItemInfo> cells_h,
         cbindgen_private::Slice<cbindgen_private::FlexboxLayoutItemInfo> cells_v, float spacing_h,
