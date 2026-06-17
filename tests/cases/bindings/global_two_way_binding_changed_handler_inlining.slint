@@ -1,0 +1,45 @@
+import { ComboBox } from "std-widgets.slint";
+
+global TestGlobal {
+    in-out property <int> current-selection: 2;
+}
+
+// Originally, we reproduced the test with a combobox,
+// a combo-box was causing the regression, as it contains a changed handler on the current index.
+// Create a basic reproducer here so that internal changes to the combobox don't make the test invalid.
+export component TestCombobox {
+    in-out property <int> current-index;
+
+    in-out property <[string]> model;
+
+    changed current-index => {
+        debug(model[current-index]);
+    }
+}
+
+export component TestView {
+
+    in-out property <int> current-selection <=> combo-box.current-index;
+
+    // The ComboBox current-index has a changed handler which
+    // tries to access `root`.
+    // If the current-index is inlined into the TestGlobal, the changed callback
+    // will fail in the interpreter, as it cannot access `root`.
+    combo-box := TestCombobox {
+        model: ["1", "2", "3"];
+    }
+}
+
+export component Test {
+    view := TestView {
+        current-selection <=> TestGlobal.current-selection;
+    }
+
+    init => {
+        TestGlobal.current-selection = 1;
+    }
+
+    out property <bool> test: view.current-selection == 1;
+}
+
+
