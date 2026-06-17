@@ -259,7 +259,7 @@ impl DragArea {
 /// The implementation of the `DropArea` element
 pub struct DropArea {
     pub enabled: Property<bool>,
-    pub contains_drag: Property<bool>,
+    pub has_drag: Property<bool>,
     pub current_action: Property<DragAction>,
     pub can_drop: Callback<DropEventArg, DragAction>,
     pub dropped: Callback<DropEventArg, DragAction>,
@@ -308,16 +308,16 @@ impl Item for DropArea {
                 let chosen = clamp_action_to_allowed(raw, event);
                 self.current_action.set(chosen);
                 if chosen != DragAction::None {
-                    self.contains_drag.set(true);
+                    self.has_drag.set(true);
                     *cursor = cursor_for_action(chosen);
                     InputEventResult::EventAccepted
                 } else {
-                    self.contains_drag.set(false);
+                    self.has_drag.set(false);
                     InputEventResult::EventIgnored
                 }
             }
             MouseEvent::Drop(event) => {
-                self.contains_drag.set(false);
+                self.has_drag.set(false);
                 let returned =
                     Self::FIELD_OFFSETS.dropped().apply_pin(self).call(&(event.clone(),));
                 // The target's `dropped` return value is the final action reported back to
@@ -327,7 +327,7 @@ impl Item for DropArea {
                 InputEventResult::EventAccepted
             }
             MouseEvent::Exit => {
-                self.contains_drag.set(false);
+                self.has_drag.set(false);
                 self.current_action.set(DragAction::None);
                 InputEventResult::EventIgnored
             }

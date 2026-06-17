@@ -958,7 +958,7 @@ impl WindowInner {
                 .apply_pin(drag_area)
                 .call(&(action,));
             // The drag is over: reset the target's `current_action` so it matches
-            // `contains_drag` and the docstring ("none when no drag is hovering").
+            // `has_drag` and the docstring ("none when no drag is hovering").
             if let Some(target) = target {
                 target.as_pin_ref().current_action.set(crate::items::DragAction::None);
             }
