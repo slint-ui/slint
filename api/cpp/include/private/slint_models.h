@@ -1146,11 +1146,7 @@ public:
     /// Register the instance generation as a dependency of the current
     /// tracking scope. Layout code uses this to re-evaluate only after
     /// ensure_updated materializes instance changes.
-    void track_instance_changes() const
-    {
-        if (inner)
-            instance_generation.register_as_dependency();
-    }
+    void track_instance_changes() const { instance_generation.register_as_dependency(); }
 
     /// Register the ListView viewport properties as dependencies so that
     /// scrolling triggers a redraw.  Model dependencies are registered by
