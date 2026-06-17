@@ -3,26 +3,20 @@
 
 import { FileTreeIcons } from "file-tree-icons.slint";
 import { EditorTreeTokens } from "editor-tree-tokens.slint";
+import { Api, FileTreeNode, FileTreeNodeKind } from "../../api.slint";
 import { Palette } from "std-widgets.slint";
 
 component FileTreeRow inherits Rectangle {
-    in property <string> label;
-    in property <string> key;
-    in property <string> parent-key: "";
-    in property <int> level: 1;
-    in property <bool> folder: false;
-    in-out property <bool> expanded: false;
-    in-out property <string> active-key;
-    in-out property <string> active-folder-key;
+    in property <FileTreeNode> node;
     in property <int> max-gutter-columns: 8;
     in property <bool> tree-has-hover: false;
 
-    property <bool> active: active-key == key;
-    property <int> level-safe: max(1, level);
+    property <bool> folder: node.kind == FileTreeNodeKind.folder;
+    property <int> level-safe: max(1, node.indent-level + 1);
     property <int> gutter-segments: max(0, level-safe - 1);
     property <bool> row-has-hover: touch.has-hover;
     property <color> folder-icon-color: #d29922;
-    property <int> selected-guide-index: root.parent-key == root.active-folder-key ? root.level-safe - 2 : -1;
+    property <int> selected-guide-index: node.show-selected-guide ? root.level-safe - 2 : -1;
     property <color> selected-guide-color: Palette.color-scheme == ColorScheme.dark ? #474747 : #c4c4c4;
     property <color> guide-color: Palette.color-scheme == ColorScheme.dark ? #303030 : #e2e2e2;
 
@@ -31,10 +25,10 @@ component FileTreeRow inherits Rectangle {
     height: EditorTreeTokens.row-height;
     horizontal-stretch: 1;
     border-radius: EditorTreeTokens.row-radius;
-    background: active ? EditorTreeTokens.row-bg-current : touch.has-hover ? EditorTreeTokens.row-bg-hover : transparent;
+    background: node.is-selected ? EditorTreeTokens.row-bg-current : touch.has-hover ? EditorTreeTokens.row-bg-hover : transparent;
 
     changed row-has-hover => {
-        root.row-hover-changed(root.key, root.row-has-hover);
+        root.row-hover-changed(root.node.path, root.row-has-hover);
     }
 
     HorizontalLayout {
@@ -66,12 +60,12 @@ component FileTreeRow inherits Rectangle {
             height: EditorTreeTokens.row-height;
 
             Image {
-                visible: root.folder;
+                visible: root.folder && root.node.has-children;
                 width: 12px;
                 height: 12px;
                 x: 0px;
                 y: (parent.height - self.height) / 2;
-                source: root.expanded ? FileTreeIcons.chevron-down : FileTreeIcons.chevron-right;
+                source: root.node.is-expanded ? FileTreeIcons.chevron-down : FileTreeIcons.chevron-right;
                 colorize: EditorTreeTokens.muted-text;
             }
         }
@@ -88,7 +82,8 @@ component FileTreeRow inherits Rectangle {
                 height: EditorTreeTokens.icon-size;
                 vertical-alignment: center;
                 source: root.folder
-                    ? root.expanded ? FileTreeIcons.directory-open : FileTreeIcons.directory
+                    ? root.node.is-expanded ? FileTreeIcons.directory-open : FileTreeIcons.directory
+                    : root.node.kind == FileTreeNodeKind.image ? FileTreeIcons.image
                     : FileTreeIcons.file-code;
                 colorize: root.folder ? root.folder-icon-color : EditorTreeTokens.muted-text;
             }
@@ -96,7 +91,7 @@ component FileTreeRow inherits Rectangle {
             Text {
                 horizontal-stretch: 1;
                 vertical-alignment: center;
-                text: root.label;
+                text: root.node.label;
                 color: EditorTreeTokens.text;
                 font-size: 13px;
                 overflow: elide;
@@ -108,28 +103,17 @@ component FileTreeRow inherits Rectangle {
     touch := TouchArea {
         mouse-cursor: pointer;
         clicked => {
-            root.active-key = root.key;
-            root.active-folder-key = root.folder ? root.key : root.parent-key;
+            Api.file-tree-select(root.node.path);
             if root.folder {
-                root.expanded = !root.expanded;
+                Api.file-tree-toggle(root.node.path);
             }
         }
     }
 }
 
 export component FileTreeView inherits VerticalLayout {
-    in-out property <string> active-key: "simple-preview";
-    private property <string> active-folder-key: "example";
     private property <string> hovered-row-key: "";
     private property <bool> tree-has-hover: hovered-row-key != "";
-    private property <bool> project-expanded: true;
-    private property <bool> tools-expanded: true;
-    private property <bool> lsp-expanded: true;
-    private property <bool> ui-expanded: true;
-    private property <bool> visual-editor-expanded: true;
-    private property <bool> components-expanded: true;
-    private property <bool> assets-expanded: false;
-    private property <bool> examples-expanded: true;
 
     alignment: start;
     horizontal-stretch: 1;
@@ -138,167 +122,16 @@ export component FileTreeView inherits VerticalLayout {
     accessible-role: AccessibleRole.tree;
     accessible-label: "Files";
 
-    FileTreeRow {
-        label: "gb-slint";
-        key: "gb-slint";
-        folder: true;
-        expanded <=> root.project-expanded;
-        active-key <=> root.active-key;
-        active-folder-key <=> root.active-folder-key;
+    for row in Api.file-tree: FileTreeRow {
+        node: row;
         tree-has-hover: root.tree-has-hover;
-        row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
+        row-hover-changed(path, has-hover) => { root.update-hovered-row(path, has-hover); }
     }
 
-    if root.project-expanded: FileTreeRow {
-        label: "tools";
-        key: "tools";
-        parent-key: "gb-slint";
-        level: 2;
-        folder: true;
-        expanded <=> root.tools-expanded;
-        active-key <=> root.active-key;
-        active-folder-key <=> root.active-folder-key;
-        tree-has-hover: root.tree-has-hover;
-        row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
-    }
-
-    if root.project-expanded && root.tools-expanded: FileTreeRow {
-        label: "lsp";
-        key: "lsp";
-        parent-key: "tools";
-        level: 3;
-        folder: true;
-        expanded <=> root.lsp-expanded;
-        active-key <=> root.active-key;
-        active-folder-key <=> root.active-folder-key;
-        tree-has-hover: root.tree-has-hover;
-        row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
-    }
-
-    if root.project-expanded && root.tools-expanded && root.lsp-expanded: FileTreeRow {
-        label: "ui";
-        key: "ui";
-        parent-key: "lsp";
-        level: 4;
-        folder: true;
-        expanded <=> root.ui-expanded;
-        active-key <=> root.active-key;
-        active-folder-key <=> root.active-folder-key;
-        tree-has-hover: root.tree-has-hover;
-        row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
-    }
-
-    if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded: FileTreeRow {
-        label: "visual-editor";
-        key: "visual-editor";
-        parent-key: "ui";
-        level: 5;
-        folder: true;
-        expanded <=> root.visual-editor-expanded;
-        active-key <=> root.active-key;
-        active-folder-key <=> root.active-folder-key;
-        tree-has-hover: root.tree-has-hover;
-        row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
-    }
-
-    if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded: FileTreeRow {
-        label: "components";
-        key: "components";
-        parent-key: "visual-editor";
-        level: 6;
-        folder: true;
-        expanded <=> root.components-expanded;
-        active-key <=> root.active-key;
-        active-folder-key <=> root.active-folder-key;
-        tree-has-hover: root.tree-has-hover;
-        row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
-    }
-
-    if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded && root.components-expanded: FileTreeRow {
-        label: "editor.slint";
-        key: "editor";
-        parent-key: "components";
-        level: 7;
-        active-key <=> root.active-key;
-        active-folder-key <=> root.active-folder-key;
-        tree-has-hover: root.tree-has-hover;
-        row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
-    }
-
-    if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded && root.components-expanded: FileTreeRow {
-        label: "left-pane.slint";
-        key: "left-pane";
-        parent-key: "components";
-        level: 7;
-        active-key <=> root.active-key;
-        active-folder-key <=> root.active-folder-key;
-        tree-has-hover: root.tree-has-hover;
-        row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
-    }
-
-    if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded && root.components-expanded: FileTreeRow {
-        label: "outline-pane.slint";
-        key: "outline-pane";
-        parent-key: "components";
-        level: 7;
-        active-key <=> root.active-key;
-        active-folder-key <=> root.active-folder-key;
-        tree-has-hover: root.tree-has-hover;
-        row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
-    }
-
-    if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded: FileTreeRow {
-        label: "assets";
-        key: "visual-editor-assets";
-        parent-key: "visual-editor";
-        level: 6;
-        folder: true;
-        expanded <=> root.assets-expanded;
-        active-key <=> root.active-key;
-        active-folder-key <=> root.active-folder-key;
-        tree-has-hover: root.tree-has-hover;
-        row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
-    }
-
-    if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded && root.assets-expanded: FileTreeRow {
-        label: "phone-shell.png";
-        key: "phone-shell";
-        parent-key: "visual-editor-assets";
-        level: 7;
-        active-key <=> root.active-key;
-        active-folder-key <=> root.active-folder-key;
-        tree-has-hover: root.tree-has-hover;
-        row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
-    }
-
-    if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded: FileTreeRow {
-        label: "example";
-        key: "example";
-        parent-key: "visual-editor";
-        level: 6;
-        folder: true;
-        expanded <=> root.examples-expanded;
-        active-key <=> root.active-key;
-        active-folder-key <=> root.active-folder-key;
-        tree-has-hover: root.tree-has-hover;
-        row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
-    }
-
-    if root.project-expanded && root.tools-expanded && root.lsp-expanded && root.ui-expanded && root.visual-editor-expanded && root.examples-expanded: FileTreeRow {
-        label: "simple_preview.slint";
-        key: "simple-preview";
-        parent-key: "example";
-        level: 7;
-        active-key <=> root.active-key;
-        active-folder-key <=> root.active-folder-key;
-        tree-has-hover: root.tree-has-hover;
-        row-hover-changed(key, has-hover) => { root.update-hovered-row(key, has-hover); }
-    }
-
-    function update-hovered-row(key: string, has-hover: bool) {
+    function update-hovered-row(path: string, has-hover: bool) {
         if has-hover {
-            root.hovered-row-key = key;
-        } else if root.hovered-row-key == key {
+            root.hovered-row-key = path;
+        } else if root.hovered-row-key == path {
             root.hovered-row-key = "";
         }
     }
