@@ -48,7 +48,7 @@ export component OutlinePane inherits Rectangle {
 
             tree-content := Rectangle {
                 width: tree-scroll.width;
-                height: root-drop-target.height + outline-tree.preferred-height;
+                height: EditorTreeTokens.root-drop-height + outline-tree.preferred-height;
 
                 tree-drag-tracker := DropArea {
                     width: parent.width;
@@ -137,7 +137,7 @@ export component OutlinePane inherits Rectangle {
                 }
 
                 outline-tree := EditorTreeView {
-                    y: root-drop-target.height;
+                    y: EditorTreeTokens.root-drop-height;
                     width: parent.width;
                     accessible-name: "Current file outline";
                     rows: root.outline-data;
