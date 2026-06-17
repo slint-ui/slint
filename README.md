@@ -160,6 +160,8 @@ configure your favorite editor to work well with Slint.
 
 ## License
 
+See [LICENSE.md](LICENSE.md) for the licensing of the whole repository, including documentation and examples.
+
 You can use Slint under ***any*** of the following licenses, at your choice:
 
 1. Build proprietary desktop, mobile, or web applications for free with the [Royalty-free License](LICENSES/LicenseRef-Slint-Royalty-free-2.0.md),
