@@ -63,7 +63,7 @@ const TestCase &instance = *handle;
 assert_eq(instance.get_var1(), 20);
 assert_eq(instance.get_var2(), 50);
 assert_eq(instance.get_var3(), 70);
-assert_eq(instance.get_primary(), blue);
+assert_eq(instance.get_primary(), slint::Color::from_argb_uint8(255, 0, 0, 255));
 
 slint_testing::send_mouse_click(&instance, 0., 100.);
 assert_eq(instance.get_var1(), 20);
@@ -79,6 +79,7 @@ slint_testing::send_mouse_click(&instance, 300., 100.);
 assert_eq(instance.get_var1(), 20);
 assert_eq(instance.get_var2(), 50);
 assert_eq(instance.get_var3(), 140);
+```
 
 ```rust
 let instance = TestCase::new().unwrap();
@@ -86,7 +87,7 @@ let instance = TestCase::new().unwrap();
 assert_eq!(instance.get_var1(), 20);
 assert_eq!(instance.get_var2(), 50);
 assert_eq!(instance.get_var3(), 70);
-assert_eq!(instance.get_primary(), blue);
+assert_eq!(instance.get_primary(), slint::Color::from_argb_u8(255, 0, 0, 255));
 
 slint_testing::send_mouse_click(&instance, 0., 100.);
 assert_eq!(instance.get_var1(), 20);
@@ -102,4 +103,5 @@ slint_testing::send_mouse_click(&instance, 300., 100.);
 assert_eq!(instance.get_var1(), 20);
 assert_eq!(instance.get_var2(), 50);
 assert_eq!(instance.get_var3(), 140);
+```
 */
