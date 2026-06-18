@@ -5,7 +5,7 @@ import { Api, DropMark, PrototypeComponentKind, SelectionRectangle } from "../..
 import { EditorPalette } from "../../components/styling.slint";
 import {
     CanvasCorner, CanvasOrientation, CanvasSelectionKind, EditorMetrics, ImagePlaceholder,
-    StudioTheme,
+    OrientationIconButton, StudioTheme,
 } from "common.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
 import { RectangleOnCanvas } from "rectangle.slint";
@@ -103,6 +103,7 @@ export component EditorCanvas inherits Rectangle {
     private property <Size> selection-drag-size;
 
     callback selected(CanvasSelectionKind);
+    callback orientation-selected(CanvasOrientation);
     callback real-element-selected();
     callback interaction-started();
     callback move-rectangle-to(Point);
@@ -467,6 +468,35 @@ export component EditorCanvas inherits Rectangle {
                 font-size: 12px;
                 horizontal-alignment: center;
                 vertical-alignment: center;
+            }
+        }
+    }
+
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: 14px;
+        width: 84px;
+        height: 38px;
+        border-radius: 8px;
+        background: StudioTheme.panel-subtle;
+
+        HorizontalLayout {
+            padding: 4px;
+            spacing: 4px;
+
+            OrientationIconButton {
+                selected: root.orientation == CanvasOrientation.portrait;
+                clicked => {
+                    root.orientation-selected(CanvasOrientation.portrait);
+                }
+            }
+
+            OrientationIconButton {
+                landscape: true;
+                selected: root.orientation == CanvasOrientation.landscape;
+                clicked => {
+                    root.orientation-selected(CanvasOrientation.landscape);
+                }
             }
         }
     }

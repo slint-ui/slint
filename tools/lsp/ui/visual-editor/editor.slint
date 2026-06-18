@@ -4,7 +4,6 @@
 import { Api, EditorSurfaceMode } from "../api.slint";
 import { ProjectKind, StartupWizard } from "startup-wizard.slint";
 import { StudioTheme } from "components/common.slint";
-import { CanvasToolbar } from "components/canvas-toolbar.slint";
 import { DragPreview } from "components/drag-preview.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
 import { EditorState } from "components/editor-state.slint";
@@ -88,13 +87,6 @@ export component EditorUi inherits Window {
             VerticalLayout {
                 EditorTopBar { }
 
-                if Api.editor-surface-mode == EditorSurfaceMode.component: CanvasToolbar {
-                    orientation: state.canvas-orientation;
-                    orientation-selected(orientation) => {
-                        state.set-canvas-orientation(orientation);
-                    }
-                }
-
                 HorizontalLayout {
                     vertical-stretch: 1;
 
@@ -122,6 +114,9 @@ export component EditorUi inherits Window {
                         rectangle-bottom-left-radius: state.rectangle-bottom-left-radius;
                         text-rotation: state.text-rotation;
                         image-rotation: state.image-rotation;
+                        orientation-selected(orientation) => {
+                            state.set-canvas-orientation(orientation);
+                        }
                         selected(kind) => {
                             state.selection = kind;
                             editor.focus();
