@@ -344,18 +344,6 @@ Use one of the following methods to help the Slint compiler resolve libraries to
 path on disk:
 
 <Tabs syncKey="dev-language">
-<TabItem label="C++">
-* Specify `LIBRARY_PATHS` with <LangRefLink lang="cpp" relpath="cmake-reference/slint-target-sources/">`slint_target_sources`</LangRefLink>. For example:
-
-```cmake
-slint_target_sources(my_application
-    ui/main.slint
-    LIBRARY_PATHS
-        material=${CMAKE_CURRENT_SOURCE_DIR}/material-1.0/material.slint
-)
-```
-
-</TabItem>
 <TabItem label="Rust">
 * In `build.rs`, call <LangRefLink lang="rust-slint-build" relpath="struct.CompilerConfiguration#method.with_library_paths">`with_library_paths`</LangRefLink>
   to provide a mapping from library name to path. For example:
@@ -371,6 +359,18 @@ fn main() {
     let config = slint_build::CompilerConfiguration::new().with_library_paths(library_paths);
     slint_build::compile_with_config("ui/main.slint", config).unwrap();
 }
+```
+
+</TabItem>
+<TabItem label="C++">
+* Specify `LIBRARY_PATHS` with <LangRefLink lang="cpp" relpath="cmake-reference/slint-target-sources/">`slint_target_sources`</LangRefLink>. For example:
+
+```cmake
+slint_target_sources(my_application
+    ui/main.slint
+    LIBRARY_PATHS
+        material=${CMAKE_CURRENT_SOURCE_DIR}/material-1.0/material.slint
+)
 ```
 
 </TabItem>
