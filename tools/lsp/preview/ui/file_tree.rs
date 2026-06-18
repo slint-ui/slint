@@ -85,10 +85,15 @@ impl FileTreeController {
         let Some(path) = self.path_in_root(path) else {
             return;
         };
+        let is_slint_file = is_slint_file(&path);
 
         self.selected_path = Some(path.clone());
         self.active_folder_path = active_folder_for_path(&path).unwrap_or(&self.root).to_path_buf();
         self.publish(api);
+
+        if is_slint_file {
+            super::super::request_file_tree_preview(&path);
+        }
     }
 
     fn toggle(&mut self, path: &Path, api: &Api<'_>) {
@@ -135,6 +140,12 @@ fn is_directory(path: &Path) -> bool {
     std::fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_dir())
 }
 
+fn is_slint_file(path: &Path) -> bool {
+    path.extension().and_then(|extension| extension.to_str()).is_some_and(|extension| {
+        extension.eq_ignore_ascii_case("slint")
+    })
+}
+
 fn build_file_tree_rows(
     root: &Path,
     expanded: &HashSet<PathBuf>,
@@ -172,6 +183,7 @@ fn append_node(
         has_children: !children.is_empty(),
         is_expanded,
         is_selected: selected_path.is_some_and(|selected| selected == path),
+        is_slint_file: !is_folder && is_slint_file(path),
         show_selected_guide: parent.is_some_and(|parent| parent == active_folder_path),
         kind: file_tree_node_kind(path, is_folder),
     });
@@ -419,6 +431,19 @@ mod tests {
             rows.iter().find(|row| row.label == "source.slint").unwrap().kind,
             FileTreeNodeKind::File
         );
+    }
+
+    #[test]
+    fn slint_files_are_marked_openable() {
+        let tree = TempTree::new();
+        tree.file("view.slint");
+        tree.file("image.png");
+
+        let rows =
+            build_file_tree_rows(&tree.root, &HashSet::from([tree.root.clone()]), None, &tree.root);
+
+        assert!(rows.iter().find(|row| row.label == "view.slint").unwrap().is_slint_file);
+        assert!(!rows.iter().find(|row| row.label == "image.png").unwrap().is_slint_file);
     }
 
     #[test]
