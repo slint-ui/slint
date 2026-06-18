@@ -132,8 +132,10 @@ pub fn create_ui(
         model
     });
 
-    api.set_current_style(style.clone().into());
+    let current_style_index =
+        known_styles.iter().position(|&s| s == style.as_str()).unwrap_or(0) as i32;
     api.set_known_styles(style_model.into());
+    api.set_current_style_index(current_style_index);
 
     api.on_add_new_component(super::add_new_component);
     api.on_rename_component(super::rename_component);

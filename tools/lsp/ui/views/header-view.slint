@@ -10,7 +10,7 @@ import { EditorSpaceSettings, Icons, ConsoleStyles } from "../components/styling
 
 export component HeaderView {
     in-out property <bool> edit-mode <=> interaction-switch.checked;
-    in-out property <string> current-style <=> style-combobox.current-value;
+    in-out property <int> current-style-index <=> style-combobox.current-index;
     in property <[string]> known-styles <=> style-combobox.model;
     in-out property <PreviewMode> preview-mode: PreviewMode.Local;
     in property <bool> remote-mode;
