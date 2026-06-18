@@ -108,7 +108,8 @@ fn resolve_expression(
             _ => *expr = new_expr,
         }
     // Specifically used to resolve match expressions
-    } else if let Expression::BinaryExpression { lhs, rhs, .. } = expr {
+    } else if let Expression::BinaryExpression { lhs, rhs, op } = expr {
+        let op = *op;
         let rhs_node =
             if let Expression::Uncompiled(node) = rhs.as_ref() { Some(node.clone()) } else { None };
 
@@ -132,36 +133,37 @@ fn resolve_expression(
             type_loader,
             diag,
         );
+        if op == '=' {
+            let is_literal = matches!(
+                rhs.as_ref(),
+                Expression::NumberLiteral(..)
+                    | Expression::StringLiteral(..)
+                    | Expression::BoolLiteral(..)
+                    | Expression::EnumerationValue(..)
+            );
+            let is_cast = matches!(rhs.as_ref(), Expression::Cast { .. });
+            let is_valid_cast = matches!(
+                rhs.as_ref(),
+                Expression::Cast { from, to, .. }
+                    if matches!(from.as_ref(), Expression::NumberLiteral(..))
+                        && matches!(to, Type::Color | Type::Int32)
+            );
+            if let Expression::NumberLiteral(val, unit) = rhs.as_ref()
+                && *unit == Unit::None
+                && val.fract() != 0.0
+                && let Some(node) = &rhs_node
+            {
+                diag.push_warning("Floating point comparison is not recommended".into(), node);
+            }
 
-        let is_literal = matches!(
-            rhs.as_ref(),
-            Expression::NumberLiteral(..)
-                | Expression::StringLiteral(..)
-                | Expression::BoolLiteral(..)
-                | Expression::EnumerationValue(..)
-        );
-        let is_cast = matches!(rhs.as_ref(), Expression::Cast { .. });
-        let is_valid_cast = matches!(
-            rhs.as_ref(),
-            Expression::Cast { from, to, .. }
-                if matches!(from.as_ref(), Expression::NumberLiteral(..))
-                    && matches!(to, Type::Color | Type::Int32)
-        );
-        if let Expression::NumberLiteral(val, unit) = rhs.as_ref()
-            && *unit == Unit::None
-            && val.fract() != 0.0
-            && let Some(node) = &rhs_node
-        {
-            diag.push_warning("Floating point comparison is not recommended".into(), node);
-        }
-
-        if let Some(node) = rhs_node {
-            if is_literal || is_valid_cast {
-                // pass
-            } else if is_cast {
-                diag.push_error("Cannot perform type conversion".into(), &node);
-            } else {
-                diag.push_error("Match expressions must be literal values".into(), &node);
+            if let Some(node) = rhs_node {
+                if is_literal || is_valid_cast {
+                    // pass
+                } else if is_cast {
+                    diag.push_error("Cannot perform type conversion".into(), &node);
+                } else {
+                    diag.push_error("Match expressions must be literal values".into(), &node);
+                }
             }
         }
     }
