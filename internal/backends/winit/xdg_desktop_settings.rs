@@ -248,8 +248,9 @@ pub(crate) fn spawn(
         })
         .ok();
 
-    // Safety net: create the windows anyway if the portal never answers. Clearing
-    // the flag lets the next `about_to_wait` create the pending inactive windows.
+    // Safety net: create the windows anyway if the portal never answers.
+    // After the timer fires, the event loop returns to `about_to_wait`,
+    // which then creates any pending inactive windows.
     i_slint_core::timers::Timer::single_shot(APPEARANCE_QUERY_TIMEOUT, move || {
         finish_appearance_query(&shared_weak);
     });
