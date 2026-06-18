@@ -6,10 +6,10 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
+use super::editor_user_settings::EditorUserSettings;
 use super::user_settings::PreviewUserSettings;
 use i_slint_compiler::parser::TextRange;
 use i_slint_compiler::{expression_tree, langtype};
-use super::editor_user_settings::EditorUserSettings;
 
 use i_slint_core::DataTransfer;
 use itertools::Itertools;
@@ -265,6 +265,7 @@ pub fn create_ui(
     api.on_selected_element_can_move_to(super::can_move_selected_element);
     api.on_selected_element_move(super::move_selected_element);
     api.on_selected_element_delete(super::delete_selected_element);
+    api.on_override_selected_element_geometry(super::override_selected_element_geometry);
 
     api.on_test_code_binding(super::test_code_binding);
     api.on_set_code_binding(super::set_code_binding);

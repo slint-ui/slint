@@ -26,10 +26,12 @@ use i_slint_live_preview::protocol::{
 use lsp_types::Url;
 use slint::{PlatformError, SharedString, ToSharedString};
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
+use smol_str::SmolStr;
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::rc::Rc;
 use user_settings::{PREVIEW_SETTINGS_FILE, PreviewUserSettings};
 
@@ -144,6 +146,11 @@ pub struct PreviewState {
     /// The handle to the previewed component instance
     handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
     document_cache: Rc<RefCell<Option<Rc<common::DocumentCache>>>>,
+    debug_hook_overrides: Rc<
+        RefCell<
+            HashMap<SmolStr, Pin<Box<i_slint_core::Property<Option<slint_interpreter::Value>>>>>,
+        >,
+    >,
     selected: Option<element_selection::ElementSelection>,
     notify_editor_about_selection_after_update: bool,
     workspace_edit_sent: bool,
@@ -991,6 +998,68 @@ fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
     send_workspace_edit(label, edit, true);
 }
 
+fn override_selected_element_geometry(x: f32, y: f32, width: f32, height: f32) {
+    tracing::trace!(
+        "Setting geometry preview x: {}, y: {}, width: {}, height: {}",
+        x,
+        y,
+        width,
+        height
+    );
+    let Some(element_selection) = &selected_element() else { return };
+    let Some(element_node) = element_selection.as_element_node() else { return };
+    let Some(component_instance) = component_instance() else { return };
+
+    let element_hash = element_node
+        .element
+        .borrow()
+        .debug
+        .get(element_node.debug_index)
+        .map(|d| d.element_hash)
+        .unwrap_or(0);
+    if element_hash == 0 {
+        tracing::debug!("Element does not have a hash, cannot override geometry");
+        return;
+    }
+
+    let position = LogicalPoint::new(x, y);
+    let root_element = element_selection::root_element(&component_instance);
+    let parent = search_for_parent_element(&root_element, &element_node.element)
+        .and_then(|parent_element| {
+            component_instance
+                .element_positions(&parent_element)
+                .iter()
+                .find(|g| g.contains(position))
+                .map(|g| g.rect.origin)
+        })
+        .unwrap_or_default();
+
+    // Round to match the values written on release by resize_selected_element_impl,
+    // so the element does not jump by a sub-pixel amount when the drag is committed.
+    let values = [
+        ("x", (position.x - parent.x).round() as f64),
+        ("y", (position.y - parent.y).round() as f64),
+        ("width", width.round() as f64),
+        ("height", height.round() as f64),
+    ];
+
+    PREVIEW_STATE.with_borrow(|preview_state| {
+        let m = (*preview_state.debug_hook_overrides).borrow();
+        for (name, val) in values {
+            let id = i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(name));
+            let Some(property_override) = m.get(&id) else {
+                tracing::debug!(
+                    "Property debug hook {name} does not exist, cannot override geometry",
+                );
+                return;
+            };
+            (**property_override).set(Some(slint_interpreter::Value::Number(val)));
+        }
+    });
+
+    component_instance.window().request_redraw();
+}
+
 fn resize_selected_element_impl(
     element_node: &ElementRcNode,
     instance_index: usize,
@@ -1296,7 +1365,6 @@ fn previewed_component_changed() {
                     ui::palette::set_palette(&api, palettes);
                 }
                 ui::ui_set_uses_widgets(&api, uses_widgets);
-                eprintln!("Setting components");
                 ui::ui_set_known_components(&api, &preview_state.known_components, index);
                 let component = document_cache.get_document(&previewed_url).and_then(|doc| {
                     match preview_component.as_ref() {
@@ -1567,6 +1635,7 @@ async fn parse_source(
     cc.include_paths = config.include_paths;
     cc.library_paths = config.library_paths;
     cc.enable_experimental |= config.enable_experimental;
+    cc.debug_hooks = Some(std::hash::RandomState::new());
 
     let (open_file_fallback, source_file_versions) =
         common::document_cache::document_cache_parts_setup(
@@ -2072,6 +2141,7 @@ fn update_preview_area(
         let api = preview_state.api.upgrade().unwrap();
         let shared_handle = preview_state.handle.clone();
         let shared_document_cache = preview_state.document_cache.clone();
+        let shared_overrides = preview_state.debug_hook_overrides.clone();
 
         if let Some(compiled) = compiled {
             api.set_focus_previewed_element(behavior == LoadBehavior::BringWindowToFront);
@@ -2083,7 +2153,6 @@ fn update_preview_area(
                 compiled,
                 Box::new(move |instance| {
                     if let Some(rtl) = instance.definition().raw_type_loader() {
-                        eprintln!("Setting document cache");
                         shared_document_cache.replace(Some(Rc::new(
                             common::DocumentCache::new_from_raw_parts(
                                 rtl,
@@ -2091,6 +2160,26 @@ fn update_preview_area(
                                 source_file_versions.clone(),
                                 format,
                             ),
+                        )));
+                    }
+
+                    // element_hash (and thus hook ids) change on every recompile, so drop stale overrides.
+                    (*shared_overrides).borrow_mut().clear();
+                    {
+                        let overrides = shared_overrides.clone();
+                        instance.set_debug_hook_callback(Some(Box::new(
+                            move |id: &str,
+                                  value: slint_interpreter::Value|
+                                  -> slint_interpreter::Value {
+                                let mut m = (*overrides).borrow_mut();
+                                let p = m
+                                    .entry(SmolStr::from(id))
+                                    .or_insert_with(|| Box::pin(i_slint_core::Property::new(None)));
+                                match p.as_ref().get() {
+                                    Some(v) => v,
+                                    None => value,
+                                }
+                            },
                         )));
                     }
 
