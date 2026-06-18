@@ -332,7 +332,7 @@ async fn lsp_main(
             }
             msg = from_preview_rx.recv() => {
                 match msg {
-                    Some(msg) => handle_preview_message(msg, &mut ctx),
+                    Some(msg) => handle_preview_message(msg, &mut ctx).await,
                     None => {
                         tracing::debug!("Preview->LSP channel closed, exiting");
                         break Ok(());
@@ -397,11 +397,22 @@ fn sync_file_watcher_if_needed(
     Ok(())
 }
 
-fn handle_preview_message(msg: PreviewToLspMessage, ctx: &mut language::Context) {
+async fn handle_preview_message(msg: PreviewToLspMessage, ctx: &mut language::Context) {
     use PreviewToLspMessage::*;
     match &msg {
         RequestState { files, settings } => {
             tracing::debug!("Preview requested state");
+            let requested_preview = requested_file_tree_preview(files, settings);
+            let slint_files: Vec<_> =
+                files.iter().filter(|url| is_slint_url(url)).cloned().collect();
+            for url in slint_files {
+                if let Err(err) = language::reload_document(ctx, url.clone()).await {
+                    tracing::error!("Failed document reload requested by preview for {url}: {err}");
+                }
+            }
+            if let Some(url) = requested_preview {
+                ctx.to_show = Some(PreviewComponent { url, component: None });
+            }
             language::send_requested_state_to_preview(ctx, files, settings);
         }
         UpdateUserSettings { name, contents } => {
@@ -431,6 +442,22 @@ fn handle_preview_message(msg: PreviewToLspMessage, ctx: &mut language::Context)
             handle_workspace_edit(&ctx.document_cache, label.as_deref(), edit);
         }
     }
+}
+
+fn requested_file_tree_preview(files: &[Url], settings: &[String]) -> Option<Url> {
+    if settings.is_empty() && files.len() == 1 && is_slint_url(&files[0]) {
+        Some(files[0].clone())
+    } else {
+        None
+    }
+}
+
+fn is_slint_url(url: &Url) -> bool {
+    common::uri_to_file(url).is_some_and(|path| {
+        path.extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("slint"))
+    })
 }
 
 fn handle_workspace_edit(

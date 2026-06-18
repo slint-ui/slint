@@ -3,8 +3,8 @@
 
 import {
     AppState, CanvasCorner, CanvasOrientation, CanvasSelectionKind, EditorMetrics, LeftPaneMode,
-    PrototypeComponentKind,
 } from "common.slint";
+import { Api, PrototypeComponentKind } from "../../api.slint";
 
 export component EditorState inherits Rectangle {
     in property <length> window-width;
@@ -202,7 +202,22 @@ export component EditorState inherits Rectangle {
     public function finish-visual-drag(kind: PrototypeComponentKind, window-position: Point) {
         root.update-visual-drag(kind, window-position);
         if root.canvas-drop-hover {
-            root.place-component-at(kind, root.canvas-drop-position);
+            if kind == PrototypeComponentKind.rectangle {
+                Api.drop-with-geometry(
+                    Api.new-prototype-component-data(kind),
+                    window-position.x - root.phone-left(),
+                    window-position.y - root.phone-top(),
+                    root.canvas-drop-position.x,
+                    root.canvas-drop-position.y,
+                    AppState.drag-preview-size.width,
+                    AppState.drag-preview-size.height,
+                );
+                root.placed-kind = PrototypeComponentKind.none;
+            } else {
+                root.place-component-at(kind, root.canvas-drop-position);
+            }
+        } else if kind == PrototypeComponentKind.rectangle {
+            root.placed-kind = PrototypeComponentKind.none;
         }
         AppState.dragging-kind = PrototypeComponentKind.none;
         root.canvas-drop-hover = false;
@@ -337,6 +352,33 @@ export component EditorState inherits Rectangle {
     public function rotate-text-to(rotation: angle) {
         root.selection = CanvasSelectionKind.text;
         root.text-rotation = rotation;
+    }
+
+    public function set-selected-geometry(position: Point, size: Size) -> bool {
+        if root.selection == CanvasSelectionKind.rectangle {
+            root.rectangle-size = {
+                width: size.width.clamp(80px, root.phone-width()),
+                height: size.height.clamp(44px, root.phone-height()),
+            };
+            root.placed-position = {
+                x: position.x.clamp(0px, root.phone-width() - root.rectangle-size.width),
+                y: position.y.clamp(0px, root.phone-height() - root.rectangle-size.height),
+            };
+            root.clamp-rectangle-radii();
+            return true;
+        }
+        if root.selection == CanvasSelectionKind.text {
+            root.text-size = {
+                width: size.width.clamp(80px, root.phone-width()),
+                height: size.height.clamp(32px, root.phone-height()),
+            };
+            root.placed-position = {
+                x: position.x.clamp(0px, root.phone-width() - root.text-size.width),
+                y: position.y.clamp(0px, root.phone-height() - root.text-size.height),
+            };
+            return true;
+        }
+        return false;
     }
 
     public function move-image-to(position: Point) {

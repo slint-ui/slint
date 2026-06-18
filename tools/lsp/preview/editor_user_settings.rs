@@ -62,10 +62,7 @@ mod tests {
 
     #[test]
     fn deserialize_uses_defaults_for_missing_keys() {
-        assert_eq!(
-            EditorUserSettings::deserialize("{}"),
-            Some(EditorUserSettings::default())
-        );
+        assert_eq!(EditorUserSettings::deserialize("{}"), Some(EditorUserSettings::default()));
     }
 
     #[test]

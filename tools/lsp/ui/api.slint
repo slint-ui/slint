@@ -61,6 +61,18 @@ export enum PreviewMode {
     Remote,
 }
 
+export enum PrototypeComponentKind {
+    none,
+    rectangle,
+    text,
+    image,
+}
+
+export enum EditorSurfaceMode {
+    component,
+    image,
+}
+
 /// What kind of layout we are working with
 export enum LayoutKind {
     None,
@@ -301,6 +313,33 @@ export enum DropLocation {
     after,
 }
 
+export enum FileTreeNodeKind {
+    folder,
+    file,
+    image,
+}
+
+export struct FileTreeNode {
+    label: string,
+    path: string,
+    parent-path: string,
+    indent-level: int,
+    has-children: bool,
+    is-expanded: bool,
+    is-selected: bool,
+    is-slint-file: bool,
+    show-selected-guide: bool,
+    kind: FileTreeNodeKind,
+}
+
+export struct ImageAssetPreview {
+    path: string,
+    relative-path: string,
+    format: string,
+    image: image,
+    error: string,
+}
+
 export global Api {
     // # Properties
     // ## General preview state:
@@ -355,6 +394,7 @@ export global Api {
     in-out property <component-factory> preview-area;
 
     pure callback new-component-data(index: int) -> data-transfer;
+    pure callback new-prototype-component-data(kind: PrototypeComponentKind) -> data-transfer;
     pure callback move-element-instance-data(component-uri: string, offset: int) -> data-transfer;
 
     // set to true to resize
@@ -365,7 +405,14 @@ export global Api {
     in-out property <[color]> recent-colors;
 
     // ## Property Editor
-    in-out property <ElementInformation> current-element;
+    in-out property <ElementInformation> current-element: {
+        id: "title-text",
+        component-name: "MockEditor",
+        type-name: "Text",
+        source-uri: "file:///mock/editor.slint",
+        source-version: 0,
+        offset: 128,
+    };
     in-out property <[PropertyGroup]> properties: [
         {
             group-name: "Geometry",
@@ -521,11 +568,81 @@ export global Api {
     callback properties-search(string);
 
     // ## Outline
-    in-out property <[OutlineTreeNode]> outline;
+    in-out property <[OutlineTreeNode]> outline: [
+        {
+            indent-level: 0,
+            has-children: true,
+            is-expanded: true,
+            is-last-child: true,
+            icon-kind: OutlineNodeIconKind.default,
+            element-type: "MockEditor inherits Window",
+            element-id: "MockEditor",
+            uri: "file:///mock/editor.slint",
+            offset: 0,
+        },
+        {
+            indent-level: 1,
+            has-children: true,
+            is-expanded: true,
+            is-last-child: false,
+            icon-kind: OutlineNodeIconKind.rectangle,
+            element-type: "Rectangle",
+            element-id: "content-panel",
+            uri: "file:///mock/editor.slint",
+            offset: 64,
+        },
+        {
+            indent-level: 2,
+            has-children: false,
+            is-expanded: false,
+            is-last-child: false,
+            icon-kind: OutlineNodeIconKind.text,
+            element-type: "Text",
+            element-id: "title-text",
+            uri: "file:///mock/editor.slint",
+            offset: 128,
+        },
+        {
+            indent-level: 2,
+            has-children: false,
+            is-expanded: false,
+            is-last-child: true,
+            icon-kind: OutlineNodeIconKind.image,
+            element-type: "Image",
+            element-id: "hero-image",
+            uri: "file:///mock/editor.slint",
+            offset: 192,
+        },
+        {
+            indent-level: 1,
+            has-children: false,
+            is-expanded: false,
+            is-last-child: true,
+            icon-kind: OutlineNodeIconKind.default,
+            element-type: "CustomControl",
+            element-id: "actions",
+            uri: "file:///mock/editor.slint",
+            offset: 256,
+        },
+    ];
     callback outline-select-element(uri: string, offset: int, notify_editor: bool);
     // Data is either a "file:offset" for an element to move, or just a component index.
     callback outline-drop(data: data-transfer, uri: string, offset: int, location: DropLocation);
     callback outline-can-drop(data: data-transfer, uri: string, offset: int, location: DropLocation) -> bool;
+
+    // ## File Tree
+    in-out property <[FileTreeNode]> file-tree;
+    in-out property <EditorSurfaceMode> editor-surface-mode: EditorSurfaceMode.component;
+    in-out property <ImageAssetPreview> selected-image-asset;
+    in-out property <int> image-nine-slice-top;
+    in-out property <int> image-nine-slice-right;
+    in-out property <int> image-nine-slice-bottom;
+    in-out property <int> image-nine-slice-left;
+    callback file-tree-toggle(path: string);
+    callback file-tree-select(path: string);
+    pure callback image-nine-slice-expression(path: string, top: int, right: int, bottom: int, left: int) -> string;
+    pure callback image-nine-slice-preview(source: image, top: int, right: int, bottom: int, left: int) -> image;
+    callback copy-nine-slice-expression(value: string);
 
     // ## preview data
 
@@ -550,6 +667,7 @@ export global Api {
     // Add an existing component
     pure callback can-drop(data: data-transfer, x: length, y: length, on-drop-area: bool) -> bool;
     callback drop(data: data-transfer, x: length, y: length);
+    callback drop-with-geometry(data: data-transfer, hit-x: length, hit-y: length, x: length, y: length, width: length, height: length);
 
     callback rename-component(old-name: string, defined-at: string, new-name: string);
 

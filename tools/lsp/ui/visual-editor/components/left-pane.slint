@@ -3,10 +3,11 @@
 
 import { ScrollView } from "std-widgets.slint";
 import {
-    EdgeDivider, EditorMetrics, LeftPaneMode, PrimerActionListRow, PrimerNavRow, PrimerSegmentedTab,
-    PrimerTextInput, PrototypeComponentKind, SectionTitle, StudioTheme,
+    EdgeDivider, EditorMetrics, LeftPaneMode, PrimerActionListRow, PrimerSegmentedTab, PrimerTextInput,
+    SectionTitle, StudioTheme,
 } from "common.slint";
-import { Api } from "../../api.slint";
+import { Api, PrototypeComponentKind } from "../../api.slint";
+import { FileTreeView } from "file-tree-view.slint";
 import { LibraryComponentRow } from "library-component-row.slint";
 
 export component LeftPane inherits Rectangle {
@@ -64,22 +65,10 @@ export component LeftPane inherits Rectangle {
             vertical-stretch: 1;
             viewport-width: self.width;
             viewport-height: file-list.preferred-height;
+            vertical-scrollbar-policy: always-off;
 
-            file-list := VerticalLayout {
+            file-list := FileTreeView {
                 width: parent.width;
-                spacing: 6px;
-
-                SectionTitle { label: "PROJECT"; }
-                PrimerNavRow { label: "slint-mobile"; glyph: "DIR"; }
-                PrimerNavRow { label: "ui"; glyph: "DIR"; indent: 16px; }
-                PrimerNavRow { label: "main.slint"; glyph: "SL"; indent: 32px; selected: true; }
-                PrimerNavRow { label: "assets"; glyph: "DIR"; indent: 16px; }
-                PrimerNavRow { label: "theme.slint"; glyph: "SL"; indent: 32px; }
-
-                Rectangle { height: 12px; }
-                SectionTitle { label: "RECENT"; }
-                PrimerNavRow { label: "login-flow.slint"; glyph: "SL"; }
-                PrimerNavRow { label: "settings-panel.slint"; glyph: "SL"; }
             }
         }
 
@@ -87,10 +76,45 @@ export component LeftPane inherits Rectangle {
             vertical-stretch: 1;
             viewport-width: self.width;
             viewport-height: library-list.preferred-height;
+            vertical-scrollbar-policy: always-off;
 
             library-list := VerticalLayout {
                 width: parent.width;
                 spacing: 10px;
+
+                SectionTitle { label: "BASIC"; }
+
+                PrimerActionListRow {
+                    kind: PrototypeComponentKind.rectangle;
+                    label: "Rectangle";
+                    detail: "Prototype shape";
+                    glyph: "R";
+                    drag-started(kind, position) => { root.drag-started(kind, position); }
+                    drag-moved(kind, position) => { root.drag-moved(kind, position); }
+                    drag-ended(kind, position) => { root.drag-ended(kind, position); }
+                }
+
+                PrimerActionListRow {
+                    kind: PrototypeComponentKind.text;
+                    label: "Text";
+                    detail: "Prototype label";
+                    glyph: "T";
+                    drag-started(kind, position) => { root.drag-started(kind, position); }
+                    drag-moved(kind, position) => { root.drag-moved(kind, position); }
+                    drag-ended(kind, position) => { root.drag-ended(kind, position); }
+                }
+
+                PrimerActionListRow {
+                    kind: PrototypeComponentKind.image;
+                    label: "Image";
+                    detail: "Prototype media";
+                    glyph: "I";
+                    drag-started(kind, position) => { root.drag-started(kind, position); }
+                    drag-moved(kind, position) => { root.drag-moved(kind, position); }
+                    drag-ended(kind, position) => { root.drag-ended(kind, position); }
+                }
+
+                Rectangle { height: 6px; }
 
                 for category in Api.known-components: VerticalLayout {
                     width: parent.width;

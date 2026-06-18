@@ -388,19 +388,29 @@ fn can_drop(
     };
 
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
+    enum CachedDropLocation {
+        Onto,
+        Before,
+        After,
+    }
+
+    let cached_location = if location == ui::DropLocation::Onto {
+        CachedDropLocation::Onto
+    } else if location == ui::DropLocation::Before {
+        CachedDropLocation::Before
+    } else {
+        CachedDropLocation::After
+    };
+
+    #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     struct CacheEntry {
         data: DragItem,
         target_uri: SharedString,
         target_offset: i32,
-        location: bool,
+        location: CachedDropLocation,
     }
     thread_local!(static CACHE: RefCell<clru::CLruCache<CacheEntry, bool>> = RefCell::new(clru::CLruCache::new(NonZeroUsize::new(10).unwrap())));
-    let cache_entry = CacheEntry {
-        data,
-        target_uri,
-        target_offset,
-        location: location == ui::DropLocation::Onto,
-    };
+    let cache_entry = CacheEntry { data, target_uri, target_offset, location: cached_location };
     let Some(document_cache) = super::document_cache() else { return false };
     CACHE.with_borrow_mut(|cache| {
         if let Some(does_compile) = cache.get(&cache_entry) {

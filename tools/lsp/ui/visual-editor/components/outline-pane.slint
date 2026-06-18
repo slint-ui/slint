@@ -1,33 +1,41 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, OutlineTreeNode } from "../../api.slint";
+import { Api, DropLocation, EditorSurfaceMode, OutlineTreeNode } from "../../api.slint";
 import { EditorTreeView } from "editor-tree-view.slint";
-import { SectionTitle, StudioTheme } from "common.slint";
+import { EditorTreeTokens } from "editor-tree-tokens.slint";
+import { AppState, SectionTitle, StudioTheme } from "common.slint";
 
 export component OutlinePane inherits Rectangle {
     property <[OutlineTreeNode]> outline-data <=> Api.outline;
+    property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
+    callback element-selected();
 
     background: StudioTheme.panel-bg;
 
     VerticalLayout {
-        padding-left: 12px;
-        padding-right: 12px;
+        padding-right: 10px;
         padding-top: 14px;
         padding-bottom: 12px;
-        spacing: 10px;
+        spacing: 4px;
 
-        SectionTitle {
-            label: "OUTLINE";
+        HorizontalLayout {
+            alignment: start;
+            cross-axis-alignment: center;
+            padding-left: 16px;
+
+            SectionTitle {
+                label: "OUTLINE";
+            }
         }
 
-        if root.outline-data.length == 0: Rectangle {
+        if root.image-mode || root.outline-data.length == 0: Rectangle {
             vertical-stretch: 1;
 
             Text {
                 x: 16px;
                 width: parent.width - 32px;
-                text: "No outline available";
+                text: root.image-mode ? "Nothing to Outline" : "No outline available";
                 color: StudioTheme.muted;
                 font-size: 12px;
                 horizontal-alignment: center;
@@ -35,21 +43,103 @@ export component OutlinePane inherits Rectangle {
             }
         }
 
-        if root.outline-data.length > 0: tree-scroll := Flickable {
+        if !root.image-mode && root.outline-data.length > 0: tree-scroll := Flickable {
             vertical-stretch: 1;
             viewport-width: self.width;
             viewport-height: tree-content.height;
 
             tree-content := Rectangle {
                 width: tree-scroll.width;
-                height: outline-tree.preferred-height;
+                height: EditorTreeTokens.root-drop-height + outline-tree.preferred-height;
+
+                tree-drag-tracker := DropArea {
+                    width: parent.width;
+                    height: parent.height;
+                    can-drop(event) => {
+                        AppState.update-outline-drag-position({
+                            x: self.absolute-position.x + event.position.x,
+                            y: self.absolute-position.y + event.position.y,
+                        });
+                        return DragAction.none;
+                    }
+                    dropped(event) => {
+                        AppState.update-outline-drag-position({
+                            x: self.absolute-position.x + event.position.x,
+                            y: self.absolute-position.y + event.position.y,
+                        });
+                        AppState.finish-outline-drag();
+                        return DragAction.none;
+                    }
+                }
 
                 tree-hover-touch := TouchArea {
                     width: parent.width;
                     height: parent.height;
                 }
 
+                root-drop-target := Rectangle {
+                    width: parent.width;
+                    height: root-drop-area.contains-drag ? 28px : EditorTreeTokens.root-drop-height;
+                    border-radius: EditorTreeTokens.row-radius;
+                    border-width: root-drop-area.contains-drag && self.drop-allowed
+                        ? EditorTreeTokens.drop-target-border-width
+                        : 0px;
+                    border-color: EditorTreeTokens.accent;
+                    background: root-drop-area.contains-drag && self.drop-allowed
+                        ? EditorTreeTokens.drop-target-bg
+                        : transparent;
+                    property <bool> drop-allowed: false;
+
+                    root-drop-area := DropArea {
+                        width: parent.width;
+                        height: parent.height;
+                        can-drop(event) => {
+                            AppState.update-outline-drag-position({
+                                x: self.absolute-position.x + event.position.x,
+                                y: self.absolute-position.y + event.position.y,
+                            });
+                            root-drop-target.drop-allowed = Api.outline-can-drop(
+                                event.data,
+                                root.outline-data[0].uri,
+                                root.outline-data[0].offset,
+                                DropLocation.onto,
+                            );
+                            return root-drop-target.drop-allowed
+                                ? DragAction.move
+                                : DragAction.none;
+                        }
+                        dropped(event) => {
+                            AppState.update-outline-drag-position({
+                                x: self.absolute-position.x + event.position.x,
+                                y: self.absolute-position.y + event.position.y,
+                            });
+                            root-drop-target.drop-allowed = false;
+                            Api.outline-drop(
+                                event.data,
+                                root.outline-data[0].uri,
+                                root.outline-data[0].offset,
+                                DropLocation.onto,
+                            );
+                            AppState.finish-outline-drag();
+                            return DragAction.move;
+                        }
+                    }
+
+                    Text {
+                        visible: root-drop-area.contains-drag && root-drop-target.drop-allowed;
+                        x: EditorTreeTokens.row-padding-inline;
+                        width: parent.width - 2 * self.x;
+                        text: "Drop as child of root";
+                        color: EditorTreeTokens.text;
+                        font-size: 12px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                }
+
                 outline-tree := EditorTreeView {
+                    y: EditorTreeTokens.root-drop-height;
                     width: parent.width;
                     accessible-name: "Current file outline";
                     rows: root.outline-data;
@@ -57,8 +147,21 @@ export component OutlinePane inherits Rectangle {
                     current-offset: Api.current-element.offset;
                     max-gutter-columns: 12;
                     content-has-hover: tree-hover-touch.has-hover;
+                    make-row-drag-data(uri, offset) => {
+                        return Api.move-element-instance-data(uri, offset);
+                    }
+                    row-can-drop(event, uri, offset, location) => {
+                        return Api.outline-can-drop(event.data, uri, offset, location)
+                            ? DragAction.move
+                            : DragAction.none;
+                    }
+                    row-dropped(event, uri, offset, location) => {
+                        Api.outline-drop(event.data, uri, offset, location);
+                        return DragAction.move;
+                    }
                     row-current-requested(uri, offset) => {
                         Api.outline-select-element(uri, offset, true);
+                        root.element-selected();
                     }
                 }
             }

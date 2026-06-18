@@ -24,6 +24,7 @@ use crate::preview::{self, DragItem, SelectionNotification, preview_data, proper
 use crate::wasm_prelude::*;
 
 mod brushes;
+mod file_tree;
 pub mod log_messages;
 pub mod palette;
 mod property_view;
@@ -243,6 +244,14 @@ pub fn create_ui(
         transfer.set_user_data(Rc::new(DragItem::NewComponent { index }));
         transfer
     });
+    api.on_new_prototype_component_data(|kind: PrototypeComponentKind| -> DataTransfer {
+        let Some(index) = super::component_index_for_prototype_kind(kind) else {
+            return Default::default();
+        };
+        let mut transfer = DataTransfer::default();
+        transfer.set_user_data(Rc::new(DragItem::NewComponent { index }));
+        transfer
+    });
     api.on_move_element_instance_data(|uri: SharedString, offset: i32| -> DataTransfer {
         let Ok(offset) = offset.try_into() else {
             return Default::default();
@@ -259,6 +268,23 @@ pub fn create_ui(
         .ok();
         super::drop_component(data, x, y)
     });
+    let lsp = to_lsp.clone();
+    api.on_drop_with_geometry(
+        move |data: DataTransfer,
+              hit_x: f32,
+              hit_y: f32,
+              x: f32,
+              y: f32,
+              width: f32,
+              height: f32| {
+            lsp.send_telemetry(&mut [(
+                "type".to_string(),
+                serde_json::to_value("component_dropped").unwrap(),
+            )])
+            .ok();
+            super::drop_component_with_geometry(data, hit_x, hit_y, x, y, width, height)
+        },
+    );
     api.on_selected_element_resize(super::resize_selected_element);
     api.on_selected_element_can_move_to(super::can_move_selected_element);
     api.on_selected_element_move(super::move_selected_element);
@@ -294,6 +320,7 @@ pub fn create_ui(
     brushes::setup(&api);
     log_messages::setup(&api);
     palette::setup(&api);
+    file_tree::setup(&api, api_weak.clone(), use_editor_ui);
     recent_colors::setup(&api, api_weak);
     super::outline::setup(&api);
     super::undo_redo::setup(&api);

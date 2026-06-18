@@ -1,121 +1,988 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { ScrollView } from "std-widgets.slint";
-import {
-    CanvasSelectionKind, ColorPropertyField, EdgeDivider, EditorMetrics, InspectorSection, MutedLabel,
-    PropertyField, StudioTheme,
-} from "common.slint";
+import { Api, EditorSurfaceMode, ElementInformation, SelectionRectangle } from "../../api.slint";
+import { CanvasSelectionKind, EdgeDivider, EditorMetrics, StudioTheme } from "common.slint";
 import { OutlinePane } from "outline-pane.slint";
+
+global InspectorTokens {
+    out property <color> panel-bg: StudioTheme.panel-bg;
+    out property <color> divider: StudioTheme.dark ? #414141 : #e5e5e5;
+    out property <color> field-bg: StudioTheme.dark ? #383838 : #f5f5f5;
+    out property <color> field-bg-hover: StudioTheme.dark ? #414141 : #eeeeee;
+    out property <color> field-border: StudioTheme.dark ? #4b4b4b : #d9d9d9;
+    out property <color> text: StudioTheme.dark ? #f4f4f4 : #1e1e1e;
+    out property <color> muted: StudioTheme.dark ? #9a9a9a : #8c8c8c;
+    out property <color> accent: #0d99ff;
+    out property <length> side-padding: 15px;
+    out property <length> section-title-size: 12px;
+    out property <length> field-height: 24px;
+    out property <length> field-radius: 4px;
+    out property <length> column-width: 88px;
+    out property <length> column-gap: 8px;
+    out property <length> wide-width: 184px;
+}
+
+component InspectorIconButton inherits Rectangle {
+    in property <string> kind;
+    in property <bool> selected: false;
+    callback clicked;
+
+    width: 18px;
+    height: 18px;
+    border-radius: 3.5px;
+    background: selected ? InspectorTokens.accent.with-alpha(0.12) : touch.has-hover ? InspectorTokens.field-bg : transparent;
+
+    if root.kind == "eye": Rectangle {
+        x: 3.5px;
+        y: 5.5px;
+        width: 11px;
+        height: 7px;
+        border-width: 1px;
+        border-color: root.selected ? InspectorTokens.accent : InspectorTokens.text;
+        border-radius: 5.5px;
+
+        Rectangle {
+            width: 3px;
+            height: 3px;
+            border-radius: 1.5px;
+            background: root.selected ? InspectorTokens.accent : InspectorTokens.text;
+        }
+    }
+
+    if root.kind == "drop": Rectangle {
+        x: 6.5px;
+        y: 3px;
+        width: 6px;
+        height: 11px;
+        border-width: 1px;
+        border-color: root.selected ? InspectorTokens.accent : InspectorTokens.text;
+        border-radius: 4px;
+        transform-rotation: 28deg;
+    }
+
+    if root.kind == "type-grid": Rectangle {
+        for row in 2: Rectangle {
+            for col in 2: Rectangle {
+                x: 4px + col * 6px;
+                y: 4px + row * 6px;
+                width: 3px;
+                height: 3px;
+                border-radius: 1.5px;
+                border-width: 1px;
+                border-color: InspectorTokens.text;
+            }
+        }
+    }
+
+    if root.kind == "sliders": Rectangle {
+        for col in 3: Rectangle {
+            x: 4px + col * 4.5px;
+            y: 4px;
+            width: 1px;
+            height: 10px;
+            background: InspectorTokens.text;
+            border-radius: 1px;
+        }
+        Rectangle { x: 2.5px; y: 6.5px; width: 4px; height: 1px; background: InspectorTokens.text; }
+        Rectangle { x: 7px; y: 10.5px; width: 4px; height: 1px; background: InspectorTokens.text; }
+        Rectangle { x: 11.5px; y: 5px; width: 4px; height: 1px; background: InspectorTokens.text; }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component InspectorSegmentIcon inherits Rectangle {
+    in property <string> kind;
+    in property <int> index;
+    in property <bool> selected;
+
+    if root.kind == "horizontal": Rectangle {
+        for line in 3: Rectangle {
+            x: root.index == 0 ? 4.5px : root.index == 1 ? 3.5px + line * 1px : 2.5px + line * 2px;
+            y: 5.5px + line * 3.5px;
+            width: line == 1 ? 9.5px : 7px;
+            height: 1px;
+            background: root.selected ? InspectorTokens.text : InspectorTokens.muted;
+            border-radius: 1px;
+        }
+    }
+
+    if root.kind == "vertical": Rectangle {
+        Rectangle {
+            x: 8.5px;
+            y: root.index == 0 ? 3.5px : root.index == 1 ? 6px : 9px;
+            width: 1px;
+            height: 9px;
+            background: root.selected ? InspectorTokens.text : InspectorTokens.muted;
+            border-radius: 1px;
+        }
+        Rectangle {
+            x: 5px;
+            y: root.index == 0 ? 4px : root.index == 1 ? 7.5px : 12.5px;
+            width: 8px;
+            height: 1px;
+            background: root.selected ? InspectorTokens.text : InspectorTokens.muted;
+            border-radius: 1px;
+        }
+        Rectangle {
+            x: 7px;
+            y: root.index == 0 ? 2.5px : root.index == 1 ? 9.5px : 11px;
+            width: 4px;
+            height: 1px;
+            background: root.selected ? InspectorTokens.text : InspectorTokens.muted;
+            border-radius: 1px;
+        }
+    }
+}
+
+component InspectorSegment inherits Rectangle {
+    in property <string> kind;
+    in property <int> index;
+    in property <bool> selected;
+    callback clicked;
+
+    height: InspectorTokens.field-height;
+    horizontal-stretch: 1;
+    background: selected ? InspectorTokens.panel-bg : touch.has-hover ? InspectorTokens.field-bg-hover : transparent;
+    border-radius: selected ? InspectorTokens.field-radius : 0px;
+    border-width: selected ? 1px : 0px;
+    border-color: InspectorTokens.divider;
+
+    InspectorSegmentIcon {
+        kind: root.kind;
+        index: root.index;
+        selected: root.selected;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component InspectorSegmentedIconControl inherits Rectangle {
+    in property <string> kind;
+    in property <int> selected-index;
+    callback selected(int) -> bool;
+
+    width: InspectorTokens.column-width;
+    height: InspectorTokens.field-height;
+    border-radius: InspectorTokens.field-radius;
+    background: InspectorTokens.field-bg;
+    clip: true;
+
+    HorizontalLayout {
+        spacing: 0px;
+
+        InspectorSegment {
+            kind: root.kind;
+            index: 0;
+            selected: root.selected-index == 0;
+            clicked => { root.selected(0); }
+        }
+
+        Rectangle { width: 1px; background: InspectorTokens.panel-bg; }
+
+        InspectorSegment {
+            kind: root.kind;
+            index: 1;
+            selected: root.selected-index == 1;
+            clicked => { root.selected(1); }
+        }
+
+        Rectangle { width: 1px; background: InspectorTokens.panel-bg; }
+
+        InspectorSegment {
+            kind: root.kind;
+            index: 2;
+            selected: root.selected-index == 2;
+            clicked => { root.selected(2); }
+        }
+    }
+}
+
+component InspectorValueField inherits Rectangle {
+    in property <string> prefix;
+    in property <string> value;
+    in property <bool> enabled: true;
+    callback accepted(string) -> bool;
+
+    width: InspectorTokens.column-width;
+    height: InspectorTokens.field-height;
+    border-radius: InspectorTokens.field-radius;
+    background: !enabled ? InspectorTokens.field-bg.with-alpha(0.65) : input.has-focus ? InspectorTokens.panel-bg : touch.has-hover ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg;
+    border-width: input.has-focus ? 1px : 0px;
+    border-color: InspectorTokens.accent;
+
+    changed value => {
+        if !input.has-focus {
+            input.text = root.value;
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 7px;
+        spacing: 5px;
+        cross-axis-alignment: center;
+
+        Text {
+            text: root.prefix;
+            color: root.enabled ? InspectorTokens.text : InspectorTokens.muted;
+            font-size: 11px;
+            font-weight: 400;
+            vertical-alignment: center;
+        }
+
+        input := TextInput {
+            horizontal-stretch: 1;
+            text: root.value;
+            enabled: root.enabled;
+            single-line: true;
+            wrap: no-wrap;
+            color: root.enabled ? InspectorTokens.text : InspectorTokens.muted;
+            font-size: 12px;
+            font-weight: 400;
+            vertical-alignment: center;
+            horizontal-alignment: left;
+            selection-background-color: InspectorTokens.accent.with-alpha(0.28);
+            text-cursor-width: 1px;
+
+            accepted => {
+                if !root.accepted(self.text) {
+                    self.text = root.value;
+                }
+            }
+
+            changed has-focus => {
+                if !self.has-focus && self.text != root.value {
+                    if !root.accepted(self.text) {
+                        self.text = root.value;
+                    }
+                }
+            }
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: text;
+        clicked => { input.focus(); }
+    }
+}
+
+component InspectorSelectField inherits Rectangle {
+    in property <string> value;
+    in property <bool> wide: false;
+    callback accepted(string) -> bool;
+    callback menu-clicked;
+
+    width: wide ? InspectorTokens.wide-width : InspectorTokens.column-width;
+    height: InspectorTokens.field-height;
+    border-radius: InspectorTokens.field-radius;
+    background: input.has-focus ? InspectorTokens.panel-bg : touch.has-hover ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg;
+    border-width: input.has-focus ? 1px : 0px;
+    border-color: InspectorTokens.accent;
+
+    changed value => {
+        if !input.has-focus {
+            input.text = root.value;
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 5px;
+        spacing: 4px;
+        cross-axis-alignment: center;
+
+        input := TextInput {
+            horizontal-stretch: 1;
+            text: root.value;
+            single-line: true;
+            wrap: no-wrap;
+            color: InspectorTokens.text;
+            font-size: 12px;
+            font-weight: 400;
+            vertical-alignment: center;
+            selection-background-color: InspectorTokens.accent.with-alpha(0.28);
+            text-cursor-width: 1px;
+
+            accepted => {
+                if !root.accepted(self.text) {
+                    self.text = root.value;
+                }
+            }
+
+            changed has-focus => {
+                if !self.has-focus && self.text != root.value {
+                    if !root.accepted(self.text) {
+                        self.text = root.value;
+                    }
+                }
+            }
+        }
+
+        Rectangle {
+            width: 12px;
+            height: 12px;
+
+            Text {
+                text: "v";
+                color: InspectorTokens.text;
+                font-size: 9px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            menu-touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.menu-clicked(); }
+            }
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: text;
+        clicked => { input.focus(); }
+    }
+}
+
+component InspectorColorField inherits Rectangle {
+    in property <string> value;
+    in property <color> swatch;
+    in property <bool> wide: false;
+    callback accepted(string) -> bool;
+
+    width: wide ? InspectorTokens.wide-width : InspectorTokens.column-width;
+    height: InspectorTokens.field-height;
+    border-radius: InspectorTokens.field-radius;
+    background: input.has-focus ? InspectorTokens.panel-bg : touch.has-hover ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg;
+    border-width: input.has-focus ? 1px : 0px;
+    border-color: InspectorTokens.accent;
+
+    changed value => {
+        if !input.has-focus {
+            input.text = root.value;
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: 7px;
+        padding-right: 7px;
+        spacing: 6px;
+        cross-axis-alignment: center;
+
+        Rectangle {
+            width: 11px;
+            height: 11px;
+            border-radius: 2.5px;
+            border-width: 1px;
+            border-color: InspectorTokens.muted;
+            background: root.swatch;
+
+            for row in 3: Rectangle {
+                x: 2.5px + row * 2.5px;
+                y: 2.5px;
+                width: 1px;
+                height: 6px;
+                background: InspectorTokens.muted.with-alpha(0.35);
+            }
+            for col in 3: Rectangle {
+                x: 2.5px;
+                y: 2.5px + col * 2.5px;
+                width: 6px;
+                height: 1px;
+                background: InspectorTokens.muted.with-alpha(0.35);
+            }
+        }
+
+        input := TextInput {
+            horizontal-stretch: 1;
+            text: root.value;
+            single-line: true;
+            wrap: no-wrap;
+            color: InspectorTokens.text;
+            font-size: 12px;
+            font-weight: 400;
+            vertical-alignment: center;
+            selection-background-color: InspectorTokens.accent.with-alpha(0.28);
+            text-cursor-width: 1px;
+
+            accepted => {
+                if !root.accepted(self.text) {
+                    self.text = root.value;
+                }
+            }
+
+            changed has-focus => {
+                if !self.has-focus && self.text != root.value {
+                    if !root.accepted(self.text) {
+                        self.text = root.value;
+                    }
+                }
+            }
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: text;
+        clicked => { input.focus(); }
+    }
+}
+
+component InspectorReadOnlyField inherits Rectangle {
+    in property <string> prefix;
+    in property <string> value;
+    in property <bool> wide: false;
+
+    width: wide ? InspectorTokens.wide-width : InspectorTokens.column-width;
+    height: InspectorTokens.field-height;
+    border-radius: InspectorTokens.field-radius;
+    background: InspectorTokens.field-bg.with-alpha(0.65);
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 7px;
+        spacing: 5px;
+        cross-axis-alignment: center;
+
+        Text {
+            text: root.prefix;
+            color: InspectorTokens.muted;
+            font-size: 11px;
+            vertical-alignment: center;
+        }
+
+        Text {
+            horizontal-stretch: 1;
+            text: root.value;
+            color: InspectorTokens.text;
+            font-size: 12px;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+}
+
+component InspectorCopyButton inherits Rectangle {
+    callback clicked;
+
+    width: 54px;
+    height: InspectorTokens.field-height;
+    border-radius: InspectorTokens.field-radius;
+    background: touch.has-hover ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg;
+    border-width: 1px;
+    border-color: InspectorTokens.divider;
+
+    Text {
+        text: "Copy";
+        color: InspectorTokens.text;
+        font-size: 12px;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component InspectorSyntaxField inherits Rectangle {
+    in property <string> value;
+
+    horizontal-stretch: 1;
+    height: 54px;
+    border-radius: InspectorTokens.field-radius;
+    background: InspectorTokens.field-bg;
+
+    Text {
+        x: 8px;
+        width: parent.width - 16px;
+        text: root.value;
+        color: InspectorTokens.text;
+        font-size: 11px;
+        vertical-alignment: center;
+        wrap: word-wrap;
+    }
+}
+
+component InspectorSection inherits Rectangle {
+    in property <string> title;
+    in property <bool> show-appearance-icons: false;
+    in property <bool> show-typography-icons: false;
+
+    horizontal-stretch: 1;
+    height: section-layout.preferred-height;
+
+    section-layout := VerticalLayout {
+        width: root.width;
+        padding-top: 12px;
+        padding-bottom: 16px;
+        spacing: 11px;
+
+        Rectangle {
+            height: 19px;
+
+            Text {
+                x: InspectorTokens.side-padding;
+                text: root.title;
+                color: InspectorTokens.text;
+                font-size: InspectorTokens.section-title-size;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+
+            if root.show-appearance-icons: HorizontalLayout {
+                x: parent.width - InspectorTokens.side-padding - self.preferred-width;
+                y: 0.5px;
+                height: 18px;
+                spacing: 8px;
+
+                InspectorIconButton { kind: "eye"; }
+                InspectorIconButton { kind: "drop"; }
+            }
+
+            if root.show-typography-icons: HorizontalLayout {
+                x: parent.width - InspectorTokens.side-padding - self.preferred-width;
+                y: 0.5px;
+                height: 18px;
+                spacing: 0px;
+
+                InspectorIconButton { kind: "type-grid"; }
+            }
+        }
+
+        @children
+    }
+
+    Rectangle {
+        y: root.height - 1px;
+        height: 1px;
+        background: InspectorTokens.divider;
+    }
+}
 
 export component InspectorPane inherits Rectangle {
     in property <CanvasSelectionKind> selection;
     in property <Point> placed-position;
-    in property <length> phone-width;
-    in property <length> phone-height;
     in property <Size> rectangle-size;
     in property <Size> text-size;
-    in property <Size> image-size;
-    in property <angle> selected-rotation;
-    in property <string> rectangle-radius-label;
     in property <color> phone-background;
     in property <string> phone-background-label;
+    in property <ElementInformation> element-information;
+
+    callback local-geometry-edited(Point, Size) -> bool;
+    callback element-selected();
 
     width: EditorMetrics.inspector-pane-width;
-    background: StudioTheme.panel-bg;
+    background: InspectorTokens.panel-bg;
     property <length> content-x: 1px;
     property <length> split-height: 1px;
     property <length> inspector-height: (root.height - root.split-height) / 2;
 
-    function selection-title() -> string {
-        if root.selection == CanvasSelectionKind.rectangle {
-            return "Rectangle";
-        }
-        if root.selection == CanvasSelectionKind.text {
-            return "Text";
-        }
-        if root.selection == CanvasSelectionKind.image {
-            return "Image";
-        }
-        if root.selection == CanvasSelectionKind.artboard {
-            return "Mobile screen";
-        }
-        return "Nothing selected";
+    property <[SelectionRectangle]> selection-rects: Api.selection.highlight-index >= 0
+        ? Api.highlight-positions(root.element-information.source-uri, root.element-information.offset)
+        : [];
+    property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
+
+    function has-backend-rect() -> bool {
+        return Api.selection.highlight-index >= 0 && root.selection-rects.length > Api.selection.highlight-index;
     }
 
-    function selection-kind-label() -> string {
-        if root.selection == CanvasSelectionKind.rectangle {
-            return "Built-in element";
+    function is-rectangle-selection() -> bool {
+        return root.selection == CanvasSelectionKind.rectangle
+            || (root.has-backend-rect() && root.element-information.type-name == "Rectangle");
+    }
+
+    function is-text-selection() -> bool {
+        return root.selection == CanvasSelectionKind.text
+            || (root.has-backend-rect() && root.element-information.type-name == "Text");
+    }
+
+    function is-root-selection() -> bool {
+        return !root.has-backend-rect() && root.selection == CanvasSelectionKind.artboard;
+    }
+
+    function selected-x() -> length {
+        return root.has-backend-rect()
+            ? root.selection-rects[Api.selection.highlight-index].x
+            : root.placed-position.x;
+    }
+
+    function selected-y() -> length {
+        return root.has-backend-rect()
+            ? root.selection-rects[Api.selection.highlight-index].y
+            : root.placed-position.y;
+    }
+
+    function selected-width() -> length {
+        if root.has-backend-rect() {
+            return root.selection-rects[Api.selection.highlight-index].width;
         }
-        if root.selection == CanvasSelectionKind.text {
-            return "Text element";
+        return root.is-text-selection() ? root.text-size.width : root.rectangle-size.width;
+    }
+
+    function selected-height() -> length {
+        if root.has-backend-rect() {
+            return root.selection-rects[Api.selection.highlight-index].height;
         }
-        if root.selection == CanvasSelectionKind.image {
-            return "Image element";
+        return root.is-text-selection() ? root.text-size.height : root.rectangle-size.height;
+    }
+
+    function selected-x-label() -> string {
+        return (root.selected-x() / 1px).to-fixed(0);
+    }
+
+    function selected-y-label() -> string {
+        return (root.selected-y() / 1px).to-fixed(0);
+    }
+
+    function selected-width-label() -> string {
+        return (root.selected-width() / 1px).to-fixed(0);
+    }
+
+    function selected-height-label() -> string {
+        return (root.selected-height() / 1px).to-fixed(0);
+    }
+
+    function commit-geometry(x-text: string, y-text: string, width-text: string, height-text: string) -> bool {
+        if !x-text.is-float() || !y-text.is-float() || !width-text.is-float() || !height-text.is-float() {
+            return false;
         }
-        if root.selection == CanvasSelectionKind.artboard {
-            return "Window";
+
+        let new-position = {
+            x: x-text.to-float() * 1px,
+            y: y-text.to-float() * 1px,
+        };
+        let new-size = {
+            width: width-text.to-float() * 1px,
+            height: height-text.to-float() * 1px,
+        };
+
+        if new-size.width <= 0px || new-size.height <= 0px {
+            return false;
         }
-        return "Selection";
+
+        if root.has-backend-rect() {
+            Api.selected-element-resize(new-position.x, new-position.y, new-size.width, new-size.height);
+            return true;
+        }
+
+        return root.local-geometry-edited(new-position, new-size);
+    }
+
+    function commit-code(property-name: string, value: string) -> bool {
+        if value == "" || root.element-information.source-uri == "" {
+            return false;
+        }
+        if !Api.test-code-binding(
+            root.element-information.source-uri,
+            root.element-information.source-version,
+            root.element-information.offset,
+            property-name,
+            value,
+        ) {
+            return false;
+        }
+        Api.set-code-binding(
+            root.element-information.source-uri,
+            root.element-information.source-version,
+            root.element-information.offset,
+            property-name,
+            value,
+        );
+        return true;
+    }
+
+    function commit-px-code(property-name: string, value: string) -> bool {
+        if !value.is-float() {
+            return false;
+        }
+        return root.commit-code(property-name, value + "px");
+    }
+
+    function quote(value: string) -> string {
+        return "\"" + value + "\"";
+    }
+
+    function image-width-label() -> string {
+        return Api.selected-image-asset.image.width + "";
+    }
+
+    function image-height-label() -> string {
+        return Api.selected-image-asset.image.height + "";
+    }
+
+    function image-nine-slice-expression() -> string {
+        return Api.image-nine-slice-expression(
+            Api.selected-image-asset.relative-path,
+            Api.image-nine-slice-top,
+            Api.image-nine-slice-right,
+            Api.image-nine-slice-bottom,
+            Api.image-nine-slice-left,
+        );
     }
 
     EdgeDivider {
-        // dont center an edge divider
         x: 0px;
+        background: InspectorTokens.divider;
     }
 
-    inspector-scroll := ScrollView {
+    Flickable {
         x: root.content-x;
+        y: 0px;
         width: root.width - root.content-x;
         height: root.inspector-height;
         viewport-width: self.width;
-        viewport-height: inspector-content.preferred-height;
+        viewport-height: content.height;
 
-        inspector-content := VerticalLayout {
+        content := Rectangle {
             width: parent.width;
-            padding: 16px;
-            spacing: 18px;
+            height: content-layout.preferred-height;
 
-            VerticalLayout {
-                spacing: 4px;
+            content-layout := VerticalLayout {
+                width: parent.width;
+                alignment: start;
 
-                Text {
-                    text: root.selection-title();
-                    color: StudioTheme.text;
-                    font-size: 18px;
-                    font-weight: 900;
+                if root.image-mode: InspectorSection {
+                    title: "Image";
+
+                    VerticalLayout {
+                        padding-left: InspectorTokens.side-padding;
+                        spacing: 8px;
+
+                        InspectorReadOnlyField {
+                            prefix: "File";
+                            value: Api.selected-image-asset.relative-path;
+                            wide: true;
+                        }
+
+                        HorizontalLayout {
+                            spacing: InspectorTokens.column-gap;
+
+                            InspectorReadOnlyField {
+                                prefix: "Fmt";
+                                value: Api.selected-image-asset.format;
+                            }
+
+                            InspectorReadOnlyField {
+                                prefix: "W";
+                                value: root.image-width-label();
+                            }
+                        }
+
+                        InspectorReadOnlyField {
+                            prefix: "H";
+                            value: root.image-height-label();
+                        }
+                    }
                 }
 
-                MutedLabel {
-                    text: root.selection-kind-label();
+                if root.image-mode: InspectorSection {
+                    title: "Nine-Slice";
+
+                    VerticalLayout {
+                        padding-left: InspectorTokens.side-padding;
+                        padding-right: InspectorTokens.side-padding;
+                        spacing: 8px;
+
+                        InspectorSyntaxField {
+                            value: root.image-nine-slice-expression();
+                        }
+
+                        HorizontalLayout {
+                            alignment: end;
+
+                            InspectorCopyButton {
+                                clicked => {
+                                    Api.copy-nine-slice-expression(root.image-nine-slice-expression());
+                                }
+                            }
+                        }
+                    }
                 }
-            }
 
-            if root.selection != CanvasSelectionKind.artboard: InspectorSection {
-                title: "LAYOUT";
-                PropertyField { name: "X"; value: (root.placed-position.x / 1px).to-fixed(0); }
-                PropertyField { name: "Y"; value: (root.placed-position.y / 1px).to-fixed(0); }
-                PropertyField { name: "Width"; value: root.selection == CanvasSelectionKind.rectangle ? (root.rectangle-size.width / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.text ? (root.text-size.width / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.image ? (root.image-size.width / 1px).to-fixed(0) : "280"; }
-                PropertyField { name: "Height"; value: root.selection == CanvasSelectionKind.rectangle ? (root.rectangle-size.height / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.text ? (root.text-size.height / 1px).to-fixed(0) : root.selection == CanvasSelectionKind.image ? (root.image-size.height / 1px).to-fixed(0) : "104"; }
-                PropertyField { name: "Rotation"; value: (root.selected-rotation / 1deg).round(); }
-            }
+                if !root.image-mode && (root.is-rectangle-selection() || root.is-text-selection()): InspectorSection {
+                    title: "Position";
 
-            InspectorSection {
-                title: "APPEARANCE";
-                if root.selection == CanvasSelectionKind.artboard: ColorPropertyField {
-                    name: "Background";
-                    color-value: root.phone-background;
-                    value: root.phone-background-label;
+                    HorizontalLayout {
+                        padding-left: InspectorTokens.side-padding;
+                        spacing: InspectorTokens.column-gap;
+
+                        InspectorValueField {
+                            prefix: "X";
+                            value: root.selected-x-label();
+                            accepted(text) => {
+                                return root.commit-geometry(text, root.selected-y-label(), root.selected-width-label(), root.selected-height-label());
+                            }
+                        }
+
+                        InspectorValueField {
+                            prefix: "Y";
+                            value: root.selected-y-label();
+                            accepted(text) => {
+                                return root.commit-geometry(root.selected-x-label(), text, root.selected-width-label(), root.selected-height-label());
+                            }
+                        }
+                    }
                 }
-                if root.selection != CanvasSelectionKind.artboard: PropertyField { name: "Opacity"; value: "100%"; }
-                if root.selection != CanvasSelectionKind.artboard: PropertyField { name: "Fill"; value: root.selection == CanvasSelectionKind.text ? "#20252d" : root.selection == CanvasSelectionKind.rectangle ? "#fde68a" : root.selection == CanvasSelectionKind.image ? "gradient" : "#dbeafe"; }
-                if root.selection != CanvasSelectionKind.artboard: PropertyField { name: "Radius"; value: root.selection == CanvasSelectionKind.rectangle ? root.rectangle-radius-label : "18"; }
-            }
 
-            if root.selection != CanvasSelectionKind.artboard: InspectorSection {
-                title: "SOURCE";
-                PropertyField { name: "Element"; value: root.selection-title(); }
-                PropertyField { name: "File"; value: "main.slint"; }
+                if !root.image-mode && (root.is-rectangle-selection() || root.is-text-selection()): InspectorSection {
+                    title: "Layout";
+
+                    HorizontalLayout {
+                        padding-left: InspectorTokens.side-padding;
+                        spacing: InspectorTokens.column-gap;
+
+                        InspectorValueField {
+                            prefix: "W";
+                            value: root.selected-width-label();
+                            accepted(text) => {
+                                return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), text, root.selected-height-label());
+                            }
+                        }
+
+                        InspectorValueField {
+                            prefix: "H";
+                            value: root.selected-height-label();
+                            accepted(text) => {
+                                return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), root.selected-width-label(), text);
+                            }
+                        }
+                    }
+                }
+
+                if !root.image-mode && (root.is-root-selection() || root.is-rectangle-selection() || root.is-text-selection()): InspectorSection {
+                    title: "Appearance";
+                    show-appearance-icons: false;
+
+                    HorizontalLayout {
+                        padding-left: InspectorTokens.side-padding;
+                        spacing: InspectorTokens.column-gap;
+
+                        if root.is-root-selection(): InspectorColorField {
+                            value: root.phone-background-label;
+                            swatch: root.phone-background;
+                            wide: true;
+                            accepted(text) => {
+                                return root.commit-code("background", text);
+                            }
+                        }
+
+                        if root.is-rectangle-selection(): InspectorColorField {
+                            value: StudioTheme.dark ? "#383838" : "#ffffff";
+                            swatch: StudioTheme.dark ? #383838 : #ffffff;
+                            wide: true;
+                            accepted(text) => {
+                                return root.commit-code("background", text);
+                            }
+                        }
+
+                        if root.is-text-selection(): InspectorColorField {
+                            value: StudioTheme.dark ? "#f4f4f4" : "#1f2328";
+                            swatch: StudioTheme.dark ? #f4f4f4 : #1f2328;
+                            wide: true;
+                            accepted(text) => {
+                                return root.commit-code("color", text);
+                            }
+                        }
+                    }
+                }
+
+                if !root.image-mode && root.is-text-selection(): InspectorSection {
+                    title: "Typography";
+                    show-typography-icons: false;
+
+                    VerticalLayout {
+                        padding-left: InspectorTokens.side-padding;
+                        spacing: 8px;
+
+                        InspectorSelectField {
+                            value: "Roboto";
+                            wide: true;
+                            accepted(text) => {
+                                return text != "" && root.commit-code("font-family", root.quote(text));
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: InspectorTokens.column-gap;
+
+                            InspectorSelectField {
+                                value: "Regular";
+                                accepted(text) => {
+                                    if text == "Regular" {
+                                        return root.commit-code("font-weight", "400");
+                                    }
+                                    if text == "Bold" {
+                                        return root.commit-code("font-weight", "700");
+                                    }
+                                    return text.is-float() && root.commit-code("font-weight", text);
+                                }
+                            }
+
+                            InspectorSelectField {
+                                value: "14";
+                                accepted(text) => {
+                                    return root.commit-px-code("font-size", text);
+                                }
+                            }
+                        }
+
+                        // HorizontalLayout {
+                        //     spacing: InspectorTokens.column-gap;
+
+                        //     InspectorValueField {
+                        //         prefix: "A";
+                        //         value: "20";
+                        //         accepted(text) => {
+                        //             return root.commit-px-code("line-height", text);
+                        //         }
+                        //     }
+
+                        //     InspectorValueField {
+                        //         prefix: "A";
+                        //         value: "0";
+                        //         accepted(text) => {
+                        //             return root.commit-px-code("letter-spacing", text);
+                        //         }
+                        //     }
+                        // }
+
+                        // HorizontalLayout {
+                        //     spacing: InspectorTokens.column-gap;
+
+                        //     InspectorSegmentedIconControl {
+                        //         kind: "horizontal";
+                        //         selected-index: 0;
+                        //         selected(index) => {
+                        //             return root.commit-code(
+                        //                 "horizontal-alignment",
+                        //                 index == 0 ? "left" : index == 1 ? "center" : "right",
+                        //             );
+                        //         }
+                        //     }
+
+                        //     InspectorSegmentedIconControl {
+                        //         kind: "vertical";
+                        //         selected-index: 1;
+                        //         selected(index) => {
+                        //             return root.commit-code(
+                        //                 "vertical-alignment",
+                        //                 index == 0 ? "top" : index == 1 ? "center" : "bottom",
+                        //             );
+                        //         }
+                        //     }
+                        // }
+                    }
+                }
             }
         }
     }
@@ -125,7 +992,7 @@ export component InspectorPane inherits Rectangle {
         y: root.inspector-height;
         width: root.width - root.content-x;
         height: root.split-height;
-        background: StudioTheme.border;
+        background: InspectorTokens.divider;
     }
 
     OutlinePane {
@@ -133,5 +1000,6 @@ export component InspectorPane inherits Rectangle {
         y: root.inspector-height + root.split-height;
         width: root.width - root.content-x;
         height: root.height - self.y;
+        element-selected => { root.element-selected(); }
     }
 }

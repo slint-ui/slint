@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component SimplePreview inherits Window {
+    width: 323px;
+    height: 398px;
+    title: "Simple Preview";
+
+    Rectangle {
+        background: #f6f8fa;
+
+    }
+    Rectangle {
+        width: 243px;
+        height: 120px;
+        border-radius: 12px;
+        background: #ffffff;
+        border-width: 1px;
+        border-color: #d0d7de;
+    
+        Text {
+            text: "Hello visual editor";
+            color: #1f2328;
+            font-size: 24px;
+            font-weight: 700;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+        }
+    }
+}

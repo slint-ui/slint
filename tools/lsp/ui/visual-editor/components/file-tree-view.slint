@@ -1,0 +1,140 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { FileTreeIcons } from "file-tree-icons.slint";
+import { EditorTreeTokens } from "editor-tree-tokens.slint";
+import { Api, FileTreeNode, FileTreeNodeKind } from "../../api.slint";
+import { Palette } from "std-widgets.slint";
+
+component FileTreeRow inherits Rectangle {
+    in property <FileTreeNode> node;
+    in property <int> max-gutter-columns: 8;
+    in property <bool> tree-has-hover: false;
+
+    property <bool> folder: node.kind == FileTreeNodeKind.folder;
+    property <int> level-safe: max(1, node.indent-level + 1);
+    property <int> gutter-segments: max(0, level-safe - 1);
+    property <bool> row-has-hover: touch.has-hover;
+    property <color> folder-icon-color: #d29922;
+    property <int> selected-guide-index: node.show-selected-guide ? root.level-safe - 2 : -1;
+    property <color> selected-guide-color: Palette.color-scheme == ColorScheme.dark ? #474747 : #c4c4c4;
+    property <color> guide-color: Palette.color-scheme == ColorScheme.dark ? #303030 : #e2e2e2;
+
+    callback row-hover-changed(string, bool);
+
+    height: EditorTreeTokens.row-height;
+    horizontal-stretch: 1;
+    border-radius: EditorTreeTokens.row-radius;
+    background: node.is-selected ? EditorTreeTokens.row-bg-current : touch.has-hover ? EditorTreeTokens.row-bg-hover : transparent;
+    accessible-role: AccessibleRole.list-item;
+    accessible-label: root.node.path;
+
+    changed row-has-hover => {
+        root.row-hover-changed(root.node.path, root.row-has-hover);
+    }
+
+    HorizontalLayout {
+        alignment: start;
+        cross-axis-alignment: center;
+        padding-left: EditorTreeTokens.row-padding-inline;
+        padding-right: EditorTreeTokens.row-padding-inline;
+        spacing: 0px;
+
+        if root.gutter-segments > 0: HorizontalLayout {
+            alignment: start;
+
+            for slot[index] in root.max-gutter-columns: Rectangle {
+                width: index < root.gutter-segments ? EditorTreeTokens.toggle-width : 0px;
+                height: EditorTreeTokens.row-height;
+
+                if index < root.gutter-segments && (root.tree-has-hover || index == root.selected-guide-index): Rectangle {
+                    property <bool> active-folder-guide: index == root.selected-guide-index;
+                    x: (parent.width - EditorTreeTokens.guide-width) / 2;
+                    width: EditorTreeTokens.guide-width;
+                    height: EditorTreeTokens.row-height;
+                    background: active-folder-guide ? root.selected-guide-color : root.guide-color;
+                }
+            }
+        }
+
+        Rectangle {
+            width: EditorTreeTokens.disclosure-hit-size;
+            height: EditorTreeTokens.row-height;
+
+            Image {
+                visible: root.folder && root.node.has-children;
+                width: 12px;
+                height: 12px;
+                x: 0px;
+                y: (parent.height - self.height) / 2;
+                source: root.node.is-expanded ? FileTreeIcons.chevron-down : FileTreeIcons.chevron-right;
+                colorize: EditorTreeTokens.muted-text;
+            }
+        }
+
+        HorizontalLayout {
+            spacing: EditorTreeTokens.content-gap;
+            alignment: start;
+            cross-axis-alignment: center;
+            padding-right: EditorTreeTokens.row-padding-inline;
+            min-height: EditorTreeTokens.row-height;
+
+            Image {
+                width: EditorTreeTokens.icon-size;
+                height: EditorTreeTokens.icon-size;
+                vertical-alignment: center;
+                source: root.folder
+                    ? root.node.is-expanded ? FileTreeIcons.directory-open : FileTreeIcons.directory
+                    : root.node.kind == FileTreeNodeKind.image ? FileTreeIcons.image
+                    : FileTreeIcons.file-code;
+                colorize: root.folder ? root.folder-icon-color : EditorTreeTokens.muted-text;
+            }
+
+            Text {
+                horizontal-stretch: 1;
+                vertical-alignment: center;
+                text: root.node.label;
+                color: EditorTreeTokens.text;
+                font-size: EditorTreeTokens.row-font-size;
+                overflow: elide;
+                wrap: no-wrap;
+            }
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            Api.file-tree-select(root.node.path);
+            if root.folder {
+                Api.file-tree-toggle(root.node.path);
+            }
+        }
+    }
+}
+
+export component FileTreeView inherits VerticalLayout {
+    private property <string> hovered-row-key: "";
+    private property <bool> tree-has-hover: hovered-row-key != "";
+
+    alignment: start;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    spacing: 0px;
+    accessible-role: AccessibleRole.tree;
+    accessible-label: "Files";
+
+    for row in Api.file-tree: FileTreeRow {
+        node: row;
+        tree-has-hover: root.tree-has-hover;
+        row-hover-changed(path, has-hover) => { root.update-hovered-row(path, has-hover); }
+    }
+
+    function update-hovered-row(path: string, has-hover: bool) {
+        if has-hover {
+            root.hovered-row-key = path;
+        } else if root.hovered-row-key == path {
+            root.hovered-row-key = "";
+        }
+    }
+}

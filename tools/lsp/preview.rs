@@ -169,6 +169,7 @@ pub struct PreviewState {
     last_user_settings: PreviewUserSettings,
     last_editor_settings: EditorUserSettings,
     current_previewed_component: Option<PreviewComponent>,
+    pending_file_tree_preview: Option<PreviewComponent>,
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
 
@@ -358,7 +359,7 @@ fn apply_live_preview_data() {
 }
 
 fn set_contents(url: &VersionedUrl, content: String) {
-    if let Some(current) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
+    if let Some((current, behavior)) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content) {
             undo_redo::set_undo_redo_enabled(preview_state);
         }
@@ -368,17 +369,61 @@ fn set_contents(url: &VersionedUrl, content: String) {
             SourceCodeCacheEntry { version: *url.version(), code: content.clone() },
         );
 
+        if let Some(pending) = take_pending_file_tree_preview(preview_state, url.url()) {
+            return Some((pending, LoadBehavior::Load));
+        }
+
         if Some(content) == old.map(|o| o.code) {
             return None;
         }
 
         if preview_state.dependencies.contains(url.url()) {
-            preview_state.current_component()
+            preview_state.current_component().map(|current| (current, LoadBehavior::Reload))
         } else {
             None
         }
     }) {
-        load_preview(current, LoadBehavior::Reload);
+        load_preview(current, behavior);
+    }
+}
+
+fn take_pending_file_tree_preview(
+    preview_state: &mut PreviewState,
+    url: &Url,
+) -> Option<PreviewComponent> {
+    if !preview_state.pending_file_tree_preview.as_ref().is_some_and(|pending| pending.url == *url)
+    {
+        return None;
+    }
+    preview_state.pending_file_tree_preview.take()
+}
+
+fn request_file_tree_preview(path: &Path) {
+    let Ok(path) = std::fs::canonicalize(path) else {
+        return;
+    };
+    if !path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("slint"))
+    {
+        return;
+    }
+    let Ok(url) = Url::from_file_path(&path) else {
+        return;
+    };
+    let pending = PreviewComponent { url: url.clone(), component: None };
+    let to_lsp = PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        preview_state.pending_file_tree_preview = Some(pending);
+        preview_state.to_lsp.borrow().clone()
+    });
+    let Some(to_lsp) = to_lsp else {
+        return;
+    };
+    if let Err(err) =
+        to_lsp.send(&PreviewToLspMessage::RequestState { files: vec![url], settings: Vec::new() })
+    {
+        tracing::warn!("Failed to request file tree preview contents: {err}");
     }
 }
 
@@ -905,6 +950,28 @@ fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) ->
     drop_location::can_drop_at(&document_cache, position, &component)
 }
 
+fn component_name_for_prototype_kind(kind: ui::PrototypeComponentKind) -> Option<&'static str> {
+    match kind {
+        ui::PrototypeComponentKind::Rectangle => Some("Rectangle"),
+        ui::PrototypeComponentKind::Text => Some("Text"),
+        ui::PrototypeComponentKind::Image => Some("Image"),
+        ui::PrototypeComponentKind::None => None,
+    }
+}
+
+fn component_index_for_prototype_kind(kind: ui::PrototypeComponentKind) -> Option<usize> {
+    let name = component_name_for_prototype_kind(kind)?;
+    PREVIEW_STATE.with_borrow(|preview_state| {
+        preview_state
+            .known_components
+            .iter()
+            .position(|component| component.name == name && component.is_builtin)
+            .or_else(|| {
+                preview_state.known_components.iter().position(|component| component.name == name)
+            })
+    })
+}
+
 fn drop_component(data: DataTransfer, x: f32, y: f32) {
     let Ok(DragItem::NewComponent { index: component_index }) = data.try_into() else {
         return;
@@ -924,6 +991,48 @@ fn drop_component(data: DataTransfer, x: f32, y: f32) {
 
     let drop_result = drop_location::drop_at(&document_cache, position, &component)
         .map(|(e, d)| (e, d, component.name.clone()));
+
+    if let Some((edit, drop_data, component_name)) = drop_result {
+        element_selection::select_element_at_source_code_position(
+            drop_data.path,
+            drop_data.selection_offset,
+            None,
+            SelectionNotification::AfterUpdate,
+        );
+
+        send_workspace_edit(format!("Add element {component_name}"), edit, false);
+    };
+}
+
+fn drop_component_with_geometry(
+    data: DataTransfer,
+    hit_x: f32,
+    hit_y: f32,
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+) {
+    let Ok(DragItem::NewComponent { index: component_index }) = data.try_into() else {
+        return;
+    };
+
+    let Some(document_cache) = document_cache() else {
+        return;
+    };
+
+    let hit_position = LogicalPoint::new(hit_x, hit_y);
+    let geometry = LogicalRect::new(LogicalPoint::new(x, y), LogicalSize::new(width, height));
+
+    let Some(component) = PREVIEW_STATE
+        .with_borrow(|preview_state| preview_state.known_components.get(component_index).cloned())
+    else {
+        return;
+    };
+
+    let drop_result =
+        drop_location::drop_at_with_geometry(&document_cache, hit_position, &component, geometry)
+            .map(|(e, d)| (e, d, component.name.clone()));
 
     if let Some((edit, drop_data, component_name)) = drop_result {
         element_selection::select_element_at_source_code_position(
@@ -2256,6 +2365,7 @@ mod tests {
     use super::*;
     use crate::common::PreviewToLsp;
     use i_slint_live_preview::protocol::PreviewToLspMessage;
+    use std::fs;
     use std::{cell::RefCell, rc::Rc};
 
     #[derive(Default)]
@@ -2275,6 +2385,13 @@ mod tests {
             *state = PreviewState::default();
             state.to_lsp = RefCell::new(Some(Rc::new(CapturePreviewToLsp { messages })));
         });
+    }
+
+    fn temp_file(name: &str) -> PathBuf {
+        let path =
+            std::env::temp_dir().join(format!("slint-preview-test-{}-{name}", std::process::id()));
+        fs::write(&path, "").unwrap();
+        path
     }
 
     #[test]
@@ -2353,5 +2470,60 @@ mod tests {
             PreviewToLspMessage::UpdateUserSettings { name, contents }
                 if name == PREVIEW_SETTINGS_FILE && contents == &changed.serialize()
         ));
+    }
+
+    #[test]
+    fn request_file_tree_preview_requests_slint_file_contents() {
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        reset_preview_state(messages.clone());
+        let path = temp_file("selected.slint");
+        let url = Url::from_file_path(std::fs::canonicalize(&path).unwrap()).unwrap();
+
+        request_file_tree_preview(&path);
+
+        let messages = messages.borrow();
+        assert!(matches!(
+            &messages[..],
+            [PreviewToLspMessage::RequestState { files, settings }]
+                if files == &vec![url.clone()] && settings.is_empty()
+        ));
+        PREVIEW_STATE.with_borrow(|state| {
+            assert_eq!(
+                state.pending_file_tree_preview.as_ref().map(|pending| &pending.url),
+                Some(&url)
+            );
+        });
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn request_file_tree_preview_ignores_non_slint_files() {
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        reset_preview_state(messages.clone());
+        let path = temp_file("image.png");
+
+        request_file_tree_preview(&path);
+
+        assert!(messages.borrow().is_empty());
+        PREVIEW_STATE.with_borrow(|state| {
+            assert!(state.pending_file_tree_preview.is_none());
+        });
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn matching_set_contents_consumes_pending_file_tree_preview() {
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        reset_preview_state(messages);
+        let url = Url::parse("file:///tmp/selected.slint").unwrap();
+        let pending = PreviewComponent { url: url.clone(), component: None };
+
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.pending_file_tree_preview = Some(pending.clone());
+            assert_eq!(take_pending_file_tree_preview(state, &url), Some(pending));
+            assert!(state.pending_file_tree_preview.is_none());
+        });
     }
 }

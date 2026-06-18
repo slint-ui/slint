@@ -804,6 +804,24 @@ fn check_can_drop(
     })
 }
 
+fn check_can_drop_with_properties(
+    document_cache: &common::DocumentCache,
+    component: &common::ComponentInformation,
+    dm: &DropInformation,
+    extra_properties: &[common::PropertyChange],
+) -> bool {
+    if let Some((edit, _)) = create_drop_element_workspace_edit_with_properties(
+        document_cache,
+        component,
+        dm,
+        extra_properties,
+    ) {
+        workspace_edit_compiles(document_cache, &edit) == preview::CompilationResult::ChangeCompiles
+    } else {
+        false
+    }
+}
+
 pub fn workspace_edit_compiles(
     document_cache: &common::DocumentCache,
     workspace_edit: &lsp_types::WorkspaceEdit,
@@ -992,6 +1010,81 @@ pub fn drop_at(
     create_drop_element_workspace_edit(document_cache, component, &drop_info)
 }
 
+pub fn drop_at_with_geometry(
+    document_cache: &common::DocumentCache,
+    position: LogicalPoint,
+    component: &common::ComponentInformation,
+    geometry: LogicalRect,
+) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+    let component_instance = preview::component_instance()?;
+
+    let drop_info = find_drop_location(&component_instance, position, &component.name)?;
+    let mut extra_properties =
+        geometry_properties_for_drop(&component_instance, position, &drop_info, geometry)?;
+    extra_properties.extend(prototype_visual_properties_for_geometry_drop(component));
+
+    if !check_can_drop_with_properties(document_cache, component, &drop_info, &extra_properties) {
+        return None;
+    }
+
+    create_drop_element_workspace_edit_with_properties(
+        document_cache,
+        component,
+        &drop_info,
+        &extra_properties,
+    )
+}
+
+fn geometry_properties_for_drop(
+    component_instance: &ComponentInstance,
+    position: LogicalPoint,
+    drop_info: &DropInformation,
+    geometry: LogicalRect,
+) -> Option<Vec<common::PropertyChange>> {
+    if drop_info.target_element_node.layout_kind() != ui::LayoutKind::None {
+        return Some(Vec::new());
+    }
+
+    if !geometry.origin.x.is_finite()
+        || !geometry.origin.y.is_finite()
+        || !geometry.size.width.is_finite()
+        || !geometry.size.height.is_finite()
+    {
+        return None;
+    }
+
+    let target_origin =
+        drop_info.target_element_node.geometry_at(component_instance, position)?.rect.origin;
+
+    Some(vec![
+        common::PropertyChange::new(
+            "x",
+            format!("{}px", (geometry.origin.x - target_origin.x).round()),
+        ),
+        common::PropertyChange::new(
+            "y",
+            format!("{}px", (geometry.origin.y - target_origin.y).round()),
+        ),
+        common::PropertyChange::new("width", format!("{}px", geometry.size.width.round())),
+        common::PropertyChange::new("height", format!("{}px", geometry.size.height.round())),
+    ])
+}
+
+fn prototype_visual_properties_for_geometry_drop(
+    component: &common::ComponentInformation,
+) -> Vec<common::PropertyChange> {
+    if component.name != "Rectangle" {
+        return Vec::new();
+    }
+
+    vec![
+        common::PropertyChange::new("background", "#ffffff".to_string()),
+        common::PropertyChange::new("border-radius", "12px".to_string()),
+        common::PropertyChange::new("border-color", "#d0d7de".to_string()),
+        common::PropertyChange::new("border-width", "1px".to_string()),
+    ]
+}
+
 fn property_ranges(element: &common::ElementRcNode, remove_properties: &[&str]) -> Vec<TextRange> {
     element.with_element_node(|node| {
         let mut result = Vec::new();
@@ -1069,6 +1162,15 @@ pub fn create_drop_element_workspace_edit(
     component: &common::ComponentInformation,
     drop_info: &DropInformation,
 ) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
+    create_drop_element_workspace_edit_with_properties(document_cache, component, drop_info, &[])
+}
+
+pub fn create_drop_element_workspace_edit_with_properties(
+    document_cache: &common::DocumentCache,
+    component: &common::ComponentInformation,
+    drop_info: &DropInformation,
+    extra_properties: &[common::PropertyChange],
+) -> Option<(lsp_types::WorkspaceEdit, DropData)> {
     let placeholder = if component.is_layout { placeholder() } else { String::new() };
 
     let is_list_view = drop_info.target_element_node.with_element_node(|node| {
@@ -1076,7 +1178,7 @@ pub fn create_drop_element_workspace_edit(
     });
     let for_loop = if is_list_view { "for _ in 3: " } else { "" };
 
-    let new_text = if component.default_properties.is_empty() {
+    let new_text = if component.default_properties.is_empty() && extra_properties.is_empty() {
         format!(
             "{}{for_loop}{} {{{placeholder} }}\n{}",
             drop_info.insert_info.pre_indent, component.name, drop_info.insert_info.post_indent
@@ -1087,6 +1189,9 @@ pub fn create_drop_element_workspace_edit(
             drop_info.insert_info.pre_indent, component.name
         );
         for p in &component.default_properties {
+            to_insert += &format!("{}    {}: {};\n", drop_info.insert_info.indent, p.name, p.value);
+        }
+        for p in extra_properties {
             to_insert += &format!("{}    {}: {};\n", drop_info.insert_info.indent, p.name, p.value);
         }
         to_insert +=

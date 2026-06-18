@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Palette } from "std-widgets.slint";
+import { PrototypeComponentKind } from "../../api.slint";
 
 export enum LeftPaneMode {
     files,
@@ -11,13 +12,6 @@ export enum LeftPaneMode {
 export enum CanvasOrientation {
     portrait,
     landscape,
-}
-
-export enum PrototypeComponentKind {
-    none,
-    rectangle,
-    text,
-    image,
 }
 
 export enum CanvasSelectionKind {
@@ -37,8 +31,8 @@ export enum CanvasCorner {
 
 export global StudioTheme {
     out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
-    out property <color> app-bg: dark ? #383838 : #f6f8fa;
-    out property <color> panel-bg: dark ? #383838 : #ffffff;
+    out property <color> app-bg: dark ? #2c2c2c : #f6f8fa;
+    out property <color> panel-bg: dark ? #2c2c2c : #ffffff;
     out property <color> panel-subtle: dark ? #383838 : #f6f8fa;
     out property <color> text: dark ? #f1f1f1 : #1f2328;
     out property <color> muted: dark ? #b7b7b7 : #6e7781;
@@ -57,7 +51,7 @@ export global StudioTheme {
 
 export global EditorMetrics {
     out property <length> left-pane-width: 286px;
-    out property <length> inspector-pane-width: 306px;
+    out property <length> inspector-pane-width: 232px;
     out property <length> top-bar-height: 54px;
     out property <length> canvas-toolbar-height: 42px;
     out property <length> phone-portrait-width: 390px;
@@ -398,6 +392,33 @@ export global AppState {
     in-out property <Point> drag-position: { x: 0px, y: 0px };
     in-out property <Point> drag-preview-position: { x: 0px, y: 0px };
     in-out property <Size> drag-preview-size: { width: 96px, height: 48px };
+    in-out property <bool> outline-drag-active: false;
+    in-out property <string> outline-drag-label: "";
+    in-out property <image> outline-drag-icon;
+    in-out property <Point> outline-drag-position: { x: 0px, y: 0px };
+    in-out property <Size> outline-drag-preview-size: { width: 216px, height: 32px };
+
+    pure function outline-drag-pointer-gap() -> length {
+        return 6px;
+    }
+
+    public function update-outline-drag-position(window-position: Point) {
+        self.outline-drag-position = {
+            x: window-position.x + self.outline-drag-pointer-gap(),
+            y: window-position.y + self.outline-drag-pointer-gap(),
+        };
+    }
+
+    public function start-outline-drag(label: string, icon: image, window-position: Point) {
+        self.outline-drag-active = true;
+        self.outline-drag-label = label;
+        self.outline-drag-icon = icon;
+        self.update-outline-drag-position(window-position);
+    }
+
+    public function finish-outline-drag() {
+        self.outline-drag-active = false;
+    }
 }
 
 export component PropertyField inherits Rectangle {
