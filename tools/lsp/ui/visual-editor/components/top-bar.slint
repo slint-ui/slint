@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { Api } from "../../api.slint";
 import { EditorMetrics, StudioTheme } from "common.slint";
 
 export component EditorTopBar inherits Rectangle {
@@ -43,17 +44,12 @@ export component EditorTopBar inherits Rectangle {
         alignment: center;
         cross-axis-alignment: center;
 
-        Rectangle {
-            width: 1px;
-            height: 24px;
-            background: StudioTheme.soft-border;
-        }
-
         Text {
-            text: "Mobile / main.slint";
+            text: Api.selected-project-file;
             color: StudioTheme.muted;
             font-size: 13px;
             vertical-alignment: center;
+            overflow: elide;
         }
     }
 }

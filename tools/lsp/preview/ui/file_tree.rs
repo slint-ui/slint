@@ -14,6 +14,7 @@ use super::{Api, EditorSurfaceMode, FileTreeNode, FileTreeNodeKind, ImageAssetPr
 pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, use_editor_ui: bool) {
     let Some((root, selected_path)) = initial_file_tree_paths(use_editor_ui) else {
         api.set_file_tree(Default::default());
+        api.set_selected_project_file(Default::default());
         return;
     };
 
@@ -137,6 +138,7 @@ impl FileTreeController {
             &self.active_folder_path,
         );
         api.set_file_tree(ModelRc::new(VecModel::from(rows)));
+        api.set_selected_project_file(selected_project_file(&self.root, self.selected_path.as_deref()).into());
     }
 
     fn path_in_root(&self, path: &Path) -> Option<PathBuf> {
@@ -170,7 +172,7 @@ fn is_image_file(path: &Path) -> bool {
 }
 
 fn load_image_asset_preview(root: &Path, path: &Path) -> ImageAssetPreview {
-    let relative_path = relative_path_for_image(root, path);
+    let relative_path = project_relative_path(root, path);
     let format = path
         .extension()
         .and_then(|extension| extension.to_str())
@@ -196,11 +198,19 @@ fn load_image_asset_preview(root: &Path, path: &Path) -> ImageAssetPreview {
     }
 }
 
-fn relative_path_for_image(root: &Path, path: &Path) -> String {
+fn project_relative_path(root: &Path, path: &Path) -> String {
     path.strip_prefix(root)
         .unwrap_or(path)
         .to_string_lossy()
         .replace(std::path::MAIN_SEPARATOR, "/")
+}
+
+fn selected_project_file(root: &Path, selected_path: Option<&Path>) -> String {
+    let Some(path) = selected_path else { return String::new() };
+    if !is_slint_file(path) && !is_image_file(path) {
+        return String::new();
+    }
+    project_relative_path(root, path)
 }
 
 fn format_nine_slice_expression(
@@ -578,6 +588,27 @@ mod tests {
         assert_eq!(preview.error, "Failed to load image");
         assert_eq!(preview.image.size().width, 0);
         assert_eq!(preview.image.size().height, 0);
+    }
+
+    #[test]
+    fn selected_project_file_is_project_relative_for_openable_files() {
+        let tree = TempTree::new();
+        let slint = tree.file("ui/main.slint");
+        let image = tree.file("assets/title-frame.png");
+
+        assert_eq!(selected_project_file(&tree.root, Some(&slint)), "ui/main.slint");
+        assert_eq!(selected_project_file(&tree.root, Some(&image)), "assets/title-frame.png");
+    }
+
+    #[test]
+    fn selected_project_file_is_blank_without_openable_file() {
+        let tree = TempTree::new();
+        let folder = tree.dir("ui");
+        let unsupported = tree.file("notes.txt");
+
+        assert_eq!(selected_project_file(&tree.root, None), "");
+        assert_eq!(selected_project_file(&tree.root, Some(&folder)), "");
+        assert_eq!(selected_project_file(&tree.root, Some(&unsupported)), "");
     }
 
     #[test]
