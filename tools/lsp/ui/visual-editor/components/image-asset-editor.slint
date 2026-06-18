@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Api } from "../../api.slint";
-import { CanvasCorner, StudioTheme } from "common.slint";
+import { CanvasCorner, EditorMetrics, StudioTheme } from "common.slint";
 
 component GuideHandle inherits Rectangle {
     in property <string> label;
@@ -31,30 +31,55 @@ component GuideHandle inherits Rectangle {
     }
 }
 
-component FloatingInfoField inherits Rectangle {
-    in property <string> label;
+component FloatingReadOnlyField inherits Rectangle {
+    in property <string> prefix;
+    in property <string> value;
+    in property <bool> wide: false;
+
+    width: wide ? 250px : 96px;
+    height: 24px;
+    border-radius: 4px;
+    background: StudioTheme.dark ? #383838aa : #f5f5f5cc;
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 7px;
+        spacing: 5px;
+        cross-axis-alignment: center;
+
+        Text {
+            text: root.prefix;
+            color: StudioTheme.muted;
+            font-size: 11px;
+            vertical-alignment: center;
+        }
+
+        Text {
+            horizontal-stretch: 1;
+            text: root.value;
+            color: StudioTheme.text;
+            font-size: 12px;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+}
+
+component FloatingSyntaxField inherits Rectangle {
     in property <string> value;
 
-    height: 24px;
+    height: 78px;
+    border-radius: 4px;
+    background: StudioTheme.dark ? #383838 : #f5f5f5;
 
     Text {
-        width: 58px;
-        text: root.label;
-        color: StudioTheme.muted;
-        font-size: 11px;
-        font-weight: 700;
-        vertical-alignment: center;
-        overflow: elide;
-    }
-
-    Text {
-        x: 64px;
-        width: parent.width - 64px;
+        x: 8px;
+        width: parent.width - 16px;
         text: root.value;
         color: StudioTheme.text;
-        font-size: 12px;
+        font-size: 11px;
         vertical-alignment: center;
-        overflow: elide;
+        wrap: word-wrap;
     }
 }
 
@@ -62,11 +87,11 @@ component FloatingCopyButton inherits Rectangle {
     callback clicked;
 
     width: 54px;
-    height: 26px;
-    border-radius: 5px;
+    height: 24px;
+    border-radius: 4px;
     border-width: 1px;
-    border-color: StudioTheme.border;
-    background: touch.has-hover ? StudioTheme.panel-subtle : StudioTheme.panel-bg;
+    border-color: StudioTheme.dark ? #414141 : #e5e5e5;
+    background: touch.has-hover ? (StudioTheme.dark ? #414141 : #eeeeee) : (StudioTheme.dark ? #383838 : #f5f5f5);
 
     Text {
         text: "Copy";
@@ -94,16 +119,16 @@ export component ImageAssetEditor inherits Rectangle {
     private property <int> source-height: Api.selected-image-asset.image.height;
     private property <length> image-source-width: root.source-width * 1px;
     private property <length> image-source-height: root.source-height * 1px;
-    private property <length> preview-panel-width: 300px;
-    private property <length> preview-panel-height: 240px;
+    private property <length> preview-panel-width: 360px;
+    private property <length> preview-panel-height: 292px;
     private property <length> preview-panel-margin: 24px;
-    private property <length> property-pane-width: 386px;
-    private property <length> property-pane-height: 176px;
+    private property <length> property-pane-width: EditorMetrics.inspector-pane-width;
+    private property <length> property-pane-height: 260px;
     private property <length> property-pane-margin: 24px;
     private property <length> edit-safe-top: 28px;
-    private property <length> edit-safe-bottom: root.property-pane-height + 2 * root.property-pane-margin;
-    private property <length> edit-safe-right: root.preview-panel-width + 2 * root.preview-panel-margin;
-    private property <length> available-width: max(1px, root.width - root.edit-safe-right - 64px);
+    private property <length> edit-safe-bottom: 44px;
+    private property <length> edit-safe-right: max(root.preview-panel-width, root.property-pane-width) + 2 * root.preview-panel-margin;
+    private property <length> available-width: max(1px, root.width - root.edit-safe-right - 40px);
     private property <length> available-height: max(1px, root.height - root.edit-safe-top - root.edit-safe-bottom - 64px);
     private property <float> fit-scale: root.has-image()
         ? min(root.available-width / root.image-source-width, root.available-height / root.image-source-height)
@@ -208,8 +233,12 @@ export component ImageAssetEditor inherits Rectangle {
         root.preview-custom-height = max(root.preview-min-size, root.preview-resize-start-size.height + height-delta);
     }
 
-    function image-size-label() -> string {
-        return root.source-width + " x " + root.source-height;
+    function image-width-label() -> string {
+        return root.source-width + "";
+    }
+
+    function image-height-label() -> string {
+        return root.source-height + "";
     }
 
     function nine-slice-expression() -> string {
@@ -263,8 +292,8 @@ export component ImageAssetEditor inherits Rectangle {
     }
 
     if root.has-image(): image-frame := Rectangle {
-        x: (root.edit-area-width - self.width) / 2;
-        y: root.edit-safe-top + (root.edit-area-height - self.height) / 2;
+        x: max(16px, (root.edit-area-width - self.width) / 2 - 24px);
+        y: root.edit-safe-top + max(0px, (root.edit-area-height - self.height) * 0.62);
         width: root.display-width;
         height: root.display-height;
         border-width: 1px;
@@ -526,7 +555,7 @@ export component ImageAssetEditor inherits Rectangle {
     }
 
     if root.has-image(): Rectangle {
-        x: root.property-pane-margin;
+        x: root.width - root.property-pane-width - root.property-pane-margin;
         y: root.height - root.property-pane-height - root.property-pane-margin;
         width: root.property-pane-width;
         height: root.property-pane-height;
@@ -549,33 +578,44 @@ export component ImageAssetEditor inherits Rectangle {
                 font-weight: 800;
             }
 
-            FloatingInfoField {
+            FloatingReadOnlyField {
                 width: parent.width - 28px;
-                label: "Type";
-                value: Api.selected-image-asset.format;
+                prefix: "File";
+                value: Api.selected-image-asset.relative-path;
+                wide: true;
             }
 
-            FloatingInfoField {
+            HorizontalLayout {
                 width: parent.width - 28px;
-                label: "Size";
-                value: root.image-size-label();
-            }
+                spacing: 8px;
 
-            Rectangle {
-                width: parent.width - 28px;
-                height: 54px;
-                border-radius: 6px;
-                background: StudioTheme.panel-subtle;
-
-                Text {
-                    x: 8px;
-                    width: parent.width - 16px;
-                    text: root.nine-slice-expression();
-                    color: StudioTheme.text;
-                    font-size: 11px;
-                    vertical-alignment: center;
-                    wrap: word-wrap;
+                FloatingReadOnlyField {
+                    horizontal-stretch: 1;
+                    prefix: "Fmt";
+                    value: Api.selected-image-asset.format;
                 }
+            }
+
+            HorizontalLayout {
+                width: parent.width - 28px;
+                spacing: 8px;
+
+                FloatingReadOnlyField {
+                    horizontal-stretch: 1;
+                    prefix: "W";
+                    value: root.image-width-label();
+                }
+
+                FloatingReadOnlyField {
+                    horizontal-stretch: 1;
+                    prefix: "H";
+                    value: root.image-height-label();
+                }
+            }
+
+            FloatingSyntaxField {
+                width: parent.width - 28px;
+                value: root.nine-slice-expression();
             }
 
             HorizontalLayout {
