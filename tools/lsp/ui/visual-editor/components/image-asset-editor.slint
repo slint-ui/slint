@@ -96,14 +96,10 @@ export component ImageAssetEditor inherits Rectangle {
     private property <Point> preview-resize-start-pointer: { x: 0px, y: 0px };
     private property <CanvasCorner> preview-resize-corner: CanvasCorner.bottom-right;
     private property <length> preview-min-size: 48px;
-    private property <bool> preview-position-custom: false;
-    private property <Point> preview-custom-position: { x: 0px, y: 0px };
-    private property <Point> preview-resize-start-position: { x: 0px, y: 0px };
 
     changed asset-path => {
         root.mode = ImageAssetEditorMode.edit;
         root.preview-size-custom = false;
-        root.preview-position-custom = false;
         Api.image-nine-slice-top = 0;
         Api.image-nine-slice-right = 0;
         Api.image-nine-slice-bottom = 0;
@@ -146,11 +142,11 @@ export component ImageAssetEditor inherits Rectangle {
     }
 
     function preview-width() -> length {
-        return root.preview-size-custom ? root.preview-custom-width : max(root.preview-min-size, root.display-width);
+        return root.preview-size-custom ? root.preview-custom-width : max(root.preview-min-size, root.image-source-width);
     }
 
     function preview-height() -> length {
-        return root.preview-size-custom ? root.preview-custom-height : max(root.preview-min-size, root.display-height);
+        return root.preview-size-custom ? root.preview-custom-height : max(root.preview-min-size, root.image-source-height);
     }
 
     function default-preview-position() -> Point {
@@ -160,17 +156,12 @@ export component ImageAssetEditor inherits Rectangle {
         };
     }
 
-    function preview-position() -> Point {
-        return root.preview-position-custom ? root.preview-custom-position : root.default-preview-position();
-    }
-
     function begin-preview-resize(corner: CanvasCorner, pointer: Point) {
         root.preview-resize-corner = corner;
         root.preview-resize-start-size = {
             width: root.preview-width(),
             height: root.preview-height(),
         };
-        root.preview-resize-start-position = root.preview-position();
         root.preview-resize-start-pointer = pointer;
     }
 
@@ -179,24 +170,13 @@ export component ImageAssetEditor inherits Rectangle {
             x: pointer.x - root.preview-resize-start-pointer.x,
             y: pointer.y - root.preview-resize-start-pointer.y,
         };
-        let width-delta = root.preview-resize-corner == CanvasCorner.top-left
-            || root.preview-resize-corner == CanvasCorner.bottom-left ? -delta.x : delta.x;
-        let height-delta = root.preview-resize-corner == CanvasCorner.top-left
-            || root.preview-resize-corner == CanvasCorner.top-right ? -delta.y : delta.y;
+        let width-delta = 2 * (root.preview-resize-corner == CanvasCorner.top-left
+            || root.preview-resize-corner == CanvasCorner.bottom-left ? -delta.x : delta.x);
+        let height-delta = 2 * (root.preview-resize-corner == CanvasCorner.top-left
+            || root.preview-resize-corner == CanvasCorner.top-right ? -delta.y : delta.y);
         root.preview-size-custom = true;
-        root.preview-position-custom = true;
         root.preview-custom-width = max(root.preview-min-size, root.preview-resize-start-size.width + width-delta);
         root.preview-custom-height = max(root.preview-min-size, root.preview-resize-start-size.height + height-delta);
-        root.preview-custom-position = {
-            x: root.preview-resize-corner == CanvasCorner.top-left
-                || root.preview-resize-corner == CanvasCorner.bottom-left
-                ? root.preview-resize-start-position.x + root.preview-resize-start-size.width - root.preview-custom-width
-                : root.preview-resize-start-position.x,
-            y: root.preview-resize-corner == CanvasCorner.top-left
-                || root.preview-resize-corner == CanvasCorner.top-right
-                ? root.preview-resize-start-position.y + root.preview-resize-start-size.height - root.preview-custom-height
-                : root.preview-resize-start-position.y,
-        };
     }
 
     for row in 28: Rectangle {
@@ -436,8 +416,8 @@ export component ImageAssetEditor inherits Rectangle {
     }
 
     if root.has-image() && root.mode == ImageAssetEditorMode.preview: preview-frame := Rectangle {
-        x: root.preview-position().x;
-        y: root.preview-position().y;
+        x: root.default-preview-position().x;
+        y: root.default-preview-position().y;
         width: root.preview-width();
         height: root.preview-height();
         border-width: 1px;
