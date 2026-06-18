@@ -41,6 +41,16 @@ fn calculate_element_hash(
 }
 
 fn process_element(element: &ElementRc, random_state: &std::hash::RandomState) {
+    let e = element.borrow();
+    // Skip injecting debug hooks for these cases:
+    // * `for` / `if` repeater placeholders (incl. conditionals)
+    // * @children placeholder (generator skips these too)
+    // * non-inlined sub-component instances (base_type = Component)
+    if e.repeated.is_some() || e.is_component_placeholder || e.sub_component().is_some() {
+        return;
+    }
+    drop(e);
+
     // Step 1: compute and store the element hash on EVERY debug entry.
     // This pass now runs after required-inlining, so an element may carry several debug
     // entries (one per merged source element). The LSP looks up the hash on the entry that
@@ -157,8 +167,7 @@ mod tests {
             Some(std::path::Path::new("test.slint")),
             &mut diags,
         );
-        let (doc, diag, _) =
-            spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));
+        let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));
         assert!(!diag.has_errors(), "{:?}", diag.to_string_vec());
         doc
     }
