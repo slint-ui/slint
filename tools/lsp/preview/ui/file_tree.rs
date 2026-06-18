@@ -10,11 +10,7 @@ use slint::{ModelRc, SharedString, ToSharedString as _, VecModel};
 
 use super::{Api, FileTreeNode, FileTreeNodeKind};
 
-pub fn setup(
-    api: &Api<'_>,
-    api_weak: slint::Weak<Api<'static>>,
-    use_editor_ui: bool,
-) {
+pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, use_editor_ui: bool) {
     let Some((root, selected_path)) = initial_file_tree_paths(use_editor_ui) else {
         api.set_file_tree(Default::default());
         return;
@@ -141,9 +137,9 @@ fn is_directory(path: &Path) -> bool {
 }
 
 fn is_slint_file(path: &Path) -> bool {
-    path.extension().and_then(|extension| extension.to_str()).is_some_and(|extension| {
-        extension.eq_ignore_ascii_case("slint")
-    })
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("slint"))
 }
 
 fn build_file_tree_rows(
@@ -279,6 +275,7 @@ enum DirectoryEntryKind {
 mod tests {
     use super::*;
     use std::fs;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     struct TempTree {
@@ -287,9 +284,11 @@ mod tests {
 
     impl TempTree {
         fn new() -> Self {
+            static TEMP_TREE_COUNTER: AtomicU64 = AtomicU64::new(0);
             let unique = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+            let index = TEMP_TREE_COUNTER.fetch_add(1, Ordering::Relaxed);
             let root = std::env::temp_dir()
-                .join(format!("slint-file-tree-{}-{unique}", std::process::id()));
+                .join(format!("slint-file-tree-{}-{unique}-{index}", std::process::id()));
             fs::create_dir_all(&root).unwrap();
             Self { root }
         }
