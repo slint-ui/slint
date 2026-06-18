@@ -427,21 +427,29 @@ impl WinitWindowAdapter {
             WinitWindowOrNone::None(attributes) => attributes.borrow().clone(),
         };
 
-        #[cfg(all(unix, not(target_vendor = "apple")))]
-        if let Some(xdg_app_id) = WindowInner::from_pub(self.window()).xdg_app_id() {
+        #[cfg(all(unix, not(target_vendor = "apple"), any(feature = "wayland", feature = "x11")))]
+        {
+            let xdg_app_id = WindowInner::from_pub(self.window()).xdg_app_id();
+
             #[cfg(feature = "wayland")]
             if winit_wayland::ActiveEventLoopExtWayland::is_wayland(active_event_loop) {
-                window_attributes = window_attributes.with_platform_attributes(Box::new(
-                    winit_wayland::WindowAttributesWayland::default()
-                        .with_name(xdg_app_id.as_str(), ""),
-                ));
+                if let Some(xdg_app_id) = xdg_app_id {
+                    window_attributes = window_attributes.with_platform_attributes(Box::new(
+                        winit_wayland::WindowAttributesWayland::default()
+                            .with_name(xdg_app_id.as_str(), ""),
+                    ));
+                }
                 self.support_native_popup.set(true);
             }
+
             #[cfg(feature = "x11")]
             if winit_x11::ActiveEventLoopExtX11::is_x11(active_event_loop) {
-                window_attributes = window_attributes.with_platform_attributes(Box::new(
-                    winit_x11::WindowAttributesX11::default().with_name(xdg_app_id.as_str(), ""),
-                ));
+                if let Some(xdg_app_id) = xdg_app_id {
+                    window_attributes = window_attributes.with_platform_attributes(Box::new(
+                        winit_x11::WindowAttributesX11::default()
+                            .with_name(xdg_app_id.as_str(), ""),
+                    ));
+                }
                 // Currently x11 does not support native popups
                 self.support_native_popup.set(false);
             }
