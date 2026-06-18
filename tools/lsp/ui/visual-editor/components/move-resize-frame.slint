@@ -368,9 +368,6 @@ export component MoveResizeFrame inherits Rectangle {
                     border-color: StudioTheme.accent-strong;
 
                     TouchArea {
-                        width: parent.width * 4;
-                        height: parent.height * 4;
-
                         enabled: root.resizable;
                         mouse-cursor: root.corner-resize-cursor-is-forward-diagonal(corner) ? nwse-resize : nesw-resize;
                         private property <bool> event-shift-pressed: false;
