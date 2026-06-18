@@ -118,7 +118,7 @@ export component EditorState inherits Rectangle {
     }
 
     function canvas-height() -> length {
-        return root.window-height - EditorMetrics.top-bar-height - EditorMetrics.canvas-toolbar-height;
+        return root.window-height - EditorMetrics.top-bar-height;
     }
 
     public pure function phone-width() -> length {
@@ -142,7 +142,7 @@ export component EditorState inherits Rectangle {
     }
 
     function phone-top() -> length {
-        return EditorMetrics.top-bar-height + EditorMetrics.canvas-toolbar-height + root.phone-canvas-top();
+        return EditorMetrics.top-bar-height + root.phone-canvas-top();
     }
 
     function pointer-inside-phone(window-position: Point) -> bool {
