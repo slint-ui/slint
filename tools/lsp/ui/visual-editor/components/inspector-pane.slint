@@ -4,7 +4,7 @@
 import { Api, EditorSurfaceMode, ElementInformation, SelectionRectangle } from "../../api.slint";
 import { CanvasSelectionKind, EdgeDivider, EditorMetrics, StudioTheme } from "common.slint";
 import { OutlinePane } from "outline-pane.slint";
-import { InspectorTokens } from "inspector/tokens.slint";
+import { InspectorComboOption, InspectorTokens } from "inspector/tokens.slint";
 import { InspectorTooltipBubble } from "inspector/tooltip-bubble.slint";
 import { InspectorInfoIcon } from "inspector/info-icon.slint";
 import { InspectorValueField } from "inspector/value-field.slint";
@@ -48,6 +48,33 @@ export component InspectorPane inherits Rectangle {
     property <string> hovered-tooltip-key: "";
     property <string> hovered-tooltip-label: "";
     property <Point> hovered-tooltip-position: { x: 0px, y: 0px };
+    property <[InspectorComboOption]> image-fit-options: [
+        { value: "fill", label: "fill" },
+        { value: "preserve", label: "preserve" },
+        { value: "contain", label: "contain" },
+        { value: "cover", label: "cover" },
+    ];
+    property <[InspectorComboOption]> image-horizontal-alignment-options: [
+        { value: "center", label: "center" },
+        { value: "left", label: "left" },
+        { value: "right", label: "right" },
+    ];
+    property <[InspectorComboOption]> image-vertical-alignment-options: [
+        { value: "center", label: "center" },
+        { value: "top", label: "top" },
+        { value: "bottom", label: "bottom" },
+    ];
+    property <[InspectorComboOption]> text-font-weight-options: [
+        { value: "100", label: "Thin" },
+        { value: "200", label: "Extra Light" },
+        { value: "300", label: "Light" },
+        { value: "400", label: "Normal" },
+        { value: "500", label: "Medium" },
+        { value: "600", label: "Semi Bold" },
+        { value: "700", label: "Bold" },
+        { value: "800", label: "Extra Bold" },
+        { value: "900", label: "Black" },
+    ];
 
     function has-backend-rect() -> bool {
         return Api.selection.highlight-index >= 0 && root.selection-rects.length > Api.selection.highlight-index;
@@ -188,16 +215,8 @@ export component InspectorPane inherits Rectangle {
         return Api.current-property-value("source", "");
     }
 
-    function image-fit-value() -> string {
-        let value = Api.current-property-value("image-fit", "fill");
-        if value == "fill" || value == "preserve" || value == "contain" || value == "cover" {
-            return value;
-        }
-        return "fill";
-    }
-
     function image-fit-index() -> int {
-        let value = root.image-fit-value();
+        let value = Api.current-property-value("image-fit", "fill");
         if value == "fill" {
             return 0;
         }
@@ -213,16 +232,13 @@ export component InspectorPane inherits Rectangle {
         return -1;
     }
 
-    function image-horizontal-alignment-value() -> string {
-        let value = Api.current-property-value("horizontal-alignment", "center");
-        if value == "center" || value == "left" || value == "right" {
-            return value;
-        }
-        return "center";
+    function image-fit-value() -> string {
+        let index = root.image-fit-index();
+        return index >= 0 ? root.image-fit-options[index].value : "fill";
     }
 
     function image-horizontal-alignment-index() -> int {
-        let value = root.image-horizontal-alignment-value();
+        let value = Api.current-property-value("horizontal-alignment", "center");
         if value == "center" {
             return 0;
         }
@@ -235,16 +251,13 @@ export component InspectorPane inherits Rectangle {
         return -1;
     }
 
-    function image-vertical-alignment-value() -> string {
-        let value = Api.current-property-value("vertical-alignment", "center");
-        if value == "center" || value == "top" || value == "bottom" {
-            return value;
-        }
-        return "center";
+    function image-horizontal-alignment-value() -> string {
+        let index = root.image-horizontal-alignment-index();
+        return index >= 0 ? root.image-horizontal-alignment-options[index].value : "center";
     }
 
     function image-vertical-alignment-index() -> int {
-        let value = root.image-vertical-alignment-value();
+        let value = Api.current-property-value("vertical-alignment", "center");
         if value == "center" {
             return 0;
         }
@@ -257,68 +270,46 @@ export component InspectorPane inherits Rectangle {
         return -1;
     }
 
-    function text-font-weight-label() -> string {
-        let value = Api.current-property-value("font-weight", "400");
-        if value == "100" || value == "FontWeight.thin" || value == "thin" {
-            return "Thin";
-        }
-        if value == "200" || value == "FontWeight.extra-light" || value == "extra-light" {
-            return "Extra Light";
-        }
-        if value == "300" || value == "FontWeight.light" || value == "light" {
-            return "Light";
-        }
-        if value == "400" || value == "FontWeight.normal" || value == "normal" {
-            return "Normal";
-        }
-        if value == "500" || value == "FontWeight.medium" || value == "medium" {
-            return "Medium";
-        }
-        if value == "600" || value == "FontWeight.semi-bold" || value == "semi-bold" {
-            return "Semi Bold";
-        }
-        if value == "700" || value == "FontWeight.bold" || value == "bold" {
-            return "Bold";
-        }
-        if value == "800" || value == "FontWeight.extra-bold" || value == "extra-bold" {
-            return "Extra Bold";
-        }
-        if value == "900" || value == "FontWeight.black" || value == "black" {
-            return "Black";
-        }
-        return "Normal";
+    function image-vertical-alignment-value() -> string {
+        let index = root.image-vertical-alignment-index();
+        return index >= 0 ? root.image-vertical-alignment-options[index].value : "center";
     }
 
     function text-font-weight-index() -> int {
-        let label = root.text-font-weight-label();
-        if label == "Thin" {
+        let value = Api.current-property-value("font-weight", "400");
+        if value == "100" || value == "FontWeight.thin" || value == "thin" {
             return 0;
         }
-        if label == "Extra Light" {
+        if value == "200" || value == "FontWeight.extra-light" || value == "extra-light" {
             return 1;
         }
-        if label == "Light" {
+        if value == "300" || value == "FontWeight.light" || value == "light" {
             return 2;
         }
-        if label == "Normal" {
+        if value == "400" || value == "FontWeight.normal" || value == "normal" {
             return 3;
         }
-        if label == "Medium" {
+        if value == "500" || value == "FontWeight.medium" || value == "medium" {
             return 4;
         }
-        if label == "Semi Bold" {
+        if value == "600" || value == "FontWeight.semi-bold" || value == "semi-bold" {
             return 5;
         }
-        if label == "Bold" {
+        if value == "700" || value == "FontWeight.bold" || value == "bold" {
             return 6;
         }
-        if label == "Extra Bold" {
+        if value == "800" || value == "FontWeight.extra-bold" || value == "extra-bold" {
             return 7;
         }
-        if label == "Black" {
+        if value == "900" || value == "FontWeight.black" || value == "black" {
             return 8;
         }
         return -1;
+    }
+
+    function text-font-weight-label() -> string {
+        let index = root.text-font-weight-index();
+        return index >= 0 ? root.text-font-weight-options[index].label : "Normal";
     }
 
     function image-width-label() -> string {
@@ -558,7 +549,6 @@ export component InspectorPane inherits Rectangle {
 
                 if !root.image-mode && (root.is-root-selection() || root.is-rectangle-selection() || root.is-text-selection()): InspectorSection {
                     title: "Appearance";
-                    show-appearance-icons: false;
 
                     HorizontalLayout {
                         padding-left: InspectorTokens.side-padding;
@@ -634,12 +624,7 @@ export component InspectorPane inherits Rectangle {
                             InspectorComboBox {
                                 value: root.image-fit-value();
                                 selected-index: root.image-fit-index();
-                                options: [
-                                    { value: "fill", label: "fill", enabled: true },
-                                    { value: "preserve", label: "preserve", enabled: true },
-                                    { value: "contain", label: "contain", enabled: true },
-                                    { value: "cover", label: "cover", enabled: true },
-                                ];
+                                options: root.image-fit-options;
                                 wide: true;
                                 accepted(text) => {
                                     return text != "" && root.commit-code("image-fit", text);
@@ -654,11 +639,7 @@ export component InspectorPane inherits Rectangle {
                                 prefix: "H";
                                 value: root.image-horizontal-alignment-value();
                                 selected-index: root.image-horizontal-alignment-index();
-                                options: [
-                                    { value: "center", label: "center", enabled: true },
-                                    { value: "left", label: "left", enabled: true },
-                                    { value: "right", label: "right", enabled: true },
-                                ];
+                                options: root.image-horizontal-alignment-options;
                                 accepted(text) => {
                                     return text != "" && root.commit-code("horizontal-alignment", text);
                                 }
@@ -668,11 +649,7 @@ export component InspectorPane inherits Rectangle {
                                 prefix: "V";
                                 value: root.image-vertical-alignment-value();
                                 selected-index: root.image-vertical-alignment-index();
-                                options: [
-                                    { value: "center", label: "center", enabled: true },
-                                    { value: "top", label: "top", enabled: true },
-                                    { value: "bottom", label: "bottom", enabled: true },
-                                ];
+                                options: root.image-vertical-alignment-options;
                                 accepted(text) => {
                                     return text != "" && root.commit-code("vertical-alignment", text);
                                 }
@@ -683,7 +660,6 @@ export component InspectorPane inherits Rectangle {
 
                 if !root.image-mode && root.is-text-selection(): InspectorSection {
                     title: "Typography";
-                    show-typography-icons: false;
 
                     VerticalLayout {
                         padding-left: InspectorTokens.side-padding;
@@ -703,17 +679,7 @@ export component InspectorPane inherits Rectangle {
                             InspectorComboBox {
                                 value: root.text-font-weight-label();
                                 selected-index: root.text-font-weight-index();
-                                options: [
-                                    { value: "100", label: "Thin", enabled: true },
-                                    { value: "200", label: "Extra Light", enabled: true },
-                                    { value: "300", label: "Light", enabled: true },
-                                    { value: "400", label: "Normal", enabled: true },
-                                    { value: "500", label: "Medium", enabled: true },
-                                    { value: "600", label: "Semi Bold", enabled: true },
-                                    { value: "700", label: "Bold", enabled: true },
-                                    { value: "800", label: "Extra Bold", enabled: true },
-                                    { value: "900", label: "Black", enabled: true },
-                                ];
+                                options: root.text-font-weight-options;
                                 accepted(text) => {
                                     return text != "" && root.commit-code("font-weight", text);
                                 }
@@ -727,51 +693,6 @@ export component InspectorPane inherits Rectangle {
                             }
                         }
 
-                        // HorizontalLayout {
-                        //     spacing: InspectorTokens.column-gap;
-
-                        //     InspectorValueField {
-                        //         prefix: "A";
-                        //         value: "20";
-                        //         accepted(text) => {
-                        //             return root.commit-px-code("line-height", text);
-                        //         }
-                        //     }
-
-                        //     InspectorValueField {
-                        //         prefix: "A";
-                        //         value: "0";
-                        //         accepted(text) => {
-                        //             return root.commit-px-code("letter-spacing", text);
-                        //         }
-                        //     }
-                        // }
-
-                        // HorizontalLayout {
-                        //     spacing: InspectorTokens.column-gap;
-
-                        //     InspectorSegmentedIconControl {
-                        //         kind: "horizontal";
-                        //         selected-index: 0;
-                        //         selected(index) => {
-                        //             return root.commit-code(
-                        //                 "horizontal-alignment",
-                        //                 index == 0 ? "left" : index == 1 ? "center" : "right",
-                        //             );
-                        //         }
-                        //     }
-
-                        //     InspectorSegmentedIconControl {
-                        //         kind: "vertical";
-                        //         selected-index: 1;
-                        //         selected(index) => {
-                        //             return root.commit-code(
-                        //                 "vertical-alignment",
-                        //                 index == 0 ? "top" : index == 1 ? "center" : "bottom",
-                        //             );
-                        //         }
-                        //     }
-                        // }
                     }
                 }
             }

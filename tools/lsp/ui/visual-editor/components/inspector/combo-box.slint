@@ -65,7 +65,6 @@ export component InspectorComboBox inherits Rectangle {
         Menu {
             for option[index] in root.options: MenuItem {
                 title: option.label;
-                enabled: option.enabled;
                 checkable: true;
                 checked: index == root.selected-index;
                 activated => {
@@ -84,7 +83,6 @@ export component InspectorComboBox inherits Rectangle {
                 text: root.prefix;
                 color: InspectorTokens.text;
                 font-size: 11px;
-                font-weight: 400;
                 vertical-alignment: center;
             }
 
@@ -93,7 +91,6 @@ export component InspectorComboBox inherits Rectangle {
                 text: root.value != "" ? root.value : root.placeholder;
                 color: root.value != "" ? InspectorTokens.text : InspectorTokens.muted;
                 font-size: 12px;
-                font-weight: 400;
                 vertical-alignment: center;
                 overflow: elide;
                 wrap: no-wrap;
@@ -156,7 +153,7 @@ export component InspectorComboBox inherits Rectangle {
                     border-radius: InspectorTokens.field-radius;
                     background: index == root.selected-index
                         ? InspectorTokens.accent.with-alpha(0.16)
-                        : row-touch.has-hover && option.enabled
+                        : row-touch.has-hover
                         ? InspectorTokens.field-bg-hover
                         : transparent;
 
@@ -164,7 +161,7 @@ export component InspectorComboBox inherits Rectangle {
                         x: 7px;
                         width: 14px;
                         text: index == root.selected-index ? "✓" : "";
-                        color: option.enabled ? InspectorTokens.accent : InspectorTokens.muted;
+                        color: InspectorTokens.accent;
                         font-size: 12px;
                         font-weight: 600;
                         horizontal-alignment: center;
@@ -175,7 +172,7 @@ export component InspectorComboBox inherits Rectangle {
                         x: 25px;
                         width: parent.width - self.x - 8px;
                         text: option.label;
-                        color: option.enabled ? InspectorTokens.text : InspectorTokens.muted;
+                        color: InspectorTokens.text;
                         font-size: 12px;
                         vertical-alignment: center;
                         overflow: elide;
@@ -183,8 +180,7 @@ export component InspectorComboBox inherits Rectangle {
                     }
 
                     row-touch := TouchArea {
-                        enabled: option.enabled;
-                        mouse-cursor: option.enabled ? pointer : default;
+                        mouse-cursor: pointer;
                         clicked => {
                             if root.accepted(option.value) {
                                 fallback-popup.close();
