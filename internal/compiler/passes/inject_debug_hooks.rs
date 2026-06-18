@@ -46,7 +46,11 @@ fn process_element(element: &ElementRc, random_state: &std::hash::RandomState) {
     // * `for` / `if` repeater placeholders (incl. conditionals)
     // * @children placeholder (generator skips these too)
     // * non-inlined sub-component instances (base_type = Component)
-    if e.repeated.is_some() || e.is_component_placeholder || e.sub_component().is_some() {
+    if e.repeated.is_some() {
+        inject_debug_hooks(e.base_type.as_component(), random_state);
+        return;
+    }
+    if e.is_component_placeholder || e.sub_component().is_some() {
         return;
     }
     drop(e);
