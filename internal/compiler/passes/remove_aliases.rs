@@ -12,12 +12,13 @@ use std::collections::{HashMap, HashSet, btree_map::Entry};
 use std::rc::Rc;
 
 // The property in the key is to be removed, and replaced by the property in the value
-type Mapping = HashMap<NamedReference, NamedReference>;
+type Mapping = HashMap<NamedReference, (NamedReference, PropertySet)>;
+type PropertySet = Rc<RefCell<HashSet<NamedReference>>>;
 
 #[derive(Default, Debug)]
 struct PropertySets {
     map: HashMap<NamedReference, Rc<RefCell<HashSet<NamedReference>>>>,
-    all_sets: Vec<Rc<RefCell<HashSet<NamedReference>>>>,
+    all_sets: Vec<PropertySet>,
 }
 
 impl PropertySets {
@@ -128,8 +129,8 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
 
     // For each set, find a "master" property. Only reference to this master property will be kept,
     // and only the master property will keep its binding
-    for set in property_sets.all_sets {
-        let set = set.borrow();
+    for set_rc in property_sets.all_sets {
+        let set = set_rc.borrow();
 
         // Globals are singletons, so a callback aliased across globals must have at most
         // one implementation. More than one handler in the set is an ambiguous conflict.
@@ -173,7 +174,7 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
             }
             for x in set.iter() {
                 if *x != best {
-                    aliases_to_remove.insert(x.clone(), best.clone());
+                    aliases_to_remove.insert(x.clone(), (best.clone(), Rc::clone(&set_rc)));
                 }
             }
         }
@@ -182,14 +183,14 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
     doc.visit_all_used_components(|component| {
         // Do the replacements
         visit_all_named_references(component, &mut |nr: &mut NamedReference| {
-            if let Some(new) = aliases_to_remove.get(nr) {
+            if let Some((new, _set)) = aliases_to_remove.get(nr) {
                 *nr = new.clone();
             }
         })
     });
 
     // Remove the properties
-    for (remove, to) in aliases_to_remove {
+    for (remove, (to, set)) in aliases_to_remove {
         let elem = remove.element();
         let to_elem = to.element();
 
@@ -208,6 +209,52 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
         });
 
         remove_from_binding_expression(&mut old_binding, &to);
+
+        // When the master `to` is a global, re-home two-way bindings whose target is *not* in this
+        // set onto the surviving target instead of merging them onto `to`.
+        //
+        // A two-way binding to a property outside this set only survives here because `add_link`
+        // *rejected* merging it into the set (e.g. it would have pulled a `changed` handler across
+        // into a global). The two endpoints are still meant to be linked at runtime, but the rejected
+        // target was never folded away, so we must not let `old_binding` carry that reference onto `to`
+        // via the `merge_with` below: that would leave the global singleton holding a reference to an
+        // instance element it cannot resolve ("accessing deleted parent" at runtime).
+        //
+        // Instead, re-express the link from the surviving target's side as `target <=> to`. This is
+        // only sound because `to` is a global: at runtime an element-to-global reference is resolved by
+        // a direct global lookup (`enclosing_component_instance_for_element`), so `target` can always
+        // resolve `to` regardless of where `target` lives in the tree.
+        //
+        // The reverse is *not* true, which is why this is gated on `to` being a global: when `to` is an
+        // instance, references to it are resolved by walking *up* the parent chain from the hosting
+        // element (`enclosing_component_for_element`). The normal `merge_with` keeps the binding on `to`
+        // and references `target` -- the same direction the original `remove <=> target` binding used,
+        // so it is known to resolve. Flipping it to host on `target` and reference the instance `to`
+        // would require `target`'s context to reach `to`, which is not guaranteed (e.g. `to` lives in a
+        // nested sub-component) and panics with the same "accessing deleted parent" -- as observed when
+        // this guard is dropped (e.g. the `todo` demo).
+        if to_elem.borrow().enclosing_component.upgrade().unwrap().is_global() {
+            old_binding.two_way_bindings.retain(|twb| {
+                let TwoWayBinding::Property { property, field_access } = twb else { return true };
+                if !field_access.is_empty() || set.borrow().contains(property) {
+                    // Field-access bindings aren't aliased (see above), and a target that *is* in
+                    // the set was folded into `to` already, so the normal merge below handles it.
+                    return true;
+                }
+                let target_elem = property.element();
+                let mut target_elem = target_elem.borrow_mut();
+                let entry = target_elem
+                    .bindings
+                    .entry(property.name().clone())
+                    .or_insert_with(|| BindingExpression::new_two_way(to.clone().into()).into());
+                let mut b = entry.borrow_mut();
+                if !b.two_way_bindings.iter().any(|x| x.property() == Some(&to)) {
+                    b.two_way_bindings.push(to.clone().into());
+                }
+                // drop from old_binding so the merge below won't carry it onto the global
+                false
+            });
+        }
 
         let same_component = std::rc::Weak::ptr_eq(
             &elem.borrow().enclosing_component,
