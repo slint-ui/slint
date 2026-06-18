@@ -35,6 +35,7 @@ pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, use_editor_ui: 
     });
 
     api.on_image_nine_slice_expression(format_nine_slice_expression);
+    api.on_image_nine_slice_preview(nine_slice_preview_image);
 
     api.on_copy_nine_slice_expression(|value| {
         if let Err(err) = i_slint_backend_selector::with_platform(|platform| {
@@ -233,6 +234,21 @@ fn escape_slint_string(value: &str) -> String {
         }
     }
     escaped
+}
+
+fn nine_slice_preview_image(source: Image, top: i32, right: i32, bottom: i32, left: i32) -> Image {
+    let mut image = source;
+    image.set_nine_slice_edges(
+        nine_slice_edge_to_u16(top),
+        nine_slice_edge_to_u16(right),
+        nine_slice_edge_to_u16(bottom),
+        nine_slice_edge_to_u16(left),
+    );
+    image
+}
+
+fn nine_slice_edge_to_u16(value: i32) -> u16 {
+    value.clamp(0, u16::MAX as i32) as u16
 }
 
 fn build_file_tree_rows(
@@ -580,6 +596,30 @@ mod tests {
         let expression = format_nine_slice_expression("panel.png".into(), -1, 2, -3, 4);
 
         assert_eq!(expression, "@image-url(\"panel.png\", nine-slice(0 2 0 4))");
+    }
+
+    #[test]
+    fn nine_slice_preview_image_preserves_image_size() {
+        let tree = TempTree::new();
+        let path = tree.file("panel.svg");
+        fs::write(
+            &path,
+            r#"<svg xmlns="http://www.w3.org/2000/svg" width="16" height="10"></svg>"#,
+        )
+        .unwrap();
+        let source = Image::load_from_path(&path).unwrap();
+
+        let preview = nine_slice_preview_image(source, 1, 2, 3, 4);
+
+        assert_eq!(preview.size().width, 16);
+        assert_eq!(preview.size().height, 10);
+    }
+
+    #[test]
+    fn nine_slice_edges_clamp_to_u16() {
+        assert_eq!(nine_slice_edge_to_u16(-1), 0);
+        assert_eq!(nine_slice_edge_to_u16(12), 12);
+        assert_eq!(nine_slice_edge_to_u16(i32::MAX), u16::MAX);
     }
 
     #[test]
