@@ -2890,9 +2890,25 @@ fn generate_flexbox_layout_item_info_decl(
 
     let body = if let Some(expr) = &root_sc.flexbox_layout_item_info_for_repeated {
         let compiled = compile_expression(&expr.borrow(), ctx);
+        // Break the height-for-width recursion for a repeated instance in a
+        // column FlexboxLayout: use the constrained vertical info (measured at
+        // its preferred width via layoutinfo-v-with-constraint) instead of
+        // reading self.width through the parent flex cache.
+        let v_constrained = root_sc
+            .layout_info_v_constrained_for_repeated
+            .as_ref()
+            .map(|e| {
+                let v = compile_expression(&e.borrow(), ctx);
+                format!(
+                    "if (o == slint::cbindgen_private::Orientation::Vertical && !child_index.has_value()) {{ \
+                         info.constraint = {v}; return info; }} "
+                )
+            })
+            .unwrap_or_default();
         format!(
             "[[maybe_unused]] auto self = this; \
              auto info = {compiled}; \
+             {v_constrained}\
              info.constraint = layout_item_info(o, child_index).constraint; \
              return info;"
         )

@@ -306,6 +306,7 @@ fn lower_sub_component(
         child_of_layout: component.root_element.borrow().child_of_layout,
         grid_layout_input_for_repeated: None,
         flexbox_layout_item_info_for_repeated: None,
+        layout_info_v_constrained_for_repeated: None,
         is_repeated_row: component
             .root_element
             .borrow()
@@ -646,14 +647,22 @@ fn lower_sub_component(
         v_cross_constraint,
     )
     .into();
-    // For repeated elements in a FlexboxLayout, generate code to read flex properties
-    if sub_component.child_of_layout {
+    if component.root_element.borrow().child_of_flexbox {
         let root_elem = &component.root_element;
         let has_flex_binding =
             ["flex-grow", "flex-shrink", "flex-basis", "flex-align-self", "flex-order"]
                 .iter()
                 .any(|name| crate::layout::binding_reference(root_elem, name).is_some());
-        if has_flex_binding {
+        let v_constrained =
+            super::lower_layout_expression::get_layout_info_v_constrained_for_repeated(
+                &mut ctx,
+                root_elem,
+                &component.root_constraints.borrow(),
+            );
+        // Generate the flex item-info accessor when the element sets flex
+        // properties, or when it needs the constrained-vertical fix (a
+        // height-for-width instance in a column flex).
+        if has_flex_binding || v_constrained.is_some() {
             sub_component.flexbox_layout_item_info_for_repeated = Some(
                 super::lower_layout_expression::get_flexbox_layout_item_info_for_repeated(
                     &mut ctx, root_elem,
@@ -661,6 +670,7 @@ fn lower_sub_component(
                 .into(),
             );
         }
+        sub_component.layout_info_v_constrained_for_repeated = v_constrained.map(Into::into);
     }
 
     if let Some(grid_layout_cell) = component.root_element.borrow().grid_layout_cell.as_ref() {

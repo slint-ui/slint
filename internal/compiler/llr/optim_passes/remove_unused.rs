@@ -306,6 +306,7 @@ mod visitor {
             child_of_layout: _,
             grid_layout_input_for_repeated,
             flexbox_layout_item_info_for_repeated,
+            layout_info_v_constrained_for_repeated,
             is_repeated_row: _,
             grid_layout_children,
             accessible_prop,
@@ -396,6 +397,9 @@ mod visitor {
             visit_expression(e.get_mut(), &scope, state, visitor);
         }
         if let Some(e) = flexbox_layout_item_info_for_repeated {
+            visit_expression(e.get_mut(), &scope, state, visitor);
+        }
+        if let Some(e) = layout_info_v_constrained_for_repeated {
             visit_expression(e.get_mut(), &scope, state, visitor);
         }
         for child in grid_layout_children {

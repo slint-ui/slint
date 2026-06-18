@@ -556,6 +556,7 @@ impl Snapshotter {
 
         target_element.change_callbacks = elem.change_callbacks.clone();
         target_element.child_of_layout = elem.child_of_layout;
+        target_element.child_of_flexbox = elem.child_of_flexbox;
         target_element.default_fill_parent = elem.default_fill_parent;
         target_element.has_popup_child = elem.has_popup_child;
         target_element.inline_depth = elem.inline_depth;
