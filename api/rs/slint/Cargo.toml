@@ -86,18 +86,8 @@ accessibility = ["i-slint-backend-selector/accessibility"]
 ## Enable the `SystemTrayIcon` element. On Linux/BSD this pulls in
 ## [`ksni`](https://crates.io/crates/ksni). It is on by default; to drop the
 ## tray dependency, disable default features and re-enable the ones you need
-## without `system-tray` (keep the mandatory `compat-1-2`). Enabling this
-## selects ksni's `async-io` backend.
+## without `system-tray` (keep the mandatory `compat-1-2`).
 system-tray = ["i-slint-core/system-tray"]
-
-## Like `system-tray`, but runs ksni's tray service on the `async-io` runtime.
-system-tray-async-io = ["i-slint-core/system-tray-async-io"]
-
-## Like `system-tray`, but runs ksni's tray service on the `tokio` runtime, so
-## the tray shares the runtime of a tokio-based application. Enable this instead
-## of `system-tray` (the two ksni backends are mutually exclusive, so build
-## without default features and add this).
-system-tray-tokio = ["i-slint-core/system-tray-tokio"]
 
 ## Enable integration with [raw-window-handle](raw_window_handle_06) version 0.6. This provides a
 ## [`Window::window_handle()`] function that returns a struct that implements
