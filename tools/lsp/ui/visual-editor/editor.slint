@@ -94,7 +94,6 @@ export component EditorUi inherits Window {
 
                     if !root.sidebars-collapsed: LeftPane {
                         mode <=> state.left-mode;
-                        search-text <=> state.search-text;
                         can-collapse: true;
                         drag-started(kind, position) => { state.update-visual-drag(kind, position); }
                         drag-moved(kind, position) => { state.update-visual-drag(kind, position); }
