@@ -45,11 +45,8 @@ renderer-software = ["i-slint-backend-selector/renderer-software", "dep:i-slint-
 software-renderer-path = ["i-slint-renderer-software/path"]
 gettext = ["i-slint-core/gettext-rs"]
 accessibility = ["i-slint-backend-selector/accessibility"]
-# Enable the `SystemTrayIcon` element (pulls `ksni` on Linux/BSD); use
-# `system-tray-tokio` to run the tray on the tokio runtime instead of async-io.
+# Enable the `SystemTrayIcon` element (pulls `ksni` on Linux/BSD).
 system-tray = ["i-slint-core/system-tray"]
-system-tray-async-io = ["i-slint-core/system-tray-async-io"]
-system-tray-tokio = ["i-slint-core/system-tray-tokio"]
 system-testing = ["i-slint-backend-selector/system-testing"]
 mcp = ["std", "i-slint-backend-selector/mcp"]
 

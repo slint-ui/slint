@@ -34,8 +34,6 @@ default = ["backend-default", "renderer-femtovg", "renderer-software", "accessib
 ## default. See the [`slint` crate](https://docs.rs/slint/latest/slint/) feature
 ## of the same name.
 system-tray = ["i-slint-core/system-tray"]
-system-tray-async-io = ["i-slint-core/system-tray-async-io"]
-system-tray-tokio = ["i-slint-core/system-tray-tokio"]
 
 ## enable the [`print_diagnostics`] function to show diagnostic in the console output
 display-diagnostics = ["i-slint-compiler/display-diagnostics"]
