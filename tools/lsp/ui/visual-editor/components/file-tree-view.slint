@@ -26,6 +26,8 @@ component FileTreeRow inherits Rectangle {
     horizontal-stretch: 1;
     border-radius: EditorTreeTokens.row-radius;
     background: node.is-selected ? EditorTreeTokens.row-bg-current : touch.has-hover ? EditorTreeTokens.row-bg-hover : transparent;
+    accessible-role: AccessibleRole.list-item;
+    accessible-label: root.node.path;
 
     changed row-has-hover => {
         root.row-hover-changed(root.node.path, root.row-has-hover);
