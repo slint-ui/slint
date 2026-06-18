@@ -9,6 +9,7 @@ import { Api, PrototypeComponentKind } from "../../api.slint";
 export component EditorState inherits Rectangle {
     in property <length> window-width;
     in property <length> window-height;
+    in property <bool> sidebars-collapsed: false;
 
     in-out property <CanvasOrientation> canvas-orientation: CanvasOrientation.portrait;
     in-out property <LeftPaneMode> left-mode: LeftPaneMode.files;
@@ -114,7 +115,9 @@ export component EditorState inherits Rectangle {
     }
 
     function canvas-width() -> length {
-        return root.window-width - EditorMetrics.left-pane-width - EditorMetrics.inspector-pane-width;
+        return root.window-width
+            - (root.sidebars-collapsed ? 0px : EditorMetrics.left-pane-width)
+            - (root.sidebars-collapsed ? 0px : EditorMetrics.inspector-pane-width);
     }
 
     function canvas-height() -> length {
@@ -138,7 +141,8 @@ export component EditorState inherits Rectangle {
     }
 
     function phone-left() -> length {
-        return EditorMetrics.left-pane-width + (root.canvas-width() - root.phone-width()) / 2;
+        return (root.sidebars-collapsed ? 0px : EditorMetrics.left-pane-width)
+            + (root.canvas-width() - root.phone-width()) / 2;
     }
 
     function phone-top() -> length {

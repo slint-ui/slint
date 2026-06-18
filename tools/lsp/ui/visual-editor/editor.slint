@@ -3,7 +3,7 @@
 
 import { Api, EditorSurfaceMode } from "../api.slint";
 import { ProjectKind, StartupWizard } from "startup-wizard.slint";
-import { StudioTheme } from "components/common.slint";
+import { SidebarToggleButton, StudioTheme } from "components/common.slint";
 import { DragPreview } from "components/drag-preview.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
 import { EditorState } from "components/editor-state.slint";
@@ -24,6 +24,7 @@ export component EditorUi inherits Window {
     always-on-top: Api.always-on-top;
 
     property <bool> wizard-visible: false;
+    property <bool> sidebars-collapsed: false;
     property <ProjectKind> selected-project: ProjectKind.mobile;
 
     function open-project() {
@@ -34,6 +35,7 @@ export component EditorUi inherits Window {
     state := EditorState {
         window-width: root.width;
         window-height: root.height;
+        sidebars-collapsed: root.sidebars-collapsed;
     }
     Rectangle {
         y: 0;
@@ -90,12 +92,16 @@ export component EditorUi inherits Window {
                 HorizontalLayout {
                     vertical-stretch: 1;
 
-                    LeftPane {
+                    if !root.sidebars-collapsed: LeftPane {
                         mode <=> state.left-mode;
                         search-text <=> state.search-text;
+                        can-collapse: true;
                         drag-started(kind, position) => { state.update-visual-drag(kind, position); }
                         drag-moved(kind, position) => { state.update-visual-drag(kind, position); }
                         drag-ended(kind, position) => { state.finish-visual-drag(kind, position); }
+                        panes-collapsed => {
+                            root.sidebars-collapsed = true;
+                        }
                     }
 
                     if Api.editor-surface-mode == EditorSurfaceMode.component: EditorCanvas {
@@ -135,9 +141,11 @@ export component EditorUi inherits Window {
                         rotate-image-to(rotation) => { state.rotate-image-to(rotation); }
                     }
 
-                    if Api.editor-surface-mode == EditorSurfaceMode.image: ImageAssetEditor { }
+                    if Api.editor-surface-mode == EditorSurfaceMode.image: ImageAssetEditor {
+                        sidebars-collapsed: root.sidebars-collapsed;
+                    }
 
-                    if Api.editor-surface-mode == EditorSurfaceMode.component: InspectorPane {
+                    if Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed: InspectorPane {
                         selection: state.selection;
                         placed-position: state.placed-position;
                         rectangle-size: state.rectangle-size;
@@ -155,6 +163,44 @@ export component EditorUi inherits Window {
             }
 
             DragPreview { }
+
+            if root.sidebars-collapsed: Rectangle {
+                x: 18px;
+                y: EditorMetrics.top-bar-height + 14px;
+                width: 274px;
+                height: 42px;
+                border-radius: 12px;
+                border-width: 1px;
+                border-color: StudioTheme.dark ? #ffffff18 : #d0d7de;
+                background: StudioTheme.panel-bg.with-alpha(0.92);
+                drop-shadow-blur: 16px;
+                drop-shadow-offset-y: 8px;
+                drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b28;
+
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 6px;
+                    spacing: 10px;
+                    cross-axis-alignment: center;
+
+                    Text {
+                        horizontal-stretch: 1;
+                        text: Api.selected-project-file;
+                        color: StudioTheme.text;
+                        font-size: 13px;
+                        font-weight: 800;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+
+                    SidebarToggleButton {
+                        active: true;
+                        clicked => {
+                            root.sidebars-collapsed = false;
+                        }
+                    }
+                }
+            }
         }
     }
 

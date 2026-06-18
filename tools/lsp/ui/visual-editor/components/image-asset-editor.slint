@@ -145,6 +145,8 @@ component FloatingCopyButton inherits Rectangle {
 }
 
 export component ImageAssetEditor inherits Rectangle {
+    in property <bool> sidebars-collapsed: false;
+
     horizontal-stretch: 1;
     background: StudioTheme.canvas;
 
@@ -155,6 +157,7 @@ export component ImageAssetEditor inherits Rectangle {
     private property <length> image-source-width: root.source-width * 1px;
     private property <length> image-source-height: root.source-height * 1px;
     private property <length> tab-bar-height: 58px;
+    private property <length> left-pane-offset: root.sidebars-collapsed ? 0px : EditorMetrics.left-pane-width;
     private property <length> rail-margin: 24px;
     private property <length> rail-gap: 28px;
     private property <length> property-pane-width: EditorMetrics.inspector-pane-width;
@@ -312,7 +315,7 @@ export component ImageAssetEditor inherits Rectangle {
     }
 
     if root.has-image(): Rectangle {
-        x: (parent.width - self.width - EditorMetrics.left-pane-width) / 2;
+        x: (parent.width - self.width - root.left-pane-offset) / 2;
         y: 14px;
         width: 216px;
         height: 38px;

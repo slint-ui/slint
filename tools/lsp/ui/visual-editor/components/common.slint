@@ -254,6 +254,44 @@ export component OrientationIconButton inherits Rectangle {
     }
 }
 
+export component SidebarToggleButton inherits Rectangle {
+    in property <bool> active: false;
+    callback clicked;
+
+    width: 34px;
+    height: 30px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: active ? StudioTheme.accent-strong : StudioTheme.border;
+    background: active ? StudioTheme.accent.with-alpha(0.14) : touch.has-hover ? StudioTheme.panel-subtle : StudioTheme.panel-bg;
+    animate background, border-color { duration: 120ms; }
+
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 18px;
+        height: 16px;
+        border-radius: 3px;
+        border-width: 2px;
+        border-color: root.active ? StudioTheme.accent-strong : StudioTheme.text;
+        background: transparent;
+
+        Rectangle {
+            x: 7px;
+            width: 2px;
+            height: parent.height;
+            background: root.active ? StudioTheme.accent-strong : StudioTheme.text;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
 export component PrimerNavRow inherits Rectangle {
     in property <string> label;
     in property <string> glyph;
