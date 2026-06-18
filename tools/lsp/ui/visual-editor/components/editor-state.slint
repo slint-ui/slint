@@ -378,6 +378,17 @@ export component EditorState inherits Rectangle {
             };
             return true;
         }
+        if root.selection == CanvasSelectionKind.image {
+            root.image-size = {
+                width: size.width.clamp(80px, root.phone-width()),
+                height: size.height.clamp(44px, root.phone-height()),
+            };
+            root.placed-position = {
+                x: position.x.clamp(0px, root.phone-width() - root.image-size.width),
+                y: position.y.clamp(0px, root.phone-height() - root.image-size.height),
+            };
+            return true;
+        }
         return false;
     }
 
