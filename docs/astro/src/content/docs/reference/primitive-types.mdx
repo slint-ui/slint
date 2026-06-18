@@ -282,10 +282,7 @@ Supported format are SVG, and formats supported by the [`image` crate](https://c
 AVIF, BMP, DDS, Farbfeld, GIF, HDR, ICO, JPEG, EXR, PNG, PNM, QOI, TGA, TIFF, WebP.
 
 <Tabs syncKey="dev-language">
-<TabItem label="C++">
-In C++, properties or struct fields of the image type are mapped to <LangRefLink lang="cpp" relpath="api/slint/image/">`slint::Image`</LangRefLink>.
-</TabItem>
-<TabItem label="Rust">
+<TabItem label="Rust" icon="seti:rust">
 In Rust, properties or struct fields of the image type are mapped to <LangRefLink lang="rust-slint" relpath="struct.Image">`slint::Image`</LangRefLink>.
 :::note[Note]
 By default, only PNG, JPEG, and SVG are supported.
@@ -293,11 +290,14 @@ Enable the `image-default-formats` Cargo feature to support the other formats li
 which comes at a cost of increased binary size and compilation time.
 :::
 </TabItem>
-<TabItem label="NodeJS" >
+<TabItem label="C++" icon="seti:cpp">
+In C++, properties or struct fields of the image type are mapped to <LangRefLink lang="cpp" relpath="api/slint/image/">`slint::Image`</LangRefLink>.
+</TabItem>
+<TabItem label="NodeJS" icon="node">
 In JavaScript properties or struct fields of the image type are mapped an object that implement the <LangRefLink lang="nodejs" relpath="api/interfaces/ImageData/">ImageData interface</LangRefLink>.
 </TabItem>
 
-<TabItem label="Python" >
+<TabItem label="Python" icon="seti:python">
 In Python, properties or struct fields of the image type are mapped to <LangRefLink lang="python" relpath="api/classes/image/">`Image`</LangRefLink>.
 </TabItem>
 

@@ -15,7 +15,7 @@ Also see the <LangRefLink lang="rust-slint" relpath="android/">android module</L
 ## Project Setup
 
 <Tabs syncKey="dev-language">
-<TabItem label="Rust">
+<TabItem label="Rust" icon="seti:rust">
 
 Slint uses the [android-activity crate](https://github.com/rust-mobile/android-activity) as the interface to
 the operating system, which is re-exported as `slint::android::android_activity`. To get started, follow these steps:
@@ -56,7 +56,7 @@ That's all of the necessary code changes. In the next section, we're going to se
 build the project.
 
 </TabItem>
-<TabItem label="C++">
+<TabItem label="C++" icon="seti:cpp">
 
 A Slint C++ Android application is a standard CMake project (see the <Link type="getting_started" label="getting started tutorial" />) with an Android-specific Gradle wrapper.
 The C++ code lives at the project root and works for both desktop and Android builds.
@@ -271,7 +271,7 @@ regular virtual keyboard.
 ## Writing Your Application
 
 <Tabs syncKey="dev-language">
-<TabItem label="Rust">
+<TabItem label="Rust" icon="seti:rust">
 
 Define your main function and UI in your `lib.rs`:
 
@@ -290,7 +290,7 @@ You can also add an Android event
 listener by replacing the call to `slint::android::init` with `slint::android::init_with_event_listener`.
 
 </TabItem>
-<TabItem label="C++">
+<TabItem label="C++" icon="seti:cpp">
 
 On Android, the entry point is `slint_main` instead of `main`.
 Slint provides the actual `android_main` entry point internally,
@@ -316,7 +316,7 @@ int main()
 ## Building and Running
 
 <Tabs syncKey="dev-language">
-<TabItem label="Rust">
+<TabItem label="Rust" icon="seti:rust">
 
 There are multiple ways to build, upload and run Android apps written in Rust. This page describes a
 way using [xbuild](https://github.com/rust-mobile/xbuild). This doesn't use Android Studio at all.
@@ -373,7 +373,7 @@ x build --platform android --arch arm64 --format apk --release
 The apk is then located in `target/x/release/android/<name>.apk`.
 
 </TabItem>
-<TabItem label="C++">
+<TabItem label="C++" icon="seti:cpp">
 
 Connect a device or start an emulator, then:
 

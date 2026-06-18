@@ -47,17 +47,17 @@ your scene of elements into pixels. Slint picks a renderer based on your choice 
 as well as the features you've selected at Slint compilation time.
 
 <Tabs syncKey="dev-language">
-<TabItem label="C++">
+<TabItem label="Rust" icon="seti:rust">
+With Rust, enable one of the  <LangRefLink lang="rust-slint" relpath="docs/cargo_features/">`renderer-*`</LangRefLink> features.
+</TabItem>
+<TabItem label="C++" icon="seti:cpp">
 When building Slint from source, check the <LangRefLink lang="cpp" relpath="cmake/#features">`SLINT_FEATURE_RENDERER_*`</LangRefLink> cmake options
 to enable one of the available renderers.
 </TabItem>
-<TabItem label="Rust">
-With Rust, enable one of the  <LangRefLink lang="rust-slint" relpath="docs/cargo_features/">`renderer-*`</LangRefLink> features.
-</TabItem>
-<TabItem label="NodeJS">
+<TabItem label="NodeJS" icon="node">
 With Node.js, all renderers are built into the packages.
 </TabItem>
-<TabItem label="Python">
+<TabItem label="Python" icon="seti:python">
 With Python, all renderers are built into the packages.
 </TabItem>
 </Tabs>
