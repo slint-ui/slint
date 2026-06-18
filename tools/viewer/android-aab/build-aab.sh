@@ -1,24 +1,23 @@
 #!/bin/bash
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
-# cSpell: ignore androidkey xxxhdpi jniLibs
+# cSpell: ignore xxxhdpi jniLibs
 #
 # Build the slint-viewer Android App Bundle for Play Store upload.
 #
 # Defaults: SLINT_VERSION from the workspace Cargo.toml, SLINT_BUILD_NUMBER
 # from the git commit count. Override either as env vars.
 #
-# Signing (omit for an unsigned local bundle):
+# Signing (omit all three for an unsigned local bundle):
 #   ANDROID_KEYSTORE_PATH      upload keystore path
-#   ANDROID_KEYSTORE_PASSWORD  upload keystore password
-#   ANDROID_KEY_ALIAS          key alias, defaults to "androidkey"
-#   ANDROID_KEY_PASSWORD       key password, defaults to keystore password
+#   ANDROID_KEYSTORE_PASSWORD  upload keystore password, also unlocks the key
+#   ANDROID_KEYSTORE_ALIAS     alias of the signing key in the keystore
 #
 # Requires: cargo-ndk; Android SDK + NDK with ANDROID_HOME / ANDROID_NDK_HOME
 # set; gradle 8.9+ on PATH (AGP 8.7); JDK 17; the three Android rust targets
 # (rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android).
 #
-# Output: app/build/outputs/bundle/release/app-release.aab
+# Output: app/build/outputs/bundle/release/slint-viewer.aab
 
 set -euo pipefail
 
@@ -26,6 +25,12 @@ PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$PROJECT_DIR/../../.." && pwd)"
 
 [ -n "${ANDROID_HOME:-}" ] || { echo "set ANDROID_HOME to your Android SDK" >&2; exit 1; }
+
+# Check the signing setup before the long Rust build so it fails fast.
+if [ -n "${ANDROID_KEYSTORE_PATH:-}" ]; then
+    [ -n "${ANDROID_KEYSTORE_PASSWORD:-}" ] || { echo "set ANDROID_KEYSTORE_PASSWORD" >&2; exit 1; }
+    [ -n "${ANDROID_KEYSTORE_ALIAS:-}" ] || { echo "set ANDROID_KEYSTORE_ALIAS" >&2; exit 1; }
+fi
 
 if [ -z "${SLINT_VERSION:-}" ]; then
     SLINT_VERSION=$(awk -F'"' '/^version = / { print $2; exit }' "$REPO_ROOT/Cargo.toml")
@@ -48,7 +53,7 @@ fi
 # F-Droid reproducibility hints:
 # - SOURCE_DATE_EPOCH stamps AGP zip entries.
 # - --remap-path-prefix scrubs source paths from rustc-embedded strings.
-# - --frozen pins Cargo.lock.
+# - --locked pins Cargo.lock.
 export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(git -C "$REPO_ROOT" log -1 --pretty=%ct)}"
 CARGO_HOME_PATH="${CARGO_HOME:-$HOME/.cargo}"
 REMAP_FLAGS="--remap-path-prefix=$CARGO_HOME_PATH=/cargo --remap-path-prefix=$REPO_ROOT=/build"
@@ -67,9 +72,13 @@ mkdir -p "$JNI_DIR"
 
 cd "$REPO_ROOT"
 cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 --platform 26 -o "$JNI_DIR" \
-    build --release --frozen -p slint-viewer --lib --features remote
+    build --release --locked -p slint-viewer --lib --features remote
 
 cd "$PROJECT_DIR"
 gradle --no-daemon bundleRelease
 
-echo "AAB built at: $PROJECT_DIR/app/build/outputs/bundle/release/app-release.aab"
+# Gradle names the bundle app-release.aab; rename it to the app.
+BUNDLE_DIR="$PROJECT_DIR/app/build/outputs/bundle/release"
+mv -f "$BUNDLE_DIR/app-release.aab" "$BUNDLE_DIR/slint-viewer.aab"
+
+echo "AAB built at: $BUNDLE_DIR/slint-viewer.aab"

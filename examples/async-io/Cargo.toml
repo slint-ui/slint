@@ -16,6 +16,6 @@ name = "stockticker"
 [dependencies]
 slint = { path = "../../api/rs/slint" }
 async-compat = { version = "0.2.4" }
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.13", features = ["json"] }
 serde = "1.0"
 serde_json = "1.0"

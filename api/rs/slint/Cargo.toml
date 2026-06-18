@@ -109,6 +109,15 @@ live-preview = ["dep:i-slint-live-preview"]
 ## This is a developer/debug feature. It is not recommended to enable it in production builds.
 mcp = ["std", "i-slint-backend-selector/mcp"]
 
+## Enable support for controlling the application from a system testing tool.
+##
+## When this feature is enabled and the `SLINT_TEST_SERVER` environment variable is set
+## at runtime, the application connects to the system test server at the given address
+## and permits remote introspection and control of the user interface.
+##
+## This is a developer/testing feature. It is not recommended to enable it in production builds.
+system-testing = ["std", "i-slint-backend-selector/system-testing"]
+
 #! ### Backends
 
 #! Slint needs a backend that will act as liaison between Slint and the OS.

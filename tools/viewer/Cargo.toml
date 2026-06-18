@@ -58,7 +58,10 @@ remote = [
   "dep:async-compat",
   "dep:anyhow",
   "dep:mdns-sd",
-  "dep:zeroconf-tokio",
+  "dep:zeroconf",
+  "dep:objc2-foundation",
+  "dep:objc2-ui-kit",
+  "dep:block2",
   "dep:i-slint-backend-android-activity",
   "i-slint-backend-android-activity?/native-activity",
   "i-slint-backend-android-activity?/aa-06",
@@ -79,7 +82,7 @@ i-slint-live-preview = { workspace = true, features = ["file-watcher", "live-com
 i-slint-backend-selector = { workspace = true }
 
 clap = { workspace = true }
-shlex = "1"
+shlex = "2"
 image = { workspace = true }
 itertools = { workspace = true }
 serde_json = { workspace = true }
@@ -94,11 +97,24 @@ tracing-log = { workspace = true }
 [dev-dependencies]
 tempfile = "3"
 
+# On the choice of mdns-sd vs zeroconf:
+#
+# - zeroconf uses bonjour on Apple platforms. That's the right choice.
+# - zeroconf uses bonjour on Windows. That's not a good choice, because it means the users need to have bonjour installed on Windows.
+# - zeroconf uses avahi on the other platforms. That in turn requires the avahi dev packages (headers and .so file) to be available.
+# - mdns-sd is a pure Rust implementation that works on all platforms, but it doesn't integrate with the system's mDNSResponder on Apple platforms.
+#
+# That's why we chose zeroconf for Apple platforms and mdns-sd for the other platforms.
 [target.'cfg(not(any(target_vendor = "apple", target_arch = "wasm32")))'.dependencies]
-mdns-sd = { version = "0.17.0", default-features = false, features = ["async"], optional = true }
+mdns-sd = { version = "0.20.0", default-features = false, features = ["async"], optional = true }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
-zeroconf-tokio = { version = "0.3.2", optional = true }
+zeroconf = { version = "0.18", optional = true }
+
+[target.'cfg(target_os = "ios")'.dependencies]
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSNotification", "NSString", "NSOperation", "block2"], optional = true }
+objc2-ui-kit = { version = "0.3.2", default-features = false, features = ["UIApplication"], optional = true }
+block2 = { version = "0.6", optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 i-slint-backend-android-activity = { workspace = true, optional = true }
@@ -129,6 +145,3 @@ label = "Slint Viewer"
 
 [[package.metadata.android.uses_permission]]
 name = "android.permission.INTERNET"
-
-[[package.metadata.android.uses_permission]]
-name = "android.permission.CHANGE_WIFI_MULTICAST_STATE"

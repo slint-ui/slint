@@ -180,6 +180,58 @@ pub extern "C" fn slint_interpreter_value_to_image(val: &Value) -> Option<&Image
     }
 }
 
+/// Construct a new Value containing a DataTransfer
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_interpreter_value_new_data_transfer(
+    data: &i_slint_core::data_transfer::DataTransfer,
+) -> Box<Value> {
+    Box::new(Value::DataTransfer(data.clone()))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_interpreter_value_to_data_transfer(
+    val: &Value,
+) -> Option<&i_slint_core::data_transfer::DataTransfer> {
+    match val {
+        Value::DataTransfer(data) => Some(data),
+        _ => None,
+    }
+}
+
+/// Construct a new Value containing a Keys
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_interpreter_value_new_keys(keys: &i_slint_core::input::Keys) -> Box<Value> {
+    Box::new(Value::Keys(keys.clone()))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_interpreter_value_to_keys(
+    val: &Value,
+) -> Option<&i_slint_core::input::Keys> {
+    match val {
+        Value::Keys(keys) => Some(keys),
+        _ => None,
+    }
+}
+
+/// Construct a new Value containing a StyledText
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_interpreter_value_new_styled_text(
+    text: &i_slint_core::styled_text::StyledText,
+) -> Box<Value> {
+    Box::new(Value::StyledText(text.clone()))
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn slint_interpreter_value_to_styled_text(
+    val: &Value,
+) -> Option<&i_slint_core::styled_text::StyledText> {
+    match val {
+        Value::StyledText(text) => Some(text),
+        _ => None,
+    }
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_interpreter_value_enum_to_string(
     val: &Value,

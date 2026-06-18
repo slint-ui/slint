@@ -79,6 +79,9 @@
 (function_call
   name: (_) @local.reference)
 
+(changed_function_call
+  name: (_) @local.reference)
+
 (index_op
   index: (_) @local.reference)
 

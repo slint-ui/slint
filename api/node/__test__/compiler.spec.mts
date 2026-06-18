@@ -6,7 +6,7 @@
 import { test, expect } from "vitest";
 
 import { private_api } from "../dist/index.js";
-import * as napi from "../rust-module.cjs";
+import * as napi from "../binding.cjs";
 
 test("get/set include paths", () => {
     const compiler = new private_api.ComponentCompiler();

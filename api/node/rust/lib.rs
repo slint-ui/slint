@@ -122,6 +122,24 @@ pub fn init_testing() {
     i_slint_backend_testing::init_integration_test_with_mock_time();
 }
 
+/// Returns the list of optional capabilities that were compiled into the loaded
+/// native binary. This is how JavaScript can tell whether the "dev" binary
+/// (with system-testing and MCP support) was loaded, or just the default one.
+#[napi]
+pub fn build_features() -> Vec<String> {
+    let mut features = Vec::new();
+    if cfg!(feature = "testing") {
+        features.push("testing".to_string());
+    }
+    if cfg!(feature = "system-testing") {
+        features.push("system-testing".to_string());
+    }
+    if cfg!(feature = "mcp") {
+        features.push("mcp".to_string());
+    }
+    features
+}
+
 #[napi]
 pub fn init_translations(domain: String, dir_name: String) -> napi::Result<()> {
     i_slint_core::translations::gettext_bindtextdomain(domain.as_str(), PathBuf::from(dir_name))

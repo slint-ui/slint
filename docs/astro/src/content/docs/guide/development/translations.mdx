@@ -305,7 +305,16 @@ Use the <LangRefLink lang="python" relpath="api/functions/init_translations/">`s
 Make sure the `gettext` feature was enabled when building slint-viewer.
 Use the `--translation-domain` and `--translation-dir` command line options to load translations for preview.
 
-## Selecting the decimal separator
+## Selecting the Decimal Separator
 
-The current used decimal separator can be read with <Link type="Platform.decimal-separator" label="decimal-separator" />. As default the dot `.` is used as decimal separator.
-When bundling the languages, the decimal separator will be determined during compile time and bundled into the software, otherwise it will be determined from the system locale
+Conversions between `float` and `string` use the locale's decimal separator,
+for example the comma (`,`) in a German locale.
+See <Link type="NumberStringConversion" label="Converting Between Numbers and Strings" /> for the conversion rules.
+
+Read the currently used separator from <Link type="Platform.decimal-separator" label="Platform.decimal-separator" />.
+It defaults to the dot (`.`).
+
+When bundling translations, the decimal separator of each language is determined at compile time
+and bundled with the application:
+selecting a translation also selects its decimal separator.
+When the `gettext` feature is enabled, the decimal separator is determined from the system locale.

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
-# cSpell: ignore bundletool BUNDLETOOL androidkey apks APKS
+# cSpell: ignore bundletool BUNDLETOOL apks APKS
 #
 # Build APKs from the slint-viewer AAB with bundletool and install them on a
 # connected device. Hand-test the same bundle Play would receive without
@@ -12,19 +12,18 @@
 # Required:
 #   bundletool on PATH (or $BUNDLETOOL pointing at the jar)
 #   adb on PATH; device authorized for USB debugging
-#   ANDROID_KEYSTORE_PATH / ANDROID_KEYSTORE_PASSWORD (and optionally
-#   ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD) — Android refuses unsigned APKs.
+#   ANDROID_KEYSTORE_PATH / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEYSTORE_ALIAS
+#   for signing — Android refuses unsigned APKs.
 
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-AAB="${1:-$PROJECT_DIR/app/build/outputs/bundle/release/app-release.aab}"
+AAB="${1:-$PROJECT_DIR/app/build/outputs/bundle/release/slint-viewer.aab}"
 [ -f "$AAB" ] || { echo "AAB not found at $AAB; run build-aab.sh first" >&2; exit 1; }
 
 [ -n "${ANDROID_KEYSTORE_PATH:-}" ] || { echo "set ANDROID_KEYSTORE_PATH for signing" >&2; exit 1; }
 [ -n "${ANDROID_KEYSTORE_PASSWORD:-}" ] || { echo "set ANDROID_KEYSTORE_PASSWORD" >&2; exit 1; }
-KEY_ALIAS="${ANDROID_KEY_ALIAS:-androidkey}"
-KEY_PASSWORD="${ANDROID_KEY_PASSWORD:-$ANDROID_KEYSTORE_PASSWORD}"
+[ -n "${ANDROID_KEYSTORE_ALIAS:-}" ] || { echo "set ANDROID_KEYSTORE_ALIAS" >&2; exit 1; }
 
 # bundletool ships as a jar; honor a BUNDLETOOL override for it.
 if [ -n "${BUNDLETOOL:-}" ] && [[ "$BUNDLETOOL" == *.jar ]]; then
@@ -62,8 +61,7 @@ bt build-apks \
     "${MODE_FLAG[@]}" \
     --ks="$ANDROID_KEYSTORE_PATH" \
     --ks-pass="pass:$ANDROID_KEYSTORE_PASSWORD" \
-    --ks-key-alias="$KEY_ALIAS" \
-    --key-pass="pass:$KEY_PASSWORD"
+    --ks-key-alias="$ANDROID_KEYSTORE_ALIAS"
 
 if [ "$ADB_STATE" = "device" ]; then
     bt install-apks --apks="$OUT_APKS"

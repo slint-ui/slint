@@ -122,6 +122,11 @@ pub enum ConnectionMessage {
         url: Option<Url>,
         offset: u32,
     },
+    /// The viewer should register this font with the renderer.
+    RegisterFont {
+        url: Url,
+        contents: Arc<[u8]>,
+    },
 }
 
 pub struct Connection {
@@ -206,11 +211,15 @@ impl Connection {
                                         Ok(stream) => {
                                             tracing::info!("Websocket established with {addr:?}");
                                             if let Some((_old_sink, old_handle)) = current_session.take() {
-                                                tracing::error!(
-                                                    "Second connection while we were already connected, dropping old connection"
-                                                );
-                                                old_handle.abort();
-                                                // The aborted task can't run its end-of-loop
+                                                // A finished handle is just a stale session left
+                                                // behind by an earlier disconnect, not a takeover.
+                                                if !old_handle.is_finished() {
+                                                    tracing::warn!(
+                                                        "Second connection while we were already connected, dropping old connection"
+                                                    );
+                                                    old_handle.abort();
+                                                }
+                                                // An aborted task can't run its end-of-loop
                                                 // cleanup, so reset the shared state here so
                                                 // the new client starts from a clean cache.
                                                 inner_file_cache.clear();
@@ -368,6 +377,18 @@ impl Connection {
                                             if !is_supported(url.url()) {
                                                 continue;
                                             }
+                                            // Fonts are registered with the renderer directly
+                                            // and not consulted by the compiler, so they don't
+                                            // go in the file cache.
+                                            if i_slint_compiler::pathutils::is_font_file(
+                                                url.url().path(),
+                                            ) {
+                                                message_handler(ConnectionMessage::RegisterFont {
+                                                    url: url.url().clone(),
+                                                    contents: contents.into(),
+                                                });
+                                                continue;
+                                            }
                                             let versioned_content = VersionedFileContent {
                                                 version: *url.version(),
                                                 contents: contents.into(),
@@ -438,6 +459,14 @@ impl Connection {
                             break;
                         }
                         Ok(Message::Frame(_)) => unreachable!(),
+                        Err(tokio_tungstenite::tungstenite::Error::Protocol(
+                            tokio_tungstenite::tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
+                        )) => {
+                            // The peer vanished without a close handshake (process killed,
+                            // network drop) — a normal way for a session to end.
+                            tracing::info!("Connection lost");
+                            break;
+                        }
                         Err(err) => {
                             tracing::error!("WebSocket error: {err}");
                             break;

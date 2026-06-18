@@ -72,11 +72,11 @@ inline slint::Image from_slint_value(const slint::interpreter::Value &val, const
     return val.to_image().value();
 }
 /// duration
-inline long int from_slint_value(const slint::interpreter::Value &val, const long int *)
+inline std::int64_t from_slint_value(const slint::interpreter::Value &val, const std::int64_t *)
 {
     return val.to_number().value();
 }
-inline interpreter::Value into_slint_value(const long int &val)
+inline interpreter::Value into_slint_value(const std::int64_t &val)
 {
     return double(val);
 }
@@ -117,6 +117,22 @@ inline slint::LogicalPosition from_slint_value(const slint::interpreter::Value &
     auto s = val.to_struct().value();
     return slint::LogicalPosition({ float(s.get_field("x").value().to_number().value()),
                                     float(s.get_field("y").value().to_number().value()) });
+}
+
+inline slint::interpreter::Value into_slint_value(const slint::LogicalSize &val)
+{
+    slint::interpreter::Struct s;
+    s.set_field("width", val.width);
+    s.set_field("height", val.height);
+    return s;
+}
+
+inline slint::LogicalSize from_slint_value(const slint::interpreter::Value &val,
+                                           const slint::LogicalSize *)
+{
+    auto s = val.to_struct().value();
+    return slint::LogicalSize({ float(s.get_field("width").value().to_number().value()),
+                                float(s.get_field("height").value().to_number().value()) });
 }
 
 template<typename T>
@@ -185,9 +201,9 @@ public:
     {
         assert_main_thread();
         std::array<interpreter::Value, sizeof...(Args)> args_values { into_slint_value(args)... };
-        cbindgen_private::Slice<cbindgen_private::Value *> args_slice {
-            reinterpret_cast<cbindgen_private::Value **>(args_values.data()), args_values.size()
-        };
+        auto args_slice = slint::private_api::make_slice(
+                reinterpret_cast<cbindgen_private::Value **>(args_values.data()),
+                args_values.size());
         interpreter::Value val(cbindgen_private::slint_live_preview_invoke(
                 inner, string_to_slice(name), args_slice));
         return val;
@@ -217,8 +233,8 @@ public:
 
     slint::Window &window() const
     {
-        const cbindgen_private::WindowAdapterRcOpaque *win_ptr = nullptr;
-        cbindgen_private::slint_live_preview_window(inner, &win_ptr);
+        const cbindgen_private::WindowAdapterRcOpaque *win_ptr =
+                cbindgen_private::slint_live_preview_window(inner);
         return const_cast<slint::Window &>(*reinterpret_cast<const slint::Window *>(win_ptr));
     }
 
@@ -233,6 +249,43 @@ public:
         slint::SharedString result;
         slint::cbindgen_private::slint_interpreter_value_enum_to_string(value.inner, &result);
         return result;
+    }
+
+    // Conversions for the dedicated Value variants, which abuse the friend on Value
+    static slint::interpreter::Value value_from_data_transfer(const slint::DataTransfer &data)
+    {
+        return slint::interpreter::Value(
+                cbindgen_private::slint_interpreter_value_new_data_transfer(&data));
+    }
+    static slint::DataTransfer data_transfer_from_value(const slint::interpreter::Value &value)
+    {
+        if (auto *p = cbindgen_private::slint_interpreter_value_to_data_transfer(value.inner)) {
+            return *p;
+        }
+        return {};
+    }
+    static slint::interpreter::Value value_from_keys(const slint::Keys &keys)
+    {
+        return slint::interpreter::Value(cbindgen_private::slint_interpreter_value_new_keys(&keys));
+    }
+    static slint::Keys keys_from_value(const slint::interpreter::Value &value)
+    {
+        if (auto *p = cbindgen_private::slint_interpreter_value_to_keys(value.inner)) {
+            return *p;
+        }
+        return {};
+    }
+    static slint::interpreter::Value value_from_styled_text(const slint::StyledText &text)
+    {
+        return slint::interpreter::Value(
+                cbindgen_private::slint_interpreter_value_new_styled_text(&text));
+    }
+    static slint::StyledText styled_text_from_value(const slint::interpreter::Value &value)
+    {
+        if (auto *p = cbindgen_private::slint_interpreter_value_to_styled_text(value.inner)) {
+            return *p;
+        }
+        return {};
     }
 };
 
@@ -364,11 +417,10 @@ concept HasFromSlintValue = requires(const slint::interpreter::Value &val) {
 template<typename ModelData>
 slint::interpreter::Value into_slint_value(const std::shared_ptr<slint::Model<ModelData>> &val)
 {
-    if (!val) {
-        return {};
-    }
     if constexpr (HasFromSlintValue<ModelData>) {
-        return LiveReloadModelWrapper<ModelData>::wrap(val);
+        // A null pointer is an empty model, not a void value the property would reject.
+        return LiveReloadModelWrapper<ModelData>::wrap(
+                val ? val : std::make_shared<slint::VectorModel<ModelData>>());
     }
     return {};
 }
@@ -397,5 +449,39 @@ from_slint_value(const slint::interpreter::Value &value,
 }
 
 } // namespace slint::private_api::live_preview
+
+// Conversions for the dedicated Value variants, in slint:: so ADL finds them; after
+// LiveReloadingComponent, whose friend accessors they call into.
+namespace slint {
+inline slint::interpreter::Value into_slint_value(const slint::DataTransfer &val)
+{
+    return private_api::live_preview::LiveReloadingComponent::value_from_data_transfer(val);
+}
+inline slint::DataTransfer from_slint_value(const slint::interpreter::Value &val,
+                                            const slint::DataTransfer *)
+{
+    return private_api::live_preview::LiveReloadingComponent::data_transfer_from_value(val);
+}
+inline slint::interpreter::Value into_slint_value(const slint::Keys &val)
+{
+    return private_api::live_preview::LiveReloadingComponent::value_from_keys(val);
+}
+inline slint::Keys from_slint_value(const slint::interpreter::Value &val, const slint::Keys *)
+{
+    return private_api::live_preview::LiveReloadingComponent::keys_from_value(val);
+}
+inline slint::interpreter::Value into_slint_value(const slint::StyledText &val)
+{
+    return private_api::live_preview::LiveReloadingComponent::value_from_styled_text(val);
+}
+inline slint::StyledText from_slint_value(const slint::interpreter::Value &val,
+                                          const slint::StyledText *)
+{
+    return private_api::live_preview::LiveReloadingComponent::styled_text_from_value(val);
+}
+} // namespace slint
+
+// Builtin enum conversions (generated); after LiveReloadingComponent, which they call into.
+#    include "private/slint_live_preview_enums.h"
 
 #endif // SLINT_FEATURE_LIVE_PREVIEW

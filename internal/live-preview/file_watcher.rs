@@ -7,8 +7,6 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 use std::thread::{self, JoinHandle};
 
-use notify::Watcher as _;
-
 /// A normalized file-system change emitted by [`FileWatcher`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FileChangeKind {
@@ -20,18 +18,91 @@ pub enum FileChangeKind {
     Deleted,
 }
 
-/// A file-system event for one watched path.
+/// A file-system event for one path.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WatchEvent {
-    /// The affected watched path.
+    /// The affected path.
+    ///
+    /// Most file watchers only emit watched paths.
+    /// Optionally a FileWatcher can be created with pass_through_unwatched_events = true, in which
+    /// case the path may not be on the list of watched paths.
     pub path: PathBuf,
     /// The normalized change kind for this path.
     pub kind: FileChangeKind,
 }
 
+/// The underlying file system watcher implementation (based on notify::RecommendedWatcher by
+/// default)
+pub trait FileWatcherImpl: Sized + 'static {
+    /// The error type used by the [`FileWatcher`].
+    type Error: Send;
+
+    /// Add the given path to the watch set.
+    ///
+    /// Note that the reconcile loop expects to receive events for this path after a successful
+    /// call, so implementations should not return until the watch is fully active and events
+    /// will be received.
+    fn watch(&mut self, path: &Path) -> Result<(), Self::Error>;
+
+    /// Remove the given path from the watch set.
+    fn unwatch(&mut self, path: &Path) -> Result<(), Self::Error>;
+
+    /// The error to return when the worker thread has stopped and can no longer process messages.
+    fn worker_stopped_error() -> Self::Error;
+
+    /// Whether the error is transient and should not be reported to the user, for example
+    /// because it may occur during normal operation when files or probe directories are removed.
+    fn is_transient_watch_error(err: &Self::Error) -> bool;
+
+    /// Whether the implementation needs to watch target files directly in order to receive change
+    /// events, or if watching parent directories is sufficient.
+    fn needs_direct_file_watches() -> bool;
+}
+
+impl FileWatcherImpl for notify::RecommendedWatcher {
+    type Error = notify::Error;
+
+    fn worker_stopped_error() -> Self::Error {
+        notify::Error::generic("file watcher worker thread stopped")
+    }
+
+    fn is_transient_watch_error(err: &Self::Error) -> bool {
+        match &err.kind {
+            notify::ErrorKind::PathNotFound
+            | notify::ErrorKind::WatchNotFound
+            | notify::ErrorKind::Generic(_) => true,
+            notify::ErrorKind::Io(e) => e.kind() == std::io::ErrorKind::NotFound,
+            _ => false,
+        }
+    }
+
+    fn watch(&mut self, path: &Path) -> Result<(), Self::Error> {
+        notify::Watcher::watch(self, path, notify::RecursiveMode::NonRecursive)
+    }
+
+    fn unwatch(&mut self, path: &Path) -> Result<(), Self::Error> {
+        notify::Watcher::unwatch(self, path)
+    }
+
+    fn needs_direct_file_watches() -> bool {
+        // On macOS, notify does not report file changed events, if we only watch the parent
+        // directory, so we need to add a direct file watch as well.
+        cfg!(target_os = "macos")
+    }
+}
+
 /// A file watcher for a set of source or resource paths.
-pub struct FileWatcher {
-    tx: mpsc::Sender<WorkerMessage>,
+///
+/// Given a set of existing and/or non-existing paths, the file watcher will try to minimize the
+/// number of actual OS file watches needed to receive events for all the given paths.
+/// It reconciles the events with the file state and disk and synthesizes  file change events if
+/// e.g. a file in a new directory is created before the OS watch could be set up.
+///
+/// Communication with the OS is abstracted behind a low-level trait ([`FileWatcherImpl`]) which is responsible for
+/// delivering the original file watcher events.
+/// This allows the file watcher to be used with the OS APIs (i.e. notify) or the LSP file watcher.
+pub struct FileWatcher<Impl: FileWatcherImpl = notify::RecommendedWatcher> {
+    tx: mpsc::Sender<WorkerMessage<Impl>>,
 
     /// Use a worker thread for processing file events and updating watches.
     ///
@@ -44,19 +115,55 @@ pub struct FileWatcher {
     worker: Option<JoinHandle<()>>,
 }
 
-impl FileWatcher {
-    /// Creates a watcher and invokes `on_event` for matching watched-path changes.
+impl FileWatcher<notify::RecommendedWatcher> {
+    /// Creates a watcher based on the notify crate and invokes `on_event` for matching watched-path changes.
     ///
     /// Runtime watcher errors are forwarded to `on_error`.
     pub fn start(
         on_event: impl FnMut(WatchEvent) + Send + 'static,
         on_error: impl FnMut(notify::Error) + Send + 'static,
-    ) -> notify::Result<Self> {
+    ) -> Result<Self, notify::Error> {
+        Self::start_with_impl(on_event, on_error, false, |event_handler| {
+            notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
+                // Keep the backend callback lightweight and forward the real work to the worker.
+                //
+                // This is especially needed on inotify backends, where calling watch/unwatch within
+                // the callback can cause a deadlock.
+                let events = event.map(classify_event);
+                event_handler.send(events).ok();
+            })
+        })
+    }
+}
+
+impl<Impl: FileWatcherImpl> FileWatcher<Impl> {
+    /// Creates a watcher and invokes `on_event` for matching watched-path changes.
+    ///
+    /// If `pass_through_unwatched_events` is `true`, raw file-system events for paths outside the
+    /// current watched set are forwarded as-is.
+    ///
+    /// Runtime watcher errors are forwarded to `on_error`.
+    pub fn start_with_impl(
+        on_event: impl FnMut(WatchEvent) + Send + 'static,
+        on_error: impl FnMut(Impl::Error) + Send + 'static,
+        pass_through_unwatched_events: bool,
+        create_impl: impl FnOnce(FileWatcherEventSink<Impl>) -> Result<Impl, Impl::Error>
+        + Send
+        + 'static,
+    ) -> Result<Self, Impl::Error> {
         let (tx, rx) = mpsc::channel();
         let (startup_tx, startup_rx) = mpsc::sync_channel(1);
         let worker_tx = tx.clone();
         let worker = thread::spawn(move || {
-            worker_loop(rx, worker_tx, startup_tx, on_event, on_error);
+            worker_loop(
+                create_impl,
+                rx,
+                worker_tx,
+                startup_tx,
+                on_event,
+                on_error,
+                pass_through_unwatched_events,
+            );
         });
 
         match startup_rx.recv() {
@@ -67,13 +174,13 @@ impl FileWatcher {
             }
             Err(_) => {
                 let _ = worker.join();
-                Err(worker_stopped_error())
+                Err(Impl::worker_stopped_error())
             }
         }
     }
 
     /// Replaces the watched path set with `paths`.
-    pub fn update_watched_paths<I>(&mut self, paths: I) -> notify::Result<()>
+    pub fn update_watched_paths<I>(&mut self, paths: I) -> Result<(), Impl::Error>
     where
         I: IntoIterator<Item = PathBuf>,
     {
@@ -85,12 +192,22 @@ impl FileWatcher {
         let (response_tx, response_rx) = mpsc::sync_channel(1);
         self.tx
             .send(WorkerMessage::UpdateWatchedPaths { watched_files, response: response_tx })
-            .map_err(|_| worker_stopped_error())?;
-        response_rx.recv().map_err(|_| worker_stopped_error())?
+            .map_err(|_| Impl::worker_stopped_error())?;
+        response_rx.recv().map_err(|_| Impl::worker_stopped_error())?
+    }
+
+    /// The [`FileWatcherImpl`] receives a [`FileWatcherEventSink`] on creation.
+    /// However, it is created on the reconcile worker thread, so the caller may not have access to
+    /// it anymore.
+    ///
+    /// This method can be used to get a new sink at any time, for example to send events
+    /// from the main thread.
+    pub fn event_sink(&mut self) -> FileWatcherEventSink<Impl> {
+        FileWatcherEventSink { tx: self.tx.clone() }
     }
 }
 
-impl Drop for FileWatcher {
+impl<Impl: FileWatcherImpl> Drop for FileWatcher<Impl> {
     fn drop(&mut self) {
         let _ = self.tx.send(WorkerMessage::Shutdown);
         if let Some(worker) = self.worker.take() {
@@ -139,12 +256,12 @@ fn classify_event(event: notify::Event) -> Vec<(PathBuf, FileChangeKind)> {
     }
 }
 
-enum WorkerMessage {
+enum WorkerMessage<Impl: FileWatcherImpl> {
     UpdateWatchedPaths {
         watched_files: HashSet<PathBuf>,
-        response: mpsc::SyncSender<notify::Result<()>>,
+        response: mpsc::SyncSender<Result<(), Impl::Error>>,
     },
-    RawEvent(notify::Result<notify::Event>),
+    FileSystemEvents(Result<Vec<(PathBuf, FileChangeKind)>, Impl::Error>),
     Shutdown,
 }
 
@@ -176,12 +293,12 @@ struct WorkerState {
 }
 
 impl WorkerState {
-    fn update_watched_paths(
+    fn update_watched_paths<Impl: FileWatcherImpl>(
         &mut self,
-        watcher: &mut notify::RecommendedWatcher,
+        watcher: &mut Impl,
         watched_files: HashSet<PathBuf>,
         on_event: &mut impl FnMut(WatchEvent),
-    ) -> notify::Result<()> {
+    ) -> Result<(), Impl::Error> {
         let previous_states = watched_files
             .iter()
             .map(|path| {
@@ -199,18 +316,29 @@ impl WorkerState {
         self.reconcile(watcher, previous_states, HashSet::new(), on_event)
     }
 
-    fn handle_raw_event(
+    fn handle_events<Impl: FileWatcherImpl>(
         &mut self,
-        watcher: &mut notify::RecommendedWatcher,
-        event: notify::Event,
+        watcher: &mut Impl,
+        events: Vec<(PathBuf, FileChangeKind)>,
+        pass_through_unwatched_events: bool,
         on_event: &mut impl FnMut(WatchEvent),
-    ) -> notify::Result<()> {
+    ) -> Result<(), Impl::Error> {
+        if pass_through_unwatched_events {
+            let passthrough_events = events
+                .iter()
+                .filter(|(path, _kind)| !self.watched_files.contains(path))
+                .map(|(path, kind)| WatchEvent { path: path.clone(), kind: *kind });
+            for event in passthrough_events {
+                on_event(event);
+            }
+        }
+
         if self.watched_files.is_empty() {
             return Ok(());
         }
 
         let previous_states = self.target_states.clone();
-        let changed_paths = classify_event(event)
+        let changed_paths = events
             .into_iter()
             .filter_map(|(path, kind)| {
                 (kind == FileChangeKind::Changed && self.watched_files.contains(&path))
@@ -221,19 +349,19 @@ impl WorkerState {
         self.reconcile(watcher, previous_states, changed_paths, on_event)
     }
 
-    fn reconcile(
+    fn reconcile<Impl: FileWatcherImpl>(
         &mut self,
-        watcher: &mut notify::RecommendedWatcher,
+        watcher: &mut Impl,
         previous_states: HashMap<PathBuf, TargetState>,
         changed_paths: HashSet<PathBuf>,
         on_event: &mut impl FnMut(WatchEvent),
-    ) -> notify::Result<()> {
+    ) -> Result<(), Impl::Error> {
         const MAX_RECONCILE_PASSES: usize = 8;
 
         let mut target_states = scan_target_states(&self.watched_files);
 
         for _ in 0..MAX_RECONCILE_PASSES {
-            let desired_watches = desired_watches_for_states(&target_states);
+            let desired_watches = desired_watches_for_states::<Impl>(&target_states);
             if desired_watches == self.registered_watches {
                 break;
             }
@@ -275,19 +403,19 @@ impl WorkerState {
         Ok(())
     }
 
-    fn apply_watch_plan(
+    fn apply_watch_plan<Impl: FileWatcherImpl>(
         &mut self,
-        watcher: &mut notify::RecommendedWatcher,
+        watcher: &mut Impl,
         desired_registrations: &HashSet<PathBuf>,
-    ) -> notify::Result<()> {
+    ) -> Result<(), Impl::Error> {
         let current_watches = self.registered_watches.clone();
 
         for registration in desired_registrations.difference(&current_watches) {
-            match watcher.watch(registration, notify::RecursiveMode::NonRecursive) {
+            match watcher.watch(registration) {
                 Ok(()) => {
                     self.registered_watches.insert(registration.clone());
                 }
-                Err(err) if is_transient_watch_error(&err) => {}
+                Err(err) if Impl::is_transient_watch_error(&err) => {}
                 Err(err) => return Err(err),
             }
         }
@@ -295,7 +423,7 @@ impl WorkerState {
         for registration in current_watches.difference(desired_registrations) {
             match watcher.unwatch(registration) {
                 Ok(()) => {}
-                Err(err) if is_transient_watch_error(&err) => {}
+                Err(err) if Impl::is_transient_watch_error(&err) => {}
                 Err(err) => return Err(err),
             }
             self.registered_watches.remove(registration);
@@ -305,20 +433,34 @@ impl WorkerState {
     }
 }
 
-fn worker_loop(
-    rx: mpsc::Receiver<WorkerMessage>,
-    tx: mpsc::Sender<WorkerMessage>,
-    startup_tx: mpsc::SyncSender<notify::Result<()>>,
+/// A handle to the file watcher worker, allowing it to receive file system events and
+/// update watches from the [`FileWatcherImpl`].
+pub struct FileWatcherEventSink<Impl: FileWatcherImpl> {
+    tx: mpsc::Sender<WorkerMessage<Impl>>,
+}
+
+impl<Impl: FileWatcherImpl> FileWatcherEventSink<Impl> {
+    /// Send a file system event to the worker from the [`FileWatcherImpl`].
+    pub fn send(
+        &self,
+        events: Result<Vec<(PathBuf, FileChangeKind)>, Impl::Error>,
+    ) -> Result<(), Impl::Error> {
+        self.tx
+            .send(WorkerMessage::FileSystemEvents(events))
+            .map_err(|_| Impl::worker_stopped_error())
+    }
+}
+
+fn worker_loop<Impl: FileWatcherImpl>(
+    create_impl: impl FnOnce(FileWatcherEventSink<Impl>) -> Result<Impl, Impl::Error> + Send + 'static,
+    rx: mpsc::Receiver<WorkerMessage<Impl>>,
+    tx: mpsc::Sender<WorkerMessage<Impl>>,
+    startup_tx: mpsc::SyncSender<Result<(), Impl::Error>>,
     mut on_event: impl FnMut(WatchEvent) + Send + 'static,
-    mut on_error: impl FnMut(notify::Error) + Send + 'static,
+    mut on_error: impl FnMut(Impl::Error) + Send + 'static,
+    pass_through_unwatched_events: bool,
 ) {
-    let watcher = notify::recommended_watcher(move |event| {
-        // Keep the backend callback lightweight and forward the real work to the worker.
-        //
-        // This is especially needed on inotify backends, where calling watch/unwatch within
-        // the callback can cause a deadlock.
-        let _ = tx.send(WorkerMessage::RawEvent(event));
-    });
+    let watcher = create_impl(FileWatcherEventSink { tx });
 
     let mut watcher = match watcher {
         Ok(watcher) => {
@@ -342,13 +484,18 @@ fn worker_loop(
                     &mut on_event,
                 ));
             }
-            WorkerMessage::RawEvent(Ok(event)) => {
-                if let Err(err) = state.handle_raw_event(&mut watcher, event, &mut on_event) {
+            WorkerMessage::FileSystemEvents(Ok(event)) => {
+                if let Err(err) = state.handle_events(
+                    &mut watcher,
+                    event,
+                    pass_through_unwatched_events,
+                    &mut on_event,
+                ) {
                     on_error(err);
                 }
             }
-            WorkerMessage::RawEvent(Err(err)) => {
-                if !is_transient_watch_error(&err) {
+            WorkerMessage::FileSystemEvents(Err(err)) => {
+                if !Impl::is_transient_watch_error(&err) {
                     on_error(err);
                 }
             }
@@ -370,13 +517,15 @@ fn scan_target_state(path: &Path) -> TargetState {
     }
 }
 
-fn desired_watches_for_states(target_states: &HashMap<PathBuf, TargetState>) -> HashSet<PathBuf> {
+fn desired_watches_for_states<Impl: FileWatcherImpl>(
+    target_states: &HashMap<PathBuf, TargetState>,
+) -> HashSet<PathBuf> {
     let mut watches = target_states
         .values()
         .filter_map(|state| state.probe_dir().cloned())
         .collect::<HashSet<_>>();
 
-    if needs_direct_file_watches() {
+    if Impl::needs_direct_file_watches() {
         watches.extend(
             target_states
                 .iter()
@@ -406,26 +555,6 @@ fn nearest_existing_ancestor(path: &Path) -> Option<PathBuf> {
     Some(i_slint_compiler::pathutils::clean_path(current))
 }
 
-fn is_transient_watch_error(err: &notify::Error) -> bool {
-    match &err.kind {
-        notify::ErrorKind::PathNotFound
-        | notify::ErrorKind::WatchNotFound
-        | notify::ErrorKind::Generic(_) => true,
-        notify::ErrorKind::Io(e) => e.kind() == std::io::ErrorKind::NotFound,
-        _ => false,
-    }
-}
-
-fn worker_stopped_error() -> notify::Error {
-    notify::Error::generic("file watcher worker thread stopped")
-}
-
-fn needs_direct_file_watches() -> bool {
-    // On macOS, notify does not report file changed events, if we only watch the parent
-    // directory, so we need to add a direct file watch as well.
-    cfg!(target_os = "macos")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -439,6 +568,17 @@ mod tests {
     const EVENT_TIMEOUT: Duration = Duration::from_millis(100);
     const QUIET_TIMEOUT: Duration = Duration::from_millis(50);
 
+    fn new_test_root() -> PathBuf {
+        static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
+
+        let unique_id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+        let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let root = std::env::temp_dir()
+            .join(format!("slint-file-watcher-{timestamp}-{unique_id}-{}", std::process::id()));
+        fs::create_dir_all(&root).unwrap();
+        root
+    }
+
     struct TestContext {
         root: PathBuf,
         watcher: FileWatcher,
@@ -448,22 +588,27 @@ mod tests {
 
     impl TestContext {
         fn new() -> Self {
-            static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
+            Self::new_with_passthrough(false)
+        }
 
-            let unique_id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
-            let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-            let root = std::env::temp_dir()
-                .join(format!("slint-file-watcher-{timestamp}-{unique_id}-{}", std::process::id()));
-            fs::create_dir_all(&root).unwrap();
+        fn new_with_passthrough(pass_through_unwatched_events: bool) -> Self {
+            let root = new_test_root();
             let (event_tx, events) = mpsc::channel();
             let (error_tx, errors) = mpsc::channel();
 
-            let watcher = FileWatcher::start(
+            let watcher = FileWatcher::start_with_impl(
                 move |event| {
                     event_tx.send(event).unwrap();
                 },
                 move |error| {
                     error_tx.send(error).unwrap();
+                },
+                pass_through_unwatched_events,
+                |event_handler| {
+                    notify::recommended_watcher(move |event: notify::Result<notify::Event>| {
+                        let events = event.map(classify_event);
+                        event_handler.send(events).ok();
+                    })
                 },
             )
             .unwrap();
@@ -513,6 +658,10 @@ mod tests {
             self.settle();
             self.drain_events();
             self.assert_no_errors();
+        }
+
+        fn send_raw(&mut self, events: Vec<(PathBuf, FileChangeKind)>) {
+            self.watcher.event_sink().send(Ok(events)).unwrap();
         }
 
         fn settle(&self) {
@@ -588,6 +737,86 @@ mod tests {
         ctx.write("ui/main.slint", "second");
 
         ctx.expect_event(&watched, FileChangeKind::Changed);
+    }
+
+    #[test]
+    fn passthrough_can_emit_unwatched_paths() {
+        let mut ctx = TestContext::new_with_passthrough(true);
+        let unwatched = ctx.path("ui/unwatched.slint");
+
+        ctx.send_raw(vec![(unwatched.clone(), FileChangeKind::Changed)]);
+
+        ctx.expect_event(&unwatched, FileChangeKind::Changed);
+        ctx.expect_quiet();
+    }
+
+    #[test]
+    fn passthrough_works_without_watched_paths() {
+        let mut ctx = TestContext::new_with_passthrough(true);
+        let unwatched = ctx.path("ui/unwatched.slint");
+
+        ctx.send_raw(vec![(unwatched.clone(), FileChangeKind::Created)]);
+
+        ctx.expect_event(&unwatched, FileChangeKind::Created);
+        ctx.expect_quiet();
+    }
+
+    #[test]
+    fn passthrough_does_not_leak_without_opt_in() {
+        let mut ctx = TestContext::new();
+        let unwatched = ctx.path("ui/unwatched.slint");
+
+        ctx.send_raw(vec![(unwatched, FileChangeKind::Changed)]);
+
+        ctx.expect_quiet();
+    }
+
+    #[test]
+    fn passthrough_still_reconciles_watched_paths() {
+        let mut ctx = TestContext::new_with_passthrough(true);
+        let watched = ctx.path("ui/missing.slint");
+
+        ctx.create_dir_all("ui");
+        let sibling = ctx.write("ui/sibling.slint", "first");
+        ctx.watch(&["ui/missing.slint"]);
+        ctx.write("ui/missing.slint", "created later");
+        ctx.expect_event(&watched, FileChangeKind::Created);
+
+        ctx.send_raw(vec![(sibling.clone(), FileChangeKind::Changed)]);
+        ctx.expect_event(&sibling, FileChangeKind::Changed);
+        ctx.settle();
+
+        for event in ctx.drain_events() {
+            assert_eq!(
+                event,
+                WatchEvent { path: watched.clone(), kind: FileChangeKind::Changed },
+                "unexpected trailing event after reconcile",
+            );
+        }
+    }
+
+    #[test]
+    fn passthrough_does_not_duplicate_watched_events() {
+        let mut ctx = TestContext::new_with_passthrough(true);
+        let watched = ctx.write("ui/main.slint", "first");
+
+        ctx.watch(&["ui/main.slint"]);
+        ctx.remove_file("ui/main.slint");
+        ctx.send_raw(vec![(watched.clone(), FileChangeKind::Deleted)]);
+
+        ctx.expect_event(&watched, FileChangeKind::Deleted);
+        let folder_path = ctx.path("ui");
+
+        ctx.settle();
+        // On some platforms, removing a file creates a file change event on the folder (e.g. on macOS)
+        // Only allow this, but no other event to occur
+        for event in ctx.drain_events() {
+            assert_eq!(
+                event,
+                WatchEvent { path: folder_path.clone(), kind: FileChangeKind::Changed },
+            )
+        }
+        ctx.expect_quiet();
     }
 
     #[test]

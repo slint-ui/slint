@@ -150,7 +150,7 @@ pub trait Platform {
     /// should direct the output to some developer visible terminal. The default implementation
     /// uses stderr if available, or `console.log` when targeting wasm.
     fn debug_log(&self, _arguments: core::fmt::Arguments) {
-        crate::debug_log::default_debug_log(_arguments);
+        crate::debug_log::default_log_message(_arguments);
     }
 
     /// Opens the given URL in an external browser.

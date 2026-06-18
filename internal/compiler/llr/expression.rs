@@ -241,6 +241,27 @@ pub enum Expression {
         elements: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
         sub_expression: Box<Expression>,
     },
+    /// Calls `solve_flexbox_layout_with_measure` with a generated measure
+    /// callback so the cross-axis size of height-for-width cells is recomputed
+    /// at the width/height taffy actually assigns (rather than the cell's
+    /// preferred size). `data` is the `FlexboxLayoutData`. For each static cell,
+    /// `measure_cells[i]` is `(h_info_given_known_h, v_info_given_known_w)`,
+    /// each a `LayoutInfo`-typed expression that reads
+    /// `ReadLocalVariable("measure_known_w" / "measure_known_h")` (a `Float32`)
+    /// as its cross-axis constraint. `default_cells[i]` is the cell's
+    /// `(h_info, v_info)` at the default constraint (matching `data`'s cells);
+    /// it provides the preferred size returned when taffy asks for a dimension
+    /// without a known cross-axis size (mirroring the plain `solve_flexbox_layout`
+    /// measure). Repeater cells (the `Right` case) are not routed through the
+    /// callback yet.
+    SolveFlexboxLayoutWithMeasure {
+        /// The `FlexboxLayoutData` (built inline with the cell arrays, so its
+        /// temporaries live for the duration of the solve call).
+        data: Box<Expression>,
+        repeater_indices: Box<Expression>,
+        measure_cells: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
+        default_cells: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
+    },
     /// Will call the sub_expression, with the cells variable set to the
     /// array of GridLayoutInputData from the elements
     WithGridInputData {
@@ -395,6 +416,7 @@ impl Expression {
             Self::GridRepeaterCacheAccess { .. } => Type::LogicalLength,
             Self::WithLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
             Self::WithFlexboxLayoutItemInfo { sub_expression, .. } => sub_expression.ty(ctx),
+            Self::SolveFlexboxLayoutWithMeasure { .. } => Type::LayoutCache,
             Self::WithGridInputData { sub_expression, .. } => sub_expression.ty(ctx),
             Self::MinMax { ty, .. } => ty.clone(),
             Self::EmptyComponentFactory => Type::ComponentFactory,
@@ -511,6 +533,23 @@ macro_rules! visit_impl {
             Expression::WithFlexboxLayoutItemInfo { elements, sub_expression, .. } => {
                 $visitor(sub_expression);
                 elements.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v)| {
+                    $visitor(h);
+                    $visitor(v);
+                });
+            }
+            Expression::SolveFlexboxLayoutWithMeasure {
+                data,
+                repeater_indices,
+                measure_cells,
+                default_cells,
+            } => {
+                $visitor(data);
+                $visitor(repeater_indices);
+                measure_cells.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v)| {
+                    $visitor(h);
+                    $visitor(v);
+                });
+                default_cells.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v)| {
                     $visitor(h);
                     $visitor(v);
                 });

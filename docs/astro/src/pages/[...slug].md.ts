@@ -6,7 +6,9 @@
 //   /docs/guide/language/coding/properties/      -> rendered HTML page
 //   /docs/guide/language/coding/properties.md    -> this endpoint, raw markdown
 
+import { fileURLToPath } from "node:url";
 import type { APIRoute, GetStaticPaths } from "astro";
+import { root } from "astro:config/server";
 import { getCollection, type CollectionEntry } from "astro:content";
 import {
     markdownStaticPaths,
@@ -21,5 +23,12 @@ export const getStaticPaths: GetStaticPaths = async () => {
 
 type Props = { entry: CollectionEntry<"docs"> };
 
+// Project root for resolving `?raw` code imports.
+const projectRoot = fileURLToPath(root);
+
 export const GET: APIRoute<Props> = ({ props }) =>
-    renderMarkdownResponse(props.entry, { basePath: BASE_PATH, linkMap });
+    renderMarkdownResponse(props.entry, {
+        basePath: BASE_PATH,
+        linkMap,
+        projectRoot,
+    });

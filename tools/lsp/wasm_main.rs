@@ -13,7 +13,10 @@ pub mod util;
 
 use common::LspToPreviews;
 use common::{DocumentCache, Result};
-use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl};
+use i_slint_live_preview::{
+    file_watcher::FileChangeKind,
+    protocol::{LspToPreviewMessage, PreviewToLspMessage, VersionedUrl},
+};
 use js_sys::Function;
 pub use language::{Context, RequestHandler};
 use lsp_types::Url;
@@ -385,7 +388,7 @@ impl SlintServer {
                     );
             }
             M::DebugMessage { location, message } => {
-                log(&common::preview_debug_message_to_string(&location, &message));
+                log(&common::preview_log_message_to_string(&location, &message));
             }
             M::ConnectRemote { .. } | M::DisconnectRemote => {
                 tracing::debug!("Ignoring remote-preview control message in WASM LSP");
@@ -411,6 +414,12 @@ impl SlintServer {
         let mut ctx = self.ctx.lock().await;
         let url: Url = serde_wasm_bindgen::from_value(url)?;
         let typ: lsp_types::FileChangeType = serde_wasm_bindgen::from_value(typ)?;
+        let typ = match typ {
+            lsp_types::FileChangeType::CREATED => FileChangeKind::Created,
+            lsp_types::FileChangeType::CHANGED => FileChangeKind::Changed,
+            lsp_types::FileChangeType::DELETED => FileChangeKind::Deleted,
+            _ => return Err(JsError::new("Unknown FileChangeType")),
+        };
         language::trigger_file_watcher(&mut ctx, url, typ)
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;

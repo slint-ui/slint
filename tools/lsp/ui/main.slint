@@ -4,7 +4,7 @@
 // cSpell: ignore Heade
 
 import { Button, TabWidget, Palette, Switch, ScrollView} from "std-widgets.slint";
-import { Api, ComponentItem, DiagnosticSummary, RemoteConnectionState } from "api.slint";
+import { Api, ComponentItem, DiagnosticSummary, PreviewMode, RemoteConnectionState } from "api.slint";
 
 import { EditorUi } from "./editor.slint";
 import { EditorSizeSettings, EditorSpaceSettings, Icons, PickerStyles, ConsoleStyles } from "./components/styling.slint";
@@ -18,7 +18,7 @@ import { OutlineView } from "./views/outline-view.slint";
 import { PreviewDataView } from "./views/preview-data-view.slint";
 import { WindowGlobal, WindowManager } from "windowglobal.slint";
 import { ColorPickerView } from "components/widgets/floating-brush-picker-widget.slint";
-import { RemotePreviewDialog } from "components/remote-preview-dialog.slint";
+import { RemotePreviewView } from "components/remote-preview-view.slint";
 import { TableEditorView } from "components/spreadsheet-dialog.slint";
 import "./assets/Inter-VariableFont.ttf";
 import "./assets/SourceCodePro-Medium.ttf";
@@ -46,6 +46,7 @@ export component PreviewUi inherits Window {
     property <bool> data-widget: false;
     property <bool> outline-widget: false;
     property <bool> library-widget: false;
+    property <bool> remote-mode: Api.preview-mode == PreviewMode.Remote;
     in-out property <bool> select-mode: false;
 
     title: @tr("Slint Live-Preview");
@@ -92,14 +93,6 @@ export component PreviewUi inherits Window {
                 icon: Platform.os != OperatingSystemType.macos ? Icons.sync : @image-url("");
                 activated => {
                     Api.reload-preview();
-                }
-            }
-
-            if !Api.runs-in-slintpad: MenuItem {
-                title: @tr("Connect to Remote Preview…");
-                activated => {
-                    Api.remote-dialog-open = true;
-                    Api.remote-start-discovery();
                 }
             }
 
@@ -219,6 +212,8 @@ export component PreviewUi inherits Window {
 
                     current-style <=> Api.current-style;
                     known-styles <=> Api.known-styles;
+                    preview-mode <=> Api.preview-mode;
+                    remote-mode: root.remote-mode;
                     library-widget <=> root.library-widget;
                     properties-widget <=> root.properties-widget;
                     outline-widget <=> root.outline-widget;
@@ -227,17 +222,30 @@ export component PreviewUi inherits Window {
                     style-selected => {
                         Api.style-changed();
                     }
+                    preview-mode-selected(mode) => {
+                        if mode == PreviewMode.Remote {
+                            Api.remote-start-discovery();
+                        } else {
+                            Api.remote-stop-discovery();
+                            Api.remote-disconnect();
+                        }
+                    }
                     edit := Button {
                         icon: Icons.inspect;
-                        colorize-icon: preview.select-mode ? false : true;
+                        colorize-icon: root.select-mode ? false : true;
                         checkable: true;
-                        checked <=> preview.select-mode;
-                        primary: preview.select-mode;
-                        enabled: preview.preview-is-current;
+                        checked <=> root.select-mode;
+                        primary: root.select-mode;
+                        enabled: !root.remote-mode && Api.diagnostic-summary != DiagnosticSummary.Errors;
                     }
                 }
 
-                HorizontalLayout {
+                if root.remote-mode: RemotePreviewView {
+                    horizontal-stretch: 1;
+                    vertical-stretch: 1;
+                }
+
+                if !root.remote-mode: HorizontalLayout {
                     spacing: 0px;
 
                     if root.library-widget: LibraryView {
@@ -255,6 +263,7 @@ export component PreviewUi inherits Window {
                     Rectangle {
                         horizontal-stretch: 1;
                         preview := PreviewView {
+                            select-mode <=> root.select-mode;
                             visible-component <=> root.visible-component;
                             // Hide while the preview is mirrored on a remote
                             // viewer; the local renderer would only ever
@@ -372,7 +381,7 @@ export component PreviewUi inherits Window {
                     }
                 }
 
-                Rectangle {
+                if !root.remote-mode: Rectangle {
                     height: cp.height;
                 }
 
@@ -381,6 +390,7 @@ export component PreviewUi inherits Window {
             cp := ConsolePanel {
                 y: parent.height - self.height - 1px;
                 width: parent.width;
+                visible: !root.remote-mode;
                 panel-expanded <=> root.console-panel-expanded;
             }
         }
@@ -425,10 +435,5 @@ export component PreviewUi inherits Window {
         close => {
             WindowManager.hide-color-stop-picker();
         }
-    }
-
-    if Api.remote-dialog-open: RemotePreviewDialog {
-        width: 100%;
-        height: 100%;
     }
 }

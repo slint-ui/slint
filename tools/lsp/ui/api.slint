@@ -56,6 +56,11 @@ export enum RemoteConnectionState {
     Failed,
 }
 
+export enum PreviewMode {
+    Local,
+    Remote,
+}
+
 /// What kind of layout we are working with
 export enum LayoutKind {
     None,
@@ -317,6 +322,9 @@ export global Api {
     in-out property <string> current-style;
     // control, but command on macOS
     in-out property <string> control-key-name: "control";
+
+    // Start an interactive window drag (implemented by the editor host on macOS).
+    callback request-window-drag();
 
     // ## Log Output
     in-out property <[LogMessage]> log-output;
@@ -612,7 +620,7 @@ export global Api {
     in-out property <bool> redo-enabled: false;
 
     // ## Remote preview
-    in-out property <bool> remote-dialog-open;
+    in-out property <PreviewMode> preview-mode: PreviewMode.Local;
     in-out property <[RemoteViewerInfo]> remote-discovered-viewers;
     in-out property <RemoteConnectionState> remote-connection-state;
     in-out property <string> remote-connection-error;

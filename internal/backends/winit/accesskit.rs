@@ -689,12 +689,12 @@ impl NodeCollection {
 
         if let Some(live) = item
             .accessible_string_property(AccessibleStringProperty::LiveRegion)
-            .and_then(|s| s.parse::<i_slint_core::items::AccessibleLiveRegion>().ok())
+            .and_then(|s| s.parse::<i_slint_core::items::AccessibleLiveness>().ok())
         {
             node.set_live(match live {
-                i_slint_core::items::AccessibleLiveRegion::Off => Live::Off,
-                i_slint_core::items::AccessibleLiveRegion::Polite => Live::Polite,
-                i_slint_core::items::AccessibleLiveRegion::Assertive => Live::Assertive,
+                i_slint_core::items::AccessibleLiveness::Off => Live::Off,
+                i_slint_core::items::AccessibleLiveness::Polite => Live::Polite,
+                i_slint_core::items::AccessibleLiveness::Assertive => Live::Assertive,
                 _ => Live::Off,
             });
         }

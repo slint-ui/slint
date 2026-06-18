@@ -7,16 +7,16 @@ name: Nightly snapshot
 on:
     workflow_dispatch:
         inputs:
-            private:
-                type: boolean
-                default: true
+            mode:
+                type: choice
+                default: test
                 required: false
-                description: "Private build? True means artifacts are only built. False means the artefacts are published (docs, vscode extension) to the web/marketplace"
-            release:
-                type: boolean
-                default: false
-                required: false
-                description: "Release? Enable options for building binaries for a release (i.e. don't have a -nightly suffix for the extension)"
+                description: "What to build and publish"
+                options:
+                    - release       # Publish a versioned release: a draft GitHub release and a non-nightly extension.
+                    - full-nightly  # Publish the website snapshot, plus the VS Code extension and the `nightly` release tag.
+                    - website-only  # Publish the website snapshot (docs, demos, editor) only.
+                    - test          # Build everything, publish nothing.
 
 env:
     # Keep in sync with features in slint_tool_binary.yaml, cpp_package.yaml, api/node/Cargo.toml, and api/python/slint/Cargo.toml
@@ -51,7 +51,7 @@ jobs:
         uses: ./.github/workflows/build_docs.yaml
         secrets: inherit
         with:
-          release: ${{ github.event.inputs.release }}
+          release: ${{ github.event.inputs.mode == 'release' }}
           app-id: ${{ vars.READ_WRITE_APP_ID }}
 
     wasm_demo:
@@ -63,7 +63,7 @@ jobs:
     cpp_package:
         uses: ./.github/workflows/cpp_package.yaml
         with:
-            extra_cmake_flags: ${{ github.event.inputs.release != 'true' && '-DCPACK_PACKAGE_VERSION=nightly' || '' }}
+            extra_cmake_flags: ${{ github.event.inputs.mode != 'release' && '-DCPACK_PACKAGE_VERSION=nightly' || '' }}
 
     check-for-secrets:
         runs-on: ubuntu-latest
@@ -274,7 +274,7 @@ jobs:
               run: chmod 755 editors/vscode/bin/* editors/vscode/bin/*.app/Contents/MacOS/*
             - name: "Prepare meta-data files for nightly package"
               env:
-                  RELEASE_INPUT: ${{ github.event.inputs.release }}
+                  RELEASE_INPUT: ${{ github.event.inputs.mode == 'release' }}
               working-directory: editors/vscode
               run: |
                   if grep -q 'lines below this marker are stripped from the release' README.md; then
@@ -298,12 +298,12 @@ jobs:
               with:
                   pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
                   registryUrl: https://marketplace.visualstudio.com
-                  dryRun: ${{ github.event.inputs.private == 'true' || (github.ref != 'refs/heads/master' && github.event.inputs.release != 'true') }}
+                  dryRun: ${{ github.event.inputs.mode != 'full-nightly' && github.event.inputs.mode != 'release' }}
                   packagePath: editors/vscode
                   dependencies: false
             - name: Publish to Open VSX Registry
               continue-on-error: true
-              if: ${{ github.event.inputs.private != 'true' && (github.ref == 'refs/heads/master' || github.event.inputs.release == 'true') }}
+              if: ${{ github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release' }}
               uses: HaaLeo/publish-vscode-extension@v2
               with:
                   pat: ${{ secrets.OPENVSX_PAT }}
@@ -347,7 +347,7 @@ jobs:
                   path: tools/figma-inspector/zip
 
     #  publish_tree_sitter:
-    #    if: github.event.inputs.private != 'true'
+    #    if: github.event.inputs.mode != 'test'
     #    runs-on: ubuntu-22.04
     #    steps:
     #      - uses: actions/checkout@v6
@@ -358,7 +358,7 @@ jobs:
     #            path: editors/tree-sitter-slint
 
     publish_artifacts:
-        if: ${{ github.event.inputs.private != 'true' }}
+        if: ${{ github.event.inputs.mode != 'test' }}
         needs: [docs, wasm_demo, wasm, check-for-secrets, android]
         runs-on: ubuntu-22.04
         steps:
@@ -405,7 +405,7 @@ jobs:
                   name: wasm_demo
             - uses: actions/download-artifact@v8
               with:
-                  name: android-demo
+                  name: android-demos
                   path: android
 
             - uses: actions/checkout@v6
@@ -432,7 +432,7 @@ jobs:
 
             - name: Clone www-releases/releases and slintpad directory
               uses: actions/checkout@v6
-              if: ${{ github.event.inputs.release  == 'true' }}
+              if: ${{ github.event.inputs.mode == 'release' }}
               with:
                 repository: slint-ui/www-releases
                 path: www-releases
@@ -443,7 +443,7 @@ jobs:
 
             - name: Clone www-releases/snapshots directory
               uses: actions/checkout@v6
-              if: ${{ github.event.inputs.release  != 'true' }}
+              if: ${{ github.event.inputs.mode != 'release' }}
               with:
                 repository: slint-ui/www-releases
                 path: www-releases
@@ -454,7 +454,7 @@ jobs:
             - name: Publish Docs and Demos
               working-directory: ./www-releases
               run: |
-                if [[ "${{ github.event.inputs.release }}" == "true" ]]; then
+                if [[ "${{ github.event.inputs.mode == 'release' }}" == "true" ]]; then
                   output_path="releases/${{ steps.version.outputs.VERSION }}"
                 else
                   output_path="snapshots/${GITHUB_REF##*/}"
@@ -473,6 +473,17 @@ jobs:
                 mkdir -p $output_path/demos/android
                 cp -a ../android/* $output_path/demos/android/
 
+                # A directory listing so the published folder is browsable.
+                {
+                  echo '<!DOCTYPE html><meta charset="utf-8"><title>Slint Android Demos</title>'
+                  echo '<h1>Slint Android Demos</h1>'
+                  echo '<p>Install an APK on a device, or use the AAB for Play Store uploads.</p><ul>'
+                  for f in $(cd $output_path/demos/android && ls *.apk *.aab 2>/dev/null); do
+                    echo "<li><a href=\"$f\">$f</a></li>"
+                  done
+                  echo '</ul>'
+                } > $output_path/demos/android/index.html
+
                 rm -rf $output_path/wasm-interpreter
                 mkdir -p $output_path/wasm-interpreter
                 cp -a ../api/wasm-interpreter/pkg/* ./$output_path/wasm-interpreter/
@@ -481,7 +492,7 @@ jobs:
                 mkdir -p $output_path/editor
                 cp -a ../slintpad/* $output_path/editor/
 
-                if [[ "${{ github.event.inputs.release }}" == "true" ]]; then
+                if [[ "${{ github.event.inputs.mode == 'release' }}" == "true" ]]; then
                   version="${{ steps.version.outputs.VERSION }}"
                 else
                   version="development snapshot"
@@ -495,26 +506,26 @@ jobs:
                 sed -i "s!https://slint.dev/releases/.*/docs/!../../!" $output_path/docs/rust/slint/*.html
 
             - name: Adjust redirections
-              if: github.event.inputs.release == 'true'
+              if: github.event.inputs.mode == 'release'
               run: |
                 sed -i "/1.0.2/! s,[0-9]*\.[0-9]*\.[0-9]*/\(.*\),${{ steps.version.outputs.VERSION }}/\1," www-releases/releases/_redirects
 
             - name: Adjust slintpad default tag
-              if: github.event.inputs.release == 'true'
+              if: github.event.inputs.mode == 'release'
               run: sed -i "s,XXXX_DEFAULT_TAG_XXXX,v${{ steps.version.outputs.VERSION }}," www-releases/releases/${{ steps.version.outputs.VERSION }}/editor/assets/*.js
 
             - name: Update versions.txt
-              if: github.event.inputs.release == 'true'
+              if: github.event.inputs.mode == 'release'
               working-directory: www-releases/releases
               run: ls -1d */ | cut -f1 -d'/' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort --version-sort -r > versions.txt
 
             - name: Print contents before update
-              if: github.event.inputs.release == 'true'
+              if: github.event.inputs.mode == 'release'
               working-directory: www-releases/releases
               run: cat versions.json
 
             - name: Update version in versions.json
-              if: github.event.inputs.release == 'true'
+              if: github.event.inputs.mode == 'release'
               working-directory: www-releases/releases
               run: |
                   sed -i '/"name": "development snapshot"/,/"preferred": true,/c\
@@ -529,12 +540,12 @@ jobs:
                       {' versions.json
 
             - name: Print contents before update
-              if: github.event.inputs.release == 'true'
+              if: github.event.inputs.mode == 'release'
               working-directory: www-releases/releases
               run: cat versions.json
 
             - name: Update SlintPad
-              if: github.event.inputs.release == 'true'
+              if: github.event.inputs.mode == 'release'
               run: |
                 rm -rf www-releases/slintpad
                 cp -r www-releases/releases/${{ steps.version.outputs.VERSION }}/editor www-releases/slintpad
@@ -567,7 +578,7 @@ jobs:
                 git push
 
     prepare_release:
-        if: github.event.inputs.private != 'true'
+        if: github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release'
         needs: [cpp_package, slint-viewer-binary, slint-lsp-binary, build-figma-plugin]
         runs-on: ubuntu-22.04
         permissions:
@@ -621,7 +632,7 @@ jobs:
             - name: prepare release notes
               id: version
               env:
-                   RELEASE_INPUT: ${{ github.event.inputs.release }}
+                   RELEASE_INPUT: ${{ github.event.inputs.mode == 'release' }}
               run: |
                   if [ "$RELEASE_INPUT" != "true" ]; then
                     notes_file=slint-src/docs/nightly-release-notes.md
@@ -652,7 +663,7 @@ jobs:
 
             - name: generate STM32 template packages
               env:
-                RELEASE_INPUT: ${{ github.event.inputs.release }}
+                RELEASE_INPUT: ${{ github.event.inputs.mode == 'release' }}
               run: |
                 git clone https://github.com/slint-ui/slint-cpp-templates-stm32 --depth 1
                 cd slint-cpp-templates-stm32
@@ -665,7 +676,7 @@ jobs:
                 done
 
             - uses: ncipollo/release-action@v1
-              if: github.event.inputs.release == 'true'
+              if: github.event.inputs.mode == 'release'
               with:
                   draft: true
                   artifacts: "artifacts/*"
@@ -674,7 +685,7 @@ jobs:
                   tag: v${{ steps.version.outputs.VERSION }}
                   commit: ${{ github.sha }}
             - uses: ncipollo/release-action@v1
-              if: github.event.inputs.release != 'true' && github.ref == 'refs/heads/master'
+              if: github.event.inputs.mode == 'full-nightly'
               with:
                   allowUpdates: true
                   prerelease: true
@@ -686,7 +697,7 @@ jobs:
                   tag: nightly
                   commit: ${{ github.sha }}
             - name: trigger stm32 build
-              if: github.ref == 'refs/heads/master'
+              if: github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release'
               run: |
                 curl -L \
                 -X POST \
@@ -706,18 +717,21 @@ jobs:
             - uses: ./.github/actions/install-linux-dependencies
             - name: Install Android API platforms
               run: ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-30" "platforms;android-35" "build-tools;35.0.1"
-            - name: Cache cargo-apk
-              id: cargo-apk-cache
+            - name: Cache cargo-apk, cargo-ndk and resvg
+              id: cargo-tools-cache
               uses: actions/cache@v5
               with:
-                  path: ~/.cargo/bin/cargo-apk
-                  key: cargo-apk-cache
-            # Only build cargo-apk if not cached
+                  path: |
+                      ~/.cargo/bin/cargo-apk
+                      ~/.cargo/bin/cargo-ndk
+                      ~/.cargo/bin/resvg
+                  key: android-cargo-tools-cache
+            # Only build the tools if not cached
             - uses: dtolnay/rust-toolchain@stable
-              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
-            - name: Install cargo-apk
-              if: steps.cargo-apk-cache.outputs.cache-hit != 'true'
-              run: cargo install cargo-apk
+              if: steps.cargo-tools-cache.outputs.cache-hit != 'true'
+            - name: Install cargo-apk, cargo-ndk and resvg
+              if: steps.cargo-tools-cache.outputs.cache-hit != 'true'
+              run: cargo install --locked cargo-apk cargo-ndk resvg
 
             - uses: ./.github/actions/setup-rust
               with:
@@ -741,11 +755,10 @@ jobs:
               run: cargo apk build -p usecases --target aarch64-linux-android --lib --release
             - name: Build home automation demo
               run: cargo apk build -p home-automation --target aarch64-linux-android --lib --release
-            - name: Build slint-viewer
-              run: cargo apk build -p slint-viewer --target aarch64-linux-android --lib --release --features remote
 
-            # Play Store accepts only AABs for new submissions, so build one
-            # alongside the APK.
+            # Play Store accepts only AABs for new submissions. Build the
+            # bundle, then derive the nightly slint-viewer APK from it so the
+            # viewer is only compiled once.
             - name: Set up JDK 17 for Android Gradle Plugin
               uses: actions/setup-java@v5
               with:
@@ -756,29 +769,38 @@ jobs:
               with:
                   # Installs Gradle on PATH; the AAB project has no wrapper jar.
                   gradle-version: "8.10.2"
-            # Split so a failure of one install doesn't mask the other's diagnostic.
-            - name: Install cargo-ndk
-              run: cargo install cargo-ndk --locked
-            - name: Install resvg
-              run: cargo install resvg --locked
             - name: Build slint-viewer AAB
               env:
                   ANDROID_KEYSTORE_PATH: ${{ env.CARGO_APK_RELEASE_KEYSTORE }}
                   ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+                  ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
               run: tools/viewer/android-aab/build-aab.sh
+            # A universal APK works on every ABI the bundle carries.
+            - name: Build slint-viewer APK from the AAB
+              env:
+                  ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+                  ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
+              run: |
+                  curl --fail -L -o bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
+                  java -jar bundletool.jar build-apks --mode=universal \
+                      --bundle=tools/viewer/android-aab/app/build/outputs/bundle/release/slint-viewer.aab \
+                      --output=slint-viewer.apks \
+                      --ks="$CARGO_APK_RELEASE_KEYSTORE" \
+                      --ks-pass="pass:$ANDROID_KEYSTORE_PASSWORD" \
+                      --ks-key-alias="$ANDROID_KEYSTORE_ALIAS"
+                  mkdir -p target/release/apk
+                  unzip -p slint-viewer.apks universal.apk > target/release/apk/slint-viewer.apk
 
-            # Upload whatever built so a Gradle failure doesn't drop the APKs.
+            # Flatten into one directory so the artifact holds bare files.
+            - name: Collect Android artifacts
+              if: always()
+              run: |
+                  mkdir -p android-demos
+                  cp -a target/release/apk/*.apk android-demos/ || true
+                  cp -a tools/viewer/android-aab/app/build/outputs/bundle/release/slint-viewer.aab android-demos/ || true
             - name: "upload APK artifact"
               if: always()
               uses: actions/upload-artifact@v7
               with:
-                  name: android-demo
-                  path: |
-                    target/release/apk/energy-monitor.apk
-                    target/release/apk/todo_lib.apk
-                    target/release/apk/weather_demo.apk
-                    target/release/apk/usecases_lib.apk
-                    target/release/apk/usecases_lib.apk
-                    target/release/apk/home_automation_lib.apk
-                    target/release/apk/slint-viewer.apk
-                    tools/viewer/android-aab/app/build/outputs/bundle/release/app-release.aab
+                  name: android-demos
+                  path: android-demos/

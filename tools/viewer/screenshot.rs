@@ -55,10 +55,10 @@ pub fn take_screenshot(args: &Cli) -> Result<()> {
     let result = poll_ready(compiler.build_from_path(args.path()));
     result.print_diagnostics();
     if result.has_errors() {
-        std::process::exit(-1);
+        std::process::exit(1);
     }
     let Some(c) = extract_component(&result, args) else {
-        std::process::exit(-1);
+        std::process::exit(1);
     };
 
     let component = c.create()?;

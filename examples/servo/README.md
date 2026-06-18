@@ -17,7 +17,7 @@ Integrate [Servo](https://github.com/servo/servo) Web Engine as WebView Componen
 - Copy `webview.slint` from [src](https://github.com/slint-ui/slint/tree/master/examples/servo/src) and paste it in your project.
 - Use `Webview` to your `.slint` file.
 
-    ```slint
+    ```slint no-test
     import { Webview } from "webview.slint";
 
     export component MyApp inherits Window {

@@ -9,6 +9,7 @@ publish = false
 license = "MIT"
 
 [dependencies]
+# Don't update: a newer extension API requires a newer Zed.
 zed_extension_api = "0.6.0"
 
 [lib]

@@ -34,16 +34,16 @@ catalog:
   '@expressive-code/plugin-line-numbers': 0.42.0
   '@playwright/test': 1.60.0
   '@types/node': 24.12.0
-  astro: 6.4.2
+  astro: 6.4.6
   astro-embed: 0.13.0
   cspell: 10.0.1
   playwright-ctrf-json-reporter: 0.0.29
   rehype-external-links: 3.0.0
   sharp: 0.34.5
-  starlight-links-validator: 0.24.0
+  starlight-links-validator: 0.24.1
   remark-parse: 11.0.0
   typescript: 6.0.3
   unified: 11.0.5
   unist-util-visit: 5.1.0
-  vite: 8.0.14
-  vitest: 4.1.7
+  vite: 8.0.16
+  vitest: 4.1.8

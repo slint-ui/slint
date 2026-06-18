@@ -1,183 +1,83 @@
 ---
 name: slint
-description: Expert guidance for building, debugging, and working with Slint GUI applications. Covers the .slint markup language, project setup, debugging with the embedded MCP server, and language API bindings for Rust, C++, JavaScript, and Python.
+description: Expert guidance for Slint GUI development — .slint language and layout, common gotchas, Rust/C++/JS/Python interop, and the embedded MCP server for runtime debugging.
 ---
 
 # Slint Development Skill
 
-Use this skill when building, debugging, or reviewing applications that use [Slint](https://slint.dev), a declarative GUI toolkit for native user interfaces across desktop, embedded, mobile, and web platforms.
+For building, debugging, or reviewing apps that use [Slint](https://slint.dev),
+a declarative GUI toolkit for desktop, embedded, mobile, and web.
 
-## When to Use This Skill
+## Workflow
 
-Use this skill when the task involves:
-- Writing or debugging `.slint` files
-- Integrating Slint with Rust, C++, JavaScript, or Python
-- Investigating layout, binding, rendering, or event-handling issues
-- Enabling the Slint MCP server for runtime inspection and UI debugging
-- Explaining or reviewing Slint-specific code patterns
+1. Match the project's Slint version (`Cargo.toml`/`Cargo.lock`,
+   `package.json`, `pyproject.toml`, or the CMake `find_package`/`FetchContent`
+   line) and consult that version's docs for exact APIs rather than guessing.
+2. After editing: in an IDE with the Slint extension, trust the post-edit
+   diagnostics; in a terminal, `slint-viewer --check ui/main.slint` compiles
+   one file and prints diagnostics, and `slint-viewer --screenshot` renders it
+   ([debugging-and-mcp.md](reference/debugging-and-mcp.md)).
+3. Never declare UI work done without looking at a render — a screenshot for
+   appearance, the MCP server for interactions. Review against
+   [polish.md](reference/polish.md).
+4. Share the render when the host supports it: inline the screenshot in chat
+   apps, or print its absolute path and summarize the visual checks in CLI-only
+   environments.
+5. Offer to run `slint-viewer --auto-reload ui/main.slint` so the user watches
+   changes live while you edit.
 
-## How to Help
+Most "won't compile" / "won't fill" / "padding ignored" questions are answered
+in [gotchas.md](reference/gotchas.md) and
+[language-and-layout.md](reference/language-and-layout.md).
 
-When using this skill:
-- Prefer idiomatic Slint patterns over manual UI workarounds
-- Match guidance to the user's language binding and Slint version
-- Watch for common pitfalls such as binding loops, missing layout constraints, and type mismatches
-- Suggest the MCP server when runtime inspection or interaction would make debugging easier
-- Prefer solutions that preserve Slint's declarative and reactive model
+## Reference Files
 
-## The .slint Language
+Skim the matching file *before* building in that area, not only when stuck.
 
-Slint UIs are written in `.slint` markup files. The language is declarative and reactive.
+| File | Read when… |
+|---|---|
+| [setup.md](setup.md) | Starting a project / wiring the build (Rust/C++/Node/Python). |
+| [language-and-layout.md](reference/language-and-layout.md) | Writing components; an element won't size/fill as expected. |
+| [gotchas.md](reference/gotchas.md) | A file won't compile, or colors/units/math/enums behave oddly. |
+| [events-and-overlays.md](reference/events-and-overlays.md) | Clicks/keys/modifiers, or popovers/menus/context menus. |
+| [icons-and-theming.md](reference/icons-and-theming.md) | Icons, or light/dark theming. |
+| [interop.md](reference/interop.md) | Connecting the UI to host-language logic (models, callbacks, globals). |
+| [polish.md](reference/polish.md) | The UI works but looks rough; reviewing a rendered screenshot. |
+| [debugging-and-mcp.md](reference/debugging-and-mcp.md) | Runtime debugging, headless/CI rendering, screenshots, the MCP server. |
+| [tools-install.md](tools-install.md) | Installing `slint-lsp` (language server) or `slint-viewer` (preview / screenshots). |
 
-## Project Setup
+## `.slint` in 30 seconds
 
-### Rust
+Declarative and reactive: a property binding re-evaluates automatically when
+anything it reads changes.
 
-```toml
-# Cargo.toml
-[dependencies]
-slint = "1.x"
+```slint
+import { Button, VerticalBox } from "std-widgets.slint";
 
-[build-dependencies]
-slint-build = "1.x"
-```
+component Counter inherits Rectangle {     // root element decides fill behavior
+    in property <string> label;            // parent/host writes
+    out property <int> count;              // component writes
+    callback changed(int);                 // notify the outside world
 
-```rust
-// build.rs
-fn main() {
-    slint_build::compile("ui/main.slint").unwrap();
+    VerticalBox {
+        Text { text: "\{root.label}: \{root.count}"; }   // interpolation
+        Button { text: "+"; clicked => { root.count += 1; root.changed(root.count); } }
+    }
 }
 ```
 
-```rust
-// main.rs
-slint::include_modules!();
+Property directions: `in` / `out` / `in-out` / `private`. Two-way bind: `a <=> b`.
+Control flow: `if cond : E {}`, `for it[i] in model : E {}`. Shared state & host
+interop: `export global Foo { ... }`. One-time code: `init => { ... }`.
 
-fn main() -> Result<(), slint::PlatformError> {
-    let app = MainWindow::new()?;
-    // Set up callbacks, models, etc.
-    app.run()
-}
-```
+## Documentation
 
-### C++
-
-Use CMake with `FetchContent` or `find_package`:
-```cmake
-find_package(Slint)
-slint_target_sources(my_app ui/main.slint)
-```
-
-### Node.js
-
-```js
-const slint = require("slint-ui");
-const app = new slint.MainWindow();
-app.run();
-```
-
-### Python
-
-```python
-import slint
-# Load .slint files dynamically
-```
-
-Note: the `slint` wheel's `requires-python` tracks recent CPython
-releases and advances with new Slint versions. If `uv add` / `pip
-install` picks an older Slint than expected, check the latest wheel's
-`requires-python` on PyPI and bump your project's `requires-python`
-(and `.python-version` for uv) to match before pinning a Slint version.
-
-## Language Server
-
-`slint-lsp` is the Slint Language Server. It provides diagnostics,
-hover, go-to-definition, and formatting for `.slint` files over LSP,
-and any editor or AI coding assistant with LSP support can use it for
-real-time code intelligence. The binary is not bundled with this skill
-and must be installed separately — see `lsp-install.md` in this skill
-directory for `cargo install slint-lsp`, prebuilt downloads per
-platform, and Linux runtime dependencies.
-
-## Debugging Slint Applications
-
-### Common Issues
-
-1. **Binding loops**: A property depends on itself through a chain of bindings. The compiler warns about these. Break the cycle by introducing an intermediate property or restructuring.
-
-2. **Elements not visible**: Check `width`, `height` (may be 0 if not in a layout), `visible`, `opacity`, and parent clipping.
-
-3. **Layout sizing**: Elements outside layouts need explicit `width`/`height`. Inside layouts, they get sized automatically. Use `preferred-width`, `min-width`, `max-width` to constrain.
-
-4. **Type mismatches**: `length` and `int`/`float` are different types. Use `1px * my_int` to convert, or `my_length / 1px` to get a number.
-
-5. **Performance**: Use `ListView` (not `for` in `ScrollView`) for long lists because it virtualizes. Use `image-rendering: pixelated` only when needed. Avoid deeply nested opacity or clip layers.
-
-### Debug Helpers
-
-- `debug("message", expression)` prints to stderr at runtime
-- `SLINT_DEBUG_PERFORMANCE=refresh_lazy,console` enables performance diagnostics
-- Run with `SLINT_BACKEND=winit-skia` or other backend variants for testing
-
-## MCP Server for AI-Assisted Debugging
-
-Slint includes an embedded MCP (Model Context Protocol) server that lets you inspect and interact with a running Slint application in real time. The server provides tools for exploring the UI tree, taking screenshots, clicking elements, dragging, typing, and more.
-
-Once enabled, an AI coding assistant can connect to the MCP endpoint to inspect and interact with the running UI.
-
-### Enabling the MCP Server
-
-**Step 1**: Build with `SLINT_EMIT_DEBUG_INFO=1` so that element IDs and source locations are preserved in the compiled output. Without this, elements will lack the debug metadata needed for meaningful introspection. Set `SLINT_MCP_PORT` to an available port when running, and pass `--features slint/mcp` to enable the server:
-
-```sh
-SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=9315 cargo run -p my-app --features slint/mcp
-```
-
-Do not add `mcp` to the `[features]` section of your `Cargo.toml` — use the `--features` flag on the command line instead.
-
-**Step 2**: Connect to the running application's MCP server at `http://localhost:9315/mcp` using Streamable HTTP transport and use the available tools to inspect and interact with the UI.
-
-When scripting or verifying the server from the command line, use `curl` — it is the most reliable approach for raw JSON-RPC. Prefer `curl` over built-in HTTP fetch tools, which agents sometimes reach for but which are less predictable for this use case:
-
-```sh
-# Initialize (confirms the server is up and prints available tools)
-curl -s -X POST http://127.0.0.1:9315/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}'
-
-# List windows
-curl -s -X POST http://127.0.0.1:9315/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"list_windows","arguments":{}}}'
-
-# Take a screenshot (response contains a base64-encoded PNG in the "data" field)
-curl -s -X POST http://127.0.0.1:9315/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"take_screenshot","arguments":{"windowHandle":{"index":"1","generation":"1"}}}}'
-```
-
-### Version Requirements
-
-| Slint Version | MCP Support |
-|---------------|-------------|
-| < 1.17.0 | Not available |
-| >= 1.17.0 | Enable via `--features slint/mcp` on the cargo command line |
-
-### When to Suggest MCP
-
-Suggest enabling the MCP server when the user is:
-- Debugging layout or visual issues
-- Trying to understand the runtime element hierarchy
-- Testing interactions programmatically
-- Verifying accessibility properties
-- Diagnosing event handling problems
-
-## Documentation Reference
-
-Full documentation for the latest version is at https://slint.dev/docs. Key sections:
-- Language guide: concepts, syntax, and coding patterns
-- Reference: elements, properties, types, and standard widgets
-- Language integrations: Rust, C++, Node.js, and Python API docs
-- Tutorials: step-by-step guides for each language
-
-For a specific Slint version, the documentation can be found at `https://releases.slint.dev/<version>/docs`, for example `https://releases.slint.dev/1.15.1/docs`.
+Latest: https://slint.dev/docs. Pin a version with
+`https://releases.slint.dev/<version>/docs` (e.g. `…/1.15.1/docs`). From 1.17,
+every docs page also serves its markdown source — replace the URL's trailing
+slash with `.md` (`…/reference/colors-and-brushes/` →
+`…/reference/colors-and-brushes.md`). Prefer it when fetching: it is about 10×
+smaller than the HTML. It is raw MDX, so skip the `import` lines, and a few
+pages (mostly tutorials) pull code snippets from external files that won't
+appear inline. The skill files cover what agents commonly get wrong; the docs
+are the authority on element, property, and widget signatures.

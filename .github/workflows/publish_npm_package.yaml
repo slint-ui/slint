@@ -120,12 +120,19 @@ jobs:
               run: |
                   pnpm install --ignore-scripts
                   pnpm run build --target ${{ matrix.rust-target }}
+                  # Build the "dev" binary with the additional system-testing and
+                  # mcp features. It is published as a separate optional binary
+                  # package (distributed via the slint-ui-dev package) and loaded
+                  # conditionally at runtime (see binding.cjs).
+                  pnpm run build:dev --target ${{ matrix.rust-target }}
             - name: Create package
               shell: bash
               working-directory: api/node
               run: |
-                  mkdir -p packed
-                  node "$GITHUB_WORKSPACE/api/node/scripts/packaging.mts" pack-binary binaries.json ${{ matrix.napi-rs-target }} slint-ui "$PWD/packed"
+                  PACKED="$PWD/packed"
+                  PKG="$GITHUB_WORKSPACE/api/node/scripts/packaging.mts"
+                  node "$PKG" pack-binary binaries.json ${{ matrix.napi-rs-target }} slint-ui "$PACKED"
+                  node "$PKG" pack-binary binaries-dev.json ${{ matrix.napi-rs-target }} slint-ui-dev "$PACKED"
             - name: Upload artifact
               uses: actions/upload-artifact@v7
               with:
@@ -170,6 +177,11 @@ jobs:
               run: |
                   pnpm install
                   pnpm run build
+                  # Generate the "dev" loader (rust-module-dev.cjs); it is shipped in the
+                  # separate slint-ui-dev package (see below), which binding.cjs loads by
+                  # name when present. It is intentionally kept out of the main package
+                  # (see .npmignore) so `npm i slint-ui` stays lean for production.
+                  pnpm run build:dev
                   pnpm run compile
             - name: Prepare binary packages
               working-directory: api/node
@@ -204,6 +216,10 @@ jobs:
               working-directory: api/node
               run: |
                   node "$GITHUB_WORKSPACE/api/node/scripts/packaging.mts" set-main-deps "$PKG_VERSION"
+            - name: Build slint-ui-dev package
+              working-directory: api/node
+              run: |
+                  node "$GITHUB_WORKSPACE/api/node/scripts/packaging.mts" pack-dev-meta "$PKG_VERSION" "$GITHUB_WORKSPACE/api/node"
             - name: Build package
               run: |
                   cargo xtask node_package $PKG_EXTRA_ARGS
