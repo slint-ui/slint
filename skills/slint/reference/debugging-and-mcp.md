@@ -26,14 +26,14 @@
 ## Check a `.slint` file (`slint-viewer --check`)
 
 `slint-viewer --check ui/main.slint` compiles the file and prints diagnostics
-without opening a window (Slint >= 1.17): exit 1 on errors, 0 otherwise
+without opening a window `(1.17+)`: exit 1 on errors, 0 otherwise
 (warnings still print). `-I`/`-L`/`--style` apply. Use this as the fast
 per-file compile check; the host build is only needed for the interop side.
 
 ## Headless screenshots of a `.slint` file (`slint-viewer --screenshot`)
 
 Renders a component to an image with no windowing system and no app code
-(Slint >= 1.17):
+`(1.17+)`:
 
 ```sh
 slint-viewer --screenshot out.png ui/main.slint              # .png/.jpg, or - for stdout
@@ -62,7 +62,7 @@ summarize what was visually checked.
 
 ## MCP Server for AI-Assisted Debugging
 
-Slint **1.17+** ships an embedded MCP server: walk the UI tree, read
+Slint ships an embedded MCP server `(1.17+)`: walk the UI tree, read
 accessibility properties, screenshot, and simulate clicks, drags, and typing
 in the running app — the best way to verify real interactions. (If
 `--features slint/mcp` fails with "unknown feature", the Slint version is too

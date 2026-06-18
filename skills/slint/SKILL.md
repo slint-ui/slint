@@ -10,13 +10,17 @@ a declarative GUI toolkit for desktop, embedded, mobile, and web.
 
 ## Workflow
 
-1. Match the project's Slint version (`Cargo.toml`/`Cargo.lock`,
+1. Find the project's Slint version first (`Cargo.toml`/`Cargo.lock`,
    `package.json`, `pyproject.toml`, or the CMake `find_package`/`FetchContent`
-   line) and consult that version's docs for exact APIs rather than guessing.
+   line). This skill targets Slint **≥ 1.17** and its prose assumes the latest
+   release; anything that needs a specific version is flagged inline as
+   `(1.17+)`, `(1.18+)`, … When the project pins an *older* version, or for
+   exact element/property/widget signatures, trust that version's docs over
+   this file rather than guessing.
 2. After editing: in an IDE with the Slint extension, trust the post-edit
    diagnostics; in a terminal, `slint-viewer --check ui/main.slint` compiles
    one file and prints diagnostics, and `slint-viewer --screenshot` renders it
-   ([debugging-and-mcp.md](reference/debugging-and-mcp.md)).
+   (both `(1.17+)`; [debugging-and-mcp.md](reference/debugging-and-mcp.md)).
 3. Never declare UI work done without looking at a render — a screenshot for
    appearance, the MCP server for interactions. Review against
    [polish.md](reference/polish.md).
@@ -73,8 +77,8 @@ interop: `export global Foo { ... }`. One-time code: `init => { ... }`.
 ## Documentation
 
 Latest: https://slint.dev/docs. Pin a version with
-`https://releases.slint.dev/<version>/docs` (e.g. `…/1.15.1/docs`). From 1.17,
-every docs page also serves its markdown source — replace the URL's trailing
+`https://releases.slint.dev/<version>/docs` (e.g. `…/1.15.1/docs`). Every docs
+page also serves its markdown source `(1.17+)` — replace the URL's trailing
 slash with `.md` (`…/reference/colors-and-brushes/` →
 `…/reference/colors-and-brushes.md`). Prefer it when fetching: it is about 10×
 smaller than the HTML. It is raw MDX, so skip the `import` lines, and a few

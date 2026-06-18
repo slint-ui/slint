@@ -12,7 +12,7 @@ Use the Slint skill to give Claude Code or Codex project-specific guidance for w
   Add the Slint marketplace from GitHub and install the plugin:
 
   ```sh
-  /plugin marketplace add slint-ui/slint
+  /plugin marketplace add https://github.com/slint-ui/slint.git#release/1
   /plugin install slint@slint
   ```
 
@@ -22,7 +22,7 @@ Use the Slint skill to give Claude Code or Codex project-specific guidance for w
   Enter the following in the Codex prompt to install the skill from GitHub:
 
   ```sh
-  $skill-installer install https://github.com/slint-ui/slint/tree/master/skills/slint
+  $skill-installer install https://github.com/slint-ui/slint/tree/release/1/skills/slint
   ```
 
   Restart Codex after the install so it picks up the new skill.
@@ -32,10 +32,10 @@ Use the Slint skill to give Claude Code or Codex project-specific guidance for w
 
   ```sh
   # Codex
-  gh skill install slint-ui/slint slint --agent codex
+  gh skill install slint-ui/slint slint@release/1 --agent codex
 
   # Claude Code
-  gh skill install slint-ui/slint slint --agent claude-code
+  gh skill install slint-ui/slint slint@release/1 --agent claude-code
   ```
 
   See [`gh skill install`](https://cli.github.com/manual/gh_skill_install) for the full list of supported agents (Cursor, Gemini CLI, Windsurf, and others). Restart your agent afterward so it picks up the new skill.
@@ -44,7 +44,7 @@ Use the Slint skill to give Claude Code or Codex project-specific guidance for w
   Install the Slint skill into the current project with the [`skills`](https://github.com/vercel-labs/skills) CLI:
 
   ```sh
-  npx skills add slint-ui/slint --skill slint
+  npx skills add https://github.com/slint-ui/slint/tree/release/1/skills/slint
   ```
 
   This works for any agent supported by the `skills` CLI (Claude Code, Cursor, and others) and installs into the project's agent skills directory by default. Pass `-g` to install globally for all projects.
