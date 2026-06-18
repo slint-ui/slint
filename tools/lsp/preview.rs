@@ -384,10 +384,7 @@ fn take_pending_file_tree_preview(
     preview_state: &mut PreviewState,
     url: &Url,
 ) -> Option<PreviewComponent> {
-    if !preview_state
-        .pending_file_tree_preview
-        .as_ref()
-        .is_some_and(|pending| pending.url == *url)
+    if !preview_state.pending_file_tree_preview.as_ref().is_some_and(|pending| pending.url == *url)
     {
         return None;
     }
@@ -963,10 +960,7 @@ fn component_index_for_prototype_kind(kind: ui::PrototypeComponentKind) -> Optio
             .iter()
             .position(|component| component.name == name && component.is_builtin)
             .or_else(|| {
-                preview_state
-                    .known_components
-                    .iter()
-                    .position(|component| component.name == name)
+                preview_state.known_components.iter().position(|component| component.name == name)
             })
     })
 }

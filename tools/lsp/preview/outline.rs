@@ -410,12 +410,7 @@ fn can_drop(
         location: CachedDropLocation,
     }
     thread_local!(static CACHE: RefCell<clru::CLruCache<CacheEntry, bool>> = RefCell::new(clru::CLruCache::new(NonZeroUsize::new(10).unwrap())));
-    let cache_entry = CacheEntry {
-        data,
-        target_uri,
-        target_offset,
-        location: cached_location,
-    };
+    let cache_entry = CacheEntry { data, target_uri, target_offset, location: cached_location };
     let Some(document_cache) = super::document_cache() else { return false };
     CACHE.with_borrow_mut(|cache| {
         if let Some(does_compile) = cache.get(&cache_entry) {
