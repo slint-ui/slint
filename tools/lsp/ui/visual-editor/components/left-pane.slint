@@ -3,8 +3,8 @@
 
 import { ScrollView } from "std-widgets.slint";
 import {
-    EdgeDivider, EditorMetrics, LeftPaneMode, PrimerActionListRow, PrimerSegmentedTab, PrimerTextInput,
-    SectionTitle, SidebarToggleButton, StudioTheme,
+    EdgeDivider, EditorMetrics, LeftPaneMode, PrimerActionListRow, PrimerSegmentedTab, SectionTitle,
+    SidebarToggleButton, StudioTheme,
 } from "common.slint";
 import { Api, PrototypeComponentKind } from "../../api.slint";
 import { FileTreeView } from "file-tree-view.slint";
@@ -12,7 +12,6 @@ import { LibraryComponentRow } from "library-component-row.slint";
 
 export component LeftPane inherits Rectangle {
     in-out property <LeftPaneMode> mode;
-    in-out property <string> search-text;
     in property <bool> can-collapse: false;
     callback drag-started(PrototypeComponentKind, Point);
     callback drag-moved(PrototypeComponentKind, Point);
@@ -67,12 +66,6 @@ export component LeftPane inherits Rectangle {
                     }
                 }
             }
-        }
-
-        PrimerTextInput {
-            text <=> root.search-text;
-            placeholder: "Search";
-            leading-text: "/";
         }
 
         if root.mode == LeftPaneMode.files: ScrollView {
