@@ -120,6 +120,7 @@ fn apply_color_scheme_value(value: zbus::zvariant::OwnedValue, cx: &SettingsCont
     let theme = match scheme {
         ColorScheme::Dark => Some(winit::window::Theme::Dark),
         ColorScheme::Light => Some(winit::window::Theme::Light),
+        ColorScheme::Unknown => None,
         _ => None,
     };
     for adapter_weak in shared.active_windows.borrow().values() {
@@ -247,7 +248,8 @@ pub(crate) fn spawn(
         })
         .ok();
 
-    // Safety net: create the windows anyway if the portal never answers.
+    // Safety net: create the windows anyway if the portal never answers. Clearing
+    // the flag lets the next `about_to_wait` create the pending inactive windows.
     i_slint_core::timers::Timer::single_shot(APPEARANCE_QUERY_TIMEOUT, move || {
         finish_appearance_query(&shared_weak);
     });
