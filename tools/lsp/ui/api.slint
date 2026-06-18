@@ -641,6 +641,7 @@ export global Api {
     callback file-tree-toggle(path: string);
     callback file-tree-select(path: string);
     pure callback image-nine-slice-expression(path: string, top: int, right: int, bottom: int, left: int) -> string;
+    pure callback image-nine-slice-preview(source: image, top: int, right: int, bottom: int, left: int) -> image;
     callback copy-nine-slice-expression(value: string);
 
     // ## preview data
