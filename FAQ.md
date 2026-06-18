@@ -99,7 +99,7 @@ You need to do one of the following:
 
 #### What counts as an embedded system?
 
-An **embedded system** is a computer system that performs a specific task within a larger mechanical or electrical system — for example the controller driving the screen of an appliance, a point-of-sale terminal, or a car dashboard. Using Slint this way needs the Commercial license.
+An **embedded system** is a computer system that performs a specific task within a larger mechanical or electrical system — for example the controller driving the screen of an appliance, a point-of-sale terminal, or a car dashboard. The Commercial license or the GPL are suitable licenses for Slint for such systems.
 
 It's **not** an embedded system when your application runs on a user's own general-purpose computer or phone, installed as one application among many. That's the desktop, mobile, and web case the Royalty-free License covers for free.
 
