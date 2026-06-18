@@ -41,6 +41,21 @@ fn calculate_element_hash(
 }
 
 fn process_element(element: &ElementRc, random_state: &std::hash::RandomState) {
+    let e = element.borrow();
+    // Inject debug hook into the repeaters generated component, instead of its remaining
+    // pseudo-element
+    if e.repeated.is_some() {
+        inject_debug_hooks(e.base_type.as_component(), random_state);
+        return;
+    }
+    // Skip injecting debug hooks for these cases:
+    // * @children placeholder (generator skips these too)
+    // * non-inlined sub-component instances (base_type = Component)
+    if e.is_component_placeholder || e.sub_component().is_some() {
+        return;
+    }
+    drop(e);
+
     // Step 1: compute and store the element hash on EVERY debug entry.
     // This pass now runs after required-inlining, so an element may carry several debug
     // entries (one per merged source element). The LSP looks up the hash on the entry that

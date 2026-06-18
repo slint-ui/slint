@@ -1092,6 +1092,7 @@ pub(crate) fn generate_item_tree<'id>(
         repeater_names: HashMap<SmolStr, usize>,
         change_callbacks: Vec<(NamedReference, Expression)>,
         popup_menu_description: PopupMenuDescription,
+        compiled_globals: Option<Rc<CompiledGlobalCollection>>,
     }
     impl generator::ItemTreeBuilder for TreeBuilder<'_> {
         type SubComponentState = ();
@@ -1114,7 +1115,7 @@ pub(crate) fn generate_item_tree<'id>(
                 RepeaterWithinItemTree {
                     item_tree_to_repeat: generate_item_tree(
                         base_component,
-                        None,
+                        self.compiled_globals.clone(),
                         self.popup_menu_description.clone(),
                         false,
                         guard,
@@ -1201,6 +1202,7 @@ pub(crate) fn generate_item_tree<'id>(
         repeater_names: HashMap::new(),
         change_callbacks: Vec::new(),
         popup_menu_description,
+        compiled_globals: compiled_globals.clone(),
     };
 
     if !component.is_global() {
