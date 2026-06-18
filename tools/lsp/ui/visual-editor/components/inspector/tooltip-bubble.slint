@@ -1,0 +1,62 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component InspectorTooltipBubble inherits Rectangle {
+    in property <string> label;
+    private property <color> tip-bg: #1e1e1e;
+
+    width: 71px;
+    height: 31px;
+    background: transparent;
+
+    arrow := Path {
+        x: (bubble.width - self.width) / 2;
+        y: 0px;
+        width: 12px;
+        height: 7px;
+        viewbox-width: 12;
+        viewbox-height: 7;
+        fill: root.tip-bg;
+
+        MoveTo {
+            x: 6;
+            y: 0;
+        }
+
+        LineTo {
+            x: 12;
+            y: 7;
+        }
+
+        LineTo {
+            x: 0;
+            y: 7;
+        }
+
+        Close { }
+    }
+
+    bubble := Rectangle {
+        y: arrow.height;
+        width: root.width;
+        height: root.height - arrow.height;
+        border-radius: 4px;
+        background: root.tip-bg;
+        drop-shadow-blur: 12px;
+        drop-shadow-offset-y: 6px;
+        drop-shadow-color: #00000028;
+
+        tip-text := Text {
+            x: 0px;
+            y: 0px;
+            width: parent.width;
+            height: parent.height;
+            text: root.label;
+            color: white;
+            font-size: 12px;
+            font-weight: 400;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+}

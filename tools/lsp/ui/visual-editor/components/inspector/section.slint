@@ -1,0 +1,61 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { InspectorIconButton } from "icon-button.slint";
+import { InspectorTokens } from "tokens.slint";
+
+export component InspectorSection inherits Rectangle {
+    in property <string> title;
+    in property <bool> show-appearance-icons: false;
+    in property <bool> show-typography-icons: false;
+
+    horizontal-stretch: 1;
+    height: section-layout.preferred-height;
+
+    section-layout := VerticalLayout {
+        width: root.width;
+        padding-top: 12px;
+        padding-bottom: 16px;
+        spacing: 11px;
+
+        Rectangle {
+            height: 19px;
+
+            Text {
+                x: InspectorTokens.side-padding;
+                text: root.title;
+                color: InspectorTokens.text;
+                font-size: InspectorTokens.section-title-size;
+                font-weight: 700;
+                vertical-alignment: center;
+            }
+
+            if root.show-appearance-icons: HorizontalLayout {
+                x: parent.width - InspectorTokens.side-padding - self.preferred-width;
+                y: 0.5px;
+                height: 18px;
+                spacing: 8px;
+
+                InspectorIconButton { kind: "eye"; }
+                InspectorIconButton { kind: "drop"; }
+            }
+
+            if root.show-typography-icons: HorizontalLayout {
+                x: parent.width - InspectorTokens.side-padding - self.preferred-width;
+                y: 0.5px;
+                height: 18px;
+                spacing: 0px;
+
+                InspectorIconButton { kind: "type-grid"; }
+            }
+        }
+
+        @children
+    }
+
+    Rectangle {
+        y: root.height - 1px;
+        height: 1px;
+        background: InspectorTokens.divider;
+    }
+}

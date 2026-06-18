@@ -1,0 +1,198 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Icons } from "../../../components/styling.slint";
+import { StudioTheme } from "../common.slint";
+import { InspectorComboOption, InspectorTokens } from "tokens.slint";
+
+export component InspectorComboBox inherits Rectangle {
+    in property <string> prefix: "";
+    in property <string> value;
+    in property <int> selected-index: -1;
+    in property <[InspectorComboOption]> options;
+    in property <bool> wide: false;
+    in property <string> placeholder: "";
+    callback accepted(string) -> bool;
+
+    width: wide ? InspectorTokens.wide-width : InspectorTokens.column-width;
+    height: InspectorTokens.field-height;
+    border-radius: InspectorTokens.field-radius;
+    background: fallback-popup.is-open ? InspectorTokens.panel-bg : native-menu-touch.has-hover ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg;
+    border-width: fallback-popup.is-open ? 1px : 0px;
+    border-color: InspectorTokens.accent;
+    accessible-role: AccessibleRole.combobox;
+    accessible-value: root.value;
+    accessible-expanded: fallback-popup.is-open;
+    accessible-action-expand => {
+        root.show-popup();
+    }
+
+    private property <length> row-height: 26px;
+    private property <length> popup-padding: 4px;
+    private property <bool> can-open: root.options.length > 0;
+    private property <bool> use-native-menu:
+        Platform.os == OperatingSystemType.macos || Platform.os == OperatingSystemType.windows;
+
+    function fallback-popup-y() -> length {
+        if Platform.os == OperatingSystemType.macos && root.selected-index >= 0 {
+            return root.height / 2
+                - root.popup-padding
+                - root.selected-index * root.row-height
+                - root.row-height / 2;
+        }
+        return root.height + 2px;
+    }
+
+    function native-menu-y() -> length {
+        if Platform.os == OperatingSystemType.macos && root.selected-index >= 0 {
+            return root.height / 2 - root.selected-index * root.row-height - root.row-height / 2;
+        }
+        return root.height;
+    }
+
+    function show-popup() {
+        if !root.can-open {
+            return;
+        }
+        if root.use-native-menu {
+            native-menu.show({ x: 0px, y: root.native-menu-y() });
+        } else {
+            fallback-popup.show();
+        }
+    }
+
+    native-menu := ContextMenuArea {
+        Menu {
+            for option[index] in root.options: MenuItem {
+                title: option.label;
+                enabled: option.enabled;
+                checkable: true;
+                checked: index == root.selected-index;
+                activated => {
+                    root.accepted(option.value);
+                }
+            }
+        }
+
+        HorizontalLayout {
+            padding-left: 8px;
+            padding-right: 5px;
+            spacing: 4px;
+            cross-axis-alignment: center;
+
+            if root.prefix != "": Text {
+                text: root.prefix;
+                color: InspectorTokens.text;
+                font-size: 11px;
+                font-weight: 400;
+                vertical-alignment: center;
+            }
+
+            Text {
+                horizontal-stretch: 1;
+                text: root.value != "" ? root.value : root.placeholder;
+                color: root.value != "" ? InspectorTokens.text : InspectorTokens.muted;
+                font-size: 12px;
+                font-weight: 400;
+                vertical-alignment: center;
+                overflow: elide;
+                wrap: no-wrap;
+            }
+
+            Rectangle {
+                width: 16px;
+                height: 16px;
+
+                Image {
+                    width: parent.width;
+                    height: parent.height;
+                    source: Icons.select-chevron;
+                    colorize: InspectorTokens.muted;
+                }
+            }
+        }
+
+        native-menu-touch := TouchArea {
+            mouse-cursor: root.can-open ? pointer : default;
+            clicked => {
+                root.show-popup();
+            }
+        }
+    }
+
+    fallback-popup := PopupWindow {
+        x: 0px;
+        y: root.fallback-popup-y();
+        width: root.width;
+        height: root.options.length * root.row-height + 2 * root.popup-padding;
+        close-policy: close-on-click-outside;
+        forward-focus: popup-focus;
+
+        Rectangle {
+            background: InspectorTokens.panel-bg;
+            border-width: 1px;
+            border-color: InspectorTokens.divider;
+            border-radius: InspectorTokens.field-radius;
+            drop-shadow-color: StudioTheme.dark ? #00000066 : #64748b30;
+            drop-shadow-blur: 12px;
+            drop-shadow-offset-y: 4px;
+        }
+
+        popup-focus := FocusScope {
+            key-pressed(event) => {
+                if event.text == Key.Escape {
+                    fallback-popup.close();
+                    return accept;
+                }
+                return reject;
+            }
+
+            VerticalLayout {
+                padding: root.popup-padding;
+                alignment: start;
+
+                for option[index] in root.options: Rectangle {
+                    height: root.row-height;
+                    border-radius: InspectorTokens.field-radius;
+                    background: index == root.selected-index
+                        ? InspectorTokens.accent.with-alpha(0.16)
+                        : row-touch.has-hover && option.enabled
+                        ? InspectorTokens.field-bg-hover
+                        : transparent;
+
+                    Text {
+                        x: 7px;
+                        width: 14px;
+                        text: index == root.selected-index ? "✓" : "";
+                        color: option.enabled ? InspectorTokens.accent : InspectorTokens.muted;
+                        font-size: 12px;
+                        font-weight: 600;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        x: 25px;
+                        width: parent.width - self.x - 8px;
+                        text: option.label;
+                        color: option.enabled ? InspectorTokens.text : InspectorTokens.muted;
+                        font-size: 12px;
+                        vertical-alignment: center;
+                        overflow: elide;
+                        wrap: no-wrap;
+                    }
+
+                    row-touch := TouchArea {
+                        enabled: option.enabled;
+                        mouse-cursor: option.enabled ? pointer : default;
+                        clicked => {
+                            if root.accepted(option.value) {
+                                fallback-popup.close();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
