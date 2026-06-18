@@ -312,7 +312,7 @@ export component ImageAssetEditor inherits Rectangle {
     }
 
     if root.has-image(): Rectangle {
-        x: (parent.width - self.width) / 2;
+        x: (parent.width - self.width - EditorMetrics.left-pane-width) / 2;
         y: 14px;
         width: 216px;
         height: 38px;
@@ -374,7 +374,7 @@ export component ImageAssetEditor inherits Rectangle {
         y: 0px;
         width: root.rail-width + 24px;
         height: parent.height;
-        background: StudioTheme.dark ? #ffffff06 : #ffffff5c;
+        background: StudioTheme.dark ? white.with-alpha(0.1) : white.with-alpha(0.4);
 
         Rectangle {
             // needed to stop the line centering in the parent
