@@ -205,10 +205,69 @@ component InspectorSegmentedIconControl inherits Rectangle {
     }
 }
 
+component InspectorTooltipBubble inherits Rectangle {
+    in property <string> label;
+    private property <color> tip-bg: #1e1e1e;
+
+    width: bubble.width;
+    height: 31px;
+    background: transparent;
+
+    arrow := Path {
+        x: (bubble.width - self.width) / 2;
+        y: 0px;
+        width: 12px;
+        height: 7px;
+        viewbox-width: 12;
+        viewbox-height: 7;
+        fill: root.tip-bg;
+
+        MoveTo {
+            x: 6;
+            y: 0;
+        }
+
+        LineTo {
+            x: 12;
+            y: 7;
+        }
+
+        LineTo {
+            x: 0;
+            y: 7;
+        }
+
+        Close { }
+    }
+
+    bubble := Rectangle {
+        y: arrow.height;
+        width: tip-text.width + 18px;
+        height: 24px;
+        border-radius: 4px;
+        background: root.tip-bg;
+        drop-shadow-blur: 12px;
+        drop-shadow-offset-y: 6px;
+        drop-shadow-color: #00000028;
+
+        tip-text := Text {
+            x: 9px;
+            y: 0px;
+            height: parent.height;
+            text: root.label;
+            color: white;
+            font-size: 12px;
+            font-weight: 400;
+            vertical-alignment: center;
+        }
+    }
+}
+
 component InspectorValueField inherits Rectangle {
     in property <string> prefix;
     in property <string> value;
     in property <bool> enabled: true;
+    in property <string> tooltip-label: "";
     callback accepted(string) -> bool;
 
     width: InspectorTokens.column-width;
@@ -272,6 +331,12 @@ component InspectorValueField inherits Rectangle {
         enabled: root.enabled;
         mouse-cursor: text;
         clicked => { input.focus(); }
+    }
+
+    if root.tooltip-label != "": Tooltip {
+        InspectorTooltipBubble {
+            label: root.tooltip-label;
+        }
     }
 }
 
@@ -819,6 +884,7 @@ export component InspectorPane inherits Rectangle {
                         InspectorValueField {
                             prefix: "X";
                             value: root.selected-x-label();
+                            tooltip-label: "X-position";
                             accepted(text) => {
                                 return root.commit-geometry(text, root.selected-y-label(), root.selected-width-label(), root.selected-height-label());
                             }
@@ -827,6 +893,7 @@ export component InspectorPane inherits Rectangle {
                         InspectorValueField {
                             prefix: "Y";
                             value: root.selected-y-label();
+                            tooltip-label: "Y-position";
                             accepted(text) => {
                                 return root.commit-geometry(root.selected-x-label(), text, root.selected-width-label(), root.selected-height-label());
                             }
@@ -844,6 +911,7 @@ export component InspectorPane inherits Rectangle {
                         InspectorValueField {
                             prefix: "W";
                             value: root.selected-width-label();
+                            tooltip-label: "Width";
                             accepted(text) => {
                                 return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), text, root.selected-height-label());
                             }
@@ -852,6 +920,7 @@ export component InspectorPane inherits Rectangle {
                         InspectorValueField {
                             prefix: "H";
                             value: root.selected-height-label();
+                            tooltip-label: "Height";
                             accepted(text) => {
                                 return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), root.selected-width-label(), text);
                             }
