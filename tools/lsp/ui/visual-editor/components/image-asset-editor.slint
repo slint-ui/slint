@@ -155,24 +155,27 @@ export component ImageAssetEditor inherits Rectangle {
     private property <length> image-source-width: root.source-width * 1px;
     private property <length> image-source-height: root.source-height * 1px;
     private property <length> tab-bar-height: 58px;
-    private property <length> preview-panel-width: 360px;
-    private property <length> preview-panel-height: 292px;
-    private property <length> preview-panel-margin: 24px;
+    private property <length> rail-margin: 24px;
+    private property <length> rail-gap: 28px;
     private property <length> property-pane-width: EditorMetrics.inspector-pane-width;
     private property <length> property-pane-height: 260px;
     private property <length> preview-property-pane-height: 154px;
-    private property <length> property-pane-margin: 24px;
+    private property <length> property-pane-margin: root.rail-margin;
+    private property <length> preview-panel-width: root.property-pane-width;
+    private property <length> preview-panel-height: 196px;
     private property <length> edit-safe-top: root.tab-bar-height + 12px;
     private property <length> edit-safe-bottom: 44px;
-    private property <length> edit-safe-right: max(root.preview-panel-width, root.property-pane-width) + 2 * root.preview-panel-margin;
-    private property <length> available-width: max(1px, root.width - root.edit-safe-right - 40px);
+    private property <length> rail-width: max(root.preview-panel-width, root.property-pane-width);
+    private property <length> rail-x: root.width - root.rail-margin - root.rail-width;
+    private property <length> edit-safe-right: root.rail-width + root.rail-margin + root.rail-gap;
+    private property <length> available-width: max(1px, root.width - root.edit-safe-right - 24px);
     private property <length> available-height: max(1px, root.height - root.edit-safe-top - root.edit-safe-bottom - 64px);
     private property <float> fit-scale: root.has-image()
         ? min(root.available-width / root.image-source-width, root.available-height / root.image-source-height)
         : 1.0;
     private property <length> display-width: root.has-image() ? root.image-source-width * root.fit-scale : 0px;
     private property <length> display-height: root.has-image() ? root.image-source-height * root.fit-scale : 0px;
-    private property <length> plain-preview-available-width: max(1px, root.width - 96px);
+    private property <length> plain-preview-available-width: max(1px, root.width - root.edit-safe-right - 48px);
     private property <length> plain-preview-available-height: max(1px, root.height - root.tab-bar-height - 96px);
     private property <float> plain-preview-fit-scale: root.has-image()
         ? min(root.plain-preview-available-width / root.image-source-width, root.plain-preview-available-height / root.image-source-height)
@@ -249,9 +252,9 @@ export component ImageAssetEditor inherits Rectangle {
 
     function preview-position() -> Point {
         return {
-            x: root.width - root.preview-panel-margin - root.preview-panel-width
+            x: root.rail-x + (root.rail-width - root.preview-panel-width) / 2
                 + (root.preview-panel-width - root.preview-width()) / 2,
-            y: root.tab-bar-height + 38px + (root.preview-panel-height - 52px - root.preview-height()) / 2,
+            y: root.tab-bar-height + 34px + (root.preview-panel-height - 46px - root.preview-height()) / 2,
         };
     }
 
@@ -366,8 +369,21 @@ export component ImageAssetEditor inherits Rectangle {
         }
     }
 
+    if root.has-image(): Rectangle {
+        x: root.rail-x - 12px;
+        y: 0px;
+        width: root.rail-width + 24px;
+        height: parent.height;
+        background: StudioTheme.dark ? #ffffff06 : #ffffff5c;
+
+        Rectangle {
+            width: 1px;
+            background: StudioTheme.dark ? #ffffff16 : #cbd5e166;
+        }
+    }
+
     if root.has-image() && root.mode == ImageAssetEditorMode.preview: plain-preview-frame := Rectangle {
-        x: (root.width - self.width) / 2;
+        x: max(16px, (root.width - root.edit-safe-right - self.width) / 2);
         y: root.tab-bar-height + (root.height - root.tab-bar-height - self.height) / 2;
         width: root.plain-preview-display-width;
         height: root.plain-preview-display-height;
@@ -387,8 +403,8 @@ export component ImageAssetEditor inherits Rectangle {
     }
 
     if root.has-image() && root.mode == ImageAssetEditorMode.nine-slice: image-frame := Rectangle {
-        x: max(16px, (root.edit-area-width - self.width) / 2 - 24px);
-        y: root.edit-safe-top + max(0px, (root.edit-area-height - self.height) * 0.62);
+        x: max(16px, (root.edit-area-width - self.width) / 2);
+        y: root.edit-safe-top + max(0px, (root.edit-area-height - self.height) * 0.55);
         width: root.display-width;
         height: root.display-height;
         border-width: 1px;
@@ -552,37 +568,37 @@ export component ImageAssetEditor inherits Rectangle {
     }
 
     if root.has-image() && root.mode == ImageAssetEditorMode.nine-slice: Rectangle {
-        x: root.width - root.preview-panel-width - root.preview-panel-margin;
+        x: root.rail-x + (root.rail-width - root.preview-panel-width) / 2;
         y: root.tab-bar-height;
         width: root.preview-panel-width;
         height: root.preview-panel-height;
         border-radius: 8px;
         border-width: 1px;
-        border-color: StudioTheme.border;
-        background: StudioTheme.panel-bg;
-        drop-shadow-blur: 18px;
-        drop-shadow-offset-y: 8px;
-        drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b25;
+        border-color: StudioTheme.dark ? #ffffff18 : #cbd5e166;
+        background: StudioTheme.panel-bg.with-alpha(0.76);
+        drop-shadow-blur: 8px;
+        drop-shadow-offset-y: 3px;
+        drop-shadow-color: StudioTheme.dark ? #00000028 : #64748b12;
 
         Text {
             x: 14px;
-            y: 10px;
+            y: 8px;
             width: parent.width - 28px;
-            height: 20px;
+            height: 18px;
             text: "Preview";
-            color: StudioTheme.text;
-            font-size: 12px;
-            font-weight: 800;
+            color: StudioTheme.muted;
+            font-size: 11px;
+            font-weight: 700;
             vertical-alignment: center;
         }
 
         Rectangle {
             x: 12px;
-            y: 38px;
+            y: 34px;
             width: parent.width - 24px;
-            height: parent.height - 50px;
+            height: parent.height - 46px;
             border-radius: 6px;
-            background: StudioTheme.canvas;
+            background: StudioTheme.canvas.with-alpha(0.72);
         }
     }
 
@@ -650,7 +666,7 @@ export component ImageAssetEditor inherits Rectangle {
     }
 
     if root.has-image() && root.mode == ImageAssetEditorMode.preview: Rectangle {
-        x: root.property-pane-margin;
+        x: root.rail-x + root.rail-width - root.property-pane-width;
         y: root.height - root.preview-property-pane-height - root.property-pane-margin;
         width: root.property-pane-width;
         height: root.preview-property-pane-height;
@@ -711,7 +727,7 @@ export component ImageAssetEditor inherits Rectangle {
     }
 
     if root.has-image() && root.mode == ImageAssetEditorMode.nine-slice: Rectangle {
-        x: root.width - root.property-pane-width - root.property-pane-margin;
+        x: root.rail-x + root.rail-width - root.property-pane-width;
         y: root.height - root.property-pane-height - root.property-pane-margin;
         width: root.property-pane-width;
         height: root.property-pane-height;
