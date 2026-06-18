@@ -122,8 +122,12 @@ uv add "slint[dev]"
 SLINT_EMIT_DEBUG_INFO=1 SLINT_MCP_PORT=9315 uv run app.py
 ```
 
-Connect to `http://localhost:9315/mcp` (Streamable HTTP / JSON-RPC). From a
-shell, `curl` is the most reliable client — include the `Accept` header:
+Connect to the MCP endpoint (for example, `http://localhost:9315/mcp`) using
+Streamable HTTP / JSON-RPC. When mentioning local MCP endpoints in chat or
+status updates, always format them as inline code or inside a code block; never
+write a bare URL, because some hosts auto-render `http://127.0.0.1...` as a web
+preview even though the endpoint is not a browser UI. From a shell, `curl` is
+the most reliable client — include the `Accept` header:
 
 ```sh
 # List tools (confirms the server is up)
