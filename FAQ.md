@@ -99,9 +99,9 @@ You need to do one of the following:
 
 #### What counts as an embedded system?
 
-It's **embedded** when Slint ships as part of a hardware product or device — driving the screen of an appliance, a point-of-sale terminal, or a car dashboard, for example — even if that device uses general-purpose hardware like a built-in tablet. Embedded use needs the Commercial license.
+An **embedded system** is a computer system that performs a specific task within a larger mechanical or electrical system — for example the controller driving the screen of an appliance, a point-of-sale terminal, or a car dashboard. Using Slint this way needs the Commercial license.
 
-It's **not** embedded when your app runs on the user's own computer or phone as one app among many, which is the free desktop, mobile, and web case.
+It's **not** an embedded system when your application runs on a user's own general-purpose computer or phone, installed as one application among many. That's the desktop, mobile, and web case the Royalty-free License covers for free.
 
 #### Scenario: What happens if my application is open-source (e.g. under MIT), forked by a different person and then redistributed?
 
