@@ -1169,6 +1169,31 @@ fn override_selected_element_geometry(x: f32, y: f32, width: f32, height: f32) {
     component_instance.window().request_redraw();
 }
 
+fn without_overrides<R>(f: impl FnOnce() -> R) -> R {
+    let mut previous_overrides = HashMap::new();
+    PREVIEW_STATE.with_borrow(|preview_state| {
+        let overrides = (*preview_state.debug_hook_overrides).borrow();
+        for (property, override_property) in overrides.iter() {
+            if let Some(value) = override_property.as_ref().get() {
+                previous_overrides.insert(property.clone(), value);
+                override_property.as_ref().set(None);
+            }
+        }
+    });
+    let result = f();
+    PREVIEW_STATE.with_borrow(|preview_state| {
+        let overrides = (*preview_state.debug_hook_overrides).borrow();
+        for (property, previous_value) in previous_overrides {
+            let Some(value) = overrides.get(&property) else {
+                tracing::warn!("Failed to restore property override for property {property}, it was removed during the operation");
+                continue;
+            };
+            value.as_ref().set(Some(previous_value));
+        }
+    });
+    result
+}
+
 fn resize_selected_element_impl(
     element_node: &ElementRcNode,
     instance_index: usize,
@@ -1178,7 +1203,16 @@ fn resize_selected_element_impl(
 
     // They all have the same size anyway:
     let (path, offset) = element_node.path_and_offset();
-    let geometry = element_node.geometries(&component_instance).get(instance_index).cloned()?.rect;
+    // make sure to get the geometry without overrides, so we can compare against the original values
+    // to only write the properties that changed, otherwise we might end up with a geometry override
+    // on all properties after resizing.
+    let geometry = without_overrides(|| {
+        element_node
+            .geometries(&component_instance)
+            .get(instance_index)
+            .cloned()
+            .map(|geometry| geometry.rect)
+    })?;
 
     let position = rect.origin;
     let root_element = element_selection::root_element(&component_instance);
