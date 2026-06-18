@@ -148,14 +148,36 @@ curl -s -X POST http://127.0.0.1:9315/mcp \
 `MyComponent::my-button`), `query_element_descendants`, `take_screenshot`,
 `click_element`, `drag_element`, `invoke_accessibility_action`,
 `set_element_value`, `dispatch_key_event`, `start`/`stop_event_recording`.
-Most take element/window handles returned by `list_windows`/the tree calls.
+
+There are two kinds of handles, and the tools are strict about which one they
+take:
+
+- **windowHandle** — from `list_windows`. Used by `get_window_properties`,
+  `find_elements_by_id`, `take_screenshot`, `dispatch_key_event`.
+- **elementHandle** — `get_window_properties` returns the window's
+  `rootElementHandle`; element tools return more. Used by `get_element_tree`,
+  `query_element_descendants`, `get_element_properties`, `click_element`,
+  `drag_element`, `invoke_accessibility_action`, `set_element_value`.
+
+So the startup sequence is always: `list_windows` → `get_window_properties`
+(for the `rootElementHandle`) → element tools. Passing a window handle to
+`get_element_tree` fails — it wants the root *element* handle.
 
 ### Tips
 
 - Give elements ids (`foo := Rectangle {}`), then target them via
   `find_elements_by_id` (`ComponentName::id`).
+- `set_element_value` only works on elements that handle the set-value
+  accessibility action and silently does nothing otherwise. Target the
+  element that carries the accessible role (the `LineEdit` widget itself, not
+  its inner `TextInput`); as a fallback, click the element to focus it and
+  type with `dispatch_key_event`.
 - Drive a flow (`click_element`, `dispatch_key_event`), then `take_screenshot`
   to verify the result.
+- Elements inside a `PopupWindow` report an `absolute-position` relative to
+  the popup, not the window, so `click_element` on them can land in the wrong
+  place — and a misplaced click just closes the popup. Keyboard events still
+  reach the popup, so interact through `dispatch_key_event` where possible.
 - Claude Code reads a project-level `.mcp.json`; declaring the server there
   lets it attach automatically while the app runs:
   `{"mcpServers": {"my-app": {"type": "http", "url": "http://localhost:9315/mcp"}}}`.
