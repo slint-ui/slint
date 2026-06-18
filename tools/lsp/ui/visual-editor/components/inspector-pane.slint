@@ -209,7 +209,7 @@ component InspectorTooltipBubble inherits Rectangle {
     in property <string> label;
     private property <color> tip-bg: #1e1e1e;
 
-    width: bubble.width;
+    width: 71px;
     height: 31px;
     background: transparent;
 
@@ -242,7 +242,7 @@ component InspectorTooltipBubble inherits Rectangle {
 
     bubble := Rectangle {
         y: arrow.height;
-        width: tip-text.width + 18px;
+        width: root.width;
         height: 24px;
         border-radius: 4px;
         background: root.tip-bg;
@@ -251,13 +251,15 @@ component InspectorTooltipBubble inherits Rectangle {
         drop-shadow-color: #00000028;
 
         tip-text := Text {
-            x: 9px;
+            x: 0px;
             y: 0px;
+            width: parent.width;
             height: parent.height;
             text: root.label;
             color: white;
             font-size: 12px;
             font-weight: 400;
+            horizontal-alignment: center;
             vertical-alignment: center;
         }
     }
@@ -268,6 +270,8 @@ component InspectorValueField inherits Rectangle {
     in property <string> value;
     in property <bool> enabled: true;
     in property <string> tooltip-label: "";
+    callback tooltip-hovered(string, Point);
+    callback tooltip-hidden;
     callback accepted(string) -> bool;
 
     width: InspectorTokens.column-width;
@@ -331,11 +335,13 @@ component InspectorValueField inherits Rectangle {
         enabled: root.enabled;
         mouse-cursor: text;
         clicked => { input.focus(); }
-    }
 
-    if root.tooltip-label != "": Tooltip {
-        InspectorTooltipBubble {
-            label: root.tooltip-label;
+        changed has-hover => {
+            if self.has-hover && root.tooltip-label != "" {
+                root.tooltip-hovered(root.tooltip-label, root.absolute-position);
+            } else {
+                root.tooltip-hidden();
+            }
         }
     }
 }
@@ -656,6 +662,9 @@ export component InspectorPane inherits Rectangle {
         ? Api.highlight-positions(root.element-information.source-uri, root.element-information.offset)
         : [];
     property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
+    property <bool> tooltip-visible: false;
+    property <string> tooltip-label: "";
+    property <Point> tooltip-position: { x: 0px, y: 0px };
 
     function has-backend-rect() -> bool {
         return Api.selection.highlight-index >= 0 && root.selection-rects.length > Api.selection.highlight-index;
@@ -795,6 +804,19 @@ export component InspectorPane inherits Rectangle {
         );
     }
 
+    function show-tooltip(label: string, field-position: Point) {
+        root.tooltip-label = label;
+        root.tooltip-position = {
+            x: field-position.x - root.absolute-position.x - root.content-x + (InspectorTokens.column-width - 71px) / 2,
+            y: field-position.y - root.absolute-position.y + InspectorTokens.field-height + 1px,
+        };
+        root.tooltip-visible = true;
+    }
+
+    function hide-tooltip() {
+        root.tooltip-visible = false;
+    }
+
     EdgeDivider {
         x: 0px;
         background: InspectorTokens.divider;
@@ -885,6 +907,8 @@ export component InspectorPane inherits Rectangle {
                             prefix: "X";
                             value: root.selected-x-label();
                             tooltip-label: "X-position";
+                            tooltip-hovered(label, position) => { root.show-tooltip(label, position); }
+                            tooltip-hidden => { root.hide-tooltip(); }
                             accepted(text) => {
                                 return root.commit-geometry(text, root.selected-y-label(), root.selected-width-label(), root.selected-height-label());
                             }
@@ -894,6 +918,8 @@ export component InspectorPane inherits Rectangle {
                             prefix: "Y";
                             value: root.selected-y-label();
                             tooltip-label: "Y-position";
+                            tooltip-hovered(label, position) => { root.show-tooltip(label, position); }
+                            tooltip-hidden => { root.hide-tooltip(); }
                             accepted(text) => {
                                 return root.commit-geometry(root.selected-x-label(), text, root.selected-width-label(), root.selected-height-label());
                             }
@@ -912,6 +938,8 @@ export component InspectorPane inherits Rectangle {
                             prefix: "W";
                             value: root.selected-width-label();
                             tooltip-label: "Width";
+                            tooltip-hovered(label, position) => { root.show-tooltip(label, position); }
+                            tooltip-hidden => { root.hide-tooltip(); }
                             accepted(text) => {
                                 return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), text, root.selected-height-label());
                             }
@@ -921,6 +949,8 @@ export component InspectorPane inherits Rectangle {
                             prefix: "H";
                             value: root.selected-height-label();
                             tooltip-label: "Height";
+                            tooltip-hovered(label, position) => { root.show-tooltip(label, position); }
+                            tooltip-hidden => { root.hide-tooltip(); }
                             accepted(text) => {
                                 return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), root.selected-width-label(), text);
                             }
@@ -1053,6 +1083,19 @@ export component InspectorPane inherits Rectangle {
                     }
                 }
             }
+        }
+    }
+
+    tooltip-layer := Rectangle {
+        x: root.content-x;
+        y: 0px;
+        width: root.width - root.content-x;
+        height: root.inspector-height;
+
+        if root.tooltip-visible: InspectorTooltipBubble {
+            x: root.tooltip-position.x;
+            y: root.tooltip-position.y;
+            label: root.tooltip-label;
         }
     }
 
