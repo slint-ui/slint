@@ -412,8 +412,9 @@ pub(crate) struct SharedBackendData {
     /// event loop or is from a stale event.
     event_loop_generation: Arc<AtomicUsize>,
     is_wayland: bool,
+    /// Desktop settings read from the XDG portal (cursor blink, appearance query).
     #[cfg(xdg_desktop_settings)]
-    cursor_blink_interval: std::cell::Cell<core::time::Duration>,
+    desktop_settings: xdg_desktop_settings::DesktopSettings,
     #[cfg(target_os = "ios")]
     #[allow(unused)]
     keyboard_notifications: ios::KeyboardNotifications,
@@ -502,7 +503,7 @@ impl SharedBackendData {
             event_loop_generation: Default::default(),
             is_wayland,
             #[cfg(xdg_desktop_settings)]
-            cursor_blink_interval: std::cell::Cell::new(DEFAULT_CURSOR_FLASH_CYCLE),
+            desktop_settings: xdg_desktop_settings::DesktopSettings::new(),
             #[cfg(target_os = "ios")]
             keyboard_notifications,
         })
@@ -573,6 +574,12 @@ impl SharedBackendData {
         &self,
         event_loop: &winit::event_loop::ActiveEventLoop,
     ) -> Result<(), PlatformError> {
+        // Wait for the appearance query so windows aren't shown with default colors;
+        // the next `about_to_wait` retries once it clears.
+        #[cfg(xdg_desktop_settings)]
+        if self.desktop_settings.is_appearance_pending() {
+            return Ok(());
+        }
         let mut inactive_windows = self.inactive_windows.take();
         let mut result = Ok(());
         while let Some(window_weak) = inactive_windows.pop() {
@@ -689,18 +696,8 @@ impl i_slint_core::platform::Platform for Backend {
     fn bind_context(&self, _ctx: i_slint_core::SlintContextWeak, _: i_slint_core::InternalToken) {
         #[cfg(xdg_desktop_settings)]
         {
-            let strong_ctx = _ctx
-                .upgrade()
-                .expect("bind_context is called while the SlintContext is still alive");
-            let shared_weak = Rc::downgrade(&self.shared_data);
-            let ctx_weak = _ctx.clone();
-            if let Ok(handle) = strong_ctx.spawn_local(async move {
-                if let Err(err) = crate::xdg_desktop_settings::watch(shared_weak, ctx_weak).await {
-                    i_slint_core::debug_log!("Error watching for xdg desktop settings: {}", err);
-                }
-            }) {
-                *self.xdg_watcher.borrow_mut() = Some(handle);
-            }
+            *self.xdg_watcher.borrow_mut() =
+                crate::xdg_desktop_settings::spawn(&self.shared_data, &_ctx);
         }
         #[cfg(target_os = "windows")]
         if let Some(ctx) = _ctx.upgrade() {
@@ -903,7 +900,7 @@ impl i_slint_core::platform::Platform for Backend {
 
     #[cfg(xdg_desktop_settings)]
     fn cursor_flash_cycle(&self) -> core::time::Duration {
-        self.shared_data.cursor_blink_interval.get()
+        self.shared_data.desktop_settings.cursor_flash_cycle()
     }
 
     fn open_url(&self, url: &str) -> Result<(), i_slint_core::platform::PlatformError> {
