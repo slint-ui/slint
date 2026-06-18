@@ -1076,6 +1076,41 @@ pub fn parse(
     }
 }
 
+/// Process-global cache of parsed builtin documents (`std-widgets.slint`, the per-style
+/// files, `builtins.slint`), keyed by the identity (address + length) of their embedded
+/// `&'static` source bytes.
+///
+/// Builtin sources are immutable, so their parsed green tree can be reused across compiler
+/// invocations instead of re-parsing on every `slint!` expansion. rowan's `GreenNode` is
+/// `Send + Sync`, so a process-global cache works even though each `slint!` expansion runs on
+/// a fresh thread in rust-analyzer (where a `thread_local!` cache would not survive between
+/// expansions).
+static BUILTIN_PARSE_CACHE: std::sync::OnceLock<
+    std::sync::Mutex<std::collections::HashMap<(usize, usize), rowan::GreenNode>>,
+> = std::sync::OnceLock::new();
+
+/// Like [`parse`], but memoizes the parsed green tree, keyed by the identity of the immutable
+/// `source` bytes (which must be the embedded `&'static` contents of a builtin file). On a cache
+/// hit the green tree is re-wrapped in a fresh `SourceFile` (cheap).
+pub(crate) fn parse_builtin_cached(
+    source: &'static str,
+    path: Option<&std::path::Path>,
+    build_diagnostics: &mut BuildDiagnostics,
+) -> SyntaxNode {
+    let key = (source.as_ptr() as usize, source.len());
+    let cache = BUILTIN_PARSE_CACHE.get_or_init(Default::default);
+    if let Some(green) = cache.lock().unwrap().get(&key).cloned() {
+        let source_file = std::rc::Rc::new(crate::diagnostics::SourceFileInner::new(
+            path.map(crate::pathutils::clean_path).unwrap_or_default(),
+            source.into(),
+        ));
+        return SyntaxNode { node: rowan::SyntaxNode::new_root(green), source_file };
+    }
+    let sn = parse(source.into(), path, build_diagnostics);
+    cache.lock().unwrap().insert(key, sn.node.green().into_owned());
+    sn
+}
+
 pub fn parse_file<P: AsRef<std::path::Path>>(
     path: P,
     build_diagnostics: &mut BuildDiagnostics,

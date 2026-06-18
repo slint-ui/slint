@@ -27,7 +27,7 @@ pub(crate) fn load_builtins(
     symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>,
 ) {
     let mut diag = crate::diagnostics::BuildDiagnostics::default();
-    let node = crate::parser::parse(include_str!("builtins.slint").into(), None, &mut diag);
+    let node = crate::parser::parse_builtin_cached(include_str!("builtins.slint"), None, &mut diag);
     if !diag.is_empty() {
         let vec = diag.to_string_vec();
         #[cfg(feature = "display-diagnostics")]

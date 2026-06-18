@@ -1399,13 +1399,11 @@ impl TypeLoader {
             }
             Some(doc_node)
         } else if let Some(builtin) = builtin {
-            // Builtin sources (std-widgets, styles, …) are immutable and embedded, so reading
-            // them cannot fail; handle them separately from the fallible filesystem path.
-            let source = String::from(
-                core::str::from_utf8(builtin)
-                    .expect("internal error: embedded file is not UTF-8 source code"),
-            );
-            syntax_nodes::Document::new(crate::parser::parse(
+            // Builtin sources (std-widgets, styles, …) are immutable; cache the parsed
+            // green tree across invocations instead of re-parsing every expansion.
+            let source = core::str::from_utf8(builtin)
+                .expect("internal error: embedded file is not UTF-8 source code");
+            syntax_nodes::Document::new(crate::parser::parse_builtin_cached(
                 source,
                 Some(&path_canon),
                 state.borrow_mut().diag,
