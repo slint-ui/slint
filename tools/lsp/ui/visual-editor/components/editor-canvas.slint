@@ -243,7 +243,15 @@ export component EditorCanvas inherits Rectangle {
         // Selection frame(s) for the currently selected element. Rendered after
         // selection-area so the active frame intercepts clicks on the selected element.
         // Note: This sits outside of the PhoneChrome so it doesn't get clipped.
-        for s[idx] in root.selections: MoveResizeFrame {
+        //
+        // TODO: Ugly hack! The root.selections model currently is constantly 
+        // recreated, which means if we do an actual `for` loop over it, the
+        // MoveResizeFrame is recreated on every change, which means we lose all
+        // local state like the drag position, and the interaction becomes jumpy and unusable.
+        // To work around this, we only render a single MoveResizeFrame for the first selection rectangle.
+        if root.selections.length > 0: MoveResizeFrame {
+            property <int> idx: 0;
+            property <SelectionRectangle> s: root.selections[0];
             property <bool> primary: idx == Api.selection.highlight-index;
             // During a drag the frame follows the pointer locally (no disk write).
             // When idle it tracks the backend geometry from selections[].
@@ -265,11 +273,25 @@ export component EditorCanvas inherits Rectangle {
                 root.selection-drag-active = true;
                 root.selection-drag-position = position;
                 root.selection-drag-size = size;
+                // Push live geometry (content space) so the previewed element follows the
+                // drag via debug-hook overrides, without writing to disk.
+                Api.override-selected-element-geometry(
+                    position.x - EditorMetrics.phone-outer-padding,
+                    position.y - EditorMetrics.phone-outer-padding,
+                    size.width,
+                    size.height,
+                );
             }
             moved-to(position) => {
                 root.selection-drag-active = true;
                 root.selection-drag-position = position;
                 root.selection-drag-size = { width: s.width, height: s.height };
+                Api.override-selected-element-geometry(
+                    position.x - EditorMetrics.phone-outer-padding,
+                    position.y - EditorMetrics.phone-outer-padding,
+                    s.width,
+                    s.height,
+                );
             }
             interaction-ended => {
                 // Convert from phone (frame-parent) space back to content space
