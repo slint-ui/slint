@@ -23,7 +23,6 @@ export component DragPreview inherits Rectangle {
         ? EditorTreeTokens.row-radius
         : AppState.dragging-kind == PrototypeComponentKind.image ? 16px : 8px;
     background: transparent;
-    border-width: 0px;
     opacity: AppState.outline-drag-active ? 0.5 : 1;
     drop-shadow-blur: 18px;
     drop-shadow-offset-y: 8px;

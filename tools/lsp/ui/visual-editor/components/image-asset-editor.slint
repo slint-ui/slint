@@ -144,6 +144,86 @@ component FloatingCopyButton inherits Rectangle {
     }
 }
 
+component FloatingImageDetailsPanel inherits Rectangle {
+    in property <string> file;
+    in property <string> format;
+    in property <string> image-width;
+    in property <string> image-height;
+    in property <string> expression: "";
+    callback copy-clicked;
+
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: StudioTheme.border;
+    background: StudioTheme.panel-bg;
+    drop-shadow-blur: 18px;
+    drop-shadow-offset-y: 8px;
+    drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b25;
+
+    VerticalLayout {
+        padding: 14px;
+        spacing: 8px;
+
+        Text {
+            text: "Image";
+            color: StudioTheme.text;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        FloatingReadOnlyField {
+            width: parent.width - 28px;
+            prefix: "File";
+            value: root.file;
+            wide: true;
+        }
+
+        HorizontalLayout {
+            width: parent.width - 28px;
+            spacing: 8px;
+
+            FloatingReadOnlyField {
+                horizontal-stretch: 1;
+                prefix: "Fmt";
+                value: root.format;
+            }
+        }
+
+        HorizontalLayout {
+            width: parent.width - 28px;
+            spacing: 8px;
+
+            FloatingReadOnlyField {
+                horizontal-stretch: 1;
+                prefix: "W";
+                value: root.image-width;
+            }
+
+            FloatingReadOnlyField {
+                horizontal-stretch: 1;
+                prefix: "H";
+                value: root.image-height;
+            }
+        }
+
+        if root.expression != "": FloatingSyntaxField {
+            width: parent.width - 28px;
+            value: root.expression;
+        }
+
+        if root.expression != "": HorizontalLayout {
+            width: parent.width - 28px;
+            alignment: end;
+
+            FloatingCopyButton {
+                clicked => {
+                    root.copy-clicked();
+                }
+            }
+        }
+    }
+}
+
 export component ImageAssetEditor inherits Rectangle {
     in property <bool> sidebars-collapsed: false;
 
@@ -415,7 +495,6 @@ export component ImageAssetEditor inherits Rectangle {
         border-width: 1px;
         border-color: StudioTheme.border;
         background: StudioTheme.panel-bg;
-        clip: false;
         drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b30;
         drop-shadow-blur: 24px;
         drop-shadow-offset-y: 14px;
@@ -615,7 +694,6 @@ export component ImageAssetEditor inherits Rectangle {
         border-width: 1px;
         border-color: StudioTheme.accent-strong;
         background: StudioTheme.panel-bg;
-        clip: false;
 
         Image {
             width: parent.width;
@@ -670,141 +748,29 @@ export component ImageAssetEditor inherits Rectangle {
         }
     }
 
-    if root.has-image() && root.mode == ImageAssetEditorMode.preview: Rectangle {
+    if root.has-image() && root.mode == ImageAssetEditorMode.preview: FloatingImageDetailsPanel {
         x: root.rail-x + root.rail-width - root.property-pane-width;
         y: root.height - root.preview-property-pane-height - root.property-pane-margin;
         width: root.property-pane-width;
         height: root.preview-property-pane-height;
-        border-radius: 8px;
-        border-width: 1px;
-        border-color: StudioTheme.border;
-        background: StudioTheme.panel-bg;
-        drop-shadow-blur: 18px;
-        drop-shadow-offset-y: 8px;
-        drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b25;
-
-        VerticalLayout {
-            padding: 14px;
-            spacing: 8px;
-
-            Text {
-                text: "Image";
-                color: StudioTheme.text;
-                font-size: 12px;
-                font-weight: 800;
-            }
-
-            FloatingReadOnlyField {
-                width: parent.width - 28px;
-                prefix: "File";
-                value: Api.selected-image-asset.relative-path;
-                wide: true;
-            }
-
-            HorizontalLayout {
-                width: parent.width - 28px;
-                spacing: 8px;
-
-                FloatingReadOnlyField {
-                    horizontal-stretch: 1;
-                    prefix: "Fmt";
-                    value: Api.selected-image-asset.format;
-                }
-            }
-
-            HorizontalLayout {
-                width: parent.width - 28px;
-                spacing: 8px;
-
-                FloatingReadOnlyField {
-                    horizontal-stretch: 1;
-                    prefix: "W";
-                    value: root.image-width-label();
-                }
-
-                FloatingReadOnlyField {
-                    horizontal-stretch: 1;
-                    prefix: "H";
-                    value: root.image-height-label();
-                }
-            }
-        }
+        file: Api.selected-image-asset.relative-path;
+        format: Api.selected-image-asset.format;
+        image-width: root.image-width-label();
+        image-height: root.image-height-label();
     }
 
-    if root.has-image() && root.mode == ImageAssetEditorMode.nine-slice: Rectangle {
+    if root.has-image() && root.mode == ImageAssetEditorMode.nine-slice: FloatingImageDetailsPanel {
         x: root.rail-x + root.rail-width - root.property-pane-width;
         y: root.height - root.property-pane-height - root.property-pane-margin;
         width: root.property-pane-width;
         height: root.property-pane-height;
-        border-radius: 8px;
-        border-width: 1px;
-        border-color: StudioTheme.border;
-        background: StudioTheme.panel-bg;
-        drop-shadow-blur: 18px;
-        drop-shadow-offset-y: 8px;
-        drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b25;
-
-        VerticalLayout {
-            padding: 14px;
-            spacing: 8px;
-
-            Text {
-                text: "Image";
-                color: StudioTheme.text;
-                font-size: 12px;
-                font-weight: 800;
-            }
-
-            FloatingReadOnlyField {
-                width: parent.width - 28px;
-                prefix: "File";
-                value: Api.selected-image-asset.relative-path;
-                wide: true;
-            }
-
-            HorizontalLayout {
-                width: parent.width - 28px;
-                spacing: 8px;
-
-                FloatingReadOnlyField {
-                    horizontal-stretch: 1;
-                    prefix: "Fmt";
-                    value: Api.selected-image-asset.format;
-                }
-            }
-
-            HorizontalLayout {
-                width: parent.width - 28px;
-                spacing: 8px;
-
-                FloatingReadOnlyField {
-                    horizontal-stretch: 1;
-                    prefix: "W";
-                    value: root.image-width-label();
-                }
-
-                FloatingReadOnlyField {
-                    horizontal-stretch: 1;
-                    prefix: "H";
-                    value: root.image-height-label();
-                }
-            }
-
-            FloatingSyntaxField {
-                width: parent.width - 28px;
-                value: root.nine-slice-expression();
-            }
-
-            HorizontalLayout {
-                width: parent.width - 28px;
-                alignment: end;
-
-                FloatingCopyButton {
-                    clicked => {
-                        Api.copy-nine-slice-expression(root.nine-slice-expression());
-                    }
-                }
-            }
+        file: Api.selected-image-asset.relative-path;
+        format: Api.selected-image-asset.format;
+        image-width: root.image-width-label();
+        image-height: root.image-height-label();
+        expression: root.nine-slice-expression();
+        copy-clicked => {
+            Api.copy-nine-slice-expression(root.nine-slice-expression());
         }
     }
 }

@@ -55,7 +55,6 @@ component BrandMark inherits Rectangle {
 
     for row in 4: Rectangle {
         y: root.mark-size * (22% + row * 19%);
-        width: 100%;
         height: 1px;
         background: #ffffff26;
     }
@@ -63,7 +62,6 @@ component BrandMark inherits Rectangle {
     for col in 4: Rectangle {
         x: root.mark-size * (22% + col * 19%);
         width: 1px;
-        height: 100%;
         background: #ffffff22;
     }
 
@@ -373,14 +371,12 @@ export component StartupWizard inherits Rectangle {
 
         Rectangle {
             width: root.main-width;
-            height: 100%;
             background: WizardTheme.shell-bg;
         }
 
         side-panel := Rectangle {
             x: root.main-width + root.page-progress * 17px;
             width: root.side-width;
-            height: 100%;
             background: WizardTheme.side-bg;
             opacity: root.welcome-opacity;
             animate x, opacity {
@@ -530,7 +526,6 @@ export component StartupWizard inherits Rectangle {
 
             Rectangle {
                 y: 111px;
-                width: 100%;
                 height: 1px;
                 background: WizardTheme.separator;
             }
@@ -598,7 +593,6 @@ export component StartupWizard inherits Rectangle {
 
             Rectangle {
                 y: parent.height - 63px;
-                width: 100%;
                 height: 1px;
                 background: WizardTheme.separator;
             }
