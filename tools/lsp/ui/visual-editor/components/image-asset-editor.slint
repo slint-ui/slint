@@ -4,40 +4,6 @@
 import { Api } from "../../api.slint";
 import { CanvasCorner, StudioTheme } from "common.slint";
 
-enum ImageAssetEditorMode {
-    edit,
-    preview,
-}
-
-component ImageEditorTab inherits Rectangle {
-    in property <string> label;
-    in property <bool> selected;
-    callback clicked;
-
-    width: 84px;
-    height: 30px;
-    border-radius: 6px;
-    border-width: selected ? 1px : 0px;
-    border-color: StudioTheme.border;
-    background: selected ? StudioTheme.panel-bg : touch.has-hover ? StudioTheme.panel-subtle : transparent;
-
-    Text {
-        text: root.label;
-        color: root.selected ? StudioTheme.text : StudioTheme.muted;
-        font-size: 12px;
-        font-weight: root.selected ? 800 : 600;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-    }
-
-    touch := TouchArea {
-        mouse-cursor: pointer;
-        clicked => {
-            root.clicked();
-        }
-    }
-}
-
 component GuideHandle inherits Rectangle {
     in property <string> label;
     in property <length> label-x;
@@ -65,24 +31,87 @@ component GuideHandle inherits Rectangle {
     }
 }
 
+component FloatingInfoField inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+
+    height: 24px;
+
+    Text {
+        width: 58px;
+        text: root.label;
+        color: StudioTheme.muted;
+        font-size: 11px;
+        font-weight: 700;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+
+    Text {
+        x: 64px;
+        width: parent.width - 64px;
+        text: root.value;
+        color: StudioTheme.text;
+        font-size: 12px;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+}
+
+component FloatingCopyButton inherits Rectangle {
+    callback clicked;
+
+    width: 54px;
+    height: 26px;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: StudioTheme.border;
+    background: touch.has-hover ? StudioTheme.panel-subtle : StudioTheme.panel-bg;
+
+    Text {
+        text: "Copy";
+        color: StudioTheme.text;
+        font-size: 12px;
+        font-weight: 800;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
 export component ImageAssetEditor inherits Rectangle {
     horizontal-stretch: 1;
     background: StudioTheme.canvas;
 
-    private property <ImageAssetEditorMode> mode: ImageAssetEditorMode.edit;
     private property <string> asset-path: Api.selected-image-asset.path;
     private property <int> source-width: Api.selected-image-asset.image.width;
     private property <int> source-height: Api.selected-image-asset.image.height;
     private property <length> image-source-width: root.source-width * 1px;
     private property <length> image-source-height: root.source-height * 1px;
-    private property <length> chrome-height: 58px;
-    private property <length> available-width: max(1px, root.width - 96px);
-    private property <length> available-height: max(1px, root.height - root.chrome-height - 96px);
+    private property <length> preview-panel-width: 300px;
+    private property <length> preview-panel-height: 240px;
+    private property <length> preview-panel-margin: 24px;
+    private property <length> property-pane-width: 386px;
+    private property <length> property-pane-height: 176px;
+    private property <length> property-pane-margin: 24px;
+    private property <length> edit-safe-top: 28px;
+    private property <length> edit-safe-bottom: root.property-pane-height + 2 * root.property-pane-margin;
+    private property <length> edit-safe-right: root.preview-panel-width + 2 * root.preview-panel-margin;
+    private property <length> available-width: max(1px, root.width - root.edit-safe-right - 64px);
+    private property <length> available-height: max(1px, root.height - root.edit-safe-top - root.edit-safe-bottom - 64px);
     private property <float> fit-scale: root.has-image()
         ? min(root.available-width / root.image-source-width, root.available-height / root.image-source-height)
         : 1.0;
     private property <length> display-width: root.has-image() ? root.image-source-width * root.fit-scale : 0px;
     private property <length> display-height: root.has-image() ? root.image-source-height * root.fit-scale : 0px;
+    private property <length> edit-area-width: max(root.display-width, root.width - root.edit-safe-right);
+    private property <length> edit-area-height: max(1px, root.height - root.edit-safe-bottom - root.edit-safe-top);
     private property <length> left-display: root.source-to-display(Api.image-nine-slice-left);
     private property <length> right-display: root.source-to-display(Api.image-nine-slice-right);
     private property <length> top-display: root.source-to-display(Api.image-nine-slice-top);
@@ -98,7 +127,6 @@ export component ImageAssetEditor inherits Rectangle {
     private property <length> preview-min-size: 48px;
 
     changed asset-path => {
-        root.mode = ImageAssetEditorMode.edit;
         root.preview-size-custom = false;
         Api.image-nine-slice-top = 0;
         Api.image-nine-slice-right = 0;
@@ -149,10 +177,11 @@ export component ImageAssetEditor inherits Rectangle {
         return root.preview-size-custom ? root.preview-custom-height : max(root.preview-min-size, root.image-source-height);
     }
 
-    function default-preview-position() -> Point {
+    function preview-position() -> Point {
         return {
-            x: (root.width - root.preview-width()) / 2,
-            y: root.chrome-height + (root.height - root.chrome-height - root.preview-height()) / 2,
+            x: root.width - root.preview-panel-margin - root.preview-panel-width
+                + (root.preview-panel-width - root.preview-width()) / 2,
+            y: root.preview-panel-margin + 38px + (root.preview-panel-height - 52px - root.preview-height()) / 2,
         };
     }
 
@@ -179,6 +208,20 @@ export component ImageAssetEditor inherits Rectangle {
         root.preview-custom-height = max(root.preview-min-size, root.preview-resize-start-size.height + height-delta);
     }
 
+    function image-size-label() -> string {
+        return root.source-width + " x " + root.source-height;
+    }
+
+    function nine-slice-expression() -> string {
+        return Api.image-nine-slice-expression(
+            Api.selected-image-asset.relative-path,
+            Api.image-nine-slice-top,
+            Api.image-nine-slice-right,
+            Api.image-nine-slice-bottom,
+            Api.image-nine-slice-left,
+        );
+    }
+
     for row in 28: Rectangle {
         y: row * 32px;
         height: 1px;
@@ -191,38 +234,7 @@ export component ImageAssetEditor inherits Rectangle {
         background: StudioTheme.dark ? #ffffff0a : #00000008;
     }
 
-    Rectangle {
-        x: (parent.width - self.width) / 2;
-        y: 14px;
-        width: 176px;
-        height: 38px;
-        border-radius: 8px;
-        background: StudioTheme.panel-subtle;
-
-        HorizontalLayout {
-            padding: 4px;
-            spacing: 4px;
-
-            ImageEditorTab {
-                label: "Edit";
-                selected: root.mode == ImageAssetEditorMode.edit;
-                clicked => {
-                    root.mode = ImageAssetEditorMode.edit;
-                }
-            }
-
-            ImageEditorTab {
-                label: "Preview";
-                selected: root.mode == ImageAssetEditorMode.preview;
-                clicked => {
-                    root.mode = ImageAssetEditorMode.preview;
-                }
-            }
-        }
-    }
-
     if Api.selected-image-asset.error != "": Rectangle {
-        y: root.chrome-height;
         width: min(parent.width - 80px, 520px);
         height: 96px;
         border-radius: 8px;
@@ -250,9 +262,9 @@ export component ImageAssetEditor inherits Rectangle {
         }
     }
 
-    if root.has-image() && root.mode == ImageAssetEditorMode.edit: image-frame := Rectangle {
-        x: (root.width - self.width) / 2;
-        y: root.chrome-height + (root.height - root.chrome-height - self.height) / 2;
+    if root.has-image(): image-frame := Rectangle {
+        x: (root.edit-area-width - self.width) / 2;
+        y: root.edit-safe-top + (root.edit-area-height - self.height) / 2;
         width: root.display-width;
         height: root.display-height;
         border-width: 1px;
@@ -415,18 +427,50 @@ export component ImageAssetEditor inherits Rectangle {
         }
     }
 
-    if root.has-image() && root.mode == ImageAssetEditorMode.preview: preview-frame := Rectangle {
-        x: root.default-preview-position().x;
-        y: root.default-preview-position().y;
+    if root.has-image(): Rectangle {
+        x: root.width - root.preview-panel-width - root.preview-panel-margin;
+        y: root.preview-panel-margin;
+        width: root.preview-panel-width;
+        height: root.preview-panel-height;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: StudioTheme.border;
+        background: StudioTheme.panel-bg;
+        drop-shadow-blur: 18px;
+        drop-shadow-offset-y: 8px;
+        drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b25;
+
+        Text {
+            x: 14px;
+            y: 10px;
+            width: parent.width - 28px;
+            height: 20px;
+            text: "Preview";
+            color: StudioTheme.text;
+            font-size: 12px;
+            font-weight: 800;
+            vertical-alignment: center;
+        }
+
+        Rectangle {
+            x: 12px;
+            y: 38px;
+            width: parent.width - 24px;
+            height: parent.height - 50px;
+            border-radius: 6px;
+            background: StudioTheme.canvas;
+        }
+    }
+
+    if root.has-image(): preview-frame := Rectangle {
+        x: root.preview-position().x;
+        y: root.preview-position().y;
         width: root.preview-width();
         height: root.preview-height();
         border-width: 1px;
         border-color: StudioTheme.accent-strong;
         background: StudioTheme.panel-bg;
         clip: false;
-        drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b30;
-        drop-shadow-blur: 24px;
-        drop-shadow-offset-y: 14px;
 
         Image {
             width: parent.width;
@@ -475,6 +519,72 @@ export component ImageAssetEditor inherits Rectangle {
                             x: self.absolute-position.x + self.mouse-x,
                             y: self.absolute-position.y + self.mouse-y,
                         });
+                    }
+                }
+            }
+        }
+    }
+
+    if root.has-image(): Rectangle {
+        x: root.property-pane-margin;
+        y: root.height - root.property-pane-height - root.property-pane-margin;
+        width: root.property-pane-width;
+        height: root.property-pane-height;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: StudioTheme.border;
+        background: StudioTheme.panel-bg;
+        drop-shadow-blur: 18px;
+        drop-shadow-offset-y: 8px;
+        drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b25;
+
+        VerticalLayout {
+            padding: 14px;
+            spacing: 8px;
+
+            Text {
+                text: "Image";
+                color: StudioTheme.text;
+                font-size: 12px;
+                font-weight: 800;
+            }
+
+            FloatingInfoField {
+                width: parent.width - 28px;
+                label: "Type";
+                value: Api.selected-image-asset.format;
+            }
+
+            FloatingInfoField {
+                width: parent.width - 28px;
+                label: "Size";
+                value: root.image-size-label();
+            }
+
+            Rectangle {
+                width: parent.width - 28px;
+                height: 54px;
+                border-radius: 6px;
+                background: StudioTheme.panel-subtle;
+
+                Text {
+                    x: 8px;
+                    width: parent.width - 16px;
+                    text: root.nine-slice-expression();
+                    color: StudioTheme.text;
+                    font-size: 11px;
+                    vertical-alignment: center;
+                    wrap: word-wrap;
+                }
+            }
+
+            HorizontalLayout {
+                width: parent.width - 28px;
+                alignment: end;
+
+                FloatingCopyButton {
+                    clicked => {
+                        Api.copy-nine-slice-expression(root.nine-slice-expression());
                     }
                 }
             }

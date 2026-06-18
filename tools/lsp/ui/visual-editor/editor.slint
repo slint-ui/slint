@@ -142,7 +142,7 @@ export component EditorUi inherits Window {
 
                     if Api.editor-surface-mode == EditorSurfaceMode.image: ImageAssetEditor { }
 
-                    InspectorPane {
+                    if Api.editor-surface-mode == EditorSurfaceMode.component: InspectorPane {
                         selection: state.selection;
                         placed-position: state.placed-position;
                         rectangle-size: state.rectangle-size;
