@@ -10581,6 +10581,7 @@ dependencies = [
  "i-slint-compiler",
  "i-slint-core",
  "i-slint-live-preview",
+ "icu_properties",
  "itertools 0.14.0",
  "js-sys",
  "lsp-server",
