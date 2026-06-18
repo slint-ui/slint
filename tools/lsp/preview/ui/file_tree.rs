@@ -6,9 +6,10 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-use slint::{ModelRc, SharedString, ToSharedString as _, VecModel};
+use i_slint_core::platform::Clipboard;
+use slint::{Image, ModelRc, SharedString, ToSharedString as _, VecModel};
 
-use super::{Api, FileTreeNode, FileTreeNodeKind};
+use super::{Api, EditorSurfaceMode, FileTreeNode, FileTreeNodeKind, ImageAssetPreview};
 
 pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, use_editor_ui: bool) {
     let Some((root, selected_path)) = initial_file_tree_paths(use_editor_ui) else {
@@ -30,6 +31,17 @@ pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, use_editor_ui: 
     api.on_file_tree_toggle(move |path| {
         if let Some(api) = api_weak.upgrade() {
             controller.borrow_mut().toggle(Path::new(path.as_str()), &api);
+        }
+    });
+
+    api.on_image_nine_slice_expression(format_nine_slice_expression);
+
+    api.on_copy_nine_slice_expression(|value| {
+        if let Err(err) = i_slint_backend_selector::with_platform(|platform| {
+            platform.set_clipboard_text(value.as_str(), Clipboard::DefaultClipboard);
+            Ok(())
+        }) {
+            tracing::warn!("Failed to copy nine-slice expression to clipboard: {err}");
         }
     });
 }
@@ -88,7 +100,15 @@ impl FileTreeController {
         self.publish(api);
 
         if is_slint_file {
+            api.set_editor_surface_mode(EditorSurfaceMode::Component);
             super::super::request_file_tree_preview(&path);
+        } else if is_image_file(&path) {
+            api.set_selected_image_asset(load_image_asset_preview(&self.root, &path));
+            api.set_image_nine_slice_top(0);
+            api.set_image_nine_slice_right(0);
+            api.set_image_nine_slice_bottom(0);
+            api.set_image_nine_slice_left(0);
+            api.set_editor_surface_mode(EditorSurfaceMode::Image);
         }
     }
 
@@ -140,6 +160,79 @@ fn is_slint_file(path: &Path) -> bool {
     path.extension()
         .and_then(|extension| extension.to_str())
         .is_some_and(|extension| extension.eq_ignore_ascii_case("slint"))
+}
+
+fn is_image_file(path: &Path) -> bool {
+    path.extension().and_then(|extension| extension.to_str()).is_some_and(|extension| {
+        matches!(extension.to_ascii_lowercase().as_str(), "png" | "jpg" | "jpeg" | "svg")
+    })
+}
+
+fn load_image_asset_preview(root: &Path, path: &Path) -> ImageAssetPreview {
+    let relative_path = relative_path_for_image(root, path);
+    let format = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension.to_ascii_uppercase())
+        .unwrap_or_default();
+    let path_string = path_to_shared_string(path);
+
+    match Image::load_from_path(path) {
+        Ok(image) => ImageAssetPreview {
+            path: path_string,
+            relative_path: relative_path.into(),
+            format: format.into(),
+            image,
+            error: SharedString::default(),
+        },
+        Err(_) => ImageAssetPreview {
+            path: path_string,
+            relative_path: relative_path.into(),
+            format: format.into(),
+            image: Image::default(),
+            error: "Failed to load image".into(),
+        },
+    }
+}
+
+fn relative_path_for_image(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace(std::path::MAIN_SEPARATOR, "/")
+}
+
+fn format_nine_slice_expression(
+    path: SharedString,
+    top: i32,
+    right: i32,
+    bottom: i32,
+    left: i32,
+) -> SharedString {
+    format!(
+        "@image-url(\"{}\", nine-slice({} {} {} {}))",
+        escape_slint_string(path.as_str()),
+        top.max(0),
+        right.max(0),
+        bottom.max(0),
+        left.max(0)
+    )
+    .into()
+}
+
+fn escape_slint_string(value: &str) -> String {
+    let mut escaped = String::with_capacity(value.len());
+    for ch in value.chars() {
+        match ch {
+            '\\' => escaped.push_str("\\\\"),
+            '"' => escaped.push_str("\\\""),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
 }
 
 fn build_file_tree_rows(
@@ -252,12 +345,7 @@ fn file_tree_node_kind(path: &Path, is_folder: bool) -> FileTreeNodeKind {
         return FileTreeNodeKind::Folder;
     }
 
-    match path.extension().and_then(|extension| extension.to_str()).map(str::to_ascii_lowercase) {
-        Some(extension) if matches!(extension.as_str(), "png" | "jpg" | "jpeg" | "svg") => {
-            FileTreeNodeKind::Image
-        }
-        _ => FileTreeNodeKind::File,
-    }
+    if is_image_file(path) { FileTreeNodeKind::Image } else { FileTreeNodeKind::File }
 }
 
 struct DirectoryEntry {
@@ -443,6 +531,55 @@ mod tests {
 
         assert!(rows.iter().find(|row| row.label == "view.slint").unwrap().is_slint_file);
         assert!(!rows.iter().find(|row| row.label == "image.png").unwrap().is_slint_file);
+    }
+
+    #[test]
+    fn image_asset_preview_loads_metadata() {
+        let tree = TempTree::new();
+        let path = tree.file("assets/panel.svg");
+        fs::write(&path, r#"<svg xmlns="http://www.w3.org/2000/svg" width="12" height="7"></svg>"#)
+            .unwrap();
+
+        let preview = load_image_asset_preview(&tree.root, &path);
+
+        assert_eq!(preview.path, path_to_shared_string(&path));
+        assert_eq!(preview.relative_path, "assets/panel.svg");
+        assert_eq!(preview.format, "SVG");
+        assert_eq!(preview.error, "");
+        assert_eq!(preview.image.size().width, 12);
+        assert_eq!(preview.image.size().height, 7);
+    }
+
+    #[test]
+    fn image_asset_preview_reports_load_errors_without_stale_image() {
+        let tree = TempTree::new();
+        let path = tree.file("broken.png");
+
+        let preview = load_image_asset_preview(&tree.root, &path);
+
+        assert_eq!(preview.relative_path, "broken.png");
+        assert_eq!(preview.format, "PNG");
+        assert_eq!(preview.error, "Failed to load image");
+        assert_eq!(preview.image.size().width, 0);
+        assert_eq!(preview.image.size().height, 0);
+    }
+
+    #[test]
+    fn nine_slice_expression_uses_slint_order_and_escapes_path() {
+        let expression =
+            format_nine_slice_expression("icons/quote\"slash\\tab\t.png".into(), 1, 2, 3, 4);
+
+        assert_eq!(
+            expression,
+            "@image-url(\"icons/quote\\\"slash\\\\tab\\t.png\", nine-slice(1 2 3 4))"
+        );
+    }
+
+    #[test]
+    fn nine_slice_expression_clamps_negative_values() {
+        let expression = format_nine_slice_expression("panel.png".into(), -1, 2, -3, 4);
+
+        assert_eq!(expression, "@image-url(\"panel.png\", nine-slice(0 2 0 4))");
     }
 
     #[test]

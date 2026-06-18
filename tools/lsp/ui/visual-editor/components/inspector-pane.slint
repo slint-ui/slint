@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, ElementInformation, SelectionRectangle } from "../../api.slint";
+import { Api, EditorSurfaceMode, ElementInformation, SelectionRectangle } from "../../api.slint";
 import { CanvasSelectionKind, EdgeDivider, EditorMetrics, StudioTheme } from "common.slint";
 import { OutlinePane } from "outline-pane.slint";
 
@@ -435,6 +435,84 @@ component InspectorColorField inherits Rectangle {
     }
 }
 
+component InspectorReadOnlyField inherits Rectangle {
+    in property <string> prefix;
+    in property <string> value;
+    in property <bool> wide: false;
+
+    width: wide ? InspectorTokens.wide-width : InspectorTokens.column-width;
+    height: InspectorTokens.field-height;
+    border-radius: InspectorTokens.field-radius;
+    background: InspectorTokens.field-bg.with-alpha(0.65);
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 7px;
+        spacing: 5px;
+        cross-axis-alignment: center;
+
+        Text {
+            text: root.prefix;
+            color: InspectorTokens.muted;
+            font-size: 11px;
+            vertical-alignment: center;
+        }
+
+        Text {
+            horizontal-stretch: 1;
+            text: root.value;
+            color: InspectorTokens.text;
+            font-size: 12px;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+}
+
+component InspectorCopyButton inherits Rectangle {
+    callback clicked;
+
+    width: 54px;
+    height: InspectorTokens.field-height;
+    border-radius: InspectorTokens.field-radius;
+    background: touch.has-hover ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg;
+    border-width: 1px;
+    border-color: InspectorTokens.divider;
+
+    Text {
+        text: "Copy";
+        color: InspectorTokens.text;
+        font-size: 12px;
+        font-weight: 700;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component InspectorSyntaxField inherits Rectangle {
+    in property <string> value;
+
+    horizontal-stretch: 1;
+    height: 54px;
+    border-radius: InspectorTokens.field-radius;
+    background: InspectorTokens.field-bg;
+
+    Text {
+        x: 8px;
+        width: parent.width - 16px;
+        text: root.value;
+        color: InspectorTokens.text;
+        font-size: 11px;
+        vertical-alignment: center;
+        wrap: word-wrap;
+    }
+}
+
 component InspectorSection inherits Rectangle {
     in property <string> title;
     in property <bool> show-appearance-icons: false;
@@ -512,6 +590,7 @@ export component InspectorPane inherits Rectangle {
     property <[SelectionRectangle]> selection-rects: Api.selection.highlight-index >= 0
         ? Api.highlight-positions(root.element-information.source-uri, root.element-information.offset)
         : [];
+    property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
 
     function has-backend-rect() -> bool {
         return Api.selection.highlight-index >= 0 && root.selection-rects.length > Api.selection.highlight-index;
@@ -633,6 +712,24 @@ export component InspectorPane inherits Rectangle {
         return "\"" + value + "\"";
     }
 
+    function image-width-label() -> string {
+        return Api.selected-image-asset.image.width + "";
+    }
+
+    function image-height-label() -> string {
+        return Api.selected-image-asset.image.height + "";
+    }
+
+    function image-nine-slice-expression() -> string {
+        return Api.image-nine-slice-expression(
+            Api.selected-image-asset.relative-path,
+            Api.image-nine-slice-top,
+            Api.image-nine-slice-right,
+            Api.image-nine-slice-bottom,
+            Api.image-nine-slice-left,
+        );
+    }
+
     EdgeDivider {
         x: 0px;
         background: InspectorTokens.divider;
@@ -654,7 +751,65 @@ export component InspectorPane inherits Rectangle {
                 width: parent.width;
                 alignment: start;
 
-                if root.is-rectangle-selection() || root.is-text-selection(): InspectorSection {
+                if root.image-mode: InspectorSection {
+                    title: "Image";
+
+                    VerticalLayout {
+                        padding-left: InspectorTokens.side-padding;
+                        spacing: 8px;
+
+                        InspectorReadOnlyField {
+                            prefix: "File";
+                            value: Api.selected-image-asset.relative-path;
+                            wide: true;
+                        }
+
+                        HorizontalLayout {
+                            spacing: InspectorTokens.column-gap;
+
+                            InspectorReadOnlyField {
+                                prefix: "Fmt";
+                                value: Api.selected-image-asset.format;
+                            }
+
+                            InspectorReadOnlyField {
+                                prefix: "W";
+                                value: root.image-width-label();
+                            }
+                        }
+
+                        InspectorReadOnlyField {
+                            prefix: "H";
+                            value: root.image-height-label();
+                        }
+                    }
+                }
+
+                if root.image-mode: InspectorSection {
+                    title: "Nine-Slice";
+
+                    VerticalLayout {
+                        padding-left: InspectorTokens.side-padding;
+                        padding-right: InspectorTokens.side-padding;
+                        spacing: 8px;
+
+                        InspectorSyntaxField {
+                            value: root.image-nine-slice-expression();
+                        }
+
+                        HorizontalLayout {
+                            alignment: end;
+
+                            InspectorCopyButton {
+                                clicked => {
+                                    Api.copy-nine-slice-expression(root.image-nine-slice-expression());
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if !root.image-mode && (root.is-rectangle-selection() || root.is-text-selection()): InspectorSection {
                     title: "Position";
 
                     HorizontalLayout {
@@ -679,7 +834,7 @@ export component InspectorPane inherits Rectangle {
                     }
                 }
 
-                if root.is-rectangle-selection() || root.is-text-selection(): InspectorSection {
+                if !root.image-mode && (root.is-rectangle-selection() || root.is-text-selection()): InspectorSection {
                     title: "Layout";
 
                     HorizontalLayout {
@@ -704,7 +859,7 @@ export component InspectorPane inherits Rectangle {
                     }
                 }
 
-                if root.is-root-selection() || root.is-rectangle-selection() || root.is-text-selection(): InspectorSection {
+                if !root.image-mode && (root.is-root-selection() || root.is-rectangle-selection() || root.is-text-selection()): InspectorSection {
                     title: "Appearance";
                     show-appearance-icons: false;
 
@@ -741,7 +896,7 @@ export component InspectorPane inherits Rectangle {
                     }
                 }
 
-                if root.is-text-selection(): InspectorSection {
+                if !root.image-mode && root.is-text-selection(): InspectorSection {
                     title: "Typography";
                     show-typography-icons: false;
 

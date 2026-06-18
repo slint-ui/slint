@@ -1,0 +1,202 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api } from "../../api.slint";
+import { StudioTheme } from "common.slint";
+
+export component ImageAssetEditor inherits Rectangle {
+    horizontal-stretch: 1;
+    background: StudioTheme.canvas;
+
+    private property <string> asset-path: Api.selected-image-asset.path;
+    private property <int> source-width: Api.selected-image-asset.image.width;
+    private property <int> source-height: Api.selected-image-asset.image.height;
+    private property <length> image-source-width: root.source-width * 1px;
+    private property <length> image-source-height: root.source-height * 1px;
+    private property <length> available-width: max(1px, root.width - 96px);
+    private property <length> available-height: max(1px, root.height - 96px);
+    private property <float> fit-scale: root.has-image()
+        ? min(root.available-width / root.image-source-width, root.available-height / root.image-source-height)
+        : 1.0;
+    private property <length> display-width: root.has-image() ? root.image-source-width * root.fit-scale : 0px;
+    private property <length> display-height: root.has-image() ? root.image-source-height * root.fit-scale : 0px;
+
+    changed asset-path => {
+        Api.image-nine-slice-top = 0;
+        Api.image-nine-slice-right = 0;
+        Api.image-nine-slice-bottom = 0;
+        Api.image-nine-slice-left = 0;
+    }
+
+    function has-image() -> bool {
+        return root.source-width > 0 && root.source-height > 0 && Api.selected-image-asset.error == "";
+    }
+
+    function display-to-source(value: length) -> int {
+        if root.fit-scale <= 0 {
+            return 0;
+        }
+        return ((value / 1px) / root.fit-scale).round();
+    }
+
+    function source-to-display(value: int) -> length {
+        return value * root.fit-scale * 1px;
+    }
+
+    function set-left(display-value: length) {
+        Api.image-nine-slice-left = root.display-to-source(display-value)
+            .clamp(0, root.source-width - Api.image-nine-slice-right);
+    }
+
+    function set-right(display-value: length) {
+        Api.image-nine-slice-right = root.display-to-source(display-value)
+            .clamp(0, root.source-width - Api.image-nine-slice-left);
+    }
+
+    function set-top(display-value: length) {
+        Api.image-nine-slice-top = root.display-to-source(display-value)
+            .clamp(0, root.source-height - Api.image-nine-slice-bottom);
+    }
+
+    function set-bottom(display-value: length) {
+        Api.image-nine-slice-bottom = root.display-to-source(display-value)
+            .clamp(0, root.source-height - Api.image-nine-slice-top);
+    }
+
+    for row in 28: Rectangle {
+        y: row * 32px;
+        height: 1px;
+        background: StudioTheme.dark ? #ffffff0a : #00000008;
+    }
+
+    for col in 48: Rectangle {
+        x: col * 32px;
+        width: 1px;
+        background: StudioTheme.dark ? #ffffff0a : #00000008;
+    }
+
+    if Api.selected-image-asset.error != "": Rectangle {
+        width: min(parent.width - 80px, 520px);
+        height: 96px;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: StudioTheme.border;
+        background: StudioTheme.panel-bg;
+
+        VerticalLayout {
+            padding: 18px;
+            spacing: 6px;
+            Text {
+                text: "Image could not be loaded";
+                color: StudioTheme.text;
+                font-size: 14px;
+                font-weight: 700;
+                horizontal-alignment: center;
+            }
+            Text {
+                text: Api.selected-image-asset.error;
+                color: StudioTheme.muted;
+                font-size: 12px;
+                horizontal-alignment: center;
+                overflow: elide;
+            }
+        }
+    }
+
+    if root.has-image(): image-frame := Rectangle {
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        width: root.display-width;
+        height: root.display-height;
+        border-width: 1px;
+        border-color: StudioTheme.border;
+        background: StudioTheme.panel-bg;
+        clip: false;
+        drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b30;
+        drop-shadow-blur: 24px;
+        drop-shadow-offset-y: 14px;
+
+        Image {
+            width: parent.width;
+            height: parent.height;
+            source: Api.selected-image-asset.image;
+            image-fit: fill;
+        }
+
+        Rectangle {
+            x: root.source-to-display(Api.image-nine-slice-left);
+            width: 1px;
+            height: parent.height;
+            background: StudioTheme.accent-strong;
+        }
+
+        Rectangle {
+            x: parent.width - root.source-to-display(Api.image-nine-slice-right);
+            width: 1px;
+            height: parent.height;
+            background: StudioTheme.accent-strong;
+        }
+
+        Rectangle {
+            y: root.source-to-display(Api.image-nine-slice-top);
+            width: parent.width;
+            height: 1px;
+            background: StudioTheme.accent-strong;
+        }
+
+        Rectangle {
+            y: parent.height - root.source-to-display(Api.image-nine-slice-bottom);
+            width: parent.width;
+            height: 1px;
+            background: StudioTheme.accent-strong;
+        }
+
+        left-guide := TouchArea {
+            x: root.source-to-display(Api.image-nine-slice-left) - 6px;
+            width: 12px;
+            height: parent.height;
+            mouse-cursor: ew-resize;
+            moved => {
+                if self.pressed {
+                    root.set-left(self.x + self.mouse-x);
+                }
+            }
+        }
+
+        right-guide := TouchArea {
+            x: parent.width - root.source-to-display(Api.image-nine-slice-right) - 6px;
+            width: 12px;
+            height: parent.height;
+            mouse-cursor: ew-resize;
+            moved => {
+                if self.pressed {
+                    root.set-right(parent.width - (self.x + self.mouse-x));
+                }
+            }
+        }
+
+        top-guide := TouchArea {
+            y: root.source-to-display(Api.image-nine-slice-top) - 6px;
+            width: parent.width;
+            height: 12px;
+            mouse-cursor: ns-resize;
+            moved => {
+                if self.pressed {
+                    root.set-top(self.y + self.mouse-y);
+                }
+            }
+        }
+
+        bottom-guide := TouchArea {
+            y: parent.height - root.source-to-display(Api.image-nine-slice-bottom) - 6px;
+            width: parent.width;
+            height: 12px;
+            mouse-cursor: ns-resize;
+            moved => {
+                if self.pressed {
+                    root.set-bottom(parent.height - (self.y + self.mouse-y));
+                }
+            }
+        }
+    }
+}
