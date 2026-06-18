@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { InspectorTokens } from "tokens.slint";
+
+export component InspectorSyntaxField inherits Rectangle {
+    in property <string> value;
+
+    horizontal-stretch: 1;
+    height: 54px;
+    border-radius: InspectorTokens.field-radius;
+    background: InspectorTokens.field-bg;
+
+    Text {
+        x: 8px;
+        width: parent.width - 16px;
+        text: root.value;
+        color: InspectorTokens.text;
+        font-size: 11px;
+        vertical-alignment: center;
+        wrap: word-wrap;
+    }
+}

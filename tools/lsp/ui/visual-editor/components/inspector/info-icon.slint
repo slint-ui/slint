@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { InspectorTokens } from "tokens.slint";
+
+export component InspectorInfoIcon inherits Rectangle {
+    callback activated;
+
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    border-width: 1px;
+    border-color: touch.has-hover ? InspectorTokens.accent : InspectorTokens.muted.with-alpha(0.72);
+    background: touch.has-hover ? InspectorTokens.accent.with-alpha(0.10) : transparent;
+
+    Text {
+        x: 0px;
+        y: -0.5px;
+        width: parent.width;
+        height: parent.height;
+        text: "i";
+        color: touch.has-hover ? InspectorTokens.accent : InspectorTokens.muted;
+        font-size: 10px;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+
+        clicked => {
+            root.activated();
+        }
+    }
+}
