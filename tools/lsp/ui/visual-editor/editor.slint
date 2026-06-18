@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api } from "../api.slint";
+import { Api, EditorSurfaceMode } from "../api.slint";
 import { ProjectKind, StartupWizard } from "startup-wizard.slint";
 import { StudioTheme } from "components/common.slint";
 import { CanvasToolbar } from "components/canvas-toolbar.slint";
@@ -9,6 +9,7 @@ import { DragPreview } from "components/drag-preview.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
 import { EditorState } from "components/editor-state.slint";
 import { EditorTopBar } from "components/top-bar.slint";
+import { ImageAssetEditor } from "components/image-asset-editor.slint";
 import { InspectorPane } from "components/inspector-pane.slint";
 import { LeftPane } from "components/left-pane.slint";
 import { EditorMetrics } from "components/common.slint";
@@ -87,7 +88,7 @@ export component EditorUi inherits Window {
             VerticalLayout {
                 EditorTopBar { }
 
-                CanvasToolbar {
+                if Api.editor-surface-mode == EditorSurfaceMode.component: CanvasToolbar {
                     orientation: state.canvas-orientation;
                     orientation-selected(orientation) => {
                         state.set-canvas-orientation(orientation);
@@ -105,7 +106,7 @@ export component EditorUi inherits Window {
                         drag-ended(kind, position) => { state.finish-visual-drag(kind, position); }
                     }
 
-                    EditorCanvas {
+                    if Api.editor-surface-mode == EditorSurfaceMode.component: EditorCanvas {
                         orientation: state.canvas-orientation;
                         selection: state.selection;
                         shift-pressed: editor.shift-pressed;
@@ -138,6 +139,8 @@ export component EditorUi inherits Window {
                         resize-image-to(corner, position, size) => { state.resize-image-to(corner, position, size); }
                         rotate-image-to(rotation) => { state.rotate-image-to(rotation); }
                     }
+
+                    if Api.editor-surface-mode == EditorSurfaceMode.image: ImageAssetEditor { }
 
                     InspectorPane {
                         selection: state.selection;

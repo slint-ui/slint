@@ -68,6 +68,11 @@ export enum PrototypeComponentKind {
     image,
 }
 
+export enum EditorSurfaceMode {
+    component,
+    image,
+}
+
 /// What kind of layout we are working with
 export enum LayoutKind {
     None,
@@ -325,6 +330,14 @@ export struct FileTreeNode {
     is-slint-file: bool,
     show-selected-guide: bool,
     kind: FileTreeNodeKind,
+}
+
+export struct ImageAssetPreview {
+    path: string,
+    relative-path: string,
+    format: string,
+    image: image,
+    error: string,
 }
 
 export global Api {
@@ -619,8 +632,16 @@ export global Api {
 
     // ## File Tree
     in-out property <[FileTreeNode]> file-tree;
+    in-out property <EditorSurfaceMode> editor-surface-mode: EditorSurfaceMode.component;
+    in-out property <ImageAssetPreview> selected-image-asset;
+    in-out property <int> image-nine-slice-top;
+    in-out property <int> image-nine-slice-right;
+    in-out property <int> image-nine-slice-bottom;
+    in-out property <int> image-nine-slice-left;
     callback file-tree-toggle(path: string);
     callback file-tree-select(path: string);
+    pure callback image-nine-slice-expression(path: string, top: int, right: int, bottom: int, left: int) -> string;
+    callback copy-nine-slice-expression(value: string);
 
     // ## preview data
 
