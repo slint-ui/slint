@@ -214,11 +214,10 @@ component InspectorSegmentedIconControl inherits Rectangle {
 
 component InspectorTooltipBubble inherits Rectangle {
     in property <string> label;
-    in property <bool> multiline: false;
     private property <color> tip-bg: #1e1e1e;
 
-    width: root.multiline ? 216px : 71px;
-    height: root.multiline ? 63px : 31px;
+    width: 71px;
+    height: 31px;
     background: transparent;
 
     arrow := Path {
@@ -259,26 +258,22 @@ component InspectorTooltipBubble inherits Rectangle {
         drop-shadow-color: #00000028;
 
         tip-text := Text {
-            x: root.multiline ? 9px : 0px;
+            x: 0px;
             y: 0px;
-            width: parent.width - 2 * self.x;
+            width: parent.width;
             height: parent.height;
             text: root.label;
             color: white;
             font-size: 12px;
             font-weight: 400;
-            horizontal-alignment: root.multiline ? left : center;
+            horizontal-alignment: center;
             vertical-alignment: center;
-            wrap: root.multiline ? word-wrap : no-wrap;
         }
     }
 }
 
 component InspectorInfoIcon inherits Rectangle {
-    in property <string> tooltip-key;
-    in property <string> tooltip-label;
-    callback tooltip-hovered(string, string, Point);
-    callback tooltip-hidden(string);
+    callback activated;
 
     width: 14px;
     height: 14px;
@@ -303,12 +298,8 @@ component InspectorInfoIcon inherits Rectangle {
     touch := TouchArea {
         mouse-cursor: pointer;
 
-        changed has-hover => {
-            if self.has-hover && root.tooltip-label != "" {
-                root.tooltip-hovered(root.tooltip-key, root.tooltip-label, root.absolute-position);
-            } else if root.tooltip-label != "" {
-                root.tooltip-hidden(root.tooltip-key);
-            }
+        clicked => {
+            root.activated();
         }
     }
 }
@@ -1462,10 +1453,9 @@ export component InspectorPane inherits Rectangle {
                                 }
 
                                 InspectorInfoIcon {
-                                    tooltip-key: "image-fit";
-                                    tooltip-label: "Scales the image inside its element: fill stretches, contain fits inside, cover fills and crops, preserve keeps source size.";
-                                    tooltip-hovered(key, label, position) => { root.show-tooltip(key, label, position); }
-                                    tooltip-hidden(key) => { root.hide-tooltip(key); }
+                                    activated => {
+                                        Platform.open-url("https://docs.slint.dev/latest/docs/slint/reference/elements/image/#image-fit");
+                                    }
                                 }
                             }
 
@@ -1608,7 +1598,6 @@ export component InspectorPane inherits Rectangle {
             x: root.tooltip-position.x;
             y: root.tooltip-position.y;
             label: root.tooltip-label;
-            multiline: root.tooltip-key == "image-fit";
         }
     }
 
