@@ -386,12 +386,11 @@ component InspectorValueField inherits Rectangle {
     }
 }
 
-component InspectorSelectField inherits Rectangle {
+component InspectorEditableField inherits Rectangle {
     in property <string> prefix: "";
     in property <string> value;
     in property <bool> wide: false;
     callback accepted(string) -> bool;
-    callback menu-clicked;
 
     width: wide ? InspectorTokens.wide-width : InspectorTokens.column-width;
     height: InspectorTokens.field-height;
@@ -444,23 +443,6 @@ component InspectorSelectField inherits Rectangle {
                         self.text = root.value;
                     }
                 }
-            }
-        }
-
-        Rectangle {
-            width: 16px;
-            height: 16px;
-
-            Image {
-                width: parent.width;
-                height: parent.height;
-                source: Icons.select-chevron;
-                colorize: InspectorTokens.muted;
-            }
-
-            menu-touch := TouchArea {
-                mouse-cursor: pointer;
-                clicked => { root.menu-clicked(); }
             }
         }
     }
@@ -1142,11 +1124,111 @@ export component InspectorPane inherits Rectangle {
     }
 
     function image-horizontal-alignment-value() -> string {
-        return Api.current-property-value("horizontal-alignment", "center");
+        let value = Api.current-property-value("horizontal-alignment", "center");
+        if value == "center" || value == "left" || value == "right" {
+            return value;
+        }
+        return "center";
+    }
+
+    function image-horizontal-alignment-index() -> int {
+        let value = root.image-horizontal-alignment-value();
+        if value == "center" {
+            return 0;
+        }
+        if value == "left" {
+            return 1;
+        }
+        if value == "right" {
+            return 2;
+        }
+        return -1;
     }
 
     function image-vertical-alignment-value() -> string {
-        return Api.current-property-value("vertical-alignment", "center");
+        let value = Api.current-property-value("vertical-alignment", "center");
+        if value == "center" || value == "top" || value == "bottom" {
+            return value;
+        }
+        return "center";
+    }
+
+    function image-vertical-alignment-index() -> int {
+        let value = root.image-vertical-alignment-value();
+        if value == "center" {
+            return 0;
+        }
+        if value == "top" {
+            return 1;
+        }
+        if value == "bottom" {
+            return 2;
+        }
+        return -1;
+    }
+
+    function text-font-weight-label() -> string {
+        let value = Api.current-property-value("font-weight", "400");
+        if value == "100" || value == "FontWeight.thin" || value == "thin" {
+            return "Thin";
+        }
+        if value == "200" || value == "FontWeight.extra-light" || value == "extra-light" {
+            return "Extra Light";
+        }
+        if value == "300" || value == "FontWeight.light" || value == "light" {
+            return "Light";
+        }
+        if value == "400" || value == "FontWeight.normal" || value == "normal" {
+            return "Normal";
+        }
+        if value == "500" || value == "FontWeight.medium" || value == "medium" {
+            return "Medium";
+        }
+        if value == "600" || value == "FontWeight.semi-bold" || value == "semi-bold" {
+            return "Semi Bold";
+        }
+        if value == "700" || value == "FontWeight.bold" || value == "bold" {
+            return "Bold";
+        }
+        if value == "800" || value == "FontWeight.extra-bold" || value == "extra-bold" {
+            return "Extra Bold";
+        }
+        if value == "900" || value == "FontWeight.black" || value == "black" {
+            return "Black";
+        }
+        return "Normal";
+    }
+
+    function text-font-weight-index() -> int {
+        let label = root.text-font-weight-label();
+        if label == "Thin" {
+            return 0;
+        }
+        if label == "Extra Light" {
+            return 1;
+        }
+        if label == "Light" {
+            return 2;
+        }
+        if label == "Normal" {
+            return 3;
+        }
+        if label == "Medium" {
+            return 4;
+        }
+        if label == "Semi Bold" {
+            return 5;
+        }
+        if label == "Bold" {
+            return 6;
+        }
+        if label == "Extra Bold" {
+            return 7;
+        }
+        if label == "Black" {
+            return 8;
+        }
+        return -1;
     }
 
     function image-width-label() -> string {
@@ -1478,17 +1560,29 @@ export component InspectorPane inherits Rectangle {
                         HorizontalLayout {
                             spacing: InspectorTokens.column-gap;
 
-                            InspectorSelectField {
+                            InspectorComboBox {
                                 prefix: "H";
                                 value: root.image-horizontal-alignment-value();
+                                selected-index: root.image-horizontal-alignment-index();
+                                options: [
+                                    { value: "center", label: "center", enabled: true },
+                                    { value: "left", label: "left", enabled: true },
+                                    { value: "right", label: "right", enabled: true },
+                                ];
                                 accepted(text) => {
                                     return text != "" && root.commit-code("horizontal-alignment", text);
                                 }
                             }
 
-                            InspectorSelectField {
+                            InspectorComboBox {
                                 prefix: "V";
                                 value: root.image-vertical-alignment-value();
+                                selected-index: root.image-vertical-alignment-index();
+                                options: [
+                                    { value: "center", label: "center", enabled: true },
+                                    { value: "top", label: "top", enabled: true },
+                                    { value: "bottom", label: "bottom", enabled: true },
+                                ];
                                 accepted(text) => {
                                     return text != "" && root.commit-code("vertical-alignment", text);
                                 }
@@ -1505,7 +1599,7 @@ export component InspectorPane inherits Rectangle {
                         padding-left: InspectorTokens.side-padding;
                         spacing: 8px;
 
-                        InspectorSelectField {
+                        InspectorEditableField {
                             value: "Roboto";
                             wide: true;
                             accepted(text) => {
@@ -1516,20 +1610,26 @@ export component InspectorPane inherits Rectangle {
                         HorizontalLayout {
                             spacing: InspectorTokens.column-gap;
 
-                            InspectorSelectField {
-                                value: "Regular";
+                            InspectorComboBox {
+                                value: root.text-font-weight-label();
+                                selected-index: root.text-font-weight-index();
+                                options: [
+                                    { value: "100", label: "Thin", enabled: true },
+                                    { value: "200", label: "Extra Light", enabled: true },
+                                    { value: "300", label: "Light", enabled: true },
+                                    { value: "400", label: "Normal", enabled: true },
+                                    { value: "500", label: "Medium", enabled: true },
+                                    { value: "600", label: "Semi Bold", enabled: true },
+                                    { value: "700", label: "Bold", enabled: true },
+                                    { value: "800", label: "Extra Bold", enabled: true },
+                                    { value: "900", label: "Black", enabled: true },
+                                ];
                                 accepted(text) => {
-                                    if text == "Regular" {
-                                        return root.commit-code("font-weight", "400");
-                                    }
-                                    if text == "Bold" {
-                                        return root.commit-code("font-weight", "700");
-                                    }
-                                    return text.is-float() && root.commit-code("font-weight", text);
+                                    return text != "" && root.commit-code("font-weight", text);
                                 }
                             }
 
-                            InspectorSelectField {
+                            InspectorEditableField {
                                 value: "14";
                                 accepted(text) => {
                                     return root.commit-px-code("font-size", text);
