@@ -348,6 +348,7 @@ component InspectorValueField inherits Rectangle {
 }
 
 component InspectorSelectField inherits Rectangle {
+    in property <string> prefix: "";
     in property <string> value;
     in property <bool> wide: false;
     callback accepted(string) -> bool;
@@ -371,6 +372,14 @@ component InspectorSelectField inherits Rectangle {
         padding-right: 5px;
         spacing: 4px;
         cross-axis-alignment: center;
+
+        if root.prefix != "": Text {
+            text: root.prefix;
+            color: InspectorTokens.text;
+            font-size: 11px;
+            font-weight: 400;
+            vertical-alignment: center;
+        }
 
         input := TextInput {
             horizontal-stretch: 1;
@@ -480,6 +489,72 @@ component InspectorColorField inherits Rectangle {
             wrap: no-wrap;
             color: InspectorTokens.text;
             font-size: 12px;
+            font-weight: 400;
+            vertical-alignment: center;
+            selection-background-color: InspectorTokens.accent.with-alpha(0.28);
+            text-cursor-width: 1px;
+
+            accepted => {
+                if !root.accepted(self.text) {
+                    self.text = root.value;
+                }
+            }
+
+            changed has-focus => {
+                if !self.has-focus && self.text != root.value {
+                    if !root.accepted(self.text) {
+                        self.text = root.value;
+                    }
+                }
+            }
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: text;
+        clicked => { input.focus(); }
+    }
+}
+
+component InspectorCodeField inherits Rectangle {
+    in property <string> prefix: "";
+    in property <string> value;
+    callback accepted(string) -> bool;
+
+    horizontal-stretch: 1;
+    height: InspectorTokens.field-height;
+    border-radius: InspectorTokens.field-radius;
+    background: input.has-focus ? InspectorTokens.panel-bg : touch.has-hover ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg;
+    border-width: input.has-focus ? 1px : 0px;
+    border-color: InspectorTokens.accent;
+
+    changed value => {
+        if !input.has-focus {
+            input.text = root.value;
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        spacing: 5px;
+        cross-axis-alignment: center;
+
+        if root.prefix != "": Text {
+            text: root.prefix;
+            color: InspectorTokens.text;
+            font-size: 11px;
+            font-weight: 400;
+            vertical-alignment: center;
+        }
+
+        input := TextInput {
+            horizontal-stretch: 1;
+            text: root.value;
+            single-line: true;
+            wrap: no-wrap;
+            color: InspectorTokens.text;
+            font-size: 11px;
             font-weight: 400;
             vertical-alignment: center;
             selection-background-color: InspectorTokens.accent.with-alpha(0.28);
@@ -646,6 +721,7 @@ export component InspectorPane inherits Rectangle {
     in property <Point> placed-position;
     in property <Size> rectangle-size;
     in property <Size> text-size;
+    in property <Size> image-size;
     in property <color> phone-background;
     in property <string> phone-background-label;
     in property <ElementInformation> element-information;
@@ -685,6 +761,15 @@ export component InspectorPane inherits Rectangle {
             || (root.has-backend-rect() && root.element-information.type-name == "Text");
     }
 
+    function is-image-selection() -> bool {
+        return root.selection == CanvasSelectionKind.image
+            || (root.has-backend-rect() && root.element-information.type-name == "Image");
+    }
+
+    function has-backend-image-selection() -> bool {
+        return root.has-backend-rect() && root.element-information.type-name == "Image";
+    }
+
     function is-root-selection() -> bool {
         return !root.has-backend-rect() && root.selection == CanvasSelectionKind.artboard;
     }
@@ -705,12 +790,18 @@ export component InspectorPane inherits Rectangle {
         if root.has-backend-rect() {
             return root.selection-rects[Api.selection.highlight-index].width;
         }
+        if root.is-image-selection() {
+            return root.image-size.width;
+        }
         return root.is-text-selection() ? root.text-size.width : root.rectangle-size.width;
     }
 
     function selected-height() -> length {
         if root.has-backend-rect() {
             return root.selection-rects[Api.selection.highlight-index].height;
+        }
+        if root.is-image-selection() {
+            return root.image-size.height;
         }
         return root.is-text-selection() ? root.text-size.height : root.rectangle-size.height;
     }
@@ -789,6 +880,22 @@ export component InspectorPane inherits Rectangle {
 
     function quote(value: string) -> string {
         return "\"" + value + "\"";
+    }
+
+    function image-source-value() -> string {
+        return Api.current-property-value("source", "");
+    }
+
+    function image-fit-value() -> string {
+        return Api.current-property-value("image-fit", "contain");
+    }
+
+    function image-horizontal-alignment-value() -> string {
+        return Api.current-property-value("horizontal-alignment", "center");
+    }
+
+    function image-vertical-alignment-value() -> string {
+        return Api.current-property-value("vertical-alignment", "center");
     }
 
     function image-width-label() -> string {
@@ -964,7 +1071,7 @@ export component InspectorPane inherits Rectangle {
                     }
                 }
 
-                if !root.image-mode && (root.is-rectangle-selection() || root.is-text-selection()): InspectorSection {
+                if !root.image-mode && (root.is-rectangle-selection() || root.is-text-selection() || root.is-image-selection()): InspectorSection {
                     title: "Position";
 
                     HorizontalLayout {
@@ -995,7 +1102,7 @@ export component InspectorPane inherits Rectangle {
                     }
                 }
 
-                if !root.image-mode && (root.is-rectangle-selection() || root.is-text-selection()): InspectorSection {
+                if !root.image-mode && (root.is-rectangle-selection() || root.is-text-selection() || root.is-image-selection()): InspectorSection {
                     title: "Layout";
 
                     HorizontalLayout {
@@ -1058,6 +1165,53 @@ export component InspectorPane inherits Rectangle {
                             wide: true;
                             accepted(text) => {
                                 return root.commit-code("color", text);
+                            }
+                        }
+                    }
+                }
+
+                if !root.image-mode && root.has-backend-image-selection(): InspectorSection {
+                    title: "Image";
+
+                    VerticalLayout {
+                        padding-left: InspectorTokens.side-padding;
+                        padding-right: InspectorTokens.side-padding;
+                        spacing: 8px;
+
+                        InspectorCodeField {
+                            prefix: "Source";
+                            value: root.image-source-value();
+                            accepted(text) => {
+                                return root.commit-code("source", text);
+                            }
+                        }
+
+                        InspectorSelectField {
+                            prefix: "Fit";
+                            value: root.image-fit-value();
+                            wide: true;
+                            accepted(text) => {
+                                return text != "" && root.commit-code("image-fit", text);
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: InspectorTokens.column-gap;
+
+                            InspectorSelectField {
+                                prefix: "H";
+                                value: root.image-horizontal-alignment-value();
+                                accepted(text) => {
+                                    return text != "" && root.commit-code("horizontal-alignment", text);
+                                }
+                            }
+
+                            InspectorSelectField {
+                                prefix: "V";
+                                value: root.image-vertical-alignment-value();
+                                accepted(text) => {
+                                    return text != "" && root.commit-code("vertical-alignment", text);
+                                }
                             }
                         }
                     }
