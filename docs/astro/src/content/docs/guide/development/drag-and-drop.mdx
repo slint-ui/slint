@@ -92,7 +92,7 @@ DropArea {
 The hovering target's chosen action is also exposed as `current-action`, useful for visual feedback (a different cursor, icon, or highlight per action).
 
 <Tabs syncKey="dev-language">
-<TabItem label="Rust">
+<TabItem label="Rust" icon="seti:rust">
 
 ```rust
 fn main() {
@@ -112,13 +112,13 @@ fn main() {
 ```
 
 </TabItem>
-<TabItem label="C++">
+<TabItem label="C++" icon="seti:cpp">
 
 ```cpp
 // `DataTransfer` is currently not fully implemented in C++
 ```
 </TabItem>
-<TabItem label="NodeJS">
+<TabItem label="NodeJS" icon="node">
 
 ```js
 import * as slint from "slint-ui";
@@ -139,7 +139,7 @@ window.Api.transfer_to_string = (data) => data.plainText ?? "";
 window.Api.can_drop = (data) => data.hasPlainText;
 ```
 </TabItem>
-<TabItem label="Python">
+<TabItem label="Python" icon="seti:python">
 
 ```python
 import slint

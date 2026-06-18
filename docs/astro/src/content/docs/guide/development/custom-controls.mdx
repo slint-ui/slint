@@ -78,7 +78,7 @@ This is different in native code: Most programming languages forbid `-` in
 identifiers, so `-` is replaced with `_`.
 
 <Tabs syncKey="dev-language">
-<TabItem label="Rust">
+<TabItem label="Rust" icon="seti:rust">
 
 For technical reasons, this example uses `export {Recipe}` in the `slint!` macro.
 In real code, you can put the whole Slint code in the `slint!` macro, or use
@@ -116,7 +116,7 @@ handle has ownership of the callback, which itself has ownership of the
 closure's captured variables.
 
 </TabItem>
-<TabItem label="C++">
+<TabItem label="C++" icon="seti:cpp">
 
 In C++ you can write
 
@@ -146,7 +146,7 @@ set up the callback.
 
 </TabItem>
 
-<TabItem label="Python">
+<TabItem label="Python" icon="seti:python">
 
 In Python, you can write:
 
@@ -465,7 +465,7 @@ export component Recipe inherits Window {
 }
 ```
 <Tabs syncKey="dev-language">
-<TabItem label="Rust">
+<TabItem label="Rust" icon="seti:rust">
 
 In Rust you can set the callback like this:
 
@@ -479,7 +479,7 @@ fn main() {
 }
 ```
 </TabItem>
-<TabItem label="C++">
+<TabItem label="C++" icon="seti:cpp">
 <summary>C++ code</summary>
 In C++ you can set the callback like this:
 
@@ -496,7 +496,7 @@ int main(int argc, char **argv)
 }
 ```
 </TabItem>
-<TabItem label="NodeJS">
+<TabItem label="NodeJS" icon="node">
 
 
 In JavaScript you can set the callback like this:
@@ -511,7 +511,7 @@ recipe.Logic.to_upper_case = (str) => {
 // ...
 ```
 </TabItem>
-<TabItem label="Python">
+<TabItem label="Python" icon="seti:python">
 
 In Python, the callback is associated with the `global_name` parameter of the `@slint.callback` decorator:
 
