@@ -4,6 +4,11 @@
 import { Api } from "../../api.slint";
 import { CanvasCorner, EditorMetrics, StudioTheme } from "common.slint";
 
+enum ImageAssetEditorMode {
+    preview,
+    nine-slice,
+}
+
 component GuideHandle inherits Rectangle {
     in property <string> label;
     in property <length> label-x;
@@ -28,6 +33,35 @@ component GuideHandle inherits Rectangle {
         font-weight: 900;
         horizontal-alignment: center;
         vertical-alignment: center;
+    }
+}
+
+component ImageEditorTab inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked;
+
+    height: 30px;
+    horizontal-stretch: 1;
+    border-radius: 6px;
+    border-width: selected ? 1px : 0px;
+    border-color: StudioTheme.border;
+    background: selected ? StudioTheme.panel-bg : touch.has-hover ? StudioTheme.panel-subtle : transparent;
+
+    Text {
+        text: root.label;
+        color: root.selected ? StudioTheme.text : StudioTheme.muted;
+        font-size: 12px;
+        font-weight: root.selected ? 800 : 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
     }
 }
 
@@ -114,18 +148,21 @@ export component ImageAssetEditor inherits Rectangle {
     horizontal-stretch: 1;
     background: StudioTheme.canvas;
 
+    private property <ImageAssetEditorMode> mode: ImageAssetEditorMode.preview;
     private property <string> asset-path: Api.selected-image-asset.path;
     private property <int> source-width: Api.selected-image-asset.image.width;
     private property <int> source-height: Api.selected-image-asset.image.height;
     private property <length> image-source-width: root.source-width * 1px;
     private property <length> image-source-height: root.source-height * 1px;
+    private property <length> tab-bar-height: 58px;
     private property <length> preview-panel-width: 360px;
     private property <length> preview-panel-height: 292px;
     private property <length> preview-panel-margin: 24px;
     private property <length> property-pane-width: EditorMetrics.inspector-pane-width;
     private property <length> property-pane-height: 260px;
+    private property <length> preview-property-pane-height: 154px;
     private property <length> property-pane-margin: 24px;
-    private property <length> edit-safe-top: 28px;
+    private property <length> edit-safe-top: root.tab-bar-height + 12px;
     private property <length> edit-safe-bottom: 44px;
     private property <length> edit-safe-right: max(root.preview-panel-width, root.property-pane-width) + 2 * root.preview-panel-margin;
     private property <length> available-width: max(1px, root.width - root.edit-safe-right - 40px);
@@ -135,6 +172,13 @@ export component ImageAssetEditor inherits Rectangle {
         : 1.0;
     private property <length> display-width: root.has-image() ? root.image-source-width * root.fit-scale : 0px;
     private property <length> display-height: root.has-image() ? root.image-source-height * root.fit-scale : 0px;
+    private property <length> plain-preview-available-width: max(1px, root.width - 96px);
+    private property <length> plain-preview-available-height: max(1px, root.height - root.tab-bar-height - 96px);
+    private property <float> plain-preview-fit-scale: root.has-image()
+        ? min(root.plain-preview-available-width / root.image-source-width, root.plain-preview-available-height / root.image-source-height)
+        : 1.0;
+    private property <length> plain-preview-display-width: root.has-image() ? root.image-source-width * root.plain-preview-fit-scale : 0px;
+    private property <length> plain-preview-display-height: root.has-image() ? root.image-source-height * root.plain-preview-fit-scale : 0px;
     private property <length> edit-area-width: max(root.display-width, root.width - root.edit-safe-right);
     private property <length> edit-area-height: max(1px, root.height - root.edit-safe-bottom - root.edit-safe-top);
     private property <length> left-display: root.source-to-display(Api.image-nine-slice-left);
@@ -152,6 +196,7 @@ export component ImageAssetEditor inherits Rectangle {
     private property <length> preview-min-size: 48px;
 
     changed asset-path => {
+        root.mode = ImageAssetEditorMode.preview;
         root.preview-size-custom = false;
         Api.image-nine-slice-top = 0;
         Api.image-nine-slice-right = 0;
@@ -206,7 +251,7 @@ export component ImageAssetEditor inherits Rectangle {
         return {
             x: root.width - root.preview-panel-margin - root.preview-panel-width
                 + (root.preview-panel-width - root.preview-width()) / 2,
-            y: root.preview-panel-margin + 38px + (root.preview-panel-height - 52px - root.preview-height()) / 2,
+            y: root.tab-bar-height + 38px + (root.preview-panel-height - 52px - root.preview-height()) / 2,
         };
     }
 
@@ -263,6 +308,36 @@ export component ImageAssetEditor inherits Rectangle {
         background: StudioTheme.dark ? #ffffff0a : #00000008;
     }
 
+    if root.has-image(): Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: 14px;
+        width: 216px;
+        height: 38px;
+        border-radius: 8px;
+        background: StudioTheme.panel-subtle;
+
+        HorizontalLayout {
+            padding: 4px;
+            spacing: 4px;
+
+            ImageEditorTab {
+                label: "Preview";
+                selected: root.mode == ImageAssetEditorMode.preview;
+                clicked => {
+                    root.mode = ImageAssetEditorMode.preview;
+                }
+            }
+
+            ImageEditorTab {
+                label: "9 Slice";
+                selected: root.mode == ImageAssetEditorMode.nine-slice;
+                clicked => {
+                    root.mode = ImageAssetEditorMode.nine-slice;
+                }
+            }
+        }
+    }
+
     if Api.selected-image-asset.error != "": Rectangle {
         width: min(parent.width - 80px, 520px);
         height: 96px;
@@ -291,7 +366,27 @@ export component ImageAssetEditor inherits Rectangle {
         }
     }
 
-    if root.has-image(): image-frame := Rectangle {
+    if root.has-image() && root.mode == ImageAssetEditorMode.preview: plain-preview-frame := Rectangle {
+        x: (root.width - self.width) / 2;
+        y: root.tab-bar-height + (root.height - root.tab-bar-height - self.height) / 2;
+        width: root.plain-preview-display-width;
+        height: root.plain-preview-display-height;
+        border-width: 1px;
+        border-color: StudioTheme.border;
+        background: StudioTheme.panel-bg;
+        drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b30;
+        drop-shadow-blur: 24px;
+        drop-shadow-offset-y: 14px;
+
+        Image {
+            width: parent.width;
+            height: parent.height;
+            source: Api.selected-image-asset.image;
+            image-fit: fill;
+        }
+    }
+
+    if root.has-image() && root.mode == ImageAssetEditorMode.nine-slice: image-frame := Rectangle {
         x: max(16px, (root.edit-area-width - self.width) / 2 - 24px);
         y: root.edit-safe-top + max(0px, (root.edit-area-height - self.height) * 0.62);
         width: root.display-width;
@@ -456,9 +551,9 @@ export component ImageAssetEditor inherits Rectangle {
         }
     }
 
-    if root.has-image(): Rectangle {
+    if root.has-image() && root.mode == ImageAssetEditorMode.nine-slice: Rectangle {
         x: root.width - root.preview-panel-width - root.preview-panel-margin;
-        y: root.preview-panel-margin;
+        y: root.tab-bar-height;
         width: root.preview-panel-width;
         height: root.preview-panel-height;
         border-radius: 8px;
@@ -491,7 +586,7 @@ export component ImageAssetEditor inherits Rectangle {
         }
     }
 
-    if root.has-image(): preview-frame := Rectangle {
+    if root.has-image() && root.mode == ImageAssetEditorMode.nine-slice: preview-frame := Rectangle {
         x: root.preview-position().x;
         y: root.preview-position().y;
         width: root.preview-width();
@@ -554,7 +649,68 @@ export component ImageAssetEditor inherits Rectangle {
         }
     }
 
-    if root.has-image(): Rectangle {
+    if root.has-image() && root.mode == ImageAssetEditorMode.preview: Rectangle {
+        x: root.property-pane-margin;
+        y: root.height - root.preview-property-pane-height - root.property-pane-margin;
+        width: root.property-pane-width;
+        height: root.preview-property-pane-height;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: StudioTheme.border;
+        background: StudioTheme.panel-bg;
+        drop-shadow-blur: 18px;
+        drop-shadow-offset-y: 8px;
+        drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b25;
+
+        VerticalLayout {
+            padding: 14px;
+            spacing: 8px;
+
+            Text {
+                text: "Image";
+                color: StudioTheme.text;
+                font-size: 12px;
+                font-weight: 800;
+            }
+
+            FloatingReadOnlyField {
+                width: parent.width - 28px;
+                prefix: "File";
+                value: Api.selected-image-asset.relative-path;
+                wide: true;
+            }
+
+            HorizontalLayout {
+                width: parent.width - 28px;
+                spacing: 8px;
+
+                FloatingReadOnlyField {
+                    horizontal-stretch: 1;
+                    prefix: "Fmt";
+                    value: Api.selected-image-asset.format;
+                }
+            }
+
+            HorizontalLayout {
+                width: parent.width - 28px;
+                spacing: 8px;
+
+                FloatingReadOnlyField {
+                    horizontal-stretch: 1;
+                    prefix: "W";
+                    value: root.image-width-label();
+                }
+
+                FloatingReadOnlyField {
+                    horizontal-stretch: 1;
+                    prefix: "H";
+                    value: root.image-height-label();
+                }
+            }
+        }
+    }
+
+    if root.has-image() && root.mode == ImageAssetEditorMode.nine-slice: Rectangle {
         x: root.width - root.property-pane-width - root.property-pane-margin;
         y: root.height - root.property-pane-height - root.property-pane-margin;
         width: root.property-pane-width;
