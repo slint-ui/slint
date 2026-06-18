@@ -59,6 +59,12 @@ hosts render those as web previews even though MCP is a JSON-RPC endpoint, not
 a browser UI. Do not switch to headless mode; this app is expected to run as a
 visible GUI.
 
+
+### Visual Editor UI Workflow
+
+For `.slint`-only changes under `tools/lsp/ui/visual-editor`, NEVER run a separate `cargo build` unless Rust files changed or the user explicitly asks for a build.
+If the user asks to try the app, run the editor directly with `cargo run`; the incremental build from `cargo run` is enough.
+
 ## Hot Reloading The Editor UI
 
 The editor automatically watches and reloads the opened target document
