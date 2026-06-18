@@ -19,7 +19,7 @@ You can use the Slint framework under ***any*** of the following licenses, at yo
 1. [Royalty-free License](LICENSES/LicenseRef-Slint-Royalty-free-2.0.md) - Permits use in **proprietary** desktop, mobile, and web applications **at no cost**. Use in embedded systems is excluded.
 2. [GNU GPLv3](LICENSES/GPL-3.0-only.txt) - Permits use in **open source software** under GPL-compatible terms, **at no cost**, for desktop, mobile, and web applications, as well as for embedded systems.
 3. [Commercial license](LICENSES/LicenseRef-Slint-Software-3.0.md) - Permits use in **proprietary** applications, including desktop, mobile, web, and embedded systems.
-   See the [pricing page](https://slint.dev/pricing.html) for the available plans.
+   See the [pricing page](https://slint.dev/pricing) for the available plans.
 
 ### What This Means in Practice
 
@@ -31,8 +31,8 @@ You can use the Slint framework under ***any*** of the following licenses, at yo
   The Royalty-free License is free, as long as you disclose that you use Slint (for example with the `AboutSlint` widget or the Slint badge); without that disclosure, use the Commercial license.
   A Commercial license is required for embedded systems, regardless of disclosure.
 
-The Royalty-free License is meant for software that runs on a user's own general-purpose computer or phone, as one application among the many they install.
-It does not cover software that ships as part of a hardware product or device — an embedded system — which needs the Commercial license.
+The Royalty-free License is meant for applications that run on a user's own general-purpose computer or phone, installed as one application among many.
+It does not cover embedded systems — computer systems that perform a specific task within a larger mechanical or electrical system — which need the Commercial license.
 
 See the [Licensing FAQ](FAQ.md#licensing) for the details and common scenarios.
 
@@ -53,5 +53,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for details, including the Contributor Li
 
 ## Additional Info
 
-See the [Slint licensing options on the website](https://slint.dev/pricing.html) and the [Licensing FAQ](FAQ.md#licensing).
+See the [Slint licensing options on the website](https://slint.dev/pricing) and the [Licensing FAQ](FAQ.md#licensing).
 Contact us at [info@slint.dev](mailto:info@slint.dev) if you have any questions regarding licensing.
