@@ -22,21 +22,44 @@ struct PropertySets {
 
 impl PropertySets {
     fn add_link(&mut self, p1: NamedReference, p2: NamedReference) {
-        let (e1, e2) = (p1.element(), p2.element());
-        let same_component = std::rc::Weak::ptr_eq(
-            &e1.borrow().enclosing_component,
-            &e2.borrow().enclosing_component,
+        let mut members = vec![p1.clone(), p2.clone()];
+        for p in [&p1, &p2] {
+            if let Some(s) = self.map.get(p) {
+                members.extend(s.borrow().iter().cloned());
+            }
+        }
+        let initial_component = members[0].element().borrow().enclosing_component.clone();
+        let link_is_same_component = std::rc::Weak::ptr_eq(
+            &p1.element().borrow().enclosing_component,
+            &p2.element().borrow().enclosing_component,
         );
-        if !same_component {
-            let can_merge_across_components =
-                (e1.borrow().enclosing_component.upgrade().unwrap().is_global()
-                    && !e2.borrow().change_callbacks.contains_key(p2.name()))
-                    || (e2.borrow().enclosing_component.upgrade().unwrap().is_global()
-                        && !e1.borrow().change_callbacks.contains_key(p1.name()));
+        let contains_changed_handlers = members.iter().any(|property| {
+            property.element().borrow().change_callbacks.contains_key(property.name())
+        });
+        let set_is_same_component = members.iter().all(|property| {
+            std::rc::Weak::ptr_eq(
+                &initial_component,
+                &property.element().borrow().enclosing_component,
+            )
+        });
+        let link_involves_global = [&p1, &p2].iter().any(|property| {
+            property.element().borrow().enclosing_component.upgrade().unwrap().is_global()
+        });
+
+        if !link_is_same_component {
+            // We can only add a new link across components if the link involves a global and none
+            // of the involved bindings (including earlier aliases) have a changed handler.
+            let can_merge_across_components = !contains_changed_handlers && link_involves_global;
             if !can_merge_across_components {
-                // We can only merge aliases if they are in the same Component. (unless one of them is global if the other one don't have change event)
-                // TODO: actually we could still merge two alias in a component pointing to the same
-                // property in a parent component
+                return;
+            }
+        } else {
+            // the new link is within the same component,
+            // but the previously processed aliases may already contain another component (which must be a
+            // global due to the `if` path.
+            // If that is the case, only alias if no changed handlers are involved.
+            let can_merge_within_component = !contains_changed_handlers || set_is_same_component;
+            if !can_merge_within_component {
                 return;
             }
         }
