@@ -1398,13 +1398,20 @@ impl TypeLoader {
                 state.borrow_mut().diag.push_internal_error(e);
             }
             Some(doc_node)
+        } else if let Some(builtin) = builtin {
+            // Builtin sources (std-widgets, styles, …) are immutable and embedded, so reading
+            // them cannot fail; handle them separately from the fallible filesystem path.
+            let source = String::from(
+                core::str::from_utf8(builtin)
+                    .expect("internal error: embedded file is not UTF-8 source code"),
+            );
+            syntax_nodes::Document::new(crate::parser::parse(
+                source,
+                Some(&path_canon),
+                state.borrow_mut().diag,
+            ))
         } else {
-            let source_code_result = if let Some(builtin) = builtin {
-                Ok(String::from(
-                    core::str::from_utf8(builtin)
-                        .expect("internal error: embedded file is not UTF-8 source code"),
-                ))
-            } else {
+            let source_code_result = {
                 let callback = state.borrow().tl.compiler_config.open_import_callback.clone();
                 if let Some(callback) = callback {
                     let result = callback(path_canon.to_string_lossy().into()).await;
