@@ -1925,7 +1925,10 @@ fn set_show_preview_ui(show_preview_ui: bool) {
 fn set_current_style(style: String) {
     PREVIEW_STATE.with_borrow(move |preview_state| {
         if let Some(api) = preview_state.api.upgrade() {
-            api.set_current_style(style.into())
+            use slint::Model;
+            let index =
+                api.get_known_styles().iter().position(|s| s.as_str() == style).unwrap_or(0);
+            api.set_current_style_index(index as i32);
         }
     });
 }
@@ -1933,7 +1936,12 @@ fn set_current_style(style: String) {
 fn get_current_style() -> String {
     PREVIEW_STATE.with_borrow(|preview_state| -> String {
         if let Some(api) = preview_state.api.upgrade() {
-            api.get_current_style().as_str().to_string()
+            use slint::Model;
+            let index = api.get_current_style_index();
+            api.get_known_styles()
+                .row_data(usize::try_from(index).unwrap_or(0))
+                .map(|s| s.to_string())
+                .unwrap_or_default()
         } else {
             String::new()
         }
