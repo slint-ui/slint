@@ -2603,13 +2603,31 @@ fn generate_repeated_component(
         });
         let flexbox_layout_item_info_fn =
             root_sc.flexbox_layout_item_info_for_repeated.as_ref().map(|_| {
+                // Break the height-for-width recursion for a repeated instance
+                // in a column FlexboxLayout: its vertical info must not read
+                // self.width (set by the parent flex cache it is feeding).
+                // Use the constrained vertical info (computed at the instance's
+                // own preferred width via layoutinfo-v-with-constraint) instead.
+                let v_constrained =
+                    root_sc.layout_info_v_constrained_for_repeated.as_ref().map(|e| {
+                        let v_info = compile_expression(&e.borrow(), &ctx);
+                        quote! {
+                            if matches!(o, sp::Orientation::Vertical) && child_index.is_none() {
+                                info.constraint = #v_info;
+                                return info;
+                            }
+                        }
+                    });
                 quote! {
                     fn flexbox_layout_item_info(
                         self: ::core::pin::Pin<&Self>,
                         o: sp::Orientation,
                         child_index: sp::Option<usize>,
                     ) -> sp::FlexboxLayoutItemInfo {
+                        #[allow(unused)]
+                        let _self = self.as_ref();
                         let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
+                        #v_constrained
                         info.constraint = self.layout_item_info(o, child_index).constraint;
                         info
                     }

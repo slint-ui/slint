@@ -1466,6 +1466,7 @@ fn lower_flexbox_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics)
         let index = layout.elems.len() * 4; // 4 values per item: x, y, width, height
         let rep_idx = &item.repeater_index;
         let actual_elem = &item.elem;
+        actual_elem.borrow_mut().child_of_flexbox = true;
 
         // Set x from cache[index]
         set_prop_from_cache(actual_elem, "x", &layout_cache_prop, index, rep_idx, 4, diag);

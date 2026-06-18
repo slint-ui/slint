@@ -485,6 +485,12 @@ pub struct SubComponent {
     /// Expression that builds a FlexboxLayoutItemInfo for a repeated element in a FlexboxLayout.
     /// Contains property references to flex-grow, flex-shrink, flex-basis, align-self, order.
     pub flexbox_layout_item_info_for_repeated: Option<MutExpression>,
+    /// Vertical `LayoutInfo` for a repeated element, computed with a width
+    /// constraint (its preferred width) so a height-for-width instance in a
+    /// column FlexboxLayout doesn't read `self.width` and recurse through the
+    /// parent flex cache. `Some` only when the element carries a
+    /// `layoutinfo-v-with-constraint`. See `flexbox_layout_item_info`.
+    pub layout_info_v_constrained_for_repeated: Option<MutExpression>,
     /// True when this is a repeated Row in a GridLayout, meaning layout_item_info
     /// needs to be able to return layout info for individual children
     pub is_repeated_row: bool,
@@ -672,6 +678,9 @@ impl CompilationUnit {
                 visitor(e, ctx);
             }
             if let Some(e) = &sc.flexbox_layout_item_info_for_repeated {
+                visitor(e, ctx);
+            }
+            if let Some(e) = &sc.layout_info_v_constrained_for_repeated {
                 visitor(e, ctx);
             }
             for e in sc.accessible_prop.values() {

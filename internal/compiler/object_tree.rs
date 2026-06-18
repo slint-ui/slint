@@ -883,6 +883,10 @@ pub struct Element {
 
     /// true when this item's geometry is handled by a layout
     pub child_of_layout: bool,
+    /// true when this item is a direct cell of a `FlexboxLayout`. Narrower
+    /// than `child_of_layout`: only flexbox cells need the per-repeater
+    /// `flexbox_layout_item_info` accessor.
+    pub child_of_flexbox: bool,
     /// The property pointing to the layout info. `(horizontal, vertical)`
     pub layout_info_prop: Option<(NamedReference, NamedReference)>,
     /// `pure function layoutinfo-v-with-constraint(width: length) -> LayoutInfo`
@@ -2290,6 +2294,23 @@ impl Element {
             base = root.base_type.clone();
         }
         None
+    }
+
+    /// Whether [`Self::inherited_layout_info_v_with_constraint`] would return
+    /// `Some`, without cloning the `NamedReference`.
+    pub fn has_inherited_layout_info_v_with_constraint(&self) -> bool {
+        if self.layout_info_v_with_constraint.is_some() {
+            return true;
+        }
+        let mut base = self.base_type.clone();
+        while let ElementType::Component(base_comp) = base {
+            let root = base_comp.root_element.borrow();
+            if root.layout_info_v_with_constraint.is_some() {
+                return true;
+            }
+            base = root.base_type.clone();
+        }
+        false
     }
 
     /// Mirror of [`Self::inherited_layout_info_v_with_constraint`] for the

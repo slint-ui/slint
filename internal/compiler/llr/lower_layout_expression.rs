@@ -1677,3 +1677,33 @@ pub fn get_flexbox_layout_item_info_for_repeated(
         ],
     )
 }
+
+/// Vertical `LayoutInfo` for a repeated element, computed with the element's
+/// preferred width as the cross-axis constraint. Routes through the element's
+/// `layoutinfo-v-with-constraint` (via [`get_layout_info`]), so a
+/// height-for-width instance in a column FlexboxLayout computes its height from
+/// that width instead of reading `self.width` — which would cycle through the
+/// parent flex's layout cache. Returns `None` when the element has no
+/// constrained vertical layout-info (nothing to break).
+pub fn get_layout_info_v_constrained_for_repeated(
+    ctx: &mut ExpressionLoweringCtx,
+    element: &ElementRc,
+    constraints: &crate::layout::LayoutConstraints,
+) -> Option<llr_Expression> {
+    if !element.borrow().has_inherited_layout_info_v_with_constraint() {
+        return None;
+    }
+    // Use the preferred width as the cross-axis constraint, the same default
+    // static height-for-width cells use. This is a single-line-height
+    // approximation; measuring at the real column width is a follow-up commit.
+    //
+    // The h-constraint may be absent even when the v one exists; fall back to
+    // unbounded then.
+    let width_constraint = default_cross_axis_constraint(element).unwrap_or_else(|| {
+        crate::expression_tree::Expression::NumberLiteral(
+            f32::MAX as f64,
+            crate::expression_tree::Unit::Px,
+        )
+    });
+    Some(get_layout_info(element, ctx, constraints, Orientation::Vertical, Some(width_constraint)))
+}
