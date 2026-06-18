@@ -425,14 +425,12 @@ pub fn slint(stream: TokenStream) -> TokenStream {
     if expansion_cache::is_rust_analyzer() {
         // When running on rust-analyzer, only generate the API (using the live preview) to make rust-analyzer faster and use less memory
         // (This uses an unstable env variable, but it is just an optimization)
-        let generated = generator::rust_live_preview::generate(
-            &root_component,
-            &loader.compiler_config,
-        )
-        .unwrap_or_else(|e| {
-            let e_str = e.to_string();
-            quote!(compile_error!(#e_str))
-        });
+        let generated =
+            generator::rust_live_preview::generate(&root_component, &loader.compiler_config)
+                .unwrap_or_else(|e| {
+                    let e_str = e.to_string();
+                    quote!(compile_error!(#e_str))
+                });
         // Populate the cache so the next identical expansion is a cheap re-parse.
         // The live-preview output is a pure function of the compiled component and
         // config (no diagnostic/span tokens), so it is safe to cache regardless of
