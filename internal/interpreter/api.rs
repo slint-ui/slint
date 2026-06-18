@@ -2476,3 +2476,60 @@ export component Win inherits Window {
     assert!((reverted.origin.x - base.origin.x).abs() < 0.5, "x should revert");
     assert!((reverted.size.width - base.size.width).abs() < 0.5, "width should revert");
 }
+
+// Enabling debug_hooks now also materializes hooked default bindings for unbound properties.
+// This must NOT change the rendered result when no override is set: wrapping default-geometry
+// bindings must preserve fill/implicit sizing, and injecting the type-default for unbound props
+// must equal their unbound value (e.g. the font sentinel that drives Window inheritance).
+#[cfg(all(test, feature = "internal", feature = "internal-highlight"))]
+#[test]
+fn test_debug_hooks_preserve_geometry() {
+    i_slint_backend_testing::init_no_event_loop();
+
+    let code = r#"
+export component Win inherits Window {
+    width: 300px;
+    height: 200px;
+    rect := Rectangle { }            // no explicit geometry -> fills the parent
+    txt := Text { text: "Hello"; }   // implicit (font-dependent) size, inherited font
+}"#;
+    let path = PathBuf::from("/tmp/debug_hook_noregress.slint");
+
+    let geometries = |debug_hooks: bool| -> Vec<(f32, f32, f32, f32)> {
+        let mut compiler = Compiler::default();
+        compiler.set_style("fluent".into());
+        if debug_hooks {
+            compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
+                Some(std::hash::RandomState::new());
+        }
+        let r = spin_on::spin_on(compiler.build_from_source(code.to_string(), path.clone()));
+        assert!(!r.has_errors(), "{:?}", r.diagnostics);
+        let instance = r.components().next().unwrap().create().unwrap();
+        [code.find("Rectangle").unwrap(), code.find("Text").unwrap()]
+            .into_iter()
+            .map(|off| {
+                let (elem, _) = instance
+                    .element_node_at_source_code_position(&path, off as u32)
+                    .first()
+                    .cloned()
+                    .expect("element");
+                let g = instance.element_positions(&elem).first().expect("geometry").rect;
+                (g.origin.x, g.origin.y, g.size.width, g.size.height)
+            })
+            .collect()
+    };
+
+    let without = geometries(false);
+    let with = geometries(true);
+    for (a, b) in without.iter().zip(with.iter()) {
+        assert!(
+            (a.0 - b.0).abs() < 0.5
+                && (a.1 - b.1).abs() < 0.5
+                && (a.2 - b.2).abs() < 0.5
+                && (a.3 - b.3).abs() < 0.5,
+            "geometry differs with vs without debug_hooks: {a:?} vs {b:?}"
+        );
+    }
+    // Sanity: the Rectangle actually filled the 300x200 window (so we know we compared real sizes).
+    assert!((with[0].2 - 300.0).abs() < 0.5 && (with[0].3 - 200.0).abs() < 0.5);
+}
