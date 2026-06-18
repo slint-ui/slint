@@ -68,9 +68,18 @@ For the documentation website, blog posts, and social media we also aim to sound
 
 - Make sure links resolve — don't point at blank or moved pages.
 
-### Platform Tabs
+### Tab Order
 
-List the dev-platform tabs in this order:
+In the documentation website, order the items of a `<Tabs>` block consistently.
+
+For `syncKey="dev-language"`:
+
+- Rust
+- C++
+- NodeJS
+- Python
+
+For `syncKey="dev-platform"`:
 
 - Windows
 - macOS
