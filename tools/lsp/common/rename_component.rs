@@ -2,6 +2,59 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 // cSpell: ignore newtype CROSSFILE
+
+//! `.slint` rename support, plus the classifier that decides when a rename
+//! should be paired with a Rust/C++ host-language rewrite.
+//!
+//! # Host-language follow-up flow
+//!
+//! Renaming a public property/callback/function in `.slint` can optionally
+//! also rewrite the generated Rust/C++ accessor (`get_<n>`, `set_<n>`,
+//! `invoke_<n>`, `on_<n>`) at every textual call site in the workspace. The
+//! `textDocument/rename` handler in `language.rs` returns the slint-only
+//! edits synchronously; the host-language follow-up runs in a `spawn_local`
+//! task because the rename handler is sync but the dialog and the second
+//! `workspace/applyEdit` are async.
+//!
+//! After the synchronous slint rename, the spawned task:
+//!
+//! 1. Calls [`DeclarationNode::host_language_classification`]. This walks
+//!    every loaded `Document` (via `DocumentCache::all_documents()`) and,
+//!    for each exported non-interface component, follows the `inherits`
+//!    chain looking for a declaration whose syntax node matches the rename
+//!    target. The walk is bounded (depth + visited-set) so a cyclic
+//!    `inherits` chain from a mid-edit state can't hang the task. Returns
+//!    the declaration kind and current name -- or `None` if the
+//!    declaration isn't reachable from any exported component or its
+//!    visibility/type rules it out.
+//! 2. Skips the dialog entirely when
+//!    `normalize_identifier(new_name) == old_name` (kebab/snake no-op
+//!    that produces no accessor change).
+//! 3. Checks an in-memory "don't ask again" set keyed by
+//!    `(slint_uri, original_name)`. Hits short-circuit out before the
+//!    dialog. TODO(#12111): persist this across sessions.
+//! 4. Sends `window/showMessageRequest` with three actions: *Rewrite
+//!    Rust/C++ accessors*, *Skip*, *Skip and don't ask again*. Dismissal
+//!    is treated as Skip.
+//! 5. On *Rewrite*, queries `workspace/workspaceFolders` (or falls back
+//!    to the cached `InitializeParams` when the client doesn't support
+//!    the query), runs
+//!    [`crate::common::host_language_search::scan_host_language_accessors`]
+//!    against every folder, and sends a second `workspace/applyEdit` with
+//!    the host-language edits.
+//! 6. Reports the outcome via `window/showMessage`: count of rewritten
+//!    sites on success, or a warning on scan failure / refused edit.
+//!
+//! The slint rename and the host-language rewrite arrive as two
+//! independent edits; the editor's undo treats them separately. That is
+//! intentional: if the user rejects the host-language rewrite or the
+//! scanner errors, the slint rename still stands.
+//!
+//! Failure modes (no workspace folders, scan exceeds `max_files`, client
+//! refuses the applyEdit) **soft-degrade**: tracing warning + a
+//! `window/showMessage` to the user, but the slint rename is not rolled
+//! back.
+
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -590,7 +643,7 @@ impl DeclarationNode {
                     continue;
                 }
                 if matching_decl_in_inheritance_chain(component, &name, &parent, &source_file) {
-                    return Some(HostLanguageRenameInfo { kind, old_name: name, source_file });
+                    return Some(HostLanguageRenameInfo { kind, old_name: name });
                 }
             }
         }
@@ -660,9 +713,6 @@ pub struct HostLanguageRenameInfo {
     /// accessor names from this via
     /// [`i_slint_compiler::generator::accessor_names`].
     pub old_name: SmolStr,
-    /// The `.slint` file containing the declaration. Used to pick the
-    /// workspace folder the scanner should walk.
-    pub source_file: SourceFile,
 }
 
 fn find_last_declared_identifier_at_or_before(
@@ -4150,7 +4200,7 @@ global Foo {
 mod host_language_rename_tests {
     use super::*;
     use crate::common;
-    use crate::common::host_language_search::{self, ScanBounds, scan_host_language_accessors};
+    use crate::common::host_language_search::{ScanBounds, scan_host_language_accessors};
     use i_slint_compiler::diagnostics::{BuildDiagnostics, ByteFormat};
     use lsp_types::{Url, WorkspaceEdit, WorkspaceFolder};
     use std::collections::HashMap;
@@ -4297,12 +4347,11 @@ mod host_language_rename_tests {
         {
             let host_edits = scan_host_language_accessors(
                 folders,
-                info.source_file.path(),
                 info.kind,
                 &info.old_name,
                 new_name,
                 ByteFormat::Utf16,
-                ScanBounds::default(),
+                ScanBounds::DEFAULT,
             )
             .expect("scan");
             if !host_edits.is_empty() {
@@ -4538,68 +4587,6 @@ export component App inherits Window { }
         let by_url = edits_by_url(&edit);
         let rust_edits = by_url.get(&rs_url(&tmp, "src/main.rs")).expect("missing .rs edits");
         assert!(rust_edits.contains(&"set_level".to_string()), "{rust_edits:?}");
-    }
-
-    /// `.slint` outside any workspace folder: scanner returns
-    /// `OutsideWorkspace`, the handler's soft-degrade applies only the
-    /// `.slint` edits. We assert the .rs file is untouched even though it
-    /// contains the accessor.
-    #[test]
-    fn outside_workspace_soft_degrades_to_slint_only() {
-        let tmp_slint = tempdir();
-        let tmp_workspace = tempdir();
-        let (cache, url, _) = setup(
-            &tmp_slint,
-            &[(
-                "app.slint",
-                r#"
-export component App inherits Window {
-    in property <int> count /* <- TEST_ME */;
-}
-                "#,
-            )],
-            &[],
-        );
-        // Write the .rs file under a *different* tempdir treated as the
-        // workspace; the .slint is in tmp_slint which is NOT a workspace
-        // folder.
-        std::fs::write(tmp_workspace.path().join("main.rs"), "obj.get_count();").unwrap();
-        let folders = vec![WorkspaceFolder {
-            uri: Url::from_file_path(tmp_workspace.path()).unwrap(),
-            name: "ws".into(),
-        }];
-
-        // Call perform_rename directly; the scan_host_language_accessors
-        // would return OutsideWorkspace, but we mirror the handler's
-        // soft-degrade: if scan fails, only .slint edits land.
-        let token = find_token_in_url(&cache, &url, "");
-        let decl = find_declaration_node(&cache, &token).unwrap();
-        let workspace_edit = decl.rename(&cache, "total").unwrap();
-        if let Some(info) = decl.host_language_classification(&cache) {
-            match scan_host_language_accessors(
-                &folders,
-                info.source_file.path(),
-                info.kind,
-                &info.old_name,
-                "total",
-                ByteFormat::Utf16,
-                ScanBounds::default(),
-            ) {
-                Ok(_) => panic!("expected OutsideWorkspace"),
-                Err(host_language_search::HostLanguageScanError::OutsideWorkspace) => {
-                    // soft-degrade -- keep workspace_edit as-is
-                }
-                Err(other) => panic!("unexpected error: {other:?}"),
-            }
-        }
-
-        let by_url = edits_by_url(&workspace_edit);
-        assert!(
-            by_url.contains_key(&Url::from_file_path(tmp_slint.path().join("app.slint")).unwrap()),
-            ".slint edits must still land"
-        );
-        let rs = Url::from_file_path(tmp_workspace.path().join("main.rs")).unwrap();
-        assert!(!by_url.contains_key(&rs), ".rs must NOT be touched on OutsideWorkspace");
     }
 
     /// The scanner is textual by design (post-reshape): occurrences inside

@@ -455,22 +455,17 @@ pub fn create_workspace_edit_from_text_document_edits(
     WorkspaceEdit { document_changes, ..Default::default() }
 }
 
-/// Merge the document-change edits from `additional` into `base`.
+/// Merge the document-change edits from `additional` into `base`. Test-only
+/// since the rename flow now sends two independent `workspace/applyEdit`
+/// requests; the helper exists for tests that want to assert on the
+/// combined edit shape.
 ///
 /// Both `WorkspaceEdit`s must use the `document_changes: Edits(...)` form --
 /// the one produced by [`create_workspace_edit_from_single_text_edits`] and
-/// the other `create_workspace_edit*` helpers. The following fields on
-/// `additional` are intentionally **not** merged:
-///
-/// - `document_changes: Operations(...)` -- our codebase only produces the
-///   `Edits` form; an `Operations` variant on `additional` is silently dropped.
-/// - `changes` -- the legacy `Url -> Vec<TextEdit>` map. Unused in this
-///   codebase; would be silently dropped.
-/// - `change_annotations` -- annotated edits. Unused in this codebase; would
-///   be silently dropped.
-///
-/// If `additional` ever needs to carry any of those, this helper must be
-/// extended; today the assertion below catches the misuse in debug builds.
+/// the other `create_workspace_edit*` helpers. Fields not in `document_changes`
+/// are not merged (`changes`, `change_annotations`, and the `Operations`
+/// variant); the assertion below catches the misuse in debug builds.
+#[cfg(test)]
 pub fn merge_workspace_edits(base: &mut WorkspaceEdit, additional: WorkspaceEdit) {
     debug_assert!(
         additional.changes.is_none() && additional.change_annotations.is_none(),

@@ -10,7 +10,7 @@ This extension for VS Code adds support for the [Slint](https://slint.dev) desig
 -   Live Preview of a .slint file
 -   Completion of properties
 -   Jump to definition (currently, only definition of Component)
--   Rename refactoring across `.slint` files, plus a "Rename property and its Rust/C++ accessors..." CodeAction that additionally rewrites the generated accessor at call sites in workspace `.rs`/`.cpp`/`.h` files (textual; review the rename preview before applying)
+-   Rename refactoring across `.slint` files. When renaming a public property/callback/function, the LSP also offers to rewrite the generated Rust/C++ accessor at every call site in workspace `.rs`/`.cpp`/`.h` files (textual; review the edits before applying)
 
 ## Installation
 

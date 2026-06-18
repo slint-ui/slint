@@ -321,74 +321,39 @@ sources.
 Renaming a public property/callback/function in `.slint` can optionally
 also rewrite the generated Rust/C++ accessor (`get_<n>`, `set_<n>`,
 `invoke_<n>`, `on_<n>`) at every textual call site in the workspace.
-The feature surfaces as a CodeAction ("Rename property and its Rust/C++
-accessors...") on public property/callback/function identifiers; the
-standard `textDocument/rename` is unchanged.
+The feature lives inside the standard `textDocument/rename` flow:
+after the `.slint` edits are returned synchronously, an asynchronous
+follow-up detects whether the renamed declaration is exposed in the
+generated public API and (once per declaration per session) prompts
+the user via `window/showMessageRequest` with three actions:
 
-The flow involves both the LSP and the editor extension because
-`textDocument/codeAction` cannot precompute the WorkspaceEdit -- the
-server doesn't know the new name at CodeAction time:
+1. **Rewrite Rust/C++ accessors** — runs the host-language scanner
+   and sends a second `workspace/applyEdit` with the textual edits.
+2. **Skip** — leaves the host-language sources unchanged.
+3. **Skip and don't ask again for this declaration** — same as Skip,
+   plus records the suppression for the rest of the session keyed on
+   `(slint_uri, original_name)`. TODO(#12111): persist across sessions
+   once client-side settings storage is available.
 
-1. **CodeAction** (server, `get_code_actions` in `language.rs`): when
-   the cursor is on an identifier that
-   `DeclarationNode::host_language_classification` recognizes as a
-   public property/callback/function, return a CodeAction whose
-   `command` is the editor-side `slint.renameWithHostAccessors` with
-   `[uri, position]` arguments.
-2. **Editor prompt** (extension, `extension.ts`): the VS Code extension
-   registers `slint.renameWithHostAccessors`, prompts the user via
-   `window.showInputBox`, and forwards `[uri, position, new_name]` to
-   the LSP-side `slint/renameWithHostAccessors` command via
-   `workspace/executeCommand`. Editors without this command get no
-   feature today (a future Helix/Neovim extension can register the
-   same command name).
-3. **Server command** (server, `rename_with_host_accessors_command` in
-   `language.rs`):
-   - Re-resolves the declaration and runs the standard
-     `DeclarationNode::rename` to produce the `.slint` edits.
-   - Calls `DeclarationNode::host_language_classification`. This walks
-     every loaded `Document` (via `DocumentCache::all_documents()`)
-     and, for each exported non-interface component, follows the
-     `inherits` chain looking for a property declaration whose syntax
-     node matches the rename target. The walk is bounded (depth +
-     visited-set) so a cyclic `inherits` chain from a mid-edit state
-     can't hang the synchronous handler. Returns the declaration
-     kind, current name, and source file -- or `None` if the
-     declaration isn't reachable from any exported component or its
-     visibility/type rules it out.
-   - Skips the scan when
-     `normalize_identifier(new_name) == old_name` (kebab/snake no-op).
-   - Calls `host_language_search::scan_host_language_accessors`. The
-     scan root is the most-specific configured workspace folder
-     containing the renamed `.slint` (`workspace_folders` → `root_uri`
-     → `root_path` fallback chain). Walks with `std::fs`, no symlink
-     following, skipping `target/`, `build/`, `node_modules/`, etc.,
-     case-insensitive on `.rs`/`.cpp`/`.cc`/`.cxx`/`.h`/`.hpp`/`.hh`.
-   - The matcher is **flat textual**: byte-level word-boundary scan
-     for the kind-specific accessor names. No comment/string/raw-
-     string handling -- the rename is honest about being find-and-
-     replace, and the user reviews the edit preview before applying.
-     Word boundaries treat any byte >= 0x80 as identifier-extending
-     so UTF-8 multi-byte characters defeat the boundary.
-   - Merges the resulting `Vec<SingleTextEdit>` into the `.slint`
-     `WorkspaceEdit` via `common::merge_workspace_edits`.
-   - Sends `workspace/applyEdit` to the client with the merged edit;
-     the editor's rename-preview UI shows the full diff.
+The slint rename and the host-language rewrite arrive as two
+independent `workspace/applyEdit` calls; if the user rejects the
+prompt (or dismisses it, or the scanner errors), the slint rename
+still stands. A `window/showMessage` summarizes the outcome in either
+direction.
 
-Failure modes (renamed file outside any workspace folder, or scan
-exceeds its file-count cap) **soft-degrade**: the handler logs a
-`tracing::warn!` and applies only the `.slint` edits. The user
-explicitly invoked the CodeAction; losing the slint edits on top of a
-scanner edge case is worse than partial work.
+No per-editor extension is required; any LSP client that implements
+`textDocument/rename` and `window/showMessageRequest` gets the
+feature for free.
 
-Accessor names are shared between the codegen (`internal/compiler/
-generator/{rust,cpp}.rs`) and the scanner via
-`internal/compiler/generator/accessor_names.rs`, so the two can't
-drift.
-
-The scanner module and command handler are gated
-`cfg(not(target_arch = "wasm32"))` since the WASM LSP has no
-filesystem.
+Implementation detail (handler shape, scanner algorithm, Unicode
+identifier tokenizer, soft-degrade behavior) lives in the
+module-doc comments of `tools/lsp/common/rename_component.rs` and
+`tools/lsp/common/host_language_search.rs`. Accessor names are the
+single source of truth in
+`internal/compiler/generator/accessor_names.rs`, shared between
+codegen (`rust.rs`, `cpp.rs`) and the scanner so the two can't drift.
+The scanner module is gated `cfg(not(target_arch = "wasm32"))` since
+the WASM LSP has no filesystem.
 
 ## Live Preview
 

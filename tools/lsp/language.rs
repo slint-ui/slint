@@ -47,6 +47,7 @@ use lsp_types::{
     },
 };
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::future::Future;
@@ -55,27 +56,12 @@ use std::rc::Rc;
 
 const POPULATE_COMMAND: &str = "slint/populate";
 pub const SHOW_PREVIEW_COMMAND: &str = "slint/showPreview";
-/// LSP-side command (invoked via `workspace/executeCommand`) that runs the
-/// Slint rename and extends the resulting `WorkspaceEdit` with textual
-/// rewrites of the generated Rust/C++ accessor at every call site in the
-/// workspace. The editor extension prompts the user for the new name before
-/// invoking this; see #11841.
-#[cfg(not(target_arch = "wasm32"))]
-pub const RENAME_WITH_HOST_ACCESSORS_COMMAND: &str = "slint/renameWithHostAccessors";
-/// Editor-side command name surfaced via `CodeAction.command`. The editor
-/// extension (e.g. the VS Code extension) registers this command,
-/// prompts the user for the new name, and then calls back with
-/// [`RENAME_WITH_HOST_ACCESSORS_COMMAND`].
-#[cfg(not(target_arch = "wasm32"))]
-pub const RENAME_WITH_HOST_ACCESSORS_EDITOR_COMMAND: &str = "slint.renameWithHostAccessors";
 
 fn command_list() -> Vec<String> {
     vec![
         POPULATE_COMMAND.into(),
         #[cfg(any(feature = "preview-builtin", feature = "preview-external"))]
         SHOW_PREVIEW_COMMAND.into(),
-        #[cfg(not(target_arch = "wasm32"))]
-        RENAME_WITH_HOST_ACCESSORS_COMMAND.into(),
     ]
 }
 
@@ -280,6 +266,14 @@ pub struct Context {
     /// Files to recompile after all other operations are done
     /// (i.e. recompilations triggered by updates to unopened files)
     pub pending_recompile: HashSet<lsp_types::Url>,
+    /// Per-declaration "don't ask again" suppression for the host-language
+    /// rename prompt. Keyed by `(slint file URL, original Slint decl name)` so
+    /// the user is asked only once per visible declaration per session. The
+    /// entry implicitly lapses after a successful rename: the next rename
+    /// sees a new key. TODO(#12111): persist across sessions when client-side
+    /// settings storage is available.
+    pub host_language_rename_dont_ask_again:
+        Rc<RefCell<HashSet<(lsp_types::Url, smol_str::SmolStr)>>>,
 }
 
 /// An error from a LSP request
@@ -524,16 +518,6 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 });
                 return Ok(None::<serde_json::Value>);
             }
-            #[cfg(not(target_arch = "wasm32"))]
-            cmd if cmd == RENAME_WITH_HOST_ACCESSORS_COMMAND => {
-                let future = rename_with_host_accessors_command(&params.arguments, ctx)?;
-                crate::common::spawn_local(async move {
-                    if let Err(err) = future.await {
-                        tracing::error!("Error executing renameWithHostAccessors command: {err}");
-                    }
-                });
-                return Ok(None::<serde_json::Value>);
-            }
             _ => {
                 tracing::error!("Received unknown command {}", params.command.as_str());
             }
@@ -617,13 +601,22 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
             if let Some(declaration_node) =
                 common::rename_component::find_declaration_node(&ctx.document_cache, &tk)
             {
-                return declaration_node
-                    .rename(&ctx.document_cache, &params.new_name)
-                    .map(Some)
-                    .map_err(|e| LspError {
-                        code: LspErrorCode::RequestFailed,
-                        message: e.to_string(),
-                    });
+                let edit = declaration_node.rename(&ctx.document_cache, &params.new_name).map_err(
+                    |e| LspError { code: LspErrorCode::RequestFailed, message: e.to_string() },
+                )?;
+                // After the synchronous slint-only rename, ask the user (once)
+                // whether to also rewrite the generated Rust/C++ accessors at
+                // workspace call sites. The dialog and follow-up edit have to
+                // run asynchronously: the request handler is synchronous and
+                // must return the slint edit immediately.
+                #[cfg(not(target_arch = "wasm32"))]
+                schedule_host_language_rename_followup(
+                    ctx,
+                    &declaration_node,
+                    &uri,
+                    &params.new_name,
+                );
+                return Ok(Some(edit));
             }
         }
 
@@ -833,98 +826,243 @@ pub fn populate_command(
     })
 }
 
-/// Implementation of [`RENAME_WITH_HOST_ACCESSORS_COMMAND`]. Takes
-/// `[uri, position, new_name]` from the editor, runs the slint rename
-/// together with the host-language scanner, and applies the merged
-/// `WorkspaceEdit` via `workspace/applyEdit`.
+/// Synchronous step in the host-language rename flow: classify the
+/// declaration the user just renamed, and -- if it is exposed in the
+/// generated Rust/C++ public API and the rename actually changes the
+/// accessor name -- spawn the async dialog + scanner + applyEdit follow-up.
+///
+/// The handler that calls this has already returned the slint-only
+/// `WorkspaceEdit` synchronously, so by the time the dialog appears the
+/// `.slint` file has already been updated by the client. The host-language
+/// scanner runs against the *old* accessor name on disk and produces a
+/// second `workspace/applyEdit` from the spawned task; the editor's
+/// undo/redo treats the two edits independently. That is intentional: if
+/// the user rejects the host-language rewrite (or the scanner errors),
+/// the slint rename still stands.
 #[cfg(not(target_arch = "wasm32"))]
-pub fn rename_with_host_accessors_command(
-    params: &[serde_json::Value],
-    ctx: &mut Context,
-) -> Result<impl Future<Output = Result<serde_json::Value, LspError>> + 'static, LspError> {
-    let bad = |msg: &str| LspError { code: LspErrorCode::InvalidParameter, message: msg.into() };
-
-    let uri =
-        serde_json::from_value::<Url>(params.first().ok_or_else(|| bad("missing uri"))?.clone())
-            .map_err(|_| bad("first argument is not a URL"))?;
-    let position = serde_json::from_value::<lsp_types::Position>(
-        params.get(1).ok_or_else(|| bad("missing position"))?.clone(),
-    )
-    .map_err(|_| bad("second argument is not a Position"))?;
-    let new_name = serde_json::from_value::<String>(
-        params.get(2).ok_or_else(|| bad("missing new name"))?.clone(),
-    )
-    .map_err(|_| bad("third argument is not a string"))?;
-
-    let document_cache = &ctx.document_cache;
-    let Some((token, _)) = token_descr(document_cache, &uri, &position) else {
-        return Err(bad("no token at position"));
+fn schedule_host_language_rename_followup(
+    ctx: &Context,
+    declaration_node: &common::rename_component::DeclarationNode,
+    slint_uri: &Url,
+    new_name: &str,
+) {
+    let Some(info) = declaration_node.host_language_classification(&ctx.document_cache) else {
+        return;
     };
-    let Some(decl) = common::rename_component::find_declaration_node(document_cache, &token) else {
-        return Err(bad("position is not a declaration that can be renamed"));
-    };
-
-    let mut workspace_edit = decl
-        .rename(document_cache, &new_name)
-        .map_err(|e| LspError { code: LspErrorCode::RequestFailed, message: e.to_string() })?;
-
-    // Skip the host-language scan when the slint rename normalizes to the
-    // same identifier (e.g. `my-count` -> `my_count`): the accessor names
-    // are unchanged, so the scanner would produce identical-text TextEdits.
-    if let Some(info) = decl.host_language_classification(document_cache)
-        && i_slint_compiler::parser::normalize_identifier(&new_name) != info.old_name
-    {
-        let folders = common::host_language_search::resolve_workspace_folders(&ctx.init_param);
-        match common::host_language_search::scan_host_language_accessors(
-            &folders,
-            info.source_file.path(),
-            info.kind,
-            &info.old_name,
-            &new_name,
-            document_cache.format,
-            common::host_language_search::ScanBounds::default(),
-        ) {
-            Ok(host_edits) if !host_edits.is_empty() => {
-                let host_workspace_edit =
-                    common::create_workspace_edit_from_single_text_edits(host_edits);
-                common::merge_workspace_edits(&mut workspace_edit, host_workspace_edit);
-            }
-            Ok(_) => {}
-            Err(e) => {
-                tracing::warn!(
-                    "Slint cross-language rename: host-language scan skipped: {e}; \
-                     applying .slint edits only"
-                );
-            }
-        }
+    // No-op when the slint rename normalizes to the same identifier
+    // (e.g. `my-count` -> `my_count`): accessor names are unchanged so the
+    // scanner would only produce identical-text TextEdits.
+    if i_slint_compiler::parser::normalize_identifier(new_name) == info.old_name {
+        return;
+    }
+    let key = (slint_uri.clone(), info.old_name.clone());
+    if ctx.host_language_rename_dont_ask_again.borrow().contains(&key) {
+        return;
     }
 
     let server_notifier = ctx.server_notifier.clone();
-    Ok(async move {
-        let response = server_notifier
-            .send_request::<lsp_types::request::ApplyWorkspaceEdit>(
-                lsp_types::ApplyWorkspaceEditParams {
-                    label: Some("Rename Slint declaration and Rust/C++ accessors".into()),
-                    edit: workspace_edit,
-                },
-            )
-            .map_err(|_| LspError {
-                code: LspErrorCode::RequestFailed,
-                message: "Failed to send rename WorkspaceEdit".into(),
-            })?
-            .await
-            .map_err(|_| LspError {
-                code: LspErrorCode::RequestFailed,
-                message: "Failed to send rename WorkspaceEdit".into(),
-            })?;
-        if !response.applied {
-            return Err(LspError {
-                code: LspErrorCode::RequestFailed,
-                message: "Client refused to apply rename WorkspaceEdit".into(),
-            });
+    let dont_ask_again = ctx.host_language_rename_dont_ask_again.clone();
+    let init_param = ctx.init_param.clone();
+    let format = ctx.document_cache.format;
+    let new_name = new_name.to_string();
+
+    crate::common::spawn_local(async move {
+        // Folders can change after initialization; query the client now
+        // rather than reusing the InitializeParams snapshot.
+        let workspace_folders =
+            common::host_language_search::current_workspace_folders(&server_notifier, &init_param)
+                .await;
+        run_host_language_rename_followup(
+            server_notifier,
+            dont_ask_again,
+            workspace_folders,
+            format,
+            info,
+            new_name,
+            key,
+        )
+        .await;
+    });
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn run_host_language_rename_followup(
+    server_notifier: crate::ServerNotifier,
+    dont_ask_again: Rc<RefCell<HashSet<(Url, smol_str::SmolStr)>>>,
+    workspace_folders: Vec<lsp_types::WorkspaceFolder>,
+    format: common::ByteFormat,
+    info: common::rename_component::HostLanguageRenameInfo,
+    new_name: String,
+    dont_ask_again_key: (Url, smol_str::SmolStr),
+) {
+    use i_slint_compiler::generator::accessor_names::DeclarationKind;
+
+    let kind_label = match info.kind {
+        DeclarationKind::Property => "property",
+        DeclarationKind::Callback => "callback",
+        DeclarationKind::Function => "function",
+    };
+    let message = format!(
+        "Slint {kind_label} '{}' is exposed to host language code. \
+         Also rewrite its Rust/C++ accessors at workspace call sites? \
+         (The slint rename has already been applied.)",
+        info.old_name,
+    );
+    let action_replace = "Rewrite Rust/C++ accessors";
+    let action_skip = "Skip";
+    let action_never = "Skip and don't ask again for this declaration";
+
+    let action_items = vec![
+        lsp_types::MessageActionItem {
+            title: action_replace.into(),
+            properties: Default::default(),
+        },
+        lsp_types::MessageActionItem { title: action_skip.into(), properties: Default::default() },
+        lsp_types::MessageActionItem { title: action_never.into(), properties: Default::default() },
+    ];
+
+    let request = match server_notifier.send_request::<lsp_types::request::ShowMessageRequest>(
+        lsp_types::ShowMessageRequestParams {
+            typ: lsp_types::MessageType::INFO,
+            message,
+            actions: Some(action_items),
+        },
+    ) {
+        Ok(fut) => fut,
+        Err(e) => {
+            tracing::warn!("Slint host-language rename: failed to send prompt: {e}");
+            return;
         }
-        Ok(serde_json::to_value(()).expect("Failed to serialize ()!"))
-    })
+    };
+    let chosen = match request.await {
+        Ok(Some(item)) => Some(item.title),
+        Ok(None) => None, // user dismissed
+        Err(e) => {
+            tracing::warn!("Slint host-language rename: prompt request failed: {e}");
+            return;
+        }
+    };
+
+    match chosen.as_deref() {
+        Some(title) if title == action_replace => {
+            let scan_result = common::host_language_search::scan_host_language_accessors(
+                &workspace_folders,
+                info.kind,
+                &info.old_name,
+                &new_name,
+                format,
+                common::host_language_search::ScanBounds::DEFAULT,
+            );
+            match scan_result {
+                Ok(edits) if edits.is_empty() => {
+                    show_info(
+                        &server_notifier,
+                        "Slint rename applied; no Rust/C++ accessor call sites found in the workspace.",
+                    );
+                }
+                Ok(edits) => {
+                    let file_count = edits.iter().map(|e| &e.url).collect::<HashSet<_>>().len();
+                    let edit_count = edits.len();
+                    let workspace_edit =
+                        common::create_workspace_edit_from_single_text_edits(edits);
+                    apply_host_language_edits(
+                        &server_notifier,
+                        workspace_edit,
+                        edit_count,
+                        file_count,
+                    )
+                    .await;
+                }
+                Err(e) => {
+                    show_warning(
+                        &server_notifier,
+                        format!(
+                            "Slint rename applied; host-language scan failed: {e}. \
+                             Rust/C++ accessor call sites were not rewritten."
+                        ),
+                    );
+                }
+            }
+        }
+        Some(title) if title == action_never => {
+            dont_ask_again.borrow_mut().insert(dont_ask_again_key);
+            show_info(
+                &server_notifier,
+                "Slint rename applied; skipping host-language rewrite (won't ask again for this declaration).",
+            );
+        }
+        _ => {
+            show_info(
+                &server_notifier,
+                "Slint rename applied; host-language Rust/C++ accessors were not rewritten.",
+            );
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn apply_host_language_edits(
+    server_notifier: &crate::ServerNotifier,
+    edit: lsp_types::WorkspaceEdit,
+    edit_count: usize,
+    file_count: usize,
+) {
+    let request = match server_notifier.send_request::<lsp_types::request::ApplyWorkspaceEdit>(
+        lsp_types::ApplyWorkspaceEditParams {
+            label: Some("Rewrite Rust/C++ accessors for Slint rename".into()),
+            edit,
+        },
+    ) {
+        Ok(fut) => fut,
+        Err(e) => {
+            show_warning(
+                server_notifier,
+                format!("Failed to send host-language WorkspaceEdit: {e}."),
+            );
+            return;
+        }
+    };
+    match request.await {
+        Ok(response) if response.applied => {
+            show_info(
+                server_notifier,
+                format!(
+                    "Rewrote {edit_count} Rust/C++ accessor call site{} across {file_count} file{}.",
+                    if edit_count == 1 { "" } else { "s" },
+                    if file_count == 1 { "" } else { "s" },
+                ),
+            );
+        }
+        Ok(_) => {
+            show_warning(
+                server_notifier,
+                "Client refused to apply the host-language rename WorkspaceEdit.",
+            );
+        }
+        Err(e) => {
+            show_warning(
+                server_notifier,
+                format!("Failed to apply host-language WorkspaceEdit: {e}."),
+            );
+        }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn show_info(server_notifier: &crate::ServerNotifier, message: impl Into<String>) {
+    let _ = server_notifier.send_notification::<lsp_types::notification::ShowMessage>(
+        lsp_types::ShowMessageParams { typ: lsp_types::MessageType::INFO, message: message.into() },
+    );
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn show_warning(server_notifier: &crate::ServerNotifier, message: impl Into<String>) {
+    let _ = server_notifier.send_notification::<lsp_types::notification::ShowMessage>(
+        lsp_types::ShowMessageParams {
+            typ: lsp_types::MessageType::WARNING,
+            message: message.into(),
+        },
+    );
 }
 
 pub(crate) async fn load_document_impl(
@@ -1274,33 +1412,6 @@ fn get_code_actions(
                 &component_name,
             )))
         }
-    }
-
-    // CodeAction: "Rename property and its Rust/C++ accessors..." -- offered
-    // on public property/callback/function identifiers in a .slint file. The
-    // editor extension is responsible for prompting the user for the new
-    // name; see RENAME_WITH_HOST_ACCESSORS_EDITOR_COMMAND.
-    #[cfg(not(target_arch = "wasm32"))]
-    if token.kind() == SyntaxKind::Identifier
-        && let Some(decl) = common::rename_component::find_declaration_node(document_cache, &token)
-        && let Some(info) = decl.host_language_classification(document_cache)
-    {
-        let position = util::token_to_lsp_range(&token, document_cache.format).start;
-        let label = match info.kind {
-            i_slint_compiler::generator::accessor_names::DeclarationKind::Property => "property",
-            i_slint_compiler::generator::accessor_names::DeclarationKind::Callback => "callback",
-            i_slint_compiler::generator::accessor_names::DeclarationKind::Function => "function",
-        };
-        result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-            title: format!("Rename {label} and its Rust/C++ accessors..."),
-            kind: Some(lsp_types::CodeActionKind::REFACTOR_REWRITE),
-            command: Some(Command::new(
-                format!("Rename {label} and its Rust/C++ accessors..."),
-                RENAME_WITH_HOST_ACCESSORS_EDITOR_COMMAND.into(),
-                Some(vec![uri.as_str().into(), serde_json::to_value(position).unwrap()]),
-            )),
-            ..Default::default()
-        }));
     }
 
     if token.kind() == SyntaxKind::StringLiteral && node.kind() == SyntaxKind::Expression {

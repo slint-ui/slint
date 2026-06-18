@@ -1,21 +1,22 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore absolutized bget countñ xéget xget xñget xxget
+// cSpell: ignore bget countñ xéget xget xñget xxget
 
 //! Scan the workspace for Rust/C++ call sites of Slint-generated property,
 //! callback, and function accessors so that a Slint rename can extend its
 //! `WorkspaceEdit` with edits in host-language source files.
 //!
-//! The scanner is intentionally simple: byte-level word-boundary search for a
-//! small set of accessor names derived from
-//! [`i_slint_compiler::generator::accessor_names`]. It does not parse Rust or
-//! C++. Cross-component accessor collisions are possible by construction; see
-//! the design in the PR for #11841 for the mitigations (config opt-in,
-//! preview-before-apply in v2).
+//! The scanner tokenizes identifiers using Unicode XID_Start / XID_Continue
+//! (via [`icu_properties`]) and matches whole identifiers against a small
+//! lookup table derived from [`i_slint_compiler::generator::accessor_names`].
+//! It does not parse Rust or C++. Cross-component accessor collisions are
+//! possible by construction; the LSP shows the proposed edits via
+//! `workspace/applyEdit` so the user reviews them before they land.
 
 #![cfg(not(target_arch = "wasm32"))]
 
+use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -28,11 +29,18 @@ use super::SingleTextEdit;
 /// Host-language file extensions the scanner considers.
 const HOST_FILE_EXTENSIONS: &[&str] = &["rs", "cpp", "cc", "cxx", "h", "hpp", "hh"];
 
-/// Directory names skipped during the walk.
+// TODO: `.gitignore` semantics would be the right way to pick which files to
+// scan -- it already encodes what is and isn't source. The Language Server
+// Protocol has no server-side query for the client's set of "active" or
+// "ignored" files; the hard-coded skip list below is the closest
+// approximation we can ship today. Replace this when an LSP extension or
+// client capability for that exists, or switch to the `ignore` crate if we
+// accept its filesystem-walk cost.
 const SKIP_DIRS: &[&str] = &["target", "build", "out", "dist", "node_modules", ".git"];
 
-/// Hard limits on scan work. `textDocument/rename` is synchronous in the LSP;
-/// an unbounded scan would stall the server.
+/// Hard limits on scan work. The host-language follow-up runs in a
+/// spawned task, but we still bound it so a misconfigured workspace can't
+/// hold the LSP open indefinitely.
 #[derive(Debug, Clone, Copy)]
 pub struct ScanBounds {
     /// Maximum number of host-language files inspected.
@@ -42,36 +50,34 @@ pub struct ScanBounds {
     pub max_file_bytes: u64,
 }
 
-impl Default for ScanBounds {
-    fn default() -> Self {
-        Self { max_files: 5_000, max_file_bytes: 1 << 20 /* 1 MiB */ }
-    }
+impl ScanBounds {
+    pub const DEFAULT: Self = Self { max_files: 5_000, max_file_bytes: 1 << 20 /* 1 MiB */ };
 }
 
-/// Failure modes for the scanner. The Rename handler in `language.rs`
-/// soft-degrades these to a `tracing::warn!` and applies only the
-/// `.slint`-side edits, so callers should treat them as advisory rather
-/// than fatal. The error variants exist so the warning can be specific.
+/// Failure modes for the scanner. The Rename follow-up in `language.rs`
+/// soft-degrades these to a `tracing::warn!` and a `window/showMessage`,
+/// so callers should treat them as advisory rather than fatal.
 #[derive(Debug)]
 pub enum HostLanguageScanError {
-    /// The renamed `.slint` file is not under any configured workspace
-    /// folder, so there is no well-defined scan root.
-    OutsideWorkspace,
-    /// The scan would inspect more than `bounds.max_files` files.
+    /// The client did not report any open workspace folders, so the
+    /// scanner has nowhere to walk.
+    NoWorkspaceFolders,
+    /// The scan would inspect more than `bounds.max_files` files across all
+    /// configured workspace folders combined.
     TooManyFiles { limit: usize },
 }
 
 impl std::fmt::Display for HostLanguageScanError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::OutsideWorkspace => f.write_str(
-                "Cannot scan host-language files: the renamed .slint file is \
-                 not under any workspace folder",
+            Self::NoWorkspaceFolders => f.write_str(
+                "Cannot scan host-language files: the client did not report \
+                 any open workspace folders",
             ),
             Self::TooManyFiles { limit } => write!(
                 f,
                 "Cannot scan host-language files: workspace exceeds {limit} files. \
-                 Narrow the workspace folder.",
+                 Narrow the workspace folders.",
             ),
         }
     }
@@ -79,29 +85,41 @@ impl std::fmt::Display for HostLanguageScanError {
 
 impl std::error::Error for HostLanguageScanError {}
 
-/// Walk the workspace folder containing `renamed_source` for `.rs`/`.cpp`/...
-/// files, replace any occurrence of the old accessor names derived from
-/// `(kind, old_name)` with the corresponding new accessor names derived from
-/// `(kind, new_name)`, and return the resulting per-file edits.
+/// Walk every configured workspace folder for `.rs`/`.cpp`/... files, replace
+/// any occurrence of the old accessor names derived from `(kind, old_name)`
+/// with the corresponding new accessor names derived from `(kind, new_name)`,
+/// and return the resulting per-file edits.
 ///
-/// The returned edits can be merged with the `.slint`-only edits via
-/// [`super::create_workspace_edit_from_single_text_edits`].
+/// Each [`WorkspaceFolder`] is walked independently; per the LSP spec, an
+/// editor can attach unrelated directories as separate workspace folders to
+/// the same server, and call sites for one folder's `.slint` declarations may
+/// live in another folder.
 pub fn scan_host_language_accessors(
     workspace_folders: &[WorkspaceFolder],
-    renamed_source: &Path,
     kind: DeclarationKind,
     old_name: &str,
     new_name: &str,
     format: ByteFormat,
     bounds: ScanBounds,
 ) -> Result<Vec<SingleTextEdit>, HostLanguageScanError> {
-    let scan_root = workspace_folder_for(workspace_folders, renamed_source)
-        .ok_or(HostLanguageScanError::OutsideWorkspace)?;
+    if workspace_folders.is_empty() {
+        return Err(HostLanguageScanError::NoWorkspaceFolders);
+    }
 
-    let accessors = accessor_pairs(kind, old_name, new_name);
+    let pairs = accessor_pairs(kind, old_name, new_name);
+    let accessors: HashMap<&str, &str> =
+        pairs.iter().map(|(o, n)| (o.as_str(), n.as_str())).collect();
 
     let mut files = Vec::new();
-    collect_files(&scan_root, &mut files, bounds.max_files)?;
+    for folder in workspace_folders {
+        let Ok(folder_path) = folder.uri.to_file_path() else { continue };
+        collect_files(&folder_path, &mut files, bounds.max_files)?;
+    }
+    // Distinct workspace folders can share files (one folder being an
+    // ancestor of another, or symlinked overlap). Dedup so we don't emit
+    // duplicate TextEdits per file.
+    files.sort();
+    files.dedup();
 
     let mut edits = Vec::new();
     for path in files {
@@ -117,7 +135,7 @@ pub fn scan_host_language_accessors(
             Err(_) => continue, // non-UTF-8 or unreadable; skip
         };
 
-        let file_edits = scan_file_contents(&contents, &accessors);
+        let file_edits = search_replace_file_contents(&contents, &accessors);
         if file_edits.is_empty() {
             continue;
         }
@@ -141,16 +159,13 @@ pub fn scan_host_language_accessors(
     Ok(edits)
 }
 
-/// Build the set of workspace folders the scanner should consider.
-///
-/// Prefers `init_param.workspace_folders` when the client sent any; falls
-/// back to the (LSP-deprecated but still common) `root_uri` / `root_path` so
-/// editors that initialize the server in single-folder mode (older VS Code,
-/// many Neovim setups, Helix) still get host-language scanning.
+/// Build the set of workspace folders the scanner should consider, falling
+/// back through the LSP-deprecated-but-widely-used `root_uri` / `root_path`
+/// so editors that initialize the server in single-folder mode still get
+/// host-language scanning.
 ///
 /// Returns an empty Vec if no folder could be derived; the scanner will then
-/// fail with `OutsideWorkspace` (which the handler soft-degrades to a
-/// warning).
+/// fail with `NoWorkspaceFolders`.
 #[allow(deprecated)] // root_uri / root_path are deprecated but widely used
 pub fn resolve_workspace_folders(init_param: &InitializeParams) -> Vec<WorkspaceFolder> {
     if let Some(folders) = init_param.workspace_folders.as_ref()
@@ -169,38 +184,35 @@ pub fn resolve_workspace_folders(init_param: &InitializeParams) -> Vec<Workspace
     Vec::new()
 }
 
-/// Most-specific workspace folder whose URI's filesystem path is an ancestor
-/// of `path`. Returns `None` if no folder qualifies.
+/// Ask the client for its current workspace folders via the
+/// `workspace/workspaceFolders` request, falling back to the cached
+/// [`InitializeParams`] when the client doesn't advertise support.
 ///
-/// Performs the prefix comparison on absolutized (but not canonicalized)
-/// paths so that:
-/// - unsaved/untitled documents whose path doesn't exist on disk still match
-///   their containing workspace folder;
-/// - a `.slint` reached via a symlink isn't excluded because canonicalize
-///   resolves it outside the workspace.
-///
-/// The trade-off is that a symlink-based "outside-the-workspace" file path
-/// can falsely match its symlink parent; that's a milder failure than
-/// silently dropping every rename for symlinked files.
-fn workspace_folder_for(folders: &[WorkspaceFolder], path: &Path) -> Option<PathBuf> {
-    let target = absolute_path(path);
-    folders
-        .iter()
-        .filter_map(|f| f.uri.to_file_path().ok())
-        .map(|p| absolute_path(&p))
-        .filter(|folder| target.starts_with(folder))
-        .max_by_key(|folder| folder.components().count())
-}
-
-/// Make a path absolute without touching the filesystem. Falls back to the
-/// path as-given if joining with the current dir would fail (which it
-/// effectively can't for our inputs).
-fn absolute_path(path: &Path) -> PathBuf {
-    if path.is_absolute() {
-        path.to_path_buf()
-    } else {
-        std::env::current_dir().map(|cwd| cwd.join(path)).unwrap_or_else(|_| path.to_path_buf())
+/// Folders can change after initialization (the user opens or closes folders
+/// in their editor); using the cached `init_param.workspace_folders` would
+/// scan a stale set and either miss files or scan files no longer in the
+/// workspace. Clients that don't advertise the capability never send change
+/// notifications either, so the InitializeParams snapshot is the best we can
+/// do for them.
+pub async fn current_workspace_folders(
+    server_notifier: &crate::ServerNotifier,
+    init_param: &InitializeParams,
+) -> Vec<WorkspaceFolder> {
+    let supports_query = init_param
+        .capabilities
+        .workspace
+        .as_ref()
+        .and_then(|w| w.workspace_folders)
+        .unwrap_or(false);
+    if supports_query
+        && let Ok(fut) =
+            server_notifier.send_request::<lsp_types::request::WorkspaceFoldersRequest>(())
+        && let Ok(Some(folders)) = fut.await
+        && !folders.is_empty()
+    {
+        return folders;
     }
+    resolve_workspace_folders(init_param)
 }
 
 /// Compute the `(old, new)` accessor name pairs for the rename. Rust and C++
@@ -218,13 +230,16 @@ fn accessor_pairs(kind: DeclarationKind, old_name: &str, new_name: &str) -> Vec<
         .collect()
 }
 
-/// Recursive walk of `root`, appending host-language file paths into `out`.
-/// Returns `TooManyFiles` if `max_files` is exceeded. Unreadable directories
-/// are silently skipped (don't fail the whole rename on a permission error
-/// in some sibling folder).
+/// Iterative breadth-first walk of `root`, appending host-language file paths
+/// into `out`. Returns `TooManyFiles` if `max_files` is exceeded.
+///
+/// Iterative rather than recursive so we don't burn stack on arbitrarily deep
+/// directory trees, and so a future change can fan the queue out to multiple
+/// worker tasks. Unreadable directories are silently skipped (don't fail the
+/// whole rename on a permission error in some sibling folder).
 ///
 /// Does not follow symlinks: an `entry.file_type()` whose `is_symlink()` is
-/// true is skipped entirely. This avoids unbounded recursion through symlink
+/// true is skipped entirely. This avoids unbounded traversal through symlink
 /// cycles (vendored deps, sibling-crate links) at the cost of not scanning
 /// symlinked source trees -- users who want those scanned should add the
 /// real directory as a workspace folder.
@@ -233,129 +248,138 @@ fn collect_files(
     out: &mut Vec<PathBuf>,
     max_files: usize,
 ) -> Result<(), HostLanguageScanError> {
-    let entries = match std::fs::read_dir(root) {
-        Ok(e) => e,
-        Err(e) => {
-            tracing::debug!("host-language scan: skipping unreadable dir {}: {e}", root.display());
-            return Ok(());
-        }
-    };
-    for entry in entries {
-        let entry = match entry {
+    let mut queue: VecDeque<PathBuf> = VecDeque::new();
+    queue.push_back(root.to_path_buf());
+    while let Some(dir) = queue.pop_front() {
+        let entries = match std::fs::read_dir(&dir) {
             Ok(e) => e,
             Err(e) => {
                 tracing::debug!(
-                    "host-language scan: skipping unreadable entry under {}: {e}",
-                    root.display()
+                    "host-language scan: skipping unreadable dir {}: {e}",
+                    dir.display()
                 );
                 continue;
             }
         };
-        let Ok(file_type) = entry.file_type() else { continue };
-        if file_type.is_symlink() {
-            continue;
-        }
-        let path = entry.path();
-        if file_type.is_dir() {
-            if let Some(name) = path.file_name().and_then(|n| n.to_str())
-                && SKIP_DIRS.contains(&name)
-            {
+        for entry in entries {
+            let entry = match entry {
+                Ok(e) => e,
+                Err(e) => {
+                    tracing::debug!(
+                        "host-language scan: skipping unreadable entry under {}: {e}",
+                        dir.display()
+                    );
+                    continue;
+                }
+            };
+            let Ok(file_type) = entry.file_type() else { continue };
+            if file_type.is_symlink() {
                 continue;
             }
-            collect_files(&path, out, max_files)?;
-        } else if file_type.is_file() && has_host_extension(&path) {
-            if out.len() >= max_files {
-                return Err(HostLanguageScanError::TooManyFiles { limit: max_files });
+            let path = entry.path();
+            if file_type.is_dir() {
+                if let Some(name) = path.file_name().and_then(|n| n.to_str())
+                    && SKIP_DIRS.contains(&name)
+                {
+                    continue;
+                }
+                queue.push_back(path);
+            } else if file_type.is_file() && has_host_extension(&path) {
+                if out.len() >= max_files {
+                    return Err(HostLanguageScanError::TooManyFiles { limit: max_files });
+                }
+                out.push(path);
             }
-            out.push(path);
         }
     }
     Ok(())
 }
 
-/// Case-insensitive check against [`HOST_FILE_EXTENSIONS`].
 fn has_host_extension(path: &Path) -> bool {
     let Some(ext) = path.extension().and_then(|e| e.to_str()) else { return false };
+    // Case-insensitive: Windows filesystems are case-insensitive by default
+    // and projects in the wild ship files like `Window.HPP`.
     HOST_FILE_EXTENSIONS.iter().any(|known| known.eq_ignore_ascii_case(ext))
 }
 
-/// Find every word-boundary-aligned occurrence of any old accessor name in
-/// `contents`, paired with the replacement text.
+/// Tokenize `contents` into Unicode identifiers and emit a replacement for
+/// every identifier whose text matches a key in `accessors`.
 ///
 /// This is a flat textual scan with no awareness of comments, string
 /// literals, raw strings, lifetimes, or any other language construct. The
-/// rename is *textual by design*: the feature is reached through a CodeAction
-/// that produces a `WorkspaceEdit` shown in the editor's rename-preview UI,
-/// and the user reviews proposed edits before applying. Selectively skipping
-/// some contexts (comments, strings) while still rewriting unrelated types
-/// that happen to share the accessor name was inconsistent enough to mislead
-/// users about what the tool actually does; the simpler flat scan is honest
-/// about the trade-off.
+/// rename is *textual by design*: the LSP shows the proposed edits via
+/// `workspace/applyEdit` and the user reviews them before applying.
+/// Selectively skipping some contexts (comments, strings) while still
+/// rewriting unrelated types that happen to share the accessor name was
+/// inconsistent enough to mislead users about what the tool actually does;
+/// the simpler flat scan is honest about the trade-off.
 ///
-/// Word boundaries treat any non-ASCII byte as if it extended an identifier,
-/// so a UTF-8 continuation byte adjacent to a match defeats the boundary --
-/// `xñget_count` is correctly rejected.
+/// Identifiers are recognized via Unicode `XID_Start` / `XID_Continue`
+/// (matching Rust's identifier rules and the wider modern-language family),
+/// so `xñget_count` becomes a single identifier and equality-rejects against
+/// `get_count` rather than producing a partial match.
 ///
 /// Optional leading `r#` (raw identifier syntax in Rust) is included in the
 /// matched range so that the replacement drops it; the accessor prefixes
 /// (`get_`, `set_`, etc.) make the result never a Rust keyword.
-fn scan_file_contents(
+fn search_replace_file_contents(
     contents: &str,
-    accessors: &[(String, String)],
+    accessors: &HashMap<&str, &str>,
 ) -> Vec<(std::ops::Range<usize>, String)> {
-    let bytes = contents.as_bytes();
+    let xid_start = icu_properties::CodePointSetData::new::<icu_properties::props::XidStart>();
+    let xid_continue =
+        icu_properties::CodePointSetData::new::<icu_properties::props::XidContinue>();
+
     let mut matches = Vec::new();
-    let mut i = 0;
-    while i < bytes.len() {
-        let mut matched_len = 0;
-        for (old, new) in accessors {
-            let needle = old.as_bytes();
-            if bytes[i..].starts_with(needle) {
-                let end = i + needle.len();
-                let after_ok = end == bytes.len() || !extends_identifier(bytes[end]);
-                let (effective_start, before_ok) =
-                    if i >= 2 && bytes[i - 2] == b'r' && bytes[i - 1] == b'#' {
-                        let s = i - 2;
-                        (s, s == 0 || !extends_identifier(bytes[s - 1]))
-                    } else {
-                        (i, i == 0 || !extends_identifier(bytes[i - 1]))
-                    };
-                if before_ok && after_ok {
-                    matches.push((effective_start..end, new.clone()));
-                    matched_len = needle.len();
-                    break;
-                }
+    let mut chars = contents.char_indices().peekable();
+    while let Some(&(start, ch)) = chars.peek() {
+        if !is_identifier_start(ch, xid_start) {
+            chars.next();
+            continue;
+        }
+        // Consume one identifier.
+        let mut end = start + ch.len_utf8();
+        chars.next();
+        while let Some(&(idx, c)) = chars.peek() {
+            if is_identifier_continue(c, xid_continue) {
+                end = idx + c.len_utf8();
+                chars.next();
+            } else {
+                break;
             }
         }
-        if matched_len > 0 {
-            i += matched_len;
+        let Some(&new) = accessors.get(&contents[start..end]) else { continue };
+
+        // If the identifier was written as a Rust raw identifier (`r#name`),
+        // extend the match to include the `r#` so the replacement drops it.
+        // Accessor names always begin with `get_`/`set_`/`invoke_`/`on_` so
+        // they are never Rust keywords; the bare identifier is always legal.
+        // Only treat `r#` as a prefix when it sits at a word boundary (e.g.
+        // not as part of `xr#name`, which is not legal Rust syntax anyway).
+        let effective_start = if start >= 2 && &contents[start - 2..start] == "r#" {
+            let prev_is_boundary = start == 2
+                || !contents[..start - 2]
+                    .chars()
+                    .next_back()
+                    .is_some_and(|c| is_identifier_continue(c, xid_continue));
+            if prev_is_boundary { start - 2 } else { start }
         } else {
-            i += utf8_char_len(bytes, i);
-        }
+            start
+        };
+        matches.push((effective_start..end, new.to_string()));
     }
-    matches.sort_by_key(|(r, _)| r.start);
     matches
 }
 
-/// Returns the length of the UTF-8 code point starting at `bytes[i]`,
-/// or 1 if the byte is invalid UTF-8 (defensive — we already hold a `&str`).
-fn utf8_char_len(bytes: &[u8], i: usize) -> usize {
-    match bytes[i] {
-        0x00..=0x7F => 1,
-        0xC0..=0xDF => 2,
-        0xE0..=0xEF => 3,
-        0xF0..=0xF7 => 4,
-        _ => 1,
-    }
+fn is_identifier_start(ch: char, xid_start: icu_properties::CodePointSetDataBorrowed<'_>) -> bool {
+    ch == '_' || xid_start.contains(ch)
 }
 
-/// True if a byte at a candidate word boundary would prevent the boundary
-/// from being placed there -- i.e. it's an ASCII identifier byte or the
-/// (continuation or leading) byte of a non-ASCII identifier character.
-/// Treating every byte >= 0x80 as identifier-extending is conservative but
-/// safe: it makes matches adjacent to any multi-byte UTF-8 character reject.
-fn extends_identifier(b: u8) -> bool {
-    b.is_ascii_alphanumeric() || b == b'_' || b >= 0x80
+fn is_identifier_continue(
+    ch: char,
+    xid_continue: icu_properties::CodePointSetDataBorrowed<'_>,
+) -> bool {
+    xid_continue.contains(ch)
 }
 
 fn byte_range_to_lsp_range(
@@ -381,15 +405,24 @@ fn byte_range_to_lsp_range(
 mod tests {
     use super::*;
 
-    fn pairs(kind: DeclarationKind, old: &str, new: &str) -> Vec<(String, String)> {
-        accessor_pairs(kind, old, new)
+    /// Build the owned accessor pairs and emit edits in one call -- the
+    /// scanner takes a `HashMap<&str, &str>` borrowing into those pairs.
+    fn scan(
+        contents: &str,
+        kind: DeclarationKind,
+        old: &str,
+        new: &str,
+    ) -> Vec<(std::ops::Range<usize>, String)> {
+        let pairs = accessor_pairs(kind, old, new);
+        let map: HashMap<&str, &str> =
+            pairs.iter().map(|(o, n)| (o.as_str(), n.as_str())).collect();
+        search_replace_file_contents(contents, &map)
     }
 
     #[test]
     fn property_matches_get_and_set() {
         let contents = "fn main() {\n    let v = obj.get_count();\n    obj.set_count(v + 1);\n}\n";
-        let edits =
-            scan_file_contents(contents, &pairs(DeclarationKind::Property, "count", "total"));
+        let edits = scan(contents, DeclarationKind::Property, "count", "total");
         assert_eq!(edits.len(), 2);
         let (range_get, new_get) = &edits[0];
         assert_eq!(&contents[range_get.clone()], "get_count");
@@ -402,8 +435,7 @@ mod tests {
     #[test]
     fn callback_matches_invoke_and_on() {
         let contents = "obj.invoke_clicked(); obj.on_clicked(|| {});";
-        let edits =
-            scan_file_contents(contents, &pairs(DeclarationKind::Callback, "clicked", "pressed"));
+        let edits = scan(contents, DeclarationKind::Callback, "clicked", "pressed");
         assert_eq!(edits.len(), 2);
         let texts: Vec<_> = edits.iter().map(|(r, _)| &contents[r.clone()]).collect();
         assert!(texts.contains(&"invoke_clicked"));
@@ -413,8 +445,7 @@ mod tests {
     #[test]
     fn function_matches_invoke_only() {
         let contents = "obj.invoke_multiply(2);";
-        let edits =
-            scan_file_contents(contents, &pairs(DeclarationKind::Function, "multiply", "double"));
+        let edits = scan(contents, DeclarationKind::Function, "multiply", "double");
         assert_eq!(edits.len(), 1);
         assert_eq!(&contents[edits[0].0.clone()], "invoke_multiply");
     }
@@ -430,31 +461,27 @@ mod tests {
             let msg = "obj.get_count is great";
             obj.get_count();
         "#;
-        let edits =
-            scan_file_contents(contents, &pairs(DeclarationKind::Property, "count", "total"));
+        let edits = scan(contents, DeclarationKind::Property, "count", "total");
         assert_eq!(edits.len(), 3, "all three textual matches should fire, got {edits:?}");
     }
 
     #[test]
     fn non_ascii_char_after_match_defeats_word_boundary() {
-        // Symmetric to non_ascii_char_before_match_defeats_word_boundary --
-        // the byte AFTER the match must also be treated as identifier-
-        // extending when non-ASCII, so `get_countñ` is rejected.
+        // The XID tokenizer treats `ñ` as identifier-continue, so
+        // `get_countñ` is one identifier and equality-rejects against
+        // `get_count`.
         let contents = "let xxget_countñ = 1; obj.get_count();";
-        let edits =
-            scan_file_contents(contents, &pairs(DeclarationKind::Property, "count", "total"));
+        let edits = scan(contents, DeclarationKind::Property, "count", "total");
         assert_eq!(edits.len(), 1, "only the call-site match is valid, got {edits:?}");
         assert_eq!(&contents[edits[0].0.clone()], "get_count");
     }
 
     #[test]
     fn non_ascii_char_before_match_defeats_word_boundary() {
-        // `é` is two bytes (0xC3, 0xA9); the byte before `get_count` is a
-        // continuation byte. Without the non-ASCII guard, the old logic
-        // would accept the match and corrupt the unrelated identifier.
+        // `é` is XID_Continue, so `xéget_count` is one identifier and the
+        // accessor lookup rejects it cleanly.
         let contents = "let xéget_count = 1; obj.get_count();";
-        let edits =
-            scan_file_contents(contents, &pairs(DeclarationKind::Property, "count", "total"));
+        let edits = scan(contents, DeclarationKind::Property, "count", "total");
         assert_eq!(edits.len(), 1, "only the call-site match is valid, got {edits:?}");
         assert_eq!(&contents[edits[0].0.clone()], "get_count");
     }
@@ -462,7 +489,7 @@ mod tests {
     #[test]
     fn raw_identifier_prefix_included_in_match() {
         let contents = "obj.r#get_type();";
-        let edits = scan_file_contents(contents, &pairs(DeclarationKind::Property, "type", "kind"));
+        let edits = scan(contents, DeclarationKind::Property, "type", "kind");
         assert_eq!(edits.len(), 1);
         // The match swallows `r#` so the rewrite is the bare accessor.
         assert_eq!(&contents[edits[0].0.clone()], "r#get_type");
@@ -474,8 +501,7 @@ mod tests {
         // `get_counter` and `bget_count` and `get_count_more` must NOT match the rename of `count`.
         let contents =
             "obj.get_counter(); xget_count(); obj.get_count_more(); let _ = my_get_count_;";
-        let edits =
-            scan_file_contents(contents, &pairs(DeclarationKind::Property, "count", "total"));
+        let edits = scan(contents, DeclarationKind::Property, "count", "total");
         assert!(edits.is_empty(), "matched substrings: {edits:?}");
     }
 
@@ -483,10 +509,7 @@ mod tests {
     fn snake_case_old_name() {
         // Slint source written as kebab-case `my-counter` produces accessor `get_my_counter`.
         let contents = "obj.get_my_counter()";
-        let edits = scan_file_contents(
-            contents,
-            &pairs(DeclarationKind::Property, "my-counter", "my-total"),
-        );
+        let edits = scan(contents, DeclarationKind::Property, "my-counter", "my-total");
         assert_eq!(edits.len(), 1);
         assert_eq!(&contents[edits[0].0.clone()], "get_my_counter");
         assert_eq!(edits[0].1, "get_my_total");
@@ -495,7 +518,7 @@ mod tests {
     #[test]
     fn multiple_call_sites() {
         let contents = "obj.get_x(); other.get_x(); a.get_x() + b.get_x();";
-        let edits = scan_file_contents(contents, &pairs(DeclarationKind::Property, "x", "y"));
+        let edits = scan(contents, DeclarationKind::Property, "x", "y");
         assert_eq!(edits.len(), 4);
     }
 
@@ -542,12 +565,11 @@ mod tests {
 
         let edits = scan_host_language_accessors(
             &folders,
-            &root.join("ui").join("app.slint"),
             DeclarationKind::Property,
             "count",
             "total",
             ByteFormat::Utf16,
-            ScanBounds::default(),
+            ScanBounds::DEFAULT,
         )
         .unwrap();
         assert_eq!(edits.len(), 2);
@@ -600,44 +622,52 @@ mod tests {
     }
 
     #[test]
-    fn unsaved_buffer_path_still_resolves_to_workspace_folder() {
-        // Path doesn't exist on disk (simulating an untitled buffer or an
-        // unsaved new file) but is still under a configured workspace folder.
-        // Pre-fix this returned OutsideWorkspace via canonicalize().
-        let tmp = tempdir();
-        let folders = vec![WorkspaceFolder {
-            uri: Url::from_file_path(tmp.path()).unwrap(),
-            name: "ws".into(),
-        }];
-        let unsaved = tmp.path().join("never-saved.slint");
-        assert!(!unsaved.exists());
-        let folder = workspace_folder_for(&folders, &unsaved).expect("should match");
-        assert_eq!(folder, tmp.path().to_path_buf());
-    }
-
-    #[test]
-    fn outside_workspace_fails_closed() {
-        let tmp_workspace = tempdir();
-        let tmp_outside = tempdir();
-        let folders = vec![WorkspaceFolder {
-            uri: Url::from_file_path(tmp_workspace.path()).unwrap(),
-            name: "test".into(),
-        }];
-        std::fs::write(tmp_outside.path().join("orphan.slint"), "// fake").unwrap();
+    fn empty_workspace_fails_closed() {
         let result = scan_host_language_accessors(
-            &folders,
-            &tmp_outside.path().join("orphan.slint"),
+            &[],
             DeclarationKind::Property,
             "x",
             "y",
             ByteFormat::Utf16,
-            ScanBounds::default(),
+            ScanBounds::DEFAULT,
         );
         match result {
-            Err(HostLanguageScanError::OutsideWorkspace) => {}
-            Err(other) => panic!("expected OutsideWorkspace, got {other:?}"),
-            Ok(_) => panic!("expected OutsideWorkspace error, got Ok"),
+            Err(HostLanguageScanError::NoWorkspaceFolders) => {}
+            Err(other) => panic!("expected NoWorkspaceFolders, got {other:?}"),
+            Ok(_) => panic!("expected NoWorkspaceFolders error, got Ok"),
         }
+    }
+
+    #[test]
+    fn multiple_workspace_folders_scan_independently() {
+        let folder_a = tempdir();
+        let folder_b = tempdir();
+        std::fs::write(folder_a.path().join("a.rs"), "fn f() { x.get_count(); }\n").unwrap();
+        std::fs::write(folder_b.path().join("b.rs"), "fn g() { y.set_count(0); }\n").unwrap();
+        let folders = vec![
+            WorkspaceFolder {
+                uri: Url::from_file_path(folder_a.path()).unwrap(),
+                name: "a".into(),
+            },
+            WorkspaceFolder {
+                uri: Url::from_file_path(folder_b.path()).unwrap(),
+                name: "b".into(),
+            },
+        ];
+
+        let edits = scan_host_language_accessors(
+            &folders,
+            DeclarationKind::Property,
+            "count",
+            "total",
+            ByteFormat::Utf16,
+            ScanBounds::DEFAULT,
+        )
+        .unwrap();
+
+        // Both folders contributed one edit.
+        let urls: std::collections::HashSet<_> = edits.iter().map(|e| e.url.clone()).collect();
+        assert_eq!(urls.len(), 2);
     }
 
     #[test]

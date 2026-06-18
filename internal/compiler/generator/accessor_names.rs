@@ -98,62 +98,34 @@ mod tests {
     use super::*;
 
     #[test]
-    fn property_accessors() {
-        assert_eq!(rust_accessor_name("foo", AccessorKind::Getter), "get_foo");
-        assert_eq!(rust_accessor_name("foo", AccessorKind::Setter), "set_foo");
-        assert_eq!(cpp_accessor_name("foo", AccessorKind::Getter), "get_foo");
-        assert_eq!(cpp_accessor_name("foo", AccessorKind::Setter), "set_foo");
-    }
-
-    #[test]
-    fn callback_accessors() {
-        assert_eq!(rust_accessor_name("clicked", AccessorKind::Invoker), "invoke_clicked");
-        assert_eq!(rust_accessor_name("clicked", AccessorKind::Handler), "on_clicked");
-        assert_eq!(cpp_accessor_name("clicked", AccessorKind::Invoker), "invoke_clicked");
-        assert_eq!(cpp_accessor_name("clicked", AccessorKind::Handler), "on_clicked");
-    }
-
-    #[test]
-    fn function_accessors() {
-        assert_eq!(rust_accessor_name("do-it", AccessorKind::Invoker), "invoke_do_it");
-        assert_eq!(cpp_accessor_name("do-it", AccessorKind::Invoker), "invoke_do_it");
-    }
-
-    #[test]
-    fn kebab_case_becomes_snake_case() {
-        assert_eq!(rust_accessor_name("foo-bar", AccessorKind::Getter), "get_foo_bar");
-        assert_eq!(
-            rust_accessor_name("multi-word-name", AccessorKind::Setter),
-            "set_multi_word_name",
-        );
-    }
-
-    #[test]
-    fn snake_case_passes_through() {
-        assert_eq!(rust_accessor_name("foo_bar", AccessorKind::Getter), "get_foo_bar");
-    }
-
-    #[test]
-    fn prefix_neutralizes_language_keywords() {
-        // `type` is a Rust keyword and `class` is a C++ keyword; the prefix
-        // turns each into a plain identifier, so no escaping is needed here.
-        assert_eq!(rust_accessor_name("type", AccessorKind::Getter), "get_type");
-        assert_eq!(rust_accessor_name("if", AccessorKind::Handler), "on_if");
-        assert_eq!(cpp_accessor_name("class", AccessorKind::Getter), "get_class");
-        assert_eq!(cpp_accessor_name("delete", AccessorKind::Invoker), "invoke_delete");
-    }
-
-    #[test]
-    fn declaration_kind_accessor_sets() {
-        assert_eq!(
-            DeclarationKind::Property.accessor_kinds(),
-            &[AccessorKind::Getter, AccessorKind::Setter],
-        );
-        assert_eq!(
-            DeclarationKind::Callback.accessor_kinds(),
-            &[AccessorKind::Invoker, AccessorKind::Handler],
-        );
-        assert_eq!(DeclarationKind::Function.accessor_kinds(), &[AccessorKind::Invoker]);
+    fn accessor_name_mapping() {
+        // (input_name, accessor_kind, expected_accessor)
+        // Rust and C++ produce identical output today, so each row is asserted
+        // against both helpers in one loop. Adding a case anywhere -- new
+        // kebab-case form, new keyword collision, new whitespace edge case --
+        // is a single row here, not two parallel asserts.
+        const CASES: &[(&str, AccessorKind, &str)] = &[
+            // Bare snake-case / single-word inputs.
+            ("foo", AccessorKind::Getter, "get_foo"),
+            ("foo", AccessorKind::Setter, "set_foo"),
+            ("clicked", AccessorKind::Invoker, "invoke_clicked"),
+            ("clicked", AccessorKind::Handler, "on_clicked"),
+            ("foo_bar", AccessorKind::Getter, "get_foo_bar"),
+            // Kebab-case becomes snake-case.
+            ("foo-bar", AccessorKind::Getter, "get_foo_bar"),
+            ("multi-word-name", AccessorKind::Setter, "set_multi_word_name"),
+            ("do-it", AccessorKind::Invoker, "invoke_do_it"),
+            // The accessor prefix neutralizes language keywords on both sides,
+            // so neither backend needs an escape pass.
+            ("type", AccessorKind::Getter, "get_type"),
+            ("if", AccessorKind::Handler, "on_if"),
+            ("class", AccessorKind::Getter, "get_class"),
+            ("delete", AccessorKind::Invoker, "invoke_delete"),
+        ];
+        for &(name, kind, expected) in CASES {
+            assert_eq!(rust_accessor_name(name, kind), expected, "rust: ({name:?}, {kind:?})");
+            assert_eq!(cpp_accessor_name(name, kind), expected, "cpp: ({name:?}, {kind:?})");
+        }
     }
 
     #[test]
@@ -164,5 +136,17 @@ mod tests {
             rust_accessor_name("foo-bar", AccessorKind::Getter),
             rust_accessor_name("foo_bar", AccessorKind::Getter),
         );
+    }
+
+    #[test]
+    fn declaration_kind_accessor_sets() {
+        const CASES: &[(DeclarationKind, &[AccessorKind])] = &[
+            (DeclarationKind::Property, &[AccessorKind::Getter, AccessorKind::Setter]),
+            (DeclarationKind::Callback, &[AccessorKind::Invoker, AccessorKind::Handler]),
+            (DeclarationKind::Function, &[AccessorKind::Invoker]),
+        ];
+        for &(kind, expected) in CASES {
+            assert_eq!(kind.accessor_kinds(), expected, "{kind:?}");
+        }
     }
 }
