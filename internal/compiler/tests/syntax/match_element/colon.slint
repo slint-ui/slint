@@ -23,8 +23,8 @@ export component Baz {
     match foo {
         0: Rectangle { }
         1: Rectangle { }
-        else Rectangle { }
-//           >       <error{Expected ':' after else case expression}
+        * Rectangle { }
+//        >       <error{Expected ':' after '*'}
     }
 }
 
@@ -42,7 +42,7 @@ export component FooBar {
     in-out property<int> foo: 1;
     match foo {
         1: Rectangle { }
-        else => Rectangle { }
-//           ><error{Expected ':' after else case expression}
+        * => Rectangle { }
+//        ><error{Expected ':' after '*'}
     }
 }

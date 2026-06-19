@@ -230,7 +230,7 @@ fn parse_if_element(p: &mut impl Parser) {
 /// ```test,MatchElement
 /// match (foo) { one_case: Elem { } }
 /// match foo { one_case: Elem { } another_case: Elem { } }
-/// match (foo) { one_case: Elem { } another_case: Elem { } else: Elem { } }
+/// match (foo) { one_case: Elem { } another_case: Elem { } *: Elem { } }
 /// ```
 fn parse_match_element(p: &mut impl Parser) {
     debug_assert_eq!(p.peek().as_str(), "match");
@@ -238,22 +238,25 @@ fn parse_match_element(p: &mut impl Parser) {
     p.expect(SyntaxKind::Identifier); // "match"
     parse_expression(&mut *p);
     if !p.test(SyntaxKind::LBrace) {
-        p.error("Expected '{' to start match cases");
+        p.error("Expected '{' to start cases");
     }
-    if p.peek().as_str() == "else" {
-        p.error("Expected at least one match case before else case");
-        parse_match_case(&mut *p);
-        p.test(SyntaxKind::RBrace);
+    if p.peek().kind() == SyntaxKind::Star {
+        p.error("Expected at least one case before wildcard case");
+        {
+            p.test(SyntaxKind::Star);
+            p.test(SyntaxKind::Colon);
+            let mut p = p.start_node(SyntaxKind::MatchCase);
+            drop(p.start_node(SyntaxKind::Expression));
+            parse_sub_element(&mut *p);
+            p.test(SyntaxKind::RBrace);
+        }
         return;
     }
-    while p.peek().kind() != SyntaxKind::RBrace
-        && p.peek().as_str() != "else"
-        && p.peek().kind() != SyntaxKind::Eof
-    {
+    while ![SyntaxKind::RBrace, SyntaxKind::Star, SyntaxKind::Eof].contains(&p.peek().kind()) {
         parse_match_case(&mut *p);
     }
-    if p.peek().as_str() == "else" {
-        else_match_case(&mut *p);
+    if p.peek().kind() == SyntaxKind::Star {
+        parse_wildcard_case(&mut *p);
     }
     p.expect(SyntaxKind::RBrace);
 }
@@ -276,15 +279,15 @@ fn parse_match_case(p: &mut impl Parser) {
 }
 
 #[cfg_attr(test, parser_test)]
-/// ```test,ElseMatchCase
-/// else: Elem { }
+/// ```test,WildcardMatchCase
+/// *: Elem { }
 /// ```
-fn else_match_case(p: &mut impl Parser) {
-    debug_assert_eq!(p.peek().as_str(), "else");
-    let mut p = p.start_node(SyntaxKind::ElseMatchCase);
-    p.expect(SyntaxKind::Identifier); // "else"
+fn parse_wildcard_case(p: &mut impl Parser) {
+    debug_assert_eq!(p.peek().kind(), SyntaxKind::Star);
+    let mut p = p.start_node(SyntaxKind::WildcardMatchCase);
+    p.expect(SyntaxKind::Star);
     if !p.test(SyntaxKind::Colon) {
-        p.error("Expected ':' after else case expression");
+        p.error("Expected ':' after '*'");
         if p.peek().kind() != SyntaxKind::Identifier {
             p.consume();
         }

@@ -2118,7 +2118,7 @@ impl Element {
             e.borrow_mut().repeated = Some(rei);
             cases.push(e);
         }
-        if let Some(else_case) = node.ElseMatchCase() {
+        if let Some(wildcard) = node.WildcardMatchCase() {
             let case_exprs: Vec<_> = node.MatchCase().collect();
             let mut condition = Expression::BinaryExpression {
                 lhs: Box::new(Expression::Uncompiled(expr.clone().into())),
@@ -2144,7 +2144,7 @@ impl Element {
                 is_listview: None,
             };
             let e = Element::from_sub_element_node(
-                else_case.SubElement(),
+                wildcard.SubElement(),
                 parent_type.clone(),
                 component_child_insertion_point,
                 is_in_legacy_component,
