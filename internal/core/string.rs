@@ -166,8 +166,8 @@ impl<'de> serde::Deserialize<'de> for SharedString {
     where
         D: serde::Deserializer<'de>,
     {
-        let string: &str = serde::Deserialize::deserialize(deserializer)?;
-        Ok(SharedString::from(string))
+        let string: std::borrow::Cow<str> = serde::Deserialize::deserialize(deserializer)?;
+        Ok(SharedString::from(string.as_ref()))
     }
 }
 
@@ -770,6 +770,15 @@ fn test_serialize_deserialize_sharedstring() {
     let v = SharedString::from("data");
     let serialized = serde_json::to_string(&v).unwrap();
     let deserialized: SharedString = serde_json::from_str(&serialized).unwrap();
+    assert_eq!(v, deserialized);
+}
+
+#[cfg(feature = "serde")]
+#[test]
+fn test_serialize_deserialize_sharedstring_from_reader() {
+    let v = SharedString::from("data");
+    let serialized = serde_json::to_string(&v).unwrap();
+    let deserialized: SharedString = serde_json::from_reader(serialized.as_bytes()).unwrap();
     assert_eq!(v, deserialized);
 }
 
