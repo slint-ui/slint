@@ -120,6 +120,18 @@ component TextSizePicker inherits Rectangle {
     property <length> track-y: 26px;
     property <float> selected-progress: root.selected-index / 5.0;
 
+    function index-at(pointer-x: length) -> int {
+        let progress = ((pointer-x - root.track-left) / root.track-width).clamp(0.0, 1.0);
+        return (progress * 5.0).round();
+    }
+
+    function select-at(pointer-x: length) {
+        let index = root.index-at(pointer-x);
+        if index != root.selected-index {
+            root.selected(index);
+        }
+    }
+
     Text {
         x: 0px;
         y: 14px;
@@ -161,17 +173,6 @@ component TextSizePicker inherits Rectangle {
         border-width: 2px;
         border-color: active ? StudioTheme.accent-strong : StudioTheme.border;
         background: active ? StudioTheme.panel-bg : StudioTheme.panel-subtle;
-
-        TouchArea {
-            x: -7px;
-            y: -10px;
-            width: 28px;
-            height: 34px;
-            mouse-cursor: pointer;
-            clicked => {
-                root.selected(step);
-            }
-        }
     }
 
     Rectangle {
@@ -186,6 +187,28 @@ component TextSizePicker inherits Rectangle {
         drop-shadow-blur: 10px;
         drop-shadow-offset-y: 3px;
         drop-shadow-color: StudioTheme.dark ? #00000055 : #0d99ff35;
+    }
+
+    TouchArea {
+        x: root.track-left - 14px;
+        y: root.track-y - 16px;
+        width: root.track-width + 28px;
+        height: 40px;
+        mouse-cursor: pointer;
+
+        changed pressed => {
+            if self.pressed {
+                root.select-at(self.x + self.mouse-x);
+            }
+        }
+
+        moved => {
+            root.select-at(self.x + self.mouse-x);
+        }
+
+        clicked => {
+            root.select-at(self.x + self.mouse-x);
+        }
     }
 
     Text {
