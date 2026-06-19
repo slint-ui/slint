@@ -1021,7 +1021,11 @@ pub fn drop_at_with_geometry(
     let drop_info = find_drop_location(&component_instance, position, &component.name)?;
     let mut extra_properties =
         geometry_properties_for_drop(&component_instance, position, &drop_info, geometry)?;
-    extra_properties.extend(prototype_visual_properties_for_geometry_drop(component));
+    extend_with_new_properties(
+        &mut extra_properties,
+        &component.default_properties,
+        prototype_visual_properties_for_geometry_drop(component),
+    );
 
     if !check_can_drop_with_properties(document_cache, component, &drop_info, &extra_properties) {
         return None;
@@ -1088,6 +1092,21 @@ fn prototype_visual_properties_for_geometry_drop(
         ],
         "Image" => vec![common::PropertyChange::new("image-fit", "contain".to_string())],
         _ => Vec::new(),
+    }
+}
+
+fn extend_with_new_properties(
+    properties: &mut Vec<common::PropertyChange>,
+    default_properties: &[common::PropertyChange],
+    new_properties: Vec<common::PropertyChange>,
+) {
+    for property in new_properties {
+        if default_properties.iter().any(|existing| existing.name == property.name)
+            || properties.iter().any(|existing| existing.name == property.name)
+        {
+            continue;
+        }
+        properties.push(property);
     }
 }
 
@@ -1612,6 +1631,33 @@ export component Entry inherits Main { /* @lsp:ignore-node */ } // 582
         assert_eq!(
             super::workspace_edit_compiles(&document_cache, &workspace_edit),
             super::preview::CompilationResult::ChangeCompiles
+        );
+    }
+
+    #[test]
+    fn test_extend_with_new_properties_keeps_existing_text_default() {
+        let default_properties = vec![common::PropertyChange::new("text", "\"Text\"".to_string())];
+        let mut extra_properties = vec![
+            common::PropertyChange::new("x", "20px".to_string()),
+            common::PropertyChange::new("y", "24px".to_string()),
+        ];
+
+        super::extend_with_new_properties(
+            &mut extra_properties,
+            &default_properties,
+            vec![
+                common::PropertyChange::new("text", "\"Text\"".to_string()),
+                common::PropertyChange::new("color", "#1f2328".to_string()),
+            ],
+        );
+
+        assert_eq!(
+            extra_properties,
+            vec![
+                common::PropertyChange::new("x", "20px".to_string()),
+                common::PropertyChange::new("y", "24px".to_string()),
+                common::PropertyChange::new("color", "#1f2328".to_string()),
+            ]
         );
     }
 
