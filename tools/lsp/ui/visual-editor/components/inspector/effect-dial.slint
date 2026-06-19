@@ -1,21 +1,26 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+import { StudioTheme } from "../common.slint";
 import { InspectorTokens } from "tokens.slint";
 
 export component InspectorEffectDial inherits Rectangle {
     in property <angle> value: 90deg;
+    callback changed(angle) -> bool;
     callback accepted(angle) -> bool;
 
     property <bool> dragging: false;
     property <angle> drag-value: 90deg;
+    property <length> dial-size: 48px;
+    property <length> dial-x: (root.width - root.dial-size) / 2;
+    property <length> dial-y: 1px;
+    property <length> dial-center-x: root.width / 2;
+    property <length> dial-center-y: root.dial-y + root.dial-size / 2;
+    property <bool> active: touch.has-hover || touch.pressed || root.dragging;
 
-    width: 44px;
-    height: 44px;
-    border-radius: 22px;
-    background: touch.has-hover || touch.pressed ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg;
-    border-width: touch.pressed ? 1px : 0px;
-    border-color: InspectorTokens.accent;
+    width: 56px;
+    height: 58px;
+    background: transparent;
     animate background { duration: 120ms; }
 
     pure function normalized-angle(angle: angle) -> angle {
@@ -24,43 +29,115 @@ export component InspectorEffectDial inherits Rectangle {
     }
 
     pure function angle-from-pointer(x: length, y: length) -> angle {
-        return root.normalized-angle(atan2((y - root.height / 2) / 1px, (x - root.width / 2) / 1px));
+        return root.normalized-angle(atan2((y - root.dial-center-y) / 1px, (x - root.dial-center-x) / 1px));
     }
 
     pure function visual-value() -> angle {
         return root.dragging ? root.drag-value : root.value;
     }
 
+    pure function angle-distance-degrees(left: angle, right: angle) -> float {
+        let distance = abs(root.normalized-angle(left - right) / 1deg);
+        return min(distance, 360 - distance);
+    }
+
     pure function knob-x() -> length {
-        return root.width / 2 + root.visual-value().cos() * 13px;
+        return root.dial-center-x + root.visual-value().cos() * 16px;
     }
 
     pure function knob-y() -> length {
-        return root.height / 2 + root.visual-value().sin() * 13px;
+        return root.dial-center-y + root.visual-value().sin() * 16px;
     }
 
     function update-drag(x: length, y: length) {
         root.drag-value = root.angle-from-pointer(x, y);
+        root.changed(root.drag-value);
+    }
+
+    for tick in 24: Rectangle {
+        property <angle> tick-angle: tick * 15deg;
+        property <bool> major: mod(tick, 6) == 0;
+
+        x: root.dial-center-x + tick-angle.cos() * 24px - self.width / 2;
+        y: root.dial-center-y + tick-angle.sin() * 24px - self.height / 2;
+        width: major ? 2px : 1px;
+        height: major ? 5px : 3px;
+        border-radius: self.width / 2;
+        background: root.active && root.angle-distance-degrees(root.visual-value(), tick-angle) < 8
+            ? InspectorTokens.accent
+            : InspectorTokens.muted.with-alpha(major ? 0.56 : 0.28);
+        transform-rotation: tick-angle + 90deg;
+        opacity: touch.pressed ? 1 : 0.82;
+        animate background, opacity { duration: 120ms; }
     }
 
     Rectangle {
-        x: 7px;
-        y: 7px;
-        width: parent.width - 14px;
-        height: parent.height - 14px;
+        x: root.dial-x - 1px;
+        y: root.dial-y;
+        width: root.dial-size + 2px;
+        height: root.dial-size + 2px;
+        border-radius: self.width / 2;
+        background: StudioTheme.dark
+            ? @conic-gradient(#f4f4f430 0deg, #161616 74deg, #050505 150deg, #ffffff22 218deg, #050505 306deg, #f4f4f430 360deg)
+            : @conic-gradient(#ffffff 0deg, #b7bec8 74deg, #747d8c 150deg, #ffffff 218deg, #929aa6 306deg, #ffffff 360deg);
+        drop-shadow-blur: touch.pressed ? 5px : 11px;
+        drop-shadow-offset-y: touch.pressed ? 1px : 4px;
+        drop-shadow-color: StudioTheme.dark ? #00000085 : #1f293744;
+        animate drop-shadow-blur, drop-shadow-offset-y { duration: 120ms; }
+    }
+
+    Rectangle {
+        x: root.dial-x + 2px;
+        y: root.dial-y + 3px;
+        width: root.dial-size - 4px;
+        height: root.dial-size - 4px;
         border-radius: self.width / 2;
         border-width: 1px;
-        border-color: InspectorTokens.divider;
-        background: InspectorTokens.panel-bg;
+        border-color: StudioTheme.dark ? #ffffff18 : #ffffffd8;
+        background: StudioTheme.dark
+            ? @radial-gradient(circle, #5a5a5a 0%, #333333 45%, #161616 100%)
+            : @radial-gradient(circle, #ffffff 0%, #d9dee6 48%, #9aa3b1 100%);
+        inner-shadow-blur: 8px;
+        inner-shadow-offset-x: StudioTheme.dark ? -2px : 1px;
+        inner-shadow-offset-y: StudioTheme.dark ? -2px : 1px;
+        inner-shadow-color: StudioTheme.dark ? #ffffff18 : #ffffff8a;
     }
 
     Rectangle {
-        x: root.width / 2 + root.visual-value().cos() * 6.5px - 6.5px;
-        y: root.height / 2 + root.visual-value().sin() * 6.5px - 0.5px;
-        width: 13px;
-        height: 1px;
-        background: InspectorTokens.accent;
+        x: root.dial-x + 7px;
+        y: root.dial-y + 7px;
+        width: 20px;
+        height: 10px;
+        border-radius: 5px;
+        background: StudioTheme.dark ? #ffffff24 : #ffffffb4;
+        opacity: StudioTheme.dark ? 0.34 : 0.58;
+        transform-rotation: -28deg;
+    }
+
+    Rectangle {
+        x: root.dial-center-x + root.visual-value().cos() * 8px - 9px;
+        y: root.dial-center-y + root.visual-value().sin() * 8px - 1.5px;
+        width: 18px;
+        height: 3px;
+        border-radius: 1.5px;
+        background: StudioTheme.dark ? #08080880 : #6b728055;
         transform-rotation: root.visual-value();
+        inner-shadow-blur: 2px;
+        inner-shadow-offset-y: 1px;
+        inner-shadow-color: #00000055;
+    }
+
+    Rectangle {
+        x: root.dial-center-x - 7px;
+        y: root.dial-center-y - 7px;
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        background: StudioTheme.dark
+            ? @radial-gradient(circle, #6f6f6f 0%, #303030 70%, #111111 100%)
+            : @radial-gradient(circle, #f8fafc 0%, #c6ceda 70%, #8e98a8 100%);
+        border-width: 1px;
+        border-color: StudioTheme.dark ? #ffffff12 : #ffffff99;
     }
 
     Rectangle {
@@ -70,11 +147,23 @@ export component InspectorEffectDial inherits Rectangle {
         height: 8px;
         border-radius: 4px;
         border-width: 1px;
-        border-color: InspectorTokens.panel-bg;
+        border-color: StudioTheme.dark ? #f8fbffb0 : #ffffff;
         background: InspectorTokens.accent;
-        drop-shadow-blur: 6px;
-        drop-shadow-offset-y: 2px;
-        drop-shadow-color: #00000035;
+        drop-shadow-blur: root.active ? 9px : 5px;
+        drop-shadow-offset-y: 1px;
+        drop-shadow-color: InspectorTokens.accent.with-alpha(root.active ? 0.52 : 0.28);
+        animate drop-shadow-blur, drop-shadow-color { duration: 120ms; }
+    }
+
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: parent.height - 11px;
+        width: 34px;
+        height: 10px;
+        border-radius: 5px;
+        background: StudioTheme.dark ? #1111118a : #eef1f5d8;
+        border-width: 1px;
+        border-color: StudioTheme.dark ? #ffffff0e : #ffffffc0;
     }
 
     Text {
@@ -83,14 +172,16 @@ export component InspectorEffectDial inherits Rectangle {
         width: parent.width;
         height: 10px;
         text: "\{(root.normalized-angle(root.visual-value()) / 1deg).round()}°";
-        color: InspectorTokens.muted;
+        color: root.active ? InspectorTokens.text : InspectorTokens.muted;
         font-size: 9px;
+        font-weight: 700;
         horizontal-alignment: center;
         vertical-alignment: center;
+        animate color { duration: 120ms; }
     }
 
     touch := TouchArea {
-        mouse-cursor: pointer;
+        mouse-cursor: root.dragging ? grabbing : grab;
 
         pointer-event(event) => {
             if event.kind == PointerEventKind.down {

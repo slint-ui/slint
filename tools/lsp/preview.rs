@@ -1104,6 +1104,39 @@ fn override_selected_element_geometry(x: f32, y: f32, width: f32, height: f32) {
     );
 }
 
+fn override_selected_element_number_property(property_name: SharedString, value: f32) {
+    let Some(element_selection) = &selected_element() else { return };
+    let Some(element_node) = element_selection.as_element_node() else { return };
+    let Some(component_instance) = component_instance() else { return };
+
+    let element_hash = element_node
+        .element
+        .borrow()
+        .debug
+        .get(element_node.debug_index)
+        .map(|d| d.element_hash)
+        .unwrap_or(0);
+    if element_hash == 0 {
+        tracing::debug!("Element does not have a hash, cannot override property");
+        return;
+    }
+
+    let property_name = SmolStr::from(property_name.as_str());
+    let id = i_slint_compiler::passes::property_id(element_hash, &property_name);
+    PREVIEW_STATE.with_borrow(|preview_state| {
+        let overrides = (*preview_state.debug_hook_overrides).borrow();
+        let Some(property_override) = overrides.get(&id) else {
+            tracing::debug!(
+                "Property debug hook {property_name} does not exist, cannot override property",
+            );
+            return;
+        };
+        (**property_override).set(Some(slint_interpreter::Value::Number(value.into())));
+    });
+
+    component_instance.window().request_redraw();
+}
+
 fn override_selected_element_geometry_impl(
     element_node: &ElementRcNode,
     instance_index: usize,

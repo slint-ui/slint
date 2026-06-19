@@ -8,7 +8,7 @@ use i_slint_compiler::object_tree::{Component, Element, ElementRc};
 use i_slint_core::graphics::euclid;
 use i_slint_core::items::ItemRc;
 use i_slint_core::lengths::{LogicalPoint, LogicalRect};
-use smol_str::SmolStr;
+use smol_str::{SmolStr, ToSmolStr};
 use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
@@ -24,6 +24,15 @@ fn normalize_repeated_element(element: ElementRc) -> ElementRc {
     }
 
     element
+}
+
+fn is_generated_shadow_element(element: &ElementRc, debug_index: usize) -> bool {
+    let element = element.borrow();
+    element.base_type.to_smolstr() == "BoxShadow"
+        && element
+            .debug
+            .get(debug_index)
+            .is_some_and(|debug| debug.type_name != "BoxShadow")
 }
 
 /// The rectangle of an element, which may be rotated around its center
@@ -238,7 +247,9 @@ fn find_element_node_at_source_code_position(
                 })
             {
                 if node_path == path && node_range.contains(offset.into()) {
-                    result.push((elem.clone(), index));
+                    if !is_generated_shadow_element(elem, index) {
+                        result.push((elem.clone(), index));
+                    }
                 }
             }
         },

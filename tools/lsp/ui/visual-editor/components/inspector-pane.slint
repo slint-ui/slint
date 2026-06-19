@@ -327,6 +327,15 @@ export component InspectorPane inherits Rectangle {
             && root.commit-shadow-number(prefix + "offset-y", y);
     }
 
+    function override-shadow-number(property-name: string, value: float) {
+        Api.override-selected-element-number-property(property-name, value.round());
+    }
+
+    function override-shadow-offsets(angle: angle, distance: float) {
+        root.override-shadow-number("offset-x", angle.cos() * distance);
+        root.override-shadow-number("offset-y", angle.sin() * distance);
+    }
+
     function remove-shadow-family(prefix: string) -> bool {
         return root.remove-code(prefix + "color")
             && root.remove-code(prefix + "blur")
@@ -764,6 +773,10 @@ export component InspectorPane inherits Rectangle {
 
                             InspectorEffectDial {
                                 value: root.shadow-angle();
+                                changed(angle) => {
+                                    root.override-shadow-offsets(angle, root.shadow-distance());
+                                    return true;
+                                }
                                 accepted(angle) => {
                                     return root.commit-shadow-offsets(angle, root.shadow-distance());
                                 }
@@ -796,6 +809,10 @@ export component InspectorPane inherits Rectangle {
                             value: root.shadow-distance();
                             minimum: 0;
                             maximum: 96;
+                            changed(value) => {
+                                root.override-shadow-offsets(root.shadow-angle(), value);
+                                return true;
+                            }
                             accepted(value) => {
                                 return root.commit-shadow-offsets(root.shadow-angle(), value);
                             }
@@ -806,6 +823,10 @@ export component InspectorPane inherits Rectangle {
                             value: root.shadow-blur();
                             minimum: 0;
                             maximum: 128;
+                            changed(value) => {
+                                root.override-shadow-number("blur", value);
+                                return true;
+                            }
                             accepted(value) => {
                                 return root.commit-shadow-number(root.current-shadow-prefix() + "blur", value);
                             }
@@ -816,6 +837,10 @@ export component InspectorPane inherits Rectangle {
                             value: root.shadow-spread();
                             minimum: -64;
                             maximum: 64;
+                            changed(value) => {
+                                root.override-shadow-number("spread", value);
+                                return true;
+                            }
                             accepted(value) => {
                                 return root.commit-shadow-number(root.current-shadow-prefix() + "spread", value);
                             }

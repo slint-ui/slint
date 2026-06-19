@@ -1999,6 +1999,32 @@ component MyComp {
     }
 
     #[test]
+    fn test_set_shadow_binding_uses_authored_rectangle() {
+        let source = r#"
+component Foo inherits Window {
+    rect := Rectangle {
+        width: 100px;
+        height: 80px;
+        drop-shadow-blur: 8px;
+        drop-shadow-color: red;
+    }
+}
+"#;
+        let (dc, uri, _) = loaded_document_cache(source.into());
+        let element = dc
+            .element_at_offset(&uri, TextSize::new(source.find("Rectangle").unwrap() as u32))
+            .unwrap();
+        let element_information = get_element_information(&element);
+        assert_eq!(element_information.type_name.as_str(), "Rectangle");
+
+        let edit =
+            set_binding(uri.clone(), None, &element, "drop-shadow-blur", "12px".into(), dc.format)
+                .unwrap();
+        let applied = crate::common::text_edit::apply_workspace_edit(&dc, &edit).unwrap();
+        assert!(applied.first().unwrap().contents.contains("drop-shadow-blur: 12px;"));
+    }
+
+    #[test]
     fn test_remove_binding() {
         let source = r#"
 component Foo inherits Window {

@@ -21,6 +21,7 @@ use std::{
 };
 
 use crate::common::{ElementRcNode, Result, file_to_uri, uri_to_file};
+use smol_str::ToSmolStr;
 use std::collections::HashSet;
 
 pub type SourceFileVersionMap = HashMap<PathBuf, SourceFileVersion>;
@@ -419,11 +420,25 @@ impl DocumentCache {
             element: &i_slint_compiler::object_tree::ElementRc,
             offset: TextSize,
         ) -> Option<usize> {
-            element
+            fn is_generated_shadow_element(
+                element: &i_slint_compiler::object_tree::ElementRc,
+                debug_index: usize,
+            ) -> bool {
+                let element = element.borrow();
+                element.base_type.to_smolstr() == "BoxShadow"
+                    && element
+                        .debug
+                        .get(debug_index)
+                        .is_some_and(|debug| debug.type_name != "BoxShadow")
+            }
+
+            let debug_index = element
                 .borrow()
                 .debug
                 .iter()
-                .position(|n| n.node.parent().is_some_and(|n| n.text_range().contains(offset)))
+                .position(|n| n.node.parent().is_some_and(|n| n.text_range().contains(offset)))?;
+
+            (!is_generated_shadow_element(element, debug_index)).then_some(debug_index)
         }
 
         for component in &document.inner_components {

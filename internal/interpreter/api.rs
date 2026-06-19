@@ -2366,6 +2366,43 @@ export component Foo2 inherits Window  {
     }
 }
 
+#[cfg(feature = "internal-highlight")]
+#[test]
+fn test_shadow_box_does_not_duplicate_source_position() {
+    use smol_str::ToSmolStr;
+
+    let code = r#"
+export component Win inherits Window {
+    rect := Rectangle {
+        width: 100px;
+        height: 80px;
+        drop-shadow-blur: 8px;
+        drop-shadow-color: red;
+    }
+}"#;
+
+    let (handle, path) = compile(code);
+    let offset = code.find("Rectangle").unwrap() as u32;
+    let elements = handle.element_node_at_source_code_position(&path, offset);
+    let element_summary = elements
+        .iter()
+        .map(|(element, debug_index)| {
+            let element = element.borrow();
+            std::format!(
+                "{}:{}:{}",
+                element.base_type.to_smolstr(),
+                element.id,
+                element.debug[*debug_index].type_name
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    assert_eq!(elements.len(), 1, "{element_summary}");
+    assert_ne!(elements[0].0.borrow().base_type.to_smolstr(), "BoxShadow");
+    assert_eq!(elements[0].0.borrow().debug[elements[0].1].type_name, "Rectangle");
+    assert_eq!(handle.component_positions(&path, offset).len(), 1);
+}
+
 // Validates the "live drag" mechanism the visual editor relies on: with `debug_hooks`
 // enabled, a `set_debug_hook_callback` that reads a per-id `Property<Option<Value>>` lets the
 // editor reactively override a property's value (and revert it) without touching the source.

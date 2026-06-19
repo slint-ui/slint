@@ -10,6 +10,7 @@ export component InspectorEffectSlider inherits Rectangle {
     in property <float> minimum: 0;
     in property <float> maximum: 100;
     in property <string> suffix: "px";
+    callback changed(float) -> bool;
     callback accepted(float) -> bool;
 
     property <bool> dragging: false;
@@ -37,6 +38,7 @@ export component InspectorEffectSlider inherits Rectangle {
 
     function update-at(pointer-x: length) {
         root.drag-value = root.value-at(pointer-x);
+        root.changed(root.drag-value);
     }
 
     Text {

@@ -78,6 +78,7 @@ fn create_box_shadow_element(
         base_type: type_register.lookup_builtin_element("BoxShadow").unwrap(),
         enclosing_component: sibling_element.borrow().enclosing_component.clone(),
         bindings,
+        debug: sibling_element.borrow().debug.clone(),
         ..Default::default()
     };
 

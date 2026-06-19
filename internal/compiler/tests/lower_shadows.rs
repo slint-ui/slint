@@ -7,12 +7,23 @@ use i_slint_compiler::generator::OutputFormat;
 use i_slint_compiler::object_tree::{ElementRc, recurse_elem};
 use i_slint_compiler::parser::parse;
 use i_slint_compiler::{CompilerConfiguration, compile_syntax_node};
-use smol_str::ToSmolStr;
+use smol_str::{SmolStr, ToSmolStr};
 
 fn compile(source: &str) -> i_slint_compiler::object_tree::Document {
     let mut diagnostics = BuildDiagnostics::default();
     let syntax_node = parse(source.into(), None, &mut diagnostics);
     let compiler_config = CompilerConfiguration::new(OutputFormat::Interpreter);
+    let (doc, diagnostics, _) =
+        spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, compiler_config));
+    assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
+    doc
+}
+
+fn compile_with_debug_hooks(source: &str) -> i_slint_compiler::object_tree::Document {
+    let mut diagnostics = BuildDiagnostics::default();
+    let syntax_node = parse(source.into(), None, &mut diagnostics);
+    let mut compiler_config = CompilerConfiguration::new(OutputFormat::Interpreter);
+    compiler_config.debug_hooks = Some(std::hash::RandomState::new());
     let (doc, diagnostics, _) =
         spin_on::spin_on(compile_syntax_node(syntax_node, diagnostics, compiler_config));
     assert!(!diagnostics.has_errors(), "{:?}", diagnostics.to_string_vec());
@@ -27,6 +38,17 @@ fn find_box_shadow(root: &ElementRc) -> ElementRc {
         }
     });
     result.expect("BoxShadow element should be generated")
+}
+
+fn find_element_by_id(root: &ElementRc, id: &str) -> ElementRc {
+    let mut result = None;
+    recurse_elem(root, &(), &mut |element, _| {
+        let element_id = element.borrow().id.clone();
+        if element_id == id || element_id.starts_with(&format!("{id}-")) {
+            result = Some(element.clone());
+        }
+    });
+    result.unwrap_or_else(|| panic!("{id} element should exist"))
 }
 
 #[test]
@@ -53,6 +75,7 @@ export component TestCase inherits Window {
         drop-shadow-color: red;
     }
 }
+
 "#,
     );
 
@@ -92,6 +115,7 @@ export component TestCase inherits Window {
         drop-shadow-color: red;
     }
 }
+
 "#,
     );
 
@@ -112,4 +136,35 @@ export component TestCase inherits Window {
             "{property_name} should reference the source rectangle"
         );
     }
+}
+
+#[test]
+fn box_shadow_debug_hooks_use_source_rectangle_hash() {
+    let doc = compile_with_debug_hooks(
+        r#"
+export component TestCase inherits Window {
+    rect := Rectangle {
+        width: 100px;
+        height: 80px;
+        drop-shadow-blur: 8px;
+        drop-shadow-color: red;
+    }
+}
+"#,
+    );
+
+    let root = doc.exports.iter().next().unwrap().1.as_ref().left().unwrap().root_element.clone();
+    let rect = find_element_by_id(&root, "rect");
+    let box_shadow = find_box_shadow(&root);
+
+    let rect_hash = rect.borrow().debug.first().unwrap().element_hash;
+    let shadow_hash = box_shadow.borrow().debug.first().unwrap().element_hash;
+    assert_ne!(rect_hash, 0);
+    assert_eq!(shadow_hash, rect_hash);
+
+    let blur = box_shadow.borrow().bindings.get("blur").unwrap().borrow().expression.clone();
+    let Expression::DebugHook { id, .. } = blur else {
+        panic!("BoxShadow.blur should be wrapped in a DebugHook");
+    };
+    assert_eq!(id, i_slint_compiler::passes::property_id(rect_hash, &SmolStr::new_static("blur")));
 }
