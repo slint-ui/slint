@@ -20,4 +20,5 @@ export const getStaticPaths: GetStaticPaths = async () => {
 type Props = { entry: CollectionEntry<"docs"> };
 
 export const GET: APIRoute<Props> = ({ props }) =>
-    renderMarkdownResponse(props.entry);
+    // The generated C++ pages embed `api-signature` HTML to fold into fences.
+    renderMarkdownResponse(props.entry, { apiSignatures: true });
