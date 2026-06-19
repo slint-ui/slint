@@ -1,6 +1,6 @@
 ---
 name: slint
-description: Expert guidance for Slint GUI development — .slint language and layout, common gotchas, Rust/C++/JS/Python interop, and the embedded MCP server for runtime debugging.
+description: Use when writing, editing, debugging, or reviewing `.slint` UI code, or wiring it to Rust/C++/JS/Python — the Slint language, layout, compile-time gotchas, interop, and the MCP server for runtime checks.
 ---
 
 # Slint Development Skill
