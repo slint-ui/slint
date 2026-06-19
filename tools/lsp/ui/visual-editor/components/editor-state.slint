@@ -1,9 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import {
-    AppState, CanvasCorner, CanvasOrientation, CanvasSelectionKind, EditorMetrics, LeftPaneMode,
-} from "common.slint";
+import { AppState, CanvasCorner, CanvasOrientation, CanvasSelectionKind, EditorMetrics } from "common.slint";
 import { Api, PrototypeComponentKind } from "../../api.slint";
 
 struct EditorGeometry {
@@ -17,7 +15,6 @@ export component EditorState inherits Rectangle {
     in property <bool> sidebars-collapsed: false;
 
     in-out property <CanvasOrientation> canvas-orientation: CanvasOrientation.portrait;
-    in-out property <LeftPaneMode> left-mode: LeftPaneMode.files;
     in-out property <CanvasSelectionKind> selection: CanvasSelectionKind.artboard;
     in-out property <PrototypeComponentKind> placed-kind: PrototypeComponentKind.none;
     out property <bool> canvas-drop-hover: false;
@@ -39,7 +36,6 @@ export component EditorState inherits Rectangle {
     height: 0px;
 
     public function open-project() {
-        root.left-mode = LeftPaneMode.library;
         root.selection = CanvasSelectionKind.artboard;
     }
 

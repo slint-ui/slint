@@ -3,19 +3,117 @@
 
 import { ScrollView } from "std-widgets.slint";
 import {
-    EdgeDivider, EditorMetrics, LeftPaneMode, PrimerActionListRow, PrimerSegmentedTab, SectionTitle,
-    SidebarToggleButton, StudioTheme,
+    BodyLabel, EdgeDivider, EditorMetrics, MutedLabel, PrimerActionListRow, SectionTitle, SidebarToggleButton,
+    StudioTheme,
 } from "common.slint";
-import { PrototypeComponentKind } from "../../api.slint";
+import { Api, EditorSurfaceMode, PrototypeComponentKind } from "../../api.slint";
 import { FileTreeView } from "file-tree-view.slint";
 
+component ElementsUnavailableNotice inherits Rectangle {
+    height: 82px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: StudioTheme.soft-border;
+    background: StudioTheme.panel-subtle.with-alpha(0.72);
+
+    HorizontalLayout {
+        padding: 12px;
+        spacing: 12px;
+        cross-axis-alignment: center;
+
+        Rectangle {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            border-width: 1px;
+            border-color: StudioTheme.border.with-alpha(0.82);
+            background: StudioTheme.panel-bg.with-alpha(0.72);
+
+            Rectangle {
+                x: 9px;
+                y: 9px;
+                width: 16px;
+                height: 16px;
+                border-radius: 5px;
+                border-width: 2px;
+                border-color: StudioTheme.muted.with-alpha(0.72);
+                background: transparent;
+            }
+
+            Rectangle {
+                x: 7px;
+                y: 16px;
+                width: 20px;
+                height: 2px;
+                border-radius: 1px;
+                background: StudioTheme.muted.with-alpha(0.82);
+            }
+        }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 4px;
+            alignment: center;
+
+            BodyLabel {
+                text: "Unavailable for images";
+            }
+
+            MutedLabel {
+                text: "Open a component to drag elements.";
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
+component ElementPaletteRows inherits VerticalLayout {
+    in property <bool> enabled: true;
+    callback drag-started(PrototypeComponentKind, Point);
+    callback drag-moved(PrototypeComponentKind, Point);
+    callback drag-ended(PrototypeComponentKind, Point);
+
+    spacing: 8px;
+
+    PrimerActionListRow {
+        enabled: root.enabled;
+        kind: PrototypeComponentKind.rectangle;
+        label: "Rectangle";
+        detail: "Shape layer";
+        drag-started(kind, position) => { root.drag-started(kind, position); }
+        drag-moved(kind, position) => { root.drag-moved(kind, position); }
+        drag-ended(kind, position) => { root.drag-ended(kind, position); }
+    }
+
+    PrimerActionListRow {
+        enabled: root.enabled;
+        kind: PrototypeComponentKind.text;
+        label: "Text";
+        detail: "Text layer";
+        drag-started(kind, position) => { root.drag-started(kind, position); }
+        drag-moved(kind, position) => { root.drag-moved(kind, position); }
+        drag-ended(kind, position) => { root.drag-ended(kind, position); }
+    }
+
+    PrimerActionListRow {
+        enabled: root.enabled;
+        kind: PrototypeComponentKind.image;
+        label: "Image";
+        detail: "Image layer";
+        drag-started(kind, position) => { root.drag-started(kind, position); }
+        drag-moved(kind, position) => { root.drag-moved(kind, position); }
+        drag-ended(kind, position) => { root.drag-ended(kind, position); }
+    }
+}
+
 export component LeftPane inherits Rectangle {
-    in-out property <LeftPaneMode> mode;
     in property <bool> can-collapse: false;
     callback drag-started(PrototypeComponentKind, Point);
     callback drag-moved(PrototypeComponentKind, Point);
     callback drag-ended(PrototypeComponentKind, Point);
     callback panes-collapsed();
+
+    private property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
 
     width: EditorMetrics.left-pane-width;
     background: StudioTheme.panel-bg;
@@ -26,11 +124,11 @@ export component LeftPane inherits Rectangle {
 
     VerticalLayout {
         padding: 14px;
-        spacing: 14px;
+        spacing: 12px;
 
         HorizontalLayout {
-            height: 38px;
-            spacing: 8px;
+            height: 34px;
+            spacing: 10px;
             cross-axis-alignment: center;
 
             if root.can-collapse: SidebarToggleButton {
@@ -39,35 +137,25 @@ export component LeftPane inherits Rectangle {
                 }
             }
 
-            Rectangle {
+            VerticalLayout {
                 horizontal-stretch: 1;
-                border-radius: 8px;
-                background: StudioTheme.panel-subtle;
+                spacing: 2px;
+                alignment: center;
 
-                HorizontalLayout {
-                    padding: 4px;
-                    spacing: 4px;
+                BodyLabel {
+                    text: "Project";
+                    font-size: 14px;
+                }
 
-                    PrimerSegmentedTab {
-                        label: "Files";
-                        selected: root.mode == LeftPaneMode.files;
-                        clicked => {
-                            root.mode = LeftPaneMode.files;
-                        }
-                    }
-
-                    PrimerSegmentedTab {
-                        label: "Library";
-                        selected: root.mode == LeftPaneMode.library;
-                        clicked => {
-                            root.mode = LeftPaneMode.library;
-                        }
-                    }
+                MutedLabel {
+                    text: "Files and elements";
                 }
             }
         }
 
-        if root.mode == LeftPaneMode.files: ScrollView {
+        SectionTitle { label: "FILES"; }
+
+        ScrollView {
             vertical-stretch: 1;
             viewport-width: self.width;
             viewport-height: file-list.preferred-height;
@@ -78,44 +166,18 @@ export component LeftPane inherits Rectangle {
             }
         }
 
-        if root.mode == LeftPaneMode.library: ScrollView {
-            vertical-stretch: 1;
-            viewport-width: self.width;
-            viewport-height: library-list.preferred-height;
-            vertical-scrollbar-policy: always-off;
+        VerticalLayout {
+            spacing: 8px;
 
-            library-list := VerticalLayout {
-                width: parent.width;
-                spacing: 8px;
+            SectionTitle { label: "ELEMENTS"; }
 
-                SectionTitle { label: "ELEMENTS"; }
+            if root.image-mode: ElementsUnavailableNotice { }
 
-                PrimerActionListRow {
-                    kind: PrototypeComponentKind.rectangle;
-                    label: "Rectangle";
-                    detail: "Shape layer";
-                    drag-started(kind, position) => { root.drag-started(kind, position); }
-                    drag-moved(kind, position) => { root.drag-moved(kind, position); }
-                    drag-ended(kind, position) => { root.drag-ended(kind, position); }
-                }
-
-                PrimerActionListRow {
-                    kind: PrototypeComponentKind.text;
-                    label: "Text";
-                    detail: "Text layer";
-                    drag-started(kind, position) => { root.drag-started(kind, position); }
-                    drag-moved(kind, position) => { root.drag-moved(kind, position); }
-                    drag-ended(kind, position) => { root.drag-ended(kind, position); }
-                }
-
-                PrimerActionListRow {
-                    kind: PrototypeComponentKind.image;
-                    label: "Image";
-                    detail: "Image layer";
-                    drag-started(kind, position) => { root.drag-started(kind, position); }
-                    drag-moved(kind, position) => { root.drag-moved(kind, position); }
-                    drag-ended(kind, position) => { root.drag-ended(kind, position); }
-                }
+            ElementPaletteRows {
+                enabled: !root.image-mode;
+                drag-started(kind, position) => { root.drag-started(kind, position); }
+                drag-moved(kind, position) => { root.drag-moved(kind, position); }
+                drag-ended(kind, position) => { root.drag-ended(kind, position); }
             }
         }
     }

@@ -4,11 +4,6 @@
 import { Palette } from "std-widgets.slint";
 import { PrototypeComponentKind } from "../../api.slint";
 
-export enum LeftPaneMode {
-    files,
-    library,
-}
-
 export enum CanvasOrientation {
     portrait,
     landscape,
@@ -182,36 +177,6 @@ export component PrimerTextInput inherits Rectangle {
     }
 }
 
-export component PrimerSegmentedTab inherits Rectangle {
-    in property <string> label;
-    in property <bool> selected;
-    callback clicked;
-
-    height: 30px;
-    horizontal-stretch: 1;
-    border-radius: 6px;
-    background: selected ? StudioTheme.panel-bg : touch.has-hover ? StudioTheme.panel-subtle : transparent;
-    border-width: selected ? 1px : 0px;
-    border-color: StudioTheme.border;
-    animate background { duration: 120ms; }
-
-    Text {
-        text: root.label;
-        color: root.selected ? StudioTheme.text : StudioTheme.muted;
-        font-size: 12px;
-        font-weight: root.selected ? 700 : 500;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-    }
-
-    touch := TouchArea {
-        mouse-cursor: pointer;
-        clicked => {
-            root.clicked();
-        }
-    }
-}
-
 export component OrientationIconButton inherits Rectangle {
     in property <bool> landscape: false;
     in property <bool> selected: false;
@@ -333,21 +298,22 @@ export component PrimerActionListRow inherits Rectangle {
     in property <PrototypeComponentKind> kind;
     in property <string> label;
     in property <string> detail;
+    in property <bool> enabled: true;
     callback drag-started(PrototypeComponentKind, Point);
     callback drag-moved(PrototypeComponentKind, Point);
     callback drag-ended(PrototypeComponentKind, Point);
 
     private property <length> drag-threshold: 2px;
-    property <bool> dragging: AppState.dragging-kind == root.kind;
-    property <bool> active: root.dragging || touch.pressed;
-    property <bool> hovered: touch.has-hover && !root.dragging;
+    property <bool> dragging: root.enabled && AppState.dragging-kind == root.kind;
+    property <bool> active: root.enabled && (root.dragging || touch.pressed);
+    property <bool> hovered: root.enabled && touch.has-hover && !root.dragging;
 
     height: 62px;
     border-radius: 8px;
     border-width: 1px;
-    border-color: root.active ? StudioTheme.accent-strong.with-alpha(0.75) : root.hovered ? StudioTheme.border : StudioTheme.soft-border;
-    background: root.active ? StudioTheme.accent.with-alpha(0.10) : root.hovered ? StudioTheme.panel-subtle.with-alpha(0.72) : StudioTheme.panel-bg;
-    opacity: root.dragging ? 0.56 : 1;
+    border-color: !root.enabled ? StudioTheme.soft-border.with-alpha(0.68) : root.active ? StudioTheme.accent-strong.with-alpha(0.75) : root.hovered ? StudioTheme.border : StudioTheme.soft-border;
+    background: !root.enabled ? StudioTheme.panel-subtle.with-alpha(0.58) : root.active ? StudioTheme.accent.with-alpha(0.10) : root.hovered ? StudioTheme.panel-subtle.with-alpha(0.72) : StudioTheme.panel-bg;
+    opacity: !root.enabled ? 0.58 : root.dragging ? 0.56 : 1;
     animate background, border-color, opacity { duration: 140ms; easing: ease-out-quad; }
 
     HorizontalLayout {
@@ -447,38 +413,43 @@ export component PrimerActionListRow inherits Rectangle {
     }
 
     touch := TouchArea {
-        mouse-cursor: pointer;
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
         private property <bool> drag-active: false;
         private property <Point> press-position: { x: 0px, y: 0px };
 
         changed pressed => {
-            if self.pressed {
-                self.drag-active = false;
-                self.press-position = { x: self.mouse-x, y: self.mouse-y };
-            } else if self.drag-active {
-                root.drag-ended(root.kind, {
-                    x: self.absolute-position.x + self.mouse-x,
-                    y: self.absolute-position.y + self.mouse-y,
-                });
-                self.drag-active = false;
+            if root.enabled {
+                if self.pressed {
+                    self.drag-active = false;
+                    self.press-position = { x: self.mouse-x, y: self.mouse-y };
+                } else if self.drag-active {
+                    root.drag-ended(root.kind, {
+                        x: self.absolute-position.x + self.mouse-x,
+                        y: self.absolute-position.y + self.mouse-y,
+                    });
+                    self.drag-active = false;
+                }
             }
         }
 
         moved => {
-            let window-position = {
-                x: self.absolute-position.x + self.mouse-x,
-                y: self.absolute-position.y + self.mouse-y,
-            };
-            let moved-far-enough = (self.mouse-x - self.press-position.x).abs() >= root.drag-threshold
-                || (self.mouse-y - self.press-position.y).abs() >= root.drag-threshold;
-            if self.pressed && !self.drag-active && moved-far-enough {
-                self.drag-active = true;
-                AppState.dragging-kind = root.kind;
-                root.drag-started(root.kind, window-position);
-            }
-            if self.drag-active {
-                AppState.dragging-kind = root.kind;
-                root.drag-moved(root.kind, window-position);
+            if root.enabled {
+                let window-position = {
+                    x: self.absolute-position.x + self.mouse-x,
+                    y: self.absolute-position.y + self.mouse-y,
+                };
+                let moved-far-enough = (self.mouse-x - self.press-position.x).abs() >= root.drag-threshold
+                    || (self.mouse-y - self.press-position.y).abs() >= root.drag-threshold;
+                if self.pressed && !self.drag-active && moved-far-enough {
+                    self.drag-active = true;
+                    AppState.dragging-kind = root.kind;
+                    root.drag-started(root.kind, window-position);
+                }
+                if self.drag-active {
+                    AppState.dragging-kind = root.kind;
+                    root.drag-moved(root.kind, window-position);
+                }
             }
         }
     }

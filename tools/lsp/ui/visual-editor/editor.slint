@@ -460,7 +460,6 @@ export component EditorUi inherits Window {
                     vertical-stretch: 1;
 
                     if !root.sidebars-collapsed: LeftPane {
-                        mode <=> state.left-mode;
                         can-collapse: true;
                         drag-started(kind, position) => { state.update-visual-drag(kind, position); }
                         drag-moved(kind, position) => { state.update-visual-drag(kind, position); }
