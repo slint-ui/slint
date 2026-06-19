@@ -1185,6 +1185,140 @@ fn override_selected_element_geometry_impl(
     component_instance.window().request_redraw();
 }
 
+fn override_selected_element_border_radius(
+    corner: ui::CanvasCorner,
+    length: f32,
+    single_corner: bool,
+) {
+    if !single_corner {
+        override_selected_element_border_radius(ui::CanvasCorner::TopLeft, length, true);
+        override_selected_element_border_radius(ui::CanvasCorner::BottomRight, length, true);
+        override_selected_element_border_radius(ui::CanvasCorner::TopRight, length, true);
+        override_selected_element_border_radius(ui::CanvasCorner::BottomLeft, length, true);
+    }
+
+    let Some(element_selection) = &selected_element() else { return };
+    let Some(element_node) = element_selection.as_element_node() else { return };
+    let Some(component_instance) = component_instance() else { return };
+
+    let element_hash = element_node
+        .element
+        .borrow()
+        .debug
+        .get(element_node.debug_index)
+        .map(|d| d.element_hash)
+        .unwrap_or(0);
+    if element_hash == 0 {
+        tracing::debug!("Element does not have a hash, cannot override geometry");
+        return;
+    }
+
+    let property_name = match corner {
+        ui::CanvasCorner::TopLeft => "border-top-left-radius",
+        ui::CanvasCorner::TopRight => "border-top-right-radius",
+        ui::CanvasCorner::BottomLeft => "border-bottom-left-radius",
+        ui::CanvasCorner::BottomRight => "border-bottom-right-radius",
+    };
+
+    PREVIEW_STATE.with_borrow(|preview_state| {
+        let m = (*preview_state.debug_hook_overrides).borrow();
+        let id = i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(property_name));
+        let Some(property_override) = m.get(&id) else {
+            tracing::debug!(
+                "Property debug hook {property_name} does not exist, cannot override geometry",
+            );
+            return;
+        };
+        (**property_override).set(Some(slint_interpreter::Value::Number(length as f64)));
+    });
+
+    component_instance.window().request_redraw();
+}
+
+fn persist_selected_element_border_radius() {
+    let Some(element_selection) = &selected_element() else {
+        return;
+    };
+    let Some(element_node) = element_selection.as_element_node() else {
+        return;
+    };
+
+    let element_hash = element_node
+        .element
+        .borrow()
+        .debug
+        .get(element_node.debug_index)
+        .map(|d| d.element_hash)
+        .unwrap_or(0);
+    if element_hash == 0 {
+        tracing::debug!("Element does not have a hash, cannot resize");
+        return;
+    }
+
+    // They all have the same size anyway:
+    let (path, offset) = element_node.path_and_offset();
+
+    // Apply the overrides permanently
+    let properties = [
+        "border-top-left-radius",
+        "border-top-right-radius",
+        "border-bottom-left-radius",
+        "border-bottom-right-radius",
+    ];
+    let geometry_changes = PREVIEW_STATE.with_borrow(|preview_state| {
+        let overrides = (*preview_state.debug_hook_overrides).borrow();
+
+        properties
+            .into_iter()
+            .filter_map(|property| {
+                let id =
+                    i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(property));
+                overrides
+                    .get(&id)
+                    .and_then(|property_override| property_override.as_ref().get())
+                    .and_then(|value| {
+                        if let slint_interpreter::Value::Number(value) = value && value.is_finite() {
+                            Some((property, value))
+                        } else {
+                            tracing::debug!(
+                                "Property override '{property}' is not a finite number, cannot reposition"
+                            );
+                            None
+                        }
+                    })
+                    .map(|(property, value)| common::PropertyChange::new(
+                        property,
+                        format!("{}px", value)
+                    ))
+            })
+            .collect::<Vec<_>>()
+    });
+
+    if geometry_changes.is_empty() {
+        return;
+    }
+
+    let Some(url) = Url::from_file_path(&path).ok() else {
+        return;
+    };
+    let Some(document_cache) = document_cache() else {
+        return;
+    };
+
+    let version = document_cache.document_version(&url);
+
+    let Some((updates, label)) = properties::update_element_properties(
+        &document_cache,
+        common::VersionedPosition::new(VersionedUrl::new(url, version), offset),
+        geometry_changes,
+    )
+    .map(|edit| (edit, "Changing border radius".to_owned())) else {
+        return;
+    };
+
+    send_workspace_edit("Changing border radius".to_string(), updates, false);
+}
+
 fn resize_selected_element_impl(
     element_node: &ElementRcNode,
     instance_index: usize,
@@ -2303,9 +2437,10 @@ fn update_preview_area(
                                   value: slint_interpreter::Value|
                                   -> slint_interpreter::Value {
                                 let mut m = (*overrides).borrow_mut();
-                                let p = m
-                                    .entry(SmolStr::from(id))
-                                    .or_insert_with(|| Box::pin(i_slint_core::Property::new(None)));
+                                let p = m.entry(SmolStr::from(id)).or_insert_with(|| {
+                                    tracing::trace!("Inserting Property override: {id}");
+                                    Box::pin(i_slint_core::Property::new(None))
+                                });
                                 match p.as_ref().get() {
                                     Some(v) => v,
                                     None => value,

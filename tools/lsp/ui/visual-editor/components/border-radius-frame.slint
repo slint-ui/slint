@@ -5,7 +5,7 @@ import { CanvasCorner } from "../../api.slint";
 import { EditorMetrics, StudioTheme } from "common.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
 
-export component RectangleOnCanvas inherits MoveResizeFrame {
+export component BorderRadiusFrame inherits MoveResizeFrame {
     in property <length> top-left-radius;
     in property <length> top-right-radius;
     in property <length> bottom-right-radius;
@@ -40,16 +40,6 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
             return root.bottom-right-radius;
         }
         return root.bottom-left-radius;
-    }
-
-    Rectangle {
-        border-top-left-radius: root.top-left-radius;
-        border-top-right-radius: root.top-right-radius;
-        border-bottom-right-radius: root.bottom-right-radius;
-        border-bottom-left-radius: root.bottom-left-radius;
-        background: StudioTheme.object-bg;
-        border-width: root.active ? (root.frame-hover ? 2phx : 1phx) : 1px;
-        border-color: root.active ? StudioTheme.accent-strong : StudioTheme.object-border;
     }
 
     for corner in [
@@ -99,6 +89,7 @@ export component RectangleOnCanvas inherits MoveResizeFrame {
                     root.radius-tooltip-position = { x: pointer-x, y: pointer-y };
                     root.radius-tooltip-value = root.corner-radius(corner);
                 } else {
+                    root.interaction-ended();
                     root.radius-tooltip-visible = false;
                 }
             }

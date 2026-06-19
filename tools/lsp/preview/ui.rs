@@ -292,6 +292,8 @@ pub fn create_ui(
     api.on_selected_element_move(super::move_selected_element);
     api.on_selected_element_delete(super::delete_selected_element);
     api.on_override_selected_element_geometry(super::override_selected_element_geometry);
+    api.on_override_selected_element_border_radius(super::override_selected_element_border_radius);
+    api.on_persist_selected_element_border_radius(super::persist_selected_element_border_radius);
 
     api.on_test_code_binding(super::test_code_binding);
     api.on_set_code_binding(super::set_code_binding);
@@ -1233,7 +1235,10 @@ fn get_property_value(container: SharedString, property_name: SharedString) -> P
         .unwrap_or_default()
 }
 
-fn current_property_value_data(api: &Api<'_>, property_name: SharedString) -> Option<PropertyValue> {
+fn current_property_value_data(
+    api: &Api<'_>,
+    property_name: SharedString,
+) -> Option<PropertyValue> {
     for group in api.get_properties().iter() {
         for property in group.properties.iter() {
             if property.name == property_name {

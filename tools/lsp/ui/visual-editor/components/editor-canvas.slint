@@ -1,13 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, DropMark, PrototypeComponentKind, SelectionRectangle } from "../../api.slint";
+import { Api, CanvasCorner, DropMark, PrototypeComponentKind, SelectionRectangle } from "../../api.slint";
 import { EditorPalette } from "../../components/styling.slint";
 import {
-    CanvasCorner, CanvasOrientation, CanvasSelectionKind, EditorMetrics, ImagePlaceholder, StudioTheme,
+    CanvasOrientation, CanvasSelectionKind, EditorMetrics, ImagePlaceholder, StudioTheme,
 } from "common.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
 import { RectangleOnCanvas } from "rectangle.slint";
+import { BorderRadiusFrame } from "border-radius-frame.slint";
 
 component PhoneChrome inherits Rectangle {
     in property <CanvasOrientation> orientation;
@@ -63,6 +64,7 @@ export component EditorCanvas inherits Rectangle {
     private property <bool> selection-drag-active: false;
     private property <Point> selection-drag-position;
     private property <Size> selection-drag-size;
+    private property <bool> selection-radius-active: false;
 
     callback selected(CanvasSelectionKind);
     callback real-element-selected();
@@ -253,6 +255,73 @@ export component EditorCanvas inherits Rectangle {
                     root.selection-drag-size.height,
                 );
                 root.selection-drag-active = false;
+            }
+        }
+
+        if root.selections.length > 0 && Api.current-element.type-name == "Rectangle": BorderRadiusFrame {
+            property <int> idx: 0;
+            property <SelectionRectangle> s: root.selections[0];
+            property <bool> primary: idx == Api.selection.highlight-index;
+            // During a drag the frame follows the pointer locally (no disk write).
+            // When idle it tracks the backend geometry from selections[].
+            x: root.selection-drag-active && primary
+                ? root.selection-drag-position.x
+                : s.x + EditorMetrics.phone-outer-padding;
+            y: root.selection-drag-active && primary
+                ? root.selection-drag-position.y
+                : s.y + EditorMetrics.phone-outer-padding;
+            width: root.selection-drag-active && primary ? root.selection-drag-size.width : s.width;
+            height: root.selection-drag-active && primary ? root.selection-drag-size.height : s.height;
+            rotation: s.angle;
+            active: true;
+            // Only allow resize for elements that have geometry outside a layout,
+            // and only when the element is not rotated (axis-aligned edits only).
+            resizable: primary && Api.selection.is-resizable && s.angle == 0deg;
+
+            radius-changed(corner, radius, single-corner) => {
+                Api.override-selected-element-border-radius(corner, radius, single-corner);
+            }
+
+            resized-to(corner, position, size) => {
+                root.selection-drag-active = true;
+                root.selection-drag-position = position;
+                root.selection-drag-size = size;
+                // Push live geometry (content space) so the previewed element follows the
+                // drag via debug-hook overrides, without writing to disk.
+                Api.override-selected-element-geometry(
+                    position.x - EditorMetrics.phone-outer-padding,
+                    position.y - EditorMetrics.phone-outer-padding,
+                    size.width,
+                    size.height,
+                );
+            }
+            moved-to(position) => {
+                root.selection-drag-active = true;
+                root.selection-drag-position = position;
+                root.selection-drag-size = { width: s.width, height: s.height };
+                Api.override-selected-element-geometry(
+                    position.x - EditorMetrics.phone-outer-padding,
+                    position.y - EditorMetrics.phone-outer-padding,
+                    s.width,
+                    s.height,
+                );
+            }
+            interaction-ended => {
+                if root.selection-drag-active {
+                    // Convert from phone (frame-parent) space back to content space
+                    // by subtracting the 1px phone-outer-padding, then commit once.
+                    Api.selected-element-resize(
+                        root.selection-drag-position.x - EditorMetrics.phone-outer-padding,
+                        root.selection-drag-position.y - EditorMetrics.phone-outer-padding,
+                        root.selection-drag-size.width,
+                        root.selection-drag-size.height,
+                        );
+                    root.selection-drag-active = false;
+                }
+                if self.radius-tooltip-visible {
+                    Api.persist-selected-element-border-radius();
+                    root.selection-radius-active = false;
+                }
             }
         }
 
