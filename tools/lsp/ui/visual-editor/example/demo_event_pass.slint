@@ -2,31 +2,32 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export component DemoEventPass inherits Window {
-    width: 390px;
-    height: 720px;
+    preferred-width: 390px;
+    preferred-height: 720px;
     title: "Launch Pass";
+    private property <bool> landscape: root.width > root.height;
 
     Rectangle {
-        width: 390px;
-        height: 720px;
+        width: root.width;
+        height: root.height;
         background: #121826;
     }
 
     Image {
-        x: 28px;
-        y: 28px;
-        width: 334px;
-        height: 252px;
+        x: root.landscape ? 28px : 28px;
+        y: root.landscape ? 28px : 28px;
+        width: root.landscape ? 304px : 334px;
+        height: root.landscape ? 220px : 252px;
         source: @image-url("image.png");
         image-fit: cover;
         opacity: 0.82;
     }
 
     Rectangle {
-        x: 28px;
-        y: 28px;
-        width: 334px;
-        height: 252px;
+        x: root.landscape ? 28px : 28px;
+        y: root.landscape ? 28px : 28px;
+        width: root.landscape ? 304px : 334px;
+        height: root.landscape ? 220px : 252px;
         border-radius: 28px;
         background: transparent;
         border-width: 1px;
@@ -34,17 +35,17 @@ export component DemoEventPass inherits Window {
     }
 
     Rectangle {
-        x: 48px;
-        y: 48px;
-        width: 78px;
-        height: 78px;
+        x: root.landscape ? 48px : 48px;
+        y: root.landscape ? 48px : 48px;
+        width: root.landscape ? 70px : 78px;
+        height: root.landscape ? 70px : 78px;
         border-radius: 22px;
         background: #ffffff;
     }
 
     Text {
-        x: 62px;
-        y: 62px;
+        x: root.landscape ? 58px : 62px;
+        y: root.landscape ? 60px : 62px;
         width: 50px;
         height: 20px;
         text: "JUN";
@@ -55,31 +56,31 @@ export component DemoEventPass inherits Window {
     }
 
     Text {
-        x: 64px;
-        y: 84px;
+        x: root.landscape ? 60px : 64px;
+        y: root.landscape ? 82px : 84px;
         width: 46px;
         height: 30px;
         text: "19";
         color: #2563eb;
-        font-size: 28px;
+        font-size: root.landscape ? 25px : 28px;
         font-weight: 800;
         horizontal-alignment: center;
     }
 
     Text {
-        x: 48px;
-        y: 184px;
+        x: root.landscape ? 48px : 48px;
+        y: root.landscape ? 158px : 184px;
         width: 250px;
         height: 38px;
         text: "Launch Pass";
         color: #ffffff;
-        font-size: 32px;
+        font-size: root.landscape ? 28px : 32px;
         font-weight: 800;
     }
 
     Text {
-        x: 50px;
-        y: 226px;
+        x: root.landscape ? 50px : 50px;
+        y: root.landscape ? 198px : 226px;
         width: 190px;
         height: 18px;
         text: "Executive showcase";
@@ -88,10 +89,10 @@ export component DemoEventPass inherits Window {
     }
 
     Rectangle {
-        x: 28px;
-        y: 316px;
-        width: 334px;
-        height: 286px;
+        x: root.landscape ? 362px : 28px;
+        y: root.landscape ? 28px : 316px;
+        width: root.landscape ? 330px : 334px;
+        height: root.landscape ? 268px : 286px;
         border-radius: 28px;
         background: #ffffff;
         drop-shadow-blur: 24px;
@@ -100,8 +101,8 @@ export component DemoEventPass inherits Window {
     }
 
     Text {
-        x: 56px;
-        y: 348px;
+        x: root.landscape ? 390px : 56px;
+        y: root.landscape ? 60px : 348px;
         width: 120px;
         height: 18px;
         text: "Venue";
@@ -111,19 +112,19 @@ export component DemoEventPass inherits Window {
     }
 
     Text {
-        x: 56px;
-        y: 374px;
+        x: root.landscape ? 390px : 56px;
+        y: root.landscape ? 86px : 374px;
         width: 164px;
         height: 56px;
         text: "Studio Hall";
         color: #0f172a;
-        font-size: 26px;
+        font-size: root.landscape ? 24px : 26px;
         font-weight: 800;
     }
 
     Rectangle {
-        x: 248px;
-        y: 350px;
+        x: root.landscape ? 582px : 248px;
+        y: root.landscape ? 62px : 350px;
         width: 82px;
         height: 82px;
         border-radius: 12px;
@@ -131,40 +132,40 @@ export component DemoEventPass inherits Window {
     }
 
     Rectangle {
-        x: 260px;
-        y: 362px;
+        x: root.landscape ? 594px : 260px;
+        y: root.landscape ? 74px : 362px;
         width: 16px;
         height: 16px;
         background: #ffffff;
     }
 
     Rectangle {
-        x: 286px;
-        y: 362px;
+        x: root.landscape ? 620px : 286px;
+        y: root.landscape ? 74px : 362px;
         width: 30px;
         height: 16px;
         background: #ffffff;
     }
 
     Rectangle {
-        x: 260px;
-        y: 394px;
+        x: root.landscape ? 594px : 260px;
+        y: root.landscape ? 106px : 394px;
         width: 26px;
         height: 24px;
         background: #ffffff;
     }
 
     Rectangle {
-        x: 300px;
-        y: 398px;
+        x: root.landscape ? 634px : 300px;
+        y: root.landscape ? 110px : 398px;
         width: 16px;
         height: 16px;
         background: #ffffff;
     }
 
     Text {
-        x: 56px;
-        y: 522px;
+        x: root.landscape ? 390px : 56px;
+        y: root.landscape ? 204px : 522px;
         width: 110px;
         height: 30px;
         text: "A12";
@@ -174,17 +175,17 @@ export component DemoEventPass inherits Window {
     }
 
     Rectangle {
-        x: 28px;
-        y: 636px;
-        width: 334px;
-        height: 56px;
+        x: root.landscape ? 362px : 28px;
+        y: root.landscape ? 322px : 636px;
+        width: root.landscape ? 330px : 334px;
+        height: root.landscape ? 44px : 56px;
         border-radius: 28px;
         background: #60a5fa;
     }
 
     Text {
-        x: 114px;
-        y: 654px;
+        x: root.landscape ? 452px : 114px;
+        y: root.landscape ? 334px : 654px;
         width: 162px;
         height: 20px;
         text: "Admit One";
