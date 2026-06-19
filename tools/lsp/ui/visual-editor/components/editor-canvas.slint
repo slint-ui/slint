@@ -24,46 +24,6 @@ component PhoneChrome inherits Rectangle {
 
         @children
     }
-
-    Rectangle {
-        x: EditorMetrics.phone-outer-padding;
-        y: EditorMetrics.phone-outer-padding;
-        width: root.orientation == CanvasOrientation.portrait
-            ? parent.width - 2 * EditorMetrics.phone-outer-padding
-            : EditorMetrics.phone-status-bar-size - EditorMetrics.phone-outer-padding;
-        height: root.orientation == CanvasOrientation.portrait
-            ? EditorMetrics.phone-status-bar-size - EditorMetrics.phone-outer-padding
-            : parent.height - 2 * EditorMetrics.phone-outer-padding;
-
-        Rectangle {
-            x: root.orientation == CanvasOrientation.portrait
-                ? (parent.width - self.width) / 2
-                : 12px;
-            y: root.orientation == CanvasOrientation.portrait
-                ? 13px
-                : (parent.height - self.height) / 2;
-            width: root.orientation == CanvasOrientation.portrait ? 74px : 16px;
-            height: root.orientation == CanvasOrientation.portrait ? 16px : 74px;
-            border-radius: 8px;
-            background: #111827;
-        }
-    }
-
-    Rectangle {
-        x: root.orientation == CanvasOrientation.portrait
-            ? EditorMetrics.phone-outer-padding
-            : EditorMetrics.phone-status-bar-size;
-        y: root.orientation == CanvasOrientation.portrait
-            ? EditorMetrics.phone-status-bar-size
-            : EditorMetrics.phone-outer-padding;
-        width: root.orientation == CanvasOrientation.portrait
-            ? parent.width - 2 * EditorMetrics.phone-outer-padding
-            : 1px;
-        height: root.orientation == CanvasOrientation.portrait
-            ? 1px
-            : parent.height - 2 * EditorMetrics.phone-outer-padding;
-        background: root.device-dark ? #374151 : #e5e7eb;
-    }
 }
 
 export component EditorCanvas inherits Rectangle {

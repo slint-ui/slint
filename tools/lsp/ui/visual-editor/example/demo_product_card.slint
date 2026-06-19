@@ -1,0 +1,182 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component DemoProductCard inherits Window {
+    width: 390px;
+    height: 720px;
+    title: "Product Card";
+
+    Rectangle {
+        width: 390px;
+        height: 720px;
+        background: #f7f7f5;
+    }
+
+    Text {
+        x: 30px;
+        y: 34px;
+        width: 176px;
+        height: 30px;
+        text: "Studio Dock";
+        color: #111827;
+        font-size: 25px;
+        font-weight: 800;
+    }
+
+    Text {
+        x: 30px;
+        y: 70px;
+        width: 190px;
+        height: 18px;
+        text: "Quiet power station";
+        color: #6b7280;
+        font-size: 13px;
+    }
+
+    Rectangle {
+        x: 28px;
+        y: 116px;
+        width: 334px;
+        height: 306px;
+        border-radius: 30px;
+        background: #ffffff;
+        border-width: 1px;
+        border-color: #e5e7eb;
+        drop-shadow-blur: 26px;
+        drop-shadow-offset-y: 12px;
+        drop-shadow-color: #11182718;
+    }
+
+    Image {
+        x: 82px;
+        y: 164px;
+        width: 226px;
+        height: 142px;
+        source: @image-url("title-frame.png");
+        image-fit: contain;
+    }
+
+    Rectangle {
+        x: 70px;
+        y: 348px;
+        width: 250px;
+        height: 12px;
+        border-radius: 6px;
+        background: #eff2f7;
+    }
+
+    Rectangle {
+        x: 30px;
+        y: 454px;
+        width: 96px;
+        height: 36px;
+        border-radius: 18px;
+        background: #eef2ff;
+    }
+
+    Text {
+        x: 50px;
+        y: 464px;
+        width: 56px;
+        height: 16px;
+        text: "New";
+        color: #4338ca;
+        font-size: 13px;
+        font-weight: 800;
+        horizontal-alignment: center;
+    }
+
+    Text {
+        x: 30px;
+        y: 508px;
+        width: 132px;
+        height: 44px;
+        text: "$249";
+        color: #111827;
+        font-size: 36px;
+        font-weight: 800;
+    }
+
+    Text {
+        x: 198px;
+        y: 520px;
+        width: 132px;
+        height: 18px;
+        text: "Ships today";
+        color: #15803d;
+        font-size: 14px;
+        font-weight: 700;
+        horizontal-alignment: right;
+    }
+
+    Rectangle {
+        x: 30px;
+        y: 578px;
+        width: 54px;
+        height: 32px;
+        border-radius: 16px;
+        background: #111827;
+    }
+
+    Rectangle {
+        x: 98px;
+        y: 578px;
+        width: 54px;
+        height: 32px;
+        border-radius: 16px;
+        background: #dbeafe;
+    }
+
+    Rectangle {
+        x: 166px;
+        y: 578px;
+        width: 54px;
+        height: 32px;
+        border-radius: 16px;
+        background: #e5e7eb;
+    }
+
+    Rectangle {
+        x: 236px;
+        y: 578px;
+        width: 96px;
+        height: 32px;
+        border-radius: 16px;
+        background: #ffffff;
+        border-width: 1px;
+        border-color: #d1d5db;
+    }
+
+    Text {
+        x: 254px;
+        y: 586px;
+        width: 60px;
+        height: 16px;
+        text: "Matte";
+        color: #374151;
+        font-size: 13px;
+        font-weight: 700;
+        horizontal-alignment: center;
+    }
+
+    Rectangle {
+        x: 28px;
+        y: 646px;
+        width: 334px;
+        height: 54px;
+        border-radius: 27px;
+        background: #111827;
+    }
+
+    Text {
+        x: 116px;
+        y: 663px;
+        width: 158px;
+        height: 20px;
+        text: "Add to bag";
+        color: #ffffff;
+        font-size: 16px;
+        font-weight: 800;
+        horizontal-alignment: center;
+    }
+}
