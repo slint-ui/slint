@@ -45,11 +45,11 @@ test("emits one page per page-kind compound with the expected slugs", () => {
 
 test("namespace free functions and enums get their own page", () => {
     const fn = convert().get("api/slint/run_event_loop")?.markdown ?? "";
-    assert.match(fn, /title: "slint::run_event_loop"/);
+    assert.match(fn, /title: "slint::run_event_loop Function"/);
     assert.match(fn, /Enters the main event loop\./);
 
     const en = convert().get("api/slint/eventloopmode")?.markdown ?? "";
-    assert.match(en, /title: "slint::EventLoopMode"/);
+    assert.match(en, /title: "slint::EventLoopMode Enum"/);
     assert.match(
         en,
         /\| `QuitOnLastWindowClosed` \| Quit when the last window/,
