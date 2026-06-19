@@ -2119,6 +2119,9 @@ impl Element {
         let mut cases: Vec<ElementRc> = Vec::new();
         let expr = node.Expression();
         for case in node.MatchCase() {
+            let Some(sub_element) = case.SubElement() else {
+                continue;
+            };
             let rei = RepeatedElementInfo {
                 model: Expression::BinaryExpression {
                     lhs: (Box::new(Expression::Uncompiled(expr.clone().into()))),
@@ -2131,7 +2134,7 @@ impl Element {
                 is_listview: None,
             };
             let e: Rc<RefCell<Element>> = Element::from_sub_element_node(
-                case.SubElement(),
+                sub_element,
                 parent_type.clone(),
                 component_child_insertion_point,
                 is_in_legacy_component,
@@ -2141,7 +2144,9 @@ impl Element {
             e.borrow_mut().repeated = Some(rei);
             cases.push(e);
         }
-        if let Some(wildcard) = node.WildcardMatchCase() {
+        if let Some(wildcard) = node.WildcardMatchCase()
+            && let Some(sub_element) = wildcard.SubElement()
+        {
             let case_exprs: Vec<_> = node.MatchCase().collect();
             let mut condition = Expression::BinaryExpression {
                 lhs: Box::new(Expression::Uncompiled(expr.clone().into())),
@@ -2167,7 +2172,7 @@ impl Element {
                 is_listview: None,
             };
             let e = Element::from_sub_element_node(
-                wildcard.SubElement(),
+                sub_element,
                 parent_type.clone(),
                 component_child_insertion_point,
                 is_in_legacy_component,
