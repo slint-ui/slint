@@ -45,6 +45,7 @@ pub fn screenshot(
     rotated: RenderingRotation,
 ) -> SharedPixelBuffer<Rgb8Pixel> {
     let size = window.size();
+    let sf = window.scale_factor();
     let width = size.width;
     let height = size.height;
 
@@ -59,7 +60,7 @@ pub fn screenshot(
     window.request_redraw();
     window.draw_if_needed(|renderer| {
         renderer.mark_dirty_region(
-            LogicalRect::from_size(euclid::size2(width as f32, height as f32)).into(),
+            LogicalRect::from_size(euclid::size2(width as f32 / sf, height as f32 / sf)).into(),
         );
         renderer.set_rendering_rotation(rotated);
         let stride = buffer.width() as usize;
@@ -163,8 +164,8 @@ pub fn screenshot_render_by_line(
         match region {
             None => renderer.mark_dirty_region(
                 LogicalRect::from_size(euclid::size2(
-                    buffer.width() as f32,
-                    buffer.height() as f32,
+                    buffer.width() as f32 / window.scale_factor(),
+                    buffer.height() as f32 / window.scale_factor(),
                 ))
                 .into(),
             ),
