@@ -80,4 +80,34 @@ assert_eq!(instance.get_test_anchor_pos(), 0, "Selection anchor should be at sta
 assert_eq!(instance.get_test_cursor_pos(), 5, "Selection cursor should be at end of 'Hello'");
 assert_eq!(cursor(), MouseCursorInner::BuiltIn(BuiltInMouseCursor::Text), "Cursor should be text after double-click");
 ```
+
+```rust
+use slint::*;
+use i_slint_core::api::WindowEventDispatchResult::*;
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+
+// No element has focus yet, all key events ignored
+let res = window.dispatch_event_with_result(platform::WindowEvent::KeyPressed { text: 'a'.into() });
+assert_eq!(res.unwrap(), Ignored);
+let res = window.dispatch_event_with_result(platform::WindowEvent::KeyPressRepeated { text: 'a'.into() });
+assert_eq!(res.unwrap(), Ignored);
+let res = window.dispatch_event_with_result(platform::WindowEvent::KeyReleased { text: 'a'.into() });
+assert_eq!(res.unwrap(), Ignored);
+
+// Click to focus the TextInput
+slint_testing::send_mouse_click(&instance, 50.0, 15.0);
+assert!(instance.get_input_focused());
+
+// KeyPressed and KeyPressRepeated are accepted by the focused TextInput
+let res = window.dispatch_event_with_result(platform::WindowEvent::KeyPressed { text: 'a'.into() });
+assert_eq!(res.unwrap(), Accepted);
+let res = window.dispatch_event_with_result(platform::WindowEvent::KeyPressRepeated { text: 'a'.into() });
+assert_eq!(res.unwrap(), Accepted);
+
+// KeyReleased is always ignored
+let res = window.dispatch_event_with_result(platform::WindowEvent::KeyReleased { text: 'a'.into() });
+assert_eq!(res.unwrap(), Ignored);
+```
 */

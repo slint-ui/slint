@@ -5,30 +5,30 @@
 
 import { Button } from "std-widgets.slint";
 export component TestCase inherits Window {
-  width: 500px;
-  height: 500px;
+    width: 500px;
+    height: 500px;
 
-  flick := Flickable {
-      x: 0px;
-      y: 0px;
-      width: parent.width;
-      height: parent.height;
-      VerticalLayout {
-          for i in 100: Button {
-              property <int> index: i;
-              text: "Button " + i;
-              clicked => {
-                root.button-clicked = self.index;
-                debug("Button " + self.index + " clicked");
-              }
-          }
-      }
-  }
+    flick := Flickable {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        VerticalLayout {
+            for i in 100: Button {
+                property <int> index: i;
+                text: "Button " + i;
+                clicked => {
+                    root.button-clicked = self.index;
+                    debug("Button " + self.index + " clicked");
+                }
+            }
+        }
+    }
 
-  out property <length> viewport_y <=> flick.viewport_y;
-  out property <length> viewport_height <=> flick.viewport_height;
-  out property <length> height_ <=> flick.height;
-  out property <int> button-clicked: -1;
+    out property <length> viewport_y <=> flick.viewport_y;
+    out property <length> viewport_height <=> flick.viewport_height;
+    out property <length> height_ <=> flick.height;
+    out property <int> button-clicked: -1;
 }
 
 /*
@@ -51,5 +51,25 @@ let moved_position = LogicalPosition::new(250., 0.); // Moved cursor up
 window.dispatch_event(platform::WindowEvent::PointerMoved { position: moved_position });
 
 assert_eq!(instance.get_viewport_y(), 0.); // The flickable did not move
+```
+
+```rust
+use slint::*;
+use i_slint_core::api::WindowEventDispatchResult::*;
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+
+let pressed_position = LogicalPosition::new(250., 10.);
+let res = window.dispatch_event_with_result(platform::WindowEvent::PointerPressed { position: pressed_position, button: platform::PointerEventButton::Left });
+assert_eq!(res.unwrap(), Accepted);
+let res = window.dispatch_event_with_result(platform::WindowEvent::PointerReleased { position: pressed_position, button: platform::PointerEventButton::Left });
+assert_eq!(res.unwrap(), Accepted);
+
+let res = window.dispatch_event_with_result(platform::WindowEvent::PointerMoved { position: LogicalPosition::new(250., 0.) });
+assert_eq!(res.unwrap(), Accepted);
+
+let res = window.dispatch_event_with_result(platform::WindowEvent::PointerScrolled { position: LogicalPosition::new(250.0, 100.0), delta_x: 0.0, delta_y: -75.0 });
+assert_eq!(res.unwrap(), Accepted);
 ```
 */
