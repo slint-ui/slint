@@ -3,8 +3,8 @@
 
 import { ScrollView } from "std-widgets.slint";
 import {
-    EdgeDivider, EditorMetrics, LeftPaneMode, PrimerActionListRow, PrimerSegmentedTab, PrimerTextInput,
-    SectionTitle, StudioTheme,
+    EdgeDivider, EditorMetrics, LeftPaneMode, PrimerActionListRow, PrimerSegmentedTab, SectionTitle,
+    SidebarToggleButton, StudioTheme,
 } from "common.slint";
 import { Api, PrototypeComponentKind } from "../../api.slint";
 import { FileTreeView } from "file-tree-view.slint";
@@ -12,10 +12,11 @@ import { LibraryComponentRow } from "library-component-row.slint";
 
 export component LeftPane inherits Rectangle {
     in-out property <LeftPaneMode> mode;
-    in-out property <string> search-text;
+    in property <bool> can-collapse: false;
     callback drag-started(PrototypeComponentKind, Point);
     callback drag-moved(PrototypeComponentKind, Point);
     callback drag-ended(PrototypeComponentKind, Point);
+    callback panes-collapsed();
 
     width: EditorMetrics.left-pane-width;
     background: StudioTheme.panel-bg;
@@ -28,37 +29,43 @@ export component LeftPane inherits Rectangle {
         padding: 14px;
         spacing: 14px;
 
-        Rectangle {
+        HorizontalLayout {
             height: 38px;
-            border-radius: 8px;
-            background: StudioTheme.panel-subtle;
+            spacing: 8px;
+            cross-axis-alignment: center;
 
-            HorizontalLayout {
-                padding: 4px;
-                spacing: 4px;
-
-                PrimerSegmentedTab {
-                    label: "Files";
-                    selected: root.mode == LeftPaneMode.files;
-                    clicked => {
-                        root.mode = LeftPaneMode.files;
-                    }
+            if root.can-collapse: SidebarToggleButton {
+                clicked => {
+                    root.panes-collapsed();
                 }
+            }
 
-                PrimerSegmentedTab {
-                    label: "Library";
-                    selected: root.mode == LeftPaneMode.library;
-                    clicked => {
-                        root.mode = LeftPaneMode.library;
+            Rectangle {
+                horizontal-stretch: 1;
+                border-radius: 8px;
+                background: StudioTheme.panel-subtle;
+
+                HorizontalLayout {
+                    padding: 4px;
+                    spacing: 4px;
+
+                    PrimerSegmentedTab {
+                        label: "Files";
+                        selected: root.mode == LeftPaneMode.files;
+                        clicked => {
+                            root.mode = LeftPaneMode.files;
+                        }
+                    }
+
+                    PrimerSegmentedTab {
+                        label: "Library";
+                        selected: root.mode == LeftPaneMode.library;
+                        clicked => {
+                            root.mode = LeftPaneMode.library;
+                        }
                     }
                 }
             }
-        }
-
-        PrimerTextInput {
-            text <=> root.search-text;
-            placeholder: "Search";
-            leading-text: "/";
         }
 
         if root.mode == LeftPaneMode.files: ScrollView {

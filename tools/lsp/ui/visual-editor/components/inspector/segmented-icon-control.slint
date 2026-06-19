@@ -1,0 +1,44 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { InspectorSegment } from "segment.slint";
+import { InspectorTokens } from "tokens.slint";
+
+export component InspectorSegmentedIconControl inherits Rectangle {
+    in property <string> kind;
+    in property <int> selected-index;
+    callback selected(int) -> bool;
+
+    width: InspectorTokens.column-width;
+    height: InspectorTokens.field-height;
+    border-radius: InspectorTokens.field-radius;
+    background: InspectorTokens.field-bg;
+    clip: true;
+
+    HorizontalLayout {
+        InspectorSegment {
+            kind: root.kind;
+            index: 0;
+            selected: root.selected-index == 0;
+            clicked => { root.selected(0); }
+        }
+
+        Rectangle { width: 1px; background: InspectorTokens.panel-bg; }
+
+        InspectorSegment {
+            kind: root.kind;
+            index: 1;
+            selected: root.selected-index == 1;
+            clicked => { root.selected(1); }
+        }
+
+        Rectangle { width: 1px; background: InspectorTokens.panel-bg; }
+
+        InspectorSegment {
+            kind: root.kind;
+            index: 2;
+            selected: root.selected-index == 2;
+            clicked => { root.selected(2); }
+        }
+    }
+}

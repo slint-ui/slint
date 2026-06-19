@@ -1,0 +1,76 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { InspectorTokens } from "tokens.slint";
+
+export component InspectorIconButton inherits Rectangle {
+    in property <string> kind;
+    in property <bool> selected: false;
+    callback clicked;
+
+    width: 18px;
+    height: 18px;
+    border-radius: 3.5px;
+    background: selected ? InspectorTokens.accent.with-alpha(0.12) : touch.has-hover ? InspectorTokens.field-bg : transparent;
+
+    if root.kind == "eye": Rectangle {
+        x: 3.5px;
+        y: 5.5px;
+        width: 11px;
+        height: 7px;
+        border-width: 1px;
+        border-color: root.selected ? InspectorTokens.accent : InspectorTokens.text;
+        border-radius: 5.5px;
+
+        Rectangle {
+            width: 3px;
+            height: 3px;
+            border-radius: 1.5px;
+            background: root.selected ? InspectorTokens.accent : InspectorTokens.text;
+        }
+    }
+
+    if root.kind == "drop": Rectangle {
+        x: 6.5px;
+        y: 3px;
+        width: 6px;
+        height: 11px;
+        border-width: 1px;
+        border-color: root.selected ? InspectorTokens.accent : InspectorTokens.text;
+        border-radius: 4px;
+        transform-rotation: 28deg;
+    }
+
+    if root.kind == "type-grid": Rectangle {
+        for row in 2: Rectangle {
+            for col in 2: Rectangle {
+                x: 4px + col * 6px;
+                y: 4px + row * 6px;
+                width: 3px;
+                height: 3px;
+                border-radius: 1.5px;
+                border-width: 1px;
+                border-color: InspectorTokens.text;
+            }
+        }
+    }
+
+    if root.kind == "sliders": Rectangle {
+        for col in 3: Rectangle {
+            x: 4px + col * 4.5px;
+            y: 4px;
+            width: 1px;
+            height: 10px;
+            background: InspectorTokens.text;
+            border-radius: 1px;
+        }
+        Rectangle { x: 2.5px; y: 6.5px; width: 4px; height: 1px; background: InspectorTokens.text; }
+        Rectangle { x: 7px; y: 10.5px; width: 4px; height: 1px; background: InspectorTokens.text; }
+        Rectangle { x: 11.5px; y: 5px; width: 4px; height: 1px; background: InspectorTokens.text; }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}

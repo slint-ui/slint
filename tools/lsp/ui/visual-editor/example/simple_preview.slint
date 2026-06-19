@@ -7,12 +7,8 @@ export component SimplePreview inherits Window {
     title: "Simple Preview";
 
     Rectangle {
-        background: #f6f8fa;
-
-    }
-    Rectangle {
-        width: 243px;
-        height: 120px;
+        width: 236px;
+        height: 160px;
         border-radius: 12px;
         background: #ffffff;
         border-width: 1px;
@@ -22,9 +18,56 @@ export component SimplePreview inherits Window {
             text: "Hello visual editor";
             color: #1f2328;
             font-size: 24px;
-            font-weight: 700;
-            horizontal-alignment: left;
+            font-weight: 300;
+            horizontal-alignment: center;
             vertical-alignment: center;
         }
+    
+    }
+    Rectangle {
+        background: #f6f8fa;
+
+        
+        
+        Rectangle {
+            x: 96px;
+            y: 44px;
+            width: 160px;
+            height: 64px;
+            background: #ffffff;
+            border-radius: 12px;
+            border-color: #d0d7de;
+            border-width: 1px;
+        }
+        Rectangle {
+            x: 24px;
+            y: 302px;
+            width: 160px;
+            height: 64px;
+            background: #ffffff;
+            border-radius: 12px;
+            border-color: #d0d7de;
+            border-width: 1px;
+        }
+        Rectangle {
+            x: 92px;
+            y: 91px;
+            width: 108px;
+            height: 104px;
+            background: #ffffff;
+            border-radius: 12px;
+            border-color: #d0d7de;
+            border-width: 1px;
+        }
+    }
+
+    Image {
+        source: @image-url("../../../../../demos/printerdemo/ui/images/cat.jpg");
+        width: 148px;
+        x: 98px;
+        y: 164px;
+        height: 197px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
     }
 }

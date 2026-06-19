@@ -3,8 +3,9 @@
 
 import { Api, EditorSurfaceMode } from "../api.slint";
 import { ProjectKind, StartupWizard } from "startup-wizard.slint";
-import { StudioTheme } from "components/common.slint";
-import { CanvasToolbar } from "components/canvas-toolbar.slint";
+import {
+    CanvasOrientation, OrientationIconButton, SidebarToggleButton, StudioTheme,
+} from "components/common.slint";
 import { DragPreview } from "components/drag-preview.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
 import { EditorState } from "components/editor-state.slint";
@@ -13,6 +14,149 @@ import { ImageAssetEditor } from "components/image-asset-editor.slint";
 import { InspectorPane } from "components/inspector-pane.slint";
 import { LeftPane } from "components/left-pane.slint";
 import { EditorMetrics } from "components/common.slint";
+
+component SettingsButton inherits Rectangle {
+    in property <bool> active: false;
+    callback clicked;
+
+    width: 42px;
+    height: 38px;
+    border-radius: 9px;
+    border-width: 1px;
+    border-color: active ? StudioTheme.accent-strong : StudioTheme.border;
+    background: active ? StudioTheme.accent.with-alpha(0.14) : touch.has-hover ? StudioTheme.panel-subtle : StudioTheme.panel-bg;
+    drop-shadow-blur: 14px;
+    drop-shadow-offset-y: 6px;
+    drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b24;
+    animate background, border-color { duration: 120ms; }
+
+    Image {
+        width: 16px;
+        height: 16px;
+        source: @image-url("../assets/octicons/gear.svg");
+        colorize: root.active ? StudioTheme.accent-strong : StudioTheme.text;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component DeviceAppearanceRow inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected: false;
+    callback clicked;
+
+    height: 40px;
+    border-radius: 8px;
+    background: selected ? StudioTheme.panel-subtle : touch.has-hover ? StudioTheme.panel-subtle.with-alpha(0.7) : transparent;
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 10px;
+        cross-axis-alignment: center;
+
+        Rectangle {
+            width: 18px;
+            height: 18px;
+            border-radius: 9px;
+            background: root.selected ? StudioTheme.accent.with-alpha(0.18) : StudioTheme.panel-subtle;
+
+            Rectangle {
+                width: 10px;
+                height: 10px;
+                border-radius: 5px;
+                background: root.selected ? StudioTheme.accent-strong : transparent;
+            }
+        }
+
+        Text {
+            text: root.label;
+            color: StudioTheme.text;
+            font-size: 14px;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component TextSizePicker inherits Rectangle {
+    in property <int> selected-index: 2;
+    callback selected(int);
+
+    height: 50px;
+
+    Text {
+        x: 0px;
+        y: 18px;
+        width: 18px;
+        height: 22px;
+        text: "A";
+        color: StudioTheme.text;
+        font-size: 12px;
+        vertical-alignment: center;
+    }
+
+    Rectangle {
+        x: 42px;
+        y: 29px;
+        width: 180px;
+        height: 3px;
+        border-radius: 1.5px;
+        background: StudioTheme.accent-strong;
+    }
+
+    for step in 6: Rectangle {
+        x: 42px + step * 36px - self.width / 2;
+        y: 24px;
+        width: 9px;
+        height: 13px;
+        border-radius: 4.5px;
+        background: StudioTheme.accent-strong;
+
+        TouchArea {
+            x: -8px;
+            y: -12px;
+            width: 25px;
+            height: 37px;
+            mouse-cursor: pointer;
+            clicked => {
+                root.selected(step);
+            }
+        }
+    }
+
+    Rectangle {
+        x: 42px + root.selected-index * 36px - self.width / 2;
+        y: 17px;
+        width: 24px;
+        height: 24px;
+        border-radius: 12px;
+        background: StudioTheme.accent-strong;
+    }
+
+    Text {
+        x: parent.width - 22px;
+        y: 12px;
+        width: 22px;
+        height: 28px;
+        text: "A";
+        color: StudioTheme.text;
+        font-size: 20px;
+        vertical-alignment: center;
+        horizontal-alignment: right;
+    }
+}
 
 export component EditorUi inherits Window {
     preferred-width: 1360px;
@@ -24,8 +168,16 @@ export component EditorUi inherits Window {
     default-font-family: "Inter";
     always-on-top: Api.always-on-top;
 
-    property <bool> wizard-visible: false;
+    property <bool> wizard-visible: true;
+    property <bool> sidebars-collapsed: false;
+    property <bool> settings-visible: false;
+    property <bool> device-dark: false;
+    property <int> text-size-index: 2;
     property <ProjectKind> selected-project: ProjectKind.mobile;
+
+    function text-scale() -> float {
+        return 0.85 + root.text-size-index * 0.15;
+    }
 
     function open-project() {
         root.wizard-visible = false;
@@ -35,6 +187,7 @@ export component EditorUi inherits Window {
     state := EditorState {
         window-width: root.width;
         window-height: root.height;
+        sidebars-collapsed: root.sidebars-collapsed;
     }
     Rectangle {
         y: 0;
@@ -88,22 +241,18 @@ export component EditorUi inherits Window {
             VerticalLayout {
                 EditorTopBar { }
 
-                if Api.editor-surface-mode == EditorSurfaceMode.component: CanvasToolbar {
-                    orientation: state.canvas-orientation;
-                    orientation-selected(orientation) => {
-                        state.set-canvas-orientation(orientation);
-                    }
-                }
-
                 HorizontalLayout {
                     vertical-stretch: 1;
 
-                    LeftPane {
+                    if !root.sidebars-collapsed: LeftPane {
                         mode <=> state.left-mode;
-                        search-text <=> state.search-text;
+                        can-collapse: true;
                         drag-started(kind, position) => { state.update-visual-drag(kind, position); }
                         drag-moved(kind, position) => { state.update-visual-drag(kind, position); }
                         drag-ended(kind, position) => { state.finish-visual-drag(kind, position); }
+                        panes-collapsed => {
+                            root.sidebars-collapsed = true;
+                        }
                     }
 
                     if Api.editor-surface-mode == EditorSurfaceMode.component: EditorCanvas {
@@ -122,6 +271,8 @@ export component EditorUi inherits Window {
                         rectangle-bottom-left-radius: state.rectangle-bottom-left-radius;
                         text-rotation: state.text-rotation;
                         image-rotation: state.image-rotation;
+                        device-dark: root.device-dark;
+                        text-scale: root.text-scale();
                         selected(kind) => {
                             state.selection = kind;
                             editor.focus();
@@ -140,15 +291,18 @@ export component EditorUi inherits Window {
                         rotate-image-to(rotation) => { state.rotate-image-to(rotation); }
                     }
 
-                    if Api.editor-surface-mode == EditorSurfaceMode.image: ImageAssetEditor { }
+                    if Api.editor-surface-mode == EditorSurfaceMode.image: ImageAssetEditor {
+                        sidebars-collapsed: root.sidebars-collapsed;
+                    }
 
-                    if Api.editor-surface-mode == EditorSurfaceMode.component: InspectorPane {
+                    if Api.editor-surface-mode == EditorSurfaceMode.component && !root.sidebars-collapsed: InspectorPane {
                         selection: state.selection;
                         placed-position: state.placed-position;
                         rectangle-size: state.rectangle-size;
                         text-size: state.text-size;
-                        phone-background: StudioTheme.phone-bg;
-                        phone-background-label: StudioTheme.dark ? "#f7f8fb" : "#ffffff";
+                        image-size: state.image-size;
+                        phone-background: root.device-dark ? #111827 : StudioTheme.phone-bg;
+                        phone-background-label: root.device-dark ? "#111827" : (StudioTheme.dark ? "#f7f8fb" : "#ffffff");
                         element-information: Api.current-element;
                         local-geometry-edited(position, size) => {
                             return state.set-selected-geometry(position, size);
@@ -159,6 +313,144 @@ export component EditorUi inherits Window {
             }
 
             DragPreview { }
+
+            if Api.editor-surface-mode == EditorSurfaceMode.component: SettingsButton {
+                x: root.width
+                    - (root.sidebars-collapsed ? 0px : EditorMetrics.inspector-pane-width)
+                    - self.width
+                    - 18px;
+                y: root.height - self.height - 18px;
+                active: root.settings-visible;
+                clicked => {
+                    root.settings-visible = !root.settings-visible;
+                }
+            }
+
+            if Api.editor-surface-mode == EditorSurfaceMode.component && root.settings-visible: Rectangle {
+                x: root.width
+                    - (root.sidebars-collapsed ? 0px : EditorMetrics.inspector-pane-width)
+                    - self.width
+                    - 18px;
+                y: root.height - self.height - 66px;
+                width: 296px;
+                height: 334px;
+                border-radius: 12px;
+                border-width: 1px;
+                border-color: StudioTheme.border;
+                background: StudioTheme.panel-bg.with-alpha(0.96);
+                drop-shadow-blur: 22px;
+                drop-shadow-offset-y: 10px;
+                drop-shadow-color: StudioTheme.dark ? #00000066 : #64748b30;
+
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 10px;
+
+                    Text {
+                        text: "Device appearance";
+                        color: StudioTheme.muted;
+                        font-size: 13px;
+                        font-weight: 800;
+                    }
+
+                    DeviceAppearanceRow {
+                        label: "Light";
+                        selected: !root.device-dark;
+                        clicked => {
+                            root.device-dark = false;
+                        }
+                    }
+
+                    DeviceAppearanceRow {
+                        label: "Dark";
+                        selected: root.device-dark;
+                        clicked => {
+                            root.device-dark = true;
+                        }
+                    }
+
+                    Rectangle { height: 2px; }
+
+                    Text {
+                        text: "Orientation";
+                        color: StudioTheme.muted;
+                        font-size: 13px;
+                        font-weight: 800;
+                    }
+
+                    HorizontalLayout {
+                        height: 34px;
+                        spacing: 8px;
+
+                        OrientationIconButton {
+                            selected: state.canvas-orientation == CanvasOrientation.portrait;
+                            clicked => {
+                                state.set-canvas-orientation(CanvasOrientation.portrait);
+                            }
+                        }
+
+                        OrientationIconButton {
+                            landscape: true;
+                            selected: state.canvas-orientation == CanvasOrientation.landscape;
+                            clicked => {
+                                state.set-canvas-orientation(CanvasOrientation.landscape);
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: "Text size";
+                        color: StudioTheme.muted;
+                        font-size: 13px;
+                        font-weight: 800;
+                    }
+
+                    TextSizePicker {
+                        selected-index: root.text-size-index;
+                        selected(index) => {
+                            root.text-size-index = index;
+                        }
+                    }
+                }
+            }
+
+            if root.sidebars-collapsed: Rectangle {
+                x: 18px;
+                y: EditorMetrics.top-bar-height + 14px;
+                width: 274px;
+                height: 42px;
+                border-radius: 12px;
+                border-width: 1px;
+                border-color: StudioTheme.dark ? #ffffff18 : #d0d7de;
+                background: StudioTheme.panel-bg.with-alpha(0.92);
+                drop-shadow-blur: 16px;
+                drop-shadow-offset-y: 8px;
+                drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b28;
+
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 6px;
+                    spacing: 10px;
+                    cross-axis-alignment: center;
+
+                    Text {
+                        horizontal-stretch: 1;
+                        text: Api.selected-project-file;
+                        color: StudioTheme.text;
+                        font-size: 13px;
+                        font-weight: 800;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+
+                    SidebarToggleButton {
+                        active: true;
+                        clicked => {
+                            root.sidebars-collapsed = false;
+                        }
+                    }
+                }
+            }
         }
     }
 

@@ -6,16 +6,21 @@ import {
 } from "common.slint";
 import { Api, PrototypeComponentKind } from "../../api.slint";
 
+struct EditorGeometry {
+    position: Point,
+    size: Size,
+}
+
 export component EditorState inherits Rectangle {
     in property <length> window-width;
     in property <length> window-height;
+    in property <bool> sidebars-collapsed: false;
 
     in-out property <CanvasOrientation> canvas-orientation: CanvasOrientation.portrait;
     in-out property <LeftPaneMode> left-mode: LeftPaneMode.files;
     in-out property <CanvasSelectionKind> selection: CanvasSelectionKind.artboard;
     in-out property <PrototypeComponentKind> placed-kind: PrototypeComponentKind.none;
     out property <bool> canvas-drop-hover: false;
-    in-out property <string> search-text: "";
 
     out property <Point> canvas-drop-position: { x: 0px, y: 0px };
     out property <Point> placed-position: { x: 54px, y: 196px };
@@ -58,54 +63,19 @@ export component EditorState inherits Rectangle {
 
     function place-component-at(kind: PrototypeComponentKind, drop-position: Point) {
         root.place-component(kind);
-        if kind == PrototypeComponentKind.rectangle {
-            root.placed-position = {
-                x: drop-position.x.clamp(0px, root.phone-width() - root.rectangle-size.width),
-                y: drop-position.y.clamp(0px, root.phone-height() - root.rectangle-size.height),
-            };
-        } else if kind == PrototypeComponentKind.text {
-            root.placed-position = {
-                x: drop-position.x.clamp(0px, root.phone-width() - root.text-size.width),
-                y: drop-position.y.clamp(0px, root.phone-height() - root.text-size.height),
-            };
-        } else if kind == PrototypeComponentKind.image {
-            root.placed-position = {
-                x: drop-position.x.clamp(0px, root.phone-width() - root.image-size.width),
-                y: drop-position.y.clamp(0px, root.phone-height() - root.image-size.height),
-            };
-        }
+        root.apply-geometry(kind, root.clamped-geometry(
+            drop-position,
+            root.default-component-size(kind),
+            root.minimum-component-height(kind),
+        ));
     }
 
     function clamp-elements-to-phone() {
-        if root.placed-kind == PrototypeComponentKind.rectangle {
-            root.rectangle-size = {
-                width: root.rectangle-size.width.clamp(80px, root.phone-width()),
-                height: root.rectangle-size.height.clamp(44px, root.phone-height()),
-            };
-            root.placed-position = {
-                x: root.placed-position.x.clamp(0px, root.phone-width() - root.rectangle-size.width),
-                y: root.placed-position.y.clamp(0px, root.phone-height() - root.rectangle-size.height),
-            };
-            root.clamp-rectangle-radii();
-        } else if root.placed-kind == PrototypeComponentKind.text {
-            root.text-size = {
-                width: root.text-size.width.clamp(80px, root.phone-width()),
-                height: root.text-size.height.clamp(32px, root.phone-height()),
-            };
-            root.placed-position = {
-                x: root.placed-position.x.clamp(0px, root.phone-width() - root.text-size.width),
-                y: root.placed-position.y.clamp(0px, root.phone-height() - root.text-size.height),
-            };
-        } else if root.placed-kind == PrototypeComponentKind.image {
-            root.image-size = {
-                width: root.image-size.width.clamp(80px, root.phone-width()),
-                height: root.image-size.height.clamp(44px, root.phone-height()),
-            };
-            root.placed-position = {
-                x: root.placed-position.x.clamp(0px, root.phone-width() - root.image-size.width),
-                y: root.placed-position.y.clamp(0px, root.phone-height() - root.image-size.height),
-            };
-        }
+        root.apply-geometry(root.placed-kind, root.clamped-geometry(
+            root.placed-position,
+            root.size-for-kind(root.placed-kind),
+            root.minimum-component-height(root.placed-kind),
+        ));
     }
 
     public function set-canvas-orientation(orientation: CanvasOrientation) {
@@ -114,11 +84,13 @@ export component EditorState inherits Rectangle {
     }
 
     function canvas-width() -> length {
-        return root.window-width - EditorMetrics.left-pane-width - EditorMetrics.inspector-pane-width;
+        return root.window-width
+            - (root.sidebars-collapsed ? 0px : EditorMetrics.left-pane-width)
+            - (root.sidebars-collapsed ? 0px : EditorMetrics.inspector-pane-width);
     }
 
     function canvas-height() -> length {
-        return root.window-height - EditorMetrics.top-bar-height - EditorMetrics.canvas-toolbar-height;
+        return root.window-height - EditorMetrics.top-bar-height;
     }
 
     public pure function phone-width() -> length {
@@ -138,11 +110,12 @@ export component EditorState inherits Rectangle {
     }
 
     function phone-left() -> length {
-        return EditorMetrics.left-pane-width + (root.canvas-width() - root.phone-width()) / 2;
+        return (root.sidebars-collapsed ? 0px : EditorMetrics.left-pane-width)
+            + (root.canvas-width() - root.phone-width()) / 2;
     }
 
     function phone-top() -> length {
-        return EditorMetrics.top-bar-height + EditorMetrics.canvas-toolbar-height + root.phone-canvas-top();
+        return EditorMetrics.top-bar-height + root.phone-canvas-top();
     }
 
     function pointer-inside-phone(window-position: Point) -> bool {
@@ -170,6 +143,98 @@ export component EditorState inherits Rectangle {
             return { width: 220px, height: 40px };
         }
         return { width: 96px, height: 48px };
+    }
+
+    pure function minimum-component-height(kind: PrototypeComponentKind) -> length {
+        return kind == PrototypeComponentKind.text ? 32px : 44px;
+    }
+
+    pure function size-for-kind(kind: PrototypeComponentKind) -> Size {
+        if kind == PrototypeComponentKind.rectangle {
+            return root.rectangle-size;
+        }
+        if kind == PrototypeComponentKind.text {
+            return root.text-size;
+        }
+        if kind == PrototypeComponentKind.image {
+            return root.image-size;
+        }
+        return root.default-component-size(kind);
+    }
+
+    pure function kind-for-selection() -> PrototypeComponentKind {
+        if root.selection == CanvasSelectionKind.rectangle {
+            return PrototypeComponentKind.rectangle;
+        }
+        if root.selection == CanvasSelectionKind.text {
+            return PrototypeComponentKind.text;
+        }
+        if root.selection == CanvasSelectionKind.image {
+            return PrototypeComponentKind.image;
+        }
+        return PrototypeComponentKind.none;
+    }
+
+    pure function clamped-size(size: Size, minimum-height: length) -> Size {
+        return {
+            width: size.width.clamp(80px, root.phone-width()),
+            height: size.height.clamp(minimum-height, root.phone-height()),
+        };
+    }
+
+    pure function clamped-position(position: Point, size: Size) -> Point {
+        return {
+            x: position.x.clamp(0px, root.phone-width() - size.width),
+            y: position.y.clamp(0px, root.phone-height() - size.height),
+        };
+    }
+
+    pure function clamped-geometry(position: Point, size: Size, minimum-height: length) -> EditorGeometry {
+        let clamped-size = root.clamped-size(size, minimum-height);
+        return {
+            position: root.clamped-position(position, clamped-size),
+            size: clamped-size,
+        };
+    }
+
+    pure function resized-geometry(corner: CanvasCorner, position: Point, size: Size, minimum-height: length) -> EditorGeometry {
+        let target-x = root.corner-on-left(corner)
+            ? position.x + size.width - size.width.clamp(80px, position.x + size.width)
+            : position.x.clamp(0px, root.phone-width() - 80px);
+        let target-y = root.corner-on-top(corner)
+            ? position.y + size.height - size.height.clamp(minimum-height, position.y + size.height)
+            : position.y.clamp(0px, root.phone-height() - minimum-height);
+        let target-width = root.corner-on-left(corner)
+            ? size.width.clamp(80px, position.x + size.width)
+            : size.width.clamp(80px, root.phone-width() - target-x);
+        let target-height = root.corner-on-top(corner)
+            ? size.height.clamp(minimum-height, position.y + size.height)
+            : size.height.clamp(minimum-height, root.phone-height() - target-y);
+        return root.clamped-geometry(
+            { x: target-x, y: target-y },
+            { width: target-width, height: target-height },
+            minimum-height,
+        );
+    }
+
+    function apply-geometry(kind: PrototypeComponentKind, geometry: EditorGeometry) -> bool {
+        if kind == PrototypeComponentKind.rectangle {
+            root.rectangle-size = geometry.size;
+            root.placed-position = geometry.position;
+            root.clamp-rectangle-radii();
+            return true;
+        }
+        if kind == PrototypeComponentKind.text {
+            root.text-size = geometry.size;
+            root.placed-position = geometry.position;
+            return true;
+        }
+        if kind == PrototypeComponentKind.image {
+            root.image-size = geometry.size;
+            root.placed-position = geometry.position;
+            return true;
+        }
+        return false;
     }
 
     pure function drag-preview-pointer-gap() -> length {
@@ -252,29 +317,18 @@ export component EditorState inherits Rectangle {
 
     public function move-rectangle-to(position: Point) {
         root.selection = CanvasSelectionKind.rectangle;
-        root.placed-position = {
-            x: position.x.clamp(0px, root.phone-width() - root.rectangle-size.width),
-            y: position.y.clamp(0px, root.phone-height() - root.rectangle-size.height),
-        };
+        root.apply-geometry(
+            PrototypeComponentKind.rectangle,
+            root.clamped-geometry(position, root.rectangle-size, root.minimum-component-height(PrototypeComponentKind.rectangle)),
+        );
     }
 
     public function resize-rectangle-to(corner: CanvasCorner, position: Point, size: Size) {
         root.selection = CanvasSelectionKind.rectangle;
-        if root.corner-on-left(corner) {
-            root.rectangle-size.width = size.width.clamp(80px, position.x + size.width);
-            root.placed-position.x = (position.x + size.width - root.rectangle-size.width).clamp(0px, root.phone-width() - root.rectangle-size.width);
-        } else {
-            root.placed-position.x = position.x.clamp(0px, root.phone-width() - 80px);
-            root.rectangle-size.width = size.width.clamp(80px, root.phone-width() - root.placed-position.x);
-        }
-        if root.corner-on-top(corner) {
-            root.rectangle-size.height = size.height.clamp(44px, position.y + size.height);
-            root.placed-position.y = (position.y + size.height - root.rectangle-size.height).clamp(0px, root.phone-height() - root.rectangle-size.height);
-        } else {
-            root.placed-position.y = position.y.clamp(0px, root.phone-height() - 44px);
-            root.rectangle-size.height = size.height.clamp(44px, root.phone-height() - root.placed-position.y);
-        }
-        root.clamp-rectangle-radii();
+        root.apply-geometry(
+            PrototypeComponentKind.rectangle,
+            root.resized-geometry(corner, position, size, root.minimum-component-height(PrototypeComponentKind.rectangle)),
+        );
     }
 
     public function rotate-rectangle-to(rotation: angle) {
@@ -325,28 +379,18 @@ export component EditorState inherits Rectangle {
 
     public function move-text-to(position: Point) {
         root.selection = CanvasSelectionKind.text;
-        root.placed-position = {
-            x: position.x.clamp(0px, root.phone-width() - root.text-size.width),
-            y: position.y.clamp(0px, root.phone-height() - root.text-size.height),
-        };
+        root.apply-geometry(
+            PrototypeComponentKind.text,
+            root.clamped-geometry(position, root.text-size, root.minimum-component-height(PrototypeComponentKind.text)),
+        );
     }
 
     public function resize-text-to(corner: CanvasCorner, position: Point, size: Size) {
         root.selection = CanvasSelectionKind.text;
-        if root.corner-on-left(corner) {
-            root.text-size.width = size.width.clamp(80px, position.x + size.width);
-            root.placed-position.x = (position.x + size.width - root.text-size.width).clamp(0px, root.phone-width() - root.text-size.width);
-        } else {
-            root.placed-position.x = position.x.clamp(0px, root.phone-width() - 80px);
-            root.text-size.width = size.width.clamp(80px, root.phone-width() - root.placed-position.x);
-        }
-        if root.corner-on-top(corner) {
-            root.text-size.height = size.height.clamp(32px, position.y + size.height);
-            root.placed-position.y = (position.y + size.height - root.text-size.height).clamp(0px, root.phone-height() - root.text-size.height);
-        } else {
-            root.placed-position.y = position.y.clamp(0px, root.phone-height() - 32px);
-            root.text-size.height = size.height.clamp(32px, root.phone-height() - root.placed-position.y);
-        }
+        root.apply-geometry(
+            PrototypeComponentKind.text,
+            root.resized-geometry(corner, position, size, root.minimum-component-height(PrototypeComponentKind.text)),
+        );
     }
 
     public function rotate-text-to(rotation: angle) {
@@ -355,56 +399,24 @@ export component EditorState inherits Rectangle {
     }
 
     public function set-selected-geometry(position: Point, size: Size) -> bool {
-        if root.selection == CanvasSelectionKind.rectangle {
-            root.rectangle-size = {
-                width: size.width.clamp(80px, root.phone-width()),
-                height: size.height.clamp(44px, root.phone-height()),
-            };
-            root.placed-position = {
-                x: position.x.clamp(0px, root.phone-width() - root.rectangle-size.width),
-                y: position.y.clamp(0px, root.phone-height() - root.rectangle-size.height),
-            };
-            root.clamp-rectangle-radii();
-            return true;
-        }
-        if root.selection == CanvasSelectionKind.text {
-            root.text-size = {
-                width: size.width.clamp(80px, root.phone-width()),
-                height: size.height.clamp(32px, root.phone-height()),
-            };
-            root.placed-position = {
-                x: position.x.clamp(0px, root.phone-width() - root.text-size.width),
-                y: position.y.clamp(0px, root.phone-height() - root.text-size.height),
-            };
-            return true;
-        }
-        return false;
+        let kind = root.kind-for-selection();
+        return root.apply-geometry(kind, root.clamped-geometry(position, size, root.minimum-component-height(kind)));
     }
 
     public function move-image-to(position: Point) {
         root.selection = CanvasSelectionKind.image;
-        root.placed-position = {
-            x: position.x.clamp(0px, root.phone-width() - root.image-size.width),
-            y: position.y.clamp(0px, root.phone-height() - root.image-size.height),
-        };
+        root.apply-geometry(
+            PrototypeComponentKind.image,
+            root.clamped-geometry(position, root.image-size, root.minimum-component-height(PrototypeComponentKind.image)),
+        );
     }
 
     public function resize-image-to(corner: CanvasCorner, position: Point, size: Size) {
         root.selection = CanvasSelectionKind.image;
-        if root.corner-on-left(corner) {
-            root.image-size.width = size.width.clamp(80px, position.x + size.width);
-            root.placed-position.x = (position.x + size.width - root.image-size.width).clamp(0px, root.phone-width() - root.image-size.width);
-        } else {
-            root.placed-position.x = position.x.clamp(0px, root.phone-width() - 80px);
-            root.image-size.width = size.width.clamp(80px, root.phone-width() - root.placed-position.x);
-        }
-        if root.corner-on-top(corner) {
-            root.image-size.height = size.height.clamp(44px, position.y + size.height);
-            root.placed-position.y = (position.y + size.height - root.image-size.height).clamp(0px, root.phone-height() - root.image-size.height);
-        } else {
-            root.placed-position.y = position.y.clamp(0px, root.phone-height() - 44px);
-            root.image-size.height = size.height.clamp(44px, root.phone-height() - root.placed-position.y);
-        }
+        root.apply-geometry(
+            PrototypeComponentKind.image,
+            root.resized-geometry(corner, position, size, root.minimum-component-height(PrototypeComponentKind.image)),
+        );
     }
 
     public function rotate-image-to(rotation: angle) {

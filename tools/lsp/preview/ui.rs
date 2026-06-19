@@ -296,6 +296,14 @@ pub fn create_ui(
     api.on_set_color_binding(super::set_color_binding);
     api.on_set_element_id(super::set_element_id);
     api.on_property_declaration_ranges(super::property_declaration_ranges);
+    let property_api_weak = api_weak.clone();
+    api.on_current_property_value(move |property_name, fallback| {
+        let Some(api) = property_api_weak.upgrade() else {
+            return fallback;
+        };
+
+        current_property_value(&api, property_name, fallback)
+    });
 
     api.on_get_property_value(get_property_value);
     api.on_get_property_value_table(get_property_value_table);
@@ -1213,6 +1221,39 @@ fn get_property_value(container: SharedString, property_name: SharedString) -> P
         })
         .map(|pd| map_preview_data_to_property_value(&pd))
         .unwrap_or_default()
+}
+
+fn current_property_value(
+    api: &Api<'_>,
+    property_name: SharedString,
+    fallback: SharedString,
+) -> SharedString {
+    for group in api.get_properties().iter() {
+        for property in group.properties.iter() {
+            if property.name != property_name {
+                continue;
+            }
+
+            if !property.value.code.is_empty() {
+                return property.value.code;
+            }
+            if property.value.kind == PropertyValueKind::Enum
+                && !property.value.value_string.is_empty()
+            {
+                return property.value.value_string;
+            }
+            if !property.value.display_string.is_empty() {
+                return property.value.display_string;
+            }
+            if !property.value.value_string.is_empty() {
+                return property.value.value_string;
+            }
+
+            return fallback;
+        }
+    }
+
+    fallback
 }
 
 fn map_preview_data_to_property_value_table(

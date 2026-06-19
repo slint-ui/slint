@@ -4,16 +4,16 @@
 import { Api, DropMark, PrototypeComponentKind, SelectionRectangle } from "../../api.slint";
 import { EditorPalette } from "../../components/styling.slint";
 import {
-    CanvasCorner, CanvasOrientation, CanvasSelectionKind, EditorMetrics, ImagePlaceholder,
-    StudioTheme,
+    CanvasCorner, CanvasOrientation, CanvasSelectionKind, EditorMetrics, ImagePlaceholder, StudioTheme,
 } from "common.slint";
 import { MoveResizeFrame } from "move-resize-frame.slint";
 import { RectangleOnCanvas } from "rectangle.slint";
 
 component PhoneChrome inherits Rectangle {
     in property <CanvasOrientation> orientation;
+    in property <bool> device-dark: false;
 
-    background: StudioTheme.phone-bg;
+    background: root.device-dark ? #111827 : StudioTheme.phone-bg;
     clip: true;
 
     Rectangle {
@@ -62,7 +62,7 @@ component PhoneChrome inherits Rectangle {
         height: root.orientation == CanvasOrientation.portrait
             ? 1px
             : parent.height - 2 * EditorMetrics.phone-outer-padding;
-        background: #e5e7eb;
+        background: root.device-dark ? #374151 : #e5e7eb;
     }
 }
 
@@ -82,6 +82,8 @@ export component EditorCanvas inherits Rectangle {
     in property <angle> text-rotation;
     in property <Size> image-size;
     in property <angle> image-rotation;
+    in property <bool> device-dark: false;
+    in property <float> text-scale: 1.0;
     private property <bool> radius-tooltip-visible: false;
     private property <Point> radius-tooltip-position: { x: 0px, y: 0px };
     private property <length> radius-tooltip-value: 0px;
@@ -191,6 +193,7 @@ export component EditorCanvas inherits Rectangle {
 
         PhoneChrome {
             orientation: root.orientation;
+            device-dark: root.device-dark;
 
             ComponentContainer {
                 width: 100%;
@@ -403,8 +406,8 @@ export component EditorCanvas inherits Rectangle {
                 width: parent.width;
                 height: parent.height;
                 text: "Design in Slint";
-                color: StudioTheme.phone-text;
-                font-size: 24px;
+                color: root.device-dark ? #f9fafb : StudioTheme.phone-text;
+                font-size: 24px * root.text-scale;
                 font-weight: 800;
                 vertical-alignment: center;
             }
@@ -470,4 +473,5 @@ export component EditorCanvas inherits Rectangle {
             }
         }
     }
+
 }

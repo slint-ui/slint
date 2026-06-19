@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { InspectorSegmentIcon } from "segment-icon.slint";
+import { InspectorTokens } from "tokens.slint";
+
+export component InspectorSegment inherits Rectangle {
+    in property <string> kind;
+    in property <int> index;
+    in property <bool> selected;
+    callback clicked;
+
+    height: InspectorTokens.field-height;
+    horizontal-stretch: 1;
+    background: selected ? InspectorTokens.panel-bg : touch.has-hover ? InspectorTokens.field-bg-hover : transparent;
+    border-radius: selected ? InspectorTokens.field-radius : 0px;
+    border-width: selected ? 1px : 0px;
+    border-color: InspectorTokens.divider;
+
+    InspectorSegmentIcon {
+        kind: root.kind;
+        index: root.index;
+        selected: root.selected;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}

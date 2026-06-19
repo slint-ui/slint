@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { InspectorTokens } from "tokens.slint";
+import { InspectorTextFieldBase } from "text-field-base.slint";
+
+export component InspectorColorField inherits Rectangle {
+    in property <string> value;
+    in property <color> swatch;
+    in property <bool> wide: false;
+    callback accepted(string) -> bool;
+
+    width: wide ? InspectorTokens.wide-width : InspectorTokens.column-width;
+    height: InspectorTokens.field-height;
+
+    InspectorTextFieldBase {
+        width: parent.width;
+        value: root.value;
+        field-padding-left: 7px;
+        content-spacing: 6px;
+        accepted(text) => {
+            return root.accepted(text);
+        }
+
+        Rectangle {
+            width: 11px;
+            height: 11px;
+            border-radius: 2.5px;
+            border-width: 1px;
+            border-color: InspectorTokens.muted;
+            background: root.swatch;
+
+            for row in 3: Rectangle {
+                x: 2.5px + row * 2.5px;
+                y: 2.5px;
+                width: 1px;
+                height: 6px;
+                background: InspectorTokens.muted.with-alpha(0.35);
+            }
+            for col in 3: Rectangle {
+                x: 2.5px;
+                y: 2.5px + col * 2.5px;
+                width: 6px;
+                height: 1px;
+                background: InspectorTokens.muted.with-alpha(0.35);
+            }
+        }
+    }
+}
