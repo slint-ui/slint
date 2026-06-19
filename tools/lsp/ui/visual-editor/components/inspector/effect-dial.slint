@@ -5,7 +5,10 @@ import { InspectorTokens } from "tokens.slint";
 
 export component InspectorEffectDial inherits Rectangle {
     in property <angle> value: 90deg;
-    callback changed(angle) -> bool;
+    callback accepted(angle) -> bool;
+
+    property <bool> dragging: false;
+    property <angle> drag-value: 90deg;
 
     width: 44px;
     height: 44px;
@@ -24,12 +27,20 @@ export component InspectorEffectDial inherits Rectangle {
         return root.normalized-angle(atan2((y - root.height / 2) / 1px, (x - root.width / 2) / 1px));
     }
 
+    pure function visual-value() -> angle {
+        return root.dragging ? root.drag-value : root.value;
+    }
+
     pure function knob-x() -> length {
-        return root.width / 2 + root.value.cos() * 13px;
+        return root.width / 2 + root.visual-value().cos() * 13px;
     }
 
     pure function knob-y() -> length {
-        return root.height / 2 + root.value.sin() * 13px;
+        return root.height / 2 + root.visual-value().sin() * 13px;
+    }
+
+    function update-drag(x: length, y: length) {
+        root.drag-value = root.angle-from-pointer(x, y);
     }
 
     Rectangle {
@@ -44,12 +55,12 @@ export component InspectorEffectDial inherits Rectangle {
     }
 
     Rectangle {
-        x: root.width / 2 + root.value.cos() * 6.5px - 6.5px;
-        y: root.height / 2 + root.value.sin() * 6.5px - 0.5px;
+        x: root.width / 2 + root.visual-value().cos() * 6.5px - 6.5px;
+        y: root.height / 2 + root.visual-value().sin() * 6.5px - 0.5px;
         width: 13px;
         height: 1px;
         background: InspectorTokens.accent;
-        transform-rotation: root.value;
+        transform-rotation: root.visual-value();
     }
 
     Rectangle {
@@ -71,7 +82,7 @@ export component InspectorEffectDial inherits Rectangle {
         y: parent.height - 11px;
         width: parent.width;
         height: 10px;
-        text: "\{(root.normalized-angle(root.value) / 1deg).round()}°";
+        text: "\{(root.normalized-angle(root.visual-value()) / 1deg).round()}°";
         color: InspectorTokens.muted;
         font-size: 9px;
         horizontal-alignment: center;
@@ -81,20 +92,23 @@ export component InspectorEffectDial inherits Rectangle {
     touch := TouchArea {
         mouse-cursor: pointer;
 
-        changed pressed => {
-            if self.pressed {
-                root.changed(root.angle-from-pointer(self.mouse-x, self.mouse-y));
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down {
+                root.dragging = true;
+                root.update-drag(self.mouse-x, self.mouse-y);
+            } else if event.kind == PointerEventKind.move {
+                if root.dragging {
+                    root.update-drag(self.mouse-x, self.mouse-y);
+                }
+            } else if event.kind == PointerEventKind.up {
+                if root.dragging {
+                    let value = root.drag-value;
+                    root.dragging = false;
+                    root.accepted(value);
+                }
+            } else if event.kind == PointerEventKind.cancel {
+                root.dragging = false;
             }
-        }
-
-        moved => {
-            if self.pressed {
-                root.changed(root.angle-from-pointer(self.mouse-x, self.mouse-y));
-            }
-        }
-
-        clicked => {
-            root.changed(root.angle-from-pointer(self.mouse-x, self.mouse-y));
         }
     }
 }

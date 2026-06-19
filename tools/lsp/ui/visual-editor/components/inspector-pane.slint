@@ -40,6 +40,7 @@ export component InspectorPane inherits Rectangle {
     property <length> content-x: 1px;
     property <length> split-height: 1px;
     property <length> inspector-height: (root.height - root.split-height) / 2;
+    in-out property <length> inspector-scroll-y: 0px;
 
     property <[SelectionRectangle]> selection-rects: Api.selection.highlight-index >= 0
         ? Api.highlight-positions(root.element-information.source-uri, root.element-information.offset)
@@ -563,13 +564,15 @@ export component InspectorPane inherits Rectangle {
         background: InspectorTokens.divider;
     }
 
-    ScrollView {
+    inspector-scroll := ScrollView {
         x: root.content-x;
         y: 0px;
         width: root.width - root.content-x;
         height: root.inspector-height;
         viewport-width: self.width;
         viewport-height: content.height;
+        viewport-y <=> root.inspector-scroll-y;
+        mouse-drag-pan-enabled: false;
         vertical-scrollbar-policy: ScrollBarPolicy.always-off;
         horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
 
@@ -761,7 +764,7 @@ export component InspectorPane inherits Rectangle {
 
                             InspectorEffectDial {
                                 value: root.shadow-angle();
-                                changed(angle) => {
+                                accepted(angle) => {
                                     return root.commit-shadow-offsets(angle, root.shadow-distance());
                                 }
                             }
@@ -793,7 +796,7 @@ export component InspectorPane inherits Rectangle {
                             value: root.shadow-distance();
                             minimum: 0;
                             maximum: 96;
-                            changed(value) => {
+                            accepted(value) => {
                                 return root.commit-shadow-offsets(root.shadow-angle(), value);
                             }
                         }
@@ -803,7 +806,7 @@ export component InspectorPane inherits Rectangle {
                             value: root.shadow-blur();
                             minimum: 0;
                             maximum: 128;
-                            changed(value) => {
+                            accepted(value) => {
                                 return root.commit-shadow-number(root.current-shadow-prefix() + "blur", value);
                             }
                         }
@@ -813,7 +816,7 @@ export component InspectorPane inherits Rectangle {
                             value: root.shadow-spread();
                             minimum: -64;
                             maximum: 64;
-                            changed(value) => {
+                            accepted(value) => {
                                 return root.commit-shadow-number(root.current-shadow-prefix() + "spread", value);
                             }
                         }

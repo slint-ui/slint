@@ -525,6 +525,7 @@ export component EditorUi inherits Window {
                         phone-background: root.device-dark ? #111827 : StudioTheme.phone-bg;
                         phone-background-label: root.device-dark ? "#111827" : (StudioTheme.dark ? "#f7f8fb" : "#ffffff");
                         element-information: Api.current-element;
+                        inspector-scroll-y <=> state.inspector-scroll-y;
                         local-geometry-edited(position, size) => {
                             return state.set-selected-geometry(position, size);
                         }

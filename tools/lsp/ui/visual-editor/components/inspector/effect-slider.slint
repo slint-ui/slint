@@ -10,7 +10,10 @@ export component InspectorEffectSlider inherits Rectangle {
     in property <float> minimum: 0;
     in property <float> maximum: 100;
     in property <string> suffix: "px";
-    callback changed(float) -> bool;
+    callback accepted(float) -> bool;
+
+    property <bool> dragging: false;
+    property <float> drag-value: 0;
 
     width: InspectorTokens.wide-width;
     height: 34px;
@@ -19,8 +22,12 @@ export component InspectorEffectSlider inherits Rectangle {
         return value.clamp(root.minimum, root.maximum).round();
     }
 
+    pure function visual-value() -> float {
+        return root.dragging ? root.drag-value : root.value;
+    }
+
     pure function progress() -> float {
-        return root.maximum == root.minimum ? 0 : ((root.value - root.minimum) / (root.maximum - root.minimum)).clamp(0, 1);
+        return root.maximum == root.minimum ? 0 : ((root.visual-value() - root.minimum) / (root.maximum - root.minimum)).clamp(0, 1);
     }
 
     function value-at(pointer-x: length) -> float {
@@ -29,7 +36,7 @@ export component InspectorEffectSlider inherits Rectangle {
     }
 
     function update-at(pointer-x: length) {
-        root.changed(root.value-at(pointer-x));
+        root.drag-value = root.value-at(pointer-x);
     }
 
     Text {
@@ -84,33 +91,36 @@ export component InspectorEffectSlider inherits Rectangle {
         height: InspectorTokens.field-height;
         mouse-cursor: pointer;
 
-        changed pressed => {
-            if self.pressed {
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.down {
+                root.dragging = true;
                 root.update-at(self.x + self.mouse-x);
+            } else if event.kind == PointerEventKind.move {
+                if root.dragging {
+                    root.update-at(self.x + self.mouse-x);
+                }
+            } else if event.kind == PointerEventKind.up {
+                if root.dragging {
+                    let value = root.drag-value;
+                    root.dragging = false;
+                    root.accepted(value);
+                }
+            } else if event.kind == PointerEventKind.cancel {
+                root.dragging = false;
             }
-        }
-
-        moved => {
-            if self.pressed {
-                root.update-at(self.x + self.mouse-x);
-            }
-        }
-
-        clicked => {
-            root.update-at(self.x + self.mouse-x);
         }
     }
 
     InspectorValueField {
         x: parent.width - self.width - (root.suffix != "" ? 14px : 0px);
         prefix: "";
-        value: "\{root.value.round()}";
+        value: "\{root.visual-value().round()}";
         width: root.suffix != "" ? 44px : 52px;
         accepted(text) => {
             if !text.is-float() {
                 return false;
             }
-            return root.changed(root.clamped(text.to-float()));
+            return root.accepted(root.clamped(text.to-float()));
         }
     }
 
