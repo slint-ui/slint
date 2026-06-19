@@ -130,12 +130,7 @@ pub async fn run_passes(
         );
         lower_states::lower_states(component, diag);
         lower_text_input_interface::lower_text_input_interface(component);
-        compile_paths::compile_paths(
-            component,
-            &doc.local_registry,
-            type_loader.compiler_config.embed_resources,
-            diag,
-        );
+        compile_paths::compile_paths(component, &doc.local_registry, diag);
         repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         collect_init_code::collect_init_code(component);
