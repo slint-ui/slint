@@ -30,6 +30,7 @@ export component InspectorPane inherits Rectangle {
 
     callback local-geometry-edited(Point, Size) -> bool;
     callback element-selected();
+    callback outline-drag-started();
 
     width: EditorMetrics.inspector-pane-width;
     background: InspectorTokens.panel-bg;
@@ -726,5 +727,6 @@ export component InspectorPane inherits Rectangle {
         width: root.width - root.content-x;
         height: root.height - self.y;
         element-selected => { root.element-selected(); }
+        drag-started => { root.outline-drag-started(); }
     }
 }

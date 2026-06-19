@@ -5,13 +5,16 @@ import { Api, DropLocation, EditorSurfaceMode, OutlineTreeNode } from "../../api
 import { EditorTreeView } from "editor-tree-view.slint";
 import { EditorTreeTokens } from "editor-tree-tokens.slint";
 import { AppState, SectionTitle, StudioTheme } from "common.slint";
+import { ScrollView } from "std-widgets.slint";
 
 export component OutlinePane inherits Rectangle {
     property <[OutlineTreeNode]> outline-data <=> Api.outline;
     property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
     callback element-selected();
+    callback drag-started();
 
-    background: StudioTheme.panel-bg;
+    // background: EditorTreeTokens.row-bg-hover;
+    border-color: Colors.darkcyan;
 
     VerticalLayout {
         padding-right: 10px;
@@ -25,7 +28,7 @@ export component OutlinePane inherits Rectangle {
             padding-left: 16px;
 
             SectionTitle {
-                label: "OUTLINE";
+                label: "Outline";
             }
         }
 
@@ -43,10 +46,12 @@ export component OutlinePane inherits Rectangle {
             }
         }
 
-        if !root.image-mode && root.outline-data.length > 0: tree-scroll := Flickable {
+        if !root.image-mode && root.outline-data.length > 0: tree-scroll := ScrollView {
             vertical-stretch: 1;
             viewport-width: self.width;
             viewport-height: tree-content.height;
+            vertical-scrollbar-policy: ScrollBarPolicy.always-off;
+            horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
 
             tree-content := Rectangle {
                 width: tree-scroll.width;
@@ -56,6 +61,9 @@ export component OutlinePane inherits Rectangle {
                     width: parent.width;
                     height: parent.height;
                     can-drop(event) => {
+                        if AppState.outline-drag-cancelled {
+                            return DragAction.none;
+                        }
                         AppState.update-outline-drag-position({
                             x: self.absolute-position.x + event.position.x,
                             y: self.absolute-position.y + event.position.y,
@@ -63,6 +71,10 @@ export component OutlinePane inherits Rectangle {
                         return DragAction.none;
                     }
                     dropped(event) => {
+                        if AppState.outline-drag-cancelled {
+                            AppState.finish-outline-drag();
+                            return DragAction.none;
+                        }
                         AppState.update-outline-drag-position({
                             x: self.absolute-position.x + event.position.x,
                             y: self.absolute-position.y + event.position.y,
@@ -94,6 +106,10 @@ export component OutlinePane inherits Rectangle {
                         width: parent.width;
                         height: parent.height;
                         can-drop(event) => {
+                            if AppState.outline-drag-cancelled {
+                                root-drop-target.drop-allowed = false;
+                                return DragAction.none;
+                            }
                             AppState.update-outline-drag-position({
                                 x: self.absolute-position.x + event.position.x,
                                 y: self.absolute-position.y + event.position.y,
@@ -109,6 +125,11 @@ export component OutlinePane inherits Rectangle {
                                 : DragAction.none;
                         }
                         dropped(event) => {
+                            if AppState.outline-drag-cancelled {
+                                root-drop-target.drop-allowed = false;
+                                AppState.finish-outline-drag();
+                                return DragAction.none;
+                            }
                             AppState.update-outline-drag-position({
                                 x: self.absolute-position.x + event.position.x,
                                 y: self.absolute-position.y + event.position.y,
@@ -162,6 +183,9 @@ export component OutlinePane inherits Rectangle {
                     row-current-requested(uri, offset) => {
                         Api.outline-select-element(uri, offset, true);
                         root.element-selected();
+                    }
+                    drag-started => {
+                        root.drag-started();
                     }
                 }
             }

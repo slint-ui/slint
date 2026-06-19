@@ -39,6 +39,11 @@ export component EditorState inherits Rectangle {
         root.selection = CanvasSelectionKind.artboard;
     }
 
+    public function cancel-active-drag() {
+        AppState.cancel-active-drags();
+        root.canvas-drop-hover = false;
+    }
+
     function place-component(kind: PrototypeComponentKind) {
         root.placed-kind = kind;
         if kind == PrototypeComponentKind.rectangle {
@@ -246,23 +251,27 @@ export component EditorState inherits Rectangle {
     }
 
     public function update-visual-drag(kind: PrototypeComponentKind, window-position: Point) {
-        AppState.dragging-kind = kind;
-        AppState.drag-position = window-position;
-        AppState.drag-preview-size = root.default-component-size(kind);
-        AppState.drag-preview-position = {
-            x: window-position.x - AppState.drag-preview-size.width / 2,
-            y: window-position.y - AppState.drag-preview-size.height / 2,
-        };
-        root.canvas-drop-position = {
-            x: AppState.drag-preview-position.x - root.phone-left(),
-            y: AppState.drag-preview-position.y - root.phone-top(),
-        };
-        root.canvas-drop-hover = root.preview-inside-phone(root.canvas-drop-position, AppState.drag-preview-size);
+        if !AppState.visual-drag-cancelled {
+            AppState.dragging-kind = kind;
+            AppState.drag-position = window-position;
+            AppState.drag-preview-size = root.default-component-size(kind);
+            AppState.drag-preview-position = {
+                x: window-position.x - AppState.drag-preview-size.width / 2,
+                y: window-position.y - AppState.drag-preview-size.height / 2,
+            };
+            root.canvas-drop-position = {
+                x: AppState.drag-preview-position.x - root.phone-left(),
+                y: AppState.drag-preview-position.y - root.phone-top(),
+            };
+            root.canvas-drop-hover = root.preview-inside-phone(root.canvas-drop-position, AppState.drag-preview-size);
+        }
     }
 
     public function finish-visual-drag(kind: PrototypeComponentKind, window-position: Point) {
-        root.update-visual-drag(kind, window-position);
-        if root.canvas-drop-hover {
+        if !AppState.visual-drag-cancelled {
+            root.update-visual-drag(kind, window-position);
+        }
+        if !AppState.visual-drag-cancelled && root.canvas-drop-hover {
             Api.drop-with-geometry(
                 Api.new-prototype-component-data(kind),
                 window-position.x - root.phone-left(),
@@ -275,6 +284,7 @@ export component EditorState inherits Rectangle {
         }
         root.placed-kind = PrototypeComponentKind.none;
         AppState.dragging-kind = PrototypeComponentKind.none;
+        AppState.visual-drag-cancelled = false;
         root.canvas-drop-hover = false;
     }
 
