@@ -3,8 +3,8 @@
 
 //! macOS unified title bar support for the visual editor.
 
-use slint::winit_030::winit;
-use winit::platform::macos::WindowAttributesExtMacOS;
+use slint::winit_031::winit;
+use winit::platform::macos::WindowAttributesMacOS;
 use winit::window::WindowAttributes;
 
 use crate::preview::ui::{Api, EditorUi};
@@ -19,10 +19,12 @@ use crate::preview::ui::{Api, EditorUi};
 /// flash on startup.
 #[allow(dead_code)]
 pub fn apply_unified_titlebar(attributes: WindowAttributes) -> WindowAttributes {
-    attributes
-        .with_fullsize_content_view(true)
-        .with_titlebar_transparent(true)
-        .with_title_hidden(true)
+    attributes.with_platform_attributes(Box::new(
+        WindowAttributesMacOS::default()
+            .with_fullsize_content_view(true)
+            .with_titlebar_transparent(true)
+            .with_title_hidden(true),
+    ))
 }
 
 /// Configures the unified title bar once the winit window exists and publishes
@@ -35,7 +37,7 @@ pub fn setup(editor: slint::Weak<EditorUi>) {
     use objc2_foundation::NSString;
     use raw_window_handle::{HasWindowHandle, RawWindowHandle};
     use slint::ComponentHandle;
-    use slint::winit_030::WinitWindowAccessor;
+    use slint::winit_031::WinitWindowAccessor;
 
     slint::spawn_local(async move {
         let editor_weak = editor.clone();
