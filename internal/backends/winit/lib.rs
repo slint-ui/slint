@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore binfmt GETNONCLIENTMETRICS NONCLIENTMETRICSW testui
+// cSpell: ignore binfmt dlsym GETNONCLIENTMETRICS NONCLIENTMETRICSW testui
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint.dev/logo/slint-logo-square-light.svg")]
 #![warn(missing_docs)]
@@ -683,6 +683,36 @@ impl Backend {
 #[allow(unused)]
 const DEFAULT_CURSOR_FLASH_CYCLE: core::time::Duration = core::time::Duration::from_millis(1000);
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+fn prefers_non_blinking_text_insertion_indicator() -> Option<bool> {
+    use core::ffi::{c_char, c_void};
+
+    #[link(name = "Accessibility", kind = "framework")]
+    unsafe extern "C" {}
+
+    unsafe extern "C" {
+        fn dlsym(handle: *mut c_void, symbol: *const c_char) -> *mut c_void;
+    }
+
+    type AxPrefersNonBlinkingTextInsertionIndicator =
+        unsafe extern "C" fn() -> objc2::runtime::Bool;
+
+    // AXPrefersNonBlinkingTextInsertionIndicator is available starting with macOS 15 and iOS 18.
+    // Look it up dynamically so older systems don't fail to load because of a strong symbol
+    // reference. On older systems dlsym returns null, so the accessibility setting is
+    // unavailable and we keep the existing cursor blink behavior.
+    let symbol = unsafe {
+        dlsym((-2isize) as *mut c_void, c"AXPrefersNonBlinkingTextInsertionIndicator".as_ptr())
+    };
+    if symbol.is_null() {
+        return None;
+    }
+
+    let function: AxPrefersNonBlinkingTextInsertionIndicator =
+        unsafe { core::mem::transmute(symbol) };
+    Some(unsafe { function() }.as_bool())
+}
+
 #[cfg(xdg_desktop_settings)]
 impl Drop for Backend {
     fn drop(&mut self) {
@@ -885,8 +915,11 @@ impl i_slint_core::platform::Platform for Backend {
 
     #[cfg(target_os = "macos")]
     fn cursor_flash_cycle(&self) -> core::time::Duration {
-        use objc2_foundation::NSUserDefaults;
-        let defaults = NSUserDefaults::standardUserDefaults();
+        if prefers_non_blinking_text_insertion_indicator() == Some(true) {
+            return core::time::Duration::ZERO;
+        }
+
+        let defaults = objc2_foundation::NSUserDefaults::standardUserDefaults();
         let key = objc2_foundation::NSString::from_str("NSTextInsertionPointBlinkPeriod");
         let period = defaults.integerForKey(&key);
         if period < 0 {
@@ -895,6 +928,15 @@ impl i_slint_core::platform::Platform for Backend {
             DEFAULT_CURSOR_FLASH_CYCLE
         } else {
             core::time::Duration::from_millis(period as u64)
+        }
+    }
+
+    #[cfg(target_os = "ios")]
+    fn cursor_flash_cycle(&self) -> core::time::Duration {
+        if prefers_non_blinking_text_insertion_indicator() == Some(true) {
+            core::time::Duration::ZERO
+        } else {
+            DEFAULT_CURSOR_FLASH_CYCLE
         }
     }
 
