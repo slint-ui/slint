@@ -23,6 +23,7 @@ component EditorTreeRow {
     callback can-drop(DropEvent, string, int, DropLocation) -> DragAction;
     callback dropped(DropEvent, string, int, DropLocation) -> DragAction;
     callback current-requested(string, int);
+    callback drag-started();
     callback row-hover-changed(int, bool);
 
     property <bool> current: node.uri == current-source-uri && node.offset == current-offset;
@@ -141,6 +142,7 @@ component EditorTreeRow {
 
                     changed dragging => {
                         if self.dragging {
+                            root.drag-started();
                             AppState.start-outline-drag(
                                 root.row-label,
                                 root.row-icon,
@@ -155,6 +157,10 @@ component EditorTreeRow {
                         width: parent.width;
                         height: parent.height;
                         can-drop(event) => {
+                            if AppState.outline-drag-cancelled {
+                                root.drop-allowed = false;
+                                return DragAction.none;
+                            }
                             AppState.update-outline-drag-position(root.drop-event-window-position(event));
                             root.active-drop-location = root.drop-location-for-y(event.position.y);
                             if !root.can-use-drop-location(root.active-drop-location) {
@@ -171,6 +177,11 @@ component EditorTreeRow {
                             return action;
                         }
                         dropped(event) => {
+                            if AppState.outline-drag-cancelled {
+                                root.drop-allowed = false;
+                                AppState.finish-outline-drag();
+                                return DragAction.none;
+                            }
                             AppState.update-outline-drag-position(root.drop-event-window-position(event));
                             root.active-drop-location = root.drop-location-for-y(event.position.y);
                             if !root.can-use-drop-location(root.active-drop-location) {
@@ -307,6 +318,7 @@ export component EditorTreeView inherits VerticalLayout {
     callback row-can-drop(DropEvent, string, int, DropLocation) -> DragAction;
     callback row-dropped(DropEvent, string, int, DropLocation) -> DragAction;
     callback row-current-requested(string, int);
+    callback drag-started();
 
     alignment: start;
     horizontal-stretch: 1;
@@ -333,6 +345,9 @@ export component EditorTreeView inherits VerticalLayout {
         }
         current-requested(uri, offset) => {
             root.row-current-requested(uri, offset);
+        }
+        drag-started => {
+            root.drag-started();
         }
         row-hover-changed(row-index, has-hover) => {
             if has-hover {

@@ -4,7 +4,7 @@
 import { Api, EditorSurfaceMode } from "../api.slint";
 import { ProjectKind, StartupWizard } from "startup-wizard.slint";
 import {
-    CanvasOrientation, OrientationIconButton, SidebarToggleButton, StudioTheme,
+    AppState, CanvasOrientation, OrientationIconButton, SidebarToggleButton, StudioTheme,
 } from "components/common.slint";
 import { DragPreview } from "components/drag-preview.slint";
 import { EditorCanvas } from "components/editor-canvas.slint";
@@ -438,6 +438,10 @@ export component EditorUi inherits Window {
         }
 
         key-pressed(event) => {
+            if event.text == Key.Escape && AppState.has-active-drag() {
+                state.cancel-active-drag();
+                return accept;
+            }
             if (event.text == Key.Delete || event.text == Key.Backspace)
                 && Api.selection.highlight-index >= 0 {
                 Api.selected-element-delete();
@@ -461,7 +465,10 @@ export component EditorUi inherits Window {
 
                     if !root.sidebars-collapsed: LeftPane {
                         can-collapse: true;
-                        drag-started(kind, position) => { state.update-visual-drag(kind, position); }
+                        drag-started(kind, position) => {
+                            editor.focus();
+                            state.update-visual-drag(kind, position);
+                        }
                         drag-moved(kind, position) => { state.update-visual-drag(kind, position); }
                         drag-ended(kind, position) => { state.finish-visual-drag(kind, position); }
                         panes-collapsed => {
@@ -522,6 +529,7 @@ export component EditorUi inherits Window {
                             return state.set-selected-geometry(position, size);
                         }
                         element-selected => { editor.focus(); }
+                        outline-drag-started => { editor.focus(); }
                     }
                 }
             }
