@@ -37,14 +37,14 @@ test("emits one page per page-kind compound with the expected slugs", () => {
             "api/slint/color",
             "api/slint/sharedstring",
             // Free functions and enums each become their own page too.
-            "api/slint/run-event-loop",
+            "api/slint/run_event_loop",
             "api/slint/eventloopmode",
         ].sort(),
     );
 });
 
 test("namespace free functions and enums get their own page", () => {
-    const fn = convert().get("api/slint/run-event-loop")?.markdown ?? "";
+    const fn = convert().get("api/slint/run_event_loop")?.markdown ?? "";
     assert.match(fn, /title: "slint::run_event_loop"/);
     assert.match(fn, /Enters the main event loop\./);
 
@@ -137,7 +137,7 @@ test("namespace pages list their types (classes and structs together) with links
 test("namespace pages link to function/enum pages instead of inlining them", () => {
     const ns = convert().get("api/slint")?.markdown ?? "";
     // Free functions and enums are listed as links to their own pages…
-    assert.match(ns, /## Functions\n- \[run_event_loop\]\(run-event-loop\/\)/);
+    assert.match(ns, /## Functions\n- \[run_event_loop\]\(run_event_loop\/\)/);
     assert.match(ns, /## Enumerations\n- \[EventLoopMode\]\(eventloopmode\/\)/);
     // …not rendered inline as member sections on the namespace page.
     assert.doesNotMatch(ns, /### <a id="run_event_loop">/);
@@ -217,6 +217,6 @@ test("sidebar hoists the implicit root namespace directly under API Reference", 
     // Free functions and enums link to their own page (not an anchor).
     const fn = items.find((i) => i.label === "run_event_loop");
     const en = items.find((i) => i.label === "EventLoopMode");
-    assert.equal(fn?.slug, "api/slint/run-event-loop");
+    assert.equal(fn?.slug, "api/slint/run_event_loop");
     assert.equal(en?.slug, "api/slint/eventloopmode");
 });
