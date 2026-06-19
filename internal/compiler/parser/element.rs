@@ -265,6 +265,7 @@ fn parse_match_element(p: &mut impl Parser) {
 /// ```test,MatchCase
 /// foo: Elem { }
 /// (foo): Elem { }
+/// foo: { }
 /// ```
 fn parse_match_case(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::MatchCase);
@@ -274,6 +275,16 @@ fn parse_match_case(p: &mut impl Parser) {
         if p.peek().kind() != SyntaxKind::Identifier {
             p.consume();
         }
+    }
+    if p.peek().kind() == SyntaxKind::LBrace {
+        // pass case
+        p.expect(SyntaxKind::LBrace);
+        if p.peek().kind() == SyntaxKind::Identifier {
+            p.error("Remove '{ }' around case element");
+            parse_sub_element(&mut *p);
+        }
+        p.expect(SyntaxKind::RBrace);
+        return;
     }
     parse_sub_element(&mut *p);
 }
@@ -292,6 +303,16 @@ fn parse_wildcard_case(p: &mut impl Parser) {
             p.consume();
         }
     };
+    if p.peek().kind() == SyntaxKind::LBrace {
+        // pass case
+        p.expect(SyntaxKind::LBrace);
+        if p.peek().kind() == SyntaxKind::Identifier {
+            p.error("Remove '{ }' around case element");
+            return;
+        }
+        p.expect(SyntaxKind::RBrace);
+        return;
+    }
     parse_sub_element(&mut *p);
 }
 

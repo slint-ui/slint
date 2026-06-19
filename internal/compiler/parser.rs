@@ -361,9 +361,9 @@ declare_syntax! {
         /// match (foo) { 1: Elem { } }
         MatchElement -> [ Expression , +MatchCase, ?WildcardMatchCase ],
         /// 1: Elem { }
-        MatchCase -> [ Expression, SubElement ],
+        MatchCase -> [ Expression, ?SubElement ],
         /// *: Elem { }
-        WildcardMatchCase -> [ SubElement ],
+        WildcardMatchCase -> [ ?SubElement ],
         CallbackDeclaration -> [ DeclaredIdentifier, *CallbackDeclarationParameter, ?ReturnType, ?TwoWayBinding ],
         // `foo: type` or just `type`
         CallbackDeclarationParameter -> [ ?DeclaredIdentifier, Type],
