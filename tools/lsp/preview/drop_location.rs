@@ -1073,16 +1073,22 @@ fn geometry_properties_for_drop(
 fn prototype_visual_properties_for_geometry_drop(
     component: &common::ComponentInformation,
 ) -> Vec<common::PropertyChange> {
-    if component.name != "Rectangle" {
-        return Vec::new();
+    match component.name.as_str() {
+        "Rectangle" => vec![
+            common::PropertyChange::new("background", "#ffffff".to_string()),
+            common::PropertyChange::new("border-radius", "12px".to_string()),
+            common::PropertyChange::new("border-color", "#d0d7de".to_string()),
+            common::PropertyChange::new("border-width", "1px".to_string()),
+        ],
+        "Text" => vec![
+            common::PropertyChange::new("text", "\"Text\"".to_string()),
+            common::PropertyChange::new("color", "#1f2328".to_string()),
+            common::PropertyChange::new("font-size", "24px".to_string()),
+            common::PropertyChange::new("vertical-alignment", "center".to_string()),
+        ],
+        "Image" => vec![common::PropertyChange::new("image-fit", "contain".to_string())],
+        _ => Vec::new(),
     }
-
-    vec![
-        common::PropertyChange::new("background", "#ffffff".to_string()),
-        common::PropertyChange::new("border-radius", "12px".to_string()),
-        common::PropertyChange::new("border-color", "#d0d7de".to_string()),
-        common::PropertyChange::new("border-width", "1px".to_string()),
-    ]
 }
 
 fn property_ranges(element: &common::ElementRcNode, remove_properties: &[&str]) -> Vec<TextRange> {

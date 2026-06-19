@@ -6,9 +6,8 @@ import {
     EdgeDivider, EditorMetrics, LeftPaneMode, PrimerActionListRow, PrimerSegmentedTab, SectionTitle,
     SidebarToggleButton, StudioTheme,
 } from "common.slint";
-import { Api, PrototypeComponentKind } from "../../api.slint";
+import { PrototypeComponentKind } from "../../api.slint";
 import { FileTreeView } from "file-tree-view.slint";
-import { LibraryComponentRow } from "library-component-row.slint";
 
 export component LeftPane inherits Rectangle {
     in-out property <LeftPaneMode> mode;
@@ -87,15 +86,14 @@ export component LeftPane inherits Rectangle {
 
             library-list := VerticalLayout {
                 width: parent.width;
-                spacing: 10px;
+                spacing: 8px;
 
-                SectionTitle { label: "BASIC"; }
+                SectionTitle { label: "ELEMENTS"; }
 
                 PrimerActionListRow {
                     kind: PrototypeComponentKind.rectangle;
                     label: "Rectangle";
-                    detail: "Prototype shape";
-                    glyph: "R";
+                    detail: "Shape layer";
                     drag-started(kind, position) => { root.drag-started(kind, position); }
                     drag-moved(kind, position) => { root.drag-moved(kind, position); }
                     drag-ended(kind, position) => { root.drag-ended(kind, position); }
@@ -104,8 +102,7 @@ export component LeftPane inherits Rectangle {
                 PrimerActionListRow {
                     kind: PrototypeComponentKind.text;
                     label: "Text";
-                    detail: "Prototype label";
-                    glyph: "T";
+                    detail: "Text layer";
                     drag-started(kind, position) => { root.drag-started(kind, position); }
                     drag-moved(kind, position) => { root.drag-moved(kind, position); }
                     drag-ended(kind, position) => { root.drag-ended(kind, position); }
@@ -114,35 +111,10 @@ export component LeftPane inherits Rectangle {
                 PrimerActionListRow {
                     kind: PrototypeComponentKind.image;
                     label: "Image";
-                    detail: "Prototype media";
-                    glyph: "I";
+                    detail: "Image layer";
                     drag-started(kind, position) => { root.drag-started(kind, position); }
                     drag-moved(kind, position) => { root.drag-moved(kind, position); }
                     drag-ended(kind, position) => { root.drag-ended(kind, position); }
-                }
-
-                Rectangle { height: 6px; }
-
-                for category in Api.known-components: VerticalLayout {
-                    width: parent.width;
-                    spacing: 10px;
-
-                    SectionTitle { label: category.category; }
-
-                    VerticalLayout {
-                        width: parent.width;
-                        spacing: 10px;
-
-                        for component in category.components: LibraryComponentRow {
-                            label: component.name;
-                            detail: component.pretty-location;
-
-                            DragArea {
-                                data: Api.new-component-data(component.index);
-                                allow-copy: true;
-                            }
-                        }
-                    }
                 }
             }
         }

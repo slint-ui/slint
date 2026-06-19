@@ -333,7 +333,6 @@ export component PrimerActionListRow inherits Rectangle {
     in property <PrototypeComponentKind> kind;
     in property <string> label;
     in property <string> detail;
-    in property <string> glyph;
     callback drag-started(PrototypeComponentKind, Point);
     callback drag-moved(PrototypeComponentKind, Point);
     callback drag-ended(PrototypeComponentKind, Point);
@@ -341,38 +340,82 @@ export component PrimerActionListRow inherits Rectangle {
     private property <length> drag-threshold: 2px;
     property <bool> dragging: AppState.dragging-kind == root.kind;
     property <bool> active: root.dragging || touch.pressed;
+    property <bool> hovered: touch.has-hover && !root.dragging;
 
-    height: 70px;
+    height: 62px;
     border-radius: 8px;
     border-width: 1px;
-    border-color: root.active ? StudioTheme.accent-strong : StudioTheme.border;
-    background: root.active ? StudioTheme.accent.with-alpha(0.08) : StudioTheme.panel-bg;
-    opacity: root.active ? 0.45 : 1;
+    border-color: root.active ? StudioTheme.accent-strong.with-alpha(0.75) : root.hovered ? StudioTheme.border : StudioTheme.soft-border;
+    background: root.active ? StudioTheme.accent.with-alpha(0.10) : root.hovered ? StudioTheme.panel-subtle.with-alpha(0.72) : StudioTheme.panel-bg;
+    opacity: root.dragging ? 0.56 : 1;
+    animate background, border-color, opacity { duration: 140ms; easing: ease-out-quad; }
 
     HorizontalLayout {
-        padding: 12px;
+        padding: 10px;
         spacing: 12px;
+        cross-axis-alignment: center;
 
         Rectangle {
-            width: 42px;
-            height: 42px;
-            border-radius: 7px;
-            background: root.kind == PrototypeComponentKind.rectangle ? #fde68a : root.kind == PrototypeComponentKind.text ? #fef3c7 : #dcfce7;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
             border-width: 1px;
-            border-color: root.kind == PrototypeComponentKind.rectangle ? #f59e0b : root.kind == PrototypeComponentKind.text ? #fbbf24 : #86efac;
+            border-color: root.kind == PrototypeComponentKind.rectangle ? #f59e0b : root.kind == PrototypeComponentKind.text ? #38bdf8 : #22c55e;
+            background: root.kind == PrototypeComponentKind.rectangle ? #fff7ed : root.kind == PrototypeComponentKind.text ? #eff6ff : #f0fdf4;
 
-            Text {
-                text: root.glyph;
-                color: root.kind == PrototypeComponentKind.rectangle ? #78350f : root.kind == PrototypeComponentKind.text ? #92400e : #166534;
-                font-size: 13px;
+            if root.kind == PrototypeComponentKind.rectangle: Rectangle {
+                x: 10px;
+                y: 11px;
+                width: 20px;
+                height: 17px;
+                border-radius: 4px;
+                border-width: 2px;
+                border-color: #d97706;
+                background: #ffffffa0;
+            }
+
+            if root.kind == PrototypeComponentKind.text: Text {
+                text: "T";
+                color: #0369a1;
+                font-size: 18px;
                 font-weight: 900;
                 horizontal-alignment: center;
                 vertical-alignment: center;
             }
+
+            if root.kind == PrototypeComponentKind.image: Rectangle {
+                x: 9px;
+                y: 10px;
+                width: 22px;
+                height: 20px;
+                border-radius: 4px;
+                border-width: 2px;
+                border-color: #15803d;
+                background: #ffffffa0;
+
+                Rectangle {
+                    x: 5px;
+                    y: 5px;
+                    width: 5px;
+                    height: 5px;
+                    border-radius: 2.5px;
+                    background: #22c55e;
+                }
+
+                Rectangle {
+                    x: 4px;
+                    y: 13px;
+                    width: 14px;
+                    height: 3px;
+                    border-radius: 2px;
+                    background: #15803d;
+                }
+            }
         }
 
         VerticalLayout {
-            spacing: 3px;
+            horizontal-stretch: 1;
+            spacing: 2px;
             alignment: center;
 
             BodyLabel {
@@ -381,6 +424,24 @@ export component PrimerActionListRow inherits Rectangle {
 
             MutedLabel {
                 text: root.detail;
+            }
+        }
+
+        Rectangle {
+            width: 18px;
+            height: 18px;
+            border-radius: 9px;
+            background: root.active ? StudioTheme.accent.with-alpha(0.16) : root.hovered ? StudioTheme.panel-bg : transparent;
+
+            for row in 3: Rectangle {
+                for col in 2: Rectangle {
+                    x: 5px + col * 5px;
+                    y: 4px + row * 5px;
+                    width: 2px;
+                    height: 2px;
+                    border-radius: 1px;
+                    background: root.active ? StudioTheme.accent-strong : StudioTheme.muted;
+                }
             }
         }
     }
