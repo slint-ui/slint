@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { Palette } from "std-widgets.slint";
-import { PrototypeComponentKind } from "../../api.slint";
+import { PrototypeComponentKind, CanvasCorner } from "../../api.slint";
+
+export { CanvasCorner }
 
 export enum CanvasOrientation {
     portrait,
@@ -15,13 +17,6 @@ export enum CanvasSelectionKind {
     rectangle,
     text,
     image,
-}
-
-export enum CanvasCorner {
-    top-left,
-    top-right,
-    bottom-right,
-    bottom-left,
 }
 
 export global StudioTheme {

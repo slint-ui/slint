@@ -1,6 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+export enum CanvasCorner {
+    top-left,
+    top-right,
+    bottom-right,
+    bottom-left,
+}
+
+
 // cSpell: ignore dataonly
 /// Basic information on a known component
 export struct ComponentItem {
@@ -677,6 +685,8 @@ export global Api {
     callback selected-element-can-move-to(x: length, y: length, mouse-x: length, mouse-y: length) -> bool;
     callback selected-element-move(x: length, y: length, mouse-x: length, mouse-y: length);
 
+    callback override-selected-element-border-radius(corner: CanvasCorner, radius: length, single-corner: bool);
+    callback persist-selected-element-border-radius();
     callback selected-element-resize(x: length, y: length, width: length, height: length);
     callback override-selected-element-geometry(x: length, y: length, width: length, height: length);
 
