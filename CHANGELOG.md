@@ -32,6 +32,7 @@ All notable changes to this project are documented in this file.
  - Upgraded fontique and parley to 0.10: The `unstable-fontique-09` Cargo feature is renamed to
    `unstable-fontique-010`, and the `slint::fontique_09` module to `slint::fontique_010`.
  - The default font size for application is read from system settings on Windows and Linux.
+ - Software renderer: Support binding the `Path` element's `commands` property (SVG path data) in `no_std` builds.
 
 ### Slint language
 
