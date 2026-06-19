@@ -33,7 +33,7 @@ component SettingsButton inherits Rectangle {
     Image {
         width: 16px;
         height: 16px;
-        source: @image-url("../assets/octicons/gear.svg");
+        source: @image-url("../assets/octicons/tools.svg");
         colorize: root.active ? StudioTheme.accent-strong : StudioTheme.text;
     }
 
@@ -47,38 +47,58 @@ component SettingsButton inherits Rectangle {
 
 component DeviceAppearanceRow inherits Rectangle {
     in property <string> label;
+    in property <string> detail;
     in property <bool> selected: false;
     callback clicked;
 
-    height: 40px;
+    height: 52px;
     border-radius: 8px;
-    background: selected ? StudioTheme.panel-subtle : touch.has-hover ? StudioTheme.panel-subtle.with-alpha(0.7) : transparent;
+    border-width: 1px;
+    border-color: selected ? StudioTheme.accent-strong.with-alpha(0.55) : touch.has-hover ? StudioTheme.border : StudioTheme.soft-border;
+    background: selected ? StudioTheme.accent.with-alpha(0.10) : touch.has-hover ? StudioTheme.panel-subtle.with-alpha(0.75) : StudioTheme.panel-bg;
+    animate background, border-color { duration: 140ms; }
 
     HorizontalLayout {
-        padding-left: 10px;
-        padding-right: 10px;
-        spacing: 10px;
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 12px;
         cross-axis-alignment: center;
 
         Rectangle {
-            width: 18px;
-            height: 18px;
-            border-radius: 9px;
-            background: root.selected ? StudioTheme.accent.with-alpha(0.18) : StudioTheme.panel-subtle;
+            width: 20px;
+            height: 20px;
+            border-radius: 10px;
+            border-width: 1px;
+            border-color: root.selected ? StudioTheme.accent-strong : StudioTheme.border;
+            background: root.selected ? StudioTheme.accent.with-alpha(0.18) : transparent;
 
             Rectangle {
-                width: 10px;
-                height: 10px;
-                border-radius: 5px;
+                width: 8px;
+                height: 8px;
+                border-radius: 4px;
                 background: root.selected ? StudioTheme.accent-strong : transparent;
             }
         }
 
-        Text {
-            text: root.label;
-            color: StudioTheme.text;
-            font-size: 14px;
-            vertical-alignment: center;
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 2px;
+
+            Text {
+                text: root.label;
+                color: StudioTheme.text;
+                font-size: 13px;
+                font-weight: 800;
+                overflow: elide;
+            }
+
+            Text {
+                text: root.detail;
+                color: StudioTheme.muted;
+                font-size: 11px;
+                overflow: elide;
+            }
         }
     }
 
@@ -94,67 +114,262 @@ component TextSizePicker inherits Rectangle {
     in property <int> selected-index: 2;
     callback selected(int);
 
-    height: 50px;
+    height: 56px;
+    property <length> track-left: 38px;
+    property <length> track-width: root.width - 76px;
+    property <length> track-y: 26px;
+    property <float> selected-progress: root.selected-index / 5.0;
+
+    function index-at(pointer-x: length) -> int {
+        let progress = ((pointer-x - root.track-left) / root.track-width).clamp(0.0, 1.0);
+        return (progress * 5.0).round();
+    }
+
+    function select-at(pointer-x: length) {
+        let index = root.index-at(pointer-x);
+        if index != root.selected-index {
+            root.selected(index);
+        }
+    }
 
     Text {
         x: 0px;
-        y: 18px;
-        width: 18px;
-        height: 22px;
+        y: 14px;
+        width: 24px;
+        height: 24px;
         text: "A";
-        color: StudioTheme.text;
+        color: StudioTheme.muted;
         font-size: 12px;
+        font-weight: 800;
         vertical-alignment: center;
     }
 
     Rectangle {
-        x: 42px;
-        y: 29px;
-        width: 180px;
-        height: 3px;
-        border-radius: 1.5px;
+        x: root.track-left;
+        y: root.track-y;
+        width: root.track-width;
+        height: 4px;
+        border-radius: 2px;
+        background: StudioTheme.panel-subtle;
+    }
+
+    Rectangle {
+        x: root.track-left;
+        y: root.track-y;
+        width: root.track-width * root.selected-progress;
+        height: 4px;
+        border-radius: 2px;
         background: StudioTheme.accent-strong;
     }
 
     for step in 6: Rectangle {
-        x: 42px + step * 36px - self.width / 2;
-        y: 24px;
-        width: 9px;
-        height: 13px;
-        border-radius: 4.5px;
-        background: StudioTheme.accent-strong;
+        property <bool> active: step <= root.selected-index;
 
-        TouchArea {
-            x: -8px;
-            y: -12px;
-            width: 25px;
-            height: 37px;
-            mouse-cursor: pointer;
-            clicked => {
-                root.selected(step);
-            }
-        }
+        x: root.track-left + step * root.track-width / 5 - self.width / 2;
+        y: root.track-y - 5px;
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        border-width: 2px;
+        border-color: active ? StudioTheme.accent-strong : StudioTheme.border;
+        background: active ? StudioTheme.panel-bg : StudioTheme.panel-subtle;
     }
 
     Rectangle {
-        x: 42px + root.selected-index * 36px - self.width / 2;
-        y: 17px;
+        x: root.track-left + root.selected-index * root.track-width / 5 - self.width / 2;
+        y: root.track-y - 10px;
         width: 24px;
         height: 24px;
         border-radius: 12px;
+        border-width: 2px;
+        border-color: StudioTheme.panel-bg;
         background: StudioTheme.accent-strong;
+        drop-shadow-blur: 10px;
+        drop-shadow-offset-y: 3px;
+        drop-shadow-color: StudioTheme.dark ? #00000055 : #0d99ff35;
+    }
+
+    TouchArea {
+        x: root.track-left - 14px;
+        y: root.track-y - 16px;
+        width: root.track-width + 28px;
+        height: 40px;
+        mouse-cursor: pointer;
+
+        changed pressed => {
+            if self.pressed {
+                root.select-at(self.x + self.mouse-x);
+            }
+        }
+
+        moved => {
+            root.select-at(self.x + self.mouse-x);
+        }
+
+        clicked => {
+            root.select-at(self.x + self.mouse-x);
+        }
     }
 
     Text {
-        x: parent.width - 22px;
-        y: 12px;
-        width: 22px;
-        height: 28px;
+        x: parent.width - 28px;
+        y: 8px;
+        width: 28px;
+        height: 34px;
         text: "A";
         color: StudioTheme.text;
-        font-size: 20px;
+        font-size: 22px;
+        font-weight: 800;
         vertical-alignment: center;
         horizontal-alignment: right;
+    }
+}
+
+component DeviceSettingsPanel inherits Rectangle {
+    in property <bool> device-dark;
+    in property <CanvasOrientation> orientation;
+    in property <int> text-size-index;
+    callback appearance-selected(bool);
+    callback orientation-selected(CanvasOrientation);
+    callback text-size-selected(int);
+
+    width: 320px;
+    height: 322px;
+    border-radius: 10px;
+    border-width: 1px;
+    border-color: StudioTheme.dark ? #ffffff18 : StudioTheme.border;
+    background: StudioTheme.panel-bg.with-alpha(0.97);
+    drop-shadow-blur: 26px;
+    drop-shadow-offset-y: 12px;
+    drop-shadow-color: StudioTheme.dark ? #00000070 : #64748b34;
+
+    TouchArea { }
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 12px;
+
+        HorizontalLayout {
+            height: 34px;
+            spacing: 10px;
+            cross-axis-alignment: center;
+
+            Rectangle {
+                width: 30px;
+                height: 30px;
+                border-radius: 7px;
+                background: StudioTheme.accent.with-alpha(0.12);
+
+                Image {
+                    width: 16px;
+                    height: 16px;
+                    source: @image-url("../assets/octicons/tools.svg");
+                    colorize: StudioTheme.accent-strong;
+                }
+            }
+
+            VerticalLayout {
+                horizontal-stretch: 1;
+                alignment: center;
+                spacing: 1px;
+
+                Text {
+                    text: "Device preview";
+                    color: StudioTheme.text;
+                    font-size: 13px;
+                    font-weight: 900;
+                    overflow: elide;
+                }
+
+                Text {
+                    text: "Tune the local canvas only";
+                    color: StudioTheme.muted;
+                    font-size: 11px;
+                    overflow: elide;
+                }
+            }
+        }
+
+        Rectangle {
+            height: 1px;
+            background: StudioTheme.soft-border;
+        }
+
+        Text {
+            text: "Appearance";
+            color: StudioTheme.muted;
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        HorizontalLayout {
+            height: 52px;
+            spacing: 8px;
+
+            DeviceAppearanceRow {
+                horizontal-stretch: 1;
+                label: "Light";
+                detail: "White device";
+                selected: !root.device-dark;
+                clicked => {
+                    root.appearance-selected(false);
+                }
+            }
+
+            DeviceAppearanceRow {
+                horizontal-stretch: 1;
+                label: "Dark";
+                detail: "Dark device";
+                selected: root.device-dark;
+                clicked => {
+                    root.appearance-selected(true);
+                }
+            }
+        }
+
+        HorizontalLayout {
+            height: 34px;
+            spacing: 10px;
+            cross-axis-alignment: center;
+
+            Text {
+                horizontal-stretch: 1;
+                text: "Orientation";
+                color: StudioTheme.muted;
+                font-size: 11px;
+                font-weight: 800;
+                vertical-alignment: center;
+            }
+
+            OrientationIconButton {
+                selected: root.orientation == CanvasOrientation.portrait;
+                clicked => {
+                    root.orientation-selected(CanvasOrientation.portrait);
+                }
+            }
+
+            OrientationIconButton {
+                landscape: true;
+                selected: root.orientation == CanvasOrientation.landscape;
+                clicked => {
+                    root.orientation-selected(CanvasOrientation.landscape);
+                }
+            }
+        }
+
+        Text {
+            text: "Text size";
+            color: StudioTheme.muted;
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        TextSizePicker {
+            selected-index: root.text-size-index;
+            selected(index) => {
+                root.text-size-selected(index);
+            }
+        }
     }
 }
 
@@ -314,6 +529,12 @@ export component EditorUi inherits Window {
 
             DragPreview { }
 
+            if Api.editor-surface-mode == EditorSurfaceMode.component && root.settings-visible: TouchArea {
+                clicked => {
+                    root.settings-visible = false;
+                }
+            }
+
             if Api.editor-surface-mode == EditorSurfaceMode.component: SettingsButton {
                 x: root.width
                     - (root.sidebars-collapsed ? 0px : EditorMetrics.inspector-pane-width)
@@ -326,91 +547,23 @@ export component EditorUi inherits Window {
                 }
             }
 
-            if Api.editor-surface-mode == EditorSurfaceMode.component && root.settings-visible: Rectangle {
+            if Api.editor-surface-mode == EditorSurfaceMode.component && root.settings-visible: DeviceSettingsPanel {
                 x: root.width
                     - (root.sidebars-collapsed ? 0px : EditorMetrics.inspector-pane-width)
                     - self.width
                     - 18px;
                 y: root.height - self.height - 66px;
-                width: 296px;
-                height: 334px;
-                border-radius: 12px;
-                border-width: 1px;
-                border-color: StudioTheme.border;
-                background: StudioTheme.panel-bg.with-alpha(0.96);
-                drop-shadow-blur: 22px;
-                drop-shadow-offset-y: 10px;
-                drop-shadow-color: StudioTheme.dark ? #00000066 : #64748b30;
-
-                VerticalLayout {
-                    padding: 16px;
-                    spacing: 10px;
-
-                    Text {
-                        text: "Device appearance";
-                        color: StudioTheme.muted;
-                        font-size: 13px;
-                        font-weight: 800;
-                    }
-
-                    DeviceAppearanceRow {
-                        label: "Light";
-                        selected: !root.device-dark;
-                        clicked => {
-                            root.device-dark = false;
-                        }
-                    }
-
-                    DeviceAppearanceRow {
-                        label: "Dark";
-                        selected: root.device-dark;
-                        clicked => {
-                            root.device-dark = true;
-                        }
-                    }
-
-                    Rectangle { height: 2px; }
-
-                    Text {
-                        text: "Orientation";
-                        color: StudioTheme.muted;
-                        font-size: 13px;
-                        font-weight: 800;
-                    }
-
-                    HorizontalLayout {
-                        height: 34px;
-                        spacing: 8px;
-
-                        OrientationIconButton {
-                            selected: state.canvas-orientation == CanvasOrientation.portrait;
-                            clicked => {
-                                state.set-canvas-orientation(CanvasOrientation.portrait);
-                            }
-                        }
-
-                        OrientationIconButton {
-                            landscape: true;
-                            selected: state.canvas-orientation == CanvasOrientation.landscape;
-                            clicked => {
-                                state.set-canvas-orientation(CanvasOrientation.landscape);
-                            }
-                        }
-                    }
-
-                    Text {
-                        text: "Text size";
-                        color: StudioTheme.muted;
-                        font-size: 13px;
-                        font-weight: 800;
-                    }
-
-                    TextSizePicker {
-                        selected-index: root.text-size-index;
-                        selected(index) => {
-                            root.text-size-index = index;
-                        }
-                    }
+                device-dark: root.device-dark;
+                orientation: state.canvas-orientation;
+                text-size-index: root.text-size-index;
+                appearance-selected(dark) => {
+                    root.device-dark = dark;
+                }
+                orientation-selected(orientation) => {
+                    state.set-canvas-orientation(orientation);
+                }
+                text-size-selected(index) => {
+                    root.text-size-index = index;
                 }
             }
 
