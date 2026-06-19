@@ -10,7 +10,11 @@ import assert from "node:assert/strict";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
-import { DoxygenConverter } from "../scripts/lib/doxygen.ts";
+import {
+    DoxygenConverter,
+    tightenAngles,
+    tightenTemplateSpacing,
+} from "../scripts/lib/doxygen.ts";
 import type {
     ConvertResult,
     GeneratedPage,
@@ -219,4 +223,40 @@ test("sidebar hoists the implicit root namespace directly under API Reference", 
     const en = items.find((i) => i.label === "EventLoopMode");
     assert.equal(fn?.slug, "api/slint/run_event_loop");
     assert.equal(en?.slug, "api/slint/eventloopmode");
+});
+
+test("tightenAngles collapses bracket padding but keeps comma/keyword spacing", () => {
+    assert.equal(
+        tightenAngles("std::optional< SharedPixelBuffer< Rgba8Pixel > >"),
+        "std::optional<SharedPixelBuffer<Rgba8Pixel>>",
+    );
+    assert.equal(
+        tightenAngles("slint::Model< ModelData >"),
+        "slint::Model<ModelData>",
+    );
+    // Spaces after a comma between arguments stay.
+    assert.equal(tightenAngles("map< K, V >"), "map<K, V>");
+    // The `template <…>` keyword spacing (space before `<`) is left alone.
+    assert.equal(
+        tightenAngles("template <typename T>"),
+        "template <typename T>",
+    );
+});
+
+test("tightenTemplateSpacing keeps cross-reference links aligned", () => {
+    const text = "optional< Foo< Bar > > f()";
+    const foo = text.indexOf("Foo");
+    const bar = text.indexOf("Bar");
+    const { text: out, links } = tightenTemplateSpacing(text, [
+        { start: foo, end: foo + 3, url: "/foo/" },
+        { start: bar, end: bar + 3, url: "/bar/" },
+    ]);
+    assert.equal(out, "optional<Foo<Bar>> f()");
+    // The remapped offsets still bound exactly the linked type names.
+    assert.equal(out.slice(links[0].start, links[0].end), "Foo");
+    assert.equal(out.slice(links[1].start, links[1].end), "Bar");
+    assert.deepEqual(
+        links.map((l) => l.url),
+        ["/foo/", "/bar/"],
+    );
 });
