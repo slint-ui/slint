@@ -320,7 +320,11 @@ export class DoxygenConverter {
      */
     private renderMemberPage(nsName: string, page: MemberPage): string {
         const out: string[] = ["---"];
-        out.push(`title: ${frontmatterString(`${nsName}::${page.name}`)}`);
+        // A kind suffix mirrors the compound pages' `Color Class` titles.
+        const kindLabel = page.kind === "enum" ? "Enum" : "Function";
+        out.push(
+            `title: ${frontmatterString(`${nsName}::${page.name} ${kindLabel}`)}`,
+        );
         const description = firstLine(
             this.renderBlocks(child(page.members[0], "briefdescription")),
         );
