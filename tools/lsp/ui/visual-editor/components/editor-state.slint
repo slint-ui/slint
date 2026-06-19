@@ -267,23 +267,17 @@ export component EditorState inherits Rectangle {
     public function finish-visual-drag(kind: PrototypeComponentKind, window-position: Point) {
         root.update-visual-drag(kind, window-position);
         if root.canvas-drop-hover {
-            if kind == PrototypeComponentKind.rectangle {
-                Api.drop-with-geometry(
-                    Api.new-prototype-component-data(kind),
-                    window-position.x - root.phone-left(),
-                    window-position.y - root.phone-top(),
-                    root.canvas-drop-position.x,
-                    root.canvas-drop-position.y,
-                    AppState.drag-preview-size.width,
-                    AppState.drag-preview-size.height,
-                );
-                root.placed-kind = PrototypeComponentKind.none;
-            } else {
-                root.place-component-at(kind, root.canvas-drop-position);
-            }
-        } else if kind == PrototypeComponentKind.rectangle {
-            root.placed-kind = PrototypeComponentKind.none;
+            Api.drop-with-geometry(
+                Api.new-prototype-component-data(kind),
+                window-position.x - root.phone-left(),
+                window-position.y - root.phone-top(),
+                root.canvas-drop-position.x,
+                root.canvas-drop-position.y,
+                AppState.drag-preview-size.width,
+                AppState.drag-preview-size.height,
+            );
         }
+        root.placed-kind = PrototypeComponentKind.none;
         AppState.dragging-kind = PrototypeComponentKind.none;
         root.canvas-drop-hover = false;
     }
