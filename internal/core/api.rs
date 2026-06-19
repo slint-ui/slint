@@ -7,7 +7,6 @@ This module contains types that are public and re-exported in the slint-rs as we
 
 #![warn(missing_docs)]
 
-use crate::context::WindowEventDispatchResult;
 use crate::input::{InternalKeyEvent, KeyEventType, MouseEvent, TouchPhase};
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
@@ -23,6 +22,34 @@ pub use crate::graphics::{
 pub use crate::input::Keys;
 pub use crate::sharedvector::SharedVector;
 pub use crate::{format, string::SharedString, string::ToSharedString};
+
+/// Result of dispatching a window event through Slint's runtime.
+///
+/// For pointer events (`PointerPressed`, `PointerReleased`, `PointerMoved`,
+/// `PointerScrolled`), the mapping is:
+/// - [`Accepted`](Self::Accepted) — an item consumed the event (returned
+///   `EventAccepted`, `GrabMouse`, or `StartDrag`; or, for a drag in flight, a
+///   `DropArea` accepted the rewritten `DragMove`/`Drop`).
+/// - [`Ignored`](Self::Ignored) — the event reached no item that wanted it, or
+///   there was no component to dispatch to. Hover-only handling (e.g. a
+///   `TouchArea` that updates `has-hover` on `PointerMoved` without otherwise
+///   consuming) is reported as `Ignored`.
+///
+/// [`PointerExited`](crate::platform::WindowEvent::PointerExited) is a teardown
+/// event: the runtime always acts on it, so it is reported as `Accepted` even
+/// when no item was under the cursor.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum WindowEventDispatchResult {
+    /// The event was handled. For example, a key handler consumed a key press, or
+    /// the window acted on a resize or close request.
+    Accepted,
+    /// The event was actively refused. For example, a `close-requested` callback
+    /// returned `reject` to prevent the window from closing.
+    Rejected,
+    /// The event was not handled by any element.
+    Ignored,
+}
 
 impl From<crate::input::KeyEventResult> for WindowEventDispatchResult {
     fn from(value: crate::input::KeyEventResult) -> Self {
@@ -670,8 +697,7 @@ impl Window {
     /// Any position fields in the event must be in the logical pixel coordinate system relative to
     /// the top left corner of the window.
     ///
-    /// Returns a [context::WindowEventDispatchResult] allowing the caller to know whether the
-    /// result was accepted or not.
+    /// Returns a [`WindowEventDispatchResult`] indicating how the event was handled.
     pub fn dispatch_event_with_result(
         &self,
         event: crate::platform::WindowEvent,
@@ -777,7 +803,7 @@ impl Window {
             && let Some(ctx) = self.0.try_context()
             && let Some(hook) = ctx.0.window_event_hook.borrow().as_ref()
         {
-            hook(&self.0.window_adapter(), &event_for_hook, dispatch_result);
+            hook(&self.0.window_adapter(), &event_for_hook, dispatch_result.clone());
         }
         Ok(dispatch_result)
     }

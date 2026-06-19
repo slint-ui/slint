@@ -294,7 +294,7 @@ impl IntrospectionState {
         &self,
         adapter: &Rc<dyn WindowAdapter>,
         event: &i_slint_core::platform::WindowEvent,
-        result: i_slint_core::context::WindowEventDispatchResult,
+        result: i_slint_core::api::WindowEventDispatchResult,
     ) {
         if !self.recording_enabled.get() {
             return;
@@ -529,18 +529,19 @@ fn convert_pointer_event_button_to_proto(
 }
 
 fn convert_event_dispatch_result(
-    result: i_slint_core::context::WindowEventDispatchResult,
+    result: i_slint_core::api::WindowEventDispatchResult,
 ) -> proto::RecordedEventResult {
     match result {
-        i_slint_core::context::WindowEventDispatchResult::Accepted => {
+        i_slint_core::api::WindowEventDispatchResult::Accepted => {
             proto::RecordedEventResult::Accepted
         }
-        i_slint_core::context::WindowEventDispatchResult::Rejected => {
+        i_slint_core::api::WindowEventDispatchResult::Rejected => {
             proto::RecordedEventResult::Rejected
         }
-        i_slint_core::context::WindowEventDispatchResult::Ignored => {
+        i_slint_core::api::WindowEventDispatchResult::Ignored => {
             proto::RecordedEventResult::Ignored
         }
+        _ => unreachable!(),
     }
 }
 
@@ -1125,7 +1126,7 @@ fn test_accessibility_role_mapping_complete() {
 #[cfg(test)]
 mod dispatch_result_tests {
     use i_slint_core::api::LogicalPosition;
-    use i_slint_core::context::WindowEventDispatchResult;
+    use i_slint_core::api::WindowEventDispatchResult;
     use i_slint_core::items::PointerEventButton;
     use i_slint_core::platform::WindowEvent;
     use std::cell::RefCell;
