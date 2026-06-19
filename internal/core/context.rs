@@ -18,35 +18,7 @@ use pin_weak::rc::PinWeak;
 /// Type alias for the closure type installed via [`set_window_event_hook`].
 /// Exposed so callers (notably tests) can save and restore a previously-installed hook.
 pub type WindowEventHook =
-    Box<dyn Fn(&Rc<dyn WindowAdapter>, &WindowEvent, WindowEventDispatchResult)>;
-
-/// Result of dispatching a window event through Slint's runtime.
-///
-/// For pointer events (`PointerPressed`, `PointerReleased`, `PointerMoved`,
-/// `PointerScrolled`), the mapping is:
-/// - [`Accepted`](Self::Accepted) — an item consumed the event (returned
-///   `EventAccepted`, `GrabMouse`, or `StartDrag`; or, for a drag in flight, a
-///   `DropArea` accepted the rewritten `DragMove`/`Drop`).
-/// - [`Ignored`](Self::Ignored) — the event reached no item that wanted it, or
-///   there was no component to dispatch to. Hover-only handling (e.g. a
-///   `TouchArea` that updates `has-hover` on `PointerMoved` without otherwise
-///   consuming) is reported as `Ignored`.
-///
-/// [`PointerExited`](crate::platform::WindowEvent::PointerExited) is a teardown
-/// event: the runtime always acts on it, so it is reported as `Accepted` even
-/// when no item was under the cursor.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum WindowEventDispatchResult {
-    /// A receiver handled the event (e.g. a key handler consumed it, or the
-    /// runtime acted on a resize / scale / close).
-    Accepted,
-    /// A receiver actively refused the event (e.g. a `close-requested` callback
-    /// prevented the window from closing).
-    Rejected,
-    /// The event fell through without being handled (e.g. a key event with no
-    /// matching handler, or a pointer event that no item consumed).
-    Ignored,
-}
+    Box<dyn Fn(&Rc<dyn WindowAdapter>, &WindowEvent, crate::api::WindowEventDispatchResult)>;
 
 crate::thread_local! {
     pub(crate) static GLOBAL_CONTEXT : once_cell::unsync::OnceCell<SlintContext>
