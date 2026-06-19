@@ -155,6 +155,35 @@ fn process_element(element: &ElementRc, random_state: &std::hash::RandomState) {
     }
 }
 
+pub fn inject_reserved_properties(component: &std::rc::Rc<object_tree::Component>) {
+    object_tree::recurse_elem(&component.root_element, &(), &mut |elem_rc, &()| {
+        let elem = elem_rc.borrow();
+        if elem.repeated.is_some() {
+            inject_reserved_properties(elem.base_type.as_component());
+            return;
+        }
+        if elem.is_component_placeholder || elem.sub_component().is_some() || elem.debug.is_empty()
+        {
+            return;
+        }
+        drop(elem);
+
+        for property_name in crate::typeregister::RESERVED_TRANSFORM_PROPERTIES
+            .iter()
+            .map(|(prop_name, _)| *prop_name)
+        {
+            if let Some(default_expr) =
+                super::lower_property_to_element::transform_property_default_value(
+                    elem_rc,
+                    property_name,
+                )
+            {
+                elem_rc.borrow_mut().set_binding_if_not_set(property_name.into(), || default_expr);
+            }
+        }
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

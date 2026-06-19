@@ -152,6 +152,11 @@ pub async fn run_passes(
         focus_handling::call_focus_on_init(popup_menu_impl);
     }
 
+    if type_loader.compiler_config.debug_hooks.is_some() {
+        for root_component in doc.exported_roots() {
+            inject_debug_hooks::inject_reserved_properties(&root_component);
+        }
+    }
     doc.visit_all_used_components(|component| {
         border_radius::handle_border_radius(component, diag);
         check_drag_area::check_drag_area(component, diag);
