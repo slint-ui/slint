@@ -1,0 +1,128 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { InspectorTokens } from "tokens.slint";
+import { InspectorValueField } from "value-field.slint";
+
+export component InspectorEffectSlider inherits Rectangle {
+    in property <string> label;
+    in property <float> value;
+    in property <float> minimum: 0;
+    in property <float> maximum: 100;
+    in property <string> suffix: "px";
+    callback changed(float) -> bool;
+
+    width: InspectorTokens.wide-width;
+    height: 34px;
+
+    pure function clamped(value: float) -> float {
+        return value.clamp(root.minimum, root.maximum).round();
+    }
+
+    pure function progress() -> float {
+        return root.maximum == root.minimum ? 0 : ((root.value - root.minimum) / (root.maximum - root.minimum)).clamp(0, 1);
+    }
+
+    function value-at(pointer-x: length) -> float {
+        let progress = ((pointer-x - track.x) / track.width).clamp(0.0, 1.0);
+        return root.clamped(root.minimum + progress * (root.maximum - root.minimum));
+    }
+
+    function update-at(pointer-x: length) {
+        root.changed(root.value-at(pointer-x));
+    }
+
+    Text {
+        x: 0px;
+        y: 0px;
+        width: 48px;
+        height: InspectorTokens.field-height;
+        text: root.label;
+        color: InspectorTokens.text;
+        font-size: 11px;
+        font-weight: 600;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+
+    track := Rectangle {
+        x: 54px;
+        y: 11px;
+        width: 62px;
+        height: 3px;
+        border-radius: 1.5px;
+        background: InspectorTokens.field-bg;
+    }
+
+    Rectangle {
+        x: track.x;
+        y: track.y;
+        width: max(0px, track.width * root.progress());
+        height: track.height;
+        border-radius: track.border-radius;
+        background: InspectorTokens.accent;
+    }
+
+    Rectangle {
+        x: track.x + track.width * root.progress() - 5px;
+        y: track.y - 4px;
+        width: 11px;
+        height: 11px;
+        border-radius: 5.5px;
+        border-width: 1px;
+        border-color: InspectorTokens.panel-bg;
+        background: slider-touch.pressed ? InspectorTokens.accent.with-alpha(0.88) : InspectorTokens.accent;
+        drop-shadow-blur: 6px;
+        drop-shadow-offset-y: 2px;
+        drop-shadow-color: #00000028;
+    }
+
+    slider-touch := TouchArea {
+        x: track.x - 8px;
+        y: 0px;
+        width: track.width + 16px;
+        height: InspectorTokens.field-height;
+        mouse-cursor: pointer;
+
+        changed pressed => {
+            if self.pressed {
+                root.update-at(self.x + self.mouse-x);
+            }
+        }
+
+        moved => {
+            if self.pressed {
+                root.update-at(self.x + self.mouse-x);
+            }
+        }
+
+        clicked => {
+            root.update-at(self.x + self.mouse-x);
+        }
+    }
+
+    InspectorValueField {
+        x: parent.width - self.width - (root.suffix != "" ? 14px : 0px);
+        prefix: "";
+        value: "\{root.value.round()}";
+        width: root.suffix != "" ? 44px : 52px;
+        accepted(text) => {
+            if !text.is-float() {
+                return false;
+            }
+            return root.changed(root.clamped(text.to-float()));
+        }
+    }
+
+    Text {
+        x: parent.width - 12px;
+        y: 0px;
+        width: 12px;
+        height: InspectorTokens.field-height;
+        text: root.suffix;
+        color: InspectorTokens.muted;
+        font-size: 9px;
+        vertical-alignment: center;
+        horizontal-alignment: right;
+    }
+}

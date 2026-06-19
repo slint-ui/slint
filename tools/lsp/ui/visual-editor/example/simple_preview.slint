@@ -12,6 +12,10 @@ export component SimplePreview inherits Window {
         border-radius: 12px;
         background: #ffffff;
         border-width: 1px;
+        drop-shadow-blur: 19px;
+        drop-shadow-color: #00000040;
+        drop-shadow-offset-x: 2px;
+        drop-shadow-offset-y: 7px;
         border-color: #d0d7de;
     
         Text {
@@ -38,6 +42,11 @@ export component SimplePreview inherits Window {
             border-radius: 12px;
             border-color: #d0d7de;
             border-width: 1px;
+            drop-shadow-blur: 102px;
+            drop-shadow-color: #00000040;
+            drop-shadow-offset-x: -1px;
+            drop-shadow-offset-y: 18px;
+            drop-shadow-spread: 0px;
         }
         Rectangle {
             width: 160px;
@@ -78,7 +87,6 @@ export component SimplePreview inherits Window {
             }
         }
         Image {
-            source: @image-url("EDIT_ME.png");
             x: 198px;
             y: 189px;
             width: 160px;
