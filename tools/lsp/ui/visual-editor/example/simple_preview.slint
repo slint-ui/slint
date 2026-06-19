@@ -68,6 +68,16 @@ export component SimplePreview inherits Window {
             border-radius: 12px;
             border-color: #d0d7de;
             border-width: 1px;
+            Text {
+                text: "Text";
+                x: 191px;
+                y: 125px;
+                width: 220px;
+                height: 40px;
+                color: #1f2328;
+                font-size: 24px;
+                vertical-alignment: center;
+            }
         }
         Image {
             source: @image-url("EDIT_ME.png");
@@ -77,13 +87,23 @@ export component SimplePreview inherits Window {
             height: 96px;
             image-fit: contain;
         }
+        Text {
+            text: "Text";
+            x: 161px;
+            y: 139px;
+            width: 220px;
+            height: 40px;
+            color: #1f2328;
+            font-size: 24px;
+            vertical-alignment: center;
+        }
     }
 
     Image {
         source: @image-url("../../../../../demos/printerdemo/ui/images/cat.jpg");
         width: 148px;
-        x: 98px;
-        y: 164px;
+        x: 5px;
+        y: 189px;
         height: 197px;
         horizontal-alignment: center;
         vertical-alignment: center;
