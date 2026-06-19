@@ -313,8 +313,8 @@ export component PreviewUi inherits Window {
                         preview-area-is-current: preview.preview-is-current;
                         visible-component: root.visible-component;
 
-                        show-preview-for(name, defined_at) => {
-                            Api.show-preview-for(name, defined_at);
+                        show-preview-for(component-name, defined-at) => {
+                            Api.show-preview-for(component-name, defined-at);
                         }
                     }
 

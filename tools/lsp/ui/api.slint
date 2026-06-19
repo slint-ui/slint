@@ -566,6 +566,7 @@ export global Api {
         }
     ];
     callback properties-search(string);
+    pure callback current-property-value-data(property-name: string) -> PropertyValue;
     pure callback current-property-value(property-name: string, fallback: string) -> string;
 
     // ## Outline

@@ -299,8 +299,16 @@ pub fn create_ui(
     api.on_set_element_id(super::set_element_id);
     api.on_property_declaration_ranges(super::property_declaration_ranges);
     let property_api_weak = api_weak.clone();
-    api.on_current_property_value(move |property_name, fallback| {
+    api.on_current_property_value_data(move |property_name| {
         let Some(api) = property_api_weak.upgrade() else {
+            return PropertyValue::default();
+        };
+
+        current_property_value_data(&api, property_name).unwrap_or_default()
+    });
+    let property_value_api_weak = api_weak.clone();
+    api.on_current_property_value(move |property_name, fallback| {
+        let Some(api) = property_value_api_weak.upgrade() else {
             return fallback;
         };
 
@@ -1225,34 +1233,38 @@ fn get_property_value(container: SharedString, property_name: SharedString) -> P
         .unwrap_or_default()
 }
 
+fn current_property_value_data(api: &Api<'_>, property_name: SharedString) -> Option<PropertyValue> {
+    for group in api.get_properties().iter() {
+        for property in group.properties.iter() {
+            if property.name == property_name {
+                return Some(property.value);
+            }
+        }
+    }
+
+    None
+}
+
 fn current_property_value(
     api: &Api<'_>,
     property_name: SharedString,
     fallback: SharedString,
 ) -> SharedString {
-    for group in api.get_properties().iter() {
-        for property in group.properties.iter() {
-            if property.name != property_name {
-                continue;
-            }
+    let Some(property) = current_property_value_data(api, property_name) else {
+        return fallback;
+    };
 
-            if !property.value.code.is_empty() {
-                return property.value.code;
-            }
-            if property.value.kind == PropertyValueKind::Enum
-                && !property.value.value_string.is_empty()
-            {
-                return property.value.value_string;
-            }
-            if !property.value.display_string.is_empty() {
-                return property.value.display_string;
-            }
-            if !property.value.value_string.is_empty() {
-                return property.value.value_string;
-            }
-
-            return fallback;
-        }
+    if !property.code.is_empty() {
+        return property.code;
+    }
+    if property.kind == PropertyValueKind::Enum && !property.value_string.is_empty() {
+        return property.value_string;
+    }
+    if !property.display_string.is_empty() {
+        return property.display_string;
+    }
+    if !property.value_string.is_empty() {
+        return property.value_string;
     }
 
     fallback

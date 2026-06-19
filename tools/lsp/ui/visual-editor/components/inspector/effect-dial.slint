@@ -1,0 +1,100 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { InspectorTokens } from "tokens.slint";
+
+export component InspectorEffectDial inherits Rectangle {
+    in property <angle> value: 90deg;
+    callback changed(angle) -> bool;
+
+    width: 44px;
+    height: 44px;
+    border-radius: 22px;
+    background: touch.has-hover || touch.pressed ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg;
+    border-width: touch.pressed ? 1px : 0px;
+    border-color: InspectorTokens.accent;
+    animate background { duration: 120ms; }
+
+    pure function normalized-angle(angle: angle) -> angle {
+        let value = angle.mod(360deg);
+        return value < 0deg ? value + 360deg : value;
+    }
+
+    pure function angle-from-pointer(x: length, y: length) -> angle {
+        return root.normalized-angle(atan2((y - root.height / 2) / 1px, (x - root.width / 2) / 1px));
+    }
+
+    pure function knob-x() -> length {
+        return root.width / 2 + root.value.cos() * 13px;
+    }
+
+    pure function knob-y() -> length {
+        return root.height / 2 + root.value.sin() * 13px;
+    }
+
+    Rectangle {
+        x: 7px;
+        y: 7px;
+        width: parent.width - 14px;
+        height: parent.height - 14px;
+        border-radius: self.width / 2;
+        border-width: 1px;
+        border-color: InspectorTokens.divider;
+        background: InspectorTokens.panel-bg;
+    }
+
+    Rectangle {
+        x: root.width / 2 + root.value.cos() * 6.5px - 6.5px;
+        y: root.height / 2 + root.value.sin() * 6.5px - 0.5px;
+        width: 13px;
+        height: 1px;
+        background: InspectorTokens.accent;
+        transform-rotation: root.value;
+    }
+
+    Rectangle {
+        x: root.knob-x() - 4px;
+        y: root.knob-y() - 4px;
+        width: 8px;
+        height: 8px;
+        border-radius: 4px;
+        border-width: 1px;
+        border-color: InspectorTokens.panel-bg;
+        background: InspectorTokens.accent;
+        drop-shadow-blur: 6px;
+        drop-shadow-offset-y: 2px;
+        drop-shadow-color: #00000035;
+    }
+
+    Text {
+        x: 0px;
+        y: parent.height - 11px;
+        width: parent.width;
+        height: 10px;
+        text: "\{(root.normalized-angle(root.value) / 1deg).round()}°";
+        color: InspectorTokens.muted;
+        font-size: 9px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+
+        changed pressed => {
+            if self.pressed {
+                root.changed(root.angle-from-pointer(self.mouse-x, self.mouse-y));
+            }
+        }
+
+        moved => {
+            if self.pressed {
+                root.changed(root.angle-from-pointer(self.mouse-x, self.mouse-y));
+            }
+        }
+
+        clicked => {
+            root.changed(root.angle-from-pointer(self.mouse-x, self.mouse-y));
+        }
+    }
+}
