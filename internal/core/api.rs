@@ -25,18 +25,16 @@ pub use crate::{format, string::SharedString, string::ToSharedString};
 
 /// Result of dispatching a window event through Slint's runtime.
 ///
-/// For pointer events (`PointerPressed`, `PointerReleased`, `PointerMoved`,
-/// `PointerScrolled`), the mapping is:
-/// - [`Accepted`](Self::Accepted) — an item consumed the event (returned
-///   `EventAccepted`, `GrabMouse`, or `StartDrag`; or, for a drag in flight, a
-///   `DropArea` accepted the rewritten `DragMove`/`Drop`).
-/// - [`Ignored`](Self::Ignored) — the event reached no item that wanted it, or
-///   there was no component to dispatch to. Hover-only handling (e.g. a
-///   `TouchArea` that updates `has-hover` on `PointerMoved` without otherwise
-///   consuming) is reported as `Ignored`.
+/// Indicates how the event was processed:
+/// - [`Accepted`](Self::Accepted) — an element consumed the event.
+/// - [`Ignored`](Self::Ignored) — no element handled the event. For pointer
+///   events, this includes the case where elements updated hover state in
+///   response to the event but did not otherwise consume it.
+/// - [`Rejected`](Self::Rejected) — the event was explicitly blocked (e.g. a
+///   close request denied by a `close-requested` callback).
 ///
-/// [`PointerExited`](crate::platform::WindowEvent::PointerExited) is a teardown
-/// event: the runtime always acts on it, so it is reported as `Accepted` even
+/// Note: [`PointerExited`](crate::platform::WindowEvent::PointerExited) always
+/// returns `Accepted` because the runtime always acts on it, so it is reported as `Accepted` even
 /// when no item was under the cursor.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
