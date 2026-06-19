@@ -14,7 +14,6 @@ use crate::common::{
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
 use editor_user_settings::{EDITOR_SETTINGS_FILE, EditorUserSettings};
-use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
 use i_slint_core::DataTransfer;
@@ -425,20 +424,6 @@ fn request_file_tree_preview(path: &Path) {
     {
         tracing::warn!("Failed to request file tree preview contents: {err}");
     }
-}
-
-/// Try to find the parent of element `child` below `root`.
-fn search_for_parent_element(root: &ElementRc, child: &ElementRc) -> Option<ElementRc> {
-    for c in &root.borrow().children {
-        if std::rc::Rc::ptr_eq(c, child) {
-            return Some(root.clone());
-        }
-
-        if let Some(parent) = search_for_parent_element(c, child) {
-            return Some(parent);
-        }
-    }
-    None
 }
 
 fn property_declaration_ranges(name: slint::SharedString) -> ui::PropertyDeclaration {
@@ -1106,8 +1091,27 @@ fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
 
     send_workspace_edit(label, edit, true);
 }
-
 fn override_selected_element_geometry(x: f32, y: f32, width: f32, height: f32) {
+    let Some(element_selection) = &selected_element() else { return };
+    let Some(element_node) = element_selection.as_element_node() else { return };
+    override_selected_element_geometry_impl(
+        &element_node,
+        element_selection.instance_index,
+        x,
+        y,
+        width,
+        height,
+    );
+}
+
+fn override_selected_element_geometry_impl(
+    element_node: &ElementRcNode,
+    instance_index: usize,
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+) {
     tracing::trace!(
         "Setting geometry preview x: {}, y: {}, width: {}, height: {}",
         x,
@@ -1115,8 +1119,6 @@ fn override_selected_element_geometry(x: f32, y: f32, width: f32, height: f32) {
         width,
         height
     );
-    let Some(element_selection) = &selected_element() else { return };
-    let Some(element_node) = element_selection.as_element_node() else { return };
     let Some(component_instance) = component_instance() else { return };
 
     let element_hash = element_node
@@ -1131,30 +1133,44 @@ fn override_selected_element_geometry(x: f32, y: f32, width: f32, height: f32) {
         return;
     }
 
-    let position = LogicalPoint::new(x, y);
-    let root_element = element_selection::root_element(&component_instance);
-    let parent = search_for_parent_element(&root_element, &element_node.element)
-        .and_then(|parent_element| {
-            component_instance
-                .element_positions(&parent_element)
-                .iter()
-                .find(|g| g.contains(position))
-                .map(|g| g.rect.origin)
-        })
-        .unwrap_or_default();
+    let new_position = LogicalPoint::new(x, y);
+    // The parent origin rides along on the selected instance's geometry, so we don't have to
+    // guess which parent instance contains the dragged point (which breaks once the element is
+    // dragged outside of its parent).
+    let Some(geometry) = element_node.geometries(&component_instance).get(instance_index).cloned()
+    else {
+        tracing::debug!("Selected element does not have geometry, refusing to override");
+        return;
+    };
+    let parent_position = geometry.parent_origin;
+    let current_position = geometry.rect.origin;
 
     // Round to match the values written on release by resize_selected_element_impl,
     // so the element does not jump by a sub-pixel amount when the drag is committed.
     let values = [
-        ("x", (position.x - parent.x).round() as f64),
-        ("y", (position.y - parent.y).round() as f64),
-        ("width", width.round() as f64),
-        ("height", height.round() as f64),
+        (
+            "x",
+            (new_position.x - parent_position.x).round() as f64,
+            (current_position.x - parent_position.x).round() as f64,
+        ),
+        (
+            "y",
+            (new_position.y - parent_position.y).round() as f64,
+            (current_position.y - parent_position.y).round() as f64,
+        ),
+        ("width", width.round() as f64, (geometry.rect.width()).round() as f64),
+        ("height", height.round() as f64, (geometry.rect.height()).round() as f64),
     ];
+    let values = values
+        .into_iter()
+        .filter_map(|(name, new_value, current_value)| {
+            (new_value != current_value).then_some((name, new_value))
+        })
+        .collect::<Vec<_>>();
 
     PREVIEW_STATE.with_borrow(|preview_state| {
         let m = (*preview_state.debug_hook_overrides).borrow();
-        for (name, val) in values {
+        for (name, value) in values {
             let id = i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(name));
             let Some(property_override) = m.get(&id) else {
                 tracing::debug!(
@@ -1162,36 +1178,11 @@ fn override_selected_element_geometry(x: f32, y: f32, width: f32, height: f32) {
                 );
                 return;
             };
-            (**property_override).set(Some(slint_interpreter::Value::Number(val)));
+            (**property_override).set(Some(slint_interpreter::Value::Number(value)));
         }
     });
 
     component_instance.window().request_redraw();
-}
-
-fn without_overrides<R>(f: impl FnOnce() -> R) -> R {
-    let mut previous_overrides = HashMap::new();
-    PREVIEW_STATE.with_borrow(|preview_state| {
-        let overrides = (*preview_state.debug_hook_overrides).borrow();
-        for (property, override_property) in overrides.iter() {
-            if let Some(value) = override_property.as_ref().get() {
-                previous_overrides.insert(property.clone(), value);
-                override_property.as_ref().set(None);
-            }
-        }
-    });
-    let result = f();
-    PREVIEW_STATE.with_borrow(|preview_state| {
-        let overrides = (*preview_state.debug_hook_overrides).borrow();
-        for (property, previous_value) in previous_overrides {
-            let Some(value) = overrides.get(&property) else {
-                tracing::warn!("Failed to restore property override for property {property}, it was removed during the operation");
-                continue;
-            };
-            value.as_ref().set(Some(previous_value));
-        }
-    });
-    result
 }
 
 fn resize_selected_element_impl(
@@ -1199,66 +1190,63 @@ fn resize_selected_element_impl(
     instance_index: usize,
     rect: LogicalRect,
 ) -> Option<(lsp_types::WorkspaceEdit, String)> {
-    let component_instance = component_instance()?;
+    // apply as override, then commit.
+    override_selected_element_geometry_impl(
+        element_node,
+        instance_index,
+        rect.origin.x,
+        rect.origin.y,
+        rect.width(),
+        rect.height(),
+    );
+
+    let element_hash = element_node
+        .element
+        .borrow()
+        .debug
+        .get(element_node.debug_index)
+        .map(|d| d.element_hash)
+        .unwrap_or(0);
+    if element_hash == 0 {
+        tracing::debug!("Element does not have a hash, cannot resize");
+        return None;
+    }
 
     // They all have the same size anyway:
     let (path, offset) = element_node.path_and_offset();
-    // make sure to get the geometry without overrides, so we can compare against the original values
-    // to only write the properties that changed, otherwise we might end up with a geometry override
-    // on all properties after resizing.
-    let geometry = without_overrides(|| {
-        element_node
-            .geometries(&component_instance)
-            .get(instance_index)
-            .cloned()
-            .map(|geometry| geometry.rect)
-    })?;
 
-    let position = rect.origin;
-    let root_element = element_selection::root_element(&component_instance);
+    // Apply the overrides permanently
+    let properties = ["x", "y", "width", "height"];
+    let geometry_changes = PREVIEW_STATE.with_borrow(|preview_state| {
+        let overrides = (*preview_state.debug_hook_overrides).borrow();
 
-    let parent = search_for_parent_element(&root_element, &element_node.element)
-        .and_then(|parent_element| {
-            component_instance
-                .element_positions(&parent_element)
-                .iter()
-                .find(|g| g.contains(position))
-                .map(|g| g.rect.origin)
-        })
-        .unwrap_or_default();
+        properties
+            .into_iter()
+            .filter_map(|property| {
+                let id =
+                    i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(property));
+                overrides
+                    .get(&id)
+                    .and_then(|property_override| property_override.as_ref().get())
+                    .and_then(|value| {
+                        if let slint_interpreter::Value::Number(value) = value && value.is_finite() {
+                            Some((property, value))
+                        } else {
+                            tracing::debug!(
+                                "Property override '{property}' is not a finite number, cannot reposition"
+                            );
+                            None
+                        }
+                    })
+                    .map(|(property, value)| common::PropertyChange::new(
+                        property,
+                        format!("{}px", value)
+                    ))
+            })
+            .collect::<Vec<_>>()
+    });
 
-    let (properties, op) = {
-        let mut p = Vec::with_capacity(4);
-        let mut op = "";
-        if geometry.origin.x != position.x && position.x.is_finite() {
-            p.push(common::PropertyChange::new(
-                "x",
-                format!("{}px", (position.x - parent.x).round()),
-            ));
-            op = "Moving";
-        }
-        if geometry.origin.y != position.y && position.y.is_finite() {
-            p.push(common::PropertyChange::new(
-                "y",
-                format!("{}px", (position.y - parent.y).round()),
-            ));
-            op = "Moving";
-        }
-        if geometry.size.width != rect.size.width && rect.size.width.is_finite() {
-            p.push(common::PropertyChange::new("width", format!("{}px", rect.size.width.round())));
-            op = "Resizing";
-        }
-        if geometry.size.height != rect.size.height && rect.size.height.is_finite() {
-            p.push(common::PropertyChange::new(
-                "height",
-                format!("{}px", rect.size.height.round()),
-            ));
-            op = "Resizing";
-        }
-        (p, op)
-    };
-
-    if properties.is_empty() {
+    if geometry_changes.is_empty() {
         return None;
     }
 
@@ -1270,9 +1258,9 @@ fn resize_selected_element_impl(
     properties::update_element_properties(
         &document_cache,
         common::VersionedPosition::new(VersionedUrl::new(url, version), offset),
-        properties,
+        geometry_changes,
     )
-    .map(|edit| (edit, format!("{op} element")))
+    .map(|edit| (edit, "Repositioning element".to_owned()))
 }
 
 fn can_move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) -> bool {
