@@ -14,7 +14,7 @@ export component Bar {
     match foo {
         0: Rectangle { }
         1: Rectangle { }
-        else: Rectangle { }
+        *: Rectangle { }
     }
 }
 
@@ -24,7 +24,7 @@ export component Baz {
     match xx {
         0: Rectangle { }
         1: Rectangle { }
-        else: Rectangle { }
+        *: Rectangle { }
     }
 
     in-out property<int> yy: 5;
@@ -32,15 +32,6 @@ export component Baz {
     match yy {
         2: Rectangle { }
         3: Rectangle { }
-        else: Rectangle { }
-    }
-}
-
-export component FooBar {
-    in-out property <int> foo: 10;
-
-    match foo {
-        else: Rectangle { }
-//      >  <error{Expected at least one match case before else case}
+        *: Rectangle { }
     }
 }

@@ -21,22 +21,19 @@ export component TestCase inherits Window {
                     tab = "menu";
                 }
             }
-
             1: TouchArea {
                 width: 5px;
                 clicked => {
                     tab = "profile";
                 }
             }
-
             2: TouchArea {
                 width: 5px;
                 clicked => {
                     tab = "store";
                 }
             }
-
-            else: TouchArea {
+            *: TouchArea {
                 width: 5px;
                 clicked => {
                     tab = "settings";

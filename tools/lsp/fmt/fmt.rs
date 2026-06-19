@@ -152,11 +152,8 @@ fn format_node(
         SyntaxKind::MatchElement => {
             return format_match_element(node, writer, state);
         }
-        SyntaxKind::MatchCase => {
+        SyntaxKind::MatchCase | SyntaxKind::WildcardMatchCase => {
             return format_match_case(node, writer, state);
-        }
-        SyntaxKind::ElseMatchCase => {
-            return format_else_match_case(node, writer, state);
         }
         SyntaxKind::Array => {
             return format_array(node, writer, state);

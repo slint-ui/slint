@@ -40,8 +40,7 @@ export component TestCase inherits Window {
                 var2 += self.xx;
             }
         }
-
-        else: Rectangle { }
+        *: Rectangle { }
     }
     in-out property <bool> test: mode == Mode.Foo && var1 == 20 && var2 == 50;
 }

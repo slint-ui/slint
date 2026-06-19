@@ -359,11 +359,11 @@ declare_syntax! {
         RepeatedIndex -> [],
         ConditionalElement -> [ Expression , SubElement],
         /// match (foo) { 1: Elem { } }
-        MatchElement -> [ Expression , *MatchCase, ?ElseMatchCase ],
+        MatchElement -> [ Expression , *MatchCase, ?WildcardMatchCase ],
         /// 1: Elem { }
         MatchCase -> [ Expression, SubElement ],
-        /// else: Elem { }
-        ElseMatchCase -> [ SubElement ],
+        /// *: Elem { }
+        WildcardMatchCase -> [ SubElement ],
         CallbackDeclaration -> [ DeclaredIdentifier, *CallbackDeclarationParameter, ?ReturnType, ?TwoWayBinding ],
         // `foo: type` or just `type`
         CallbackDeclarationParameter -> [ ?DeclaredIdentifier, Type],

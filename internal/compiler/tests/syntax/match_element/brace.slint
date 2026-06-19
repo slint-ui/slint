@@ -5,9 +5,9 @@ export component Foo {
     in-out property <int> foo: 0;
     match (foo)
         0: Rectangle { }
-//      ^error{Expected '{' to start match cases}
+//      ^error{Expected '{' to start cases}
         1: Rectangle { }
-        else: Rectangle { }
+        *: Rectangle { }
     }
 }
 
@@ -15,7 +15,7 @@ export component Bar {
     in-out property <int> foo: 0;
     match foo
         0: Rectangle { }
-//      ^error{Expected '{' to start match cases}
+//      ^error{Expected '{' to start cases}
     }
 }
 
@@ -24,7 +24,7 @@ export component Baz {
     match foo {
         0: Rectangle { }
         1: Rectangle { }
-        else: Rectangle { }
+        *: Rectangle { }
 
     property<int> xx;
 //  >      <error{Syntax error: expected '}'}
@@ -34,6 +34,6 @@ export component Qux {
     in-out property <int> foo: 0;
     match foo {
         0: { Rectangle { } }
-//         ^error{Syntax error: expected Identifier}
+//           >       <error{Remove '{ }' around case element}
     }
 }
