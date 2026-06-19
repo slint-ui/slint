@@ -1938,9 +1938,7 @@ fn set_current_style(style: String) {
     PREVIEW_STATE.with_borrow(move |preview_state| {
         if let Some(api) = preview_state.api.upgrade() {
             use slint::Model;
-            if let Some(index) =
-                api.get_known_styles().iter().position(|s| s.as_str() == style)
-            {
+            if let Some(index) = api.get_known_styles().iter().position(|s| s.as_str() == style) {
                 api.set_current_style_index(index as i32);
             }
         }
