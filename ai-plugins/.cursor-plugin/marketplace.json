@@ -1,6 +1,6 @@
 {
   "name": "slint",
-  "description": "Claude Code plugins for building and debugging Slint GUI applications",
+  "description": "Cursor plugins for building and debugging Slint GUI applications",
   "owner": {
     "name": "Slint",
     "email": "info@slint.dev"
@@ -8,8 +8,8 @@
   "plugins": [
     {
       "name": "slint",
-      "description": "Enhances Claude's ability to work with, debug, and build Slint GUI applications",
-      "source": "./skills",
+      "description": "Enhances Cursor's ability to work with, debug, and build Slint GUI applications",
+      "source": "./",
       "version": "0.1.0",
       "category": "development",
       "keywords": ["slint", "gui", "ui", "declarative", "rust", "cpp", "embedded"]
