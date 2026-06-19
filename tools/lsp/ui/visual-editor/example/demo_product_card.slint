@@ -2,19 +2,20 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export component DemoProductCard inherits Window {
-    width: 390px;
-    height: 720px;
+    preferred-width: 390px;
+    preferred-height: 720px;
     title: "Product Card";
+    private property <bool> landscape: root.width > root.height;
 
     Rectangle {
-        width: 390px;
-        height: 720px;
+        width: root.width;
+        height: root.height;
         background: #f7f7f5;
     }
 
     Text {
-        x: 30px;
-        y: 34px;
+        x: root.landscape ? 32px : 30px;
+        y: root.landscape ? 30px : 34px;
         width: 176px;
         height: 30px;
         text: "Studio Dock";
@@ -24,8 +25,8 @@ export component DemoProductCard inherits Window {
     }
 
     Text {
-        x: 30px;
-        y: 70px;
+        x: root.landscape ? 32px : 30px;
+        y: root.landscape ? 66px : 70px;
         width: 190px;
         height: 18px;
         text: "Quiet power station";
@@ -34,10 +35,10 @@ export component DemoProductCard inherits Window {
     }
 
     Rectangle {
-        x: 28px;
-        y: 116px;
-        width: 334px;
-        height: 306px;
+        x: root.landscape ? 28px : 28px;
+        y: root.landscape ? 108px : 116px;
+        width: root.landscape ? 300px : 334px;
+        height: root.landscape ? 238px : 306px;
         border-radius: 30px;
         background: #ffffff;
         border-width: 1px;
@@ -48,26 +49,26 @@ export component DemoProductCard inherits Window {
     }
 
     Image {
-        x: 82px;
-        y: 164px;
-        width: 226px;
-        height: 142px;
+        x: root.landscape ? 70px : 82px;
+        y: root.landscape ? 148px : 164px;
+        width: root.landscape ? 216px : 226px;
+        height: root.landscape ? 136px : 142px;
         source: @image-url("title-frame.png");
         image-fit: contain;
     }
 
     Rectangle {
-        x: 70px;
-        y: 348px;
-        width: 250px;
+        x: root.landscape ? 66px : 70px;
+        y: root.landscape ? 306px : 348px;
+        width: root.landscape ? 224px : 250px;
         height: 12px;
         border-radius: 6px;
         background: #eff2f7;
     }
 
     Rectangle {
-        x: 30px;
-        y: 454px;
+        x: root.landscape ? 382px : 30px;
+        y: root.landscape ? 42px : 454px;
         width: 96px;
         height: 36px;
         border-radius: 18px;
@@ -75,8 +76,8 @@ export component DemoProductCard inherits Window {
     }
 
     Text {
-        x: 50px;
-        y: 464px;
+        x: root.landscape ? 402px : 50px;
+        y: root.landscape ? 52px : 464px;
         width: 56px;
         height: 16px;
         text: "New";
@@ -87,8 +88,8 @@ export component DemoProductCard inherits Window {
     }
 
     Text {
-        x: 30px;
-        y: 508px;
+        x: root.landscape ? 382px : 30px;
+        y: root.landscape ? 112px : 508px;
         width: 132px;
         height: 44px;
         text: "$249";
@@ -98,8 +99,8 @@ export component DemoProductCard inherits Window {
     }
 
     Text {
-        x: 198px;
-        y: 520px;
+        x: root.landscape ? 536px : 198px;
+        y: root.landscape ? 124px : 520px;
         width: 132px;
         height: 18px;
         text: "Ships today";
@@ -110,8 +111,8 @@ export component DemoProductCard inherits Window {
     }
 
     Rectangle {
-        x: 30px;
-        y: 578px;
+        x: root.landscape ? 382px : 30px;
+        y: root.landscape ? 204px : 578px;
         width: 54px;
         height: 32px;
         border-radius: 16px;
@@ -119,8 +120,8 @@ export component DemoProductCard inherits Window {
     }
 
     Rectangle {
-        x: 98px;
-        y: 578px;
+        x: root.landscape ? 450px : 98px;
+        y: root.landscape ? 204px : 578px;
         width: 54px;
         height: 32px;
         border-radius: 16px;
@@ -128,8 +129,8 @@ export component DemoProductCard inherits Window {
     }
 
     Rectangle {
-        x: 166px;
-        y: 578px;
+        x: root.landscape ? 518px : 166px;
+        y: root.landscape ? 204px : 578px;
         width: 54px;
         height: 32px;
         border-radius: 16px;
@@ -137,8 +138,8 @@ export component DemoProductCard inherits Window {
     }
 
     Rectangle {
-        x: 236px;
-        y: 578px;
+        x: root.landscape ? 588px : 236px;
+        y: root.landscape ? 204px : 578px;
         width: 96px;
         height: 32px;
         border-radius: 16px;
@@ -148,8 +149,8 @@ export component DemoProductCard inherits Window {
     }
 
     Text {
-        x: 254px;
-        y: 586px;
+        x: root.landscape ? 606px : 254px;
+        y: root.landscape ? 212px : 586px;
         width: 60px;
         height: 16px;
         text: "Matte";
@@ -160,17 +161,17 @@ export component DemoProductCard inherits Window {
     }
 
     Rectangle {
-        x: 28px;
-        y: 646px;
-        width: 334px;
-        height: 54px;
+        x: root.landscape ? 382px : 28px;
+        y: root.landscape ? 306px : 646px;
+        width: root.landscape ? 302px : 334px;
+        height: root.landscape ? 50px : 54px;
         border-radius: 27px;
         background: #111827;
     }
 
     Text {
-        x: 116px;
-        y: 663px;
+        x: root.landscape ? 454px : 116px;
+        y: root.landscape ? 322px : 663px;
         width: 158px;
         height: 20px;
         text: "Add to bag";
