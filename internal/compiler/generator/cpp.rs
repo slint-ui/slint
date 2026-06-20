@@ -4158,9 +4158,15 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 .iter()
                 .map(|e| format!("{ty} ( {expr} )", expr = compile_expression(e, ctx), ty = ty));
             match output {
+                // A `VectorModel` is used instead of the fixed-size `ArrayModel` so that the model
+                // can be modified at runtime (e.g. through the `push`, `remove` and `insert`
+                // methods). The empty/untyped `[]` literal keeps `ArrayModel<0, void>` since
+                // `VectorModel<void>` is not a valid type.
+                llr::ArrayOutput::Model if ty == "void" => {
+                    "std::make_shared<slint::private_api::ArrayModel<0, void>>()".into()
+                }
                 llr::ArrayOutput::Model => format!(
-                    "std::make_shared<slint::private_api::ArrayModel<{count},{ty}>>({val})",
-                    count = values.len(),
+                    "std::make_shared<slint::VectorModel<{ty}>>(std::vector<{ty}>{{ {val} }})",
                     ty = ty,
                     val = val.join(", ")
                 ),
@@ -4604,13 +4610,20 @@ fn compile_builtin_function_call(
             format!("slint::private_api::model_length({})", a.next().unwrap())
         }
         BuiltinFunction::ArrayPush => {
-            todo!()
+            let model = a.next().unwrap();
+            let value = a.next().unwrap();
+            format!("slint::private_api::model_push({model}, {value})")
         }
         BuiltinFunction::ArrayRemove => {
-            todo!()
+            let model = a.next().unwrap();
+            let index = a.next().unwrap();
+            format!("slint::private_api::model_remove({model}, {index})")
         }
         BuiltinFunction::ArrayInsert => {
-            todo!()
+            let model = a.next().unwrap();
+            let index = a.next().unwrap();
+            let value = a.next().unwrap();
+            format!("slint::private_api::model_insert({model}, {index}, {value})")
         }
         BuiltinFunction::Rgb => {
             format!("slint::Color::from_argb_uint8(std::clamp(static_cast<float>({a}) * 255., 0., 255.), std::clamp(static_cast<int>({r}), 0, 255), std::clamp(static_cast<int>({g}), 0, 255), std::clamp(static_cast<int>({b}), 0, 255))",

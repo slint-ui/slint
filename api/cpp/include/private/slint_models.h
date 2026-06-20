@@ -6,6 +6,7 @@
 #include "private/slint_item_tree.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -45,6 +46,30 @@ long int model_length(const std::shared_ptr<M> &model)
     } else {
         model->track_row_count_changes();
         return model->row_count();
+    }
+}
+
+template<typename M, typename ModelData>
+void model_push(const std::shared_ptr<M> &model, const ModelData &value)
+{
+    if (model) {
+        model->push_row(value);
+    }
+}
+
+template<typename M>
+void model_remove(const std::shared_ptr<M> &model, std::ptrdiff_t index)
+{
+    if (model) {
+        model->remove_row(index);
+    }
+}
+
+template<typename M, typename ModelData>
+void model_insert(const std::shared_ptr<M> &model, std::ptrdiff_t index, const ModelData &value)
+{
+    if (model) {
+        model->insert_row(index, value);
     }
 }
 
@@ -94,6 +119,46 @@ public:
     {
 #ifndef SLINT_FEATURE_FREESTANDING
         std::cerr << "Model::set_row_data was called on a read-only model" << std::endl;
+#endif
+    };
+
+    /// Adds a new row with the given \a data at the end of the model.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call `notify_row_added`
+    virtual void push_row(const ModelData &)
+    {
+#ifndef SLINT_FEATURE_FREESTANDING
+        std::cerr << "Model::push_row was called on a read-only model" << std::endl;
+#endif
+    };
+
+    /// Removes the row at the given \a index from the model.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call `notify_row_removed`
+    virtual void remove_row(std::ptrdiff_t)
+    {
+#ifndef SLINT_FEATURE_FREESTANDING
+        std::cerr << "Model::remove_row was called on a read-only model" << std::endl;
+#endif
+    };
+
+    /// Inserts a new row with the given \a data at the given \a index, shifting the
+    /// following rows by one.
+    ///
+    /// If the model cannot support data changes, then it is ok to do nothing.
+    /// The default implementation will print a warning to stderr.
+    ///
+    /// If the model can update the data, it should also call `notify_row_added`
+    virtual void insert_row(std::ptrdiff_t, const ModelData &)
+    {
+#ifndef SLINT_FEATURE_FREESTANDING
+        std::cerr << "Model::insert_row was called on a read-only model" << std::endl;
 #endif
     };
 
@@ -291,6 +356,22 @@ public:
         if (i < row_count()) {
             data[i] = value;
             this->notify_row_changed(i);
+        }
+    }
+
+    void push_row(const ModelData &value) override { push_back(value); }
+
+    void remove_row(std::ptrdiff_t index) override
+    {
+        if (index >= 0 && index < static_cast<std::ptrdiff_t>(data.size())) {
+            erase(static_cast<size_t>(index));
+        }
+    }
+
+    void insert_row(std::ptrdiff_t index, const ModelData &value) override
+    {
+        if (index >= 0 && index <= static_cast<std::ptrdiff_t>(data.size())) {
+            insert(static_cast<size_t>(index), value);
         }
     }
 
