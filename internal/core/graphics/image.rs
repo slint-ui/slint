@@ -1017,6 +1017,18 @@ impl Image {
 }
 
 #[cfg(feature = "image-decoders")]
+impl From<image::DynamicImage> for Image {
+    fn from(img: image::DynamicImage) -> Self {
+        let rgba = img.into_rgba8();
+        Self::from_rgba8(SharedPixelBuffer::clone_from_slice(
+            rgba.as_raw(),
+            rgba.width(),
+            rgba.height(),
+        ))
+    }
+}
+
+#[cfg(feature = "image-decoders")]
 /// Load an Image from a path to a file containing an image.
 ///
 /// Supported formats are SVG, PNG and JPEG.
