@@ -166,7 +166,7 @@ impl<'de> serde::Deserialize<'de> for SharedString {
     where
         D: serde::Deserializer<'de>,
     {
-        let string: std::borrow::Cow<str> = serde::Deserialize::deserialize(deserializer)?;
+        let string: alloc::borrow::Cow<str> = serde::Deserialize::deserialize(deserializer)?;
         Ok(SharedString::from(string.as_ref()))
     }
 }
