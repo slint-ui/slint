@@ -1,0 +1,60 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component SuperSimple {
+    property <[keys]> invalid_shortcuts: [
+        // Right-side modifier keys
+        @physical-keys(AltR + A),
+//                     >  <error{Right-side modifiers are not supported}
+        @physical-keys(AltGr + A),
+//                     >   <error{AltGr cannot be used as a modifier}
+        @physical-keys(ControlR + A),
+//                     >      <error{Right-side modifiers are not supported}
+        @physical-keys(MetaR + A),
+//                     >   <error{Right-side modifiers are not supported}
+        @physical-keys(ShiftR + A),
+//                     >    <error{Right-side modifiers are not supported}
+
+        // Duplicate modifier or key
+        @physical-keys(Alt + Control + Shift + Meta + Alt + A),
+//                                                    > <error{Duplicated modifier in keyboard shortcut}
+        @physical-keys(Alt + Control + Shift + Meta + Control + A),
+//                                                    >     <error{Duplicated modifier in keyboard shortcut}
+        @physical-keys(A + B),
+//                         ^error{A keyboard shortcut can only contain one key (with modifiers)}
+        @physical-keys(Alt + Control + Shift + Meta + Meta + A),
+//                                                    >  <error{Duplicated modifier in keyboard shortcut}
+        @physical-keys(Alt + Control + Shift + Meta + Shift + A),
+//                                                    >   <error{Duplicated modifier in keyboard shortcut}
+        @physical-keys(Shift? + Shift? + A),
+//                              >   <error{Duplicated modifier in keyboard shortcut}
+        @physical-keys(Alt? + Alt? + A),
+//                            > <error{Duplicated modifier in keyboard shortcut}
+        @physical-keys(Alt + Alt? + A),
+//                           > <error{Cannot use both Alt and Alt? (remove one of them)}
+        @physical-keys(Alt? + Alt + A),
+//                            > <error{Cannot use both Alt and Alt? (remove one of them)}
+
+        // Conflicting Shift + Shift?
+        @physical-keys(Alt + Control + Shift + Meta + Shift? + A),
+//                                                    >   <error{Cannot use both Shift and Shift? (remove one of them)}
+        @physical-keys(Alt + Control + Shift? + Meta + Shift + A),
+//                                                     >   <error{Cannot use both Shift and Shift? (remove one of them)}
+
+        // Invalid syntax
+        @physical-keys(A, B),
+//                      ^error{Expected '+', a string literal, or an identifier in the Keys namespace}
+        @physical-keys(Alt Control + Shift + Meta + A),
+//                         >     <error{Expected '+' to separate parts of a keyboard shortcut}
+        @physical-keys(Alt + Shift),
+//                                ^error{A keyboard shortcut must be empty or contain exactly one key (with modifiers)}
+        @physical-keys(Alt ++ A),
+//                          ^error{Unexpected '+' in keyboard shortcut (use Plus to refer to the key)}
+        @physical-keys(A +),
+//                        ^error{Expected another identifier or string literal}
+        @physical-keys(Shift +),
+//                            ^error{Expected another identifier or string literal}
+        @physical-keys(A?),
+//                      ^error{Expected '+', a string literal, or an identifier in the Keys namespace}
+    ];
+}
