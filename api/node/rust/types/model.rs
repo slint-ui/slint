@@ -281,7 +281,7 @@ impl Model for JsModel {
         }
     }
 
-    fn remove_row(&self, row: usize) {
+    fn remove_row(&self, row: isize) {
         let Some(model_unknown) = self.js_impl.get_unknown() else {
             eprintln!("Node.js: JavaScript Model<T>'s removeRow threw an exception");
             return;
@@ -310,7 +310,7 @@ impl Model for JsModel {
         }
     }
 
-    fn insert_row(&self, row: usize, data: Self::Data) {
+    fn insert_row(&self, row: isize, data: Self::Data) {
         let Some(model_unknown) = self.js_impl.get_unknown() else {
             eprintln!("Node.js: JavaScript Model<T>'s insertRow threw an exception");
             return;

@@ -237,7 +237,7 @@ impl i_slint_core::model::Model for PyModelShared {
         });
     }
 
-    fn remove_row(&self, row: usize) {
+    fn remove_row(&self, row: isize) {
         Python::try_attach(|py| {
             let obj = self.self_ref.borrow();
             let Some(obj) = obj.as_ref() else {
@@ -255,7 +255,7 @@ impl i_slint_core::model::Model for PyModelShared {
         });
     }
 
-    fn insert_row(&self, row: usize, data: Self::Data) {
+    fn insert_row(&self, row: isize, data: Self::Data) {
         Python::try_attach(|py| {
             let obj = self.self_ref.borrow();
             let Some(obj) = obj.as_ref() else {

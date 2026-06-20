@@ -167,7 +167,7 @@ pub trait Model {
     ///
     /// If the model can update the data, it should also call [`ModelNotify::row_changed`] on its
     /// internal [`ModelNotify`].
-    fn remove_row(&self, _row: usize) {
+    fn remove_row(&self, _row: isize) {
         #[cfg(feature = "std")]
         crate::debug_log!(
             "Model::remove_row called on a model of type {} which does not re-implement this method. \
@@ -183,7 +183,7 @@ pub trait Model {
     ///
     /// If the model can update the data, it should also call [`ModelNotify::row_changed`] on its
     /// internal [`ModelNotify`].
-    fn insert_row(&self, _row: usize, _data: Self::Data) {
+    fn insert_row(&self, _row: isize, _data: Self::Data) {
         #[cfg(feature = "std")]
         crate::debug_log!(
             "Model::insert_row called on a model of type {} which does not re-implement this method. \
@@ -534,15 +534,15 @@ impl<T: Clone + 'static> Model for VecModel<T> {
         self.push(data);
     }
 
-    fn remove_row(&self, row: usize) {
-        if row < self.row_count() {
-            self.remove(row);
+    fn remove_row(&self, row: isize) {
+        if row >= 0 && row < self.row_count() as isize {
+            self.remove(row as usize);
         }
     }
 
-    fn insert_row(&self, row: usize, data: Self::Data) {
-        if row <= self.row_count() {
-            self.insert(row, data);
+    fn insert_row(&self, row: isize, data: Self::Data) {
+        if row >= 0 && row <= self.row_count() as isize {
+            self.insert(row as usize, data);
         }
     }
 
@@ -604,24 +604,24 @@ impl<T: Clone + 'static> Model for SharedVectorModel<T> {
         self.notify.row_added(self.array.borrow().len() - 1, 1);
     }
 
-    fn remove_row(&self, row: usize) {
-        if row >= self.array.borrow().len() {
+    fn remove_row(&self, row: isize) {
+        if row < 0 || row >= self.array.borrow().len() as isize {
             return;
         }
         let mut array = self.array.borrow_mut();
-        array.make_mut_slice()[row..].rotate_left(1);
+        array.make_mut_slice()[row as usize..].rotate_left(1);
         array.pop();
-        self.notify.row_removed(row, 1);
+        self.notify.row_removed(row as usize, 1);
     }
 
-    fn insert_row(&self, row: usize, data: Self::Data) {
-        if row > self.array.borrow().len() {
+    fn insert_row(&self, row: isize, data: Self::Data) {
+        if row < 0 || row > self.array.borrow().len() as isize {
             return;
         }
         let mut array = self.array.borrow_mut();
         array.push(data);
-        array.make_mut_slice()[row..].rotate_right(1);
-        self.notify.row_added(row, 1);
+        array.make_mut_slice()[row as usize..].rotate_right(1);
+        self.notify.row_added(row as usize, 1);
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {
@@ -915,13 +915,13 @@ impl<T> Model for ModelRc<T> {
         }
     }
 
-    fn remove_row(&self, row: usize) {
+    fn remove_row(&self, row: isize) {
         if let Some(model) = self.0.as_ref() {
             model.remove_row(row);
         }
     }
 
-    fn insert_row(&self, row: usize, data: Self::Data) {
+    fn insert_row(&self, row: isize, data: Self::Data) {
         if let Some(model) = self.0.as_ref() {
             model.insert_row(row, data);
         }

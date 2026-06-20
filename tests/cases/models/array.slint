@@ -84,6 +84,15 @@ assert_eq(model->row_count(), 4);
 instance.invoke_insert_one(10, 30);
 assert_eq(model->row_count(), 4);
 
+instance.invoke_remove_one(0);
+assert_eq(model->row_count(), 3);
+assert_eq(model->row_data(0), 20);
+
+instance.invoke_insert_one(0, 30);
+assert_eq(model->row_count(), 4);
+assert_eq(model->row_data(0), 30);
+assert_eq(model->row_data(1), 20);
+
 let model = instance.get_empty_ints();
 assert_eq(model->row_count(), 0);
 instance.invoke_push_one_empty(1);
@@ -146,6 +155,15 @@ assert_eq!(model.row_count(), 4);
 instance.invoke_insert_one(10, 30);
 assert_eq!(model.row_count(), 4);
 
+instance.invoke_remove_one(0);
+assert_eq!(model.row_count(), 3);
+assert_eq!(model.row_data(0).unwrap(), 20);
+
+instance.invoke_insert_one(0, 30);
+assert_eq!(model.row_count(), 4);
+assert_eq!(model.row_data(0).unwrap(), 30);
+assert_eq!(model.row_data(1).unwrap(), 20);
+
 let model = instance.get_empty_ints();
 assert_eq!(model.row_count(), 0);
 instance.invoke_push_one_empty(1);
@@ -206,6 +224,15 @@ instance.insert_one(-1, 30);
 assert.equal(model.rowCount(), 4);
 instance.insert_one(10, 30);
 assert.equal(model.rowCount(), 4);
+
+instance.remove_one(0);
+assert.equal(model.rowCount(), 3);
+assert.equal(model.rowData(0), 20);
+
+instance.insert_one(0, 30);
+assert.equal(model.rowCount(), 4);
+assert.equal(model.rowData(0), 30);
+assert.equal(model.rowData(1), 20);
 
 model = instance.empty_ints;
 assert.equal(model.rowCount(), 0);

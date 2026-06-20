@@ -4028,10 +4028,7 @@ fn compile_builtin_function_call(
             quote!({
                 let model = &#model;
                 let index = #index;
-
-                if index >= 0 {
-                    model.remove_row(index as usize);
-                }
+                model.remove_row(index as isize);
             })
         }
         BuiltinFunction::ArrayInsert => {
@@ -4042,10 +4039,7 @@ fn compile_builtin_function_call(
                 let model = &#model;
                 let index = #index;
                 let value = #value;
-
-                if index >= 0 {
-                    model.insert_row(index as usize, value);
-                }
+                model.insert_row(index as isize, value);
             })
         }
         BuiltinFunction::Rgb => {
