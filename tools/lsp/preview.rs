@@ -1083,9 +1083,13 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
 }
 
 fn change_style() {
-    let Some(current) =
-        PREVIEW_STATE.with_borrow(|preview_state| preview_state.current_component())
-    else {
+    // The user picked a style in the ComboBox; remember it as the requested
+    // style so the next build uses it.
+    let style = get_current_style();
+    let Some(current) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        preview_state.config.style = style;
+        preview_state.current_component()
+    }) else {
         return;
     };
 
@@ -1247,8 +1251,6 @@ fn config_changed(config: PreviewConfig) {
         set_show_preview_ui(!hide_ui);
     }
 
-    set_current_style(config.style);
-
     if let Some(current) = current {
         load_preview(current, LoadBehavior::Reload);
     }
@@ -1327,7 +1329,9 @@ async fn reload_timer_function() {
         else {
             return;
         };
-        let style = get_current_style();
+        // An empty style lets the compiler apply its own default (and SLINT_STYLE);
+        // the ComboBox is updated to the resolved style once the build finishes.
+        let style = config.style.clone();
 
         match reload_preview_impl(preview_component, behavior, style, config).await {
             Ok(()) => {}
@@ -1541,6 +1545,12 @@ async fn reload_preview_impl(
 
     let success = compiled.is_some();
     let loaded_component_name = compiled.as_ref().map(|c| c.name().to_string());
+
+    // Reflect the style the compiler actually used (after resolving the default,
+    // SLINT_STYLE, and "native") in the ComboBox.
+    if let Some(compiled) = &compiled {
+        set_current_style(compiled.type_loader().resolved_style.clone());
+    }
 
     tracing::debug!(
         "Preview: compiled url={}, component={:?}, success={}, diagnostics={}",
@@ -1922,13 +1932,15 @@ fn set_show_preview_ui(show_preview_ui: bool) {
     });
 }
 
+/// Selects `style` in the style ComboBox to reflect the style currently in use.
+/// Leaves the selection untouched if the style is not in the list.
 fn set_current_style(style: String) {
     PREVIEW_STATE.with_borrow(move |preview_state| {
         if let Some(api) = preview_state.api.upgrade() {
             use slint::Model;
-            let index =
-                api.get_known_styles().iter().position(|s| s.as_str() == style).unwrap_or(0);
-            api.set_current_style_index(index as i32);
+            if let Some(index) = api.get_known_styles().iter().position(|s| s.as_str() == style) {
+                api.set_current_style_index(index as i32);
+            }
         }
     });
 }
