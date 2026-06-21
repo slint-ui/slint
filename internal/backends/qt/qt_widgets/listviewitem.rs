@@ -158,7 +158,7 @@ impl Item for NativeStandardListViewItem {
                 option.state |= QStyle::State(initial_state);
                 option.rect = QRect(QPoint(), size / dpr);
                 option.menuRect = QRect(QPoint(), size / dpr);
-                option.state = QStyle::State_Enabled;
+                option.state |= QStyle::State_Enabled;
                 if (has_hover) {
                     option.state |= QStyle::State_MouseOver;
                     option.state |= QStyle::State_Selected;
