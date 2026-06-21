@@ -500,9 +500,8 @@ inline Value::Value(const std::shared_ptr<slint::Model<Value>> &model)
         reinterpret_cast<ModelWrapper *>(self.instance)->self = nullptr;
     };
 
-    static const ModelAdaptorVTable vt { row_count,  row_data,   set_row_data,
-                                         push_row,    remove_row, insert_row,
-                                         get_notify,  drop };
+    static const ModelAdaptorVTable vt { row_count,  row_data,   set_row_data, push_row,
+                                         remove_row, insert_row, get_notify,   drop };
     inner = cbindgen_private::slint_interpreter_value_new_model(
             reinterpret_cast<uint8_t *>(wrapper.get()), &vt);
 }
