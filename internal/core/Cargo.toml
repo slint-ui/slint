@@ -52,7 +52,7 @@ unicode = ["unicode-script", "unicode-linebreak"]
 
 image-decoders = ["dep:image", "dep:clru"]
 image-default-formats = ["image?/default-formats"]
-svg = ["dep:resvg"]
+svg = ["dep:resvg", "i-slint-common/svg-text"]
 
 box-shadow-cache = []
 

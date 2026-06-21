@@ -4047,6 +4047,7 @@ dependencies = [
  "icu_locale_core",
  "icu_provider",
  "pulldown-cmark",
+ "resvg",
  "skrifa",
 ]
 

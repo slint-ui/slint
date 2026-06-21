@@ -246,11 +246,27 @@ pub async fn run_passes(
         }
     });
 
+    // The fonts (system + imported) used to embed glyphs and rasterize SVG text are
+    // shared between `embed_images` and `embed_glyphs`, so the system is scanned once.
+    #[cfg(feature = "software-renderer")]
+    let font_collection = (type_loader.compiler_config.embed_resources
+        == crate::EmbedResourcesKind::EmbedTextures)
+        .then(|| {
+            let custom = embed_glyphs::read_custom_fonts(
+                std::iter::once(&*doc).chain(type_loader.all_documents()),
+                diag,
+            );
+            embed_glyphs::shared_font_collection(custom)
+        });
+    #[cfg(not(feature = "software-renderer"))]
+    let font_collection: Option<embed_images::SharedFontCollection> = None;
+
     embed_images::embed_images(
         doc,
         type_loader.compiler_config.embed_resources,
         type_loader.compiler_config.const_scale_factor.unwrap_or(1.),
         &type_loader.compiler_config.resource_url_mapper,
+        font_collection.as_ref(),
         diag,
     )
     .await;
@@ -302,7 +318,7 @@ pub async fn run_passes(
                 font_pixel_sizes,
                 font_weights,
                 characters_seen,
-                std::iter::once(&*doc).chain(type_loader.all_documents()),
+                font_collection.as_ref().expect("EmbedTextures builds the shared font collection"),
                 diag,
             );
         }
