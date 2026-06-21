@@ -60,13 +60,12 @@ impl LiveReloadingComponent {
         let mut self_mut = self_rc.borrow_mut();
         let result = self_mut.build();
         result.print_diagnostics();
-        assert!(
-            !result.has_errors(),
-            "Was not able to compile the file {}. \n{:?}",
-            self_mut.file_name.display(),
-            result.diagnostics().collect::<Vec<_>>()
-        );
-        let definition = self_mut.find_component(&result).expect("Cannot open component");
+        if result.has_errors() {
+            return Err(format!("Could not compile {}", self_mut.file_name.display()).into());
+        }
+        let definition = self_mut.find_component(&result).ok_or_else(|| -> PlatformError {
+            format!("No component found in {}", self_mut.file_name.display()).into()
+        })?;
         let instance = definition.create()?;
         self_mut.window_adapter =
             Some(i_slint_core::window::WindowInner::from_pub(instance.window()).window_adapter());
