@@ -1908,14 +1908,20 @@ pub fn flexbox_layout_info_main_axis(
     } else {
         // Wrapping: aim for a roughly square (pixel-area) arrangement, using only
         // main-axis sizes so this stays independent of the cross axis. The square
-        // side is the sqrt of the total area (each item approximated as a main-axis
-        // square). Snap that up to a whole number of items, so a line holds a clean
-        // grid row instead of wrapping mid-item (which would over-count columns:
-        // e.g. 3 equal items want `A B / C`, not `A B C`).
+        // side is the sqrt of the total area; each item is approximated as a
+        // (size + spacing) square, so the gaps count toward the area and the grid
+        // stays roughly square as spacing grows (otherwise a spacing-blind target
+        // is reached with fewer items, skewing the grid taller). Snap that up to a
+        // whole number of items, so a line holds a clean grid row instead of
+        // wrapping mid-item (which would over-count columns: e.g. 3 equal items
+        // want `A B / C`, not `A B C`).
         // Accumulate the area in f64: with the integer Coord build, Coord-typed
-        // w*w (and its sum) would overflow for large items.
-        let total_area: f64 =
-            cells.iter().map(|c| c.constraint.preferred_bounded() as f64).map(|w| w * w).sum();
+        // products (and their sum) would overflow for large items.
+        let total_area: f64 = cells
+            .iter()
+            .map(|c| c.constraint.preferred_bounded() as f64 + spacing as f64)
+            .map(|w| w * w)
+            .sum();
         let target = Float::sqrt(total_area as f32) as Coord;
         let mut acc = 0 as Coord;
         let mut started = false;
