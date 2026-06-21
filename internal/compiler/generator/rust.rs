@@ -3351,29 +3351,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let name = ident(name);
             quote!(#name)
         }
-        Expression::EasingCurve(EasingCurve::Linear) => {
-            quote!(sp::EasingCurve::Linear)
-        }
         Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => {
             quote!(sp::EasingCurve::CubicBezier([#a, #b, #c, #d]))
         }
-        Expression::EasingCurve(EasingCurve::EaseInElastic) => {
-            quote!(sp::EasingCurve::EaseInElastic)
-        }
-        Expression::EasingCurve(EasingCurve::EaseOutElastic) => {
-            quote!(sp::EasingCurve::EaseOutElastic)
-        }
-        Expression::EasingCurve(EasingCurve::EaseInOutElastic) => {
-            quote!(sp::EasingCurve::EaseInOutElastic)
-        }
-        Expression::EasingCurve(EasingCurve::EaseInBounce) => {
-            quote!(sp::EasingCurve::EaseInBounce)
-        }
-        Expression::EasingCurve(EasingCurve::EaseOutBounce) => {
-            quote!(sp::EasingCurve::EaseOutBounce)
-        }
-        Expression::EasingCurve(EasingCurve::EaseInOutBounce) => {
-            quote!(sp::EasingCurve::EaseInOutBounce)
+        // The other curves have no parameters and map to a runtime variant with the same name.
+        Expression::EasingCurve(e) => {
+            let ident = format_ident!("{e:?}");
+            quote!(sp::EasingCurve::#ident)
         }
         Expression::LinearGradient { angle, stops } => {
             let angle = compile_expression(angle, ctx);
