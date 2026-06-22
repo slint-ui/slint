@@ -71,7 +71,13 @@ jobs:
               with:
                   crate: cross
             - name: Build
-              run: cross build --release --target=${{ matrix.target }} ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat,slint/renderer-skia -p energy-monitor -p printerdemo -p todo -p slint-viewer -p gallery -p home-automation
+              run: cross build --release --target=${{ matrix.target }} ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat,slint/renderer-skia -p printerdemo -p todo -p slint-viewer -p gallery -p home-automation
+            - name: Build energy-monitor
+              # Built separately with its `network` feature disabled: that feature pulls in
+              # reqwest -> rustls/aws-lc-rs -> aws-lc-sys, whose cc-builder aborts on the x86_64
+              # cross image's GCC (https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95189). Without
+              # `network` the demo builds fine; only the live weather panel is inactive.
+              run: cross build --release --target=${{ matrix.target }} ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat,slint/renderer-skia -p energy-monitor --no-default-features --features chrono
             - name: "Upload demo artifacts"
               uses: actions/upload-artifact@v7
               with:
