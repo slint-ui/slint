@@ -170,7 +170,7 @@ Replaces all matches of a pattern with another string.
 
 ```slint
 export component StringReplace {
-    property<bool> res1: "Hello".replace("ello", "i"); // "Hi"
+    property<bool> res1: "Hello, World!".replace("World", "Slint"); // "Hello, Slint!"
     property<bool> res2: "你好".replace("你"，"大家"); // "大家好"
 }
 ```
