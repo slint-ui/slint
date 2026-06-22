@@ -658,10 +658,23 @@ impl WindowInner {
             }
             changed |= crate::properties::ChangeTracker::run_change_handlers_once();
             if !changed {
+                self.drop_focus_if_invisible();
                 return;
             }
         }
         crate::debug_log!("Slint: long callback/instantiation chain detected");
+        self.drop_focus_if_invisible();
+    }
+
+    /// If the focused item is no longer visible (e.g. a TabWidget switched away
+    /// from the tab holding it, hiding but not destroying the item), drop the
+    /// focus so that input methods get torn down. Called after the tree settles,
+    /// since visibility bindings only have their final value once instantiation
+    /// has converged.
+    fn drop_focus_if_invisible(&self) {
+        if self.focus_item.borrow().upgrade().is_some_and(|i| !i.is_visible()) {
+            self.take_focus_item(&FocusEvent::FocusOut(FocusReason::TabNavigation));
+        }
     }
 
     /// Returns a slice of the active popups.
@@ -1074,12 +1087,6 @@ impl WindowInner {
         }
 
         let mut item = self.focus_item.borrow().clone().upgrade();
-
-        if item.as_ref().is_some_and(|i| !i.is_visible()) {
-            // Reset the focus... not great, but better than keeping it.
-            self.take_focus_item(&FocusEvent::FocusOut(FocusReason::TabNavigation));
-            item = None;
-        }
 
         let item_list = {
             let mut tmp = Vec::new();
