@@ -159,8 +159,8 @@ Creates a new string by repeating this string `n` times.
 
 ```slint
 export component StringRepeat {
-    property<bool> res1: "Hello".repeat(3); // "HelloHelloHello"
-    property<bool> res2: "你好".repeat(2); // "你好你好"
+    property<string> res1: "Hello".repeat(3); // "HelloHelloHello"
+    property<string> res2: "你好".repeat(2); // "你好你好"
 }
 ```
 
@@ -170,8 +170,8 @@ Replaces all matches of a pattern with another string.
 
 ```slint
 export component StringReplace {
-    property<bool> res1: "Hello, World!".replace("World", "Slint"); // "Hello, Slint!"
-    property<bool> res2: "你好".replace("你"，"大家"); // "大家好"
+    property<string> res1: "Hello, World!".replace("World", "Slint"); // "Hello, Slint!"
+    property<string> res2: "你好".replace("你", "大家"); // "大家好"
 }
 ```
 
@@ -179,8 +179,8 @@ export component StringReplace {
 
 ```slint
 export component StringReplace {
-    property<bool> res1: "\n Hello\t\n".trim(); // "Hello"
-    property<bool> res2: "你\t好\n\n".trim(); // "你\t好"
+    property<string> res1: "\\n Hello\\t\\n".trim(); // "Hello"
+    property<string> res2: "你\\t好\\n\\n".trim(); // "你\\t好"
 }
 ```
 
