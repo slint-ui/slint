@@ -2179,6 +2179,17 @@ impl WindowInner {
             .get_or_init(|| crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().unwrap().clone()))
     }
 
+    /// Like [`Self::context`], but returns `None` instead of panicking when no context is
+    /// available yet.
+    pub fn try_context(&self) -> Option<&crate::SlintContext> {
+        if self.ctx.get().is_none()
+            && let Some(ctx) = crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().cloned())
+        {
+            let _ = self.ctx.set(ctx);
+        }
+        self.ctx.get()
+    }
+
     /// Set the SlintContext.
     /// This needs to be called once before any other functions that would use the context.
     pub fn set_context(&self, ctx: crate::SlintContext) {
