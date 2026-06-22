@@ -2280,6 +2280,13 @@ fn generate_sub_component(
     let mut subtrees_components_cases = Vec::new();
     let mut ensure_instantiated_stmts: Vec<String> = Vec::new();
 
+    // The pre-init code (custom font registration) runs before the property initialization.
+    init.extend(component.pre_init_code.iter().map(|e| {
+        let mut expr_str = compile_expression(&e.borrow(), &ctx);
+        expr_str.push(';');
+        expr_str
+    }));
+
     for sub in &component.sub_components {
         let sub_field = field_name(&sub.name);
         let sub_sc = &root.sub_components[sub.ty];

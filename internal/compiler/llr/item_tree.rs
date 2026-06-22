@@ -469,6 +469,9 @@ pub struct SubComponent {
     /// The two way bindings that map the first property to the second wih optional field access
     pub two_way_bindings: Vec<TwoWayBinding>,
     pub const_properties: Vec<LocalMemberReference>,
+    /// Code run at the start of the constructor, before the property initialization.
+    /// Custom font registration uses this, so fonts are ready before a property needs them.
+    pub pre_init_code: Vec<MutExpression>,
     /// Code that is run in the sub component constructor, after property initializations
     pub init_code: Vec<MutExpression>,
 
@@ -654,6 +657,9 @@ impl CompilationUnit {
         visitor: &mut dyn FnMut(&'a super::MutExpression, &EvaluationContext<'_>),
     ) {
         self.for_each_sub_components(&mut |sc, ctx| {
+            for e in &sc.pre_init_code {
+                visitor(e, ctx);
+            }
             for e in &sc.init_code {
                 visitor(e, ctx);
             }

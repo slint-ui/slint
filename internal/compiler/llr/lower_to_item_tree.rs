@@ -285,6 +285,7 @@ fn lower_sub_component(
         animations: Default::default(),
         two_way_bindings: Default::default(),
         const_properties: Default::default(),
+        pre_init_code: Default::default(),
         init_code: Default::default(),
         geometries: Default::default(),
         // just initialize to dummy expression right now and it will be set later
@@ -591,10 +592,18 @@ fn lower_sub_component(
         sub_component.const_properties.push(x.local());
     });
 
+    sub_component.pre_init_code = component
+        .init_code
+        .borrow()
+        .font_registration_code
+        .iter()
+        .map(|e| super::lower_expression::lower_expression(e, &mut ctx).into())
+        .collect();
+
     sub_component.init_code = component
         .init_code
         .borrow()
-        .iter()
+        .iter_without_font_registration()
         .map(|e| super::lower_expression::lower_expression(e, &mut ctx).into())
         .collect();
 
