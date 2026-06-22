@@ -77,6 +77,7 @@ All notable changes to this project are documented in this file.
  - Made `PointerEvent` and `PointerEventKind` types public in `language` module (#11587)
  - Added `StyledText` struct that maps to a `styled-text` slint type and can parse markdown at runtime.
  - Added public API to create `keys`
+ - Cache the slint! macro expension for better experience with rust-analyzer  (#12145)
 
 ### C++
 
@@ -85,6 +86,8 @@ All notable changes to this project are documented in this file.
 - Added `StyledText` struct that maps to a `styled-text` slint type and can parse markdown at runtime.
 - Added public API to create `keys`
 - Use Astro for the documentation
+- Fixed setting a model to nullptr when using the live preview
+- Fix memory leak in the C++ `changed` callbacks (#12135)
 
 ### JavaScript
 
