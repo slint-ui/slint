@@ -21,6 +21,9 @@ catalogs:
     '@expressive-code/plugin-line-numbers':
       specifier: 0.43.1
       version: 0.43.1
+    '@pagefind/default-ui':
+      specifier: 1.5.2
+      version: 1.5.2
     '@playwright/test':
       specifier: 1.60.0
       version: 1.60.0
@@ -241,6 +244,9 @@ importers:
       '@astrojs/starlight':
         specifier: 'catalog:'
         version: 0.40.0(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
+      '@pagefind/default-ui':
+        specifier: 'catalog:'
+        version: 1.5.2
       '@slint/common-files':
         specifier: workspace:*
         version: link:../common
