@@ -160,6 +160,34 @@ struct SharedString
         return out;
     }
 
+    bool contains(const SharedString &pat) const
+    {
+        return cbindgen_private::slint_shared_string_contains(this, &pat);
+    }
+
+    bool is_ascii() const { return cbindgen_private::slint_shared_string_is_ascii(this); }
+
+    SharedString repeat(const size_t n) const
+    {
+        auto out = SharedString();
+        cbindgen_private::slint_shared_string_repeat(this, n, &out);
+        return out;
+    }
+
+    SharedString replace(const SharedString &from, const SharedString &to) const
+    {
+        auto out = SharedString();
+        cbindgen_private::slint_shared_string_replace(this, &from, &to, &out);
+        return out;
+    }
+
+    SharedString trim() const
+    {
+        auto out = SharedString();
+        cbindgen_private::slint_shared_string_trim(this, &out);
+        return out;
+    }
+
     /// Returns true if \a a is equal to \a b; otherwise returns false.
     friend bool operator==(const SharedString &a, const SharedString &b)
     {

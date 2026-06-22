@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase {
+    out property<string> s: "hello";
+    out property <string> pat1: "he";
+    out property <bool> res1: s.starts-with(pat1);
+    out property <string> pat2: "lo";
+    out property <bool> res2: s.starts-with(pat2);
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_res1(), true);
+assert_eq(instance.get_res2(), false);
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert_eq!(instance.get_res1(), true);
+assert_eq!(instance.get_res2(), false);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.res1, true);
+assert.equal(instance.res2, false);
+```
+*/
