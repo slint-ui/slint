@@ -861,6 +861,10 @@ fn call_builtin_function(
             let precision: usize = precision.max(0) as usize;
             Value::String(i_slint_core::string::shared_string_from_number_precision(n, precision))
         }
+        BuiltinFunction::ToStringUnlocalized => {
+            let n: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            Value::String(i_slint_core::string::shared_string_from_number_unlocalized(n))
+        }
         BuiltinFunction::SetFocusItem => {
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to SetFocusItem")
