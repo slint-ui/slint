@@ -46,6 +46,7 @@ pub enum BuiltinFunction {
     Exp,
     ToFixed,
     ToPrecision,
+    ToStringUnlocalized,
     SetFocusItem,
     ClearFocusItem,
     ShowPopupWindow,
@@ -213,6 +214,7 @@ declare_builtin_function_types!(
     Exp: (Type::Float32) -> Type::Float32,
     ToFixed: (Type::Float32, Type::Int32) -> Type::String,
     ToPrecision: (Type::Float32, Type::Int32) -> Type::String,
+    ToStringUnlocalized: (Type::Float32) -> Type::String,
     SetFocusItem: (Type::ElementReference) -> Type::Void,
     ClearFocusItem: (Type::ElementReference) -> Type::Void,
     ShowPopupWindow: (Type::ElementReference) -> Type::Void,
@@ -368,7 +370,8 @@ impl BuiltinFunction {
             | BuiltinFunction::Pow
             | BuiltinFunction::Exp
             | BuiltinFunction::ATan
-            | BuiltinFunction::ATan2 => true,
+            | BuiltinFunction::ATan2
+            | BuiltinFunction::ToStringUnlocalized => true,
             // The result depends on the locale's decimal separator, like DecimalSeparator.
             // The constant propagation folds the locale-independent cases and promotes
             // their binding back to constant.
@@ -468,7 +471,8 @@ impl BuiltinFunction {
             | BuiltinFunction::ATan
             | BuiltinFunction::ATan2
             | BuiltinFunction::ToFixed
-            | BuiltinFunction::ToPrecision => true,
+            | BuiltinFunction::ToPrecision
+            | BuiltinFunction::ToStringUnlocalized => true,
             BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => false,
             BuiltinFunction::ShowPopupWindow
             | BuiltinFunction::ClosePopupWindow

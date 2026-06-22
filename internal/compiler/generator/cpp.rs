@@ -4634,6 +4634,11 @@ fn compile_builtin_function_call(
                 a.next().unwrap(), a.next().unwrap(),
             )
         }
+        BuiltinFunction::ToStringUnlocalized => {
+            format!("[](double n) {{ slint::SharedString out; slint::cbindgen_private::slint_shared_string_from_number_unlocalized(&out, n); return out; }}({})",
+                a.next().unwrap(),
+            )
+        }
         BuiltinFunction::SetFocusItem => {
             if let [llr::Expression::PropertyReference(pr)] = arguments {
                 let window = access_window_field(ctx);

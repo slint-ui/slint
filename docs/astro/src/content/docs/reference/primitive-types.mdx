@@ -186,6 +186,10 @@ export component FloatToString {
 In addition, call the <Link type="MathRef" label="math functions"/> in postfix style on any numeric value,
 for example `(-10).abs()` or `x.round()`.
 
+#### to-string-unlocalized() -> string
+
+Returns a string representation of the number but not localized. This means the decimal separator will always be a dot.
+
 ### int
 <SlintProperty propName="int" typeName="int" defaultValue='0'>
 Signed integral number.
@@ -478,6 +482,7 @@ export component Example {
 `int` and `float` convert implicitly to `string`.
 To control how many digits appear in the result, use the [`to-fixed()` and `to-precision()`](#to-fixeddigits-int---string)
 member functions instead of the implicit conversion.
+To always use a dot as decimal separator regardless of the locale, use [`to-string-unlocalized()`](#to-string-unlocalized---string).
 
 For the other direction, convert a `string` to a number with the [`to-float()`](#to-float---float) member function,
 and check whether a string holds a valid number with `is-float()`.
