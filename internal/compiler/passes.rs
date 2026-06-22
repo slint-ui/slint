@@ -28,6 +28,7 @@ mod focus_handling;
 pub mod generate_item_indices;
 pub mod infer_aliases_types;
 mod inject_debug_hooks;
+pub use inject_debug_hooks::property_id;
 mod inlining;
 mod key_bindings;
 mod lower_absolute_coordinates;
