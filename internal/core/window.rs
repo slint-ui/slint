@@ -760,6 +760,14 @@ impl WindowInner {
         let item_tree = self.try_component()?;
         self.ensure_tree_instantiated();
 
+        // If the focused item became invisible (e.g. a TabWidget switched away from
+        // the tab holding it), drop the focus so that input methods get torn down.
+        // The key-event handler does the same, but a tab is switched with a pointer
+        // tap, not a key press, so it must also happen here.
+        if self.focus_item.borrow().upgrade().is_some_and(|i| !i.is_visible()) {
+            self.take_focus_item(&FocusEvent::FocusOut(FocusReason::TabNavigation));
+        }
+
         // handle multiple press release
         event = self.click_state.check_repeat(event, self.context().platform().click_interval());
 
