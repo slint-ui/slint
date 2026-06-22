@@ -371,6 +371,7 @@ jobs:
             RUSTFLAGS: --cfg slint_int_coord -D warnings
             CARGO_PROFILE_DEV_DEBUG: 0
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v6
