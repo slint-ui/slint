@@ -17,7 +17,7 @@ pub fn inject_debug_hooks(doc: &object_tree::Document, type_loader: &typeloader:
     });
 }
 
-fn property_id(element_id: u64, name: &smol_str::SmolStr) -> smol_str::SmolStr {
+pub fn property_id(element_id: u64, name: &smol_str::SmolStr) -> smol_str::SmolStr {
     smol_str::format_smolstr!("?{element_id}-{name}")
 }
 
