@@ -10,6 +10,13 @@ fn main() {
     // new_with_existing_window constructor.
     if std::env::var_os("CARGO_FEATURE_REMOTE").is_some() {
         println!("cargo:rustc-env=SLINT_ENABLE_EXPERIMENTAL_FEATURES=1");
+        // Android needs the Material style so the UI's ListView scrolls by touch.
+        println!("cargo:rerun-if-env-changed=SLINT_STYLE");
+        if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("android")
+            && std::env::var_os("SLINT_STYLE").is_none()
+        {
+            println!("cargo:rustc-env=SLINT_STYLE=material");
+        }
         generate_third_party_licenses();
     }
 }
