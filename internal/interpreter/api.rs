@@ -2381,3 +2381,98 @@ export component Foo2 inherits Window  {
         }
     }
 }
+
+// Validates the "live drag" mechanism the visual editor relies on: with `debug_hooks`
+// enabled, a `set_debug_hook_callback` that reads a per-id `Property<Option<Value>>` lets the
+// editor reactively override a property's value (and revert it) without touching the source.
+// Setting the override property re-evaluates the hooked binding via Slint's dependency tracker.
+#[cfg(all(test, feature = "internal", feature = "internal-highlight"))]
+#[test]
+fn test_debug_hook_live_override() {
+    use i_slint_core::Property;
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+    use std::pin::Pin;
+    use std::rc::Rc;
+
+    i_slint_backend_testing::init_no_event_loop();
+
+    let code = r#"
+export component Win inherits Window {
+    width: 300px;
+    height: 300px;
+    rect := Rectangle {
+        x: 10px;
+        y: 20px;
+        width: 30px;
+        height: 40px;
+    }
+}"#;
+    let path = PathBuf::from("/tmp/debug_hook_test.slint");
+
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
+        Some(std::hash::RandomState::new());
+    let compile_result =
+        spin_on::spin_on(compiler.build_from_source(code.to_string(), path.clone()));
+    assert!(!compile_result.has_errors(), "{:?}", compile_result.diagnostics);
+    let instance = compile_result.components().next().unwrap().create().unwrap();
+
+    // Resolve the `rect` element and the hash used to build its hook ids.
+    let offset = code.find("Rectangle").unwrap() as u32;
+    let (element, debug_index) = instance
+        .element_node_at_source_code_position(&path, offset)
+        .first()
+        .cloned()
+        .expect("element resolved");
+    let element_hash = element.borrow().debug[debug_index].element_hash;
+    assert_ne!(element_hash, 0, "debug_hooks should populate element_hash");
+
+    // Editor-style override store + callback (must be installed before the first evaluation so
+    // the hooked bindings register a dependency on the override properties while still `None`).
+    type Store = Rc<RefCell<HashMap<SmolStr, Pin<Box<Property<Option<Value>>>>>>>;
+    let store: Store = Default::default();
+    {
+        let store = store.clone();
+        instance.set_debug_hook_callback(Some(Box::new(move |id: &str| -> Option<Value> {
+            let mut m = (*store).borrow_mut();
+            let p = m.entry(SmolStr::from(id)).or_insert_with(|| Box::pin(Property::new(None)));
+            p.as_ref().get()
+        })));
+    }
+
+    let set_override = |name: &str, value: Option<f64>| {
+        let id = i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(name));
+        let mut m = (*store).borrow_mut();
+        let p = m.entry(id).or_insert_with(|| Box::pin(Property::new(None)));
+        (&**p).set(value.map(Value::Number));
+    };
+
+    // Baseline: evaluates the bindings (registering the dependency) with no overrides.
+    let base = instance.element_positions(&element).first().expect("geometry").rect;
+
+    // Override x and width: the hooked bindings must re-evaluate to the new values.
+    set_override("x", Some(100.0));
+    set_override("width", Some(70.0));
+    let after = instance.element_positions(&element).first().expect("geometry").rect;
+    assert!(
+        (after.origin.x - base.origin.x - 90.0).abs() < 0.5,
+        "x override should shift the element by 90px (base {}, after {})",
+        base.origin.x,
+        after.origin.x
+    );
+    assert!(
+        (after.size.width - base.size.width - 40.0).abs() < 0.5,
+        "width override should grow the element by 40px (base {}, after {})",
+        base.size.width,
+        after.size.width
+    );
+
+    // Revert: setting the overrides back to None restores the original geometry.
+    set_override("x", None);
+    set_override("width", None);
+    let reverted = instance.element_positions(&element).first().expect("geometry").rect;
+    assert!((reverted.origin.x - base.origin.x).abs() < 0.5, "x should revert");
+    assert!((reverted.size.width - base.size.width).abs() < 0.5, "width should revert");
+}
