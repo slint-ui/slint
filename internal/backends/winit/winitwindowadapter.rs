@@ -98,6 +98,58 @@ fn filter_out_zero_width_or_height(
     winit::dpi::LogicalSize { width: filter(size.width), height: filter(size.height) }
 }
 
+/// Clear the X11 window background to transparent before it is mapped.
+///
+/// winit creates X11 windows without a background pixmap (background-pixmap
+/// None), so the server never paints them. Between `XMapWindow` and our first
+/// rendered frame the window then shows uninitialized VRAM, which on
+/// multi-monitor setups is often a fragment of another monitor's contents.
+///
+/// Setting the background to pixel 0 (fully transparent, since our windows use a
+/// 32-bit ARGB visual) makes the X server clear the window itself when it is
+/// mapped, removing the flash without forcing us to render before the window is
+/// shown. Must be called while the window is still unmapped.
+#[cfg(all(unix, not(target_vendor = "apple"), feature = "x11"))]
+fn clear_x11_window_background(winit_window: &winit::window::Window) {
+    use raw_window_handle::{HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle};
+
+    let (Ok(display_handle), Ok(window_handle)) =
+        (winit_window.display_handle(), winit_window.window_handle())
+    else {
+        return;
+    };
+    let (RawDisplayHandle::Xlib(display), RawWindowHandle::Xlib(window)) =
+        (display_handle.as_raw(), window_handle.as_raw())
+    else {
+        // Not X11 (e.g. running on Wayland) — nothing to do.
+        return;
+    };
+    let Some(display) = display.display else {
+        return;
+    };
+
+    let Ok(xlib) = x11_dl::xlib::Xlib::open() else {
+        return;
+    };
+    // SAFETY: `display` and `window.window` are valid for as long as the winit
+    // window is alive, which outlives this call.
+    unsafe {
+        let display = display.as_ptr() as *mut x11_dl::xlib::Display;
+        let mut attributes: x11_dl::xlib::XSetWindowAttributes = std::mem::zeroed();
+        attributes.background_pixel = 0;
+        (xlib.XChangeWindowAttributes)(
+            display,
+            window.window,
+            x11_dl::xlib::CWBackPixel,
+            &mut attributes,
+        );
+        // winit drives this connection through XCB and never flushes Xlib's
+        // request buffer, so push the change out ourselves to make sure it
+        // reaches the server before the window is mapped.
+        (xlib.XFlush)(display);
+    }
+}
+
 fn apply_scale_factor_to_logical_sizes_in_attributes(
     attributes: &mut WindowAttributes,
     scale_factor: f64,
@@ -474,6 +526,12 @@ impl WinitWindowAdapter {
         }
 
         let winit_window = self.renderer.resume(active_event_loop, window_attributes)?;
+
+        // The window is created unmapped; clear its X11 background now so the
+        // server paints it transparent on the first map instead of leaking
+        // uninitialized VRAM before our first frame is presented.
+        #[cfg(all(unix, not(target_vendor = "apple"), feature = "x11"))]
+        clear_x11_window_background(&winit_window);
 
         // Push the host shell's color scheme and accent color to the SlintContext.
         // With `xdg_desktop_settings` the backend-wide portal watcher (spawned in

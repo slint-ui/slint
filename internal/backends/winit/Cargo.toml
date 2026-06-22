@@ -40,6 +40,7 @@ x11 = [
   "i-slint-renderer-skia?/x11",
   "softbuffer?/x11",
   "softbuffer?/x11-dlopen",
+  "dep:x11-dl",
 ]
 renderer-femtovg = ["i-slint-renderer-femtovg/opengl", "dep:glutin", "dep:glutin-winit"]
 renderer-femtovg-wgpu = ["i-slint-renderer-femtovg/wgpu", "dep:i-slint-renderer-femtovg", "unstable-wgpu-29"]
@@ -113,6 +114,9 @@ copypasta = { version = "0.10", default-features = false }
 # Use same version and executor as accesskit
 zbus = { version = "5.14.0", default-features = false, features = ["async-io"] }
 futures = { version = "0.3.31" }
+# Used to clear the X11 window background before mapping, to avoid a flash of
+# uninitialized VRAM (winit creates X11 windows with background-pixmap None).
+x11-dl = { version = "2.21", optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # To disable macOS automatic shortcut translation

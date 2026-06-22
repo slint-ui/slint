@@ -4033,6 +4033,7 @@ dependencies = [
  "webbrowser",
  "windows",
  "winit",
+ "x11-dl",
  "zbus",
 ]
 
