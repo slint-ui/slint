@@ -298,6 +298,7 @@ mod visitor {
             animations,
             two_way_bindings,
             const_properties,
+            pre_init_code,
             init_code,
             geometries,
             layout_info_h,
@@ -383,7 +384,7 @@ mod visitor {
         for c in const_properties {
             visit_local_member_reference(c, &scope, state, visitor);
         }
-        for i in init_code {
+        for i in pre_init_code.iter_mut().chain(init_code) {
             visit_expression(i.get_mut(), &scope, state, visitor);
         }
         for g in geometries.iter_mut().flatten() {

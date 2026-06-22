@@ -1663,6 +1663,15 @@ pub fn instantiate(
         }
     }
 
+    // Register the fonts before the property bindings, so a property that needs them
+    // (image decoding, text sizing) finds them.
+    for code in description.original.init_code.borrow().font_registration_code.iter() {
+        eval::eval_expression(
+            code,
+            &mut eval::EvalLocalContext::from_component_instance(instance_ref),
+        );
+    }
+
     generator::handle_property_bindings_init(
         &description.original,
         |elem, prop_name, binding| unsafe {
@@ -2077,7 +2086,9 @@ impl ErasedItemTreeBox {
         generativity::make_guard!(guard);
         let compo_box = self.unerase(guard);
         let instance_ref = compo_box.borrow_instance();
-        for extra_init_code in self.0.description.original.init_code.borrow().iter() {
+        for extra_init_code in
+            self.0.description.original.init_code.borrow().iter_without_font_registration()
+        {
             eval::eval_expression(
                 extra_init_code,
                 &mut eval::EvalLocalContext::from_component_instance(instance_ref),

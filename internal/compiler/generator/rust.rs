@@ -1488,6 +1488,17 @@ fn generate_sub_component(
         init.push(quote!(#r;))
     }
 
+    // The pre-init code (custom font registration) runs before the property initialization.
+    let pre_init_code: Vec<TokenStream> = component
+        .pre_init_code
+        .iter()
+        .map(|e| {
+            let code = compile_expression(&e.borrow(), &ctx);
+            quote!(#code;)
+        })
+        .collect();
+    init.splice(0..0, pre_init_code);
+
     // Initialize all properties which have an initial value in the slint file
     // This sets up also the callback handler and bindings
     for (prop, expression) in &component.property_init {

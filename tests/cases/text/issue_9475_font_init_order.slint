@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for #9475: custom fonts must be registered before the property
+// initialization. The Text is in a sub-component (not the root, which the generators handle
+// specially) and reads its width in the `init` callback. If the font is registered too late,
+// the width is measured with a fallback font instead of the imported "Plaster", which is on
+// neither the system nor SLINT_FONT_PATH.
+
+import "../../../examples/slide_puzzle/plaster-font/Plaster-Regular.ttf";
+
+component Inner inherits Rectangle {
+    out property <length> width-at-init: -1px;
+    label := Text {
+        font-family: "Plaster";
+        font-size: 20px;
+        text: "Hello";
+    }
+    init => { self.width-at-init = label.width; }
+}
+
+export component TestCase inherits Window {
+    inner := Inner { }
+    // "Hello" is 62px wide in Plaster, but 49px in the fallback font, so a width measured
+    // before the font was registered would not be 62px.
+    out property <bool> test: inner.width-at-init == 62px;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/
