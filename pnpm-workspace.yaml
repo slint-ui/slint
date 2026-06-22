@@ -32,6 +32,7 @@ catalog:
   '@astrojs/starlight': 0.40.0
   '@biomejs/biome': 2.5.0
   '@expressive-code/plugin-line-numbers': 0.43.1
+  '@pagefind/default-ui': 1.5.2
   '@playwright/test': 1.60.0
   '@types/node': 24.12.0
   astro: 6.4.6
