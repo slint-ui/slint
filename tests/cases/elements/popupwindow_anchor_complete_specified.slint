@@ -5,6 +5,13 @@ export component TestCase {
     width: 300px;
     height: 300px;
 
+    // Important, otherwise the popup show will not be created
+    TouchArea {
+        clicked => {
+            default-popup.show()
+        }
+    }
+
     default-popup := PopupWindow {
         // All properties are specified
         anchor: {
