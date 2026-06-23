@@ -58,6 +58,6 @@ targets:
               ../../scripts/build_macos_app_with_cargo.bash \
               --bin slint-visual-editor \
               --no-default-features \
-              --features backend-winit,renderer-skia,renderer-software,preview
+              --features backend-winit,renderer-skia,preview
         outputFiles:
           - $(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)

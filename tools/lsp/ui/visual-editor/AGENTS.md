@@ -14,7 +14,7 @@ SLINT_ENABLE_EXPERIMENTAL_FEATURES=1 \
 SLINT_BACKEND=winit-skia \
 cargo run -p slint-lsp --example slint-editor \
   --no-default-features \
-  --features backend-winit,renderer-skia,renderer-software,preview \
+  --features backend-winit,renderer-skia,preview \
   -- tools/lsp/ui/visual-editor/example/simple_preview.slint
 ```
 
@@ -48,7 +48,7 @@ SLINT_MCP_PORT=9315 \
 SLINT_BACKEND=winit-skia \
 cargo run -p slint-lsp --example slint-editor \
   --no-default-features \
-  --features backend-winit,renderer-skia,renderer-software,preview,slint/mcp \
+  --features backend-winit,renderer-skia,preview,slint/mcp \
   -- tools/lsp/ui/visual-editor/example/simple_preview.slint
 ```
 
@@ -81,7 +81,7 @@ SLINT_LIVE_PREVIEW=1 \
 SLINT_BACKEND=winit-skia \
 cargo run --release -p slint-lsp --example slint-editor \
   --no-default-features \
-  --features backend-winit,renderer-skia,renderer-software,preview,slint/live-preview \
+  --features backend-winit,renderer-skia,preview,slint/live-preview \
   -- tools/lsp/ui/visual-editor/example/Main.slint
 ```
 
