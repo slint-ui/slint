@@ -38,6 +38,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SPEC_PATH="$ROOT_DIR/tools/lsp/macos-project.yml"
 PROJECT_DIR="$(dirname "$SPEC_PATH")"
 PROJECT_FILE="$PROJECT_DIR/$APP_NAME.xcodeproj"
+EXAMPLE_SOURCE_DIR="$PROJECT_DIR/ui/visual-editor/example"
 VERSION="${VERSION:-}"
 
 if [ -z "$VERSION" ]; then
@@ -161,6 +162,8 @@ stage_and_sign_app() {
     mkdir -p "$STAGE_DIR"
     ditto "$APP_PATH" "$STAGED_APP_PATH"
     ln -s /Applications "$STAGE_DIR/Applications"
+    mkdir -p "$STAGED_APP_PATH/Contents/Resources/visual-editor-example"
+    ditto "$EXAMPLE_SOURCE_DIR" "$STAGED_APP_PATH/Contents/Resources/visual-editor-example"
 
     local executable="$STAGED_APP_PATH/Contents/MacOS/$APP_NAME"
     [ -x "$executable" ] || die "app executable missing: $executable"
@@ -250,6 +253,9 @@ assess_stapled_app() {
         -nobrowse \
         -mountpoint "$MOUNT_DIR"
     DMG_ATTACHED=1
+
+    log "Verifying mounted app code signature"
+    codesign --verify --deep --strict --verbose=2 "$MOUNT_DIR/$APP_NAME.app"
 
     # Source: spctl assesses code against system security policy:
     # https://keith.github.io/xcode-man-pages/spctl.8.html

@@ -122,13 +122,16 @@ and Gatekeeper commands.
 8. Builds Cargo's `slint-editor` example for `aarch64-apple-darwin` and
    `x86_64-apple-darwin`.
 9. Combines both executables with `lipo`.
-10. Signs the executable and app bundle with `codesign --options runtime`.
-11. Deletes Xcode and Cargo build intermediates after the signed app is staged.
-12. Creates and signs a compressed DMG with `hdiutil`.
-13. Submits the DMG with `xcrun notarytool submit --wait`.
-14. Staples and validates the accepted ticket with `xcrun stapler`.
-15. Mounts the DMG and checks the app with `spctl`.
-16. Uploads `dist/*.dmg` as a GitHub Actions artifact.
+10. Copies the visual editor demo files into the app bundle resources so Finder
+    launches can open a default project without command-line arguments.
+11. Signs the executable and app bundle with `codesign --options runtime`.
+12. Deletes Xcode and Cargo build intermediates after the signed app is staged.
+13. Creates and signs a compressed DMG with `hdiutil`.
+14. Submits the DMG with `xcrun notarytool submit --wait`.
+15. Staples and validates the accepted ticket with `xcrun stapler`.
+16. Mounts the DMG, verifies the mounted app with `codesign`, and checks it
+    with `spctl`.
+17. Uploads `dist/*.dmg` as a GitHub Actions artifact.
 
 For local debugging, the same phases can be run individually:
 
