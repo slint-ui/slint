@@ -65,11 +65,15 @@ for arch in $ARCHS; do
             ;;
     esac
 
+    echo "::group::Cargo build $CARGO_TARGET_NAME for $RUST_TARGET"
+    echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] cargo build start: $RUST_TARGET"
     cargo build \
         "${CARGO_PROFILE_ARGS[@]}" \
         --target "$RUST_TARGET" \
         "$CARGO_TARGET_KIND" "$CARGO_TARGET_NAME" \
         "$@"
+    echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] cargo build finished: $RUST_TARGET"
+    echo "::endgroup::"
 
     if [ "$CARGO_TARGET_KIND" = "--example" ]; then
         EXECUTABLES+=("$CARGO_TARGET_DIR/$RUST_TARGET/$CARGO_PROFILE/examples/$CARGO_TARGET_NAME")
@@ -82,10 +86,12 @@ mkdir -p "$(dirname "$TARGET_BUILD_DIR/$EXECUTABLE_PATH")"
 rm -f "$TARGET_BUILD_DIR/$EXECUTABLE_PATH"
 
 if [ "${#EXECUTABLES[@]}" -eq 1 ]; then
+    echo "Copying ${EXECUTABLES[0]} to $TARGET_BUILD_DIR/$EXECUTABLE_PATH"
     cp "${EXECUTABLES[0]}" "$TARGET_BUILD_DIR/$EXECUTABLE_PATH"
 else
     # Source: lipo creates a universal file from multiple architecture-specific
     # Mach-O inputs: https://keith.github.io/xcode-man-pages/lipo.1.html
+    echo "Creating universal executable at $TARGET_BUILD_DIR/$EXECUTABLE_PATH"
     lipo -create -output "$TARGET_BUILD_DIR/$EXECUTABLE_PATH" "${EXECUTABLES[@]}"
 fi
 

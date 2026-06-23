@@ -93,7 +93,11 @@ documents `path`, `key`, and `restore-keys` here:
 its man page:
 <https://docs.brew.sh/Manpage#cache-options-formula>.
 
-The package driver is `scripts/package_macos_visual_editor.bash`:
+The package driver is `scripts/package_macos_visual_editor.bash`. The workflow
+calls its phases as separate GitHub Actions steps so a stuck run shows the
+blocking phase instead of hiding all work under one packaging step. The script
+also prints UTC timestamps around keychain, Xcode, signing, DMG, notarization,
+and Gatekeeper commands.
 
 1. Validates that all signing, Team ID, bundle ID, and notary values are present
    in environment variables.
@@ -112,6 +116,19 @@ The package driver is `scripts/package_macos_visual_editor.bash`:
 12. Staples and validates the accepted ticket with `xcrun stapler`.
 13. Mounts the DMG and checks the app with `spctl`.
 14. Uploads `dist/*.dmg` as a GitHub Actions artifact.
+
+For local debugging, the same phases can be run individually:
+
+```sh
+./scripts/package_macos_visual_editor.bash validate-environment
+./scripts/package_macos_visual_editor.bash install-signing-material
+./scripts/package_macos_visual_editor.bash archive-app
+./scripts/package_macos_visual_editor.bash stage-and-sign-app
+./scripts/package_macos_visual_editor.bash create-and-sign-dmg
+./scripts/package_macos_visual_editor.bash notarize-and-staple-dmg
+./scripts/package_macos_visual_editor.bash assess-stapled-app
+./scripts/package_macos_visual_editor.bash cleanup
+```
 
 The command sources for these steps are:
 

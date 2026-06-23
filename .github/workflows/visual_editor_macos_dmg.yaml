@@ -94,8 +94,30 @@ jobs:
                   path: ~/Library/Caches/Homebrew
                   key: ${{ steps.homebrew-cache.outputs.cache-primary-key }}
 
-            - name: Build, sign, notarize, and package DMG
-              run: ./scripts/package_macos_visual_editor.bash
+            - name: Validate packaging environment
+              run: ./scripts/package_macos_visual_editor.bash validate-environment
+
+            - name: Install signing material
+              run: ./scripts/package_macos_visual_editor.bash install-signing-material
+
+            - name: Archive app with Xcode
+              run: ./scripts/package_macos_visual_editor.bash archive-app
+
+            - name: Stage and sign app
+              run: ./scripts/package_macos_visual_editor.bash stage-and-sign-app
+
+            - name: Create and sign DMG
+              run: ./scripts/package_macos_visual_editor.bash create-and-sign-dmg
+
+            - name: Notarize and staple DMG
+              run: ./scripts/package_macos_visual_editor.bash notarize-and-staple-dmg
+
+            - name: Assess stapled app
+              run: ./scripts/package_macos_visual_editor.bash assess-stapled-app
+
+            - name: Clean up signing material
+              if: ${{ always() }}
+              run: ./scripts/package_macos_visual_editor.bash cleanup
 
             # Sources:
             # - GitHub workflow artifacts: https://docs.github.com/en/actions/tutorials/store-and-share-data

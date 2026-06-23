@@ -8,6 +8,10 @@ APP_NAME="Slint Visual Editor"
 DMG_BASENAME="SlintVisualEditor"
 SCHEME="Slint Visual Editor"
 
+log() {
+    echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] $*"
+}
+
 die() {
     echo "error: $*" >&2
     exit 1
@@ -66,58 +70,71 @@ cleanup() {
         security delete-keychain "$KEYCHAIN_PATH" >/dev/null 2>&1 || true
     fi
 }
-trap cleanup EXIT
-
-require_env \
-    MACOS_CERTIFICATE_BASE64 \
-    MACOS_CERTIFICATE_PASSWORD \
-    MACOS_KEYCHAIN_PASSWORD \
-    MACOS_DEVELOPER_ID \
-    MACOS_DEVELOPMENT_TEAM \
-    MACOS_BUNDLE_IDENTIFIER \
-    NOTARY_API_KEY_BASE64 \
-    NOTARY_API_KEY_ID \
-    NOTARY_ISSUER_ID
 
 mkdir -p "$DIST_DIR" "$BUILD_DIR" "$RUNNER_TEMP_DIR"
 chmod 700 "$RUNNER_TEMP_DIR"
 
+validate_environment() {
+    require_env \
+        MACOS_CERTIFICATE_BASE64 \
+        MACOS_CERTIFICATE_PASSWORD \
+        MACOS_KEYCHAIN_PASSWORD \
+        MACOS_DEVELOPER_ID \
+        MACOS_DEVELOPMENT_TEAM \
+        MACOS_BUNDLE_IDENTIFIER \
+        NOTARY_API_KEY_BASE64 \
+        NOTARY_API_KEY_ID \
+        NOTARY_ISSUER_ID
+}
+
 install_signing_material() {
+    log "Installing signing material into temporary keychain"
     # Source: GitHub documents importing Apple signing certificates into a
     # temporary macOS runner keychain:
     # https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications
+    log "Decoding Developer ID certificate and notary API key"
     printf "%s" "$MACOS_CERTIFICATE_BASE64" | base64 --decode -o "$CERTIFICATE_PATH"
     printf "%s" "$NOTARY_API_KEY_BASE64" | base64 --decode -o "$NOTARY_KEY_PATH"
     chmod 600 "$CERTIFICATE_PATH" "$NOTARY_KEY_PATH"
 
     # Source: security is the command line interface to macOS keychains:
     # https://keith.github.io/xcode-man-pages/security.1.html
+    log "Creating temporary keychain: $KEYCHAIN_PATH"
     security create-keychain -p "$MACOS_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+    log "Configuring keychain timeout"
     security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+    log "Unlocking temporary keychain"
     security unlock-keychain -p "$MACOS_KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+    log "Importing Developer ID certificate"
     security import "$CERTIFICATE_PATH" \
         -P "$MACOS_CERTIFICATE_PASSWORD" \
         -A \
         -t cert \
         -f pkcs12 \
         -k "$KEYCHAIN_PATH"
+    log "Allowing codesign to access imported key"
     security set-key-partition-list \
         -S apple-tool:,apple:,codesign: \
         -s \
         -k "$MACOS_KEYCHAIN_PASSWORD" \
         "$KEYCHAIN_PATH"
+    log "Selecting temporary keychain as default"
     security default-keychain -s "$KEYCHAIN_PATH"
+    log "Signing material installed"
 }
 
 archive_app() {
+    log "Generating Xcode project from $SPEC_PATH"
     # Source: XcodeGen generates an Xcode project from a YAML project spec:
     # https://yonaskolb.github.io/XcodeGen/Docs/ProjectSpec.html
     xcodegen generate --spec "$SPEC_PATH"
 
     rm -rf "$DERIVED_DATA_PATH" "$ARCHIVE_PATH"
 
+    log "Archiving app with xcodebuild into $ARCHIVE_PATH"
     # Source: xcodebuild archive builds an archive at the provided archive path:
     # https://keith.github.io/xcode-man-pages/xcodebuild.1.html
+    export NSUnbufferedIO=YES
     xcodebuild archive \
         -project "$PROJECT_FILE" \
         -scheme "$SCHEME" \
@@ -130,12 +147,15 @@ archive_app() {
         SKIP_INSTALL=NO \
         CODE_SIGNING_ALLOWED=NO \
         MARKETING_VERSION="$VERSION" \
-        CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
+        CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+        -showBuildTimingSummary
 
     [ -d "$APP_PATH" ] || die "archive did not produce $APP_PATH"
+    log "Archive produced $APP_PATH"
 }
 
 stage_and_sign_app() {
+    log "Staging app bundle for DMG"
     rm -rf "$STAGE_DIR"
     mkdir -p "$STAGE_DIR"
     ditto "$APP_PATH" "$STAGED_APP_PATH"
@@ -147,16 +167,21 @@ stage_and_sign_app() {
     # Source: codesign signs code and supports hardened runtime via
     # --options runtime and timestamping via --timestamp:
     # https://keith.github.io/xcode-man-pages/codesign.1.html
+    log "Signing app executable"
     codesign --force --options runtime --timestamp \
         --sign "$MACOS_DEVELOPER_ID" \
         "$executable"
+    log "Signing app bundle"
     codesign --force --options runtime --timestamp \
         --sign "$MACOS_DEVELOPER_ID" \
         "$STAGED_APP_PATH"
+    log "Verifying app bundle signature"
     codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"
+    log "App bundle signed and verified"
 }
 
 create_and_sign_dmg() {
+    log "Creating DMG at $DMG_PATH"
     rm -f "$DMG_PATH"
 
     # Source: hdiutil create can build a UDIF disk image from a source folder:
@@ -168,14 +193,19 @@ create_and_sign_dmg() {
         -ov \
         "$DMG_PATH"
 
+    log "Signing DMG"
     codesign --force --timestamp --sign "$MACOS_DEVELOPER_ID" "$DMG_PATH"
+    log "Verifying DMG structure"
     hdiutil verify "$DMG_PATH"
+    log "Verifying DMG signature"
     codesign --verify --strict --verbose=2 "$DMG_PATH"
+    log "DMG created, signed, and verified"
 }
 
 notarize_and_staple_dmg() {
     rm -f "$NOTARY_LOG"
 
+    log "Submitting DMG for notarization"
     # Source: notarytool submits UDIF disk images to Apple's notary service and
     # supports App Store Connect API key authentication:
     # https://keith.github.io/xcode-man-pages/notarytool.1.html
@@ -187,6 +217,7 @@ notarize_and_staple_dmg() {
         --output-format json \
         > "$NOTARY_LOG"
 
+    log "Reading notarization result from $NOTARY_LOG"
     local status
     status="$(plutil -extract status raw -o - "$NOTARY_LOG" 2>/dev/null || true)"
     if [ "$status" != "Accepted" ]; then
@@ -196,11 +227,15 @@ notarize_and_staple_dmg() {
 
     # Source: stapler attaches and validates the notarization ticket:
     # https://keith.github.io/xcode-man-pages/stapler.1.html
+    log "Stapling notarization ticket"
     xcrun stapler staple "$DMG_PATH"
+    log "Validating stapled notarization ticket"
     xcrun stapler validate "$DMG_PATH"
+    log "DMG notarized and stapled"
 }
 
 assess_stapled_app() {
+    log "Mounting DMG for Gatekeeper assessment"
     rm -rf "$MOUNT_DIR"
     mkdir -p "$MOUNT_DIR"
 
@@ -212,18 +247,72 @@ assess_stapled_app() {
 
     # Source: spctl assesses code against system security policy:
     # https://keith.github.io/xcode-man-pages/spctl.8.html
+    log "Assessing mounted app with spctl"
     spctl -a -vv -t exec "$MOUNT_DIR/$APP_NAME.app"
 
+    log "Detaching DMG"
     hdiutil detach "$MOUNT_DIR"
     DMG_ATTACHED=0
     rm -rf "$MOUNT_DIR"
+    log "Gatekeeper assessment completed"
 }
 
-install_signing_material
-archive_app
-stage_and_sign_app
-create_and_sign_dmg
-notarize_and_staple_dmg
-assess_stapled_app
+full_package() {
+    trap cleanup EXIT
+    validate_environment
+    install_signing_material
+    archive_app
+    stage_and_sign_app
+    create_and_sign_dmg
+    notarize_and_staple_dmg
+    assess_stapled_app
+    cleanup
+    trap - EXIT
+}
 
-echo "Created $DMG_PATH"
+COMMAND="${1:-full}"
+
+case "$COMMAND" in
+    validate-environment)
+        validate_environment
+        ;;
+    install-signing-material)
+        validate_environment
+        install_signing_material
+        ;;
+    archive-app)
+        validate_environment
+        archive_app
+        ;;
+    stage-and-sign-app)
+        validate_environment
+        stage_and_sign_app
+        ;;
+    create-and-sign-dmg)
+        validate_environment
+        create_and_sign_dmg
+        ;;
+    notarize-and-staple-dmg)
+        validate_environment
+        notarize_and_staple_dmg
+        ;;
+    assess-stapled-app)
+        validate_environment
+        assess_stapled_app
+        ;;
+    cleanup)
+        cleanup
+        ;;
+    full)
+        full_package
+        ;;
+    *)
+        die "unknown command: $1"
+        ;;
+esac
+
+case "$COMMAND" in
+    full | create-and-sign-dmg | notarize-and-staple-dmg | assess-stapled-app)
+        log "DMG path: $DMG_PATH"
+        ;;
+esac
