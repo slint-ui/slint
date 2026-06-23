@@ -1126,7 +1126,7 @@ impl WinitWindowAdapter {
             // Pre-render the first frame before mapping the window to avoid
             // a flash of uninitialized VRAM on X11 (no background_pixmap).
             if matches!(visibility, WindowVisibility::ShownFirstTime) {
-                let _ = self.renderer().render(self.window());
+                let _ = self.draw();
             }
 
             winit_window.set_visible(true);
