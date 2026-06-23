@@ -48,9 +48,10 @@ jobs:
             - uses: actions/checkout@v6
 
             # Free space from toolchains this macOS-only DMG build does not use.
-            # Keep the default Xcode 16.4 app, Homebrew, Rust, and signing
-            # tools. The macos-15 arm64 image documents Android SDK/NDKs,
-            # multiple non-default Xcode apps, and simulator runtimes.
+            # Avoid deleting Xcode app bundles here: they are huge directory
+            # trees and can make this cleanup step slower than the build. The
+            # package script separately deletes build intermediates before DMG
+            # creation, which is where this job previously ran out of space.
             #
             # Sources:
             # - macos-15 arm64 image software list: https://github.com/actions/runner-images/blob/main/images/macos/macos-15-arm64-Readme.md
@@ -59,29 +60,13 @@ jobs:
               run: |
                   echo "::group::Disk before cleanup"
                   df -h /
-                  du -sh \
-                      "$ANDROID_HOME" \
-                      /Users/runner/Library/Developer/CoreSimulator \
-                      /Applications/Xcode_26*.app \
-                      /Applications/Xcode_16.app \
-                      /Applications/Xcode_16.0*.app \
-                      /Applications/Xcode_16.1*.app \
-                      /Applications/Xcode_16.2*.app \
-                      /Applications/Xcode_16.3*.app \
-                      2>/dev/null || true
                   echo "::endgroup::"
 
                   sudo rm -rf \
                       "$ANDROID_HOME" \
                       "$ANDROID_SDK_ROOT" \
                       /Users/runner/Library/Android/sdk \
-                      /Users/runner/Library/Developer/CoreSimulator \
-                      /Applications/Xcode_26*.app \
-                      /Applications/Xcode_16.app \
-                      /Applications/Xcode_16.0*.app \
-                      /Applications/Xcode_16.1*.app \
-                      /Applications/Xcode_16.2*.app \
-                      /Applications/Xcode_16.3*.app
+                      /Users/runner/Library/Developer/CoreSimulator
 
                   echo "::group::Disk after cleanup"
                   df -h /

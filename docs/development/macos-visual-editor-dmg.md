@@ -30,13 +30,15 @@ Rust targets for a universal app:
 <https://docs.github.com/en/actions/reference/runners/github-hosted-runners>.
 
 The runner has only 14 GB of SSD, and the official `macos-15-arm64` image list
-includes toolchains this job does not use: Android SDK/NDKs, CoreSimulator
-devices/runtimes, Xcode 26, and older Xcode 16 installs. The workflow deletes
-those before restoring caches or building, while keeping the default Xcode 16.4,
-Homebrew, Rust, and signing tools:
+includes toolchains this job does not use, including Android SDK/NDKs and
+CoreSimulator data. The workflow deletes those before restoring caches or
+building, while keeping Xcode, Homebrew, Rust, and signing tools:
 <https://github.com/actions/runner-images/blob/main/images/macos/macos-15-arm64-Readme.md>.
 GitHub documents passwordless `sudo` on macOS hosted runners here:
 <https://docs.github.com/en/actions/reference/runners/github-hosted-runners#administrative-privileges>.
+The workflow intentionally does not delete extra Xcode app bundles in this
+early cleanup step because recursively removing those large `.app` trees is
+slow enough to dominate the job.
 
 ## Required CI secrets
 
