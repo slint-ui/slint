@@ -1,0 +1,53 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+#
+# Throwaway smoke test: verify PLAY_SERVICE_ACCOUNT_JSON can talk to the Play
+# API and has release permission on dev.slint.viewer. Creates an edit and
+# deletes it without committing, so no release is ever published.
+# Delete this file once the credentials are confirmed.
+name: test-play-auth
+on:
+    workflow_dispatch:
+jobs:
+    test:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check Play API auth and permissions
+              env:
+                  SA_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+              run: |
+                  pip install --quiet google-auth requests
+                  python3 - <<'EOF'
+                  import json, os, sys
+                  from google.oauth2 import service_account
+                  from google.auth.transport.requests import AuthorizedSession
+
+                  raw = os.environ.get("SA_JSON", "")
+                  if not raw.strip():
+                      sys.exit("PLAY_SERVICE_ACCOUNT_JSON secret is empty or unset")
+                  try:
+                      info = json.loads(raw)
+                  except json.JSONDecodeError as e:
+                      sys.exit(f"secret is not valid JSON: {e}")
+                  print("service account:", info.get("client_email"))
+
+                  creds = service_account.Credentials.from_service_account_info(
+                      info, scopes=["https://www.googleapis.com/auth/androidpublisher"])
+                  sess = AuthorizedSession(creds)
+                  pkg = "dev.slint.viewer"
+                  base = f"https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{pkg}"
+
+                  r = sess.post(f"{base}/edits")
+                  if r.status_code != 200:
+                      sys.exit(f"edits.insert failed ({r.status_code}): {r.text}")
+                  edit_id = r.json()["id"]
+                  print("edit created:", edit_id)
+
+                  t = sess.get(f"{base}/edits/{edit_id}/tracks")
+                  print("tracks:", t.status_code)
+                  print(t.text)
+
+                  d = sess.delete(f"{base}/edits/{edit_id}")
+                  print("edit discarded:", d.status_code)
+                  print("OK: auth and release permission confirmed; nothing was published.")
+                  EOF
