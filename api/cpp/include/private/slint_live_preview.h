@@ -299,7 +299,8 @@ class LiveReloadModelWrapperBase : public private_api::ModelChangeListener
             reinterpret_cast<LiveReloadModelWrapperBase *>(self.instance)->self = nullptr;
         };
 
-        static const ModelAdaptorVTable vt { row_count, row_data, set_row_data, push_row, remove_row, insert_row, get_notify, drop };
+        static const ModelAdaptorVTable vt { row_count,  row_data,   set_row_data, push_row,
+                                             remove_row, insert_row, get_notify,   drop };
         return &vt;
     }
 
