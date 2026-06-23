@@ -67,3 +67,4 @@ Alternatively, download the binary from "Assets" section below.
  - Documentation: https://slint.dev/snapshots/{feature}/docs
  - SlintPad: https://slint.dev/snapshots/{feature}/editor
  - Demos: links from https://github.com/slint-ui/slint/tree/master/examples
+ - Android Demos (APK / AAB): https://snapshots.slint.dev/{feature}/demos/android/

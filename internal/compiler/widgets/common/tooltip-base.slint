@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Palette } from "std-widgets-impl.slint";
+import { Palette } from "style-base.slint";
 
 export component ToolTipImpl inherits Rectangle {
-    in property <string> text;
+    in property <styled-text> text;
 
     background: Palette.alternate-background;
     border-radius: 4px;
@@ -17,9 +17,9 @@ export component ToolTipImpl inherits Rectangle {
         padding-top: 6px;
         padding-bottom: 6px;
 
-        Text {
+        StyledText {
             text: root.text;
-            color: Palette.foreground;
+            default-color: Palette.foreground;
         }
     }
 

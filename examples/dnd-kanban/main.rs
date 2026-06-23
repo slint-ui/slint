@@ -6,6 +6,9 @@ use std::rc::Rc;
 use slint::language::{DragAction, DropEvent};
 use slint::{DataTransfer, VecModel};
 
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
 slint::include_modules!();
 
 // What we attach to each `DataTransfer` via `set_user_data`. A clone of the
@@ -18,7 +21,13 @@ struct DragPayload {
     source_index: usize,
 }
 
+#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 fn main() -> Result<(), slint::PlatformError> {
+    // This provides better error messages in debug mode.
+    // It's disabled in release mode so it doesn't bloat up the file size.
+    #[cfg(all(debug_assertions, target_arch = "wasm32"))]
+    console_error_panic_hook::set_once();
+
     let window = MainWindow::new()?;
 
     let todo = Rc::new(VecModel::from(vec![
@@ -54,8 +63,8 @@ fn main() -> Result<(), slint::PlatformError> {
             // Our own card: accept whatever modifier the user is holding.
             return event.proposed_action;
         }
-        if event.data.has_plaintext() {
-            // External plaintext drop: always treated as a copy.
+        if event.data.has_plain_text() {
+            // External plain text drop: always treated as a copy.
             return DragAction::Copy;
         }
         DragAction::None
@@ -101,7 +110,7 @@ fn main() -> Result<(), slint::PlatformError> {
                     columns[source].remove(source_index);
                     columns[target].insert(target_index, payload.task.clone());
                 }
-            } else if let Ok(text) = event.data.fetch_plaintext() {
+            } else if let Ok(text) = event.data.plain_text() {
                 columns[target].insert(target_index, TaskData { title: text });
             }
         }

@@ -7,36 +7,92 @@ import { DataTransfer, loadSource, private_api } from "../dist/index.js";
 
 test("default DataTransfer is empty", () => {
     const dt = new DataTransfer();
-    expect(dt.hasPlaintext).toBe(false);
+    expect(dt.hasPlainText).toBe(false);
     expect(dt.hasImage).toBe(false);
-    expect(dt.fetchPlaintext()).toBeNull();
-    expect(dt.fetchImage()).toBeNull();
+    expect(dt.plainText).toBeNull();
+    expect(dt.image).toBeNull();
     expect(dt.userData).toBeNull();
+    expect(dt.isEmpty).toBe(true);
 });
 
-test("DataTransfer plaintext round-trip", () => {
+test("DataTransfer plain text round-trip", () => {
     const dt = new DataTransfer();
-    dt.setPlaintext("Hello, World!");
-    expect(dt.hasPlaintext).toBe(true);
-    expect(dt.fetchPlaintext()).toBe("Hello, World!");
+    dt.plainText = "Hello, World!";
+    expect(dt.hasPlainText).toBe(true);
+    expect(dt.plainText).toBe("Hello, World!");
+    expect(dt.isEmpty).toBe(false);
 });
 
-test("DataTransfer setPlaintext overwrites", () => {
+test("DataTransfer isEmpty after image assignment", () => {
+    const image = new private_api.SlintImageData(4, 4);
     const dt = new DataTransfer();
-    dt.setPlaintext("first");
-    dt.setPlaintext("second");
-    expect(dt.fetchPlaintext()).toBe("second");
+    dt.image = image;
+    expect(dt.isEmpty).toBe(false);
+});
+
+test("DataTransfer isEmpty after userData", () => {
+    const dt = new DataTransfer();
+    dt.userData = { k: 1 };
+    expect(dt.isEmpty).toBe(false);
+});
+
+test("DataTransfer plainText assignment overwrites", () => {
+    const dt = new DataTransfer();
+    dt.plainText = "first";
+    dt.plainText = "second";
+    expect(dt.plainText).toBe("second");
 });
 
 test("DataTransfer image round-trip", () => {
     const image = new private_api.SlintImageData(4, 4);
     const dt = new DataTransfer();
-    dt.setImage(image);
+    dt.image = image;
     expect(dt.hasImage).toBe(true);
-    const fetched = dt.fetchImage();
+    const fetched = dt.image;
     expect(fetched).not.toBeNull();
     expect(fetched!.width).toBe(image.width);
     expect(fetched!.height).toBe(image.height);
+});
+
+test("DataTransfer assigning empty string clears plainText", () => {
+    const dt = new DataTransfer();
+    dt.plainText = "hello";
+    dt.plainText = "";
+    expect(dt.hasPlainText).toBe(false);
+    expect(dt.plainText).toBeNull();
+    expect(dt.isEmpty).toBe(true);
+});
+
+test("DataTransfer assigning undefined clears plainText", () => {
+    const dt = new DataTransfer();
+    dt.plainText = "hello";
+    dt.plainText = undefined;
+    expect(dt.hasPlainText).toBe(false);
+    expect(dt.plainText).toBeNull();
+});
+
+test("DataTransfer assigning null clears plainText", () => {
+    const dt = new DataTransfer();
+    dt.plainText = "hello";
+    dt.plainText = null;
+    expect(dt.hasPlainText).toBe(false);
+    expect(dt.plainText).toBeNull();
+});
+
+test("DataTransfer assigning undefined clears image", () => {
+    const dt = new DataTransfer();
+    dt.image = new private_api.SlintImageData(2, 2);
+    dt.image = undefined;
+    expect(dt.hasImage).toBe(false);
+    expect(dt.image).toBeNull();
+});
+
+test("DataTransfer assigning null clears image", () => {
+    const dt = new DataTransfer();
+    dt.image = new private_api.SlintImageData(2, 2);
+    dt.image = null;
+    expect(dt.hasImage).toBe(false);
+    expect(dt.image).toBeNull();
 });
 
 test("DataTransfer userData round-trip plain object", () => {
@@ -83,12 +139,12 @@ test("DataTransfer assigning undefined clears userData", () => {
     expect(dt.userData).toBeNull();
 });
 
-test("DataTransfer plaintext and userData coexist", () => {
+test("DataTransfer plain text and userData coexist", () => {
     const dt = new DataTransfer();
-    dt.setPlaintext("hello");
+    dt.plainText = "hello";
     dt.userData = { k: 1 };
-    expect(dt.hasPlaintext).toBe(true);
-    expect(dt.fetchPlaintext()).toBe("hello");
+    expect(dt.hasPlainText).toBe(true);
+    expect(dt.plainText).toBe("hello");
     expect(dt.userData).toEqual({ k: 1 });
 });
 
@@ -115,18 +171,18 @@ test("DataTransfer round-trips through Slint callbacks", () => {
     app.Api.identity = (dt) => dt;
     app.Api.make_plain = (text) => {
         const out = new DataTransfer();
-        out.setPlaintext(text);
+        out.plainText = text;
         return out;
     };
-    app.Api.get_plain = (dt) => dt.fetchPlaintext() ?? "";
+    app.Api.get_plain = (dt) => dt.plainText ?? "";
 
     const source = new DataTransfer();
-    source.setPlaintext("payload");
+    source.plainText = "payload";
     const echoed = app.Api.identity(source);
-    expect(echoed.fetchPlaintext()).toBe("payload");
+    expect(echoed.plainText).toBe("payload");
 
     const built = app.Api.make_plain("constructed");
-    expect(built.fetchPlaintext()).toBe("constructed");
+    expect(built.plainText).toBe("constructed");
 
     expect(app.Api.get_plain(built)).toBe("constructed");
 });

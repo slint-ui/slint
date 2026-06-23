@@ -47,17 +47,17 @@ your scene of elements into pixels. Slint picks a renderer based on your choice 
 as well as the features you've selected at Slint compilation time.
 
 <Tabs syncKey="dev-language">
-<TabItem label="C++">
-When building Slint from source, check the <LangRefLink lang="cpp" relpath="cmake.html#features">`SLINT_FEATURE_RENDERER_*`</LangRefLink> cmake options
-to enable one of the available renderers.
-</TabItem>
-<TabItem label="Rust">
+<TabItem label="Rust" icon="seti:rust">
 With Rust, enable one of the  <LangRefLink lang="rust-slint" relpath="docs/cargo_features/">`renderer-*`</LangRefLink> features.
 </TabItem>
-<TabItem label="NodeJS">
+<TabItem label="C++" icon="seti:cpp">
+When building Slint from source, check the <LangRefLink lang="cpp" relpath="cmake/#features">`SLINT_FEATURE_RENDERER_*`</LangRefLink> cmake options
+to enable one of the available renderers.
+</TabItem>
+<TabItem label="NodeJS" icon="node">
 With Node.js, all renderers are built into the packages.
 </TabItem>
-<TabItem label="Python">
+<TabItem label="Python" icon="seti:python">
 With Python, all renderers are built into the packages.
 </TabItem>
 </Tabs>
@@ -85,7 +85,7 @@ The Qt renderer comes with the <Link type="QtBackend" label="Qt backend" /> and 
 - Text rendering currently limited to western scripts.
 - `Path` elements in `no_std` environments requires enabling the `software-renderer-path` feature.
 - Available in `no_std` environments as well as in the <Link type="WinitBackend" label="Winit backend" /> and <Link type="LinuxkmsBackend" label="LinuxKMS backend" />.
-- Public <LangRefLink lang="rust-slint" relpath="platform/software_renderer/">Rust</LangRefLink> and <LangRefLink lang="cpp" relpath="api/classslint_1_1platform_1_1SoftwareRenderer">C++</LangRefLink> API.
+- Public <LangRefLink lang="rust-slint" relpath="platform/software_renderer/">Rust</LangRefLink> and <LangRefLink lang="cpp" relpath="api/slint/platform/softwarerenderer/">C++</LangRefLink> API.
 
 ### FemtoVG Renderer
 
@@ -100,7 +100,7 @@ The Qt renderer comes with the <Link type="QtBackend" label="Qt backend" /> and 
  - Sophisticated GPU acceleration with OpenGL, Metal, Vulkan, and Direct3D.
  - Heavy disk-footprint compared to other renderers.
  - Available in the <Link type="WinitBackend" label="Winit backend" /> and <Link type="LinuxkmsBackend" label="LinuxKMS backend" />.
- - Public <LangRefLink lang="cpp" relpath="api/classslint_1_1platform_1_1SkiaRenderer">C++</LangRefLink> API.
+ - Public <LangRefLink lang="cpp" relpath="api/slint/platform/skiarenderer/">C++</LangRefLink> API.
 
 #### Troubleshooting
 

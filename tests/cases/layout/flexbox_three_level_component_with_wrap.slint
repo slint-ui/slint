@@ -12,12 +12,13 @@ component Inner inherits Rectangle {
     background: #e0e0e0;
     VerticalLayout {
         padding: 5px;
-        Text {
+        t := Text {
             text: "Text that should word-wrap when the card is narrow enough";
             wrap: word-wrap;
             horizontal-alignment: left;
         }
     }
+    out property <length> text_h: t.height;
 }
 
 component Mid inherits Inner { }
@@ -42,8 +43,16 @@ export component TestCase inherits Window {
         }
     }
 
+    // Single-line reference Text in the same font, so the check doesn't
+    // depend on the renderer's font metrics.
+    ref := Text {
+        text: "Reference";
+    }
+
+    // The wrapping Text reached through three levels of `inherits` must
+    // wrap to several lines (height well above a single line).
     out property <bool> test_r: r.x == 0px && r.width == 50px;
-    out property <bool> test_c: c.width > 0px && c.height > 20px;
+    out property <bool> test_c: c.width > 0px && c.text_h > ref.height * 1.5;
 
     out property <bool> test: test_r && test_c;
 }

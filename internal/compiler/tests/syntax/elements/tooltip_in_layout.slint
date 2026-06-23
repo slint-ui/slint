@@ -3,9 +3,9 @@
 
 export component Test inherits Window {
     HorizontalLayout {
-        ToolTip {
-//      >      <error{ToolTip cannot be used inside layout elements}
-            text: "Not allowed directly inside layout";
+        Tooltip {
+//      >      <error{Tooltip cannot be added to HorizontalLayout}
+            text: @markdown("Not allowed directly inside layout");
         }
     }
 }

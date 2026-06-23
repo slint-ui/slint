@@ -6,7 +6,7 @@ export X := Rectangle {
     property<brush> g1: @radial-gradient();
 //                      >                <error{Expected 'circle': currently, only @radial-gradient(circle, ...) are supported}
     property<brush> g2: @radial-gradient(circle at 100%, #333, #333 50%, #eee 75%, #333 75%);
-//                                              > <error{'at' in @radial-gradient is not yet supported}
+//                                              > <error{Expected two length values after 'at'}
     property<brush> g3: @radial_gradient(circle, blue, red);
     property<brush> g4: @radial_gradient(circle, blue 45%, red red);
 //                                                             > <error{Cannot convert color to float}
@@ -19,7 +19,7 @@ export X := Rectangle {
 //                      >                                      <error{Expected 'circle': currently, only @radial-gradient(circle, ...) are supported}
 
     property<brush> g9: @radial-gradient(circle blue, blue, red);
-//                                              >  <error{'circle' must be followed by a comma}
+//                                              >  <error{'circle' must be followed by a comma, a radius, or 'at'}
 
     property<brush> g10: @radial-gradient(circle, blue 10% red 20%, yellow);
 //                                                         >  <error{Expected comma}
@@ -29,4 +29,7 @@ export X := Rectangle {
 
     property<color> g13: @radial-gradient(circle, red, green, blue); // #6819
 //                       >                                         <warning{Narrowing conversion from brush to color. This can lead to unexpected behavior because the brush is a gradient}
+
+    property<brush> g14: @radial-gradient(circle 80px, red, blue);
+    property<brush> g15: @radial-gradient(circle 80px at 50px 50px, red, blue);
 }

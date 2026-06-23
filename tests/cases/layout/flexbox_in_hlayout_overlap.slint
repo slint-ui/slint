@@ -1,0 +1,79 @@
+// Copyright © Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author David Faure <david.faure@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for https://github.com/slint-ui/slint/issues/11936
+//
+// A column-direction FlexboxLayout nested in a HorizontalLayout. The window is
+// short enough to force the column to wrap into a *second* column. The flex must
+// report its full (two-column) width to the parent so the sibling flex is placed
+// to the right of the wrapped content. The bug: it reported only the first
+// column's width, so the parent placed the sibling over the wrapped second
+// column and the two collided.
+//
+// Fixed sizes (no font metrics) keep the wrap geometry deterministic on every
+// backend. The collision is between the *content* of the two flexes, so the
+// assertion compares content edges, not the (previously under-reported) flex
+// width.
+
+export component TestCase inherits Window {
+    width: 600px;
+    height: 120px;   // short on purpose: forces the column to wrap into 2 columns
+
+    HorizontalLayout {
+        alignment: start;
+        spacing: 24px;
+        padding: 12px;
+
+        f1 := FlexboxLayout {
+            flex-direction: column;
+            spacing: 8px;
+            r1 := Rectangle { width: 100px; height: 40px; background: #c33; Text { text: "1"; color: white; } }
+            r2 := Rectangle { width: 100px; height: 40px; background: #3c3; Text { text: "2"; color: white; } }
+            r3 := Rectangle { width: 100px; height: 40px; background: #36c; Text { text: "3"; color: white; } }
+        }
+
+        f2 := FlexboxLayout {
+            flex-direction: row;
+            spacing: 8px;
+            m := Rectangle { width: 60px; height: 40px; background: #c93; Text { text: "R"; color: white; } }
+        }
+    }
+
+    out property <length> f1_width: f1.width;
+    // rightmost edge of f1's actual content (the wrapped 2nd column)
+    out property <length> f1_content_right: f1.x + max(r1.x + r1.width, max(r2.x + r2.width, r3.x + r3.width));
+    // leftmost edge of f2's content
+    out property <length> f2_content_left: f2.x + m.x;
+
+    // r3 must have wrapped into a 2nd column for this test to exercise the bug.
+    out property <bool> wrapped: r3.x > 0px;
+    // The sibling flex must not overlap the wrapped column.
+    out property <bool> no_overlap: f2_content_left >= f1_content_right;
+
+    out property <bool> test: wrapped && no_overlap;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+assert(handle->get_wrapped());
+assert(handle->get_no_overlap());
+assert(handle->get_test());
+```
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_wrapped(), "r3 should wrap into a 2nd column");
+assert!(instance.get_no_overlap(),
+    "sibling flex overlaps the wrapped column: f2 content left = {}, f1 content right = {}",
+    instance.get_f2_content_left(), instance.get_f1_content_right());
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.wrapped);
+assert(instance.no_overlap);
+assert(instance.test);
+```
+*/

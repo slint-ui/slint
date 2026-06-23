@@ -73,7 +73,7 @@
     "examples/maps": { "ignoreBinaries": ["compile"] },
     "examples/memory": { "ignoreBinaries": ["compile"] },
     "examples/slide_puzzle": { "ignoreBinaries": ["compile"] },
-    "examples/system_tray": { "ignoreBinaries": ["compile"] },
+    "examples/system-tray": { "ignoreBinaries": ["compile"] },
     "docs/common": {
       "ignoreFiles": [
         "src/styles/starlight-slint-custom.css",
@@ -81,6 +81,7 @@
         "src/components/Banner.astro",
         "src/components/Footer.astro",
         "src/components/Header.astro",
+        "src/components/HeaderCppDocs.astro",
         "src/components/HeaderNodeDocs.astro",
         "src/components/HeaderPythonDocs.astro",
         "src/components/HeaderSlintDocs.astro",
@@ -99,6 +100,12 @@
     "docs/safety": {
       "ignoreFiles": [
         "src/styles/sls-ids.css"
+      ]
+    },
+    "docs/cpp": {
+      "ignoreBinaries": ["doxygen"],
+      "ignoreFiles": [
+        "src/styles/api-signature.css"
       ]
     }
   },

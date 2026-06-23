@@ -87,6 +87,7 @@ macro_rules! for_each_builtin_structs {
             }
 
             /// This structure is passed to the callbacks of the `DropArea` element
+            #[non_exhaustive]
             pub struct DropEvent {
                 /// The payload set on the source `DragArea`.
                 data: DataTransfer,
@@ -94,19 +95,10 @@ macro_rules! for_each_builtin_structs {
                 /// The cursor position in the `DropArea`'s local coordinates.
                 position: LogicalPosition,
 
-                /// Mirrors `DragArea.allow-copy`: true if the source allows the drop to copy the data.
-                allow_copy: bool,
-
-                /// Mirrors `DragArea.allow-move`: true if the source allows the drop to move the data.
-                allow_move: bool,
-
-                /// Mirrors `DragArea.allow-link`: true if the source allows the drop to link to the data.
-                allow_link: bool,
-
-                /// The action negotiated from current modifier state and the source's `preferred-action`,
-                /// clamped to the allowed set. Updated on every `DragMove`. The target's `can-drop`
-                /// callback can return this to honor the user's modifier choice, or override with
-                /// any other allowed action.
+                /// The action negotiated from current modifier state, clamped to the allowed set;
+                /// when no modifier is pressed, the first allowed of move, copy, link.
+                /// Updated on every `DragMove`. The target's `can-drop` callback can return this
+                /// to honor the user's modifier choice, or override with any other allowed action.
                 proposed_action: DragAction,
             }
 
@@ -117,18 +109,9 @@ macro_rules! for_each_builtin_structs {
                 text: SharedString,
             }
 
-            /// Represents one option in a `RadioGroup`.
-            #[non_exhaustive]
-            pub struct RadioEntry {
-                /// Label shown next to the radio button.
-                text: SharedString,
-                /// When `true`, this option is visible but not selectable.
-                disabled: bool,
-            }
-
             /// This is used to define the column and the column header of a TableView
             #[non_exhaustive]
-            struct TableColumn {
+            pub struct TableColumn {
                 /// The title of the column header
                 title: SharedString,
                 /// The minimum column width (logical length)

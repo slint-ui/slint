@@ -167,8 +167,6 @@ pub fn compare_images(
         && rotated == RenderingRotation::NoRotation
         && std::env::var("SLINT_CREATE_SCREENSHOTS").is_ok_and(|var| var == "1")
     {
-        eprintln!("saving rendered image as comparison to reference failed");
-
         std::fs::create_dir_all(std::path::Path::new(&reference_path).parent().unwrap()).unwrap();
 
         image::save_buffer(
@@ -179,6 +177,10 @@ pub fn compare_images(
             image::ColorType::Rgba8,
         )
         .unwrap();
+
+        // The reference is written, but the test still fails so a stale or missing
+        // reference can't pass unnoticed. Re-run without SLINT_CREATE_SCREENSHOTS to verify.
+        eprintln!("SLINT_CREATE_SCREENSHOTS=1: wrote reference image to {reference_path}");
     }
 
     result

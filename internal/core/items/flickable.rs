@@ -774,7 +774,7 @@ impl FlickableData {
             MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
                 InputEventFilterResult::ForwardEvent
             }
-            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
+            MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
             }
         }
@@ -916,7 +916,7 @@ impl FlickableData {
             MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
                 InputEventResult::EventIgnored
             }
-            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
+            MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => InputEventResult::EventIgnored,
         }
     }
 }

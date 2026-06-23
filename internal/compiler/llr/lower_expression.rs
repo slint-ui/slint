@@ -237,19 +237,30 @@ pub fn lower_expression(
                 .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
                 .collect::<_>(),
         },
-        tree_Expression::RadialGradient { stops } => llr_Expression::RadialGradient {
-            stops: stops
-                .iter()
-                .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
-                .collect::<_>(),
-        },
-        tree_Expression::ConicGradient { from_angle, stops } => llr_Expression::ConicGradient {
-            from_angle: Box::new(lower_expression(from_angle, ctx)),
-            stops: stops
-                .iter()
-                .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
-                .collect::<_>(),
-        },
+        tree_Expression::RadialGradient { center, radius, stops } => {
+            llr_Expression::RadialGradient {
+                center: center.as_ref().map(|(cx, cy)| {
+                    (Box::new(lower_expression(cx, ctx)), Box::new(lower_expression(cy, ctx)))
+                }),
+                radius: radius.as_ref().map(|r| Box::new(lower_expression(r, ctx))),
+                stops: stops
+                    .iter()
+                    .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
+                    .collect::<_>(),
+            }
+        }
+        tree_Expression::ConicGradient { from_angle, center, stops } => {
+            llr_Expression::ConicGradient {
+                from_angle: Box::new(lower_expression(from_angle, ctx)),
+                center: center.as_ref().map(|(cx, cy)| {
+                    (Box::new(lower_expression(cx, ctx)), Box::new(lower_expression(cy, ctx)))
+                }),
+                stops: stops
+                    .iter()
+                    .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
+                    .collect::<_>(),
+            }
+        }
         tree_Expression::EnumerationValue(e) => llr_Expression::EnumerationValue(e.clone()),
         tree_Expression::Keys(ks) => llr_Expression::KeysLiteral(ks.clone()),
         tree_Expression::ReturnStatement(..) => {
@@ -493,13 +504,20 @@ fn lower_show_popup_window(
             ctx,
         );
 
+        let mut arguments = vec![
+            llr_Expression::NumberLiteral(popup_index as _),
+            llr_Expression::EnumerationValue(popup.close_policy.clone()),
+            item_ref,
+        ];
+        // Map `is-open` here, at the show site, so it resolves in the same frame as `item_ref`. The
+        // popup struct is shared across all show sites and was lowered in a different frame, so this
+        // reference must not be cached on it (see the `is_open` handling in the generators).
+        if let Some(is_open) = &popup.is_open {
+            arguments.push(llr_Expression::PropertyReference(ctx.map_property_reference(is_open)));
+        }
         llr_Expression::BuiltinFunctionCall {
             function: BuiltinFunction::ShowPopupWindow,
-            arguments: vec![
-                llr_Expression::NumberLiteral(popup_index as _),
-                llr_Expression::EnumerationValue(popup.close_policy.clone()),
-                item_ref,
-            ],
+            arguments,
         }
     } else {
         panic!("invalid arguments to ShowPopupWindow");
@@ -544,7 +562,13 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
             values: animation_fields()
                 .map(|(k, ty)| {
                     let e = a.borrow().bindings.get(&k).map_or_else(
-                        || llr_Expression::default_value_for_type(&ty).unwrap(),
+                        || {
+                            if k == "enabled" {
+                                llr_Expression::BoolLiteral(true)
+                            } else {
+                                llr_Expression::default_value_for_type(&ty).unwrap()
+                            }
+                        },
                         |v| lower_expression(&v.borrow().expression, ctx),
                     );
                     (k, e)
@@ -564,6 +588,7 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
             ),
             (SmolStr::new_static("easing"), Type::Easing),
             (SmolStr::new_static("delay"), Type::Int32),
+            (SmolStr::new_static("enabled"), Type::Bool),
         ])
     }
 
@@ -581,8 +606,21 @@ pub fn lower_animation(a: &PropertyAnimation, ctx: &mut ExpressionLoweringCtx<'_
                 name: "state".into(),
                 value: Box::new(lower_expression(state_ref, ctx)),
             };
-            let animation_ty = Type::Struct(animation_ty());
-            let mut get_anim = llr_Expression::default_value_for_type(&animation_ty).unwrap();
+            let anim_struct_ty = animation_ty();
+            let animation_ty = Type::Struct(anim_struct_ty.clone());
+            let mut get_anim = llr_Expression::Struct {
+                ty: anim_struct_ty,
+                values: animation_fields()
+                    .map(|(k, ty)| {
+                        let e = if k == "enabled" {
+                            llr_Expression::BoolLiteral(true)
+                        } else {
+                            llr_Expression::default_value_for_type(&ty).unwrap()
+                        };
+                        (k, e)
+                    })
+                    .collect(),
+            };
             for tr in animations.iter().rev() {
                 let condition = lower_expression(
                     &tr.condition(tree_Expression::ReadLocalVariable {

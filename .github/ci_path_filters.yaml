@@ -50,12 +50,18 @@ docs_build:
  - 'helper_crates/**'
  - 'tools/lsp/**'
  - 'tests/doctests/**'
+ # The doctests compile the slint snippets in the skill files
+ - 'skills/**'
  - *js_config
  - *ci_config
 
 # Tree-sitter grammar
+# Needs to be re-tested if the Tree-Sitter grammr or any Slint files in the corpus change
 tree_sitter:
  - 'editors/tree-sitter-slint/**'
+ - 'tests/cases/**/*.slint'
+ - 'examples/**/*.slint'
+ - 'demos/**/*.slint'
  - *ci_config
 
 figma_inspector:
@@ -86,6 +92,9 @@ api_cpp:
  - 'internal/compiler/generator/cpp*'
  # The renderers are not part of the `internal` group, but are exposed in the C++ API
  - 'internal/renderers/{skia,software}/**'
+
+android_backend:
+ - 'internal/backends/android-activity/**'
 
 api_python:
  - 'api/python/**'

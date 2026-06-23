@@ -1,26 +1,24 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
-import { CheckBox, StandardListView } from "std-widgets.slint";
 import {
     AboutPage,
     ControlsPage,
+    SelectionPage,
     TabWidgetPage,
     EasingsPage,
     ListViewPage,
     StyledTextPage,
     TableViewPage,
     TableViewPageAdapter,
-    TextEditPage,
+    InputPage,
 } from "ui/pages/pages.slint";
-import { GallerySettings } from "ui/gallery_settings.slint";
 import { SideBar } from "ui/side_bar.slint";
 
 export { TableViewPageAdapter }
-
 export component App inherits Window {
     preferred-width: 700px;
-    preferred-height: 700px;
+    preferred-height: 500px;
     title: @tr("Slint Widgets Gallery");
     icon: @image-url("../../logo/slint-logo-small-light.png");
 
@@ -80,26 +78,35 @@ export component App inherits Window {
 
     HorizontalLayout {
         side-bar := SideBar {
+            accessible-role: navigation;
+            accessible-label: @tr("Sidebar");
             title: @tr("Slint Widgets Gallery");
             model: [
                 @tr("Menu" => "Controls"),
+                @tr("Menu" => "Input"),
+                @tr("Menu" => "Selection"),
                 @tr("Menu" => "TabWidget"),
                 @tr("Menu" => "ListView"),
                 @tr("Menu" => "TableView"),
-                @tr("Menu" => "TextEdit"),
                 @tr("Menu" => "Easings"),
                 @tr("Menu" => "StyledText"),
                 @tr("Menu" => "About")
             ];
         }
 
-        if(side-bar.current-item == 0): ControlsPage { }
-        if(side-bar.current-item == 1): TabWidgetPage { }
-        if(side-bar.current-item == 2): ListViewPage { }
-        if(side-bar.current-item == 3): TableViewPage { }
-        if(side-bar.current-item == 4): TextEditPage { }
-        if(side-bar.current-item == 5): EasingsPage { }
-        if(side-bar.current-item == 6): StyledTextPage { }
-        if(side-bar.current-item == 7): AboutPage { }
+        VerticalLayout {
+            accessible-role: main;
+            accessible-label: @tr("Content");
+
+            if(side-bar.current-item == 0): ControlsPage { }
+            if(side-bar.current-item == 1): InputPage { }
+            if(side-bar.current-item == 2): SelectionPage { }
+            if(side-bar.current-item == 3): TabWidgetPage { }
+            if(side-bar.current-item == 4): ListViewPage { }
+            if(side-bar.current-item == 5): TableViewPage { }
+            if(side-bar.current-item == 6): EasingsPage { }
+            if(side-bar.current-item == 7): StyledTextPage { }
+            if(side-bar.current-item == 8): AboutPage { }
+        }
     }
 }

@@ -10,9 +10,9 @@ use crate::api::{
     PlatformError, Window, WindowPosition, WindowSize,
 };
 use crate::input::{
-    ClickState, FocusEvent, FocusReason, InternalKeyEvent, KeyEventResult, KeyEventType, Keys,
-    MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase, TouchState,
-    key_codes,
+    ClickState, DragData, FocusEvent, FocusReason, InternalKeyEvent, KeyEventResult, KeyEventType,
+    Keys, MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase,
+    TouchState, key_codes,
 };
 use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
@@ -41,6 +41,17 @@ fn next_focus_item(item: ItemRc) -> ItemRc {
 
 fn previous_focus_item(item: ItemRc) -> ItemRc {
     item.previous_focus_item()
+}
+
+/// The window kind when creating a new child window
+#[repr(C)]
+pub enum WindowKind {
+    /// Tooltip
+    ToolTip,
+    /// Popup Window
+    Popup,
+    /// Popup Menu
+    Menu,
 }
 
 /// This trait represents the adaptation layer between the [`Window`] API and then
@@ -187,7 +198,10 @@ pub trait WindowAdapterInternal: core::any::Any {
     ///
     /// If this function return None (the default implementation), then the
     /// popup will be rendered within the window itself.
-    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+    fn create_child_window_adapter(
+        &self,
+        _window_kind: WindowKind,
+    ) -> Option<Rc<dyn WindowAdapter>> {
         None
     }
 
@@ -438,15 +452,29 @@ pub struct PopupWindow {
     /// The item from where the Popup was invoked from
     pub parent_item: ItemWeak,
     /// Overlay tooltip: no focus steal, unclamped placement, skipped in main mouse routing.
-    pub is_tooltip: bool,
     /// Context / popup menu: participates in menu-chain hit testing and cascading close.
-    is_menu: bool,
+    pub window_kind: WindowKind,
     /// Callback that returns the current desired logical position of the popup.
     /// Called during re-evaluation of the position tracker to re-subscribe to dependencies.
     /// IMPORTANT: This position is relative to the parent
     position_access: Box<dyn Fn() -> LogicalPosition>,
+    /// Keeps the parent component's `PopupWindow::is-open` property in sync. Provided to
+    /// [`WindowInner::show_popup`], invoked with `true` when the popup is shown and with `false` when
+    /// this `PopupWindow` is dropped (see the `Drop` impl below). It is a no-op for popups whose
+    /// parent does not read `is-open` (menus and tooltips).
+    is_open_setter: Box<dyn Fn(bool)>,
     // tracks all relevant properties and reacts on changes
     properties_tracker: Pin<Box<PropertyTracker<true, PopupWindowPropertiesTracker>>>,
+}
+
+impl Drop for PopupWindow {
+    fn drop(&mut self) {
+        // Dropping the `PopupWindow` is the single choke point that every close path funnels through
+        // (click-outside, selection, programmatic `close()`, sibling replacement, window change,
+        // Escape, and tearing down the window itself), so flip the parent's `is-open` back to false
+        // here rather than in any individual close function.
+        (self.is_open_setter)(false);
+    }
 }
 
 #[pin_project::pin_project]
@@ -464,6 +492,18 @@ struct WindowPinnedFields {
     text_input_focused: Property<bool>,
     #[pin]
     menubar_shortcuts: Property<SharedVector<MenuEntry>>,
+}
+
+/// The outcome of dispatching a [`MouseEvent`] through [`WindowInner::process_mouse_input`].
+#[derive(Copy, Clone, Debug)]
+pub struct MouseDispatchResult {
+    /// For `MouseEvent::DragMove` / `MouseEvent::Drop` events, the action negotiated with
+    /// the accepting `DropArea` (or `None` if no `DropArea` accepted). Always `None` for
+    /// other event kinds.
+    pub drag_action: Option<crate::items::DragAction>,
+    /// `true` if an item consumed the event (`EventAccepted`, `GrabMouse`, `StartDrag`, or
+    /// a `DropArea` accepting a drag/drop). `false` if the event fell through without a taker.
+    pub accepted: bool,
 }
 
 /// Inner datastructure for the [`crate::api::Window`]
@@ -630,9 +670,19 @@ impl WindowInner {
     }
 
     /// Receive a mouse event and pass it to the items of the component to
-    /// change their state. For `DragMove`/`Drop`, returns the negotiated
-    /// [`DragAction`](crate::items::DragAction), or `None` if no `DropArea` accepted.
-    pub fn process_mouse_input(&self, mut event: MouseEvent) -> Option<crate::items::DragAction> {
+    /// change their state.
+    ///
+    /// Returns `None` when there is no component to dispatch to; otherwise returns a
+    /// [`MouseDispatchResult`] carrying:
+    /// - `accepted`: whether an item consumed the event, and
+    /// - `drag_action`: for `DragMove`/`Drop` events, the negotiated
+    ///   [`DragAction`](crate::items::DragAction) (or `None` if no `DropArea` accepted).
+    ///
+    /// Note: when a drag is in flight, the runtime rewrites a `Released` into either a
+    /// `Drop` (if a `DropArea` had previously accepted the matching `DragMove`) or an
+    /// `Exit` (if not). The reported `accepted` reflects the rewritten event, so a
+    /// `Released` that completes a drop on a non-accepting target reports `accepted = false`.
+    pub fn process_mouse_input(&self, mut event: MouseEvent) -> Option<MouseDispatchResult> {
         crate::animations::update_animations();
 
         let item_tree = self.try_component()?;
@@ -655,7 +705,9 @@ impl WindowInner {
             Option<crate::item_tree::ItemWeak>,
         )> = None;
 
-        if let Some(mut drop_event) = mouse_input_state.drag_data.clone() {
+        if let Some(DragData { event: mut drop_event, allowed }) =
+            mouse_input_state.drag_data.clone()
+        {
             match &event {
                 MouseEvent::Released { position, button: PointerEventButton::Left, .. } => {
                     mouse_input_state.drag_data = None;
@@ -671,7 +723,7 @@ impl WindowInner {
                             .unwrap_or(crate::items::DragAction::None);
                         drop_event.proposed_action = hovered;
                         drop_event.position = crate::lengths::logical_position_to_api(*position);
-                        event = MouseEvent::Drop(drop_event);
+                        event = MouseEvent::Drop { event: drop_event, allowed };
                         if let Some(s) = source {
                             pending_drag_finished = Some((s, Some(target_weak)));
                         }
@@ -691,30 +743,20 @@ impl WindowInner {
                     drop_event.position = crate::lengths::logical_position_to_api(*position);
                     // Recompute the proposed action from current modifier state so the target's
                     // `can-drop` callback sees an up-to-date `event.proposed-action`.
-                    let preferred = mouse_input_state
-                        .drag_source
-                        .as_ref()
-                        .and_then(|s| s.upgrade())
-                        .and_then(|i| i.downcast::<crate::items::DragArea>())
-                        .map(|d| d.as_pin_ref().preferred_action())
-                        .unwrap_or(crate::items::DragAction::Copy);
                     drop_event.proposed_action = crate::items::compute_proposed_action(
                         self.context().0.modifiers.get().into(),
-                        drop_event.allow_copy,
-                        drop_event.allow_move,
-                        drop_event.allow_link,
-                        preferred,
+                        allowed,
                     );
                     // Mirror the position and proposed action into the persistent state so the
                     // renderer can place the drag-image overlay without re-deriving the cursor
                     // location, and so a subsequent synthetic Moved (e.g. fired from a modifier
                     // key press) starts from the right position.
                     if let Some(d) = mouse_input_state.drag_data.as_mut() {
-                        d.position = drop_event.position;
-                        d.proposed_action = drop_event.proposed_action;
+                        d.event.position = drop_event.position;
+                        d.event.proposed_action = drop_event.proposed_action;
                     }
                     mouse_input_state.cursor = MouseCursor::NoDrop;
-                    event = MouseEvent::DragMove(drop_event);
+                    event = MouseEvent::DragMove { event: drop_event, allowed };
                 }
                 MouseEvent::Exit => {
                     mouse_input_state.drag_data = None;
@@ -785,9 +827,12 @@ impl WindowInner {
             .then_some(popup.popup_id)
         });
 
-        mouse_input_state = if let Some(mut event) =
-            crate::input::handle_mouse_grab(&event, &window_adapter, &mut mouse_input_state)
-        {
+        let grab_result =
+            crate::input::handle_mouse_grab(&event, &window_adapter, &mut mouse_input_state);
+        let grab_accepted = grab_result.accepted;
+
+        let mut dispatch_accepted = false;
+        mouse_input_state = if let Some(mut event) = grab_result.event {
             // The grab handler may have fired callbacks that modified models or
             // other state, so materialize any pending repeater/conditional
             // changes before hit-testing with the returned event.
@@ -796,7 +841,7 @@ impl WindowInner {
             let mut offset = LogicalPoint::default();
             let mut menubar_item = None;
             for (idx, popup) in active_popups.borrow().iter().enumerate().rev() {
-                if popup.is_tooltip {
+                if matches!(popup.window_kind, WindowKind::ToolTip) {
                     continue;
                 }
                 item_tree = None;
@@ -816,7 +861,7 @@ impl WindowInner {
                     break;
                 }
 
-                if !popup.is_menu {
+                if !matches!(popup.window_kind, WindowKind::Menu) {
                     break;
                 } else if popup_to_close.is_some() {
                     // clicking outside of a popup menu should close all the menus
@@ -840,14 +885,16 @@ impl WindowInner {
 
             if let Some(root) = root {
                 event.translate(-offset.to_vector());
-                let mut new_input_state = crate::input::process_mouse_input(
-                    root,
-                    &event,
-                    &window_adapter,
-                    mouse_input_state,
-                );
-                new_input_state.offset = offset;
-                new_input_state
+                let crate::input::MouseInputResult { mut state, accepted } =
+                    crate::input::process_mouse_input(
+                        root,
+                        &event,
+                        &window_adapter,
+                        mouse_input_state,
+                    );
+                state.offset = offset;
+                dispatch_accepted = accepted;
+                state
             } else {
                 // When outside, send exit event
                 let mut new_input_state = MouseInputState::default();
@@ -862,6 +909,8 @@ impl WindowInner {
         } else {
             mouse_input_state
         };
+
+        let accepted = dispatch_accepted | grab_accepted;
 
         if last_top_item != mouse_input_state.top_item_including_delayed() {
             self.click_state.reset();
@@ -878,7 +927,7 @@ impl WindowInner {
         }
 
         let is_dragging = mouse_input_state.drag_data.is_some();
-        let drop_target_action = mouse_input_state.drop_target_action();
+        let drag_action = mouse_input_state.drop_target_action();
         self.mouse_input_state.set(mouse_input_state);
 
         // The drag-image overlay follows the cursor and lives outside any item tree, so
@@ -909,7 +958,7 @@ impl WindowInner {
                 .apply_pin(drag_area)
                 .call(&(action,));
             // The drag is over: reset the target's `current_action` so it matches
-            // `contains_drag` and the docstring ("none when no drag is hovering").
+            // `has_drag` and the docstring ("none when no drag is hovering").
             if let Some(target) = target {
                 target.as_pin_ref().current_action.set(crate::items::DragAction::None);
             }
@@ -921,7 +970,7 @@ impl WindowInner {
 
         self.ensure_tree_instantiated();
 
-        drop_target_action
+        Some(MouseDispatchResult { drag_action, accepted })
     }
 
     /// Receive a raw touch event from a backend and either forward it as a mouse
@@ -931,11 +980,28 @@ impl WindowInner {
     /// `position` must be in **logical coordinates** (i.e., already divided by the
     /// scale factor). Passing physical coordinates will produce incorrect gesture
     /// geometry and hit-testing.
-    pub fn process_touch_input(&self, id: u64, position: LogicalPoint, phase: TouchPhase) {
+    ///
+    /// `drag_action` is taken from the *last* sub-event (including `None`), because
+    /// `drag_action` reflects the current drop-target negotiation, not a per-event
+    /// verdict to aggregate. For touch sequences that never produce a `DragMove`/`Drop`
+    /// (the common case), this stays `None` throughout.
+    pub fn process_touch_input(
+        &self,
+        id: i32,
+        position: LogicalPoint,
+        phase: TouchPhase,
+    ) -> Option<MouseDispatchResult> {
         let events = self.touch_state.borrow_mut().process(id, position, phase);
+        let mut aggregate: Option<MouseDispatchResult> = None;
         for event in events.into_iter() {
-            self.process_mouse_input(event);
+            if let Some(r) = self.process_mouse_input(event) {
+                let agg = aggregate
+                    .get_or_insert(MouseDispatchResult { drag_action: None, accepted: false });
+                agg.accepted |= r.accepted;
+                agg.drag_action = r.drag_action;
+            }
         }
+        aggregate
     }
 
     /// Called by the input code's internal timer to send an event that was delayed
@@ -984,7 +1050,7 @@ impl WindowInner {
             // without having to move the mouse first.
             let drag_pos = {
                 let state = self.mouse_input_state.take();
-                let pos = state.drag_data.as_ref().map(|d| d.position);
+                let pos = state.drag_data.as_ref().map(|d| d.event.position);
                 self.mouse_input_state.replace(state);
                 pos
             };
@@ -1516,7 +1582,7 @@ impl WindowInner {
         item_renderer: &mut dyn crate::item_rendering::ItemRenderer,
     ) {
         let state = self.mouse_input_state.take();
-        let cursor = state.drag_data.as_ref().map(|d| d.position);
+        let cursor = state.drag_data.as_ref().map(|d| d.event.position);
         let source = state.drag_source.as_ref().and_then(|w| w.upgrade());
         self.mouse_input_state.set(state);
 
@@ -1632,22 +1698,27 @@ impl WindowInner {
     }
     /// Create a new popup window adapter
     /// This window adapter can be used on a popup component and shown with show_popup()
-    pub fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+    pub fn create_child_window_adapter(&self, kind: WindowKind) -> Option<Rc<dyn WindowAdapter>> {
         self.window_adapter()
             .internal(crate::InternalToken)
-            .and_then(|s| s.create_popup_window_adapter())
+            .and_then(|s| s.create_child_window_adapter(kind))
     }
 
     /// Show a popup at the given position relative to the `parent_item` and returns its ID.
     /// The returned ID will always be non-zero.
+    ///
+    /// `is_open_setter` keeps the parent component's `PopupWindow::is-open` property in sync with this
+    /// popup: it is invoked immediately with `true`, and again with `false` when the popup is closed
+    /// through any path (the `Drop` impl of [`PopupWindow`] handles the `false`). Pass a no-op closure
+    /// for popups (such as menus) that do not expose `is-open`.
     pub fn show_popup(
         &self,
         popup_componentrc: &ItemTreeRc,
         popup_access_position: Box<dyn Fn() -> LogicalPosition>,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
-        is_tooltip: bool,
-        is_menu: bool,
+        window_kind: WindowKind,
+        is_open_setter: Box<dyn Fn(bool)>,
     ) -> NonZeroU32 {
         // Popups live in their own ItemTree, which was invisible to any
         // earlier instantiation pass; materialize it before the layout queries below.
@@ -1750,14 +1821,10 @@ impl WindowInner {
         let (location, properties_tracker) =
             if Rc::ptr_eq(&parent_window_adapter, &popup_window_adapter) {
                 // Tooltips may extend past the window (e.g. above/left of the anchor); do not clamp.
-                let clip_region = if is_tooltip {
-                    None
-                } else {
-                    Some(LogicalRect::new(
-                        LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
-                        self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
-                    ))
-                };
+                let clip_region = Some(LogicalRect::new(
+                    LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
+                    self.window_adapter().size().to_logical(self.scale_factor()).to_euclid(),
+                ));
                 let rect = popup::place_popup(
                     popup::Placement::Fixed(LogicalRect::new(position, size)),
                     &clip_region,
@@ -1790,13 +1857,19 @@ impl WindowInner {
                 )
             };
 
-        let focus_item = if is_tooltip {
+        let focus_item = if matches!(window_kind, WindowKind::ToolTip) {
             Default::default()
         } else {
             self.take_focus_item(&FocusEvent::FocusOut(FocusReason::PopupActivation))
                 .map(|item| item.downgrade())
                 .unwrap_or_default()
         };
+
+        // Reflect the freshly shown popup in the parent's `is-open` property; the matching `false` is
+        // emitted when the stored `PopupWindow` is dropped (see its `Drop` impl), which every close
+        // path funnels through. Called before the popup is stored so we do not hold a borrow on
+        // `active_popups` while running user-provided code.
+        is_open_setter(true);
 
         self.active_popups.borrow_mut().push(PopupWindow {
             popup_id,
@@ -1805,9 +1878,9 @@ impl WindowInner {
             close_policy,
             focus_item_in_parent: focus_item,
             parent_item: parent_item.downgrade(),
-            is_tooltip,
-            is_menu,
+            window_kind,
             position_access: popup_access_position,
+            is_open_setter,
             properties_tracker,
         });
 
@@ -1839,6 +1912,8 @@ impl WindowInner {
     }
 
     // Close the popup associated with the given popup window.
+    // The parent's `is-open` property is reset to false when `current_popup` is dropped (see the
+    // `Drop` impl for `PopupWindow`), which every close path eventually does.
     fn close_popup_impl(&self, current_popup: &PopupWindow) {
         match &current_popup.location {
             PopupWindowLocation::ChildWindow(offset) => {
@@ -1873,9 +1948,14 @@ impl WindowInner {
             let p = active_popups.remove(popup_index);
             drop(active_popups);
             self.close_popup_impl(&p);
-            if p.is_menu {
+            if matches!(p.window_kind, WindowKind::Menu) {
                 // close all sub-menus
-                while self.active_popups.borrow().get(popup_index).is_some_and(|p| p.is_menu) {
+                while self
+                    .active_popups
+                    .borrow()
+                    .get(popup_index)
+                    .is_some_and(|p| matches!(p.window_kind, WindowKind::Menu))
+                {
                     let p = self.active_popups.borrow_mut().remove(popup_index);
                     self.close_popup_impl(&p);
                 }
@@ -2099,6 +2179,17 @@ impl WindowInner {
             .get_or_init(|| crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().unwrap().clone()))
     }
 
+    /// Like [`Self::context`], but returns `None` instead of panicking when no context is
+    /// available yet.
+    pub fn try_context(&self) -> Option<&crate::SlintContext> {
+        if self.ctx.get().is_none()
+            && let Some(ctx) = crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().cloned())
+        {
+            let _ = self.ctx.set(ctx);
+        }
+        self.ctx.get()
+    }
+
     /// Set the SlintContext.
     /// This needs to be called once before any other functions that would use the context.
     pub fn set_context(&self, ctx: crate::SlintContext) {
@@ -2180,6 +2271,12 @@ pub mod ffi {
     impl WithUserData<extern "C" fn(user_data: *mut c_void) -> CloseRequestResponse> {
         fn call(&self) -> CloseRequestResponse {
             (self.callback)(self.user_data)
+        }
+    }
+
+    impl WithUserData<extern "C" fn(user_data: *mut c_void, is_open: bool)> {
+        fn call(&self, is_open: bool) {
+            (self.callback)(self.user_data, is_open)
         }
     }
 
@@ -2352,19 +2449,26 @@ pub mod ffi {
         user_data: *mut c_void,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
-        is_tooltip: bool,
-        is_menu: bool,
+        window_kind: WindowKind,
+        is_open_setter: extern "C" fn(user_data: *mut c_void, is_open: bool),
+        is_open_setter_drop_user_data: extern "C" fn(user_data: *mut c_void),
+        is_open_setter_user_data: *mut c_void,
     ) -> NonZeroU32 {
         unsafe {
             let with_user_data = WithUserData { callback: position, drop_user_data, user_data };
+            let is_open_with_user_data = WithUserData {
+                callback: is_open_setter,
+                drop_user_data: is_open_setter_drop_user_data,
+                user_data: is_open_setter_user_data,
+            };
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
             WindowInner::from_pub(window_adapter.window()).show_popup(
                 popup,
                 Box::new(move || with_user_data.call()),
                 close_policy,
                 parent_item,
-                is_tooltip,
-                is_menu,
+                window_kind,
+                Box::new(move |is_open| is_open_with_user_data.call(is_open)),
             )
         }
     }
@@ -2373,13 +2477,16 @@ pub mod ffi {
     /// Returns false if the backend does not support top-level popups.
     /// This can be used to set the correct window adapter on a popup component before showing it.
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn slint_windowrc_create_popup_window_adapter(
+    pub unsafe extern "C" fn slint_windowrc_create_child_window_adapter(
         handle: *const WindowAdapterRcOpaque,
+        window_kind: WindowKind,
         result: *mut WindowAdapterRcOpaque,
     ) -> bool {
         unsafe {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-            match WindowInner::from_pub(window_adapter.window()).create_popup_window_adapter() {
+            match WindowInner::from_pub(window_adapter.window())
+                .create_child_window_adapter(window_kind)
+            {
                 Some(wa) => {
                     core::ptr::write(result as *mut Rc<dyn WindowAdapter>, wa);
                     true

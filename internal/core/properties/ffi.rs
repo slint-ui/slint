@@ -540,6 +540,7 @@ pub unsafe extern "C" fn slint_change_tracker_init(
         let _self_raw = _self;
         let _self = _self as *mut BindingHolder<C_ChangeTrackerInner>;
         let inner = unsafe { core::ptr::addr_of_mut!((*_self).binding).as_mut().unwrap() };
+        unsafe { *(*core::ptr::addr_of!((*_self).dep_nodes)).get() = Default::default() };
         let notify = super::current_binding_storage::set(Some(_self_raw), || {
             (inner.eval_fn)(inner.user_data)
         });
@@ -586,4 +587,54 @@ pub unsafe extern "C" fn slint_change_tracker_init(
 #[unsafe(no_mangle)]
 pub extern "C" fn slint_animation_tick() -> u64 {
     crate::animations::animation_tick()
+}
+
+#[cfg(test)]
+mod ffi_change_tracker_leak_test {
+    use super::*;
+    use crate::properties::ChangeTracker;
+    use alloc::boxed::Box;
+    use core::cell::Cell;
+    use core::pin::Pin;
+
+    // What the generated C++ stores for a `changed` handler: the watched
+    // property and the last seen value.
+    struct EvalState {
+        prop: *const Property<i32>,
+        last: Cell<i32>,
+    }
+
+    extern "C" fn eval_fn(user_data: *mut c_void) -> bool {
+        let st = unsafe { &*(user_data as *const EvalState) };
+        let v = unsafe { Pin::new_unchecked(&*st.prop) }.get();
+        let changed = v != st.last.get();
+        st.last.set(v);
+        changed
+    }
+    extern "C" fn notify_fn(_user_data: *mut c_void) {}
+    extern "C" fn drop_fn(_user_data: *mut c_void) {}
+
+    // The dependency nodes must not accumulate across re-evaluations.
+    #[test]
+    fn ffi_change_tracker_does_not_leak_dep_nodes() {
+        let prop = Box::pin(Property::new(0));
+        let state = EvalState { prop: &*prop as *const _, last: Cell::new(0) };
+        let ct = ChangeTracker::default();
+        unsafe {
+            slint_change_tracker_init(
+                &ct,
+                &state as *const EvalState as *mut c_void,
+                drop_fn,
+                eval_fn,
+                notify_fn,
+            );
+        }
+        assert_eq!(ct.test_dep_node_count(), 1);
+
+        for i in 1..=200 {
+            prop.as_ref().set(i);
+            ChangeTracker::run_change_handlers();
+            assert_eq!(ct.test_dep_node_count(), 1, "leaked a DependencyNode at iteration {i}");
+        }
+    }
 }

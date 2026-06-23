@@ -139,6 +139,14 @@ enum AccessibleRole {
     Image = 18;
     RadioButton = 19;
     RadioGroup = 20;
+    Banner = 21;
+    Complementary = 22;
+    ContentInfo = 23;
+    Form = 24;
+    Main = 25;
+    Navigation = 26;
+    Region = 27;
+    Search = 28;
 }
 
 enum RecordedEventResult {

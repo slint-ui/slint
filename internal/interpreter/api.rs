@@ -1110,19 +1110,6 @@ pub struct ComponentDefinition {
 }
 
 impl ComponentDefinition {
-    /// Set a `debug(...)` handler
-    #[doc(hidden)]
-    #[cfg(feature = "internal")]
-    pub fn set_debug_handler(
-        &self,
-        handler: impl Fn(Option<&i_slint_compiler::diagnostics::SourceLocation>, &str) + 'static,
-        _: i_slint_core::InternalToken,
-    ) {
-        let handler = Rc::new(handler);
-
-        generativity::make_guard!(guard);
-        self.inner.unerase(guard).recursively_set_debug_handler(handler);
-    }
     /// Creates a new instance of the component and returns a shared handle to it.
     pub fn create(&self) -> Result<ComponentInstance, PlatformError> {
         let instance = self.create_with_options(Default::default())?;

@@ -298,7 +298,7 @@ impl Item for NativeButton {
             MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
                 return InputEventResult::EventIgnored;
             }
-            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
+            MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => {
                 return InputEventResult::EventIgnored;
             }
         });

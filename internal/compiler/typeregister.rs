@@ -223,12 +223,12 @@ pub const RESERVED_DROP_SHADOW_PROPERTIES: &[(&str, Type)] = &[
     ("drop-shadow-color", Type::Color),
 ];
 
-pub const RESERVED_INSET_SHADOW_PROPERTIES: &[(&str, Type)] = &[
-    ("inset-shadow-offset-x", Type::LogicalLength),
-    ("inset-shadow-offset-y", Type::LogicalLength),
-    ("inset-shadow-blur", Type::LogicalLength),
-    ("inset-shadow-spread", Type::LogicalLength),
-    ("inset-shadow-color", Type::Color),
+pub const RESERVED_INNER_SHADOW_PROPERTIES: &[(&str, Type)] = &[
+    ("inner-shadow-offset-x", Type::LogicalLength),
+    ("inner-shadow-offset-y", Type::LogicalLength),
+    ("inner-shadow-blur", Type::LogicalLength),
+    ("inner-shadow-spread", Type::LogicalLength),
+    ("inner-shadow-color", Type::Color),
 ];
 
 pub const RESERVED_TRANSFORM_PROPERTIES: &[(&str, Type)] = &[
@@ -291,7 +291,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
         .chain(RESERVED_LAYOUT_PROPERTIES.iter())
         .chain(RESERVED_OTHER_PROPERTIES.iter())
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
-        .chain(RESERVED_INSET_SHADOW_PROPERTIES.iter())
+        .chain(RESERVED_INNER_SHADOW_PROPERTIES.iter())
         .chain(RESERVED_TRANSFORM_PROPERTIES.iter())
         .chain(DEPRECATED_ROTATION_ORIGIN_PROPERTIES.iter())
         .map(|(k, v)| (*k, v.clone(), PropertyVisibility::Input))
@@ -346,8 +346,8 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type, Proper
                 PropertyVisibility::Input,
             ),
             (
-                "accessible-live",
-                Type::Enumeration(BUILTIN.with(|e| e.enums.AccessibleLive.clone())),
+                "accessible-live-region",
+                Type::Enumeration(BUILTIN.with(|e| e.enums.AccessibleLiveness.clone())),
                 PropertyVisibility::Input,
             ),
         ]))
@@ -368,6 +368,7 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
             resolved_name: name,
             is_local_to_component: false,
             is_in_direct_base: false,
+            is_shadowable: false,
             property_visibility: visibility,
             declared_pure: None,
             builtin_function,
@@ -386,6 +387,7 @@ pub fn reserved_property(name: std::borrow::Cow<'_, str>) -> PropertyLookupResul
                         resolved_name: format!("{pre}-{suf}").into(),
                         is_local_to_component: false,
                         is_in_direct_base: false,
+                        is_shadowable: false,
                         property_visibility: crate::object_tree::PropertyVisibility::InOut,
                         declared_pure: None,
                         builtin_function: None,
@@ -512,22 +514,33 @@ impl TypeRegister {
 
         crate::load_builtins::load_builtins(&mut register);
 
-        for e in register.elements.values() {
-            if let ElementType::Builtin(b) = e {
-                for accepted_child_type_name in b.additional_accepted_child_types.keys() {
-                    register
-                        .context_restricted_types
-                        .entry(accepted_child_type_name.clone())
-                        .or_default()
-                        .insert(b.native_class.class_name.clone());
-                }
-                if b.additional_accept_self {
-                    register
-                        .context_restricted_types
-                        .entry(b.native_class.class_name.clone())
-                        .or_default()
-                        .insert(b.native_class.class_name.clone());
-                }
+        // Walk every builtin reachable from an exported one and register each
+        // accepted child as context-restricted to its parent, so internal types
+        // like `MenuItem` report "can only be within Menu" instead of "Unknown".
+        let mut visited: HashSet<SmolStr> = HashSet::new();
+        let mut to_visit: Vec<Rc<BuiltinElement>> = register
+            .elements
+            .values()
+            .filter_map(|e| match e {
+                ElementType::Builtin(b) => Some(b.clone()),
+                _ => None,
+            })
+            .collect();
+        while let Some(b) = to_visit.pop() {
+            let parent = b.native_class.class_name.clone();
+            if !visited.insert(parent.clone()) {
+                continue;
+            }
+            for (child_name, child_type) in &b.additional_accepted_child_types {
+                register
+                    .context_restricted_types
+                    .entry(child_name.clone())
+                    .or_default()
+                    .insert(parent.clone());
+                to_visit.push(child_type.clone());
+            }
+            if b.additional_accept_self {
+                register.context_restricted_types.entry(parent.clone()).or_default().insert(parent);
             }
         }
 
@@ -576,7 +589,6 @@ impl TypeRegister {
         }
 
         let font_metrics_prop = crate::langtype::BuiltinPropertyInfo {
-            ty: font_metrics_type(),
             property_visibility: PropertyVisibility::Output,
             default_value: BuiltinPropertyDefault::WithElement(|elem| {
                 crate::expression_tree::Expression::FunctionCall {
@@ -587,7 +599,7 @@ impl TypeRegister {
                     source_location: None,
                 }
             }),
-            docs: None,
+            ..crate::langtype::BuiltinPropertyInfo::new(font_metrics_type())
         };
 
         match &mut register.elements.get_mut("TextInput").unwrap() {

@@ -7,7 +7,8 @@
             "!**/docs/",
             "!rust-module.d.cts",
             "!rust-module.cjs",
-            "!typescript/generated/"
+            "!rust-module-dev.cjs",
+            "!**/typescript/generated/**"
         ]
     },
     "linter": {
@@ -15,7 +16,8 @@
             "complexity": {
                 "useArrowFunction": "off",
                 "noForEach": "off",
-                "noArguments": "off"
+                "noArguments": "off",
+                "noBannedTypes": "off"
             },
             "style": {
                 "noNonNullAssertion": "off",

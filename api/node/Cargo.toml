@@ -39,8 +39,19 @@ renderer-skia-vulkan = ["slint-interpreter/renderer-skia-vulkan"]
 renderer-software = ["slint-interpreter/renderer-software"]
 accessibility = ["slint-interpreter/accessibility"]
 
-# Removed by node_package xtask
+# The features below are additive and binary-compatible with the default build:
+# they don't change the napi surface, only enabling extra runtime behavior. They
+# depend on the unpublished i-slint-backend-testing crate.
+#
+# `system-testing` and `mcp` (the auto-started system-testing/MCP servers via the
+# backend selector) are what the shipped "dev" binary enables (slint-ui-dev, see
+# binaries-dev.json); `build:debug` builds that same binary locally. `testing`
+# (mocked time and synthetic input) is independent: it is enabled by
+# `build:testing` for this crate's own unit tests and is not part of the dev
+# binary.
 testing = ["dep:i-slint-backend-testing"]
+system-testing = ["dep:i-slint-backend-testing", "i-slint-backend-selector/system-testing"]
+mcp = ["dep:i-slint-backend-testing", "i-slint-backend-selector/mcp"]
 
 [dependencies]
 napi = { version = "3", default-features = false, features = ["napi8"] }
@@ -48,7 +59,7 @@ napi-derive = "3"
 i-slint-compiler = { workspace = true, features = ["default"] }
 i-slint-core = { workspace = true, features = ["default", "gettext-rs"] }
 i-slint-backend-selector = { workspace = true }
-slint-interpreter = { workspace = true, default-features = false, features = ["display-diagnostics", "internal", "compat-1-2"] }
+slint-interpreter = { workspace = true, default-features = false, features = ["display-diagnostics", "internal", "compat-1-2", "system-tray"] }
 spin_on = { workspace = true }
 css-color-parser2 = { workspace = true }
 itertools = { workspace = true }

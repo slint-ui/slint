@@ -27,6 +27,22 @@ use i_slint_core_macros::*;
 
 pub type DropEventArg = (DropEvent,);
 
+/// The set of actions a drag source permits, captured when the drag starts.
+#[repr(C)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, Debug)]
+pub struct AllowedDragActions {
+    pub copy: bool,
+    pub move_: bool,
+    pub link: bool,
+}
+
+impl AllowedDragActions {
+    /// True if at least one action is permitted.
+    pub fn any(self) -> bool {
+        self.copy || self.move_ || self.link
+    }
+}
+
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
@@ -40,7 +56,6 @@ pub struct DragArea {
     pub allow_copy: Property<bool>,
     pub allow_move: Property<bool>,
     pub allow_link: Property<bool>,
-    pub preferred_action: Property<DragAction>,
     pub dragging: Property<bool>,
     pub drag_finished: Callback<DragActionArg, ()>,
     pressed: Cell<bool>,
@@ -70,7 +85,7 @@ impl Item for DragArea {
         _self_rc: &ItemRc,
         _: &mut MouseCursor,
     ) -> InputEventFilterResult {
-        if !self.enabled() || !self.any_action_allowed() {
+        if !self.enabled() || !self.allowed_actions().any() || self.data().is_empty() {
             self.cancel();
             return InputEventFilterResult::ForwardAndIgnore;
         }
@@ -113,7 +128,7 @@ impl Item for DragArea {
             MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
             }
-            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => {
+            MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
             }
         }
@@ -137,7 +152,11 @@ impl Item for DragArea {
                 InputEventResult::EventIgnored
             }
             MouseEvent::Moved { position, .. } => {
-                if !self.pressed.get() || !self.enabled() || !self.any_action_allowed() {
+                if !self.pressed.get()
+                    || !self.enabled()
+                    || !self.allowed_actions().any()
+                    || self.data().is_empty()
+                {
                     return InputEventResult::EventIgnored;
                 }
                 let pressed_pos = self.pressed_position.get();
@@ -156,7 +175,7 @@ impl Item for DragArea {
             MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
                 InputEventResult::EventIgnored
             }
-            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
+            MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => InputEventResult::EventIgnored,
         }
     }
 
@@ -223,41 +242,25 @@ impl DragArea {
         self.pressed.set(false)
     }
 
-    pub(crate) fn any_action_allowed(self: Pin<&Self>) -> bool {
-        self.allow_copy() || self.allow_move() || self.allow_link()
+    pub(crate) fn allowed_actions(self: Pin<&Self>) -> AllowedDragActions {
+        AllowedDragActions {
+            copy: self.allow_copy(),
+            move_: self.allow_move(),
+            link: self.allow_link(),
+        }
     }
 
-    /// Returns the first allowed of: preferred_action, move, copy, link. None if no action is allowed.
-    pub(crate) fn effective_default_action(self: Pin<&Self>) -> DragAction {
-        let preferred = self.preferred_action();
-        let allowed = |a| match a {
-            DragAction::None => false,
-            DragAction::Copy => self.allow_copy(),
-            DragAction::Move => self.allow_move(),
-            DragAction::Link => self.allow_link(),
-        };
-        if allowed(preferred) {
-            return preferred;
-        }
-        for fallback in [DragAction::Move, DragAction::Copy, DragAction::Link] {
-            if allowed(fallback) {
-                return fallback;
-            }
-        }
-        DragAction::None
-    }
-
-    /// Build the initial DropEvent for a drag starting on this DragArea, populating
-    /// the source's allowed actions and seeding `proposed_action` from the preferred default.
-    pub(crate) fn initial_drop_event(self: Pin<&Self>) -> DropEvent {
-        DropEvent {
+    /// Build the initial DropEvent for a drag starting on this DragArea, together with the
+    /// source's allowed actions. `proposed_action` is seeded from the default action (the first
+    /// allowed of move, copy, link).
+    pub(crate) fn initial_drop_event(self: Pin<&Self>) -> (DropEvent, AllowedDragActions) {
+        let allowed = self.allowed_actions();
+        let event = DropEvent {
             data: self.data(),
             position: Default::default(),
-            allow_copy: self.allow_copy(),
-            allow_move: self.allow_move(),
-            allow_link: self.allow_link(),
-            proposed_action: self.effective_default_action(),
-        }
+            proposed_action: compute_proposed_action(KeyboardModifiers::default(), allowed),
+        };
+        (event, allowed)
     }
 }
 
@@ -267,7 +270,7 @@ impl DragArea {
 /// The implementation of the `DropArea` element
 pub struct DropArea {
     pub enabled: Property<bool>,
-    pub contains_drag: Property<bool>,
+    pub has_drag: Property<bool>,
     pub current_action: Property<DragAction>,
     pub can_drop: Callback<DropEventArg, DragAction>,
     pub dropped: Callback<DropEventArg, DragAction>,
@@ -311,31 +314,31 @@ impl Item for DropArea {
             return InputEventResult::EventIgnored;
         }
         match event {
-            MouseEvent::DragMove(event) => {
+            MouseEvent::DragMove { event, allowed } => {
                 let raw = Self::FIELD_OFFSETS.can_drop().apply_pin(self).call(&(event.clone(),));
-                let chosen = clamp_action_to_allowed(raw, event);
+                let chosen = clamp_action_to_allowed(raw, *allowed);
                 self.current_action.set(chosen);
                 if chosen != DragAction::None {
-                    self.contains_drag.set(true);
+                    self.has_drag.set(true);
                     *cursor = cursor_for_action(chosen);
                     InputEventResult::EventAccepted
                 } else {
-                    self.contains_drag.set(false);
+                    self.has_drag.set(false);
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::Drop(event) => {
-                self.contains_drag.set(false);
+            MouseEvent::Drop { event, allowed } => {
+                self.has_drag.set(false);
                 let returned =
                     Self::FIELD_OFFSETS.dropped().apply_pin(self).call(&(event.clone(),));
                 // The target's `dropped` return value is the final action reported back to
                 // the source. Clamp against the source's allowed set and stash on
                 // `current_action` so the post-dispatch step in `window.rs` can read it.
-                self.current_action.set(clamp_action_to_allowed(returned, event));
+                self.current_action.set(clamp_action_to_allowed(returned, *allowed));
                 InputEventResult::EventAccepted
             }
             MouseEvent::Exit => {
-                self.contains_drag.set(false);
+                self.has_drag.set(false);
                 self.current_action.set(DragAction::None);
                 InputEventResult::EventIgnored
             }
@@ -403,18 +406,15 @@ impl ItemConsts for DropArea {
 
 /// Compute the action proposed by the user's current modifier state, clamped to the source's
 /// allowed actions. Ctrl alone → copy, Shift alone → move, Ctrl+Shift → link, no modifier →
-/// `preferred` with deterministic fallback to the first allowed of move/copy/link.
+/// the first allowed of move/copy/link.
 pub(crate) fn compute_proposed_action(
     modifiers: KeyboardModifiers,
-    allow_copy: bool,
-    allow_move: bool,
-    allow_link: bool,
-    preferred: DragAction,
+    allowed_actions: AllowedDragActions,
 ) -> DragAction {
     let allowed = |a| match a {
-        DragAction::Copy => allow_copy,
-        DragAction::Move => allow_move,
-        DragAction::Link => allow_link,
+        DragAction::Copy => allowed_actions.copy,
+        DragAction::Move => allowed_actions.move_,
+        DragAction::Link => allowed_actions.link,
         DragAction::None => false,
     };
     let modifier_request = match (modifiers.control, modifiers.shift) {
@@ -428,9 +428,6 @@ pub(crate) fn compute_proposed_action(
     {
         return req;
     }
-    if allowed(preferred) {
-        return preferred;
-    }
     for fallback in [DragAction::Move, DragAction::Copy, DragAction::Link] {
         if allowed(fallback) {
             return fallback;
@@ -439,14 +436,17 @@ pub(crate) fn compute_proposed_action(
     DragAction::None
 }
 
-/// Clamp a `can-drop` return value against the source's allowed actions on the DropEvent.
+/// Clamp a `can-drop` return value against the source's allowed actions.
 /// A concrete action the source did not allow becomes `None`.
-pub(crate) fn clamp_action_to_allowed(action: DragAction, event: &DropEvent) -> DragAction {
+pub(crate) fn clamp_action_to_allowed(
+    action: DragAction,
+    allowed: AllowedDragActions,
+) -> DragAction {
     match action {
         DragAction::None => DragAction::None,
-        DragAction::Copy if event.allow_copy => DragAction::Copy,
-        DragAction::Move if event.allow_move => DragAction::Move,
-        DragAction::Link if event.allow_link => DragAction::Link,
+        DragAction::Copy if allowed.copy => DragAction::Copy,
+        DragAction::Move if allowed.move_ => DragAction::Move,
+        DragAction::Link if allowed.link => DragAction::Link,
         _ => DragAction::None,
     }
 }
@@ -469,12 +469,21 @@ mod tests {
         KeyboardModifiers { control, shift, alt: false, meta: false }
     }
 
+    const ALL: AllowedDragActions = AllowedDragActions { copy: true, move_: true, link: true };
+    const COPY_ONLY: AllowedDragActions =
+        AllowedDragActions { copy: true, move_: false, link: false };
+    const MOVE_ONLY: AllowedDragActions =
+        AllowedDragActions { copy: false, move_: true, link: false };
+    const LINK_ONLY: AllowedDragActions =
+        AllowedDragActions { copy: false, move_: false, link: true };
+    const COPY_AND_MOVE: AllowedDragActions =
+        AllowedDragActions { copy: true, move_: true, link: false };
+
     #[test]
     fn compute_proposed_action_modifier_table() {
-        let preferred = DragAction::Copy;
         // All actions allowed.
-        let a = |m| compute_proposed_action(m, true, true, true, preferred);
-        assert_eq!(a(modifiers(false, false)), DragAction::Copy);
+        let a = |m| compute_proposed_action(m, ALL);
+        assert_eq!(a(modifiers(false, false)), DragAction::Move);
         assert_eq!(a(modifiers(true, false)), DragAction::Copy);
         assert_eq!(a(modifiers(false, true)), DragAction::Move);
         assert_eq!(a(modifiers(true, true)), DragAction::Link);
@@ -483,32 +492,23 @@ mod tests {
     #[test]
     fn compute_proposed_action_falls_back_when_modifier_action_not_allowed() {
         // Source only allows move; user holds Ctrl (asking for copy).
-        assert_eq!(
-            compute_proposed_action(modifiers(true, false), false, true, false, DragAction::Move),
-            DragAction::Move
-        );
-        // User holds Ctrl+Shift asking for link, only copy allowed; preferred copy.
-        assert_eq!(
-            compute_proposed_action(modifiers(true, true), true, false, false, DragAction::Copy),
-            DragAction::Copy
-        );
+        assert_eq!(compute_proposed_action(modifiers(true, false), MOVE_ONLY), DragAction::Move);
+        // User holds Ctrl+Shift asking for link, only copy allowed.
+        assert_eq!(compute_proposed_action(modifiers(true, true), COPY_ONLY), DragAction::Copy);
     }
 
     #[test]
-    fn compute_proposed_action_preferred_clamped_to_allowed_set() {
-        // Preferred is move but only copy is allowed; no modifiers — should fall back to copy.
+    fn compute_proposed_action_default_is_first_allowed() {
+        // No modifiers: the first allowed of move, copy, link wins.
         assert_eq!(
-            compute_proposed_action(modifiers(false, false), true, false, false, DragAction::Move),
-            DragAction::Copy
+            compute_proposed_action(modifiers(false, false), COPY_AND_MOVE),
+            DragAction::Move
         );
-        // Preferred None — same behavior, picks first allowed.
-        assert_eq!(
-            compute_proposed_action(modifiers(false, false), false, false, true, DragAction::None),
-            DragAction::Link
-        );
+        assert_eq!(compute_proposed_action(modifiers(false, false), COPY_ONLY), DragAction::Copy);
+        assert_eq!(compute_proposed_action(modifiers(false, false), LINK_ONLY), DragAction::Link);
         // Nothing allowed at all.
         assert_eq!(
-            compute_proposed_action(modifiers(false, false), false, false, false, DragAction::Copy),
+            compute_proposed_action(modifiers(false, false), AllowedDragActions::default()),
             DragAction::None
         );
     }

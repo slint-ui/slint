@@ -271,7 +271,7 @@ impl Item for NativeSlider {
             MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
                 InputEventResult::EventIgnored
             }
-            MouseEvent::DragMove(..) | MouseEvent::Drop(..) => InputEventResult::EventIgnored,
+            MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => InputEventResult::EventIgnored,
             // Note: The Qt slider used to accept scroll events, however the other styles do not.
             // As the scroll event handling is problematic when a slider is placed in a Flickable,
             // ignore scroll events for now.

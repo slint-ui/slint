@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component Test {
+    // No allowed action: warns.
+    DragArea { }
+//  >       <warning{This 'DragArea' permits no drag action and will never start a drag; set 'allow-copy', 'allow-move', or 'allow-link' to true}
+
+    // At least one allowed action: fine.
+    DragArea {
+        allow-move: true;
+    }
+
+    // Inherited allowed action: fine.
+    DragArea {
+        allow-copy: my-flag;
+        property <bool> my-flag: true;
+    }
+}

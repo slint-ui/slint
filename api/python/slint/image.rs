@@ -3,18 +3,15 @@
 
 // cSpell: ignore matplotlib
 use pyo3::prelude::*;
-use pyo3_stub_gen::{derive::gen_stub_pyclass, derive::gen_stub_pymethods};
 use slint_interpreter::SharedPixelBuffer;
 
 /// Image objects can be set on Slint Image elements for display. Use `Image.load_from_path` to construct Image
 /// objects from a path to an image file on disk.
-#[gen_stub_pyclass]
 #[pyclass(unsendable, name = "Image")]
 pub struct PyImage {
     pub image: slint_interpreter::Image,
 }
 
-#[gen_stub_pymethods]
 #[pymethods]
 impl PyImage {
     #[new]

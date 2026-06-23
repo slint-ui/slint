@@ -75,10 +75,8 @@ void model_insert(const std::shared_ptr<M> &model, std::ptrdiff_t index, const M
 
 } // namespace private_api
 
-/// \rst
-/// A Model is providing Data for Slint |Models|_ or |ListView|_ elements of the
-/// :code:`.slint` language
-/// \endrst
+/// A Model is providing Data for Slint Models or ListView elements of the
+/// `.slint` language
 ///
 /// This is typically used in a `std::shared_ptr<slint::Model>`.
 /// Model is an abstract class and you can derive from it to provide your own data model,
@@ -1229,11 +1227,7 @@ public:
     /// Register the instance generation as a dependency of the current
     /// tracking scope. Layout code uses this to re-evaluate only after
     /// ensure_updated materializes instance changes.
-    void track_instance_changes() const
-    {
-        if (inner)
-            instance_generation.register_as_dependency();
-    }
+    void track_instance_changes() const { instance_generation.register_as_dependency(); }
 
     /// Register the ListView viewport properties as dependencies so that
     /// scrolling triggers a redraw.  Model dependencies are registered by
@@ -1256,6 +1250,8 @@ public:
     uint64_t visit(TraversalOrder order, private_api::ItemVisitorRefMut visitor) const
     {
         track_model_changes();
+        if (!inner)
+            return std::numeric_limits<uint64_t>::max();
         for (std::size_t i = 0; i < inner->data.size(); ++i) {
             auto index = order == TraversalOrder::BackToFront ? i : inner->data.size() - 1 - i;
             if (!inner->data[index].ptr)
@@ -1271,6 +1267,8 @@ public:
 
     vtable::VWeak<private_api::ItemTreeVTable> instance_at(std::size_t i) const
     {
+        if (!inner)
+            return {};
         const auto offset = inner->layout_state.offset;
         if (i < offset || i - offset >= inner->data.size()) {
             return {};
@@ -1283,6 +1281,8 @@ public:
 
     private_api::IndexRange index_range() const
     {
+        if (!inner)
+            return private_api::IndexRange { 0, 0 };
         const auto offset = inner->layout_state.offset;
         return private_api::IndexRange { offset, offset + inner->data.size() };
     }

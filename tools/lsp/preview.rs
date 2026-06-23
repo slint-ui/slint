@@ -23,7 +23,7 @@ use i_slint_live_preview::protocol::{
     PreviewComponent, PreviewConfig, PreviewToLspMessage, SourceFileVersion, VersionedUrl,
 };
 use lsp_types::Url;
-use slint::{PlatformError, SharedString};
+use slint::{PlatformError, SharedString, ToSharedString};
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
@@ -41,10 +41,14 @@ mod drop_location;
 mod element_selection;
 pub mod eval;
 mod ext;
+#[cfg(target_os = "macos")]
+pub mod macos_titlebar;
 mod preview_data;
 use ext::ElementRcNodeExt;
 mod outline;
 mod properties;
+#[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
+pub mod remote;
 pub mod ui;
 mod undo_redo;
 
@@ -56,12 +60,18 @@ pub fn run(
 ) -> std::result::Result<(), slint::PlatformError> {
     let app_window = ui::create_ui(&to_lsp, "", use_editor_ui)?;
 
+    #[cfg(target_os = "macos")]
+    if let ui::AppWindow::Editor(editor) = &app_window {
+        use slint::ComponentHandle;
+        macos_titlebar::setup(editor.as_weak());
+    }
+
     to_lsp
         .send_telemetry(&mut [(
             "type".to_string(),
             serde_json::to_value("preview_opened").unwrap(),
         )])
-        .unwrap();
+        .ok();
     app_window.window().set_fullscreen(fullscreen);
 
     tracing::debug!("Preview: requesting state from LSP");
@@ -143,6 +153,9 @@ pub struct PreviewState {
     loading_state: PreviewFutureState,
 
     pub to_lsp: RefCell<Option<Rc<dyn common::PreviewToLsp>>>,
+
+    #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
+    pub remote_discovery: Rc<remote::RemoteDiscovery>,
 }
 
 impl PreviewState {
@@ -568,7 +581,7 @@ fn set_code_binding(
         "type".to_string(),
         serde_json::to_value("property_changed").unwrap(),
     )])
-    .unwrap();
+    .ok();
 
     set_binding(
         element_url,
@@ -685,7 +698,7 @@ fn show_component(name: slint::SharedString, url: slint::SharedString) {
         lsp_types::Range::new(start, start),
         false,
     )
-    .unwrap();
+    .ok();
 }
 
 fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32, take_focus: bool) {
@@ -725,7 +738,7 @@ fn show_document_offset_range(url: slint::SharedString, start: i32, end: i32, ta
             lsp_types::Range::new(s, e),
             take_focus,
         )
-        .unwrap();
+        .ok();
     }
 }
 
@@ -1070,9 +1083,13 @@ fn send_workspace_edit(label: String, edit: lsp_types::WorkspaceEdit, test_edit:
 }
 
 fn change_style() {
-    let Some(current) =
-        PREVIEW_STATE.with_borrow(|preview_state| preview_state.current_component())
-    else {
+    // The user picked a style in the ComboBox; remember it as the requested
+    // style so the next build uses it.
+    let style = get_current_style();
+    let Some(current) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        preview_state.config.style = style;
+        preview_state.current_component()
+    }) else {
         return;
     };
 
@@ -1234,8 +1251,6 @@ fn config_changed(config: PreviewConfig) {
         set_show_preview_ui(!hide_ui);
     }
 
-    set_current_style(config.style);
-
     if let Some(current) = current {
         load_preview(current, LoadBehavior::Reload);
     }
@@ -1314,7 +1329,9 @@ async fn reload_timer_function() {
         else {
             return;
         };
-        let style = get_current_style();
+        // An empty style lets the compiler apply its own default (and SLINT_STYLE);
+        // the ComboBox is updated to the resolved style once the build finishes.
+        let style = config.style.clone();
 
         match reload_preview_impl(preview_component, behavior, style, config).await {
             Ok(()) => {}
@@ -1373,7 +1390,7 @@ async fn reload_timer_function() {
                 lsp_types::Range::new(pos, pos),
                 false,
             )
-            .unwrap();
+            .ok();
         }
     }
 }
@@ -1415,7 +1432,7 @@ pub fn load_preview(preview_component: PreviewComponent, behavior: LoadBehavior)
                 let timer = slint::Timer::default();
                 timer.start(
                     slint::TimerMode::SingleShot,
-                    core::time::Duration::from_millis(50),
+                    i_slint_live_preview::REBUILD_DEBOUNCE,
                     || {
                         let _ = slint::spawn_local(reload_timer_function());
                     },
@@ -1529,6 +1546,12 @@ async fn reload_preview_impl(
     let success = compiled.is_some();
     let loaded_component_name = compiled.as_ref().map(|c| c.name().to_string());
 
+    // Reflect the style the compiler actually used (after resolving the default,
+    // SLINT_STYLE, and "native") in the ComboBox.
+    if let Some(compiled) = &compiled {
+        set_current_style(compiled.type_loader().resolved_style.clone());
+    }
+
     tracing::debug!(
         "Preview: compiled url={}, component={:?}, success={}, diagnostics={}",
         component.url,
@@ -1566,28 +1589,32 @@ fn set_preview_factory(
     // Ensure that any popups are closed as they are related to the old factory
     i_slint_core::window::WindowInner::from_pub(app_window.window()).close_all_popups();
 
-    compiled.set_debug_handler(
-        |location, text| {
-            let location = location.as_ref().and_then(|l| {
-                l.source_file.as_ref().map(|f| {
-                    let (line, column) = f.line_column(l.span.offset, common::ByteFormat::Utf8);
-
-                    (f.clone(), line, column)
-                })
+    let _ = i_slint_core::window::WindowInner::from_pub(app_window.window())
+        .context()
+        .set_log_message_handler(Some(Box::new(|log_message| {
+            let message = log_message.message_arguments().to_string();
+            let location = log_message.location();
+            PREVIEW_STATE.with_borrow_mut(|state| {
+                let to_lsp = state.to_lsp.try_borrow();
+                let Some(to_lsp) = to_lsp.ok() else { return };
+                if let Some(to_lsp) = &*to_lsp {
+                    to_lsp
+                        .send(&PreviewToLspMessage::DebugMessage {
+                            location: location.as_ref().map(|location| {
+                                (
+                                    std::path::PathBuf::from(location.path),
+                                    location.line,
+                                    location.column,
+                                )
+                            }),
+                            message: message.clone(),
+                        })
+                        .ok();
+                }
             });
-            if let Some((file, line, column)) = &location {
-                i_slint_core::debug_log!(
-                    "DEBUG {}:{line}:{column}> {text}",
-                    file.path().display(),
-                );
-            } else {
-                i_slint_core::debug_log!("DEBUG> {text}");
-            }
-
-            let location = location.as_ref().map(|(file, line, column)| {
-                (file.path().to_string_lossy().to_string().into(), *line, *column)
-            });
-            let text = text.to_string();
+            let location = location
+                .as_ref()
+                .map(|location| (location.path.to_shared_string(), location.line, location.column));
             let _ = slint::invoke_from_event_loop(move || {
                 PREVIEW_STATE.with_borrow(|preview_state| {
                     if let Some(api) = preview_state.api.upgrade() {
@@ -1595,14 +1622,12 @@ fn set_preview_factory(
                             &api,
                             ui::LogMessageLevel::Debug,
                             location,
-                            &text,
+                            &message,
                         );
                     }
                 });
             });
-        },
-        i_slint_core::InternalToken,
-    );
+        })));
 
     let factory = slint::ComponentFactory::new(move |ctx: FactoryContext| {
         let instance = compiled.create_embedded(ctx).unwrap();
@@ -1618,6 +1643,27 @@ fn set_preview_factory(
 
 /// Highlight the element pointed at the offset in the path.
 /// When the URL is None, remove the highlight.
+pub fn set_remote_connection_state(
+    state: i_slint_live_preview::protocol::RemoteConnectionState,
+    target: String,
+    error: Option<String>,
+) {
+    use i_slint_live_preview::protocol::RemoteConnectionState as R;
+    PREVIEW_STATE.with_borrow(|preview_state| {
+        let _ = preview_state.api.upgrade_in_event_loop(move |api| {
+            let ui_state = match state {
+                R::Disconnected => ui::RemoteConnectionState::Disconnected,
+                R::Connecting => ui::RemoteConnectionState::Connecting,
+                R::Connected => ui::RemoteConnectionState::Connected,
+                R::Failed => ui::RemoteConnectionState::Failed,
+            };
+            api.set_remote_connection_state(ui_state);
+            api.set_remote_connection_target(target.into());
+            api.set_remote_connection_error(error.unwrap_or_default().into());
+        });
+    });
+}
+
 pub fn highlight(url: Option<Url>, offset: TextSize) {
     let Some(path) = url.as_ref().and_then(|u| Url::to_file_path(u).ok()) else {
         element_selection::unselect_element();
@@ -1854,7 +1900,7 @@ fn set_selected_element(
             lsp_types::Range::new(pos, pos),
             false,
         )
-        .unwrap();
+        .ok();
     }
 }
 
@@ -1886,10 +1932,15 @@ fn set_show_preview_ui(show_preview_ui: bool) {
     });
 }
 
+/// Selects `style` in the style ComboBox to reflect the style currently in use.
+/// Leaves the selection untouched if the style is not in the list.
 fn set_current_style(style: String) {
     PREVIEW_STATE.with_borrow(move |preview_state| {
         if let Some(api) = preview_state.api.upgrade() {
-            api.set_current_style(style.into())
+            use slint::Model;
+            if let Some(index) = api.get_known_styles().iter().position(|s| s.as_str() == style) {
+                api.set_current_style_index(index as i32);
+            }
         }
     });
 }
@@ -1897,7 +1948,12 @@ fn set_current_style(style: String) {
 fn get_current_style() -> String {
     PREVIEW_STATE.with_borrow(|preview_state| -> String {
         if let Some(api) = preview_state.api.upgrade() {
-            api.get_current_style().as_str().to_string()
+            use slint::Model;
+            let index = api.get_current_style_index();
+            api.get_known_styles()
+                .row_data(usize::try_from(index).unwrap_or(0))
+                .map(|s| s.to_string())
+                .unwrap_or_default()
         } else {
             String::new()
         }

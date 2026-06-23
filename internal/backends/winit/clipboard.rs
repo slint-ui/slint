@@ -72,6 +72,9 @@ pub fn create_clipboard(
             }
             #[cfg(not(feature = "x11"))]
             (Box::new(SilentClipboardContext), Box::new(SilentClipboardContext))
+        } else if #[cfg(target_os = "ios")] {
+            // iOS exposes a single general pasteboard; the selection clipboard is a no-op.
+            (Box::new(crate::ios::UiPasteboardClipboard), Box::new(SilentClipboardContext))
         } else {
             (
                 copypasta::ClipboardContext::new().map_or(

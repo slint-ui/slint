@@ -27,6 +27,7 @@ use winit::platform::windows::WindowExtWindows;
 #[cfg(muda)]
 use crate::muda::MudaType;
 use crate::renderer::WinitCompatibleRenderer;
+use crate::winit_compat::WindowSurfaceSizeExt;
 
 use corelib::item_tree::ItemTreeRc;
 #[cfg(enable_accesskit)]
@@ -174,7 +175,9 @@ enum WinitWindowOrNone {
         #[cfg(target_os = "ios")]
         keyboard_curve_sampler: super::ios::KeyboardCurveSampler,
         #[cfg(target_os = "ios")]
-        _color_scheme_observer: Option<super::ios::ColorSchemeObserver>,
+        _color_scheme_observer: Option<super::ios::TraitChangeObserver>,
+        #[cfg(target_os = "ios")]
+        _font_size_observer: Option<super::ios::TraitChangeObserver>,
     },
     None(RefCell<WindowAttributes>),
 }
@@ -519,10 +522,15 @@ impl WinitWindowAdapter {
         };
 
         // winit doesn't surface iOS appearance, so query the view's trait
-        // collection directly; the matching live observer is installed below as
-        // part of the `HasWindow` variant so its lifetime is tied to the window.
+        // collection directly; the matching live observers are installed below as
+        // part of the `HasWindow` variant so their lifetime is tied to the window.
         #[cfg(target_os = "ios")]
-        self.set_color_scheme(crate::ios::current_color_scheme(&content_view));
+        {
+            self.set_color_scheme(crate::ios::current_color_scheme(&content_view));
+            self.set_platform_default_font_size(crate::ios::current_default_font_size(
+                &content_view,
+            ));
+        }
 
         let frame_throttle = crate::frame_throttle::create_frame_throttle(
             self.self_weak.clone(),
@@ -562,6 +570,11 @@ impl WinitWindowAdapter {
             ),
             #[cfg(target_os = "ios")]
             _color_scheme_observer: crate::ios::install_color_scheme_observer(
+                &content_view,
+                self.self_weak.clone(),
+            ),
+            #[cfg(target_os = "ios")]
+            _font_size_observer: crate::ios::install_font_size_observer(
                 &content_view,
                 self.self_weak.clone(),
             ),
@@ -689,7 +702,7 @@ impl WinitWindowAdapter {
             // Note: On displays with a scale factor != 1, we get a scale factor change
             // event and a resize event, so all is good.
             if self.pending_resize_event_after_show.take() {
-                self.resize_event(winit_window.inner_size())?;
+                self.resize_event(winit_window.surface_size())?;
             }
         }
 
@@ -921,6 +934,11 @@ impl WinitWindowAdapter {
         }
     }
 
+    #[cfg(target_os = "ios")]
+    pub fn set_platform_default_font_size(&self, size: i_slint_core::lengths::LogicalLength) {
+        WindowInner::from_pub(self.window()).context().set_platform_default_font_size(Some(size));
+    }
+
     pub fn window_state_event(&self) {
         let Some(winit_window) = self.winit_window_or_none.borrow().as_window() else { return };
 
@@ -1105,6 +1123,12 @@ impl WinitWindowAdapter {
                 self.resize_window(size.into())?;
             };
 
+            // Pre-render the first frame before mapping the window to avoid
+            // a flash of uninitialized VRAM on X11 (no background_pixmap).
+            if matches!(visibility, WindowVisibility::ShownFirstTime) {
+                let _ = self.draw();
+            }
+
             winit_window.set_visible(true);
 
             // Refresh the SlintContext color-scheme now that the window is mapped: on some platforms
@@ -1123,6 +1147,12 @@ impl WinitWindowAdapter {
             if self.pending_redraw.get() {
                 self.draw()?;
             };
+
+            // On iOS making an already-created window visible doesn't generate a fresh
+            // RedrawRequested. winit's one initial RedrawRequested is delivered while the window is
+            // created (during `resumed`), so a window first shown later misses it and stays blank.
+            #[cfg(ios_and_friends)]
+            self.request_redraw();
 
             Ok(())
         } else {
@@ -1473,6 +1503,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 corelib::items::InputType::Text
                 | corelib::items::InputType::Number
                 | corelib::items::InputType::Decimal
+                | corelib::items::InputType::Search
                 | _ => winit::window::ImePurpose::Normal,
             });
             winit_window.set_ime_cursor_area(

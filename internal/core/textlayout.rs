@@ -29,6 +29,12 @@ use euclid::num::{One, Zero};
 
 use crate::items::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
 
+/// The font size to lay text out with when neither the `.slint` code nor the platform
+/// provide one. Last level of the precedence chain in
+/// [`crate::items::WindowItem::resolved_default_font_size`].
+pub const DEFAULT_FONT_SIZE: crate::lengths::LogicalLength =
+    crate::lengths::LogicalLength::new(12 as crate::Coord);
+
 #[cfg(feature = "unicode-linebreak")]
 mod linebreak_unicode;
 #[cfg(feature = "unicode-linebreak")]

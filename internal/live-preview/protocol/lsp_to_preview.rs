@@ -48,7 +48,31 @@ pub enum LspToPreviewMessage {
         url: Option<Url>,
         offset: u32,
     },
+    /// State of the remote-preview WebSocket, as observed by the LSP main
+    /// process. Sent back to the preview process so its Remote Preview
+    /// dialog can show the live state.
+    RemoteConnectionState {
+        state: RemoteConnectionState,
+        /// Human-readable `address:port` of the attempted target.
+        target: String,
+        /// Set on `Failed` to describe the cause.
+        error: Option<String>,
+    },
     Quit,
+    /// Keepalive probe; the viewer answers with [`super::PreviewToLspMessage::Pong`].
+    /// Never sent to local previews.
+    /// A protocol message because the LSP's browser-compatible WebSocket layer
+    /// doesn't expose frame-level pings.
+    Ping,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RemoteConnectionState {
+    Disconnected,
+    Connecting,
+    Connected,
+    Failed,
 }
 
 impl lsp_types::notification::Notification for LspToPreviewMessage {

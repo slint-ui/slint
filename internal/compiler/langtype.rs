@@ -384,6 +384,13 @@ pub struct BuiltinPropertyInfo {
     pub property_visibility: PropertyVisibility,
     /// Raw `///` doc comment from builtins.slint, if any.
     pub docs: Option<String>,
+    /// True when a component may declare a member of the same name, shadowing this one
+    /// (`//-shadowable` annotation in builtins.slint).
+    /// Members added to a builtin element after its initial release should be marked
+    /// shadowable so that older code that already declares the name keeps compiling —
+    /// unless a compiler pass accesses the member by name, in which case shadowing
+    /// would generate wrong code and the member must not be marked.
+    pub shadowable: bool,
 }
 
 impl BuiltinPropertyInfo {
@@ -393,6 +400,7 @@ impl BuiltinPropertyInfo {
             default_value: BuiltinPropertyDefault::None,
             property_visibility: PropertyVisibility::InOut,
             docs: None,
+            shadowable: false,
         }
     }
 
@@ -408,6 +416,7 @@ impl From<BuiltinFunction> for BuiltinPropertyInfo {
             default_value: BuiltinPropertyDefault::BuiltinFunction(function),
             property_visibility: PropertyVisibility::Public,
             docs: None,
+            shadowable: false,
         }
     }
 }
@@ -470,6 +479,7 @@ impl ElementType {
                         declared_pure: None,
                         is_local_to_component: false,
                         is_in_direct_base: false,
+                        is_shadowable: p.shadowable,
                         builtin_function: match &p.default_value {
                             BuiltinPropertyDefault::BuiltinFunction(f) => Some(f.clone()),
                             _ => None,
@@ -492,6 +502,7 @@ impl ElementType {
                     declared_pure: None,
                     is_local_to_component: false,
                     is_in_direct_base: false,
+                    is_shadowable: false,
                     builtin_function: None,
                 }
             }
@@ -539,8 +550,9 @@ impl ElementType {
                     None => {
                         let base_type = component.root_element.borrow().base_type.clone();
                         if base_type == tr.empty_type() {
-                            if Self::can_be_special_child_element(name, tr) {
-                                return tr.lookup_element(name);
+                            let element = tr.lookup_element(name)?;
+                            if matches!(&element, ElementType::Builtin(b) if b.can_be_declared_without_children_slot) {
+                                return Ok(element);
                             }
                             return Err(format!("'{}' cannot have children. Only components with @children can have children", component.id));
                         }
@@ -550,8 +562,11 @@ impl ElementType {
                 base_type.lookup_type_for_child_element(name, tr)
             }
             Self::Builtin(builtin) => {
-                if Self::can_be_special_child_element(name, tr) {
-                    return tr.lookup_element(name);
+                let looked_up = tr.lookup_element(name);
+                if let Ok(ElementType::Builtin(b)) = &looked_up
+                    && b.can_be_declared_without_children_slot
+                {
+                    return Ok(ElementType::Builtin(b.clone()));
                 }
                 if builtin.disallow_global_types_as_child_elements {
                     if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
@@ -567,6 +582,8 @@ impl ElementType {
                     valid_children.sort();
 
                     let err = if valid_children.is_empty() {
+                        // No whitelist to suggest from; prefer "Unknown element" for typos.
+                        looked_up?;
                         format!("{} cannot have children elements", builtin.native_class.class_name,)
                     } else {
                         format!(
@@ -578,7 +595,7 @@ impl ElementType {
                     };
                     return Err(err);
                 }
-                let err = match tr.lookup_element(name) {
+                let err = match looked_up {
                     Err(e) => e,
                     Ok(t) => {
                         if !tr.expose_internal_types
@@ -608,14 +625,6 @@ impl ElementType {
                 }
             })
         }
-    }
-
-    fn can_be_special_child_element(name: &str, tr: &TypeRegister) -> bool {
-        let is_special_builtin = matches!(
-            tr.lookup_element(name),
-            Ok(ElementType::Builtin(b)) if b.can_be_declared_without_children_slot
-        );
-        is_special_builtin
     }
 
     /// Assume this is a builtin type, panic if it isn't
@@ -879,6 +888,9 @@ pub struct PropertyLookupResult<'a> {
     pub is_local_to_component: bool,
     /// True if the property in the direct base of the component (for protected visibility purposes)
     pub is_in_direct_base: bool,
+    /// True if a local declaration may shadow this member. Only builtin element
+    /// members marked `//-shadowable` in builtins.slint are shadowable.
+    pub is_shadowable: bool,
 
     /// If the property is a builtin function
     pub builtin_function: Option<BuiltinFunction>,
@@ -907,6 +919,7 @@ impl<'a> PropertyLookupResult<'a> {
             declared_pure: None,
             is_local_to_component: false,
             is_in_direct_base: false,
+            is_shadowable: false,
             builtin_function: None,
         }
     }

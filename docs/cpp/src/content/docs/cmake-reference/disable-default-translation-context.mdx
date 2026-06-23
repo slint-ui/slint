@@ -1,0 +1,8 @@
+---
+title: Disable Default Translation Context
+description: Disable the default translation context with the SLINT_NO_DEFAULT_TRANSLATION_CONTEXT target property.
+---
+
+Unless explicitly specified with the `@tr("context" => ...)`, the default translation context is the component name.
+Set the `SLINT_NO_DEFAULT_TRANSLATION_CONTEXT` target property to disable the default translation context.
+When doing that, the `--no-default-translation-context` flag must be passed to `slint-tr-extractor`.

@@ -31,16 +31,17 @@ use core::pin::Pin;
 use i_slint_core_macros::*;
 
 // Pick the per-platform tray backend. The `dummy` arm catches anything without a
-// real native tray (Android, WASM, embedded targets, …) so a `SystemTrayIcon`-
-// rooted component constructs without surfacing an icon to any host shell.
+// real native tray (the `system-tray` feature is off, or Android, WASM, embedded
+// targets, …) so a `SystemTrayIcon`-rooted component constructs without surfacing
+// an icon to any host shell.
 cfg_if::cfg_if! {
-    if #[cfg(target_os = "macos")] {
+    if #[cfg(all(feature = "system-tray", target_os = "macos"))] {
         mod appkit;
         use self::appkit::PlatformTray;
-    } else if #[cfg(target_os = "windows")] {
+    } else if #[cfg(all(feature = "system-tray", target_os = "windows"))] {
         mod windows;
         use self::windows::PlatformTray;
-    } else if #[cfg(all(feature = "std", target_family = "unix", not(target_vendor = "apple"), not(target_os = "android")))] {
+    } else if #[cfg(all(feature = "system-tray", target_family = "unix", not(target_vendor = "apple"), not(target_os = "android")))] {
         mod ksni;
         use self::ksni::PlatformTray;
     } else {
@@ -188,7 +189,7 @@ pub struct SystemTrayIcon {
     pub title: Property<SharedString>,
     pub visible: Property<bool>,
     pub color_scheme: Property<ColorScheme>,
-    pub activated: Callback<VoidArg>,
+    pub clicked: Callback<VoidArg>,
     pub cached_rendering_data: CachedRenderingData,
     data: SystemTrayIconDataBox,
 }

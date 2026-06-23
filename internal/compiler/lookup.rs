@@ -1167,6 +1167,9 @@ impl LookupObject for NumberExpression<'_> {
             .or_else(|| f2("sign", member_macro(BuiltinMacroFunction::Sign)))
             .or_else(|| f2("to-fixed", member_function(BuiltinFunction::ToFixed)))
             .or_else(|| f2("to-precision", member_function(BuiltinFunction::ToPrecision)))
+            .or_else(|| {
+                f2("to-string-unlocalized", member_function(BuiltinFunction::ToStringUnlocalized))
+            })
             .or_else(|| NumberWithUnitExpression(self.0).for_each_entry(ctx, f))
     }
 }

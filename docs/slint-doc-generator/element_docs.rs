@@ -879,7 +879,7 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
                 || all_text.contains(&format!("<{sname}/>"))
             {
                 extra_imports.push(format!(
-                    "import {sname} from '/src/content/docs/reference/generated/structs/{sname}.md';"
+                    "import {sname} from '/src/content/docs/reference/generated/structs/_{sname}.md';"
                 ));
             }
         }
@@ -888,7 +888,7 @@ pub fn generate(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
                 || all_text.contains(&format!("<{ename}/>"))
             {
                 extra_imports.push(format!(
-                    "import {ename} from '/src/content/docs/reference/generated/enums/{ename}.md';"
+                    "import {ename} from '/src/content/docs/reference/generated/enums/_{ename}.md';"
                 ));
             }
         }

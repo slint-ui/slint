@@ -1,0 +1,40 @@
+/* Copyright © SixtyFPS GmbH <info@slint.dev> */
+/* SPDX-License-Identifier: MIT */
+
+/* Member signatures are Shiki-highlighted (`defaultColor: false`), so every
+   token carries both a `--shiki-light` and `--shiki-dark` colour. Pick the one
+   matching the active Starlight theme. */
+.api-signature {
+    color: var(--shiki-dark);
+    background: var(--slint-code-background);
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 0.4rem;
+    padding: 0.6rem 0.9rem;
+    margin: 0.4rem 0 0.8rem;
+    overflow-x: auto;
+    font-size: var(--sl-text-code);
+    line-height: 1.5;
+}
+
+.api-signature span {
+    color: var(--shiki-dark);
+}
+
+:root[data-theme="light"] .api-signature,
+:root[data-theme="light"] .api-signature span {
+    color: var(--shiki-light);
+}
+
+/* Cross-referenced types stay legible as links while keeping their token colour. */
+.api-signature a,
+.api-signature a span {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: var(--sl-color-accent);
+    text-underline-offset: 0.2em;
+}
+
+.api-signature a:hover,
+.api-signature a:hover span {
+    text-decoration-thickness: 2px;
+}

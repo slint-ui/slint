@@ -14,14 +14,19 @@ alsa
 amdgpu
 amet
 Amoled
+androideabi
 Appbar
+appicon
+appiconset
 appkit
 appmain
 appsink
 appview
 ARCHS
+armeabi
 armhf
 arrayvec
+assetcatalog
 astrolib
 astrowind
 asyncio
@@ -104,6 +109,7 @@ Cpolygon
 cpos
 cppbuild
 cppdocs
+cppreference
 cstyle
 Csvg
 ctest
@@ -125,6 +131,7 @@ defconfig
 defmt
 defதோசை
 deinit
+delenv
 depfile
 deque
 devcode
@@ -132,6 +139,7 @@ devenv
 dfaure
 dgettext
 directx
+dists
 divp
 divq
 divr
@@ -152,6 +160,8 @@ driverlib
 droparea
 dropevent
 DSHIELD
+dsym
+dsymutil
 dustygold
 Dxgi
 DYLD
@@ -220,6 +230,7 @@ framebuffers
 freetype
 frontends
 Fsvg
+fullsize
 Fullwidth
 fvar
 Fwww
@@ -246,6 +257,7 @@ hidpi
 highp
 HINSTANCE
 Hira
+hlayout
 hmenu
 horizontalbox
 horizontallayout
@@ -322,6 +334,7 @@ libgstrtspserver
 Libinput
 libloading
 libm
+librsvg
 libseat
 libslint
 libstdc
@@ -353,9 +366,11 @@ machdep
 Macronix
 mainwindow
 MALLOC
+manylinux
 materialui
 matplot
 maturin
+mcp
 mcus
 MCUX
 mdbook
@@ -441,6 +456,7 @@ prediv
 Preedit
 PREMUL
 premultiplication
+premultiply
 PRIMASK
 printk
 println
@@ -452,6 +468,7 @@ protoc
 protox
 Pseudonymized
 psram
+purelib
 pyclass
 pyftsubset
 pyfunction
@@ -459,6 +476,7 @@ pymethods
 pymodule
 pyobject
 pypi
+pypiserver
 pyproject
 pystruct
 pytest
@@ -473,6 +491,7 @@ QXGA
 radiobuttontile
 Raleway
 Randriana
+rasterizer
 rasterizes
 RBUTTONUP
 rects
@@ -514,6 +533,7 @@ serde
 setattr
 SETFL
 Shaderiv
+shadowable
 sharedfontique
 sharedstring
 sharedvector
@@ -536,6 +556,7 @@ spinboxes
 SPIRAM
 SPRINTF
 Spyrosoft
+srcroot
 SRCS
 SRGBA
 standardbutton
@@ -626,6 +647,7 @@ unpic
 Unpremul
 unsendable
 usbc
+userconfig
 usecases
 usize
 usvg
@@ -637,6 +659,7 @@ verticalbox
 verticallayout
 VGWGPU
 viewports
+vlayout
 vref
 vscodeversion
 vtables
@@ -668,8 +691,11 @@ WQXGA
 writeback
 WRONLY
 xbuild
+xcarchive
+xcassets
 xcent
 xchg
+xcrun
 xfer
 xfixes
 xlib

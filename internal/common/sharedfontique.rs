@@ -4,10 +4,13 @@
 pub use fontique;
 pub use skrifa;
 
+#[cfg(feature = "svg-text")]
+pub mod svg;
+
 #[cfg(any(target_family = "wasm", target_os = "nto"))]
 use fontique::ScriptExt;
 
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::Arc;
 
 /// Create a new fontique Collection.
@@ -19,7 +22,11 @@ pub fn create_collection(shared: bool) -> Collection {
     let mut source_cache =
         if shared { fontique::SourceCache::new_shared() } else { fontique::SourceCache::default() };
 
-    let mut default_fonts: HashMap<std::path::PathBuf, fontique::QueryFont> = Default::default();
+    // Preserves insertion order — the primary (SLINT_DEFAULT_FONT) lands first, fallbacks
+    // (SLINT_FONT_PATH) follow. The runtime bitmap-font fallback and the compile-time
+    // bitmap-font emission both rely on this ordering rather than any later sort.
+    let mut default_fonts: Vec<(std::path::PathBuf, fontique::QueryFont)> = Vec::new();
+    let mut chain_families: Vec<fontique::FamilyId> = Vec::new();
 
     #[cfg(any(target_family = "wasm", target_os = "nto"))]
     {
@@ -43,38 +50,79 @@ pub fn create_collection(shared: bool) -> Collection {
         }
     }
 
-    let mut add_font_from_path = |path: std::path::PathBuf| {
-        if let Ok(bytes) = std::fs::read(&path) {
-            let fonts = collection.register_fonts(bytes.into(), None);
-            for generic_family in [
-                fontique::GenericFamily::SansSerif,
-                fontique::GenericFamily::SystemUi,
-                fontique::GenericFamily::UiSansSerif,
-            ] {
-                collection.set_generic_families(
-                    generic_family,
-                    fonts.iter().map(|(family_id, _)| *family_id),
-                );
+    let mut registered_paths: HashSet<std::path::PathBuf> = HashSet::new();
+    let mut register_path =
+        |path: std::path::PathBuf,
+         collection: &mut fontique::Collection,
+         source_cache: &mut fontique::SourceCache,
+         default_fonts: &mut Vec<_>,
+         chain_families: &mut Vec<fontique::FamilyId>| {
+            if !registered_paths.insert(path.clone()) {
+                return;
             }
-
-            // just use the first font of the first family in the file.
+            let Ok(bytes) = std::fs::read(&path) else { return };
+            let fonts = collection.register_fonts(bytes.into(), None);
+            if fonts.is_empty() {
+                return;
+            }
+            for (family_id, _) in &fonts {
+                if !chain_families.contains(family_id) {
+                    chain_families.push(*family_id);
+                }
+            }
             if let Some(font) = fonts.first().and_then(|(id, infos)| {
                 let info = infos.first()?;
-                get_font_for_info(&mut collection, &mut source_cache, *id, info)
+                get_font_for_info(collection, source_cache, *id, info)
             }) {
-                default_fonts.insert(path, font);
+                default_fonts.push((path, font));
+            }
+        };
+
+    // SLINT_DEFAULT_FONT: a single .ttf to act as the primary font.
+    if let Some(path) = std::env::var_os("SLINT_DEFAULT_FONT") {
+        register_path(
+            path.into(),
+            &mut collection,
+            &mut source_cache,
+            &mut default_fonts,
+            &mut chain_families,
+        );
+    }
+
+    // SLINT_FONT_PATH: OS-PATH-style list of additional fonts. Entries may be `.ttf`
+    // files or directories (scanned non-recursively); everything found is appended to
+    // the fallback chain after the primary.
+    if let Some(path_list) = std::env::var_os("SLINT_FONT_PATH") {
+        for entry in std::env::split_paths(&path_list) {
+            if entry.is_file() {
+                register_path(
+                    entry,
+                    &mut collection,
+                    &mut source_cache,
+                    &mut default_fonts,
+                    &mut chain_families,
+                );
+            } else if let Ok(dir) = std::fs::read_dir(&entry) {
+                for file in dir.flatten() {
+                    register_path(
+                        file.path(),
+                        &mut collection,
+                        &mut source_cache,
+                        &mut default_fonts,
+                        &mut chain_families,
+                    );
+                }
             }
         }
-    };
+    }
 
-    if let Some(path) = std::env::var_os("SLINT_DEFAULT_FONT") {
-        let path = std::path::Path::new(&path);
-        if path.extension().is_some() {
-            add_font_from_path(path.to_owned());
-        } else if let Ok(dir) = std::fs::read_dir(path) {
-            for file in dir.flatten() {
-                add_font_from_path(file.path());
-            }
+    if !chain_families.is_empty() {
+        for generic_family in [
+            fontique::GenericFamily::SansSerif,
+            fontique::GenericFamily::SystemUi,
+            fontique::GenericFamily::UiSansSerif,
+        ] {
+            collection.set_generic_families(generic_family, chain_families.iter().copied());
         }
     }
 
@@ -85,7 +133,7 @@ pub fn create_collection(shared: bool) -> Collection {
 pub struct Collection {
     pub inner: fontique::Collection,
     pub source_cache: fontique::SourceCache,
-    pub default_fonts: Arc<HashMap<std::path::PathBuf, fontique::QueryFont>>,
+    pub default_fonts: Arc<Vec<(std::path::PathBuf, fontique::QueryFont)>>,
 }
 
 impl Collection {

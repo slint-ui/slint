@@ -56,6 +56,9 @@
 (function_call
   name: (_) @function.call)
 
+(changed_function_call
+  name: (_) @function.call)
+
 ; definitions
 (callback
   name: (_) @function)
@@ -233,7 +236,7 @@
 (global_definition
   "global" @keyword)
 
-(imperative_block
+(return_statement
   "return" @keyword.return)
 
 (import_statement

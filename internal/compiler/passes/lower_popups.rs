@@ -191,6 +191,41 @@ fn lower_popup_window(
         e.borrow_mut().enclosing_component = weak.clone()
     });
 
+    // The PopupWindow's `is-open` property is read from the *parent* component (for example to rotate a
+    // ComboBox's arrow while the dropdown is shown). Since the popup now lives in its own component and
+    // is only instantiated while shown, that read cannot resolve into the popup. Instead, synthesize a
+    // property on the parent and redirect every `<popup>.is-open` reference to it. The runtime keeps
+    // this property in sync (true on show, false on close); see the generators and window.rs.
+    let is_open = {
+        let mut referenced = false;
+        visit_all_named_references(&parent_component, &mut |nr| {
+            if Rc::ptr_eq(&nr.element(), popup_window_element) && nr.name() == "is-open" {
+                referenced = true;
+            }
+        });
+        if referenced {
+            let name = format_smolstr!("popup-{}-is-open", popup_window_element.borrow().id);
+            parent_component
+                .root_element
+                .borrow_mut()
+                .property_declarations
+                .insert(name.clone(), Type::Bool.into());
+            let is_open_ref = NamedReference::new(&parent_component.root_element, name);
+            // The runtime writes this property through a generated setter that the (LLR) optimizer
+            // cannot see, so mark it as set to keep it from being constant-folded to its default.
+            is_open_ref.mark_as_set();
+            let target = is_open_ref.clone();
+            visit_all_named_references(&parent_component, &mut |nr| {
+                if Rc::ptr_eq(&nr.element(), popup_window_element) && nr.name() == "is-open" {
+                    *nr = target.clone();
+                }
+            });
+            Some(is_open_ref)
+        } else {
+            None
+        }
+    };
+
     // Take a reference to the x/y coordinates, to be read when calling show_popup(), and
     // converted to absolute coordinates in the run-time library.
     let coord_x = NamedReference::new(&popup_comp.root_element, SmolStr::new_static("x"));
@@ -225,6 +260,7 @@ fn lower_popup_window(
         close_policy,
         parent_element: parent_element.clone(),
         is_tooltip: popup_window_element.borrow().is_tooltip,
+        is_open,
     });
 }
 

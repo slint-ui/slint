@@ -24,7 +24,6 @@ export component TestCase inherits Window {
                 allow-copy: false;
                 allow-move: true;
                 allow-link: false;
-                preferred-action: DragAction.move;
                 drag-finished(action) => {
                     last-finished = action;
                     finished-count += 1;
@@ -48,7 +47,7 @@ use slint::{platform::WindowEvent, LogicalPosition, platform::PointerEventButton
 use slint::private_unstable_api::re_exports::{DragAction, MouseCursor};
 
 let instance = TestCase::new().unwrap();
-instance.on_make_data(|| Default::default());
+instance.on_make_data(|| slint::SharedString::from("payload").into());
 
 // --- Successful drag with preferred move action ---
 assert_eq!(instance.get_dragging(), false);

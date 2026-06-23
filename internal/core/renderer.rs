@@ -145,8 +145,6 @@ pub trait RendererSealed {
             .map(|wa| crate::window::WindowInner::from_pub(wa.window()).context().clone())
     }
 
-    fn default_font_size(&self) -> LogicalLength;
-
     fn resize(&self, _size: crate::api::PhysicalSize) -> Result<(), PlatformError> {
         Ok(())
     }

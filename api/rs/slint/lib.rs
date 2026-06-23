@@ -222,7 +222,12 @@ pub use i_slint_core::component_factory::ComponentFactory;
 #[cfg(not(target_arch = "wasm32"))]
 pub use i_slint_core::graphics::{BorrowedOpenGLTextureBuilder, BorrowedOpenGLTextureOrigin};
 pub use i_slint_core::input::{Keys, KeysParseError};
-pub use i_slint_core::items::{StandardListViewItem, TableColumn};
+#[doc(hidden)]
+#[deprecated(note = "Use slint::language::StandardListViewItem instead")]
+pub use i_slint_core::items::StandardListViewItem;
+#[doc(hidden)]
+#[deprecated(note = "Use slint::language::TableColumn instead")]
+pub use i_slint_core::items::TableColumn;
 pub use i_slint_core::model::{
     FilterModel, MapModel, Model, ModelExt, ModelNotify, ModelPeer, ModelRc, ModelTracker,
     ReverseModel, SortModel, VecModel,
@@ -692,9 +697,9 @@ pub mod winit_030 {
     pub type WinitWindowEventResult = EventResult;
 }
 
-#[cfg(feature = "unstable-fontique-09")]
-pub mod fontique_09 {
-    //! Fontique 0.9 specific types and re-exports.
+#[cfg(feature = "unstable-fontique-010")]
+pub mod fontique_010 {
+    //! Fontique 0.10 specific types and re-exports.
     //!
     //! *Note*: This module is behind a feature flag and may be removed or changed in future minor releases,
     //!         as new major Fontique releases become available.
@@ -717,18 +722,18 @@ pub mod fontique_09 {
     ///
     /// `Cargo.toml`:
     /// ```toml
-    /// slint = { version = "~1.17", features = ["unstable-fontique-09"] }
+    /// slint = { version = "~1.17", features = ["unstable-fontique-010"] }
     /// ```
     ///
     /// `main.rs`:
     /// ```rust,no_run
-    /// use slint::fontique_09::fontique;
+    /// use slint::fontique_010::fontique;
     ///
     /// fn main() {
     ///     // ...
     ///     let downloaded_font: Vec<u8> = todo!("Download https://somewebsite.com/font.ttf");
     ///     let blob = fontique::Blob::new(std::sync::Arc::new(downloaded_font));
-    ///     let mut collection = slint::fontique_09::shared_collection();
+    ///     let mut collection = slint::fontique_010::shared_collection();
     ///     let fonts = collection.register_fonts(blob, None);
     ///     collection
     ///         .append_fallbacks(fontique::FallbackKey::new(fontique::Script::from_str_unchecked("Hira"), None), fonts.iter().map(|x| x.0));

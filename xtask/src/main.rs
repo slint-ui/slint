@@ -7,7 +7,8 @@ use clap::Parser;
 use std::error::Error;
 use std::path::PathBuf;
 
-mod cppdocs;
+mod generate_cppdocs_headers;
+mod license;
 mod license_headers_check;
 mod nodepackage;
 mod reuse_compliance_check;
@@ -16,8 +17,10 @@ mod reuse_compliance_check;
 pub enum TaskCommand {
     #[command(name = "check_license_headers")]
     CheckLicenseHeaders(license_headers_check::LicenseHeaderCheck),
-    #[command(name = "cppdocs")]
-    CppDocs(CppDocsCommand),
+    #[command(name = "generate_cppdocs_headers")]
+    GenerateCppDocsHeaders(GenerateCppDocsHeadersCommand),
+    #[command(name = "license")]
+    License(license::LicenseCommand),
     #[command(name = "node_package")]
     NodePackage(nodepackage::NodePackageOptions),
     #[command(name = "check_reuse_compliance")]
@@ -32,9 +35,8 @@ pub struct ApplicationArguments {
 }
 
 #[derive(Debug, clap::Parser)]
-pub struct CppDocsCommand {
-    #[arg(long, action)]
-    show_warnings: bool,
+pub struct GenerateCppDocsHeadersCommand {
+    /// Generate the headers for the experimental APIs as well.
     #[arg(long, action)]
     experimental: bool,
 }
@@ -48,7 +50,6 @@ fn root_dir() -> PathBuf {
 
 struct CommandOutput {
     stdout: Vec<u8>,
-    stderr: Vec<u8>,
 }
 
 fn run_command<I, K, V>(program: &str, args: &[&str], env: I) -> anyhow::Result<CommandOutput>
@@ -77,14 +78,17 @@ where
             String::from_utf8_lossy(&output.stderr)
         ))
     } else {
-        Ok(CommandOutput { stderr: output.stderr, stdout: output.stdout })
+        Ok(CommandOutput { stdout: output.stdout })
     }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     match ApplicationArguments::parse().command {
         TaskCommand::CheckLicenseHeaders(cmd) => cmd.check_license_headers()?,
-        TaskCommand::CppDocs(cmd) => cppdocs::generate(cmd.show_warnings, cmd.experimental)?,
+        TaskCommand::GenerateCppDocsHeaders(cmd) => {
+            generate_cppdocs_headers::generate(cmd.experimental)?
+        }
+        TaskCommand::License(cmd) => cmd.run()?,
         TaskCommand::NodePackage(cmd) => nodepackage::generate(cmd.sha1)?,
         TaskCommand::ReuseComplianceCheck(cmd) => cmd.check_reuse_compliance()?,
     };

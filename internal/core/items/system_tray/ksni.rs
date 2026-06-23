@@ -45,7 +45,9 @@ impl ::ksni::Tray for KsniTray {
         let _ = self.event_tx.try_send(Event::Activate(x, y));
     }
 
-    // Slint's `tooltip` is the hover text — it goes into SNI `ToolTip`.
+    // Slint's `tooltip` is the hover text — it goes into SNI `ToolTip.title`,
+    // which is a plain-text field per the spec (the `description` slot is the
+    // one that accepts HTML markup), so no escaping is applied.
     fn tool_tip(&self) -> ::ksni::ToolTip {
         ::ksni::ToolTip { title: self.tooltip.clone(), ..Default::default() }
     }
@@ -269,7 +271,7 @@ async fn dispatch_loop(rx: async_channel::Receiver<Event>, self_weak: crate::ite
                 }
             }
             Event::Activate(_x, _y) => {
-                tray.activated.call(&());
+                tray.clicked.call(&());
             }
         }
     }

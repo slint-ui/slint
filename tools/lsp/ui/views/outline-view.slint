@@ -58,6 +58,7 @@ export component OutlineView inherits VerticalLayout {
         for item[idx] in outline-data: DragArea {
             height: 38px;
             data: Api.move-element-instance-data(item.uri, item.offset);
+            allow-move: true;
 
             property <bool> selected: item.uri == Api.current-element.source-uri && item.offset == Api.current-element.offset;
 
@@ -95,7 +96,7 @@ export component OutlineView inherits VerticalLayout {
                 Rectangle {
                     height: 1px;
                     background: Palette.foreground;
-                    visible: parent.contains-drag;
+                    visible: parent.has-drag;
                 }
             }
 
@@ -117,7 +118,7 @@ export component OutlineView inherits VerticalLayout {
                 Rectangle {
                     height: 1px;
                     background: Palette.foreground;
-                    visible: parent.contains-drag;
+                    visible: parent.has-drag;
                 }
             }
 
@@ -140,7 +141,7 @@ export component OutlineView inherits VerticalLayout {
                 Rectangle {
                     background: {
                         let bg-color = selected ? Palette.selection-background : Palette.background;
-                        return ta-open.has-hover || ta.has-hover || drop-as-child.contains-drag ? bg-color.mix(Palette.selection-background, 50%) : bg-color;
+                        return ta-open.has-hover || ta.has-hover || drop-as-child.has-drag ? bg-color.mix(Palette.selection-background, 50%) : bg-color;
                     }
                     animate background {
                         duration: 200ms;

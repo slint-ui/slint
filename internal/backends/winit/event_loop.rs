@@ -89,6 +89,10 @@ pub struct EventLoopState {
     /// Set to true when pumping events for the shortest amount of time possible.
     pumping_events_instantly: bool,
 
+    /// Allocates small i32 finger ids for iOS's pointer-valued touch ids.
+    #[cfg(target_os = "ios")]
+    touch_finger_ids: crate::ios::TouchFingerIdAllocator,
+
     custom_application_handler: Option<Box<dyn crate::CustomApplicationHandler>>,
 }
 
@@ -105,6 +109,8 @@ impl EventLoopState {
             current_resize_direction: Default::default(),
             pending_mouse_move: Default::default(),
             pumping_events_instantly: Default::default(),
+            #[cfg(target_os = "ios")]
+            touch_finger_ids: Default::default(),
             custom_application_handler,
         }
     }
@@ -457,11 +463,29 @@ impl winit::application::ApplicationHandler<SlintEvent> for EventLoopState {
             WindowEvent::Touch(touch) => {
                 let location = touch.location.to_logical(runtime_window.scale_factor() as f64);
                 let position = euclid::point2(location.x, location.y);
-                runtime_window.process_touch_input(
-                    touch.id,
-                    position,
-                    winit_touch_phase(touch.phase),
-                );
+                // winit types the touch id as u64, but on all platforms except
+                // iOS it is in fact a small integer that fits in i32. Only iOS
+                // stores a UITouch pointer address in it, which
+                // TouchFingerIdAllocator maps to a small id instead.
+                #[cfg(not(target_os = "ios"))]
+                let finger_id =
+                    Some(i32::try_from(touch.id).expect("winit touch id out of i32 range"));
+                #[cfg(target_os = "ios")]
+                let finger_id = match touch.phase {
+                    winit::event::TouchPhase::Started | winit::event::TouchPhase::Moved => {
+                        self.touch_finger_ids.id_for(touch.id)
+                    }
+                    winit::event::TouchPhase::Ended | winit::event::TouchPhase::Cancelled => {
+                        self.touch_finger_ids.take(touch.id)
+                    }
+                };
+                if let Some(finger_id) = finger_id {
+                    runtime_window.process_touch_input(
+                        finger_id,
+                        position,
+                        winit_touch_phase(touch.phase),
+                    );
+                }
             }
             WindowEvent::ScaleFactorChanged { scale_factor, inner_size_writer: _ } => {
                 if std::env::var("SLINT_SCALE_FACTOR").is_err() {

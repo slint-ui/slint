@@ -85,6 +85,7 @@ impl Document {
         reexports: Exports,
         diag: &mut BuildDiagnostics,
         parent_registry: &Rc<RefCell<TypeRegister>>,
+        ignore_missing_font_files: bool,
     ) -> Self {
         debug_assert_eq!(node.kind(), SyntaxKind::Document);
 
@@ -256,10 +257,7 @@ impl Document {
             .iter()
             .filter(|import| matches!(import.import_kind, ImportKind::FileImport))
             .filter_map(|import| {
-                if import.file.ends_with(".ttc")
-                    || import.file.ends_with(".ttf")
-                    || import.file.ends_with(".otf")
-                {
+                if crate::pathutils::is_font_file(&import.file) {
                     let token_path = import.import_uri_token.source_file.path();
                     let import_file_path = PathBuf::from(import.file.clone());
                     let import_file_path = crate::pathutils::join(token_path, &import_file_path)
@@ -267,7 +265,10 @@ impl Document {
 
                     // Assume remote urls are valid, we need to load them at run-time (which we currently don't). For
                     // local paths we should try to verify the existence and let the developer know ASAP.
-                    if crate::pathutils::is_url(&import_file_path)
+                    // When the resource URL mapper is set (e.g. remote viewer), fonts are
+                    // delivered out-of-band; skip the local existence check.
+                    if ignore_missing_font_files
+                        || crate::pathutils::is_url(&import_file_path)
                         || crate::fileaccess::load_file(std::path::Path::new(&import_file_path))
                             .is_some()
                     {
@@ -375,6 +376,10 @@ pub struct PopupWindow {
     pub close_policy: EnumerationValue,
     pub parent_element: ElementRc,
     pub is_tooltip: bool,
+    /// A reference to a synthesized property on the *parent* component that the runtime keeps in sync
+    /// with the popup's visibility (`true` while shown, `false` once closed). This is `Some` only when
+    /// the parent reads the PopupWindow's `is-open` property; see the `lower_popups` pass.
+    pub is_open: Option<NamedReference>,
 }
 
 #[derive(Debug, Clone)]
@@ -426,9 +431,12 @@ pub struct InitCode {
 
 impl InitCode {
     pub fn iter(&self) -> impl Iterator<Item = &Expression> {
-        self.font_registration_code
+        self.font_registration_code.iter().chain(self.iter_without_font_registration())
+    }
+    /// The init code without the font registration, which has to run before the property init.
+    pub fn iter_without_font_registration(&self) -> impl Iterator<Item = &Expression> {
+        self.focus_setting_code
             .iter()
-            .chain(self.focus_setting_code.iter())
             .chain(self.constructor_code.iter())
             .chain(self.inlined_init_code.values())
     }
@@ -642,6 +650,9 @@ pub struct PropertyDeclaration {
     pub visibility: PropertyVisibility,
     /// For function or callback: whether it is declared as `pure` (None for private function for which this has to be deduced)
     pub pure: Option<bool>,
+    /// Whether the declaration shadows a builtin element member of the same name
+    /// (diagnosed by the check_builtin_shadowing pass)
+    pub shadows_builtin: bool,
 }
 
 impl PropertyDeclaration {
@@ -1256,9 +1267,15 @@ impl Element {
             let PropertyLookupResult {
                 resolved_name: prop_name,
                 property_type: maybe_existing_prop_type,
+                is_shadowable,
                 ..
             } = r.lookup_property(&unresolved_prop_name);
+            let shadows_builtin = maybe_existing_prop_type != Type::Invalid && is_shadowable;
             match maybe_existing_prop_type {
+                Type::Invalid => {} // Ok to proceed with a new declaration
+                // The declaration shadows a shadowable builtin member;
+                // the check_builtin_shadowing pass emits the diagnostic
+                _ if shadows_builtin => {}
                 Type::Callback { .. } => {
                     diag.push_error(
                         format!("Cannot declare property '{prop_name}' when a callback with the same name exists"),
@@ -1273,7 +1290,6 @@ impl Element {
                     );
                     continue;
                 }
-                Type::Invalid => {} // Ok to proceed with a new declaration
                 _ => {
                     diag.push_error(
                         format!("Cannot override property '{unresolved_prop_name}'"),
@@ -1322,19 +1338,22 @@ impl Element {
                 );
             }
 
+            // Use the name as declared, not the resolved name: when the declaration
+            // shadows a builtin member, the resolved name may be a native alias.
             r.property_declarations.insert(
-                prop_name.clone().into(),
+                unresolved_prop_name.clone(),
                 PropertyDeclaration {
                     property_type: prop_type,
                     node: Some(prop_decl.clone().into()),
                     visibility,
+                    shadows_builtin,
                     ..Default::default()
                 },
             );
 
             if let Some(csn) = prop_decl.BindingExpression() {
                 property_bindings.push((
-                    prop_name.clone().into(),
+                    unresolved_prop_name.clone(),
                     csn,
                     prop_decl.DeclaredIdentifier(),
                 ));
@@ -1343,7 +1362,7 @@ impl Element {
             if let Some(csn) = prop_decl.TwoWayBinding() {
                 #[cfg(feature = "slint-sc")]
                 diag.slint_sc_error("Two-way bindings are", &csn);
-                two_way_bindings.push((prop_name.into(), csn, prop_decl.DeclaredIdentifier()));
+                two_way_bindings.push((unresolved_prop_name, csn, prop_decl.DeclaredIdentifier()));
             }
         }
 
@@ -1399,9 +1418,13 @@ impl Element {
             let PropertyLookupResult {
                 resolved_name: existing_name,
                 property_type: maybe_existing_prop_type,
+                is_shadowable,
                 ..
             } = r.lookup_property(&name);
-            if !matches!(maybe_existing_prop_type, Type::Invalid) {
+            // When the declaration shadows a shadowable builtin member, proceed;
+            // the check_builtin_shadowing pass emits the diagnostic
+            let shadows_builtin = !matches!(maybe_existing_prop_type, Type::Invalid);
+            if shadows_builtin && !is_shadowable {
                 if matches!(maybe_existing_prop_type, Type::Callback { .. }) {
                     if r.property_declarations.contains_key(&name) {
                         diag.push_error(
@@ -1436,6 +1459,7 @@ impl Element {
                         node: Some(sig_decl.into()),
                         visibility: PropertyVisibility::InOut,
                         pure,
+                        shadows_builtin,
                         ..Default::default()
                     },
                 );
@@ -1469,6 +1493,7 @@ impl Element {
                     node: Some(sig_decl.into()),
                     visibility: PropertyVisibility::InOut,
                     pure,
+                    shadows_builtin,
                     ..Default::default()
                 },
             );
@@ -1485,9 +1510,13 @@ impl Element {
             let PropertyLookupResult {
                 resolved_name: existing_name,
                 property_type: maybe_existing_prop_type,
+                is_shadowable,
                 ..
             } = r.lookup_property(&name);
-            if !matches!(maybe_existing_prop_type, Type::Invalid) {
+            // When the declaration shadows a shadowable builtin member, proceed;
+            // the check_builtin_shadowing pass emits the diagnostic
+            let shadows_builtin = !matches!(maybe_existing_prop_type, Type::Invalid);
+            if shadows_builtin && !is_shadowable {
                 if matches!(maybe_existing_prop_type, Type::Callback { .. } | Type::Function { .. })
                 {
                     diag.push_error(
@@ -1553,6 +1582,7 @@ impl Element {
                 node: Some(func.clone().into()),
                 visibility,
                 pure,
+                shadows_builtin,
                 ..Default::default()
             };
 
@@ -1620,10 +1650,34 @@ impl Element {
                 Entry::Vacant(e) => {
                     e.insert(BindingExpression::new_uncompiled(con_node.clone().into()).into());
                 }
-                Entry::Occupied(_) => diag.push_error(
-                    "Duplicated callback".into(),
-                    &con_node.child_token(SyntaxKind::Identifier).unwrap(),
-                ),
+                Entry::Occupied(mut e) => {
+                    // A global may implement a callback declared in another global: the
+                    // callback is declared as a two-way alias (`callback foo <=> Other.foo;`)
+                    // and also given a handler (`foo => { ... }`). The alias node stays on
+                    // the declaration, and the handler takes the binding expression slot.
+                    let is_global_alias = r.base_type == ElementType::Global
+                        && matches!(
+                            &e.get().borrow().expression,
+                            Expression::Uncompiled(node) if node.kind() == SyntaxKind::TwoWayBinding
+                        );
+                    if is_global_alias {
+                        // Keep the handler as the binding and point its span at the handler
+                        // name, so a duplicate-implementation error refers to the
+                        // implementation rather than the alias. The alias is recovered from
+                        // the declaration node, so dropping it from the binding is fine.
+                        let mut handler =
+                            BindingExpression::new_uncompiled(con_node.clone().into());
+                        if let Some(name) = con_node.child_token(SyntaxKind::Identifier) {
+                            handler.span = Some(name.to_source_location());
+                        }
+                        e.insert(handler.into());
+                    } else {
+                        diag.push_error(
+                            "Duplicated callback".into(),
+                            &con_node.child_token(SyntaxKind::Identifier).unwrap(),
+                        );
+                    }
+                }
             }
         }
 
@@ -1932,7 +1986,21 @@ impl Element {
             diag,
             tr,
         );
-        let is_listview = if parent.borrow().base_type.to_string() == "ListView"
+        let parent_is_listview = {
+            let parent = parent.borrow();
+            parent.base_type.to_string() == "ListView"
+                // Custom "ListView" is OK, but it must have these properties
+                && [
+                    "viewport-y",
+                    "viewport-height",
+                    "viewport-width",
+                    "visible-height",
+                    "visible-width",
+                ]
+                .iter()
+                .all(|p| parent.lookup_property(p).property_type == Type::LogicalLength)
+        };
+        let is_listview = if parent_is_listview
             && let Some(geometry_props) = e.borrow().geometry_props.as_ref()
         {
             let lvi = ListViewInfo {
@@ -2017,6 +2085,7 @@ impl Element {
                 declared_pure: p.pure,
                 is_local_to_component: true,
                 is_in_direct_base: false,
+                is_shadowable: false,
                 builtin_function: None,
             },
         )
@@ -2096,6 +2165,39 @@ impl Element {
                 }
             };
         }
+    }
+
+    /// Return the alias node of a `callback foo <=> ...;` declaration, if `name` is one.
+    ///
+    /// This lives on the callback declaration itself, which is where the alias of a
+    /// global callback that also has a handler ends up (the handler takes the binding
+    /// expression slot).
+    pub fn callback_alias_declaration_node(
+        &self,
+        name: &str,
+    ) -> Option<syntax_nodes::TwoWayBinding> {
+        self.property_declarations
+            .get(name)
+            .and_then(|d| d.node.clone())
+            .and_then(syntax_nodes::CallbackDeclaration::new)
+            .and_then(|cb| cb.TwoWayBinding())
+    }
+
+    /// Return the two-way-binding syntax node of a `<=>` alias for the given property, if any.
+    ///
+    /// Usually the alias is the binding's own (uncompiled) expression. But a global
+    /// callback may both alias another global's callback (`callback foo <=> Other.foo;`)
+    /// and provide a handler (`foo => { ... }`): the handler then occupies the binding
+    /// expression slot, so the alias node lives on the callback declaration instead.
+    pub fn two_way_binding_node(&self, name: &str) -> Option<syntax_nodes::TwoWayBinding> {
+        if let Some(binding) = self.bindings.get(name)
+            && let Ok(b) = binding.try_borrow()
+            && let Expression::Uncompiled(node) = b.expression.ignore_debug_hooks()
+            && let Some(twb) = syntax_nodes::TwoWayBinding::new(node.clone())
+        {
+            return Some(twb);
+        }
+        self.callback_alias_declaration_node(name)
     }
 
     pub fn native_class(&self) -> Option<Rc<NativeClass>> {
@@ -2212,6 +2314,17 @@ impl Element {
         }
     }
 
+    /// Returns true if the property is set by a binding or an assignment expression
+    pub fn is_property_set(self: &Element, property_name: &str) -> bool {
+        self.bindings.contains_key(property_name)
+            || self
+                .property_analysis
+                .borrow()
+                .get(property_name)
+                .is_some_and(|a| a.is_set || a.is_linked)
+            || matches!(&self.base_type, ElementType::Component(base) if base.root_element.borrow().is_property_set(property_name))
+    }
+
     /// Set the property `property_name` of this Element only if it was not set.
     /// the `expression_fn` will only be called if it isn't set
     ///
@@ -2292,7 +2405,7 @@ fn css_property_suggestion(property_name: &str, base_type: &ElementType) -> Opti
 }
 
 /// Apply default property values defined in `builtins.slint` to the element.
-fn apply_default_type_properties(element: &mut Element) {
+pub(crate) fn apply_default_type_properties(element: &mut Element) {
     // Apply default property values on top:
     if let ElementType::Builtin(builtin_base) = &element.base_type {
         for (prop, info) in &builtin_base.properties {
@@ -2870,6 +2983,9 @@ pub fn visit_all_named_references(
                 compo.popup_windows.borrow_mut().iter_mut().for_each(|p| {
                     vis(&mut p.x);
                     vis(&mut p.y);
+                    if let Some(is_open) = &mut p.is_open {
+                        vis(is_open);
+                    }
                 });
                 compo.timers.borrow_mut().iter_mut().for_each(|t| {
                     vis(&mut t.interval);

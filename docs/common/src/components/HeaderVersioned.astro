@@ -11,7 +11,7 @@ import VersionSelector from "./VersionSelector.astro";
 
 export interface Props {
     /** Version links target the matching per-language docs URL layout. */
-    docsUrlKind?: "node" | "python";
+    docsUrlKind?: "node" | "python" | "cpp";
 }
 
 const { docsUrlKind } = Astro.props;

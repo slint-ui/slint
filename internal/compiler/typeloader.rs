@@ -213,6 +213,7 @@ impl Snapshotter {
             global_type_registry: self.snapshot_type_register(&type_loader.global_type_registry),
             compiler_config: type_loader.compiler_config.clone(),
             resolved_style: type_loader.resolved_style.clone(),
+            revision: type_loader.revision,
         })
     }
 
@@ -542,6 +543,7 @@ impl Snapshotter {
                     is_alias: v.is_alias.as_ref().map(|a| a.snapshot(self)),
                     visibility: v.visibility,
                     pure: v.pure,
+                    shadows_builtin: v.shadows_builtin,
                 };
                 (k.clone(), decl)
             })
@@ -679,6 +681,7 @@ impl Snapshotter {
             close_policy: popup_window.close_policy.clone(),
             parent_element: self.use_element(&popup_window.parent_element),
             is_tooltip: popup_window.is_tooltip,
+            is_open: popup_window.is_open.as_ref().map(|is_open| is_open.snapshot(self)),
         }
     }
 
@@ -846,14 +849,21 @@ impl Snapshotter {
                     .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
                     .collect(),
             },
-            Expression::RadialGradient { stops } => Expression::RadialGradient {
+            Expression::RadialGradient { center, radius, stops } => Expression::RadialGradient {
+                center: center.as_ref().map(|(cx, cy)| {
+                    (Box::new(self.snapshot_expression(cx)), Box::new(self.snapshot_expression(cy)))
+                }),
+                radius: radius.as_ref().map(|r| Box::new(self.snapshot_expression(r))),
                 stops: stops
                     .iter()
                     .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
                     .collect(),
             },
-            Expression::ConicGradient { from_angle, stops } => Expression::ConicGradient {
+            Expression::ConicGradient { from_angle, center, stops } => Expression::ConicGradient {
                 from_angle: Box::new(self.snapshot_expression(from_angle)),
+                center: center.as_ref().map(|(cx, cy)| {
+                    (Box::new(self.snapshot_expression(cx)), Box::new(self.snapshot_expression(cy)))
+                }),
                 stops: stops
                     .iter()
                     .map(|(e1, e2)| (self.snapshot_expression(e1), self.snapshot_expression(e2)))
@@ -911,6 +921,9 @@ pub struct TypeLoader {
     /// The style that was specified in the compiler configuration, but resolved. So "native" for example is resolved to the concrete
     /// style.
     pub resolved_style: String,
+    /// The revision in the TypeLoader marks changes to the TypeLoader.
+    /// Any changes should increase the revision number via [Self::bump_revision]
+    revision: u64,
     all_documents: LoadedDocuments,
 }
 
@@ -935,6 +948,7 @@ impl TypeLoader {
             },
             compiler_config,
             resolved_style: style.clone(),
+            revision: 0,
             all_documents: Default::default(),
         };
 
@@ -959,6 +973,14 @@ impl TypeLoader {
         myself
     }
 
+    fn bump_revision(&mut self) {
+        self.revision = self.revision.wrapping_add(1);
+    }
+
+    pub fn revision(&self) -> u64 {
+        self.revision
+    }
+
     /// Drop a document from the TypeLoader and invalidate all of its dependencies.
     /// Returns the list of all (transitive) dependencies.
     ///
@@ -967,6 +989,7 @@ impl TypeLoader {
     pub fn drop_document(&mut self, path: &Path) -> Result<HashSet<PathBuf>, std::io::Error> {
         let dependencies = self.invalidate_document(path);
         self.all_documents.docs.remove(path);
+        self.bump_revision();
 
         if self.all_documents.currently_loading.contains_key(path) {
             Err(std::io::Error::new(ErrorKind::InvalidInput, format!("{path:?} is still loading")))
@@ -1014,6 +1037,7 @@ impl TypeLoader {
             extra_deps.extend(self.invalidate_document(dep));
         }
         extra_deps.extend(deps);
+        self.bump_revision();
         extra_deps
     }
 
@@ -1517,6 +1541,7 @@ impl TypeLoader {
                 .insert(path.clone());
         }
         state.tl.all_documents.docs.insert(path, (LoadedDocument::Document(doc), parse_errors));
+        state.tl.bump_revision();
     }
 
     async fn load_file_impl<'a>(
@@ -1563,6 +1588,8 @@ impl TypeLoader {
         )
         .await;
 
+        let ignore_missing_font_files =
+            state.borrow().tl.compiler_config.resource_url_mapper.is_some();
         if state.borrow().diag.has_errors() {
             // If there was error (esp parse error) we don't want to report further error in this document.
             // because they might be nonsense (TODO: we should check that the parse error were really in this document).
@@ -1578,6 +1605,7 @@ impl TypeLoader {
                 reexports,
                 &mut ignore_diag,
                 &dependency_registry,
+                ignore_missing_font_files,
             );
             return (path.to_owned(), doc);
         }
@@ -1589,6 +1617,7 @@ impl TypeLoader {
             reexports,
             state.diag,
             &dependency_registry,
+            ignore_missing_font_files,
         );
         (path.to_owned(), doc)
     }
@@ -1673,6 +1702,7 @@ impl TypeLoader {
             .chain(
                 (file_to_import == "std-widgets.slint"
                     || (file_to_import == "style-base.slint" && referencing_file.is_none())
+                    || (file_to_import == "std-widgets-impl.slint" && referencing_file.is_none())
                     || referencing_file.is_some_and(|x| x.starts_with("builtin:/")))
                 .then(|| format!("builtin:/{}", self.resolved_style).into()),
             )
@@ -2409,10 +2439,42 @@ fn test_snapshotting() {
     assert_eq!(root_element.borrow().base_type.to_string(), "Rectangle");
 
     let copy = snapshot(&type_loader).unwrap();
+    assert_eq!(copy.revision(), type_loader.revision());
 
     let doc = copy.get_document(&path).unwrap();
     let c = doc.inner_components.first().unwrap();
     assert_eq!(c.id, "Foobar");
     let root_element = c.root_element.clone();
     assert_eq!(root_element.borrow().base_type.to_string(), "Rectangle");
+}
+
+#[test]
+fn test_watch_paths_revision_bumps_on_mutations() {
+    let mut type_loader = TypeLoader::new(
+        crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter),
+        &mut BuildDiagnostics::default(),
+    );
+
+    assert_eq!(type_loader.revision(), 0);
+
+    let path = PathBuf::from("/tmp/test-revision.slint");
+    let mut diag = BuildDiagnostics::default();
+    spin_on::spin_on(type_loader.load_file(
+        &path,
+        &path,
+        "export component Foobar inherits Rectangle { }".to_string(),
+        false,
+        &mut diag,
+    ));
+    assert!(!diag.has_errors());
+    let after_load = type_loader.revision();
+    assert_ne!(after_load, 0);
+
+    type_loader.invalidate_document(&path);
+    let after_invalidate = type_loader.revision();
+    assert_ne!(after_invalidate, after_load);
+
+    type_loader.drop_document(&path).unwrap();
+    let after_drop = type_loader.revision();
+    assert_ne!(after_drop, after_invalidate);
 }

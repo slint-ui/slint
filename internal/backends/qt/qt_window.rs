@@ -22,8 +22,8 @@ use i_slint_core::item_tree::{
     ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeWeak, ParentItemTraversalMode,
 };
 use i_slint_core::items::{
-    self, DragAction, DropEvent, FillRule, ImageRendering, ItemRc, ItemRef, Layer, LineCap,
-    LineJoin, MouseCursor, Opacity, PointerEventButton, RenderingResult, TextWrap,
+    self, AllowedDragActions, DragAction, DropEvent, FillRule, ImageRendering, ItemRc, ItemRef,
+    Layer, LineCap, LineJoin, MouseCursor, Opacity, PointerEventButton, RenderingResult, TextWrap,
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
@@ -33,7 +33,7 @@ use i_slint_core::lengths::{
 use i_slint_core::platform::{PlatformError, WindowEvent};
 use i_slint_core::string::ToSharedString;
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
-use i_slint_core::window::{WindowAdapter, WindowAdapterInternal, WindowInner};
+use i_slint_core::window::{WindowAdapter, WindowAdapterInternal, WindowInner, WindowKind};
 use i_slint_core::{ImageInner, SharedString};
 
 use std::cell::RefCell;
@@ -42,7 +42,7 @@ use std::pin::Pin;
 use std::ptr::NonNull;
 use std::rc::{Rc, Weak};
 
-use crate::key_generated;
+use crate::key_generated::{self, Qt_WindowType_Popup, Qt_WindowType_ToolTip};
 use i_slint_core::renderer::Renderer;
 
 cpp! {{
@@ -139,6 +139,25 @@ cpp! {{
             rust!(Slint_paintEvent [rust_window: &QtWindow as "void*", painter_ptr: &mut QPainterPtr as "QPainterPtr*"] {
                 rust_window.paint_event(std::mem::take(painter_ptr))
             });
+        }
+
+        void contextMenuEvent(QContextMenuEvent * event) override {
+            if (!rust_window)
+                return;
+
+            // On Windows, Shift+F10 under Qt results in a contextMenuEvent, but no
+            // actual key press event (See also #11591)!
+            // So we handle this event here and translate it to a Menu key event, which is the
+            // most similar to a context menu event we have in Slint.
+#ifdef WIN32
+            // we already handle right-click events for the context menu
+            if (event->reason() != QContextMenuEvent::Reason::Mouse) {
+                rust!(Slint_contextMenuEvent [rust_window: &QtWindow as "void*"] {
+                    rust_window.context_menu_event();
+                });
+            }
+#endif
+            event->accept();
         }
 
         void resizeEvent(QResizeEvent *) override {
@@ -687,9 +706,12 @@ fn into_qbrush(
         }
         i_slint_core::Brush::RadialGradient(g) => {
             cpp_class!(unsafe struct QRadialGradient as "QRadialGradient");
+            let (cx, cy) = g.center_or_default(width as f32, height as f32);
+            let (cx, cy) = (cx as qttypes::qreal, cy as qttypes::qreal);
+            let radius = g.radius_or_default(width as f32, height as f32) as qttypes::qreal;
             let mut qrg = cpp! {
-                unsafe [width as "qreal", height as "qreal"] -> QRadialGradient as "QRadialGradient" {
-                    QRadialGradient qrg(width / 2, height / 2, sqrt(width * width + height * height) / 2);
+                unsafe [cx as "qreal", cy as "qreal", radius as "qreal"] -> QRadialGradient as "QRadialGradient" {
+                    QRadialGradient qrg(cx, cy, radius);
                     return qrg;
                 }
             };
@@ -709,9 +731,11 @@ fn into_qbrush(
             cpp_class!(unsafe struct QConicalGradient as "QConicalGradient");
             // QConicalGradient uses angles where 0 degrees is at 3 o'clock (east)
             // We want gradient position 0 at 12 o'clock (north), so start at -90°
+            let (cx, cy) = g.center_or_default(width as f32, height as f32);
+            let (cx, cy) = (cx as qttypes::qreal, cy as qttypes::qreal);
             let mut qcg = cpp! {
-                unsafe [width as "qreal", height as "qreal"] -> QConicalGradient as "QConicalGradient" {
-                    QConicalGradient qcg(width / 2, height / 2, 90);
+                unsafe [cx as "qreal", cy as "qreal"] -> QConicalGradient as "QConicalGradient" {
+                    QConicalGradient qcg(cx, cy, 90);
                     return qcg;
                 }
             };
@@ -994,7 +1018,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
                     Brush::SolidColor(box_shadow.color()),
                     Brush::default(),
                     0.,
-                    LogicalBorderRadius::new_uniform(box_shadow.border_radius().get()),
+                    box_shadow.logical_border_radius(),
                 );
 
                 drop(painter_);
@@ -2004,6 +2028,17 @@ impl QtWindow {
         unsafe { std::mem::transmute_copy::<QWidgetPtr, NonNull<_>>(&self.widget_ptr) }
     }
 
+    // A context menu event was delivered by Qt that was not caused by a mouse input.
+    // The closest equivalent we have in Slint is a KeyEvent with the `Menu` key.
+    //
+    // Note that Qt also sends this event if the user presses Shift+F10 on Windows, but that
+    // information is lost at this point, so we still map it to the menu key (see #11591).
+    fn context_menu_event(&self) {
+        let menu_key: SharedString = i_slint_core::platform::Key::Menu.into();
+        self.window.dispatch_event(WindowEvent::KeyPressed { text: menu_key.clone() });
+        self.window.dispatch_event(WindowEvent::KeyReleased { text: menu_key });
+    }
+
     fn paint_event(&self, painter: QPainterPtr) {
         let runtime_window = WindowInner::from_pub(&self.window);
         let window_adapter = runtime_window.window_adapter();
@@ -2082,33 +2117,37 @@ impl QtWindow {
         is_drop: bool,
     ) -> u32 {
         let position = i_slint_core::api::LogicalPosition::new(pos.x as f32, pos.y as f32);
-        let allow_copy = allowed & key_generated::Qt_DropAction_CopyAction != 0;
-        let allow_move = allowed
-            & (key_generated::Qt_DropAction_MoveAction
-                | key_generated::Qt_DropAction_TargetMoveAction)
-            != 0;
-        let allow_link = allowed & key_generated::Qt_DropAction_LinkAction != 0;
+        let allowed_actions = AllowedDragActions {
+            copy: allowed & key_generated::Qt_DropAction_CopyAction != 0,
+            move_: allowed
+                & (key_generated::Qt_DropAction_MoveAction
+                    | key_generated::Qt_DropAction_TargetMoveAction)
+                != 0,
+            link: allowed & key_generated::Qt_DropAction_LinkAction != 0,
+        };
         let mut data = DataTransfer::default();
         let text = text.to_shared_string();
         if !text.is_empty() {
-            data.set_plaintext(text);
+            data.set_plain_text(text);
         }
         if let Some(buffer) = qimage_to_shared_pixel_buffer(image) {
             data.set_image(i_slint_core::graphics::Image::from_rgba8(buffer));
         }
-        let drop_event = DropEvent {
-            data,
-            position,
-            allow_copy,
-            allow_move,
-            allow_link,
-            proposed_action: qt_drop_action_to_slint(proposed),
+        let mut drop_event = DropEvent::default();
+        drop_event.data = data;
+        drop_event.position = position;
+        drop_event.proposed_action = qt_drop_action_to_slint(proposed);
+        let mouse_event = if is_drop {
+            MouseEvent::Drop { event: drop_event, allowed: allowed_actions }
+        } else {
+            MouseEvent::DragMove { event: drop_event, allowed: allowed_actions }
         };
-        let mouse_event =
-            if is_drop { MouseEvent::Drop(drop_event) } else { MouseEvent::DragMove(drop_event) };
         let chosen = WindowInner::from_pub(&self.window).process_mouse_input(mouse_event);
         timer_event();
-        chosen.map(slint_drag_action_to_qt).unwrap_or(key_generated::Qt_DropAction_IgnoreAction)
+        chosen
+            .and_then(|r| r.drag_action)
+            .map(slint_drag_action_to_qt)
+            .unwrap_or(key_generated::Qt_DropAction_IgnoreAction)
     }
 
     fn key_event(&self, key: i32, text: qttypes::QString, released: bool, repeat: bool) {
@@ -2431,14 +2470,23 @@ impl WindowAdapterInternal for QtWindow {
         self.tree_structure_changed.replace(true);
     }
 
-    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
-        let popup_window = QtWindow::new(self.self_weak.clone());
-        let popup_ptr = popup_window.widget_ptr();
-        let widget_ptr = self.widget_ptr();
-        cpp! {unsafe [widget_ptr as "QWidget*", popup_ptr as "QWidget*"] {
-            popup_ptr->setParent(widget_ptr, Qt::Popup);
+    fn create_child_window_adapter(
+        &self,
+        window_kind: WindowKind,
+    ) -> Option<Rc<dyn WindowAdapter>> {
+        let child_window = QtWindow::new(self.self_weak.clone());
+        let child_ptr = child_window.widget_ptr();
+        let parent_ptr = self.widget_ptr();
+
+        let window_kind = match window_kind {
+            WindowKind::Popup => Qt_WindowType_Popup,
+            WindowKind::ToolTip => Qt_WindowType_ToolTip,
+            WindowKind::Menu => Qt_WindowType_Popup,
+        };
+        cpp! {unsafe [parent_ptr as "QWidget*", child_ptr as "QWidget*", window_kind as "Qt::WindowType"] {
+            child_ptr->setParent(parent_ptr, window_kind);
         }};
-        Some(popup_window as _)
+        Some(child_window as _)
     }
 
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
@@ -2509,9 +2557,13 @@ impl WindowAdapterInternal for QtWindow {
             width: props.cursor_rect_size.width as _,
             height: props.cursor_rect_size.height as _,
         };
-        let cursor: i32 = props.text[..props.cursor_position].encode_utf16().count() as _;
-        let anchor: i32 =
-            props.anchor_position.map_or(cursor, |a| props.text[..a].encode_utf16().count() as _);
+        let cursor: i32 = i_slint_common::unicode_utils::byte_offset_to_utf16_offset(
+            &props.text,
+            props.cursor_position,
+        ) as _;
+        let anchor: i32 = props.anchor_position.map_or(cursor, |a| {
+            i_slint_common::unicode_utils::byte_offset_to_utf16_offset(&props.text, a) as _
+        });
         let text: qttypes::QString = props.text.as_str().into();
         cpp! {unsafe [widget_ptr as "SlintWidget*", rect as "QRectF", cursor as "int", anchor as "int", text as "QString"]  {
             widget_ptr->ime_position = rect.toRect();
@@ -2627,16 +2679,6 @@ impl i_slint_core::renderer::RendererSealed for QtWindow {
         let ctx = self.slint_context().ok_or("slint platform not initialized")?;
         ctx.font_context().borrow_mut().collection.register_fonts(contents.into(), None);
         Ok(())
-    }
-
-    fn default_font_size(&self) -> LogicalLength {
-        let default_font_size = cpp!(unsafe[] -> i32 as "int" {
-            return QFontInfo(qApp->font()).pixelSize();
-        });
-        // Ideally this would return the value from another property with a binding that's updated
-        // as a FontChange event is received. This is relevant for the case of using the Qt backend
-        // with a non-native style.
-        LogicalLength::new(default_font_size as f32)
     }
 
     fn free_graphics_resources(
