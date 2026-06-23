@@ -368,10 +368,7 @@ public:
         model->push_row(from_slint_value<ModelData>(value));
     }
 
-    void remove_row(int row) override
-    {
-        model->remove_row(row);
-    }
+    void remove_row(int row) override { model->remove_row(row); }
 
     void insert_row(int row, const slint::interpreter::Value &value) override
     {
