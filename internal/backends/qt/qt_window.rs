@@ -1397,7 +1397,13 @@ impl GlyphRenderer for QtItemRenderer<'_> {
         }
     }
 
-    fn fill_rectangle(&mut self, physical_rect: sharedparley::PhysicalRect, brush: GlyphBrush) {
+    fn fill_rectangle(
+        &mut self,
+        physical_rect: sharedparley::PhysicalRect,
+        brush: GlyphBrush,
+        radius: f32,
+        border: Option<(GlyphBrush, f32)>,
+    ) {
         let qt_brush = match brush {
             GlyphBrush::Fill(qt_brush) => qt_brush,
             _ => return,
@@ -1410,8 +1416,44 @@ impl GlyphRenderer for QtItemRenderer<'_> {
             height: physical_rect.height() as _,
         };
         let painter: &mut QPainterPtr = &mut self.painter;
-        cpp! { unsafe [painter as "QPainterPtr*", qt_brush as "QBrush", rect as "QRectF"] {
-            (*painter)->fillRect(rect, qt_brush);
+
+        let (border_brush, border_width) = match border {
+            Some((GlyphBrush::Fill(b), w)) if w > 0.0 => (b, w as f64),
+            _ => (qttypes::QBrush::default(), 0.0_f64),
+        };
+        let radius = radius as f64;
+
+        cpp! { unsafe [
+            painter as "QPainterPtr*",
+            qt_brush as "QBrush",
+            rect as "QRectF",
+            radius as "double",
+            border_brush as "QBrush",
+            border_width as "double"
+        ] {
+            if (border_width > 0.0) {
+                (*painter)->save();
+                (*painter)->setRenderHint(QPainter::Antialiasing, true);
+                (*painter)->setBrush(qt_brush);
+                QPen pen(border_brush, border_width);
+                pen.setJoinStyle(Qt::MiterJoin);
+                (*painter)->setPen(pen);
+                if (radius > 0.0) {
+                    (*painter)->drawRoundedRect(rect, radius, radius);
+                } else {
+                    (*painter)->drawRect(rect);
+                }
+                (*painter)->restore();
+            } else if (radius > 0.0) {
+                (*painter)->save();
+                (*painter)->setRenderHint(QPainter::Antialiasing, true);
+                (*painter)->setBrush(qt_brush);
+                (*painter)->setPen(Qt::NoPen);
+                (*painter)->drawRoundedRect(rect, radius, radius);
+                (*painter)->restore();
+            } else {
+                (*painter)->fillRect(rect, qt_brush);
+            }
         }}
     }
 }
