@@ -791,6 +791,19 @@ jobs:
                   mkdir -p target/release/apk
                   unzip -p slint-viewer.apks universal.apk > target/release/apk/slint-viewer.apk
 
+            # Push the release AAB to the Play Store. Only on `release`: other
+            # modes carry a nightly versionName that Play would reject or that
+            # would burn a versionCode.
+            - name: Publish slint-viewer to Google Play
+              if: github.event.inputs.mode == 'release'
+              uses: r0adkll/upload-google-play@v1
+              with:
+                  serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+                  packageName: dev.slint.viewer
+                  releaseFiles: tools/viewer/android-aab/app/build/outputs/bundle/release/slint-viewer.aab
+                  track: production
+                  status: completed
+
             # Flatten into one directory so the artifact holds bare files.
             - name: Collect Android artifacts
               if: always()

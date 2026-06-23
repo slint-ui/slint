@@ -71,7 +71,7 @@ In the mean time, the version in the master branch can be updated
 
  - **Trigger a build of binary artifacts** (docs, demos, etc.) on https://github.com/slint-ui/slint/actions/workflows/nightly_snapshot.yaml
     Select the right `pre-release/x.y` branch, and choose `release` for the mode.
-    As a result artifacts will be built and made available for download and a new VS code extension be built and uploaded to the market places (open-vsx.org and microsoft).
+    As a result artifacts will be built and made available for download, a new VS code extension be built and uploaded to the market places (open-vsx.org and microsoft), and the Android viewer published to Google Play.
 
  - **Publish to crates.io** using the `./scripts/publish.sh`.
     (This can be done in parallel to the nightly_snapshot build)
