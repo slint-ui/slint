@@ -80,7 +80,7 @@ jobs:
                       ${{ runner.os }}-${{ runner.arch }}-homebrew-macos-dmg-tools-
 
             - name: Install packaging tools
-              run: brew install xcodegen librsvg
+              run: brew install xcodegen create-dmg
 
             - name: Cache Homebrew downloads
               if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && steps.homebrew-cache.outputs.cache-hit != 'true' }}
@@ -102,14 +102,34 @@ jobs:
             - name: Stage and sign app
               run: ./scripts/package_macos_visual_editor.bash stage-and-sign-app
 
-            - name: Create and sign DMG
-              run: ./scripts/package_macos_visual_editor.bash create-and-sign-dmg
+            - name: Compute DMG name
+              run: |
+                  version="$(sed -n 's/^version = "\(.*\)"/\1/p' tools/lsp/Cargo.toml | head -n 1)"
+                  echo "SLINT_DMG_NAME=SlintVisualEditor-${version:-0.0.0}-macos-arm64" >> "$GITHUB_ENV"
+
+            - name: Create DMG
+              id: create-dmg
+              uses: L-Super/create-dmg-actions@v1.1.0
+              with:
+                  dmg_name: Slint Visual Editor
+                  src_dir: target/macos-visual-editor-dmg/dmg-stage/Slint Visual Editor.app
+                  background: tools/lsp/packaging/macos/dmg-background.svg
+                  window_size: 660x420
+                  icon_size: "112"
+                  icon_position: 184 278
+                  app_drop_link: 474 278
+
+            - name: Sign DMG
+              run: |
+                  mkdir -p dist
+                  mv "${{ steps.create-dmg.outputs.dmg_path }}" "dist/${SLINT_DMG_NAME}.dmg"
+                  DMG_PATH="$PWD/dist/${SLINT_DMG_NAME}.dmg" ./scripts/package_macos_visual_editor.bash sign-dmg
 
             - name: Notarize and staple DMG
-              run: ./scripts/package_macos_visual_editor.bash notarize-and-staple-dmg
+              run: DMG_PATH="$PWD/dist/${SLINT_DMG_NAME}.dmg" ./scripts/package_macos_visual_editor.bash notarize-and-staple-dmg
 
             - name: Assess stapled app
-              run: ./scripts/package_macos_visual_editor.bash assess-stapled-app
+              run: DMG_PATH="$PWD/dist/${SLINT_DMG_NAME}.dmg" ./scripts/package_macos_visual_editor.bash assess-stapled-app
 
             - name: Clean up signing material
               if: ${{ always() }}

@@ -65,8 +65,16 @@ project as a resource through the XcodeGen `sources` list.
 The workflow installs Rust once through the repository's existing
 `.github/actions/setup-rust` action, then adds the macOS Rust target with
 `rustup target add aarch64-apple-darwin` before installing XcodeGen and
-`librsvg` with Homebrew. Homebrew documents the `librsvg` formula here:
-<https://formulae.brew.sh/formula/librsvg>.
+`create-dmg` with Homebrew. Homebrew documents these formulae here:
+<https://formulae.brew.sh/formula/xcodegen> and
+<https://formulae.brew.sh/formula/create-dmg>.
+
+The CI workflow uses `L-Super/create-dmg-actions@v1.1.0` to create the DMG
+layout from the signed app bundle. The action documents `dmg_name`, `src_dir`,
+`background`, `window_size`, `icon_size`, `icon_position`, `app_drop_link`, and
+the `dmg_path` output here:
+<https://github.com/marketplace/actions/create-macos-dmg> and
+<https://github.com/L-Super/create-dmg-actions>.
 
 The package driver is `scripts/package_macos_visual_editor.bash`.
 
@@ -88,17 +96,18 @@ The package driver is `scripts/package_macos_visual_editor.bash`.
     `target/macos-visual-editor-dmg/cargo-timings/`.
 12. Deletes Xcode and Cargo build intermediates after the signed app is staged.
     This is done to free up space on the runner image.
-13. Renders `tools/lsp/packaging/macos/dmg-background.svg` to
-    `target/macos-visual-editor-dmg/dmg-background.png`.
-14. Creates a read-write DMG with `hdiutil`, configures the Finder background,
-    icon size, app position, and Applications symlink position, then converts it
-    to the compressed DMG that is signed and verified.
-15. Submits the DMG with `xcrun notarytool submit --wait`.
-16. Staples and validates the accepted ticket with `xcrun stapler`, then
+13. Computes the versioned DMG name from `tools/lsp/Cargo.toml`.
+14. Creates the DMG with `L-Super/create-dmg-actions`, passing
+    `tools/lsp/packaging/macos/dmg-background.svg`, the Finder window size, the
+    app icon position, and the Applications drop-link position as action inputs.
+15. Moves the action output to `dist/`, signs the DMG with `codesign`, then
+    verifies the DMG and mounted app payload.
+16. Submits the DMG with `xcrun notarytool submit --wait`.
+17. Staples and validates the accepted ticket with `xcrun stapler`, then
     repeats the DMG and mounted app signature checks on the final artifact.
-17. Mounts the DMG, verifies the mounted app with `codesign`, and checks it
+18. Mounts the DMG, verifies the mounted app with `codesign`, and checks it
     with `spctl`.
-18. Uploads `dist/*.dmg` as the `slint-visual-editor-macos-dmg` artifact and
+19. Uploads `dist/*.dmg` as the `slint-visual-editor-macos-dmg` artifact and
     the Cargo timing report as the `slint-visual-editor-rust-build-report`
     artifact.
 
@@ -109,7 +118,8 @@ For local debugging, the same phases can be run individually:
 ./scripts/package_macos_visual_editor.bash install-signing-material
 ./scripts/package_macos_visual_editor.bash archive-app
 ./scripts/package_macos_visual_editor.bash stage-and-sign-app
-./scripts/package_macos_visual_editor.bash create-and-sign-dmg
+./scripts/package_macos_visual_editor.bash create-dmg
+./scripts/package_macos_visual_editor.bash sign-dmg
 ./scripts/package_macos_visual_editor.bash notarize-and-staple-dmg
 ./scripts/package_macos_visual_editor.bash assess-stapled-app
 ./scripts/package_macos_visual_editor.bash cleanup
@@ -120,12 +130,10 @@ The command sources for these steps are:
 - `security`: <https://keith.github.io/xcode-man-pages/security.1.html>
 - `xcodebuild`: <https://keith.github.io/xcode-man-pages/xcodebuild.1.html>
 - `cargo build --timings`: <https://doc.rust-lang.org/cargo/commands/cargo-build.html#compilation-options>
-- `librsvg` / `rsvg-convert`: <https://formulae.brew.sh/formula/librsvg>
+- `create-dmg`: <https://github.com/create-dmg/create-dmg>
+- `L-Super/create-dmg-actions`: <https://github.com/L-Super/create-dmg-actions>
 - `codesign`: <https://keith.github.io/xcode-man-pages/codesign.1.html>
 - `hdiutil`: <https://keith.github.io/xcode-man-pages/hdiutil.1.html>
-- `sips`: <https://keith.github.io/xcode-man-pages/sips.1.html>
-- `osascript`: <https://keith.github.io/xcode-man-pages/osascript.1.html>
-- `SetFile`: <https://keith.github.io/xcode-man-pages/SetFile.1.html>
 - `notarytool`: <https://keith.github.io/xcode-man-pages/notarytool.1.html>
 - `stapler`: <https://keith.github.io/xcode-man-pages/stapler.1.html>
 - `spctl`: <https://keith.github.io/xcode-man-pages/spctl.8.html>
@@ -139,7 +147,7 @@ The command sources for these steps are:
 Set the same environment variables as the CI secrets, then run:
 
 ```sh
-brew install xcodegen librsvg
+brew install xcodegen create-dmg
 rustup target add aarch64-apple-darwin
 ./scripts/package_macos_visual_editor.bash
 ```

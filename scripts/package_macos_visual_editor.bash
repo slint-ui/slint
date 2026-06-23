@@ -56,14 +56,8 @@ STAGE_DIR="$BUILD_DIR/dmg-stage"
 MOUNT_DIR="$BUILD_DIR/dmg-mount"
 APP_PATH="$ARCHIVE_PATH/Products/Applications/$APP_NAME.app"
 STAGED_APP_PATH="$STAGE_DIR/$APP_NAME.app"
-APP_ICON="$STAGED_APP_PATH/Contents/Resources/AppIcon.icns"
-DMG_PATH="$DIST_DIR/$DMG_BASENAME-$VERSION-macos-arm64.dmg"
-RW_DMG_PATH="$BUILD_DIR/$DMG_BASENAME-$VERSION-macos-arm64-rw.dmg"
+DMG_PATH="${DMG_PATH:-$DIST_DIR/$DMG_BASENAME-$VERSION-macos-arm64.dmg}"
 DMG_BACKGROUND_SOURCE="$PROJECT_DIR/packaging/macos/dmg-background.svg"
-DMG_BACKGROUND="$BUILD_DIR/dmg-background.png"
-DMG_BACKGROUND_WIDTH=660
-DMG_BACKGROUND_HEIGHT=420
-DMG_BACKGROUND_SCALE=2
 NOTARY_LOG="$BUILD_DIR/notarization-log.json"
 KEYCHAIN_PATH="$RUNNER_TEMP_DIR/visual-editor-signing.keychain-db"
 CERTIFICATE_PATH="$RUNNER_TEMP_DIR/developer-id-application.p12"
@@ -88,76 +82,6 @@ detach_dmg() {
         DMG_ATTACHED=0
     fi
     rm -rf "$MOUNT_DIR"
-}
-
-prepare_dmg_background() {
-    [ -f "$DMG_BACKGROUND_SOURCE" ] || die "DMG background source missing: $DMG_BACKGROUND_SOURCE"
-    command -v rsvg-convert >/dev/null || die "rsvg-convert is required; install librsvg"
-    command -v sips >/dev/null || die "sips is required to set PNG DPI metadata"
-
-    log "Rendering DMG background"
-    rm -f "$DMG_BACKGROUND"
-    rsvg-convert \
-        -w "$((DMG_BACKGROUND_WIDTH * DMG_BACKGROUND_SCALE))" \
-        -h "$((DMG_BACKGROUND_HEIGHT * DMG_BACKGROUND_SCALE))" \
-        -o "$DMG_BACKGROUND" \
-        "$DMG_BACKGROUND_SOURCE"
-    sips \
-        -s dpiWidth "$((72 * DMG_BACKGROUND_SCALE))" \
-        -s dpiHeight "$((72 * DMG_BACKGROUND_SCALE))" \
-        "$DMG_BACKGROUND" >/dev/null
-}
-
-configure_dmg_finder_window() {
-    [ -f "$MOUNT_DIR/.background/dmg-background.png" ] || return 0
-
-    osascript - "$MOUNT_DIR" "$APP_NAME" <<'APPLESCRIPT'
-on run argv
-    set mountPath to item 1 of argv
-    set appName to item 2 of argv
-    tell application "Finder"
-        set mountedFolder to POSIX file mountPath as alias
-        tell folder mountedFolder
-            open
-            set current view of container window to icon view
-            set toolbar visible of container window to false
-            set statusbar visible of container window to false
-            set bounds of container window to {100, 100, 760, 520}
-            set viewOptions to icon view options of container window
-            set arrangement of viewOptions to not arranged
-            set icon size of viewOptions to 112
-            set background picture of viewOptions to POSIX file (mountPath & "/.background/dmg-background.png") as alias
-            set position of item (appName & ".app") to {184, 278}
-            set position of item "Applications" to {474, 278}
-            close container window
-            open
-            update without registering applications
-            delay 1
-            close container window
-        end tell
-    end tell
-end run
-APPLESCRIPT
-}
-
-wait_for_dmg_finder_metadata() {
-    [ -f "$MOUNT_DIR/.background/dmg-background.png" ] || return 0
-
-    for _ in {1..20}; do
-        [ ! -f "$MOUNT_DIR/.DS_Store" ] || return 0
-        sleep 0.5
-    done
-
-    return 1
-}
-
-set_dmg_volume_icon() {
-    [ -f "$MOUNT_DIR/.VolumeIcon.icns" ] || return 0
-
-    local setfile
-    setfile="$(xcrun --find SetFile 2>/dev/null || true)"
-    [ -n "$setfile" ] || return 0
-    "$setfile" -a C "$MOUNT_DIR"
 }
 
 collect_rust_build_report() {
@@ -260,11 +184,6 @@ stage_and_sign_app() {
     rm -rf "$STAGE_DIR"
     mkdir -p "$STAGE_DIR"
     ditto "$APP_PATH" "$STAGED_APP_PATH"
-    ln -s /Applications "$STAGE_DIR/Applications"
-    prepare_dmg_background
-    mkdir -p "$STAGE_DIR/.background"
-    cp "$DMG_BACKGROUND" "$STAGE_DIR/.background/dmg-background.png"
-    [ ! -f "$APP_ICON" ] || cp "$APP_ICON" "$STAGE_DIR/.VolumeIcon.icns"
     mkdir -p "$STAGED_APP_PATH/Contents/Resources/visual-editor-example"
     ditto "$EXAMPLE_SOURCE_DIR" "$STAGED_APP_PATH/Contents/Resources/visual-editor-example"
 
@@ -289,39 +208,33 @@ stage_and_sign_app() {
     df -h "$ROOT_DIR"
 }
 
-create_and_sign_dmg() {
+create_dmg() {
+    [ -d "$STAGED_APP_PATH" ] || die "staged app missing: $STAGED_APP_PATH"
+    [ -f "$DMG_BACKGROUND_SOURCE" ] || die "DMG background missing: $DMG_BACKGROUND_SOURCE"
+    command -v create-dmg >/dev/null || die "create-dmg is required; install it with Homebrew"
+
     log "Creating DMG at $DMG_PATH"
-    rm -f "$DMG_PATH" "$RW_DMG_PATH"
-    rm -rf "$MOUNT_DIR"
+    rm -f "$DMG_PATH"
 
-    # Source: hdiutil create can build a UDIF disk image from a source folder:
-    # https://keith.github.io/xcode-man-pages/hdiutil.1.html
-    hdiutil create \
-        -volname "$APP_NAME" \
-        -srcfolder "$STAGE_DIR" \
-        -format UDRW \
-        "$RW_DMG_PATH"
+    create-dmg \
+        --volname "$APP_NAME" \
+        --background "$DMG_BACKGROUND_SOURCE" \
+        --window-pos 200 120 \
+        --window-size 660 420 \
+        --icon-size 112 \
+        --icon "$APP_NAME.app" 184 278 \
+        --app-drop-link 474 278 \
+        --no-internet-enable \
+        "$DMG_PATH" \
+        "$STAGED_APP_PATH"
+}
 
-    mkdir -p "$MOUNT_DIR"
-    hdiutil attach "$RW_DMG_PATH" \
-        -readwrite \
-        -nobrowse \
-        -mountpoint "$MOUNT_DIR"
-    DMG_ATTACHED=1
-
-    configure_dmg_finder_window || log "warning: failed to configure DMG Finder window"
-    wait_for_dmg_finder_metadata || log "warning: Finder did not write DMG .DS_Store metadata"
-    set_dmg_volume_icon || log "warning: failed to set DMG volume icon"
-    sync
-    detach_dmg
-
-    hdiutil convert "$RW_DMG_PATH" -format UDZO -o "$DMG_PATH"
-    rm -f "$RW_DMG_PATH"
-
+sign_dmg() {
+    [ -f "$DMG_PATH" ] || die "DMG missing: $DMG_PATH"
     log "Signing DMG"
     codesign --force --timestamp --sign "$MACOS_DEVELOPER_ID" "$DMG_PATH"
     verify_dmg_payload "signed"
-    log "DMG created, signed, and verified"
+    log "DMG signed and verified"
 }
 
 verify_dmg_payload() {
@@ -416,7 +329,8 @@ full_package() {
     install_signing_material
     archive_app
     stage_and_sign_app
-    create_and_sign_dmg
+    create_dmg
+    sign_dmg
     notarize_and_staple_dmg
     assess_stapled_app
     cleanup
@@ -441,9 +355,17 @@ case "$COMMAND" in
         validate_environment
         stage_and_sign_app
         ;;
+    create-dmg)
+        create_dmg
+        ;;
+    sign-dmg)
+        validate_environment
+        sign_dmg
+        ;;
     create-and-sign-dmg)
         validate_environment
-        create_and_sign_dmg
+        create_dmg
+        sign_dmg
         ;;
     notarize-and-staple-dmg)
         validate_environment
@@ -465,7 +387,7 @@ case "$COMMAND" in
 esac
 
 case "$COMMAND" in
-    full | create-and-sign-dmg | notarize-and-staple-dmg | assess-stapled-app)
+    full | create-dmg | sign-dmg | create-and-sign-dmg | notarize-and-staple-dmg | assess-stapled-app)
         log "DMG path: $DMG_PATH"
         ;;
 esac
