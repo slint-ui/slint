@@ -907,6 +907,9 @@ pub enum Expression {
     DebugHook {
         expression: Box<Expression>,
         id: SmolStr,
+        /// True if this hook was materialized for a property that had no binding in the source.
+        /// Passes should treat a synthetic hook as "no binding" — the same as `Expression::Invalid`.
+        synthetic: bool,
     },
 
     EmptyComponentFactory,
@@ -1750,6 +1753,12 @@ impl Expression {
             _ => self,
         }
     }
+
+    /// Returns true if this is a synthetic debug hook — i.e. a hook materialized for a property
+    /// that had no binding in the source. Passes should treat this like `Expression::Invalid`.
+    pub fn is_synthetic_debug_hook(&self) -> bool {
+        matches!(self, Expression::DebugHook { synthetic: true, .. })
+    }
 }
 
 fn model_inner_type(model: &Expression) -> Type {
@@ -2210,9 +2219,12 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, ")")
         }
         Expression::EmptyComponentFactory => write!(f, "<empty-component-factory>"),
-        Expression::DebugHook { expression, id } => {
+        Expression::DebugHook { expression, id, synthetic } => {
             write!(f, "debug-hook(")?;
             pretty_print(f, expression)?;
+            if *synthetic {
+                write!(f, " SYNTHETIC")?;
+            }
             write!(f, "\"{id}\")")
         }
     }

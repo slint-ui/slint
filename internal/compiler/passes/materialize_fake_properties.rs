@@ -83,11 +83,15 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
     }
 }
 
-// One must initialize if there is an actual expression for that binding
+// One must initialize if there is no real expression for that binding.
+// A synthetic debug hook (materialized default) counts as "not initialized".
 fn must_initialize(elem: &Element, prop: &str) -> bool {
     match elem.bindings.get(prop) {
         None => true,
-        Some(b) => matches!(b.borrow().expression, Expression::Invalid),
+        Some(b) => {
+            matches!(b.borrow().expression, Expression::Invalid)
+                || b.borrow().expression.is_synthetic_debug_hook()
+        }
     }
 }
 

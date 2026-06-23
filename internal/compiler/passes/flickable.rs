@@ -146,11 +146,11 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
         })
     };
 
-    if !flickable_elem.borrow().bindings.contains_key("height") {
+    if !flickable_elem.borrow().is_binding_set("height", false) {
         forward_minmax_of("max-height", MinMaxOp::Min);
         forward_minmax_of("preferred-height", MinMaxOp::Min);
     }
-    if !flickable_elem.borrow().bindings.contains_key("width") {
+    if !flickable_elem.borrow().is_binding_set("width", false) {
         forward_minmax_of("max-width", MinMaxOp::Min);
         forward_minmax_of("preferred-width", MinMaxOp::Min);
     }
@@ -212,8 +212,10 @@ fn set_binding_if_not_explicit(
     expression: impl FnOnce() -> Option<Expression>,
 ) {
     // we can't use `set_binding_if_not_set` directly because `expression()` may borrow `elem`
-    if elem.borrow().bindings.get(property).is_none_or(|b| !b.borrow().has_binding())
-        && let Some(e) = expression()
+    // A synthetic debug hook is treated the same as "no binding" here.
+    if elem.borrow().bindings.get(property).is_none_or(|b| {
+        !b.borrow().has_binding() || b.borrow().expression.is_synthetic_debug_hook()
+    }) && let Some(e) = expression()
     {
         elem.borrow_mut().set_binding_if_not_set(property.into(), || e);
     }
