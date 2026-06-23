@@ -190,6 +190,16 @@ async fn watch(
     shared_data_weak: &Weak<SharedBackendData>,
     ctx_weak: SlintContextWeak,
 ) -> zbus::Result<()> {
+    // Safety net: create the windows anyway if the portal never answers.
+    // After the timer fires, the event loop returns to `about_to_wait`,
+    // which then creates any pending inactive windows.
+    {
+        let shared_weak = shared_data_weak.clone();
+        i_slint_core::timers::Timer::single_shot(APPEARANCE_QUERY_TIMEOUT, move || {
+            finish_appearance_query(&shared_weak);
+        });
+    }
+
     let connection = zbus::Connection::session().await?;
     let settings_proxy: zbus::Proxy = zbus::proxy::Builder::new(&connection)
         .interface("org.freedesktop.portal.Settings")?
@@ -235,25 +245,13 @@ pub(crate) fn spawn(
 
     let shared_weak = Rc::downgrade(shared_data);
     let ctx_weak = ctx.clone();
-    let handle = strong_ctx
-        .spawn_local({
-            let shared_weak = shared_weak.clone();
-            async move {
-                if let Err(err) = watch(&shared_weak, ctx_weak).await {
-                    i_slint_core::debug_log!("Error watching for xdg desktop settings: {err}");
-                    // The portal is unavailable; create the waiting windows anyway.
-                    finish_appearance_query(&shared_weak);
-                }
+    strong_ctx
+        .spawn_local(async move {
+            if let Err(err) = watch(&shared_weak, ctx_weak).await {
+                i_slint_core::debug_log!("Error watching for xdg desktop settings: {err}");
+                // The portal is unavailable; create the waiting windows anyway.
+                finish_appearance_query(&shared_weak);
             }
         })
-        .ok();
-
-    // Safety net: create the windows anyway if the portal never answers.
-    // After the timer fires, the event loop returns to `about_to_wait`,
-    // which then creates any pending inactive windows.
-    i_slint_core::timers::Timer::single_shot(APPEARANCE_QUERY_TIMEOUT, move || {
-        finish_appearance_query(&shared_weak);
-    });
-
-    handle
+        .ok()
 }
