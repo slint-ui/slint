@@ -48,9 +48,33 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   key: visual-editor-macos-dmg
+                  # Swatinem/rust-cache restores caches on PRs, but only pushes
+                  # to this development branch should save new cache entries.
+                  #
+                  # Sources:
+                  # - rust-cache save-if/workspaces behavior: https://github.com/Swatinem/rust-cache
+                  # - GitHub cache branch scope: https://github.com/actions/cache
+                  save_if: ${{ github.ref == 'refs/heads/deploy-macos' }}
 
             - name: Install macOS Rust targets
               run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+            # Cache Homebrew's downloaded bottles only. PRs restore this cache,
+            # but only pushes to deploy-macos save it. The installed prefix is
+            # left to Homebrew and the runner image; caching the download cache
+            # avoids turning /opt/homebrew into a large, brittle artifact.
+            #
+            # Sources:
+            # - GitHub cache restore/save actions: https://github.com/actions/cache
+            # - Homebrew cache environment: https://docs.brew.sh/Manpage#cache-options-formula
+            - name: Restore Homebrew downloads
+              id: homebrew-cache
+              uses: actions/cache/restore@v5
+              with:
+                  path: ~/Library/Caches/Homebrew
+                  key: ${{ runner.os }}-${{ runner.arch }}-homebrew-xcodegen-${{ hashFiles('.github/workflows/visual_editor_macos_dmg.yaml') }}
+                  restore-keys: |
+                      ${{ runner.os }}-${{ runner.arch }}-homebrew-xcodegen-
 
             # XcodeGen is installed through Homebrew as documented by XcodeGen
             # and its Homebrew formula.
@@ -60,6 +84,13 @@ jobs:
             # - Homebrew xcodegen formula: https://formulae.brew.sh/formula/xcodegen
             - name: Install XcodeGen
               run: brew install xcodegen
+
+            - name: Save Homebrew downloads
+              if: ${{ github.ref == 'refs/heads/deploy-macos' && steps.homebrew-cache.outputs.cache-hit != 'true' }}
+              uses: actions/cache/save@v5
+              with:
+                  path: ~/Library/Caches/Homebrew
+                  key: ${{ steps.homebrew-cache.outputs.cache-primary-key }}
 
             - name: Build, sign, notarize, and package DMG
               run: ./scripts/package_macos_visual_editor.bash

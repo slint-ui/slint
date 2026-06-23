@@ -74,6 +74,20 @@ The workflow installs Rust once through the repository's existing
 `rustup target add aarch64-apple-darwin x86_64-apple-darwin` before installing
 XcodeGen with Homebrew.
 
+The Rust cache is provided by `Swatinem/rust-cache`. The workflow uses a
+visual-editor-specific key and saves new cache entries only on pushes to
+`deploy-macos`; pull requests restore caches but do not publish new ones. The
+action documents the `save-if`, workspace target directory, and cache cleanup
+behavior here: <https://github.com/Swatinem/rust-cache>.
+
+The XcodeGen install step also restores Homebrew's download cache at
+`~/Library/Caches/Homebrew` with `actions/cache/restore` and saves it with
+`actions/cache/save` only on pushes to `deploy-macos`. The cache action
+documents `path`, `key`, and `restore-keys` here:
+<https://github.com/actions/cache>. Homebrew documents cache-related options in
+its man page:
+<https://docs.brew.sh/Manpage#cache-options-formula>.
+
 The package driver is `scripts/package_macos_visual_editor.bash`:
 
 1. Validates that all signing, Team ID, bundle ID, and notary values are present
