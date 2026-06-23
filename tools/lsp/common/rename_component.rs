@@ -30,16 +30,16 @@
 //! 2. Skips the dialog entirely when
 //!    `normalize_identifier(new_name) == old_name` (kebab/snake no-op
 //!    that produces no accessor change).
-//! 3. Checks an in-memory "don't ask again" set keyed by
-//!    `(slint_uri, original_name)`. Hits short-circuit out before the
-//!    dialog. TODO(#12111): persist this across sessions.
-//! 4. Sends `window/showMessageRequest` with three actions: *Rewrite
-//!    Rust/C++ accessors*, *Skip*, *Skip and don't ask again*. Dismissal
-//!    is treated as Skip.
+//! 3. Checks an in-memory "don't ask again" flag that suppresses the dialog
+//!    for the rest of the session. TODO(#12111): Persist this setting across
+//!    sessions.
+//! 4. Sends `window/showMessageRequest` with three actions: *Search & Replace
+//!    Rust/C++ accessors*, *Skip*, *Skip and don't ask again*. Dismissal is
+//!    treated as Skip.
 //! 5. On *Rewrite*, queries `workspace/workspaceFolders` (or falls back
 //!    to the cached `InitializeParams` when the client doesn't support
 //!    the query), runs
-//!    [`crate::common::host_language_search::scan_host_language_accessors`]
+//!    [`crate::common::host_language_search::search_replace_host_language_accessors`]
 //!    against every folder, and sends a second `workspace/applyEdit` with
 //!    the host-language edits.
 //! 6. Reports the outcome via `window/showMessage`: count of rewritten
@@ -4193,14 +4193,14 @@ global Foo {
 
 /// Integration tests for the full cross-language rename pipeline:
 /// `find_declaration_node` -> `rename()` -> `host_language_classification()`
-/// -> `scan_host_language_accessors()` -> `merge_workspace_edits`. Exercises
+/// -> `search_replace_host_language_accessors()` -> `merge_workspace_edits`. Exercises
 /// the same flow the LSP Rename handler runs, against real `.slint` and `.rs`
 /// files in a tempdir.
 #[cfg(test)]
 mod host_language_rename_tests {
     use super::*;
     use crate::common;
-    use crate::common::host_language_search::{ScanBounds, scan_host_language_accessors};
+    use crate::common::host_language_search::{ScanBounds, search_replace_host_language_accessors};
     use i_slint_compiler::diagnostics::{BuildDiagnostics, ByteFormat};
     use lsp_types::{Url, WorkspaceEdit, WorkspaceFolder};
     use std::collections::HashMap;
@@ -4345,7 +4345,7 @@ mod host_language_rename_tests {
         if let Some(info) = decl.host_language_classification(document_cache)
             && i_slint_compiler::parser::normalize_identifier(new_name) != info.old_name
         {
-            let host_edits = scan_host_language_accessors(
+            let host_edits = search_replace_host_language_accessors(
                 folders,
                 info.kind,
                 &info.old_name,

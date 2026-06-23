@@ -94,7 +94,7 @@ impl std::error::Error for HostLanguageScanError {}
 /// editor can attach unrelated directories as separate workspace folders to
 /// the same server, and call sites for one folder's `.slint` declarations may
 /// live in another folder.
-pub fn scan_host_language_accessors(
+pub fn search_replace_host_language_accessors(
     workspace_folders: &[WorkspaceFolder],
     kind: DeclarationKind,
     old_name: &str,
@@ -318,10 +318,6 @@ fn has_host_extension(path: &Path) -> bool {
 /// (matching Rust's identifier rules and the wider modern-language family),
 /// so `xñget_count` becomes a single identifier and equality-rejects against
 /// `get_count` rather than producing a partial match.
-///
-/// Optional leading `r#` (raw identifier syntax in Rust) is included in the
-/// matched range so that the replacement drops it; the accessor prefixes
-/// (`get_`, `set_`, etc.) make the result never a Rust keyword.
 fn search_replace_file_contents(
     contents: &str,
     accessors: &HashMap<&str, &str>,
@@ -350,23 +346,7 @@ fn search_replace_file_contents(
         }
         let Some(&new) = accessors.get(&contents[start..end]) else { continue };
 
-        // If the identifier was written as a Rust raw identifier (`r#name`),
-        // extend the match to include the `r#` so the replacement drops it.
-        // Accessor names always begin with `get_`/`set_`/`invoke_`/`on_` so
-        // they are never Rust keywords; the bare identifier is always legal.
-        // Only treat `r#` as a prefix when it sits at a word boundary (e.g.
-        // not as part of `xr#name`, which is not legal Rust syntax anyway).
-        let effective_start = if start >= 2 && &contents[start - 2..start] == "r#" {
-            let prev_is_boundary = start == 2
-                || !contents[..start - 2]
-                    .chars()
-                    .next_back()
-                    .is_some_and(|c| is_identifier_continue(c, xid_continue));
-            if prev_is_boundary { start - 2 } else { start }
-        } else {
-            start
-        };
-        matches.push((effective_start..end, new.to_string()));
+        matches.push((start..end, new.to_string()));
     }
     matches
 }
@@ -487,12 +467,11 @@ mod tests {
     }
 
     #[test]
-    fn raw_identifier_prefix_included_in_match() {
+    fn raw_identifier_prefix_is_preserved() {
         let contents = "obj.r#get_type();";
         let edits = scan(contents, DeclarationKind::Property, "type", "kind");
         assert_eq!(edits.len(), 1);
-        // The match swallows `r#` so the rewrite is the bare accessor.
-        assert_eq!(&contents[edits[0].0.clone()], "r#get_type");
+        assert_eq!(&contents[edits[0].0.clone()], "get_type");
         assert_eq!(edits[0].1, "get_kind");
     }
 
@@ -563,7 +542,7 @@ mod tests {
         let folders =
             vec![WorkspaceFolder { uri: Url::from_file_path(root).unwrap(), name: "test".into() }];
 
-        let edits = scan_host_language_accessors(
+        let edits = search_replace_host_language_accessors(
             &folders,
             DeclarationKind::Property,
             "count",
@@ -623,7 +602,7 @@ mod tests {
 
     #[test]
     fn empty_workspace_fails_closed() {
-        let result = scan_host_language_accessors(
+        let result = search_replace_host_language_accessors(
             &[],
             DeclarationKind::Property,
             "x",
@@ -655,7 +634,7 @@ mod tests {
             },
         ];
 
-        let edits = scan_host_language_accessors(
+        let edits = search_replace_host_language_accessors(
             &folders,
             DeclarationKind::Property,
             "count",

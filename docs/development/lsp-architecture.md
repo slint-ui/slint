@@ -318,42 +318,10 @@ sources.
 
 ### Cross-language rename
 
-Renaming a public property/callback/function in `.slint` can optionally
-also rewrite the generated Rust/C++ accessor (`get_<n>`, `set_<n>`,
-`invoke_<n>`, `on_<n>`) at every textual call site in the workspace.
-The feature lives inside the standard `textDocument/rename` flow:
-after the `.slint` edits are returned synchronously, an asynchronous
-follow-up detects whether the renamed declaration is exposed in the
-generated public API and (once per declaration per session) prompts
-the user via `window/showMessageRequest` with three actions:
-
-1. **Rewrite Rust/C++ accessors** — runs the host-language scanner
-   and sends a second `workspace/applyEdit` with the textual edits.
-2. **Skip** — leaves the host-language sources unchanged.
-3. **Skip and don't ask again for this declaration** — same as Skip,
-   plus records the suppression for the rest of the session keyed on
-   `(slint_uri, original_name)`. TODO(#12111): persist across sessions
-   once client-side settings storage is available.
-
-The slint rename and the host-language rewrite arrive as two
-independent `workspace/applyEdit` calls; if the user rejects the
-prompt (or dismisses it, or the scanner errors), the slint rename
-still stands. A `window/showMessage` summarizes the outcome in either
-direction.
-
-No per-editor extension is required; any LSP client that implements
-`textDocument/rename` and `window/showMessageRequest` gets the
-feature for free.
-
-Implementation detail (handler shape, scanner algorithm, Unicode
-identifier tokenizer, soft-degrade behavior) lives in the
-module-doc comments of `tools/lsp/common/rename_component.rs` and
-`tools/lsp/common/host_language_search.rs`. Accessor names are the
-single source of truth in
-`internal/compiler/generator/accessor_names.rs`, shared between
-codegen (`rust.rs`, `cpp.rs`) and the scanner so the two can't drift.
-The scanner module is gated `cfg(not(target_arch = "wasm32"))` since
-the WASM LSP has no filesystem.
+Renaming a public property, callback, or function can also search and replace
+its generated Rust/C++ accessors in workspace files.
+See `tools/lsp/common/rename_component.rs` for the rename flow and
+`tools/lsp/common/host_language_search.rs` for the workspace search.
 
 ## Live Preview
 
