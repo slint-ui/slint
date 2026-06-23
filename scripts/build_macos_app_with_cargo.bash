@@ -48,51 +48,26 @@ TARGET_DIR_NAME="${MACOS_CARGO_TARGET_DIR_NAME:-${PRODUCT_BUNDLE_IDENTIFIER:-$CA
 TARGET_DIR_NAME="$(printf "%s" "$TARGET_DIR_NAME" | tr -c 'A-Za-z0-9_.-' '-')"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$REPO_ROOT/target/xcode-cargo/$TARGET_DIR_NAME}"
 
-ARCHS="${ARCHS:-$(uname -m)}"
-EXECUTABLES=()
+RUST_TARGET=aarch64-apple-darwin
 
-for arch in $ARCHS; do
-    case "$arch" in
-        arm64)
-            RUST_TARGET=aarch64-apple-darwin
-            ;;
-        x86_64)
-            RUST_TARGET=x86_64-apple-darwin
-            ;;
-        *)
-            echo "error: unsupported macOS architecture: $arch" >&2
-            exit 1
-            ;;
-    esac
+echo "::group::Cargo build $CARGO_TARGET_NAME for $RUST_TARGET"
+echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] cargo build start: $RUST_TARGET"
+cargo build \
+    "${CARGO_PROFILE_ARGS[@]}" \
+    --target "$RUST_TARGET" \
+    "$CARGO_TARGET_KIND" "$CARGO_TARGET_NAME" \
+    "$@"
+echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] cargo build finished: $RUST_TARGET"
+echo "::endgroup::"
 
-    echo "::group::Cargo build $CARGO_TARGET_NAME for $RUST_TARGET"
-    echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] cargo build start: $RUST_TARGET"
-    cargo build \
-        "${CARGO_PROFILE_ARGS[@]}" \
-        --target "$RUST_TARGET" \
-        "$CARGO_TARGET_KIND" "$CARGO_TARGET_NAME" \
-        "$@"
-    echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] cargo build finished: $RUST_TARGET"
-    echo "::endgroup::"
-
-    if [ "$CARGO_TARGET_KIND" = "--example" ]; then
-        EXECUTABLES+=("$CARGO_TARGET_DIR/$RUST_TARGET/$CARGO_PROFILE/examples/$CARGO_TARGET_NAME")
-    else
-        EXECUTABLES+=("$CARGO_TARGET_DIR/$RUST_TARGET/$CARGO_PROFILE/$CARGO_TARGET_NAME")
-    fi
-done
+if [ "$CARGO_TARGET_KIND" = "--example" ]; then
+    EXECUTABLE="$CARGO_TARGET_DIR/$RUST_TARGET/$CARGO_PROFILE/examples/$CARGO_TARGET_NAME"
+else
+    EXECUTABLE="$CARGO_TARGET_DIR/$RUST_TARGET/$CARGO_PROFILE/$CARGO_TARGET_NAME"
+fi
 
 mkdir -p "$(dirname "$TARGET_BUILD_DIR/$EXECUTABLE_PATH")"
 rm -f "$TARGET_BUILD_DIR/$EXECUTABLE_PATH"
-
-if [ "${#EXECUTABLES[@]}" -eq 1 ]; then
-    echo "Copying ${EXECUTABLES[0]} to $TARGET_BUILD_DIR/$EXECUTABLE_PATH"
-    cp "${EXECUTABLES[0]}" "$TARGET_BUILD_DIR/$EXECUTABLE_PATH"
-else
-    # Source: lipo creates a universal file from multiple architecture-specific
-    # Mach-O inputs: https://keith.github.io/xcode-man-pages/lipo.1.html
-    echo "Creating universal executable at $TARGET_BUILD_DIR/$EXECUTABLE_PATH"
-    lipo -create -output "$TARGET_BUILD_DIR/$EXECUTABLE_PATH" "${EXECUTABLES[@]}"
-fi
-
+echo "Copying $EXECUTABLE to $TARGET_BUILD_DIR/$EXECUTABLE_PATH"
+cp "$EXECUTABLE" "$TARGET_BUILD_DIR/$EXECUTABLE_PATH"
 chmod +x "$TARGET_BUILD_DIR/$EXECUTABLE_PATH"

@@ -53,8 +53,6 @@ targets:
         # Sources:
         # - xcodebuild build settings drive ARCHS and target paths:
         #   https://keith.github.io/xcode-man-pages/xcodebuild.1.html
-        # - lipo creates universal Mach-O binaries:
-        #   https://keith.github.io/xcode-man-pages/lipo.1.html
         script: |
           MACOS_CARGO_TARGET_DIR_NAME=slint-visual-editor \
               ../../scripts/build_macos_app_with_cargo.bash \

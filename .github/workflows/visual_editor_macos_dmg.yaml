@@ -83,8 +83,8 @@ jobs:
                   # - GitHub cache branch scope: https://github.com/actions/cache
                   save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
 
-            - name: Install macOS Rust targets
-              run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+            - name: Install macOS Rust target
+              run: rustup target add aarch64-apple-darwin
 
             # Cache Homebrew's downloaded bottles only. All PRs restore this
             # cache, but only same-repository PRs save it. The installed prefix

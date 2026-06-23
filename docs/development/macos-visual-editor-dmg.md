@@ -25,8 +25,7 @@ filters are from GitHub's workflow syntax documentation:
 <https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax>.
 
 The workflow uses `macos-15` because GitHub documents it as an arm64 macOS
-hosted runner. The packaging script still builds both Apple Silicon and Intel
-Rust targets for a universal app:
+hosted runner:
 <https://docs.github.com/en/actions/reference/runners/github-hosted-runners>.
 
 The runner has only 14 GB of SSD, and the official `macos-15-arm64` image list
@@ -86,9 +85,9 @@ XcodeGen installation is documented by the project and the Homebrew formula:
 ## Build flow
 
 The workflow installs Rust once through the repository's existing
-`.github/actions/setup-rust` action, then adds the two macOS Rust targets with
-`rustup target add aarch64-apple-darwin x86_64-apple-darwin` before installing
-XcodeGen with Homebrew.
+`.github/actions/setup-rust` action, then adds the macOS Rust target with
+`rustup target add aarch64-apple-darwin` before installing XcodeGen with
+Homebrew.
 
 The Rust cache is provided by `Swatinem/rust-cache`. The workflow uses a
 visual-editor-specific key. Pull requests restore caches, and same-repository
@@ -116,24 +115,21 @@ and Gatekeeper commands.
 3. Decodes the Developer ID `.p12` and notary API `.p8` into `$RUNNER_TEMP`.
 4. Creates and unlocks a temporary keychain with `security`.
 5. Runs `xcodegen generate --spec tools/lsp/macos-project.yml`.
-6. Runs `xcodebuild archive` with `ARCHS="arm64 x86_64"` and
-   `CODE_SIGNING_ALLOWED=NO`.
+6. Runs `xcodebuild archive` with `ARCHS="arm64"` and `CODE_SIGNING_ALLOWED=NO`.
 7. Lets Xcode call `scripts/build_macos_app_with_cargo.bash` from a build phase.
-8. Builds Cargo's `slint-visual-editor` binary for `aarch64-apple-darwin` and
-   `x86_64-apple-darwin`.
-9. Combines both executables with `lipo`.
-10. Copies the visual editor demo files into the app bundle resources so Finder
+8. Builds Cargo's `slint-visual-editor` binary for `aarch64-apple-darwin`.
+9. Copies the visual editor demo files into the app bundle resources so Finder
     launches can open a default project without command-line arguments.
-11. Signs the app bundle with `codesign --deep --options runtime`.
-12. Deletes Xcode and Cargo build intermediates after the signed app is staged.
-13. Creates and signs a compressed DMG with `hdiutil`, then verifies both the
+10. Signs the app bundle with `codesign --deep --options runtime`.
+11. Deletes Xcode and Cargo build intermediates after the signed app is staged.
+12. Creates and signs a compressed DMG with `hdiutil`, then verifies both the
     DMG signature and the mounted app payload.
-14. Submits the DMG with `xcrun notarytool submit --wait`.
-15. Staples and validates the accepted ticket with `xcrun stapler`, then
+13. Submits the DMG with `xcrun notarytool submit --wait`.
+14. Staples and validates the accepted ticket with `xcrun stapler`, then
     repeats the DMG and mounted app signature checks on the final artifact.
-16. Mounts the DMG, verifies the mounted app with `codesign`, and checks it
+15. Mounts the DMG, verifies the mounted app with `codesign`, and checks it
     with `spctl`.
-17. Uploads `dist/*.dmg` as a GitHub Actions artifact.
+16. Uploads `dist/*.dmg` as a GitHub Actions artifact.
 
 For local debugging, the same phases can be run individually:
 
@@ -152,7 +148,6 @@ The command sources for these steps are:
 
 - `security`: <https://keith.github.io/xcode-man-pages/security.1.html>
 - `xcodebuild`: <https://keith.github.io/xcode-man-pages/xcodebuild.1.html>
-- `lipo`: <https://keith.github.io/xcode-man-pages/lipo.1.html>
 - `codesign`: <https://keith.github.io/xcode-man-pages/codesign.1.html>
 - `hdiutil`: <https://keith.github.io/xcode-man-pages/hdiutil.1.html>
 - `notarytool`: <https://keith.github.io/xcode-man-pages/notarytool.1.html>
@@ -169,14 +164,14 @@ Set the same environment variables as the CI secrets, then run:
 
 ```sh
 brew install xcodegen
-rustup target add aarch64-apple-darwin x86_64-apple-darwin
+rustup target add aarch64-apple-darwin
 ./scripts/package_macos_visual_editor.bash
 ```
 
 The expected artifact name is:
 
 ```text
-dist/SlintVisualEditor-<version>-macos-universal.dmg
+dist/SlintVisualEditor-<version>-macos-arm64.dmg
 ```
 
 For Xcode project generation only:
@@ -194,7 +189,7 @@ xcodebuild archive \
     -configuration Release \
     -destination "generic/platform=macOS" \
     -archivePath "target/macos-visual-editor-dmg/Slint Visual Editor.xcarchive" \
-    ARCHS="arm64 x86_64" \
+    ARCHS="arm64" \
     ONLY_ACTIVE_ARCH=NO \
     SKIP_INSTALL=NO \
     CODE_SIGNING_ALLOWED=NO
@@ -206,9 +201,9 @@ The packaging script runs these checks automatically:
 
 ```sh
 codesign --verify --deep --strict --verbose=2 "Slint Visual Editor.app"
-hdiutil verify "SlintVisualEditor-<version>-macos-universal.dmg"
-codesign --verify --strict --verbose=2 "SlintVisualEditor-<version>-macos-universal.dmg"
-xcrun stapler validate "SlintVisualEditor-<version>-macos-universal.dmg"
+hdiutil verify "SlintVisualEditor-<version>-macos-arm64.dmg"
+codesign --verify --strict --verbose=2 "SlintVisualEditor-<version>-macos-arm64.dmg"
+xcrun stapler validate "SlintVisualEditor-<version>-macos-arm64.dmg"
 spctl -a -vv -t exec "/Volumes/Slint Visual Editor/Slint Visual Editor.app"
 ```
 

@@ -56,7 +56,7 @@ STAGE_DIR="$BUILD_DIR/dmg-stage"
 MOUNT_DIR="$BUILD_DIR/dmg-mount"
 APP_PATH="$ARCHIVE_PATH/Products/Applications/$APP_NAME.app"
 STAGED_APP_PATH="$STAGE_DIR/$APP_NAME.app"
-DMG_PATH="$DIST_DIR/$DMG_BASENAME-$VERSION-macos-universal.dmg"
+DMG_PATH="$DIST_DIR/$DMG_BASENAME-$VERSION-macos-arm64.dmg"
 NOTARY_LOG="$BUILD_DIR/notarization-log.json"
 KEYCHAIN_PATH="$RUNNER_TEMP_DIR/visual-editor-signing.keychain-db"
 CERTIFICATE_PATH="$RUNNER_TEMP_DIR/developer-id-application.p12"
@@ -153,7 +153,7 @@ archive_app() {
         -destination "generic/platform=macOS" \
         -derivedDataPath "$DERIVED_DATA_PATH" \
         -archivePath "$ARCHIVE_PATH" \
-        ARCHS="arm64 x86_64" \
+        ARCHS="arm64" \
         ONLY_ACTIVE_ARCH=NO \
         SKIP_INSTALL=NO \
         CODE_SIGNING_ALLOWED=NO \
