@@ -22,7 +22,7 @@ env:
 jobs:
     dmg:
         name: Build signed notarized DMG
-        runs-on: macos-26-arm64
+        runs-on: macos-26
         timeout-minutes: 90
         env:
             MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
