@@ -281,15 +281,15 @@ class LiveReloadModelWrapperBase : public private_api::ModelChangeListener
         };
         auto push_row = [](VRef<ModelAdaptorVTable> self, slint::cbindgen_private::Value *value) {
             interpreter::Value v(std::move(value));
-            reinterpret_cast<ModelWrapper *>(self.instance)->model->push_row(v);
+            reinterpret_cast<LiveReloadModelWrapperBase *>(self.instance)->push_row(v);
         };
         auto remove_row = [](VRef<ModelAdaptorVTable> self, intptr_t row) {
-            reinterpret_cast<ModelWrapper *>(self.instance)->model->remove_row(row);
+            reinterpret_cast<LiveReloadModelWrapperBase *>(self.instance)->remove_row(row);
         };
         auto insert_row = [](VRef<ModelAdaptorVTable> self, intptr_t row,
                              slint::cbindgen_private::Value *value) {
             interpreter::Value v(std::move(value));
-            reinterpret_cast<ModelWrapper *>(self.instance)->model->insert_row(row, v);
+            reinterpret_cast<LiveReloadModelWrapperBase *>(self.instance)->insert_row(row, v);
         };
         auto get_notify =
                 [](VRef<ModelAdaptorVTable> self) -> const cbindgen_private::ModelNotifyOpaque * {
@@ -313,6 +313,9 @@ protected:
     virtual int row_count() const = 0;
     virtual std::optional<slint::interpreter::Value> row_data(int i) const = 0;
     virtual void set_row_data(int i, const slint::interpreter::Value &value) = 0;
+    virtual void push_row(const slint::interpreter::Value &value) = 0;
+    virtual void remove_row(int row) = 0;
+    virtual void insert_row(int row, const slint::interpreter::Value &value) = 0;
 
     static interpreter::Value wrap(std::shared_ptr<LiveReloadModelWrapperBase> wrapper)
     {
@@ -357,6 +360,21 @@ public:
     void set_row_data(int i, const slint::interpreter::Value &value) override
     {
         model->set_row_data(i, from_slint_value<ModelData>(value));
+    }
+
+    void push_row(const slint::interpreter::Value &value) override
+    {
+        model->push_row(from_slint_value<ModelData>(value));
+    }
+
+    void remove_row(int row) override
+    {
+        model->remove_row(row);
+    }
+
+    void insert_row(int row, const slint::interpreter::Value &value) override
+    {
+        model->insert_row(row, from_slint_value<ModelData>(value));
     }
 
     static slint::interpreter::Value wrap(std::shared_ptr<slint::Model<ModelData>> model)
