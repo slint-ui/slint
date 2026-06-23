@@ -22,7 +22,7 @@ env:
 jobs:
     dmg:
         name: Build signed notarized DMG
-        runs-on: macos-15
+        runs-on: macos-26-arm64
         timeout-minutes: 90
         env:
             MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
@@ -34,15 +34,8 @@ jobs:
             NOTARY_API_KEY_BASE64: ${{ secrets.NOTARY_API_KEY_BASE64 }}
             NOTARY_API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
             NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
-            DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
         steps:
             - uses: actions/checkout@v6
-
-            - name: Show Xcode version
-              run: |
-                  echo "DEVELOPER_DIR=$DEVELOPER_DIR"
-                  xcrun --find xcodebuild
-                  xcodebuild -version
 
             # Free space from the image or the build will run out of space
             - name: Free unused macOS runner disk space

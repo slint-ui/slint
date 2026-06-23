@@ -6,17 +6,13 @@ This will become part of the docs later, but for now, this is a placeholder.
 
 The dedicated workflow is `.github/workflows/visual_editor_macos_dmg.yaml`.
 
-The workflow uses `macos-15` because GitHub documents it as an arm64 macOS
-hosted runner:
+The workflow uses `macos-26-arm64` because GitHub documents it as an arm64
+macOS hosted runner:
 <https://github.com/actions/runner-images/blob/main/README.md> and
-<https://github.com/actions/runner-images/blob/main/images/macos/macos-15-arm64-Readme.md>.
+<https://github.com/actions/runner-images/blob/main/images/macos/macos-26-arm64-Readme.md>.
 
-The macOS 15 image defaults to Xcode 16.4 but also includes Xcode 26 releases.
-The workflow sets `DEVELOPER_DIR` to the documented Xcode 26.3 developer
-directory, `/Applications/Xcode_26.3.app/Contents/Developer`, before generating
-the Xcode project or running `xcodebuild`. The `xcode-select` man page
-documents `DEVELOPER_DIR` as an override for the active developer directory:
-<https://keith.github.io/xcode-man-pages/xcode-select.1.html>.
+The macOS 26 arm64 image defaults to Xcode 26.5, so the workflow relies on the
+image default instead of setting `DEVELOPER_DIR`.
 
 ## Required CI secrets
 
