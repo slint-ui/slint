@@ -943,7 +943,7 @@ async fn run_host_language_rename_followup(
                 Ok(edits) if edits.is_empty() => {
                     show_info(
                         &server_notifier,
-                        "Slint rename applied; no Rust/C++ accessor call sites found in the workspace.",
+                        "Slint rename applied; no matching Rust/C++ accessor identifiers found in the workspace.",
                     );
                 }
                 Ok(edits) => {
@@ -964,7 +964,7 @@ async fn run_host_language_rename_followup(
                         &server_notifier,
                         format!(
                             "Slint rename applied; host-language scan failed: {e}. \
-                             Rust/C++ accessor call sites were not rewritten."
+                             Rust/C++ accessor identifiers were not replaced."
                         ),
                     );
                 }
@@ -1013,7 +1013,7 @@ async fn apply_host_language_edits(
             show_info(
                 server_notifier,
                 format!(
-                    "Rewrote {edit_count} Rust/C++ accessor call site{} across {file_count} file{}.",
+                    "Replaced {edit_count} Rust/C++ accessor occurrence{} across {file_count} file{}.",
                     if edit_count == 1 { "" } else { "s" },
                     if file_count == 1 { "" } else { "s" },
                 ),
@@ -2015,7 +2015,236 @@ pub mod tests {
     use crate::language::test::{
         complex_document_cache, loaded_document_cache, loaded_document_cache_with_file_name,
     };
-    use lsp_types::WorkspaceEdit;
+    use lsp_server::{Message, Request, Response};
+    use lsp_types::{
+        ApplyWorkspaceEditResponse, MessageActionItem, WorkspaceEdit, WorkspaceFolder,
+    };
+
+    struct TestLspClient {
+        receiver: crossbeam_channel::Receiver<Message>,
+        queue: crate::OutgoingRequestQueue,
+    }
+
+    impl TestLspClient {
+        fn next_request(&self, expected_method: &str) -> Request {
+            let message = self
+                .receiver
+                .recv_timeout(std::time::Duration::from_secs(2))
+                .expect("expected an LSP request");
+            let Message::Request(request) = message else {
+                panic!("expected request, got {message:?}");
+            };
+            assert_eq!(request.method, expected_method);
+            request
+        }
+
+        fn respond(&self, request: Request, result: impl serde::Serialize) {
+            let mut entry = loop {
+                if let Some(entry) = self.queue.get_mut(&request.id) {
+                    break entry;
+                }
+                std::thread::yield_now();
+            };
+            if let crate::OutgoingRequest::Pending(waker) = &*entry {
+                waker.wake_by_ref();
+            }
+            *entry = crate::OutgoingRequest::Done(Response::new_ok(
+                request.id,
+                serde_json::to_value(result).unwrap(),
+            ));
+        }
+
+        fn next_show_message(&self) -> lsp_types::ShowMessageParams {
+            let message = self
+                .receiver
+                .recv_timeout(std::time::Duration::from_secs(2))
+                .expect("expected a show-message notification");
+            let Message::Notification(notification) = message else {
+                panic!("expected notification, got {message:?}");
+            };
+            assert_eq!(notification.method, "window/showMessage");
+            serde_json::from_value(notification.params).unwrap()
+        }
+    }
+
+    fn test_lsp_client() -> (crate::ServerNotifier, TestLspClient) {
+        let (sender, receiver) = crossbeam_channel::unbounded();
+        let queue = crate::OutgoingRequestQueue::default();
+        (crate::ServerNotifier { sender, queue: queue.clone() }, TestLspClient { receiver, queue })
+    }
+
+    fn poll_future<F: Future>(future: std::pin::Pin<&mut F>) -> std::task::Poll<F::Output> {
+        let waker = std::task::Waker::noop();
+        let mut context = std::task::Context::from_waker(waker);
+        future.poll(&mut context)
+    }
+
+    #[test]
+    fn host_language_followup_can_disable_prompts_for_the_session() {
+        let (notifier, client) = test_lsp_client();
+        let dont_ask_again = Rc::new(Cell::new(false));
+        let info = common::rename_component::HostLanguageRenameInfo {
+            kind: i_slint_compiler::generator::accessor_names::DeclarationKind::Property,
+            old_name: "count".into(),
+        };
+        let mut future = Box::pin(run_host_language_rename_followup(
+            notifier,
+            dont_ask_again.clone(),
+            Vec::new(),
+            common::ByteFormat::Utf16,
+            info,
+            "total".into(),
+        ));
+
+        assert!(poll_future(future.as_mut()).is_pending());
+        let request = client.next_request("window/showMessageRequest");
+        let params: lsp_types::ShowMessageRequestParams =
+            serde_json::from_value(request.params.clone()).unwrap();
+        let actions: Vec<_> = params.actions.unwrap().into_iter().map(|a| a.title).collect();
+        assert_eq!(
+            actions,
+            ["Search & Replace Rust/C++ accessors", "Skip", "Skip and don't ask again"]
+        );
+        client.respond(
+            request,
+            Some(MessageActionItem {
+                title: "Skip and don't ask again".into(),
+                properties: Default::default(),
+            }),
+        );
+
+        assert!(poll_future(future.as_mut()).is_ready());
+        assert!(dont_ask_again.get());
+        assert!(client.next_show_message().message.contains("won't ask again this session"));
+    }
+
+    #[test]
+    fn session_suppression_prevents_a_later_prompt() {
+        let (document_cache, url, diagnostics) =
+            loaded_document_cache("export component App { in property <int> count; }".into());
+        assert!(diagnostics.get(&url).unwrap().is_empty());
+        let document = document_cache.get_document(&url).unwrap().node.as_ref().unwrap();
+        let offset = document.text().to_string().find("count").unwrap() as u32;
+        let token = document
+            .token_at_offset(offset.into())
+            .find(|token| token.kind() == SyntaxKind::Identifier)
+            .unwrap();
+        let declaration =
+            common::rename_component::find_declaration_node(&document_cache, &token).unwrap();
+        let (notifier, client) = test_lsp_client();
+        let mut context = test::mock_context();
+        context.document_cache = document_cache;
+        context.server_notifier = notifier;
+        context.host_language_rename_dont_ask_again.set(true);
+
+        schedule_host_language_rename_followup(&context, &declaration, "total");
+
+        assert!(matches!(
+            client.receiver.recv_timeout(std::time::Duration::from_millis(50)),
+            Err(crossbeam_channel::RecvTimeoutError::Timeout)
+        ));
+    }
+
+    #[test]
+    fn host_language_followup_requests_and_reports_the_second_workspace_edit() {
+        let path = std::env::temp_dir().join(format!(
+            "slint-lsp-followup-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        ));
+        std::fs::create_dir(&path).unwrap();
+        std::fs::write(path.join("main.rs"), "obj.get_count();").unwrap();
+        let folders =
+            vec![WorkspaceFolder { uri: Url::from_file_path(&path).unwrap(), name: "test".into() }];
+        let (notifier, client) = test_lsp_client();
+        let info = common::rename_component::HostLanguageRenameInfo {
+            kind: i_slint_compiler::generator::accessor_names::DeclarationKind::Property,
+            old_name: "count".into(),
+        };
+        let mut future = Box::pin(run_host_language_rename_followup(
+            notifier,
+            Rc::new(Cell::new(false)),
+            folders,
+            common::ByteFormat::Utf16,
+            info,
+            "total".into(),
+        ));
+
+        assert!(poll_future(future.as_mut()).is_pending());
+        let prompt = client.next_request("window/showMessageRequest");
+        client.respond(
+            prompt,
+            Some(MessageActionItem {
+                title: "Search & Replace Rust/C++ accessors".into(),
+                properties: Default::default(),
+            }),
+        );
+        assert!(poll_future(future.as_mut()).is_pending());
+        let apply = client.next_request("workspace/applyEdit");
+        let params: lsp_types::ApplyWorkspaceEditParams =
+            serde_json::from_value(apply.params.clone()).unwrap();
+        assert_eq!(
+            params.label.as_deref(),
+            Some("Search & Replace Rust/C++ accessors for Slint rename")
+        );
+        assert!(serde_json::to_string(&params.edit).unwrap().contains("get_total"));
+        client.respond(
+            apply,
+            ApplyWorkspaceEditResponse { applied: true, failure_reason: None, failed_change: None },
+        );
+
+        assert!(poll_future(future.as_mut()).is_ready());
+        assert_eq!(
+            client.next_show_message().message,
+            "Replaced 1 Rust/C++ accessor occurrence across 1 file."
+        );
+        std::fs::remove_dir_all(path).unwrap();
+    }
+
+    #[test]
+    fn refused_host_language_workspace_edit_is_reported() {
+        let (notifier, client) = test_lsp_client();
+        let mut future =
+            Box::pin(apply_host_language_edits(&notifier, WorkspaceEdit::default(), 1, 1));
+
+        assert!(poll_future(future.as_mut()).is_pending());
+        let apply = client.next_request("workspace/applyEdit");
+        client.respond(
+            apply,
+            ApplyWorkspaceEditResponse {
+                applied: false,
+                failure_reason: Some("no".into()),
+                failed_change: None,
+            },
+        );
+
+        assert!(poll_future(future.as_mut()).is_ready());
+        let message = client.next_show_message();
+        assert_eq!(message.typ, lsp_types::MessageType::WARNING);
+        assert!(message.message.contains("Client refused"));
+    }
+
+    #[test]
+    fn current_workspace_folders_queries_capable_clients() {
+        let (notifier, client) = test_lsp_client();
+        let expected = WorkspaceFolder {
+            uri: Url::parse("file:///current-workspace").unwrap(),
+            name: "current".into(),
+        };
+        let mut init = InitializeParams::default();
+        init.capabilities.workspace = Some(lsp_types::WorkspaceClientCapabilities {
+            workspace_folders: Some(true),
+            ..Default::default()
+        });
+        let mut future =
+            Box::pin(common::host_language_search::current_workspace_folders(&notifier, &init));
+
+        assert!(poll_future(future.as_mut()).is_pending());
+        let request = client.next_request("workspace/workspaceFolders");
+        client.respond(request, Some(vec![expected.clone()]));
+
+        assert_eq!(poll_future(future.as_mut()), std::task::Poll::Ready(vec![expected]));
+    }
 
     #[test]
     fn test_load_document_invalid_contents() {

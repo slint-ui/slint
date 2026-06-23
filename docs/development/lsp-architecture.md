@@ -33,7 +33,7 @@ The Slint LSP (Language Server Protocol) server provides IDE features for `.slin
 | `tools/lsp/language/signature_help.rs` | Function/callback signatures |
 | `tools/lsp/common/document_cache.rs` | Document caching and compilation |
 | `tools/lsp/common/rename_component.rs` | Rename of components, structs, enums, properties, callbacks, functions |
-| `tools/lsp/common/host_language_search.rs` | Cross-language rename: walks workspace files to rewrite Rust/C++ accessor call sites |
+| `tools/lsp/common/host_language_search.rs` | Cross-language rename: walks workspace files to replace matching Rust/C++ accessor identifiers |
 | `internal/compiler/generator/accessor_names.rs` | Shared name mapping for Rust/C++ property/callback/function accessors (used by both codegen and the LSP scanner) |
 | `tools/lsp/preview.rs` | Live preview engine |
 | `tools/lsp/fmt/` | Code formatter |

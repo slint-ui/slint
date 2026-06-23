@@ -3,20 +3,20 @@
 
 // cSpell: ignore bget countñ xéget xget xñget xxget
 
-//! Scan the workspace for Rust/C++ call sites of Slint-generated property,
-//! callback, and function accessors so that a Slint rename can extend its
-//! `WorkspaceEdit` with edits in host-language source files.
+//! Scan the workspace for identifiers that match Slint-generated Rust/C++
+//! property, callback, and function accessors.
 //!
 //! The scanner tokenizes identifiers using Unicode XID_Start / XID_Continue
 //! (via [`icu_properties`]) and matches whole identifiers against a small
 //! lookup table derived from [`i_slint_compiler::generator::accessor_names`].
 //! It does not parse Rust or C++. Cross-component accessor collisions are
-//! possible by construction; the LSP shows the proposed edits via
-//! `workspace/applyEdit` so the user reviews them before they land.
+//! possible by construction. The client may apply the `workspace/applyEdit`
+//! request immediately, so users should inspect the resulting changes with
+//! source control.
 
 #![cfg(not(target_arch = "wasm32"))]
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -92,8 +92,7 @@ impl std::error::Error for HostLanguageScanError {}
 ///
 /// Each [`WorkspaceFolder`] is walked independently; per the LSP spec, an
 /// editor can attach unrelated directories as separate workspace folders to
-/// the same server, and call sites for one folder's `.slint` declarations may
-/// live in another folder.
+/// the same server, and matching identifiers may live in any folder.
 pub fn search_replace_host_language_accessors(
     workspace_folders: &[WorkspaceFolder],
     kind: DeclarationKind,
@@ -110,16 +109,13 @@ pub fn search_replace_host_language_accessors(
     let accessors: HashMap<&str, &str> =
         pairs.iter().map(|(o, n)| (o.as_str(), n.as_str())).collect();
 
-    let mut files = Vec::new();
+    let mut files = HashSet::new();
     for folder in workspace_folders {
         let Ok(folder_path) = folder.uri.to_file_path() else { continue };
         collect_files(&folder_path, &mut files, bounds.max_files)?;
     }
-    // Distinct workspace folders can share files (one folder being an
-    // ancestor of another, or symlinked overlap). Dedup so we don't emit
-    // duplicate TextEdits per file.
+    let mut files: Vec<_> = files.into_iter().collect();
     files.sort();
-    files.dedup();
 
     let mut edits = Vec::new();
     for path in files {
@@ -245,7 +241,7 @@ fn accessor_pairs(kind: DeclarationKind, old_name: &str, new_name: &str) -> Vec<
 /// real directory as a workspace folder.
 fn collect_files(
     root: &Path,
-    out: &mut Vec<PathBuf>,
+    out: &mut HashSet<PathBuf>,
     max_files: usize,
 ) -> Result<(), HostLanguageScanError> {
     let mut queue: VecDeque<PathBuf> = VecDeque::new();
@@ -285,10 +281,13 @@ fn collect_files(
                 }
                 queue.push_back(path);
             } else if file_type.is_file() && has_host_extension(&path) {
+                if out.contains(&path) {
+                    continue;
+                }
                 if out.len() >= max_files {
                     return Err(HostLanguageScanError::TooManyFiles { limit: max_files });
                 }
-                out.push(path);
+                out.insert(path);
             }
         }
     }
@@ -307,8 +306,8 @@ fn has_host_extension(path: &Path) -> bool {
 ///
 /// This is a flat textual scan with no awareness of comments, string
 /// literals, raw strings, lifetimes, or any other language construct. The
-/// rename is *textual by design*: the LSP shows the proposed edits via
-/// `workspace/applyEdit` and the user reviews them before applying.
+/// rename is *textual by design*. The client may apply the
+/// `workspace/applyEdit` request without showing a preview.
 /// Selectively skipping some contexts (comments, strings) while still
 /// rewriting unrelated types that happen to share the accessor name was
 /// inconsistent enough to mislead users about what the tool actually does;
@@ -432,10 +431,8 @@ mod tests {
 
     #[test]
     fn textual_scan_does_match_inside_comments_and_strings() {
-        // The scanner is flat textual — it deliberately doesn't try to skip
-        // comments or string literals. The reshape (PR feedback) committed
-        // to "users review the rename preview before applying" rather than
-        // selectively skipping some contexts but not others.
+        // The scanner is flat textual and deliberately doesn't skip comments
+        // or string literals.
         let contents = r#"
             // see obj.get_count for details
             let msg = "obj.get_count is great";
@@ -452,7 +449,7 @@ mod tests {
         // `get_count`.
         let contents = "let xxget_countñ = 1; obj.get_count();";
         let edits = scan(contents, DeclarationKind::Property, "count", "total");
-        assert_eq!(edits.len(), 1, "only the call-site match is valid, got {edits:?}");
+        assert_eq!(edits.len(), 1, "only the standalone match is valid, got {edits:?}");
         assert_eq!(&contents[edits[0].0.clone()], "get_count");
     }
 
@@ -462,7 +459,7 @@ mod tests {
         // accessor lookup rejects it cleanly.
         let contents = "let xéget_count = 1; obj.get_count();";
         let edits = scan(contents, DeclarationKind::Property, "count", "total");
-        assert_eq!(edits.len(), 1, "only the call-site match is valid, got {edits:?}");
+        assert_eq!(edits.len(), 1, "only the standalone match is valid, got {edits:?}");
         assert_eq!(&contents[edits[0].0.clone()], "get_count");
     }
 
@@ -512,7 +509,7 @@ mod tests {
         std::fs::create_dir(tmp.path().join("src")).unwrap();
         std::fs::write(tmp.path().join("src").join("d.rs"), "").unwrap();
 
-        let mut out = Vec::new();
+        let mut out = HashSet::new();
         collect_files(tmp.path(), &mut out, 100).unwrap();
         let names: Vec<_> =
             out.iter().map(|p| p.file_name().unwrap().to_str().unwrap().to_string()).collect();
@@ -533,7 +530,7 @@ mod tests {
         let root = tmp.path();
         std::fs::write(
             root.join("main.rs"),
-            "fn main() { let v = obj.get_count(); obj.set_count(v); }\n",
+            "// 😀 obj.get_count();\nfn main() { obj.set_count(1); }\n",
         )
         .unwrap();
         std::fs::create_dir(root.join("ui")).unwrap();
@@ -556,6 +553,9 @@ mod tests {
         let texts: Vec<_> = edits.iter().map(|e| e.edit.new_text.clone()).collect();
         assert!(texts.contains(&"get_total".to_string()));
         assert!(texts.contains(&"set_total".to_string()));
+        let getter = edits.iter().find(|e| e.edit.new_text == "get_total").unwrap();
+        assert_eq!(getter.edit.range.start, lsp_types::Position::new(0, 10));
+        assert_eq!(getter.edit.range.end, lsp_types::Position::new(0, 19));
     }
 
     #[test]
@@ -650,12 +650,61 @@ mod tests {
     }
 
     #[test]
+    fn overlapping_workspace_folders_count_unique_files() {
+        let root = tempdir();
+        let nested = root.path().join("nested");
+        std::fs::create_dir(&nested).unwrap();
+        std::fs::write(root.path().join("root.rs"), "obj.get_count();").unwrap();
+        std::fs::write(nested.join("nested.rs"), "obj.set_count(1);").unwrap();
+        let folders = vec![
+            WorkspaceFolder { uri: Url::from_file_path(root.path()).unwrap(), name: "root".into() },
+            WorkspaceFolder { uri: Url::from_file_path(&nested).unwrap(), name: "nested".into() },
+        ];
+
+        let edits = search_replace_host_language_accessors(
+            &folders,
+            DeclarationKind::Property,
+            "count",
+            "total",
+            ByteFormat::Utf16,
+            ScanBounds { max_files: 2, max_file_bytes: 1024 },
+        )
+        .unwrap();
+
+        assert_eq!(edits.len(), 2);
+        let urls: HashSet<_> = edits.iter().map(|e| &e.url).collect();
+        assert_eq!(urls.len(), 2);
+    }
+
+    #[test]
+    fn files_larger_than_the_size_bound_are_skipped() {
+        let root = tempdir();
+        std::fs::write(root.path().join("main.rs"), "obj.get_count();").unwrap();
+        let folders = vec![WorkspaceFolder {
+            uri: Url::from_file_path(root.path()).unwrap(),
+            name: "root".into(),
+        }];
+
+        let edits = search_replace_host_language_accessors(
+            &folders,
+            DeclarationKind::Property,
+            "count",
+            "total",
+            ByteFormat::Utf16,
+            ScanBounds { max_files: 1, max_file_bytes: 4 },
+        )
+        .unwrap();
+
+        assert!(edits.is_empty());
+    }
+
+    #[test]
     fn collect_files_extension_match_is_case_insensitive() {
         let tmp = tempdir();
         std::fs::write(tmp.path().join("Main.RS"), "").unwrap();
         std::fs::write(tmp.path().join("Window.HPP"), "").unwrap();
         std::fs::write(tmp.path().join("README.md"), "").unwrap();
-        let mut out = Vec::new();
+        let mut out = HashSet::new();
         collect_files(tmp.path(), &mut out, 100).unwrap();
         let names: Vec<_> =
             out.iter().map(|p| p.file_name().unwrap().to_str().unwrap().to_string()).collect();
@@ -678,7 +727,7 @@ mod tests {
         // Symlink to a file that would otherwise match.
         symlink(tmp.path().join("real.rs"), tmp.path().join("linked.rs")).unwrap();
 
-        let mut out = Vec::new();
+        let mut out = HashSet::new();
         collect_files(tmp.path(), &mut out, 100).unwrap();
         let names: Vec<_> =
             out.iter().map(|p| p.file_name().unwrap().to_str().unwrap().to_string()).collect();
@@ -695,7 +744,7 @@ mod tests {
         for i in 0..10 {
             std::fs::write(tmp.path().join(format!("f{i}.rs")), "").unwrap();
         }
-        let mut out = Vec::new();
+        let mut out = HashSet::new();
         let err = collect_files(tmp.path(), &mut out, 3).unwrap_err();
         assert!(matches!(err, HostLanguageScanError::TooManyFiles { limit: 3 }));
     }

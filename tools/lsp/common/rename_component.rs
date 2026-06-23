@@ -9,8 +9,8 @@
 //! # Host-language follow-up flow
 //!
 //! Renaming a public property/callback/function in `.slint` can optionally
-//! also rewrite the generated Rust/C++ accessor (`get_<n>`, `set_<n>`,
-//! `invoke_<n>`, `on_<n>`) at every textual call site in the workspace. The
+//! also replace matching generated Rust/C++ accessor identifiers (`get_<n>`,
+//! `set_<n>`, `invoke_<n>`, `on_<n>`) throughout the workspace. The
 //! `textDocument/rename` handler in `language.rs` returns the slint-only
 //! edits synchronously; the host-language follow-up runs in a `spawn_local`
 //! task because the rename handler is sync but the dialog and the second
@@ -36,14 +36,14 @@
 //! 4. Sends `window/showMessageRequest` with three actions: *Search & Replace
 //!    Rust/C++ accessors*, *Skip*, *Skip and don't ask again*. Dismissal is
 //!    treated as Skip.
-//! 5. On *Rewrite*, queries `workspace/workspaceFolders` (or falls back
+//! 5. On *Search & Replace*, queries `workspace/workspaceFolders` (or falls back
 //!    to the cached `InitializeParams` when the client doesn't support
 //!    the query), runs
 //!    [`crate::common::host_language_search::search_replace_host_language_accessors`]
 //!    against every folder, and sends a second `workspace/applyEdit` with
 //!    the host-language edits.
-//! 6. Reports the outcome via `window/showMessage`: count of rewritten
-//!    sites on success, or a warning on scan failure / refused edit.
+//! 6. Reports the outcome via `window/showMessage`: count of replaced
+//!    occurrences on success, or a warning on scan failure / refused edit.
 //!
 //! The slint rename and the host-language rewrite arrive as two
 //! independent edits; the editor's undo treats them separately. That is
@@ -591,7 +591,7 @@ impl DeclarationNode {
 
     /// If this declaration would be exposed in the generated Rust/C++ public
     /// API, return the information the host-language scanner needs to find
-    /// call sites in `.rs`/`.cpp`/`.h` files.
+    /// matching accessor identifiers in Rust and C++ source files.
     ///
     /// Returns `None` for declarations that don't emit Rust/C++ accessors:
     /// private properties, declarations inside non-exported inner components,
@@ -4191,11 +4191,11 @@ global Foo {
     }
 }
 
-/// Integration tests for the full cross-language rename pipeline:
+/// Integration tests for the classification and search portions of the
+/// cross-language rename pipeline:
 /// `find_declaration_node` -> `rename()` -> `host_language_classification()`
-/// -> `search_replace_host_language_accessors()` -> `merge_workspace_edits`. Exercises
-/// the same flow the LSP Rename handler runs, against real `.slint` and `.rs`
-/// files in a tempdir.
+/// -> `search_replace_host_language_accessors()`.
+/// Tests for the interactive LSP requests live in `language.rs`.
 #[cfg(test)]
 mod host_language_rename_tests {
     use super::*;
@@ -4328,8 +4328,8 @@ mod host_language_rename_tests {
         token.unwrap()
     }
 
-    /// Run the same flow as the LSP "Rename property and Rust/C++ accessors"
-    /// CodeAction command: slint rename + classify + scan + merge.
+    /// Compose Slint and host-language edits for concise assertions.
+    /// Production sends these as two independent workspace edits.
     fn perform_rename(
         document_cache: &common::DocumentCache,
         folders: &[WorkspaceFolder],
@@ -4589,34 +4589,6 @@ export component App inherits Window { }
         assert!(rust_edits.contains(&"set_level".to_string()), "{rust_edits:?}");
     }
 
-    /// The scanner is textual by design (post-reshape): occurrences inside
-    /// comments are also rewritten, and the user reviews the rename preview
-    /// before applying.
-    #[test]
-    fn textual_rename_includes_rust_comment_mentions() {
-        let tmp = tempdir();
-        let (cache, url, folders) = setup(
-            &tmp,
-            &[(
-                "ui/app.slint",
-                r#"
-export component App inherits Window {
-    in property <int> count /* <- TEST_ME */;
-}
-                "#,
-            )],
-            &[("src/main.rs", "// old name was get_count\nfn main() { obj.get_count(); }\n")],
-        );
-
-        let edit = perform_rename(&cache, &folders, &url, "", "total");
-        let by_url = edits_by_url(&edit);
-        let rust_edits = by_url.get(&rs_url(&tmp, "src/main.rs")).expect("missing .rs edits");
-        // Both the comment mention and the live call rewrite -- the user
-        // reviews the diff in the rename preview.
-        assert_eq!(rust_edits.len(), 2);
-        assert!(rust_edits.iter().all(|t| t == "get_total"));
-    }
-
     /// Property rename should rewrite the same `get_<n>`/`set_<n>` accessors
     /// in a `.cpp` source file -- the scanner is language-agnostic at the
     /// byte level and both backends emit identical accessor names.
@@ -4700,40 +4672,5 @@ export component App inherits Window {
         let cpp = Url::from_file_path(tmp.path().join("cpp/src/main.cpp")).unwrap();
         assert_eq!(by_url.get(&rs).map(Vec::as_slice), Some(&["get_total".to_string()][..]));
         assert_eq!(by_url.get(&cpp).map(Vec::as_slice), Some(&["set_total".to_string()][..]));
-    }
-
-    /// C++ comment skipping: `//` and `/* ... */` work for C++ too, since the
-    /// lexer is generic enough to cover both languages' single-line and
-    /// The scanner is textual by design (post-reshape): C++ comments are also
-    /// rewritten, same as Rust comments.
-    #[test]
-    fn textual_rename_includes_cpp_comment_mentions() {
-        let tmp = tempdir();
-        let (cache, url, folders) = setup(
-            &tmp,
-            &[(
-                "ui/app.slint",
-                r#"
-export component App inherits Window {
-    in property <int> count /* <- TEST_ME */;
-}
-                "#,
-            )],
-            &[(
-                "src/main.cpp",
-                "// see get_count for details\n\
-                 /* also get_count here */\n\
-                 int main() { return app->get_count(); }\n",
-            )],
-        );
-
-        let edit = perform_rename(&cache, &folders, &url, "", "total");
-        let by_url = edits_by_url(&edit);
-        let cpp = Url::from_file_path(tmp.path().join("src/main.cpp")).unwrap();
-        let cpp_edits = by_url.get(&cpp).expect("missing .cpp edits");
-        // All three textual matches rewrite -- two comment mentions plus the
-        // live call. User reviews the preview.
-        assert_eq!(cpp_edits.len(), 3);
-        assert!(cpp_edits.iter().all(|t| t == "get_total"));
     }
 }
