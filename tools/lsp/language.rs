@@ -47,7 +47,7 @@ use lsp_types::{
     },
 };
 
-use std::cell::RefCell;
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::future::Future;
@@ -266,14 +266,9 @@ pub struct Context {
     /// Files to recompile after all other operations are done
     /// (i.e. recompilations triggered by updates to unopened files)
     pub pending_recompile: HashSet<lsp_types::Url>,
-    /// Per-declaration "don't ask again" suppression for the host-language
-    /// rename prompt. Keyed by `(slint file URL, original Slint decl name)` so
-    /// the user is asked only once per visible declaration per session. The
-    /// entry implicitly lapses after a successful rename: the next rename
-    /// sees a new key. TODO(#12111): persist across sessions when client-side
-    /// settings storage is available.
-    pub host_language_rename_dont_ask_again:
-        Rc<RefCell<HashSet<(lsp_types::Url, smol_str::SmolStr)>>>,
+    /// Disables the host-language rename prompt for the rest of the session.
+    /// TODO(#12111): Persist this setting across sessions.
+    pub host_language_rename_dont_ask_again: Rc<Cell<bool>>,
 }
 
 /// An error from a LSP request
@@ -605,17 +600,12 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                     |e| LspError { code: LspErrorCode::RequestFailed, message: e.to_string() },
                 )?;
                 // After the synchronous slint-only rename, ask the user (once)
-                // whether to also rewrite the generated Rust/C++ accessors at
-                // workspace call sites. The dialog and follow-up edit have to
+                // whether to also search and replace the generated Rust/C++
+                // accessors. The dialog and follow-up edit have to
                 // run asynchronously: the request handler is synchronous and
                 // must return the slint edit immediately.
                 #[cfg(not(target_arch = "wasm32"))]
-                schedule_host_language_rename_followup(
-                    ctx,
-                    &declaration_node,
-                    &uri,
-                    &params.new_name,
-                );
+                schedule_host_language_rename_followup(ctx, &declaration_node, &params.new_name);
                 return Ok(Some(edit));
             }
         }
@@ -843,7 +833,6 @@ pub fn populate_command(
 fn schedule_host_language_rename_followup(
     ctx: &Context,
     declaration_node: &common::rename_component::DeclarationNode,
-    slint_uri: &Url,
     new_name: &str,
 ) {
     let Some(info) = declaration_node.host_language_classification(&ctx.document_cache) else {
@@ -855,8 +844,7 @@ fn schedule_host_language_rename_followup(
     if i_slint_compiler::parser::normalize_identifier(new_name) == info.old_name {
         return;
     }
-    let key = (slint_uri.clone(), info.old_name.clone());
-    if ctx.host_language_rename_dont_ask_again.borrow().contains(&key) {
+    if ctx.host_language_rename_dont_ask_again.get() {
         return;
     }
 
@@ -879,7 +867,6 @@ fn schedule_host_language_rename_followup(
             format,
             info,
             new_name,
-            key,
         )
         .await;
     });
@@ -888,12 +875,11 @@ fn schedule_host_language_rename_followup(
 #[cfg(not(target_arch = "wasm32"))]
 async fn run_host_language_rename_followup(
     server_notifier: crate::ServerNotifier,
-    dont_ask_again: Rc<RefCell<HashSet<(Url, smol_str::SmolStr)>>>,
+    dont_ask_again: Rc<Cell<bool>>,
     workspace_folders: Vec<lsp_types::WorkspaceFolder>,
     format: common::ByteFormat,
     info: common::rename_component::HostLanguageRenameInfo,
     new_name: String,
-    dont_ask_again_key: (Url, smol_str::SmolStr),
 ) {
     use i_slint_compiler::generator::accessor_names::DeclarationKind;
 
@@ -904,13 +890,13 @@ async fn run_host_language_rename_followup(
     };
     let message = format!(
         "Slint {kind_label} '{}' is exposed to host language code. \
-         Also rewrite its Rust/C++ accessors at workspace call sites? \
+         Search & Replace the Rust/C++ code with the new accessors? \
          (The slint rename has already been applied.)",
         info.old_name,
     );
-    let action_replace = "Rewrite Rust/C++ accessors";
+    let action_replace = "Search & Replace Rust/C++ accessors";
     let action_skip = "Skip";
-    let action_never = "Skip and don't ask again for this declaration";
+    let action_never = "Skip and don't ask again";
 
     let action_items = vec![
         lsp_types::MessageActionItem {
@@ -945,7 +931,7 @@ async fn run_host_language_rename_followup(
 
     match chosen.as_deref() {
         Some(title) if title == action_replace => {
-            let scan_result = common::host_language_search::scan_host_language_accessors(
+            let scan_result = common::host_language_search::search_replace_host_language_accessors(
                 &workspace_folders,
                 info.kind,
                 &info.old_name,
@@ -985,10 +971,10 @@ async fn run_host_language_rename_followup(
             }
         }
         Some(title) if title == action_never => {
-            dont_ask_again.borrow_mut().insert(dont_ask_again_key);
+            dont_ask_again.set(true);
             show_info(
                 &server_notifier,
-                "Slint rename applied; skipping host-language rewrite (won't ask again for this declaration).",
+                "Slint rename applied; skipping host-language rewrite (won't ask again this session).",
             );
         }
         _ => {
@@ -1009,7 +995,7 @@ async fn apply_host_language_edits(
 ) {
     let request = match server_notifier.send_request::<lsp_types::request::ApplyWorkspaceEdit>(
         lsp_types::ApplyWorkspaceEditParams {
-            label: Some("Rewrite Rust/C++ accessors for Slint rename".into()),
+            label: Some("Search & Replace Rust/C++ accessors for Slint rename".into()),
             edit,
         },
     ) {
