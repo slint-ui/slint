@@ -19,3 +19,5 @@ The Slint code formatting tool is part of the lsp. To learn how to use it as a s
 The CI and local build path for the signed, notarized visual editor DMG is
 documented in
 [`docs/development/macos-visual-editor-dmg.md`](../../docs/development/macos-visual-editor-dmg.md).
+The GitHub Actions secret setup for that workflow is documented in
+[`macos-ci-secrets.md`](macos-ci-secrets.md).
