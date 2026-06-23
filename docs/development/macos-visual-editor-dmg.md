@@ -11,10 +11,11 @@ hosted runner:
 <https://github.com/actions/runner-images/blob/main/README.md> and
 <https://github.com/actions/runner-images/blob/main/images/macos/macos-15-arm64-Readme.md>.
 
-The macOS 15 image defaults to Xcode 16.4 but also includes Xcode 26 releases,
-so the workflow selects the newest installed `/Applications/Xcode_26*.app` with
-`xcode-select --switch` before generating the Xcode project or running
-`xcodebuild`. The `xcode-select` man page is here:
+The macOS 15 image defaults to Xcode 16.4 but also includes Xcode 26 releases.
+The workflow sets `DEVELOPER_DIR` to the documented Xcode 26.3 developer
+directory, `/Applications/Xcode_26.3.app/Contents/Developer`, before generating
+the Xcode project or running `xcodebuild`. The `xcode-select` man page
+documents `DEVELOPER_DIR` as an override for the active developer directory:
 <https://keith.github.io/xcode-man-pages/xcode-select.1.html>.
 
 ## Required CI secrets

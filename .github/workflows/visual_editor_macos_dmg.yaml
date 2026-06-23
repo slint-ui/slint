@@ -34,33 +34,14 @@ jobs:
             NOTARY_API_KEY_BASE64: ${{ secrets.NOTARY_API_KEY_BASE64 }}
             NOTARY_API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
             NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+            DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
         steps:
             - uses: actions/checkout@v6
 
-            - name: Select Xcode 26
+            - name: Show Xcode version
               run: |
-                  xcode_26_app="$(
-                      /usr/bin/python3 - <<'PY'
-                  from pathlib import Path
-                  import re
-
-                  def version_key(path):
-                      match = re.search(r"Xcode_(\d+(?:\.\d+)*)\.app$", path.name)
-                      return tuple(int(part) for part in match.group(1).split(".")) if match else ()
-
-                  candidates = sorted(Path("/Applications").glob("Xcode_26*.app"), key=version_key)
-                  if candidates:
-                      print(candidates[-1])
-                  PY
-                  )"
-
-                  if [ -z "$xcode_26_app" ]; then
-                      echo "No Xcode 26 installation found in /Applications"
-                      exit 1
-                  fi
-
-                  sudo xcode-select --switch "$xcode_26_app/Contents/Developer"
-                  xcode-select -p
+                  echo "DEVELOPER_DIR=$DEVELOPER_DIR"
+                  xcrun --find xcodebuild
                   xcodebuild -version
 
             # Free space from the image or the build will run out of space
