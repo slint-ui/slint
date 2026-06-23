@@ -18,9 +18,7 @@ use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
-use crate::items::{
-    InputType, ItemRef, MenuEntry, MouseCursor, PopupAnchor, PopupClosePolicy,
-};
+use crate::items::{InputType, ItemRef, MenuEntry, MouseCursor, PopupAnchor, PopupClosePolicy};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalVector, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
@@ -189,10 +187,7 @@ pub trait WindowAdapterInternal: core::any::Any {
     ///
     /// If this function return None (the default implementation), then the
     /// popup will be rendered within the window itself.
-    fn create_popup_window_adapter(
-        &self,
-        _anchor: PopupAnchor,
-    ) -> Option<Rc<dyn WindowAdapter>> {
+    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
         None
     }
 
@@ -1638,13 +1633,10 @@ impl WindowInner {
     }
     /// Create a new popup window adapter
     /// This window adapter can be used on a popup component and shown with show_popup()
-    pub fn create_popup_window_adapter(
-        &self,
-        anchor: PopupAnchor,
-    ) -> Option<Rc<dyn WindowAdapter>> {
-        self.window_adapter().internal(crate::InternalToken).and_then(|s| {
-            s.create_popup_window_adapter(anchor)
-        })
+    pub fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+        self.window_adapter()
+            .internal(crate::InternalToken)
+            .and_then(|s| s.create_popup_window_adapter())
     }
 
     /// Show a popup at the given position relative to the `parent_item` and returns its ID.

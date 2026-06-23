@@ -1097,6 +1097,7 @@ fn call_builtin_function(
                     &vtable::VRc::into_dyn(inst.clone()),
                     Box::new(move || position),
                     corelib::items::PopupClosePolicy::CloseOnClickOutside,
+                    corelib::items::PopupAnchor::default(),
                     &item_rc,
                     false,
                     true,

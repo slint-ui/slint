@@ -1583,10 +1583,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         }
     }
 
-    fn create_popup_window_adapter(
-        &self,
-        anchor: PopupAnchor,
-    ) -> Option<Rc<dyn WindowAdapter>> {
+    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
         if !self.event_loop_properties.get().support_native_popup {
             return None;
         }
@@ -1601,31 +1598,31 @@ impl WindowAdapterInternal for WinitWindowAdapter {
                 .with_visible(true)
                 .with_window_type(WindowType::Popup { grab_keyboard: true });
 
-            #[cfg(feature = "wayland")]
-            {
-                if self
-                    .event_loop_properties
-                    .get()
-                    .display_server_protocol
-                    .is_some_and(|s| s == DisplayServerProtocol::Wayland)
-                {
-                    window_attributes = window_attributes.with_platform_attributes(Box::new(
-                        winit_wayland::WindowAttributesWayland::default()
-                            .with_anchor(anchor_to_winit(anchor.location))
-                            .with_gravity(gravity_to_winit(anchor.gravity))
-                            .with_anchor_rect(
-                                anchor.x as i32,
-                                anchor.y as i32,
-                                anchor.width as i32,
-                                anchor.height as i32,
-                            )
-                            .with_constraint_adjustment(constraint_adjustment_to_winit(
-                                anchor.constraint_adjustment_x,
-                                anchor.constraint_adjustment_y,
-                            )),
-                    ));
-                }
-            }
+            // #[cfg(feature = "wayland")]
+            // {
+            //     if self
+            //         .event_loop_properties
+            //         .get()
+            //         .display_server_protocol
+            //         .is_some_and(|s| s == DisplayServerProtocol::Wayland)
+            //     {
+            //         window_attributes = window_attributes.with_platform_attributes(Box::new(
+            //             winit_wayland::WindowAttributesWayland::default()
+            //                 .with_anchor(anchor_to_winit(anchor.location))
+            //                 .with_gravity(gravity_to_winit(anchor.gravity))
+            //                 .with_anchor_rect(
+            //                     anchor.x as i32,
+            //                     anchor.y as i32,
+            //                     anchor.width as i32,
+            //                     anchor.height as i32,
+            //                 )
+            //                 .with_constraint_adjustment(constraint_adjustment_to_winit(
+            //                     anchor.constraint_adjustment_x,
+            //                     anchor.constraint_adjustment_y,
+            //                 )),
+            //         ));
+            //     }
+            // }
 
             if let Ok(parent) = winit_window.window_handle() {
                 window_attributes =

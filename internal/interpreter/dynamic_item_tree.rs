@@ -24,7 +24,7 @@ use i_slint_core::item_tree::{
     VisitChildrenResult,
 };
 use i_slint_core::items::{
-    AccessibleRole, ItemRef, ItemVTable, PopupClosePolicy, PropertyAnimation,
+    AccessibleRole, ItemRef, ItemVTable, PopupAnchor, PopupClosePolicy, PropertyAnimation,
 };
 use i_slint_core::layout::{LayoutInfo, LayoutItemInfo, Orientation};
 use i_slint_core::lengths::{LogicalLength, LogicalRect};
@@ -2810,12 +2810,17 @@ pub fn show_popup(
     compiled.recursively_set_debug_handler(debug_handler);
 
     let extra_data = instance.description.extra_data_offset.apply(instance.as_ref());
+    let anchor = PopupAnchor::try_from(eval::eval_expression(
+        &popup.anchor,
+        &mut eval::EvalLocalContext::from_component_instance(instance),
+    ))
+    .unwrap_or_default();
     // Use the newly created window adapter if we are able to create one. Otherwise use the parent's one.
     // Tooltips skip this to share the parent's adapter, ensuring they use the ChildWindow path
     // and renderer caches stay consistent.
     let globals = if !popup.is_tooltip
         && let Some(window_adapter) =
-            WindowInner::from_pub(parent_window_adapter.window()).create_popup_window_adapter()
+            WindowInner::from_pub(parent_window_adapter.window()).create_popup_window_adapter(anchor.clone())
     {
         extra_data.globals.get().unwrap().clone_with_window_adapter(window_adapter)
     } else {
@@ -2848,6 +2853,7 @@ pub fn show_popup(
             &vtable::VRc::into_dyn(inst.clone()),
             access_position,
             close_policy,
+            anchor,
             parent_item,
             popup.is_tooltip,
             false,

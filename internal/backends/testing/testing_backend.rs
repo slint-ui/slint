@@ -319,10 +319,7 @@ impl WindowAdapterInternal for TestingWindow {
         self.all_item_trees.0.borrow_mut().remove(&item_tree.as_ptr());
     }
 
-    fn create_popup_window_adapter(
-        &self,
-        _anchor: PopupAnchor,
-    ) -> Option<Rc<dyn WindowAdapter>> {
+    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
         if self.native_popup.get() {
             let window = Rc::new_cyclic(|self_weak| TestingWindow {
                 window: i_slint_core::api::Window::new(self_weak.clone() as _),

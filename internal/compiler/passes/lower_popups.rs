@@ -196,18 +196,25 @@ fn lower_popup_window(
     // converted to absolute coordinates in the run-time library.
     let coord_x = NamedReference::new(&popup_comp.root_element, SmolStr::new_static("x"));
     let coord_y = NamedReference::new(&popup_comp.root_element, SmolStr::new_static("y"));
-    let anchor = popup_window_element
-        .borrow_mut()
-        .bindings
-        .remove(ANCHOR_PROPERTY_NAME)
-        .map(|b| {
-            let b = b.into_inner();
-            match b.expression {
-                Expression::Cast { from, .. } => *from,
-                e => e,
-            }
-        })
-        .unwrap_or(Expression::Invalid);
+    let anchor =
+        NamedReference::new(&popup_comp.root_element, SmolStr::new_static(ANCHOR_PROPERTY_NAME));
+    // Ensure anchor is in property_declarations so lower_sub_component maps it as a Property
+    // (not as a native Window property, since Window has no anchor). Must happen before the
+    // base type is changed to Window below.
+    {
+        let anchor_type = match &popup_comp.root_element.borrow().base_type {
+            ElementType::Builtin(b) => b.properties.get(ANCHOR_PROPERTY_NAME).map(|p| p.ty.clone()),
+            _ => None,
+        };
+        if let Some(ty) = anchor_type {
+            popup_comp
+                .root_element
+                .borrow_mut()
+                .property_declarations
+                .entry(SmolStr::new_static(ANCHOR_PROPERTY_NAME))
+                .or_insert_with(|| PropertyDeclaration { property_type: ty, ..Default::default() });
+        }
+    }
 
     // Meanwhile, set the geometry x/y to zero, because we'll be shown as a top-level and
     // children should be rendered starting with a (0, 0) offset.
