@@ -2,6 +2,24 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 //! Hooks properties for live inspection.
+//!
+//! This pass runs once, early in compilation — right after the import passes but before any
+//! lowering or inlining. At that point every element has exactly one debug entry and
+//! source-identity is intact.
+//!
+//! For each element the pass does two things:
+//!
+//! 1. **Wrap existing bindings** in a non-synthetic `Expression::DebugHook` so the editor can
+//!    read and override the live value.
+//!
+//! 2. **Materialize synthetic hooks** for every *unbound* settable property, wrapping the
+//!    type default.  These are marked `synthetic: true` (and inserted with `priority = 0`).
+//!    The compiler's central helpers (`is_binding_set`, `set_binding_if_not_set`, …) in
+//!    `object_tree.rs` treat synthetic hooks as "no binding", so later passes see exactly the
+//!    same binding landscape as they did before the hooks were injected.  When a later pass
+//!    sets a default on a property that carries a synthetic hook, `set_binding_if_not_set`
+//!    replaces the hook's inner expression in place (keeping the wrapper and id) and clears
+//!    the `synthetic` flag — so the hook ends up wrapping the real compiler-computed value.
 
 use crate::expression_tree::Expression;
 use crate::object_tree::{self, ElementRc, PropertyVisibility};
@@ -21,10 +39,10 @@ pub fn property_id(element_id: u64, name: &smol_str::SmolStr) -> smol_str::SmolS
 
 fn calculate_element_hash(
     elem: &object_tree::Element,
-    index: usize,
     random_state: &std::hash::RandomState,
 ) -> u64 {
-    let node = &elem.debug[index].node;
+    // At early-injection time (before any inlining) every element has exactly one debug entry.
+    let node = &elem.debug[0].node;
 
     let elem_path = node.source_file.path();
     let elem_offset = node
@@ -42,42 +60,31 @@ fn calculate_element_hash(
 
 fn process_element(element: &ElementRc, random_state: &std::hash::RandomState) {
     let e = element.borrow();
-    // Inject debug hook into the repeaters generated component, instead of its remaining
-    // pseudo-element
-    if e.repeated.is_some() {
-        inject_debug_hooks(e.base_type.as_component(), random_state);
-        return;
-    }
-    // Skip injecting debug hooks for these cases:
+    // Before repeater_component::process_repeater_components runs, a repeated element still
+    // holds its content as children — recurse_elem will visit them naturally.
+    // Skip:
     // * @children placeholder (generator skips these too)
     // * non-inlined sub-component instances (base_type = Component)
     if e.is_component_placeholder || e.sub_component().is_some() {
         return;
     }
+    if e.debug.is_empty() {
+        return;
+    }
     drop(e);
 
-    // Step 1: compute and store the element hash on EVERY debug entry.
-    // This pass now runs after required-inlining, so an element may carry several debug
-    // entries (one per merged source element). The LSP looks up the hash on the entry that
-    // matches the selected source location, so each entry needs its own hash. (The old
-    // early-pass invariant `debug.len() == 1` no longer holds.)
+    // Step 1: compute and store the element hash.
+    // At early-injection time debug.len() == 1, so a single hash suffices.
     let element_hash = {
         let mut elem = element.borrow_mut();
-        if elem.debug.is_empty() {
-            return;
+        if elem.debug[0].element_hash == 0 {
+            let hash = calculate_element_hash(&elem, random_state);
+            elem.debug[0].element_hash = hash;
         }
-        for i in 0..elem.debug.len() {
-            if elem.debug[i].element_hash == 0 {
-                let hash = calculate_element_hash(&elem, i, random_state);
-                elem.debug[i].element_hash = hash;
-            }
-        }
-        // Bindings live on this (outermost, editor-selectable) element; a selection resolves to
-        // its primary debug entry, so the first entry's hash is the one used to build ids.
         elem.debug[0].element_hash
     };
 
-    // Step 2: Wrap existing bindings.
+    // Step 2: Wrap existing real bindings in a non-synthetic DebugHook.
     {
         let elem = element.borrow();
         elem.bindings.iter().for_each(|(name, be)| {
@@ -92,14 +99,15 @@ fn process_element(element: &ElementRc, random_state: &std::hash::RandomState) {
                     Expression::DebugHook {
                         expression: Box::new(expr),
                         id: property_id(element_hash, name),
+                        synthetic: false,
                     }
                 }
             };
         });
     }
 
-    // Step 3: Materialize hooked defaults for unbound settable properties.
-    // Collect candidates first (releases the borrow), then insert.
+    // Step 3: Materialize synthetic hooks for unbound settable properties.
+    // Collect candidates first to release the borrow, then insert.
     let candidates: Vec<(smol_str::SmolStr, crate::langtype::Type)> = {
         let elem = element.borrow();
 
@@ -128,9 +136,9 @@ fn process_element(element: &ElementRc, random_state: &std::hash::RandomState) {
                 match lookup.property_visibility {
                     PropertyVisibility::Public
                     | PropertyVisibility::InOut
-                    | PropertyVisibility::Input => {}
-                    PropertyVisibility::Private
-                    | PropertyVisibility::Output
+                    | PropertyVisibility::Input
+                    | PropertyVisibility::Private => {}
+                    PropertyVisibility::Output
                     | PropertyVisibility::Constexpr
                     | PropertyVisibility::Protected
                     | PropertyVisibility::Fake => return None,
@@ -144,44 +152,54 @@ fn process_element(element: &ElementRc, random_state: &std::hash::RandomState) {
             .collect()
     };
 
-    // Now insert the hooked defaults.
+    // Also include reserved transform-property defaults.
+    // TODO: Add any other reserved properties here when debug hooks on them are needed
+    let transform_candidates: Vec<(smol_str::SmolStr, Expression)> = {
+        let elem = element.borrow();
+        if elem.debug.is_empty() {
+            vec![]
+        } else {
+            crate::typeregister::RESERVED_TRANSFORM_PROPERTIES
+                .iter()
+                .filter_map(|(prop_name, _)| {
+                    if elem.bindings.contains_key(*prop_name) {
+                        return None;
+                    }
+                    let default_expr =
+                        super::lower_property_to_element::transform_property_default_value(
+                            element, prop_name,
+                        )?;
+                    Some((smol_str::SmolStr::new_static(prop_name), default_expr))
+                })
+                .collect()
+        }
+    };
+
+    // Insert synthetic hooks for all unbound properties.
     for (name, ty) in candidates {
         let default = Expression::default_value_for_type(&ty);
         let id = property_id(element_hash, &name);
-        element.borrow_mut().set_binding_if_not_set(name, || Expression::DebugHook {
-            expression: Box::new(default),
-            id,
-        });
+        let mut binding_expressions: crate::expression_tree::BindingExpression =
+            Expression::DebugHook { expression: Box::new(default), id, synthetic: true }.into();
+        binding_expressions.priority = 0;
+        use std::collections::btree_map::Entry;
+        if let Entry::Vacant(entry) = element.borrow_mut().bindings.entry(name) {
+            entry.insert(binding_expressions.into());
+        }
     }
-}
 
-pub fn inject_reserved_properties(component: &std::rc::Rc<object_tree::Component>) {
-    object_tree::recurse_elem(&component.root_element, &(), &mut |elem_rc, &()| {
-        let elem = elem_rc.borrow();
-        if elem.repeated.is_some() {
-            inject_reserved_properties(elem.base_type.as_component());
-            return;
+    // Insert synthetic hooks for the transform properties.
+    for (name, default_expr) in transform_candidates {
+        let id = property_id(element_hash, &name);
+        let mut binding_expressions: crate::expression_tree::BindingExpression =
+            Expression::DebugHook { expression: Box::new(default_expr), id, synthetic: true }
+                .into();
+        binding_expressions.priority = 0;
+        use std::collections::btree_map::Entry;
+        if let Entry::Vacant(v) = element.borrow_mut().bindings.entry(name) {
+            v.insert(binding_expressions.into());
         }
-        if elem.is_component_placeholder || elem.sub_component().is_some() || elem.debug.is_empty()
-        {
-            return;
-        }
-        drop(elem);
-
-        for property_name in crate::typeregister::RESERVED_TRANSFORM_PROPERTIES
-            .iter()
-            .map(|(prop_name, _)| *prop_name)
-        {
-            if let Some(default_expr) =
-                super::lower_property_to_element::transform_property_default_value(
-                    elem_rc,
-                    property_name,
-                )
-            {
-                elem_rc.borrow_mut().set_binding_if_not_set(property_name.into(), || default_expr);
-            }
-        }
-    });
+    }
 }
 
 #[cfg(test)]
@@ -206,15 +224,20 @@ mod tests {
         doc
     }
 
-    fn component(doc: &crate::object_tree::Document, id: &str) -> Rc<Component> {
+    fn component<'a>(doc: &'a crate::object_tree::Document, id: &str) -> Rc<Component> {
         doc.inner_components.iter().find(|c| c.id == id).expect("component").clone()
     }
 
     fn child(root: &ElementRc, id: &str) -> ElementRc {
-        // The unique-id pass suffixes ids (`txt` -> `txt-2`), so match name or `name-N`.
+        // The unique-id pass suffixes ids with a number (`txt` -> `txt-2`).
+        // Only match that numeric suffix — don't match `txt-Transform-2` for `txt`.
         fn rec(e: &ElementRc, id: &str) -> Option<ElementRc> {
             let this_id = e.borrow().id.clone();
-            if this_id == id || this_id.starts_with(&format!("{id}-")) {
+            let matches = this_id == id
+                || this_id
+                    .strip_prefix(&format!("{id}-"))
+                    .is_some_and(|suffix| suffix.chars().all(|c| c.is_ascii_digit()));
+            if matches {
                 return Some(e.clone());
             }
             let children = e.borrow().children.clone();
@@ -231,6 +254,13 @@ mod tests {
             Expression::DebugHook { expression, .. } => Some(*expression),
             _ => None,
         }
+    }
+
+    /// Whether the binding is a synthetic debug hook.
+    fn is_synthetic(elem: &ElementRc, name: &str) -> bool {
+        let e = elem.borrow();
+        let Some(be) = e.bindings.get(name) else { return false };
+        matches!(be.borrow().expression, Expression::DebugHook { synthetic: true, .. })
     }
 
     #[test]
@@ -252,22 +282,28 @@ mod tests {
         let txt = child(&foo.root_element, "txt");
         let rect = child(&foo.root_element, "rect");
 
-        // Unbound `text` is now hooked, wrapping the empty-string type default.
+        // Unbound `text` is now hooked (synthetic), wrapping the empty-string type default.
         let text_inner = hooked(&txt, "text").expect("txt.text should be a DebugHook");
+        assert!(is_synthetic(&txt, "text"), "txt.text hook should be synthetic (unbound property)");
         assert!(
             matches!(super::super::ignore_debug_hooks(&text_inner), Expression::StringLiteral(s) if s.is_empty()),
             "txt.text default should be the empty-string sentinel, got {text_inner:?}"
         );
 
-        // Unbound `font-size` is hooked wrapping the 0 sentinel — keeps runtime Window inheritance.
+        // Unbound `font-size` is hooked (synthetic), wrapping the 0 sentinel.
         let fs_inner = hooked(&txt, "font-size").expect("txt.font-size should be a DebugHook");
+        assert!(is_synthetic(&txt, "font-size"), "txt.font-size hook should be synthetic");
         assert!(
             matches!(super::super::ignore_debug_hooks(&fs_inner), Expression::NumberLiteral(v, _) if *v == 0.),
             "txt.font-size default should be the 0 sentinel, got {fs_inner:?}"
         );
 
-        // An explicitly-set property is *wrapped* (its value preserved), not replaced.
+        // An explicitly-set property is *wrapped* (non-synthetic, value preserved).
         let bg_inner = hooked(&rect, "background").expect("rect.background should be a DebugHook");
+        assert!(
+            !is_synthetic(&rect, "background"),
+            "rect.background should be non-synthetic (was explicitly set)"
+        );
         assert!(
             !matches!(super::super::ignore_debug_hooks(&bg_inner), Expression::Invalid),
             "rect.background should wrap its real value"
@@ -275,5 +311,40 @@ mod tests {
 
         // Top-level elements carry a non-zero element_hash (used to build the hook ids).
         assert_ne!(txt.borrow().debug.first().unwrap().element_hash, 0);
+    }
+
+    /// Regression: geometry defaults (width/height) must still be computed even when
+    /// debug hooks are active and inject synthetic hooks for unbound geometry properties.
+    #[test]
+    fn geometry_defaults_still_set_with_debug_hooks() {
+        let doc = compile(
+            r#"
+            export component Foo inherits Window {
+                img := Image { source: @image-url("nonexistent.png"); }
+            }
+            "#,
+        );
+        let foo = component(&doc, "Foo");
+        let img = child(&foo.root_element, "img");
+
+        for property in ["x", "y", "width", "height"] {
+            // The default_geometry pass must have set width and height on the image.
+            // If synthetic hooks were treated as real bindings, default_geometry would
+            // skip the image, leaving it with no layout binding.  The resulting hook
+            // must therefore be non-synthetic (upgraded from the compiler-computed default).
+            let element = img.borrow();
+            let binding_expression = element
+                .bindings
+                .get(property)
+                .unwrap_or_else(|| panic!("img.{property} must be bound after default_geometry"));
+            // A synthetic hook would mean default_geometry never ran.
+            let expression = &binding_expression.borrow().expression;
+            // There must be a debug hook, but it must not be synthetic, as the pass injects a "real"
+            // binding
+            assert!(
+                matches!(expression, Expression::DebugHook { synthetic: false, .. }),
+                "img.width should not be synthetic after default_geometry, got {expression:?}"
+            );
+        }
     }
 }

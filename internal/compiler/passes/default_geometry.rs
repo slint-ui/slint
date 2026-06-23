@@ -179,7 +179,7 @@ fn gen_layout_info_prop(
         .children
         .iter()
         .filter(|c| {
-            !c.borrow().bindings.contains_key("x") && !c.borrow().bindings.contains_key("y")
+            !c.borrow().is_binding_set("x", false) && !c.borrow().is_binding_set("y", false)
         })
         .filter_map(|c| {
             gen_layout_info_prop(c, diag, symbol_counters);

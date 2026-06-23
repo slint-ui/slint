@@ -116,6 +116,14 @@ pub async fn run_passes(
     let raw_type_loader =
         keep_raw.then(|| crate::typeloader::snapshot_with_extra_doc(type_loader, doc).unwrap());
 
+    // Inject debug hooks early — before any lowering or inlining — so source element identity
+    // is preserved and hooks can be attributed to the correct source location.
+    if let Some(random_state) = &type_loader.compiler_config.debug_hooks {
+        for root_component in doc.exported_roots() {
+            inject_debug_hooks::inject_debug_hooks(&root_component, random_state);
+        }
+    }
+
     collect_libraries::collect_libraries(doc);
     collect_subcomponents::collect_subcomponents(doc);
     lower_tooltips::lower_tooltips(doc, type_loader, diag).await;
@@ -152,11 +160,6 @@ pub async fn run_passes(
         focus_handling::call_focus_on_init(popup_menu_impl);
     }
 
-    if type_loader.compiler_config.debug_hooks.is_some() {
-        for root_component in doc.exported_roots() {
-            inject_debug_hooks::inject_reserved_properties(&root_component);
-        }
-    }
     doc.visit_all_used_components(|component| {
         border_radius::handle_border_radius(component, diag);
         check_drag_area::check_drag_area(component, diag);
@@ -204,11 +207,6 @@ pub async fn run_passes(
     });
     for root_component in doc.exported_roots() {
         lower_layout::check_window_layout(&root_component);
-    }
-    if let Some(random_state) = &type_loader.compiler_config.debug_hooks {
-        for root_component in doc.exported_roots() {
-            inject_debug_hooks::inject_debug_hooks(&root_component, random_state);
-        }
     }
     collect_globals::collect_globals(doc, diag);
     // Must be done before passes that rely on `NamedReference::is_constant`.
