@@ -3,20 +3,9 @@
 
 name: Visual Editor macOS DMG
 
-# This workflow is intentionally isolated while the visual editor DMG pipeline is
-# being developed. It does not call the broad repository CI; it only builds the
-# macOS DMG artifact for this branch/PR path.
-#
-# Sources:
-# - GitHub workflow syntax: https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax
-# - GitHub-hosted macOS runners: https://docs.github.com/en/actions/reference/runners/github-hosted-runners
 on:
     workflow_dispatch:
-    # The default pull_request activity types include synchronize, so pushing
-    # commits to an open PR branch still runs this workflow without needing a
-    # separate push trigger that would create duplicate runs.
-    #
-    # Source: https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request
+
     pull_request:
         branches:
             - visual-editor
@@ -47,15 +36,7 @@ jobs:
         steps:
             - uses: actions/checkout@v6
 
-            # Free space from toolchains this macOS-only DMG build does not use.
-            # Avoid deleting Xcode app bundles here: they are huge directory
-            # trees and can make this cleanup step slower than the build. The
-            # package script separately deletes build intermediates before DMG
-            # creation, which is where this job previously ran out of space.
-            #
-            # Sources:
-            # - macos-15 arm64 image software list: https://github.com/actions/runner-images/blob/main/images/macos/macos-15-arm64-Readme.md
-            # - GitHub-hosted macOS runners support passwordless sudo: https://docs.github.com/en/actions/reference/runners/github-hosted-runners#administrative-privileges
+            # Free space from the image or the build will run out of space
             - name: Free unused macOS runner disk space
               run: |
                   echo "::group::Disk before cleanup"
@@ -71,29 +52,16 @@ jobs:
                   echo "::group::Disk after cleanup"
                   df -h /
                   echo "::endgroup::"
-
+            # cache the build
             - uses: ./.github/actions/setup-rust
               with:
                   key: visual-editor-macos-dmg
-                  # Swatinem/rust-cache restores caches on all PRs, but only
-                  # same-repository PRs should save new cache entries.
-                  #
-                  # Sources:
-                  # - rust-cache save-if/workspaces behavior: https://github.com/Swatinem/rust-cache
-                  # - GitHub cache branch scope: https://github.com/actions/cache
                   save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
 
             - name: Install macOS Rust target
               run: rustup target add aarch64-apple-darwin
 
-            # Cache Homebrew's downloaded bottles only. All PRs restore this
-            # cache, but only same-repository PRs save it. The installed prefix
-            # is left to Homebrew and the runner image; caching the download
-            # cache avoids turning /opt/homebrew into a large, brittle artifact.
-            #
-            # Sources:
-            # - GitHub cache restore/save actions: https://github.com/actions/cache
-            # - Homebrew cache environment: https://docs.brew.sh/Manpage#cache-options-formula
+            # Cache Homebrew's downloaded bottles only.
             - name: Restore Homebrew downloads
               id: homebrew-cache
               uses: actions/cache/restore@v5
@@ -103,22 +71,17 @@ jobs:
                   restore-keys: |
                       ${{ runner.os }}-${{ runner.arch }}-homebrew-xcodegen-
 
-            # XcodeGen is installed through Homebrew as documented by XcodeGen
-            # and its Homebrew formula.
-            #
-            # Sources:
-            # - XcodeGen install docs: https://github.com/yonaskolb/XcodeGen
-            # - Homebrew xcodegen formula: https://formulae.brew.sh/formula/xcodegen
             - name: Install XcodeGen
               run: brew install xcodegen
 
-            - name: Save Homebrew downloads
+            - name: Cache Homebrew downloads
               if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && steps.homebrew-cache.outputs.cache-hit != 'true' }}
               uses: actions/cache/save@v5
               with:
                   path: ~/Library/Caches/Homebrew
                   key: ${{ steps.homebrew-cache.outputs.cache-primary-key }}
 
+        # Seperate tasks to make it clear where a failure occurs
             - name: Validate packaging environment
               run: ./scripts/package_macos_visual_editor.bash validate-environment
 
@@ -144,9 +107,6 @@ jobs:
               if: ${{ always() }}
               run: ./scripts/package_macos_visual_editor.bash cleanup
 
-            # Sources:
-            # - GitHub workflow artifacts: https://docs.github.com/en/actions/tutorials/store-and-share-data
-            # - actions/upload-artifact: https://github.com/actions/upload-artifact
             - name: Upload DMG artifact
               uses: actions/upload-artifact@v7
               with:

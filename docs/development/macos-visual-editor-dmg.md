@@ -1,43 +1,13 @@
 # macOS Visual Editor DMG
 
-This document describes the CI path that builds the Slint Visual Editor as a
-signed, notarized macOS DMG artifact. The workflow is for Developer ID
-distribution outside the App Store; it does not upload to App Store Connect,
-TestFlight, or the Mac App Store.
+This will become part of the docs later, but for now, this is a placeholder.
 
 ## CI entry point
 
 The dedicated workflow is `.github/workflows/visual_editor_macos_dmg.yaml`.
-It runs only for:
-
-- `workflow_dispatch`
-- pull requests targeting `visual-editor`
-
-Do not add a separate `push` trigger for `deploy-macos`. GitHub documents that
-the default `pull_request` activity types include `opened`, `synchronize`, and
-`reopened`; `synchronize` covers pushing new commits to an open pull request
-branch without creating a second workflow run:
-<https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request>.
-
-This keeps the packaging work isolated from the broad repository CI while the
-DMG pipeline is being developed. The trigger syntax and `pull_request` branch
-filters are from GitHub's workflow syntax documentation:
-<https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax>.
 
 The workflow uses `macos-15` because GitHub documents it as an arm64 macOS
-hosted runner:
-<https://docs.github.com/en/actions/reference/runners/github-hosted-runners>.
-
-The runner has only 14 GB of SSD, and the official `macos-15-arm64` image list
-includes toolchains this job does not use, including Android SDK/NDKs and
-CoreSimulator data. The workflow deletes those before restoring caches or
-building, while keeping Xcode, Homebrew, Rust, and signing tools:
-<https://github.com/actions/runner-images/blob/main/images/macos/macos-15-arm64-Readme.md>.
-GitHub documents passwordless `sudo` on macOS hosted runners here:
-<https://docs.github.com/en/actions/reference/runners/github-hosted-runners#administrative-privileges>.
-The workflow intentionally does not delete extra Xcode app bundles in this
-early cleanup step because recursively removing those large `.app` trees is
-slow enough to dominate the job.
+hosted runner
 
 ## Required CI secrets
 
@@ -63,11 +33,6 @@ organization secrets here:
 - `NOTARY_API_KEY_ID`: App Store Connect API key ID for `notarytool`.
 - `NOTARY_ISSUER_ID`: issuer UUID for a Team API key.
 
-Apple's `notarytool` documentation lists API key authentication for notary
-submissions and states that notarization is a malware/signing check for
-Developer ID-distributed software:
-<https://keith.github.io/xcode-man-pages/notarytool.1.html>.
-
 ## Generated Xcode project
 
 The checked-in source of truth is `tools/lsp/macos-project.yml`. XcodeGen
@@ -89,25 +54,7 @@ The workflow installs Rust once through the repository's existing
 `rustup target add aarch64-apple-darwin` before installing XcodeGen with
 Homebrew.
 
-The Rust cache is provided by `Swatinem/rust-cache`. The workflow uses a
-visual-editor-specific key. Pull requests restore caches, and same-repository
-pull requests may save new cache entries. The action documents the `save-if`,
-workspace target directory, and cache cleanup behavior here:
-<https://github.com/Swatinem/rust-cache>.
-
-The XcodeGen install step also restores Homebrew's download cache at
-`~/Library/Caches/Homebrew` with `actions/cache/restore` and saves it with
-`actions/cache/save` only on same-repository pull requests. The cache action
-documents `path`, `key`, and `restore-keys` here:
-<https://github.com/actions/cache>. Homebrew documents cache-related options in
-its man page:
-<https://docs.brew.sh/Manpage#cache-options-formula>.
-
-The package driver is `scripts/package_macos_visual_editor.bash`. The workflow
-calls its phases as separate GitHub Actions steps so a stuck run shows the
-blocking phase instead of hiding all work under one packaging step. The script
-also prints UTC timestamps around keychain, Xcode, signing, DMG, notarization,
-and Gatekeeper commands.
+The package driver is `scripts/package_macos_visual_editor.bash`.
 
 1. Validates that all signing, Team ID, bundle ID, and notary values are present
    in environment variables.
@@ -118,10 +65,11 @@ and Gatekeeper commands.
 6. Runs `xcodebuild archive` with `ARCHS="arm64"` and `CODE_SIGNING_ALLOWED=NO`.
 7. Lets Xcode call `scripts/build_macos_app_with_cargo.bash` from a build phase.
 8. Builds Cargo's `slint-visual-editor` binary for `aarch64-apple-darwin`.
-9. Copies the visual editor demo files into the app bundle resources so Finder
+9. Copies the visual editor files into the app bundle resources so Finder
     launches can open a default project without command-line arguments.
 10. Signs the app bundle with `codesign --deep --options runtime`.
 11. Deletes Xcode and Cargo build intermediates after the signed app is staged.
+    This is done to free up space on the runner image.
 12. Creates and signs a compressed DMG with `hdiutil`, then verifies both the
     DMG signature and the mounted app payload.
 13. Submits the DMG with `xcrun notarytool submit --wait`.
