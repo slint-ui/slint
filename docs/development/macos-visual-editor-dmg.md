@@ -29,6 +29,15 @@ hosted runner. The packaging script still builds both Apple Silicon and Intel
 Rust targets for a universal app:
 <https://docs.github.com/en/actions/reference/runners/github-hosted-runners>.
 
+The runner has only 14 GB of SSD, and the official `macos-15-arm64` image list
+includes toolchains this job does not use: Android SDK/NDKs, CoreSimulator
+devices/runtimes, Xcode 26, and older Xcode 16 installs. The workflow deletes
+those before restoring caches or building, while keeping the default Xcode 16.4,
+Homebrew, Rust, and signing tools:
+<https://github.com/actions/runner-images/blob/main/images/macos/macos-15-arm64-Readme.md>.
+GitHub documents passwordless `sudo` on macOS hosted runners here:
+<https://docs.github.com/en/actions/reference/runners/github-hosted-runners#administrative-privileges>.
+
 ## Required CI secrets
 
 Set these as GitHub Actions secrets. GitHub documents repository and
@@ -101,22 +110,23 @@ and Gatekeeper commands.
 
 1. Validates that all signing, Team ID, bundle ID, and notary values are present
    in environment variables.
-2. Decodes the Developer ID `.p12` and notary API `.p8` into `$RUNNER_TEMP`.
-3. Creates and unlocks a temporary keychain with `security`.
-4. Runs `xcodegen generate --spec tools/lsp/macos-project.yml`.
-5. Runs `xcodebuild archive` with `ARCHS="arm64 x86_64"` and
+2. Frees unused macOS runner image space before cache restore/build work.
+3. Decodes the Developer ID `.p12` and notary API `.p8` into `$RUNNER_TEMP`.
+4. Creates and unlocks a temporary keychain with `security`.
+5. Runs `xcodegen generate --spec tools/lsp/macos-project.yml`.
+6. Runs `xcodebuild archive` with `ARCHS="arm64 x86_64"` and
    `CODE_SIGNING_ALLOWED=NO`.
-6. Lets Xcode call `scripts/build_macos_app_with_cargo.bash` from a build phase.
-7. Builds Cargo's `slint-editor` example for `aarch64-apple-darwin` and
+7. Lets Xcode call `scripts/build_macos_app_with_cargo.bash` from a build phase.
+8. Builds Cargo's `slint-editor` example for `aarch64-apple-darwin` and
    `x86_64-apple-darwin`.
-8. Combines both executables with `lipo`.
-9. Signs the executable and app bundle with `codesign --options runtime`.
-10. Deletes Xcode and Cargo build intermediates after the signed app is staged.
-11. Creates and signs a compressed DMG with `hdiutil`.
-12. Submits the DMG with `xcrun notarytool submit --wait`.
-13. Staples and validates the accepted ticket with `xcrun stapler`.
-14. Mounts the DMG and checks the app with `spctl`.
-15. Uploads `dist/*.dmg` as a GitHub Actions artifact.
+9. Combines both executables with `lipo`.
+10. Signs the executable and app bundle with `codesign --options runtime`.
+11. Deletes Xcode and Cargo build intermediates after the signed app is staged.
+12. Creates and signs a compressed DMG with `hdiutil`.
+13. Submits the DMG with `xcrun notarytool submit --wait`.
+14. Staples and validates the accepted ticket with `xcrun stapler`.
+15. Mounts the DMG and checks the app with `spctl`.
+16. Uploads `dist/*.dmg` as a GitHub Actions artifact.
 
 For local debugging, the same phases can be run individually:
 

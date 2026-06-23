@@ -47,6 +47,46 @@ jobs:
         steps:
             - uses: actions/checkout@v6
 
+            # Free space from toolchains this macOS-only DMG build does not use.
+            # Keep the default Xcode 16.4 app, Homebrew, Rust, and signing
+            # tools. The macos-15 arm64 image documents Android SDK/NDKs,
+            # multiple non-default Xcode apps, and simulator runtimes.
+            #
+            # Sources:
+            # - macos-15 arm64 image software list: https://github.com/actions/runner-images/blob/main/images/macos/macos-15-arm64-Readme.md
+            # - GitHub-hosted macOS runners support passwordless sudo: https://docs.github.com/en/actions/reference/runners/github-hosted-runners#administrative-privileges
+            - name: Free unused macOS runner disk space
+              run: |
+                  echo "::group::Disk before cleanup"
+                  df -h /
+                  du -sh \
+                      "$ANDROID_HOME" \
+                      /Users/runner/Library/Developer/CoreSimulator \
+                      /Applications/Xcode_26*.app \
+                      /Applications/Xcode_16.app \
+                      /Applications/Xcode_16.0*.app \
+                      /Applications/Xcode_16.1*.app \
+                      /Applications/Xcode_16.2*.app \
+                      /Applications/Xcode_16.3*.app \
+                      2>/dev/null || true
+                  echo "::endgroup::"
+
+                  sudo rm -rf \
+                      "$ANDROID_HOME" \
+                      "$ANDROID_SDK_ROOT" \
+                      /Users/runner/Library/Android/sdk \
+                      /Users/runner/Library/Developer/CoreSimulator \
+                      /Applications/Xcode_26*.app \
+                      /Applications/Xcode_16.app \
+                      /Applications/Xcode_16.0*.app \
+                      /Applications/Xcode_16.1*.app \
+                      /Applications/Xcode_16.2*.app \
+                      /Applications/Xcode_16.3*.app
+
+                  echo "::group::Disk after cleanup"
+                  df -h /
+                  echo "::endgroup::"
+
             - uses: ./.github/actions/setup-rust
               with:
                   key: visual-editor-macos-dmg
