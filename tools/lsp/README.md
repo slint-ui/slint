@@ -13,3 +13,9 @@ For details on configuration see [the Slint documentation](https://snapshots.sli
 ## Code formatting
 
 The Slint code formatting tool is part of the lsp. To learn how to use it as a standalone tool, see [the Slint documentation](https://snapshots.slint.dev/master/docs/guide/tooling/manual-setup/#fmt)
+
+## macOS visual editor package
+
+The CI and local build path for the signed, notarized visual editor DMG is
+documented in
+[`docs/development/macos-visual-editor-dmg.md`](../../docs/development/macos-visual-editor-dmg.md).
