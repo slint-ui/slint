@@ -30,7 +30,7 @@ env:
 jobs:
     dmg:
         name: Build signed notarized DMG
-        runs-on: macos-15-intel
+        runs-on: macos-15
         timeout-minutes: 90
         env:
             MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
@@ -47,13 +47,10 @@ jobs:
 
             - uses: ./.github/actions/setup-rust
               with:
-                  target: aarch64-apple-darwin
-                  key: visual-editor-macos-dmg-aarch64
+                  key: visual-editor-macos-dmg
 
-            - uses: ./.github/actions/setup-rust
-              with:
-                  target: x86_64-apple-darwin
-                  key: visual-editor-macos-dmg-x86_64
+            - name: Install macOS Rust targets
+              run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
             # XcodeGen is installed through Homebrew as documented by XcodeGen
             # and its Homebrew formula.

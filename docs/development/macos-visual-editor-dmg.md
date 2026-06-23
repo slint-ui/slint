@@ -19,10 +19,9 @@ DMG pipeline is being developed. The trigger syntax and `pull_request` branch
 filters are from GitHub's workflow syntax documentation:
 <https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax>.
 
-The workflow uses `macos-15-intel` because GitHub documents it as an Intel
-macOS hosted runner with more memory than the standard arm64 macOS runner, and
-the packaging script builds both Intel and Apple Silicon Rust targets for a
-universal app:
+The workflow uses `macos-15` because GitHub documents it as an arm64 macOS
+hosted runner. The packaging script still builds both Apple Silicon and Intel
+Rust targets for a universal app:
 <https://docs.github.com/en/actions/reference/runners/github-hosted-runners>.
 
 ## Required CI secrets
@@ -70,8 +69,10 @@ XcodeGen installation is documented by the project and the Homebrew formula:
 
 ## Build flow
 
-The workflow installs Rust targets through the repository's existing
-`.github/actions/setup-rust` action, then installs XcodeGen with Homebrew.
+The workflow installs Rust once through the repository's existing
+`.github/actions/setup-rust` action, then adds the two macOS Rust targets with
+`rustup target add aarch64-apple-darwin x86_64-apple-darwin` before installing
+XcodeGen with Homebrew.
 
 The package driver is `scripts/package_macos_visual_editor.bash`:
 
