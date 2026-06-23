@@ -67,12 +67,12 @@ jobs:
               uses: actions/cache/restore@v5
               with:
                   path: ~/Library/Caches/Homebrew
-                  key: ${{ runner.os }}-${{ runner.arch }}-homebrew-xcodegen-${{ hashFiles('.github/workflows/visual_editor_macos_dmg.yaml') }}
+                  key: ${{ runner.os }}-${{ runner.arch }}-homebrew-macos-dmg-tools-${{ hashFiles('.github/workflows/visual_editor_macos_dmg.yaml') }}
                   restore-keys: |
-                      ${{ runner.os }}-${{ runner.arch }}-homebrew-xcodegen-
+                      ${{ runner.os }}-${{ runner.arch }}-homebrew-macos-dmg-tools-
 
-            - name: Install XcodeGen
-              run: brew install xcodegen
+            - name: Install packaging tools
+              run: brew install xcodegen librsvg
 
             - name: Cache Homebrew downloads
               if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && steps.homebrew-cache.outputs.cache-hit != 'true' }}
@@ -81,7 +81,7 @@ jobs:
                   path: ~/Library/Caches/Homebrew
                   key: ${{ steps.homebrew-cache.outputs.cache-primary-key }}
 
-        # Seperate tasks to make it clear where a failure occurs
+        # Separate tasks to make it clear where a failure occurs.
             - name: Validate packaging environment
               run: ./scripts/package_macos_visual_editor.bash validate-environment
 
