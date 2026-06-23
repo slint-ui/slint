@@ -7,6 +7,7 @@ use crate::{
     items::{AnimationDirection, PropertyAnimation},
     lengths::LogicalLength,
 };
+use alloc::rc::Weak;
 use euclid::Length;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
@@ -24,7 +25,7 @@ enum AnimationState {
 }
 
 pub(super) struct PropertyPhysicsAnimationData<S> {
-    simulation: S,
+    simulation: Weak<RefCell<S>>,
     state: AnimationState,
 }
 
@@ -32,7 +33,7 @@ impl<S> PropertyPhysicsAnimationData<S>
 where
     S: physics_simulation::Simulation,
 {
-    pub fn new(simulation: S) -> PropertyPhysicsAnimationData<S> {
+    pub fn new(simulation: Weak<RefCell<S>>) -> PropertyPhysicsAnimationData<S> {
         PropertyPhysicsAnimationData { simulation, state: AnimationState::Delaying }
     }
 
@@ -45,15 +46,21 @@ where
                 self.update_value(target)
             }
             AnimationState::Animating { current_iteration: _ } => {
-                // TODO: Pass in Coord directly?
-                let mut value: f32 = *target as f32;
-                let finished = self.simulation.step(&mut value, crate::animations::current_tick());
-                *target = value as crate::Coord;
-                if finished {
+                if let Some(simulation) = self.simulation.upgrade() {
+                    // TODO: Pass in Coord directly?
+                    let mut value: f32 = *target as f32;
+                    let finished =
+                        simulation.borrow_mut().step(&mut value, crate::animations::current_tick());
+                    *target = value as crate::Coord;
+                    if finished {
+                        self.state = AnimationState::Done { iteration_count: 0 };
+                        true
+                    } else {
+                        false
+                    }
+                } else {
                     self.state = AnimationState::Done { iteration_count: 0 };
                     true
-                } else {
-                    false
                 }
             }
             AnimationState::Done { iteration_count: _ } => true,
@@ -405,18 +412,14 @@ unsafe impl<Unit, S: Simulation> BindingCallable<Length<crate::Coord, Unit>>
 
 impl<Unit> Property<Length<crate::Coord, Unit>> {
     /// Change the value by using a physics animation
-    pub fn set_physic_animation_value<
-        S: physics_simulation::Simulation + 'static,
-        AD: physics_simulation::Parameter<Output = S>,
-    >(
+    pub fn set_physic_animation_value<S: physics_simulation::Simulation + 'static>(
         &self,
-        limit_value: Pin<Box<Property<f32>>>,
-        simulation_data: AD,
+        simulation: Weak<RefCell<S>>,
     ) {
         // Safety: the BindingCallable will cast its argument to T
         unsafe {
             self.handle.set_binding::<Length<crate::Coord, Unit>, core::cell::RefCell<PropertyPhysicsAnimationData<S>>>(RefCell::new(PropertyPhysicsAnimationData::new(
-                    simulation_data.simulation(self.get_internal().0 as f32, limit_value),
+                    simulation,
                 )),
                 #[cfg(slint_debug_property)]
                 self.debug_name.borrow().as_str()

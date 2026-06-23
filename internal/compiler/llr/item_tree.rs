@@ -336,6 +336,7 @@ pub struct Function {
 /// The property references might be either in the parent context, or in the
 /// repeated's component context
 pub struct ListViewInfo {
+    pub flickable: MemberReference,
     pub viewport_y: MemberReference,
     pub viewport_height: MemberReference,
     pub viewport_width: MemberReference,
