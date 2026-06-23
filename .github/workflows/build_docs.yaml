@@ -184,7 +184,7 @@ jobs:
             - name: "Generate SC API reference"
               run: cargo run --release -p slint-doc-generator -- --slint-sc generate-mdx
             - name: "Compile Slint snippets in Markdown (doctests)"
-              run: cargo test -p doctests
+              run: cargo test --manifest-path tests/Cargo.toml -p doctests
             - name: "Build Safety Manual"
               working-directory: docs/safety
               run: pnpm build

@@ -34,14 +34,20 @@ jobs:
             - uses: baptiste0928/cargo-install@v3
               with:
                   crate: cross
+            # slint-viewer is in the root workspace, todo and gallery in the
+            # examples workspace, and the demos in the demos workspace. They share
+            # the same target directory, so the slint libraries are only built once.
             - name: Build
-              run: cross build --release --target=${{ matrix.target }} ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat,slint/renderer-skia -p printerdemo -p todo -p slint-viewer -p gallery -p home-automation
+              run: |
+                  cross build --release --target=${{ matrix.target }} ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat,slint/renderer-skia -p slint-viewer
+                  cross build --release --target=${{ matrix.target }} --manifest-path examples/Cargo.toml ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat,slint/renderer-skia -p todo -p gallery
+                  cross build --release --target=${{ matrix.target }} --manifest-path demos/Cargo.toml ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat,slint/renderer-skia -p printerdemo -p home-automation
             - name: Build energy-monitor
               # Built separately with its `network` feature disabled: that feature pulls in
               # reqwest -> rustls/aws-lc-rs -> aws-lc-sys, whose cc-builder aborts on the x86_64
               # cross image's GCC (https://gcc.gnu.org/bugzilla/show_bug.cgi?id=95189). Without
               # `network` the demo builds fine; only the live weather panel is inactive.
-              run: cross build --release --target=${{ matrix.target }} ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat,slint/renderer-skia -p energy-monitor --no-default-features --features chrono
+              run: cross build --release --target=${{ matrix.target }} --manifest-path demos/Cargo.toml ${{ env.EXTRA_ARGS }} --features slint/backend-linuxkms-noseat,slint/renderer-skia -p energy-monitor --no-default-features --features chrono
             - name: "Upload demo artifacts"
               uses: actions/upload-artifact@v7
               with:

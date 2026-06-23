@@ -36,6 +36,10 @@ jobs:
     env:
       CARGO_INCREMENTAL: false
       CARGO_PROFILE_DEV_DEBUG: 0
+      # cargo-apk does not honor the repository's relative `build.target-dir`
+      # (.cargo/config.toml), so point it at an absolute path that matches
+      # where cargo actually writes the artifacts.
+      CARGO_TARGET_DIR: ${{ github.workspace }}/target
     steps:
       - uses: actions/checkout@v6
         # required for servo
