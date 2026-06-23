@@ -73,6 +73,15 @@ cleanup() {
     fi
 }
 
+detach_dmg() {
+    if [ "$DMG_ATTACHED" -eq 1 ]; then
+        log "Detaching DMG"
+        hdiutil detach "$MOUNT_DIR"
+        DMG_ATTACHED=0
+    fi
+    rm -rf "$MOUNT_DIR"
+}
+
 mkdir -p "$DIST_DIR" "$BUILD_DIR" "$RUNNER_TEMP_DIR"
 chmod 700 "$RUNNER_TEMP_DIR"
 
@@ -171,12 +180,8 @@ stage_and_sign_app() {
     # Source: codesign signs code and supports hardened runtime via
     # --options runtime and timestamping via --timestamp:
     # https://keith.github.io/xcode-man-pages/codesign.1.html
-    log "Signing app executable"
-    codesign --force --options runtime --timestamp \
-        --sign "$MACOS_DEVELOPER_ID" \
-        "$executable"
     log "Signing app bundle"
-    codesign --force --options runtime --timestamp \
+    codesign --force --deep --options runtime --timestamp \
         --sign "$MACOS_DEVELOPER_ID" \
         "$STAGED_APP_PATH"
     log "Verifying app bundle signature"
@@ -204,11 +209,32 @@ create_and_sign_dmg() {
 
     log "Signing DMG"
     codesign --force --timestamp --sign "$MACOS_DEVELOPER_ID" "$DMG_PATH"
-    log "Verifying DMG structure"
-    hdiutil verify "$DMG_PATH"
-    log "Verifying DMG signature"
-    codesign --verify --strict --verbose=2 "$DMG_PATH"
+    verify_dmg_payload "signed"
     log "DMG created, signed, and verified"
+}
+
+verify_dmg_payload() {
+    local label="$1"
+    local verify_status=0
+
+    log "Verifying $label DMG structure"
+    hdiutil verify "$DMG_PATH"
+    log "Verifying $label DMG signature"
+    codesign --verify --strict --verbose=2 "$DMG_PATH"
+
+    log "Mounting $label DMG to verify app payload"
+    rm -rf "$MOUNT_DIR"
+    mkdir -p "$MOUNT_DIR"
+    hdiutil attach "$DMG_PATH" \
+        -readonly \
+        -nobrowse \
+        -mountpoint "$MOUNT_DIR"
+    DMG_ATTACHED=1
+
+    log "Verifying $label mounted app code signature"
+    codesign --verify --deep --strict --verbose=2 "$MOUNT_DIR/$APP_NAME.app" || verify_status=$?
+    detach_dmg
+    return "$verify_status"
 }
 
 notarize_and_staple_dmg() {
@@ -240,6 +266,7 @@ notarize_and_staple_dmg() {
     xcrun stapler staple "$DMG_PATH"
     log "Validating stapled notarization ticket"
     xcrun stapler validate "$DMG_PATH"
+    verify_dmg_payload "stapled"
     log "DMG notarized and stapled"
 }
 
@@ -260,13 +287,16 @@ assess_stapled_app() {
     # Source: spctl assesses code against system security policy:
     # https://keith.github.io/xcode-man-pages/spctl.8.html
     log "Assessing mounted app with spctl"
-    spctl -a -vv -t exec "$MOUNT_DIR/$APP_NAME.app"
+    local assess_status=0
+    spctl -a -vv -t exec "$MOUNT_DIR/$APP_NAME.app" || assess_status=$?
 
-    log "Detaching DMG"
-    hdiutil detach "$MOUNT_DIR"
-    DMG_ATTACHED=0
-    rm -rf "$MOUNT_DIR"
-    log "Gatekeeper assessment completed"
+    detach_dmg
+    if [ "$assess_status" -eq 0 ]; then
+        log "Gatekeeper assessment completed"
+    else
+        log "Gatekeeper assessment failed"
+    fi
+    return "$assess_status"
 }
 
 full_package() {

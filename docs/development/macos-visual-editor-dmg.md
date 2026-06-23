@@ -119,16 +119,18 @@ and Gatekeeper commands.
 6. Runs `xcodebuild archive` with `ARCHS="arm64 x86_64"` and
    `CODE_SIGNING_ALLOWED=NO`.
 7. Lets Xcode call `scripts/build_macos_app_with_cargo.bash` from a build phase.
-8. Builds Cargo's `slint-editor` example for `aarch64-apple-darwin` and
+8. Builds Cargo's `slint-visual-editor` binary for `aarch64-apple-darwin` and
    `x86_64-apple-darwin`.
 9. Combines both executables with `lipo`.
 10. Copies the visual editor demo files into the app bundle resources so Finder
     launches can open a default project without command-line arguments.
-11. Signs the executable and app bundle with `codesign --options runtime`.
+11. Signs the app bundle with `codesign --deep --options runtime`.
 12. Deletes Xcode and Cargo build intermediates after the signed app is staged.
-13. Creates and signs a compressed DMG with `hdiutil`.
+13. Creates and signs a compressed DMG with `hdiutil`, then verifies both the
+    DMG signature and the mounted app payload.
 14. Submits the DMG with `xcrun notarytool submit --wait`.
-15. Staples and validates the accepted ticket with `xcrun stapler`.
+15. Staples and validates the accepted ticket with `xcrun stapler`, then
+    repeats the DMG and mounted app signature checks on the final artifact.
 16. Mounts the DMG, verifies the mounted app with `codesign`, and checks it
     with `spctl`.
 17. Uploads `dist/*.dmg` as a GitHub Actions artifact.
