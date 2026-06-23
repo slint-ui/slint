@@ -22,8 +22,9 @@ use i_slint_core::item_tree::{
     ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeWeak, ParentItemTraversalMode,
 };
 use i_slint_core::items::{
-    self, DragAction, DropEvent, FillRule, ImageRendering, ItemRc, ItemRef, Layer, LineCap,
-    LineJoin, MouseCursor, Opacity, PointerEventButton, RenderingResult, TextWrap,
+    self, ConstraintAdjustment, DragAction, DropEvent, FillRule, ImageRendering, ItemRc, ItemRef,
+    Layer, LineCap, LineJoin, MouseCursor, Opacity, PointerEventButton, PopupAnchor, PopupGravity,
+    RenderingResult, TextWrap,
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
@@ -2461,7 +2462,10 @@ impl WindowAdapterInternal for QtWindow {
         self.tree_structure_changed.replace(true);
     }
 
-    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+    fn create_popup_window_adapter(
+        &self,
+        _anchor: PopupAnchor,
+    ) -> Option<Rc<dyn WindowAdapter>> {
         let popup_window = QtWindow::new(self.self_weak.clone());
         let popup_ptr = popup_window.widget_ptr();
         let widget_ptr = self.widget_ptr();

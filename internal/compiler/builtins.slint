@@ -2446,14 +2446,21 @@ export component PopupWindow {
     //property <length> y;
     in property <length> width;
     in property <length> height;
-    /*property <length> anchor_x;
-    in property <length> anchor_y;
-    in property <length> anchor_height;
-    in property <length> anchor_width;*/
     in property <bool> close-on-click;
     /// By default, a PopupWindow closes when the user clicks. Set this to false to prevent that behavior and close it manually using the `close()` function.
     /// \default close-on-click
     in property <PopupClosePolicy> close-policy; // constexpr hardcoded in typeregister.rs
+
+    in property <PopupAnchor> anchor: {
+        location: PopupAnchorLocation.top-left,
+        x: 0px,
+        y: 0px,
+        width: 1px,
+        height: 1px,
+        gravity: PopupGravity.bottom-right,
+        constraint-adjustment-x: { slide: false, flip: false, resize: false },
+        constraint-adjustment-y: { slide: false, flip: false, resize: false },
+    };
     //! ## Functions
     //!
     //! ### show()

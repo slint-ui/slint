@@ -14,6 +14,7 @@ use std::rc::{Rc, Weak};
 
 const CLOSE_ON_CLICK: &str = "close-on-click";
 const CLOSE_POLICY: &str = "close-policy";
+const ANCHOR_PROPERTY_NAME: &str = "anchor";
 
 pub fn lower_popups(
     component: &Rc<Component>,
@@ -195,6 +196,18 @@ fn lower_popup_window(
     // converted to absolute coordinates in the run-time library.
     let coord_x = NamedReference::new(&popup_comp.root_element, SmolStr::new_static("x"));
     let coord_y = NamedReference::new(&popup_comp.root_element, SmolStr::new_static("y"));
+    let anchor = popup_window_element
+        .borrow_mut()
+        .bindings
+        .remove(ANCHOR_PROPERTY_NAME)
+        .map(|b| {
+            let b = b.into_inner();
+            match b.expression {
+                Expression::Cast { from, .. } => *from,
+                e => e,
+            }
+        })
+        .unwrap_or(Expression::Invalid);
 
     // Meanwhile, set the geometry x/y to zero, because we'll be shown as a top-level and
     // children should be rendered starting with a (0, 0) offset.
@@ -211,6 +224,7 @@ fn lower_popup_window(
     }
 
     check_no_reference_to_popup(popup_window_element, &parent_component, &weak, &coord_x, diag);
+    check_no_reference_to_popup(popup_window_element, &parent_component, &weak, &coord_y, diag);
 
     if matches!(popup_window_element.borrow().base_type, ElementType::Builtin(_)) {
         popup_window_element.borrow_mut().base_type = window_type.clone();
@@ -223,6 +237,7 @@ fn lower_popup_window(
         x: coord_x,
         y: coord_y,
         close_policy,
+        anchor,
         parent_element: parent_element.clone(),
         is_tooltip: popup_window_element.borrow().is_tooltip,
     });

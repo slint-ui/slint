@@ -3600,12 +3600,13 @@ fn compile_builtin_function_call(
                     Some(&parent_ctx),
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
+                let anchor = compile_expression(&popup.anchor.borrow(), ctx);
                 let is_tooltip = popup.is_tooltip;
                 let close_policy = compile_expression(close_policy, ctx);
                 let popup_id_name = internal_popup_id(*popup_index as usize);
                 let globals_init = if !is_tooltip {
                     quote! {
-                        if let Some(popup_window_adapter) = window.create_popup_window_adapter() {
+                        if let Some(popup_window_adapter) = window.create_popup_window_adapter(#anchor.clone()) {
                             shared_global.clone_with_window_adapter(popup_window_adapter)
                         } else {
                             shared_global.clone()
@@ -3638,6 +3639,7 @@ fn compile_builtin_function_call(
                             &sp::VRc::into_dyn(popup_instance.into()),
                             access_position,
                             #close_policy,
+                            #anchor,
                             parent_item,
                             #is_tooltip,
                             false,

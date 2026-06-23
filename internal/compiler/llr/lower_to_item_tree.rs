@@ -857,11 +857,18 @@ fn lower_popup_component(
         ],
     );
 
+    let anchor = super::lower_expression::lower_expression(&popup.anchor, ctx);
+
     let item_tree = ItemTree {
         tree: make_tree(ctx.state, &popup.component.root_element, &sc, &[]),
         root: ctx.state.push_sub_component(sc),
     };
-    PopupWindow { item_tree, position: position.into(), is_tooltip: popup.is_tooltip }
+    PopupWindow {
+        item_tree,
+        position: position.into(),
+        is_tooltip: popup.is_tooltip,
+        anchor: anchor.into(),
+    }
 }
 
 fn lower_timer(timer: &object_tree::Timer, ctx: &ExpressionLoweringCtx) -> Timer {
