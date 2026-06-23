@@ -4569,7 +4569,7 @@ fn generate_with_grid_input_data(
                             let total_item_count = max_total;
                             #rs_init
                             let start_offset = items_vec.len();
-                            items_vec.extend(core::iter::repeat_with(Default::default).take(len * total_item_count));
+                            items_vec.extend(::core::iter::repeat_with(::core::default::Default::default).take(len * total_item_count));
                             for i in 0..len {
                                 if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
                                     let offset = start_offset + i * total_item_count;
@@ -4586,7 +4586,7 @@ fn generate_with_grid_input_data(
                         quote!({
                             let len = _self.#repeater_id.len();
                             let start_offset = items_vec.len();
-                            items_vec.extend(core::iter::repeat_with(Default::default).take(len * #step));
+                            items_vec.extend(::core::iter::repeat_with(::core::default::Default::default).take(len * #step));
                             for i in 0..len {
                                 if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
                                     let offset = start_offset + i * #step;
@@ -4678,6 +4678,10 @@ fn generate_with_layout_item_info(
                                         for child_idx in 0..total_item_count {
                                             items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, Some(child_idx)));
                                         }
+                                    } else {
+                                        // Not-yet-instantiated slot: push placeholder cells so the cell
+                                        // count stays in sync with the repeater length written above.
+                                        items_vec.extend(::core::iter::repeat_with(::core::default::Default::default).take(total_item_count));
                                     }
                                 }
                             }
@@ -4692,6 +4696,8 @@ fn generate_with_layout_item_info(
                                 for i in 0.._self.#repeater_id.len() {
                                     if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
                                        items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, None));
+                                    } else {
+                                        items_vec.push(::core::default::Default::default());
                                     }
                                 }
                             )
@@ -4702,6 +4708,8 @@ fn generate_with_layout_item_info(
                                         for child_idx in 0..#step {
                                             items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, Some(child_idx)));
                                         }
+                                    } else {
+                                        items_vec.extend(::core::iter::repeat_with(::core::default::Default::default).take(#step));
                                     }
                                 }
                             )
@@ -4780,6 +4788,11 @@ fn generate_with_flexbox_layout_item_info(
                         items_vec_v.push(
                             sub_comp.as_pin_ref().flexbox_layout_item_info(sp::Orientation::Vertical, None),
                         );
+                    } else {
+                        // Not-yet-instantiated slot: push placeholder cells so the cell
+                        // count stays in sync with the repeater length written above.
+                        items_vec_h.push(::core::default::Default::default());
+                        items_vec_v.push(::core::default::Default::default());
                     }
                 });
                 push_code.push(quote!(
