@@ -11,8 +11,13 @@ The dedicated workflow is `.github/workflows/visual_editor_macos_dmg.yaml`.
 It runs only for:
 
 - `workflow_dispatch`
-- pushes to `deploy-macos`
 - pull requests targeting `visual-editor`
+
+Do not add a separate `push` trigger for `deploy-macos`. GitHub documents that
+the default `pull_request` activity types include `opened`, `synchronize`, and
+`reopened`; `synchronize` covers pushing new commits to an open pull request
+branch without creating a second workflow run:
+<https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request>.
 
 This keeps the packaging work isolated from the broad repository CI while the
 DMG pipeline is being developed. The trigger syntax and `pull_request` branch
@@ -75,14 +80,14 @@ The workflow installs Rust once through the repository's existing
 XcodeGen with Homebrew.
 
 The Rust cache is provided by `Swatinem/rust-cache`. The workflow uses a
-visual-editor-specific key and saves new cache entries only on pushes to
-`deploy-macos`; pull requests restore caches but do not publish new ones. The
-action documents the `save-if`, workspace target directory, and cache cleanup
-behavior here: <https://github.com/Swatinem/rust-cache>.
+visual-editor-specific key. Pull requests restore caches, and same-repository
+pull requests may save new cache entries. The action documents the `save-if`,
+workspace target directory, and cache cleanup behavior here:
+<https://github.com/Swatinem/rust-cache>.
 
 The XcodeGen install step also restores Homebrew's download cache at
 `~/Library/Caches/Homebrew` with `actions/cache/restore` and saves it with
-`actions/cache/save` only on pushes to `deploy-macos`. The cache action
+`actions/cache/save` only on same-repository pull requests. The cache action
 documents `path`, `key`, and `restore-keys` here:
 <https://github.com/actions/cache>. Homebrew documents cache-related options in
 its man page:

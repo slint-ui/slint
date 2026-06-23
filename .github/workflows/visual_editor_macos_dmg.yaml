@@ -12,9 +12,11 @@ name: Visual Editor macOS DMG
 # - GitHub-hosted macOS runners: https://docs.github.com/en/actions/reference/runners/github-hosted-runners
 on:
     workflow_dispatch:
-    push:
-        branches:
-            - deploy-macos
+    # The default pull_request activity types include synchronize, so pushing
+    # commits to an open PR branch still runs this workflow without needing a
+    # separate push trigger that would create duplicate runs.
+    #
+    # Source: https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request
     pull_request:
         branches:
             - visual-editor
@@ -48,21 +50,21 @@ jobs:
             - uses: ./.github/actions/setup-rust
               with:
                   key: visual-editor-macos-dmg
-                  # Swatinem/rust-cache restores caches on PRs, but only pushes
-                  # to this development branch should save new cache entries.
+                  # Swatinem/rust-cache restores caches on all PRs, but only
+                  # same-repository PRs should save new cache entries.
                   #
                   # Sources:
                   # - rust-cache save-if/workspaces behavior: https://github.com/Swatinem/rust-cache
                   # - GitHub cache branch scope: https://github.com/actions/cache
-                  save_if: ${{ github.ref == 'refs/heads/deploy-macos' }}
+                  save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
 
             - name: Install macOS Rust targets
               run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
-            # Cache Homebrew's downloaded bottles only. PRs restore this cache,
-            # but only pushes to deploy-macos save it. The installed prefix is
-            # left to Homebrew and the runner image; caching the download cache
-            # avoids turning /opt/homebrew into a large, brittle artifact.
+            # Cache Homebrew's downloaded bottles only. All PRs restore this
+            # cache, but only same-repository PRs save it. The installed prefix
+            # is left to Homebrew and the runner image; caching the download
+            # cache avoids turning /opt/homebrew into a large, brittle artifact.
             #
             # Sources:
             # - GitHub cache restore/save actions: https://github.com/actions/cache
@@ -86,7 +88,7 @@ jobs:
               run: brew install xcodegen
 
             - name: Save Homebrew downloads
-              if: ${{ github.ref == 'refs/heads/deploy-macos' && steps.homebrew-cache.outputs.cache-hit != 'true' }}
+              if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && steps.homebrew-cache.outputs.cache-hit != 'true' }}
               uses: actions/cache/save@v5
               with:
                   path: ~/Library/Caches/Homebrew
