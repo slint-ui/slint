@@ -69,6 +69,7 @@ KEYCHAIN_PATH="$RUNNER_TEMP_DIR/visual-editor-signing.keychain-db"
 CERTIFICATE_PATH="$RUNNER_TEMP_DIR/developer-id-application.p12"
 NOTARY_KEY_PATH="$RUNNER_TEMP_DIR/AuthKey_${NOTARY_API_KEY_ID:-unset}.p8"
 CARGO_XCODE_TARGET_DIR="$ROOT_DIR/target/xcode-cargo/slint-visual-editor"
+CARGO_TIMINGS_REPORT_DIR="$BUILD_DIR/cargo-timings"
 DMG_ATTACHED=0
 
 cleanup() {
@@ -157,6 +158,18 @@ set_dmg_volume_icon() {
     setfile="$(xcrun --find SetFile 2>/dev/null || true)"
     [ -n "$setfile" ] || return 0
     "$setfile" -a C "$MOUNT_DIR"
+}
+
+collect_rust_build_report() {
+    rm -rf "$CARGO_TIMINGS_REPORT_DIR"
+
+    if [ -d "$CARGO_XCODE_TARGET_DIR/cargo-timings" ]; then
+        log "Collecting Cargo timing report"
+        mkdir -p "$CARGO_TIMINGS_REPORT_DIR"
+        ditto "$CARGO_XCODE_TARGET_DIR/cargo-timings" "$CARGO_TIMINGS_REPORT_DIR"
+    elif [ "${MACOS_CARGO_TIMINGS:-0}" != "0" ]; then
+        die "Cargo timings were enabled, but no report was found at $CARGO_XCODE_TARGET_DIR/cargo-timings"
+    fi
 }
 
 mkdir -p "$DIST_DIR" "$BUILD_DIR" "$RUNNER_TEMP_DIR"
@@ -271,6 +284,7 @@ stage_and_sign_app() {
 
     log "Freeing Xcode and Cargo build intermediates before DMG creation"
     df -h "$ROOT_DIR"
+    collect_rust_build_report
     rm -rf "$ARCHIVE_PATH" "$DERIVED_DATA_PATH" "$CARGO_XCODE_TARGET_DIR"
     df -h "$ROOT_DIR"
 }

@@ -44,6 +44,11 @@ else
     CARGO_PROFILE_ARGS=(--release)
 fi
 
+CARGO_TIMINGS_ARGS=()
+if [ "${MACOS_CARGO_TIMINGS:-0}" != "0" ]; then
+    CARGO_TIMINGS_ARGS=(--timings)
+fi
+
 TARGET_DIR_NAME="${MACOS_CARGO_TARGET_DIR_NAME:-${PRODUCT_BUNDLE_IDENTIFIER:-$CARGO_TARGET_NAME}}"
 TARGET_DIR_NAME="$(printf "%s" "$TARGET_DIR_NAME" | tr -c 'A-Za-z0-9_.-' '-')"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$REPO_ROOT/target/xcode-cargo/$TARGET_DIR_NAME}"
@@ -54,6 +59,7 @@ echo "::group::Cargo build $CARGO_TARGET_NAME for $RUST_TARGET"
 echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] cargo build start: $RUST_TARGET"
 cargo build \
     "${CARGO_PROFILE_ARGS[@]}" \
+    "${CARGO_TIMINGS_ARGS[@]}" \
     --target "$RUST_TARGET" \
     "$CARGO_TARGET_KIND" "$CARGO_TARGET_NAME" \
     "$@"

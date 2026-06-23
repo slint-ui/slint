@@ -69,23 +69,29 @@ The package driver is `scripts/package_macos_visual_editor.bash`.
 5. Runs `xcodegen generate --spec tools/lsp/macos-project.yml`.
 6. Runs `xcodebuild archive` with `ARCHS="arm64"` and `CODE_SIGNING_ALLOWED=NO`.
 7. Lets Xcode call `scripts/build_macos_app_with_cargo.bash` from a build phase.
-8. Builds Cargo's `slint-visual-editor` binary for `aarch64-apple-darwin`.
+8. Builds Cargo's `slint-visual-editor` binary for `aarch64-apple-darwin` with
+   `cargo build --timings`.
 9. Copies the visual editor files into the app bundle resources so Finder
     launches can open a default project without command-line arguments.
 10. Signs the app bundle with `codesign --deep --options runtime`.
-11. Deletes Xcode and Cargo build intermediates after the signed app is staged.
+11. Copies Cargo's timing report from
+    `target/xcode-cargo/slint-visual-editor/cargo-timings/` to
+    `target/macos-visual-editor-dmg/cargo-timings/`.
+12. Deletes Xcode and Cargo build intermediates after the signed app is staged.
     This is done to free up space on the runner image.
-12. Renders `tools/lsp/packaging/macos/dmg-background.svg` to
+13. Renders `tools/lsp/packaging/macos/dmg-background.svg` to
     `target/macos-visual-editor-dmg/dmg-background.png`.
-13. Creates a read-write DMG with `hdiutil`, configures the Finder background,
+14. Creates a read-write DMG with `hdiutil`, configures the Finder background,
     icon size, app position, and Applications symlink position, then converts it
     to the compressed DMG that is signed and verified.
-14. Submits the DMG with `xcrun notarytool submit --wait`.
-15. Staples and validates the accepted ticket with `xcrun stapler`, then
+15. Submits the DMG with `xcrun notarytool submit --wait`.
+16. Staples and validates the accepted ticket with `xcrun stapler`, then
     repeats the DMG and mounted app signature checks on the final artifact.
-16. Mounts the DMG, verifies the mounted app with `codesign`, and checks it
+17. Mounts the DMG, verifies the mounted app with `codesign`, and checks it
     with `spctl`.
-17. Uploads `dist/*.dmg` as a GitHub Actions artifact.
+18. Uploads `dist/*.dmg` as the `slint-visual-editor-macos-dmg` artifact and
+    the Cargo timing report as the `slint-visual-editor-rust-build-report`
+    artifact.
 
 For local debugging, the same phases can be run individually:
 
@@ -104,6 +110,7 @@ The command sources for these steps are:
 
 - `security`: <https://keith.github.io/xcode-man-pages/security.1.html>
 - `xcodebuild`: <https://keith.github.io/xcode-man-pages/xcodebuild.1.html>
+- `cargo build --timings`: <https://doc.rust-lang.org/cargo/commands/cargo-build.html#compilation-options>
 - `librsvg` / `rsvg-convert`: <https://formulae.brew.sh/formula/librsvg>
 - `codesign`: <https://keith.github.io/xcode-man-pages/codesign.1.html>
 - `hdiutil`: <https://keith.github.io/xcode-man-pages/hdiutil.1.html>
@@ -133,6 +140,11 @@ The expected artifact name is:
 ```text
 dist/SlintVisualEditor-<version>-macos-arm64.dmg
 ```
+
+The Rust build report artifact is `slint-visual-editor-rust-build-report`. Cargo
+documents that `--timings` writes `cargo-timing.html` and timestamped reports to
+the target directory's `cargo-timings` directory:
+<https://doc.rust-lang.org/cargo/commands/cargo-build.html#compilation-options>.
 
 For Xcode project generation only:
 

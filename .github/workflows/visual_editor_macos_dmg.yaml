@@ -16,6 +16,7 @@ permissions:
 env:
     MACOSX_DEPLOYMENT_TARGET: "12.0"
     CARGO_INCREMENTAL: false
+    MACOS_CARGO_TIMINGS: "1"
     SLINT_BUILD_NUMBER: ${{ github.run_number }}
 
 jobs:
@@ -114,4 +115,11 @@ jobs:
                   path: |
                       dist/*.dmg
                       target/macos-visual-editor-dmg/notarization-log.json
+                  if-no-files-found: error
+
+            - name: Upload Rust build report
+              uses: actions/upload-artifact@v7
+              with:
+                  name: slint-visual-editor-rust-build-report
+                  path: target/macos-visual-editor-dmg/cargo-timings/**
                   if-no-files-found: error
