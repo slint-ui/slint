@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Software-3.0
+
+//#sls.source.comment.line
+//#sls.source.comment.block
+//#sls.source.comment.whitespace-equivalent
+
+// A line comment before the component.
+
+/* A block comment
+   spanning multiple lines. */
+
+/* Block comments /* may be nested */ like this. */
+
+export component WithComments inherits Window {
+    // Line comment inside a component body.
+    Rectangle {
+        /* Block comment inside an element body. */
+    }
+}
+/*
+```rust
+let _ = WithComments::new();
+```
+*/
