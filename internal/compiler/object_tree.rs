@@ -2445,9 +2445,13 @@ impl Element {
     ///
     /// If `need_explicit` is true, then only consider binding set in the code, not the ones set
     /// by the compiler later.
+    ///
+    /// Synthetic debug hooks (materialized for unbound properties) are never considered set.
     pub fn is_binding_set(self: &Element, property_name: &str, need_explicit: bool) -> bool {
         if self.bindings.get(property_name).is_some_and(|b| {
-            b.borrow().has_binding() && (!need_explicit || b.borrow().priority > 0)
+            b.borrow().has_binding()
+                && !b.borrow().expression.is_synthetic_debug_hook()
+                && (!need_explicit || b.borrow().priority > 0)
         }) {
             true
         } else if let ElementType::Component(base) = &self.base_type {
@@ -2458,8 +2462,12 @@ impl Element {
     }
 
     /// Returns true if the property is set by a binding or an assignment expression
+    ///
+    /// Synthetic debug hooks (materialized for unbound properties) are not considered set.
     pub fn is_property_set(self: &Element, property_name: &str) -> bool {
-        self.bindings.contains_key(property_name)
+        self.bindings
+            .get(property_name)
+            .is_some_and(|b| !b.borrow().expression.is_synthetic_debug_hook())
             || self
                 .property_analysis
                 .borrow()
@@ -2469,9 +2477,13 @@ impl Element {
     }
 
     /// Set the property `property_name` of this Element only if it was not set.
-    /// the `expression_fn` will only be called if it isn't set
+    /// the `expression_fn` will only be called if it isn't set.
     ///
-    /// returns true if the binding was changed
+    /// If a synthetic debug hook exists for this property, the hook's inner expression is
+    /// replaced with the new value (keeping the wrapper and id) and the hook is marked
+    /// non-synthetic — so the property becomes live-editable at its real computed value.
+    ///
+    /// Returns true if the binding was changed.
     pub fn set_binding_if_not_set(
         &mut self,
         property_name: SmolStr,
@@ -2488,9 +2500,20 @@ impl Element {
                 vacant_entry.insert(binding.into());
             }
             Entry::Occupied(mut existing_entry) => {
-                let mut binding: BindingExpression = expression_fn().into();
-                binding.priority = i32::MAX;
-                existing_entry.get_mut().get_mut().merge_with(&binding);
+                let inner = existing_entry.get_mut().get_mut();
+                // If a synthetic debug hook occupies the slot, replace its inner expression
+                // with the new value and mark it as non-synthetic.
+                if let expression_tree::Expression::DebugHook { expression, synthetic, .. } =
+                    &mut inner.expression
+                {
+                    *expression = Box::new(expression_fn());
+                    *synthetic = false;
+                    inner.priority = i32::MAX;
+                } else {
+                    let mut binding: BindingExpression = expression_fn().into();
+                    binding.priority = i32::MAX;
+                    inner.merge_with(&binding);
+                }
             }
         };
         true
