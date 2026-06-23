@@ -111,11 +111,12 @@ and Gatekeeper commands.
    `x86_64-apple-darwin`.
 8. Combines both executables with `lipo`.
 9. Signs the executable and app bundle with `codesign --options runtime`.
-10. Creates and signs a compressed DMG with `hdiutil`.
-11. Submits the DMG with `xcrun notarytool submit --wait`.
-12. Staples and validates the accepted ticket with `xcrun stapler`.
-13. Mounts the DMG and checks the app with `spctl`.
-14. Uploads `dist/*.dmg` as a GitHub Actions artifact.
+10. Deletes Xcode and Cargo build intermediates after the signed app is staged.
+11. Creates and signs a compressed DMG with `hdiutil`.
+12. Submits the DMG with `xcrun notarytool submit --wait`.
+13. Staples and validates the accepted ticket with `xcrun stapler`.
+14. Mounts the DMG and checks the app with `spctl`.
+15. Uploads `dist/*.dmg` as a GitHub Actions artifact.
 
 For local debugging, the same phases can be run individually:
 

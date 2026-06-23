@@ -60,6 +60,7 @@ NOTARY_LOG="$BUILD_DIR/notarization-log.json"
 KEYCHAIN_PATH="$RUNNER_TEMP_DIR/visual-editor-signing.keychain-db"
 CERTIFICATE_PATH="$RUNNER_TEMP_DIR/developer-id-application.p12"
 NOTARY_KEY_PATH="$RUNNER_TEMP_DIR/AuthKey_${NOTARY_API_KEY_ID:-unset}.p8"
+CARGO_XCODE_TARGET_DIR="$ROOT_DIR/target/xcode-cargo/slint-visual-editor"
 DMG_ATTACHED=0
 
 cleanup() {
@@ -178,6 +179,11 @@ stage_and_sign_app() {
     log "Verifying app bundle signature"
     codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"
     log "App bundle signed and verified"
+
+    log "Freeing Xcode and Cargo build intermediates before DMG creation"
+    df -h "$ROOT_DIR"
+    rm -rf "$ARCHIVE_PATH" "$DERIVED_DATA_PATH" "$CARGO_XCODE_TARGET_DIR"
+    df -h "$ROOT_DIR"
 }
 
 create_and_sign_dmg() {
