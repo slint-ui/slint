@@ -190,7 +190,9 @@ async fn watch(
     shared_data_weak: &Weak<SharedBackendData>,
     ctx_weak: SlintContextWeak,
 ) -> zbus::Result<()> {
-    // Release the held windows if the portal is slow or missing.
+    // Safety net: create the windows anyway if the portal never answers.
+    // After the timer fires, the event loop returns to `about_to_wait`,
+    // which then creates any pending inactive windows.
     {
         let shared_weak = shared_data_weak.clone();
         i_slint_core::timers::Timer::single_shot(APPEARANCE_QUERY_TIMEOUT, move || {
