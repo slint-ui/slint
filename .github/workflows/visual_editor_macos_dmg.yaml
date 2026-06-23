@@ -37,6 +37,32 @@ jobs:
         steps:
             - uses: actions/checkout@v6
 
+            - name: Select Xcode 26
+              run: |
+                  xcode_26_app="$(
+                      /usr/bin/python3 - <<'PY'
+                  from pathlib import Path
+                  import re
+
+                  def version_key(path):
+                      match = re.search(r"Xcode_(\d+(?:\.\d+)*)\.app$", path.name)
+                      return tuple(int(part) for part in match.group(1).split(".")) if match else ()
+
+                  candidates = sorted(Path("/Applications").glob("Xcode_26*.app"), key=version_key)
+                  if candidates:
+                      print(candidates[-1])
+                  PY
+                  )"
+
+                  if [ -z "$xcode_26_app" ]; then
+                      echo "No Xcode 26 installation found in /Applications"
+                      exit 1
+                  fi
+
+                  sudo xcode-select --switch "$xcode_26_app/Contents/Developer"
+                  xcode-select -p
+                  xcodebuild -version
+
             # Free space from the image or the build will run out of space
             - name: Free unused macOS runner disk space
               run: |
