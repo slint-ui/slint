@@ -133,27 +133,8 @@ impl common::PreviewToLsp for EmbeddedPreviewToLsp {
 
 #[derive(clap::Parser)]
 struct Cli {
-    file: Option<String>,
+    file: String,
     component: Option<String>,
-}
-
-fn default_editor_file() -> Result<std::path::PathBuf> {
-    let exe = std::env::current_exe()?;
-    if let Some(contents_dir) =
-        exe.ancestors().find(|path| path.file_name().is_some_and(|name| name == "Contents"))
-    {
-        let bundled_demo =
-            contents_dir.join("Resources").join("visual-editor-example").join("Main.slint");
-        if bundled_demo.exists() {
-            return Ok(bundled_demo);
-        }
-    }
-
-    Ok(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("ui")
-        .join("visual-editor")
-        .join("example")
-        .join("Main.slint"))
 }
 
 fn start_processing_lsp_messages_thread(
@@ -320,16 +301,11 @@ async fn lsp_main(
 
     // Load the initial document through the compiler. This triggers the import
     // callback for all transitive dependencies, sending their contents to the preview.
-    let file = match cli.file {
-        Some(file) => std::path::PathBuf::from(file),
-        None => default_editor_file()?,
-    };
-    let file_display = file.display().to_string();
-    let full_path = std::fs::canonicalize(&file)
-        .map_err(|err| format!("Failed to determine full path for {file_display}: {err}"))?;
+    let full_path = std::fs::canonicalize(&cli.file)
+        .map_err(|err| format!("Failed to determine full path for {}: {err}", cli.file))?;
     let root_path = full_path.clone();
     let url = Url::from_file_path(full_path)
-        .map_err(|_| format!("Failed to convert {file_display} to URL!"))?;
+        .map_err(|_| format!("Failed to convert {} to URL!", cli.file))?;
     language::show_preview(
         PreviewComponent { url: url.clone(), component: cli.component },
         &mut ctx,
@@ -339,7 +315,7 @@ async fn lsp_main(
     // have the correct state already loaded.
     language::reload_document(&mut ctx, url)
         .await
-        .map_err(|err| format!("Failed to load file: {file_display}: {err}"))?;
+        .map_err(|err| format!("Failed to load file: {}: {err}", cli.file))?;
     let mut watch_paths_revision = None;
     sync_file_watcher_if_needed(&mut file_watcher, &ctx, &root_path, &mut watch_paths_revision)?;
 
