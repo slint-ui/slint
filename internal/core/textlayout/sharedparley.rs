@@ -141,18 +141,34 @@ pub trait GlyphRenderer: crate::item_rendering::ItemRenderer {
         glyphs_it: &mut dyn Iterator<Item = parley::layout::Glyph>,
     );
 
+    /// Convenience wrapper around `fill_rectangle` that resolves `color` to a platform
+    /// brush and fills `physical_rect` with sharp corners and no outline.
     fn fill_rectangle_with_color(&mut self, physical_rect: PhysicalRect, color: Color) {
         if let Some(platform_brush) = self.platform_brush_for_color(&color) {
-            self.fill_rectangle(physical_rect, platform_brush);
+            self.fill_rectangle(physical_rect, platform_brush, 0.0, None);
         }
     }
 
-    /// Fills the given rectangle with the specified color. This is used for drawing selection
-    /// rectangles as well as the text cursor.
-    fn fill_rectangle(&mut self, physical_rect: PhysicalRect, brush: Self::PlatformBrush);
+    /// Fills `physical_rect` with `brush`, optionally rounding the corners by `radius`
+    /// physical pixels and outlining it with a border brush at `border_width` physical
+    /// pixels. Passing `0.0` for `radius` produces sharp corners; passing `None` for
+    /// `border` skips the outline.
+    fn fill_rectangle(
+        &mut self,
+        physical_rect: PhysicalRect,
+        brush: Self::PlatformBrush,
+        radius: f32,
+        border: Option<(Self::PlatformBrush, f32)>,
+    );
 }
 
 pub use super::DEFAULT_FONT_SIZE;
+
+/// Font size of inline `code` runs, as a fraction of the surrounding body
+/// text. Matches the convention used by GitHub-style markdown renderers — the
+/// glyphs sit a little smaller than body text, inside a translucent capsule
+/// that visually marks them as code.
+const INLINE_CODE_FONT_SCALE: f32 = 0.85;
 
 std::thread_local! {
     static LAYOUT_CONTEXT: RefCell<parley::LayoutContext<Brush>> = Default::default();
@@ -363,6 +379,15 @@ impl LayoutWithoutLineBreaksBuilder {
                                     parley::style::GenericFamily::Monospace,
                                 ),
                             )),
+                            span.range.clone(),
+                        );
+                        // Inline `code` reads as slightly smaller text on top of a
+                        // translucent capsule (drawn separately in `TextParagraph::draw`),
+                        // matching the convention used by common markdown renderers.
+                        builder.push(
+                            parley::StyleProperty::FontSize(
+                                self.pixel_size.get() * INLINE_CODE_FONT_SCALE,
+                            ),
                             span.range,
                         );
                     }
@@ -436,10 +461,16 @@ fn create_text_paragraphs(
                 }
             });
 
+            let code_ranges: alloc::vec::Vec<Range<usize>> = formatting
+                .iter()
+                .filter(|s| matches!(s.style, i_slint_common::styled_text::Style::Code))
+                .map(|s| s.range.clone())
+                .collect();
+
             let layout =
                 layout_builder.build(font_context, text, selection, formatting, Some(link_color));
 
-            TextParagraph { range, y: PhysicalLength::default(), layout, links }
+            TextParagraph { range, y: PhysicalLength::default(), layout, links, code_ranges }
         };
 
     let mut paragraphs = Vec::with_capacity(1);
@@ -624,6 +655,10 @@ struct TextParagraph {
     y: PhysicalLength,
     layout: parley::Layout<Brush>,
     links: std::vec::Vec<(Range<usize>, std::string::String)>,
+    /// Byte ranges within the paragraph's text that carry `Style::Code`. Drawn with a
+    /// translucent rounded background by `draw` for visual parity with common markdown
+    /// renderers.
+    code_ranges: std::vec::Vec<Range<usize>>,
 }
 
 impl TextParagraph {
@@ -635,6 +670,7 @@ impl TextParagraph {
         item_renderer: &mut R,
         default_fill_brush: &<R as GlyphRenderer>::PlatformBrush,
         default_stroke_brush: &Option<<R as GlyphRenderer>::PlatformBrush>,
+        default_text_color: Color,
         draw_glyphs: &mut dyn FnMut(
             &mut R,
             &parley::FontData,
@@ -647,6 +683,8 @@ impl TextParagraph {
         ),
     ) {
         let para_y = layout.y_offset + self.y;
+
+        self.draw_inline_code_backgrounds(item_renderer, para_y, default_text_color);
 
         let line_count = self.layout.lines().len();
 
@@ -739,6 +777,106 @@ impl TextParagraph {
                     }
                     parley::PositionedLayoutItem::InlineBox(_inline_box) => {}
                 };
+            }
+        }
+    }
+
+    /// Paints a translucent rounded capsule under every glyph run that lies inside one of
+    /// this paragraph's `Style::Code` ranges. Capsule colors are derived from the luminance
+    /// of `default_text_color`, so light and dark themes both get a sensible default
+    /// without any user-facing styling property.
+    fn draw_inline_code_backgrounds<R: GlyphRenderer>(
+        &self,
+        item_renderer: &mut R,
+        para_y: PhysicalLength,
+        default_text_color: Color,
+    ) {
+        if self.code_ranges.is_empty() {
+            return;
+        }
+
+        // Neutral gray fill (low alpha) on both themes — contrast against the page
+        // background carries the "this is code" cue. The border picks up the same hue
+        // but a higher alpha so the rounded outline stays visible against the fill.
+        // Pick brighter values on dark backgrounds (luminance of the text gives us
+        // that signal without poking at the window background).
+        let fg_luminance = 0.299 * default_text_color.red() as f32
+            + 0.587 * default_text_color.green() as f32
+            + 0.114 * default_text_color.blue() as f32;
+        let fill = Color::from_argb_u8(28, 128, 128, 128);
+        let border = if fg_luminance > 140.0 {
+            Color::from_argb_u8(88, 170, 170, 170)
+        } else {
+            Color::from_argb_u8(56, 128, 128, 128)
+        };
+        const BORDER_WIDTH: f32 = 1.0;
+        // A touch of vertical padding above and below the cap-height / descender band
+        // so the capsule edge doesn't sit flush against tall glyphs.
+        const VERTICAL_PADDING_RATIO: f32 = 0.15;
+
+        for line in self.layout.lines() {
+            for item in line.items() {
+                let parley::PositionedLayoutItem::GlyphRun(glyph_run) = item else {
+                    continue;
+                };
+                let run = glyph_run.run();
+                let run_range = run.text_range();
+                if run_range.is_empty() {
+                    continue;
+                }
+                // `Style::Code` pushes its own FontFamily + FontSize, which forces a
+                // run boundary, so a code run is always fully contained in one of the
+                // recorded ranges — a single containment check is enough.
+                let is_code = self
+                    .code_ranges
+                    .iter()
+                    .any(|cr| cr.start <= run_range.start && run_range.end <= cr.end);
+                if !is_code {
+                    continue;
+                }
+
+                let metrics = run.metrics();
+                let ascent = metrics.ascent;
+                let descent = metrics.descent;
+                let cap_height = metrics.cap_height.unwrap_or(ascent * 0.72);
+
+                // Center the capsule on the midpoint between cap-top and a shallow
+                // approximation of the descender bottom (roughly where parens, commas
+                // and dots reach). This gives equal visible padding above and below
+                // for typical code text (which has caps but rarely real descenders).
+                let upper_extent = cap_height;
+                let lower_extent = descent * 0.4;
+                let center = glyph_run.baseline() + (lower_extent - upper_extent) / 2.0;
+                let inner_half_height = (upper_extent + lower_extent) / 2.0;
+                let extra_padding = ascent * VERTICAL_PADDING_RATIO;
+                let half_height = inner_half_height + extra_padding;
+                let bg_height = (half_height * 2.0).max(1.0);
+                let bg_top = center - half_height;
+
+                // Width hugs the glyphs tightly — `glyph_run.advance()` is exactly
+                // the horizontal extent of the rendered run. The underlying text is
+                // not modified, so selection, hit-testing and copy/paste keep working
+                // on the underlying characters.
+                let bg_width = glyph_run.advance().max(0.0);
+                if bg_width <= 0.0 {
+                    continue;
+                }
+                let bg_left = glyph_run.offset();
+
+                let bg_rect = PhysicalRect::new(
+                    PhysicalPoint::from_lengths(
+                        PhysicalLength::new(bg_left),
+                        PhysicalLength::new(bg_top) + para_y,
+                    ),
+                    PhysicalSize::new(bg_width, bg_height),
+                );
+                let radius = (bg_height * 0.22).clamp(2.0, 5.0);
+                let Some(fill_brush) = item_renderer.platform_brush_for_color(&fill) else {
+                    continue;
+                };
+                let border_brush =
+                    item_renderer.platform_brush_for_color(&border).map(|b| (b, BORDER_WIDTH));
+                item_renderer.fill_rectangle(bg_rect, fill_brush, radius, border_brush);
             }
         }
     }
@@ -864,6 +1002,8 @@ impl TextParagraph {
                     PhysicalSize::new(glyph_run.advance(), metrics.underline_size),
                 ),
                 fill_brush.clone(),
+                0.0,
+                None,
             );
         }
 
@@ -880,6 +1020,8 @@ impl TextParagraph {
                     PhysicalSize::new(glyph_run.advance(), metrics.strikethrough_size),
                 ),
                 fill_brush,
+                0.0,
+                None,
             );
         }
     }
@@ -1164,6 +1306,7 @@ impl Layout {
         item_renderer: &mut R,
         default_fill_brush: <R as GlyphRenderer>::PlatformBrush,
         default_stroke_brush: Option<<R as GlyphRenderer>::PlatformBrush>,
+        default_text_color: Color,
         draw_glyphs: &mut dyn FnMut(
             &mut R,
             &parley::FontData,
@@ -1186,6 +1329,7 @@ impl Layout {
                 item_renderer,
                 &default_fill_brush,
                 &default_stroke_brush,
+                default_text_color,
                 draw_glyphs,
             );
         }
@@ -1287,6 +1431,7 @@ pub fn draw_text(
             item_renderer,
             platform_fill_brush,
             platform_stroke_brush,
+            text.color().color(),
             &mut |item_renderer: &mut _,
                   font,
                   font_size,
@@ -1408,6 +1553,7 @@ pub fn draw_text_input(
 
     let visual_representation = text_input.visual_representation(password_character);
 
+    let text_color = visual_representation.text_color.color();
     let Some(platform_fill_brush) =
         item_renderer.platform_text_fill_brush(visual_representation.text_color, size)
     else {
@@ -1478,6 +1624,7 @@ pub fn draw_text_input(
             item_renderer,
             platform_fill_brush,
             None,
+            text_color,
             &mut |item_renderer: &mut _,
                   font,
                   font_size,

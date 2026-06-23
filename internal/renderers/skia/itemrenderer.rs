@@ -1196,16 +1196,32 @@ impl GlyphRenderer for SkiaItemRenderer<'_> {
         &mut self,
         physical_rect: sharedparley::PhysicalRect,
         paint: Self::PlatformBrush,
+        radius: f32,
+        border: Option<(Self::PlatformBrush, f32)>,
     ) {
-        self.canvas.draw_rect(
-            skia_safe::Rect::from_xywh(
-                physical_rect.min_x(),
-                physical_rect.min_y(),
-                physical_rect.width(),
-                physical_rect.height(),
-            ),
-            &paint,
+        let rect = skia_safe::Rect::from_xywh(
+            physical_rect.min_x(),
+            physical_rect.min_y(),
+            physical_rect.width(),
+            physical_rect.height(),
         );
+
+        if radius <= 0.0 && border.is_none() {
+            self.canvas.draw_rect(rect, &paint);
+            return;
+        }
+
+        let rrect = skia_safe::RRect::new_rect_xy(rect, radius, radius);
+        self.canvas.draw_rrect(rrect, &paint);
+
+        if let Some((mut stroke_paint, border_width)) = border
+            && border_width > 0.0
+        {
+            stroke_paint.set_style(skia_safe::PaintStyle::Stroke);
+            stroke_paint.set_stroke_width(border_width);
+            stroke_paint.set_anti_alias(true);
+            self.canvas.draw_rrect(rrect, &stroke_paint);
+        }
     }
 }
 
