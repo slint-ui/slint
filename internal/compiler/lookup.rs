@@ -1040,11 +1040,6 @@ impl LookupObject for StringExpression<'_> {
             .or_else(|| f("to-uppercase", member_function(BuiltinFunction::StringToUppercase)))
             .or_else(|| f("starts-with", member_function(BuiltinFunction::StringStartsWith)))
             .or_else(|| f("ends-with", member_function(BuiltinFunction::StringEndsWith)))
-            .or_else(|| f("contains", member_function(BuiltinFunction::StringContains)))
-            .or_else(|| f("is-ascii", member_function(BuiltinFunction::StringIsAscii)))
-            .or_else(|| f("repeat", member_function(BuiltinFunction::StringRepeat)))
-            .or_else(|| f("replace", member_function(BuiltinFunction::StringReplace)))
-            .or_else(|| f("trim", member_function(BuiltinFunction::StringTrim)))
     }
 }
 

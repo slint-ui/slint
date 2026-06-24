@@ -4074,20 +4074,6 @@ fn compile_builtin_function_call(
             let (s, pat) = (a.next().unwrap(), a.next().unwrap());
             quote!(#s.ends_with(#pat.as_str()))
         }
-        BuiltinFunction::StringContains => {
-            let (s, pat) = (a.next().unwrap(), a.next().unwrap());
-            quote!(#s.contains(#pat.as_str()))
-        }
-        BuiltinFunction::StringIsAscii => quote!(#(#a)*.is_ascii()),
-        BuiltinFunction::StringRepeat => {
-            let (s, n) = (a.next().unwrap(), a.next().unwrap());
-            quote!(sp::SharedString::from(#s.repeat(#n as usize)))
-        }
-        BuiltinFunction::StringReplace => {
-            let (s, from, to) = (a.next().unwrap(), a.next().unwrap(), a.next().unwrap());
-            quote!(sp::SharedString::from(#s.replace(#from.as_str(), #to.as_str())))
-        }
-        BuiltinFunction::StringTrim => quote!(sp::SharedString::from(#(#a)*.trim())),
         BuiltinFunction::KeysToString => quote!(sp::ToSharedString::to_shared_string(&#(#a)*)),
         BuiltinFunction::ColorRgbaStruct => quote!( #(#a)*.to_argb_u8()),
         BuiltinFunction::ColorHsvaStruct => quote!( #(#a)*.to_hsva()),

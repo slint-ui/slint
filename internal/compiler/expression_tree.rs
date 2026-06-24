@@ -75,11 +75,6 @@ pub enum BuiltinFunction {
     StringToUppercase,
     StringStartsWith,
     StringEndsWith,
-    StringContains,
-    StringIsAscii,
-    StringRepeat,
-    StringReplace,
-    StringTrim,
     KeysToString,
     ColorRgbaStruct,
     ColorHsvaStruct,
@@ -236,11 +231,6 @@ declare_builtin_function_types!(
     StringToUppercase: (Type::String) -> Type::String,
     StringStartsWith: (Type::String, Type::String) -> Type::Bool,
     StringEndsWith: (Type::String, Type::String) -> Type::Bool,
-    StringContains: (Type::String, Type::String) -> Type::Bool,
-    StringIsAscii: (Type::String) -> Type::Bool,
-    StringRepeat: (Type::String, Type::Int32) -> Type::String,
-    StringReplace: (Type::String, Type::String, Type::String) -> Type::String,
-    StringTrim: (Type::String) -> Type::String,
     KeysToString: (Type::Keys) -> Type::String,
     ImplicitLayoutInfo(..): (Type::ElementReference, Type::Float32) -> typeregister::layout_info_type().into(),
     ColorRgbaStruct: (Type::Color) -> Type::Struct(Rc::new(Struct {
@@ -403,11 +393,6 @@ impl BuiltinFunction {
             | BuiltinFunction::StringToUppercase
             | BuiltinFunction::StringStartsWith
             | BuiltinFunction::StringEndsWith
-            | BuiltinFunction::StringContains
-            | BuiltinFunction::StringIsAscii
-            | BuiltinFunction::StringRepeat
-            | BuiltinFunction::StringReplace
-            | BuiltinFunction::StringTrim
             | BuiltinFunction::KeysToString => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct
@@ -505,11 +490,6 @@ impl BuiltinFunction {
             | BuiltinFunction::StringToUppercase
             | BuiltinFunction::StringStartsWith
             | BuiltinFunction::StringEndsWith
-            | BuiltinFunction::StringContains
-            | BuiltinFunction::StringIsAscii
-            | BuiltinFunction::StringRepeat
-            | BuiltinFunction::StringReplace
-            | BuiltinFunction::StringTrim
             | BuiltinFunction::KeysToString => true,
             BuiltinFunction::ColorRgbaStruct
             | BuiltinFunction::ColorHsvaStruct

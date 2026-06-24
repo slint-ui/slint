@@ -4702,21 +4702,6 @@ fn compile_builtin_function_call(
         BuiltinFunction::StringEndsWith => {
             format!("{}.ends_with({})", a.next().unwrap(), a.next().unwrap())
         }
-        BuiltinFunction::StringContains => {
-            format!("{}.contains({})", a.next().unwrap(), a.next().unwrap())
-        }
-        BuiltinFunction::StringIsAscii => {
-            format!("{}.is_ascii()", a.next().unwrap())
-        }
-        BuiltinFunction::StringRepeat => {
-            format!("{}.repeat({})", a.next().unwrap(), a.next().unwrap())
-        }
-        BuiltinFunction::StringReplace => {
-            format!("{}.replace({}, {})", a.next().unwrap(), a.next().unwrap(), a.next().unwrap())
-        }
-        BuiltinFunction::StringTrim => {
-            format!("{}.trim()", a.next().unwrap())
-        }
         BuiltinFunction::KeysToString => {
             format!("{}.to_string()", a.next().unwrap())
         }
