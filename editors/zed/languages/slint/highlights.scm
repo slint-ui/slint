@@ -56,9 +56,6 @@
 (function_call
   name: (_) @function.call)
 
-(changed_function_call
-  name: (_) @function.call)
-
 ; definitions
 (callback
   name: (_) @function)
@@ -136,23 +133,20 @@
 (property
   name: (simple_identifier) @property)
 
-(binding_alias
-  name: (simple_identifier) @property)
-
-(binding
-  name: (simple_identifier) @property)
-
-(struct_block
-  (simple_identifier) @variable.member)
-
-(anon_struct_block
-  (simple_identifier) @variable.member)
-
 (property_assignment
   property: (simple_identifier) @property)
 
-(states_definition
-  name: (simple_identifier) @variable)
+(binding_alias
+  name: (simple_identifier) @property)
+
+(struct_field_definition
+  name: (simple_identifier) @variable.member)
+
+(anon_struct_assignment
+  member: (simple_identifier) @variable.member)
+
+(property_assignment
+  property: (simple_identifier) @property)
 
 (callback
   name: (simple_identifier) @variable)
@@ -172,8 +166,9 @@
     (expression
       (simple_identifier) @property))
 
-(states_definition
-  name: (simple_identifier) @constant)
+(state_definition
+  name: (simple_identifier) @constant
+  "when" @keyword)
 
 ; Attributes:
 [
@@ -192,7 +187,14 @@
 ; Keywords:
 (animate_option_identifier) @keyword
 
-(export) @keyword
+(export_statement
+  "export" @keyword)
+
+(exported_definition
+  "export" @keyword)
+
+(export_type
+  "as" @keyword)
 
 (if_statement
   "if" @keyword.conditional)
@@ -252,10 +254,7 @@
   "property" @keyword)
 
 (states_definition
-  [
-    "states"
-    "when"
-  ] @keyword)
+  "states" @keyword)
 
 (struct_definition
   "struct" @keyword)

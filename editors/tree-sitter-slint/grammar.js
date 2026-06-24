@@ -11,7 +11,7 @@ module.exports = grammar({
     [$._assignment_value_block],
     [$.assignment_block],
     // Caused by accepting arbitrary expressions in the radial-gradient/conical-gradient without a separator!
-    [$._unary_prec_operator, $.add_prec_operator]
+    [$.unary_prec_operator, $.add_prec_operator]
 ],
 
   externals: ($) => [$.block_comment],
@@ -176,8 +176,6 @@ module.exports = grammar({
         field("alias", $.expression),
         ";",
       ),
-
-    binding: ($) => seq(field("name", $.simple_identifier), ":", $._binding),
 
     global_block: ($) =>
       seq(
@@ -493,7 +491,7 @@ module.exports = grammar({
     unary_expression: ($) =>
       prec.left(
         14,
-        seq(field("op", $._unary_prec_operator), field("expr", $.expression)),
+        seq(field("op", $.unary_prec_operator), field("expr", $.expression)),
       ),
 
     binary_expression: ($) =>
@@ -748,7 +746,7 @@ module.exports = grammar({
         seq("(", optional(seq(commaSep1($.argument), optional(","))), ")"),
       ),
 
-    _unary_prec_operator: (_) => choice("!", "-", "+"),
+    unary_prec_operator: (_) => choice("!", "-", "+"),
 
     add_prec_operator: (_) => choice("+", "-"),
     mult_prec_operator: (_) => choice("*", "/"),
