@@ -614,6 +614,7 @@ export component Main { }
                     crate::common::DummyLspToPreview::default(),
                 ),
                 pending_recompile: Default::default(),
+                host_language_rename_dont_ask_again: Default::default(),
             };
             let (url, _) = crate::language::test::load(
                 &mut ctx,

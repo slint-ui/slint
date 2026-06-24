@@ -12,6 +12,7 @@ Some convention used in the generated code:
    this is usually a local variable to the init code that shouldn't be relied upon by the binding code.
 */
 
+use super::accessor_names::{self, AccessorKind};
 use crate::CompilerConfiguration;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
 use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
@@ -1002,7 +1003,6 @@ fn public_api(
 ) -> TokenStream {
     let mut property_and_callback_accessors: Vec<TokenStream> = Vec::new();
     for p in public_properties {
-        let prop_ident = ident(&p.name);
         let prop = access_member(&p.prop, ctx).unwrap();
 
         if let Type::Callback(callback) = &p.ty {
@@ -1011,7 +1011,7 @@ fn public_api(
             let return_type = rust_primitive_type(&callback.return_type).unwrap();
             let args_name =
                 (0..callback.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
-            let caller_ident = format_ident!("invoke_{}", prop_ident);
+            let caller_ident = accessor_names::rust_accessor_ident(&p.name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
@@ -1019,7 +1019,7 @@ fn public_api(
                     #prop.call(&(#(#args_name,)*))
                 }
             ));
-            let on_ident = format_ident!("on_{}", prop_ident);
+            let on_ident = accessor_names::rust_accessor_ident(&p.name, AccessorKind::Handler);
             let args_index = (0..callback_args.len()).map(proc_macro2::Literal::usize_unsuffixed);
             let tracker_access = access_callback_tracker(&p.prop, ctx);
             let set_dirty = tracker_access.map(|t| quote!(#t.mark_dirty();));
@@ -1041,7 +1041,7 @@ fn public_api(
             let return_type = rust_primitive_type(&function.return_type).unwrap();
             let args_name =
                 (0..function.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
-            let caller_ident = format_ident!("invoke_{}", prop_ident);
+            let caller_ident = accessor_names::rust_accessor_ident(&p.name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
@@ -1052,7 +1052,7 @@ fn public_api(
         } else {
             let rust_property_type = rust_primitive_type(&p.ty).unwrap();
 
-            let getter_ident = format_ident!("get_{}", prop_ident);
+            let getter_ident = accessor_names::rust_accessor_ident(&p.name, AccessorKind::Getter);
 
             let prop_expression = primitive_property_value(&p.ty, MemberAccess::Direct(prop));
 
@@ -1065,7 +1065,7 @@ fn public_api(
                 }
             ));
 
-            let setter_ident = format_ident!("set_{}", prop_ident);
+            let setter_ident = accessor_names::rust_accessor_ident(&p.name, AccessorKind::Setter);
             if !p.read_only {
                 let set_value = property_set_value_tokens(&p.prop, quote!(value), ctx);
                 property_and_callback_accessors.push(quote!(
@@ -1085,15 +1085,14 @@ fn public_api(
     }
 
     for (name, ty) in private_properties {
-        let prop_ident = ident(name);
         if let Type::Function { .. } = ty {
-            let caller_ident = format_ident!("invoke_{}", prop_ident);
+            let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(
                 quote!( #[allow(dead_code)] fn #caller_ident(&self, _private_function: ()) {} ),
             );
         } else {
-            let getter_ident = format_ident!("get_{}", prop_ident);
-            let setter_ident = format_ident!("set_{}", prop_ident);
+            let getter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Getter);
+            let setter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Setter);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)] fn #getter_ident(&self, _private_property: ()) {}
                 #[allow(dead_code)] fn #setter_ident(&self, _private_property: ()) {}

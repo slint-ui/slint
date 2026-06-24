@@ -535,6 +535,7 @@ async fn run_main_loop(
         open_urls: Default::default(),
         to_preview,
         pending_recompile: Default::default(),
+        host_language_rename_dont_ask_again: Default::default(),
     };
 
     let connection = Arc::new(connection);
