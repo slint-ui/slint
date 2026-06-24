@@ -11464,6 +11464,7 @@ name = "test-driver-screenshots"
 version = "1.17.0"
 dependencies = [
  "crossterm",
+ "i-slint-backend-testing",
  "i-slint-compiler",
  "i-slint-core",
  "i-slint-renderer-skia",
