@@ -30,7 +30,7 @@ catalog:
   '@astrojs/check': 0.9.9
   '@astrojs/sitemap': 3.7.3
   '@astrojs/starlight': 0.40.0
-  '@biomejs/biome': 2.5.0
+  '@biomejs/biome': 2.5.1
   '@expressive-code/plugin-line-numbers': 0.43.1
   '@pagefind/default-ui': 1.5.2
   '@playwright/test': 1.60.0
@@ -40,7 +40,7 @@ catalog:
   cspell: 10.0.1
   playwright-ctrf-json-reporter: 0.0.29
   rehype-external-links: 3.0.0
-  sharp: 0.35.1
+  sharp: 0.35.2
   starlight-links-validator: 0.24.1
   remark-parse: 11.0.0
   typescript: 6.0.3
