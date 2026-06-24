@@ -3,7 +3,9 @@
 
 # cSpell: ignore cibuildwheel
 [build-system]
-requires = ["maturin>=1,<2"]
+# maturin 1.14.1 (PR #3226) encodes the abi3 floor (python3.11) as the link
+# lib name, which breaks the iOS cross-link (only libpython3.13 is shipped).
+requires = ["maturin>=1,<1.14.1"]
 build-backend = "maturin"
 
 [project]
