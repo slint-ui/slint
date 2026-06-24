@@ -253,10 +253,48 @@ def page_url(dir_path: str, name: str, member: str | None = None) -> str:
 # ---- selection --------------------------------------------------------------
 
 
+def reexport_target(attr: griffe.Attribute) -> griffe.Object | None:
+    """The concrete package object a re-export attribute points to, or None.
+
+    The package re-exports the native pyo3 classes with plain assignments such
+    as `StyledText = native.StyledText` (see `slint/__init__.py`). griffe records
+    those as attributes whose value is a name reference, not as import aliases, so
+    they would otherwise be documented as bare variables instead of the classes
+    they expose. Only a pure name reference (`ExprName`/`ExprAttribute`) that
+    resolves to a class or function inside the package counts: a constructor call
+    like `loader = SlintAutoLoader()` is a real instance and stays a variable."""
+    value = attr.value
+    if not isinstance(value, (griffe.ExprName, griffe.ExprAttribute)):
+        return None
+    canonical = getattr(value, "canonical_path", None)
+    if not canonical:
+        return None
+    try:
+        target: griffe.Object | griffe.Alias = attr.modules_collection[canonical]
+    except Exception:
+        return None
+    seen: set[str] = set()
+    while isinstance(target, griffe.Alias):
+        if target.path in seen:
+            return None
+        seen.add(target.path)
+        try:
+            target = target.final_target
+        except Exception:
+            return None
+    if not target.path.startswith(PACKAGE + "."):
+        return None
+    if isinstance(target, (griffe.Class, griffe.Function)):
+        return target
+    return None
+
+
 def resolve(obj: griffe.Object | griffe.Alias) -> griffe.Object | None:
     """Resolve an alias to its concrete target, or return the object itself.
     Returns None for aliases that point outside the package (e.g. stdlib
     re-imports such as `os`, `asyncio`) which griffe cannot resolve statically."""
+    if isinstance(obj, griffe.Attribute):
+        return reexport_target(obj) or obj
     if not isinstance(obj, griffe.Alias):
         return obj
     try:
