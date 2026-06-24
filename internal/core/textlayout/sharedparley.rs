@@ -654,32 +654,43 @@ impl TextParagraph {
         let para_y = layout.y_offset + self.y;
 
         let total_lines = self.layout.lines().len();
-        let mut lines = self
+
+        // For `overflow: elide` with a height limit (`overflow: clip` applies a hard pixel clip
+        // instead), keep the lines that actually fall within the box, taking the vertical alignment
+        // into account: the layout shifts every line down by `para_y`, which is negative for
+        // bottom/center alignment. Comparing only a line's bottom to the height (ignoring `para_y`)
+        // kept the wrong lines -- bottom-aligned text showed the lines clipped off the top instead
+        // of the visible ones anchored at the bottom.
+        let line_within_box = |block_min: f32, block_max: f32| match layout.max_physical_height {
+            Some(max_physical_height) if layout.elision_info.is_some() => {
+                // `line_fits_height` rounds the bottom up by a pixel; allow the same slack at the
+                // top so a line sitting right on the box edge isn't dropped to a rounding error.
+                line_fits_height(para_y.get() + block_max, max_physical_height)
+                    && para_y.get() + block_min >= -0.5
+            }
+            _ => true,
+        };
+
+        // The last line within the box, or the first line if none fit (e.g. a single line taller
+        // than the box, #12197) so the text isn't dropped entirely -- `draw_text` clips its overflow.
+        let last_drawn = self
             .layout
             .lines()
             .enumerate()
-            .take_while(|(index, line)| {
-                let metrics = line.metrics();
-                match layout.max_physical_height {
-                    // If overflow: clip is set, we apply a hard pixel clip, but with overflow: elide,
-                    // we want to place an ellipsis on the last line and not draw any lines beyond the
-                    // given max height.
-                    Some(max_physical_height) if layout.elision_info.is_some() => {
-                        // Always keep the first line even when it is taller than the box: dropping
-                        // it would render nothing at all, which is more confusing than a clipped
-                        // line. The caller applies a hard pixel clip in that case so the vertical
-                        // overflow is trimmed, while horizontal elision still places an ellipsis.
-                        // Later lines are dropped once they no longer fit.
-                        *index == 0
-                            || line_fits_height(metrics.block_max_coord, max_physical_height)
-                    }
-                    _ => true,
-                }
+            .filter(|(_, line)| {
+                let m = line.metrics();
+                line_within_box(m.block_min_coord, m.block_max_coord)
             })
-            .peekable();
+            .map(|(index, _)| index)
+            .next_back()
+            .or(Some(0));
 
-        while let Some((index, line)) = lines.next() {
-            let last_line = lines.peek().is_none();
+        for (index, line) in self.layout.lines().enumerate() {
+            let metrics = line.metrics();
+            let last_line = Some(index) == last_drawn;
+            if !last_line && !line_within_box(metrics.block_min_coord, metrics.block_max_coord) {
+                continue;
+            }
             // The last drawn line should show an ellipsis if real lines below it were dropped for
             // the height, even when it fits the width.
             let vertically_truncated = last_line && index + 1 < total_lines;
