@@ -33,7 +33,7 @@ catalog:
   '@biomejs/biome': 2.5.1
   '@expressive-code/plugin-line-numbers': 0.43.1
   '@pagefind/default-ui': 1.5.2
-  '@playwright/test': 1.60.0
+  '@playwright/test': 1.61.1
   '@types/node': 24.12.0
   astro: 6.4.6
   astro-embed: 0.13.0
@@ -46,5 +46,5 @@ catalog:
   typescript: 6.0.3
   unified: 11.0.5
   unist-util-visit: 5.1.0
-  vite: 8.0.16
+  vite: 8.1.0
   vitest: 4.1.8
