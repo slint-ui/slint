@@ -27,7 +27,7 @@
     "capture-console": "1.0.2",
     "image-js": "1.6.1",
     "typescript": "catalog:",
-    "verdaccio": "6.7.2",
+    "verdaccio": "6.7.4",
     "vitest": "catalog:"
   },
   "engines": {
