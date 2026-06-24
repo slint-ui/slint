@@ -13,6 +13,17 @@ cd "${SCRIPT_DIR}"
 $TS generate
 $TS build
 
+# Validate the editor query files against the freshly built grammar. A grammar
+# change that renames or removes a node otherwise only surfaces when an editor
+# loads the queries (e.g. Zed: Query error ... Invalid node type "comment").
+SAMPLE_SLINT="${SCRIPT_DIR}/.query-check.slint"
+trap 'rm -f "${SAMPLE_SLINT}"' EXIT
+printf 'export component Foo { /* comment */ }\n' > "${SAMPLE_SLINT}"
+for q in "${SCRIPT_DIR}"/../zed/languages/slint/*.scm; do
+    echo "Validating editor query ${q}"
+    $TS query "${q}" "${SAMPLE_SLINT}" > /dev/null
+done
+
 # Always start from a clean "generated tests" dir
 rm -rf test/corpus/gen
 mkdir -p ./test/corpus/gen/tests/

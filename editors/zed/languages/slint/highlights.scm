@@ -1,7 +1,7 @@
 ;; Copyright © Luke. D Jones <luke@ljones.dev>
 ;; SPDX-License-Identifier: MIT
 
-(comment) @comment @spell
+[(line_comment) (block_comment)] @comment @spell
 
 ; Different types:
 (string_value) @string @spell
