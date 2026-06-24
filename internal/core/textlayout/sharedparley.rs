@@ -620,6 +620,12 @@ struct ElisionInfo {
     max_physical_width: PhysicalLength,
 }
 
+/// Whether a line whose bottom edge is at `block_max_coord` fits within `max_physical_height`,
+/// rounding the height up so a sub-pixel overflow still counts as fitting.
+fn line_fits_height(block_max_coord: f32, max_physical_height: PhysicalLength) -> bool {
+    max_physical_height.get().ceil() >= block_max_coord
+}
+
 struct TextParagraph {
     range: Range<usize>,
     y: PhysicalLength,
@@ -650,18 +656,26 @@ impl TextParagraph {
         let mut lines = self
             .layout
             .lines()
-            .take_while(|line| {
+            .enumerate()
+            .take_while(|(index, line)| {
                 let metrics = line.metrics();
                 match layout.max_physical_height {
                     // If overflow: clip is set, we apply a hard pixel clip, but with overflow: elide,
                     // we want to place an ellipsis on the last line and not draw any lines beyond the
                     // given max height.
                     Some(max_physical_height) if layout.elision_info.is_some() => {
-                        max_physical_height.get().ceil() >= metrics.block_max_coord
+                        // Always keep the first line even when it is taller than the box: dropping
+                        // it would render nothing at all, which is more confusing than a clipped
+                        // line. The caller applies a hard pixel clip in that case so the vertical
+                        // overflow is trimmed, while horizontal elision still places an ellipsis.
+                        // Later lines are dropped once they no longer fit.
+                        *index == 0
+                            || line_fits_height(metrics.block_max_coord, max_physical_height)
                     }
                     _ => true,
                 }
             })
+            .map(|(_, line)| line)
             .peekable();
 
         while let Some(line) = lines.next() {
@@ -868,6 +882,19 @@ struct Layout {
 }
 
 impl Layout {
+    /// Returns true if the very first line is taller than the available height, meaning the
+    /// vertical line dropping used for `overflow: elide` would discard it and render nothing.
+    /// In that case the caller keeps drawing the first line but applies a hard pixel clip to
+    /// trim its vertical overflow, so it is shown (clipped) rather than disappearing entirely.
+    fn first_line_exceeds_height(&self) -> bool {
+        let Some(max_physical_height) = self.max_physical_height else {
+            return false;
+        };
+        self.paragraphs.first().and_then(|paragraph| paragraph.layout.lines().next()).is_some_and(
+            |line| !line_fits_height(line.metrics().block_max_coord, max_physical_height),
+        )
+    }
+
     fn paragraph_by_byte_offset(&self, byte_offset: usize) -> Option<&TextParagraph> {
         self.paragraphs.iter().find(|p| byte_offset >= p.range.start && byte_offset <= p.range.end)
     }
@@ -1128,7 +1155,14 @@ pub fn draw_text(
 
     drop(font_ctx);
 
-    let render = if text_overflow == TextOverflow::Clip {
+    // When `overflow: elide` can't even fit the first line, the line is still drawn (rather than
+    // dropped, which would render nothing) but its vertical overflow needs to be clipped like
+    // `overflow: clip` would. Horizontal elision still applies, so a line that is both too tall
+    // and too wide is clipped vertically and gets an ellipsis horizontally.
+    let clip_overflowing_first_line =
+        text_overflow == TextOverflow::Elide && layout.first_line_exceeds_height();
+
+    let render = if text_overflow == TextOverflow::Clip || clip_overflowing_first_line {
         item_renderer.save_state();
 
         item_renderer.combine_clip(
@@ -1166,7 +1200,7 @@ pub fn draw_text(
         );
     }
 
-    if text_overflow == TextOverflow::Clip {
+    if text_overflow == TextOverflow::Clip || clip_overflowing_first_line {
         item_renderer.restore_state();
     }
 
