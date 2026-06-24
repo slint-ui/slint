@@ -19,7 +19,7 @@ Pre-built binaries for Linux and Windows are attached to each [release](https://
 slint-viewer path/to/myfile.slint
 ```
 
-See the [Slint Viewer documentation](https://slint.dev/docs/slint/guide/tooling/slint-viewer/)
+See the [Slint Viewer documentation](https://docs.slint.dev/latest/docs/slint/guide/tooling/slint-viewer/)
 for live reload, screenshots, command-line options, callback handlers, dialogs, exit codes,
 and the remote viewer.
 

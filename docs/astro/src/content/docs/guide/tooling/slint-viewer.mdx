@@ -3,6 +3,8 @@ title: Slint Viewer
 description: Preview .slint files, render screenshots, and check files from the command line.
 ---
 
+import Link from '@slint/common-files/src/components/Link.astro';
+
 The `slint-viewer` command-line tool opens and previews `.slint` files.
 Use it to iterate on a UI with live reload, render screenshots, or check that a file compiles.
 
@@ -36,9 +38,7 @@ slint-viewer path/to/myfile.slint
 
 Use `-` instead of a path to read from standard input.
 
-## Live Reload
-
-`--auto-reload` watches the file on disk and reloads the preview whenever it changes, so you can iterate without restarting the viewer:
+Add `--auto-reload` to watch the file on disk and reload the preview whenever it changes, so you can iterate without restarting the viewer:
 
 ```sh
 slint-viewer --auto-reload path/to/myfile.slint
@@ -59,7 +59,7 @@ Set the `SLINT_SCALE_FACTOR` environment variable to override the default scale 
 ## Checking a File
 
 `--check` compiles the file, prints any diagnostics, and exits without opening a window.
-The exit status is `1` on errors and `0` otherwise; warnings still print.
+The exit status is `1` on error and `0` otherwise; warnings still print.
 
 ```sh
 slint-viewer --check path/to/myfile.slint
@@ -67,14 +67,37 @@ slint-viewer --check path/to/myfile.slint
 
 ## Loading and Saving Property Data
 
-`--load-data` sets the public properties of the component from a JSON file, and `--save-data` writes them back when the viewer exits:
+`--save-data` writes the component's public properties to a JSON file when the viewer exits:
 
 ```sh
-slint-viewer --load-data input.json --save-data output.json path/to/myfile.slint
+slint-viewer --save-data output.json path/to/myfile.slint
 ```
 
-Only properties whose types serialize to JSON are read or written.
-`--save-data` is incompatible with `--auto-reload`.
+`--load-data` sets them from a JSON file at startup:
+
+```sh
+slint-viewer --load-data input.json path/to/myfile.slint
+```
+
+Each works on its own; pass both to load initial values and write the result back. Only properties whose types serialize to JSON are read or written, and `--save-data` is incompatible with `--auto-reload`.
+
+For a component with these properties:
+
+```slint
+export component Form inherits Window {
+    in-out property <string> name;
+    in-out property <int> age;
+}
+```
+
+the JSON file looks like:
+
+```json
+{
+    "name": "Alice",
+    "age": 30
+}
+```
 
 ## Remote Viewer
 
@@ -93,14 +116,11 @@ Pass `--remote-address <address>` to choose a specific address and port.
 To connect, open the live preview of a `.slint` file in your editor, then pick **Remote** from the combobox in the top-right corner of the preview and enter the address the viewer shows.
 The editor compiles the `.slint` file and sends the result to the remote viewer, reloading it as you edit, while debug output from the previewed UI is sent back to the editor.
 
-`--remote` takes no file path and can't be combined with `--screenshot` or `--check`.
-
-On Android and iOS the viewer app always starts in remote mode, so you can preview on a phone or tablet straight from your editor:
-
-- **Android**: install from [Google Play](https://play.google.com/store/apps/details?id=dev.slint.viewer), or download the <a href={`${import.meta.env.BASE_URL}../demos/android/slint-viewer.apk`}>APK</a>.
-- **iOS**: join the [TestFlight beta](https://testflight.apple.com/join/pvsBXsb3).
+`--remote` doesn't take a file path, and can't be combined with `--screenshot` or `--check`.
 
 ## Command-Line Options
+
+Run `slint-viewer --help` for the authoritative, always-current list. The common options:
 
 | Option | Description |
 |---|---|
@@ -114,7 +134,7 @@ On Android and iOS the viewer app always starts in remote mode, so you can previ
 | `--remote-address <address>` | Address and port to listen on in remote mode. Defaults to an auto-assigned port on all interfaces. |
 | `--component <name>` | Load the component with this name. Defaults to the last exported component. |
 | `--style <style>` | Set the widget style. Defaults to `fluent`. |
-| `--backend <backend>` | Override the Slint rendering backend. |
+| `--backend <backend>` | Override the Slint rendering <Link type="backends_and_renderers" label="backend"/>. |
 | `-I <path>` | Add an include path for imported `.slint` files or images. |
 | `-L <library=path>` | Add a library path for `@library` imports. |
 | `--on <callback> <handler>` | Run a shell command when a callback is invoked. See [Callback Handlers](#callback-handlers). |

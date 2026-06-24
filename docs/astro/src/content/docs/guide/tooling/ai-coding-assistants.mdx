@@ -6,7 +6,7 @@ description: Install the Slint skill for Claude Code, Codex, Cursor, and other A
 import { Tabs, TabItem } from '@astrojs/starlight/components';
 
 Use the Slint skill to give your AI coding agent project-specific guidance for working with Slint.
-The skill covers the `.slint` language and layout, common gotchas, host-language interop, and the embedded MCP server.
+The skill covers the `.slint` language, layouts, common gotchas, host-language interop, and the embedded MCP server.
 
 The plugin and skills are available from the [slint-ui/ai-plugins](https://github.com/slint-ui/ai-plugins) repository.
 
@@ -57,7 +57,7 @@ The plugin and skills are available from the [slint-ui/ai-plugins](https://githu
 ## What Your Assistant Can Do
 
 With the skill installed, the assistant follows Slint's conventions when it writes, debugs, and reviews `.slint` code, and wires the UI to Rust, C++, JavaScript, or Python.
-It also renders components to an image with [`slint-viewer --screenshot`](/guide/tooling/slint-viewer/#rendering-a-screenshot) to check the look of a `.slint` file before calling the work done.
+Assistants also learn to verify rendering by taking screenshots of the scene before calling the work done.
 
 The skill also connects the assistant to the Model Context Protocol (MCP) server embedded in your running Slint application.
 Once connected, the assistant can inspect the UI through its accessibility tree, drive it with mouse, touch, and keyboard input, and capture screenshots to check the result — built on Slint's existing accessibility and testing APIs, with no debugging hooks in your application.
