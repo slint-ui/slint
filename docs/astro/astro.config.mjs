@@ -66,11 +66,11 @@ export default defineConfig({
                                 collapsed: true,
                                 items: [
                                     "guide/tooling/vscode",
+                                    "guide/tooling/manual-setup",
                                     {
                                         label: "Other Editors",
                                         collapsed: true,
                                         items: [
-                                            "guide/tooling/manual-setup",
                                             "guide/tooling/kate",
                                             "guide/tooling/qt-creator",
                                             "guide/tooling/helix",
