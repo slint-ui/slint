@@ -113,6 +113,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::Exp => 10,
         BuiltinFunction::ToFixed => ALLOC_COST,
         BuiltinFunction::ToPrecision => ALLOC_COST,
+        BuiltinFunction::ToStringUnlocalized => ALLOC_COST,
         BuiltinFunction::SetFocusItem | BuiltinFunction::ClearFocusItem => isize::MAX,
         BuiltinFunction::ShowPopupWindow
         | BuiltinFunction::ClosePopupWindow

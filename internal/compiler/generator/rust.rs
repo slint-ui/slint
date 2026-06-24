@@ -3640,6 +3640,10 @@ fn compile_builtin_function_call(
             let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
             quote!(sp::shared_string_from_number_precision(#a1 as f64, (#a2 as i32).max(0) as usize))
         }
+        BuiltinFunction::ToStringUnlocalized => {
+            let a1 = a.next().unwrap();
+            quote!(sp::shared_string_from_number_unlocalized(#a1 as f64))
+        }
         BuiltinFunction::StringToFloat => {
             quote!(sp::string_to_float(#(#a)*.as_str()).unwrap_or_default())
         }
