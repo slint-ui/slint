@@ -115,6 +115,21 @@ pub fn assert_with_render(
     }
 }
 
+/// Compares only the upright (non-rotated) render against `path`. Used by the default software
+/// driver, whose runtime resource decoding isn't rotation/partial-render stable; the embed-assets
+/// driver covers those dimensions for every case.
+pub fn assert_base_render(
+    path: &str,
+    window: Rc<MinimalSoftwareWindow>,
+    options: &TestCaseOptions,
+) {
+    let rendering = screenshot(window, RenderingRotation::NoRotation);
+    let argb8 = i_slint_core::graphics::Image::from_rgb8(rendering).to_rgba8().unwrap();
+    if let Err(reason) = compare_images(path, &argb8, RenderingRotation::NoRotation, options) {
+        panic!("Image comparison failure for {path}: {reason}");
+    }
+}
+
 pub fn assert_with_render_by_line(
     path: &str,
     window: Rc<MinimalSoftwareWindow>,
@@ -150,6 +165,22 @@ pub fn assert_with_render_by_line(
             );
         }
     }
+}
+
+/// Resolves which reference the default software driver should compare against: `primary` (the
+/// `software/` reference) if that file exists, otherwise the `software_embed_assets/` `fallback`.
+/// Returns the compare path together with options whose `create_path` is pinned to `primary`, so new
+/// references are only ever written under `software/` (a case that renders like the embed-assets
+/// path keeps using the `software_embed_assets/` reference and grows no new one).
+pub fn resolve_software_reference(
+    primary: &str,
+    fallback: &str,
+    options: &TestCaseOptions,
+) -> (String, TestCaseOptions) {
+    let compare_path =
+        if std::path::Path::new(primary).exists() { primary } else { fallback }.to_string();
+    let options = TestCaseOptions { create_path: Some(primary.to_string()), ..options.clone() };
+    (compare_path, options)
 }
 
 pub fn screenshot_render_by_line(

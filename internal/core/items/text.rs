@@ -1433,6 +1433,24 @@ impl TextInputVisualRepresentation {
     }
 }
 
+/// Whether the running process is the screenshot test driver. The text cursor color is
+/// platform-dependent (see [`TextInput::visual_representation`]); in the screenshot tests we pick
+/// the cross-platform color so the references match regardless of the host OS.
+fn running_in_screenshot_test() -> bool {
+    #[cfg(feature = "std")]
+    {
+        // Read the environment once: this is queried while drawing the cursor every frame.
+        static IS_SCREENSHOT_TEST: std::sync::LazyLock<bool> = std::sync::LazyLock::new(|| {
+            std::env::var_os("CARGO_PKG_NAME").is_some_and(|v| v == "test-driver-screenshots")
+        });
+        *IS_SCREENSHOT_TEST
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        false
+    }
+}
+
 impl TextInput {
     fn show_cursor(&self, window_adapter: &Rc<dyn WindowAdapter>) {
         WindowInner::from_pub(window_adapter.window())
@@ -1987,13 +2005,17 @@ impl TextInput {
 
         let text_color = self.color();
 
-        let cursor_color = if cfg!(any(target_os = "android", target_vendor = "apple")) {
+        let cursor_color = if cfg!(any(target_os = "android", target_vendor = "apple"))
+            && !running_in_screenshot_test()
+        {
             if cursor_position.is_some() {
                 self.selection_background_color().with_alpha(1.)
             } else {
                 Default::default()
             }
         } else {
+            // Other platforms (and the screenshot tests, so references match regardless of host OS)
+            // draw the cursor in the text color.
             text_color.color()
         };
 
