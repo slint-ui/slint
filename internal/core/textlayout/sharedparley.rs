@@ -653,6 +653,7 @@ impl TextParagraph {
     ) {
         let para_y = layout.y_offset + self.y;
 
+        let total_lines = self.layout.lines().len();
         let mut lines = self
             .layout
             .lines()
@@ -675,17 +676,19 @@ impl TextParagraph {
                     _ => true,
                 }
             })
-            .map(|(_, line)| line)
             .peekable();
 
-        while let Some(line) = lines.next() {
+        while let Some((index, line)) = lines.next() {
             let last_line = lines.peek().is_none();
+            // The last drawn line should show an ellipsis if real lines below it were dropped for
+            // the height, even when it fits the width.
+            let vertically_truncated = last_line && index + 1 < total_lines;
             for item in line.items() {
                 match item {
                     parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
                         let ellipsis = if last_line {
                             let (truncated_glyphs, ellipsis) =
-                                layout.glyphs_with_elision(&glyph_run);
+                                layout.glyphs_with_elision(&glyph_run, vertically_truncated);
 
                             Self::draw_glyph_run(
                                 &glyph_run,
@@ -1006,6 +1009,9 @@ impl Layout {
     fn glyphs_with_elision<'a>(
         &'a self,
         glyph_run: &'a parley::layout::GlyphRun<Brush>,
+        // When set, place an ellipsis even if the run fits the width. Used when lines below were
+        // dropped for the height, so the last visible line signals the vertical truncation.
+        force_elision: bool,
     ) -> (
         impl Iterator<Item = parley::layout::Glyph> + Clone + 'a,
         Option<(parley::layout::Glyph, parley::FontData, PhysicalLength)>,
@@ -1023,8 +1029,9 @@ impl Layout {
 
         // Run starts after where the ellipsis would go - skip entirely
         let run_beyond_elision = run_start > max_width;
-        // Run extends beyond max width and needs truncation + ellipsis
-        let needs_elision = !run_beyond_elision && run_end.get().floor() > max_width.get().ceil();
+        // Run extends beyond max width (or the lines below it were dropped) and needs an ellipsis
+        let needs_elision = !run_beyond_elision
+            && (force_elision || run_end.get().floor() > max_width.get().ceil());
 
         let truncated_glyphs = glyph_run.positioned_glyphs().take_while(move |glyph| {
             !run_beyond_elision
@@ -1041,10 +1048,14 @@ impl Layout {
                             > info.max_physical_width
                     })
                     .map(|g| g.x)
-                    .unwrap_or(0.0);
+                    // Nothing overflows horizontally (force_elision): put the ellipsis after the run.
+                    .unwrap_or(run_end.get());
 
                 let mut ellipsis_glyph = info.ellipsis_glyph;
                 ellipsis_glyph.x = ellipsis_x;
+                // The ellipsis glyph comes from a standalone layout; place it on this run's
+                // baseline so it lands on the right line (not just the first one).
+                ellipsis_glyph.y = glyph_run.baseline();
 
                 let font_size = PhysicalLength::new(glyph_run.run().font_size());
                 (ellipsis_glyph, info.font_for_ellipsis_glyph.clone(), font_size)
