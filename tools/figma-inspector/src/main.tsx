@@ -15,11 +15,16 @@ export const App = () => {
         title,
         slintSnippet,
         useVariables,
+        devMode,
+        isExporting,
         copyToClipboard,
         initializeEventListeners,
         setUseVariables,
         setExportsAreCurrent,
         exportFiles,
+        getTestData,
+        setDevMode,
+        simpleExport,
     } = useInspectorStore();
 
     const [_lightOrDarkMode, setLightOrDarkMode] = useState(getColorTheme());
@@ -27,6 +32,7 @@ export const App = () => {
     // Init
     useEffect(() => {
         initializeEventListeners();
+        setDevMode(process.env.NODE_ENV === "development");
         subscribeColorTheme((mode) => {
             setLightOrDarkMode(mode);
         });
@@ -99,6 +105,24 @@ export const App = () => {
                 />
             </DialogFrame.Content>
             <DialogFrame.Footer>
+                {devMode && (
+                    <>
+                        <Button
+                            variant="secondary"
+                            onClick={getTestData}
+                            disabled={isExporting}
+                        >
+                            Get Test Data
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            onClick={simpleExport}
+                            disabled={isExporting}
+                        >
+                            Export Slint
+                        </Button>
+                    </>
+                )}
                 <Checkbox.Root>
                     <Checkbox.Input
                         checked={useVariables}
