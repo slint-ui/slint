@@ -142,7 +142,12 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
                 self.string,
                 &shape_buffer,
                 if wrap { Some(self.max_width) } else { None },
-                if elide { Some(self.layout.font.max_lines(self.max_height)) } else { None },
+                // Always keep at least the first line: when it is taller than the box, dropping it
+                // would render nothing at all, which is more confusing than a clipped line. The
+                // software renderer already clips glyphs to the Text geometry, so the vertical
+                // overflow is trimmed; horizontal elision still places an ellipsis if it is too
+                // wide. Mirrors the parley path, which always keeps line index 0.
+                if elide { Some(self.layout.font.max_lines(self.max_height).max(1)) } else { None },
                 self.wrap,
             )
         };
