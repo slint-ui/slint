@@ -726,6 +726,20 @@ jobs:
                 https://api.github.com/repos/slint-ui/slint-cpp-templates-stm32/actions/workflows/ci.yaml/dispatches \
                 -d '{"ref":"main"}'
 
+    trigger_package_publishing:
+        if: github.event.inputs.mode == 'release'
+        needs: [prepare_release]
+        runs-on: ubuntu-latest
+        steps:
+            - name: Trigger PyPI publish
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: gh workflow run upload_pypi.yaml --ref ${{ github.ref_name }} --repo ${{ github.repository }} -f release=true
+            - name: Trigger npm publish
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: gh workflow run publish_npm_package.yaml --ref ${{ github.ref_name }} --repo ${{ github.repository }} -f private=false -f release=true
+
     android:
         env:
             CARGO_APK_RELEASE_KEYSTORE: /home/runner/.android/release.keystore
