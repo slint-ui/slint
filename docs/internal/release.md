@@ -78,11 +78,8 @@ In the mean time, the version in the master branch can be updated
     Before running the script, make sure that your working directory is clean and that you are checked out on the same commit as the one for which the nightly_snapshot.
     - If new crates were uploaded to crates.io, go to the crates.io settings and send permission invitations
 
- - **Publish to npm:** Trigger a build on https://github.com/slint-ui/slint/actions/workflows/publish_npm_package.yaml
-    Select the right `pre-release/x.y` branch, and choose false for private and true for release.
-
- - **Publish to PyPi:** Trigger a build on the following workflows on the right branch and choose `true` for release.
-   The deployments will also need to be approved
+ - **Approve to Python Package Index Uploads:** The nightly snapshot workflow also kicks off the different uploads for the Python Package Index. When completed,
+   the deployments from the following jobs will need to be approved (GitHub notifies about pending approvals):
   - https://github.com/slint-ui/slint/actions/workflows/upload_pypi.yaml
   - https://github.com/slint-ui/slint/actions/workflows/upload_pypi_briefcase.yaml
   - https://github.com/slint-ui/slint/actions/workflows/upload_pypi_slint_compiler.yaml
