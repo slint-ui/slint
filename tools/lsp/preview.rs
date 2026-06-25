@@ -65,6 +65,8 @@ pub fn run(
 ) -> std::result::Result<(), slint::PlatformError> {
     let app_window = ui::create_ui(&to_lsp, "", use_editor_ui)?;
 
+    let updater;
+
     #[cfg(target_os = "macos")]
     if let ui::AppWindow::Editor(editor) = app_window.clone_strong() {
         use slint::ComponentHandle;
@@ -72,7 +74,7 @@ pub fn run(
 
         macos_titlebar::setup(editor.as_weak());
 
-        let updater = Sparkle::new(SparkleConfig { version: "0.1.0".into() }).unwrap().unwrap();
+        updater = Sparkle::new(SparkleConfig { version: "0.1.0".into() }).unwrap().unwrap();
 
         updater.set_nonsync_event_callback(move |event| match dbg!(event) {
             sparklers::Event::DidFindValidUpdate { item } => {
