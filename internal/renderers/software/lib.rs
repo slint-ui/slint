@@ -503,6 +503,9 @@ impl SoftwareRenderer {
     /// Set how the window need to be rotated in the buffer.
     ///
     /// This is typically used to implement screen rotation in software
+    ///
+    /// **Note:** This only affects rendering. Input events must still be given to
+    /// Slint in logical (un-rotated) coordinates.
     pub fn set_rendering_rotation(&self, rotation: RenderingRotation) {
         self.rotation.set(rotation)
     }
