@@ -29,7 +29,15 @@ env:
     CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
 
 jobs:
+    # Rebuild and push the `cross` container images first, so every `cross` build
+    # below (the ARM tool binaries and the cross LSP) runs against images built
+    # from this commit rather than stale ones.
+    cross_containers:
+        uses: ./.github/workflows/cross_containers.yaml
+        secrets: inherit
+
     slint-viewer-binary:
+        needs: [cross_containers]
         uses: ./.github/workflows/slint_tool_binary.yaml
         with:
             program: "viewer"
@@ -39,6 +47,7 @@ jobs:
             keychain_password: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
             developer_id: ${{ secrets.APPLE_DEV_ID }}
     slint-lsp-binary:
+        needs: [cross_containers]
         uses: ./.github/workflows/slint_tool_binary.yaml
         with:
             program: "lsp"
@@ -196,6 +205,7 @@ jobs:
                   path: .
 
     build_vscode_cross_linux_lsp:
+        needs: [cross_containers]
         env:
             SLINT_NO_QT: 1
         strategy:
