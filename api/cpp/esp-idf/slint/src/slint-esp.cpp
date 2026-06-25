@@ -13,6 +13,9 @@
 #if SOC_LCD_RGB_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
 #    include "esp_lcd_panel_rgb.h"
 #endif
+#if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
+#    include "esp_lcd_mipi_dsi.h"
+#endif
 #include "esp_log.h"
 
 static const char *TAG = "slint_platform";
@@ -115,6 +118,31 @@ extern "C" bool on_vsync_event(esp_lcd_panel_handle_t panel,
 }
 #endif
 
+#if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
+// Binary semaphore used to serialize esp_lcd_panel_draw_bitmap calls on MIPI-DSI DPI panels.
+// The DPI driver's draw operation is asynchronous and only one transfer may be in flight at a
+// time; issuing a new draw before the previous one finished trips the driver's
+// "previous draw operation is not finished" error. The semaphore starts "available" (given),
+// is taken before each draw_bitmap, and is given back from on_color_trans_done once the
+// transfer completed.
+static SemaphoreHandle_t sem_dpi_draw_done;
+
+extern "C" bool on_dpi_color_trans_done(esp_lcd_panel_handle_t, esp_lcd_dpi_panel_event_data_t *,
+                                        void *user_ctx)
+{
+    auto sem = static_cast<SemaphoreHandle_t>(user_ctx);
+    // on_color_trans_done runs in ISR context for the DMA2D copy path, but inline in task
+    // context for the no-copy and CPU-copy paths, so pick the matching give variant.
+    if (xPortInIsrContext()) {
+        BaseType_t high_task_awoken = pdFALSE;
+        xSemaphoreGiveFromISR(sem, &high_task_awoken);
+        return high_task_awoken == pdTRUE;
+    }
+    xSemaphoreGive(sem);
+    return false;
+}
+#endif
+
 namespace {
 void byte_swap_color(slint::platform::Rgb565Pixel *pixel)
 {
@@ -154,6 +182,35 @@ void EspPlatform<PixelType>::run_event_loop()
         esp_lcd_rgb_panel_register_event_callbacks(panel_handle, &cbs, this);
     }
 #endif
+
+#if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
+    // Assumes panel_handle is a MIPI-DSI DPI panel (the case on e.g. ESP32-P4). Its
+    // draw_bitmap is asynchronous, so register a completion callback that lets us wait for
+    // each transfer to finish before starting the next one (see draw_bitmap below). The
+    // semaphore starts "available" so the first draw isn't blocked.
+    sem_dpi_draw_done = xSemaphoreCreateBinary();
+    xSemaphoreGive(sem_dpi_draw_done);
+    esp_lcd_dpi_panel_event_callbacks_t dpi_cbs = {};
+    dpi_cbs.on_color_trans_done = on_dpi_color_trans_done;
+    if (esp_lcd_dpi_panel_register_event_callbacks(panel_handle, &dpi_cbs, sem_dpi_draw_done)
+        != ESP_OK) {
+        // Not a DPI panel (or callbacks unsupported): fall back to draws without synchronization.
+        vSemaphoreDelete(sem_dpi_draw_done);
+        sem_dpi_draw_done = nullptr;
+    }
+#endif
+
+    // Issues esp_lcd_panel_draw_bitmap, first waiting for any previous asynchronous DPI
+    // transfer to complete so we never overrun the panel's single in-flight draw operation.
+    auto draw_bitmap = [this](int x_start, int y_start, int x_end, int y_end,
+                              const void *color_data) {
+#if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
+        if (sem_dpi_draw_done) {
+            xSemaphoreTake(sem_dpi_draw_done, portMAX_DELAY);
+        }
+#endif
+        esp_lcd_panel_draw_bitmap(panel_handle, x_start, y_start, x_end, y_end, color_data);
+    };
 
     float last_touch_x = 0;
     float last_touch_y = 0;
@@ -247,26 +304,25 @@ void EspPlatform<PixelType>::run_event_loop()
                             // Assuming that using double buffer means that the buffer comes from
                             // the driver and we need to pass the exact pointer.
                             // https://github.com/espressif/esp-idf/blob/53ff7d43dbff642d831a937b066ea0735a6aca24/components/esp_lcd/src/esp_lcd_panel_rgb.c#L681
-                            esp_lcd_panel_draw_bitmap(panel_handle, 0, 0, size.width, size.height,
-                                                      buffer1->data());
+                            draw_bitmap(0, 0, size.width, size.height, buffer1->data());
 
                             std::swap(buffer1, buffer2);
                         }
                     } else {
                         for (auto [o, s] : region.rectangles()) {
                             for (int y = o.y; y < o.y + s.height; y++) {
-                                esp_lcd_panel_draw_bitmap(panel_handle, o.x, y, o.x + s.width,
-                                                          y + 1,
-                                                          buffer1->data() + y * stride + o.x);
+                                draw_bitmap(o.x, y, o.x + s.width, y + 1,
+                                            buffer1->data() + y * stride + o.x);
                             }
                         }
                     }
                 } else {
                     // esp_lcd_panel_draw_bitmap is "async" so we have two buffers, one in which we
                     // render, and one which is being transmitted with a DMA transfer in parallel.
-                    // TODO: add some synchronization code anyway to make sure that we don't
-                    // call esp_lcd_panel_draw_bitmap when an operation is still in progress
-                    // or free the buffer too early. (using `on_color_trans_done` callback).
+                    // On MIPI-DSI DPI panels draw_bitmap() above waits for the previous transfer to
+                    // finish before starting the next one, and we wait once more below before the
+                    // line buffers are freed. Other asynchronous panels (e.g. SPI/i80) are not yet
+                    // synchronized here, so a transfer may still be in progress past these calls.
                     using Uniq = std::unique_ptr<PixelType, void (*)(void *)>;
                     auto alloc = [&] {
                         void *ptr = heap_caps_malloc(stride * sizeof(PixelType),
@@ -280,8 +336,9 @@ void EspPlatform<PixelType>::run_event_loop()
                     Uniq lb[2] = { alloc(), alloc() };
                     int idx = 0;
                     m_window->m_renderer.render_by_line<PixelType>(
-                            [this, &lb, &idx](std::size_t line_y, std::size_t line_start,
-                                              std::size_t line_end, auto &&render_fn) {
+                            [this, &lb, &idx,
+                             &draw_bitmap](std::size_t line_y, std::size_t line_start,
+                                           std::size_t line_end, auto &&render_fn) {
                                 std::span<PixelType> view { lb[idx].get(), line_end - line_start };
                                 render_fn(view);
                                 if (byte_swap) {
@@ -289,10 +346,17 @@ void EspPlatform<PixelType>::run_event_loop()
                                     std::for_each(view.begin(), view.end(),
                                                   [](auto &rgbpix) { byte_swap_color(&rgbpix); });
                                 }
-                                esp_lcd_panel_draw_bitmap(panel_handle, line_start, line_y,
-                                                          line_end, line_y + 1, view.data());
+                                draw_bitmap(line_start, line_y, line_end, line_y + 1, view.data());
                                 idx = (idx + 1) % 2;
                             });
+#if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
+                    // Wait for the last line's transfer to finish before the line buffers are
+                    // freed, then leave the semaphore available for the next frame's first draw.
+                    if (sem_dpi_draw_done) {
+                        xSemaphoreTake(sem_dpi_draw_done, portMAX_DELAY);
+                        xSemaphoreGive(sem_dpi_draw_done);
+                    }
+#endif
                 }
             }
 
