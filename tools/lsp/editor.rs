@@ -32,6 +32,9 @@ pub fn editor_main() -> std::result::Result<(), slint::PlatformError> {
     use clap::Parser;
 
     let cli = Cli::parse();
+    let Some(cli) = cli.with_initial_file() else {
+        return Ok(());
+    };
 
     let (to_lsp, from_preview) = crossbeam_channel::unbounded();
     let (to_preview, from_lsp) = crossbeam_channel::unbounded();
@@ -133,8 +136,49 @@ impl common::PreviewToLsp for EmbeddedPreviewToLsp {
 
 #[derive(clap::Parser)]
 struct Cli {
-    file: String,
+    file: Option<String>,
     component: Option<String>,
+}
+
+impl Cli {
+    fn with_initial_file(mut self) -> Option<Self> {
+        if self.file.is_none() {
+            self.file = choose_initial_file();
+        }
+        self.file.as_ref()?;
+        Some(self)
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn choose_initial_file() -> Option<String> {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
+    use objc2_foundation::NSString;
+
+    let mtm = MainThreadMarker::new()?;
+    let panel = NSOpenPanel::openPanel(mtm);
+    panel.setCanChooseFiles(true);
+    panel.setCanChooseDirectories(false);
+    panel.setAllowsMultipleSelection(false);
+    panel.setTitle(Some(&NSString::from_str("Open Slint File")));
+    panel.setMessage(Some(&NSString::from_str("Choose a .slint file to edit.")));
+
+    if panel.runModal() != NSModalResponseOK {
+        return None;
+    }
+
+    panel
+        .URLs()
+        .firstObject()?
+        .to_file_path()
+        .map(|path| path.to_string_lossy().into_owned())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn choose_initial_file() -> Option<String> {
+    eprintln!("No input file provided.");
+    None
 }
 
 fn start_processing_lsp_messages_thread(
@@ -301,11 +345,12 @@ async fn lsp_main(
 
     // Load the initial document through the compiler. This triggers the import
     // callback for all transitive dependencies, sending their contents to the preview.
-    let full_path = std::fs::canonicalize(&cli.file)
-        .map_err(|err| format!("Failed to determine full path for {}: {err}", cli.file))?;
+    let file = cli.file.as_ref().expect("initial file should be resolved before startup");
+    let full_path = std::fs::canonicalize(file)
+        .map_err(|err| format!("Failed to determine full path for {file}: {err}"))?;
     let root_path = full_path.clone();
-    let url = Url::from_file_path(full_path)
-        .map_err(|_| format!("Failed to convert {} to URL!", cli.file))?;
+    let url =
+        Url::from_file_path(full_path).map_err(|_| format!("Failed to convert {file} to URL!"))?;
     language::show_preview(
         PreviewComponent { url: url.clone(), component: cli.component },
         &mut ctx,
@@ -315,7 +360,7 @@ async fn lsp_main(
     // have the correct state already loaded.
     language::reload_document(&mut ctx, url)
         .await
-        .map_err(|err| format!("Failed to load file: {}: {err}", cli.file))?;
+        .map_err(|err| format!("Failed to load file: {file}: {err}"))?;
     let mut watch_paths_revision = None;
     sync_file_watcher_if_needed(&mut file_watcher, &ctx, &root_path, &mut watch_paths_revision)?;
 
