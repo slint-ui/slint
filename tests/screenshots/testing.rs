@@ -18,6 +18,13 @@ pub enum RenderingRotation {
     Rotate270,
 }
 
+/// Force a cross-platform OS so OS-dependent rendering (e.g. the text cursor color) matches the
+/// references regardless of the host OS.
+pub fn force_reference_os() {
+    i_slint_core::OPERATING_SYSTEM_OVERRIDE
+        .set(Some(i_slint_core::items::OperatingSystemType::Linux));
+}
+
 pub fn image_buffer(path: &str) -> Result<SharedPixelBuffer<Rgba8Pixel>, image::ImageError> {
     image::open(path).map(|image| {
         let image = image.into_rgba8();
