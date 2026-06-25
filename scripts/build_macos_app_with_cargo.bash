@@ -57,12 +57,13 @@ RUST_TARGET=aarch64-apple-darwin
 
 echo "::group::Cargo build $CARGO_TARGET_NAME for $RUST_TARGET"
 echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] cargo build start: $RUST_TARGET"
-cargo build \
-    "${CARGO_PROFILE_ARGS[@]}" \
-    "${CARGO_TIMINGS_ARGS[@]}" \
-    --target "$RUST_TARGET" \
-    "$CARGO_TARGET_KIND" "$CARGO_TARGET_NAME" \
-    "$@"
+env RUSTFLAGS='-Clink-args=-Wl,-rpath,@loader_path/../Frameworks' \
+    cargo build \
+        "${CARGO_PROFILE_ARGS[@]}" \
+        "${CARGO_TIMINGS_ARGS[@]}" \
+        --target "$RUST_TARGET" \
+        "$CARGO_TARGET_KIND" "$CARGO_TARGET_NAME" \
+        "$@"
 echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] cargo build finished: $RUST_TARGET"
 echo "::endgroup::"
 
