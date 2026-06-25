@@ -52,7 +52,7 @@ module.exports = grammar({
       optional(seq("from", field("from", $.string_value), ";"))
     ),
 
-    _rust_attr_args: ($) => seq("(", seq(/[^()]*/, repeat(seq($._rust_attr_args, /[^()]*/))), ")"),
+    _rust_attr_args: ($) => seq("(", repeat(choice(/[^()"]+/, $.string_value, $._rust_attr_args)), ")"),
 
     rust_attr: ($) => seq(repeat1(seq("@rust-attr", $._rust_attr_args)), choice($.exported_definition, $._local_type)),
 
