@@ -147,3 +147,6 @@ jobs:
           name: slint-visual-editor-rust-build-report
           path: target/macos-visual-editor-dmg/cargo-timings/**
           if-no-files-found: error
+
+      - name: Smoke test app launch
+        run: DMG_PATH="$PWD/dist/${SLINT_DMG_NAME}.dmg" ./scripts/package_macos_visual_editor.bash smoke-test-app-launch

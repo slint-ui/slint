@@ -324,6 +324,51 @@ assess_stapled_app() {
     return "$assess_status"
 }
 
+smoke_test_app_launch() {
+    [ -f "$DMG_PATH" ] || die "DMG missing: $DMG_PATH"
+
+    local log_path="$BUILD_DIR/app-launch-smoke-test.log"
+    local app_path="$MOUNT_DIR/$APP_NAME.app"
+    local executable="$app_path/Contents/MacOS/$APP_NAME"
+    local wait_secs="${SMOKE_TEST_WAIT_SECS:-5}"
+
+    log "Mounting DMG for app launch smoke test"
+    rm -rf "$MOUNT_DIR"
+    mkdir -p "$MOUNT_DIR"
+
+    hdiutil attach "$DMG_PATH" \
+        -readonly \
+        -nobrowse \
+        -mountpoint "$MOUNT_DIR"
+    DMG_ATTACHED=1
+
+    [ -x "$executable" ] || die "app executable missing: $executable"
+
+    rm -f "$log_path"
+    log "Launching mounted app without arguments"
+    "$executable" >"$log_path" 2>&1 &
+    local app_pid=$!
+
+    sleep "$wait_secs"
+
+    if kill -0 "$app_pid" >/dev/null 2>&1; then
+        log "App stayed running for $wait_secs seconds"
+        kill "$app_pid" >/dev/null 2>&1 || true
+        wait "$app_pid" >/dev/null 2>&1 || true
+        detach_dmg
+        return 0
+    fi
+
+    local launch_status=0
+    wait "$app_pid" || launch_status=$?
+    if [ -s "$log_path" ]; then
+        cat "$log_path" >&2
+    fi
+
+    detach_dmg
+    die "app exited during launch smoke test with status $launch_status"
+}
+
 full_package() {
     trap cleanup EXIT
     validate_environment
@@ -334,6 +379,7 @@ full_package() {
     sign_dmg
     notarize_and_staple_dmg
     assess_stapled_app
+    smoke_test_app_launch
     cleanup
     trap - EXIT
 }
@@ -376,6 +422,9 @@ case "$COMMAND" in
         validate_environment
         assess_stapled_app
         ;;
+    smoke-test-app-launch)
+        smoke_test_app_launch
+        ;;
     cleanup)
         cleanup
         ;;
@@ -388,7 +437,7 @@ case "$COMMAND" in
 esac
 
 case "$COMMAND" in
-    full | create-dmg | sign-dmg | create-and-sign-dmg | notarize-and-staple-dmg | assess-stapled-app)
+    full | create-dmg | sign-dmg | create-and-sign-dmg | notarize-and-staple-dmg | assess-stapled-app | smoke-test-app-launch)
         log "DMG path: $DMG_PATH"
         ;;
 esac
