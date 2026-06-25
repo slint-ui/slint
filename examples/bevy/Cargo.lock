@@ -620,7 +620,7 @@ dependencies = [
 
 [[package]]
 name = "bevy-example"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "async-compat",
  "bevy",
@@ -633,7 +633,7 @@ dependencies = [
 
 [[package]]
 name = "bevy-hosts-slint"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "bevy",
  "bevy_image",
@@ -643,7 +643,7 @@ dependencies = [
 
 [[package]]
 name = "bevy-hosts-slint-gpu"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "bevy",
  "bevy_image",
@@ -3931,7 +3931,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-android-activity"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "android-build",
  "i-slint-common",
@@ -3943,7 +3943,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-linuxkms"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "bytemuck",
  "calloop 0.14.4",
@@ -3965,7 +3965,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-selector"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "cfg-if",
  "cfg_aliases",
@@ -3981,7 +3981,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-testing"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "cfg_aliases",
  "i-slint-common",
@@ -3993,7 +3993,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-winit"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "accesskit",
  "accesskit_winit 0.33.0",
@@ -4038,7 +4038,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-common"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "derive_more",
  "fontique 0.10.0",
@@ -4053,7 +4053,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-compiler"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "annotate-snippets",
  "by_address",
@@ -4078,7 +4078,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-core"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "async-channel",
  "auto_enums",
@@ -4130,7 +4130,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-core-macros"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "quote",
  "serde_json",
@@ -4139,7 +4139,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-femtovg"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "cfg-if",
  "const-field-offset",
@@ -4160,7 +4160,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-skia"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "ash",
  "bytemuck",
@@ -4199,7 +4199,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-software"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "bytemuck",
  "clru",
@@ -6911,7 +6911,7 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "slint"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "const-field-offset",
  "i-slint-backend-android-activity",
@@ -6933,7 +6933,7 @@ dependencies = [
 
 [[package]]
 name = "slint-macros"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "i-slint-compiler",
  "proc-macro2",
