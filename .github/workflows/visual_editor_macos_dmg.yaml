@@ -1,0 +1,145 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Visual Editor macOS DMG
+
+on:
+    workflow_dispatch:
+
+    pull_request:
+        branches:
+            - visual-editor
+
+permissions:
+    contents: read
+
+env:
+    MACOSX_DEPLOYMENT_TARGET: "12.0"
+    CARGO_INCREMENTAL: false
+    MACOS_CARGO_TIMINGS: "1"
+    SLINT_BUILD_NUMBER: ${{ github.run_number }}
+
+jobs:
+    dmg:
+        name: Build signed notarized DMG
+        runs-on: macos-26
+        timeout-minutes: 90
+        env:
+            MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
+            MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+            MACOS_KEYCHAIN_PASSWORD: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+            MACOS_DEVELOPER_ID: ${{ secrets.MACOS_DEVELOPER_ID }}
+            MACOS_DEVELOPMENT_TEAM: ${{ secrets.MACOS_DEVELOPMENT_TEAM }}
+            MACOS_BUNDLE_IDENTIFIER: ${{ secrets.MACOS_BUNDLE_IDENTIFIER }}
+            NOTARY_API_KEY_BASE64: ${{ secrets.NOTARY_API_KEY_BASE64 }}
+            NOTARY_API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
+            NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+        steps:
+            - uses: actions/checkout@v6
+
+            # Free space from the image or the build will run out of space
+            - name: Free unused macOS runner disk space
+              run: |
+                  echo "::group::Disk before cleanup"
+                  df -h /
+                  echo "::endgroup::"
+
+                  sudo rm -rf \
+                      "$ANDROID_HOME" \
+                      "$ANDROID_SDK_ROOT" \
+                      /Users/runner/Library/Android/sdk \
+                      /Users/runner/Library/Developer/CoreSimulator
+
+                  echo "::group::Disk after cleanup"
+                  df -h /
+                  echo "::endgroup::"
+            # cache the build
+            - uses: ./.github/actions/setup-rust
+              with:
+                  key: visual-editor-macos-dmg
+                  save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+
+            - name: Install macOS Rust target
+              run: rustup target add aarch64-apple-darwin
+
+            # Cache Homebrew's downloaded bottles only.
+            - name: Restore Homebrew downloads
+              id: homebrew-cache
+              uses: actions/cache/restore@v5
+              with:
+                  path: ~/Library/Caches/Homebrew
+                  key: ${{ runner.os }}-${{ runner.arch }}-homebrew-macos-dmg-tools-${{ hashFiles('.github/workflows/visual_editor_macos_dmg.yaml') }}
+                  restore-keys: |
+                      ${{ runner.os }}-${{ runner.arch }}-homebrew-macos-dmg-tools-
+
+            - name: Install packaging tools
+              run: brew install xcodegen create-dmg
+
+            - name: Cache Homebrew downloads
+              if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && steps.homebrew-cache.outputs.cache-hit != 'true' }}
+              uses: actions/cache/save@v5
+              with:
+                  path: ~/Library/Caches/Homebrew
+                  key: ${{ steps.homebrew-cache.outputs.cache-primary-key }}
+
+        # Separate tasks to make it clear where a failure occurs.
+            - name: Validate packaging environment
+              run: ./scripts/package_macos_visual_editor.bash validate-environment
+
+            - name: Install signing material
+              run: ./scripts/package_macos_visual_editor.bash install-signing-material
+
+            - name: Archive app with Xcode
+              run: ./scripts/package_macos_visual_editor.bash archive-app
+
+            - name: Stage and sign app
+              run: ./scripts/package_macos_visual_editor.bash stage-and-sign-app
+
+            - name: Compute DMG name
+              run: |
+                  version="$(sed -n 's/^version = "\(.*\)"/\1/p' tools/lsp/Cargo.toml | head -n 1)"
+                  echo "SLINT_DMG_NAME=SlintVisualEditor-${version:-0.0.0}-macos-arm64" >> "$GITHUB_ENV"
+
+            - name: Create DMG
+              id: create-dmg
+              uses: L-Super/create-dmg-actions@v1.1.0
+              with:
+                  dmg_name: Slint Visual Editor
+                  src_dir: target/macos-visual-editor-dmg/dmg-stage/Slint Visual Editor.app
+                  background: tools/lsp/packaging/macos/dmg-background.svg
+                  window_size: 660x420
+                  icon_size: "112"
+                  icon_position: 184 278
+                  app_drop_link: 474 278
+
+            - name: Sign DMG
+              run: |
+                  mkdir -p dist
+                  mv "${{ steps.create-dmg.outputs.dmg_path }}" "dist/${SLINT_DMG_NAME}.dmg"
+                  DMG_PATH="$PWD/dist/${SLINT_DMG_NAME}.dmg" ./scripts/package_macos_visual_editor.bash sign-dmg
+
+            - name: Notarize and staple DMG
+              run: DMG_PATH="$PWD/dist/${SLINT_DMG_NAME}.dmg" ./scripts/package_macos_visual_editor.bash notarize-and-staple-dmg
+
+            - name: Assess stapled app
+              run: DMG_PATH="$PWD/dist/${SLINT_DMG_NAME}.dmg" ./scripts/package_macos_visual_editor.bash assess-stapled-app
+
+            - name: Clean up signing material
+              if: ${{ always() }}
+              run: ./scripts/package_macos_visual_editor.bash cleanup
+
+            - name: Upload DMG artifact
+              uses: actions/upload-artifact@v7
+              with:
+                  name: slint-visual-editor-macos-dmg
+                  path: |
+                      dist/*.dmg
+                      target/macos-visual-editor-dmg/notarization-log.json
+                  if-no-files-found: error
+
+            - name: Upload Rust build report
+              uses: actions/upload-artifact@v7
+              with:
+                  name: slint-visual-editor-rust-build-report
+                  path: target/macos-visual-editor-dmg/cargo-timings/**
+                  if-no-files-found: error

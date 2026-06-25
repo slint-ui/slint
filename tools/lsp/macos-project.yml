@@ -1,0 +1,63 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# XcodeGen project spec for the macOS visual editor app.
+#
+# Sources:
+# - Project spec format and environment substitution:
+#   https://yonaskolb.github.io/XcodeGen/Docs/ProjectSpec.html
+# - XcodeGen overview and installation:
+#   https://github.com/yonaskolb/XcodeGen
+name: Slint Visual Editor
+options:
+  minimumXcodeGenVersion: "2.45.4"
+  deploymentTarget:
+    macOS: "12.0"
+settings:
+  ENABLE_HARDENED_RUNTIME: YES
+  MARKETING_VERSION: "1.17.0"
+  CURRENT_PROJECT_VERSION: "1"
+targets:
+  Slint Visual Editor:
+    type: application
+    platform: macOS
+    deploymentTarget: "12.0"
+    scheme: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ${MACOS_BUNDLE_IDENTIFIER}
+        DEVELOPMENT_TEAM: ${MACOS_DEVELOPMENT_TEAM}
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGNING_ALLOWED: NO
+        ONLY_ACTIVE_ARCH: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: Slint Visual Editor
+        CFBundleExecutable: "$(EXECUTABLE_NAME)"
+        CFBundleIdentifier: "$(PRODUCT_BUNDLE_IDENTIFIER)"
+        CFBundleInfoDictionaryVersion: "6.0"
+        CFBundleName: Slint Visual Editor
+        CFBundlePackageType: APPL
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        LSApplicationCategoryType: public.app-category.developer-tools
+        LSMinimumSystemVersion: "12.0"
+        NSHighResolutionCapable: true
+    sources:
+      - path: packaging/macos/AppIcon.icon
+        buildPhase: resources
+    postCompileScripts:
+      - name: Build visual editor with Cargo
+        # Sources:
+        # - xcodebuild build settings drive ARCHS and target paths:
+        #   https://keith.github.io/xcode-man-pages/xcodebuild.1.html
+        script: |
+          MACOS_CARGO_TARGET_DIR_NAME=slint-visual-editor \
+              ../../scripts/build_macos_app_with_cargo.bash \
+              --bin slint-visual-editor \
+              --no-default-features \
+              --features backend-winit,renderer-skia
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(EXECUTABLE_PATH)
