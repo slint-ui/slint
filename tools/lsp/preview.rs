@@ -76,7 +76,7 @@ pub fn run(
             .unwrap()
             .unwrap();
 
-        updater.set_nonsync_event_callback(move |event| match event {
+        updater.set_nonsync_event_callback(move |event| match dbg!(event) {
             sparklers::Event::DidFindValidUpdate { item } => {
                 editor.invoke_show_new_version_popup(item.version().to_shared_string());
             }
@@ -97,9 +97,7 @@ pub fn run(
             | sparklers::Event::UserDidMakeChoice { .. }
             | sparklers::Event::WillScheduleUpdateCheck { .. }
             | sparklers::Event::WillNotScheduleUpdateCheck
-            | sparklers::Event::WillInstallUpdateOnQuit { .. } => {
-                dbg!(event);
-            }
+            | sparklers::Event::WillInstallUpdateOnQuit { .. } => {}
         });
 
         if let Err(e) = updater.check_for_update_information() {
@@ -111,6 +109,7 @@ pub fn run(
         }
 
         println!("Ensure we're actually hitting this codepath");
+        println!("feed url: {:?}", updater.feed_url());
     }
 
     to_lsp
