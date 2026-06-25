@@ -34,7 +34,7 @@ jobs:
       NOTARY_API_KEY_BASE64: ${{ secrets.NOTARY_API_KEY_BASE64 }}
       NOTARY_API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
       NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
-      SPARKLE_FRAMEWORK_DIR: ${GITHUB_WORKSPACE}
+      SPARKLE_FRAMEWORK_DIR: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v6
 
