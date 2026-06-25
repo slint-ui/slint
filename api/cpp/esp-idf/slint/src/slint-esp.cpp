@@ -119,20 +119,22 @@ extern "C" bool on_vsync_event(esp_lcd_panel_handle_t panel,
 #endif
 
 #if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
-// Binary semaphore used to serialize esp_lcd_panel_draw_bitmap calls on MIPI-DSI DPI panels.
-// The DPI driver's draw operation is asynchronous and only one transfer may be in flight at a
-// time; issuing a new draw before the previous one finished trips the driver's
-// "previous draw operation is not finished" error. The semaphore starts "available" (given),
-// is taken before each draw_bitmap, and is given back from on_color_trans_done once the
-// transfer completed.
+// Synchronization for MIPI-DSI DPI panels, whose operations are asynchronous:
+//  - sem_dpi_draw_done serializes esp_lcd_panel_draw_bitmap. The draw is async and only one
+//    transfer may be in flight at a time; issuing a new draw before the previous one finished
+//    trips the driver's "previous draw operation is not finished" error. It starts "available"
+//    (given), is taken before each draw_bitmap, and is given back by on_color_trans_done.
+//  - sem_dpi_refresh is given by on_refresh_done at each frame boundary, letting the event loop
+//    pace animations to the panel's refresh rate instead of busy-looping (which would saturate
+//    the CPU and starve the idle task, tripping the task watchdog). It starts empty.
 static SemaphoreHandle_t sem_dpi_draw_done;
+static SemaphoreHandle_t sem_dpi_refresh;
 
-extern "C" bool on_dpi_color_trans_done(esp_lcd_panel_handle_t, esp_lcd_dpi_panel_event_data_t *,
-                                        void *user_ctx)
+// Give a semaphore from either ISR or task context: on_color_trans_done runs in an ISR for the
+// DMA2D copy path but inline (task context) for the no-copy and CPU-copy paths, while
+// on_refresh_done always runs in an ISR.
+static bool dpi_give_from_any_context(SemaphoreHandle_t sem)
 {
-    auto sem = static_cast<SemaphoreHandle_t>(user_ctx);
-    // on_color_trans_done runs in ISR context for the DMA2D copy path, but inline in task
-    // context for the no-copy and CPU-copy paths, so pick the matching give variant.
     if (xPortInIsrContext()) {
         BaseType_t high_task_awoken = pdFALSE;
         xSemaphoreGiveFromISR(sem, &high_task_awoken);
@@ -140,6 +142,18 @@ extern "C" bool on_dpi_color_trans_done(esp_lcd_panel_handle_t, esp_lcd_dpi_pane
     }
     xSemaphoreGive(sem);
     return false;
+}
+
+extern "C" bool on_dpi_color_trans_done(esp_lcd_panel_handle_t, esp_lcd_dpi_panel_event_data_t *,
+                                        void *)
+{
+    return dpi_give_from_any_context(sem_dpi_draw_done);
+}
+
+extern "C" bool on_dpi_refresh_done(esp_lcd_panel_handle_t, esp_lcd_dpi_panel_event_data_t *,
+                                    void *)
+{
+    return dpi_give_from_any_context(sem_dpi_refresh);
 }
 #endif
 
@@ -184,19 +198,21 @@ void EspPlatform<PixelType>::run_event_loop()
 #endif
 
 #if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
-    // Assumes panel_handle is a MIPI-DSI DPI panel (the case on e.g. ESP32-P4). Its
-    // draw_bitmap is asynchronous, so register a completion callback that lets us wait for
-    // each transfer to finish before starting the next one (see draw_bitmap below). The
-    // semaphore starts "available" so the first draw isn't blocked.
+    // Assumes panel_handle is a MIPI-DSI DPI panel (the case on e.g. ESP32-P4). Register the
+    // completion callbacks that drive the draw and refresh synchronization described above.
+    // sem_dpi_draw_done starts "available" so the first draw isn't blocked.
     sem_dpi_draw_done = xSemaphoreCreateBinary();
     xSemaphoreGive(sem_dpi_draw_done);
+    sem_dpi_refresh = xSemaphoreCreateBinary();
     esp_lcd_dpi_panel_event_callbacks_t dpi_cbs = {};
     dpi_cbs.on_color_trans_done = on_dpi_color_trans_done;
-    if (esp_lcd_dpi_panel_register_event_callbacks(panel_handle, &dpi_cbs, sem_dpi_draw_done)
-        != ESP_OK) {
+    dpi_cbs.on_refresh_done = on_dpi_refresh_done;
+    if (esp_lcd_dpi_panel_register_event_callbacks(panel_handle, &dpi_cbs, nullptr) != ESP_OK) {
         // Not a DPI panel (or callbacks unsupported): fall back to draws without synchronization.
         vSemaphoreDelete(sem_dpi_draw_done);
         sem_dpi_draw_done = nullptr;
+        vSemaphoreDelete(sem_dpi_refresh);
+        sem_dpi_refresh = nullptr;
     }
 #endif
 
@@ -361,6 +377,17 @@ void EspPlatform<PixelType>::run_event_loop()
             }
 
             if (m_window->window().has_active_animations()) {
+#if SOC_MIPI_DSI_SUPPORTED && ESP_IDF_VERSION_MAJOR >= 5
+                // Pace continuous animations to the panel's refresh so the GUI task blocks
+                // (letting the idle task run) between frames instead of saturating the CPU and
+                // tripping the task watchdog. Drain a refresh that may have arrived while we were
+                // rendering, then wait for the next one. The timeout bounds the wait so a panel
+                // that stops signaling refresh degrades to a slow loop rather than hanging.
+                if (sem_dpi_refresh) {
+                    xSemaphoreTake(sem_dpi_refresh, 0);
+                    xSemaphoreTake(sem_dpi_refresh, pdMS_TO_TICKS(100));
+                }
+#endif
                 continue;
             }
         }
