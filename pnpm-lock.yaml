@@ -160,7 +160,7 @@ importers:
         version: 3.7.3
       '@astrojs/starlight':
         specifier: 'catalog:'
-        version: 0.40.0(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
+        version: 0.40.0(astro@6.4.6(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
       '@slint/common-files':
         specifier: workspace:*
         version: link:../common
@@ -216,7 +216,7 @@ importers:
     devDependencies:
       '@astrojs/starlight':
         specifier: 'catalog:'
-        version: 0.40.0(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
+        version: 0.40.0(astro@6.4.6(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
       '@biomejs/biome':
         specifier: 'catalog:'
         version: 2.5.1
@@ -231,7 +231,7 @@ importers:
         version: 0.0.29
       starlight-links-validator:
         specifier: 'catalog:'
-        version: 0.24.1(@astrojs/starlight@0.40.0(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3))(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))
+        version: 0.24.1(@astrojs/starlight@0.40.0(astro@6.4.6(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3))(astro@6.4.6(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))
 
   docs/cpp:
     dependencies:
@@ -243,7 +243,7 @@ importers:
         version: 3.7.3
       '@astrojs/starlight':
         specifier: 'catalog:'
-        version: 0.40.0(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
+        version: 0.40.0(astro@6.4.6(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
       '@pagefind/default-ui':
         specifier: 'catalog:'
         version: 1.5.2
@@ -276,7 +276,7 @@ importers:
         version: 3.7.3
       '@astrojs/starlight':
         specifier: 'catalog:'
-        version: 0.40.0(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
+        version: 0.40.0(astro@6.4.6(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
       '@slint/common-files':
         specifier: workspace:*
         version: link:../common
@@ -312,7 +312,7 @@ importers:
         version: 3.7.3
       '@astrojs/starlight':
         specifier: 'catalog:'
-        version: 0.40.0(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
+        version: 0.40.0(astro@6.4.6(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
       '@slint/common-files':
         specifier: workspace:*
         version: link:../common
@@ -336,7 +336,7 @@ importers:
         version: 0.9.9(prettier@3.8.4)(typescript@6.0.3)
       '@astrojs/starlight':
         specifier: 'catalog:'
-        version: 0.40.0(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
+        version: 0.40.0(astro@6.4.6(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
       '@slint/common-files':
         specifier: workspace:*
         version: link:../common
@@ -368,11 +368,11 @@ importers:
         specifier: 3.36.0
         version: 3.36.0
       vscode-languageclient:
-        specifier: 9.0.1
-        version: 9.0.1
+        specifier: 10.0.1
+        version: 10.0.1
       vscode-languageserver:
-        specifier: 9.0.1
-        version: 9.0.1
+        specifier: 10.0.1
+        version: 10.0.1
       vscode-languageserver-types:
         specifier: 3.18.0
         version: 3.18.0
@@ -608,11 +608,11 @@ importers:
         specifier: npm:@codingame/monaco-vscode-api@8.0.4
         version: '@codingame/monaco-vscode-api@8.0.4'
       vscode-languageclient:
-        specifier: 9.0.1
-        version: 9.0.1
+        specifier: 10.0.1
+        version: 10.0.1
       vscode-languageserver:
-        specifier: 9.0.1
-        version: 9.0.1
+        specifier: 10.0.1
+        version: 10.0.1
       vscode-languageserver-protocol:
         specifier: 3.18.1
         version: 3.18.1
@@ -633,7 +633,7 @@ importers:
         version: 3.7.3
       '@astrojs/starlight':
         specifier: 'catalog:'
-        version: 0.40.0(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
+        version: 0.40.0(astro@6.4.6(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
       '@astrolib/seo':
         specifier: 1.0.0-beta.8
         version: 1.0.0-beta.8(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))
@@ -699,8 +699,8 @@ importers:
         specifier: 'catalog:'
         version: 10.0.1
       js-yaml:
-        specifier: 4.2.0
-        version: 4.2.0
+        specifier: 5.1.0
+        version: 5.1.0
       mdast-util-to-string:
         specifier: 4.0.0
         version: 4.0.0
@@ -4066,9 +4066,6 @@ packages:
   '@types/sax@1.2.7':
     resolution: {integrity: sha512-rO73L89PJxeYM3s3pPPjiPgVVcymqU490g0YO5n5By0k2Erzj6tay/4lr1CHAAU4JyOWd1rpQ8bCf6cZfHU96A==}
 
-  '@types/trusted-types@2.0.7':
-    resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
-
   '@types/unist@2.0.11':
     resolution: {integrity: sha512-CmBKiL6NNo/OqgmMn95Fk9Whlp2mtvIv+KNpQKN2F4SjvrEesubTRWGYSg+BnWZOnlCaSTU1sMpsBOzgbYhnsA==}
 
@@ -6089,6 +6086,10 @@ packages:
 
   js-yaml@4.2.0:
     resolution: {integrity: sha512-ePWsvanv0DWuDRsW8dnt+R4jQ31SCRCQ7hhNcPXZPsoBZiemuZNYGf7adZdqX2D86j6rvKp3RpCxVTSb8WQlOw==}
+    hasBin: true
+
+  js-yaml@5.1.0:
+    resolution: {integrity: sha512-s8VA5jkR8f22S3NAXmhKPFqGUduqZGlsufabVOgN14iTdw/RXcym7bKkbwjxLK9Yw2lEvvmJjFp119+KPeo8Kg==}
     hasBin: true
 
   jsbn@0.1.1:
@@ -8392,6 +8393,10 @@ packages:
     resolution: {integrity: sha512-+VvMmQPJhtvJ+8O+zu2JKIRiLxXF8NW7krWgyMGeOHrp4Cn23T5hc0v2LknNeopDOB70wghHAds7mKtcZ0I4Sg==}
     engines: {node: '>=14.0.0'}
 
+  vscode-languageclient@10.0.1:
+    resolution: {integrity: sha512-kXitJTQVKfv69/TY0LnQdsSMaqzRaeoJMMic+B6ad7HLtFPO46MLxpNjnFh1KF1nOhZUoLX+6e+JoIl+Jp3ycQ==}
+    engines: {vscode: ^1.91.0}
+
   vscode-languageclient@9.0.1:
     resolution: {integrity: sha512-JZiimVdvimEuHh5olxhxkht09m3JzUGwggb5eRUkzzJhZ2KjCN0nh55VfiED9oez9DyF8/fz1g1iBV3h+0Z2EA==}
     engines: {vscode: ^1.82.0}
@@ -8405,11 +8410,18 @@ packages:
   vscode-languageserver-textdocument@1.0.12:
     resolution: {integrity: sha512-cxWNPesCnQCcMPeenjKKsOCKQZ/L6Tv19DTRIGuLWe32lyzWhihGVJ/rcckZXJxfdKCFvRLS3fpBIsV/ZGX4zA==}
 
+  vscode-languageserver-textdocument@1.0.13:
+    resolution: {integrity: sha512-nx0ZHwMGIsVkzFG3/VLeJYBLTaFBRuNdGDvevvjuoayU5EOS2fEYazOhtCM3PI9ClMMg5igc0uwXtAq4tJj+Dw==}
+
   vscode-languageserver-types@3.17.5:
     resolution: {integrity: sha512-Ld1VelNuX9pdF39h2Hgaeb5hEZM2Z3jUrrMgWQAu82jMtZp7p3vJT3BzToKtZI7NgQssZje5o0zryOrhQvzQAg==}
 
   vscode-languageserver-types@3.18.0:
     resolution: {integrity: sha512-8TsGPNMIMiiBdkORgRSvLjuiEIiAFtO+KssmYWxQ+uSVvlf7RjK8YKCOjPzZ+YA04jXEV7+7LvkSmHkhpNS99g==}
+
+  vscode-languageserver@10.0.1:
+    resolution: {integrity: sha512-hfERoZvpaHWzQa7t5mMIrHkEOhF7aTs1dpktem0TW/Xs4QZD7NtcHjIq/aE1CZJEj6Rb8LSGUkBhvTRDdpyGig==}
+    hasBin: true
 
   vscode-languageserver@9.0.1:
     resolution: {integrity: sha512-woByF3PDpkHFUreUa7Hos7+pUWdeWMXRd26+ZX2A8cFx6v/JPTtd4/uN0/jB6XQHYaOlHbio03NTHCqrgG5n7g==}
@@ -8748,7 +8760,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@astrojs/mdx@6.0.3(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))':
+  '@astrojs/mdx@6.0.3(astro@6.4.6(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))':
     dependencies:
       '@astrojs/internal-helpers': 0.10.0
       '@astrojs/markdown-remark': 7.2.0
@@ -8783,17 +8795,17 @@ snapshots:
       stream-replace-string: 2.0.0
       zod: 4.4.3
 
-  '@astrojs/starlight@0.40.0(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)':
+  '@astrojs/starlight@0.40.0(astro@6.4.6(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)':
     dependencies:
       '@astrojs/markdown-remark': 7.2.0
-      '@astrojs/mdx': 6.0.3(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))
+      '@astrojs/mdx': 6.0.3(astro@6.4.6(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))
       '@astrojs/sitemap': 3.7.3
       '@pagefind/default-ui': 1.5.2
       '@types/hast': 3.0.4
       '@types/js-yaml': 4.0.9
       '@types/mdast': 4.0.4
       astro: 6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0)
-      astro-expressive-code: 0.43.1(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))
+      astro-expressive-code: 0.43.1(astro@6.4.6(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))
       bcp-47: 2.1.0
       hast-util-from-html: 2.0.3
       hast-util-select: 6.0.4
@@ -11641,9 +11653,6 @@ snapshots:
     dependencies:
       '@types/node': 24.12.0
 
-  '@types/trusted-types@2.0.7':
-    optional: true
-
   '@types/unist@2.0.11': {}
 
   '@types/unist@3.0.3': {}
@@ -12126,7 +12135,7 @@ snapshots:
       '@astro-community/astro-embed-youtube': 0.5.10
       astro: 6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0)
 
-  astro-expressive-code@0.43.1(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0)):
+  astro-expressive-code@0.43.1(astro@6.4.6(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0)):
     dependencies:
       astro: 6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0)
       rehype-expressive-code: 0.43.1
@@ -12192,7 +12201,7 @@ snapshots:
       unstorage: 1.17.5
       vfile: 6.0.3
       vite: 7.3.5(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.46.1)(yaml@2.9.0)
-      vitefu: 1.1.3(vite@7.3.5(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.46.1)(yaml@2.9.0))
+      vitefu: 1.1.3(vite@7.3.5(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.46.1)(yaml@2.9.0))
       xxhash-wasm: 1.1.0
       yargs-parser: 22.0.0
       zod: 4.4.3
@@ -13051,9 +13060,7 @@ snapshots:
     dependencies:
       domelementtype: 3.0.0
 
-  dompurify@3.4.10:
-    optionalDependencies:
-      '@types/trusted-types': 2.0.7
+  dompurify@3.4.10: {}
 
   domutils@3.2.2:
     dependencies:
@@ -14196,6 +14203,10 @@ snapshots:
       argparse: 2.0.1
 
   js-yaml@4.2.0:
+    dependencies:
+      argparse: 2.0.1
+
+  js-yaml@5.1.0:
     dependencies:
       argparse: 2.0.1
 
@@ -16259,9 +16270,9 @@ snapshots:
 
   stackback@0.0.2: {}
 
-  starlight-links-validator@0.24.1(@astrojs/starlight@0.40.0(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3))(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0)):
+  starlight-links-validator@0.24.1(@astrojs/starlight@0.40.0(astro@6.4.6(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3))(astro@6.4.6(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0)):
     dependencies:
-      '@astrojs/starlight': 0.40.0(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
+      '@astrojs/starlight': 0.40.0(astro@6.4.6(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
       '@types/picomatch': 4.0.3
       astro: 6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0)
       github-slugger: 2.0.0
@@ -16278,12 +16289,12 @@ snapshots:
 
   starlight-sidebar-topics@0.8.0(@astrojs/starlight@0.40.0(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)):
     dependencies:
-      '@astrojs/starlight': 0.40.0(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
+      '@astrojs/starlight': 0.40.0(astro@6.4.6(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
       picomatch: 4.0.4
 
   starlight-typedoc@0.23.0(@astrojs/starlight@0.40.0(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3))(typedoc-plugin-markdown@4.12.0(typedoc@0.28.19(typescript@6.0.3)))(typedoc@0.28.19(typescript@6.0.3)):
     dependencies:
-      '@astrojs/starlight': 0.40.0(astro@6.4.6(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
+      '@astrojs/starlight': 0.40.0(astro@6.4.6(jiti@2.7.0)(lightningcss@1.32.0)(rollup@4.62.0)(terser@5.46.1)(yaml@2.9.0))(typescript@6.0.3)
       github-slugger: 2.0.0
       typedoc: 0.28.19(typescript@6.0.3)
       typedoc-plugin-markdown: 4.12.0(typedoc@0.28.19(typescript@6.0.3))
@@ -16937,7 +16948,7 @@ snapshots:
       terser: 5.46.1
       yaml: 2.9.0
 
-  vitefu@1.1.3(vite@7.3.5(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.46.1)(yaml@2.9.0)):
+  vitefu@1.1.3(vite@7.3.5(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.46.1)(yaml@2.9.0)):
     optionalDependencies:
       vite: 7.3.5(@types/node@24.12.0)(jiti@2.7.0)(lightningcss@1.32.0)(terser@5.46.1)(yaml@2.9.0)
 
@@ -17052,6 +17063,13 @@ snapshots:
 
   vscode-jsonrpc@9.0.0: {}
 
+  vscode-languageclient@10.0.1:
+    dependencies:
+      minimatch: 10.2.5
+      semver: 7.8.5
+      vscode-languageserver-protocol: 3.18.1
+      vscode-languageserver-textdocument: 1.0.13
+
   vscode-languageclient@9.0.1:
     dependencies:
       minimatch: 5.1.9
@@ -17070,9 +17088,15 @@ snapshots:
 
   vscode-languageserver-textdocument@1.0.12: {}
 
+  vscode-languageserver-textdocument@1.0.13: {}
+
   vscode-languageserver-types@3.17.5: {}
 
   vscode-languageserver-types@3.18.0: {}
+
+  vscode-languageserver@10.0.1:
+    dependencies:
+      vscode-languageserver-protocol: 3.18.1
 
   vscode-languageserver@9.0.1:
     dependencies:
