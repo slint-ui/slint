@@ -77,7 +77,7 @@ pub fn run(
         if let Ok(Some(updater)) = &updater {
             updater.set_nonsync_event_callback(move |event| match event {
                 sparklers::Event::DidFindValidUpdate { item } => {
-                    editor.invoke_show_new_version_popup(item.version().into());
+                    editor.invoke_show_new_version_popup(item.version().to_shared_string());
                 }
 
                 sparklers::Event::DidFinishLoadingAppCast
@@ -1343,7 +1343,7 @@ fn persist_selected_element_border_radius() {
 
     let version = document_cache.document_version(&url);
 
-    let Some((updates, label)) = properties::update_element_properties(
+    let Some((updates, _)) = properties::update_element_properties(
         &document_cache,
         common::VersionedPosition::new(VersionedUrl::new(url, version), offset),
         geometry_changes,
