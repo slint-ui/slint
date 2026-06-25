@@ -15,7 +15,6 @@ This module has different sub modules with the actual parser functions
 
 use crate::diagnostics::{BuildDiagnostics, SourceFile, Spanned};
 use smol_str::SmolStr;
-use std::collections::HashSet;
 use std::fmt::Display;
 
 mod document;
@@ -357,7 +356,7 @@ declare_syntax! {
                      *CallbackDeclaration, *ConditionalElement, *MatchElement, *Function, *SubElement,
                      *RepeatedElement, *PropertyAnimation, *PropertyChangedCallback,
                      *TwoWayBinding, *States, *Transitions, *ImplementStatement, ?ChildrenPlaceholder,
-                     *SlotDeclaration, *SlotPlaceholder, *SlotAssignment, *SlotForwarding ],
+                     *SlotDeclaration, *SlotAssignment, *SlotForwarding ],
         RepeatedElement -> [ ?DeclaredIdentifier, ?RepeatedIndex, Expression , SubElement],
         RepeatedIndex -> [],
         ConditionalElement -> [ Expression , SubElement],
@@ -386,7 +385,6 @@ declare_syntax! {
         /// Wraps single identifier (to disambiguate when there are other identifier in the production)
         DeclaredIdentifier -> [],
         ChildrenPlaceholder -> [],
-        SlotPlaceholder -> [ DeclaredIdentifier ],
         SlotAssignment -> [ DeclaredIdentifier, SubElement ],
         SlotForwarding -> [ DeclaredIdentifier, ?Expression ],
         Binding-> [ BindingExpression ],
@@ -578,15 +576,6 @@ mod parser_trait {
         fn error(&mut self, e: impl Into<String>);
         fn warning(&mut self, e: impl Into<String>);
 
-        /// Called before parsing a component's element to collect slot declarations.
-        fn enter_component_slot_scope(&mut self) {}
-        /// Called after parsing a component's element to pop slot declarations.
-        fn exit_component_slot_scope(&mut self) {}
-        /// Returns true if the slot name is declared in the current component scope.
-        fn is_slot_declared(&self, _name: &str) -> bool {
-            false
-        }
-
         /// Consume the token if it has the right kind, otherwise report a syntax error.
         /// Returns true if the token was consumed.
         fn expect(&mut self, kind: SyntaxKind) -> bool {
@@ -662,7 +651,6 @@ pub struct DefaultParser<'a> {
     tokens: Vec<Token>,
     /// points on the current token of the token list
     cursor: usize,
-    component_slot_declarations: Vec<HashSet<SmolStr>>,
     diags: &'a mut BuildDiagnostics,
     source_file: SourceFile,
 }
@@ -673,7 +661,6 @@ impl<'a> DefaultParser<'a> {
             builder: Default::default(),
             tokens,
             cursor: 0,
-            component_slot_declarations: Vec::new(),
             diags,
             source_file: Default::default(),
         }
@@ -694,61 +681,6 @@ impl<'a> DefaultParser<'a> {
         while matches!(self.current_token().kind, SyntaxKind::Whitespace | SyntaxKind::Comment) {
             self.consume()
         }
-    }
-
-    fn next_non_trivia_token(&self, mut idx: usize) -> Option<usize> {
-        while idx < self.tokens.len()
-            && matches!(self.tokens[idx].kind, SyntaxKind::Whitespace | SyntaxKind::Comment)
-        {
-            idx += 1;
-        }
-        if idx < self.tokens.len() { Some(idx) } else { None }
-    }
-
-    fn scan_component_slot_declarations(&self) -> HashSet<SmolStr> {
-        let mut slots = HashSet::new();
-        let mut idx = self.cursor;
-        let mut depth = 0usize;
-
-        // Find the opening brace of the component's root element.
-        while idx < self.tokens.len() {
-            let kind = self.tokens[idx].kind;
-            if matches!(kind, SyntaxKind::Whitespace | SyntaxKind::Comment) {
-                idx += 1;
-                continue;
-            }
-            if kind == SyntaxKind::LBrace {
-                depth = 1;
-                idx += 1;
-                break;
-            }
-            idx += 1;
-        }
-
-        if depth == 0 {
-            return slots;
-        }
-
-        while idx < self.tokens.len() && depth > 0 {
-            let kind = self.tokens[idx].kind;
-            match kind {
-                SyntaxKind::LBrace => depth += 1,
-                SyntaxKind::RBrace => depth -= 1,
-                SyntaxKind::Identifier if depth == 1 && self.tokens[idx].as_str() == "slot" => {
-                    if let Some(name_idx) = self.next_non_trivia_token(idx + 1)
-                        && self.tokens[name_idx].kind == SyntaxKind::Identifier
-                        && let Some(semi_idx) = self.next_non_trivia_token(name_idx + 1)
-                        && self.tokens[semi_idx].kind == SyntaxKind::Semicolon
-                    {
-                        slots.insert(self.tokens[name_idx].text.clone());
-                    }
-                }
-                _ => {}
-            }
-            idx += 1;
-        }
-
-        slots
     }
 }
 
@@ -839,19 +771,6 @@ impl Parser for DefaultParser<'_> {
                 span,
             },
         );
-    }
-
-    fn enter_component_slot_scope(&mut self) {
-        let slots = self.scan_component_slot_declarations();
-        self.component_slot_declarations.push(slots);
-    }
-
-    fn exit_component_slot_scope(&mut self) {
-        self.component_slot_declarations.pop();
-    }
-
-    fn is_slot_declared(&self, name: &str) -> bool {
-        self.component_slot_declarations.last().is_some_and(|slots| slots.contains(name))
     }
 
     type Checkpoint = rowan::Checkpoint;

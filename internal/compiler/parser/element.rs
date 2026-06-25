@@ -72,15 +72,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
                     had_parse_error |= !parse_slot_assignment_or_forwarding(&mut *p)
                 }
                 SyntaxKind::ColonEqual | SyntaxKind::LBrace => {
-                    let identifier = p.peek().text.clone();
-                    if p.nth(1).kind() == SyntaxKind::LBrace
-                        && p.nth(2).kind() == SyntaxKind::RBrace
-                        && p.is_slot_declared(identifier.as_str())
-                    {
-                        parse_slot_placeholder(&mut *p);
-                    } else {
-                        had_parse_error |= !parse_sub_element(&mut *p);
-                    }
+                    had_parse_error |= !parse_sub_element(&mut *p);
                 }
                 SyntaxKind::FatArrow | SyntaxKind::LParent
                     if !["if", "match"].contains(&p.peek().as_str()) =>
@@ -224,20 +216,6 @@ fn parse_slot_declaration(p: &mut impl Parser) {
         p.expect(SyntaxKind::Identifier);
     }
     p.expect(SyntaxKind::Semicolon);
-}
-
-#[cfg_attr(test, parser_test)]
-/// ```test,SlotPlaceholder
-/// header {}
-/// ```
-fn parse_slot_placeholder(p: &mut impl Parser) {
-    let mut p = p.start_node(SyntaxKind::SlotPlaceholder);
-    {
-        let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
-        p.expect(SyntaxKind::Identifier);
-    }
-    p.expect(SyntaxKind::LBrace);
-    p.expect(SyntaxKind::RBrace);
 }
 
 #[cfg_attr(test, parser_test)]
