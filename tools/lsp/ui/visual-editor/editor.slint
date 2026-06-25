@@ -390,6 +390,17 @@ export component EditorUi inherits Window {
     property <int> text-size-index: 2;
     property <ProjectKind> selected-project: ProjectKind.mobile;
 
+    property <string> new-version;
+
+    public function show-new-version-popup(version: string) {
+        new-version = version;
+        new-version-popup.show();
+    }
+
+    new-version-popup := PopupWindow {
+        Text { text: @tr("New version available: {0}", root.new-version); }
+    }
+
     function text-scale() -> float {
         return 0.85 + root.text-size-index * 0.15;
     }

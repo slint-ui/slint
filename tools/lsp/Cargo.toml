@@ -126,8 +126,9 @@ tikv-jemallocator = { workspace = true }
 
 # Used by the visual editor for the macOS unified title bar.
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSResponder", "NSToolbar", "NSView", "NSWindow", "objc2-core-foundation"] }
-objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString"] }
+sparklers = "0.1.1"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSOpenPanel", "NSPanel", "NSResponder", "NSSavePanel", "NSToolbar", "NSView", "NSWindow", "objc2-core-foundation"] }
+objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSArray", "NSString", "NSURL"] }
 objc2 = "0.6"
 raw-window-handle = "0.6"
 

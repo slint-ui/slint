@@ -66,9 +66,41 @@ pub fn run(
     let app_window = ui::create_ui(&to_lsp, "", use_editor_ui)?;
 
     #[cfg(target_os = "macos")]
-    if let ui::AppWindow::Editor(editor) = &app_window {
+    if let ui::AppWindow::Editor(editor) = app_window.clone_strong() {
         use slint::ComponentHandle;
+        use sparklers::{Sparkle, SparkleConfig};
+
         macos_titlebar::setup(editor.as_weak());
+
+        let updater = Sparkle::new(SparkleConfig { version: env!("CARGO_PKG_VERSION").into() });
+
+        if let Ok(Some(updater)) = &updater {
+            updater.set_nonsync_event_callback(move |event| match event {
+                sparklers::Event::DidFindValidUpdate { item } => {
+                    editor.invoke_show_new_version_popup(item.version().into());
+                }
+
+                sparklers::Event::DidFinishLoadingAppCast
+                | sparklers::Event::DidNotFindUpdate
+                | sparklers::Event::WillRestart
+                | sparklers::Event::WillDownloadUpdate { .. }
+                | sparklers::Event::DidDownloadUpdate { .. }
+                | sparklers::Event::WillInstallUpdate { .. }
+                | sparklers::Event::DidAbortWithError { .. }
+                | sparklers::Event::DidFinishUpdateCycle { .. }
+                | sparklers::Event::FailedToDownloadUpdate { .. }
+                | sparklers::Event::UserDidCancelDownload
+                | sparklers::Event::WillExtractUpdate { .. }
+                | sparklers::Event::DidExtractUpdate { .. }
+                | sparklers::Event::WillRelaunchApplication
+                | sparklers::Event::UserDidMakeChoice { .. }
+                | sparklers::Event::WillScheduleUpdateCheck { .. }
+                | sparklers::Event::WillNotScheduleUpdateCheck
+                | sparklers::Event::WillInstallUpdateOnQuit { .. } => {
+                    dbg!(event);
+                }
+            });
+        }
     }
 
     to_lsp
