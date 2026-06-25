@@ -219,7 +219,6 @@ export component StandardTableView {
                         text: column.title;
                         font-weight: column.sort-order == SortOrder.unsorted ? CupertinoFontSettings.body.font-weight :
                             CupertinoFontSettings.body-strong.font-weight;
-                        font-size: CupertinoFontSettings.body.font-size;
                         color: CupertinoPalette.foreground;
                         overflow: elide;
                     }
@@ -259,8 +258,6 @@ export component StandardTableView {
                             overflow: elide;
                             vertical-alignment: center;
                             text: cell.text;
-                            font-weight: CupertinoFontSettings.body.font-weight;
-                            font-size: CupertinoFontSettings.body.font-size;
                             color: root.current-row == idx ? CupertinoPalette.accent-foreground : CupertinoPalette.foreground ;
                         }
                     }
