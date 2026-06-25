@@ -199,10 +199,10 @@ jobs:
                   keychain_password: ${{ github.event.inputs.keychain_password }}
                   developer_id: ${{ github.event.inputs.developer_id }}
             - name: Tar artifacts to preserve permissions
-              run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-aarch64-apple-darwin.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
+              run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-universal-apple-darwin.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
             - name: Upload artifact
               uses: actions/upload-artifact@v7
               with:
-                  name: slint-${{ github.event.inputs.program || inputs.program }}-aarch64-apple-darwin
-                  path: slint-${{ github.event.inputs.program || inputs.program }}-aarch64-apple-darwin.tar.gz
+                  name: slint-${{ github.event.inputs.program || inputs.program }}-universal-apple-darwin
+                  path: slint-${{ github.event.inputs.program || inputs.program }}-universal-apple-darwin.tar.gz
 
