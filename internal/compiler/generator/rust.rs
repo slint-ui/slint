@@ -2988,7 +2988,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                         #ignore_alt))
         },
         Expression::NumberLiteral(n) if n.is_finite() => quote!(#n),
-        Expression::NumberLiteral(_) => quote!(0.),
+        Expression::NumberLiteral(n) if n.is_nan() => quote!(f64::NAN),
+        Expression::NumberLiteral(n) if *n > 0. => quote!(f64::INFINITY),
+        Expression::NumberLiteral(_) => quote!(f64::NEG_INFINITY),
         Expression::BoolLiteral(b) => quote!(#b),
         Expression::Cast { from, to } => {
             let f = compile_expression(from, ctx);
