@@ -18,9 +18,9 @@ $TS build
 # loads the queries (e.g. Zed: Query error ... Invalid node type "comment").
 for q in "${SCRIPT_DIR}"/../zed/languages/slint/*.scm; do
     echo "Validating editor query ${q}"
-    find ../../tests/cases -name "*.slint" -exec $TS query "${q}" {} \; > /dev/null
-    find ../../examples -name "*.slint" -exec $TS query "${q}" {} \; > /dev/null
-    find ../../demos -name "*.slint" -exec $TS query "${q}" {} \; > /dev/null
+    find ../../tests/cases -name "*.slint" -exec $TS query "${q}" {} + > /dev/null
+    find ../../examples -name "*.slint" -exec $TS query "${q}" {} + > /dev/null
+    find ../../demos -name "*.slint" -exec $TS query "${q}" {} + > /dev/null
 done
 
 # Always start from a clean "generated tests" dir
