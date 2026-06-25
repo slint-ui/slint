@@ -472,13 +472,16 @@ jobs:
 
                 mkdir -p $output_path/demos/android
                 cp -a ../android/* $output_path/demos/android/
+                # slint-viewer APK/AAB are too big for the web server (APK is a release asset, AAB a CI artifact).
+                rm -f $output_path/demos/android/slint-viewer.apk \
+                      $output_path/demos/android/slint-viewer.aab
 
                 # A directory listing so the published folder is browsable.
                 {
                   echo '<!DOCTYPE html><meta charset="utf-8"><title>Slint Android Demos</title>'
                   echo '<h1>Slint Android Demos</h1>'
-                  echo '<p>Install an APK on a device, or use the AAB for Play Store uploads.</p><ul>'
-                  for f in $(cd $output_path/demos/android && ls *.apk *.aab 2>/dev/null); do
+                  echo '<p>Install an APK on a device.</p><ul>'
+                  for f in $(cd $output_path/demos/android && ls *.apk 2>/dev/null); do
                     echo "<li><a href=\"$f\">$f</a></li>"
                   done
                   echo '</ul>'
@@ -579,7 +582,7 @@ jobs:
 
     prepare_release:
         if: github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release'
-        needs: [cpp_package, slint-viewer-binary, slint-lsp-binary, build-figma-plugin]
+        needs: [cpp_package, slint-viewer-binary, slint-lsp-binary, build-figma-plugin, android]
         runs-on: ubuntu-22.04
         permissions:
             contents: write
@@ -607,6 +610,10 @@ jobs:
             - uses: actions/download-artifact@v8
               with:
                   name: figma-plugin
+            - uses: actions/download-artifact@v8
+              with:
+                  name: android-demos
+                  path: android-demos
             - name: Extract files
               run: |
                   ls -l
@@ -625,6 +632,8 @@ jobs:
                   mv slint-lsp-windows*.zip artifacts/
                   mv slint-compiler-*.tar.gz artifacts/
                   mv figma-plugin.zip artifacts/
+                  # slint-viewer APK ships as a release asset (too big for the web server).
+                  mv android-demos/slint-viewer.apk artifacts/
             - uses: actions/checkout@v6
               with:
                 path: "slint-src"
