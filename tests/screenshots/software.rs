@@ -30,6 +30,8 @@ impl i_slint_core::platform::Platform for SwrTestingBackend {
 }
 
 pub fn init_swr() -> Rc<MinimalSoftwareWindow> {
+    crate::testing::force_reference_os();
+
     let window = MinimalSoftwareWindow::new(
         slint::platform::software_renderer::RepaintBufferType::ReusedBuffer,
     );

@@ -145,6 +145,13 @@ pub fn detect_operating_system() -> OperatingSystemType {
         return os_override;
     }
 
+    // Querying the navigator involves a round-trip to JavaScript and some string processing, so
+    // cache the result: it cannot change for the lifetime of the page.
+    thread_local!(static DETECTED: core::cell::Cell<Option<OperatingSystemType>> = Default::default());
+    if let Some(detected) = DETECTED.with(|detected| detected.get()) {
+        return detected;
+    }
+
     let mut user_agent =
         web_sys::window().and_then(|w| w.navigator().user_agent().ok()).unwrap_or_default();
     user_agent.make_ascii_lowercase();
@@ -152,7 +159,7 @@ pub fn detect_operating_system() -> OperatingSystemType {
         web_sys::window().and_then(|w| w.navigator().platform().ok()).unwrap_or_default();
     platform.make_ascii_lowercase();
 
-    if user_agent.contains("ipad") || user_agent.contains("iphone") {
+    let detected = if user_agent.contains("ipad") || user_agent.contains("iphone") {
         OperatingSystemType::Ios
     } else if user_agent.contains("android") {
         OperatingSystemType::Android
@@ -164,7 +171,9 @@ pub fn detect_operating_system() -> OperatingSystemType {
         OperatingSystemType::Linux
     } else {
         OperatingSystemType::Other
-    }
+    };
+    DETECTED.with(|cache| cache.set(Some(detected)));
+    detected
 }
 
 /// Returns true if the current platform is an Apple platform (macOS, iOS, iPadOS)
