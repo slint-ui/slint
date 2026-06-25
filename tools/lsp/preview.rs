@@ -100,6 +100,10 @@ pub fn run(
                     dbg!(event);
                 }
             });
+
+            if let Err(e) = updater.check_for_update_information() {
+                tracing::error!("{e}");
+            }
         }
     }
 
