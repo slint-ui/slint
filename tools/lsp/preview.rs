@@ -103,11 +103,11 @@ pub fn run(
         });
 
         if let Err(e) = updater.check_for_update_information() {
-            tracing::error!("{e}");
+            println!("{e}");
         }
 
         if let Err(e) = updater.check_for_updates_in_background() {
-            tracing::error!("{e}");
+            println!("{e}");
         }
 
         println!("Ensure we're actually hitting this codepath");
