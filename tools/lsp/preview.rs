@@ -72,38 +72,38 @@ pub fn run(
 
         macos_titlebar::setup(editor.as_weak());
 
-        let updater = Sparkle::new(SparkleConfig { version: env!("CARGO_PKG_VERSION").into() });
+        let updater = Sparkle::new(SparkleConfig { version: env!("CARGO_PKG_VERSION").into() })
+            .unwrap()
+            .unwrap();
 
-        if let Ok(Some(updater)) = &updater {
-            updater.set_nonsync_event_callback(move |event| match event {
-                sparklers::Event::DidFindValidUpdate { item } => {
-                    editor.invoke_show_new_version_popup(item.version().to_shared_string());
-                }
-
-                sparklers::Event::DidFinishLoadingAppCast
-                | sparklers::Event::DidNotFindUpdate
-                | sparklers::Event::WillRestart
-                | sparklers::Event::WillDownloadUpdate { .. }
-                | sparklers::Event::DidDownloadUpdate { .. }
-                | sparklers::Event::WillInstallUpdate { .. }
-                | sparklers::Event::DidAbortWithError { .. }
-                | sparklers::Event::DidFinishUpdateCycle { .. }
-                | sparklers::Event::FailedToDownloadUpdate { .. }
-                | sparklers::Event::UserDidCancelDownload
-                | sparklers::Event::WillExtractUpdate { .. }
-                | sparklers::Event::DidExtractUpdate { .. }
-                | sparklers::Event::WillRelaunchApplication
-                | sparklers::Event::UserDidMakeChoice { .. }
-                | sparklers::Event::WillScheduleUpdateCheck { .. }
-                | sparklers::Event::WillNotScheduleUpdateCheck
-                | sparklers::Event::WillInstallUpdateOnQuit { .. } => {
-                    dbg!(event);
-                }
-            });
-
-            if let Err(e) = updater.check_for_update_information() {
-                tracing::error!("{e}");
+        updater.set_nonsync_event_callback(move |event| match event {
+            sparklers::Event::DidFindValidUpdate { item } => {
+                editor.invoke_show_new_version_popup(item.version().to_shared_string());
             }
+
+            sparklers::Event::DidFinishLoadingAppCast
+            | sparklers::Event::DidNotFindUpdate
+            | sparklers::Event::WillRestart
+            | sparklers::Event::WillDownloadUpdate { .. }
+            | sparklers::Event::DidDownloadUpdate { .. }
+            | sparklers::Event::WillInstallUpdate { .. }
+            | sparklers::Event::DidAbortWithError { .. }
+            | sparklers::Event::DidFinishUpdateCycle { .. }
+            | sparklers::Event::FailedToDownloadUpdate { .. }
+            | sparklers::Event::UserDidCancelDownload
+            | sparklers::Event::WillExtractUpdate { .. }
+            | sparklers::Event::DidExtractUpdate { .. }
+            | sparklers::Event::WillRelaunchApplication
+            | sparklers::Event::UserDidMakeChoice { .. }
+            | sparklers::Event::WillScheduleUpdateCheck { .. }
+            | sparklers::Event::WillNotScheduleUpdateCheck
+            | sparklers::Event::WillInstallUpdateOnQuit { .. } => {
+                dbg!(event);
+            }
+        });
+
+        if let Err(e) = updater.check_for_update_information() {
+            tracing::error!("{e}");
         }
     }
 
