@@ -186,6 +186,7 @@ stage_and_sign_app() {
     ditto "$APP_PATH" "$STAGED_APP_PATH"
     mkdir -p "$STAGED_APP_PATH/Contents/Resources/visual-editor-example"
     ditto "$EXAMPLE_SOURCE_DIR" "$STAGED_APP_PATH/Contents/Resources/visual-editor-example"
+    ditto "$SPARKLE_FRAMEWORK_DIR/Sparkle.framework" "$STAGED_APP_PATH/Contents/Frameworks/Sparkle.framework"
 
     local executable="$STAGED_APP_PATH/Contents/MacOS/$APP_NAME"
     [ -x "$executable" ] || die "app executable missing: $executable"
