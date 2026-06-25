@@ -731,10 +731,18 @@ jobs:
         needs: [prepare_release]
         runs-on: ubuntu-latest
         steps:
-            - name: Trigger PyPI publish
+            - name: Trigger PyPI publish (slint)
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
               run: gh workflow run upload_pypi.yaml --ref ${{ github.ref_name }} --repo ${{ github.repository }} -f release=true
+            - name: Trigger PyPI publish (slint-compiler)
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: gh workflow run upload_pypi_slint_compiler.yaml --ref ${{ github.ref_name }} --repo ${{ github.repository }} -f release=true
+            - name: Trigger PyPI publish (briefcasex-slint)
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: gh workflow run upload_pypi_briefcase.yaml --ref ${{ github.ref_name }} --repo ${{ github.repository }} -f release=true
             - name: Trigger npm publish
               env:
                   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
