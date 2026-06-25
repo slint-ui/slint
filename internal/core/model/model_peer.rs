@@ -9,10 +9,21 @@
 #![allow(unsafe_code)]
 
 use super::*;
-use crate::properties::dependency_tracker::DependencyNode;
+use crate::properties::dependency_tracker;
+use core::num::NonZeroU32;
 
 type DependencyListHead =
     crate::properties::dependency_tracker::DependencyListHead<*const dyn ModelChangeListener>;
+
+/// Wires up the per-thread slab that stores the dependency nodes whose payload is
+/// a `*const dyn ModelChangeListener`.
+impl dependency_tracker::SlabbedDep for *const dyn ModelChangeListener {
+    fn try_with_slab<R>(f: impl FnOnce(&mut dependency_tracker::Slab<Self>) -> R) -> Option<R> {
+        crate::thread_local!(static SLAB: core::cell::RefCell<dependency_tracker::Slab<*const dyn ModelChangeListener>>
+            = core::cell::RefCell::new(dependency_tracker::Slab::new()));
+        SLAB.try_with(|s| f(&mut s.borrow_mut())).ok()
+    }
+}
 
 /// Represent a handle to a view that listens to changes to a model.
 ///
@@ -20,7 +31,10 @@ type DependencyListHead =
 /// used internally by via [`ModelTracker::attach_peer`] and [`ModelNotify`]
 #[derive(Clone)]
 pub struct ModelPeer<'a> {
-    inner: Pin<&'a DependencyNode<*const dyn ModelChangeListener>>,
+    /// Slab key of the dependency node, owned by the `ModelChangeListenerContainer`
+    /// borrowed for `'a`.
+    key: NonZeroU32,
+    _phantom: core::marker::PhantomData<&'a ()>,
 }
 
 #[pin_project]
@@ -99,7 +113,7 @@ impl ModelNotify {
 impl ModelTracker for ModelNotify {
     /// Attach one peer. The peer will be notified when the model changes
     fn attach_peer(&self, peer: ModelPeer) {
-        self.inner().project_ref().peers.append(peer.inner)
+        self.inner().project_ref().peers.append(peer.key)
     }
 
     fn track_row_count_changes(&self) {
@@ -133,8 +147,8 @@ pub trait ModelChangeListener {
 /// and can provide a [`ModelPeer`] for it when pinned.
 pub struct ModelChangeListenerContainer<T: ModelChangeListener> {
     /// Will be initialized when the ModelPeer is initialized.
-    /// The DependencyNode points to data.
-    peer: OnceCell<DependencyNode<*const dyn ModelChangeListener>>,
+    /// Slab key of the dependency node (its payload points to `data`).
+    peer: OnceCell<NonZeroU32>,
 
     #[pin]
     #[deref]
@@ -144,8 +158,9 @@ pub struct ModelChangeListenerContainer<T: ModelChangeListener> {
 #[pin_project::pinned_drop]
 impl<T: ModelChangeListener> PinnedDrop for ModelChangeListenerContainer<T> {
     fn drop(self: Pin<&mut Self>) {
-        if let Some(peer) = self.peer.get() {
-            peer.remove();
+        if let Some(&key) = self.peer.get() {
+            // Unlink the node from the model's peers list and free its slot.
+            dependency_tracker::free_node::<*const dyn ModelChangeListener>(key);
         }
     }
 }
@@ -156,17 +171,14 @@ impl<T: ModelChangeListener + 'static> ModelChangeListenerContainer<T> {
     }
 
     pub fn model_peer(self: Pin<&Self>) -> ModelPeer<'_> {
-        let peer = self.get_ref().peer.get_or_init(|| {
-            //Safety: self.data and self.peer have the same lifetime, so the pointer stays valid
-            DependencyNode::new(
+        let key = *self.get_ref().peer.get_or_init(|| {
+            // Safety: self.data and self.peer have the same lifetime, so the pointer stays valid
+            dependency_tracker::alloc_node(
                 (&self.data) as &dyn ModelChangeListener as *const dyn ModelChangeListener,
             )
         });
 
-        // Safety: `peer` is pinned because `self` is pinned and it is a projection, but pin_project don't go through the OnceCell
-        let peer = unsafe { Pin::new_unchecked(peer) };
-
-        ModelPeer { inner: peer }
+        ModelPeer { key, _phantom: core::marker::PhantomData }
     }
 
     pub fn get(self: Pin<&Self>) -> Pin<&T> {
