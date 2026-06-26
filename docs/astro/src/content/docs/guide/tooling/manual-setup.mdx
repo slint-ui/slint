@@ -27,13 +27,19 @@ Slint provides an LSP implementation with the `slint-lsp` binary.
 
 ### Installation
 
-The easiest way to install `slint-lsp` is with [cargo binstall](https://github.com/cargo-bins/cargo-binstall), which downloads a pre-built binary instead of compiling from source:
+There are multiple ways to install `slint-lsp`:
+
+#### From pre-built binaries (with `cargo binstall`):
+
+The fastest way to install `slint-lsp` is with [cargo binstall](https://github.com/cargo-bins/cargo-binstall), which automatically downloads and installs the pre-built binary:
 
 ```sh
 cargo binstall slint-lsp
 ```
 
-If you prefer to compile from source, use `cargo install`:
+#### From source:
+
+If you have a Rust toolchain installed, use `cargo install`:
 
 ```sh
 cargo install slint-lsp
@@ -45,7 +51,15 @@ To install the development version from the git repository:
 cargo install slint-lsp --git https://github.com/slint-ui/slint --force
 ```
 
-Alternatively, you can manually download a pre-built binary:
+Make sure the required dependencies are found. On Debian-like systems install them with the following command:
+
+```shell
+sudo apt install -y build-essential libx11-xcb1 libx11-dev libxcb1-dev libxkbcommon0 libinput10 libinput-dev libgbm1 libgbm-dev
+```
+
+#### From pre-built binaries (manual download):
+
+You can also download the pre-built binaries from the Slint GitHub releases page:
 
 1. Go to [the latest Slint release](https://github.com/slint-ui/slint/releases/latest)
 2. From "Assets" download the appropriate `slint-lsp-*` archive for your architecture, for example:
@@ -54,12 +68,6 @@ Alternatively, you can manually download a pre-built binary:
     - Mac (Intel & Apple Silicon) [`slint-lsp-universal-apple-darwin.tar.gz`](https://github.com/slint-ui/slint/releases/latest/download/slint-lsp-universal-apple-darwin.tar.gz).
     - ARM binaries are also available for Linux and Windows (named aarch64 or armv7 respectively).
 3. Uncompress the downloaded archive into a location of your choice (preferably somewhere in your PATH, so that it becomes available in your command line).
-
-Make sure the required dependencies are found. On Debian-like systems install them with the following command:
-
-```shell
-sudo apt install -y build-essential libx11-xcb1 libx11-dev libxcb1-dev libxkbcommon0 libinput10 libinput-dev libgbm1 libgbm-dev
-```
 
 ### Editor configuration
 
