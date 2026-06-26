@@ -701,8 +701,11 @@ impl TextParagraph {
                 match item {
                     parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
                         let ellipsis = if last_line {
-                            let (truncated_glyphs, ellipsis) =
-                                layout.glyphs_with_elision(&glyph_run, vertically_truncated);
+                            let (truncated_glyphs, ellipsis) = layout.glyphs_with_elision(
+                                &glyph_run,
+                                vertically_truncated,
+                                metrics.trailing_whitespace,
+                            );
 
                             Self::draw_glyph_run(
                                 &glyph_run,
@@ -1100,6 +1103,10 @@ impl Layout {
         // When set, place an ellipsis even if the run fits the width. Used when lines below were
         // dropped for the height, so the last visible line signals the vertical truncation.
         force_elision: bool,
+        // Advance width of the line's trailing whitespace. A vertically truncated line that fits
+        // the width anchors the appended ellipsis after the last non-whitespace glyph, so trailing
+        // spaces (e.g. left at a word-wrap break) don't push it away from the text.
+        trailing_whitespace: f32,
     ) -> (
         impl Iterator<Item = parley::layout::Glyph> + Clone + 'a,
         Option<(parley::layout::Glyph, parley::FontData, PhysicalLength)>,
@@ -1136,8 +1143,9 @@ impl Layout {
                             > info.max_physical_width
                     })
                     .map(|g| g.x)
-                    // Nothing overflows horizontally (force_elision): put the ellipsis after the run.
-                    .unwrap_or(run_end.get());
+                    // Nothing overflows horizontally (force_elision): put the ellipsis right after
+                    // the run's last non-whitespace glyph, i.e. before any trailing whitespace.
+                    .unwrap_or(run_end.get() - trailing_whitespace);
 
                 let mut ellipsis_glyph = info.ellipsis_glyph;
                 ellipsis_glyph.x = ellipsis_x;
