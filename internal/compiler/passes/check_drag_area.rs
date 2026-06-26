@@ -29,7 +29,7 @@ pub fn check_drag_area(component: &Component, diag: &mut BuildDiagnostics) {
             if !elem.borrow().is_property_set("data") {
                 diag.push_warning(
                     "This 'DragArea' has no 'data' set and will never start a drag; \
-                     bind 'data' to the value to drag"
+                     add a binding for the 'data' property"
                         .into(),
                     &*elem.borrow(),
                 );
