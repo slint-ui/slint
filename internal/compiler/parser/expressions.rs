@@ -30,7 +30,7 @@ use super::prelude::*;
 /// array[index]
 /// {object:42}
 /// "foo".bar.something().something.xx({a: 1.foo}.a)
-/// x => x > 0
+/// (x) => x > 0
 /// ```
 pub fn parse_expression(p: &mut impl Parser) -> bool {
     p.peek(); // consume the whitespace so they aren't part of the Expression node
@@ -59,11 +59,7 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
     let mut possible_range = false;
     match p.nth(0).kind() {
         SyntaxKind::Identifier => {
-            if p.nth(1).kind() == SyntaxKind::FatArrow {
-                parse_closure(&mut *p);
-            } else {
-                parse_qualified_name(&mut *p);
-            }
+            parse_qualified_name(&mut *p);
         }
         SyntaxKind::StringLiteral => {
             if p.nth(0).as_str().ends_with('{') {
@@ -80,9 +76,16 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
         }
         SyntaxKind::ColorLiteral => p.consume(),
         SyntaxKind::LParent => {
-            p.consume();
-            parse_expression(&mut *p);
-            p.expect(SyntaxKind::RParent);
+            if p.nth(1).kind() == SyntaxKind::Identifier
+                && p.nth(2).kind() == SyntaxKind::RParent
+                && p.nth(3).kind() == SyntaxKind::FatArrow
+            {
+                parse_closure(&mut *p);
+            } else {
+                p.consume();
+                parse_expression(&mut *p);
+                p.expect(SyntaxKind::RParent);
+            }
         }
         SyntaxKind::LBracket => parse_array(&mut *p),
         SyntaxKind::LBrace => parse_object_notation(&mut *p),
@@ -237,17 +240,21 @@ fn parse_expression_helper(p: &mut impl Parser, precedence: OperatorPrecedence) 
 
 #[cfg_attr(test, parser_test)]
 /// ```test
-/// x => x > 0
-/// y => y == 42
-/// z => true
+/// (x) => x > 0
+/// (y) => y == 42
+/// (z) => true
 /// ```
 fn parse_closure(p: &mut impl Parser) {
     let mut p = p.start_node(SyntaxKind::Closure);
+
+    p.expect(SyntaxKind::LParent);
 
     {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
         p.expect(SyntaxKind::Identifier);
     }
+
+    p.expect(SyntaxKind::RParent);
 
     p.expect(SyntaxKind::FatArrow);
 
