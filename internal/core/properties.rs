@@ -164,8 +164,7 @@ pub(crate) mod dependency_tracker {
         /// Access the per-thread slab, panicking if it is unavailable. Used by all
         /// the non-`Drop` operations, which can only run while the slab is alive.
         fn with_slab<R>(f: impl FnOnce(&mut Slab<Self>) -> R) -> R {
-            Self::try_with_slab(f)
-                .expect("dependency slab accessed after thread-local destruction")
+            Self::try_with_slab(f).expect("dependency slab accessed after thread-local destruction")
         }
     }
 
