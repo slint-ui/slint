@@ -28,6 +28,7 @@ mod focus_handling;
 pub mod generate_item_indices;
 pub mod infer_aliases_types;
 mod inject_debug_hooks;
+pub use inject_debug_hooks::property_id;
 mod inlining;
 mod key_bindings;
 mod lower_absolute_coordinates;
@@ -148,6 +149,11 @@ pub async fn run_passes(
         focus_handling::call_focus_on_init(popup_menu_impl);
     }
 
+    if type_loader.compiler_config.debug_hooks.is_some() {
+        for root_component in doc.exported_roots() {
+            inject_debug_hooks::inject_reserved_properties(&root_component);
+        }
+    }
     doc.visit_all_used_components(|component| {
         border_radius::handle_border_radius(component, diag);
         check_drag_area::check_drag_area(component, diag);
@@ -194,6 +200,11 @@ pub async fn run_passes(
     });
     for root_component in doc.exported_roots() {
         lower_layout::check_window_layout(&root_component);
+    }
+    if let Some(random_state) = &type_loader.compiler_config.debug_hooks {
+        for root_component in doc.exported_roots() {
+            inject_debug_hooks::inject_debug_hooks(&root_component, random_state);
+        }
     }
     collect_globals::collect_globals(doc, diag);
 
@@ -342,7 +353,6 @@ pub fn run_import_passes(
     type_loader: &crate::typeloader::TypeLoader,
     diag: &mut crate::diagnostics::BuildDiagnostics,
 ) {
-    inject_debug_hooks::inject_debug_hooks(doc, type_loader);
     infer_aliases_types::resolve_aliases(doc, diag);
     resolving::resolve_expressions(doc, type_loader, diag);
     purity_check::purity_check(doc, diag);

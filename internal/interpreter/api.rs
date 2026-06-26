@@ -1698,6 +1698,14 @@ impl ComponentInstance {
     ) -> Vec<(i_slint_compiler::object_tree::ElementRc, usize)> {
         crate::highlight::element_node_at_source_code_position(&self.inner, path, offset)
     }
+
+    /// Set a callback triggered by `Expression::DebugHook``.
+    #[cfg(feature = "internal-highlight")]
+    pub fn set_debug_hook_callback(&self, callback: Option<crate::debug_hook::DebugHookCallback>) {
+        generativity::make_guard!(guard);
+        let comp = self.inner.unerase(guard);
+        crate::debug_hook::set_debug_hook_callback(comp, callback);
+    }
 }
 
 impl StrongHandle for ComponentInstance {
@@ -2356,6 +2364,158 @@ export component Foo2 inherits Window  {
             _ => assert!(elements.is_empty()),
         }
     }
+}
+
+// Validates the "live drag" mechanism the visual editor relies on: with `debug_hooks`
+// enabled, a `set_debug_hook_callback` that reads a per-id `Property<Option<Value>>` lets the
+// editor reactively override a property's value (and revert it) without touching the source.
+// Setting the override property re-evaluates the hooked binding via Slint's dependency tracker.
+#[cfg(all(test, feature = "internal", feature = "internal-highlight"))]
+#[test]
+fn test_debug_hook_live_override() {
+    use i_slint_core::Property;
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+    use std::pin::Pin;
+    use std::rc::Rc;
+
+    i_slint_backend_testing::init_no_event_loop();
+
+    let code = r#"
+export component Win inherits Window {
+    width: 300px;
+    height: 300px;
+    rect := Rectangle {
+        x: 10px;
+        y: 20px;
+        width: 30px;
+        height: 40px;
+    }
+}"#;
+    let path = PathBuf::from("/tmp/debug_hook_test.slint");
+
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
+        Some(std::hash::RandomState::new());
+    let compile_result =
+        spin_on::spin_on(compiler.build_from_source(code.to_string(), path.clone()));
+    assert!(!compile_result.has_errors(), "{:?}", compile_result.diagnostics);
+    let instance = compile_result.components().next().unwrap().create().unwrap();
+
+    // Resolve the `rect` element and the hash used to build its hook ids.
+    let offset = code.find("Rectangle").unwrap() as u32;
+    let (element, debug_index) = instance
+        .element_node_at_source_code_position(&path, offset)
+        .first()
+        .cloned()
+        .expect("element resolved");
+    let element_hash = element.borrow().debug[debug_index].element_hash;
+    assert_ne!(element_hash, 0, "debug_hooks should populate element_hash");
+
+    // Editor-style override store + callback (must be installed before the first evaluation so
+    // the hooked bindings register a dependency on the override properties while still `None`).
+    type Store = Rc<RefCell<HashMap<SmolStr, Pin<Box<Property<Option<Value>>>>>>>;
+    let store: Store = Default::default();
+    {
+        let store = store.clone();
+        instance.set_debug_hook_callback(Some(Box::new(move |id: &str| -> Option<Value> {
+            let mut m = (*store).borrow_mut();
+            let p = m.entry(SmolStr::from(id)).or_insert_with(|| Box::pin(Property::new(None)));
+            p.as_ref().get()
+        })));
+    }
+
+    let set_override = |name: &str, value: Option<f64>| {
+        let id = i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(name));
+        let mut m = (*store).borrow_mut();
+        let p = m.entry(id).or_insert_with(|| Box::pin(Property::new(None)));
+        (&**p).set(value.map(Value::Number));
+    };
+
+    // Baseline: evaluates the bindings (registering the dependency) with no overrides.
+    let base = instance.element_positions(&element).first().expect("geometry").rect;
+
+    // Override x and width: the hooked bindings must re-evaluate to the new values.
+    set_override("x", Some(100.0));
+    set_override("width", Some(70.0));
+    let after = instance.element_positions(&element).first().expect("geometry").rect;
+    assert!(
+        (after.origin.x - base.origin.x - 90.0).abs() < 0.5,
+        "x override should shift the element by 90px (base {}, after {})",
+        base.origin.x,
+        after.origin.x
+    );
+    assert!(
+        (after.size.width - base.size.width - 40.0).abs() < 0.5,
+        "width override should grow the element by 40px (base {}, after {})",
+        base.size.width,
+        after.size.width
+    );
+
+    // Revert: setting the overrides back to None restores the original geometry.
+    set_override("x", None);
+    set_override("width", None);
+    let reverted = instance.element_positions(&element).first().expect("geometry").rect;
+    assert!((reverted.origin.x - base.origin.x).abs() < 0.5, "x should revert");
+    assert!((reverted.size.width - base.size.width).abs() < 0.5, "width should revert");
+}
+
+// Enabling debug_hooks now also materializes hooked default bindings for unbound properties.
+// This must NOT change the rendered result when no override is set: wrapping default-geometry
+// bindings must preserve fill/implicit sizing, and injecting the type-default for unbound props
+// must equal their unbound value (e.g. the font sentinel that drives Window inheritance).
+#[cfg(all(test, feature = "internal", feature = "internal-highlight"))]
+#[test]
+fn test_debug_hooks_preserve_geometry() {
+    i_slint_backend_testing::init_no_event_loop();
+
+    let code = r#"
+export component Win inherits Window {
+    width: 300px;
+    height: 200px;
+    rect := Rectangle { }            // no explicit geometry -> fills the parent
+    txt := Text { text: "Hello"; }   // implicit (font-dependent) size, inherited font
+}"#;
+    let path = PathBuf::from("/tmp/debug_hook_noregress.slint");
+
+    let geometries = |debug_hooks: bool| -> Vec<(f32, f32, f32, f32)> {
+        let mut compiler = Compiler::default();
+        compiler.set_style("fluent".into());
+        if debug_hooks {
+            compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
+                Some(std::hash::RandomState::new());
+        }
+        let r = spin_on::spin_on(compiler.build_from_source(code.to_string(), path.clone()));
+        assert!(!r.has_errors(), "{:?}", r.diagnostics);
+        let instance = r.components().next().unwrap().create().unwrap();
+        [code.find("Rectangle").unwrap(), code.find("Text").unwrap()]
+            .into_iter()
+            .map(|off| {
+                let (elem, _) = instance
+                    .element_node_at_source_code_position(&path, off as u32)
+                    .first()
+                    .cloned()
+                    .expect("element");
+                let g = instance.element_positions(&elem).first().expect("geometry").rect;
+                (g.origin.x, g.origin.y, g.size.width, g.size.height)
+            })
+            .collect()
+    };
+
+    let without = geometries(false);
+    let with = geometries(true);
+    for (a, b) in without.iter().zip(with.iter()) {
+        assert!(
+            (a.0 - b.0).abs() < 0.5
+                && (a.1 - b.1).abs() < 0.5
+                && (a.2 - b.2).abs() < 0.5
+                && (a.3 - b.3).abs() < 0.5,
+            "geometry differs with vs without debug_hooks: {a:?} vs {b:?}"
+        );
+    }
+    // Sanity: the Rectangle actually filled the 300x200 window (so we know we compared real sizes).
+    assert!((with[0].2 - 300.0).abs() < 0.5 && (with[0].3 - 200.0).abs() < 0.5);
 }
 
 #[cfg(feature = "ffi")]
