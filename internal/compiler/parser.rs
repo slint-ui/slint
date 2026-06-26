@@ -485,7 +485,7 @@ declare_syntax! {
         EnumValue -> [],
         /// `@rust-attr(...)`
         AtRustAttr -> [],
-        /// `x => x > 0`
+        /// `(x) => x > 0`
         Closure -> [DeclaredIdentifier, Expression],
     }
 }

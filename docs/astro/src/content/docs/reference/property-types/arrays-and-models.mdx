@@ -48,14 +48,14 @@ The following operations apply to a value of an array type.
 - `array.remove(index)` removes the element at `index`.
 - `array.insert(index, value)` inserts `value` before the element at `index`, shifting later elements up.
   `value` must have the element type.
-- `array.any(name => condition)` reads `true` if `condition` holds for at least one element.
-- `array.all(name => condition)` reads `true` if `condition` holds for every element.
+- `array.any((name) => condition)` reads `true` if `condition` holds for at least one element.
+- `array.all((name) => condition)` reads `true` if `condition` holds for every element.
 
 `length`, `push`, `remove`, `insert`, `any`, and `all` are members of the array; `index` is written with the `[ ]` operator.
 
 ## Predicates
 
-`any` and `all` take a predicate written as `name => condition`. The predicate is evaluated
+`any` and `all` take a predicate written as `(name) => condition`. The predicate is evaluated
 once per element, with `name` bound to that element. The argument name is available only inside
 the predicate expression, and its type is inferred from the array element type. `condition` must
 be a boolean expression.
@@ -66,8 +66,8 @@ be a boolean expression.
 export component Example {
     in-out property<[int]> list-of-int: [1, 2, 3];
 
-    out property <bool> contains-two: list-of-int.any(value => value == 2);   // true
-    out property <bool> all-positive: list-of-int.all(value => value > 0);    // true
+    out property <bool> contains-two: list-of-int.any((value) => value == 2);   // true
+    out property <bool> all-positive: list-of-int.all((value) => value > 0);    // true
 }
 ```
 
