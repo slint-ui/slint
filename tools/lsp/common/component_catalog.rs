@@ -11,6 +11,7 @@ use crate::common::{
 };
 #[cfg(feature = "preview-engine")]
 use i_slint_compiler::langtype::ElementType;
+use lsp_types::CompletionItemKind;
 
 #[cfg(feature = "preview-engine")]
 fn builtin_component_info(name: &str) -> ComponentInformation {
@@ -214,6 +215,16 @@ pub fn all_exported_components(
     }
 }
 
+/// Get the types completion kind
+pub fn type_completion_kind(ty: &i_slint_compiler::langtype::Type) -> CompletionItemKind {
+    use i_slint_compiler::langtype::Type;
+    match *ty {
+        Type::Struct(_) => CompletionItemKind::STRUCT,
+        Type::Enumeration(_) => CompletionItemKind::ENUM,
+        _ => CompletionItemKind::TYPE_PARAMETER,
+    }
+}
+
 /// Fill the result with all exported value types (structs and enums) that match the
 /// given filter.
 ///
@@ -239,14 +250,16 @@ pub fn all_exported_types(
 
         for (exported_name, ty) in &*doc.exports {
             // Only process struct/enum exports (Either::Right); components are Either::Left
-            let Some(_) = ty.as_ref().right() else {
+            let Some(ty) = ty.as_ref().right() else {
                 continue;
             };
+            let kind = type_completion_kind(ty);
 
             let to_push = TypeInformation {
                 name: exported_name.to_string(),
                 defined_at: if is_std_widget { None } else { Some(url.clone()) },
                 is_std_widget,
+                kind,
             };
 
             if !filter(&to_push) {
