@@ -810,7 +810,10 @@ fn grid_layout_input_data(
                                     let element_ref = inner_root.borrow();
                                     let child_cell =
                                         element_ref.grid_layout_cell.as_ref().unwrap().borrow();
-                                    (child_cell.rowspan_expr.clone(), child_cell.colspan_expr.clone())
+                                    (
+                                        child_cell.rowspan_expr.clone(),
+                                        child_cell.colspan_expr.clone(),
+                                    )
                                 };
                                 let inner_instances =
                                     repeater_instances(sub_instance_ref, repeated_element);
