@@ -924,12 +924,26 @@ pub fn generate(
         ));
     }
 
+    // The globals are not initialized in the constructor: a global's init may evaluate a
+    // binding (e.g. `Palette.color-scheme`) that resolves the root through `root_weak` and the
+    // root component's `globals` pointer. Those are only set after the SharedGlobals member has
+    // been constructed, so the init is deferred to `init_globals()`, called from the root
+    // component's `create()` once `globals` and `root_weak` are in place.
     globals_struct.members.push((
         Access::Public,
         Declaration::Function(Function {
             name: globals_struct.name.clone(),
             is_constructor_or_destructor: true,
             signature: "()".into(),
+            statements: Some(vec![]),
+            ..Default::default()
+        }),
+    ));
+    globals_struct.members.push((
+        Access::Public,
+        Declaration::Function(Function {
+            name: "init_globals".into(),
+            signature: "() -> void".into(),
             statements: Some(init_global),
             ..Default::default()
         }),
@@ -2039,6 +2053,9 @@ fn generate_item_tree(
 
         create_code.push("self->globals = &self->m_globals;".into());
         create_code.push("self->m_globals.root_weak = self->self_weak;".into());
+        // Now that `globals` and `root_weak` are set, the globals can be initialized: their
+        // init may resolve the root window adapter through these (see `init_globals`).
+        create_code.push("self->m_globals.init_globals();".into());
     }
 
     let global_access =

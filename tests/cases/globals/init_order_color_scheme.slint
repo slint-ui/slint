@@ -1,0 +1,46 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for the global-initialization order bug in the Rust/C++ code generators.
+//
+// A global's eager initialization (here a `changed` handler, which installs a ChangeTracker
+// that evaluates its tracked expression immediately) reads `Palette.color-scheme`. Resolving
+// the color scheme goes through `context_for_root`, which asks the *root* component for its
+// window adapter, i.e. it reads the root component's `globals` field. The generators must
+// therefore set the root's `globals` field *before* initializing the globals, otherwise this
+// panics with `Option::unwrap()` on a `None` value during construction (the interpreter
+// already did this in the correct order).
+
+import { Palette } from "std-widgets.slint";
+
+global ColorSchemeObserver {
+    in-out property <ColorScheme> scheme: Palette.color-scheme;
+    out property <int> change-count: 0;
+    // The change tracker is initialized eagerly while the globals are set up, which evaluates
+    // `scheme` -> `Palette.color-scheme` -> the `ColorScheme` builtin -> `context_for_root`.
+    changed scheme => { self.change-count += 1; }
+}
+
+export component TestCase inherits Window {
+    // Read the global so it is part of the compilation and its init runs.
+    out property <ColorScheme> scheme: ColorSchemeObserver.scheme;
+    out property <bool> test: ColorSchemeObserver.change-count >= 0;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

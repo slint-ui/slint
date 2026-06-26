@@ -652,15 +652,22 @@ fn generate_shared_globals(
         impl SharedGlobals {
             #pub_token fn new(root_item_tree_weak : sp::VWeak<sp::ItemTreeVTable>) -> sp::Rc<Self> {
                 #(let #library_shared_globals_names = #library_shared_globals_types::new(root_item_tree_weak.clone());)*
-                let _self = sp::Rc::new(Self {
+                sp::Rc::new(Self {
                     #(#global_names : #global_types::new(),)*
                     #(#from_library_global_names : #library_global_vars.clone(),)*
                     window_adapter : ::core::default::Default::default(),
                     root_item_tree_weak,
                     #(#library_shared_globals_names,)*
-                });
-                #(_self.#global_names.clone().init(&_self);)*
-                _self
+                })
+            }
+
+            // Run the eager initialization of the globals. This must be called only *after* the
+            // root component's `globals` field has been set (see the root component's `new`),
+            // because a global's init may evaluate a binding (e.g. `Palette.color-scheme`) that
+            // resolves the root's window adapter through `globals`, which would otherwise panic.
+            #pub_token fn init_globals(self: &sp::Rc<Self>) {
+                #(self.#library_shared_globals_names.init_globals();)*
+                #(self.#global_names.clone().init(self);)*
             }
 
             // Clone the SharedGlobals struct but use a different window adapter. This is for example used for popup windows, because they need access to the globals, but need their own window adapter
@@ -2052,12 +2059,26 @@ fn generate_item_tree(
         })
         .collect::<Vec<_>>();
 
+    let is_root_component = !is_popup && parent_ctx.is_none();
     let globals = if is_popup {
         quote!(globals)
     } else if parent_ctx.is_some() {
         quote!(parent.upgrade().unwrap().globals.get().unwrap().clone())
     } else {
         quote!(SharedGlobals::new(sp::VRc::downgrade(&self_dyn_rc)))
+    };
+    // The root component owns the freshly created `SharedGlobals` and is responsible for running
+    // its eager initialization. The root's own `globals` field must be set *before* that init
+    // runs, because a global binding (e.g. `Palette.color-scheme`) may resolve the root's window
+    // adapter through `globals` during evaluation. Popups and sub-components receive an already
+    // initialized `SharedGlobals`, so they skip this step.
+    let set_and_init_globals = if is_root_component {
+        quote!(
+            let _ = sp::VRc::map(self_rc.clone(), |x| x).as_pin_ref().globals.set(globals.clone());
+            globals.init_globals();
+        )
+    } else {
+        quote!()
     };
     let globals_arg = is_popup.then(|| quote!(globals: sp::Rc<SharedGlobals>));
 
@@ -2203,6 +2224,7 @@ fn generate_item_tree(
                 let self_rc = sp::VRc::new(_self);
                 let self_dyn_rc = sp::VRc::into_dyn(self_rc.clone());
                 let globals = #globals;
+                #set_and_init_globals
                 sp::register_item_tree(&self_dyn_rc, #register_window_adapter_arg);
                 Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1);
                 ::core::result::Result::Ok(self_rc)
