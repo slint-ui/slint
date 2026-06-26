@@ -3,9 +3,18 @@
 
 use std::path::PathBuf;
 
+/// Mirror the `/STACK` setting from `.cargo/config.toml`, which is not shipped
+/// in the published crate.
+fn bump_windows_stack_size() {
+    if std::env::var("CARGO_CFG_TARGET_ENV").as_deref() == Ok("msvc") {
+        println!("cargo:rustc-link-arg-bins=/STACK:8000000");
+    }
+}
+
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-env-changed=CARGO_FEATURE_REMOTE");
+    bump_windows_stack_size();
     // The slint!{} macro in remote.rs needs the experimental
     // new_with_existing_window constructor.
     if std::env::var_os("CARGO_FEATURE_REMOTE").is_some() {
