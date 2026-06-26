@@ -3,7 +3,7 @@
 
 // cSpell: ignore rfind barbar funi
 
-use crate::common::component_catalog::all_exported_components;
+use crate::common::component_catalog::{all_exported_components, all_exported_types};
 use crate::common::{self, DocumentCache};
 use crate::util::{lookup_current_element_type, text_size_to_lsp_position, with_lookup_ctx};
 
@@ -757,7 +757,7 @@ fn resolve_expression_scope(
         })
     {
         let mut available_types: HashSet<String> = r.iter().map(|c| c.label.clone()).collect();
-        build_import_statements_edits(
+        build_component_import_statements_edits(
             &token,
             document_cache,
             &mut |ci: &common::ComponentInformation| {
@@ -1011,7 +1011,7 @@ fn add_components_to_import(
     result: &mut Vec<CompletionItem>,
 ) {
     let mut available_types: HashSet<_> = result.iter().map(|c| c.label.clone()).collect();
-    build_import_statements_edits(
+    build_component_import_statements_edits(
         token,
         document_cache,
         &mut |ci: &common::ComponentInformation| {
@@ -1159,7 +1159,7 @@ pub fn create_import_edit(
 /// This is used for auto-completion and also for fixup diagnostics
 ///
 /// Call `add_edit` with the component name and file name and TextEdit for every component for which the `filter` callback returns true
-pub fn build_import_statements_edits(
+pub fn build_component_import_statements_edits(
     token: &SyntaxToken,
     document_cache: &common::DocumentCache,
     filter: &mut dyn FnMut(&common::ComponentInformation) -> bool,
@@ -1168,32 +1168,73 @@ pub fn build_import_statements_edits(
     // Find out types that can be imported
     let current_file = token.source_file.path().to_owned();
     let current_uri = lsp_types::Url::from_file_path(&current_file).ok();
-    let current_doc =
-        document_cache.get_document_for_source_file(&token.source_file)?.node.as_ref()?;
-    let (missing_import_location, known_import_locations) =
-        find_import_locations(current_doc, document_cache.format);
 
-    let exports = {
+    let exported_types = {
         let mut tmp = Vec::new();
         all_exported_components(document_cache, filter, &mut tmp);
         tmp
     };
 
-    for ci in &exports {
-        let Some(file) = ci.import_file_name(&current_uri) else {
-            continue;
-        };
+    build_import_statements_edits(
+        token,
+        document_cache,
+        exported_types.iter().filter_map(|type_info| {
+            type_info.import_file_name(&current_uri).map(|path| (type_info.name.clone(), path))
+        }),
+        add_edit,
+    )
+}
 
+fn build_import_statements_edits(
+    token: &SyntaxToken,
+    document_cache: &DocumentCache,
+    imports: impl Iterator<Item = (String, String)>,
+    add_edit: &mut dyn FnMut(&str, &str, TextEdit),
+) -> Option<()> {
+    let current_doc =
+        document_cache.get_document_for_source_file(&token.source_file)?.node.as_ref()?;
+    let (missing_import_location, known_import_locations) =
+        find_import_locations(current_doc, document_cache.format);
+
+    for (type_name, file) in imports {
         let the_import = create_import_edit_impl(
-            &ci.name,
+            &type_name,
             &file,
             &missing_import_location,
             &known_import_locations,
         );
-        add_edit(&ci.name, &file, the_import);
+        add_edit(&type_name, &file, the_import);
     }
 
     Some(())
+}
+
+/// Try to generate `import { XXX } from "foo.slint";` for every exported value type
+/// (struct or enum) for which the `filter` callback returns true.
+///
+/// This is the counterpart of [`build_component_import_statements_edits`] for type references
+/// (property types, callback/function argument types) rather than element types.
+///
+/// Call `add_edit` with the type name, file name, and `TextEdit` for every matching type.
+pub fn build_type_import_statements_edits(
+    token: &SyntaxToken,
+    document_cache: &common::DocumentCache,
+    filter: &mut dyn FnMut(&common::TypeInformation) -> bool,
+    add_edit: &mut dyn FnMut(&str, &str, TextEdit),
+) -> Option<()> {
+    let current_file = token.source_file.path().to_owned();
+    let current_uri = lsp_types::Url::from_file_path(&current_file).ok();
+
+    let mut exported_types = Vec::new();
+    all_exported_types(document_cache, filter, &mut exported_types);
+    build_import_statements_edits(
+        token,
+        document_cache,
+        exported_types.iter().filter_map(|type_info| {
+            type_info.import_file_name(&current_uri).map(|path| (type_info.name.clone(), path))
+        }),
+        add_edit,
+    )
 }
 
 fn is_followed_by_brace(token: &SyntaxToken) -> bool {
