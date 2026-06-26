@@ -18,7 +18,7 @@ use crate::{common, util};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
-use i_slint_compiler::object_tree::ElementRc;
+use i_slint_compiler::object_tree::{ElementRc, QualifiedTypeName};
 use i_slint_compiler::parser::{
     NodeOrToken, SyntaxKind, SyntaxNode, SyntaxToken, TextRange, TextSize, syntax_nodes,
 };
@@ -1191,13 +1191,13 @@ fn get_code_actions(
         if is_lookup_error {
             // Couldn't lookup the element, there is probably an error. Suggest an edit
             let text = token.text();
-            completion::build_import_statements_edits(
+            completion::build_component_import_statements_edits(
                 &token,
                 document_cache,
                 &mut |ci| !ci.is_global && ci.is_exported && ci.name == text,
-                &mut |_name, file, edit| {
+                &mut |name, file, edit| {
                     result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                        title: format!("Add import from \"{file}\""),
+                        title: format!("import {{ {name} }} from \"{file}\""),
                         kind: Some(lsp_types::CodeActionKind::QUICKFIX),
                         edit: common::create_workspace_edit_from_path(
                             document_cache,
@@ -1355,6 +1355,42 @@ fn get_code_actions(
                     ..Default::default()
                 }));
             }
+        }
+    } else if token.kind() == SyntaxKind::Identifier
+        && node.kind() == SyntaxKind::QualifiedName
+        && node.parent().map(|n| n.kind()) == Some(SyntaxKind::Type)
+    {
+        // Offer "Add import from ..." for unresolved type references in property/callback/
+        // function type annotations (e.g. `property <MyStruct> foo`).
+        let is_lookup_error =
+            syntax_nodes::QualifiedName::new(node.clone()).is_some_and(|qualified_name| {
+                let qual = QualifiedTypeName::from_node(qualified_name);
+                let global_tr = document_cache.global_type_registry();
+                let tr = document_cache
+                    .get_document_for_source_file(&token.source_file)
+                    .map(|doc| &doc.local_registry)
+                    .unwrap_or(&global_tr);
+                matches!(tr.lookup_qualified(&qual.members), Type::Invalid)
+            });
+        if is_lookup_error {
+            let text = token.text();
+            completion::build_type_import_statements_edits(
+                &token,
+                document_cache,
+                &mut |type_info| type_info.name == text,
+                &mut |_type_info, name, file, edit| {
+                    result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                        title: format!("import {{ {name} }} from \"{file}\""),
+                        kind: Some(lsp_types::CodeActionKind::QUICKFIX),
+                        edit: common::create_workspace_edit_from_path(
+                            document_cache,
+                            token.source_file.path(),
+                            vec![edit],
+                        ),
+                        ..Default::default()
+                    }))
+                },
+            );
         }
     }
 
@@ -2316,7 +2352,7 @@ export global NoPreviewForGlobal {}
                 &capabilities
             )),
             Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                title: "Add import from \"std-widgets.slint\"".into(),
+                title: "import { LineEdit } from \"std-widgets.slint\"".into(),
                 kind: Some(lsp_types::CodeActionKind::QUICKFIX),
                 edit: Some(WorkspaceEdit {
                     document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
@@ -2367,6 +2403,109 @@ export global NoPreviewForGlobal {}
             assert!(token.text().starts_with("NoPreviewFor"));
             assert_eq!(get_code_actions(&mut dc, token, &capabilities), None);
         }
+    }
+
+    #[test]
+    fn test_add_import_for_type_annotation() {
+        // Document that uses a user-defined exported struct from a separate file as a
+        // property type, but doesn't import it yet.  The code action should be offered
+        // on the unresolved type identifier, and should NOT be offered once imported.
+        //
+        // We load the "types" file first so the DocumentCache knows about it, then
+        // load the main file that references the struct without importing it.
+        let types_content = r#"export struct MyPoint { x: int, y: int }
+export enum MyDirection { Up, Down, Left, Right }
+"#;
+        let main_content_without_import = r#"export component TestWindow inherits Window {
+    property <MyPoint> position;
+}
+"#;
+        let main_content_with_import = r#"import { MyPoint } from "types.slint";
+
+export component TestWindow inherits Window {
+    property <MyPoint> position;
+}
+"#;
+
+        let types_url = Url::from_file_path("/foo/types.slint").unwrap();
+        let main_url = Url::from_file_path("/foo/main.slint").unwrap();
+
+        // Load the types file first so the cache knows about it
+        let mut dc = test::empty_document_cache();
+        spin_on::spin_on(dc.preload_builtins());
+        let mut diagnostics = BuildDiagnostics::default();
+        let _ = spin_on::spin_on(dc.load_url(
+            &types_url,
+            Some(1),
+            types_content.to_string(),
+            &mut diagnostics,
+        ));
+
+        // Load the main file (no import for MyPoint yet) with version 42 for test assertions
+        let _ = spin_on::spin_on(dc.load_url(
+            &main_url,
+            Some(42),
+            main_content_without_import.to_string(),
+            &mut diagnostics,
+        ));
+
+        let capabilities = ClientCapabilities::default();
+
+        // Cursor on "MyPoint" in `property <MyPoint> position;` (line 1, col 14)
+        // Line 1: `    property <MyPoint> position;`
+        // Col 13: `<`, col 14: `M`
+        let type_pos = Position::new(1, 14);
+        let action = token_descr(&dc, &main_url, &type_pos)
+            .and_then(|(token, _)| get_code_actions(&mut dc, token, &capabilities));
+
+        assert_eq!(
+            action,
+            Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
+                title: "import { MyPoint } from \"types.slint\"".into(),
+                kind: Some(lsp_types::CodeActionKind::QUICKFIX),
+                edit: Some(WorkspaceEdit {
+                    document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
+                        lsp_types::TextDocumentEdit {
+                            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier {
+                                version: Some(42),
+                                uri: main_url.clone(),
+                            },
+                            // New import line at the top (no existing imports to merge into)
+                            edits: vec![lsp_types::OneOf::Left(TextEdit::new(
+                                lsp_types::Range::new(Position::new(0, 0), Position::new(0, 0)),
+                                "import { MyPoint } from \"types.slint\";\n".into()
+                            ))]
+                        }
+                    ])),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })])
+        );
+
+        // Now load the version WITH the import — action should no longer appear
+        let mut document_cache_with_import = test::empty_document_cache();
+        spin_on::spin_on(document_cache_with_import.preload_builtins());
+        let mut diagnostics = BuildDiagnostics::default();
+        let _ = spin_on::spin_on(document_cache_with_import.load_url(
+            &types_url,
+            Some(1),
+            types_content.to_string(),
+            &mut diagnostics,
+        ));
+        let _ = spin_on::spin_on(document_cache_with_import.load_url(
+            &main_url,
+            Some(42),
+            main_content_with_import.to_string(),
+            &mut diagnostics,
+        ));
+
+        // Cursor on "MyPoint" — now on line 3 col 14 (because the import line is added)
+        let action2 = token_descr(&document_cache_with_import, &main_url, &Position::new(3, 14))
+            .and_then(|(token, _)| {
+                get_code_actions(&mut document_cache_with_import, token, &capabilities)
+            });
+        assert_eq!(action2, None, "import action should not appear when type is already imported");
     }
 
     #[test]

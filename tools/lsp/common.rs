@@ -584,18 +584,57 @@ pub struct ComponentInformation {
 
 impl ComponentInformation {
     pub fn import_file_name(&self, current_uri: &Option<lsp_types::Url>) -> Option<String> {
-        if self.is_std_widget {
-            Some("std-widgets.slint".to_string())
+        import_file_name_for_url(
+            self.defined_at.as_ref().map(|p| &p.url),
+            self.is_std_widget,
+            current_uri,
+        )
+    }
+}
+
+fn import_file_name_for_url(
+    url: Option<&lsp_types::Url>,
+    is_std_widget: bool,
+    current_uri: &Option<lsp_types::Url>,
+) -> Option<String> {
+    if is_std_widget {
+        Some("std-widgets.slint".to_string())
+    } else {
+        let url = url?;
+        if let Some(path) = url.path().strip_prefix("/@") {
+            Some(format!("@{path}"))
+        } else if let Some(current_uri) = current_uri {
+            lsp_types::Url::make_relative(current_uri, url)
         } else {
-            let url = self.defined_at.as_ref().map(|p| &p.url)?;
-            if let Some(path) = url.path().strip_prefix("/@") {
-                Some(format!("@{path}"))
-            } else if let Some(current_uri) = current_uri {
-                lsp_types::Url::make_relative(current_uri, url)
-            } else {
-                url.to_file_path().ok().map(|p| p.to_string_lossy().to_string())
-            }
+            url.to_file_path().ok().map(|path| path.to_string_lossy().to_string())
         }
+    }
+}
+
+/// Information on an exported value type (struct or enum) that can be named as a
+/// property type, callback argument type, or function return type.
+///
+/// Distinct from [`ComponentInformation`], which represents things instantiable as
+/// elements.  The two categories are disjoint: a struct/enum can never be an element
+/// base type, and a component can never be a property type.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TypeInformation {
+    /// The exported name of the type
+    pub name: String,
+    /// The URL to the file where this type is defined.
+    /// `None` for std-widget types (use `is_std_widget` to compute the import path).
+    pub defined_at: Option<lsp_types::Url>,
+    /// This type is exported from the standard widgets library
+    pub is_std_widget: bool,
+    /// The "kind" of type (e.g. struct/array, etc.).
+    /// This is a simplified representation of the real Type used by the compiler
+    /// that should be sufficient for the LSPs completions, etc.
+    pub kind: lsp_types::CompletionItemKind,
+}
+
+impl TypeInformation {
+    pub fn import_file_name(&self, current_uri: &Option<lsp_types::Url>) -> Option<String> {
+        import_file_name_for_url(self.defined_at.as_ref(), self.is_std_widget, current_uri)
     }
 }
 
