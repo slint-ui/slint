@@ -1195,9 +1195,9 @@ fn get_code_actions(
                 &token,
                 document_cache,
                 &mut |ci| !ci.is_global && ci.is_exported && ci.name == text,
-                &mut |_name, file, edit| {
+                &mut |name, file, edit| {
                     result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                        title: format!("Add import from \"{file}\""),
+                        title: format!("import {{ {name} }} from \"{file}\""),
                         kind: Some(lsp_types::CodeActionKind::QUICKFIX),
                         edit: common::create_workspace_edit_from_path(
                             document_cache,
@@ -1378,9 +1378,9 @@ fn get_code_actions(
                 &token,
                 document_cache,
                 &mut |type_info| type_info.name == text,
-                &mut |_name, file, edit| {
+                &mut |name, file, edit| {
                     result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                        title: format!("Add import from \"{file}\""),
+                        title: format!("import {{ {name} }} from \"{file}\""),
                         kind: Some(lsp_types::CodeActionKind::QUICKFIX),
                         edit: common::create_workspace_edit_from_path(
                             document_cache,
@@ -2352,7 +2352,7 @@ export global NoPreviewForGlobal {}
                 &capabilities
             )),
             Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                title: "Add import from \"std-widgets.slint\"".into(),
+                title: "import { LineEdit } from \"std-widgets.slint\"".into(),
                 kind: Some(lsp_types::CodeActionKind::QUICKFIX),
                 edit: Some(WorkspaceEdit {
                     document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
@@ -2461,7 +2461,7 @@ export component TestWindow inherits Window {
         assert_eq!(
             action,
             Some(vec![CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
-                title: "Add import from \"types.slint\"".into(),
+                title: "import { MyPoint } from \"types.slint\"".into(),
                 kind: Some(lsp_types::CodeActionKind::QUICKFIX),
                 edit: Some(WorkspaceEdit {
                     document_changes: Some(lsp_types::DocumentChanges::Edits(vec![
