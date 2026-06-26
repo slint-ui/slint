@@ -13,6 +13,7 @@ use crate::langtype::{ElementType, Enumeration, EnumerationValue, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{ElementRc, PropertyVisibility};
 use crate::parser::NodeOrToken;
+use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
 use smol_str::{SmolStr, ToSmolStr};
 use std::cell::RefCell;
@@ -34,6 +35,9 @@ pub struct LookupCtx<'a> {
     /// Somewhere to report diagnostics
     pub diag: &'a mut BuildDiagnostics,
 
+    /// Counters for generating unique symbol names (shared across the compilation).
+    pub symbol_counters: Rc<SymbolCounters>,
+
     /// The name of the arguments of the callback or function
     pub arguments: Vec<SmolStr>,
 
@@ -53,12 +57,17 @@ pub struct LookupCtx<'a> {
 
 impl<'a> LookupCtx<'a> {
     /// Return a context that is just suitable to build simple const expression
-    pub fn empty_context(type_register: &'a TypeRegister, diag: &'a mut BuildDiagnostics) -> Self {
+    pub fn empty_context(
+        type_register: &'a TypeRegister,
+        diag: &'a mut BuildDiagnostics,
+        symbol_counters: Rc<SymbolCounters>,
+    ) -> Self {
         Self {
             property_name: Default::default(),
             property_type: Default::default(),
             component_scope: Default::default(),
             diag,
+            symbol_counters,
             arguments: Default::default(),
             type_register,
             type_loader: None,
