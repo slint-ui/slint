@@ -424,7 +424,9 @@ module.exports = grammar({
       prec.right(
         2,
         seq(
+          "(",
           field("argument", $.simple_identifier),
+          ")",
           "=>",
           field("body", $.expression),
         ),

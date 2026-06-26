@@ -2237,7 +2237,7 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         }
         Expression::Closure { arg_name, expression } => {
             let display_name = arg_name.strip_prefix("local_").unwrap_or(arg_name);
-            write!(f, "{display_name} => ")?;
+            write!(f, "({display_name}) => ")?;
             pretty_print(f, expression)
         }
     }

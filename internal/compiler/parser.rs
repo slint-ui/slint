@@ -460,7 +460,7 @@ declare_syntax! {
         UsesIdentifier -> [QualifiedName, DeclaredIdentifier],
         /// `implements Interface.Foo`
         ImplementsSpecifier -> [ QualifiedName ],
-        /// `x => x > 0`
+        /// `(x) => x > 0`
         Closure -> [DeclaredIdentifier, Expression],
     }
 }
