@@ -43,7 +43,7 @@ jobs:
                   sed -i "s/Version [0-9]*\.[0-9]*\.[0-9]*\\\\n/Version ${{ github.event.inputs.new_version }}\\\\n/" internal/compiler/widgets/common/about-slint.slint
 
                   # Version in the docs (cargo add slint@<VERSION>):
-                  git ls-files | grep "\(^\|/\)docs/.*\.\(md\|rst\)\$" | xargs sed -i 's/slint@[0-9]\+\.[0-9]\+\.[0-9]\+/slint@${{ github.event.inputs.new_version }}/'
+                  git ls-files | grep "\(^\|/\)docs/.*\.\(md\|rst\)\$" | grep -v "/LICENSES/" | xargs sed --follow-symlinks -i 's/slint@[0-9]\+\.[0-9]\+\.[0-9]\+/slint@${{ github.event.inputs.new_version }}/'
 
                   # Version in esp-idf component
                   sed -i 's/^version: "[0-9]*\.[0-9]*\.[0-9]*.*"/version: "${{ github.event.inputs.new_version }}"/' api/cpp/esp-idf/slint/idf_component.yml
