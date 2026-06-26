@@ -63,18 +63,18 @@ export component Example {
 
 Arrays define the following operations:
 
--   **`array.length`**: One can query the length of an array and model using the builtin `.length` property.
+-   **`array.length`**: Use the builtin `.length` property to query the length of an array or model.
 -   **`array[index]`**: The index operator retrieves individual elements of an array.
 -   **`array.push(value)`**: Adds an element to an array or model.
 -   **`array.remove(index)`**: Removes an element from an array or model. The accepted index range is `0 <= index < array.length`.
 -   **`array.insert(index, value)`**: Inserts an element at a specified index in an array or model. The accepted index range is `0 <= index <= array.length`.
--   **`array.any((name) => condition)`**: Returns true if the boolean predicate is true for at least one element.
--   **`array.all((name) => condition)`**: Returns true if the boolean predicate is true for every element.
+-   **`array.any((name) => condition)`**: Returns `true` if the boolean predicate is `true` for at least one element.
+-   **`array.all((name) => condition)`**: Returns `true` if the boolean predicate is `true` for every element.
 
 Out of bound access into an array will return default-constructed values.
 The argument name of an `any` or `all` predicate is available only in the predicate expression,
-and its type is inferred from the array element type. `any` returns false for an empty array,
-while `all` returns true for an empty array.
+and its type is inferred from the array element type.
+`any` returns `false` for an empty array, while `all` returns `true` for an empty array.
 
 ```slint
 export component Example {
