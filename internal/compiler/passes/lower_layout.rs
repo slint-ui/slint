@@ -1047,7 +1047,9 @@ impl GridLayout {
                     rowspan_expr: rowspan_expr.unwrap_or(RowColExpr::Literal(1)),
                     child_items: None,
                 }));
-                child.borrow_mut().grid_layout_cell = Some(child_grid_cell);
+                // Attach to the element the solver reads: the sub-component root for an inner
+                // repeater (so it reports its own colspan/rowspan), or `child` for a static child.
+                sub_item.elem.borrow_mut().grid_layout_cell = Some(child_grid_cell);
 
                 // Compute the effective inner_rep_idx for this child:
                 // - For inner repeater items: cumulative_pos + model_index

@@ -798,11 +798,32 @@ fn grid_layout_input_data(
                                 repeated_element,
                                 ..
                             } => {
+                                // colspan/rowspan live on the inner sub-component's root,
+                                // evaluated per inner instance.
+                                let inner_root = repeated_element
+                                    .borrow()
+                                    .base_type
+                                    .as_component()
+                                    .root_element
+                                    .clone();
+                                let (rowspan_expr, colspan_expr) = {
+                                    let element_ref = inner_root.borrow();
+                                    let child_cell =
+                                        element_ref.grid_layout_cell.as_ref().unwrap().borrow();
+                                    (child_cell.rowspan_expr.clone(), child_cell.colspan_expr.clone())
+                                };
                                 let inner_instances =
                                     repeater_instances(sub_instance_ref, repeated_element);
-                                for i in 0..inner_instances.len() {
+                                for (i, erased_inner) in inner_instances.iter().enumerate() {
+                                    generativity::make_guard!(inner_guard);
+                                    let inner_comp = erased_inner.as_pin_ref();
+                                    let inner_instance_ref = unsafe {
+                                        InstanceRef::from_pin_ref(inner_comp.borrow(), inner_guard)
+                                    };
                                     result.push(GridLayoutInputData {
                                         new_row: i == 0 && new_row,
+                                        rowspan: eval_or_default(&rowspan_expr, inner_instance_ref),
+                                        colspan: eval_or_default(&colspan_expr, inner_instance_ref),
                                         ..Default::default()
                                     });
                                 }

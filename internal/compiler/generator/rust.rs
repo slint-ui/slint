@@ -2388,10 +2388,10 @@ fn generate_repeated_component(
                             let inner_len = _self.as_ref().#inner_rep_id.len();
                             for _i in 0..inner_len {
                                 if write_idx < result.len() {
-                                    result[write_idx] = sp::GridLayoutInputData {
-                                        new_row: write_idx == 0 && new_row,
-                                        ..Default::default()
-                                    };
+                                    // Let the inner cell report its own col/row/colspan/rowspan.
+                                    if let Some(inner) = _self.as_ref().#inner_rep_id.instance_at(_i) {
+                                        inner.as_pin_ref().grid_layout_input_data(write_idx == 0 && new_row, &mut result[write_idx..=write_idx]);
+                                    }
                                 }
                                 write_idx += 1;
                             }
