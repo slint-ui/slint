@@ -10,10 +10,8 @@ use crate::expression_tree::{
 };
 use crate::langtype::Type;
 use crate::parser::NodeOrToken;
+use crate::symbol_counters::SymbolCounters;
 use smol_str::{ToSmolStr, format_smolstr};
-
-/// Used for uniquely name some variables
-static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1);
 
 /// "Expand" the macro `mac` (at location `n`) with the arguments `sub_expr`
 pub fn lower_macro(
@@ -21,13 +19,18 @@ pub fn lower_macro(
     n: &dyn Spanned,
     mut sub_expr: impl Iterator<Item = (Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
+    symbol_counters: &SymbolCounters,
 ) -> Expression {
     match mac {
-        BuiltinMacroFunction::Min => min_max_macro(n, MinMaxOp::Min, sub_expr.collect(), diag),
-        BuiltinMacroFunction::Max => min_max_macro(n, MinMaxOp::Max, sub_expr.collect(), diag),
-        BuiltinMacroFunction::Clamp => clamp_macro(n, sub_expr.collect(), diag),
-        BuiltinMacroFunction::Mod => mod_macro(n, sub_expr.collect(), diag),
-        BuiltinMacroFunction::Abs => abs_macro(n, sub_expr.collect(), diag),
+        BuiltinMacroFunction::Min => {
+            min_max_macro(n, MinMaxOp::Min, sub_expr.collect(), diag, symbol_counters)
+        }
+        BuiltinMacroFunction::Max => {
+            min_max_macro(n, MinMaxOp::Max, sub_expr.collect(), diag, symbol_counters)
+        }
+        BuiltinMacroFunction::Clamp => clamp_macro(n, sub_expr.collect(), diag, symbol_counters),
+        BuiltinMacroFunction::Mod => mod_macro(n, sub_expr.collect(), diag, symbol_counters),
+        BuiltinMacroFunction::Abs => abs_macro(n, sub_expr.collect(), diag, symbol_counters),
         BuiltinMacroFunction::Sign => {
             let Some((x, arg_node)) = sub_expr.next() else {
                 diag.push_error("Expected one argument".into(), n);
@@ -38,7 +41,7 @@ pub fn lower_macro(
             }
             Expression::Condition {
                 condition: Expression::BinaryExpression {
-                    lhs: x.maybe_convert_to(Type::Float32, &arg_node, diag).into(),
+                    lhs: x.maybe_convert_to(Type::Float32, &arg_node, diag, symbol_counters).into(),
                     rhs: Expression::NumberLiteral(0., Unit::None).into(),
                     op: '<',
                 }
@@ -47,7 +50,7 @@ pub fn lower_macro(
                 false_expr: Expression::NumberLiteral(1., Unit::None).into(),
             }
         }
-        BuiltinMacroFunction::Debug => debug_macro(n, sub_expr.collect(), diag),
+        BuiltinMacroFunction::Debug => debug_macro(n, sub_expr.collect(), diag, symbol_counters),
         BuiltinMacroFunction::CubicBezier => {
             let mut has_error = None;
             let expected_argument_type_error =
@@ -85,9 +88,9 @@ pub fn lower_macro(
 
             expr
         }
-        BuiltinMacroFunction::Rgb => rgb_macro(n, sub_expr.collect(), diag),
-        BuiltinMacroFunction::Hsv => hsv_macro(n, sub_expr.collect(), diag),
-        BuiltinMacroFunction::Oklch => oklch_macro(n, sub_expr.collect(), diag),
+        BuiltinMacroFunction::Rgb => rgb_macro(n, sub_expr.collect(), diag, symbol_counters),
+        BuiltinMacroFunction::Hsv => hsv_macro(n, sub_expr.collect(), diag, symbol_counters),
+        BuiltinMacroFunction::Oklch => oklch_macro(n, sub_expr.collect(), diag, symbol_counters),
     }
 }
 
@@ -96,6 +99,7 @@ fn min_max_macro(
     op: MinMaxOp,
     args: Vec<(Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
+    symbol_counters: &SymbolCounters,
 ) -> Expression {
     if args.is_empty() {
         diag.push_error("Needs at least one argument".into(), node);
@@ -108,9 +112,9 @@ fn min_max_macro(
     }
     let mut args = args.into_iter();
     let (base, arg_node) = args.next().unwrap();
-    let mut base = base.maybe_convert_to(ty.clone(), &arg_node, diag);
+    let mut base = base.maybe_convert_to(ty.clone(), &arg_node, diag, symbol_counters);
     for (next, arg_node) in args {
-        let rhs = next.maybe_convert_to(ty.clone(), &arg_node, diag);
+        let rhs = next.maybe_convert_to(ty.clone(), &arg_node, diag, symbol_counters);
         base = min_max_expression(base, rhs, op);
     }
     base
@@ -120,6 +124,7 @@ fn clamp_macro(
     node: &dyn Spanned,
     args: Vec<(Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
+    symbol_counters: &SymbolCounters,
 ) -> Expression {
     if args.len() != 3 {
         diag.push_error(
@@ -137,9 +142,9 @@ fn clamp_macro(
     }
 
     let (min, min_node) = args.get(1).unwrap().clone();
-    let min = min.maybe_convert_to(ty.clone(), &min_node, diag);
+    let min = min.maybe_convert_to(ty.clone(), &min_node, diag, symbol_counters);
     let (max, max_node) = args.get(2).unwrap().clone();
-    let max = max.maybe_convert_to(ty.clone(), &max_node, diag);
+    let max = max.maybe_convert_to(ty.clone(), &max_node, diag, symbol_counters);
 
     let value = min_max_expression(value, max, MinMaxOp::Min);
     min_max_expression(min, value, MinMaxOp::Max)
@@ -149,6 +154,7 @@ fn mod_macro(
     node: &dyn Spanned,
     args: Vec<(Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
+    symbol_counters: &SymbolCounters,
 ) -> Expression {
     if args.len() != 2 {
         diag.push_error("Needs 2 arguments".into(), node);
@@ -169,7 +175,9 @@ fn mod_macro(
 
     let source_location = Some(node.to_source_location());
     let function = Callable::Builtin(BuiltinFunction::Mod);
-    let arguments = args.into_iter().map(|(e, n)| e.maybe_convert_to(common_ty.clone(), &n, diag));
+    let arguments = args
+        .into_iter()
+        .map(|(e, n)| e.maybe_convert_to(common_ty.clone(), &n, diag, symbol_counters));
     if matches!(common_ty, Type::Float32) {
         Expression::FunctionCall { function, arguments: arguments.collect(), source_location }
     } else {
@@ -191,6 +199,7 @@ fn abs_macro(
     node: &dyn Spanned,
     args: Vec<(Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
+    symbol_counters: &SymbolCounters,
 ) -> Expression {
     if args.len() != 1 {
         diag.push_error("Needs 1 argument".into(), node);
@@ -206,8 +215,10 @@ fn abs_macro(
     let source_location = Some(node.to_source_location());
     let function = Callable::Builtin(BuiltinFunction::Abs);
     if matches!(ty, Type::Float32) {
-        let arguments =
-            args.into_iter().map(|(e, n)| e.maybe_convert_to(ty.clone(), &n, diag)).collect();
+        let arguments = args
+            .into_iter()
+            .map(|(e, n)| e.maybe_convert_to(ty.clone(), &n, diag, symbol_counters))
+            .collect();
         Expression::FunctionCall { function, arguments, source_location }
     } else {
         Expression::Cast {
@@ -229,6 +240,7 @@ fn rgb_macro(
     node: &dyn Spanned,
     args: Vec<(Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
+    symbol_counters: &SymbolCounters,
 ) -> Expression {
     if args.len() < 3 || args.len() > 4 {
         diag.push_error(
@@ -244,15 +256,20 @@ fn rgb_macro(
             if i < 3 {
                 if expr.ty() == Type::Percent {
                     Expression::BinaryExpression {
-                        lhs: Box::new(expr.maybe_convert_to(Type::Float32, &n, diag)),
+                        lhs: Box::new(expr.maybe_convert_to(
+                            Type::Float32,
+                            &n,
+                            diag,
+                            symbol_counters,
+                        )),
                         rhs: Box::new(Expression::NumberLiteral(255., Unit::None)),
                         op: '*',
                     }
                 } else {
-                    expr.maybe_convert_to(Type::Float32, &n, diag)
+                    expr.maybe_convert_to(Type::Float32, &n, diag, symbol_counters)
                 }
             } else {
-                expr.maybe_convert_to(Type::Float32, &n, diag)
+                expr.maybe_convert_to(Type::Float32, &n, diag, symbol_counters)
             }
         })
         .collect();
@@ -270,6 +287,7 @@ fn hsv_macro(
     node: &dyn Spanned,
     args: Vec<(Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
+    symbol_counters: &SymbolCounters,
 ) -> Expression {
     if args.len() < 3 || args.len() > 4 {
         diag.push_error(
@@ -290,7 +308,7 @@ fn hsv_macro(
                     op: '/',
                 }
             } else {
-                expr.maybe_convert_to(Type::Float32, &n, diag)
+                expr.maybe_convert_to(Type::Float32, &n, diag, symbol_counters)
             }
         })
         .collect();
@@ -308,6 +326,7 @@ fn oklch_macro(
     node: &dyn Spanned,
     args: Vec<(Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
+    symbol_counters: &SymbolCounters,
 ) -> Expression {
     if args.len() < 3 || args.len() > 4 {
         diag.push_error(
@@ -335,7 +354,7 @@ fn oklch_macro(
                     op: '/',
                 }
             } else {
-                expr.maybe_convert_to(Type::Float32, &n, diag)
+                expr.maybe_convert_to(Type::Float32, &n, diag, symbol_counters)
             }
         })
         .collect();
@@ -353,10 +372,11 @@ fn debug_macro(
     node: &dyn Spanned,
     args: Vec<(Expression, Option<NodeOrToken>)>,
     diag: &mut BuildDiagnostics,
+    symbol_counters: &SymbolCounters,
 ) -> Expression {
     let mut string = None;
     for (expr, node) in args {
-        let val = to_debug_string(expr, &node, diag);
+        let val = to_debug_string(expr, &node, diag, symbol_counters);
         string = Some(match string {
             None => val,
             Some(string) => Expression::BinaryExpression {
@@ -383,6 +403,7 @@ fn to_debug_string(
     expr: Expression,
     node: &dyn Spanned,
     diag: &mut BuildDiagnostics,
+    symbol_counters: &SymbolCounters,
 ) -> Expression {
     let ty = expr.ty();
     match &ty {
@@ -401,7 +422,9 @@ fn to_debug_string(
             diag.push_error("Cannot debug this expression".into(), node);
             Expression::Invalid
         }
-        Type::Float32 | Type::Int32 => expr.maybe_convert_to(Type::String, node, diag),
+        Type::Float32 | Type::Int32 => {
+            expr.maybe_convert_to(Type::String, node, diag, symbol_counters)
+        }
         Type::String => expr,
         // TODO
         Type::Color
@@ -425,6 +448,7 @@ fn to_debug_string(
                     Type::String,
                     node,
                     diag,
+                    symbol_counters,
                 ),
             ),
             op: '+',
@@ -438,10 +462,7 @@ fn to_debug_string(
             false_expr: Box::new(Expression::StringLiteral("false".into())),
         },
         Type::Struct(s) => {
-            let local_object = format_smolstr!(
-                "debug_struct{}",
-                COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-            );
+            let local_object = symbol_counters.generate_name("debug_struct");
             let mut string = None;
             for k in s.fields.keys() {
                 let field_name = if string.is_some() {
@@ -459,6 +480,7 @@ fn to_debug_string(
                     },
                     node,
                     diag,
+                    symbol_counters,
                 );
                 let field = Expression::BinaryExpression {
                     lhs: Box::new(Expression::StringLiteral(field_name)),

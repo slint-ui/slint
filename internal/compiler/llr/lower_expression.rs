@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::rc::{Rc, Weak};
 
-use smol_str::{SmolStr, format_smolstr};
+use smol_str::SmolStr;
 
 use super::lower_layout_expression::{
     compute_box_layout_info, compute_flexbox_layout_info, compute_grid_layout_info,
@@ -357,11 +357,7 @@ fn lower_assignment(
         tree_Expression::StructFieldAccess { base, name } => {
             let ty = base.ty();
 
-            static COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
-            let unique_name = format_smolstr!(
-                "struct_assignment{}",
-                COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-            );
+            let unique_name = ctx.state.unique_struct_assignment_name();
             let s = tree_Expression::StoreLocalVariable {
                 name: unique_name.clone(),
                 value: base.clone(),

@@ -12,13 +12,18 @@ use crate::expression_tree::TwoWayBinding;
 use crate::langtype::Type;
 use crate::lookup::LookupCtx;
 use crate::object_tree::{Document, ElementRc};
+use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
 use std::rc::Rc;
 
 #[derive(Clone)]
 struct ComponentScope(Vec<ElementRc>);
 
-pub fn resolve_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
+pub fn resolve_aliases(
+    doc: &Document,
+    diag: &mut BuildDiagnostics,
+    symbol_counters: &Rc<SymbolCounters>,
+) {
     for component in doc.inner_components.iter() {
         let scope = ComponentScope(Vec::new());
         crate::object_tree::recurse_elem_no_borrow(
@@ -38,7 +43,7 @@ pub fn resolve_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
                 // make it deterministic
                 need_resolving.sort();
                 for n in need_resolving {
-                    resolve_alias(elem, &n, &new_scope, &doc.local_registry, diag);
+                    resolve_alias(elem, &n, &new_scope, &doc.local_registry, diag, symbol_counters);
                 }
                 new_scope
             },
@@ -52,6 +57,7 @@ fn resolve_alias(
     scope: &ComponentScope,
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
+    symbol_counters: &Rc<SymbolCounters>,
 ) {
     let mut borrow_mut = elem.borrow_mut();
     let old_type = match borrow_mut.property_declarations.get_mut(prop) {
@@ -83,7 +89,7 @@ fn resolve_alias(
             assert!(diag.has_errors(), "The parser only avoid missing types for two way bindings");
             return;
         };
-        let mut lookup_ctx = LookupCtx::empty_context(type_register, diag);
+        let mut lookup_ctx = LookupCtx::empty_context(type_register, diag, symbol_counters.clone());
         lookup_ctx.property_name = Some(prop);
         lookup_ctx.property_type = old_type.clone();
         lookup_ctx.component_scope = &scope.0;
@@ -105,7 +111,7 @@ fn resolve_alias(
             ty = twb.ty();
             if matches!(ty, Type::InferredCallback | Type::InferredProperty) {
                 let s = if same_element { scope } else { &recompute_scope(&element) };
-                resolve_alias(&element, property.name(), s, type_register, diag);
+                resolve_alias(&element, property.name(), s, type_register, diag, symbol_counters);
                 ty = twb.ty();
             }
         }
