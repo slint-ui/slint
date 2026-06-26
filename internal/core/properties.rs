@@ -423,7 +423,7 @@ type OwnerChain = dependency_tracker::OwnerChain<*const BindingHolder>;
 impl dependency_tracker::SlabbedDep for *const BindingHolder {
     fn try_with_slab<R>(f: impl FnOnce(&mut dependency_tracker::Slab<Self>) -> R) -> Option<R> {
         crate::thread_local!(static SLAB: RefCell<dependency_tracker::Slab<*const BindingHolder>>
-            = RefCell::new(dependency_tracker::Slab::new()));
+            = const { RefCell::new(dependency_tracker::Slab::new()) });
         SLAB.try_with(|s| f(&mut s.borrow_mut())).ok()
     }
 }
