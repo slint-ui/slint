@@ -66,6 +66,14 @@ export component Example inherits Window {
 }
 ```
 
+## Predicate Expressions
+
+Predicate expressions use the syntax `(name) => expression`.
+The `name` is available only in the expression after `=>`.
+Predicates are currently used as arguments to array and model operations such as
+`array.any((value) => value > 0)` and `array.all((value) => value > 0)`,
+where the expression must evaluate to `bool`.
+
 ## Statements
 
 ### Let statements (local variables)
@@ -120,4 +128,3 @@ clicked => { }
 // or
 clicked => { ; }
 ```
-

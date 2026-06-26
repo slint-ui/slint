@@ -3478,11 +3478,11 @@ export component MainWindow2 inherits Rectangle {
     #[test]
     fn closure() {
         assert_formatting(
-            "component X { property <[int]> arr: [1, 2, 3, 4, 5]; function foo() { arr.any(x\n     =>   x         ==  1     ); } }",
+            "component X { property <[int]> arr: [1, 2, 3, 4, 5]; function foo() { arr.any((x)\n     =>   x         ==  1     ); } }",
             r#"component X {
     property <[int]> arr: [1, 2, 3, 4, 5];
     function foo() {
-        arr.any(x => x == 1);
+        arr.any((x) => x == 1);
     }
 }
 "#,
@@ -3707,19 +3707,19 @@ export component MainWindow2 inherits Rectangle {
     #[test]
     fn nested_closure() {
         assert_formatting(
-            "component X { property <[[int]]> arr: [[1, 2, 3, 4, 5]]; function foo() { arr.any(x     =>   x.all(y   => y   ==  7     )      ); } }",
+            "component X { property <[[int]]> arr: [[1, 2, 3, 4, 5]]; function foo() { arr.any((x)     =>   x.all((y)   => y   ==  7     )      ); } }",
             r#"component X {
     property <[[int]]> arr: [[1, 2, 3, 4, 5]];
-    function foo() { arr.any(x => x.all(y => y == 7)); }
+    function foo() { arr.any((x) => x.all((y) => y == 7)); }
 }
 "#,
         );
 
         assert_formatting(
-            "component X { property <[[{age: int}]]> groups: []; function foo() { groups.any(group     =>   group.any(person   => person.age   >  20     ) && group.length == 2      ); } }",
+            "component X { property <[[{age: int}]]> groups: []; function foo() { groups.any((group)     =>   group.any((person)   => person.age   >  20     ) && group.length == 2      ); } }",
             r#"component X {
     property <[[{age: int}]]> groups: [];
-    function foo() { groups.any(group => group.any(person => person.age > 20) && group.length == 2); }
+    function foo() { groups.any((group) => group.any((person) => person.age > 20) && group.length == 2); }
 }
 "#,
         );
