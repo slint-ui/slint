@@ -179,10 +179,26 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
                 && line.glyph_range.end < glyphs.len()
                 && y + self.layout.font.height() * two > self.max_height;
 
+            // On a vertically truncated line the ellipsis is anchored right after the text by
+            // ignoring trailing whitespace, so it reads "please…" rather than "please   …". The
+            // line breaker already excludes trailing whitespace from `byte_range`, so the glyphs
+            // past its end are exactly that whitespace to trim. This trimmed range is what gets
+            // measured (for alignment) and drawn; other lines keep the full range.
+            let glyph_range = if elide_last_line {
+                let trailing_whitespace_glyphs = glyphs[line.glyph_range.clone()]
+                    .iter()
+                    .rev()
+                    .take_while(|glyph| glyph.text_byte_offset >= line.byte_range.end)
+                    .count();
+                line.glyph_range.start..line.glyph_range.end - trailing_whitespace_glyphs
+            } else {
+                line.glyph_range.clone()
+            };
+
             let text_width = || {
                 if elide_long_line || elide_last_line {
                     let mut text_width = Font::Length::zero();
-                    for glyph in &glyphs[line.glyph_range.clone()] {
+                    for glyph in &glyphs[glyph_range.clone()] {
                         if text_width + glyph.advance > max_width_without_elision {
                             break;
                         }
@@ -225,11 +241,11 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
                     begin..end
                 });
 
-            let glyph_it = glyphs[line.glyph_range.clone()].iter();
+            let glyph_it = glyphs[glyph_range.clone()].iter();
             let mut glyph_x = Font::Length::zero();
             // Up to two output glyphs per input glyph: the glyph itself, plus -- on the last glyph
             // of a vertically truncated line that still fits the width -- an ellipsis appended
-            // after it.
+            // after it (trailing whitespace was already trimmed from `glyph_range`).
             let mut positioned_glyph_it = glyph_it.enumerate().flat_map(|(index, glyph)| {
                 let mut output: [Option<PositionedGlyph<Font::Length>>; 2] = [None, None];
                 // TODO: cut off at grapheme boundaries
@@ -268,7 +284,7 @@ impl<Font: AbstractFont> TextParagraphLayout<'_, Font> {
                 // A line that only overflows vertically (it fits the width) keeps all its glyphs
                 // and gets the ellipsis *appended* after the last one rather than overwriting it,
                 // matching the parley path which renders e.g. "Line Two..." not "Line Tw...".
-                let last_glyph = line.glyph_range.start + index == line.glyph_range.end - 1;
+                let last_glyph = glyph_range.start + index == glyph_range.end - 1;
                 if elide_last_line
                     && last_glyph
                     && let Some(elide_glyph) = elide_glyph.take()
