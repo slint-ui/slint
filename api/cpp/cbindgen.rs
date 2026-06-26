@@ -917,6 +917,11 @@ fn gen_corelib(
         .body
         .insert("Flickable".to_owned(), "    inline Flickable(); inline ~Flickable();".into());
     config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
+    config
+        .export
+        .body
+        .insert("TextInput".to_owned(), "    inline TextInput(); inline ~TextInput();".into());
+    config.export.pre_body.insert("TextInputDataBox".to_owned(), "struct TextInputData;".into());
     config.export.body.insert(
         "SystemTrayIcon".to_owned(),
         "    inline SystemTrayIcon(); inline ~SystemTrayIcon();".into(),

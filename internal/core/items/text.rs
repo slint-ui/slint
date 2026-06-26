@@ -30,7 +30,7 @@ use crate::rtti::*;
 use crate::string::string_to_float;
 use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString, SharedVector};
-use alloc::{rc::Rc, string::String};
+use alloc::{boxed::Box, rc::Rc, string::String};
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
 use core::pin::Pin;
@@ -771,10 +771,62 @@ pub struct TextInput {
     pressed: Cell<u8>,
     undo_items: Cell<SharedVector<UndoItem>>,
     redo_items: Cell<SharedVector<UndoItem>>,
+    data: TextInputDataBox,
+}
+
+#[derive(Default)]
+pub struct TextInputData {
+    /// Mirror of `text` as of the last internal edit. Used by the change handler installed
+    /// in `init` to tell internal edits apart from external assignments to the public `text`
+    /// property, so that only the latter realign the cursor/anchor offsets and undo stack.
+    internal_text: Cell<SharedString>,
+    /// Runs `align_to_text` whenever `text` is assigned externally (see issues #331 and #9024).
+    text_change_tracker: crate::properties::ChangeTracker,
+}
+
+#[repr(C)]
+/// Wraps the internal data structure for the TextInput
+pub struct TextInputDataBox(core::ptr::NonNull<TextInputData>);
+
+impl Default for TextInputDataBox {
+    fn default() -> Self {
+        TextInputDataBox(Box::leak(Box::<TextInputData>::default()).into())
+    }
+}
+impl Drop for TextInputDataBox {
+    fn drop(&mut self) {
+        // Safety: the self.0 was constructed from a Box::leak in TextInputDataBox::default
+        drop(unsafe { Box::from_raw(self.0.as_ptr()) });
+    }
+}
+impl core::ops::Deref for TextInputDataBox {
+    type Target = TextInputData;
+    fn deref(&self) -> &Self::Target {
+        // Safety: initialized in TextInputDataBox::default
+        unsafe { self.0.as_ref() }
+    }
 }
 
 impl Item for TextInput {
-    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+    fn init(self: Pin<&Self>, self_rc: &ItemRc) {
+        // Seed the mirror so the change handler doesn't treat the initial text as external.
+        self.data.internal_text.set(self.text());
+        self.data.text_change_tracker.init_delayed(
+            self_rc.downgrade(),
+            |self_weak| {
+                self_weak
+                    .upgrade()
+                    .and_then(|rc| rc.downcast::<TextInput>())
+                    .map(|text_input| text_input.as_pin_ref().text())
+                    .unwrap_or_default()
+            },
+            |self_weak, new_text| {
+                let Some(self_rc) = self_weak.upgrade() else { return };
+                let Some(text_input) = self_rc.downcast::<TextInput>() else { return };
+                text_input.as_pin_ref().align_to_text(new_text, &self_rc);
+            },
+        );
+    }
 
     fn deinit(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
         if self.has_focus() {
@@ -1084,7 +1136,7 @@ impl Item for TextInput {
                     kind: UndoItemKind::TextInsert,
                 });
 
-                self.as_ref().text.set(text.into());
+                self.as_ref().set_text_internal(text.into());
                 let new_cursor_pos = (insert_pos + event.key_event.text.len()) as i32;
                 self.as_ref().anchor_position_byte_offset.set(new_cursor_pos);
                 self.set_cursor_position(
@@ -1201,7 +1253,7 @@ impl Item for TextInput {
                             let mut text = String::from(self.text());
                             let cursor_position = self.cursor_position(&text);
                             text.insert_str(cursor_position, &preedit_text);
-                            self.text.set(text.into());
+                            self.set_text_internal(text.into());
                             let new_pos = (cursor_position + preedit_text.len()) as i32;
                             self.anchor_position_byte_offset.set(new_pos);
                             self.set_cursor_position(
@@ -1613,6 +1665,47 @@ impl TextInput {
         new_cursor_pos != last_cursor_pos
     }
 
+    /// Set `text` from an internal edit, keeping the `internal_text` mirror in sync so the
+    /// change handler doesn't mistake this edit for an external assignment.
+    fn set_text_internal(self: Pin<&Self>, text: SharedString) {
+        self.data.internal_text.set(text.clone());
+        self.text.set(text);
+    }
+
+    /// Called by the change handler when the public `text` property changes. If the new text
+    /// differs from our `internal_text` mirror, the change came from outside (the application
+    /// assigned `text` directly), so realign all derived state to the new text: clamp the
+    /// cursor and anchor offsets to valid boundaries (issue #331) and clear the undo/redo
+    /// stacks, whose positions refer to the now-replaced text (issue #9024).
+    fn align_to_text(self: Pin<&Self>, new_text: &SharedString, self_rc: &ItemRc) {
+        let previous_text = self.data.internal_text.replace(new_text.clone());
+        if previous_text == *new_text {
+            // Produced by an internal edit: `set_text_internal` already kept the mirror in sync,
+            // so the offsets and undo stack are consistent with `new_text`. Nothing to realign.
+            return;
+        }
+
+        self.undo_items.set(Default::default());
+        self.redo_items.set(Default::default());
+
+        let old_cursor = self.cursor_position_byte_offset();
+        let clamped_cursor = safe_byte_offset(old_cursor, new_text) as i32;
+        let clamped_anchor = safe_byte_offset(self.anchor_position_byte_offset(), new_text) as i32;
+        self.anchor_position_byte_offset.set(clamped_anchor);
+
+        if let Some(window_adapter) = self_rc.window_adapter() {
+            self.set_cursor_position(
+                clamped_cursor,
+                true,
+                TextChangeNotify::TriggerCallbacks,
+                &window_adapter,
+                self_rc,
+            );
+        } else {
+            self.cursor_position_byte_offset.set(clamped_cursor);
+        }
+    }
+
     pub fn set_cursor_position(
         self: Pin<&Self>,
         new_position: i32,
@@ -1692,7 +1785,7 @@ impl TextInput {
         };
 
         let text = [text.split_at(anchor).0, text.split_at(cursor).1].concat();
-        self.text.set(text.into());
+        self.set_text_internal(text.into());
         self.anchor_position_byte_offset.set(anchor as i32);
 
         self.add_undo_item(UndoItem {
@@ -1822,7 +1915,7 @@ impl TextInput {
         });
 
         let cursor_pos = cursor_pos + text_to_insert.len();
-        self.text.set(text.into());
+        self.set_text_internal(text.into());
         self.anchor_position_byte_offset.set(cursor_pos as i32);
         self.set_cursor_position(
             cursor_pos as i32,
@@ -2120,7 +2213,7 @@ impl TextInput {
                 let text: String = self.text().into();
                 let text = [text.split_at(last.pos).0, text.split_at(last.pos + last.text.len()).1]
                     .concat();
-                self.text.set(text.into());
+                self.set_text_internal(text.into());
 
                 self.anchor_position_byte_offset.set(last.anchor as i32);
                 self.set_cursor_position(
@@ -2134,7 +2227,7 @@ impl TextInput {
             UndoItemKind::TextRemove => {
                 let mut text: String = self.text().into();
                 text.insert_str(last.pos, &last.text);
-                self.text.set(text.into());
+                self.set_text_internal(text.into());
 
                 self.anchor_position_byte_offset.set(last.anchor as i32);
                 self.set_cursor_position(
@@ -2164,7 +2257,7 @@ impl TextInput {
             UndoItemKind::TextInsert => {
                 let mut text: String = self.text().into();
                 text.insert_str(last.pos, &last.text);
-                self.text.set(text.into());
+                self.set_text_internal(text.into());
 
                 self.anchor_position_byte_offset.set(last.anchor as i32);
                 self.set_cursor_position(
@@ -2179,7 +2272,7 @@ impl TextInput {
                 let text: String = self.text().into();
                 let text = [text.split_at(last.pos).0, text.split_at(last.pos + last.text.len()).1]
                     .concat();
-                self.text.set(text.into());
+                self.set_text_internal(text.into());
 
                 self.anchor_position_byte_offset.set(last.anchor as i32);
                 self.set_cursor_position(
@@ -2435,5 +2528,24 @@ pub unsafe extern "C" fn slint_cpp_text_item_fontmetrics(
         let self_rc = ItemRc::new(self_component.clone(), self_index);
         let self_ref = self_rc.borrow();
         slint_text_item_fontmetrics(window_adapter, self_ref, &self_rc)
+    }
+}
+
+/// # Safety
+/// This must be called using a non-null pointer pointing to a chunk of memory big enough to
+/// hold a TextInputDataBox
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_textinput_data_init(data: *mut TextInputDataBox) {
+    unsafe { core::ptr::write(data, TextInputDataBox::default()) };
+}
+
+/// # Safety
+/// This must be called using a non-null pointer pointing to an initialized TextInputDataBox
+#[cfg(feature = "ffi")]
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn slint_textinput_data_free(data: *mut TextInputDataBox) {
+    unsafe {
+        core::ptr::drop_in_place(data);
     }
 }

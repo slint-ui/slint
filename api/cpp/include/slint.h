@@ -575,6 +575,15 @@ cbindgen_private::Flickable::~Flickable()
     slint_flickable_data_free(&data);
 }
 
+cbindgen_private::TextInput::TextInput()
+{
+    slint_textinput_data_init(&data);
+}
+cbindgen_private::TextInput::~TextInput()
+{
+    slint_textinput_data_free(&data);
+}
+
 cbindgen_private::SystemTrayIcon::SystemTrayIcon()
 {
     slint_system_tray_icon_data_init(&data);
