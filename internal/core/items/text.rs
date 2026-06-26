@@ -1277,7 +1277,16 @@ impl HasFont for TextInput {
 
 impl RenderString for TextInput {
     fn text(self: Pin<&Self>) -> PlainOrStyledText {
-        PlainOrStyledText::Plain(self.as_ref().visual_representation(None).text.clone())
+        // Mask password fields so the box is sized for the password glyph, but -
+        // unlike `visual_representation` - ignore cursor/selection/preedit, which
+        // would otherwise make text_size (and layout) reflow on every cursor blink
+        // or IME composition. The persistent box size only depends on the text.
+        let text = self.text();
+        if matches!(self.input_type(), InputType::Password) {
+            PlainOrStyledText::Plain(core::iter::repeat_n('●', text.chars().count()).collect())
+        } else {
+            PlainOrStyledText::Plain(text)
+        }
     }
 }
 
