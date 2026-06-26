@@ -626,20 +626,25 @@ jobs:
                   path: android-demos
             - name: Extract files
               run: |
+                  # Backwards compatibility: also publish under the old artifact names.
+                  # These cp steps can be removed once no tools depend on the old names.
+                  cp slint-lsp-universal-apple-darwin.tar.gz slint-lsp-macos.tar.gz
+                  cp slint-lsp-x86_64-unknown-linux-gnu.tar.gz slint-lsp-linux.tar.gz
+                  cp slint-lsp-x86_64-pc-windows-msvc.zip slint-lsp-windows-x86_64.zip
+                  cp slint-lsp-aarch64-pc-windows-msvc.zip slint-lsp-windows-arm64.zip
+                  cp slint-viewer-universal-apple-darwin.tar.gz slint-viewer-macos.tar.gz
+                  cp slint-viewer-x86_64-unknown-linux-gnu.tar.gz slint-viewer-linux.tar.gz
+                  cp slint-viewer-x86_64-pc-windows-msvc.zip slint-viewer-windows-x86_64.zip
+                  cp slint-viewer-aarch64-pc-windows-msvc.zip slint-viewer-windows-arm64.zip
+                  # Now move everything into the artifacts dir
                   ls -l
                   mkdir artifacts
                   mv Slint-cpp-*-win64*.exe artifacts/
                   mv Slint-cpp-*.tar.gz artifacts/
-                  mv slint-viewer-linux.tar.gz artifacts/
-                  mv slint-viewer-armv7-unknown-linux-gnueabihf.tar.gz artifacts/
-                  mv slint-viewer-aarch64-unknown-linux-gnu.tar.gz artifacts/
-                  mv slint-viewer-macos.tar.gz artifacts/
-                  mv slint-viewer-windows*.zip artifacts/
-                  mv slint-lsp-linux.tar.gz artifacts/
-                  mv slint-lsp-armv7-unknown-linux-gnueabihf.tar.gz artifacts/
-                  mv slint-lsp-aarch64-unknown-linux-gnu.tar.gz artifacts/
-                  mv slint-lsp-macos.tar.gz artifacts/
-                  mv slint-lsp-windows*.zip artifacts/
+                  mv slint-viewer-*.tar.gz artifacts/
+                  mv slint-viewer-*.zip artifacts/
+                  mv slint-lsp-*.tar.gz artifacts/
+                  mv slint-lsp-*.zip artifacts/
                   mv slint-compiler-*.tar.gz artifacts/
                   mv figma-plugin.zip artifacts/
                   # slint-viewer APK ships as a release asset (too big for the web server).

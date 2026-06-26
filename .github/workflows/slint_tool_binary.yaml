@@ -76,10 +76,8 @@ jobs:
                 include:
                   - arch: x86_64-pc-windows-msvc
                     runner: windows-2022
-                    package_suffix: x86_64
                   - arch: aarch64-pc-windows-msvc
                     runner: windows-11-arm
-                    package_suffix: arm64
 
         runs-on: ${{ matrix.runner}}
         steps:
@@ -111,15 +109,6 @@ jobs:
                   name: slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.arch }}
                   path: |
                       slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.arch }}.zip
-            # Backwards compatibility: also publish under the old artifact names. These steps can be removed once no tools depend on the old names.
-            - name: Copy archive with legacy name
-              shell: powershell
-              run: Copy-Item slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.arch }}.zip slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.package_suffix }}.zip
-            - name: Upload artifact with legacy name
-              uses: actions/upload-artifact@v7
-              with:
-                  name: slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.package_suffix }}
-                  path: slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.package_suffix }}.zip
 
     build_linux:
         runs-on: ubuntu-22.04
@@ -144,14 +133,6 @@ jobs:
               with:
                   name: slint-${{ github.event.inputs.program || inputs.program }}-x86_64-unknown-linux-gnu
                   path: slint-${{ github.event.inputs.program || inputs.program }}-x86_64-unknown-linux-gnu.tar.gz
-            # Backwards compatibility: also publish under the old artifact names. These steps can be removed once no tools depend on the old names.
-            - name: Copy archive with legacy name
-              run: cp slint-${{ github.event.inputs.program || inputs.program }}-x86_64-unknown-linux-gnu.tar.gz slint-${{ github.event.inputs.program || inputs.program }}-linux.tar.gz
-            - name: Upload artifact with legacy name
-              uses: actions/upload-artifact@v7
-              with:
-                  name: slint-${{ github.event.inputs.program || inputs.program }}-linux
-                  path: slint-${{ github.event.inputs.program || inputs.program }}-linux.tar.gz
 
     build_linux_arm:
       runs-on: ubuntu-22.04
@@ -222,12 +203,3 @@ jobs:
               with:
                   name: slint-${{ github.event.inputs.program || inputs.program }}-universal-apple-darwin
                   path: slint-${{ github.event.inputs.program || inputs.program }}-universal-apple-darwin.tar.gz
-            # Backwards compatibility: also publish under the old artifact names. These steps can be removed once no tools depend on the old names.
-            - name: Copy archive with legacy name
-              run: cp slint-${{ github.event.inputs.program || inputs.program }}-universal-apple-darwin.tar.gz slint-${{ github.event.inputs.program || inputs.program }}-macos.tar.gz
-            - name: Upload artifact with legacy name
-              uses: actions/upload-artifact@v7
-              with:
-                  name: slint-${{ github.event.inputs.program || inputs.program }}-macos
-                  path: slint-${{ github.event.inputs.program || inputs.program }}-macos.tar.gz
-
