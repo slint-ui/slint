@@ -6,7 +6,9 @@
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 
-use crate::common::{ComponentInformation, DocumentCache, Position, PropertyChange};
+use crate::common::{
+    ComponentInformation, DocumentCache, Position, PropertyChange, TypeInformation,
+};
 #[cfg(feature = "preview-engine")]
 use i_slint_compiler::langtype::ElementType;
 
@@ -160,7 +162,10 @@ fn libraryize_url(document_cache: &DocumentCache, url: lsp_types::Url) -> lsp_ty
     }
 }
 
-/// Fill the result with all exported components that matches the given filter
+/// Fill the result with all exported components that matches the given filter.
+///
+/// Note that these are the components that can be instantiated as elements, and are distinct from
+/// exported value types (structs and enums) which are used in property types, callback argument types, etc.
 pub fn all_exported_components(
     document_cache: &DocumentCache,
     filter: &mut dyn FnMut(&ComponentInformation) -> bool,
@@ -198,6 +203,50 @@ pub fn all_exported_components(
 
             let Some(to_push) = to_push else {
                 continue;
+            };
+
+            if !filter(&to_push) {
+                continue;
+            }
+
+            result.push(to_push);
+        }
+    }
+}
+
+/// Fill the result with all exported value types (structs and enums) that match the
+/// given filter.
+///
+/// These are the types that can be named in `property <T>`, callback argument types,
+/// and function signatures. They are distinct from components/globals, which are
+/// instantiable as elements.
+pub fn all_exported_types(
+    document_cache: &DocumentCache,
+    filter: &mut dyn FnMut(&TypeInformation) -> bool,
+    result: &mut Vec<TypeInformation>,
+) {
+    for url in document_cache.all_urls() {
+        let Some(doc) = document_cache.get_document(&url) else { continue };
+        let is_builtin = url.scheme() == "builtin";
+        let is_std_widget = is_builtin && url.path().ends_with("/std-widgets.slint");
+
+        // Skip internal builtins — they have no importable struct/enum exports
+        if is_builtin && !is_std_widget {
+            continue;
+        }
+
+        let url = libraryize_url(document_cache, url);
+
+        for (exported_name, ty) in &*doc.exports {
+            // Only process struct/enum exports (Either::Right); components are Either::Left
+            let Some(_) = ty.as_ref().right() else {
+                continue;
+            };
+
+            let to_push = TypeInformation {
+                name: exported_name.to_string(),
+                defined_at: if is_std_widget { None } else { Some(url.clone()) },
+                is_std_widget,
             };
 
             if !filter(&to_push) {
