@@ -658,6 +658,10 @@ pub struct TypeInformation {
     pub defined_at: Option<lsp_types::Url>,
     /// This type is exported from the standard widgets library
     pub is_std_widget: bool,
+    /// The "kind" of type (e.g. struct/array, etc.).
+    /// This is a simplified representation of the real Type used by the compiler
+    /// that should be sufficient for the LSPs completions, etc.
+    pub kind: lsp_types::CompletionItemKind,
 }
 
 impl TypeInformation {

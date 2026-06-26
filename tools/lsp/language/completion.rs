@@ -3,7 +3,7 @@
 
 // cSpell: ignore rfind barbar funi
 
-use crate::common::component_catalog::{all_exported_components, all_exported_types};
+use crate::common::component_catalog::{self, all_exported_components, all_exported_types};
 use crate::common::{self, DocumentCache};
 use crate::util::{lookup_current_element_type, text_size_to_lsp_position, with_lookup_ctx};
 
@@ -947,23 +947,24 @@ fn resolve_type_scope(
     document_cache: &DocumentCache,
 ) -> Option<Vec<CompletionItem>> {
     let global_tr = document_cache.global_type_registry();
-    let tr = token
+    let type_register = token
         .source_file()
         .and_then(|sf| document_cache.get_document_for_source_file(sf))
         .map(|doc| &doc.local_registry)
         .unwrap_or(&global_tr);
-    Some(
-        tr.all_types()
-            .into_iter()
-            .filter_map(|(k, t)| {
-                t.is_property_type().then(|| {
-                    let mut c = CompletionItem::new_simple(k.to_string(), String::new());
-                    c.kind = Some(CompletionItemKind::TYPE_PARAMETER);
-                    c
-                })
+    let mut result: Vec<CompletionItem> = type_register
+        .all_types()
+        .into_iter()
+        .filter_map(|(name, ty)| {
+            ty.is_property_type().then(|| {
+                let mut c = CompletionItem::new_simple(name.to_string(), String::new());
+                c.kind = Some(component_catalog::type_completion_kind(&ty));
+                c
             })
-            .collect(),
-    )
+        })
+        .collect();
+    add_types_to_import(&token, document_cache, &mut result);
+    Some(result)
 }
 
 fn complete_path_in_string(
@@ -1010,17 +1011,14 @@ fn add_components_to_import(
     document_cache: &common::DocumentCache,
     result: &mut Vec<CompletionItem>,
 ) {
-    let mut available_types: HashSet<_> = result.iter().map(|c| c.label.clone()).collect();
+    let available_types: HashSet<_> = result.iter().map(|c| c.label.clone()).collect();
     build_component_import_statements_edits(
         token,
         document_cache,
-        &mut |ci: &common::ComponentInformation| {
-            if ci.is_global || !ci.is_exported || available_types.contains(&ci.name) {
-                false
-            } else {
-                available_types.insert(ci.name.clone());
-                true
-            }
+        &mut |component: &common::ComponentInformation| {
+            !component.is_global
+                && component.is_exported
+                && !available_types.contains(&component.name)
         },
         &mut |exported_name, file, the_import| {
             result.push(CompletionItem {
@@ -1033,6 +1031,34 @@ fn add_components_to_import(
                 insert_text_format: Some(InsertTextFormat::SNIPPET),
                 filter_text: Some(exported_name.to_string()),
                 kind: Some(CompletionItemKind::CLASS),
+                detail: Some(format!("(import from \"{file}\")")),
+                additional_text_edits: Some(vec![the_import]),
+                ..Default::default()
+            });
+        },
+    );
+}
+
+/// Add the exported value types (structs/enums) that require an import to `result`.
+///
+/// Already-available types (those already in `result`) are excluded via a `HashSet` dedup,
+/// mirroring the same pattern used by [`add_components_to_import`] for elements.
+fn add_types_to_import(
+    token: &SyntaxToken,
+    document_cache: &common::DocumentCache,
+    result: &mut Vec<CompletionItem>,
+) {
+    let available_types: HashSet<_> = result.iter().map(|c| c.label.clone()).collect();
+    build_type_import_statements_edits(
+        token,
+        document_cache,
+        &mut |type_info: &common::TypeInformation| !available_types.contains(&type_info.name),
+        &mut |type_info, exported_name, file, the_import| {
+            result.push(CompletionItem {
+                label: format!("{exported_name} (import from \"{file}\")"),
+                insert_text: Some(exported_name.to_string()),
+                filter_text: Some(exported_name.to_string()),
+                kind: Some(type_info.kind),
                 detail: Some(format!("(import from \"{file}\")")),
                 additional_text_edits: Some(vec![the_import]),
                 ..Default::default()
@@ -1179,31 +1205,33 @@ pub fn build_component_import_statements_edits(
         token,
         document_cache,
         exported_types.iter().filter_map(|type_info| {
-            type_info.import_file_name(&current_uri).map(|path| (type_info.name.clone(), path))
+            type_info
+                .import_file_name(&current_uri)
+                .map(|path| (type_info, type_info.name.clone(), path))
         }),
-        add_edit,
+        &mut |_component_info, name, file, the_import| add_edit(name, file, the_import),
     )
 }
 
-fn build_import_statements_edits(
+fn build_import_statements_edits<T>(
     token: &SyntaxToken,
     document_cache: &DocumentCache,
-    imports: impl Iterator<Item = (String, String)>,
-    add_edit: &mut dyn FnMut(&str, &str, TextEdit),
+    imports: impl Iterator<Item = (T, String, String)>,
+    add_edit: &mut dyn FnMut(T, &str, &str, TextEdit),
 ) -> Option<()> {
     let current_doc =
         document_cache.get_document_for_source_file(&token.source_file)?.node.as_ref()?;
     let (missing_import_location, known_import_locations) =
         find_import_locations(current_doc, document_cache.format);
 
-    for (type_name, file) in imports {
+    for (type_info, type_name, file) in imports {
         let the_import = create_import_edit_impl(
             &type_name,
             &file,
             &missing_import_location,
             &known_import_locations,
         );
-        add_edit(&type_name, &file, the_import);
+        add_edit(type_info, &type_name, &file, the_import);
     }
 
     Some(())
@@ -1220,7 +1248,7 @@ pub fn build_type_import_statements_edits(
     token: &SyntaxToken,
     document_cache: &common::DocumentCache,
     filter: &mut dyn FnMut(&common::TypeInformation) -> bool,
-    add_edit: &mut dyn FnMut(&str, &str, TextEdit),
+    add_edit: &mut dyn FnMut(&common::TypeInformation, &str, &str, TextEdit),
 ) -> Option<()> {
     let current_file = token.source_file.path().to_owned();
     let current_uri = lsp_types::Url::from_file_path(&current_file).ok();
@@ -1231,7 +1259,9 @@ pub fn build_type_import_statements_edits(
         token,
         document_cache,
         exported_types.iter().filter_map(|type_info| {
-            type_info.import_file_name(&current_uri).map(|path| (type_info.name.clone(), path))
+            type_info
+                .import_file_name(&current_uri)
+                .map(|path| (type_info, type_info.name.clone(), path))
         }),
         add_edit,
     )
@@ -1350,13 +1380,35 @@ mod tests {
             );
         }
 
-        if let Some(insert_text_format) = expected.insert_text_format {
+        if let Some(insert_text_format) = &expected.insert_text_format {
             assert_eq!(
-                found.insert_text_format,
+                found.insert_text_format.as_ref(),
                 Some(insert_text_format),
                 "Unexpected insert_text_format for '{}'",
                 expected.label,
             );
+        }
+
+        if let Some(filter_text) = &expected.filter_text {
+            assert_eq!(
+                found.filter_text.as_ref(),
+                Some(filter_text),
+                "Unexpected filter_text for '{}'",
+                expected.label,
+            );
+        }
+
+        if let Some(text_edits) = &expected.additional_text_edits {
+            let Some(actual_edits) = found.additional_text_edits.as_ref() else {
+                panic!("Expected additional_text_edits for completion {}", expected.label)
+            };
+            for (expected_edit, actual_edit) in text_edits.iter().zip_eq(actual_edits) {
+                assert_eq!(
+                    expected_edit.new_text, actual_edit.new_text,
+                    "Unexpected text_edit for completion {}",
+                    expected.label
+                );
+            }
         }
     }
 
@@ -2312,5 +2364,116 @@ mod tests {
         assert!(!res.iter().any(|ci| ci.label == "opacity"));
         assert!(!res.iter().any(|ci| ci.label == "absolute-position"));
         assert!(!res.iter().any(|ci| ci.label == "accessible-action-default"));
+    }
+
+    /// Helper for multi-file completion tests: load `types_file` first so the DocumentCache
+    /// knows about it, then request completions at the `🔺` cursor in `main_file`.
+    fn get_completions_multi_file(
+        types_file_name: &str,
+        types_content: &str,
+        main_file_name: &str,
+        main_file_with_cursor: &str,
+    ) -> Option<Vec<CompletionItem>> {
+        use i_slint_compiler::diagnostics::BuildDiagnostics;
+        use lsp_types::Url;
+
+        const CURSOR_EMOJI: char = '🔺';
+        let main_content = main_file_with_cursor.replace(CURSOR_EMOJI, "");
+        let cursor_offset = (main_file_with_cursor.find(CURSOR_EMOJI).unwrap() as u32).into();
+
+        let mut dc = crate::language::test::empty_document_cache();
+        spin_on::spin_on(dc.preload_builtins());
+        let mut diagnostics = BuildDiagnostics::default();
+
+        let types_url = Url::from_file_path(format!("/foo/{types_file_name}")).unwrap();
+        let _ = spin_on::spin_on(dc.load_url(
+            &types_url,
+            Some(1),
+            types_content.to_string(),
+            &mut diagnostics,
+        ));
+
+        let main_url = Url::from_file_path(format!("/foo/{main_file_name}")).unwrap();
+        let _ = spin_on::spin_on(dc.load_url(
+            &main_url,
+            Some(2),
+            main_content.clone(),
+            &mut diagnostics,
+        ));
+
+        let doc = dc.get_document(&main_url)?;
+        let token = crate::language::token_at_offset(doc.node.as_ref()?, cursor_offset)?;
+        let caps = CompletionClientCapabilities {
+            completion_item: Some(lsp_types::CompletionItemCapability {
+                snippet_support: Some(true),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        completion_at(&mut dc, token, cursor_offset, Some(&caps))
+    }
+
+    #[test]
+    fn type_completion_suggests_import_for_unimported_struct() {
+        // types.slint exports MyPoint (struct) and MyDirection (enum).
+        // main.slint does not import them.  Completing `<My` should surface
+        // `MyPoint (import from "types.slint")` and
+        // `MyDirection (import from "types.slint")` with bare insert_text and
+        // an additional_text_edit that adds the import line.
+        let types_content = r#"export struct MyPoint { x: int, y: int }
+export enum MyDirection { Up, Down, Left, Right }
+"#;
+        let main_content = r#"export component TestWindow inherits Window {
+    property <My🔺> position;
+}
+"#;
+        let results =
+            get_completions_multi_file("types.slint", types_content, "main.slint", main_content)
+                .unwrap();
+
+        // Both the struct and enum should appear with an import note
+        for type_name in &["MyPoint", "MyDirection"] {
+            let expected_label = format!("{type_name} (import from \"types.slint\")");
+
+            assert_completion_found(
+                &CompletionItem {
+                    label: expected_label.clone(),
+                    insert_text: Some(type_name.to_string()),
+                    filter_text: Some(type_name.to_string()),
+                    additional_text_edits: Some(vec![TextEdit {
+                        range: Range::new(Position::new(0, 0), Position::new(0, 0)),
+                        new_text: format!("import {{ {type_name} }} from \"types.slint\";\n"),
+                    }]),
+                    ..Default::default()
+                },
+                &results,
+            );
+        }
+    }
+
+    #[test]
+    fn type_completion_no_import_suggestion_when_already_imported() {
+        // When main.slint already imports MyPoint, the "(import from ...)" completion
+        // variant must NOT appear — only the plain "MyPoint" entry should be present.
+        let types_content = r#"export struct MyPoint { x: int, y: int }
+"#;
+        let main_content = r#"import { MyPoint } from "types.slint";
+export component TestWindow inherits Window {
+    property <MyP🔺> position;
+}
+"#;
+        let results =
+            get_completions_multi_file("types.slint", types_content, "main.slint", main_content)
+                .unwrap();
+
+        assert_completion_found(
+            &CompletionItem { label: "MyPoint".into(), ..Default::default() },
+            &results,
+        );
+        // The "(import from ...)" variant must not appear
+        assert!(
+            !results.iter().any(|ci| ci.label == "MyPoint (import from \"types.slint\")"),
+            "unexpected import-suggestion for already-imported type"
+        );
     }
 }

@@ -1621,7 +1621,7 @@ fn get_code_actions(
                 &token,
                 document_cache,
                 &mut |type_info| type_info.name == text,
-                &mut |name, file, edit| {
+                &mut |_type_info, name, file, edit| {
                     result.push(CodeActionOrCommand::CodeAction(lsp_types::CodeAction {
                         title: format!("import {{ {name} }} from \"{file}\""),
                         kind: Some(lsp_types::CodeActionKind::QUICKFIX),
