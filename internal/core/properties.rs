@@ -79,7 +79,7 @@ pub(crate) mod dependency_tracker {
     /// Chunks are boxed and only ever appended, so a slot's address is stable for
     /// the lifetime of the slab; only [`Key`]s are used to link slots together.
     pub struct Slab<T> {
-        chunks: Vec<Box<[Slot<T>]>>,
+        chunks: Vec<Box<[Slot<T>; CHUNK_SIZE]>>,
         /// Head of the free list (chained via `owner_next`).
         free: Key,
         /// Number of slots ever created (index of the next fresh slot).
@@ -94,23 +94,35 @@ pub(crate) mod dependency_tracker {
         #[inline]
         fn slot(&self, key: NonZeroU32) -> &Slot<T> {
             let index = (key.get() - 1) as usize;
-            &self.chunks[index >> CHUNK_BITS][index & (CHUNK_SIZE - 1)]
+            let chunk_index = index >> CHUNK_BITS;
+            let slot_index = index & (CHUNK_SIZE - 1);
+            &self.chunks[chunk_index][slot_index]
         }
 
         /// Allocate a slot with all links NIL and return its key.
         fn alloc(&mut self) -> NonZeroU32 {
             if let Some(key) = self.free {
-                self.free = self.slot(key).owner_next.get();
                 let slot = self.slot(key);
+                let next_free = slot.owner_next.get();
                 slot.next.set(None);
                 slot.prev.set(None);
                 slot.owner_next.set(None);
+                self.free = next_free;
                 return key;
             }
             let index = self.len;
             if (index as usize) >> CHUNK_BITS >= self.chunks.len() {
-                let chunk: Vec<Slot<T>> = (0..CHUNK_SIZE).map(|_| Slot::blank()).collect();
-                self.chunks.push(chunk.into_boxed_slice());
+                // Manually initialize the slice as that produces much smaller and faster code in
+                // debug mode compared to using a Vec.
+                let mut chunk = Box::<[Slot<T>; CHUNK_SIZE]>::new_uninit();
+                let p = chunk.as_mut_ptr() as *mut Slot<T>;
+                // SAFETY: `p` is the start of an allocation for CHUNK_SIZE slots; every index in
+                // 0..CHUNK_SIZE is written exactly once, so the array is fully initialized below.
+                for i in 0..CHUNK_SIZE {
+                    unsafe { p.add(i).write(Slot::blank()) };
+                }
+                let chunk = unsafe { chunk.assume_init() };
+                self.chunks.push(chunk);
             }
             // `+ 1` so the key is never zero (enabling the niche of `Option<NonZeroU32>`).
             let key = index.checked_add(1).expect("dependency slab exhausted");
