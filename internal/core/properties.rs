@@ -64,7 +64,7 @@ pub(crate) mod dependency_tracker {
     }
 
     impl<T> Slot<T> {
-        fn blank() -> Self {
+        const fn blank() -> Self {
             Self {
                 next: Cell::new(None),
                 prev: Cell::new(None),
@@ -112,9 +112,10 @@ pub(crate) mod dependency_tracker {
                 let chunk: Vec<Slot<T>> = (0..CHUNK_SIZE).map(|_| Slot::blank()).collect();
                 self.chunks.push(chunk.into_boxed_slice());
             }
-            self.len = index.checked_add(1).expect("dependency slab exhausted");
             // `+ 1` so the key is never zero (enabling the niche of `Option<NonZeroU32>`).
-            NonZeroU32::new(index + 1).unwrap()
+            let key = index.checked_add(1).expect("dependency slab exhausted");
+            self.len = key;
+            NonZeroU32::new(key).unwrap()
         }
 
         /// Return a slot to the free list. It must already be unlinked from any
@@ -286,12 +287,12 @@ pub(crate) mod dependency_tracker {
 
         /// Call `f` with the payload of each node in the list.
         pub fn for_each(&self, mut f: impl FnMut(&T)) {
-            let s = self.0.get();
-            if s.is_null() {
+            let slot = self.0.get();
+            if slot.is_null() {
                 return;
             }
-            let sentinel_key = unsafe { Self::sentinel_key(s) };
-            let mut cur = unsafe { (*s).next.get() };
+            let sentinel_key = unsafe { Self::sentinel_key(slot) };
+            let mut cur = unsafe { (*slot).next.get() };
             while cur != Some(sentinel_key) {
                 let node = cur.unwrap();
                 // Read the next link and a copy of the payload under a short slab
@@ -309,12 +310,12 @@ pub(crate) mod dependency_tracker {
         /// Remove and return the payload of the first node, if any. Only unlinks
         /// the node from this list; the slot stays allocated (owned elsewhere).
         pub fn take_head(&self) -> Option<T> {
-            let s = self.0.get();
-            if s.is_null() {
+            let slot = self.0.get();
+            if slot.is_null() {
                 return None;
             }
-            let sentinel_key = unsafe { Self::sentinel_key(s) };
-            let first = unsafe { (*s).next.get() };
+            let sentinel_key = unsafe { Self::sentinel_key(slot) };
+            let first = unsafe { (*slot).next.get() };
             if first == Some(sentinel_key) {
                 return None;
             }
