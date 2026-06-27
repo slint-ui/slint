@@ -419,6 +419,7 @@ module.exports = grammar({
     expression: ($) =>
       prec.right(
         choice(
+          $.closure_expression,
           $.keys,
           $.parens_op,
           $.index_op,
@@ -432,7 +433,6 @@ module.exports = grammar({
           $.simple_identifier,
           $.function_call,
           $.member_access,
-          $.closure_expression,
           $.unary_expression,
           $.binary_expression,
           $.ternary_expression,
@@ -443,15 +443,18 @@ module.exports = grammar({
 
     closure_expression: ($) =>
       prec.right(
-        2,
+        1,
         seq(
           "(",
           field("argument", $.simple_identifier),
-          ")",
-          "=>",
+          $._closure_arrow,
           field("body", $.expression),
         ),
       ),
+
+    // Keep `)` and `=>` together so `(foo)` remains a parenthesized expression
+    // when no arrow follows.
+    _closure_arrow: (_) => token(seq(")", /[\s\r\n]*/, "=>")),
 
     index_op: ($) =>
       prec(
