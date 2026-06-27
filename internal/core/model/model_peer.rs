@@ -18,10 +18,14 @@ type DependencyListHead =
 /// Wires up the per-thread slab that stores the dependency nodes whose payload is
 /// a `*const dyn ModelChangeListener`.
 impl dependency_tracker::SlabbedDep for *const dyn ModelChangeListener {
+    #[inline]
     fn try_with_slab<R>(f: impl FnOnce(&mut dependency_tracker::Slab<Self>) -> R) -> Option<R> {
-        crate::thread_local!(static SLAB: core::cell::RefCell<dependency_tracker::Slab<*const dyn ModelChangeListener>>
-            = core::cell::RefCell::new(dependency_tracker::Slab::new()));
-        SLAB.try_with(|s| f(&mut s.borrow_mut())).ok()
+        crate::thread_local!(static SLAB: core::cell::UnsafeCell<dependency_tracker::Slab<*const dyn ModelChangeListener>>
+            = const { core::cell::UnsafeCell::new(dependency_tracker::Slab::new()) });
+        // SAFETY: no `with_slab` closure re-enters `with_slab` (`for_each` releases its
+        // slab borrow before running the callback), and the `&mut` never escapes `f`
+        // (every closure returns Copy/owned data), so this reference is never aliased.
+        SLAB.try_with(|s| f(unsafe { &mut *s.get() })).ok()
     }
 }
 

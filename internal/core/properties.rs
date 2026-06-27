@@ -96,7 +96,10 @@ pub(crate) mod dependency_tracker {
             let index = (key.get() - 1) as usize;
             let chunk_index = index >> CHUNK_BITS;
             let slot_index = index & (CHUNK_SIZE - 1);
-            &self.chunks[chunk_index][slot_index]
+            debug_assert!(chunk_index < self.chunks.len());
+            // SAFETY: keys are only minted by `alloc`, so `chunk_index` is always in range
+            // and `slot_index` is masked < CHUNK_SIZE.
+            unsafe { self.chunks.get_unchecked(chunk_index).get_unchecked(slot_index) }
         }
 
         /// Allocate a slot with all links NIL and return its key.
@@ -138,7 +141,8 @@ pub(crate) mod dependency_tracker {
             slot.next.set(None);
             slot.prev.set(None);
             slot.owner_next.set(old_free);
-            slot.payload.set(MaybeUninit::uninit());
+            // No need to clear `payload`: `T: Copy` has no destructor, and a freed
+            // slot's payload is never read before the next `alloc` overwrites it.
             self.free = Some(key);
         }
     }
@@ -146,6 +150,7 @@ pub(crate) mod dependency_tracker {
     /// Unlink a node from whatever dependents ring (or detached chain) it is in,
     /// leaving its slot allocated with NIL links. A no-op on an already unlinked
     /// node. Does not free the slot.
+    #[inline]
     fn unlink<T>(slab: &Slab<T>, node: NonZeroU32) {
         let n = slab.slot(node);
         let prev = n.prev.get();
@@ -434,10 +439,14 @@ type OwnerChain = dependency_tracker::OwnerChain<*const BindingHolder>;
 /// Wires up the per-thread slab that stores the dependency nodes whose payload is
 /// a `*const BindingHolder` (all property and tracker dependents share it).
 impl dependency_tracker::SlabbedDep for *const BindingHolder {
+    #[inline]
     fn try_with_slab<R>(f: impl FnOnce(&mut dependency_tracker::Slab<Self>) -> R) -> Option<R> {
-        crate::thread_local!(static SLAB: RefCell<dependency_tracker::Slab<*const BindingHolder>>
-            = const { RefCell::new(dependency_tracker::Slab::new()) });
-        SLAB.try_with(|s| f(&mut s.borrow_mut())).ok()
+        crate::thread_local!(static SLAB: UnsafeCell<dependency_tracker::Slab<*const BindingHolder>>
+            = const { UnsafeCell::new(dependency_tracker::Slab::new()) });
+        // SAFETY: no `with_slab` closure re-enters `with_slab` (`for_each` releases its
+        // slab borrow before running the callback), and the `&mut` never escapes `f`
+        // (every closure returns Copy/owned data), so this reference is never aliased.
+        SLAB.try_with(|s| f(unsafe { &mut *s.get() })).ok()
     }
 }
 
