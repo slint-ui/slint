@@ -1,0 +1,8 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+/ {
+	chosen {
+		zephyr,touch = &gt911_rtkapplcdms02001be;
+	};
+};
