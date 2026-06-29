@@ -46,7 +46,7 @@ targets:
         LSMinimumSystemVersion: "12.0"
         NSHighResolutionCapable: true
         SUPublicEDKey: IfbmMbVN3sKz+bUDIEExtwKlrNLlUgP2PDR3ygoIGec=
-        SUFeedURL: https://visual-editor.slint.dev/
+        SUFeedURL: https://visual-editor.slint.dev/appcast.xml
     sources:
       - path: packaging/macos/AppIcon.icon
         buildPhase: resources
