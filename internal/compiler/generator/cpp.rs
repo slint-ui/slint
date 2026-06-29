@@ -4711,6 +4711,12 @@ fn compile_builtin_function_call(
         BuiltinFunction::StringToUppercase => {
             format!("{}.to_uppercase()", a.next().unwrap())
         }
+        BuiltinFunction::StringStartsWith => {
+            format!("{}.starts_with({})", a.next().unwrap(), a.next().unwrap())
+        }
+        BuiltinFunction::StringEndsWith => {
+            format!("{}.ends_with({})", a.next().unwrap(), a.next().unwrap())
+        }
         BuiltinFunction::KeysToString => {
             format!("{}.to_string()", a.next().unwrap())
         }
