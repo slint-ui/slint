@@ -1628,11 +1628,6 @@ pub fn instantiate(
         {
             continue;
         }
-        if let Some(b) = description.original.root_element.borrow().bindings.get(prop_name)
-            && b.borrow().two_way_bindings.is_empty()
-        {
-            continue;
-        }
         let p = description.custom_properties.get(prop_name).unwrap();
         unsafe {
             let item = Pin::new_unchecked(&*instance_ref.as_ptr().add(p.offset));
