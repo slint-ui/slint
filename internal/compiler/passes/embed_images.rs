@@ -79,14 +79,40 @@ pub async fn embed_images(
     }
 }
 
+/// The URL of an image reference, as expected by the resource mapper and used
+/// to key the map of mapped resources. A local image reference is an absolute
+/// filesystem path at this stage, so turn it into a `file://` URL; references
+/// that are already URLs (`data:`, `builtin:/`, `https:`, ...) pass through
+/// unchanged.
+fn image_reference_url(resource: &str) -> SmolStr {
+    if crate::pathutils::is_url(std::path::Path::new(resource)) {
+        return resource.into();
+    }
+    // `Url::from_file_path` is absent on `wasm32-unknown-unknown`, which only
+    // ever sees URL references and so never reaches this branch.
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        url::Url::from_file_path(resource)
+            .map(|url| SmolStr::from(url.as_str()))
+            .unwrap_or_else(|()| resource.into())
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        resource.into()
+    }
+}
+
 fn collect_image_urls_from_expression(
     e: &Expression,
     urls: &mut HashMap<SmolStr, Option<SmolStr>>,
 ) {
     if let Expression::ImageReference { resource_ref, .. } = e
         && let ImageReference::AbsolutePath(path) = resource_ref
+        // `data:` URIs are embedded directly and never looked up in this map, so
+        // don't store their (potentially huge) content as a key.
+        && !path.starts_with("data:")
     {
-        urls.insert(path.clone(), None);
+        urls.insert(image_reference_url(path), None);
     };
 
     e.visit(|e| collect_image_urls_from_expression(e, urls));
@@ -127,9 +153,9 @@ fn embed_images_from_expression(
             return;
         }
 
-        // used mapped path:
+        // use the mapped url, falling back to the original path:
         let mapped_path =
-            urls.get(path).unwrap_or(&Some(path.clone())).clone().unwrap_or(path.clone());
+            urls.get(&image_reference_url(path)).cloned().flatten().unwrap_or_else(|| path.clone());
         *path = mapped_path;
         if embed_files != EmbedResourcesKind::Nothing
             && (embed_files != EmbedResourcesKind::OnlyBuiltinResources
