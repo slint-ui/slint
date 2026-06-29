@@ -1,6 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// C++ live preview cannot search elements (the wrapper has no item tree).
+//ignore: cpp-live-preview
+
 // Same root cause as #12268, but here the struct comes from a struct literal
 // rather than a model row, so the dropped `first` field is not even an array
 // and the interpreter panics ("First argument not an array") while evaluating

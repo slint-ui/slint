@@ -1,6 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+// C++ live preview cannot search elements (the wrapper has no item tree).
+//ignore: cpp-live-preview
+
 // Two-way binding the `first` and `second` fields of a struct to separate
 // sub-components must keep both fields working. Preparing the second field's
 // two-way binding used to detach the first from the struct, so the array
