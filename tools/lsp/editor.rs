@@ -32,7 +32,7 @@ pub fn editor_main() -> std::result::Result<(), slint::PlatformError> {
     use clap::Parser;
 
     let cli = Cli::parse();
-    let Some(cli) = cli.with_initial_file() else {
+    let Some(mut cli) = cli.with_initial_file() else {
         return Ok(());
     };
 
@@ -54,9 +54,11 @@ pub fn editor_main() -> std::result::Result<(), slint::PlatformError> {
     // initialize the default platform first and lose the hook.
     start_processing_lsp_messages_thread(from_lsp)?;
 
+    let feed_url_override = cli.update_url.take();
+
     start_lsp_thread(from_preview, to_preview, notifier, cli);
 
-    preview::run(to_lsp, false, true)
+    preview::run(to_lsp, false, true, feed_url_override.as_deref())
 }
 
 // TODO: Deduplicate with main.rs
@@ -138,6 +140,8 @@ impl common::PreviewToLsp for EmbeddedPreviewToLsp {
 struct Cli {
     file: Option<String>,
     component: Option<String>,
+    #[arg(long, short)]
+    update_url: Option<String>,
 }
 
 impl Cli {
@@ -168,11 +172,7 @@ fn choose_initial_file() -> Option<String> {
         return None;
     }
 
-    panel
-        .URLs()
-        .firstObject()?
-        .to_file_path()
-        .map(|path| path.to_string_lossy().into_owned())
+    panel.URLs().firstObject()?.to_file_path().map(|path| path.to_string_lossy().into_owned())
 }
 
 #[cfg(not(target_os = "macos"))]
