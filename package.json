@@ -1,11 +1,11 @@
 {
   "name": "slint_repository",
-  "version": "1.17.0",
+  "version": "1.17.1",
   "description": "",
   "devDependencies": {
     "@cspell/dict-fr-fr": "2.3.2",
     "cspell": "catalog:",
-    "knip": "6.16.1"
+    "knip": "6.20.0"
   },
   "scripts": {
     "knip": "knip",

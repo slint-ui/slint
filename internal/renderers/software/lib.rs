@@ -503,6 +503,9 @@ impl SoftwareRenderer {
     /// Set how the window need to be rotated in the buffer.
     ///
     /// This is typically used to implement screen rotation in software
+    ///
+    /// **Note:** This only affects rendering. Input events must still be given to
+    /// Slint in logical (un-rotated) coordinates.
     pub fn set_rendering_rotation(&self, rotation: RenderingRotation) {
         self.rotation.set(rotation)
     }
@@ -2908,23 +2911,9 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     if let Some(clipped_src) = cursor_rect.intersection(&physical_clip.cast()) {
                         let geometry =
                             clipped_src.translate(offset.cast()).transformed(self.rotation);
-                        #[allow(unused_mut)]
-                        let mut cursor_color = text_visual_representation.cursor_color;
-                        #[cfg(all(feature = "std", target_os = "macos"))]
-                        {
-                            // On macOs, the cursor color is different than other platform. Use a hack to pass the screenshot test.
-                            static IS_SCREENSHOT_TEST: std::sync::OnceLock<bool> =
-                                std::sync::OnceLock::new();
-                            if *IS_SCREENSHOT_TEST.get_or_init(|| {
-                                std::env::var_os("CARGO_PKG_NAME").unwrap_or_default()
-                                    == "test-driver-screenshots"
-                            }) {
-                                cursor_color = color;
-                            }
-                        }
                         let args = target_pixel_buffer::DrawRectangleArgs::from_rect(
                             geometry.cast(),
-                            self.alpha_color(cursor_color).into(),
+                            self.alpha_color(text_visual_representation.cursor_color).into(),
                         );
                         self.processor.process_rectangle(&args, geometry);
                     }
@@ -2992,23 +2981,9 @@ impl<T: ProcessScene> i_slint_core::item_rendering::ItemRenderer for SceneBuilde
                     if let Some(clipped_src) = cursor_rect.intersection(&physical_clip.cast()) {
                         let geometry =
                             clipped_src.translate(offset.cast()).transformed(self.rotation);
-                        #[allow(unused_mut)]
-                        let mut cursor_color = text_visual_representation.cursor_color;
-                        #[cfg(all(feature = "std", target_os = "macos"))]
-                        {
-                            // On macOs, the cursor color is different than other platform. Use a hack to pass the screenshot test.
-                            static IS_SCREENSHOT_TEST: std::sync::OnceLock<bool> =
-                                std::sync::OnceLock::new();
-                            if *IS_SCREENSHOT_TEST.get_or_init(|| {
-                                std::env::var_os("CARGO_PKG_NAME").unwrap_or_default()
-                                    == "test-driver-screenshots"
-                            }) {
-                                cursor_color = color;
-                            }
-                        }
                         let args = target_pixel_buffer::DrawRectangleArgs::from_rect(
                             geometry.cast(),
-                            self.alpha_color(cursor_color).into(),
+                            self.alpha_color(text_visual_representation.cursor_color).into(),
                         );
                         self.processor.process_rectangle(&args, geometry);
                     }

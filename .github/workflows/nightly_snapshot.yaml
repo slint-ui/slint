@@ -29,7 +29,15 @@ env:
     CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
 
 jobs:
+    # Rebuild and push the `cross` container images first, so every `cross` build
+    # below (the ARM tool binaries and the cross LSP) runs against images built
+    # from this commit rather than stale ones.
+    cross_containers:
+        uses: ./.github/workflows/cross_containers.yaml
+        secrets: inherit
+
     slint-viewer-binary:
+        needs: [cross_containers]
         uses: ./.github/workflows/slint_tool_binary.yaml
         with:
             program: "viewer"
@@ -39,6 +47,7 @@ jobs:
             keychain_password: ${{ secrets.APPLE_KEYCHAIN_PASSWORD }}
             developer_id: ${{ secrets.APPLE_DEV_ID }}
     slint-lsp-binary:
+        needs: [cross_containers]
         uses: ./.github/workflows/slint_tool_binary.yaml
         with:
             program: "lsp"
@@ -196,6 +205,7 @@ jobs:
                   path: .
 
     build_vscode_cross_linux_lsp:
+        needs: [cross_containers]
         env:
             SLINT_NO_QT: 1
         strategy:
@@ -472,13 +482,16 @@ jobs:
 
                 mkdir -p $output_path/demos/android
                 cp -a ../android/* $output_path/demos/android/
+                # slint-viewer APK/AAB are too big for the web server (APK is a release asset, AAB a CI artifact).
+                rm -f $output_path/demos/android/slint-viewer.apk \
+                      $output_path/demos/android/slint-viewer.aab
 
                 # A directory listing so the published folder is browsable.
                 {
                   echo '<!DOCTYPE html><meta charset="utf-8"><title>Slint Android Demos</title>'
                   echo '<h1>Slint Android Demos</h1>'
-                  echo '<p>Install an APK on a device, or use the AAB for Play Store uploads.</p><ul>'
-                  for f in $(cd $output_path/demos/android && ls *.apk *.aab 2>/dev/null); do
+                  echo '<p>Install an APK on a device.</p><ul>'
+                  for f in $(cd $output_path/demos/android && ls *.apk 2>/dev/null); do
                     echo "<li><a href=\"$f\">$f</a></li>"
                   done
                   echo '</ul>'
@@ -579,7 +592,7 @@ jobs:
 
     prepare_release:
         if: github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release'
-        needs: [cpp_package, slint-viewer-binary, slint-lsp-binary, build-figma-plugin]
+        needs: [cpp_package, slint-viewer-binary, slint-lsp-binary, build-figma-plugin, android]
         runs-on: ubuntu-22.04
         permissions:
             contents: write
@@ -607,24 +620,35 @@ jobs:
             - uses: actions/download-artifact@v8
               with:
                   name: figma-plugin
+            - uses: actions/download-artifact@v8
+              with:
+                  name: android-demos
+                  path: android-demos
             - name: Extract files
               run: |
+                  # Backwards compatibility: also publish under the old artifact names.
+                  # These cp steps can be removed once no tools depend on the old names.
+                  cp slint-lsp-universal-apple-darwin.tar.gz slint-lsp-macos.tar.gz
+                  cp slint-lsp-x86_64-unknown-linux-gnu.tar.gz slint-lsp-linux.tar.gz
+                  cp slint-lsp-x86_64-pc-windows-msvc.zip slint-lsp-windows-x86_64.zip
+                  cp slint-lsp-aarch64-pc-windows-msvc.zip slint-lsp-windows-arm64.zip
+                  cp slint-viewer-universal-apple-darwin.tar.gz slint-viewer-macos.tar.gz
+                  cp slint-viewer-x86_64-unknown-linux-gnu.tar.gz slint-viewer-linux.tar.gz
+                  cp slint-viewer-x86_64-pc-windows-msvc.zip slint-viewer-windows-x86_64.zip
+                  cp slint-viewer-aarch64-pc-windows-msvc.zip slint-viewer-windows-arm64.zip
+                  # Now move everything into the artifacts dir
                   ls -l
                   mkdir artifacts
                   mv Slint-cpp-*-win64*.exe artifacts/
                   mv Slint-cpp-*.tar.gz artifacts/
-                  mv slint-viewer-linux.tar.gz artifacts/
-                  mv slint-viewer-armv7-unknown-linux-gnueabihf.tar.gz artifacts/
-                  mv slint-viewer-aarch64-unknown-linux-gnu.tar.gz artifacts/
-                  mv slint-viewer-macos.tar.gz artifacts/
-                  mv slint-viewer-windows*.zip artifacts/
-                  mv slint-lsp-linux.tar.gz artifacts/
-                  mv slint-lsp-armv7-unknown-linux-gnueabihf.tar.gz artifacts/
-                  mv slint-lsp-aarch64-unknown-linux-gnu.tar.gz artifacts/
-                  mv slint-lsp-macos.tar.gz artifacts/
-                  mv slint-lsp-windows*.zip artifacts/
+                  mv slint-viewer-*.tar.gz artifacts/
+                  mv slint-viewer-*.zip artifacts/
+                  mv slint-lsp-*.tar.gz artifacts/
+                  mv slint-lsp-*.zip artifacts/
                   mv slint-compiler-*.tar.gz artifacts/
                   mv figma-plugin.zip artifacts/
+                  # slint-viewer APK ships as a release asset (too big for the web server).
+                  mv android-demos/slint-viewer.apk artifacts/
             - uses: actions/checkout@v6
               with:
                 path: "slint-src"
@@ -707,6 +731,28 @@ jobs:
                 https://api.github.com/repos/slint-ui/slint-cpp-templates-stm32/actions/workflows/ci.yaml/dispatches \
                 -d '{"ref":"main"}'
 
+    trigger_package_publishing:
+        if: github.event.inputs.mode == 'release'
+        needs: [prepare_release]
+        runs-on: ubuntu-latest
+        steps:
+            - name: Trigger PyPI publish (slint)
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: gh workflow run upload_pypi.yaml --ref ${{ github.ref_name }} --repo ${{ github.repository }} -f release=true
+            - name: Trigger PyPI publish (slint-compiler)
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: gh workflow run upload_pypi_slint_compiler.yaml --ref ${{ github.ref_name }} --repo ${{ github.repository }} -f release=true
+            - name: Trigger PyPI publish (briefcasex-slint)
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: gh workflow run upload_pypi_briefcase.yaml --ref ${{ github.ref_name }} --repo ${{ github.repository }} -f release=true
+            - name: Trigger npm publish
+              env:
+                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: gh workflow run publish_npm_package.yaml --ref ${{ github.ref_name }} --repo ${{ github.repository }} -f private=false -f release=true
+
     android:
         env:
             CARGO_APK_RELEASE_KEYSTORE: /home/runner/.android/release.keystore
@@ -774,7 +820,7 @@ jobs:
                   ANDROID_KEYSTORE_PATH: ${{ env.CARGO_APK_RELEASE_KEYSTORE }}
                   ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
                   ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
-              run: tools/viewer/android-aab/build-aab.sh
+              run: tools/viewer/android/build-aab.sh
             # A universal APK works on every ABI the bundle carries.
             - name: Build slint-viewer APK from the AAB
               env:
@@ -783,7 +829,7 @@ jobs:
               run: |
                   curl --fail -L -o bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
                   java -jar bundletool.jar build-apks --mode=universal \
-                      --bundle=tools/viewer/android-aab/app/build/outputs/bundle/release/slint-viewer.aab \
+                      --bundle=tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab \
                       --output=slint-viewer.apks \
                       --ks="$CARGO_APK_RELEASE_KEYSTORE" \
                       --ks-pass="pass:$ANDROID_KEYSTORE_PASSWORD" \
@@ -802,7 +848,7 @@ jobs:
               with:
                   serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
                   packageName: dev.slint.viewer
-                  releaseFiles: tools/viewer/android-aab/app/build/outputs/bundle/release/slint-viewer.aab
+                  releaseFiles: tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab
                   track: production
                   status: draft
 
@@ -812,7 +858,7 @@ jobs:
               run: |
                   mkdir -p android-demos
                   cp -a target/release/apk/*.apk android-demos/ || true
-                  cp -a tools/viewer/android-aab/app/build/outputs/bundle/release/slint-viewer.aab android-demos/ || true
+                  cp -a tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab android-demos/ || true
             - name: "upload APK artifact"
               if: always()
               uses: actions/upload-artifact@v7

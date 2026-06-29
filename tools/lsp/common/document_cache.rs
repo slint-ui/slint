@@ -323,8 +323,11 @@ impl DocumentCache {
 
         if enable_experimental && !self.type_loader.compiler_config.enable_experimental {
             self.type_loader.compiler_config.enable_experimental = true;
-            *self.type_loader.global_type_registry.borrow_mut() =
-                Rc::into_inner(TypeRegister::builtin_experimental()).unwrap().into_inner();
+            *self.type_loader.global_type_registry.borrow_mut() = Rc::into_inner(
+                TypeRegister::builtin_experimental(&self.type_loader.symbol_counters),
+            )
+            .unwrap()
+            .into_inner();
         }
 
         self.invalidate_everything();

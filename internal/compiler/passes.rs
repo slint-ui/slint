@@ -105,6 +105,8 @@ pub async fn run_passes(
     };
 
     let global_type_registry = type_loader.global_type_registry.clone();
+    // The shared symbol-name counters, handed to the passes that generate names.
+    let symbol_counters = type_loader.symbol_counters.clone();
 
     run_import_passes(doc, type_loader, diag);
     check_public_api::check_public_api(doc, &type_loader.compiler_config, diag);
@@ -154,7 +156,7 @@ pub async fn run_passes(
         deprecated_rotation_origin::handle_rotation_origin(component, diag);
         flickable::handle_flickable(component, &global_type_registry.borrow());
         lower_layout::lower_layouts(component, type_loader, &style_metrics, diag);
-        default_geometry::default_geometry(component, diag);
+        default_geometry::default_geometry(component, diag, &symbol_counters);
         lower_layout::synthesize_layoutinfo_v_with_constraint(component);
         lower_layout::synthesize_layoutinfo_h_with_constraint(component);
         lower_absolute_coordinates::lower_absolute_coordinates(component);
@@ -222,7 +224,7 @@ pub async fn run_passes(
     });
 
     remove_aliases::remove_aliases(doc, diag);
-    remove_return::remove_return(doc);
+    remove_return::remove_return(doc, &symbol_counters);
 
     doc.visit_all_used_components(|component| {
         if !diag.has_errors() {
@@ -343,7 +345,7 @@ pub fn run_import_passes(
     diag: &mut crate::diagnostics::BuildDiagnostics,
 ) {
     inject_debug_hooks::inject_debug_hooks(doc, type_loader);
-    infer_aliases_types::resolve_aliases(doc, diag);
+    infer_aliases_types::resolve_aliases(doc, diag, &type_loader.symbol_counters);
     resolving::resolve_expressions(doc, type_loader, diag);
     purity_check::purity_check(doc, diag);
     focus_handling::replace_forward_focus_bindings_with_focus_functions(doc, diag);

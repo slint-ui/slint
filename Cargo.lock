@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "_7guis"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "chrono",
  "slint",
@@ -554,7 +554,7 @@ dependencies = [
 
 [[package]]
 name = "async-io"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "async-compat",
  "reqwest",
@@ -864,7 +864,7 @@ checksum = "7b7e4c2464d97fe331d41de9d5db0def0a96f4d823b8b32a2efd503578988973"
 
 [[package]]
 name = "bapp"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "blogica",
  "blogicb",
@@ -1118,7 +1118,7 @@ dependencies = [
 
 [[package]]
 name = "blogica"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "slint",
  "slint-build",
@@ -1126,7 +1126,7 @@ dependencies = [
 
 [[package]]
 name = "blogicb"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "slint",
  "slint-build",
@@ -1338,7 +1338,7 @@ dependencies = [
 
 [[package]]
 name = "carousel"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "mcu-board-support",
  "slint",
@@ -2584,7 +2584,7 @@ dependencies = [
 
 [[package]]
 name = "dnd-kanban"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "slint",
  "slint-build",
@@ -2592,7 +2592,7 @@ dependencies = [
 
 [[package]]
 name = "doctests"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "slint-interpreter",
  "spin_on",
@@ -3169,7 +3169,7 @@ checksum = "66b7e2430c6dff6a955451e2cfc438f09cea1965a9d6f87f7e3b90decc014099"
 
 [[package]]
 name = "energy-monitor"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "chrono",
  "console_error_panic_hook",
@@ -3733,7 +3733,7 @@ dependencies = [
 
 [[package]]
 name = "ffmpeg"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -3784,7 +3784,7 @@ dependencies = [
 
 [[package]]
 name = "figma_import"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "clap",
  "derive_more",
@@ -4196,7 +4196,7 @@ dependencies = [
 
 [[package]]
 name = "gallery"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "slint",
  "slint-build",
@@ -4847,7 +4847,7 @@ dependencies = [
 
 [[package]]
 name = "gstreamer-player"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "cfg_aliases",
  "futures",
@@ -5096,7 +5096,7 @@ dependencies = [
 
 [[package]]
 name = "home-automation"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "chrono",
  "console_error_panic_hook",
@@ -5224,7 +5224,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-android-activity"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "android-activity 0.5.2",
  "android-activity 0.6.1",
@@ -5240,7 +5240,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-linuxkms"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "bytemuck",
  "calloop 0.14.4",
@@ -5263,7 +5263,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-qt"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "const-field-offset",
  "cpp",
@@ -5280,7 +5280,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-selector"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "cfg-if",
  "cfg_aliases",
@@ -5300,7 +5300,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-testing"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "async-net",
  "base64 0.22.1",
@@ -5330,7 +5330,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-winit"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "accesskit",
  "accesskit_winit",
@@ -5376,7 +5376,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-common"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "derive_more",
  "fontique",
@@ -5391,7 +5391,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-compiler"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "annotate-snippets",
  "base64 0.22.1",
@@ -5434,7 +5434,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-core"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "async-channel 2.5.0",
  "async-compat",
@@ -5503,7 +5503,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-core-macros"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "quote",
  "serde_json",
@@ -5512,7 +5512,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-live-preview"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -5537,14 +5537,14 @@ dependencies = [
 
 [[package]]
 name = "i-slint-parser-test-macro"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "quote",
 ]
 
 [[package]]
 name = "i-slint-renderer-femtovg"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "cfg-if",
  "const-field-offset",
@@ -5565,7 +5565,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-skia"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "ash",
  "bytemuck",
@@ -5607,7 +5607,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-software"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "bytemuck",
  "clru",
@@ -5895,7 +5895,7 @@ dependencies = [
 
 [[package]]
 name = "imagefilter"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "image",
  "slint",
@@ -6071,7 +6071,7 @@ checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
 
 [[package]]
 name = "issue-11836-test-app"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "issue-11836-test-library",
  "slint",
@@ -6080,7 +6080,7 @@ dependencies = [
 
 [[package]]
 name = "issue-11836-test-library"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "slint",
  "slint-build",
@@ -6794,7 +6794,7 @@ dependencies = [
 
 [[package]]
 name = "maps"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "image",
  "reqwest",
@@ -6813,7 +6813,7 @@ dependencies = [
 
 [[package]]
 name = "material-gallery"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "chrono",
  "console_error_panic_hook",
@@ -6847,7 +6847,7 @@ dependencies = [
 
 [[package]]
 name = "mcu-board-support"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "cfg-if",
  "cortex-m",
@@ -6906,7 +6906,7 @@ dependencies = [
 
 [[package]]
 name = "mcu-embassy"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "cortex-m",
  "cortex-m-rt",
@@ -6973,7 +6973,7 @@ dependencies = [
 
 [[package]]
 name = "memory"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "rand 0.10.1",
  "slint",
@@ -7292,7 +7292,7 @@ dependencies = [
 
 [[package]]
 name = "native-gestures"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "android_logger",
  "slint",
@@ -8103,7 +8103,7 @@ checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
 
 [[package]]
 name = "opengl_texture"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "glow",
  "slint",
@@ -8113,7 +8113,7 @@ dependencies = [
 
 [[package]]
 name = "opengl_underlay"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "glow",
  "slint",
@@ -8544,7 +8544,7 @@ checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "plotter"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "plotters",
  "slint",
@@ -8704,7 +8704,7 @@ dependencies = [
 
 [[package]]
 name = "printerdemo"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "chrono",
  "console_error_panic_hook",
@@ -8716,7 +8716,7 @@ dependencies = [
 
 [[package]]
 name = "printerdemo_mcu"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "divan",
  "mcu-board-support",
@@ -9779,7 +9779,7 @@ dependencies = [
 
 [[package]]
 name = "runtime_key_bindings"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "slint",
  "slint-build",
@@ -10420,7 +10420,7 @@ checksum = "9db491c0d4152a069911a0fbdaca959691bf0b9d7110d98a7ed1c8e59b79ab30"
 
 [[package]]
 name = "slide_puzzle"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "rand 0.10.1",
  "slint",
@@ -10429,7 +10429,7 @@ dependencies = [
 
 [[package]]
 name = "slint"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "async-compat",
  "bytemuck",
@@ -10464,7 +10464,7 @@ dependencies = [
 
 [[package]]
 name = "slint-build"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "derive_more",
  "fontique",
@@ -10475,7 +10475,7 @@ dependencies = [
 
 [[package]]
 name = "slint-compiler"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "clap",
  "i-slint-common",
@@ -10488,7 +10488,7 @@ dependencies = [
 
 [[package]]
 name = "slint-cpp"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "anyhow",
  "cbindgen",
@@ -10510,7 +10510,7 @@ dependencies = [
 
 [[package]]
 name = "slint-doc-generator"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -10529,7 +10529,7 @@ dependencies = [
 
 [[package]]
 name = "slint-generated"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "i-slint-core-macros",
  "slint",
@@ -10538,7 +10538,7 @@ dependencies = [
 
 [[package]]
 name = "slint-interpreter"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "derive_more",
  "document-features",
@@ -10565,7 +10565,7 @@ dependencies = [
 
 [[package]]
 name = "slint-lsp"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "by_address",
  "clap",
@@ -10614,7 +10614,7 @@ dependencies = [
 
 [[package]]
 name = "slint-macros"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "i-slint-compiler",
  "proc-macro2",
@@ -10624,7 +10624,7 @@ dependencies = [
 
 [[package]]
 name = "slint-node"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "async-io 2.6.0",
  "css-color-parser2",
@@ -10646,7 +10646,7 @@ dependencies = [
 
 [[package]]
 name = "slint-python"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "chrono",
  "css-color-parser2",
@@ -10663,7 +10663,7 @@ dependencies = [
 
 [[package]]
 name = "slint-sc"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "rayon",
  "regex",
@@ -10672,7 +10672,7 @@ dependencies = [
 
 [[package]]
 name = "slint-tr-extractor"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "chrono",
  "clap",
@@ -10686,7 +10686,7 @@ dependencies = [
 
 [[package]]
 name = "slint-viewer"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "anyhow",
  "async-compat",
@@ -10721,7 +10721,7 @@ dependencies = [
 
 [[package]]
 name = "slint-wasm-interpreter"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "console_error_panic_hook",
  "i-slint-backend-winit",
@@ -10985,7 +10985,7 @@ dependencies = [
 
 [[package]]
 name = "speedometer"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "chrono",
  "console_error_panic_hook",
@@ -11308,7 +11308,7 @@ dependencies = [
 
 [[package]]
 name = "system-tray"
-version = "1.16.0"
+version = "1.17.1"
 dependencies = [
  "slint",
 ]
@@ -11391,7 +11391,7 @@ dependencies = [
 
 [[package]]
 name = "test-backends"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "i-slint-backend-qt",
  "i-slint-backend-winit",
@@ -11403,7 +11403,7 @@ dependencies = [
 
 [[package]]
 name = "test-driver-cpp"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "cc",
  "i-slint-compiler",
@@ -11416,7 +11416,7 @@ dependencies = [
 
 [[package]]
 name = "test-driver-interpreter"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "i-slint-backend-testing",
  "i-slint-core",
@@ -11428,7 +11428,7 @@ dependencies = [
 
 [[package]]
 name = "test-driver-nodejs"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "tempfile",
  "test_driver_lib",
@@ -11437,7 +11437,7 @@ dependencies = [
 
 [[package]]
 name = "test-driver-python"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "i-slint-compiler",
  "spin_on",
@@ -11447,7 +11447,7 @@ dependencies = [
 
 [[package]]
 name = "test-driver-rust"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "i-slint-backend-qt",
  "i-slint-backend-testing",
@@ -11461,9 +11461,10 @@ dependencies = [
 
 [[package]]
 name = "test-driver-screenshots"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "crossterm",
+ "i-slint-backend-testing",
  "i-slint-compiler",
  "i-slint-core",
  "i-slint-renderer-skia",
@@ -11477,7 +11478,7 @@ dependencies = [
 
 [[package]]
 name = "test_driver_lib"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "regex",
  "walkdir",
@@ -11683,7 +11684,7 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "todo"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "console_error_panic_hook",
  "i-slint-backend-testing",
@@ -11696,7 +11697,7 @@ dependencies = [
 
 [[package]]
 name = "todo-mvc"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "chrono",
  "console_error_panic_hook",
@@ -12128,7 +12129,7 @@ dependencies = [
 
 [[package]]
 name = "uefi-demo"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "log",
  "minipng",
@@ -12297,7 +12298,7 @@ dependencies = [
 
 [[package]]
 name = "usecases"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "console_error_panic_hook",
  "serde",
@@ -12419,7 +12420,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "virtual_keyboard"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "slint",
  "slint-build",
@@ -12778,7 +12779,7 @@ dependencies = [
 
 [[package]]
 name = "weather-demo"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "android_logger",
  "async-std",
@@ -13146,7 +13147,7 @@ dependencies = [
 
 [[package]]
 name = "wgpu_texture"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "bytemuck",
  "slint",
@@ -13224,7 +13225,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "windowattributes"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "slint",
 ]
@@ -13994,7 +13995,7 @@ checksum = "32ac00cd3f8ec9c1d33fb3e7958a82df6989c42d747bd326c822b1d625283547"
 
 [[package]]
 name = "xtask"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "anyhow",
  "cargo_metadata",
@@ -14200,7 +14201,7 @@ dependencies = [
 
 [[package]]
 name = "zed_slint"
-version = "1.17.0"
+version = "1.17.1"
 dependencies = [
  "zed_extension_api",
 ]

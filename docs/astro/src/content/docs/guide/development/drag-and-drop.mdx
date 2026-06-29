@@ -115,7 +115,23 @@ fn main() {
 <TabItem label="C++" icon="seti:cpp">
 
 ```cpp
-// `DataTransfer` is currently not fully implemented in C++
+int main()
+{
+    auto app = Example::create();
+    auto api = app->global<Api>();
+    // For simple plain text and image transfers, a simple conversion is supplied
+    // which handles the common case.
+    api.on_string_to_transfer(
+            [](const slint::SharedString &text) { return slint::DataTransfer(text); });
+    // A helper for reading plain text from a `DataTransfer` is also supplied.
+    api.on_transfer_to_string(
+            [](const slint::DataTransfer &data) { return data.plain_text().value_or(""); });
+    api.on_can_drop([](const slint::DataTransfer &data) {
+        // This helper abstracts over various "plain text" MIME types
+        return data.has_plain_text();
+    });
+    // ...
+}
 ```
 </TabItem>
 <TabItem label="NodeJS" icon="node">

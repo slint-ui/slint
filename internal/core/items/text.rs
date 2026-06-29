@@ -1433,6 +1433,17 @@ impl TextInputVisualRepresentation {
     }
 }
 
+/// Whether the text cursor is drawn in the selection color (Apple and Android platforms) rather
+/// than in the text color.
+fn cursor_uses_selection_color() -> bool {
+    matches!(
+        crate::detect_operating_system(),
+        crate::items::OperatingSystemType::Android
+            | crate::items::OperatingSystemType::Ios
+            | crate::items::OperatingSystemType::Macos
+    )
+}
+
 impl TextInput {
     fn show_cursor(&self, window_adapter: &Rc<dyn WindowAdapter>) {
         WindowInner::from_pub(window_adapter.window())
@@ -1987,13 +1998,14 @@ impl TextInput {
 
         let text_color = self.color();
 
-        let cursor_color = if cfg!(any(target_os = "android", target_vendor = "apple")) {
+        let cursor_color = if cursor_uses_selection_color() {
             if cursor_position.is_some() {
                 self.selection_background_color().with_alpha(1.)
             } else {
                 Default::default()
             }
         } else {
+            // Other platforms draw the cursor in the text color.
             text_color.color()
         };
 

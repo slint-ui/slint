@@ -125,7 +125,9 @@ fn test_select_minimal_class_based_on_property_usage() {
 #[test]
 fn select_minimal_class() {
     use smol_str::ToSmolStr;
-    let tr = crate::typeregister::TypeRegister::builtin();
+    let tr = crate::typeregister::TypeRegister::builtin(
+        &crate::symbol_counters::SymbolCounters::shared(),
+    );
     let tr = tr.borrow();
     let rect = tr.lookup_element("Rectangle").unwrap();
     let rect = rect.as_builtin();

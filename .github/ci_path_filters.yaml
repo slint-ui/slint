@@ -59,6 +59,7 @@ docs_build:
 # Needs to be re-tested if the Tree-Sitter grammr or any Slint files in the corpus change
 tree_sitter:
  - 'editors/tree-sitter-slint/**'
+ - 'editors/zed/languages/slint/*.scm'
  - 'tests/cases/**/*.slint'
  - 'examples/**/*.slint'
  - 'demos/**/*.slint'

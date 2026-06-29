@@ -97,7 +97,8 @@
         "ὀδυσσεύς",
         "commonmark",
         "strikethroughs",
-        "unlocalized"
+        "unlocalized",
+        "binstall"
       ]
     }
   ],
@@ -143,6 +144,7 @@
     "inout",
     "knip",
     "layouting",
+    "libpython",
     "linebreak",
     "lineedit",
     "LINUXFB",

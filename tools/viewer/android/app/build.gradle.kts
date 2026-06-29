@@ -6,6 +6,13 @@ plugins {
     id("com.android.application")
 }
 
+// versionName comes from Cargo.toml unless SLINT_VERSION overrides it; the
+// versionCode is the Play build's SLINT_BUILD_NUMBER, else derived from it.
+val slintVersion = System.getenv("SLINT_VERSION")
+    ?: Regex("""(?m)^version = "([^"]+)"""")
+        .find(file("../../../../Cargo.toml").readText())!!.groupValues[1]
+val (major, minor, patch) = slintVersion.substringBefore('-').split('.').map(String::toInt)
+
 // Mirror `[package.metadata.android]` in tools/viewer/Cargo.toml so the AAB
 // and the cargo-apk APK match.
 android {
@@ -17,8 +24,9 @@ android {
         applicationId = "dev.slint.viewer"
         minSdk = 26
         targetSdk = 35
-        versionCode = System.getenv("SLINT_BUILD_NUMBER")?.toIntOrNull() ?: 1
-        versionName = System.getenv("SLINT_VERSION") ?: "0.0.0"
+        versionCode = System.getenv("SLINT_BUILD_NUMBER")?.toIntOrNull()
+            ?: (major * 10000 + minor * 100 + patch)
+        versionName = slintVersion
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
         }

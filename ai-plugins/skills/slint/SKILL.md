@@ -76,12 +76,14 @@ interop: `export global Foo { ... }`. One-time code: `init => { ... }`.
 
 ## Documentation
 
-Latest: https://slint.dev/docs. Pin a version with
-`https://releases.slint.dev/<version>/docs` (e.g. `…/1.15.1/docs`). Every docs
-page also serves its markdown source `(1.17+)` — replace the URL's trailing
-slash with `.md` (`…/reference/colors-and-brushes/` →
-`…/reference/colors-and-brushes.md`). Prefer it when fetching: it is about 10×
-smaller than the HTML. It is raw MDX, so skip the `import` lines, and a few
-pages (mostly tutorials) pull code snippets from external files that won't
-appear inline. The skill files cover what agents commonly get wrong; the docs
-are the authority on element, property, and widget signatures.
+The docs are the authority on element, property, and widget signatures; this
+skill only covers what agents commonly get wrong.
+
+When a Slint docs MCP is attached (this plugin declares one at
+`https://docs.slint.dev/mcp`), prefer it: `search`, then `fetch` a result's
+`url`. Otherwise fetch over HTTP — latest at https://slint.dev/docs, a version
+pinned at `https://releases.slint.dev/<version>/docs`. Every page also serves
+its markdown source `(1.17+)`: swap the trailing slash for `.md`
+(`…/colors-and-brushes/` → `…/colors-and-brushes.md`), ~10× smaller than the
+HTML. It is raw MDX, so skip `import` lines; a few pages pull snippets from
+external files that won't appear inline.
