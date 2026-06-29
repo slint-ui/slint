@@ -592,7 +592,7 @@ jobs:
 
     prepare_release:
         if: github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release'
-        needs: [cpp_package, slint-viewer-binary, slint-lsp-binary, build-figma-plugin, android]
+        needs: [cpp_package, slint-viewer-binary, slint-lsp-binary, build-figma-plugin, android, demo_binaries]
         runs-on: ubuntu-22.04
         permissions:
             contents: write
@@ -624,6 +624,10 @@ jobs:
               with:
                   name: android-demos
                   path: android-demos
+            - uses: actions/download-artifact@v8
+              with:
+                  name: demo-binaries
+                  path: demo-binaries
             - name: Extract files
               run: |
                   # Backwards compatibility: also publish under the old artifact names.
@@ -649,6 +653,8 @@ jobs:
                   mv figma-plugin.zip artifacts/
                   # slint-viewer APK ships as a release asset (too big for the web server).
                   mv android-demos/slint-viewer.apk artifacts/
+                  # Flashable per-board demo binaries + demos.json index + ESP Web Tools manifests.
+                  mv demo-binaries/* artifacts/
             - uses: actions/checkout@v6
               with:
                 path: "slint-src"
@@ -865,3 +871,173 @@ jobs:
               with:
                   name: android-demos
                   path: android-demos/
+
+    # Build the `printerdemo_mcu` demo for every board in examples/mcu-board-support
+    # and convert each ELF into the flashable format that board expects
+    # (.uf2 / merged .bin + ESP Web Tools manifest / .elf). Publishes them as
+    # release assets via prepare_release, plus a `demos.json` index the website
+    # reads at build time to wire up download / one-click-flash / `slint.dev/flash`.
+    # The board matrix mirrors the `mcu` job in ci.yaml (the build gate); keep both in sync.
+    demo_binaries:
+        env:
+            SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
+            RUSTFLAGS: "--cfg slint_int_coord"
+            CARGO_PROFILE_DEV_DEBUG: 0
+            CARGO_PROFILE_RELEASE_OPT_LEVEL: s
+            # Pin the conversion tools; bump deliberately (see CI handover §6.4).
+            ELF2UF2_VERSION: "2.1.1"
+            ESPFLASH_VERSION: "3.3.0"
+            PICOTOOL_REF: "2.1.1"
+            PICO_SDK_REF: "2.1.1"
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: thumbv6m-none-eabi,thumbv7em-none-eabihf,thumbv8m.main-none-eabihf
+                  components: llvm-tools-preview
+            - uses: esp-rs/xtensa-toolchain@v1.7
+              with:
+                  buildtargets: esp32
+                  ldproxy: false
+
+            - name: Install conversion tool dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y libusb-1.0-0-dev libudev-dev pkg-config cmake build-essential
+            - name: Install elf2uf2-rs, espflash and cargo-binutils
+              run: |
+                  cargo install --locked elf2uf2-rs --version "$ELF2UF2_VERSION"
+                  cargo install --locked espflash --version "$ESPFLASH_VERSION"
+                  cargo install --locked cargo-binutils
+            - name: Build picotool (RP2350 .uf2 conversion)
+              run: |
+                  git clone --depth 1 --branch "$PICO_SDK_REF" https://github.com/raspberrypi/pico-sdk
+                  export PICO_SDK_PATH="$PWD/pico-sdk"
+                  git clone --depth 1 --branch "$PICOTOOL_REF" https://github.com/raspberrypi/picotool
+                  cmake -S picotool -B picotool/build -DPICO_SDK_PATH="$PICO_SDK_PATH"
+                  cmake --build picotool/build -j"$(nproc)"
+                  sudo cmake --install picotool/build
+
+            - name: Resolve release tag for download URLs
+              id: meta
+              run: |
+                  if [ "${{ github.event.inputs.mode }}" = "release" ]; then
+                    version=$(awk '/^\[workspace.package\]/ {f=1} f && /^version = / {gsub(/version = |"/, "", $0); print $0; exit}' Cargo.toml)
+                    if [ -z "$version" ]; then echo "Version not found"; exit 1; fi
+                    echo "tag=v$version" >> "$GITHUB_OUTPUT"
+                  else
+                    # full-nightly / website-only / test all resolve against the rolling `nightly` release.
+                    echo "tag=nightly" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Build and convert demo binaries
+              run: |
+                  set -euo pipefail
+                  OUT="$GITHUB_WORKSPACE/demo-out"
+                  rm -rf "$OUT"; mkdir -p "$OUT"
+                  : > "$OUT/index.tsv"
+
+                  # feature|target|kind|esp cargo-config (kind: rp2040 | rp2350 | stm | esp)
+                  BOARDS='
+                  pico-st7789|thumbv6m-none-eabi|rp2040|
+                  pico2-st7789|thumbv8m.main-none-eabihf|rp2350|
+                  pico2-touch-lcd-2-8|thumbv8m.main-none-eabihf|rp2350|
+                  stm32h735g|thumbv7em-none-eabihf|stm|
+                  stm32u5g9j-dk2|thumbv8m.main-none-eabihf|stm|
+                  esp32-s3-box-3|xtensa-esp32s3-none-elf|esp|examples/mcu-board-support/esp32_s3_box_3/cargo-config.toml
+                  esp32-s3-lcd-ev-board|xtensa-esp32s3-none-elf|esp|examples/mcu-board-support/esp32_s3_lcd_ev_board/cargo-config.toml
+                  esope-sld-c-w-s3|xtensa-esp32s3-none-elf|esp|examples/mcu-board-support/esope_sld_c_w_s3/cargo-config.toml
+                  waveshare-esp32-s3-touch-amoled-1-8|xtensa-esp32s3-none-elf|esp|examples/mcu-board-support/waveshare_esp32_s3_touch_amoled_1_8/cargo-config.toml
+                  m5stack-cores3|xtensa-esp32s3-none-elf|esp|examples/mcu-board-support/m5stack_cores3/cargo-config.toml
+                  '
+
+                  while IFS='|' read -r feature target kind espcfg; do
+                    [ -z "$feature" ] && continue
+                    echo "::group::Build $feature ($kind / $target)"
+                    if [ "$kind" = "esp" ]; then
+                      cargo +esp build -p printerdemo_mcu --target "$target" --no-default-features \
+                        --features="mcu-board-support/$feature" --config "$espcfg" --release
+                    else
+                      cargo build -p printerdemo_mcu --target "$target" --no-default-features \
+                        --features="mcu-board-support/$feature" --release
+                    fi
+                    elf="target/$target/release/printerdemo_mcu"
+                    echo "::endgroup::"
+
+                    echo "::group::Convert $feature -> flashable artifact"
+                    case "$kind" in
+                      rp2040)
+                        elf2uf2-rs "$elf" "$OUT/printerdemo-$feature.uf2"
+                        printf '%s\t%s\t%s\t%s\n' "$feature" "printerdemo-$feature.uf2" "uf2" "" >> "$OUT/index.tsv"
+                        ;;
+                      rp2350)
+                        picotool uf2 convert "$elf" "$OUT/printerdemo-$feature.uf2"
+                        printf '%s\t%s\t%s\t%s\n' "$feature" "printerdemo-$feature.uf2" "uf2" "" >> "$OUT/index.tsv"
+                        ;;
+                      stm)
+                        # .elf is the primary asset (probe-rs / STM32CubeProgrammer flash it directly);
+                        # also ship a raw .bin for tools that want it.
+                        cp "$elf" "$OUT/printerdemo-$feature.elf"
+                        rust-objcopy -O binary "$elf" "$OUT/printerdemo-$feature.bin"
+                        printf '%s\t%s\t%s\t%s\n' "$feature" "printerdemo-$feature.elf" "elf" "" >> "$OUT/index.tsv"
+                        ;;
+                      esp)
+                        # Merged image (bootloader + partition table + app) flashable at offset 0
+                        # over WebSerial by ESP Web Tools, or by espflash/esptool.
+                        # NOTE: espflash save-image argument order is version-specific (pinned $ESPFLASH_VERSION);
+                        # validate on the first CI run and adjust if espflash is bumped.
+                        espflash save-image --merge --chip esp32s3 "$OUT/printerdemo-$feature.bin" "$elf"
+                        jq -n --arg feature "$feature" --arg path "printerdemo-$feature.bin" \
+                          '{name: ("Slint printerdemo (" + $feature + ")"), builds: [ {chipFamily: "ESP32-S3", parts: [ {path: $path, offset: 0} ]} ]}' \
+                          > "$OUT/manifest-$feature.json"
+                        printf '%s\t%s\t%s\t%s\n' "$feature" "printerdemo-$feature.bin" "bin" "manifest-$feature.json" >> "$OUT/index.tsv"
+                        ;;
+                    esac
+                    echo "::endgroup::"
+                  done <<< "$BOARDS"
+
+                  echo "Produced artifacts:"; ls -l "$OUT"
+
+            - name: Guardrail - built boards must match mcu-board-support features
+              run: |
+                  set -euo pipefail
+                  OUT="$GITHUB_WORKSPACE/demo-out"
+                  # Single source of truth (CI handover §6.1): the buildable board features are the
+                  # [features] of examples/mcu-board-support. Fail loudly if this job's matrix drifts
+                  # from it (a new board added there but not built here, or vice versa).
+                  built=$(cut -f1 "$OUT/index.tsv" | sort -u)
+                  declared=$(awk '/^\[features\]/{f=1; next} /^\[/{f=0} f && /^[a-z0-9][a-z0-9-]* *= *\[/{sub(/ *=.*/, ""); print}' examples/mcu-board-support/Cargo.toml | sort -u)
+                  if ! diff <(printf '%s\n' "$built") <(printf '%s\n' "$declared"); then
+                    echo "::error::Demo board matrix drifted from examples/mcu-board-support [features] (< built here, > declared there)."
+                    exit 1
+                  fi
+                  echo "Board matrix in sync with mcu-board-support ($(printf '%s\n' "$declared" | grep -c .) boards)."
+
+            - name: Generate demos.json index
+              env:
+                  TAG: ${{ steps.meta.outputs.tag }}
+              run: |
+                  set -euo pipefail
+                  OUT="$GITHUB_WORKSPACE/demo-out"
+                  BASE="https://github.com/slint-ui/slint/releases/download/$TAG"
+                  # One entry per board, keyed by feature slug (matches the website's data/boards.json keys).
+                  jq -R -s --arg base "$BASE" '
+                    split("\n") | map(select(length > 0)) | map(split("\t"))
+                    | map({ key: .[0], value: (
+                        { feature: .[0], file: .[1], format: .[2], url: ($base + "/" + .[1]) }
+                        + (if ((.[3] // "") == "") then {} else { manifest: .[3], manifestUrl: ($base + "/" + .[3]) } end)
+                      ) })
+                    | from_entries
+                  ' "$OUT/index.tsv" > "$OUT/boards-index.json"
+                  jq -n --arg tag "$TAG" --slurpfile boards "$OUT/boards-index.json" \
+                    '{ demo: "printerdemo_mcu", tag: $tag, generated: (now | todateiso8601), boards: $boards[0] }' \
+                    > "$OUT/demos.json"
+                  rm -f "$OUT/boards-index.json" "$OUT/index.tsv"
+                  cat "$OUT/demos.json"
+
+            - name: Upload demo-binaries artifact
+              uses: actions/upload-artifact@v7
+              with:
+                  name: demo-binaries
+                  path: demo-out/
