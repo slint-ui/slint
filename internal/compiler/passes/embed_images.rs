@@ -41,7 +41,7 @@ pub async fn embed_images(
     let all_components = all_components;
 
     let mapped_urls = {
-        let mut urls = HashMap::<Url, Option<SmolStr>>::new();
+        let mut urls = HashMap::<Url, Option<Url>>::new();
 
         if let Some(mapper) = resource_url_mapper {
             // Collect URLs (sync!):
@@ -53,7 +53,7 @@ pub async fn embed_images(
 
             // Map URLs (async -- well, not really):
             for (url, mapped) in urls.iter_mut() {
-                *mapped = (*mapper)(url).await.map(SmolStr::new);
+                *mapped = (*mapper)(url).await;
             }
         }
 
@@ -102,7 +102,7 @@ fn reference_mapper_url(resource_ref: &ImageReference) -> Option<Url> {
     }
 }
 
-fn collect_image_urls_from_expression(e: &Expression, urls: &mut HashMap<Url, Option<SmolStr>>) {
+fn collect_image_urls_from_expression(e: &Expression, urls: &mut HashMap<Url, Option<Url>>) {
     if let Expression::ImageReference { resource_ref, .. } = e
         && let Some(url) = reference_mapper_url(resource_ref)
     {
@@ -114,7 +114,7 @@ fn collect_image_urls_from_expression(e: &Expression, urls: &mut HashMap<Url, Op
 
 fn embed_images_from_expression(
     e: &mut Expression,
-    urls: &HashMap<Url, Option<SmolStr>>,
+    urls: &HashMap<Url, Option<Url>>,
     global_embedded_resources: &RefCell<TiVec<EmbeddedResourcesIdx, EmbeddedResources>>,
     path_to_id: &mut HashMap<SmolStr, EmbeddedResourcesIdx>,
     embed_files: EmbedResourcesKind,
@@ -124,11 +124,11 @@ fn embed_images_from_expression(
 ) {
     if let Expression::ImageReference { resource_ref, source_location, nine_slice: _ } = e {
         // Apply the resource mapper. A Path/Url may be replaced with the mapped
-        // result (e.g. a `data:` URL), so re-classify the reference.
+        // URL (e.g. a `data:` URL), so re-classify the reference.
         if let Some(url) = reference_mapper_url(resource_ref)
             && let Some(mapped) = urls.get(&url).cloned().flatten()
         {
-            *resource_ref = ImageReference::from_resolved(mapped);
+            *resource_ref = ImageReference::from_mapped_url(mapped);
         }
 
         match resource_ref {
