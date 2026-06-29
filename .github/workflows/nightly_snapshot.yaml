@@ -369,7 +369,7 @@ jobs:
 
     publish_artifacts:
         if: ${{ github.event.inputs.mode != 'test' }}
-        needs: [docs, wasm_demo, wasm, check-for-secrets, android]
+        needs: [docs, wasm_demo, wasm, check-for-secrets, android, demo_binaries]
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/download-artifact@v8
@@ -417,6 +417,10 @@ jobs:
               with:
                   name: android-demos
                   path: android
+            - uses: actions/download-artifact@v8
+              with:
+                  name: demo-binaries
+                  path: demo-binaries
 
             - uses: actions/checkout@v6
               with:
@@ -496,6 +500,12 @@ jobs:
                   done
                   echo '</ul>'
                 } > $output_path/demos/android/index.html
+
+                # Flashable per-board MCU demo binaries + demos.json index + ESP Web Tools manifests.
+                # Served at <base>/demos/mcu/ (the URLs baked into demos.json by the demo_binaries job).
+                rm -rf $output_path/demos/mcu
+                mkdir -p $output_path/demos/mcu
+                cp -a ../demo-binaries/* $output_path/demos/mcu/
 
                 rm -rf $output_path/wasm-interpreter
                 mkdir -p $output_path/wasm-interpreter
@@ -592,7 +602,7 @@ jobs:
 
     prepare_release:
         if: github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release'
-        needs: [cpp_package, slint-viewer-binary, slint-lsp-binary, build-figma-plugin, android, demo_binaries]
+        needs: [cpp_package, slint-viewer-binary, slint-lsp-binary, build-figma-plugin, android]
         runs-on: ubuntu-22.04
         permissions:
             contents: write
@@ -624,10 +634,6 @@ jobs:
               with:
                   name: android-demos
                   path: android-demos
-            - uses: actions/download-artifact@v8
-              with:
-                  name: demo-binaries
-                  path: demo-binaries
             - name: Extract files
               run: |
                   # Backwards compatibility: also publish under the old artifact names.
@@ -653,8 +659,6 @@ jobs:
                   mv figma-plugin.zip artifacts/
                   # slint-viewer APK ships as a release asset (too big for the web server).
                   mv android-demos/slint-viewer.apk artifacts/
-                  # Flashable per-board demo binaries + demos.json index + ESP Web Tools manifests.
-                  mv demo-binaries/* artifacts/
             - uses: actions/checkout@v6
               with:
                 path: "slint-src"
@@ -874,9 +878,10 @@ jobs:
 
     # Build the `printerdemo_mcu` demo for every board in examples/mcu-board-support
     # and convert each ELF into the flashable format that board expects
-    # (.uf2 / merged .bin + ESP Web Tools manifest / .elf). Publishes them as
-    # release assets via prepare_release, plus a `demos.json` index the website
-    # reads at build time to wire up download / one-click-flash / `slint.dev/flash`.
+    # (.uf2 / merged .bin + ESP Web Tools manifest / .elf). The publish_artifacts job
+    # copies these (+ a `demos.json` index) into slint-ui/www-releases alongside the web
+    # demos, served from snapshots.slint.dev / releases.slint.dev; the website reads
+    # demos.json at build time to wire up download / one-click-flash / `slint.dev/flash`.
     # The board matrix mirrors the `mcu` job in ci.yaml (the build gate); keep both in sync.
     demo_binaries:
         env:
@@ -919,16 +924,18 @@ jobs:
                   cmake --build picotool/build -j"$(nproc)"
                   sudo cmake --install picotool/build
 
-            - name: Resolve release tag for download URLs
+            - name: Resolve published base URL for demos.json
               id: meta
               run: |
+                  # Binaries are published into slint-ui/www-releases by publish_artifacts and served
+                  # from the snapshots/releases subdomains (same hosts as the web demos and docs).
                   if [ "${{ github.event.inputs.mode }}" = "release" ]; then
                     version=$(awk '/^\[workspace.package\]/ {f=1} f && /^version = / {gsub(/version = |"/, "", $0); print $0; exit}' Cargo.toml)
                     if [ -z "$version" ]; then echo "Version not found"; exit 1; fi
-                    echo "tag=v$version" >> "$GITHUB_OUTPUT"
+                    echo "base=https://releases.slint.dev/$version/demos/mcu" >> "$GITHUB_OUTPUT"
                   else
-                    # full-nightly / website-only / test all resolve against the rolling `nightly` release.
-                    echo "tag=nightly" >> "$GITHUB_OUTPUT"
+                    # full-nightly / website-only / test all serve from the rolling per-branch snapshot.
+                    echo "base=https://snapshots.slint.dev/${GITHUB_REF##*/}/demos/mcu" >> "$GITHUB_OUTPUT"
                   fi
 
             - name: Build and convert demo binaries
@@ -1016,11 +1023,10 @@ jobs:
 
             - name: Generate demos.json index
               env:
-                  TAG: ${{ steps.meta.outputs.tag }}
+                  BASE: ${{ steps.meta.outputs.base }}
               run: |
                   set -euo pipefail
                   OUT="$GITHUB_WORKSPACE/demo-out"
-                  BASE="https://github.com/slint-ui/slint/releases/download/$TAG"
                   # One entry per board, keyed by feature slug (matches the website's data/boards.json keys).
                   jq -R -s --arg base "$BASE" '
                     split("\n") | map(select(length > 0)) | map(split("\t"))
@@ -1030,8 +1036,8 @@ jobs:
                       ) })
                     | from_entries
                   ' "$OUT/index.tsv" > "$OUT/boards-index.json"
-                  jq -n --arg tag "$TAG" --slurpfile boards "$OUT/boards-index.json" \
-                    '{ demo: "printerdemo_mcu", tag: $tag, generated: (now | todateiso8601), boards: $boards[0] }' \
+                  jq -n --arg base "$BASE" --slurpfile boards "$OUT/boards-index.json" \
+                    '{ demo: "printerdemo_mcu", base: $base, generated: (now | todateiso8601), boards: $boards[0] }' \
                     > "$OUT/demos.json"
                   rm -f "$OUT/boards-index.json" "$OUT/index.tsv"
                   cat "$OUT/demos.json"
