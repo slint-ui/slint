@@ -78,7 +78,9 @@ pub fn run(
 
         macos_titlebar::setup(editor.as_weak());
 
-        updater = Sparkle::new(SparkleConfig { version: "0.1.0".into() }).unwrap().unwrap();
+        updater = Sparkle::new(SparkleConfig { version: env!("CARGO_PKG_VERSION").into() })
+            .unwrap()
+            .unwrap();
 
         updater.set_nonsync_event_callback(move |event| {
             println!("Sparkle event: {event:?}");
