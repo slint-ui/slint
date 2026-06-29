@@ -65,6 +65,10 @@ pub fn run(
 ) -> std::result::Result<(), slint::PlatformError> {
     let app_window = ui::create_ui(&to_lsp, "", use_editor_ui)?;
 
+    // We need to put the updater here so that it stays in scope.
+    // `cfg`'d out on non-mac platforms so we don't get a compiler
+    // error when it doesn't have a type to assign to it.
+    #[cfg(target_os = "macos")]
     let updater;
 
     #[cfg(target_os = "macos")]
@@ -76,39 +80,15 @@ pub fn run(
 
         updater = Sparkle::new(SparkleConfig { version: "0.1.0".into() }).unwrap().unwrap();
 
-        updater.set_nonsync_event_callback(move |event| match dbg!(event) {
-            sparklers::Event::DidFindValidUpdate { item } => {
-                editor.invoke_show_new_version_popup(item.version().to_shared_string());
-            }
-
-            sparklers::Event::DidFinishLoadingAppCast
-            | sparklers::Event::DidNotFindUpdate
-            | sparklers::Event::WillRestart
-            | sparklers::Event::WillDownloadUpdate { .. }
-            | sparklers::Event::DidDownloadUpdate { .. }
-            | sparklers::Event::WillInstallUpdate { .. }
-            | sparklers::Event::DidAbortWithError { .. }
-            | sparklers::Event::DidFinishUpdateCycle { .. }
-            | sparklers::Event::FailedToDownloadUpdate { .. }
-            | sparklers::Event::UserDidCancelDownload
-            | sparklers::Event::WillExtractUpdate { .. }
-            | sparklers::Event::DidExtractUpdate { .. }
-            | sparklers::Event::WillRelaunchApplication
-            | sparklers::Event::UserDidMakeChoice { .. }
-            | sparklers::Event::WillScheduleUpdateCheck { .. }
-            | sparklers::Event::WillNotScheduleUpdateCheck
-            | sparklers::Event::WillInstallUpdateOnQuit { .. } => {}
+        updater.set_nonsync_event_callback(move |event| {
+            println!("Sparkle event: {event:?}");
         });
 
-        if let Err(e) = updater.check_for_update_information() {
-            println!("{e}");
-        }
+        // TODO: These calls can't return `Err`, the API needs to be changed
+        // Errors are reported using the callback.
+        updater.set_automatically_checks_for_updates(true).unwrap();
+        updater.check_for_updates_in_background().unwrap();
 
-        if let Err(e) = updater.check_for_updates_in_background() {
-            println!("{e}");
-        }
-
-        println!("Ensure we're actually hitting this codepath");
         println!("feed url: {:?}", updater.feed_url());
     }
 
