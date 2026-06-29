@@ -7,10 +7,6 @@
 
 namespace slint::cbindgen_private {
 struct PropertyAnimation;
-struct ChangeTracker
-{
-    void *inner;
-};
 }
 
 #include "private/slint_properties_internal.h"
@@ -458,7 +454,7 @@ struct ChangeTracker
     }
 
 private:
-    cbindgen_private::ChangeTracker inner;
+    cbindgen_private::ChangeTrackerOpaque inner;
 };
 
 } // namespace slint::private_api

@@ -336,6 +336,7 @@ fn default_config() -> cbindgen::Config {
     config.export = cbindgen::ExportConfig {
         rename: [
             ("Callback".into(), "private_api::CallbackHelper".into()),
+            ("ChangeTracker".into(), "private_api::ChangeTracker".into()),
             ("VoidArg".into(), "void".into()),
             ("FocusReasonArg".into(), "FocusReason".into()),
             ("StringArg".into(), "slint::SharedString".into()),
@@ -525,6 +526,8 @@ fn gen_corelib(
         "slint_property_listener_scope_is_dirty",
         "PropertyTrackerOpaque",
         "CallbackOpaque",
+        "ChangeTracker",
+        "ChangeTrackerOpaque",
         "WindowAdapterRc",
         "VoidArg",
         "StringArg",
@@ -917,11 +920,6 @@ fn gen_corelib(
         .body
         .insert("Flickable".to_owned(), "    inline Flickable(); inline ~Flickable();".into());
     config.export.pre_body.insert("FlickableDataBox".to_owned(), "struct FlickableData;".into());
-    config
-        .export
-        .body
-        .insert("TextInput".to_owned(), "    inline TextInput(); inline ~TextInput();".into());
-    config.export.pre_body.insert("TextInputDataBox".to_owned(), "struct TextInputData;".into());
     config.export.body.insert(
         "SystemTrayIcon".to_owned(),
         "    inline SystemTrayIcon(); inline ~SystemTrayIcon();".into(),
