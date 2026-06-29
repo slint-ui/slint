@@ -16,7 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 SVG="$REPO_ROOT/logo/slint-logo-small-light.svg"
-RES="$REPO_ROOT/tools/viewer/android-aab/app/src/main/res/mipmap-xxxhdpi"
+RES="$REPO_ROOT/tools/viewer/android/app/src/main/res/mipmap-xxxhdpi"
 
 command -v resvg >/dev/null 2>&1 \
     || { echo "install resvg: cargo install resvg --locked" >&2; exit 1; }
