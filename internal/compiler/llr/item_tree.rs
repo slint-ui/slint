@@ -127,6 +127,8 @@ pub struct GlobalComponent {
     pub functions: TiVec<FunctionIdx, Function>,
     /// One entry per property
     pub init_values: BTreeMap<LocalMemberIndex, BindingExpression>,
+    /// The animation for properties which are animated
+    pub animations: BTreeMap<LocalMemberIndex, Expression>,
     // maps property to its changed callback
     pub change_callbacks: BTreeMap<PropertyIdx, MutExpression>,
     pub const_properties: TiVec<PropertyIdx, bool>,

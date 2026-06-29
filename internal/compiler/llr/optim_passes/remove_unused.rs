@@ -83,6 +83,7 @@ pub fn remove_unused(root: &mut CompilationUnit) {
     }
     for (idx, g) in root.globals.iter_mut_enumerated() {
         g.init_values.retain(|x, _| mappings.glob_mappings[idx].keep(x));
+        g.animations.retain(|x, _| mappings.glob_mappings[idx].keep(x));
     }
 
     impl visitor::Visitor for &RemoveUnusedMappings {
@@ -424,6 +425,7 @@ mod visitor {
             callbacks: _,
             functions,
             init_values,
+            animations,
             change_callbacks,
             const_properties: _,
             public_properties,
@@ -447,6 +449,15 @@ mod visitor {
             .map(|(mut k, mut v)| {
                 visit_member_index(&mut k, &scope, state, visitor);
                 visit_binding_expression(&mut v, &scope, state, visitor);
+                (k, v)
+            })
+            .collect();
+
+        *animations = std::mem::take(animations)
+            .into_iter()
+            .map(|(mut k, mut v)| {
+                visit_member_index(&mut k, &scope, state, visitor);
+                visit_expression(&mut v, &scope, state, visitor);
                 (k, v)
             })
             .collect();
