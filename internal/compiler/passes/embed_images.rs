@@ -77,35 +77,34 @@ pub async fn embed_images(
     }
 }
 
-/// The URL of an image reference, as expected by the resource mapper and used
-/// to key the map of mapped resources. A local image reference is an absolute
-/// filesystem path at this stage, so turn it into a `file://` URL; references
-/// that are already URLs (`data:`, `builtin:/`, `https:`, ...) are parsed as-is.
-/// Returns `None` for a reference that is neither, which therefore cannot be
-/// mapped.
-fn image_reference_url(resource: &str) -> Option<Url> {
-    if crate::pathutils::is_url(std::path::Path::new(resource)) {
-        return Url::parse(resource).ok();
-    }
-    // `Url::from_file_path` is absent on `wasm32-unknown-unknown`, which only
-    // ever sees URL references and so never reaches this branch.
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        Url::from_file_path(resource).ok()
-    }
-    #[cfg(target_arch = "wasm32")]
-    {
-        None
+/// The URL handed to the resource mapper, and the key of the mapped-resource
+/// map, for a reference the mapper may rewrite. A local [`ImageReference::Path`]
+/// becomes a `file://` URL; an [`ImageReference::Url`] is used as-is. Everything
+/// else (`data:` URIs, already-embedded references) returns `None` and is left
+/// untouched.
+fn reference_mapper_url(resource_ref: &ImageReference) -> Option<Url> {
+    match resource_ref {
+        ImageReference::Url(url) => Some(url.clone()),
+        ImageReference::Path(path) => {
+            // `Url::from_file_path` is absent on `wasm32-unknown-unknown`, which
+            // only ever sees URL references and so never reaches this branch.
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                Url::from_file_path(path).ok()
+            }
+            #[cfg(target_arch = "wasm32")]
+            {
+                let _ = path;
+                None
+            }
+        }
+        _ => None,
     }
 }
 
 fn collect_image_urls_from_expression(e: &Expression, urls: &mut HashMap<Url, Option<SmolStr>>) {
     if let Expression::ImageReference { resource_ref, .. } = e
-        && let ImageReference::AbsolutePath(path) = resource_ref
-        // `data:` URIs are embedded directly and never looked up in this map, so
-        // don't store their (potentially huge) content as a key.
-        && !path.starts_with("data:")
-        && let Some(url) = image_reference_url(path)
+        && let Some(url) = reference_mapper_url(resource_ref)
     {
         urls.insert(url, None);
     };
@@ -123,53 +122,63 @@ fn embed_images_from_expression(
     diag: &mut BuildDiagnostics,
     font_collection: Option<&SharedFontCollection>,
 ) {
-    if let Expression::ImageReference { resource_ref, source_location, nine_slice: _ } = e
-        && let ImageReference::AbsolutePath(path) = resource_ref
-    {
-        if path.starts_with("data:") {
-            // Data URIs have no external file to track, so skip for
-            // Nothing (interpreter) and ListAllResources (dependency tracking).
-            if !matches!(
-                embed_files,
-                EmbedResourcesKind::Nothing | EmbedResourcesKind::ListAllResources
-            ) {
-                let image_ref = embed_data_uri(
-                    global_embedded_resources,
-                    path_to_id,
-                    path,
-                    embed_files,
-                    scale_factor,
-                    diag,
-                    source_location,
-                    font_collection,
-                );
-                *resource_ref = image_ref;
-            }
-            return;
+    if let Expression::ImageReference { resource_ref, source_location, nine_slice: _ } = e {
+        // Apply the resource mapper. A Path/Url may be replaced with the mapped
+        // result (e.g. a `data:` URL), so re-classify the reference.
+        if let Some(url) = reference_mapper_url(resource_ref)
+            && let Some(mapped) = urls.get(&url).cloned().flatten()
+        {
+            *resource_ref = ImageReference::from_resolved(mapped);
         }
 
-        // use the mapped url, falling back to the original path:
-        let mapped_path = image_reference_url(path)
-            .and_then(|url| urls.get(&url).cloned().flatten())
-            .unwrap_or_else(|| path.clone());
-        *path = mapped_path;
-        if embed_files != EmbedResourcesKind::Nothing
-            && (embed_files != EmbedResourcesKind::OnlyBuiltinResources
-                || path.starts_with("builtin:/"))
-        {
-            let image_ref = embed_image(
-                global_embedded_resources,
-                path_to_id,
-                embed_files,
-                path,
-                scale_factor,
-                diag,
-                source_location,
-                font_collection,
-            );
-            if embed_files != EmbedResourcesKind::ListAllResources {
-                *resource_ref = image_ref;
+        match resource_ref {
+            ImageReference::DataUri(data) => {
+                // Data URIs have no external file to track, so skip for
+                // Nothing (interpreter) and ListAllResources (dependency tracking).
+                if !matches!(
+                    embed_files,
+                    EmbedResourcesKind::Nothing | EmbedResourcesKind::ListAllResources
+                ) {
+                    let image_ref = embed_data_uri(
+                        global_embedded_resources,
+                        path_to_id,
+                        data,
+                        embed_files,
+                        scale_factor,
+                        diag,
+                        source_location,
+                        font_collection,
+                    );
+                    *resource_ref = image_ref;
+                }
             }
+            ImageReference::Path(_) | ImageReference::Url(_) => {
+                let is_builtin = matches!(
+                    resource_ref,
+                    ImageReference::Url(url) if url.scheme() == "builtin"
+                );
+                if embed_files != EmbedResourcesKind::Nothing
+                    && (embed_files != EmbedResourcesKind::OnlyBuiltinResources || is_builtin)
+                {
+                    let path = resource_ref.source().expect("Path/Url have a source");
+                    let image_ref = embed_image(
+                        global_embedded_resources,
+                        path_to_id,
+                        embed_files,
+                        path,
+                        scale_factor,
+                        diag,
+                        source_location,
+                        font_collection,
+                    );
+                    if embed_files != EmbedResourcesKind::ListAllResources {
+                        *resource_ref = image_ref;
+                    }
+                }
+            }
+            ImageReference::None
+            | ImageReference::EmbeddedData { .. }
+            | ImageReference::EmbeddedTexture { .. } => {}
         }
     };
 
