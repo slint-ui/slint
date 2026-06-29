@@ -149,7 +149,7 @@ pub trait Model {
     /// If the model cannot support data changes, then it is ok to do nothing.
     /// The default implementation will print a warning to stderr.
     ///
-    /// If the model can update the data, it should also call [`ModelNotify::row_changed`] on its
+    /// If the model can update the data, it should also call [`ModelNotify::row_added`] on its
     /// internal [`ModelNotify`].
     fn push_row(&self, _data: Self::Data) {
         #[cfg(feature = "std")]
@@ -165,7 +165,7 @@ pub trait Model {
     /// If the model cannot support data changes, then it is ok to do nothing.
     /// The default implementation will print a warning to stderr.
     ///
-    /// If the model can update the data, it should also call [`ModelNotify::row_changed`] on its
+    /// If the model can update the data, it should also call [`ModelNotify::row_removed`] on its
     /// internal [`ModelNotify`].
     fn remove_row(&self, _row: isize) {
         #[cfg(feature = "std")]
@@ -181,7 +181,7 @@ pub trait Model {
     /// If the model cannot support data changes, then it is ok to do nothing.
     /// The default implementation will print a warning to stderr.
     ///
-    /// If the model can update the data, it should also call [`ModelNotify::row_changed`] on its
+    /// If the model can update the data, it should also call [`ModelNotify::row_added`] on its
     /// internal [`ModelNotify`].
     fn insert_row(&self, _row: isize, _data: Self::Data) {
         #[cfg(feature = "std")]
