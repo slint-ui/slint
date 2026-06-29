@@ -370,11 +370,11 @@ importers:
         specifier: 3.36.0
         version: 3.36.0
       vscode-languageclient:
-        specifier: 10.0.1
-        version: 10.0.1
+        specifier: 9.0.1
+        version: 9.0.1
       vscode-languageserver:
-        specifier: 10.0.1
-        version: 10.0.1
+        specifier: 9.0.1
+        version: 9.0.1
       vscode-languageserver-types:
         specifier: 3.18.0
         version: 3.18.0
