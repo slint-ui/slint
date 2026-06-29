@@ -29,7 +29,7 @@ packages:
 catalog:
   '@astrojs/check': 0.9.9
   '@astrojs/sitemap': 3.7.3
-  '@astrojs/starlight': 0.40.0
+  '@astrojs/starlight': 0.41.1
   '@biomejs/biome': 2.5.1
   '@expressive-code/plugin-line-numbers': 0.43.1
   '@pagefind/default-ui': 1.5.2

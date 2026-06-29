@@ -40,7 +40,6 @@
         "playwright-ctrf-json-reporter": "catalog:",
         "@slint/common-files": "workspace:*",
         "@tailwindcss/typography": "0.5.20",
-        "@types/js-yaml": "4.0.9",
         "@types/lodash.merge": "4.6.9",
         "@types/mdx": "2.0.14",
         "astro-compress": "2.4.1",
