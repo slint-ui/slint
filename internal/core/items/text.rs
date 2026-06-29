@@ -30,7 +30,7 @@ use crate::rtti::*;
 use crate::string::string_to_float;
 use crate::window::{InputMethodProperties, InputMethodRequest, WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString, SharedVector};
-use alloc::{boxed::Box, rc::Rc, string::String};
+use alloc::{rc::Rc, string::String};
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
 use core::pin::Pin;
@@ -771,11 +771,6 @@ pub struct TextInput {
     pressed: Cell<u8>,
     undo_items: Cell<SharedVector<UndoItem>>,
     redo_items: Cell<SharedVector<UndoItem>>,
-    data: TextInputDataBox,
-}
-
-#[derive(Default)]
-pub struct TextInputData {
     /// Mirror of `text` as of the last internal edit. Used by the change handler installed
     /// in `init` to tell internal edits apart from external assignments to the public `text`
     /// property, so that only the latter realign the cursor/anchor offsets and undo stack.
@@ -784,34 +779,11 @@ pub struct TextInputData {
     text_change_tracker: crate::properties::ChangeTracker,
 }
 
-#[repr(C)]
-/// Wraps the internal data structure for the TextInput
-pub struct TextInputDataBox(core::ptr::NonNull<TextInputData>);
-
-impl Default for TextInputDataBox {
-    fn default() -> Self {
-        TextInputDataBox(Box::leak(Box::<TextInputData>::default()).into())
-    }
-}
-impl Drop for TextInputDataBox {
-    fn drop(&mut self) {
-        // Safety: the self.0 was constructed from a Box::leak in TextInputDataBox::default
-        drop(unsafe { Box::from_raw(self.0.as_ptr()) });
-    }
-}
-impl core::ops::Deref for TextInputDataBox {
-    type Target = TextInputData;
-    fn deref(&self) -> &Self::Target {
-        // Safety: initialized in TextInputDataBox::default
-        unsafe { self.0.as_ref() }
-    }
-}
-
 impl Item for TextInput {
     fn init(self: Pin<&Self>, self_rc: &ItemRc) {
         // Seed the mirror so the change handler doesn't treat the initial text as external.
-        self.data.internal_text.set(self.text());
-        self.data.text_change_tracker.init_delayed(
+        self.internal_text.set(self.text());
+        self.text_change_tracker.init_delayed(
             self_rc.downgrade(),
             |self_weak| {
                 self_weak
@@ -1668,7 +1640,7 @@ impl TextInput {
     /// Set `text` from an internal edit, keeping the `internal_text` mirror in sync so the
     /// change handler doesn't mistake this edit for an external assignment.
     fn set_text_internal(self: Pin<&Self>, text: SharedString) {
-        self.data.internal_text.set(text.clone());
+        self.internal_text.set(text.clone());
         self.text.set(text);
     }
 
@@ -1678,7 +1650,7 @@ impl TextInput {
     /// cursor and anchor offsets to valid boundaries (issue #331) and clear the undo/redo
     /// stacks, whose positions refer to the now-replaced text (issue #9024).
     fn align_to_text(self: Pin<&Self>, new_text: &SharedString, self_rc: &ItemRc) {
-        let previous_text = self.data.internal_text.replace(new_text.clone());
+        let previous_text = self.internal_text.replace(new_text.clone());
         if previous_text == *new_text {
             // Produced by an internal edit: `set_text_internal` already kept the mirror in sync,
             // so the offsets and undo stack are consistent with `new_text`. Nothing to realign.
@@ -2528,24 +2500,5 @@ pub unsafe extern "C" fn slint_cpp_text_item_fontmetrics(
         let self_rc = ItemRc::new(self_component.clone(), self_index);
         let self_ref = self_rc.borrow();
         slint_text_item_fontmetrics(window_adapter, self_ref, &self_rc)
-    }
-}
-
-/// # Safety
-/// This must be called using a non-null pointer pointing to a chunk of memory big enough to
-/// hold a TextInputDataBox
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_textinput_data_init(data: *mut TextInputDataBox) {
-    unsafe { core::ptr::write(data, TextInputDataBox::default()) };
-}
-
-/// # Safety
-/// This must be called using a non-null pointer pointing to an initialized TextInputDataBox
-#[cfg(feature = "ffi")]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_textinput_data_free(data: *mut TextInputDataBox) {
-    unsafe {
-        core::ptr::drop_in_place(data);
     }
 }

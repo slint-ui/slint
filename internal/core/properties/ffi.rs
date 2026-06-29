@@ -496,27 +496,37 @@ pub unsafe extern "C" fn slint_property_tracker_drop(handle: *mut PropertyTracke
     unsafe { core::ptr::drop_in_place(handle as *mut PropertyTracker) };
 }
 
+#[repr(C)]
+/// Opaque type representing the ChangeTracker
+pub struct ChangeTrackerOpaque {
+    _inner: *const c_void,
+}
+
+static_assertions::assert_eq_align!(ChangeTrackerOpaque, ChangeTracker);
+static_assertions::assert_eq_size!(ChangeTrackerOpaque, ChangeTracker);
+
 /// Construct a ChangeTracker
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_change_tracker_construct(ct: *mut ChangeTracker) {
-    unsafe { core::ptr::write(ct, ChangeTracker::default()) };
+pub unsafe extern "C" fn slint_change_tracker_construct(ct: *mut ChangeTrackerOpaque) {
+    unsafe { core::ptr::write(ct as *mut ChangeTracker, ChangeTracker::default()) };
 }
 
 /// Drop a ChangeTracker
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn slint_change_tracker_drop(ct: *mut ChangeTracker) {
-    unsafe { core::ptr::drop_in_place(ct) };
+pub unsafe extern "C" fn slint_change_tracker_drop(ct: *mut ChangeTrackerOpaque) {
+    unsafe { core::ptr::drop_in_place(ct as *mut ChangeTracker) };
 }
 
 /// initialize the change tracker
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_change_tracker_init(
-    ct: &ChangeTracker,
+    ct: &ChangeTrackerOpaque,
     user_data: *mut c_void,
     drop_user_data: extern "C" fn(user_data: *mut c_void),
     eval_fn: extern "C" fn(user_data: *mut c_void) -> bool,
     notify_fn: extern "C" fn(user_data: *mut c_void),
 ) {
+    let ct = unsafe { &*(ct as *const ChangeTrackerOpaque as *const ChangeTracker) };
     #[allow(non_camel_case_types)]
     struct C_ChangeTrackerInner {
         user_data: *mut c_void,
@@ -622,7 +632,7 @@ mod ffi_change_tracker_leak_test {
         let ct = ChangeTracker::default();
         unsafe {
             slint_change_tracker_init(
-                &ct,
+                &*(&ct as *const ChangeTracker as *const ChangeTrackerOpaque),
                 &state as *const EvalState as *mut c_void,
                 drop_fn,
                 eval_fn,
