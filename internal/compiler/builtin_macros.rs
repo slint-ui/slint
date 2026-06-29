@@ -91,10 +91,16 @@ pub fn lower_macro(
         BuiltinMacroFunction::Rgb => rgb_macro(n, sub_expr.collect(), diag, symbol_counters),
         BuiltinMacroFunction::Hsv => hsv_macro(n, sub_expr.collect(), diag, symbol_counters),
         BuiltinMacroFunction::Oklch => oklch_macro(n, sub_expr.collect(), diag, symbol_counters),
-        BuiltinMacroFunction::ArrayPush => array_push_macro(n, sub_expr.collect(), diag, symbol_counters),
-        BuiltinMacroFunction::ArrayRemove => array_remove_macro(n, sub_expr.collect(), diag, symbol_counters),
-        BuiltinMacroFunction::ArrayInsert => array_insert_macro(n, sub_expr.collect(), diag, symbol_counters),
+        BuiltinMacroFunction::ArrayPush => {
+            array_push_macro(n, sub_expr.collect(), diag, symbol_counters)
         }
+        BuiltinMacroFunction::ArrayRemove => {
+            array_remove_macro(n, sub_expr.collect(), diag, symbol_counters)
+        }
+        BuiltinMacroFunction::ArrayInsert => {
+            array_insert_macro(n, sub_expr.collect(), diag, symbol_counters)
+        }
+    }
 }
 
 fn min_max_macro(
