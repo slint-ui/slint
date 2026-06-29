@@ -1375,6 +1375,20 @@ fn safe_byte_offset(unsafe_byte_offset: i32, text: &str) -> usize {
     text.ceil_char_boundary(unsafe_byte_offset as usize)
 }
 
+/// Like [`safe_byte_offset`], but additionally snaps the result up to a grapheme cluster
+/// boundary. Used when realigning the cursor/anchor to text that was replaced externally, so
+/// they never land inside a multi-codepoint grapheme (e.g. an emoji with a skin-tone modifier
+/// or a base character followed by a combining mark), matching how cursor movement treats a
+/// grapheme cluster as indivisible.
+fn safe_grapheme_boundary_offset(unsafe_byte_offset: i32, text: &str) -> usize {
+    let offset = safe_byte_offset(unsafe_byte_offset, text);
+    let mut grapheme_cursor = unicode_segmentation::GraphemeCursor::new(offset, text.len(), true);
+    match grapheme_cursor.is_boundary(text, 0) {
+        Ok(true) => offset,
+        _ => grapheme_cursor.next_boundary(text, 0).ok().flatten().unwrap_or(text.len()),
+    }
+}
+
 /// This struct holds the fields needed for rendering a TextInput item after applying any
 /// on-going composition. This way the renderer's don't have to duplicate the code for extracting
 /// and applying the pre-edit text, cursor placement within, etc.
@@ -1654,8 +1668,9 @@ impl TextInput {
         self.redo_items.set(Default::default());
 
         let old_cursor = self.cursor_position_byte_offset();
-        let clamped_cursor = safe_byte_offset(old_cursor, new_text) as i32;
-        let clamped_anchor = safe_byte_offset(self.anchor_position_byte_offset(), new_text) as i32;
+        let clamped_cursor = safe_grapheme_boundary_offset(old_cursor, new_text) as i32;
+        let clamped_anchor =
+            safe_grapheme_boundary_offset(self.anchor_position_byte_offset(), new_text) as i32;
         self.anchor_position_byte_offset.set(clamped_anchor);
 
         if let Some(window_adapter) = self_rc.window_adapter() {
