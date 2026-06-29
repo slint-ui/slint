@@ -820,7 +820,7 @@ jobs:
                   ANDROID_KEYSTORE_PATH: ${{ env.CARGO_APK_RELEASE_KEYSTORE }}
                   ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
                   ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
-              run: tools/viewer/android-aab/build-aab.sh
+              run: tools/viewer/android/build-aab.sh
             # A universal APK works on every ABI the bundle carries.
             - name: Build slint-viewer APK from the AAB
               env:
@@ -829,7 +829,7 @@ jobs:
               run: |
                   curl --fail -L -o bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
                   java -jar bundletool.jar build-apks --mode=universal \
-                      --bundle=tools/viewer/android-aab/app/build/outputs/bundle/release/slint-viewer.aab \
+                      --bundle=tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab \
                       --output=slint-viewer.apks \
                       --ks="$CARGO_APK_RELEASE_KEYSTORE" \
                       --ks-pass="pass:$ANDROID_KEYSTORE_PASSWORD" \
@@ -848,7 +848,7 @@ jobs:
               with:
                   serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
                   packageName: dev.slint.viewer
-                  releaseFiles: tools/viewer/android-aab/app/build/outputs/bundle/release/slint-viewer.aab
+                  releaseFiles: tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab
                   track: production
                   status: draft
 
@@ -858,7 +858,7 @@ jobs:
               run: |
                   mkdir -p android-demos
                   cp -a target/release/apk/*.apk android-demos/ || true
-                  cp -a tools/viewer/android-aab/app/build/outputs/bundle/release/slint-viewer.aab android-demos/ || true
+                  cp -a tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab android-demos/ || true
             - name: "upload APK artifact"
               if: always()
               uses: actions/upload-artifact@v7
