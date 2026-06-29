@@ -236,7 +236,10 @@ pub fn resource_url_mapper() -> Option<i_slint_compiler::ResourceUrlMapper> {
             return Box::pin(std::future::ready(None));
         };
         let future = wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(promise));
-        Box::pin(async move { future.await.ok().and_then(|v| v.as_string()) })
+        Box::pin(async move {
+            let mapped = future.await.ok().and_then(|v| v.as_string())?;
+            lsp_types::Url::parse(&mapped).ok()
+        })
     }))
 }
 

@@ -120,7 +120,8 @@ pub enum ComponentSelection {
 /// Unfortunately AsyncFn is not dyn-compatible yet.
 pub type OpenImportCallback =
     Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>>;
-pub type ResourceUrlMapper = Rc<dyn Fn(&url::Url) -> Pin<Box<dyn Future<Output = Option<String>>>>>;
+pub type ResourceUrlMapper =
+    Rc<dyn Fn(&url::Url) -> Pin<Box<dyn Future<Output = Option<url::Url>>>>>;
 
 /// CompilationConfiguration allows configuring different aspects of the compiler.
 #[derive(Clone)]

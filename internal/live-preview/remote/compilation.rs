@@ -68,7 +68,7 @@ pub fn init_compiler(connection: Weak<Connection>) -> slint_interpreter::Compile
                 use base64::Engine as _;
                 let encoded =
                     base64::engine::general_purpose::STANDARD.encode(&*file_content.contents);
-                Some(format!("data:{mime_type};base64,{encoded}"))
+                Url::parse(&format!("data:{mime_type};base64,{encoded}")).ok()
             })
         }));
 

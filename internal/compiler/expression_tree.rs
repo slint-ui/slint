@@ -2026,6 +2026,13 @@ impl ImageReference {
         }
     }
 
+    /// Classify a URL returned by the resource mapper. It is already a URL, so
+    /// the only distinction is a `data:` URI (kept as a string, see
+    /// [`Self::DataUri`]) from any other URL.
+    pub fn from_mapped_url(url: url::Url) -> Self {
+        if url.scheme() == "data" { Self::DataUri(url.as_str().into()) } else { Self::Url(url) }
+    }
+
     /// The image source loaded at run-time for a non-embedded reference: the
     /// path, the URL, or the `data:` URI, as the string handed to
     /// `Image::load_from_path`. `None` for embedded references.
