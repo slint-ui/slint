@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { Api, EditorSurfaceMode } from "../api.slint";
+import { Api, EditorSurfaceMode, UpdateState } from "../api.slint";
 import { ProjectKind, StartupWizard } from "startup-wizard.slint";
 import {
     AppState, CanvasOrientation, OrientationIconButton, SidebarToggleButton, StudioTheme,
@@ -390,15 +390,11 @@ export component EditorUi inherits Window {
     property <int> text-size-index: 2;
     property <ProjectKind> selected-project: ProjectKind.mobile;
 
-    property <string> new-version;
-
-    public function show-new-version-popup(version: string) {
-        new-version = version;
-        new-version-popup.show();
-    }
-
-    new-version-popup := PopupWindow {
-        Text { text: @tr("New version available: {0}", root.new-version); }
+    function show-update-status() -> bool {
+        return Api.update-state == UpdateState.Available
+            || Api.update-state == UpdateState.Downloading
+            || Api.update-state == UpdateState.ReadyToInstall
+            || Api.update-state == UpdateState.Installing;
     }
 
     function text-scale() -> float {
@@ -630,6 +626,46 @@ export component EditorUi inherits Window {
         selected-project <=> root.selected-project;
         opened => {
             root.open-project();
+        }
+    }
+
+    if root.show-update-status(): Rectangle {
+        x: 100px;
+        y: 16px;
+        width: 100px;
+        height: 24px;
+        border-radius: self.height / 2;
+        border-width: 1px;
+        border-color: #6a7fad;
+        background: #3871ea;
+        clip: true;
+
+        download-progress := Rectangle {
+            x: 0px;
+            background: #bfcce9;
+            width: parent.width * Api.update-download-progress;
+        }
+
+        Text {
+            text: "Update";
+            color: white;
+        }
+
+        TouchArea {
+            clicked => {
+                if Api.update-state == UpdateState.Available {
+                    Api.download-update();
+                }
+                else if Api.update-state == UpdateState.Downloading {
+
+                }
+                else if Api.update-state == UpdateState.ReadyToInstall {
+                    Api.install-update();
+                }
+                else if Api.update-state == UpdateState.Installing {
+
+                }
+            }
         }
     }
 }
