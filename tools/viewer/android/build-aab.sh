@@ -5,8 +5,8 @@
 #
 # Build the slint-viewer Android App Bundle for Play Store upload.
 #
-# Defaults: SLINT_VERSION from the workspace Cargo.toml, SLINT_BUILD_NUMBER
-# from the git commit count. Override either as env vars.
+# SLINT_BUILD_NUMBER (the Play Store versionCode) defaults to the git commit
+# count; override as an env var.
 #
 # Signing (omit all three for an unsigned local bundle):
 #   ANDROID_KEYSTORE_PATH      upload keystore path
@@ -32,11 +32,6 @@ if [ -n "${ANDROID_KEYSTORE_PATH:-}" ]; then
     [ -n "${ANDROID_KEYSTORE_ALIAS:-}" ] || { echo "set ANDROID_KEYSTORE_ALIAS" >&2; exit 1; }
 fi
 
-if [ -z "${SLINT_VERSION:-}" ]; then
-    SLINT_VERSION=$(awk -F'"' '/^version = / { print $2; exit }' "$REPO_ROOT/Cargo.toml")
-    [ -n "$SLINT_VERSION" ] || { echo "can't read workspace version from $REPO_ROOT/Cargo.toml" >&2; exit 1; }
-    export SLINT_VERSION
-fi
 : "${SLINT_BUILD_NUMBER:=$(git -C "$REPO_ROOT" rev-list --count HEAD)}"
 export SLINT_BUILD_NUMBER
 
