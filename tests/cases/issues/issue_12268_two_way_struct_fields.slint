@@ -54,7 +54,7 @@ assert_eq!(found, 1);
 ```cpp
 auto handle = TestCase::create();
 auto found =
-    slint_testing::ElementHandle::find_by_accessible_label(handle, "first.length = 3");
+    slint::testing::ElementHandle::find_by_accessible_label(handle, "first.length = 3");
 assert_eq(found.size(), 1);
 ```
 */

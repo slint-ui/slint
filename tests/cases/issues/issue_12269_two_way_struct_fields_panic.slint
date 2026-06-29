@@ -58,7 +58,7 @@ assert_eq!(texts, 5);
 ```cpp
 auto handle = TestCase::create();
 auto texts =
-    slint_testing::ElementHandle::find_by_element_type_name(handle, "Text");
+    slint::testing::ElementHandle::find_by_element_type_name(handle, "Text");
 assert_eq(texts.size(), 5);
 ```
 
