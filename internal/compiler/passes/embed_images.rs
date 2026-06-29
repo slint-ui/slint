@@ -11,10 +11,8 @@ use image::GenericImageView;
 use smol_str::SmolStr;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::future::Future;
-use std::pin::Pin;
-use std::rc::Rc;
 use typed_index_collections::TiVec;
+use url::Url;
 
 /// The fonts shared with `embed_glyphs` to rasterize SVG `<text>`. Only the
 /// software renderer embeds textures, so elsewhere this is an unused placeholder.
@@ -27,7 +25,7 @@ pub async fn embed_images(
     doc: &Document,
     embed_files: EmbedResourcesKind,
     scale_factor: f32,
-    resource_url_mapper: &Option<Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>>,
+    resource_url_mapper: &Option<crate::ResourceUrlMapper>,
     font_collection: Option<&SharedFontCollection>,
     diag: &mut BuildDiagnostics,
 ) {
@@ -43,7 +41,7 @@ pub async fn embed_images(
     let all_components = all_components;
 
     let mapped_urls = {
-        let mut urls = HashMap::<SmolStr, Option<SmolStr>>::new();
+        let mut urls = HashMap::<Url, Option<SmolStr>>::new();
 
         if let Some(mapper) = resource_url_mapper {
             // Collect URLs (sync!):
@@ -54,8 +52,8 @@ pub async fn embed_images(
             }
 
             // Map URLs (async -- well, not really):
-            for i in urls.iter_mut() {
-                *i.1 = (*mapper)(i.0).await.map(SmolStr::new);
+            for (url, mapped) in urls.iter_mut() {
+                *mapped = (*mapper)(url).await.map(SmolStr::new);
             }
         }
 
@@ -82,37 +80,34 @@ pub async fn embed_images(
 /// The URL of an image reference, as expected by the resource mapper and used
 /// to key the map of mapped resources. A local image reference is an absolute
 /// filesystem path at this stage, so turn it into a `file://` URL; references
-/// that are already URLs (`data:`, `builtin:/`, `https:`, ...) pass through
-/// unchanged.
-fn image_reference_url(resource: &str) -> SmolStr {
+/// that are already URLs (`data:`, `builtin:/`, `https:`, ...) are parsed as-is.
+/// Returns `None` for a reference that is neither, which therefore cannot be
+/// mapped.
+fn image_reference_url(resource: &str) -> Option<Url> {
     if crate::pathutils::is_url(std::path::Path::new(resource)) {
-        return resource.into();
+        return Url::parse(resource).ok();
     }
     // `Url::from_file_path` is absent on `wasm32-unknown-unknown`, which only
     // ever sees URL references and so never reaches this branch.
     #[cfg(not(target_arch = "wasm32"))]
     {
-        url::Url::from_file_path(resource)
-            .map(|url| SmolStr::from(url.as_str()))
-            .unwrap_or_else(|()| resource.into())
+        Url::from_file_path(resource).ok()
     }
     #[cfg(target_arch = "wasm32")]
     {
-        resource.into()
+        None
     }
 }
 
-fn collect_image_urls_from_expression(
-    e: &Expression,
-    urls: &mut HashMap<SmolStr, Option<SmolStr>>,
-) {
+fn collect_image_urls_from_expression(e: &Expression, urls: &mut HashMap<Url, Option<SmolStr>>) {
     if let Expression::ImageReference { resource_ref, .. } = e
         && let ImageReference::AbsolutePath(path) = resource_ref
         // `data:` URIs are embedded directly and never looked up in this map, so
         // don't store their (potentially huge) content as a key.
         && !path.starts_with("data:")
+        && let Some(url) = image_reference_url(path)
     {
-        urls.insert(image_reference_url(path), None);
+        urls.insert(url, None);
     };
 
     e.visit(|e| collect_image_urls_from_expression(e, urls));
@@ -120,7 +115,7 @@ fn collect_image_urls_from_expression(
 
 fn embed_images_from_expression(
     e: &mut Expression,
-    urls: &HashMap<SmolStr, Option<SmolStr>>,
+    urls: &HashMap<Url, Option<SmolStr>>,
     global_embedded_resources: &RefCell<TiVec<EmbeddedResourcesIdx, EmbeddedResources>>,
     path_to_id: &mut HashMap<SmolStr, EmbeddedResourcesIdx>,
     embed_files: EmbedResourcesKind,
@@ -154,8 +149,9 @@ fn embed_images_from_expression(
         }
 
         // use the mapped url, falling back to the original path:
-        let mapped_path =
-            urls.get(&image_reference_url(path)).cloned().flatten().unwrap_or_else(|| path.clone());
+        let mapped_path = image_reference_url(path)
+            .and_then(|url| urls.get(&url).cloned().flatten())
+            .unwrap_or_else(|| path.clone());
         *path = mapped_path;
         if embed_files != EmbedResourcesKind::Nothing
             && (embed_files != EmbedResourcesKind::OnlyBuiltinResources
