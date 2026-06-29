@@ -1015,9 +1015,8 @@ jobs:
                       esp)
                         # Merged image (bootloader + partition table + app) flashable at offset 0
                         # over WebSerial by ESP Web Tools, or by espflash/esptool.
-                        # NOTE: espflash save-image argument order is version-specific (pinned $ESPFLASH_VERSION);
-                        # validate on the first CI run and adjust if espflash is bumped.
-                        espflash save-image --merge --chip esp32s3 "$OUT/printerdemo-$feature.bin" "$elf"
+                        # Arg order is `<ELF> <OUTPUT>` (espflash 3.x; pinned $ESPFLASH_VERSION).
+                        espflash save-image --merge --chip esp32s3 "$elf" "$OUT/printerdemo-$feature.bin"
                         jq -n --arg feature "$feature" --arg path "printerdemo-$feature.bin" \
                           '{name: ("Slint printerdemo (" + $feature + ")"), builds: [ {chipFamily: "ESP32-S3", parts: [ {path: $path, offset: 0} ]} ]}' \
                           > "$OUT/manifest-$feature.json"
