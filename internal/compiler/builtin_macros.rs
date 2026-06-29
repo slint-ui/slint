@@ -438,7 +438,7 @@ fn array_insert_macro(
 ) -> Expression {
     if args.len() != 3 {
         diag.push_error(
-            format!("This method needs 2 argument, but {} were provided", args.len() - 1),
+            format!("This method needs 2 arguments, but {} were provided", args.len() - 1),
             node,
         );
         return Expression::Invalid;

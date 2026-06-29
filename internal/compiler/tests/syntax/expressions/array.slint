@@ -10,9 +10,9 @@ export component Test {
         a.remove();
 //        >    <error{This method needs 1 argument, but 0 were provided}
         a.insert();
-//        >    <error{This method needs 2 argument, but 0 were provided}
+//        >    <error{This method needs 2 arguments, but 0 were provided}
         a.insert(1);
-//        >    <error{This method needs 2 argument, but 1 were provided}
+//        >    <error{This method needs 2 arguments, but 1 were provided}
     }
 
     public function test_too_many_args() {
@@ -21,7 +21,7 @@ export component Test {
         a.remove(1, 2, 3);
 //        >    <error{This method needs 1 argument, but 3 were provided}
         a.insert(1, 2, 3, 4);
-//        >    <error{This method needs 2 argument, but 4 were provided}
+//        >    <error{This method needs 2 arguments, but 4 were provided}
     }
 
     public function test_arg_incorrect_type() {
