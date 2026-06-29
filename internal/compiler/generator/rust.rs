@@ -2725,6 +2725,24 @@ fn generate_repeated_component(
                             }
                         }
                     });
+                // A column FlexboxLayout calls this with its real container width
+                // so a height-for-width instance wraps to the same height as an
+                // equivalent static cell (instead of the preferred-width single
+                // line that `flexbox_layout_item_info` returns). The expression
+                // reads the `flex_cross_width` local (matches FLEX_CROSS_WIDTH_LOCAL).
+                let at_cross_width_body = root_sc
+                    .layout_info_v_at_cross_width_for_repeated
+                    .as_ref()
+                    .map(|e| {
+                        let v_info = compile_expression(&e.borrow(), &ctx);
+                        quote! { info.constraint = #v_info; }
+                    })
+                    .unwrap_or_else(|| {
+                        quote! {
+                            info.constraint =
+                                self.layout_item_info(sp::Orientation::Vertical, sp::None).constraint;
+                        }
+                    });
                 quote! {
                     fn flexbox_layout_item_info(
                         self: ::core::pin::Pin<&Self>,
@@ -2736,6 +2754,17 @@ fn generate_repeated_component(
                         let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
                         #v_constrained
                         info.constraint = self.layout_item_info(o, child_index).constraint;
+                        info
+                    }
+                    #[allow(unused_variables)]
+                    fn flexbox_layout_item_info_at_cross_width(
+                        self: ::core::pin::Pin<&Self>,
+                        flex_cross_width: f32,
+                    ) -> sp::FlexboxLayoutItemInfo {
+                        #[allow(unused)]
+                        let _self = self.as_ref();
+                        let mut info = self.as_ref().flexbox_layout_item_info_for_repeated();
+                        #at_cross_width_body
                         info
                     }
                 }
@@ -3743,12 +3772,14 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             cells_v_variable,
             repeater_indices_var_name,
             elements,
+            repeated_cross_width,
             sub_expression,
         } => generate_with_flexbox_layout_item_info(
             cells_h_variable,
             cells_v_variable,
             repeater_indices_var_name.as_ref().map(SmolStr::as_str),
             elements.as_ref(),
+            repeated_cross_width.as_deref(),
             sub_expression,
             ctx,
         ),
@@ -5053,10 +5084,14 @@ fn generate_with_flexbox_layout_item_info(
     cells_v_variable: &str,
     repeated_indices_var_name: Option<&str>,
     elements: &[Either<(Expression, Expression), llr::LayoutRepeatedElement>],
+    repeated_cross_width: Option<&Expression>,
     sub_expression: &Expression,
     ctx: &EvaluationContext,
 ) -> TokenStream {
     let repeated_indices_var_name = repeated_indices_var_name.map(ident);
+    // Container width forwarded to repeated cells' vertical query (column flex),
+    // so a height-for-width instance wraps to the real width like a static cell.
+    let cross_width = repeated_cross_width.map(|w| compile_expression(w, ctx));
     let mut fixed_count = 0usize;
     let mut repeated_count_code = quote!();
     let mut push_code = Vec::new();
@@ -5084,14 +5119,23 @@ fn generate_with_flexbox_layout_item_info(
                     ctx,
                 );
                 let repeater_id = format_ident!("repeater{}", usize::from(repeater.repeater_index));
+                // For a column flex, measure each instance's vertical info at the
+                // container width; otherwise use its preferred-width default.
+                let v_push = if let Some(w) = &cross_width {
+                    quote!(sub_comp.as_pin_ref().flexbox_layout_item_info_at_cross_width((#w) as f32))
+                } else {
+                    quote!(
+                        sub_comp
+                            .as_pin_ref()
+                            .flexbox_layout_item_info(sp::Orientation::Vertical, None)
+                    )
+                };
                 let loop_code = quote!(for i in 0.._self.#repeater_id.len() {
                     if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
                         items_vec_h.push(
                             sub_comp.as_pin_ref().flexbox_layout_item_info(sp::Orientation::Horizontal, None),
                         );
-                        items_vec_v.push(
-                            sub_comp.as_pin_ref().flexbox_layout_item_info(sp::Orientation::Vertical, None),
-                        );
+                        items_vec_v.push(#v_push);
                     } else {
                         // Not-yet-instantiated slot: push placeholder cells so the cell
                         // count stays in sync with the repeater length written above.
