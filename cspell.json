@@ -36,6 +36,7 @@
         "Unlocalized",
         "unmap",
         "unsync",
+        "vecs", // plural of vec
         "vsync"
       ],
       "ignoreRegExpList": [

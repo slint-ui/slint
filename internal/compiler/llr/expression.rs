@@ -251,6 +251,11 @@ pub enum Expression {
         repeater_indices_var_name: Option<SmolStr>,
         /// Either an expression pair of type (LayoutItemInfo, LayoutItemInfo), or information about the repeater
         elements: Vec<Either<(Expression, Expression), LayoutRepeatedElement>>,
+        /// Container (cross-axis) width for a column flex: passed to each
+        /// repeated cell's `flexbox_layout_item_info_at_cross_width` so a
+        /// height-for-width instance wraps to the real width instead of its
+        /// preferred width. `None` for a row flex (no cross-width to forward).
+        repeated_cross_width: Option<Box<Expression>>,
         sub_expression: Box<Expression>,
     },
     /// Calls `solve_flexbox_layout_with_measure` with a generated measure
@@ -559,8 +564,16 @@ macro_rules! visit_impl {
                 $visitor(sub_expression);
                 elements.$iter().filter_map(|x| x.$as_ref().left()).for_each($visitor);
             }
-            Expression::WithFlexboxLayoutItemInfo { elements, sub_expression, .. } => {
+            Expression::WithFlexboxLayoutItemInfo {
+                elements,
+                repeated_cross_width,
+                sub_expression,
+                ..
+            } => {
                 $visitor(sub_expression);
+                if let Some(w) = repeated_cross_width {
+                    $visitor(w);
+                }
                 elements.$iter().filter_map(|x| x.$as_ref().left()).for_each(|(h, v)| {
                     $visitor(h);
                     $visitor(v);

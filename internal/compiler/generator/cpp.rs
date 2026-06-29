@@ -2889,11 +2889,15 @@ fn generate_layout_item_info_decl(
 fn generate_flexbox_layout_item_info_decl(
     root_sc: &llr::SubComponent,
     ctx: &EvaluationContext,
-) -> Declaration {
+) -> Vec<Declaration> {
     const SIGNATURE: &str = "(slint::cbindgen_private::Orientation o, [[maybe_unused]] std::optional<size_t> child_index) const -> slint::cbindgen_private::FlexboxLayoutItemInfo";
 
-    let body = if let Some(expr) = &root_sc.flexbox_layout_item_info_for_repeated {
-        let compiled = compile_expression(&expr.borrow(), ctx);
+    let for_repeated_compiled = root_sc
+        .flexbox_layout_item_info_for_repeated
+        .as_ref()
+        .map(|expr| compile_expression(&expr.borrow(), ctx));
+
+    let body = if let Some(compiled) = &for_repeated_compiled {
         // Break the height-for-width recursion for a repeated instance in a
         // column FlexboxLayout: use the constrained vertical info (measured at
         // its preferred width via layoutinfo-v-with-constraint) instead of
@@ -2922,12 +2926,50 @@ fn generate_flexbox_layout_item_info_decl(
             .to_owned()
     };
 
-    Declaration::Function(Function {
-        name: "flexbox_layout_item_info".into(),
-        signature: SIGNATURE.to_owned(),
-        statements: Some(vec![body]),
-        ..Function::default()
-    })
+    // A column FlexboxLayout calls this with its real container width so a
+    // height-for-width instance wraps to the same height as a static cell. The
+    // expression reads the `flex_cross_width` parameter.
+    //
+    // `layout_info_v_at_cross_width_for_repeated` is only set for a
+    // height-for-width root, which also forces `flexbox_layout_item_info_for_repeated`
+    // (see `lower_to_item_tree`), so the other cases have no width-dependent
+    // height and just delegate. Unlike Rust, where `RepeatedItemTree` provides
+    // defaults and the generator emits nothing when there is no flex info, a C++
+    // repeated struct has no base class: both members are always emitted, and the
+    // delegating body below is the equivalent of the Rust trait default.
+    let at_cross_width_body = match (
+        &for_repeated_compiled,
+        root_sc.layout_info_v_at_cross_width_for_repeated.as_ref(),
+    ) {
+        (Some(compiled), Some(e)) => {
+            let v = compile_expression(&e.borrow(), ctx);
+            format!(
+                "[[maybe_unused]] auto self = this; \
+                 auto info = {compiled}; \
+                 info.constraint = {v}; \
+                 return info;"
+            )
+        }
+        _ => "return flexbox_layout_item_info(slint::cbindgen_private::Orientation::Vertical, std::nullopt);"
+            .to_owned(),
+    };
+
+    vec![
+        Declaration::Function(Function {
+            name: "flexbox_layout_item_info".into(),
+            signature: SIGNATURE.to_owned(),
+            statements: Some(vec![body]),
+            ..Function::default()
+        }),
+        Declaration::Function(Function {
+            name: "flexbox_layout_item_info_at_cross_width".into(),
+            signature:
+                "([[maybe_unused]] float flex_cross_width) const -> slint::cbindgen_private::FlexboxLayoutItemInfo"
+                    .to_owned(),
+            statements: Some(vec![at_cross_width_body]),
+            ..Function::default()
+        }),
+    ]
 }
 
 /// Generates the `grid_layout_input_for_repeated` member function for a repeated component struct,
@@ -3121,9 +3163,9 @@ fn generate_repeated_component(
             Access::Public, // Because Repeater accesses it
             generate_layout_item_info_decl(root_sc, &ctx),
         ));
-        repeater_struct
-            .members
-            .push((Access::Public, generate_flexbox_layout_item_info_decl(root_sc, &ctx)));
+        for decl in generate_flexbox_layout_item_info_decl(root_sc, &ctx) {
+            repeater_struct.members.push((Access::Public, decl));
+        }
         if let Some(decl) = generate_grid_layout_input_decl(root_sc, &ctx) {
             repeater_struct.members.push((Access::Public, decl));
         }
@@ -4469,12 +4511,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             cells_v_variable,
             repeater_indices_var_name,
             elements,
+            repeated_cross_width,
             sub_expression,
         } => generate_with_flexbox_layout_item_info(
             cells_h_variable,
             cells_v_variable,
             repeater_indices_var_name.as_ref().map(SmolStr::as_str),
             elements.as_ref(),
+            repeated_cross_width.as_deref(),
             sub_expression,
             ctx,
         ),
@@ -5444,10 +5488,14 @@ fn generate_with_flexbox_layout_item_info(
     cells_v_variable: &str,
     repeated_indices_var_name: Option<&str>,
     elements: &[Either<(llr::Expression, llr::Expression), llr::LayoutRepeatedElement>],
+    repeated_cross_width: Option<&llr::Expression>,
     sub_expression: &llr::Expression,
     ctx: &llr_EvaluationContext<CppGeneratorContext>,
 ) -> String {
     let repeated_indices_var_name = repeated_indices_var_name.map(ident);
+    // Container width forwarded to repeated cells' vertical query (column flex),
+    // so a height-for-width instance wraps to the real width like a static cell.
+    let cross_width = repeated_cross_width.map(|w| compile_expression(w, ctx));
     let mut push_code =
         "std::vector<slint::cbindgen_private::FlexboxLayoutItemInfo> cells_vector_h; std::vector<slint::cbindgen_private::FlexboxLayoutItemInfo> cells_vector_v;".to_owned();
     let mut repeater_idx = 0usize;
@@ -5486,13 +5534,21 @@ fn generate_with_flexbox_layout_item_info(
                 // for_each only visits instantiated slots; pad the cells up to len() afterwards so
                 // the cell count matches the repeater length recorded in the repeater_indices array
                 // (not-yet-instantiated rows get placeholders).
+                // For a column flex, measure each instance's vertical info at the
+                // container width; otherwise use its preferred-width default.
+                let v_push = match &cross_width {
+                    Some(w) => format!(
+                        "sub_comp->flexbox_layout_item_info_at_cross_width(static_cast<float>({w}))"
+                    ),
+                    None => "sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Vertical, std::nullopt)".to_owned(),
+                };
                 write!(
                     push_code,
                     "{{ \
                      auto start_offset = cells_vector_h.size(); \
                      self->repeater_{repeater_index}.for_each([&](const auto &sub_comp){{ \
                      cells_vector_h.push_back(sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Horizontal, std::nullopt)); \
-                     cells_vector_v.push_back(sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Vertical, std::nullopt)); }}); \
+                     cells_vector_v.push_back({v_push}); }}); \
                      auto repeater_len = self->repeater_{repeater_index}.len(); \
                      cells_vector_h.resize(start_offset + repeater_len); \
                      cells_vector_v.resize(start_offset + repeater_len); }}"
