@@ -110,6 +110,11 @@ struct Cli {
     #[arg(long, value_name = "image file", action)]
     screenshot: Option<std::path::PathBuf>,
 
+    /// Size of the `--screenshot` window as `WIDTHxHEIGHT` in logical pixels
+    /// (e.g. `360x800`). Defaults to the component's preferred size.
+    #[arg(long, value_name = "WxH", action, requires = "screenshot")]
+    size: Option<String>,
+
     /// Compile, print any diagnostics, and exit without opening a window.
     /// Exit status is 1 on errors, 0 otherwise (warnings still print).
     #[arg(
