@@ -90,6 +90,7 @@ pub fn run(
         });
 
         if let Some(feed_override) = update_url_override {
+            println!("Overriding feed URL to {feed_override}");
             updater.set_feed_url(feed_override).unwrap();
         }
 
