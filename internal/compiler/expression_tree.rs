@@ -86,6 +86,8 @@ pub enum BuiltinFunction {
     ColorWithAlpha,
     ImageSize,
     ArrayLength,
+    ArrayAny,
+    ArrayAll,
     Rgb,
     Hsv,
     Oklch,
@@ -276,6 +278,8 @@ declare_builtin_function_types!(
         name: crate::langtype::BuiltinStruct::Size.into(),
     })),
     ArrayLength: (Type::Model) -> Type::Int32,
+    ArrayAny: (Type::Model, Type::Closure) -> Type::Bool,
+    ArrayAll: (Type::Model, Type::Closure) -> Type::Bool,
     Rgb: (Type::Int32, Type::Int32, Type::Int32, Type::Float32) -> Type::Color,
     Hsv: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
     Oklch: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
@@ -431,6 +435,7 @@ impl BuiltinFunction {
             BuiltinFunction::ColorToStyledText => true,
             BuiltinFunction::OpenUrl => false,
             BuiltinFunction::MacosBringAllWindowsToFront => false,
+            BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll => true,
         }
     }
 
@@ -520,6 +525,7 @@ impl BuiltinFunction {
             BuiltinFunction::ColorToStyledText => true,
             BuiltinFunction::OpenUrl => false,
             BuiltinFunction::MacosBringAllWindowsToFront => false,
+            BuiltinFunction::ArrayAny | BuiltinFunction::ArrayAll => true,
         }
     }
 }
@@ -915,6 +921,11 @@ pub enum Expression {
     },
 
     EmptyComponentFactory,
+
+    Closure {
+        arg_name: SmolStr,
+        expression: Box<Expression>,
+    },
 }
 
 impl Expression {
@@ -1041,6 +1052,7 @@ impl Expression {
             Expression::MinMax { ty, .. } => ty.clone(),
             Expression::EmptyComponentFactory => Type::ComponentFactory,
             Expression::DebugHook { expression, .. } => expression.ty(),
+            Expression::Closure { .. } => Type::Closure,
         }
     }
 
@@ -1175,6 +1187,7 @@ impl Expression {
             }
             Expression::EmptyComponentFactory => {}
             Expression::DebugHook { expression, .. } => visitor(expression),
+            Expression::Closure { expression, .. } => visitor(expression),
         }
     }
 
@@ -1311,6 +1324,7 @@ impl Expression {
             }
             Expression::EmptyComponentFactory => {}
             Expression::DebugHook { expression, .. } => visitor(expression),
+            Expression::Closure { expression, .. } => visitor(expression),
         }
     }
 
@@ -1428,6 +1442,7 @@ impl Expression {
             Expression::MinMax { lhs, rhs, .. } => lhs.is_constant(ga) && rhs.is_constant(ga),
             Expression::EmptyComponentFactory => true,
             Expression::DebugHook { .. } => false,
+            Expression::Closure { expression, .. } => expression.is_constant(ga),
         }
     }
 
@@ -1687,6 +1702,7 @@ impl Expression {
                 arguments: vec![Self::default_value_for_type(&Type::String)],
                 source_location: None,
             },
+            Type::Closure => Expression::Invalid,
         }
     }
 
@@ -2272,6 +2288,11 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
             write!(f, "debug-hook(")?;
             pretty_print(f, expression)?;
             write!(f, "\"{id}\")")
+        }
+        Expression::Closure { arg_name, expression } => {
+            let display_name = arg_name.strip_prefix("local_").unwrap_or(arg_name);
+            write!(f, "({display_name}) => ")?;
+            pretty_print(f, expression)
         }
     }
 }

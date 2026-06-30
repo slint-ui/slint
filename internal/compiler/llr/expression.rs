@@ -295,6 +295,11 @@ pub enum Expression {
         /// The `n` value to use for the plural form if it is a plural form
         plural: Option<Box<Expression>>,
     },
+
+    Closure {
+        arg_name: SmolStr,
+        expression: Box<Expression>,
+    },
 }
 
 impl Expression {
@@ -308,7 +313,8 @@ impl Expression {
             | Type::InferredCallback
             | Type::ElementReference
             | Type::LayoutCache
-            | Type::ArrayOfU16 => return None,
+            | Type::ArrayOfU16
+            | Type::Closure => return None,
             Type::Float32
             | Type::Duration
             | Type::Int32
@@ -422,6 +428,7 @@ impl Expression {
             Self::EmptyComponentFactory => Type::ComponentFactory,
             Self::EmptyDataTransfer => Type::DataTransfer,
             Self::TranslationReference { .. } => Type::String,
+            Self::Closure { .. } => Type::Closure,
         }
     }
 }
@@ -569,6 +576,9 @@ macro_rules! visit_impl {
                 if let Some(plural) = plural {
                     $visitor(plural);
                 }
+            }
+            Expression::Closure { expression, .. } => {
+                $visitor(expression);
             }
         }
     };

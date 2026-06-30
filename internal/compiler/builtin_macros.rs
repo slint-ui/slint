@@ -418,7 +418,8 @@ fn to_debug_string(
         | Type::LayoutCache
         | Type::ArrayOfU16
         | Type::Model
-        | Type::PathData => {
+        | Type::PathData
+        | Type::Closure => {
             diag.push_error("Cannot debug this expression".into(), node);
             Expression::Invalid
         }

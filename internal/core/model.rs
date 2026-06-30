@@ -294,6 +294,28 @@ pub trait ModelExt: Model {
 
 impl<T: Model> ModelExt for T {}
 
+pub fn model_any<T: Default>(
+    model: &dyn Model<Data = T>,
+    mut predicate: impl FnMut(T) -> bool,
+) -> bool {
+    model.model_tracker().track_row_count_changes();
+    (0..model.row_count()).any(|index| {
+        model.model_tracker().track_row_data_changes(index);
+        predicate(model.row_data(index).unwrap_or_default())
+    })
+}
+
+pub fn model_all<T: Default>(
+    model: &dyn Model<Data = T>,
+    mut predicate: impl FnMut(T) -> bool,
+) -> bool {
+    model.model_tracker().track_row_count_changes();
+    (0..model.row_count()).all(|index| {
+        model.model_tracker().track_row_data_changes(index);
+        predicate(model.row_data(index).unwrap_or_default())
+    })
+}
+
 /// An iterator over the elements of a model.
 /// This struct is created by the [`Model::iter()`] trait function.
 pub struct ModelIterator<'a, T> {
