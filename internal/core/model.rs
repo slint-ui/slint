@@ -605,23 +605,17 @@ impl<T: Clone + 'static> Model for SharedVectorModel<T> {
     }
 
     fn remove_row(&self, row: isize) {
-        if row < 0 || row >= self.array.borrow().len() as isize {
-            return;
+        if row >= 0 {
+            self.array.borrow_mut().remove(row as usize);
+            self.notify.row_removed(row as usize, 1);
         }
-        let mut array = self.array.borrow_mut();
-        array.make_mut_slice()[row as usize..].rotate_left(1);
-        array.pop();
-        self.notify.row_removed(row as usize, 1);
     }
 
     fn insert_row(&self, row: isize, data: Self::Data) {
-        if row < 0 || row > self.array.borrow().len() as isize {
-            return;
+        if row >= 0 {
+            self.array.borrow_mut().insert(row as usize, data);
+            self.notify.row_added(row as usize, 1);
         }
-        let mut array = self.array.borrow_mut();
-        array.push(data);
-        array.make_mut_slice()[row as usize..].rotate_right(1);
-        self.notify.row_added(row as usize, 1);
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {
