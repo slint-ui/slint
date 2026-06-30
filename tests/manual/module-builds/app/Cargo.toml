@@ -18,3 +18,6 @@ random_word = { version = "0.5.2", features = ["en"] }
 
 [build-dependencies]
 slint-build = { path = "../../../../api/rs/build", features = ["experimental-module-builds"] }
+
+[dev-dependencies]
+i-slint-backend-testing = { path = "../../../../internal/backends/testing" }

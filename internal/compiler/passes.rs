@@ -198,6 +198,8 @@ pub async fn run_passes(
         lower_layout::check_window_layout(&root_component);
     }
     collect_globals::collect_globals(doc, diag);
+    // Must be done before passes that rely on `NamedReference::is_constant`.
+    collect_globals::mark_library_globals(doc);
 
     if type_loader.compiler_config.inline_all_elements {
         inlining::inline(doc, inlining::InlineSelection::InlineAllComponents, diag);
@@ -206,7 +208,6 @@ pub async fn run_passes(
 
     let global_analysis =
         binding_analysis::binding_analysis(doc, &type_loader.compiler_config, diag);
-    collect_globals::mark_library_globals(doc);
     unique_id::assign_unique_id(doc);
 
     doc.visit_all_used_components(|component| {
