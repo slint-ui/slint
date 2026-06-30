@@ -1,0 +1,50 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+#
+# Common kas configuration shared by every machine target. Machine-specific
+# files (e.g. raspberrypi4-64.yml) `include:` this and add their BSP layer +
+# MACHINE. Build with: `kas build yocto/kas/<machine>.yml`.
+
+header:
+  version: 14
+
+distro: poky
+target: slint-demo-image
+
+repos:
+  # The repo kas was started in (this one) — provides meta-slint-demos.
+  slint-demos:
+    layers:
+      yocto/meta-slint-demos:
+
+  poky:
+    url: https://git.yoctoproject.org/poky
+    # Wrynose = Yocto 6.0 LTS (April 2026). Scarthgap (5.0) is the safe fallback.
+    branch: wrynose
+    layers:
+      meta:
+      meta-poky:
+
+  meta-openembedded:
+    url: https://git.openembedded.org/meta-openembedded
+    branch: wrynose
+    layers:
+      meta-oe:
+      meta-python:
+
+local_conf_header:
+  rust: |
+    # Slint is Rust; pull in the Rust toolchain support.
+    DISTRO_FEATURES:append = " systemd"
+
+  sstate: |
+    # Reuse the Yocto Project's shared-state + source mirrors so CI builds pull
+    # prebuilt artifacts instead of compiling the world (the maintainer's point).
+    SSTATE_MIRRORS ?= "file://.* https://sstate.yoctoproject.org/all/PATH;downloadfilename=PATH"
+    SOURCE_MIRROR_URL ?= "https://downloads.yoctoproject.org/mirror/sources/"
+    INHERIT += "own-mirrors"
+    BB_GENERATE_MIRROR_TARBALLS = "1"
+
+  appliance: |
+    # Single-purpose appliance: no package management, read-only-friendly.
+    EXTRA_IMAGE_FEATURES = "read-only-rootfs"

@@ -1,0 +1,92 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+# Build bootable Slint demo images for MPU (embedded-Linux) boards with Yocto/kas.
+# Manual-only for now: a full Yocto build needs lots of disk + time, so this should
+# run on a large/self-hosted runner. The shared-state + source mirrors (configured in
+# yocto/kas/base.yml) keep it from compiling the whole distro from scratch.
+#
+# STATUS: unvalidated scaffold — needs a first real build to shake out (see yocto/README.md).
+name: Yocto MPU images
+
+on:
+  workflow_dispatch:
+    inputs:
+      machine:
+        type: choice
+        default: raspberrypi4-64
+        description: "Which MPU target to build"
+        options:
+          - raspberrypi4-64
+      publish:
+        type: boolean
+        default: false
+        description: "Publish the image to the images site (vs build-only)"
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Free up disk space (Yocto needs ~50GB)
+        uses: easimon/maximize-build-space@v10
+        with:
+          remove-dotnet: "true"
+          remove-android: "true"
+          remove-haskell: "true"
+          remove-codeql: "true"
+          build-mount-path: /yocto
+
+      - uses: actions/checkout@v6
+        with:
+          path: /yocto/src
+
+      - name: Install build dependencies and kas
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gawk wget git diffstat unzip texinfo gcc build-essential \
+            chrpath socat cpio python3 python3-pip python3-pexpect xz-utils debianutils \
+            iputils-ping python3-git python3-jinja2 python3-subunit zstd liblz4-tool file locales
+          sudo locale-gen en_US.UTF-8
+          pipx install kas
+
+      # sstate + downloads make repeat builds tractable; the mirrors in base.yml seed the first one.
+      - name: Cache Yocto sstate
+        uses: actions/cache@v4
+        with:
+          path: /yocto/build/sstate-cache
+          key: sstate-${{ inputs.machine }}-${{ hashFiles('yocto/**') }}
+          restore-keys: sstate-${{ inputs.machine }}-
+      - name: Cache Yocto downloads
+        uses: actions/cache@v4
+        with:
+          path: /yocto/build/downloads
+          key: downloads-${{ inputs.machine }}
+
+      - name: Build the image
+        working-directory: /yocto/src
+        env:
+          KAS_WORK_DIR: /yocto/work
+          KAS_BUILD_DIR: /yocto/build
+          LANG: en_US.UTF-8
+        run: kas build yocto/kas/${{ inputs.machine }}.yml
+
+      - name: Collect the flashable image
+        run: |
+          mkdir -p out
+          cp -v /yocto/build/tmp/deploy/images/${{ inputs.machine }}/slint-demo-image-*.wic.xz out/ || true
+          cp -v /yocto/build/tmp/deploy/images/${{ inputs.machine }}/slint-demo-image-*.wic.bmap out/ || true
+          ls -l out
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: slint-demo-image-${{ inputs.machine }}
+          path: out/
+
+      # TODO: when `publish` is true, push out/*.wic.xz to the dedicated images site
+      # (the "separate site" — e.g. an images.slint.dev bucket / a www-images repo),
+      # mirroring how publish_artifacts pushes the firmware demos to www-releases.
+      - name: Publish to images site
+        if: ${{ inputs.publish }}
+        run: |
+          echo "TODO upload out/*.wic.xz to the images site"

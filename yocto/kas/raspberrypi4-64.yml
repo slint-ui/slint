@@ -1,0 +1,27 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+#
+# Raspberry Pi 4 (64-bit) — the first, most-accessible MPU target. Produces a
+# flashable .wic.xz SD-card image. Add more MPUs as sibling files (e.g. an
+# i.MX8 board via meta-freescale) that `include:` base.yml the same way.
+
+header:
+  version: 14
+  includes:
+    - base.yml
+
+machine: raspberrypi4-64
+
+repos:
+  meta-raspberrypi:
+    url: https://git.yoctoproject.org/meta-raspberrypi
+    branch: wrynose
+    layers:
+      .:
+
+local_conf_header:
+  rpi: |
+    # Use the vc4 KMS/DRM driver so Wayland/Weston (and SLINT_BACKEND=linuxkms)
+    # have a working display.
+    RPI_USE_U_BOOT = "1"
+    ENABLE_UART = "1"
