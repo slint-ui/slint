@@ -328,7 +328,7 @@ mod grid_internal {
             orientation,
             &repeater_indices,
             &repeater_steps,
-        ) as usize;
+        );
         if num < 1 {
             return Default::default();
         }
@@ -381,8 +381,8 @@ mod grid_internal {
                     &repeater_steps,
                 );
                 if span > 1 {
-                    let span_data =
-                        &mut layout_data[(col_or_row as usize)..(col_or_row + span) as usize];
+                    let span_data = &mut layout_data
+                        [(col_or_row as usize)..(col_or_row as usize + span as usize)];
 
                     // Adjust minimum sizes
                     let mut min = constraint.min;
@@ -561,14 +561,16 @@ impl GridLayoutOrganizedData {
         orientation: Orientation,
         repeater_indices: &Slice<u32>,
         repeater_steps: &Slice<u32>,
-    ) -> u16 {
+    ) -> usize {
         let mut max = 0;
         // This could be rewritten more efficiently to avoid a loop calling a loop, by keeping track of the repeaters we saw until now
         // Not sure it's worth the complexity though
         for idx in 0..num_cells {
             let (col_or_row, span) =
                 self.col_or_row_and_span(idx, orientation, repeater_indices, repeater_steps);
-            max = max.max(col_or_row + span.max(1));
+            // Widen to usize: a cell with an out-of-range row/col is clamped to u16::MAX, so adding
+            // the span here in u16 would overflow and under-size the layout vector.
+            max = max.max(col_or_row as usize + span.max(1) as usize);
         }
         max
     }
@@ -2728,7 +2730,7 @@ mod tests {
                 &repeater_indices,
                 &repeater_steps
             ),
-            num_rows as u16 // max row (4) + rowspan (1) = 5
+            num_rows as usize // max row (4) + rowspan (1) = 5
         );
 
         // Now test GridLayoutCacheGenerator
