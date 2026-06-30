@@ -932,7 +932,9 @@ jobs:
             CARGO_PROFILE_DEV_DEBUG: 0
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
             # Pin the conversion tools; bump deliberately (see CI handover §6.4).
-            ELF2UF2_VERSION: "2.1.1"
+            # elf2uf2-rs >= 2.2.0 accepts ELFOSABI_GNU (3) ELFs, which is what the
+            # mcu-board-support link step produces; 2.1.1 rejected them ("Unrecognized ABI").
+            ELF2UF2_VERSION: "2.2.0"
             ESPFLASH_VERSION: "3.3.0"
             PICOTOOL_REF: "2.1.1"
             PICO_SDK_REF: "2.1.1"
@@ -985,6 +987,7 @@ jobs:
                   m5stack-cores3|xtensa-esp32s3-none-elf|esp|examples/mcu-board-support/m5stack_cores3/cargo-config.toml
                   '
 
+                  convert_fail=0
                   while IFS='|' read -r feature target kind espcfg; do
                     [ -z "$feature" ] && continue
                     echo "::group::Build $feature ($kind / $target)"
@@ -996,37 +999,51 @@ jobs:
                         --features="mcu-board-support/$feature" --release
                     fi
                     elf="target/$target/release/printerdemo_mcu"
+                    echo "$feature" >> "$RUNNER_TEMP/built-features.txt"
                     echo "::endgroup::"
 
-                    # One flashable file per board, named printerdemo-<feature>.<ext>; the publish job
-                    # derives demos.json straight from these filenames (ext = format, manifest = sibling).
+                    # Convert to the flashable format the board expects — one file per board, named
+                    # printerdemo-<feature>.<ext> (the publish job derives demos.json from the filenames).
+                    # Resilient: a conversion failure is recorded and the loop continues, so one CI run
+                    # surfaces every conversion issue; the step still fails at the end if any board failed.
                     echo "::group::Convert $feature -> flashable artifact"
-                    case "$kind" in
-                      rp2040)
-                        elf2uf2-rs "$elf" "$OUT/printerdemo-$feature.uf2"
-                        ;;
-                      rp2350)
-                        picotool uf2 convert "$elf" "$OUT/printerdemo-$feature.uf2"
-                        ;;
-                      stm)
-                        # probe-rs / STM32CubeProgrammer flash the .elf directly.
-                        cp "$elf" "$OUT/printerdemo-$feature.elf"
-                        ;;
-                      esp)
-                        # Merged image (bootloader + partition table + app) flashable at offset 0
-                        # over WebSerial by ESP Web Tools, or by espflash/esptool.
-                        # Arg order is `<ELF> <OUTPUT>` (espflash 3.x; pinned $ESPFLASH_VERSION).
-                        espflash save-image --merge --chip esp32s3 "$elf" "$OUT/printerdemo-$feature.bin"
-                        jq -n --arg feature "$feature" --arg path "printerdemo-$feature.bin" \
-                          '{name: ("Slint printerdemo (" + $feature + ")"), builds: [ {chipFamily: "ESP32-S3", parts: [ {path: $path, offset: 0} ]} ]}' \
-                          > "$OUT/manifest-$feature.json"
-                        ;;
-                    esac
-                    echo "$feature" >> "$RUNNER_TEMP/built-features.txt"
+                    if (
+                      set -e
+                      case "$kind" in
+                        rp2040)
+                          elf2uf2-rs "$elf" "$OUT/printerdemo-$feature.uf2"
+                          ;;
+                        rp2350)
+                          picotool uf2 convert "$elf" "$OUT/printerdemo-$feature.uf2"
+                          ;;
+                        stm)
+                          # probe-rs / STM32CubeProgrammer flash the .elf directly.
+                          cp "$elf" "$OUT/printerdemo-$feature.elf"
+                          ;;
+                        esp)
+                          # Merged image (bootloader + partition table + app) flashable at offset 0
+                          # over WebSerial by ESP Web Tools, or by espflash/esptool.
+                          # Arg order is `<ELF> <OUTPUT>` (espflash 3.x; pinned $ESPFLASH_VERSION).
+                          espflash save-image --merge --chip esp32s3 "$elf" "$OUT/printerdemo-$feature.bin"
+                          jq -n --arg feature "$feature" --arg path "printerdemo-$feature.bin" \
+                            '{name: ("Slint printerdemo (" + $feature + ")"), builds: [ {chipFamily: "ESP32-S3", parts: [ {path: $path, offset: 0} ]} ]}' \
+                            > "$OUT/manifest-$feature.json"
+                          ;;
+                      esac
+                    ); then
+                      :
+                    else
+                      echo "::warning::conversion failed for $feature ($kind)"
+                      convert_fail=1
+                    fi
                     echo "::endgroup::"
                   done <<< "$BOARDS"
 
                   echo "Produced artifacts:"; ls -l "$OUT"
+                  if [ "$convert_fail" -ne 0 ]; then
+                    echo "::error::one or more board conversions failed (see warnings above)"
+                    exit 1
+                  fi
 
             - name: Guardrail - built boards must match mcu-board-support features
               run: |
