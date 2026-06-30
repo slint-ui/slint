@@ -1143,7 +1143,9 @@ jobs:
     # absent, the board degrades to download + `idf.py flash`/`slint.dev/flash` (USB-serial-JTAG).
     demo_binaries_esp_idf:
         runs-on: ubuntu-22.04
-        container: espressif/idf:release-v5.5
+        # home-automation targets ESP-IDF 5.4.x (its README); usecases needs >= 5.1.
+        # (5.5's larger bootloader overflowed the 0x6000 pre-partition-table space.)
+        container: espressif/idf:release-v5.4
         strategy:
             fail-fast: false
             matrix:
