@@ -1001,6 +1001,8 @@ fn lower_timer(timer: &object_tree::Timer, ctx: &ExpressionLoweringCtx) -> Timer
             arguments: Vec::new(),
         }
         .into(),
+        repeat: super::Expression::PropertyReference(ctx.map_property_reference(&timer.repeat))
+            .into(),
     }
 }
 

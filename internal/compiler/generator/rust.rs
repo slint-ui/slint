@@ -1774,18 +1774,37 @@ fn generate_sub_component(
             let interval = compile_expression(&tmr.interval.borrow(), &ctx);
             let running = compile_expression(&tmr.running.borrow(), &ctx);
             let callback = compile_expression(&tmr.triggered.borrow(), &ctx);
+            let repeat = compile_expression(&tmr.repeat.borrow(), &ctx);
+
+            let false_value = compile_expression(&Expression::BoolLiteral(false), &ctx);
+            let Expression::PropertyReference(reference) = &*tmr.running.borrow() else {
+                panic!("expected PropertyReference for Timer.running!");
+            };
+            let reset_running_tokens = property_set_value_tokens(&reference, false_value, &ctx);
+
             quote!(
                 let millis = if #running { (#interval) as i64 } else { -1 };
                 if millis >= 0 {
                     let interval = ::core::time::Duration::from_millis(millis as u64);
                     if !self.#ident.running() || interval != self.#ident.interval() {
                         let self_weak = self.self_weak.get().unwrap().clone();
-                        self.#ident.start(sp::TimerMode::Repeated, interval, move || {
-                            if let Some(self_rc) = self_weak.upgrade() {
-                                let _self = self_rc.as_pin_ref();
-                                #callback
-                            }
-                        });
+                        if #repeat {
+                            self.#ident.start(sp::TimerMode::Repeated, interval, move || {
+                                if let Some(self_rc) = self_weak.upgrade() {
+                                    let _self = self_rc.as_pin_ref();
+                                    #callback
+                                }
+                            });
+                        } else {
+                            self.#ident.start(sp::TimerMode::SingleShot, interval, move || {
+                                if let Some(self_rc) = self_weak.upgrade() {
+                                    let _self = self_rc.as_pin_ref();
+                                    #callback
+                                    _self.#ident.stop();
+                                    #reset_running_tokens
+                                }
+                            });
+                        }
                     }
                 } else {
                     self.#ident.stop();

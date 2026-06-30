@@ -207,10 +207,11 @@ impl PrettyPrinter<'_> {
             self.indent()?;
             writeln!(
                 self.writer,
-                "timer {{ interval: {}; running: {}; triggered => {} }};",
+                "timer {{ interval: {}; running: {}; triggered => {}; repeat => {}; }};",
                 DisplayExpression(&t.interval.borrow(), &ctx),
                 DisplayExpression(&t.running.borrow(), &ctx),
-                DisplayExpression(&t.triggered.borrow(), &ctx)
+                DisplayExpression(&t.triggered.borrow(), &ctx),
+                DisplayExpression(&t.repeat.borrow(), &ctx)
             )?
         }
         for ssc in &sc.sub_components {
