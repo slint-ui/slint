@@ -195,6 +195,7 @@ path = [
   "tools/figma-inspector/**.css",
   "tools/viewer/TestFlight/WhatToTest.en-US.txt",
   "tools/viewer/android/fastlane/metadata/android/**.txt",
+  "tools/viewer/android/fastlane/metadata/android/**.png",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
