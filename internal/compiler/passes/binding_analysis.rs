@@ -245,6 +245,7 @@ fn analyze_element(
             process_property(&t.interval.clone().into(), P, context, reverse_aliases, diag);
             process_property(&t.running.clone().into(), P, context, reverse_aliases, diag);
             process_property(&t.triggered.clone().into(), P, context, reverse_aliases, diag);
+            process_property(&t.repeat.clone().into(), P, context, reverse_aliases, diag);
         });
     }
 

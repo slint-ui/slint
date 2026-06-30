@@ -1599,17 +1599,27 @@ fn generate_sub_component(
             let interval = compile_expression(&tmr.interval.borrow(), &ctx);
             let running = compile_expression(&tmr.running.borrow(), &ctx);
             let callback = compile_expression(&tmr.triggered.borrow(), &ctx);
+            let repeat = compile_expression(&tmr.repeat.borrow(), &ctx);
             quote!(
                 if #running {
                     let interval = ::core::time::Duration::from_millis(#interval as u64);
                     if !self.#ident.running() || interval != self.#ident.interval() {
                         let self_weak = self.self_weak.get().unwrap().clone();
-                        self.#ident.start(sp::TimerMode::Repeated, interval, move || {
-                            if let Some(self_rc) = self_weak.upgrade() {
-                                let _self = self_rc.as_pin_ref();
-                                #callback
-                            }
-                        });
+                        if #repeat {
+                            self.#ident.start(sp::TimerMode::Repeated, interval, move || {
+                                if let Some(self_rc) = self_weak.upgrade() {
+                                    let _self = self_rc.as_pin_ref();
+                                    #callback
+                                }
+                            });
+                        } else {
+                            self.#ident.start(sp::TimerMode::SingleShot, interval, move || {
+                                if let Some(self_rc) = self_weak.upgrade() {
+                                    let _self = self_rc.as_pin_ref();
+                                    #callback
+                                }
+                            });
+                        }
                     }
                 } else {
                     self.#ident.stop();

@@ -358,6 +358,7 @@ fn inline_element(
         fixup_reference(&mut t.interval, &mapping);
         fixup_reference(&mut t.running, &mapping);
         fixup_reference(&mut t.triggered, &mapping);
+        fixup_reference(&mut t.repeat, &mapping);
     }
     // If some element were moved into PopupWindow, we need to report error if they are used outside of the popup window.
     if !moved_into_popup.is_empty() {
@@ -513,6 +514,7 @@ fn duplicate_sub_component(
         fixup_reference(&mut t.interval, mapping);
         fixup_reference(&mut t.running, mapping);
         fixup_reference(&mut t.triggered, mapping);
+        fixup_reference(&mut t.repeat, mapping);
         if let Some(e) = mapping.get(&element_key(t.element.upgrade().unwrap())) {
             t.element = Rc::downgrade(e);
         }

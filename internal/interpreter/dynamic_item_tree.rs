@@ -2960,16 +2960,27 @@ pub fn update_timers(instance: InstanceRef) {
             if !timer.running() || interval != timer.interval() {
                 let callback = desc.triggered.clone();
                 let self_weak = instance.self_weak().get().unwrap().clone();
-                timer.start(i_slint_core::timers::TimerMode::Repeated, interval, move || {
-                    if let Some(instance) = self_weak.upgrade() {
-                        generativity::make_guard!(guard);
-                        let c = instance.unerase(guard);
-                        let c = c.borrow_instance();
-                        let inst = eval::ComponentInstance::InstanceRef(c);
-                        eval::invoke_callback(&inst, &callback.element(), callback.name(), &[])
-                            .unwrap();
-                    }
-                });
+                let repeat =
+                    eval::load_property(instance, &desc.repeat.element(), desc.repeat.name())
+                        .unwrap();
+                timer.start(
+                    if repeat == Value::Bool(true) {
+                        i_slint_core::timers::TimerMode::Repeated
+                    } else {
+                        i_slint_core::timers::TimerMode::SingleShot
+                    },
+                    interval,
+                    move || {
+                        if let Some(instance) = self_weak.upgrade() {
+                            generativity::make_guard!(guard);
+                            let c = instance.unerase(guard);
+                            let c = c.borrow_instance();
+                            let inst = eval::ComponentInstance::InstanceRef(c);
+                            eval::invoke_callback(&inst, &callback.element(), callback.name(), &[])
+                                .unwrap();
+                        }
+                    },
+                );
             }
         } else {
             timer.stop();
