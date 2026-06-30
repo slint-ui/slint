@@ -167,7 +167,7 @@ export component ConflictingNames uses { ValidInterface from base } {
 }
 
 component BaseWithConflicts {
-    in-out property <int> value: 10;
+    in-out property <int> value;
     callback speak();
     public pure function reset() {
     }
@@ -193,7 +193,7 @@ component AImpl implements InterfaceA {
 }
 
 interface InterfaceB {
-    out property <bool> test: true;
+    out property <bool> test;
     callback test-callback(string);
     pure public function test-function(i: int) -> int;
 }

@@ -1216,6 +1216,7 @@ impl Element {
         } else {
             tr.empty_type()
         };
+        let is_interface = base_type == ElementType::Interface;
         // This isn't truly qualified yet, the enclosing component is added at the end of Component::from_node
         let qualified_id = (!id.is_empty()).then(|| id.clone());
         if let ElementType::Component(c) = &base_type {
@@ -1331,11 +1332,25 @@ impl Element {
                 }
             });
 
-            if base_type == ElementType::Interface && visibility == PropertyVisibility::Private {
-                diag.push_error(
-                    "'private' properties are inaccessible in an interface".into(),
-                    &prop_decl,
-                );
+            if is_interface {
+                if let Some(binding_expression) = &prop_decl.BindingExpression() {
+                    diag.push_error(
+                        "Interface properties cannot have default values".into(),
+                        binding_expression,
+                    )
+                }
+                if let Some(two_way) = &prop_decl.TwoWayBinding() {
+                    diag.push_error(
+                        "Interface properties cannot have default bindings".into(),
+                        two_way,
+                    )
+                }
+                if visibility == PropertyVisibility::Private {
+                    diag.push_error(
+                        "'private' properties are inaccessible in an interface".into(),
+                        &prop_decl,
+                    );
+                }
             }
 
             // Use the name as declared, not the resolved name: when the declaration
@@ -1570,7 +1585,7 @@ impl Element {
                 }
             }
 
-            if base_type == ElementType::Interface && visibility != PropertyVisibility::Public {
+            if is_interface && visibility != PropertyVisibility::Public {
                 diag.push_error(
                     "Function declarations in an interface must be public".into(),
                     &func,
