@@ -169,6 +169,61 @@ pub trait WindowAdapter {
     }
 }
 
+/// The data a `DragArea` offers when it starts a drag, passed to
+/// [`WindowAdapterInternal::start_drag`] for the backend to start a native (OS-level) drag.
+///
+/// This is a read-only view: a backend reads the payload, the allowed actions, and the drag
+/// image, but the source item and other internal routing data stay in the core.
+#[derive(Clone)]
+#[doc(hidden)]
+pub struct DragRequest {
+    pub(crate) data: crate::data_transfer::DataTransfer,
+    pub(crate) allow_copy: bool,
+    pub(crate) allow_move: bool,
+    pub(crate) allow_link: bool,
+    pub(crate) drag_image: crate::graphics::Image,
+    pub(crate) drag_image_offset: LogicalPosition,
+}
+
+impl DragRequest {
+    /// The data being transferred.
+    pub fn data(&self) -> &crate::data_transfer::DataTransfer {
+        &self.data
+    }
+    /// Whether the source allows a copy action.
+    pub fn allow_copy(&self) -> bool {
+        self.allow_copy
+    }
+    /// Whether the source allows a move action.
+    pub fn allow_move(&self) -> bool {
+        self.allow_move
+    }
+    /// Whether the source allows a link action.
+    pub fn allow_link(&self) -> bool {
+        self.allow_link
+    }
+    /// The image to show under the cursor while dragging.
+    pub fn drag_image(&self) -> &crate::graphics::Image {
+        &self.drag_image
+    }
+    /// The offset of the drag image relative to the cursor.
+    pub fn drag_image_offset(&self) -> LogicalPosition {
+        self.drag_image_offset
+    }
+}
+
+/// A drag-and-drop operation that a `DragArea` started, tracked by the core while it is in
+/// flight. The backend sees only the [`DragRequest`]; the source and seed position stay here
+/// to report completion and to arm the in-window fallback.
+#[derive(Clone)]
+pub(crate) struct PendingDrag {
+    pub(crate) request: DragRequest,
+    /// The `DragArea` that initiated the drag.
+    pub(crate) source: ItemWeak,
+    /// The pointer position that crossed the drag threshold, used to seed the in-window drag.
+    pub(crate) seed_position: LogicalPosition,
+}
+
 /// Implementation details behind [`WindowAdapter`], but since this
 /// trait is not exported in the public API, it is not possible for the
 /// users to call or re-implement these functions.
@@ -221,8 +276,12 @@ pub trait WindowAdapterInternal: core::any::Any {
         false
     }
 
+    /// Install `menubar` as the window's native menu bar (only called when
+    /// [`supports_native_menu_bar`](Self::supports_native_menu_bar) returns `true`).
     fn setup_menubar(&self, _menubar: vtable::VRc<MenuVTable>) {}
 
+    /// Show `context_menu_item` as a native popup menu at `position`. Returns `false` if the
+    /// backend has no native popup menu, in which case the menu is rendered in-window.
     fn show_native_popup_menu(
         &self,
         _context_menu_item: vtable::VRc<MenuVTable>,
@@ -262,6 +321,20 @@ pub trait WindowAdapterInternal: core::any::Any {
     /// This is necessary to avoid overlapping system UI such as notches or system bars.
     fn safe_area_inset(&self) -> crate::lengths::PhysicalEdges {
         Default::default()
+    }
+
+    /// Start a native (OS-level) drag-and-drop operation.
+    ///
+    /// Returns `true` if the backend took ownership of the drag (started it, or will start
+    /// it before the next event is processed). Returns `false` (the default) when native
+    /// drag is unsupported, in which case the caller arms the in-window drag fallback.
+    ///
+    /// When the drag finishes, the backend reports the negotiated action with
+    /// [`WindowInner::report_drag_finished`] (`DragAction::None` if it was cancelled). If a
+    /// native start fails after returning `true`, the backend calls
+    /// [`WindowInner::start_in_window_drag`] to fall back to the in-window drag.
+    fn start_drag(&self, _request: &DragRequest) -> bool {
+        false
     }
 }
 
@@ -537,6 +610,12 @@ pub struct WindowInner {
     close_requested: Callback<(), CloseRequestResponse>,
     click_state: ClickState,
     ctx: core::cell::OnceCell<crate::SlintContext>,
+    /// The native drag we started that is currently in flight, if any. It owns the source and
+    /// seed position used to report completion and to arm the in-window fallback. It also lets
+    /// a drag dropped back onto our own window restore the source's full `DataTransfer`: the OS
+    /// round-trip can't carry in-app `user_data`, so same-app native drops behave like an
+    /// in-window drag.
+    native_drag: RefCell<Option<PendingDrag>>,
 }
 
 impl Drop for WindowInner {
@@ -599,6 +678,7 @@ impl WindowInner {
             prevent_focus_change: Default::default(),
             ctx: Default::default(),
             menubar: Default::default(),
+            native_drag: Default::default(),
         }
     }
 
@@ -766,6 +846,13 @@ impl WindowInner {
                     }
                 }
                 _ => {}
+            }
+        } else if let MouseEvent::DragMove(e) | MouseEvent::Drop(e) = &mut event {
+            // An incoming native drag while our own is in flight: the same operation looping
+            // back onto our window. Restore the full source data so a same-app drop sees the
+            // `user_data` the OS round-trip dropped.
+            if let Some(pending) = self.native_drag.borrow().as_ref() {
+                e.data = pending.request.data.clone();
             }
         }
 
@@ -938,6 +1025,11 @@ impl WindowInner {
             window_adapter.request_redraw();
         }
 
+        if pending_drag_finished.is_some() {
+            // A drag ended in-window (including the winit fallback after a failed native
+            // start), so drop the native drag we stashed for same-app native drops.
+            self.native_drag.borrow_mut().take();
+        }
         if let Some((source_weak, target_weak)) = pending_drag_finished
             && let Some(source) = source_weak.upgrade()
             && let Some(drag_area) = source.downcast::<crate::items::DragArea>()
@@ -951,12 +1043,7 @@ impl WindowInner {
                 .as_ref()
                 .map(|d| d.as_pin_ref().current_action())
                 .unwrap_or(crate::items::DragAction::None);
-            let drag_area = drag_area.as_pin_ref();
-            drag_area.dragging.set(false);
-            crate::items::DragArea::FIELD_OFFSETS
-                .drag_finished()
-                .apply_pin(drag_area)
-                .call(&(action,));
+            drag_area.as_pin_ref().finish_drag(action);
             // The drag is over: reset the target's `current_action` so it matches
             // `contains_drag` and the docstring ("none when no drag is hovering").
             if let Some(target) = target {
@@ -971,6 +1058,49 @@ impl WindowInner {
         self.ensure_tree_instantiated();
 
         Some(MouseDispatchResult { drag_action, accepted })
+    }
+
+    /// Remember (or clear, with `None`) the native drag we are starting, so a backend can later
+    /// report its completion or fall back to the in-window drag, and so a drop back onto our own
+    /// window can restore the full `DataTransfer` (see the field docs on
+    /// [`WindowInner::native_drag`]). Set by `input::offer_native_drag` when a backend takes over.
+    pub(crate) fn set_native_drag(&self, drag: Option<PendingDrag>) {
+        *self.native_drag.borrow_mut() = drag;
+    }
+
+    /// Report that the native drag in flight has finished with `action`.
+    ///
+    /// Backends call this when an OS-level drag completes (`DragAction::None` if it was
+    /// cancelled) so the originating `DragArea` clears `dragging` and fires `drag-finished`.
+    pub fn report_drag_finished(&self, action: crate::items::DragAction) {
+        let Some(pending) = self.native_drag.borrow_mut().take() else {
+            return;
+        };
+        if let Some(drag_area) =
+            pending.source.upgrade().and_then(|i| i.downcast::<crate::items::DragArea>())
+        {
+            drag_area.as_pin_ref().finish_drag(action);
+        }
+    }
+
+    /// Fall back to the in-window drag for the native drag in flight.
+    ///
+    /// Backends call this when a native start fails after they took the drag over: subsequent
+    /// mouse moves then drive `DragMove`/`Drop` against `DropArea`s and the software-rendered
+    /// drag-image overlay, entirely in-process.
+    pub fn start_in_window_drag(&self) {
+        let Some(drag) = self.native_drag.borrow().clone() else {
+            return;
+        };
+        let mut state = self.mouse_input_state.take();
+        state.arm_drag(&drag);
+        self.mouse_input_state.set(state);
+        if let Some(drag_area) =
+            drag.source.upgrade().and_then(|i| i.downcast::<crate::items::DragArea>())
+        {
+            drag_area.as_pin_ref().dragging.set(true);
+        }
+        self.window_adapter().request_redraw();
     }
 
     /// Receive a raw touch event from a backend and either forward it as a mouse

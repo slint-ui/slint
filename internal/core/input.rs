@@ -1271,6 +1271,27 @@ impl MouseInputState {
             .map(|d| d.as_pin_ref().current_action())?;
         (action != crate::items::DragAction::None).then_some(action)
     }
+
+    /// Arm the in-window drag state from a [`PendingDrag`](crate::window::PendingDrag), so
+    /// subsequent mouse moves drive `DragMove`/`Drop` and the drag-image overlay.
+    pub(crate) fn arm_drag(&mut self, drag: &crate::window::PendingDrag) {
+        let request = &drag.request;
+        self.drag_data = Some(DropEvent {
+            data: request.data().clone(),
+            position: drag.seed_position,
+            allow_copy: request.allow_copy(),
+            allow_move: request.allow_move(),
+            allow_link: request.allow_link(),
+            proposed_action: crate::items::compute_proposed_action(
+                Default::default(),
+                request.allow_copy(),
+                request.allow_move(),
+                request.allow_link(),
+            ),
+        });
+        self.drag_source = Some(drag.source.clone());
+        self.grabbed = false;
+    }
 }
 
 pub(crate) struct MouseGrabResult {
@@ -1280,6 +1301,55 @@ pub(crate) struct MouseGrabResult {
     /// Whether the grabber consumed the original event before any follow-up event was
     /// synthesized for hover/grab refresh.
     pub accepted: bool,
+}
+
+/// Start a drag from `drag_area`, preferring a native (OS-level) drag and falling back to the
+/// in-window drag when no backend takes over.
+///
+/// The drag is offered to the backend via
+/// [`WindowAdapterInternal::start_drag`](crate::window::WindowAdapterInternal::start_drag).
+/// If the backend declines, the in-window drag is armed on `state`.
+fn offer_native_drag(
+    window_adapter: &Rc<dyn WindowAdapter>,
+    drag_area: core::pin::Pin<&crate::items::DragArea>,
+    source: ItemWeak,
+    seed_position: crate::api::LogicalPosition,
+    state: &mut MouseInputState,
+) {
+    let drag = crate::window::PendingDrag {
+        request: crate::window::DragRequest {
+            data: drag_area.data(),
+            allow_copy: drag_area.allow_copy(),
+            allow_move: drag_area.allow_move(),
+            allow_link: drag_area.allow_link(),
+            drag_image: drag_area.drag_image(),
+            drag_image_offset: crate::api::LogicalPosition::new(
+                drag_area.drag_image_offset_x() as f32,
+                drag_area.drag_image_offset_y() as f32,
+            ),
+        },
+        source,
+        seed_position,
+    };
+    drag_area.dragging.set(true);
+    // A native drag only carries serializable data (plain text or image), so offer it to the
+    // backend only when there's some.
+    if drag.request.data.has_plain_text() || drag.request.data.has_image() {
+        // Stash the drag first so the backend can report completion or fall back, and so a drop
+        // back onto our own window can restore the source data (see `WindowInner::native_drag`).
+        // This must run before `start_drag`: a synchronous backend (Qt) runs the drag there.
+        let window = crate::window::WindowInner::from_pub(window_adapter.window());
+        window.set_native_drag(Some(drag.clone()));
+        if window_adapter
+            .internal(crate::InternalToken)
+            .is_some_and(|i| i.start_drag(&drag.request))
+        {
+            return;
+        }
+        // No backend took over: clear the stash and fall back to the in-window drag.
+        window.set_native_drag(None);
+    }
+    state.arm_drag(&drag);
 }
 
 /// Try to handle the mouse grabber.
@@ -1360,16 +1430,19 @@ pub(crate) fn handle_mouse_grab(
             mouse_input_state.grabbed = false;
             let drag_area_item = grabber.downcast::<crate::items::DragArea>().unwrap();
             let drag_area = drag_area_item.as_pin_ref();
-            let mut drop_event = drag_area.initial_drop_event();
             // Seed the drag position from the event that crossed the drag threshold so
             // the renderer can place the drag-image overlay before the first DragMove.
-            drop_event.position = mouse_event
+            let seed_position = mouse_event
                 .position()
                 .map(crate::lengths::logical_position_to_api)
                 .unwrap_or_default();
-            mouse_input_state.drag_data = Some(drop_event);
-            mouse_input_state.drag_source = Some(grabber.downgrade());
-            drag_area.dragging.set(true);
+            offer_native_drag(
+                window_adapter,
+                drag_area,
+                grabber.downgrade(),
+                seed_position,
+                mouse_input_state,
+            );
             MouseGrabResult { event: None, accepted: true }
         }
         InputEventResult::EventAccepted | InputEventResult::EventIgnored => {
@@ -1684,19 +1757,22 @@ fn send_mouse_event_to_item(
             result.grabbed = false;
             let drag_area_item = item_rc.downcast::<crate::items::DragArea>().unwrap();
             let drag_area = drag_area_item.as_pin_ref();
-            let mut drop_event = drag_area.initial_drop_event();
             // `mouse_event` here is in the parent item's coords (this function is called
             // recursively); translate into the DragArea's local coords, then map back to
             // window coords so the drag-image overlay places at the right spot from the start.
-            drop_event.position = mouse_event
+            let seed_position = mouse_event
                 .position()
                 .map(|p| p - geom.origin.to_vector())
                 .map(|p| item_rc.map_to_window(p))
                 .map(crate::lengths::logical_position_to_api)
                 .unwrap_or_default();
-            result.drag_data = Some(drop_event);
-            result.drag_source = Some(item_rc.downgrade());
-            drag_area.dragging.set(true);
+            offer_native_drag(
+                window_adapter,
+                drag_area,
+                item_rc.downgrade(),
+                seed_position,
+                result,
+            );
             VisitChildrenResult::abort(item_rc.index(), 0)
         }
     }
