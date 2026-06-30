@@ -126,7 +126,7 @@ tikv-jemallocator = { workspace = true }
 
 # Used by the visual editor for the macOS unified title bar.
 [target.'cfg(target_os = "macos")'.dependencies]
-sparklers = "0.1.1"
+sparklers = { git = "https://github.com/slint-ui/sparklers.git", rev = "76f2b67" }
 objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSApplication", "NSOpenPanel", "NSPanel", "NSResponder", "NSSavePanel", "NSToolbar", "NSView", "NSWindow", "objc2-core-foundation"] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSArray", "NSString", "NSURL"] }
 objc2 = "0.6"

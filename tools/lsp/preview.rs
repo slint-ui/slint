@@ -75,16 +75,18 @@ pub fn run(
     #[cfg(target_os = "macos")]
     if let ui::AppWindow::Editor(editor) = app_window.clone_strong() {
         use slint::ComponentHandle;
-        use sparklers::{Sparkle, SparkleConfig};
+        use sparklers::Sparkle;
 
         macos_titlebar::setup(editor.as_weak());
 
-        updater = Sparkle::new(SparkleConfig { version: env!("CARGO_PKG_VERSION").into() })
-            .unwrap()
-            .unwrap();
+        updater = Sparkle::new().unwrap().unwrap();
 
-        updater.set_nonsync_event_callback(move |event| {
-            println!("Sparkle event: {event:?}");
+        updater.set_nonsync_event_callback(move |event| match event {
+            sparklers::Event::DidFinishUpdateCycle { error: Some(error), .. }
+            | sparklers::Event::FailedToDownloadUpdate { error, .. }
+            | sparklers::Event::DidAbortWithError { error } => eprintln!("ERROR: {error}"),
+
+            _ => println!("Sparkle event: {event:?}"),
         });
 
         if let Some(feed_override) = update_url_override {
@@ -93,8 +95,8 @@ pub fn run(
 
         // TODO: These calls can't return `Err`, the API needs to be changed
         // Errors are reported using the callback.
-        updater.set_automatically_checks_for_updates(true).unwrap();
-        updater.check_for_updates_in_background().unwrap();
+        updater.set_automatically_checks_for_updates(true);
+        updater.check_for_updates_in_background();
     }
 
     to_lsp

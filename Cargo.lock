@@ -10974,8 +10974,7 @@ dependencies = [
 [[package]]
 name = "sparklers"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a33ca344ff48f19867a6ae504db6e6b1d7808897bbcf7f79acb2d34ecdcfbd64"
+source = "git+https://github.com/slint-ui/sparklers.git?rev=76f2b67#76f2b67b516f7efbcf11e00d704b6e94dd4c3ba8"
 dependencies = [
  "dispatch2",
  "log",
@@ -10989,15 +10988,13 @@ dependencies = [
 
 [[package]]
 name = "sparklers-find-framework"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5c943937bec9f26ce8db3f4c88c517a173dbda312441eb5f111da6cd19d0755"
+version = "0.1.1"
+source = "git+https://github.com/slint-ui/sparklers.git?rev=76f2b67#76f2b67b516f7efbcf11e00d704b6e94dd4c3ba8"
 
 [[package]]
 name = "sparklers-sys"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28fd9146b80f7c342bcb6a5104687b985743b7b094b7973826e2462098cb0629"
+version = "0.1.1"
+source = "git+https://github.com/slint-ui/sparklers.git?rev=76f2b67#76f2b67b516f7efbcf11e00d704b6e94dd4c3ba8"
 dependencies = [
  "objc2 0.6.4",
  "objc2-foundation 0.3.2",
