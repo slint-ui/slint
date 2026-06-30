@@ -927,8 +927,9 @@ jobs:
     # The board matrix mirrors the `mcu` job in ci.yaml (the build gate); keep both in sync.
     demo_binaries:
         env:
-            SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
-            RUSTFLAGS: "--cfg slint_int_coord"
+            # Match the README flash build (examples/mcu-board-support): opt-level=s only.
+            # Notably NO SLINT_FONT_SIZES (the `mcu` check-job sets 13 sizes, ~hundreds of KB of
+            # rodata that never had to *link* there) and NO `--cfg slint_int_coord`.
             CARGO_PROFILE_DEV_DEBUG: 0
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
             # Pin the conversion tools; bump deliberately (see CI handover §6.4).
@@ -994,6 +995,12 @@ jobs:
                     if [ "$kind" = "esp" ]; then
                       cargo +esp build -p printerdemo_mcu --target "$target" --no-default-features \
                         --features="mcu-board-support/$feature" --config "$espcfg" --release
+                    elif [ "$kind" = "stm" ]; then
+                      # STM boards route Slint's textures into external OSPI flash via the
+                      # .slint_assets linker section; without this they land in internal .rodata and
+                      # overflow FLASH (the H735 only has 1MB). Only the stm32* boards define it.
+                      SLINT_ASSET_SECTION=.slint_assets cargo build -p printerdemo_mcu --target "$target" --no-default-features \
+                        --features="mcu-board-support/$feature" --release
                     else
                       cargo build -p printerdemo_mcu --target "$target" --no-default-features \
                         --features="mcu-board-support/$feature" --release
@@ -1014,7 +1021,10 @@ jobs:
                           elf2uf2-rs "$elf" "$OUT/printerdemo-$feature.uf2"
                           ;;
                         rp2350)
-                          picotool uf2 convert "$elf" "$OUT/printerdemo-$feature.uf2"
+                          # -t elf is required: picotool infers type from the extension, and the
+                          # Rust binary has none. (elf2uf2-rs can't be used here — it stamps the
+                          # RP2040 family id onto RP2350 images.)
+                          picotool uf2 convert -t elf "$elf" "$OUT/printerdemo-$feature.uf2"
                           ;;
                         stm)
                           # probe-rs / STM32CubeProgrammer flash the .elf directly.
@@ -1023,8 +1033,10 @@ jobs:
                         esp)
                           # Merged image (bootloader + partition table + app) flashable at offset 0
                           # over WebSerial by ESP Web Tools, or by espflash/esptool.
-                          # Arg order is `<ELF> <OUTPUT>` (espflash 3.x; pinned $ESPFLASH_VERSION).
-                          espflash save-image --merge --chip esp32s3 "$elf" "$OUT/printerdemo-$feature.bin"
+                          # --flash-size 16mb gives a large-enough app partition (the default 1MB is
+                          # too small for the ~1.4MB demo); --skip-padding keeps the file ~1.5MB
+                          # instead of padding to the full 16MB. Arg order is `<ELF> <OUTPUT>`.
+                          espflash save-image --merge --skip-padding --chip esp32s3 --flash-size 16mb "$elf" "$OUT/printerdemo-$feature.bin"
                           jq -n --arg feature "$feature" --arg path "printerdemo-$feature.bin" \
                             '{name: ("Slint printerdemo (" + $feature + ")"), builds: [ {chipFamily: "ESP32-S3", parts: [ {path: $path, offset: 0} ]} ]}' \
                             > "$OUT/manifest-$feature.json"
