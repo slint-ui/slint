@@ -1136,17 +1136,32 @@ fn lower_popup_component(
 }
 
 fn lower_timer(timer: &object_tree::Timer, ctx: &ExpressionLoweringCtx) -> Timer {
+    let code_block = super::Expression::CodeBlock(vec![
+        super::Expression::Condition {
+            condition: Box::new(super::Expression::PropertyReference(
+                ctx.map_property_reference(&timer.repeat),
+            )),
+            true_expr: Box::new(super::Expression::EmptyDataTransfer),
+            false_expr: Box::new(super::Expression::PropertyAssignment {
+                property: ctx.map_property_reference(&timer.running),
+                value: Box::new(super::Expression::BoolLiteral(false)),
+            }),
+        },
+        super::Expression::CallBackCall {
+            callback: ctx.map_property_reference(&timer.triggered),
+            arguments: Vec::new(),
+        },
+    ]);
+
     Timer {
         interval: super::Expression::PropertyReference(ctx.map_property_reference(&timer.interval))
             .into(),
         running: super::Expression::PropertyReference(ctx.map_property_reference(&timer.running))
             .into(),
         // TODO: this calls a callback instead of inlining the callback code directly
-        triggered: super::Expression::CallBackCall {
-            callback: ctx.map_property_reference(&timer.triggered),
-            arguments: Vec::new(),
-        }
-        .into(),
+        triggered: code_block.into(),
+        repeat: super::Expression::PropertyReference(ctx.map_property_reference(&timer.repeat))
+            .into(),
     }
 }
 
