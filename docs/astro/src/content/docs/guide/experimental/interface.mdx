@@ -25,7 +25,7 @@ interface TextInterface {
 An interface body may contain:
 
 - Properties with visibility `in`, `out`, or `in-out`.
-  Default values are allowed and are applied to implementing components that do not override them.
+  Default values are not permitted.
 - Callbacks, with any signature except `init`.
 - Function declarations without a body.
   They must be `public` and can be `pure`.
@@ -81,7 +81,7 @@ If two `uses` entries expose properties with the same name, the first one wins a
 
 ```slint no-test
 interface Counter {
-    in-out property <int> value: 0;
+    in-out property <int> value;
     callback increment();
 }
 
