@@ -1,5 +1,3 @@
-<!-- Copyright © SixtyFPS GmbH <info@slint.dev> ; SPDX-License-Identifier: MIT -->
-
 # Slint demo images for MPU boards (Yocto)
 
 **Task 2** of the demo-binaries roadmap. The firmware pipeline (nightly

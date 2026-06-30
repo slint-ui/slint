@@ -144,6 +144,8 @@ path = [
 
   "helper_crates/**.md",
 
+  "yocto/**.md",
+
   "ui-libraries/material/**.md",
   "ui-libraries/material/**.mdx",
   "ui-libraries/material/docs/**.json",
