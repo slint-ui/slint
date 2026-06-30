@@ -130,7 +130,7 @@ export component TabImpl inherits Rectangle {
         text := Text {
             vertical-alignment: center;
             horizontal-alignment: center;
-            font-weight: root.is-current ? CosmicFontSettings.body-strong.font-weight : CosmicFontSettings.body.font-weight;
+            font-weight: root.is-current ? CosmicFontSettings.body-strong.font-weight : FontWeight.normal;
             color: root.is-current ? CosmicPalette.accent-background : CosmicPalette.control-foreground;
             accessible-role: none;
         }

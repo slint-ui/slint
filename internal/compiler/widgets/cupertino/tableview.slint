@@ -217,7 +217,7 @@ export component StandardTableView {
                     Text {
                         vertical-alignment: center;
                         text: column.title;
-                        font-weight: column.sort-order == SortOrder.unsorted ? CupertinoFontSettings.body.font-weight :
+                        font-weight: column.sort-order == SortOrder.unsorted ? FontWeight.normal :
                             CupertinoFontSettings.body-strong.font-weight;
                         color: CupertinoPalette.foreground;
                         overflow: elide;
