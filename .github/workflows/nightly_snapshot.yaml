@@ -1180,13 +1180,14 @@ jobs:
                   cd ${{ matrix.dir }}
                   idf.py set-target esp32p4
                   ${{ matrix.build_env }} idf.py build
-                  # Single flashable image (bootloader + partition table + app) at offset 0.
-                  idf.py merge-bin -o merged.bin -f raw
                   board=esp32-p4-function-ev-board
                   out="$GITHUB_WORKSPACE/demo-out-esp-idf/${{ matrix.demo }}"
                   mkdir -p "$out"
-                  merged=$(ls merged.bin build/merged.bin 2>/dev/null | head -1)
-                  cp "$merged" "$out/$board.bin"
+                  # Merge bootloader + partition table + app into one image flashable at offset 0.
+                  # Use esptool directly on the just-built artifacts (build/flash_args has the
+                  # offsets) rather than `idf.py merge-bin`, which re-runs the build and trips the
+                  # esp Rust toolchain resolution (the existing esp-idf CI job is build-only too).
+                  ( cd build && python -m esptool --chip esp32p4 merge_bin -o "$out/$board.bin" -f raw @flash_args )
                   jq -n --arg name "Slint ${{ matrix.demo }} ($board)" --arg path "$board.bin" \
                     '{name: $name, builds: [ {chipFamily: "ESP32-P4", parts: [ {path: $path, offset: 0} ]} ]}' \
                     > "$out/$board.manifest.json"
