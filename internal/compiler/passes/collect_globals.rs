@@ -35,24 +35,15 @@ pub fn collect_globals(doc: &Document, _diag: &mut BuildDiagnostics) {
     doc.used_types.borrow_mut().globals = sorted_globals;
 }
 
+/// Properties of library-imported globals may be modified by the library at runtime via bindings or
+/// public API. Mark the properties as externally set so that they do not get treated as constants
+/// by future passes.
+/// Additionally register the globals as imported from external libraries.
 pub fn mark_library_globals(doc: &Document) {
     let mut used_types = doc.used_types.borrow_mut();
     used_types.globals.clone().iter().for_each(|component| {
         if let Some(library_info) = doc.library_exports.get(component.id.as_str()) {
             component.from_library.set(true);
-            // Every property on a library-imported global is "external" from
-            // the consumer's view: the library's own bindings and host code
-            // (its `lib.rs`) may read or write any of them at runtime, and
-            // the consumer's compilation has no visibility into either side.
-            //
-            // Mark both `is_set_externally` and `is_read_externally` on every
-            // property, regardless of `in`/`in-out`/`out`/`private` — these
-            // are the single source of truth that downstream passes already
-            // consult (`NamedReference::is_constant`, the LLR
-            // `inline_simple_expressions` pass, `remove_aliases`,
-            // `PropertyAnalysis::is_used`, etc.) to decide whether a value is
-            // fixed at compile time and whether a property is observable
-            // outside this compilation unit.
             let root = component.root_element.borrow();
             let mut analysis = root.property_analysis.borrow_mut();
             for name in root.property_declarations.keys() {
@@ -88,19 +79,12 @@ fn collect_in_component(
 mod tests {
     use super::*;
 
-    /// `mark_library_globals` must record that *every* property on a
-    /// library-imported global can be read and written from outside the
-    /// consumer's compilation. These flags are the single source of truth
-    /// that downstream passes (`NamedReference::is_constant`, the LLR
-    /// `inline_simple_expressions` pass, `remove_aliases`,
-    /// `PropertyAnalysis::is_used`, etc.) consult to decide whether a value
-    /// is fixed at compile time and whether a property is observable
-    /// outside this compilation unit. Without them those passes would
-    /// silently drop bindings that read from the library global.
+    /// Checks that `mark_library_globals` sets `is_set_externally` and
+    /// `is_read_externally` on every property of a library-imported global,
+    /// regardless of visibility.
     ///
-    /// Regression test for the bug where a binding such as
-    /// `text: "\{LibGlobal.value}"` in the consumer was inlined to the
-    /// global's compile-time default.
+    /// Regression for the bug where consumer bindings reading from a library global
+    /// were inlined to the global's compile-time default.
     #[test]
     fn mark_library_globals_marks_properties_as_externally_used() {
         let mut compiler_config =
@@ -135,12 +119,9 @@ export component App {
             .expect("LibGlobal not found")
             .clone();
 
-        // Simulate cross-module compilation: pretend `LibGlobal` was imported
-        // from a library by adding it to `library_exports`, then re-run
-        // `mark_library_globals`. Also clear `expose_in_public_api` (which
-        // is not set on properties imported from another module) so the
-        // existing `is_constant_impl` short-circuit on it doesn't mask the
-        // behavior we're trying to verify.
+        // Simulate a library import by adding `LibGlobal` to `library_exports`
+        // and re-running `mark_library_globals`. Clear `expose_in_public_api`
+        // so the `is_constant_impl` short-circuit doesn't mask the result.
         doc.library_exports.insert(
             "LibGlobal".to_string(),
             crate::typeloader::LibraryInfo {
@@ -159,14 +140,8 @@ export component App {
 
         let root = global.root_element.borrow();
         let analysis = root.property_analysis.borrow();
-        // `in`, `in-out`, and `out` properties all get the same treatment:
-        // the library's bindings or its host code may read or write any of
-        // them at runtime, regardless of visibility, so both flags must be
-        // set on every property. `private` is intentionally omitted from
-        // this test — `remove_unused_properties` runs before we re-invoke
-        // `mark_library_globals` here and would strip an unused private
-        // property from the declarations; the integration test in `bapp`
-        // exercises the in-tree-order case.
+        // `private` is omitted — `remove_unused_properties` strips it before
+        // we re-invoke `mark_library_globals`; `bapp` covers that path.
         for prop in ["value", "count", "ready"] {
             let a = analysis
                 .get(prop)

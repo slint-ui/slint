@@ -198,10 +198,7 @@ pub async fn run_passes(
         lower_layout::check_window_layout(&root_component);
     }
     collect_globals::collect_globals(doc, diag);
-    // Mark library-imported globals before any analysis that depends on
-    // `NamedReference::is_constant`: properties of such globals can be modified
-    // by the library at runtime (its own bindings, its public Rust/C++ API),
-    // so they must not be treated as constants in the consumer's compilation.
+    // Must be done before passes that rely on `NamedReference::is_constant`.
     collect_globals::mark_library_globals(doc);
 
     if type_loader.compiler_config.inline_all_elements {
