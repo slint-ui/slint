@@ -369,7 +369,7 @@ jobs:
 
     publish_artifacts:
         if: ${{ github.event.inputs.mode != 'test' }}
-        needs: [docs, wasm_demo, wasm, check-for-secrets, android, demo_binaries, demo_binaries_linux]
+        needs: [docs, wasm_demo, wasm, check-for-secrets, android, demo_binaries, demo_binaries_linux, demo_binaries_esp_idf]
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/download-artifact@v8
@@ -426,6 +426,11 @@ jobs:
                   pattern: demo-binaries-linux-*
                   merge-multiple: true
                   path: demo-binaries-linux
+            - uses: actions/download-artifact@v8
+              with:
+                  pattern: demo-binaries-esp-idf-*
+                  merge-multiple: true
+                  path: demo-binaries-esp-idf
 
             - uses: actions/checkout@v6
               with:
@@ -506,46 +511,58 @@ jobs:
                   echo '</ul>'
                 } > $output_path/demos/android/index.html
 
-                # Flashable per-board MCU demo binaries (+ ESP Web Tools manifests) under demos/mcu/,
-                # and the runnable Linux-SBC tarballs under demos/linux/.
-                rm -rf $output_path/demos/mcu $output_path/demos/linux
-                mkdir -p $output_path/demos/mcu $output_path/demos/linux
+                # Flashable demo binaries: cargo/MCU printerdemo under demos/mcu/, the ESP-IDF P4
+                # demos under demos/esp-idf/<demo>/, and the runnable Linux-SBC tarballs under demos/linux/.
+                rm -rf $output_path/demos/mcu $output_path/demos/linux $output_path/demos/esp-idf
+                mkdir -p $output_path/demos/mcu $output_path/demos/linux $output_path/demos/esp-idf
                 cp -a ../demo-binaries/* $output_path/demos/mcu/
                 cp -a ../demo-binaries-linux/* $output_path/demos/linux/
+                cp -a ../demo-binaries-esp-idf/* $output_path/demos/esp-idf/ 2>/dev/null || true
 
-                # demos.json — the index the website reads at build time, derived from the published
-                # filenames. `boards` = MCU (flash firmware), `linux` = SBC (download + run). URLs point
-                # at this same www-releases tree (snapshots.slint.dev/<branch> or releases.slint.dev/<version>).
+                # demos.json — the index the website reads at build time. Board-centric so a board can
+                # carry several demos: boards.<board>.demos.<demo> = { file, format, url, manifest? }.
+                # `linux` = SBC download+run. URLs point at this same www-releases tree.
                 if [[ "${{ github.event.inputs.mode == 'release' }}" == "true" ]]; then
                   demos_base="https://releases.slint.dev/${{ steps.version.outputs.VERSION }}"
                 else
                   demos_base="https://snapshots.slint.dev/${GITHUB_REF##*/}"
                 fi
-                boards_json=$(
+
+                # One record per artifact: {board, demo, format, path (under demos/), manifestPath?}.
+                collect_entries() {
+                  # printerdemo (cargo/MCU): demos/mcu/printerdemo-<board>.<ext> (+ manifest-<board>.json)
                   for f in $output_path/demos/mcu/printerdemo-*; do
-                    [ -e "$f" ] || continue
-                    bn=$(basename "$f"); case "$bn" in manifest-*) continue;; esac
-                    rest=${bn#printerdemo-}; ext=${rest##*.}; feature=${rest%.*}
-                    manifest=""; [ -e "$output_path/demos/mcu/manifest-$feature.json" ] && manifest="manifest-$feature.json"
-                    jq -n --arg feature "$feature" --arg file "$bn" --arg fmt "$ext" \
-                          --arg url "$demos_base/demos/mcu/$bn" --arg manifest "$manifest" \
-                          --arg murl "$demos_base/demos/mcu/$manifest" '
-                      { key: $feature, value: (
-                          { feature: $feature, file: $file, format: $fmt, url: $url }
-                          + (if $manifest == "" then {} else { manifest: $manifest, manifestUrl: $murl } end)
-                        ) }'
-                  done | jq -s 'from_entries'
-                )
+                    [ -e "$f" ] || continue; bn=$(basename "$f"); case "$bn" in manifest-*) continue;; esac
+                    rest=${bn#printerdemo-}; ext=${rest##*.}; board=${rest%.*}
+                    mpath=""; [ -e "$output_path/demos/mcu/manifest-$board.json" ] && mpath="mcu/manifest-$board.json"
+                    jq -nc --arg board "$board" --arg demo printerdemo --arg fmt "$ext" --arg path "mcu/$bn" --arg mpath "$mpath" \
+                      '{board:$board, demo:$demo, format:$fmt, path:$path} + (if $mpath=="" then {} else {manifestPath:$mpath} end)'
+                  done
+                  # ESP-IDF (ESP32-P4): demos/esp-idf/<demo>/<board>.bin (+ <board>.manifest.json)
+                  for demodir in $output_path/demos/esp-idf/*/; do
+                    [ -d "$demodir" ] || continue; demo=$(basename "$demodir")
+                    for f in "$demodir"*.bin; do
+                      [ -e "$f" ] || continue; bn=$(basename "$f"); board=${bn%.bin}
+                      mpath=""; [ -e "${demodir}${board}.manifest.json" ] && mpath="esp-idf/$demo/$board.manifest.json"
+                      jq -nc --arg board "$board" --arg demo "$demo" --arg fmt bin --arg path "esp-idf/$demo/$bn" --arg mpath "$mpath" \
+                        '{board:$board, demo:$demo, format:$fmt, path:$path} + (if $mpath=="" then {} else {manifestPath:$mpath} end)'
+                    done
+                  done
+                }
+                boards_json=$(collect_entries | jq -s --arg base "$demos_base" '
+                  reduce .[] as $e ({};
+                    .[$e.board].demos[$e.demo] =
+                      ({ file: ($e.path|split("/")|last), format: $e.format, url: ($base + "/demos/" + $e.path) }
+                       + (if ($e|has("manifestPath")) then { manifest: ($e.manifestPath|split("/")|last), manifestUrl: ($base + "/demos/" + $e.manifestPath) } else {} end)))')
                 linux_json=$(
                   for f in $output_path/demos/linux/printerdemo-*-linux.tar.gz; do
-                    [ -e "$f" ] || continue
-                    bn=$(basename "$f"); arch=${bn#printerdemo-}; arch=${arch%-linux.tar.gz}
-                    jq -n --arg arch "$arch" --arg file "$bn" --arg url "$demos_base/demos/linux/$bn" \
+                    [ -e "$f" ] || continue; bn=$(basename "$f"); arch=${bn#printerdemo-}; arch=${arch%-linux.tar.gz}
+                    jq -nc --arg arch "$arch" --arg file "$bn" --arg url "$demos_base/demos/linux/$bn" \
                       '{ key: $arch, value: { arch: $arch, file: $file, format: "tar.gz", bin: "printerdemo", url: $url } }'
                   done | jq -s 'from_entries'
                 )
                 jq -n --arg base "$demos_base" --argjson boards "$boards_json" --argjson linux "$linux_json" \
-                  '{ demo: "printerdemo", base: $base, generated: (now | todateiso8601), boards: $boards, linux: $linux }' \
+                  '{ base: $base, generated: (now | todateiso8601), boards: $boards, linux: $linux }' \
                   > $output_path/demos/demos.json
                 cat $output_path/demos/demos.json
 
@@ -1116,3 +1133,64 @@ jobs:
               with:
                   name: demo-binaries-linux-${{ matrix.arch }}
                   path: demo-out-linux/
+
+    # The bigger demos (home-automation, usecases) run on the ESP32-P4 Function EV board via
+    # C++ + ESP-IDF (not the cargo/mcu-board-support path). Build with idf.py, merge bootloader +
+    # partition table + app into one flashable image, and stage it + an ESP Web Tools manifest under
+    # <demo>/<board>.bin so publish_artifacts lists them in demos.json (boards.<board>.demos.<demo>).
+    # Mirrors the existing `esp-idf` job in ci.yaml (same container + esp Rust channel for Slint's
+    # build-time helper). NOTE: ESP Web Tools support for the ESP32-P4 chipFamily is unverified — if
+    # absent, the board degrades to download + `idf.py flash`/`slint.dev/flash` (USB-serial-JTAG).
+    demo_binaries_esp_idf:
+        runs-on: ubuntu-22.04
+        container: espressif/idf:release-v5.5
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - demo: home-automation
+                      dir: demos/home-automation/esp-idf
+                      build_env: ""
+                    - demo: usecases
+                      dir: demos/usecases/esp-idf
+                      build_env: "SLINT_SCALE_FACTOR=2"
+        steps:
+            - name: Fix up pydantic regression (https://github.com/espressif/idf-component-manager/issues/97#issuecomment-3380777944)
+              run: |
+                  . ${IDF_PATH}/export.sh
+                  cd $IDF_PYTHON_ENV_PATH
+                  bin/pip install pydantic==2.11.10
+            - uses: actions/checkout@v6
+            - run: apt-get update && apt-get install -y libfontconfig1-dev jq
+            - uses: dtolnay/rust-toolchain@stable
+            # Slint's ESP-IDF component builds a helper from source; it needs the `esp` Rust channel.
+            - uses: esp-rs/xtensa-toolchain@v1.7
+              with:
+                  default: true
+                  buildtargets: esp32
+                  ldproxy: false
+            - uses: Swatinem/rust-cache@v2
+            - name: Build ${{ matrix.demo }} for ESP32-P4, merge + stage
+              shell: bash
+              run: |
+                  set -euo pipefail
+                  . ${IDF_PATH}/export.sh
+                  cd ${{ matrix.dir }}
+                  idf.py set-target esp32p4
+                  ${{ matrix.build_env }} idf.py build
+                  # Single flashable image (bootloader + partition table + app) at offset 0.
+                  idf.py merge-bin -o merged.bin -f raw
+                  board=esp32-p4-function-ev-board
+                  out="$GITHUB_WORKSPACE/demo-out-esp-idf/${{ matrix.demo }}"
+                  mkdir -p "$out"
+                  merged=$(ls merged.bin build/merged.bin 2>/dev/null | head -1)
+                  cp "$merged" "$out/$board.bin"
+                  jq -n --arg name "Slint ${{ matrix.demo }} ($board)" --arg path "$board.bin" \
+                    '{name: $name, builds: [ {chipFamily: "ESP32-P4", parts: [ {path: $path, offset: 0} ]} ]}' \
+                    > "$out/$board.manifest.json"
+                  ls -l "$out"
+            - name: Upload demo-binaries-esp-idf artifact
+              uses: actions/upload-artifact@v7
+              with:
+                  name: demo-binaries-esp-idf-${{ matrix.demo }}
+                  path: demo-out-esp-idf/
