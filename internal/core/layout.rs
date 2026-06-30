@@ -381,8 +381,8 @@ mod grid_internal {
                     &repeater_steps,
                 );
                 if span > 1 {
-                    let span_data =
-                        &mut layout_data[(col_or_row as usize)..(col_or_row as usize + span as usize)];
+                    let span_data = &mut layout_data
+                        [(col_or_row as usize)..(col_or_row as usize + span as usize)];
 
                     // Adjust minimum sizes
                     let mut min = constraint.min;
