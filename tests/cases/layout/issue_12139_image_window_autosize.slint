@@ -30,8 +30,8 @@ assert_eq!(size, slint::PhysicalSize::new(128, 128));
 
 ```js
 let instance = new slint.TestCase({});
-instance.window().show();
-let size = instance.window().physicalSize;
+instance.window.show();
+let size = instance.window.physicalSize;
 assert.equal(size.width, 128);
 assert.equal(size.height, 128);
 ```
