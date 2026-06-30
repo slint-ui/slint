@@ -3,6 +3,7 @@
 
 use crate::EmbedResourcesKind;
 use crate::diagnostics::BuildDiagnostics;
+use crate::diagnostics::SourceLocation;
 use crate::embedded_resources::*;
 use crate::expression_tree::{Expression, ImageReference};
 use crate::object_tree::*;
@@ -60,6 +61,34 @@ pub async fn embed_images(
         urls
     };
 
+    // Register every resource up front in a deterministic order, so the assigned
+    // ids don't depend on visit order (which isn't stable between compilations
+    // and would defeat incremental recompilation of the generated code).
+    //
+    // Errors are reported here too; the rewrite pass below skips keys that
+    // failed to register, so each is reported exactly once.
+    if embed_files != EmbedResourcesKind::Nothing {
+        let mut refs =
+            std::collections::BTreeMap::<SmolStr, (ImageReference, Option<SourceLocation>)>::new();
+        for component in &all_components {
+            visit_all_expressions(component, |e, _| {
+                collect_image_references(e, &mapped_urls, &mut refs)
+            });
+        }
+        for (resource_ref, source_location) in refs.values() {
+            register_image_reference(
+                resource_ref,
+                global_embedded_resources,
+                &mut path_to_id,
+                embed_files,
+                scale_factor,
+                diag,
+                source_location,
+                font_collection,
+            );
+        }
+    }
+
     // Use URLs (sync!):
     for component in &all_components {
         visit_all_expressions(component, |e, _| {
@@ -112,6 +141,88 @@ fn collect_image_urls_from_expression(e: &Expression, urls: &mut HashMap<Url, Op
     e.visit(|e| collect_image_urls_from_expression(e, urls));
 }
 
+// Collect every reference in its post-mapping form, keyed (and so sorted) by the
+// string it registers under. Applies the same mapping as the rewrite pass.
+fn collect_image_references(
+    e: &Expression,
+    urls: &HashMap<Url, Option<Url>>,
+    refs: &mut std::collections::BTreeMap<SmolStr, (ImageReference, Option<SourceLocation>)>,
+) {
+    if let Expression::ImageReference { resource_ref, source_location, .. } = e {
+        let mut mapped = resource_ref.clone();
+        if let Some(url) = reference_mapper_url(&mapped)
+            && let Some(url) = urls.get(&url).cloned().flatten()
+        {
+            mapped = ImageReference::from_mapped_url(url);
+        }
+        if let Some(key) = mapped.source().map(SmolStr::from) {
+            refs.entry(key).or_insert_with(|| (mapped, source_location.clone()));
+        }
+    };
+
+    e.visit(|e| collect_image_references(e, urls, refs));
+}
+
+fn register_image_reference(
+    resource_ref: &ImageReference,
+    global_embedded_resources: &RefCell<TiVec<EmbeddedResourcesIdx, EmbeddedResources>>,
+    path_to_id: &mut HashMap<SmolStr, EmbeddedResourcesIdx>,
+    embed_files: EmbedResourcesKind,
+    scale_factor: f32,
+    diag: &mut BuildDiagnostics,
+    source_location: &Option<SourceLocation>,
+    font_collection: Option<&SharedFontCollection>,
+) -> Option<ImageReference> {
+    match resource_ref {
+        ImageReference::DataUri(data) => {
+            // Data URIs have no external file to track, so skip for
+            // Nothing (interpreter) and ListAllResources (dependency tracking).
+            (!matches!(
+                embed_files,
+                EmbedResourcesKind::Nothing | EmbedResourcesKind::ListAllResources
+            ))
+            .then(|| {
+                embed_data_uri(
+                    global_embedded_resources,
+                    path_to_id,
+                    data,
+                    embed_files,
+                    scale_factor,
+                    diag,
+                    source_location,
+                    font_collection,
+                )
+            })
+        }
+        ImageReference::Path(_) | ImageReference::Url(_) => {
+            let is_builtin =
+                matches!(resource_ref, ImageReference::Url(url) if url.scheme() == "builtin");
+            if embed_files == EmbedResourcesKind::Nothing
+                || (embed_files == EmbedResourcesKind::OnlyBuiltinResources && !is_builtin)
+            {
+                return None;
+            }
+            let path = resource_ref.source().expect("Path/Url have a source");
+            let image_ref = embed_image(
+                global_embedded_resources,
+                path_to_id,
+                embed_files,
+                path,
+                scale_factor,
+                diag,
+                source_location,
+                font_collection,
+            );
+            // ListAllResources only records the resource; it must not patch the
+            // reference to the (None) embedded id.
+            (embed_files != EmbedResourcesKind::ListAllResources).then_some(image_ref)
+        }
+        ImageReference::None
+        | ImageReference::EmbeddedData { .. }
+        | ImageReference::EmbeddedTexture { .. } => None,
+    }
+}
+
 fn embed_images_from_expression(
     e: &mut Expression,
     urls: &HashMap<Url, Option<Url>>,
@@ -131,54 +242,22 @@ fn embed_images_from_expression(
             *resource_ref = ImageReference::from_mapped_url(mapped);
         }
 
-        match resource_ref {
-            ImageReference::DataUri(data) => {
-                // Data URIs have no external file to track, so skip for
-                // Nothing (interpreter) and ListAllResources (dependency tracking).
-                if !matches!(
-                    embed_files,
-                    EmbedResourcesKind::Nothing | EmbedResourcesKind::ListAllResources
-                ) {
-                    let image_ref = embed_data_uri(
-                        global_embedded_resources,
-                        path_to_id,
-                        data,
-                        embed_files,
-                        scale_factor,
-                        diag,
-                        source_location,
-                        font_collection,
-                    );
-                    *resource_ref = image_ref;
-                }
-            }
-            ImageReference::Path(_) | ImageReference::Url(_) => {
-                let is_builtin = matches!(
-                    resource_ref,
-                    ImageReference::Url(url) if url.scheme() == "builtin"
-                );
-                if embed_files != EmbedResourcesKind::Nothing
-                    && (embed_files != EmbedResourcesKind::OnlyBuiltinResources || is_builtin)
-                {
-                    let path = resource_ref.source().expect("Path/Url have a source");
-                    let image_ref = embed_image(
-                        global_embedded_resources,
-                        path_to_id,
-                        embed_files,
-                        path,
-                        scale_factor,
-                        diag,
-                        source_location,
-                        font_collection,
-                    );
-                    if embed_files != EmbedResourcesKind::ListAllResources {
-                        *resource_ref = image_ref;
-                    }
-                }
-            }
-            ImageReference::None
-            | ImageReference::EmbeddedData { .. }
-            | ImageReference::EmbeddedTexture { .. } => {}
+        // The resource was already registered (and any error reported) by the
+        // pre-registration pass; look the id up and patch the reference. A key
+        // missing from `path_to_id` failed to register and is left as-is.
+        if resource_ref.source().is_some_and(|source| path_to_id.contains_key(source))
+            && let Some(image_ref) = register_image_reference(
+                resource_ref,
+                global_embedded_resources,
+                path_to_id,
+                embed_files,
+                scale_factor,
+                diag,
+                source_location,
+                font_collection,
+            )
+        {
+            *resource_ref = image_ref;
         }
     };
 
