@@ -95,8 +95,6 @@ pub fn run(
         // Errors are reported using the callback.
         updater.set_automatically_checks_for_updates(true).unwrap();
         updater.check_for_updates_in_background().unwrap();
-
-        println!("feed url: {:?}", updater.feed_url());
     }
 
     to_lsp
