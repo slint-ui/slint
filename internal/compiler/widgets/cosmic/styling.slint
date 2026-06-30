@@ -9,9 +9,8 @@ export struct TextStyle {
 }
 
 export global CosmicFontSettings {
-    out property <TextStyle> body: { font-size: 14 * 0.0769rem, font-weight: FontWeight.normal };
-    out property <TextStyle> body-strong: { font-size: 14 * 0.0769rem, font-weight: FontWeight.semi-bold };
-    out property <TextStyle> title: { font-size: 24 * 0.0769rem, font-weight: FontWeight.light };
+    out property <TextStyle> body-strong: { font-size: 14pt * 1rem / 14pt, font-weight: FontWeight.semi-bold };
+    out property <TextStyle> title: { font-size: 24pt * 1rem / 14pt, font-weight: FontWeight.light };
 }
 
 export global CosmicPalette {

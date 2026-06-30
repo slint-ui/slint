@@ -1,6 +1,6 @@
 {
   "name": "slint",
-  "version": "0.1.0",
+  "version": "1.17.1",
   "description": "Enhances Claude's ability to work with, debug, and build Slint GUI applications",
   "author": {
     "name": "Slint",
@@ -15,6 +15,12 @@
       "extensionToLanguage": {
         ".slint": "slint"
       }
+    }
+  },
+  "mcpServers": {
+    "slint-docs": {
+      "type": "http",
+      "url": "https://docs.slint.dev/mcp"
     }
   }
 }

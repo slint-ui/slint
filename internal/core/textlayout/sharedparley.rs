@@ -651,6 +651,12 @@ struct ElisionInfo {
     max_physical_width: PhysicalLength,
 }
 
+/// Whether a line whose bottom edge is at `block_max_coord` fits within `max_physical_height`,
+/// rounding the height up so a sub-pixel overflow still counts as fitting.
+fn line_fits_height(block_max_coord: f32, max_physical_height: PhysicalLength) -> bool {
+    max_physical_height.get().ceil() >= block_max_coord
+}
+
 struct TextParagraph {
     range: Range<usize>,
     y: PhysicalLength,
@@ -666,6 +672,8 @@ impl TextParagraph {
     fn draw<R: GlyphRenderer>(
         &self,
         layout: &Layout,
+        paragraph_index: usize,
+        elision_extent: Option<ElisionCut>,
         item_renderer: &mut R,
         default_fill_brush: &<R as GlyphRenderer>::PlatformBrush,
         default_stroke_brush: &Option<<R as GlyphRenderer>::PlatformBrush>,
@@ -685,31 +693,57 @@ impl TextParagraph {
 
         self.draw_inline_code_backgrounds(item_renderer, para_y, default_text_color);
 
-        let mut lines = self
-            .layout
-            .lines()
-            .take_while(|line| {
-                let metrics = line.metrics();
-                match layout.max_physical_height {
-                    // If overflow: clip is set, we apply a hard pixel clip, but with overflow: elide,
-                    // we want to place an ellipsis on the last line and not draw any lines beyond the
-                    // given max height.
-                    Some(max_physical_height) if layout.elision_info.is_some() => {
-                        max_physical_height.get().ceil() >= metrics.block_max_coord
-                    }
-                    _ => true,
-                }
-            })
-            .peekable();
+        let line_count = self.layout.lines().len();
 
-        while let Some(line) = lines.next() {
-            let last_line = lines.peek().is_none();
+        // For `overflow: elide` with a height limit (`overflow: clip` applies a hard pixel clip
+        // instead), `elision_extent` decides -- across all paragraphs -- the last line to keep and
+        // where the vertical-truncation ellipsis goes. Translate it to this paragraph. `last_drawn`
+        // is the deepest line of this paragraph that we draw; it carries the horizontal ellipsis
+        // when it overflows the width. `vertical_truncation` marks the single global last kept line
+        // that must also show an ellipsis when lines below it were dropped for the height.
+        let (last_drawn, vertical_truncation) = match elision_extent {
+            // Entirely below the kept block: drop the paragraph (don't redraw a stray first line).
+            Some(cut) if paragraph_index > cut.last_paragraph => return,
+            // The paragraph where the height cut falls: stop at the global last kept line.
+            Some(cut) if paragraph_index == cut.last_paragraph => {
+                (cut.last_line, cut.needs_ellipsis)
+            }
+            // A paragraph fully above the cut, or no height limit at all: draw every line that fits
+            // the box; the last visual line still elides horizontally when it is too wide.
+            _ => (line_count.saturating_sub(1), false),
+        };
+
+        for (index, line) in self.layout.lines().enumerate() {
+            // Stop once we are past the last kept line of the last kept paragraph.
+            if index > last_drawn {
+                break;
+            }
+            let metrics = line.metrics();
+            // The kept line is always drawn, even when it slightly exceeds the box (#12197); other
+            // lines are kept only while they fall within the box, taking vertical alignment into
+            // account (bottom/center alignment clips lines off the top, not the bottom).
+            let last_line = index == last_drawn;
+            if !last_line
+                && !layout.paragraph_line_within_box(
+                    self,
+                    metrics.block_min_coord,
+                    metrics.block_max_coord,
+                )
+            {
+                continue;
+            }
+            // The last drawn line should show an ellipsis if real lines below it were dropped for
+            // the height, even when it fits the width.
+            let vertically_truncated = last_line && vertical_truncation;
             for item in line.items() {
                 match item {
                     parley::PositionedLayoutItem::GlyphRun(glyph_run) => {
                         let ellipsis = if last_line {
-                            let (truncated_glyphs, ellipsis) =
-                                layout.glyphs_with_elision(&glyph_run);
+                            let (truncated_glyphs, ellipsis) = layout.glyphs_with_elision(
+                                &glyph_run,
+                                vertically_truncated,
+                                metrics.trailing_whitespace,
+                            );
 
                             Self::draw_glyph_run(
                                 &glyph_run,
@@ -1000,6 +1034,18 @@ impl TextParagraph {
     }
 }
 
+/// Where `overflow: elide` cuts text off, computed across all paragraphs (each explicit `\n`
+/// produces one paragraph). See [`Layout::elision_extent`].
+#[derive(Clone, Copy)]
+struct ElisionCut {
+    /// Paragraph holding the last kept line.
+    last_paragraph: usize,
+    /// Last kept line within `last_paragraph`.
+    last_line: usize,
+    /// A line below the kept one was dropped for the height, so the kept line shows an ellipsis.
+    needs_ellipsis: bool,
+}
+
 struct Layout {
     paragraphs: Vec<TextParagraph>,
     y_offset: PhysicalLength,
@@ -1010,6 +1056,81 @@ struct Layout {
 }
 
 impl Layout {
+    /// Returns true if the very first line is taller than the available height, meaning the
+    /// vertical line dropping used for `overflow: elide` would discard it and render nothing.
+    /// In that case the caller keeps drawing the first line but applies a hard pixel clip to
+    /// trim its vertical overflow, so it is shown (clipped) rather than disappearing entirely.
+    fn first_line_exceeds_height(&self) -> bool {
+        let Some(max_physical_height) = self.max_physical_height else {
+            return false;
+        };
+        self.paragraphs.first().and_then(|paragraph| paragraph.layout.lines().next()).is_some_and(
+            |line| !line_fits_height(line.metrics().block_max_coord, max_physical_height),
+        )
+    }
+
+    /// Whether a line of `paragraph` (with the metrics block range `block_min`..`block_max` in the
+    /// paragraph's local coordinates) falls within the box for `overflow: elide` with a height
+    /// limit. Accounts for vertical alignment via `y_offset`, which is negative for bottom/center
+    /// alignment. Without a height limit, or when not eliding, every line counts as within the box.
+    fn paragraph_line_within_box(
+        &self,
+        paragraph: &TextParagraph,
+        block_min: f32,
+        block_max: f32,
+    ) -> bool {
+        match self.max_physical_height {
+            Some(max_physical_height) if self.elision_info.is_some() => {
+                let para_y = self.y_offset + paragraph.y;
+                // `line_fits_height` rounds the bottom up by a pixel; allow the same slack at the
+                // top so a line sitting right on the box edge isn't dropped to a rounding error.
+                line_fits_height(para_y.get() + block_max, max_physical_height)
+                    && para_y.get() + block_min >= -0.5
+            }
+            _ => true,
+        }
+    }
+
+    /// For `overflow: elide` with a height limit, work out the last line to keep across all
+    /// paragraphs. Explicit `\n` line breaks each produce a paragraph, and they have to elide as a
+    /// single block: lines below the box are dropped and the ellipsis goes on the last visible
+    /// line. Returns `None` when there is no height limit or elision (draw everything). When
+    /// nothing fits at all the very first line is kept (#12197) so the text never vanishes
+    /// entirely; `draw_text` then clips its vertical overflow.
+    fn elision_extent(&self) -> Option<ElisionCut> {
+        self.max_physical_height?;
+        self.elision_info.as_ref()?;
+
+        // The deepest line still within the box, scanning paragraphs and their lines from the
+        // bottom up. Bottom/center alignment clips lines off the top, so the visible block can
+        // start partway down, but its last line is always the lowest one that fits.
+        let last_within_box = self.paragraphs.iter().enumerate().rev().find_map(|(pi, para)| {
+            para.layout
+                .lines()
+                .enumerate()
+                .rev()
+                .find(|(_, line)| {
+                    let m = line.metrics();
+                    self.paragraph_line_within_box(para, m.block_min_coord, m.block_max_coord)
+                })
+                .map(|(li, _)| (pi, li))
+        });
+
+        // The very last line in document order, used to tell whether anything was dropped below
+        // the kept line (and so whether an ellipsis is needed).
+        let final_line = self
+            .paragraphs
+            .iter()
+            .enumerate()
+            .rev()
+            .find_map(|(pi, para)| para.layout.lines().len().checked_sub(1).map(|li| (pi, li)));
+
+        let (last_paragraph, last_line) = last_within_box.unwrap_or((0, 0));
+        let needs_ellipsis =
+            final_line.is_some_and(|final_line| final_line != (last_paragraph, last_line));
+        Some(ElisionCut { last_paragraph, last_line, needs_ellipsis })
+    }
+
     fn paragraph_by_byte_offset(&self, byte_offset: usize) -> Option<&TextParagraph> {
         self.paragraphs.iter().find(|p| byte_offset >= p.range.start && byte_offset <= p.range.end)
     }
@@ -1121,6 +1242,13 @@ impl Layout {
     fn glyphs_with_elision<'a>(
         &'a self,
         glyph_run: &'a parley::layout::GlyphRun<Brush>,
+        // When set, place an ellipsis even if the run fits the width. Used when lines below were
+        // dropped for the height, so the last visible line signals the vertical truncation.
+        force_elision: bool,
+        // Advance width of the line's trailing whitespace. A vertically truncated line that fits
+        // the width anchors the appended ellipsis after the last non-whitespace glyph, so trailing
+        // spaces (e.g. left at a word-wrap break) don't push it away from the text.
+        trailing_whitespace: f32,
     ) -> (
         impl Iterator<Item = parley::layout::Glyph> + Clone + 'a,
         Option<(parley::layout::Glyph, parley::FontData, PhysicalLength)>,
@@ -1138,8 +1266,9 @@ impl Layout {
 
         // Run starts after where the ellipsis would go - skip entirely
         let run_beyond_elision = run_start > max_width;
-        // Run extends beyond max width and needs truncation + ellipsis
-        let needs_elision = !run_beyond_elision && run_end.get().floor() > max_width.get().ceil();
+        // Run extends beyond max width (or the lines below it were dropped) and needs an ellipsis
+        let needs_elision = !run_beyond_elision
+            && (force_elision || run_end.get().floor() > max_width.get().ceil());
 
         let truncated_glyphs = glyph_run.positioned_glyphs().take_while(move |glyph| {
             !run_beyond_elision
@@ -1156,10 +1285,15 @@ impl Layout {
                             > info.max_physical_width
                     })
                     .map(|g| g.x)
-                    .unwrap_or(0.0);
+                    // Nothing overflows horizontally (force_elision): put the ellipsis right after
+                    // the run's last non-whitespace glyph, i.e. before any trailing whitespace.
+                    .unwrap_or(run_end.get() - trailing_whitespace);
 
                 let mut ellipsis_glyph = info.ellipsis_glyph;
                 ellipsis_glyph.x = ellipsis_x;
+                // The ellipsis glyph comes from a standalone layout; place it on this run's
+                // baseline so it lands on the right line (not just the first one).
+                ellipsis_glyph.y = glyph_run.baseline();
 
                 let font_size = PhysicalLength::new(glyph_run.run().font_size());
                 (ellipsis_glyph, info.font_for_ellipsis_glyph.clone(), font_size)
@@ -1188,9 +1322,14 @@ impl Layout {
             &mut dyn Iterator<Item = parley::layout::Glyph>,
         ),
     ) {
-        for paragraph in &self.paragraphs {
+        // Compute the elision cut once: explicit `\n` breaks produce one paragraph each, but they
+        // must elide as a single block (drop lines below the box, ellipsis on the last visible one).
+        let elision_extent = self.elision_extent();
+        for (paragraph_index, paragraph) in self.paragraphs.iter().enumerate() {
             paragraph.draw(
                 self,
+                paragraph_index,
+                elision_extent,
                 item_renderer,
                 &default_fill_brush,
                 &default_stroke_brush,
@@ -1272,7 +1411,14 @@ pub fn draw_text(
 
     drop(font_ctx);
 
-    let render = if text_overflow == TextOverflow::Clip {
+    // When `overflow: elide` can't even fit the first line, the line is still drawn (rather than
+    // dropped, which would render nothing) but its vertical overflow needs to be clipped like
+    // `overflow: clip` would. Horizontal elision still applies, so a line that is both too tall
+    // and too wide is clipped vertically and gets an ellipsis horizontally.
+    let clip_overflowing_first_line =
+        text_overflow == TextOverflow::Elide && layout.first_line_exceeds_height();
+
+    let render = if text_overflow == TextOverflow::Clip || clip_overflowing_first_line {
         item_renderer.save_state();
 
         item_renderer.combine_clip(
@@ -1311,7 +1457,7 @@ pub fn draw_text(
         );
     }
 
-    if text_overflow == TextOverflow::Clip {
+    if text_overflow == TextOverflow::Clip || clip_overflowing_first_line {
         item_renderer.restore_state();
     }
 

@@ -66,6 +66,8 @@ env:
     CARGO_PROFILE_RELEASE_LTO: "fat"
     CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "1"
 
+# Note: Make sure to always use the full Rust target name as suffix for the generated artifacts.
+# This way tools like `cargo binstall` can detect the binaries automatically from the release artifacts.
 jobs:
     build_windows:
         strategy:
@@ -74,10 +76,8 @@ jobs:
                 include:
                   - arch: x86_64-pc-windows-msvc
                     runner: windows-2022
-                    package_suffix: x86_64
                   - arch: aarch64-pc-windows-msvc
                     runner: windows-11-arm
-                    package_suffix: arm64
 
         runs-on: ${{ matrix.runner}}
         steps:
@@ -102,13 +102,13 @@ jobs:
               shell: powershell
               run: |
                   cd pkg
-                  Compress-Archive -Path slint-${{ github.event.inputs.program || inputs.program }}\* -Destination ..\slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.package_suffix }}.zip
+                  Compress-Archive -Path slint-${{ github.event.inputs.program || inputs.program }}\* -Destination ..\slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.arch }}.zip
             - name: Upload artifact
               uses: actions/upload-artifact@v7
               with:
-                  name: slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.package_suffix }}
+                  name: slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.arch }}
                   path: |
-                      slint-${{ github.event.inputs.program || inputs.program }}-windows-${{ matrix.package_suffix }}.zip
+                      slint-${{ github.event.inputs.program || inputs.program }}-${{ matrix.arch }}.zip
 
     build_linux:
         runs-on: ubuntu-22.04
@@ -127,12 +127,12 @@ jobs:
                   cd tools/${{ github.event.inputs.program || inputs.program }}
                   ../../scripts/prepare_binary_package.sh ../../slint-${{ github.event.inputs.program || inputs.program }} --no-default-features --features ${{ github.event.inputs.features || inputs.features }}${{ (github.event.inputs.program || inputs.program) == 'viewer' && ',remote' || '' }}
             - name: Tar artifacts to preserve permissions
-              run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-linux.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
+              run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-x86_64-unknown-linux-gnu.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
             - name: Upload artifact
               uses: actions/upload-artifact@v7
               with:
-                  name: slint-${{ github.event.inputs.program || inputs.program }}-linux
-                  path: slint-${{ github.event.inputs.program || inputs.program }}-linux.tar.gz
+                  name: slint-${{ github.event.inputs.program || inputs.program }}-x86_64-unknown-linux-gnu
+                  path: slint-${{ github.event.inputs.program || inputs.program }}-x86_64-unknown-linux-gnu.tar.gz
 
     build_linux_arm:
       runs-on: ubuntu-22.04
@@ -197,10 +197,9 @@ jobs:
                   keychain_password: ${{ github.event.inputs.keychain_password }}
                   developer_id: ${{ github.event.inputs.developer_id }}
             - name: Tar artifacts to preserve permissions
-              run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-macos.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
+              run: tar czvf slint-${{ github.event.inputs.program || inputs.program }}-universal-apple-darwin.tar.gz slint-${{ github.event.inputs.program || inputs.program }}
             - name: Upload artifact
               uses: actions/upload-artifact@v7
               with:
-                  name: slint-${{ github.event.inputs.program || inputs.program }}-macos
-                  path: slint-${{ github.event.inputs.program || inputs.program }}-macos.tar.gz
-
+                  name: slint-${{ github.event.inputs.program || inputs.program }}-universal-apple-darwin
+                  path: slint-${{ github.event.inputs.program || inputs.program }}-universal-apple-darwin.tar.gz

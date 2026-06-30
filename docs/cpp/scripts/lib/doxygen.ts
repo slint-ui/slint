@@ -320,7 +320,11 @@ export class DoxygenConverter {
      */
     private renderMemberPage(nsName: string, page: MemberPage): string {
         const out: string[] = ["---"];
-        out.push(`title: ${frontmatterString(`${nsName}::${page.name}`)}`);
+        // A kind suffix mirrors the compound pages' `Color Class` titles.
+        const kindLabel = page.kind === "enum" ? "Enum" : "Function";
+        out.push(
+            `title: ${frontmatterString(`${nsName}::${page.name} ${kindLabel}`)}`,
+        );
         const description = firstLine(
             this.renderBlocks(child(page.members[0], "briefdescription")),
         );
@@ -613,7 +617,9 @@ export class DoxygenConverter {
             return undefined;
         }
         const params = children(list, "param").map((p) => {
-            const type = textContent(child(p, "type") ?? emptyElement()).trim();
+            const type = tightenAngles(
+                textContent(child(p, "type") ?? emptyElement()).trim(),
+            );
             const declname = textContent(
                 child(p, "declname") ?? emptyElement(),
             ).trim();
@@ -640,7 +646,7 @@ export class DoxygenConverter {
     }
 
     private linkForCompoundRef(ref: XmlElement): string {
-        const text = textContent(ref).trim();
+        const text = tightenAngles(textContent(ref).trim());
         const refid = ref.attrs.refid;
         const target = refid ? this.compoundTargets.get(refid) : undefined;
         return target
@@ -940,7 +946,7 @@ export class DoxygenConverter {
             text += args;
         }
 
-        return { text, links };
+        return tightenTemplateSpacing(text, links);
     }
 
     /**
@@ -1268,6 +1274,56 @@ function collectRefs(node: XmlElement): XmlElement[] {
  * the cross-referenced type ranges in `<a>` links. Used when no Shiki
  * highlighter is supplied (e.g. the unit tests).
  */
+/**
+ * Drop Doxygen's angle-bracket padding (`Foo< Bar >` → `Foo<Bar>`) to match our
+ * code style; only spaces directly inside `<`/`>` go. For plain strings like
+ * type labels; signatures with link offsets use {@link tightenTemplateSpacing}.
+ */
+export function tightenAngles(text: string): string {
+    return text.replace(/<[ \t]+/g, "<").replace(/[ \t]+>/g, ">");
+}
+
+/**
+ * Like {@link tightenAngles}, but for a built signature: also shifts each
+ * cross-reference link's offsets as it drops spaces, since the links index
+ * into `text`.
+ */
+export function tightenTemplateSpacing(
+    text: string,
+    links: SignatureLink[],
+): { text: string; links: SignatureLink[] } {
+    // Mark padding spaces (right after `<` or before `>`) for removal.
+    const drop = new Array<boolean>(text.length).fill(false);
+    for (const m of text.matchAll(/<[ \t]+|[ \t]+>/g)) {
+        for (let i = 0; i < m[0].length; i++) {
+            if (m[0][i] === " " || m[0][i] === "\t") {
+                drop[m.index + i] = true;
+            }
+        }
+    }
+    if (!drop.includes(true)) {
+        return { text, links };
+    }
+    // old index → new index (positions of kept characters shift left).
+    const newIndex = new Array<number>(text.length + 1);
+    let out = "";
+    for (let i = 0; i < text.length; i++) {
+        newIndex[i] = out.length;
+        if (!drop[i]) {
+            out += text[i];
+        }
+    }
+    newIndex[text.length] = out.length;
+    return {
+        text: out,
+        links: links.map((l) => ({
+            ...l,
+            start: newIndex[l.start],
+            end: newIndex[l.end],
+        })),
+    };
+}
+
 function signatureFallback(text: string, links: SignatureLink[]): string {
     const sorted = [...links].sort((a, b) => a.start - b.start);
     let html = "";

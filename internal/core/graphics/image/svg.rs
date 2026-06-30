@@ -74,6 +74,45 @@ impl ParsedSVG {
     }
 }
 
+/// Resolves SVG `<text>` fonts through the shared [`sharedfontique::svg`] bridge
+/// against the running `SlintContext`'s collection, so SVG text uses the same fonts
+/// as the rest of the UI.
+/// Without a context the text stays unresolved, which never happens for a displayable
+/// image since the platform is up by then.
+///
+/// Gated on `shared-parley`: without Slint's text engine there is no text layout, so
+/// SVG text resolution would be moot.
+#[cfg(feature = "shared-parley")]
+fn svg_options() -> usvg::Options<'static> {
+    use i_slint_common::sharedfontique::{self, fontique};
+
+    fn find_font(
+        families: &[fontique::QueryFamily],
+        attributes: fontique::Attributes,
+        require_char: Option<char>,
+    ) -> Option<fontique::QueryFont> {
+        crate::context::GLOBAL_CONTEXT.with(|p| {
+            let ctx = p.get()?;
+            let mut font_context = ctx.font_context().try_borrow_mut().ok()?;
+            let parley::FontContext { collection, source_cache } = &mut font_context.inner;
+            sharedfontique::svg::query_font(
+                collection,
+                source_cache,
+                families,
+                attributes,
+                require_char,
+            )
+        })
+    }
+
+    sharedfontique::svg::options(find_font)
+}
+
+#[cfg(not(feature = "shared-parley"))]
+fn svg_options() -> usvg::Options<'static> {
+    usvg::Options::default()
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 pub fn load_from_path(
     path: &SharedString,
@@ -81,13 +120,11 @@ pub fn load_from_path(
 ) -> Result<ParsedSVG, std::io::Error> {
     let svg_data = std::fs::read(std::path::Path::new(&path.as_str()))?;
 
-    let option = usvg::Options::default();
-    usvg::Tree::from_data(&svg_data, &option)
+    usvg::Tree::from_data(&svg_data, &svg_options())
         .map(|svg| ParsedSVG { svg_tree: svg, cache_key })
         .map_err(std::io::Error::other)
 }
 
 pub fn load_from_data(slice: &[u8], cache_key: ImageCacheKey) -> Result<ParsedSVG, usvg::Error> {
-    let option = usvg::Options::default();
-    usvg::Tree::from_data(slice, &option).map(|svg| ParsedSVG { svg_tree: svg, cache_key })
+    usvg::Tree::from_data(slice, &svg_options()).map(|svg| ParsedSVG { svg_tree: svg, cache_key })
 }

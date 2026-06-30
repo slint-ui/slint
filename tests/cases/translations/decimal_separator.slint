@@ -18,6 +18,8 @@ export component TestCase {
     in-out property <float> string_as_float: value_string.to-float();
     in-out property <bool> is_float: value_string.is-float();
 
+    in-out property <string> float_as_string_unlocalized: value.to-string-unlocalized();
+
     // \{ cannot be in a slint macro, so we add it here, because we wanna execute the Test with
     // compiled source (otherwise bundling translations is not possible)
     out property <string> same_or_diff: "\{the-decimal-separator}";
@@ -44,6 +46,7 @@ assert!(slint::select_bundled_translation("fr").is_ok());
 assert_eq!(instance.get_the_decimal_separator(), ",");
 instance.set_value(-5.5);
 assert_eq!(instance.get_float_as_string(), "-5,5");
+assert_eq!(instance.get_float_as_string_unlocalized(), "-5.5");
 assert_eq!(instance.get_const_float_as_string(), "1,5");
 assert_eq!(instance.get_const_int_as_string(), "42");
 assert_eq!(instance.get_const_to_fixed(), "1,50");
@@ -60,6 +63,7 @@ assert!(slint::select_bundled_translation("en").is_ok());
 assert_eq!(instance.get_the_decimal_separator(), ".");
 instance.set_value(7.123);
 assert_eq!(instance.get_float_as_string(), "7.123");
+assert_eq!(instance.get_float_as_string_unlocalized(), "7.123");
 assert_eq!(instance.get_const_float_as_string(), "1.5");
 assert_eq!(instance.get_const_to_fixed(), "1.50");
 assert_eq!(instance.get_const_is_float(), false);
@@ -88,6 +92,7 @@ assert(slint::select_bundled_translation("fr"));
 assert_eq(instance.get_the_decimal_separator(), ",");
 instance.set_value(-5.5);
 assert_eq(instance.get_float_as_string(), "-5,5");
+assert_eq(instance.get_float_as_string_unlocalized(), "-5.5");
 assert_eq(instance.get_const_float_as_string(), "1,5");
 assert_eq(instance.get_const_int_as_string(), "42");
 assert_eq(instance.get_const_to_fixed(), "1,50");
@@ -104,6 +109,7 @@ assert(slint::select_bundled_translation("en"));
 assert_eq(instance.get_the_decimal_separator(), ".");
 instance.set_value(7.123);
 assert_eq(instance.get_float_as_string(), "7.123");
+assert_eq(instance.get_float_as_string_unlocalized(), "7.123");
 assert_eq(instance.get_const_float_as_string(), "1.5");
 assert_eq(instance.get_const_to_fixed(), "1.50");
 assert_eq(instance.get_const_is_float(), false);

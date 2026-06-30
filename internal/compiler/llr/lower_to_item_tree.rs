@@ -200,9 +200,21 @@ pub struct LoweringState {
     sub_component_mapping: HashMap<ByAddress<Rc<Component>>, SubComponentIdx>,
     #[cfg(feature = "bundle-translations")]
     pub translation_builder: Option<crate::translations::TranslationsBuilder>,
+    /// Counter for the unique `struct_assignment{n}` local variable names. Local
+    /// to one lowering (a fresh `LoweringState` is created per backend), so the
+    /// numbering is deterministic regardless of how many backends run.
+    struct_assignment_count: usize,
 }
 
 impl LoweringState {
+    /// Return a fresh unique name for a temporary used when lowering an
+    /// assignment to a struct field.
+    pub fn unique_struct_assignment_name(&mut self) -> SmolStr {
+        let n = self.struct_assignment_count;
+        self.struct_assignment_count += 1;
+        format_smolstr!("struct_assignment{n}")
+    }
+
     pub fn map_property_reference(&self, from: &NamedReference) -> MemberReference {
         if let Some(x) = self.global_properties.get(from) {
             return x.clone();
@@ -285,6 +297,7 @@ fn lower_sub_component(
         animations: Default::default(),
         two_way_bindings: Default::default(),
         const_properties: Default::default(),
+        pre_init_code: Default::default(),
         init_code: Default::default(),
         geometries: Default::default(),
         // just initialize to dummy expression right now and it will be set later
@@ -591,10 +604,18 @@ fn lower_sub_component(
         sub_component.const_properties.push(x.local());
     });
 
+    sub_component.pre_init_code = component
+        .init_code
+        .borrow()
+        .font_registration_code
+        .iter()
+        .map(|e| super::lower_expression::lower_expression(e, &mut ctx).into())
+        .collect();
+
     sub_component.init_code = component
         .init_code
         .borrow()
-        .iter()
+        .iter_without_font_registration()
         .map(|e| super::lower_expression::lower_expression(e, &mut ctx).into())
         .collect();
 

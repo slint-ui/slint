@@ -39,22 +39,21 @@ pub fn init_compiler(connection: Weak<Connection>) -> slint_interpreter::Compile
 
     let mapper_connection = connection.clone();
     compiler.compiler_configuration(InternalToken).resource_url_mapper =
-        Some(std::rc::Rc::new(move |url: &str| {
+        Some(std::rc::Rc::new(move |url: &Url| {
             let connection = mapper_connection.clone();
-            let url_str = url.to_owned();
+            let url = url.clone();
             Box::pin(async move {
-                if url_str.starts_with("builtin:/") {
+                // Only files on the editor's machine need fetching over the
+                // connection; `builtin:/`, `data:`, `http(s):`, ... are loaded
+                // directly by the renderer.
+                if url.scheme() != "file" {
                     return None;
                 }
                 let connection = connection.upgrade()?;
-                let parsed = Url::parse(&url_str).ok()?;
-                let file_content = connection.request_file(parsed).await.ok()?;
-
-                let extension = std::path::Path::new(&url_str)
+                let extension = std::path::Path::new(url.path())
                     .extension()
                     .and_then(|e| e.to_str())
                     .unwrap_or("png");
-
                 let mime_type = match extension {
                     "svg" | "svgz" => "image/svg+xml",
                     "png" => "image/png",
@@ -64,11 +63,12 @@ pub fn init_compiler(connection: Weak<Connection>) -> slint_interpreter::Compile
                     "webp" => "image/webp",
                     _ => "application/octet-stream",
                 };
+                let file_content = connection.request_file(url).await.ok()?;
 
                 use base64::Engine as _;
                 let encoded =
                     base64::engine::general_purpose::STANDARD.encode(&*file_content.contents);
-                Some(format!("data:{mime_type};base64,{encoded}"))
+                Url::parse(&format!("data:{mime_type};base64,{encoded}")).ok()
             })
         }));
 

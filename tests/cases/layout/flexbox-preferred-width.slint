@@ -42,17 +42,18 @@ export component TestCase inherits Window {
         background: yellow;
     }
 
-    // flex-direction: column means items should stack vertically
-    // r1: y=0, r2: y=60 (50+10), r3: y=120 (50+10+50+10)
-    // All items should have same x position (0)
+    // A row flex sizing to its own preferred width lays the 3 items out as a
+    // grid-square: 2 columns (sqrt(sum of w²) snapped up to 2 items per row).
+    // Row 1: r1 (x=0), r2 (x=110); Row 2: r3 (x=0, y=60).
     out property <length> r1_x: r1.x;
     out property <length> r1_y: r1.y;
     out property <length> r2_x: r2.x;
     out property <length> r2_y: r2.y;
     out property <length> r3_x: r3.x;
     out property <length> r3_y: r3.y;
-    out property <bool> test: r1.x == r2.x && r2.x == r3.x &&  // same column
-                              r1.y == 0px && r2.y == 60px && r3.y == 120px;  // stacked vertically with spacing
+    out property <bool> test: r1.x == 0px && r1.y == 0px &&
+                              r2.x == 110px && r2.y == 0px &&
+                              r3.x == 0px && r3.y == 60px;
 }
 
 /*

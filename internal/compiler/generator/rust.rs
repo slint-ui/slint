@@ -652,15 +652,22 @@ fn generate_shared_globals(
         impl SharedGlobals {
             #pub_token fn new(root_item_tree_weak : sp::VWeak<sp::ItemTreeVTable>) -> sp::Rc<Self> {
                 #(let #library_shared_globals_names = #library_shared_globals_types::new(root_item_tree_weak.clone());)*
-                let _self = sp::Rc::new(Self {
+                sp::Rc::new(Self {
                     #(#global_names : #global_types::new(),)*
                     #(#from_library_global_names : #library_global_vars.clone(),)*
                     window_adapter : ::core::default::Default::default(),
                     root_item_tree_weak,
                     #(#library_shared_globals_names,)*
-                });
-                #(_self.#global_names.clone().init(&_self);)*
-                _self
+                })
+            }
+
+            // Run the eager initialization of the globals. This must be called only *after* the
+            // root component's `globals` field has been set (see the root component's `new`),
+            // because a global's init may evaluate a binding (e.g. `Palette.color-scheme`) that
+            // resolves the root's window adapter through `globals`, which would otherwise panic.
+            #pub_token fn init_globals(self: &sp::Rc<Self>) {
+                #(self.#library_shared_globals_names.init_globals();)*
+                #(self.#global_names.clone().init(self);)*
             }
 
             // Clone the SharedGlobals struct but use a different window adapter. This is for example used for popup windows, because they need access to the globals, but need their own window adapter
@@ -1488,6 +1495,17 @@ fn generate_sub_component(
         init.push(quote!(#r;))
     }
 
+    // The pre-init code (custom font registration) runs before the property initialization.
+    let pre_init_code: Vec<TokenStream> = component
+        .pre_init_code
+        .iter()
+        .map(|e| {
+            let code = compile_expression(&e.borrow(), &ctx);
+            quote!(#code;)
+        })
+        .collect();
+    init.splice(0..0, pre_init_code);
+
     // Initialize all properties which have an initial value in the slint file
     // This sets up also the callback handler and bindings
     for (prop, expression) in &component.property_init {
@@ -2041,12 +2059,26 @@ fn generate_item_tree(
         })
         .collect::<Vec<_>>();
 
+    let is_root_component = !is_popup && parent_ctx.is_none();
     let globals = if is_popup {
         quote!(globals)
     } else if parent_ctx.is_some() {
         quote!(parent.upgrade().unwrap().globals.get().unwrap().clone())
     } else {
         quote!(SharedGlobals::new(sp::VRc::downgrade(&self_dyn_rc)))
+    };
+    // The root component owns the freshly created `SharedGlobals` and is responsible for running
+    // its eager initialization. The root's own `globals` field must be set *before* that init
+    // runs, because a global binding (e.g. `Palette.color-scheme`) may resolve the root's window
+    // adapter through `globals` during evaluation. Popups and sub-components receive an already
+    // initialized `SharedGlobals`, so they skip this step.
+    let set_and_init_globals = if is_root_component {
+        quote!(
+            let _ = sp::VRc::map(self_rc.clone(), |x| x).as_pin_ref().globals.set(globals.clone());
+            globals.init_globals();
+        )
+    } else {
+        quote!()
     };
     let globals_arg = is_popup.then(|| quote!(globals: sp::Rc<SharedGlobals>));
 
@@ -2192,6 +2224,7 @@ fn generate_item_tree(
                 let self_rc = sp::VRc::new(_self);
                 let self_dyn_rc = sp::VRc::into_dyn(self_rc.clone());
                 let globals = #globals;
+                #set_and_init_globals
                 sp::register_item_tree(&self_dyn_rc, #register_window_adapter_arg);
                 Self::init(sp::VRc::map(self_rc.clone(), |x| x), globals, 0, 1);
                 ::core::result::Result::Ok(self_rc)
@@ -3264,9 +3297,11 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 crate::expression_tree::ImageReference::None => {
                     quote!(sp::Image::default())
                 }
-                crate::expression_tree::ImageReference::AbsolutePath(path) => {
-                    let path = path.as_str();
-                    quote!(sp::Image::load_from_path(::std::path::Path::new(#path)).unwrap_or_default())
+                resource_ref @ (crate::expression_tree::ImageReference::Path(_)
+                | crate::expression_tree::ImageReference::Url(_)
+                | crate::expression_tree::ImageReference::DataUri(_)) => {
+                    let source = resource_ref.source().unwrap();
+                    quote!(sp::Image::load_from_path(::std::path::Path::new(#source)).unwrap_or_default())
                 }
                 crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
                     let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id.0);
@@ -3351,29 +3386,13 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let name = ident(name);
             quote!(#name)
         }
-        Expression::EasingCurve(EasingCurve::Linear) => {
-            quote!(sp::EasingCurve::Linear)
-        }
         Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => {
             quote!(sp::EasingCurve::CubicBezier([#a, #b, #c, #d]))
         }
-        Expression::EasingCurve(EasingCurve::EaseInElastic) => {
-            quote!(sp::EasingCurve::EaseInElastic)
-        }
-        Expression::EasingCurve(EasingCurve::EaseOutElastic) => {
-            quote!(sp::EasingCurve::EaseOutElastic)
-        }
-        Expression::EasingCurve(EasingCurve::EaseInOutElastic) => {
-            quote!(sp::EasingCurve::EaseInOutElastic)
-        }
-        Expression::EasingCurve(EasingCurve::EaseInBounce) => {
-            quote!(sp::EasingCurve::EaseInBounce)
-        }
-        Expression::EasingCurve(EasingCurve::EaseOutBounce) => {
-            quote!(sp::EasingCurve::EaseOutBounce)
-        }
-        Expression::EasingCurve(EasingCurve::EaseInOutBounce) => {
-            quote!(sp::EasingCurve::EaseInOutBounce)
+        // The other curves have no parameters and map to a runtime variant with the same name.
+        Expression::EasingCurve(e) => {
+            let ident = format_ident!("{e:?}");
+            quote!(sp::EasingCurve::#ident)
         }
         Expression::LinearGradient { angle, stops } => {
             let angle = compile_expression(angle, ctx);
@@ -4056,6 +4075,10 @@ fn compile_builtin_function_call(
             let (a1, a2) = (a.next().unwrap(), a.next().unwrap());
             quote!(sp::shared_string_from_number_precision(#a1 as f64, (#a2 as i32).max(0) as usize))
         }
+        BuiltinFunction::ToStringUnlocalized => {
+            let a1 = a.next().unwrap();
+            quote!(sp::shared_string_from_number_unlocalized(#a1 as f64))
+        }
         BuiltinFunction::StringToFloat => {
             quote!(sp::string_to_float(#(#a)*.as_str()).unwrap_or_default())
         }
@@ -4585,7 +4608,7 @@ fn generate_with_grid_input_data(
                             let total_item_count = max_total;
                             #rs_init
                             let start_offset = items_vec.len();
-                            items_vec.extend(core::iter::repeat_with(Default::default).take(len * total_item_count));
+                            items_vec.extend(::core::iter::repeat_with(::core::default::Default::default).take(len * total_item_count));
                             for i in 0..len {
                                 if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
                                     let offset = start_offset + i * total_item_count;
@@ -4602,7 +4625,7 @@ fn generate_with_grid_input_data(
                         quote!({
                             let len = _self.#repeater_id.len();
                             let start_offset = items_vec.len();
-                            items_vec.extend(core::iter::repeat_with(Default::default).take(len * #step));
+                            items_vec.extend(::core::iter::repeat_with(::core::default::Default::default).take(len * #step));
                             for i in 0..len {
                                 if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
                                     let offset = start_offset + i * #step;
@@ -4694,6 +4717,10 @@ fn generate_with_layout_item_info(
                                         for child_idx in 0..total_item_count {
                                             items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, Some(child_idx)));
                                         }
+                                    } else {
+                                        // Not-yet-instantiated slot: push placeholder cells so the cell
+                                        // count stays in sync with the repeater length written above.
+                                        items_vec.extend(::core::iter::repeat_with(::core::default::Default::default).take(total_item_count));
                                     }
                                 }
                             }
@@ -4708,6 +4735,8 @@ fn generate_with_layout_item_info(
                                 for i in 0.._self.#repeater_id.len() {
                                     if let Some(sub_comp) = _self.#repeater_id.instance_at(i) {
                                        items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, None));
+                                    } else {
+                                        items_vec.push(::core::default::Default::default());
                                     }
                                 }
                             )
@@ -4718,6 +4747,8 @@ fn generate_with_layout_item_info(
                                         for child_idx in 0..#step {
                                             items_vec.push(sub_comp.as_pin_ref().layout_item_info(#orientation, Some(child_idx)));
                                         }
+                                    } else {
+                                        items_vec.extend(::core::iter::repeat_with(::core::default::Default::default).take(#step));
                                     }
                                 }
                             )
@@ -4796,6 +4827,11 @@ fn generate_with_flexbox_layout_item_info(
                         items_vec_v.push(
                             sub_comp.as_pin_ref().flexbox_layout_item_info(sp::Orientation::Vertical, None),
                         );
+                    } else {
+                        // Not-yet-instantiated slot: push placeholder cells so the cell
+                        // count stays in sync with the repeater length written above.
+                        items_vec_h.push(::core::default::Default::default());
+                        items_vec_v.push(::core::default::Default::default());
                     }
                 });
                 push_code.push(quote!(

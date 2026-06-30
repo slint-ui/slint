@@ -437,6 +437,11 @@ fn handle_builtin_function(
             let precision: usize = precision.max(0) as usize;
             Value::String(i_slint_core::string::shared_string_from_number_precision(n, precision))
         }
+        BuiltinFunction::ToStringUnlocalized => {
+            let n: f64 =
+                eval_expression(&arguments[0], local_context, None).try_into().unwrap_or_default();
+            Value::String(i_slint_core::string::shared_string_from_number_unlocalized(n))
+        }
         BuiltinFunction::StringIsFloat => {
             if arguments.len() != 1 {
                 return Value::Void;

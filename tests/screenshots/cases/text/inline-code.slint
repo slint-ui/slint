@@ -3,6 +3,13 @@
 
 // Skia font rendering is not consistent across platforms
 //ignore:skia
+// The `software-embed-assets` driver doesn't invoke `configure_test_fonts()`, so its
+// fontique collection includes host system fonts (`system_fonts: true`). The fallback
+// for the deliberately-unknown `font-family` below then resolves to different glyphs
+// on macOS than on Linux, drifting the reference image. The regular `software` driver
+// already exercises the parley path with the bundled test fonts, so skip the embed
+// variant for this case.
+//ignore: software-embed-assets
 // SIZE=320x160
 
 // `font-family` is set to a name that does not match the embedded bitmap font;

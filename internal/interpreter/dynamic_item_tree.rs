@@ -1628,11 +1628,6 @@ pub fn instantiate(
         {
             continue;
         }
-        if let Some(b) = description.original.root_element.borrow().bindings.get(prop_name)
-            && b.borrow().two_way_bindings.is_empty()
-        {
-            continue;
-        }
         let p = description.custom_properties.get(prop_name).unwrap();
         unsafe {
             let item = Pin::new_unchecked(&*instance_ref.as_ptr().add(p.offset));
@@ -1661,6 +1656,15 @@ pub fn instantiate(
                 prop_rtti.set_debug_name(item, name);
             }
         }
+    }
+
+    // Register the fonts before the property bindings, so a property that needs them
+    // (image decoding, text sizing) finds them.
+    for code in description.original.init_code.borrow().font_registration_code.iter() {
+        eval::eval_expression(
+            code,
+            &mut eval::EvalLocalContext::from_component_instance(instance_ref),
+        );
     }
 
     generator::handle_property_bindings_init(
@@ -2077,7 +2081,9 @@ impl ErasedItemTreeBox {
         generativity::make_guard!(guard);
         let compo_box = self.unerase(guard);
         let instance_ref = compo_box.borrow_instance();
-        for extra_init_code in self.0.description.original.init_code.borrow().iter() {
+        for extra_init_code in
+            self.0.description.original.init_code.borrow().iter_without_font_registration()
+        {
             eval::eval_expression(
                 extra_init_code,
                 &mut eval::EvalLocalContext::from_component_instance(instance_ref),

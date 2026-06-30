@@ -36,6 +36,7 @@ pub mod namedreference;
 pub mod object_tree;
 pub mod parser;
 pub mod pathutils;
+pub mod symbol_counters;
 #[cfg(feature = "bundle-translations")]
 pub mod translations;
 pub mod typeloader;
@@ -119,7 +120,8 @@ pub enum ComponentSelection {
 /// Unfortunately AsyncFn is not dyn-compatible yet.
 pub type OpenImportCallback =
     Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = Option<std::io::Result<String>>>>>>;
-pub type ResourceUrlMapper = Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>;
+pub type ResourceUrlMapper =
+    Rc<dyn Fn(&url::Url) -> Pin<Box<dyn Future<Output = Option<url::Url>>>>>;
 
 /// CompilationConfiguration allows configuring different aspects of the compiler.
 #[derive(Clone)]

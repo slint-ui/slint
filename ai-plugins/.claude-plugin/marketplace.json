@@ -10,7 +10,7 @@
       "name": "slint",
       "description": "Enhances Claude's ability to work with, debug, and build Slint GUI applications",
       "source": "./",
-      "version": "0.1.0",
+      "version": "1.17.1",
       "category": "development",
       "keywords": ["slint", "gui", "ui", "declarative", "rust", "cpp", "embedded"]
     }

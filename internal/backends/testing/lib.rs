@@ -132,7 +132,11 @@ pub fn configure_test_fonts() {
                     }
                 }
             }
-            for generic_family in FALLBACK_FAMILIES {
+            // Map the fallback generics plus monospace (used by markdown code spans) to the bundled
+            // fonts, so all generic families resolve deterministically with system fonts disabled.
+            for generic_family in
+                FALLBACK_FAMILIES.into_iter().chain([fontique::GenericFamily::Monospace])
+            {
                 font_context
                     .collection
                     .set_generic_families(generic_family, chain_families.iter().copied());

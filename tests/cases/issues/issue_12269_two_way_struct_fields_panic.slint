@@ -1,0 +1,73 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// C++ live preview cannot search elements (the wrapper has no item tree).
+//ignore: cpp-live-preview
+
+// Same root cause as #12268, but here the struct comes from a struct literal
+// rather than a model row, so the dropped `first` field is not even an array
+// and the interpreter panics ("First argument not an array") while evaluating
+// `first.length` during rendering. The test blocks render the tree, which
+// panics with the bug. Regression test for #12269.
+
+struct Data {
+    first: [bool],
+    second: bool,
+}
+
+component Check {
+    in-out property <bool> checked;
+    Text { text: checked ? "[x]" : "[ ]"; }
+}
+
+component BindFirst {
+    in-out property <[bool]> first;
+    VerticalLayout {
+        Text { text: "first.length = " + first.length; }
+        for value[index] in first: Check { checked <=> value; }
+    }
+}
+
+component BindSecond {
+    in-out property <bool> second;
+    Check { checked <=> second; }
+}
+
+component BindMultiple {
+    in-out property <Data> data;
+    VerticalLayout {
+        BindFirst { first <=> data.first; }
+        BindSecond { second <=> data.second; }
+    }
+}
+
+export component TestCase inherits Window {
+    width: 100px;
+    height: 100px;
+    in-out property <Data> data: { first: [false, false, false], second: false };
+    BindMultiple { data <=> data; }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+// Visiting every element renders the tree; with the bug this panics on
+// `first.length`. With the fix the three items render, giving 5 Text elements
+// (the length label, three items and `second`).
+let texts = slint_testing::ElementHandle::find_by_element_type_name(&instance, "Text").count();
+assert_eq!(texts, 5);
+```
+
+```cpp
+auto handle = TestCase::create();
+auto texts =
+    slint::testing::ElementHandle::find_by_element_type_name(handle, "Text");
+assert_eq(texts.size(), 5);
+```
+
+```js
+var instance = new slint.TestCase();
+// Rendering the tree evaluates `first.length`, which panics with the bug.
+slintlib.private_api.send_mouse_click(instance, 5., 5.);
+```
+*/

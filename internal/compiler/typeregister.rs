@@ -465,7 +465,7 @@ impl TypeRegister {
         self.types.insert(name, t).is_none()
     }
 
-    fn builtin_internal() -> Self {
+    fn builtin_internal(symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>) -> Self {
         let mut register = TypeRegister::default();
 
         register.insert_type(Type::Float32);
@@ -512,7 +512,7 @@ impl TypeRegister {
         }
         i_slint_common::for_each_builtin_structs!(register_builtin_structs);
 
-        crate::load_builtins::load_builtins(&mut register);
+        crate::load_builtins::load_builtins(&mut register, symbol_counters);
 
         // Walk every builtin reachable from an exported one and register each
         // accepted child as context-restricted to its parent, so internal types
@@ -664,13 +664,17 @@ impl TypeRegister {
 
     #[doc(hidden)]
     /// All builtins incl. experimental ones! Do not use in production code!
-    pub fn builtin_experimental() -> Rc<RefCell<Self>> {
-        let register = Self::builtin_internal();
+    pub fn builtin_experimental(
+        symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>,
+    ) -> Rc<RefCell<Self>> {
+        let register = Self::builtin_internal(symbol_counters);
         Rc::new(RefCell::new(register))
     }
 
-    pub fn builtin() -> Rc<RefCell<Self>> {
-        let mut register = Self::builtin_internal();
+    pub fn builtin(
+        symbol_counters: &Rc<crate::symbol_counters::SymbolCounters>,
+    ) -> Rc<RefCell<Self>> {
+        let mut register = Self::builtin_internal(symbol_counters);
 
         register.elements.remove("ComponentContainer").unwrap();
         register.types.remove("component-factory").unwrap();

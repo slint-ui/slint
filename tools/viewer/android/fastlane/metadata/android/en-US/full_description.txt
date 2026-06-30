@@ -1,0 +1,3 @@
+Slint Viewer renders Slint user interfaces streamed from the live-preview running on your computer. Put the device on the same local network as your desktop editor to see your .slint UI on real hardware as you edit it.
+
+Slint is an open-source declarative GUI toolkit for building native user interfaces in Rust, C++, JavaScript and Python.

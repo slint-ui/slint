@@ -608,8 +608,8 @@ async fn run_main_loop(
                 }
             }
             file_event = file_watcher_receiver.recv() => {
-                if let Some(file_event) = file_event {
-                    trigger_file_watcher(&mut ctx, common::file_to_uri(&file_event.path).unwrap(), file_event.kind).await.ok();
+                if let Some(file_event) = file_event && let Some(uri) = common::file_to_uri(&file_event.path) {
+                    trigger_file_watcher(&mut ctx, uri, file_event.kind).await.ok();
                 }
             }
             _ = tokio::time::sleep(recompile_idle_timeout) => {

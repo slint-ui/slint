@@ -62,7 +62,7 @@ component PhonePreview {
 
 export component RemotePreviewView inherits Rectangle {
     background: Palette.background;
-    width: 740px;
+    width: 850px;
     height: 600px;
     clip: true;
 
@@ -88,7 +88,7 @@ export component RemotePreviewView inherits Rectangle {
         }
     }
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
-    property <image> background-image: root.dark-color-scheme ? @image-url("../../../viewer/remote/assets/bg-frame.svg") : @image-url("../../../viewer/remote/assets/bg-frame-light.svg");
+    property <image> background-image: root.dark-color-scheme ? @image-url("../assets/bg-frame.svg") : @image-url("../assets/bg-frame-light.svg");
     property <string> best-device-name: Api.remote-discovered-viewers[selected-index].name != "" ? Api.remote-discovered-viewers[selected-index].name
         : Api.remote-connection-target;
 

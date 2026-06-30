@@ -2204,7 +2204,7 @@ pub fn check_popup_layout(component: &Rc<Component>) {
             adjust_window_layout(&p.component, "height");
         }
 
-        if p.component.root_constraints.borrow().fixed_height {
+        if p.component.root_constraints.borrow().fixed_width {
             adjust_window_layout(&p.component, "width");
         }
     });
