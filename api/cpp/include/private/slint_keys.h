@@ -18,7 +18,7 @@ class Keys;
 namespace private_api {
 
 void make_keys(Keys &out, const slint::SharedString &key, bool alt, bool control, bool shift,
-               bool meta, bool ignoreShift, bool ignoreAlt);
+               bool meta, bool ignoreShift, bool ignoreAlt, bool isPhysical);
 
 } // namespace private_api
 
@@ -69,6 +69,19 @@ public:
         return from_parts(std::span<const std::string_view> { parts.begin(), parts.size() });
     }
 
+    /// Decompose this `Keys` value into the list of string parts that
+    /// `from_parts` accepts.
+    ///
+    /// Round-trips: `Keys::from_parts(keys.to_parts())` produces an equal `Keys`.
+    ///
+    /// An empty `Keys` returns an empty vector.
+    SharedVector<SharedString> to_parts() const
+    {
+        SharedVector<SharedString> out;
+        cbindgen_private::types::slint_keys_to_parts(&data, &out);
+        return out;
+    }
+
     /// Equality operator, returns true if the two `Keys` instances are equal, i.e. they match the
     /// same key events.
     friend bool operator==(const Keys &a, const Keys &b) { return a.data == b.data; }
@@ -103,7 +116,7 @@ private:
     Keys(cbindgen_private::types::Keys &&data) : data(std::move(data)) { }
     friend void private_api::make_keys(Keys &out, const slint::SharedString &key, bool alt,
                                        bool control, bool shift, bool meta, bool ignoreShift,
-                                       bool ignoreAlt);
+                                       bool ignoreAlt, bool isPhysical);
 };
 
 namespace private_api {
@@ -111,10 +124,10 @@ namespace private_api {
 // We need to use Keys& out so that we can forward-declare this and then use it as a friend
 // Otherwise the size of `Keys` is not yet known.
 inline void make_keys(Keys &out, const slint::SharedString &key, bool alt, bool control, bool shift,
-                      bool meta, bool ignoreShift, bool ignoreAlt)
+                      bool meta, bool ignoreShift, bool ignoreAlt, bool isPhysical)
 {
     ::slint::cbindgen_private::types::slint_keys(&key, alt, control, shift, meta, ignoreShift,
-                                                 ignoreAlt, &out.data);
+                                                 ignoreAlt, isPhysical, &out.data);
 }
 
 } // namespace private_api

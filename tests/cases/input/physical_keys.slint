@@ -1,0 +1,55 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    in-out property <string> matched: "";
+    forward-focus: scope;
+
+    init => {
+        scope.focus();
+    }
+
+    scope := FocusScope {
+        KeyBinding {
+            keys: @physical-keys(Control + A);
+            activated => {
+                matched = "physical-a";
+            }
+        }
+
+        KeyBinding {
+            keys: @keys(Control + A);
+            activated => {
+                matched = "logical-a";
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+use i_slint_core::SharedString;
+use i_slint_core::input::key_codes::Key;
+
+slint_testing::send_key_combo_with_text_and_physical_keys(
+    &instance,
+    &[(Key::Control.into(), SharedString::default()), ("z".into(), "A".into())],
+);
+assert_eq!(instance.get_matched(), "physical-a");
+instance.set_matched("".into());
+
+slint_testing::send_key_combo_with_text_and_physical_keys(
+    &instance,
+    &[(Key::Control.into(), SharedString::default()), ("a".into(), "Q".into())],
+);
+assert_eq!(instance.get_matched(), "logical-a");
+instance.set_matched("".into());
+
+slint_testing::send_key_combo_with_text_and_physical_keys(
+    &instance,
+    &[(Key::Control.into(), SharedString::default()), ("a".into(), SharedString::default())],
+);
+assert_eq!(instance.get_matched(), "logical-a");
+```
+*/
