@@ -1,0 +1,15 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+[package]
+name = "slint-demo-app"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+slint = { version = "1.13", default-features = false, features = ["compat-1-2", "backend-linuxkms", "renderer-software"] }
+
+[build-dependencies]
+slint-build = "1.13"
+
+[workspace]

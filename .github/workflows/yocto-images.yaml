@@ -14,9 +14,10 @@ on:
     inputs:
       machine:
         type: choice
-        default: raspberrypi4-64
-        description: "Which MPU target to build"
+        default: qemuarm64
+        description: "Which target to build (qemuarm64 is emulatable + smoke-tested)"
         options:
+          - qemuarm64
           - raspberrypi4-64
       publish:
         type: boolean
@@ -69,6 +70,19 @@ jobs:
           KAS_BUILD_DIR: /yocto/build
           LANG: en_US.UTF-8
         run: kas build yocto/kas/${{ inputs.machine }}.yml
+
+      # The actual "is this the right image, and does the Slint demo run?" gate:
+      # boot the emulatable image in QEMU and assert the demo is up on Weston.
+      - name: Boot smoke-test (QEMU)
+        if: ${{ inputs.machine == 'qemuarm64' }}
+        working-directory: /yocto/src
+        env:
+          KAS_WORK_DIR: /yocto/work
+          KAS_BUILD_DIR: /yocto/build
+        run: |
+          pip3 install --user pexpect
+          kas shell yocto/kas/qemuarm64.yml -c \
+            "KAS_BUILD_DIR=/yocto/build python3 yocto/tests/qemu-smoke-test.py"
 
       - name: Collect the flashable image
         run: |

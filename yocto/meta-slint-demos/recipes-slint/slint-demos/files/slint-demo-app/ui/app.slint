@@ -1,0 +1,13 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+export component App inherits Window {
+    title: "Slint on Yocto";
+    preferred-width: 480px;
+    preferred-height: 320px;
+    background: #1c1f26;
+    VerticalLayout {
+        alignment: center; spacing: 12px;
+        Text { text: "Slint runs here"; color: #6ea2ff; font-size: 28px; horizontal-alignment: center; }
+        Text { text: "built with Yocto"; color: #cbd5e1; font-size: 16px; horizontal-alignment: center; }
+    }
+}

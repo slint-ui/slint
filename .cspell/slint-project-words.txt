@@ -33,6 +33,7 @@ asyncio
 auri
 Aurindam
 autolaunch
+autologin
 autoremove
 AUTOSAR
 autostarted
@@ -188,6 +189,7 @@ elems
 elevatedbutton
 elit
 emscripten
+Emulatable
 endforeach
 endfunction
 endrst
@@ -434,6 +436,7 @@ nmagic
 nodelay
 noexcept
 noglib
+nographic
 NOLOAD
 noncanonical
 noninteractive
@@ -469,12 +472,14 @@ pathlib
 pbjson
 PCLK
 pdoc
+pgrep
 picotool
 pipx
 pixabay
 pixelcolor
 pkgs
 popupwindow
+poweroff
 prec
 prediv
 Preedit
@@ -504,6 +509,7 @@ pypiserver
 pyproject
 pystruct
 pytest
+qemuarm
 qskinny
 qtbase
 qtsvg
@@ -541,6 +547,7 @@ rowcol
 rspolib
 rsvg
 rtti
+runqemu
 rustattr
 rustembedded
 rustls
@@ -557,6 +564,7 @@ seatd
 segmentedbutton
 segmenteditem
 Segoe
+sendline
 serde
 setattr
 SETFL
@@ -574,6 +582,7 @@ singlefile
 singleshot
 skrifa
 slintlib
+slirp
 Smartwin
 smol
 Snackbars
@@ -691,6 +700,7 @@ verticalbox
 verticallayout
 VGWGPU
 viewports
+virtio
 vlayout
 vref
 vscodeversion

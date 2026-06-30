@@ -332,6 +332,7 @@
     "pnpm-workspace.yaml",
     "REUSE.toml",
     "**/Cargo.lock",
+    "**/*-crates.inc",
     "docs/common/src/utils/slint.tmLanguage.json",
     "ui-libraries/material/docs/vendor/**",
     ".cspell/slint-project-words.txt",

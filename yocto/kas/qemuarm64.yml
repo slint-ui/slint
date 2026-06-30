@@ -1,0 +1,21 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: MIT
+#
+# Emulatable target: builds the same slint-demo-image for QEMU (aarch64) so it can
+# be booted with `runqemu` — no hardware needed. This is what the boot smoke-test
+# (yocto/tests/qemu-smoke-test.py) drives to confirm the image actually starts the
+# Slint demo. The RPi 4 target (raspberrypi4-64.yml) is for real hardware.
+
+header:
+  version: 14
+  includes:
+    - base.yml
+
+machine: qemuarm64
+
+local_conf_header:
+  qemu: |
+    # virtio-gpu + Wayland so Weston (and the Slint demo) have a display under QEMU.
+    DISTRO_FEATURES:append = " wayland opengl"
+    # Auto-login root on the serial console so the smoke-test can drive it.
+    EXTRA_IMAGE_FEATURES:append = " debug-tweaks empty-root-password allow-empty-password serial-autologin-root"
