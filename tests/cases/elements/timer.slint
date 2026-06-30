@@ -47,6 +47,8 @@ export component TestCase inherits Window {
     in property <int> tm2duration;
     in property <bool> tm2running <=> tm2.running;
 
+    in property <bool> sstmrunning <=> single-shot.running;
+
     vl := VerticalLayout {
         if true: HorizontalLayout {
             Timer {
@@ -75,7 +77,12 @@ export component TestCase inherits Window {
         s := SubCompo {  }
     }
 
-
+    single-shot := Timer {
+        interval: 5ms;
+        repeat: false;
+        running: false;
+        triggered => { result += "foobar"; }
+    }
 }
 /*
 
@@ -123,6 +130,11 @@ for _ in 0..20 {
     slint_testing::mock_elapsed_time(500);
 }
 assert_eq!(instance.get_second_result(), "ABAcdABAABAcdABAAcdBAABAcdBcdBBcdBcdB");
+
+// Single-shot
+instance.set_sstmrunning(true);
+slint_testing::mock_elapsed_time(2000);
+assert_eq!(instance.get_result(), "foobar");
 ```
 
 ```cpp
