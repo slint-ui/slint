@@ -646,6 +646,7 @@ pub struct Timer {
     pub interval: MutExpression,
     pub running: MutExpression,
     pub triggered: MutExpression,
+    pub repeat: MutExpression,
 }
 
 #[derive(Debug, Clone)]
@@ -881,6 +882,7 @@ impl CompilationUnit {
                 visitor(&t.interval, ctx);
                 visitor(&t.running, ctx);
                 visitor(&t.triggered, ctx);
+                visitor(&t.repeat, ctx);
             }
             if let EvaluationScope::SubComponent(idx, _) = ctx.current_scope {
                 // A parent-less context, so the inliner only rewrites the
