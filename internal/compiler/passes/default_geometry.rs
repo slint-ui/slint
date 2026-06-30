@@ -21,7 +21,7 @@ use crate::layout::{BuiltinFilter, LayoutConstraints, Orientation, implicit_layo
 use crate::object_tree::{Component, ElementRc};
 use crate::symbol_counters::SymbolCounters;
 use smol_str::{SmolStr, format_smolstr};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 pub fn default_geometry(
     root_component: &Rc<Component>,
@@ -317,7 +317,7 @@ fn merge_explicit_constraints(
                     },
                 )
             })
-            .collect::<HashMap<_, _>>();
+            .collect::<BTreeMap<_, _>>();
 
         for (nr, s) in constraints.for_each_restrictions(orientation) {
             let e = nr
@@ -337,7 +337,7 @@ fn merge_explicit_constraints(
 }
 
 fn explicit_layout_info(e: &ElementRc, orientation: Orientation) -> Expression {
-    let mut values = HashMap::new();
+    let mut values = BTreeMap::new();
     let (size, orient) = match orientation {
         Orientation::Horizontal => ("width", "horizontal"),
         Orientation::Vertical => ("height", "vertical"),
