@@ -49,9 +49,13 @@ def main() -> int:
     # 3. Weston (the compositor the demo renders on) is active.
     run("systemctl is-active weston || (sleep 5; systemctl is-active weston)")
     # 4. The demo process is actually running (autostarted by weston-init).
-    run("for i in $(seq 1 20); do pgrep -x slint-demo && break; sleep 1; done; pgrep -x slint-demo")
+    run(
+        "for i in $(seq 1 20); do pgrep -x slint-demo && break; sleep 1; done; pgrep -x slint-demo"
+    )
 
-    print("\nSMOKE TEST PASSED: slint-demo is running on Weston in the image.", flush=True)
+    print(
+        "\nSMOKE TEST PASSED: slint-demo is running on Weston in the image.", flush=True
+    )
     child.sendline("poweroff")
     child.expect(pexpect.EOF, timeout=120)
     return 0
@@ -61,5 +65,8 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except (pexpect.TIMEOUT, pexpect.EOF) as e:
-        print(f"\nSMOKE TEST FAILED: {type(e).__name__} — the image did not reach a running demo.", flush=True)
+        print(
+            f"\nSMOKE TEST FAILED: {type(e).__name__} — the image did not reach a running demo.",
+            flush=True,
+        )
         sys.exit(1)
