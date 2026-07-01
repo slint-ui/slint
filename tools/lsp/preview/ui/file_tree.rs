@@ -12,26 +12,60 @@ use slint::{Image, ModelRc, SharedString, ToSharedString as _, VecModel};
 use super::{Api, EditorSurfaceMode, FileTreeNode, FileTreeNodeKind, ImageAssetPreview};
 
 pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, use_editor_ui: bool) {
-    let Some((root, selected_path)) = initial_file_tree_paths(use_editor_ui) else {
+    if !use_editor_ui {
         api.set_file_tree(Default::default());
         api.set_selected_project_file(Default::default());
         return;
     };
 
-    let controller = Rc::new(RefCell::new(FileTreeController::new(root, selected_path)));
-    controller.borrow().publish(api);
+    let controller = Rc::new(RefCell::new(
+        initial_file_tree_paths()
+            .map(|(root, selected_path)| FileTreeController::new(root, selected_path)),
+    ));
+    if let Some(controller) = controller.borrow().as_ref() {
+        controller.publish(api);
+    } else {
+        api.set_file_tree(Default::default());
+        api.set_selected_project_file(Default::default());
+    }
 
     let controller_for_select = controller.clone();
     let api_weak_for_select = api_weak.clone();
     api.on_file_tree_select(move |path| {
         if let Some(api) = api_weak_for_select.upgrade() {
-            controller_for_select.borrow_mut().select(Path::new(path.as_str()), &api);
+            if let Some(controller) = controller_for_select.borrow_mut().as_mut() {
+                controller.select(Path::new(path.as_str()), &api);
+            }
+        }
+    });
+
+    let controller_for_open = controller.clone();
+    let api_weak_for_open = api_weak.clone();
+    api.on_open_existing_project(move || {
+        let Some(path) = choose_project_file() else {
+            return false;
+        };
+        let Some(root) = path.parent().map(Path::to_path_buf) else {
+            return false;
+        };
+        if let Some(api) = api_weak_for_open.upgrade() {
+            let mut controller = controller_for_open.borrow_mut();
+            *controller = Some(FileTreeController::new(root, Some(path.clone())));
+            if let Some(controller) = controller.as_mut() {
+                controller.publish(&api);
+            }
+            super::super::request_file_tree_preview(&path);
+            true
+        } else {
+            false
         }
     });
 
     api.on_file_tree_toggle(move |path| {
         if let Some(api) = api_weak.upgrade() {
-            controller.borrow_mut().toggle(Path::new(path.as_str()), &api);
+            if let Some(controller) = controller.borrow_mut().as_mut() {
+                controller.toggle(Path::new(path.as_str()), &api);
+            }
         }
     });
 
@@ -48,11 +82,7 @@ pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, use_editor_ui: 
     });
 }
 
-fn initial_file_tree_paths(use_editor_ui: bool) -> Option<(PathBuf, Option<PathBuf>)> {
-    if !use_editor_ui {
-        return None;
-    }
-
+fn initial_file_tree_paths() -> Option<(PathBuf, Option<PathBuf>)> {
     #[cfg(target_arch = "wasm32")]
     {
         None
@@ -64,6 +94,37 @@ fn initial_file_tree_paths(use_editor_ui: bool) -> Option<(PathBuf, Option<PathB
         let root = selected_path.parent()?.to_path_buf();
         Some((root, Some(selected_path)))
     }
+}
+
+#[cfg(target_os = "macos")]
+fn choose_project_file() -> Option<PathBuf> {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
+    use objc2_foundation::NSString;
+
+    let mtm = MainThreadMarker::new()?;
+    let panel = NSOpenPanel::openPanel(mtm);
+    panel.setCanChooseFiles(true);
+    panel.setCanChooseDirectories(false);
+    panel.setAllowsMultipleSelection(false);
+    panel.setTitle(Some(&NSString::from_str("Open Slint File")));
+    panel.setMessage(Some(&NSString::from_str("Choose a .slint file to edit.")));
+
+    if panel.runModal() != NSModalResponseOK {
+        return None;
+    }
+
+    panel.URLs().firstObject()?.to_file_path()
+}
+
+#[cfg(all(not(target_os = "macos"), not(target_arch = "wasm32")))]
+fn choose_project_file() -> Option<PathBuf> {
+    None
+}
+
+#[cfg(target_arch = "wasm32")]
+fn choose_project_file() -> Option<PathBuf> {
+    None
 }
 
 struct FileTreeController {
@@ -138,7 +199,9 @@ impl FileTreeController {
             &self.active_folder_path,
         );
         api.set_file_tree(ModelRc::new(VecModel::from(rows)));
-        api.set_selected_project_file(selected_project_file(&self.root, self.selected_path.as_deref()).into());
+        api.set_selected_project_file(
+            selected_project_file(&self.root, self.selected_path.as_deref()).into(),
+        );
     }
 
     fn path_in_root(&self, path: &Path) -> Option<PathBuf> {
