@@ -230,26 +230,11 @@ impl DragArea {
         self.allow_copy() || self.allow_move() || self.allow_link()
     }
 
-    /// Build the initial DropEvent for a drag starting on this DragArea, populating
-    /// the source's allowed actions and seeding `proposed_action` from the default action
-    /// (the first allowed of move, copy, link).
-    pub(crate) fn initial_drop_event(self: Pin<&Self>) -> DropEvent {
-        let allow_copy = self.allow_copy();
-        let allow_move = self.allow_move();
-        let allow_link = self.allow_link();
-        DropEvent {
-            data: self.data(),
-            position: Default::default(),
-            allow_copy,
-            allow_move,
-            allow_link,
-            proposed_action: compute_proposed_action(
-                KeyboardModifiers::default(),
-                allow_copy,
-                allow_move,
-                allow_link,
-            ),
-        }
+    /// Clear the `dragging` flag and fire the `drag-finished` callback with the final negotiated
+    /// action. Shared by the in-window drag path and the native backends.
+    pub(crate) fn finish_drag(self: Pin<&Self>, action: DragAction) {
+        self.dragging.set(false);
+        Self::FIELD_OFFSETS.drag_finished().apply_pin(self).call(&(action,));
     }
 }
 
@@ -396,7 +381,7 @@ impl ItemConsts for DropArea {
 /// Compute the action proposed by the user's current modifier state, clamped to the source's
 /// allowed actions. Ctrl alone → copy, Shift alone → move, Ctrl+Shift → link, no modifier →
 /// the first allowed of move/copy/link.
-pub(crate) fn compute_proposed_action(
+pub fn compute_proposed_action(
     modifiers: KeyboardModifiers,
     allow_copy: bool,
     allow_move: bool,

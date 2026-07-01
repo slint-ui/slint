@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore frameless qbrush qimage qpointf qreal qvariant qwidgetsize svgz Nesw qsize qstring
+// cSpell: ignore frameless qbrush qdrag qimage qpointf qreal qvariant qwidgetsize svgz Nesw qsize qstring
 
 use cpp::*;
 use i_slint_common::sharedfontique::HashedBlob;
@@ -33,7 +33,9 @@ use i_slint_core::lengths::{
 use i_slint_core::platform::{PlatformError, WindowEvent};
 use i_slint_core::string::ToSharedString;
 use i_slint_core::textlayout::sharedparley::{self, GlyphRenderer, fontique, parley};
-use i_slint_core::window::{WindowAdapter, WindowAdapterInternal, WindowInner, WindowKind};
+use i_slint_core::window::{
+    DragRequest, WindowAdapter, WindowAdapterInternal, WindowInner, WindowKind,
+};
 use i_slint_core::{ImageInner, SharedString};
 
 use std::cell::RefCell;
@@ -59,6 +61,7 @@ cpp! {{
     #include <QtGui/QAccessible>
     #include <QtGui/QCursor>
     #include <QtGui/QDesktopServices>
+    #include <QtGui/QDrag>
     #include <QtGui/QDragEnterEvent>
     #include <QtGui/QDragLeaveEvent>
     #include <QtGui/QDragMoveEvent>
@@ -2525,6 +2528,89 @@ impl WindowAdapterInternal for QtWindow {
         cpp! {unsafe [widget_ptr as "QWidget*", cursor_shape as "Qt::CursorShape"] {
             widget_ptr->setCursor(QCursor{cursor_shape});
         }};
+    }
+
+    fn start_drag(&self, request: &DragRequest) -> bool {
+        let widget_ptr = self.widget_ptr();
+
+        let has_text = request.data().has_plain_text();
+        let text: qttypes::QString =
+            request.data().plain_text().map(|s| s.as_str().into()).unwrap_or_default();
+
+        let has_image = request.data().has_image();
+        let payload_pixmap = request
+            .data()
+            .image()
+            .ok()
+            .and_then(|img| image_to_pixmap(<&ImageInner>::from(&img), None))
+            .unwrap_or_default();
+
+        let drag_pixmap =
+            image_to_pixmap(<&ImageInner>::from(request.drag_image()), None).unwrap_or_default();
+        let offset_x = request.drag_image_offset().x as i32;
+        let offset_y = request.drag_image_offset().y as i32;
+
+        let allow_copy = request.allow_copy();
+        let allow_move = request.allow_move();
+        let allow_link = request.allow_link();
+        // With no modifier held, the proposed action is the first allowed of move, copy, link.
+        let default_action = slint_drag_action_to_qt(i_slint_core::items::compute_proposed_action(
+            Default::default(),
+            allow_copy,
+            allow_move,
+            allow_link,
+        ));
+
+        let rust_window: &QtWindow = self;
+
+        // QDrag::exec runs a nested event loop, so it must not run inside this input-handling
+        // call. Defer it to a queued event (as the win32 backend does) and report the negotiated
+        // action back to the core once it returns.
+        cpp! {unsafe [
+            widget_ptr as "QWidget*",
+            has_text as "bool",
+            text as "QString",
+            has_image as "bool",
+            payload_pixmap as "QPixmap",
+            drag_pixmap as "QPixmap",
+            offset_x as "int",
+            offset_y as "int",
+            allow_copy as "bool",
+            allow_move as "bool",
+            allow_link as "bool",
+            default_action as "uint32_t",
+            rust_window as "void*"
+        ] {
+            QMetaObject::invokeMethod(widget_ptr, [=]() {
+                QMimeData *mime = new QMimeData();
+                if (has_text) {
+                    mime->setText(text);
+                }
+                if (has_image) {
+                    mime->setImageData(payload_pixmap.toImage());
+                }
+                QDrag *qdrag = new QDrag(widget_ptr);
+                qdrag->setMimeData(mime);
+                if (!drag_pixmap.isNull()) {
+                    qdrag->setPixmap(drag_pixmap);
+                    qdrag->setHotSpot(QPoint(offset_x, offset_y));
+                }
+                Qt::DropActions actions = Qt::IgnoreAction;
+                if (allow_copy) actions |= Qt::CopyAction;
+                if (allow_move) actions |= Qt::MoveAction;
+                if (allow_link) actions |= Qt::LinkAction;
+                uint32_t performed = static_cast<uint32_t>(
+                    qdrag->exec(actions, static_cast<Qt::DropAction>(default_action)));
+                rust!(Slint_reportDragFinished [
+                    rust_window: &QtWindow as "void*",
+                    performed: u32 as "uint32_t"
+                ] {
+                    WindowInner::from_pub(&rust_window.window)
+                        .report_drag_finished(qt_drop_action_to_slint(performed));
+                });
+            }, Qt::QueuedConnection);
+        }};
+        true
     }
 
     fn input_method_request(&self, request: i_slint_core::window::InputMethodRequest) {
