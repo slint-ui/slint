@@ -36,7 +36,6 @@ slint-sc = ["i-slint-compiler/slint-sc"]
 default = [
   "software-renderer",
   "image-default-format",
-  "image-default-format",
   "jemalloc",
   "bundle-translations",
   "cpp",
