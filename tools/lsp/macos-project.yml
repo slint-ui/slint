@@ -45,6 +45,8 @@ targets:
         LSApplicationCategoryType: public.app-category.developer-tools
         LSMinimumSystemVersion: "12.0"
         NSHighResolutionCapable: true
+        SUPublicEDKey: ${EDITOR_SPARKLE_PUBLIC_ED_KEY}
+        SUFeedURL: https://visual-editor.slint.dev/appcast.xml
     sources:
       - path: packaging/macos/AppIcon.icon
         buildPhase: resources
@@ -56,6 +58,7 @@ targets:
         script: |
           MACOS_CARGO_TARGET_DIR_NAME=slint-visual-editor \
               ../../scripts/build_macos_app_with_cargo.bash \
+              --profile package-release \
               --bin slint-visual-editor \
               --no-default-features \
               --features backend-winit,renderer-skia

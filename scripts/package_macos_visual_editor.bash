@@ -4,37 +4,14 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+. "$SCRIPT_DIR/helpers.sh"
+
 APP_NAME="Slint Visual Editor"
 DMG_BASENAME="SlintVisualEditor"
 SCHEME="Slint Visual Editor"
 
-log() {
-    echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] $*"
-}
-
-die() {
-    echo "error: $*" >&2
-    exit 1
-}
-
-require_env() {
-    local name
-    for name in "$@"; do
-        if [ -z "${!name:-}" ]; then
-            die "$name is required"
-        fi
-    done
-}
-
-abs_path() {
-    local path="$1"
-    local dir
-
-    dir="$(cd "$(dirname "$path")" && pwd)" || return 1
-    printf "%s/%s\n" "$dir" "$(basename "$path")"
-}
-
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SPEC_PATH="$ROOT_DIR/tools/lsp/macos-project.yml"
 PROJECT_DIR="$(dirname "$SPEC_PATH")"
 PROJECT_FILE="$PROJECT_DIR/$APP_NAME.xcodeproj"
@@ -42,11 +19,14 @@ EXAMPLE_SOURCE_DIR="$PROJECT_DIR/ui/visual-editor/example"
 VERSION="${VERSION:-}"
 
 if [ -z "$VERSION" ]; then
-    VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' "$PROJECT_DIR/Cargo.toml" | head -n 1)"
+    command -v cargo >/dev/null || die "cargo is required to determine the Visual Editor version"
+    command -v jq >/dev/null || die "jq is required to determine the Visual Editor version"
+    VERSION="$(cargo metadata --format-version 1 --no-deps --manifest-path "$ROOT_DIR/Cargo.toml" | jq -r 'first(.packages[] | select(.name == "slint-lsp") | .version)')" \
+        || die "could not determine Visual Editor version from Cargo metadata"
 fi
-VERSION="${VERSION:-0.0.0}"
+[ -n "$VERSION" ] && [ "$VERSION" != "null" ] || die "could not determine Visual Editor version from Cargo metadata"
 
-BUILD_NUMBER="${BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-$(git -C "$ROOT_DIR" rev-list --count HEAD 2>/dev/null || echo 1)}}"
+BUILD_NUMBER="${BUILD_NUMBER:-${SLINT_BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-$(git -C "$ROOT_DIR" rev-list --count HEAD 2>/dev/null || echo 1)}}}"
 DIST_DIR="${DIST_DIR:-$ROOT_DIR/dist}"
 BUILD_DIR="${BUILD_DIR:-$ROOT_DIR/target/macos-visual-editor-dmg}"
 RUNNER_TEMP_DIR="${RUNNER_TEMP:-$BUILD_DIR/secrets}"
@@ -64,6 +44,14 @@ CERTIFICATE_PATH="$RUNNER_TEMP_DIR/developer-id-application.p12"
 NOTARY_KEY_PATH="$RUNNER_TEMP_DIR/AuthKey_${NOTARY_API_KEY_ID:-unset}.p8"
 CARGO_XCODE_TARGET_DIR="$ROOT_DIR/target/xcode-cargo/slint-visual-editor"
 CARGO_TIMINGS_REPORT_DIR="$BUILD_DIR/cargo-timings"
+CLOUDFLARE_ROOT_DIR="$DIST_DIR/cloudflare-root"
+SPARKLE_UPDATE_BASENAME="$DMG_BASENAME-$VERSION-$BUILD_NUMBER-macos-arm64.zip"
+SPARKLE_UPDATE_PATH="$CLOUDFLARE_ROOT_DIR/$SPARKLE_UPDATE_BASENAME"
+SPARKLE_APPCAST_PATH="$CLOUDFLARE_ROOT_DIR/appcast.xml"
+SPARKLE_FEED_BASE_URL="https://visual-editor.slint.dev"
+export EDITOR_SPARKLE_PUBLIC_ED_KEY="${EDITOR_SPARKLE_PUBLIC_ED_KEY:-Ncon335q8qNLM0D+L2my+HRIAXmNtNb6uGNmUR0yG2o=}"
+APP_NOTARY_ZIP_PATH="$BUILD_DIR/$DMG_BASENAME-$VERSION-$BUILD_NUMBER-macos-arm64-notary.zip"
+APP_NOTARY_LOG="$BUILD_DIR/app-notarization-log.json"
 DMG_ATTACHED=0
 
 cleanup() {
@@ -186,6 +174,7 @@ stage_and_sign_app() {
     ditto "$APP_PATH" "$STAGED_APP_PATH"
     mkdir -p "$STAGED_APP_PATH/Contents/Resources/visual-editor-example"
     ditto "$EXAMPLE_SOURCE_DIR" "$STAGED_APP_PATH/Contents/Resources/visual-editor-example"
+    ditto "$SPARKLE_FRAMEWORK_DIR/Sparkle.framework" "$STAGED_APP_PATH/Contents/Frameworks/Sparkle.framework"
 
     local executable="$STAGED_APP_PATH/Contents/MacOS/$APP_NAME"
     [ -x "$executable" ] || die "app executable missing: $executable"
@@ -294,6 +283,45 @@ notarize_and_staple_dmg() {
     log "DMG notarized and stapled"
 }
 
+notarize_and_staple_app() {
+    [ -d "$STAGED_APP_PATH" ] || die "staged app missing: $STAGED_APP_PATH"
+    rm -f "$APP_NOTARY_ZIP_PATH" "$APP_NOTARY_LOG"
+
+    log "Creating temporary app ZIP for notarization"
+    ditto -c -k --sequesterRsrc --keepParent "$STAGED_APP_PATH" "$APP_NOTARY_ZIP_PATH"
+
+    log "Submitting app ZIP for notarization"
+    xcrun notarytool submit "$APP_NOTARY_ZIP_PATH" \
+        --key "$NOTARY_KEY_PATH" \
+        --key-id "$NOTARY_API_KEY_ID" \
+        --issuer "$NOTARY_ISSUER_ID" \
+        --wait \
+        --output-format json \
+        > "$APP_NOTARY_LOG"
+
+    log "Reading app notarization result from $APP_NOTARY_LOG"
+    local status
+    status="$(plutil -extract status raw -o - "$APP_NOTARY_LOG" 2>/dev/null || true)"
+    if [ "$status" != "Accepted" ]; then
+        cat "$APP_NOTARY_LOG" >&2
+        die "app notarization status was ${status:-unknown}, expected Accepted"
+    fi
+
+    log "Stapling notarization ticket to app"
+    xcrun stapler staple "$STAGED_APP_PATH"
+    log "Validating stapled app notarization ticket"
+    xcrun stapler validate "$STAGED_APP_PATH"
+
+    log "Verifying stapled app code signature"
+    codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"
+
+    log "Assessing stapled app with spctl"
+    spctl -a -vv -t exec "$STAGED_APP_PATH"
+
+    rm -f "$APP_NOTARY_ZIP_PATH"
+    log "App notarized and stapled"
+}
+
 assess_stapled_app() {
     log "Mounting DMG for Gatekeeper assessment"
     rm -rf "$MOUNT_DIR"
@@ -323,16 +351,118 @@ assess_stapled_app() {
     return "$assess_status"
 }
 
+smoke_test_app_launch() {
+    [ -f "$DMG_PATH" ] || die "DMG missing: $DMG_PATH"
+
+    local log_path="$BUILD_DIR/app-launch-smoke-test.log"
+    local app_path="$MOUNT_DIR/$APP_NAME.app"
+    local executable="$app_path/Contents/MacOS/$APP_NAME"
+    local wait_secs="${SMOKE_TEST_WAIT_SECS:-5}"
+
+    log "Mounting DMG for app launch smoke test"
+    rm -rf "$MOUNT_DIR"
+    mkdir -p "$MOUNT_DIR"
+
+    hdiutil attach "$DMG_PATH" \
+        -readonly \
+        -nobrowse \
+        -mountpoint "$MOUNT_DIR"
+    DMG_ATTACHED=1
+
+    [ -x "$executable" ] || die "app executable missing: $executable"
+
+    rm -f "$log_path"
+    log "Launching mounted app without arguments"
+    "$executable" >"$log_path" 2>&1 &
+    local app_pid=$!
+
+    sleep "$wait_secs"
+
+    if kill -0 "$app_pid" >/dev/null 2>&1; then
+        log "App stayed running for $wait_secs seconds"
+        kill "$app_pid" >/dev/null 2>&1 || true
+        wait "$app_pid" >/dev/null 2>&1 || true
+        detach_dmg
+        return 0
+    fi
+
+    local launch_status=0
+    wait "$app_pid" || launch_status=$?
+    if [ -s "$log_path" ]; then
+        cat "$log_path" >&2
+    fi
+
+    detach_dmg
+    die "app exited during launch smoke test with status $launch_status"
+}
+
+create_cloudflare_root() {
+    require_env EDITOR_SPARKLE_ED_PRIVATE_KEY
+    [ -d "$STAGED_APP_PATH" ] || die "staged app missing: $STAGED_APP_PATH"
+    [ -x "$ROOT_DIR/sparkle-bin/sign_update" ] || die "sparkle-bin/sign_update is required; run scripts/download-sparkle.sh"
+
+    log "Creating Cloudflare root at $CLOUDFLARE_ROOT_DIR"
+    rm -rf "$CLOUDFLARE_ROOT_DIR"
+    mkdir -p "$CLOUDFLARE_ROOT_DIR"
+
+    log "Creating Sparkle update ZIP at $SPARKLE_UPDATE_PATH"
+    ditto -c -k --sequesterRsrc --keepParent "$STAGED_APP_PATH" "$SPARKLE_UPDATE_PATH"
+
+    log "Signing Sparkle update ZIP"
+    local sparkle_key_path="$RUNNER_TEMP_DIR/sparkle-ed-private-key"
+    printf "%s" "$EDITOR_SPARKLE_ED_PRIVATE_KEY" > "$sparkle_key_path"
+    chmod 600 "$sparkle_key_path"
+
+    local signature_output
+    local sign_status=0
+    signature_output="$("$ROOT_DIR/sparkle-bin/sign_update" --ed-key-file "$sparkle_key_path" "$SPARKLE_UPDATE_PATH" 2>&1)" || sign_status=$?
+    rm -f "$sparkle_key_path"
+    if [ "$sign_status" -ne 0 ]; then
+        die "sign_update failed with status $sign_status"
+    fi
+
+    local pub_date
+    pub_date="$(date -uR)"
+
+    log "Writing Sparkle appcast at $SPARKLE_APPCAST_PATH"
+    cat > "$SPARKLE_APPCAST_PATH" <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>Slint Visual Editor Updates</title>
+    <link>$SPARKLE_FEED_BASE_URL/appcast.xml</link>
+    <description>Slint Visual Editor daily updates</description>
+    <item>
+      <title>Slint Visual Editor $VERSION ($BUILD_NUMBER)</title>
+      <pubDate>$pub_date</pubDate>
+      <sparkle:version>$BUILD_NUMBER</sparkle:version>
+      <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
+      <enclosure
+        url="$SPARKLE_FEED_BASE_URL/$SPARKLE_UPDATE_BASENAME"
+        $signature_output
+        type="application/octet-stream" />
+    </item>
+  </channel>
+</rss>
+EOF
+
+    log "Cloudflare root contains:"
+    ls -p1 "$CLOUDFLARE_ROOT_DIR"
+}
+
 full_package() {
     trap cleanup EXIT
     validate_environment
     install_signing_material
     archive_app
     stage_and_sign_app
+    notarize_and_staple_app
+    create_cloudflare_root
     create_dmg
     sign_dmg
     notarize_and_staple_dmg
     assess_stapled_app
+    smoke_test_app_launch
     cleanup
     trap - EXIT
 }
@@ -355,6 +485,13 @@ case "$COMMAND" in
         validate_environment
         stage_and_sign_app
         ;;
+    notarize-and-staple-app)
+        validate_environment
+        notarize_and_staple_app
+        ;;
+    create-cloudflare-root)
+        create_cloudflare_root
+        ;;
     create-dmg)
         create_dmg
         ;;
@@ -375,6 +512,9 @@ case "$COMMAND" in
         validate_environment
         assess_stapled_app
         ;;
+    smoke-test-app-launch)
+        smoke_test_app_launch
+        ;;
     cleanup)
         cleanup
         ;;
@@ -387,7 +527,13 @@ case "$COMMAND" in
 esac
 
 case "$COMMAND" in
-    full | create-dmg | sign-dmg | create-and-sign-dmg | notarize-and-staple-dmg | assess-stapled-app)
+    full | create-dmg | sign-dmg | create-and-sign-dmg | notarize-and-staple-dmg | assess-stapled-app | smoke-test-app-launch)
         log "DMG path: $DMG_PATH"
+        ;;
+    create-cloudflare-root)
+        log "Cloudflare root path: $CLOUDFLARE_ROOT_DIR"
+        ;;
+    notarize-and-staple-app)
+        log "App notarization log path: $APP_NOTARY_LOG"
         ;;
 esac

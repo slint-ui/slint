@@ -9,8 +9,6 @@
 
   <rect width="660" height="420" rx="0" fill="url(#bg)"/>
   <path d="M0 319C96 287 154 303 238 328C346 361 433 357 660 286V420H0V319Z" fill="#DDEFFD" opacity="0.62"/>
-  <path d="M522 74C567 92 599 125 616 172" stroke="#B5DBF7" stroke-width="2" stroke-linecap="round" opacity="0.55"/>
-  <path d="M84 334C123 355 171 365 222 364" stroke="#B5DBF7" stroke-width="2" stroke-linecap="round" opacity="0.55"/>
 
   <text x="330" y="109" text-anchor="middle" fill="#172033" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', Helvetica, Arial, sans-serif" font-size="34" font-weight="650">Install Slint Visual Editor</text>
   <text x="330" y="145" text-anchor="middle" fill="#637083" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', Helvetica, Arial, sans-serif" font-size="16">Drag the app to Applications</text>

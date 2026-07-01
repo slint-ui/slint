@@ -38,6 +38,7 @@ use user_settings::{PREVIEW_SETTINGS_FILE, PreviewUserSettings};
 use crate::wasm_prelude::*;
 
 pub mod connector;
+pub use ui::PreviewUiKind;
 
 mod debug;
 mod drop_location;
@@ -61,14 +62,37 @@ pub mod user_settings;
 pub fn run(
     to_lsp: Rc<dyn common::PreviewToLsp>,
     fullscreen: bool,
-    use_editor_ui: bool,
+    ui_kind: PreviewUiKind,
 ) -> std::result::Result<(), slint::PlatformError> {
-    let app_window = ui::create_ui(&to_lsp, "", use_editor_ui)?;
+    let app_window = ui::create_ui(&to_lsp, "", ui_kind)?;
+
+    // We need to put the updater here so that it stays in scope.
+    // `cfg`'d out on non-mac platforms so we don't get a compiler
+    // error when it doesn't have a type to assign to it.
+    #[cfg(target_os = "macos")]
+    let updater;
 
     #[cfg(target_os = "macos")]
-    if let ui::AppWindow::Editor(editor) = &app_window {
+    if let ui::AppWindow::Editor(editor) = app_window.clone_strong() {
         use slint::ComponentHandle;
+        use sparklers::Sparkle;
+
         macos_titlebar::setup(editor.as_weak());
+
+        updater = Sparkle::new().unwrap().unwrap();
+
+        updater.set_nonsync_event_callback(move |event| match event {
+            sparklers::Event::DidFinishUpdateCycle { error: Some(error), .. }
+            | sparklers::Event::FailedToDownloadUpdate { error, .. }
+            | sparklers::Event::DidAbortWithError { error } => eprintln!("ERROR: {error}"),
+
+            _ => println!("Sparkle event: {event:?}"),
+        });
+
+        // TODO: These calls can't return `Err`, the API needs to be changed
+        // Errors are reported using the callback.
+        updater.set_automatically_checks_for_updates(true);
+        updater.check_for_updates_in_background();
     }
 
     to_lsp
@@ -1307,7 +1331,7 @@ fn persist_selected_element_border_radius() {
 
     let version = document_cache.document_version(&url);
 
-    let Some((updates, label)) = properties::update_element_properties(
+    let Some((updates, _)) = properties::update_element_properties(
         &document_cache,
         common::VersionedPosition::new(VersionedUrl::new(url, version), offset),
         geometry_changes,

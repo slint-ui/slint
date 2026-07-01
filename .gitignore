@@ -28,6 +28,9 @@ Pipfile.lock
 /.mise.local.toml
 /.mise/tasks/local/
 
+Sparkle.framework/
+sparkle-bin
+
 # Helix local config
 .helix
 

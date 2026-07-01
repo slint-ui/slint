@@ -329,6 +329,7 @@ component TemplateCard inherits Rectangle {
 export component StartupWizard inherits Rectangle {
     in-out property <ProjectKind> selected-project: ProjectKind.mobile;
     callback opened;
+    callback open-existing-project;
 
     property <WizardPage> page: WizardPage.welcome;
     property <bool> showing-templates: page == WizardPage.templates;
@@ -472,7 +473,7 @@ export component StartupWizard inherits Rectangle {
                 enabled: !root.showing-templates;
                 progress: root.page-progress;
                 clicked => {
-                    root.opened();
+                    root.open-existing-project();
                 }
             }
         }

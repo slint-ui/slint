@@ -229,3 +229,9 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package.rgb]
 opt-level = 3
+
+[profile.package-release]
+inherits = "release"
+lto = "fat"
+strip = "symbols"
+codegen-units = 1
