@@ -1381,10 +1381,16 @@ fn generate_sub_component(
             });
             if let Some(listview) = &repeated.listview {
                 let vp_y = access_member(&listview.viewport_y, &ctx).unwrap();
-                let vp_h = access_member(&listview.viewport_height, &ctx).unwrap();
                 let lv_h = access_member(&listview.listview_height, &ctx).unwrap();
-                let vp_w = access_member(&listview.viewport_width, &ctx).unwrap();
                 let lv_w = access_member(&listview.listview_width, &ctx).unwrap();
+                let vp_w = listview.viewport_width.as_ref().map_or_else(
+                    || quote!(None),
+                    |w| { let w = access_member(w, &ctx).unwrap(); quote!(Some(#w)) },
+                );
+                let vp_h = listview.viewport_height.as_ref().map_or_else(
+                    || quote!(None),
+                    |h| { let h = access_member(h, &ctx).unwrap(); quote!(Some(#h)) },
+                );
 
                 repeated_visit_branch.push(quote!(
                     #idx => {

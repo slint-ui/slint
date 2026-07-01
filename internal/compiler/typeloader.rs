@@ -517,8 +517,16 @@ impl Snapshotter {
                 is_conditional_element: r.is_conditional_element,
                 is_listview: r.is_listview.as_ref().map(|lv| object_tree::ListViewInfo {
                     viewport_y: lv.viewport_y.snapshot(self),
-                    viewport_height: lv.viewport_height.snapshot(self),
-                    viewport_width: lv.viewport_width.snapshot(self),
+                    viewport_height: if let Some(viewport_height) = &lv.viewport_height {
+                        Some(viewport_height.snapshot(self))
+                    } else {
+                        None
+                    },
+                    viewport_width: if let Some(viewport_width) = &lv.viewport_width {
+                        Some(viewport_width.snapshot(self))
+                    } else {
+                        None
+                    },
                     listview_height: lv.listview_height.snapshot(self),
                     listview_width: lv.listview_width.snapshot(self),
                 }),
