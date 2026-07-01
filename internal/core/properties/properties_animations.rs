@@ -463,7 +463,7 @@ mod animation_tests {
 
     #[test]
     fn properties_test_animation_negative_delay_triggered_by_set() {
-        let compo = Component::new_test_component();
+        let compo = core::pin::pin!(Component::new_test_component());
 
         let animation_details = PropertyAnimation {
             delay: -25,
@@ -504,7 +504,7 @@ mod animation_tests {
 
     #[test]
     fn properties_test_animation_triggered_by_set() {
-        let compo = Component::new_test_component();
+        let compo = core::pin::pin!(Component::new_test_component());
 
         let animation_details = PropertyAnimation {
             duration: DURATION.as_millis() as _,
@@ -544,7 +544,7 @@ mod animation_tests {
 
     #[test]
     fn properties_test_delayed_animation_triggered_by_set() {
-        let compo = Component::new_test_component();
+        let compo = core::pin::pin!(Component::new_test_component());
 
         let animation_details = PropertyAnimation {
             delay: DELAY.as_millis() as _,
@@ -597,7 +597,7 @@ mod animation_tests {
 
     #[test]
     fn properties_test_delayed_animation_fractal_iteration_triggered_by_set() {
-        let compo = Component::new_test_component();
+        let compo = core::pin::pin!(Component::new_test_component());
 
         let animation_details = PropertyAnimation {
             delay: DELAY.as_millis() as _,
@@ -655,7 +655,7 @@ mod animation_tests {
     }
     #[test]
     fn properties_test_delayed_animation_null_duration_triggered_by_set() {
-        let compo = Component::new_test_component();
+        let compo = core::pin::pin!(Component::new_test_component());
 
         let animation_details = PropertyAnimation {
             delay: DELAY.as_millis() as _,
@@ -698,7 +698,7 @@ mod animation_tests {
 
     #[test]
     fn properties_test_delayed_animation_negative_duration_triggered_by_set() {
-        let compo = Component::new_test_component();
+        let compo = core::pin::pin!(Component::new_test_component());
 
         let animation_details = PropertyAnimation {
             delay: DELAY.as_millis() as _,
@@ -741,7 +741,7 @@ mod animation_tests {
 
     #[test]
     fn properties_test_delayed_animation_no_iteration_triggered_by_set() {
-        let compo = Component::new_test_component();
+        let compo = core::pin::pin!(Component::new_test_component());
 
         let animation_details = PropertyAnimation {
             delay: DELAY.as_millis() as _,
@@ -784,7 +784,7 @@ mod animation_tests {
 
     #[test]
     fn properties_test_delayed_animation_negative_iteration_triggered_by_set() {
-        let compo = Component::new_test_component();
+        let compo = core::pin::pin!(Component::new_test_component());
 
         let animation_details = PropertyAnimation {
             delay: DELAY.as_millis() as _,
@@ -843,7 +843,7 @@ mod animation_tests {
 
     #[test]
     fn properties_test_animation_direction_triggered_by_set() {
-        let compo = Component::new_test_component();
+        let compo = core::pin::pin!(Component::new_test_component());
 
         let animation_details = PropertyAnimation {
             delay: -25,
@@ -885,7 +885,7 @@ mod animation_tests {
 
     #[test]
     fn properties_test_animation_triggered_by_binding() {
-        let compo = Component::new_test_component();
+        let compo = core::pin::pin!(Component::new_test_component());
 
         let start_time = crate::animations::current_tick();
 
@@ -925,7 +925,7 @@ mod animation_tests {
 
     #[test]
     fn properties_test_delayed_animation_triggered_by_binding() {
-        let compo = Component::new_test_component();
+        let compo = core::pin::pin!(Component::new_test_component());
 
         let start_time = crate::animations::current_tick();
 
@@ -984,7 +984,7 @@ mod animation_tests {
 
     #[test]
     fn test_loop() {
-        let compo = Component::new_test_component();
+        let compo = core::pin::pin!(Component::new_test_component());
 
         let animation_details = PropertyAnimation {
             duration: DURATION.as_millis() as _,
@@ -1023,7 +1023,7 @@ mod animation_tests {
     fn test_loop_via_binding() {
         // Loop twice, restart the animation and still loop twice.
 
-        let compo = Component::new_test_component();
+        let compo = core::pin::pin!(Component::new_test_component());
 
         let start_time = crate::animations::current_tick();
 
