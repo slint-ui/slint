@@ -200,6 +200,22 @@ appcast.xml
 SlintVisualEditor-<version>-<build>-macos-arm64.zip
 ```
 
+## Local Sparkle update test
+
+To test the update path without production keys or Cloudflare, use two local
+`.app` bundles:
+
+```sh
+./scripts/local_sparkle_update_test.bash \
+    --old-app "/path/to/old/Slint Visual Editor.app" \
+    --new-app "/path/to/new/Slint Visual Editor.app"
+```
+
+The script copies both apps to `/private/tmp`, generates or reuses a local
+Sparkle keychain account, patches only the temp copies, serves a local
+`appcast.xml`, launches the old app with `open`, and checks whether Sparkle
+replaced it with the newer build.
+
 The Rust build report artifact is `slint-visual-editor-rust-build-report`.
 Cargo documents that `--timings` writes `cargo-timing.html` and timestamped reports to
 the target directory's `cargo-timings` directory:
