@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use crate::{dynamic_item_tree, Value};
+use crate::{Value, dynamic_item_tree};
 
 use smol_str::SmolStr;
 
@@ -29,9 +29,5 @@ pub(crate) fn debug_hook_triggered(
     };
     let callback = global_storage.debug_hook_callback.borrow();
 
-    if let Some(callback) = callback.as_ref() {
-        callback(id.as_str(), value)
-    } else {
-        value
-    }
+    if let Some(callback) = callback.as_ref() { callback(id.as_str(), value) } else { value }
 }
