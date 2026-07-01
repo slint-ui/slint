@@ -239,8 +239,6 @@ export component StandardTableView {
                     Text {
                         vertical-alignment: center;
                         text: column.title;
-                        font-weight: FluentFontSettings.body.font-weight;
-                        font-size: FluentFontSettings.body.font-size;
                         color: FluentPalette.text-secondary;
                         overflow: elide;
                     }
@@ -280,8 +278,6 @@ export component StandardTableView {
                             overflow: elide;
                             vertical-alignment: center;
                             text: cell.text;
-                            font-weight: FluentFontSettings.body.font-weight;
-                            font-size: FluentFontSettings.body.font-size;
                             color: mod(idx, 2) == 0 ? FluentPalette.control-foreground : FluentPalette.text-secondary;
                         }
                     }

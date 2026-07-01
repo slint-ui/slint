@@ -1,14 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { CosmicFontSettings, CosmicPalette, Icons } from "styling.slint";
+import { CosmicPalette, Icons } from "styling.slint";
 import { StateLayer } from "components.slint";
 
 export component CheckBox {
     in property <string> text;
     in property <bool> enabled <=> state-layer.enabled;
-    in property <length> font-size: CosmicFontSettings.body.font-size;
-    in property <int> font-weight: CosmicFontSettings.body.font-weight;
+    in property <length> font-size;
+    in property <int> font-weight;
     out property <bool> has-focus: state-layer.has-focus;
     in-out property <bool> checked;
 

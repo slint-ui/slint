@@ -542,7 +542,7 @@ impl Expression {
         }
 
         let resource_ref = if s.starts_with("data:") {
-            ImageReference::AbsolutePath(s)
+            ImageReference::DataUri(s)
         } else {
             let absolute_source_path = {
                 let path = std::path::Path::new(&s);
@@ -564,7 +564,7 @@ impl Expression {
                         })
                 }
             };
-            ImageReference::AbsolutePath(absolute_source_path)
+            ImageReference::from_resolved(absolute_source_path)
         };
 
         let nine_slice = node
