@@ -133,7 +133,8 @@ The package driver is `scripts/package_macos_visual_editor.bash`.
     This is done to free up space on the runner image.
 15. Creates `dist/cloudflare-root/` with `appcast.xml` and a Sparkle-signed
     update ZIP containing the notarized and stapled app.
-16. Computes the versioned DMG name from the workflow's `VERSION`.
+16. Computes the versioned DMG name from the `slint-lsp` Cargo package
+    version.
 17. Creates the DMG with `L-Super/create-dmg-actions`, passing
     `tools/lsp/packaging/macos/dmg-background.svg`, the Finder window size, the
     app icon position, and the Applications drop-link position as action inputs.
@@ -149,13 +150,13 @@ The package driver is `scripts/package_macos_visual_editor.bash`.
     `slint-visual-editor-cloudflare-root` artifact, and the Cargo timing report
     as the `slint-visual-editor-rust-build-report` artifact.
 
-The daily update channel sets the workflow `VERSION` to `1.17.1`.
-The app's `CFBundleShortVersionString` and Sparkle
-`sparkle:shortVersionString` stay at that value.
+The app's `CFBundleShortVersionString`, Sparkle
+`sparkle:shortVersionString`, and artifact file names use the `slint-lsp`
+Cargo package version from `tools/lsp/Cargo.toml`.
 The app's `CFBundleVersion` and Sparkle `sparkle:version` use
 `SLINT_BUILD_NUMBER`, which comes from `github.run_number`.
-Sparkle therefore offers newer daily builds even when the marketing version
-doesn't change.
+Sparkle therefore offers newer daily builds for the same Cargo package version
+as long as the build number increases.
 
 For local debugging, the same phases can be run individually:
 

@@ -44,7 +44,7 @@ VERSION="${VERSION:-}"
 if [ -z "$VERSION" ]; then
     VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' "$PROJECT_DIR/Cargo.toml" | head -n 1)"
 fi
-VERSION="${VERSION:-0.0.0}"
+[ -n "$VERSION" ] || die "could not determine Visual Editor version from $PROJECT_DIR/Cargo.toml"
 
 BUILD_NUMBER="${BUILD_NUMBER:-${SLINT_BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-$(git -C "$ROOT_DIR" rev-list --count HEAD 2>/dev/null || echo 1)}}}"
 DIST_DIR="${DIST_DIR:-$ROOT_DIR/dist}"
