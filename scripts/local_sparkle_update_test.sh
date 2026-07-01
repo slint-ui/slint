@@ -4,6 +4,10 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+. "$SCRIPT_DIR/helpers.sh"
+
 APP_NAME="Slint Visual Editor"
 ACCOUNT="slint-visual-editor-local-test"
 HOST="127.0.0.1"
@@ -34,23 +38,6 @@ The script patches only temporary app copies, signs them ad-hoc, serves a local
 appcast, launches the old app via LaunchServices, and waits while you click
 through Sparkle's UI.
 EOF
-}
-
-die() {
-    echo "error: $*" >&2
-    exit 1
-}
-
-log() {
-    echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] $*"
-}
-
-abs_path() {
-    local path="$1"
-    local dir
-
-    dir="$(cd "$(dirname "$path")" && pwd)" || return 1
-    printf "%s/%s\n" "$dir" "$(basename "$path")"
 }
 
 while [ "$#" -gt 0 ]; do
@@ -112,15 +99,16 @@ for tool in codesign ditto plutil python3; do
     command -v "$tool" >/dev/null || die "$tool is required"
 done
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PROJECT_DIR="$ROOT_DIR/tools/lsp"
 OLD_APP="$(abs_path "$OLD_APP")"
 NEW_APP="$(abs_path "$NEW_APP")"
 
 if [ -z "$VERSION" ]; then
-    VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' "$PROJECT_DIR/Cargo.toml" | head -n 1)"
+    command -v cargo >/dev/null || die "cargo is required to determine the Visual Editor version"
+    command -v jq >/dev/null || die "jq is required to determine the Visual Editor version"
+    VERSION="$(cargo metadata --format-version 1 --no-deps --manifest-path "$ROOT_DIR/Cargo.toml" | jq -r 'first(.packages[] | select(.name == "slint-lsp") | .version)')" \
+        || die "could not determine Visual Editor version from Cargo metadata"
 fi
-[ -n "$VERSION" ] || die "could not determine version from $PROJECT_DIR/Cargo.toml"
+[ -n "$VERSION" ] && [ "$VERSION" != "null" ] || die "could not determine Visual Editor version from Cargo metadata"
 
 cleanup() {
     if [ -n "$SERVER_PID" ] && kill -0 "$SERVER_PID" >/dev/null 2>&1; then
@@ -180,9 +168,8 @@ reset_sparkle_defaults() {
 
 write_appcast() {
     local output_zip="$1"
-    local signature="$2"
-    local length="$3"
-    local appcast="$4"
+    local signature_output="$2"
+    local appcast="$3"
     local pub_date
 
     pub_date="$(date -uR)"
@@ -200,8 +187,7 @@ write_appcast() {
       <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
       <enclosure
         url="http://$HOST:$PORT/$(basename "$output_zip")"
-        sparkle:edSignature="$signature"
-        length="$length"
+        $signature_output
         type="application/octet-stream" />
     </item>
   </channel>
@@ -242,13 +228,9 @@ ditto -c -k --sequesterRsrc --keepParent "$NEW_STAGE" "$UPDATE_ZIP"
 
 log "Signing update ZIP"
 SIGNATURE_OUTPUT="$("$ROOT_DIR/sparkle-bin/sign_update" --account "$ACCOUNT" "$UPDATE_ZIP" 2>&1)"
-ED_SIGNATURE="$(echo "$SIGNATURE_OUTPUT" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')"
-LENGTH="$(echo "$SIGNATURE_OUTPUT" | sed -n 's/.*length="\([0-9][0-9]*\)".*/\1/p')"
-[ -n "$ED_SIGNATURE" ] || die "sign_update did not print sparkle:edSignature"
-[ -n "$LENGTH" ] || die "sign_update did not print length"
 
 log "Writing local appcast"
-write_appcast "$UPDATE_ZIP" "$ED_SIGNATURE" "$LENGTH" "$APPCAST"
+write_appcast "$UPDATE_ZIP" "$SIGNATURE_OUTPUT" "$APPCAST"
 
 log "Installing old app copy"
 ditto "$OLD_STAGE" "$INSTALL_APP"

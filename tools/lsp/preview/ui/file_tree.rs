@@ -9,10 +9,12 @@ use std::rc::Rc;
 use i_slint_core::platform::Clipboard;
 use slint::{Image, ModelRc, SharedString, ToSharedString as _, VecModel};
 
-use super::{Api, EditorSurfaceMode, FileTreeNode, FileTreeNodeKind, ImageAssetPreview};
+use super::{
+    Api, EditorSurfaceMode, FileTreeNode, FileTreeNodeKind, ImageAssetPreview, PreviewUiKind,
+};
 
-pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, use_editor_ui: bool) {
-    if !use_editor_ui {
+pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, ui_kind: PreviewUiKind) {
+    if !ui_kind.is_editor() {
         api.set_file_tree(Default::default());
         api.set_selected_project_file(Default::default());
         return;
@@ -96,30 +98,12 @@ fn initial_file_tree_paths() -> Option<(PathBuf, Option<PathBuf>)> {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(not(target_arch = "wasm32"))]
 fn choose_project_file() -> Option<PathBuf> {
-    use objc2::MainThreadMarker;
-    use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
-    use objc2_foundation::NSString;
-
-    let mtm = MainThreadMarker::new()?;
-    let panel = NSOpenPanel::openPanel(mtm);
-    panel.setCanChooseFiles(true);
-    panel.setCanChooseDirectories(false);
-    panel.setAllowsMultipleSelection(false);
-    panel.setTitle(Some(&NSString::from_str("Open Slint File")));
-    panel.setMessage(Some(&NSString::from_str("Choose a .slint file to edit.")));
-
-    if panel.runModal() != NSModalResponseOK {
-        return None;
-    }
-
-    panel.URLs().firstObject()?.to_file_path()
-}
-
-#[cfg(all(not(target_os = "macos"), not(target_arch = "wasm32")))]
-fn choose_project_file() -> Option<PathBuf> {
-    None
+    rfd::FileDialog::new()
+        .set_title("Open Slint File")
+        .add_filter("Slint files", &["slint"])
+        .pick_file()
 }
 
 #[cfg(target_arch = "wasm32")]

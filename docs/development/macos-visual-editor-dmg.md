@@ -206,7 +206,7 @@ To test the update path without production keys or Cloudflare, use two local
 `.app` bundles:
 
 ```sh
-./scripts/local_sparkle_update_test.bash \
+./scripts/local_sparkle_update_test.sh \
     --old-app "/path/to/old/Slint Visual Editor.app" \
     --new-app "/path/to/new/Slint Visual Editor.app"
 ```

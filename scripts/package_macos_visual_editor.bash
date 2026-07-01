@@ -4,37 +4,14 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+. "$SCRIPT_DIR/helpers.sh"
+
 APP_NAME="Slint Visual Editor"
 DMG_BASENAME="SlintVisualEditor"
 SCHEME="Slint Visual Editor"
 
-log() {
-    echo "[$(date -u '+%Y-%m-%dT%H:%M:%SZ')] $*"
-}
-
-die() {
-    echo "error: $*" >&2
-    exit 1
-}
-
-require_env() {
-    local name
-    for name in "$@"; do
-        if [ -z "${!name:-}" ]; then
-            die "$name is required"
-        fi
-    done
-}
-
-abs_path() {
-    local path="$1"
-    local dir
-
-    dir="$(cd "$(dirname "$path")" && pwd)" || return 1
-    printf "%s/%s\n" "$dir" "$(basename "$path")"
-}
-
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SPEC_PATH="$ROOT_DIR/tools/lsp/macos-project.yml"
 PROJECT_DIR="$(dirname "$SPEC_PATH")"
 PROJECT_FILE="$PROJECT_DIR/$APP_NAME.xcodeproj"
@@ -42,9 +19,12 @@ EXAMPLE_SOURCE_DIR="$PROJECT_DIR/ui/visual-editor/example"
 VERSION="${VERSION:-}"
 
 if [ -z "$VERSION" ]; then
-    VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' "$PROJECT_DIR/Cargo.toml" | head -n 1)"
+    command -v cargo >/dev/null || die "cargo is required to determine the Visual Editor version"
+    command -v jq >/dev/null || die "jq is required to determine the Visual Editor version"
+    VERSION="$(cargo metadata --format-version 1 --no-deps --manifest-path "$ROOT_DIR/Cargo.toml" | jq -r 'first(.packages[] | select(.name == "slint-lsp") | .version)')" \
+        || die "could not determine Visual Editor version from Cargo metadata"
 fi
-[ -n "$VERSION" ] || die "could not determine Visual Editor version from $PROJECT_DIR/Cargo.toml"
+[ -n "$VERSION" ] && [ "$VERSION" != "null" ] || die "could not determine Visual Editor version from Cargo metadata"
 
 BUILD_NUMBER="${BUILD_NUMBER:-${SLINT_BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-$(git -C "$ROOT_DIR" rev-list --count HEAD 2>/dev/null || echo 1)}}}"
 DIST_DIR="${DIST_DIR:-$ROOT_DIR/dist}"
@@ -430,7 +410,7 @@ create_cloudflare_root() {
 
     log "Signing Sparkle update ZIP"
     local sparkle_key_path="$RUNNER_TEMP_DIR/sparkle-ed-private-key"
-    printf "%s\n" "$EDITOR_SPARKLE_ED_PRIVATE_KEY" > "$sparkle_key_path"
+    printf "%s" "$EDITOR_SPARKLE_ED_PRIVATE_KEY" > "$sparkle_key_path"
     chmod 600 "$sparkle_key_path"
 
     local signature_output
@@ -438,16 +418,8 @@ create_cloudflare_root() {
     signature_output="$("$ROOT_DIR/sparkle-bin/sign_update" --ed-key-file "$sparkle_key_path" "$SPARKLE_UPDATE_PATH" 2>&1)" || sign_status=$?
     rm -f "$sparkle_key_path"
     if [ "$sign_status" -ne 0 ]; then
-        printf "%s\n" "$signature_output" | sed 's/[A-Za-z0-9+\/=]\{32,\}/<redacted>/g' >&2
         die "sign_update failed with status $sign_status"
     fi
-
-    local ed_signature
-    local length
-    ed_signature="$(echo "$signature_output" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')"
-    length="$(echo "$signature_output" | sed -n 's/.*length="\([0-9][0-9]*\)".*/\1/p')"
-    [ -n "$ed_signature" ] || die "sign_update did not print sparkle:edSignature"
-    [ -n "$length" ] || die "sign_update did not print length"
 
     local pub_date
     pub_date="$(date -uR)"
@@ -467,8 +439,7 @@ create_cloudflare_root() {
       <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
       <enclosure
         url="$SPARKLE_FEED_BASE_URL/$SPARKLE_UPDATE_BASENAME"
-        sparkle:edSignature="$ed_signature"
-        length="$length"
+        $signature_output
         type="application/octet-stream" />
     </item>
   </channel>
@@ -476,7 +447,7 @@ create_cloudflare_root() {
 EOF
 
     log "Cloudflare root contains:"
-    find "$CLOUDFLARE_ROOT_DIR" -maxdepth 1 -type f -print
+    ls -p1 "$CLOUDFLARE_ROOT_DIR"
 }
 
 full_package() {

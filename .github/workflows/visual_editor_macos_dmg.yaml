@@ -109,7 +109,7 @@ jobs:
 
       - name: Compute DMG name
         run: |
-          version="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "slint-lsp") | .version' | head -n 1)"
+          version="$(cargo metadata --format-version 1 --no-deps | jq -r 'first(.packages[] | select(.name == "slint-lsp") | .version)')"
           if [ -z "$version" ] || [ "$version" = "null" ]; then
               echo "Could not determine slint-lsp version from Cargo metadata" >&2
               exit 1
