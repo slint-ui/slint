@@ -444,8 +444,8 @@ create_cloudflare_root() {
 
     local ed_signature
     local length
-    ed_signature="$(echo "$signature_output" | awk -F 'sparkle:edSignature="' 'NF > 1 { split($2, parts, "\""); print parts[1]; exit }')"
-    length="$(echo "$signature_output" | awk -F 'length="' 'NF > 1 { split($2, parts, "\""); print parts[1]; exit }')"
+    ed_signature="$(echo "$signature_output" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')"
+    length="$(echo "$signature_output" | sed -n 's/.*length="\([0-9][0-9]*\)".*/\1/p')"
     [ -n "$ed_signature" ] || die "sign_update did not print sparkle:edSignature"
     [ -n "$length" ] || die "sign_update did not print length"
 

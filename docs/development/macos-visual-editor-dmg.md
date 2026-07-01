@@ -14,7 +14,7 @@ macOS hosted runner:
 The macOS 26 arm64 image defaults to Xcode 26.5, so the workflow relies on the
 image default instead of setting `DEVELOPER_DIR`.
 
-## Required CI secrets
+## CI secrets and variables
 
 Set these as GitHub Actions secrets. GitHub documents repository and
 organization secrets here:
@@ -38,42 +38,29 @@ organization secrets here:
 - `NOTARY_API_KEY_ID`: App Store Connect API key ID for `notarytool`.
 - `NOTARY_ISSUER_ID`: issuer UUID for a Team API key.
 - `EDITOR_SPARKLE_ED_PRIVATE_KEY`: exported Sparkle EdDSA private key for the
-  Visual Editor update feed.
-  Use it only for signing update archives.
-- `EDITOR_SPARKLE_PUBLIC_ED_KEY`: optional repository variable with the public
-  Sparkle EdDSA key for the app's `SUPublicEDKey`.
-  The packaging script uses the checked-in default when this variable isn't set.
+  Visual Editor update feed. Use it only for signing update archives.
+
+Optional GitHub Actions variable:
+
+- `EDITOR_SPARKLE_PUBLIC_ED_KEY`: public Sparkle EdDSA key for the app's
+  `SUPublicEDKey`. The packaging script uses the checked-in default when this
+  variable is not set.
 
 ## Sparkle Keys
 
-Install Sparkle's framework and tools:
+Install Sparkle's framework and tools, then create or inspect the Visual Editor
+key pair:
 
 ```sh
 ./scripts/download-sparkle.sh
-```
-
-Generate or look up the Visual Editor signing key:
-
-```sh
 ./sparkle-bin/generate_keys --account slint-visual-editor
-```
-
-Print the public key for `SUPublicEDKey`:
-
-```sh
 ./sparkle-bin/generate_keys --account slint-visual-editor -p
-```
-
-Export the private key for the `EDITOR_SPARKLE_ED_PRIVATE_KEY` GitHub secret:
-
-```sh
 ./sparkle-bin/generate_keys --account slint-visual-editor -x /tmp/slint-visual-editor-sparkle-private-key
 ```
 
-The export command writes the key to the file and doesn't print it.
-Use the file contents as the secret value.
-When rotating keys, update `EDITOR_SPARKLE_PUBLIC_ED_KEY` in GitHub Actions
-variables and `EDITOR_SPARKLE_ED_PRIVATE_KEY` in GitHub Actions secrets.
+The `-p` command prints the public key. The `-x` command writes the private key
+file silently; use that file's contents for `EDITOR_SPARKLE_ED_PRIVATE_KEY`.
+When rotating keys, update both the public-key variable and private-key secret.
 
 ## Generated Xcode project
 
@@ -150,13 +137,10 @@ The package driver is `scripts/package_macos_visual_editor.bash`.
     `slint-visual-editor-cloudflare-root` artifact, and the Cargo timing report
     as the `slint-visual-editor-rust-build-report` artifact.
 
-The app's `CFBundleShortVersionString`, Sparkle
-`sparkle:shortVersionString`, and artifact file names use the `slint-lsp`
-Cargo package version from `tools/lsp/Cargo.toml`.
-The app's `CFBundleVersion` and Sparkle `sparkle:version` use
-`SLINT_BUILD_NUMBER`, which comes from `github.run_number`.
-Sparkle therefore offers newer daily builds for the same Cargo package version
-as long as the build number increases.
+The app's marketing version, Sparkle `sparkle:shortVersionString`, and artifact
+names use the `slint-lsp` version from `tools/lsp/Cargo.toml`.
+The app build number and Sparkle `sparkle:version` use `SLINT_BUILD_NUMBER`,
+which comes from `github.run_number`.
 
 For local debugging, the same phases can be run individually:
 
