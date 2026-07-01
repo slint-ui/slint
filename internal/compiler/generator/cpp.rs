@@ -1785,20 +1785,25 @@ fn generate_item_tree(
     let parent_item_from_parent_component = parent_ctx.as_ref()
         .map(|parent| {
             parent.repeater_index.map_or_else(|| {
-                // No repeater index, this could be a PopupWindow
+                // No repeater index, this could be a PopupWindow. The parent may
+                // already be gone (e.g. walked while a subtree is being torn
+                // down), so leave `*result` empty rather than unwrapping a dead
+                // weak (matches the Rust backend).
                 vec![
                     format!("auto self = reinterpret_cast<const {item_tree_class_name}*>(component.instance);"),
-                    format!("auto parent = self->parent.lock().value();"),
+                    format!("if (auto parent = self->parent.lock()) {{"),
                     // TODO: store popup index in ctx and set it here instead of 0?
-                    format!("*result = {{ parent->self_weak, 0 }};"),
+                    format!("    *result = {{ (*parent)->self_weak, 0 }};"),
+                    format!("}}"),
                     ]
                 }, |idx| {
                 let current_sub_component = &root.sub_components[parent.sub_component];
                 let parent_index = current_sub_component.repeated[idx].index_in_tree;
                 vec![
                     format!("auto self = reinterpret_cast<const {item_tree_class_name}*>(component.instance);"),
-                    format!("auto parent = self->parent.lock().value();"),
-                    format!("*result = {{ parent->self_weak, parent->tree_index_of_first_child + {} }};", parent_index - 1),
+                    format!("if (auto parent = self->parent.lock()) {{"),
+                    format!("    *result = {{ (*parent)->self_weak, (*parent)->tree_index_of_first_child + {} }};", parent_index - 1),
+                    format!("}}"),
                 ]
             })
         })
