@@ -69,6 +69,8 @@ SPARKLE_UPDATE_BASENAME="$DMG_BASENAME-$VERSION-$BUILD_NUMBER-macos-arm64.zip"
 SPARKLE_UPDATE_PATH="$CLOUDFLARE_ROOT_DIR/$SPARKLE_UPDATE_BASENAME"
 SPARKLE_APPCAST_PATH="$CLOUDFLARE_ROOT_DIR/appcast.xml"
 SPARKLE_FEED_BASE_URL="https://visual-editor.slint.dev"
+APP_NOTARY_ZIP_PATH="$BUILD_DIR/$DMG_BASENAME-$VERSION-$BUILD_NUMBER-macos-arm64-notary.zip"
+APP_NOTARY_LOG="$BUILD_DIR/app-notarization-log.json"
 DMG_ATTACHED=0
 
 cleanup() {
@@ -300,6 +302,45 @@ notarize_and_staple_dmg() {
     log "DMG notarized and stapled"
 }
 
+notarize_and_staple_app() {
+    [ -d "$STAGED_APP_PATH" ] || die "staged app missing: $STAGED_APP_PATH"
+    rm -f "$APP_NOTARY_ZIP_PATH" "$APP_NOTARY_LOG"
+
+    log "Creating temporary app ZIP for notarization"
+    ditto -c -k --sequesterRsrc --keepParent "$STAGED_APP_PATH" "$APP_NOTARY_ZIP_PATH"
+
+    log "Submitting app ZIP for notarization"
+    xcrun notarytool submit "$APP_NOTARY_ZIP_PATH" \
+        --key "$NOTARY_KEY_PATH" \
+        --key-id "$NOTARY_API_KEY_ID" \
+        --issuer "$NOTARY_ISSUER_ID" \
+        --wait \
+        --output-format json \
+        > "$APP_NOTARY_LOG"
+
+    log "Reading app notarization result from $APP_NOTARY_LOG"
+    local status
+    status="$(plutil -extract status raw -o - "$APP_NOTARY_LOG" 2>/dev/null || true)"
+    if [ "$status" != "Accepted" ]; then
+        cat "$APP_NOTARY_LOG" >&2
+        die "app notarization status was ${status:-unknown}, expected Accepted"
+    fi
+
+    log "Stapling notarization ticket to app"
+    xcrun stapler staple "$STAGED_APP_PATH"
+    log "Validating stapled app notarization ticket"
+    xcrun stapler validate "$STAGED_APP_PATH"
+
+    log "Verifying stapled app code signature"
+    codesign --verify --deep --strict --verbose=2 "$STAGED_APP_PATH"
+
+    log "Assessing stapled app with spctl"
+    spctl -a -vv -t exec "$STAGED_APP_PATH"
+
+    rm -f "$APP_NOTARY_ZIP_PATH"
+    log "App notarized and stapled"
+}
+
 assess_stapled_app() {
     log "Mounting DMG for Gatekeeper assessment"
     rm -rf "$MOUNT_DIR"
@@ -443,6 +484,7 @@ full_package() {
     install_signing_material
     archive_app
     stage_and_sign_app
+    notarize_and_staple_app
     create_cloudflare_root
     create_dmg
     sign_dmg
@@ -470,6 +512,10 @@ case "$COMMAND" in
     stage-and-sign-app)
         validate_environment
         stage_and_sign_app
+        ;;
+    notarize-and-staple-app)
+        validate_environment
+        notarize_and_staple_app
         ;;
     create-cloudflare-root)
         create_cloudflare_root
@@ -514,5 +560,8 @@ case "$COMMAND" in
         ;;
     create-cloudflare-root)
         log "Cloudflare root path: $CLOUDFLARE_ROOT_DIR"
+        ;;
+    notarize-and-staple-app)
+        log "App notarization log path: $APP_NOTARY_LOG"
         ;;
 esac
