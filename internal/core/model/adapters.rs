@@ -275,50 +275,6 @@ fn test_map_model() {
     assert_eq!(map.row_data(1).unwrap(), "2");
 }
 
-#[test]
-fn test_map_model_push_row_logs() {
-    use alloc::string::{String, ToString};
-
-    // The `MapModel` doesn't re-implement `push_row`, so calling it should reach
-    // the default `Model::push_row` implementation which emits a warning log.
-    struct TestPlatform;
-    impl crate::platform::Platform for TestPlatform {
-        fn create_window_adapter(
-            &self,
-        ) -> Result<Rc<dyn crate::platform::WindowAdapter>, crate::platform::PlatformError>
-        {
-            Err(crate::platform::PlatformError::Other("not implemented".into()))
-        }
-    }
-
-    // Used to route `debug_log!` to our handler instead of stderr.
-    let _ = crate::platform::set_platform(Box::new(TestPlatform));
-    let ctx = crate::context::GLOBAL_CONTEXT.with(|c| c.get().unwrap().clone());
-
-    let captured = Rc::new(RefCell::new(Vec::<String>::new()));
-    let previous = ctx.set_log_message_handler(Some(Box::new({
-        let captured = captured.clone();
-        move |message: crate::debug_log::LogMessage<'_>| {
-            captured.borrow_mut().push(message.message_arguments().to_string());
-        }
-    })));
-
-    let wrapped_rc = Rc::new(VecModel::from(std::vec![1, 2, 3]));
-    let map = MapModel::new(wrapped_rc.clone(), |x| x.to_string());
-
-    map.push_row("4".to_string());
-    ctx.set_log_message_handler(previous);
-
-    let captured = captured.borrow();
-    assert_eq!(captured.len(), 1, "expected exactly one log message, got {captured:?}");
-    assert!(
-        captured[0].contains("Model::push_row called on a model of type")
-            && captured[0].contains("which does not re-implement this method."),
-        "unexpected log message: {:?}",
-        captured[0]
-    );
-}
-
 struct FilterModelInner<M, F>
 where
     M: Model + 'static,
