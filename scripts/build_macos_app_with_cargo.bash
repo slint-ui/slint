@@ -35,12 +35,18 @@ while [[ $# -gt 0 ]]; do
             ;;
         --*)
             break
+            ;;
         *)
             usage
             exit 2
             ;;
     esac
 done
+
+if [ -z "${CARGO_TARGET_NAME}" ]; then
+    usage
+    exit 2
+fi
 
 if [ -z "${TARGET_BUILD_DIR:-}" ] || [ -z "${EXECUTABLE_PATH:-}" ]; then
     echo "error: TARGET_BUILD_DIR and EXECUTABLE_PATH must be provided by Xcode" >&2
