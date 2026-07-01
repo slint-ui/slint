@@ -3828,9 +3828,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
     match expr {
         Expression::StringLiteral(s) => shared_string_literal(s),
         Expression::NumberLiteral(num) => {
-            if !num.is_finite() {
-                // just print something
-                "0.0".to_string()
+            if num.is_nan() {
+                "std::numeric_limits<double>::quiet_NaN()".to_string()
+            } else if num.is_infinite() {
+                if *num > 0. {
+                    "std::numeric_limits<double>::infinity()".to_string()
+                } else {
+                    "-std::numeric_limits<double>::infinity()".to_string()
+                }
             } else if num.abs() > 1_000_000_000. {
                 // If the numbers are too big, decimal notation will give too many digit
                 format!("{num:+e}")
@@ -3924,7 +3929,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let f = compile_expression(from, ctx);
             match (from.ty(ctx), to) {
                 (Type::Float32, Type::Int32) => {
-                    format!("static_cast<int>({f})")
+                    format!("slint::private_api::saturating_float_to_int({f})")
                 }
                 (from, Type::String) if from.as_unit_product().is_some() => {
                     format!("slint::SharedString::from_number({f})")

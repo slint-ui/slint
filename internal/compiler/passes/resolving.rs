@@ -20,7 +20,7 @@ use crate::symbol_counters::SymbolCounters;
 use crate::typeregister::TypeRegister;
 use core::num::IntErrorKind;
 use smol_str::{SmolStr, ToSmolStr};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::rc::Rc;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -1864,7 +1864,7 @@ impl Expression {
         node: syntax_nodes::ObjectLiteral,
         ctx: &mut LookupCtx,
     ) -> Expression {
-        let values: HashMap<SmolStr, Expression> = node
+        let values: BTreeMap<SmolStr, Expression> = node
             .ObjectMember()
             .map(|n| {
                 (

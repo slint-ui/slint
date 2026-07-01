@@ -435,6 +435,7 @@ objfile
 Octa
 oklch
 oldsyspath
+optipng
 ospi
 othercomp
 ovmf

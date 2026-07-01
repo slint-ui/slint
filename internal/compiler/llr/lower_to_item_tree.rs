@@ -627,12 +627,23 @@ fn lower_sub_component(
         None,
     )
     .into();
+    // Measure the root's height for its preferred width, not an unbounded one, so a
+    // height-for-width Image doesn't report infinite height (mirrors the interpreter).
+    let v_cross_constraint = component
+        .root_element
+        .borrow()
+        .layout_info_v_with_constraint
+        .is_some()
+        .then(|| {
+            super::lower_layout_expression::default_cross_axis_constraint(&component.root_element)
+        })
+        .flatten();
     sub_component.layout_info_v = super::lower_layout_expression::get_layout_info(
         &component.root_element,
         &mut ctx,
         &component.root_constraints.borrow(),
         crate::layout::Orientation::Vertical,
-        None,
+        v_cross_constraint,
     )
     .into();
     // For repeated elements in a FlexboxLayout, generate code to read flex properties
