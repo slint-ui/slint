@@ -94,4 +94,55 @@ assert_eq!(instance.get_sheet_visible(), true);
 assert_eq!(instance.get_panel_x(), 50., "Complete panel is visible. So position is 100px - 50px");
 ```
 
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_panel_x(), -1.);
+assert_eq(instance.get_sheet_visible(), false);
+instance.invoke_show_sheet();
+slint_testing::mock_elapsed_time(0); // Required to trigger instantiating the sheet
+assert_eq(instance.get_sheet_visible(), true);
+
+int wait_time_ms = 10;
+slint_testing::mock_elapsed_time(wait_time_ms); // 0 is not possible because then the animation does not start
+
+assert_eq(instance.get_panel_x(), 100. - 50. * wait_time_ms / 1000.);
+
+slint_testing::mock_elapsed_time(500 - wait_time_ms);
+
+assert_eq(instance.get_sheet_visible(), true);
+assert_eq(instance.get_panel_x(), 75.); // Half of the panel is visible (50px / 2 = 25px). So position is 100px - 25px
+
+slint_testing::mock_elapsed_time(500);
+
+assert_eq(instance.get_sheet_visible(), true);
+assert_eq(instance.get_panel_x(), 50.); // Complete panel is visible. So position is 100px - 50px
+```
+
+```js
+var instance = new slint.TestCase({});
+
+assert.equal(instance.panel_x, -1.);
+assert.equal(instance.sheet_visible, false);
+instance.show_sheet();
+slintlib.private_api.mock_elapsed_time(0); // Required to trigger instantiating the sheet
+assert.equal(instance.sheet_visible, true);
+
+let wait_time_ms = 10;
+slintlib.private_api.mock_elapsed_time(wait_time_ms); // 0 is not possible because then the animation does not start
+
+assert.equal(instance.panel_x, 100. - 50. * wait_time_ms / 1000.);
+
+slintlib.private_api.mock_elapsed_time(500 - wait_time_ms);
+
+assert.equal(instance.sheet_visible, true);
+assert.equal(instance.panel_x, 75.); // Half of the panel is visible (50px / 2 = 25px). So position is 100px - 25px
+
+slintlib.private_api.mock_elapsed_time(500);
+
+assert.equal(instance.sheet_visible, true);
+assert.equal(instance.panel_x, 50.); // Complete panel is visible. So position is 100px - 50px
+```
+
 */
