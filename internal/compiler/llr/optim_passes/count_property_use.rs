@@ -129,6 +129,7 @@ pub fn count_property_use(root: &CompilationUnit) {
             timer.interval.borrow().visit_property_references(ctx, &mut visit_property);
             timer.running.borrow().visit_property_references(ctx, &mut visit_property);
             timer.triggered.borrow().visit_property_references(ctx, &mut visit_property);
+            timer.repeat.borrow().visit_property_references(ctx, &mut visit_property);
         }
     });
 
