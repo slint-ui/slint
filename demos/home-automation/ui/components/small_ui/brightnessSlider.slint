@@ -1,0 +1,79 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// SPDX-License-Identifier: MIT
+
+import { LightsTheme } from "lightsTheme.slint";
+import { AppState } from "../../appState.slint";
+
+export component BrightnessSlider inherits Rectangle {
+    in-out property <float> value: 82;
+    property <length> icon-section-width: 72px;
+    property <length> track-x: 88px;
+    property <length> track-width: 600px;
+
+    border-radius: 14px;
+    border-width: 2px;
+    border-color: LightsTheme.panel-border-soft;
+    background: #151020a8;
+
+    Rectangle {
+        width: icon-section-width;
+        height: 100%;
+        border-radius: root.border-radius;
+        background: #ffffff03;
+    }
+
+    Rectangle {
+        x: icon-section-width;
+        width: 1px;
+        height: 100%;
+        background: #6b5b8854;
+    }
+
+    Image {
+        x: 18px;
+        y: 18px;
+        width: 36px;
+        height: 36px;
+        source: @image-url("../../images/brightness.svg");
+        colorize: LightsTheme.muted-text;
+    }
+
+    track := Rectangle {
+        x: root.track-x;
+        width: root.track-width;
+        height: 41px;
+        border-radius: 20px;
+        border-width: 1px;
+        border-color: #ffffff22;
+        background: #ffffff12;
+        clip: true;
+
+        property <length> fill-width: self.width * root.value / 100;
+
+        Rectangle {
+            x: 0px;
+            width: track.fill-width;
+            height: 100%;
+            border-radius: track.border-radius;
+            background: @linear-gradient(90deg, #c8a0ff 0%, #fffaff 100%);
+        }
+    }
+
+    TouchArea {
+        x: root.track-x;
+        y: 8px;
+        width: root.track-width;
+        height: 58px;
+        mouse-cursor: MouseCursor.pointer;
+
+        clicked => {
+            root.value = Math.clamp(self.mouse-x / self.width * 100, 10, 100);
+        }
+
+        moved => {
+            root.value = Math.clamp(self.mouse-x / self.width * 100, 10, 100);
+        }
+    }
+}

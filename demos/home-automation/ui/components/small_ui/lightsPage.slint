@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// SPDX-License-Identifier: MIT
+
+import { HeroLightCard } from "heroLightCard.slint";
+import { RoomCard } from "roomCard.slint";
+
+export component LightsPage inherits Rectangle {
+    in-out property <float> brightness: 82;
+
+    HeroLightCard {
+        x: 0px;
+        y: 0px;
+        width: 780px;
+        height: 289px;
+        brightness <=> root.brightness;
+    }
+
+    RoomCard {
+        x: 0px;
+        y: 310px;
+        width: 375px;
+        height: 181px;
+        room-name: "Back Porch";
+        state-label: "70%";
+        active: true;
+    }
+
+    RoomCard {
+        x: 390px;
+        y: 310px;
+        width: 390px;
+        height: 181px;
+        room-name: "Yard";
+        state-label: "Off";
+    }
+}
