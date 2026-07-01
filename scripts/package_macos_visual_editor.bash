@@ -69,6 +69,7 @@ SPARKLE_UPDATE_BASENAME="$DMG_BASENAME-$VERSION-$BUILD_NUMBER-macos-arm64.zip"
 SPARKLE_UPDATE_PATH="$CLOUDFLARE_ROOT_DIR/$SPARKLE_UPDATE_BASENAME"
 SPARKLE_APPCAST_PATH="$CLOUDFLARE_ROOT_DIR/appcast.xml"
 SPARKLE_FEED_BASE_URL="https://visual-editor.slint.dev"
+export EDITOR_SPARKLE_PUBLIC_ED_KEY="${EDITOR_SPARKLE_PUBLIC_ED_KEY:-Ncon335q8qNLM0D+L2my+HRIAXmNtNb6uGNmUR0yG2o=}"
 APP_NOTARY_ZIP_PATH="$BUILD_DIR/$DMG_BASENAME-$VERSION-$BUILD_NUMBER-macos-arm64-notary.zip"
 APP_NOTARY_LOG="$BUILD_DIR/app-notarization-log.json"
 DMG_ATTACHED=0
@@ -443,13 +444,13 @@ create_cloudflare_root() {
 
     local ed_signature
     local length
-    ed_signature="$(printf "%s\n" "$signature_output" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')"
-    length="$(printf "%s\n" "$signature_output" | sed -n 's/.*length="\([0-9][0-9]*\)".*/\1/p')"
+    ed_signature="$(echo "$signature_output" | sed 's/.*sparkle:edSignature="\([^"]*\)".*/\1/; t; d')"
+    length="$(echo "$signature_output" | sed 's/.*length="\([0-9][0-9]*\)".*/\1/; t; d')"
     [ -n "$ed_signature" ] || die "sign_update did not print sparkle:edSignature"
     [ -n "$length" ] || die "sign_update did not print length"
 
     local pub_date
-    pub_date="$(date -u '+%a, %d %b %Y %H:%M:%S +0000')"
+    pub_date="$(date -uR)"
 
     log "Writing Sparkle appcast at $SPARKLE_APPCAST_PATH"
     cat > "$SPARKLE_APPCAST_PATH" <<EOF

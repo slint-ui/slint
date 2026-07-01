@@ -36,6 +36,7 @@ jobs:
       NOTARY_API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
       NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
       EDITOR_SPARKLE_ED_PRIVATE_KEY: ${{ secrets.EDITOR_SPARKLE_ED_PRIVATE_KEY }}
+      EDITOR_SPARKLE_PUBLIC_ED_KEY: ${{ vars.EDITOR_SPARKLE_PUBLIC_ED_KEY }}
       SPARKLE_FRAMEWORK_DIR: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v6
