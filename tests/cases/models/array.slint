@@ -100,10 +100,12 @@ auto empty_model = instance.get_empty_ints();
 assert_eq(slint::private_api::model_length(empty_model), 0);
 instance.invoke_push_one_empty(1);
 assert_eq(slint::private_api::model_length(empty_model), 0);
+assert_eq(slint::private_api::model_length(instance.get_empty_ints()), 0);
 instance.invoke_remove_one_empty();
-assert_eq(slint::private_api::model_length(empty_model), 0);
+assert_eq(slint::private_api::model_length(instance.get_empty_ints()), 0);
 instance.invoke_insert_one_empty();
 assert_eq(slint::private_api::model_length(empty_model), 0);
+assert_eq(slint::private_api::model_length(instance.get_empty_ints()), 0);
 ```
 
 
