@@ -246,4 +246,82 @@ assert.equal(model.rowCount(), 0);
 instance.insert_one_empty();
 assert.equal(model.rowCount(), 0);
 ```
+
+////////// Test with read-only model and check for logs.
+```cpp
+// A read-only model: it doesn't override push_row/insert_row/remove_row,
+// so mutating operations coming from .slint are no-ops that only log a warning
+struct ReadOnlyModel : slint::Model<int> {
+    std::size_t row_count() const override { return 3; }
+    std::optional<int> row_data(std::size_t row) const override {
+        return row < 3 ? std::make_optional(int(10 * (row + 1))) : std::nullopt;
+    }
+};
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+auto read_only = std::make_shared<ReadOnlyModel>();
+instance.set_ints(read_only);
+assert_eq(instance.get_num_ints(), 3);
+assert_eq(instance.get_third_int(), 30);
+
+instance.invoke_push_one(40);
+assert_eq(instance.get_num_ints(), 3);
+
+instance.invoke_remove_one(0);
+assert_eq(instance.get_num_ints(), 3);
+
+instance.invoke_insert_one(1, 40);
+assert_eq(instance.get_num_ints(), 3);
+assert_eq(instance.get_third_int(), 30);
+assert_eq(read_only->row_count(), 3);
+```
+
+```rust
+// A read-only model: it doesn't re-implement push_row/insert_row/remove_row,
+// so mutating operations coming from .slint are no-ops that only log a warning
+struct ReadOnlyModel;
+impl slint::Model for ReadOnlyModel {
+    type Data = i32;
+    fn row_count(&self) -> usize { 3 }
+    fn row_data(&self, row: usize) -> Option<i32> {
+        [10, 20, 30].get(row).copied()
+    }
+    fn model_tracker(&self) -> &dyn slint::ModelTracker { &() }
+}
+
+
+let instance = TestCase::new().unwrap();
+
+let read_only = std::rc::Rc::new(ReadOnlyModel);
+instance.set_ints(slint::ModelRc::from(read_only.clone()));
+assert_eq!(instance.get_num_ints(), 3);
+assert_eq!(instance.get_third_int(), 30);
+
+// Drain any log messages emitted before invoking the three methods.
+slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
+
+instance.invoke_push_one(40);
+assert_eq!(instance.get_num_ints(), 3);
+let logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
+assert_eq!(logs.len(), 1, "Expected one push_row log, got: {logs:?}");
+assert!(logs[0].contains("Model::push_row called on a model of type"));
+assert!(logs[0].contains("which does not re-implement this method. This happens when trying to modify a read-only model"));
+
+instance.invoke_remove_one(0);
+assert_eq!(instance.get_num_ints(), 3);
+let logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
+assert_eq!(logs.len(), 1, "Expected one remove_row log, got: {logs:?}");
+assert!(logs[0].contains("Model::remove_row called on a model of type"));
+assert!(logs[0].contains("which does not re-implement this method. This happens when trying to modify a read-only model"));
+
+instance.invoke_insert_one(1, 40);
+assert_eq!(instance.get_num_ints(), 3);
+assert_eq!(instance.get_third_int(), 30);
+let logs = slint_testing::access_testing_window(instance.window(), |w| w.take_debug_log());
+assert_eq!(logs.len(), 1, "Expected one insert_row log, got: {logs:?}");
+assert!(logs[0].contains("Model::insert_row called on a model of type"));
+assert!(logs[0].contains("which does not re-implement this method. This happens when trying to modify a read-only model"));
+```
 */
