@@ -38,6 +38,7 @@ use user_settings::{PREVIEW_SETTINGS_FILE, PreviewUserSettings};
 use crate::wasm_prelude::*;
 
 pub mod connector;
+pub use ui::PreviewUiKind;
 
 mod debug;
 mod drop_location;
@@ -61,10 +62,10 @@ pub mod user_settings;
 pub fn run(
     to_lsp: Rc<dyn common::PreviewToLsp>,
     fullscreen: bool,
-    use_editor_ui: bool,
+    ui_kind: PreviewUiKind,
     update_url_override: Option<&str>,
 ) -> std::result::Result<(), slint::PlatformError> {
-    let app_window = ui::create_ui(&to_lsp, "", use_editor_ui)?;
+    let app_window = ui::create_ui(&to_lsp, "", ui_kind)?;
 
     // We need to put the updater here so that it stays in scope.
     // `cfg`'d out on non-mac platforms so we don't get a compiler

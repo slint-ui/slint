@@ -3,6 +3,7 @@
 //
 // cspell:ignore unwatch
 use std::{
+    path::{Path, PathBuf},
     pin::Pin,
     rc::Rc,
     sync::{Arc, atomic},
@@ -32,9 +33,7 @@ pub fn editor_main() -> std::result::Result<(), slint::PlatformError> {
     use clap::Parser;
 
     let cli = Cli::parse();
-    let Some(mut cli) = cli.with_initial_file() else {
-        return Ok(());
-    };
+    let mut cli = cli;
 
     let (to_lsp, from_preview) = crossbeam_channel::unbounded();
     let (to_preview, from_lsp) = crossbeam_channel::unbounded();
@@ -58,7 +57,7 @@ pub fn editor_main() -> std::result::Result<(), slint::PlatformError> {
 
     start_lsp_thread(from_preview, to_preview, notifier, cli);
 
-    preview::run(to_lsp, false, true, feed_url_override.as_deref())
+    preview::run(to_lsp, false, preview::PreviewUiKind::Editor, feed_url_override.as_deref())
 }
 
 // TODO: Deduplicate with main.rs
@@ -142,43 +141,6 @@ struct Cli {
     component: Option<String>,
     #[arg(long, short)]
     update_url: Option<String>,
-}
-
-impl Cli {
-    fn with_initial_file(mut self) -> Option<Self> {
-        if self.file.is_none() {
-            self.file = choose_initial_file();
-        }
-        self.file.as_ref()?;
-        Some(self)
-    }
-}
-
-#[cfg(target_os = "macos")]
-fn choose_initial_file() -> Option<String> {
-    use objc2::MainThreadMarker;
-    use objc2_app_kit::{NSModalResponseOK, NSOpenPanel};
-    use objc2_foundation::NSString;
-
-    let mtm = MainThreadMarker::new()?;
-    let panel = NSOpenPanel::openPanel(mtm);
-    panel.setCanChooseFiles(true);
-    panel.setCanChooseDirectories(false);
-    panel.setAllowsMultipleSelection(false);
-    panel.setTitle(Some(&NSString::from_str("Open Slint File")));
-    panel.setMessage(Some(&NSString::from_str("Choose a .slint file to edit.")));
-
-    if panel.runModal() != NSModalResponseOK {
-        return None;
-    }
-
-    panel.URLs().firstObject()?.to_file_path().map(|path| path.to_string_lossy().into_owned())
-}
-
-#[cfg(not(target_os = "macos"))]
-fn choose_initial_file() -> Option<String> {
-    eprintln!("No input file provided.");
-    None
 }
 
 fn start_processing_lsp_messages_thread(
@@ -343,26 +305,34 @@ async fn lsp_main(
         preview_to_lsp_sender: from_preview_tx,
     };
 
-    // Load the initial document through the compiler. This triggers the import
-    // callback for all transitive dependencies, sending their contents to the preview.
-    let file = cli.file.as_ref().expect("initial file should be resolved before startup");
-    let full_path = std::fs::canonicalize(file)
-        .map_err(|err| format!("Failed to determine full path for {file}: {err}"))?;
-    let root_path = full_path.clone();
-    let url =
-        Url::from_file_path(full_path).map_err(|_| format!("Failed to convert {file} to URL!"))?;
-    language::show_preview(
-        PreviewComponent { url: url.clone(), component: cli.component },
-        &mut ctx,
-    );
-
-    // Make sure the document is loaded before we start processing messages from the preview, so we
-    // have the correct state already loaded.
-    language::reload_document(&mut ctx, url)
-        .await
-        .map_err(|err| format!("Failed to load file: {file}: {err}"))?;
     let mut watch_paths_revision = None;
-    sync_file_watcher_if_needed(&mut file_watcher, &ctx, &root_path, &mut watch_paths_revision)?;
+    let mut project_root = None;
+
+    // Load the initial document through the compiler if the editor was launched
+    // with a file. Finder launches without a file stay on the startup wizard.
+    if let Some(file) = cli.file.as_ref() {
+        let full_path = std::fs::canonicalize(file)
+            .map_err(|err| format!("Failed to determine full path for {file}: {err}"))?;
+        let url = Url::from_file_path(full_path.clone())
+            .map_err(|_| format!("Failed to convert {file} to URL!"))?;
+        language::show_preview(
+            PreviewComponent { url: url.clone(), component: cli.component },
+            &mut ctx,
+        );
+
+        // Make sure the document is loaded before we start processing messages from the preview, so
+        // we have the correct state already loaded.
+        language::reload_document(&mut ctx, url)
+            .await
+            .map_err(|err| format!("Failed to load file: {file}: {err}"))?;
+        project_root = project_root_for_path(&full_path).map(Path::to_path_buf);
+        sync_file_watcher_if_needed(
+            &mut file_watcher,
+            &ctx,
+            project_root.as_deref().unwrap_or(&full_path),
+            &mut watch_paths_revision,
+        )?;
+    }
 
     const RECOMPILE_IDLE_TIMEOUT: Duration = Duration::from_millis(50);
     loop {
@@ -377,7 +347,12 @@ async fn lsp_main(
             }
             msg = from_preview_rx.recv() => {
                 match msg {
-                    Some(msg) => handle_preview_message(msg, &mut ctx).await,
+                    Some(msg) => {
+                        if let Some(root) = handle_preview_message(msg, &mut ctx).await {
+                            project_root = Some(root);
+                            watch_paths_revision = None;
+                        }
+                    }
                     None => {
                         tracing::debug!("Preview->LSP channel closed, exiting");
                         break Ok(());
@@ -396,12 +371,14 @@ async fn lsp_main(
             }
         }
 
-        sync_file_watcher_if_needed(
-            &mut file_watcher,
-            &ctx,
-            &root_path,
-            &mut watch_paths_revision,
-        )?;
+        if let Some(project_root) = project_root.as_deref() {
+            sync_file_watcher_if_needed(
+                &mut file_watcher,
+                &ctx,
+                project_root,
+                &mut watch_paths_revision,
+            )?;
+        }
     }
 }
 
@@ -420,7 +397,7 @@ async fn trigger_editor_file_watcher(
 fn sync_file_watcher_if_needed(
     watcher: &mut FileWatcher,
     ctx: &language::Context,
-    root_path: &std::path::Path,
+    root_path: &Path,
     watch_paths_revision: &mut Option<u64>,
 ) -> Result<()> {
     let current_revision = ctx.document_cache.revision();
@@ -442,12 +419,19 @@ fn sync_file_watcher_if_needed(
     Ok(())
 }
 
-async fn handle_preview_message(msg: PreviewToLspMessage, ctx: &mut language::Context) {
+async fn handle_preview_message(
+    msg: PreviewToLspMessage,
+    ctx: &mut language::Context,
+) -> Option<PathBuf> {
     use PreviewToLspMessage::*;
     match &msg {
         RequestState { files, settings } => {
             tracing::debug!("Preview requested state");
             let requested_preview = requested_file_tree_preview(files, settings);
+            let requested_project_root = requested_preview
+                .as_ref()
+                .and_then(|url| common::uri_to_file(url))
+                .and_then(|path| project_root_for_path(&path).map(Path::to_path_buf));
             let slint_files: Vec<_> =
                 files.iter().filter(|url| is_slint_url(url)).cloned().collect();
             for url in slint_files {
@@ -459,9 +443,11 @@ async fn handle_preview_message(msg: PreviewToLspMessage, ctx: &mut language::Co
                 ctx.to_show = Some(PreviewComponent { url, component: None });
             }
             language::send_requested_state_to_preview(ctx, files, settings);
+            requested_project_root
         }
         UpdateUserSettings { name, contents } => {
             language::store_user_settings(name, contents);
+            None
         }
         SendShowMessage { message } => {
             match message.typ {
@@ -470,9 +456,11 @@ async fn handle_preview_message(msg: PreviewToLspMessage, ctx: &mut language::Co
                 MessageType::LOG => tracing::debug!("Preview: {}", message.message),
                 _ => tracing::info!("Preview: {}", message.message),
             };
+            None
         }
         DebugMessage { location, message } => {
             eprintln!("{}", common::preview_log_message_to_string(location, message));
+            None
         }
 
         Diagnostics { .. }
@@ -482,11 +470,17 @@ async fn handle_preview_message(msg: PreviewToLspMessage, ctx: &mut language::Co
         | ConnectRemote { .. }
         | DisconnectRemote => {
             tracing::debug!("Ignoring message from preview: {msg:?}");
+            None
         }
         SendWorkspaceEdit { label, edit } => {
             handle_workspace_edit(&ctx.document_cache, label.as_deref(), edit);
+            None
         }
     }
+}
+
+fn project_root_for_path(path: &Path) -> Option<&Path> {
+    if path.is_dir() { Some(path) } else { path.parent() }
 }
 
 fn requested_file_tree_preview(files: &[Url], settings: &[String]) -> Option<Url> {

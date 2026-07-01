@@ -34,6 +34,8 @@ jobs:
       NOTARY_API_KEY_BASE64: ${{ secrets.NOTARY_API_KEY_BASE64 }}
       NOTARY_API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
       NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+      EDITOR_SPARKLE_ED_PRIVATE_KEY: ${{ secrets.EDITOR_SPARKLE_ED_PRIVATE_KEY }}
+      EDITOR_SPARKLE_PUBLIC_ED_KEY: ${{ vars.EDITOR_SPARKLE_PUBLIC_ED_KEY }}
       SPARKLE_FRAMEWORK_DIR: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v6
@@ -99,10 +101,20 @@ jobs:
       - name: Stage and sign app
         run: ./scripts/package_macos_visual_editor.bash stage-and-sign-app
 
+      - name: Notarize and staple app
+        run: ./scripts/package_macos_visual_editor.bash notarize-and-staple-app
+
+      - name: Create Cloudflare root artifact
+        run: ./scripts/package_macos_visual_editor.bash create-cloudflare-root
+
       - name: Compute DMG name
         run: |
-          version="$(sed -n 's/^version = "\(.*\)"/\1/p' tools/lsp/Cargo.toml | head -n 1)"
-          echo "SLINT_DMG_NAME=SlintVisualEditor-${version:-0.0.0}-macos-arm64" >> "$GITHUB_ENV"
+          version="$(cargo metadata --format-version 1 --no-deps | jq -r 'first(.packages[] | select(.name == "slint-lsp") | .version)')"
+          if [ -z "$version" ] || [ "$version" = "null" ]; then
+              echo "Could not determine slint-lsp version from Cargo metadata" >&2
+              exit 1
+          fi
+          echo "SLINT_DMG_NAME=SlintVisualEditor-${version}-macos-arm64" >> "$GITHUB_ENV"
 
       - name: Create DMG
         id: create-dmg
@@ -138,7 +150,15 @@ jobs:
           name: slint-visual-editor-macos-dmg
           path: |
             dist/*.dmg
+            target/macos-visual-editor-dmg/app-notarization-log.json
             target/macos-visual-editor-dmg/notarization-log.json
+          if-no-files-found: error
+
+      - name: Upload Cloudflare root artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: slint-visual-editor-cloudflare-root
+          path: dist/cloudflare-root/*
           if-no-files-found: error
 
       - name: Upload Rust build report
