@@ -2529,6 +2529,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1e0e367e4e7da84520dedcac1901e4da967309406d1e51017ae1abfb97adbd38"
 dependencies = [
  "bitflags 2.13.0",
+ "block2 0.6.2",
+ "libc",
  "objc2 0.6.4",
 ]
 
@@ -7884,6 +7886,7 @@ checksum = "e3e0adef53c21f888deb4fa59fc59f7eb17404926ee8a6f59f5df0fd7f9f3272"
 dependencies = [
  "bitflags 2.13.0",
  "block2 0.6.2",
+ "libc",
  "objc2 0.6.4",
  "objc2-core-foundation",
 ]
@@ -8620,6 +8623,12 @@ dependencies = [
  "rustix 1.1.4",
  "windows-sys 0.61.2",
 ]
+
+[[package]]
+name = "pollster"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f3a9f18d041e6d0e102a0a46750538147e5e8992d3b4873aaafee2520b00ce3"
 
 [[package]]
 name = "polycool"
@@ -9434,6 +9443,33 @@ dependencies = [
  "tiny-skia 0.12.0",
  "usvg",
  "zune-jpeg",
+]
+
+[[package]]
+name = "rfd"
+version = "0.17.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20dafead71c16a34e1ff357ddefc8afc11e7d51d6d2b9fbd07eaa48e3e540220"
+dependencies = [
+ "block2 0.6.2",
+ "dispatch2",
+ "js-sys",
+ "libc",
+ "log",
+ "objc2 0.6.4",
+ "objc2-app-kit 0.3.2",
+ "objc2-core-foundation",
+ "objc2-foundation 0.3.2",
+ "percent-encoding",
+ "pollster",
+ "raw-window-handle",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wayland-backend",
+ "wayland-client",
+ "wayland-protocols",
+ "web-sys",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -10595,6 +10631,7 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "postcard",
  "raw-window-handle",
+ "rfd",
  "send_wrapper",
  "serde",
  "serde-wasm-bindgen",
@@ -10603,6 +10640,7 @@ dependencies = [
  "slint-build",
  "slint-interpreter",
  "smol_str 0.3.2",
+ "sparklers",
  "spin_on",
  "tikv-jemallocator",
  "tokio",
@@ -10965,6 +11003,36 @@ dependencies = [
  "web-sys",
  "windows-sys 0.61.2",
  "x11rb",
+]
+
+[[package]]
+name = "sparklers"
+version = "0.1.1"
+source = "git+https://github.com/slint-ui/sparklers.git?rev=76f2b67#76f2b67b516f7efbcf11e00d704b6e94dd4c3ba8"
+dependencies = [
+ "dispatch2",
+ "log",
+ "objc2 0.6.4",
+ "objc2-app-kit 0.3.2",
+ "objc2-foundation 0.3.2",
+ "sparklers-sys",
+ "thiserror 2.0.18",
+ "url",
+]
+
+[[package]]
+name = "sparklers-find-framework"
+version = "0.1.1"
+source = "git+https://github.com/slint-ui/sparklers.git?rev=76f2b67#76f2b67b516f7efbcf11e00d704b6e94dd4c3ba8"
+
+[[package]]
+name = "sparklers-sys"
+version = "0.1.1"
+source = "git+https://github.com/slint-ui/sparklers.git?rev=76f2b67#76f2b67b516f7efbcf11e00d704b6e94dd4c3ba8"
+dependencies = [
+ "objc2 0.6.4",
+ "objc2-foundation 0.3.2",
+ "sparklers-find-framework",
 ]
 
 [[package]]

@@ -33,6 +33,18 @@ pub mod search_model;
 
 slint::include_modules!();
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PreviewUiKind {
+    Viewer,
+    Editor,
+}
+
+impl PreviewUiKind {
+    fn is_editor(self) -> bool {
+        matches!(self, Self::Editor)
+    }
+}
+
 /// Abstraction over the different window types (PreviewUi vs EditorUi).
 /// Only used for the few operations that need component-level access
 /// (window(), show(), run()). Most code should use the Api global directly.
@@ -163,9 +175,9 @@ pub fn setup_preview_user_settings(api: &Api<'_>) {
 pub fn create_ui(
     to_lsp: &Rc<dyn common::PreviewToLsp>,
     style: &str,
-    use_editor_ui: bool,
+    ui_kind: PreviewUiKind,
 ) -> Result<AppWindow, PlatformError> {
-    let app_window = if use_editor_ui {
+    let app_window = if ui_kind.is_editor() {
         AppWindow::Editor(EditorUi::new()?)
     } else {
         AppWindow::Preview(PreviewUi::new()?)
@@ -340,7 +352,7 @@ pub fn create_ui(
     brushes::setup(&api);
     log_messages::setup(&api);
     palette::setup(&api);
-    file_tree::setup(&api, api_weak.clone(), use_editor_ui);
+    file_tree::setup(&api, api_weak.clone(), ui_kind);
     recent_colors::setup(&api, api_weak);
     super::outline::setup(&api);
     super::undo_redo::setup(&api);

@@ -110,7 +110,7 @@ impl PreviewConnector {
                             )
                             .unwrap_throw();
                     } else {
-                        match ui::create_ui(&to_lsp, &style, false) {
+                        match ui::create_ui(&to_lsp, &style, ui::PreviewUiKind::Viewer) {
                             Ok(app_window) => {
                                 init_slintpad_specific_ui(&app_window.api());
                                 preview_state.borrow_mut().api = app_window.api_weak();
