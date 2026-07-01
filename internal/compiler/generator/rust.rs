@@ -2390,7 +2390,7 @@ fn generate_repeated_component(
                                 if write_idx < result.len() {
                                     // Let the inner cell report its own col/row/colspan/rowspan.
                                     if let Some(inner) = _self.as_ref().#inner_rep_id.instance_at(_i) {
-                                        inner.as_pin_ref().grid_layout_input_data(write_idx == 0 && new_row, &mut result[write_idx..=write_idx]);
+                                        inner.as_pin_ref().grid_layout_input_data(write_idx == 0 && new_row, core::slice::from_mut(&mut result[write_idx]));
                                     }
                                 }
                                 write_idx += 1;
