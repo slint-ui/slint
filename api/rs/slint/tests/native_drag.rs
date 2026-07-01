@@ -1,80 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! Native drag-and-drop handoff, driven by a custom backend whose `start_drag` takes over the
-//! drag (like Qt). The testing backend declines `start_drag`, so the `dragarea_*` cases only
-//! cover the in-window fallback.
+//! Native drag-and-drop handoff, exercised through the testing backend's native-drag
+//! simulation: `set_simulate_native_drag` makes `start_drag` take the drag over like a real
+//! backend, and the `simulate_native_drag_*` helpers drive the OS receive path.
 
-use slint::platform::software_renderer::SoftwareRenderer;
-use slint::platform::{PlatformError, PointerEventButton, WindowAdapter, WindowEvent};
-use slint::{LogicalPosition, PhysicalSize};
-use std::cell::RefCell;
-use std::rc::{Rc, Weak};
-
-use i_slint_core::InternalToken;
-use i_slint_core::window::{DragRequest, WindowAdapterInternal, WindowInner};
-use slint::private_unstable_api::re_exports::{
-    AllowedDragActions, DragAction, DropEvent, MouseEvent,
-};
-
-thread_local! {
-    static NEXT_WINDOW: RefCell<Option<Rc<TestWindow>>> = const { RefCell::new(None) };
-}
-
-struct TestPlatform;
-impl slint::platform::Platform for TestPlatform {
-    fn create_window_adapter(&self) -> Result<Rc<dyn WindowAdapter>, PlatformError> {
-        Ok(NEXT_WINDOW
-            .with(|c| c.borrow_mut().take())
-            .expect("queue a TestWindow before creating a component"))
-    }
-}
-
-/// A window adapter that takes over native drags by recording them. It never renders; the
-/// renderer only exists to satisfy the trait.
-struct TestWindow {
-    window: slint::Window,
-    renderer: SoftwareRenderer,
-    /// The data captured by `start_drag`; the cross-window test uses it to build the drop, and
-    /// its presence confirms the backend took the drag over.
-    dragged_data: RefCell<Option<slint::DataTransfer>>,
-}
-
-impl TestWindow {
-    fn new() -> Rc<Self> {
-        Rc::new_cyclic(|w: &Weak<Self>| Self {
-            window: slint::Window::new(w.clone()),
-            renderer: SoftwareRenderer::new(),
-            dragged_data: Default::default(),
-        })
-    }
-}
-
-impl WindowAdapter for TestWindow {
-    fn window(&self) -> &slint::Window {
-        &self.window
-    }
-
-    fn size(&self) -> PhysicalSize {
-        Default::default()
-    }
-
-    fn renderer(&self) -> &dyn slint::platform::Renderer {
-        &self.renderer
-    }
-
-    fn internal(&self, _: InternalToken) -> Option<&dyn WindowAdapterInternal> {
-        Some(self)
-    }
-}
-
-impl WindowAdapterInternal for TestWindow {
-    // Take over the drag and record its data; the test routes the drop itself.
-    fn start_drag(&self, request: &DragRequest) -> bool {
-        *self.dragged_data.borrow_mut() = Some(request.data().clone());
-        true
-    }
-}
+use i_slint_backend_testing::access_testing_window;
+use i_slint_core::window::WindowInner;
+use slint::LogicalPosition;
+use slint::platform::{PointerEventButton, WindowEvent};
+use slint::private_unstable_api::re_exports::DragAction;
 
 slint::slint! {
     export component Source inherits Window {
@@ -87,7 +22,6 @@ slint::slint! {
             width: 100%;
             height: 100%;
             allow-copy: true;
-            allow-move: true;
             data: to-transfer("payload-text");
             drag-finished(action) => {
                 root.finished = true;
@@ -130,8 +64,9 @@ slint::slint! {
         out property <bool> got-drop;
         out property <string> dropped-text;
         out property <bool> has-drag <=> dropper.has-drag;
+        out property <bool> dragging <=> dragger.dragging;
         VerticalLayout {
-            DragArea {
+            dragger := DragArea {
                 allow-copy: true;
                 data: to-transfer("payload-text");
                 drag-finished(action) => {
@@ -153,31 +88,20 @@ slint::slint! {
     }
 }
 
-/// Make a window adapter for the next component creation to pick up.
-fn queue_window() -> Rc<TestWindow> {
-    let window = TestWindow::new();
-    NEXT_WINDOW.with(|c| *c.borrow_mut() = Some(window.clone()));
-    window
-}
-
-/// The OS negotiates the allowed actions, so for an incoming drop let any DropArea choice through.
-const ALL_ACTIONS: AllowedDragActions = AllowedDragActions { copy: true, move_: true, link: true };
-
 #[test]
 fn native_drag_across_windows() {
-    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    i_slint_backend_testing::init_no_event_loop();
 
-    let source_window = queue_window();
     let source = Source::new().unwrap();
     source.on_to_transfer(slint::DataTransfer::from);
+    access_testing_window(source.window(), |w| w.set_simulate_native_drag(true));
 
-    queue_window();
     let target = Target::new().unwrap();
     target.on_accept(|data| data.has_plain_text());
     target.on_text_of(|data| data.plain_text().unwrap_or_default());
 
-    // Press, then move past the 8px drag threshold: this calls our `start_drag`, which takes
-    // over (so no in-window drag is armed) and records the dragged data.
+    // Press, then move past the 8px drag threshold: this calls the backend's `start_drag`,
+    // which (in simulate mode) takes the drag over and records the dragged data.
     source.window().dispatch_event(WindowEvent::PointerPressed {
         position: LogicalPosition::new(50.0, 50.0),
         button: PointerEventButton::Left,
@@ -185,33 +109,16 @@ fn native_drag_across_windows() {
     source
         .window()
         .dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(50.0, 90.0) });
-
-    let data = source_window
-        .dragged_data
-        .borrow_mut()
-        .take()
-        .expect("start_drag should have been invoked and taken over the drag");
     assert!(!source.get_finished(), "drag isn't finished until reported");
 
-    // Deliver the drag to the *target* window as a backend's receive path does: DragMove to
-    // hover, then Drop.
-    let mut event = DropEvent::default();
-    event.data = data;
-    event.position = LogicalPosition::new(50.0, 50.0);
-    event.proposed_action = DragAction::Copy;
-
-    let target_inner = WindowInner::from_pub(target.window());
-    target_inner
-        .process_mouse_input(MouseEvent::DragMove { event: event.clone(), allowed: ALL_ACTIONS });
-    assert!(target.get_has_drag(), "the DropArea should report the hovering drag");
-
-    let action = target_inner
-        .process_mouse_input(MouseEvent::Drop { event, allowed: ALL_ACTIONS })
-        .and_then(|r| r.drag_action)
-        .unwrap_or(DragAction::None);
-
-    // Report completion to the source, as the backend does when the OS drag ends.
-    WindowInner::from_pub(source.window()).report_drag_finished(action);
+    // Deliver the drag to the *target* window, as a backend does on the OS receive path:
+    // DragMove to hover, then Drop with completion reported back to the source.
+    let hover = LogicalPosition::new(50.0, 50.0);
+    let action = access_testing_window(source.window(), |w| {
+        w.simulate_native_drag_move(target.window(), hover);
+        assert!(target.get_has_drag(), "the DropArea should report the hovering drag");
+        w.simulate_native_drop(target.window(), hover)
+    });
 
     assert!(target.get_got_drop(), "the drop should have reached the target DropArea");
     assert_eq!(target.get_dropped_text(), "payload-text");
@@ -225,13 +132,13 @@ fn native_drag_across_windows() {
 // The in-window machinery then drives the drag to its drop.
 #[test]
 fn native_drag_falls_back_to_in_window() {
-    slint::platform::set_platform(Box::new(TestPlatform)).ok();
+    i_slint_backend_testing::init_no_event_loop();
 
-    let window = queue_window();
     let ui = SameWindow::new().unwrap();
     ui.on_to_transfer(slint::DataTransfer::from);
     ui.on_accept(|data| data.has_plain_text());
     ui.on_text_of(|data| data.plain_text().unwrap_or_default());
+    access_testing_window(ui.window(), |w| w.set_simulate_native_drag(true));
 
     // Start the drag on the DragArea (top half): the backend takes over and records it.
     ui.window().dispatch_event(WindowEvent::PointerPressed {
@@ -240,10 +147,7 @@ fn native_drag_falls_back_to_in_window() {
     });
     ui.window()
         .dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(50.0, 60.0) });
-    assert!(
-        window.dragged_data.borrow().is_some(),
-        "start_drag should have been invoked and taken over the drag"
-    );
+    assert!(ui.get_dragging(), "start_drag should have taken the drag over");
 
     // The native start "fails": fall back to the in-window drag, as a backend does.
     WindowInner::from_pub(ui.window()).start_in_window_drag();

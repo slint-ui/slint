@@ -180,7 +180,7 @@ pub struct DragRequest {
     pub(crate) data: crate::data_transfer::DataTransfer,
     pub(crate) allowed: crate::items::AllowedDragActions,
     pub(crate) drag_image: crate::graphics::Image,
-    pub(crate) drag_image_offset: LogicalPosition,
+    pub(crate) drag_image_offset: euclid::default::Vector2D<i32>,
 }
 
 impl DragRequest {
@@ -189,15 +189,15 @@ impl DragRequest {
         &self.data
     }
     /// The set of actions the drag source permits.
-    pub fn allowed(&self) -> crate::items::AllowedDragActions {
+    pub fn allowed_actions(&self) -> crate::items::AllowedDragActions {
         self.allowed
     }
     /// The image to show under the cursor while dragging.
     pub fn drag_image(&self) -> &crate::graphics::Image {
         &self.drag_image
     }
-    /// The offset of the drag image relative to the cursor.
-    pub fn drag_image_offset(&self) -> LogicalPosition {
+    /// The offset of the drag image relative to the cursor, in pixels.
+    pub fn drag_image_offset(&self) -> euclid::default::Vector2D<i32> {
         self.drag_image_offset
     }
 }
@@ -206,7 +206,7 @@ impl DragRequest {
 /// The backend sees only the [`DragRequest`]; the source and seed position stay here to report
 /// completion and to arm the in-window fallback.
 #[derive(Clone)]
-pub(crate) struct PendingDrag {
+pub(crate) struct NativePendingDrag {
     pub(crate) request: DragRequest,
     /// The `DragArea` that initiated the drag.
     pub(crate) source: ItemWeak,
@@ -599,7 +599,7 @@ pub struct WindowInner {
     /// It holds the source and seed position to report completion and to arm the in-window
     /// fallback, and lets a drop back onto this same window restore the source's `DataTransfer`:
     /// the OS round-trip can't carry in-app `user_data`.
-    native_drag: RefCell<Option<PendingDrag>>,
+    native_drag: RefCell<Option<NativePendingDrag>>,
 }
 
 impl Drop for WindowInner {
@@ -1048,7 +1048,7 @@ impl WindowInner {
 
     /// Remember (or clear) the in-flight native drag, so a backend can report completion or fall
     /// back, and a drop back onto this window can restore the data. Set by `offer_native_drag`.
-    pub(crate) fn set_native_drag(&self, drag: Option<PendingDrag>) {
+    pub(crate) fn set_native_drag(&self, drag: Option<NativePendingDrag>) {
         *self.native_drag.borrow_mut() = drag;
     }
 

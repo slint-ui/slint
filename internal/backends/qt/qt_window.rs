@@ -2478,10 +2478,11 @@ impl WindowAdapterInternal for QtWindow {
 
         let drag_pixmap =
             image_to_pixmap(<&ImageInner>::from(request.drag_image()), None).unwrap_or_default();
-        let offset_x = request.drag_image_offset().x as i32;
-        let offset_y = request.drag_image_offset().y as i32;
+        let offset = request.drag_image_offset();
+        let offset_x = offset.x;
+        let offset_y = offset.y;
 
-        let allowed = request.allowed();
+        let allowed = request.allowed_actions();
         let allow_copy = allowed.copy;
         let allow_move = allowed.move_;
         let allow_link = allowed.link;

@@ -1335,15 +1335,15 @@ fn offer_native_drag(
             data: data.clone(),
             allowed: drag_area.allowed_actions(),
             drag_image: drag_area.drag_image(),
-            drag_image_offset: crate::api::LogicalPosition::new(
-                drag_area.drag_image_offset_x() as f32,
-                drag_area.drag_image_offset_y() as f32,
+            drag_image_offset: euclid::vec2(
+                drag_area.drag_image_offset_x(),
+                drag_area.drag_image_offset_y(),
             ),
         };
         if window_adapter.internal(crate::InternalToken).is_some_and(|i| i.start_drag(&request)) {
             // The backend took over (and defers the actual drag). Stash it so it can report
             // completion or fall back, and so a drop back onto this window restores the data.
-            let drag = crate::window::PendingDrag { request, source, seed_position };
+            let drag = crate::window::NativePendingDrag { request, source, seed_position };
             crate::window::WindowInner::from_pub(window_adapter.window())
                 .set_native_drag(Some(drag));
             drag_area.dragging.set(true);
