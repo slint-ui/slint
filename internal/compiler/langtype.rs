@@ -778,7 +778,7 @@ pub struct NativeClass {
     pub parent: Option<Rc<NativeClass>>,
     pub class_name: SmolStr,
     pub cpp_vtable_getter: String,
-    pub properties: HashMap<SmolStr, BuiltinPropertyInfo>,
+    pub properties: BTreeMap<SmolStr, BuiltinPropertyInfo>,
     pub deprecated_aliases: HashMap<SmolStr, SmolStr>,
     /// Type override if class_name is not equal to the name to be used in the
     /// target language API.
