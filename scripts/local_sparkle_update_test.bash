@@ -144,7 +144,7 @@ sparkle_public_key() {
     local output
     output="$("$ROOT_DIR/sparkle-bin/generate_keys" --account "$ACCOUNT" -p)"
     printf "%s\n" "$output" |
-        sed -n 's/.*SUPublicEDKey="\([^"]*\)".*/\1/p; s/.*SUPublicEDKey: *\([^ ]*\).*/\1/p' |
+        sed -n 's/.*SUPublicEDKey="\([^"]*\)".*/\1/p; s/.*SUPublicEDKey: *\([^ ]*\).*/\1/p; s|.*<string>\([^<]*\)</string>.*|\1|p; /^[A-Za-z0-9+\/][A-Za-z0-9+\/=]*=$/p' |
         head -n 1
 }
 
@@ -165,7 +165,7 @@ patch_app() {
     plutil -replace SUFeedURL -string "$feed_url" "$plist"
     plutil -replace SUPublicEDKey -string "$public_key" "$plist"
 
-    codesign --force --deep --options runtime --sign - "$app"
+    codesign --force --deep --sign - "$app"
 }
 
 reset_sparkle_defaults() {
