@@ -17,7 +17,6 @@ env:
   MACOSX_DEPLOYMENT_TARGET: "12.0"
   CARGO_INCREMENTAL: false
   MACOS_CARGO_TIMINGS: "1"
-  VERSION: "1.17.1"
   SLINT_BUILD_NUMBER: ${{ github.run_number }}
 
 jobs:
@@ -110,7 +109,12 @@ jobs:
 
       - name: Compute DMG name
         run: |
-          echo "SLINT_DMG_NAME=SlintVisualEditor-${VERSION:-0.0.0}-macos-arm64" >> "$GITHUB_ENV"
+          version="$(cargo metadata --format-version 1 --no-deps | jq -r '.packages[] | select(.name == "slint-lsp") | .version' | head -n 1)"
+          if [ -z "$version" ] || [ "$version" = "null" ]; then
+              echo "Could not determine slint-lsp version from Cargo metadata" >&2
+              exit 1
+          fi
+          echo "SLINT_DMG_NAME=SlintVisualEditor-${version}-macos-arm64" >> "$GITHUB_ENV"
 
       - name: Create DMG
         id: create-dmg

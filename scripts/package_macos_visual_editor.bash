@@ -44,7 +44,7 @@ VERSION="${VERSION:-}"
 if [ -z "$VERSION" ]; then
     VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' "$PROJECT_DIR/Cargo.toml" | head -n 1)"
 fi
-VERSION="${VERSION:-0.0.0}"
+[ -n "$VERSION" ] || die "could not determine Visual Editor version from $PROJECT_DIR/Cargo.toml"
 
 BUILD_NUMBER="${BUILD_NUMBER:-${SLINT_BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-$(git -C "$ROOT_DIR" rev-list --count HEAD 2>/dev/null || echo 1)}}}"
 DIST_DIR="${DIST_DIR:-$ROOT_DIR/dist}"
@@ -444,8 +444,8 @@ create_cloudflare_root() {
 
     local ed_signature
     local length
-    ed_signature="$(echo "$signature_output" | sed 's/.*sparkle:edSignature="\([^"]*\)".*/\1/; t; d')"
-    length="$(echo "$signature_output" | sed 's/.*length="\([0-9][0-9]*\)".*/\1/; t; d')"
+    ed_signature="$(echo "$signature_output" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')"
+    length="$(echo "$signature_output" | sed -n 's/.*length="\([0-9][0-9]*\)".*/\1/p')"
     [ -n "$ed_signature" ] || die "sign_update did not print sparkle:edSignature"
     [ -n "$length" ] || die "sign_update did not print length"
 
