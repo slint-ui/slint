@@ -1108,6 +1108,10 @@ pub struct ListViewInfo {
     pub listview_height: NamedReference,
     /// The ListView's inner visible width (not counting eventual scrollbar)
     pub listview_width: NamedReference,
+    /// True if viewport-width was explicitly set in the Slint source
+    pub viewport_width_is_const: bool,
+    /// True if viewport-height was explicitly set in the Slint source
+    pub viewport_height_is_const: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -2003,6 +2007,20 @@ impl Element {
         let is_listview = if parent_is_listview
             && let Some(geometry_props) = e.borrow().geometry_props.as_ref()
         {
+            let parent_elem = parent.borrow();
+            // Check if viewport-width and viewport-height are explicitly set by the user
+            let viewport_width_is_explicitly_set = parent_elem
+                .bindings
+                .get("viewport-width")
+                .map(|b| b.borrow().has_binding())
+                .unwrap_or(false);
+            let viewport_height_is_explicitly_set = parent_elem
+                .bindings
+                .get("viewport-height")
+                .map(|b| b.borrow().has_binding())
+                .unwrap_or(false);
+            drop(parent_elem); // Drop the borrow before creating NamedReference
+
             let lvi = ListViewInfo {
                 viewport_y: NamedReference::new(parent, SmolStr::new_static("viewport-y")),
                 viewport_height: NamedReference::new(
@@ -2012,6 +2030,8 @@ impl Element {
                 viewport_width: NamedReference::new(parent, SmolStr::new_static("viewport-width")),
                 listview_height: NamedReference::new(parent, SmolStr::new_static("visible-height")),
                 listview_width: NamedReference::new(parent, SmolStr::new_static("visible-width")),
+                viewport_width_is_const: viewport_width_is_explicitly_set,
+                viewport_height_is_const: viewport_height_is_explicitly_set,
             };
             // these properties are set by the ListView layouting code
             lvi.viewport_height.mark_as_set();
