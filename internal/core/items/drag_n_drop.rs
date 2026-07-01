@@ -262,6 +262,13 @@ impl DragArea {
         };
         (event, allowed)
     }
+
+    /// Clear the `dragging` flag and fire the `drag-finished` callback with the final negotiated
+    /// action. Shared by the in-window drag path and the native backends.
+    pub(crate) fn finish_drag(self: Pin<&Self>, action: DragAction) {
+        self.dragging.set(false);
+        Self::FIELD_OFFSETS.drag_finished().apply_pin(self).call(&(action,));
+    }
 }
 
 #[repr(C)]
@@ -407,7 +414,7 @@ impl ItemConsts for DropArea {
 /// Compute the action proposed by the user's current modifier state, clamped to the source's
 /// allowed actions. Ctrl alone → copy, Shift alone → move, Ctrl+Shift → link, no modifier →
 /// the first allowed of move/copy/link.
-pub(crate) fn compute_proposed_action(
+pub fn compute_proposed_action(
     modifiers: KeyboardModifiers,
     allowed_actions: AllowedDragActions,
 ) -> DragAction {
