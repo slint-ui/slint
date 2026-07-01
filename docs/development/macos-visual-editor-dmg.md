@@ -14,7 +14,7 @@ macOS hosted runner:
 The macOS 26 arm64 image defaults to Xcode 26.5, so the workflow relies on the
 image default instead of setting `DEVELOPER_DIR`.
 
-## Required CI secrets
+## CI secrets and variables
 
 Set these as GitHub Actions secrets. GitHub documents repository and
 organization secrets here:
@@ -38,42 +38,29 @@ organization secrets here:
 - `NOTARY_API_KEY_ID`: App Store Connect API key ID for `notarytool`.
 - `NOTARY_ISSUER_ID`: issuer UUID for a Team API key.
 - `EDITOR_SPARKLE_ED_PRIVATE_KEY`: exported Sparkle EdDSA private key for the
-  Visual Editor update feed.
-  Use it only for signing update archives.
-- `EDITOR_SPARKLE_PUBLIC_ED_KEY`: optional repository variable with the public
-  Sparkle EdDSA key for the app's `SUPublicEDKey`.
-  The packaging script uses the checked-in default when this variable isn't set.
+  Visual Editor update feed. Use it only for signing update archives.
+
+Optional GitHub Actions variable:
+
+- `EDITOR_SPARKLE_PUBLIC_ED_KEY`: public Sparkle EdDSA key for the app's
+  `SUPublicEDKey`. The packaging script uses the checked-in default when this
+  variable is not set.
 
 ## Sparkle Keys
 
-Install Sparkle's framework and tools:
+Install Sparkle's framework and tools, then create or inspect the Visual Editor
+key pair:
 
 ```sh
 ./scripts/download-sparkle.sh
-```
-
-Generate or look up the Visual Editor signing key:
-
-```sh
 ./sparkle-bin/generate_keys --account slint-visual-editor
-```
-
-Print the public key for `SUPublicEDKey`:
-
-```sh
 ./sparkle-bin/generate_keys --account slint-visual-editor -p
-```
-
-Export the private key for the `EDITOR_SPARKLE_ED_PRIVATE_KEY` GitHub secret:
-
-```sh
 ./sparkle-bin/generate_keys --account slint-visual-editor -x /tmp/slint-visual-editor-sparkle-private-key
 ```
 
-The export command writes the key to the file and doesn't print it.
-Use the file contents as the secret value.
-When rotating keys, update `EDITOR_SPARKLE_PUBLIC_ED_KEY` in GitHub Actions
-variables and `EDITOR_SPARKLE_ED_PRIVATE_KEY` in GitHub Actions secrets.
+The `-p` command prints the public key. The `-x` command writes the private key
+file silently; use that file's contents for `EDITOR_SPARKLE_ED_PRIVATE_KEY`.
+When rotating keys, update both the public-key variable and private-key secret.
 
 ## Generated Xcode project
 
@@ -133,7 +120,8 @@ The package driver is `scripts/package_macos_visual_editor.bash`.
     This is done to free up space on the runner image.
 15. Creates `dist/cloudflare-root/` with `appcast.xml` and a Sparkle-signed
     update ZIP containing the notarized and stapled app.
-16. Computes the versioned DMG name from the workflow's `VERSION`.
+16. Computes the versioned DMG name from the `slint-lsp` Cargo package
+    version.
 17. Creates the DMG with `L-Super/create-dmg-actions`, passing
     `tools/lsp/packaging/macos/dmg-background.svg`, the Finder window size, the
     app icon position, and the Applications drop-link position as action inputs.
@@ -149,13 +137,10 @@ The package driver is `scripts/package_macos_visual_editor.bash`.
     `slint-visual-editor-cloudflare-root` artifact, and the Cargo timing report
     as the `slint-visual-editor-rust-build-report` artifact.
 
-The daily update channel sets the workflow `VERSION` to `1.17.1`.
-The app's `CFBundleShortVersionString` and Sparkle
-`sparkle:shortVersionString` stay at that value.
-The app's `CFBundleVersion` and Sparkle `sparkle:version` use
-`SLINT_BUILD_NUMBER`, which comes from `github.run_number`.
-Sparkle therefore offers newer daily builds even when the marketing version
-doesn't change.
+The app's marketing version, Sparkle `sparkle:shortVersionString`, and artifact
+names use the `slint-lsp` version from `tools/lsp/Cargo.toml`.
+The app build number and Sparkle `sparkle:version` use `SLINT_BUILD_NUMBER`,
+which comes from `github.run_number`.
 
 For local debugging, the same phases can be run individually:
 
@@ -214,6 +199,22 @@ It contains:
 appcast.xml
 SlintVisualEditor-<version>-<build>-macos-arm64.zip
 ```
+
+## Local Sparkle update test
+
+To test the update path without production keys or Cloudflare, use two local
+`.app` bundles:
+
+```sh
+./scripts/local_sparkle_update_test.bash \
+    --old-app "/path/to/old/Slint Visual Editor.app" \
+    --new-app "/path/to/new/Slint Visual Editor.app"
+```
+
+The script copies both apps to `/private/tmp`, generates or reuses a local
+Sparkle keychain account, patches only the temp copies, serves a local
+`appcast.xml`, launches the old app with `open`, and checks whether Sparkle
+replaced it with the newer build.
 
 The Rust build report artifact is `slint-visual-editor-rust-build-report`.
 Cargo documents that `--timings` writes `cargo-timing.html` and timestamped reports to

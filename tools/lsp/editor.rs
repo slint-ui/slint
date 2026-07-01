@@ -3,6 +3,7 @@
 //
 // cspell:ignore unwatch
 use std::{
+    path::{Path, PathBuf},
     pin::Pin,
     rc::Rc,
     sync::{Arc, atomic},
@@ -305,7 +306,7 @@ async fn lsp_main(
     };
 
     let mut watch_paths_revision = None;
-    let mut root_path = None;
+    let mut project_root = None;
 
     // Load the initial document through the compiler if the editor was launched
     // with a file. Finder launches without a file stay on the startup wizard.
@@ -324,11 +325,11 @@ async fn lsp_main(
         language::reload_document(&mut ctx, url)
             .await
             .map_err(|err| format!("Failed to load file: {file}: {err}"))?;
-        root_path = Some(full_path);
+        project_root = project_root_for_path(&full_path);
         sync_file_watcher_if_needed(
             &mut file_watcher,
             &ctx,
-            root_path.as_deref().unwrap(),
+            project_root.as_deref().unwrap_or(&full_path),
             &mut watch_paths_revision,
         )?;
     }
@@ -347,8 +348,8 @@ async fn lsp_main(
             msg = from_preview_rx.recv() => {
                 match msg {
                     Some(msg) => {
-                        if let Some(path) = handle_preview_message(msg, &mut ctx).await {
-                            root_path = Some(path);
+                        if let Some(root) = handle_preview_message(msg, &mut ctx).await {
+                            project_root = Some(root);
                             watch_paths_revision = None;
                         }
                     }
@@ -370,11 +371,11 @@ async fn lsp_main(
             }
         }
 
-        if let Some(root_path) = root_path.as_deref() {
+        if let Some(project_root) = project_root.as_deref() {
             sync_file_watcher_if_needed(
                 &mut file_watcher,
                 &ctx,
-                root_path,
+                project_root,
                 &mut watch_paths_revision,
             )?;
         }
@@ -396,7 +397,7 @@ async fn trigger_editor_file_watcher(
 fn sync_file_watcher_if_needed(
     watcher: &mut FileWatcher,
     ctx: &language::Context,
-    root_path: &std::path::Path,
+    root_path: &Path,
     watch_paths_revision: &mut Option<u64>,
 ) -> Result<()> {
     let current_revision = ctx.document_cache.revision();
@@ -421,14 +422,16 @@ fn sync_file_watcher_if_needed(
 async fn handle_preview_message(
     msg: PreviewToLspMessage,
     ctx: &mut language::Context,
-) -> Option<std::path::PathBuf> {
+) -> Option<PathBuf> {
     use PreviewToLspMessage::*;
     match &msg {
         RequestState { files, settings } => {
             tracing::debug!("Preview requested state");
             let requested_preview = requested_file_tree_preview(files, settings);
-            let requested_path =
-                requested_preview.as_ref().and_then(|url| common::uri_to_file(url));
+            let requested_project_root = requested_preview
+                .as_ref()
+                .and_then(|url| common::uri_to_file(url))
+                .and_then(|path| project_root_for_path(&path));
             let slint_files: Vec<_> =
                 files.iter().filter(|url| is_slint_url(url)).cloned().collect();
             for url in slint_files {
@@ -440,7 +443,7 @@ async fn handle_preview_message(
                 ctx.to_show = Some(PreviewComponent { url, component: None });
             }
             language::send_requested_state_to_preview(ctx, files, settings);
-            requested_path
+            requested_project_root
         }
         UpdateUserSettings { name, contents } => {
             language::store_user_settings(name, contents);
@@ -473,6 +476,14 @@ async fn handle_preview_message(
             handle_workspace_edit(&ctx.document_cache, label.as_deref(), edit);
             None
         }
+    }
+}
+
+fn project_root_for_path(path: &Path) -> Option<PathBuf> {
+    if std::fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_dir()) {
+        Some(path.to_path_buf())
+    } else {
+        path.parent().map(Path::to_path_buf)
     }
 }
 
