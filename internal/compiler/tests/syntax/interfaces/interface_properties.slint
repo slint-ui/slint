@@ -43,3 +43,17 @@ export interface InterfaceWithDefaultPropertyBindings {
     out property <int> out-property <=> self.in-property;
 //                                  >                   <error{Interface properties cannot have default bindings}
 }
+
+export interface InterfaceWithDefaultBindings {
+    in property <int> in-property;
+    out property <int> out-property;
+    out-property: self.in-property;
+//  >                             <error{An interface cannot have bindings}
+}
+
+export interface InterfaceWithDefaultTwoWayBindings {
+    in property <int> in-property;
+    out property <int> out-property;
+    out-property <=> self.in-property;
+//  >                                <error{An interface cannot have two-way bindings}
+}
