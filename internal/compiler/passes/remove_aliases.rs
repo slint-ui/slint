@@ -165,7 +165,12 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
         })
     });
 
-    // Remove the properties
+    // Process the removal in a deterministic order to ensure that changed callbacks
+    // are always merged in the same order.
+    let mut aliases_to_remove = aliases_to_remove.into_iter().collect::<Vec<_>>();
+    aliases_to_remove.sort_by_cached_key(|(remove, _)| {
+        (remove.element().borrow().id.clone(), remove.name().clone())
+    });
     for (remove, to) in aliases_to_remove {
         let elem = remove.element();
         let to_elem = to.element();

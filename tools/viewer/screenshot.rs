@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-use i_slint_core::api::{PhysicalSize, Window, WindowSize};
+use i_slint_core::api::{LogicalSize, PhysicalSize, Window, WindowSize};
 use i_slint_core::platform::{Platform, PlatformError, WindowEvent};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::{WindowAdapter, WindowProperties};
@@ -44,10 +44,12 @@ fn create_renderer() -> Box<dyn Renderer> {
 pub fn take_screenshot(args: &Cli) -> Result<()> {
     let output = args.screenshot.as_deref().expect("--screenshot was set");
 
+    let size = args.size.as_deref().map(parse_size).transpose()?;
+
     // If the user didn't pick a backend explicitly, install our own headless software
     // backend so the screenshot does not require a windowing system.
     if args.backend.is_none() {
-        i_slint_core::platform::set_platform(Box::new(ScreenshotPlatform))
+        i_slint_core::platform::set_platform(Box::new(ScreenshotPlatform { size }))
             .map_err(|e| Error::from(format!("Failed to initialize headless backend: {e}")))?;
     }
 
@@ -103,7 +105,18 @@ pub fn take_screenshot(args: &Cli) -> Result<()> {
     Ok(())
 }
 
-struct ScreenshotPlatform;
+/// Parse a `WIDTHxHEIGHT` size argument into a logical size.
+fn parse_size(s: &str) -> Result<LogicalSize> {
+    let invalid = || Error::from(format!("Invalid --size '{s}', expected WIDTHxHEIGHT"));
+    let (w, h) = s.split_once(['x', 'X']).ok_or_else(invalid)?;
+    let (w, h) =
+        (w.trim().parse().map_err(|_| invalid())?, h.trim().parse().map_err(|_| invalid())?);
+    Ok(LogicalSize::new(w, h))
+}
+
+struct ScreenshotPlatform {
+    size: Option<LogicalSize>,
+}
 
 impl Platform for ScreenshotPlatform {
     fn create_window_adapter(&self) -> std::result::Result<Rc<dyn WindowAdapter>, PlatformError> {
@@ -116,6 +129,10 @@ impl Platform for ScreenshotPlatform {
             std::env::var("SLINT_SCALE_FACTOR").ok().and_then(|sf| sf.parse().ok())
         {
             adapter.window.dispatch_event(WindowEvent::ScaleFactorChanged { scale_factor });
+        }
+        // Force the requested size; otherwise the component's preferred size is used.
+        if let Some(size) = self.size {
+            adapter.set_size(WindowSize::Logical(size));
         }
         Ok(adapter)
     }

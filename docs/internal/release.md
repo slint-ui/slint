@@ -21,6 +21,10 @@ This document describes the Slint release process
   Take the **commit** SHA-1 from the [**nightly** branch](https://github.com/slint-ui/tree-sitter-slint/tree/nightly).
   (Not the hash from the commit message, and from nightly because master tracks the previous release)
 
+* Refresh the Android viewer store screenshot so it shows the release version:
+  trigger the [Update store screenshots](https://github.com/slint-ui/slint/actions/workflows/screenshots.yaml)
+  workflow on `master` and merge the pull request it opens.
+
 ## Branching
 
 About a week before the expected release, create a temporary `pre-release/<major.minor>` branch based on the latest `master`.

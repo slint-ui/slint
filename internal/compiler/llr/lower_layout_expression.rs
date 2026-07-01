@@ -1390,7 +1390,9 @@ fn is_height_for_width_cell(elem: &ElementRc) -> bool {
 /// `layout_info_v_with_constraint` also has `layout_info_prop` set (the
 /// constrained function is synthesized from the existing `layoutinfo-v`
 /// binding), so the `layout_info_prop` branch covers it.
-fn default_cross_axis_constraint(elem: &ElementRc) -> Option<crate::expression_tree::Expression> {
+pub(crate) fn default_cross_axis_constraint(
+    elem: &ElementRc,
+) -> Option<crate::expression_tree::Expression> {
     let elem_b = elem.borrow();
 
     // Route through `layoutinfo-h-with-constraint` when available so we
