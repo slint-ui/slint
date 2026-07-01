@@ -217,7 +217,7 @@ pub fn lower_expression(
             }
         }
         tree_Expression::Array { element_ty, values } => llr_Expression::Array {
-            element_ty: element_ty.clone(),
+            element_ty: if *element_ty == Type::Void { Type::Int32 } else { element_ty.clone() },
             values: values.iter().map(|e| lower_expression(e, ctx)).collect::<_>(),
             output: llr_ArrayOutput::Model,
         },

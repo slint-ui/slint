@@ -275,44 +275,6 @@ private:
 };
 
 namespace private_api {
-/// A Model backed by a std::array of constant size
-/// \private
-template<int Count, typename ModelData>
-class ArrayModel : public Model<ModelData>
-{
-    std::array<ModelData, Count> data;
-
-public:
-    /// Constructs a new ArrayModel by forwarding \a to the std::array constructor.
-    template<typename... A>
-    ArrayModel(A &&...a) : data { std::forward<A>(a)... }
-    {
-    }
-    size_t row_count() const override { return Count; }
-    std::optional<ModelData> row_data(size_t i) const override
-    {
-        if (i >= row_count())
-            return {};
-        return data[i];
-    }
-    void set_row_data(size_t i, const ModelData &value) override
-    {
-        if (i < row_count()) {
-            data[i] = value;
-            this->notify_row_changed(i);
-        }
-    }
-};
-
-// Specialize for the empty array. We can't have a Model<void>, but `int` will work for our purpose
-template<>
-class ArrayModel<0, void> : public Model<int>
-{
-public:
-    size_t row_count() const override { return 0; }
-    std::optional<int> row_data(size_t) const override { return {}; }
-};
-
 /// Model to be used when we just want to repeat without data.
 struct UIntModel : Model<int>
 {

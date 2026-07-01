@@ -4201,13 +4201,6 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 .iter()
                 .map(|e| format!("{ty} ( {expr} )", expr = compile_expression(e, ctx), ty = ty));
             match output {
-                // A `VectorModel` is used instead of the fixed-size `ArrayModel` so that the model
-                // can be modified at runtime (e.g. through the `push`, `remove` and `insert`
-                // methods). The empty/untyped `[]` literal keeps `ArrayModel<0, void>` since
-                // `VectorModel<void>` is not a valid type.
-                llr::ArrayOutput::Model if ty == "void" => {
-                    "std::make_shared<slint::private_api::ArrayModel<0, void>>()".into()
-                }
                 llr::ArrayOutput::Model => format!(
                     "std::make_shared<slint::VectorModel<{ty}>>(std::vector<{ty}>{{ {val} }})",
                     ty = ty,
@@ -4915,7 +4908,7 @@ fn compile_builtin_function_call(
             )
         }
         BuiltinFunction::DateNow => {
-            "[] { int32_t d=0, m=0, y=0; slint::cbindgen_private::slint_date_time_date_now(&d, &m, &y); return std::make_shared<slint::private_api::ArrayModel<3,int32_t>>(d, m, y); }()".into()
+            "[] { int32_t d=0, m=0, y=0; slint::cbindgen_private::slint_date_time_date_now(&d, &m, &y); return std::make_shared<slint::VectorModel<int32_t>>(std::vector<int32_t>{ d, m, y }); }()".into()
         }
         BuiltinFunction::ValidDate => {
             format!(
@@ -4925,7 +4918,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::ParseDate => {
             format!(
-                "[](const auto &a, const auto &b) {{ int32_t d=0, m=0, y=0; slint::cbindgen_private::slint_date_time_parse_date(&a, &b, &d, &m, &y); return std::make_shared<slint::private_api::ArrayModel<3,int32_t>>(d, m, y); }}({}, {})",
+                "[](const auto &a, const auto &b) {{ int32_t d=0, m=0, y=0; slint::cbindgen_private::slint_date_time_parse_date(&a, &b, &d, &m, &y); return std::make_shared<slint::VectorModel<int32_t>>(std::vector<int32_t>{{ d, m, y }}); }}({}, {})",
                 a.next().unwrap(), a.next().unwrap()
             )
         }
