@@ -1,0 +1,96 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// SPDX-License-Identifier: MIT
+
+import { Palette as StdPalette } from "std-widgets.slint";
+import { AppState } from "../../appState.slint";
+import { LightsTheme } from "lightsTheme.slint";
+import { LightsSidebar } from "sidebar.slint";
+import { LightsPage } from "lightsPage.slint";
+import { SecurityPage } from "securityPage.slint";
+import { ClimatePage } from "climatePage.slint";
+import { ShadowText } from "shadowText.slint";
+
+export component LightsScreen inherits Rectangle {
+    in-out property <float> brightness: 82;
+    in-out property <int> active-page: 0;
+
+    width: 100%;
+    height: 100%;
+    background: LightsTheme.background;
+
+    init => {
+        AppState.window-width = root.width;
+        AppState.window-height = root.height;
+        StdPalette.color-scheme = ColorScheme.dark;
+    }
+
+    changed width => {
+        AppState.window-width = root.width;
+    }
+
+    changed height => {
+        AppState.window-height = root.height;
+    }
+
+    Image {
+        x: 42px;
+        y: 32px;
+        width: 64px;
+        height: 64px;
+        source: @image-url("../../images/slint-logo.svg");
+        colorize: #2379F4;
+    }
+
+    LightsSidebar {
+        x: 22px;
+        y: 106px;
+        width: 104px;
+        height: 491px;
+        active-page <=> root.active-page;
+    }
+
+    ShadowText {
+        x: 166px;
+        y: 34px;
+        width: 260px;
+        height: 60px;
+        label: active-page == 0 ? "Lights" : active-page == 1 ? "Security" : "Climate";
+        size: 51px;
+        weight: FontWeight.bold;
+    }
+
+    ShadowText {
+        x: 854px;
+        y: 44px;
+        width: 74px;
+        height: 46px;
+        label: "3:12";
+        size: 39px;
+        weight: FontWeight.normal;
+        text-color: #c9bde4;
+    }
+
+    if active-page == 0 : LightsPage {
+        x: 158px;
+        y: 106px;
+        width: 780px;
+        height: 491px;
+        brightness <=> root.brightness;
+    }
+
+    if active-page == 1 : SecurityPage {
+        x: 158px;
+        y: 106px;
+        width: 780px;
+        height: 491px;
+    }
+
+    if active-page == 2 : ClimatePage {
+        x: 158px;
+        y: 106px;
+        width: 780px;
+        height: 491px;
+    }
+}

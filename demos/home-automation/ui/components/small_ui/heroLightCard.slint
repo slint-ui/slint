@@ -1,0 +1,107 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// SPDX-License-Identifier: MIT
+
+import { LightsTheme } from "lightsTheme.slint";
+import { GlassPanel } from "glassPanel.slint";
+import { ShadowText } from "shadowText.slint";
+import { BrightnessSlider } from "brightnessSlider.slint";
+import { AppState } from "../../appState.slint";
+
+export component HeroLightCard inherits GlassPanel {
+    in-out property <float> brightness: 82;
+    property <bool> light-on: true;
+    property <float> saved-brightness: 82;
+
+    radius: 14px;
+    outline: LightsTheme.panel-border;
+
+    ShadowText {
+        x: 44px;
+        y: 46px;
+        width: 390px;
+        height: 70px;
+        label: "Front Entry";
+        size: 51px;
+        weight: FontWeight.bold;
+    }
+
+    HorizontalLayout {
+        x: 44px;
+        y: 124px;
+        width: 300px;
+        height: 45px;
+        spacing: 12px;
+
+        Text {
+            text: "Lamp";
+            font-family: AppState.default-font-family;
+            font-size: 36px;
+            font-weight: FontWeight.normal;
+            color: LightsTheme.muted-text;
+            vertical-alignment: center;
+        }
+
+        Text {
+            text: root.light-on ? Math.round(root.brightness) + "%" : "Off";
+            font-family: AppState.default-font-family;
+            font-size: 36px;
+            font-weight: FontWeight.bold;
+            color: root.light-on ? LightsTheme.purple : LightsTheme.muted-text;
+            vertical-alignment: center;
+        }
+    }
+
+    Rectangle {
+        x: 452px;
+        y: 38px;
+        width: 1px;
+        height: 124px;
+        background: #65518466;
+    }
+
+    Rectangle {
+        x: 424px;
+        y: -18px;
+        width: 352px;
+        height: 188px;
+        Image {
+            width: 100%; height: 100%;
+            source: @image-url("../../images/lamp/0000.png");
+            image-fit: contain;
+        }
+        Image {
+            width: 100%; height: 100%;
+            source: @image-url("../../images/lamp/0024.png");
+            image-fit: contain;
+            opacity: root.brightness / 100;
+        }
+    }
+
+    TouchArea {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: 190px;
+        clicked => {
+            if root.light-on {
+                root.saved-brightness = root.brightness;
+                root.light-on = false;
+                root.brightness = 0;
+            } else {
+                root.light-on = true;
+                root.brightness = root.saved-brightness;
+            }
+        }
+    }
+
+    slider := BrightnessSlider {
+        x: 31px;
+        y: 195px;
+        width: 716px;
+        height: 72px;
+        value <=> root.brightness;
+    }
+
+}
