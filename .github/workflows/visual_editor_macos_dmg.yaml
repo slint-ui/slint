@@ -17,6 +17,7 @@ env:
   MACOSX_DEPLOYMENT_TARGET: "12.0"
   CARGO_INCREMENTAL: false
   MACOS_CARGO_TIMINGS: "1"
+  VERSION: "1.17.1"
   SLINT_BUILD_NUMBER: ${{ github.run_number }}
 
 jobs:
@@ -34,6 +35,7 @@ jobs:
       NOTARY_API_KEY_BASE64: ${{ secrets.NOTARY_API_KEY_BASE64 }}
       NOTARY_API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
       NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+      EDITOR_SPARKLE_ED_PRIVATE_KEY: ${{ secrets.EDITOR_SPARKLE_ED_PRIVATE_KEY }}
       SPARKLE_FRAMEWORK_DIR: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v6
@@ -99,10 +101,12 @@ jobs:
       - name: Stage and sign app
         run: ./scripts/package_macos_visual_editor.bash stage-and-sign-app
 
+      - name: Create Cloudflare root artifact
+        run: ./scripts/package_macos_visual_editor.bash create-cloudflare-root
+
       - name: Compute DMG name
         run: |
-          version="$(sed -n 's/^version = "\(.*\)"/\1/p' tools/lsp/Cargo.toml | head -n 1)"
-          echo "SLINT_DMG_NAME=SlintVisualEditor-${version:-0.0.0}-macos-arm64" >> "$GITHUB_ENV"
+          echo "SLINT_DMG_NAME=SlintVisualEditor-${VERSION:-0.0.0}-macos-arm64" >> "$GITHUB_ENV"
 
       - name: Create DMG
         id: create-dmg
@@ -139,6 +143,13 @@ jobs:
           path: |
             dist/*.dmg
             target/macos-visual-editor-dmg/notarization-log.json
+          if-no-files-found: error
+
+      - name: Upload Cloudflare root artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: slint-visual-editor-cloudflare-root
+          path: dist/cloudflare-root/*
           if-no-files-found: error
 
       - name: Upload Rust build report

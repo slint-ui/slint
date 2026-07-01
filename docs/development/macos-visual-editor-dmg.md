@@ -37,6 +37,40 @@ organization secrets here:
   upload.
 - `NOTARY_API_KEY_ID`: App Store Connect API key ID for `notarytool`.
 - `NOTARY_ISSUER_ID`: issuer UUID for a Team API key.
+- `EDITOR_SPARKLE_ED_PRIVATE_KEY`: exported Sparkle EdDSA private key for the
+  Visual Editor update feed.
+  Use it only for signing update archives.
+
+## Sparkle Keys
+
+Install Sparkle's framework and tools:
+
+```sh
+./scripts/download-sparkle.sh
+```
+
+Generate or look up the Visual Editor signing key:
+
+```sh
+./sparkle-bin/generate_keys --account slint-visual-editor
+```
+
+Print the public key for `SUPublicEDKey`:
+
+```sh
+./sparkle-bin/generate_keys --account slint-visual-editor -p
+```
+
+Export the private key for the `EDITOR_SPARKLE_ED_PRIVATE_KEY` GitHub secret:
+
+```sh
+./sparkle-bin/generate_keys --account slint-visual-editor -x /tmp/slint-visual-editor-sparkle-private-key
+```
+
+The export command writes the key to the file and doesn't print it.
+Use the file contents as the secret value.
+When rotating keys, update both `SUPublicEDKey` in `tools/lsp/macos-project.yml`
+and `EDITOR_SPARKLE_ED_PRIVATE_KEY` in GitHub Actions secrets.
 
 ## Generated Xcode project
 
@@ -92,20 +126,31 @@ The package driver is `scripts/package_macos_visual_editor.bash`.
     `target/macos-visual-editor-dmg/cargo-timings/`.
 12. Deletes Xcode and Cargo build intermediates after the signed app is staged.
     This is done to free up space on the runner image.
-13. Computes the versioned DMG name from `tools/lsp/Cargo.toml`.
-14. Creates the DMG with `L-Super/create-dmg-actions`, passing
+13. Creates `dist/cloudflare-root/` with `appcast.xml` and a Sparkle-signed
+    update ZIP.
+14. Computes the versioned DMG name from the workflow's `VERSION`.
+15. Creates the DMG with `L-Super/create-dmg-actions`, passing
     `tools/lsp/packaging/macos/dmg-background.svg`, the Finder window size, the
     app icon position, and the Applications drop-link position as action inputs.
-15. Moves the action output to `dist/`, signs the DMG with `codesign`, then
+16. Moves the action output to `dist/`, signs the DMG with `codesign`, then
     verifies the DMG and mounted app payload.
-16. Submits the DMG with `xcrun notarytool submit --wait`.
-17. Staples and validates the accepted ticket with `xcrun stapler`, then
+17. Submits the DMG with `xcrun notarytool submit --wait`.
+18. Staples and validates the accepted ticket with `xcrun stapler`, then
     repeats the DMG and mounted app signature checks on the final artifact.
-18. Mounts the DMG, verifies the mounted app with `codesign`, and checks it
+19. Mounts the DMG, verifies the mounted app with `codesign`, and checks it
     with `spctl`.
-19. Uploads `dist/*.dmg` as the `slint-visual-editor-macos-dmg` artifact and
-    the Cargo timing report as the `slint-visual-editor-rust-build-report`
-    artifact.
+20. Uploads `dist/*.dmg` as the `slint-visual-editor-macos-dmg` artifact,
+    `dist/cloudflare-root/*` as the `slint-visual-editor-cloudflare-root`
+    artifact, and the Cargo timing report as the
+    `slint-visual-editor-rust-build-report` artifact.
+
+The daily update channel sets the workflow `VERSION` to `1.17.1`.
+The app's `CFBundleShortVersionString` and Sparkle
+`sparkle:shortVersionString` stay at that value.
+The app's `CFBundleVersion` and Sparkle `sparkle:version` use
+`SLINT_BUILD_NUMBER`, which comes from `github.run_number`.
+Sparkle therefore offers newer daily builds even when the marketing version
+doesn't change.
 
 For local debugging, the same phases can be run individually:
 
@@ -114,6 +159,7 @@ For local debugging, the same phases can be run individually:
 ./scripts/package_macos_visual_editor.bash install-signing-material
 ./scripts/package_macos_visual_editor.bash archive-app
 ./scripts/package_macos_visual_editor.bash stage-and-sign-app
+./scripts/package_macos_visual_editor.bash create-cloudflare-root
 ./scripts/package_macos_visual_editor.bash create-dmg
 ./scripts/package_macos_visual_editor.bash sign-dmg
 ./scripts/package_macos_visual_editor.bash notarize-and-staple-dmg
@@ -154,8 +200,17 @@ The expected artifact name is:
 dist/SlintVisualEditor-<version>-macos-arm64.dmg
 ```
 
-The Rust build report artifact is `slint-visual-editor-rust-build-report`. Cargo
-documents that `--timings` writes `cargo-timing.html` and timestamped reports to
+The Cloudflare deploy artifact is `slint-visual-editor-cloudflare-root`.
+Extract its contents to the root of `https://visual-editor.slint.dev/`.
+It contains:
+
+```text
+appcast.xml
+SlintVisualEditor-<version>-<build>-macos-arm64.zip
+```
+
+The Rust build report artifact is `slint-visual-editor-rust-build-report`.
+Cargo documents that `--timings` writes `cargo-timing.html` and timestamped reports to
 the target directory's `cargo-timings` directory:
 <https://doc.rust-lang.org/cargo/commands/cargo-build.html#compilation-options>.
 

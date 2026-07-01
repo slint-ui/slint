@@ -46,7 +46,7 @@ if [ -z "$VERSION" ]; then
 fi
 VERSION="${VERSION:-0.0.0}"
 
-BUILD_NUMBER="${BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-$(git -C "$ROOT_DIR" rev-list --count HEAD 2>/dev/null || echo 1)}}"
+BUILD_NUMBER="${BUILD_NUMBER:-${SLINT_BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-$(git -C "$ROOT_DIR" rev-list --count HEAD 2>/dev/null || echo 1)}}}"
 DIST_DIR="${DIST_DIR:-$ROOT_DIR/dist}"
 BUILD_DIR="${BUILD_DIR:-$ROOT_DIR/target/macos-visual-editor-dmg}"
 RUNNER_TEMP_DIR="${RUNNER_TEMP:-$BUILD_DIR/secrets}"
@@ -64,6 +64,11 @@ CERTIFICATE_PATH="$RUNNER_TEMP_DIR/developer-id-application.p12"
 NOTARY_KEY_PATH="$RUNNER_TEMP_DIR/AuthKey_${NOTARY_API_KEY_ID:-unset}.p8"
 CARGO_XCODE_TARGET_DIR="$ROOT_DIR/target/xcode-cargo/slint-visual-editor"
 CARGO_TIMINGS_REPORT_DIR="$BUILD_DIR/cargo-timings"
+CLOUDFLARE_ROOT_DIR="$DIST_DIR/cloudflare-root"
+SPARKLE_UPDATE_BASENAME="$DMG_BASENAME-$VERSION-$BUILD_NUMBER-macos-arm64.zip"
+SPARKLE_UPDATE_PATH="$CLOUDFLARE_ROOT_DIR/$SPARKLE_UPDATE_BASENAME"
+SPARKLE_APPCAST_PATH="$CLOUDFLARE_ROOT_DIR/appcast.xml"
+SPARKLE_FEED_BASE_URL="https://visual-editor.slint.dev"
 DMG_ATTACHED=0
 
 cleanup() {
@@ -369,12 +374,67 @@ smoke_test_app_launch() {
     die "app exited during launch smoke test with status $launch_status"
 }
 
+create_cloudflare_root() {
+    require_env EDITOR_SPARKLE_ED_PRIVATE_KEY
+    [ -d "$STAGED_APP_PATH" ] || die "staged app missing: $STAGED_APP_PATH"
+    [ -x "$ROOT_DIR/sparkle-bin/sign_update" ] || die "sparkle-bin/sign_update is required; run scripts/download-sparkle.sh"
+
+    log "Creating Cloudflare root at $CLOUDFLARE_ROOT_DIR"
+    rm -rf "$CLOUDFLARE_ROOT_DIR"
+    mkdir -p "$CLOUDFLARE_ROOT_DIR"
+
+    log "Creating Sparkle update ZIP at $SPARKLE_UPDATE_PATH"
+    ditto -c -k --sequesterRsrc --keepParent "$STAGED_APP_PATH" "$SPARKLE_UPDATE_PATH"
+
+    log "Signing Sparkle update ZIP"
+    local signature_output
+    signature_output="$(printf "%s" "$EDITOR_SPARKLE_ED_PRIVATE_KEY" \
+        | "$ROOT_DIR/sparkle-bin/sign_update" --ed-key-file - "$SPARKLE_UPDATE_PATH")"
+
+    local ed_signature
+    local length
+    ed_signature="$(printf "%s\n" "$signature_output" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')"
+    length="$(printf "%s\n" "$signature_output" | sed -n 's/.*length="\([0-9][0-9]*\)".*/\1/p')"
+    [ -n "$ed_signature" ] || die "sign_update did not print sparkle:edSignature"
+    [ -n "$length" ] || die "sign_update did not print length"
+
+    local pub_date
+    pub_date="$(date -u '+%a, %d %b %Y %H:%M:%S +0000')"
+
+    log "Writing Sparkle appcast at $SPARKLE_APPCAST_PATH"
+    cat > "$SPARKLE_APPCAST_PATH" <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>Slint Visual Editor Updates</title>
+    <link>$SPARKLE_FEED_BASE_URL/appcast.xml</link>
+    <description>Slint Visual Editor daily updates</description>
+    <item>
+      <title>Slint Visual Editor $VERSION ($BUILD_NUMBER)</title>
+      <pubDate>$pub_date</pubDate>
+      <sparkle:version>$BUILD_NUMBER</sparkle:version>
+      <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
+      <enclosure
+        url="$SPARKLE_FEED_BASE_URL/$SPARKLE_UPDATE_BASENAME"
+        sparkle:edSignature="$ed_signature"
+        length="$length"
+        type="application/octet-stream" />
+    </item>
+  </channel>
+</rss>
+EOF
+
+    log "Cloudflare root contains:"
+    find "$CLOUDFLARE_ROOT_DIR" -maxdepth 1 -type f -print
+}
+
 full_package() {
     trap cleanup EXIT
     validate_environment
     install_signing_material
     archive_app
     stage_and_sign_app
+    create_cloudflare_root
     create_dmg
     sign_dmg
     notarize_and_staple_dmg
@@ -401,6 +461,9 @@ case "$COMMAND" in
     stage-and-sign-app)
         validate_environment
         stage_and_sign_app
+        ;;
+    create-cloudflare-root)
+        create_cloudflare_root
         ;;
     create-dmg)
         create_dmg
@@ -439,5 +502,8 @@ esac
 case "$COMMAND" in
     full | create-dmg | sign-dmg | create-and-sign-dmg | notarize-and-staple-dmg | assess-stapled-app | smoke-test-app-launch)
         log "DMG path: $DMG_PATH"
+        ;;
+    create-cloudflare-root)
+        log "Cloudflare root path: $CLOUDFLARE_ROOT_DIR"
         ;;
 esac
