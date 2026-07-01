@@ -40,6 +40,9 @@ organization secrets here:
 - `EDITOR_SPARKLE_ED_PRIVATE_KEY`: exported Sparkle EdDSA private key for the
   Visual Editor update feed.
   Use it only for signing update archives.
+- `EDITOR_SPARKLE_PUBLIC_ED_KEY`: optional repository variable with the public
+  Sparkle EdDSA key for the app's `SUPublicEDKey`.
+  The packaging script uses the checked-in default when this variable isn't set.
 
 ## Sparkle Keys
 
@@ -69,8 +72,8 @@ Export the private key for the `EDITOR_SPARKLE_ED_PRIVATE_KEY` GitHub secret:
 
 The export command writes the key to the file and doesn't print it.
 Use the file contents as the secret value.
-When rotating keys, update both `SUPublicEDKey` in `tools/lsp/macos-project.yml`
-and `EDITOR_SPARKLE_ED_PRIVATE_KEY` in GitHub Actions secrets.
+When rotating keys, update `EDITOR_SPARKLE_PUBLIC_ED_KEY` in GitHub Actions
+variables and `EDITOR_SPARKLE_ED_PRIVATE_KEY` in GitHub Actions secrets.
 
 ## Generated Xcode project
 
