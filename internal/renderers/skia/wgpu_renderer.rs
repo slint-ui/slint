@@ -46,9 +46,13 @@ impl SkiaWGPURenderer {
     ) -> Result<Self, PlatformError> {
         let backend: Backend = adapter.get_info().backend.try_into()?;
 
-        let gr_context = backend.make_context(&adapter, &device, &queue).ok_or_else(|| {
-            PlatformError::from("Failed to create Skia graphics context from WGPU")
-        })?;
+        // The device and queue are provided by the caller, so we can't share wgpu's command queue
+        // with Skia (wgpu 29 doesn't expose it). Skia therefore runs on its own queue; see the note
+        // in `WGPUSurface::import_wgpu_texture` about the cross-queue synchronization limitation.
+        let gr_context =
+            backend.make_context(&adapter, &device, &queue, None).ok_or_else(|| {
+                PlatformError::from("Failed to create Skia graphics context from WGPU")
+            })?;
 
         let surface = WGPUSurface::new_offscreen(instance, device, queue, backend, gr_context);
 
