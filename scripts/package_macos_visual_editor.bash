@@ -387,9 +387,18 @@ create_cloudflare_root() {
     ditto -c -k --sequesterRsrc --keepParent "$STAGED_APP_PATH" "$SPARKLE_UPDATE_PATH"
 
     log "Signing Sparkle update ZIP"
+    local sparkle_key_path="$RUNNER_TEMP_DIR/sparkle-ed-private-key"
+    printf "%s\n" "$EDITOR_SPARKLE_ED_PRIVATE_KEY" > "$sparkle_key_path"
+    chmod 600 "$sparkle_key_path"
+
     local signature_output
-    signature_output="$(printf "%s" "$EDITOR_SPARKLE_ED_PRIVATE_KEY" \
-        | "$ROOT_DIR/sparkle-bin/sign_update" --ed-key-file - "$SPARKLE_UPDATE_PATH")"
+    local sign_status=0
+    signature_output="$("$ROOT_DIR/sparkle-bin/sign_update" --ed-key-file "$sparkle_key_path" "$SPARKLE_UPDATE_PATH" 2>&1)" || sign_status=$?
+    rm -f "$sparkle_key_path"
+    if [ "$sign_status" -ne 0 ]; then
+        printf "%s\n" "$signature_output" | sed 's/[A-Za-z0-9+\/=]\{32,\}/<redacted>/g' >&2
+        die "sign_update failed with status $sign_status"
+    fi
 
     local ed_signature
     local length
