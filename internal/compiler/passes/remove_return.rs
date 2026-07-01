@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use smol_str::SmolStr;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use crate::expression_tree::Expression;
@@ -568,7 +568,7 @@ fn codeblock_with_expr(mut pre_statements: Vec<Expression>, expr: Expression) ->
 
 fn make_struct(it: impl Iterator<Item = (&'static str, Type, Expression)>) -> Expression {
     let mut fields = BTreeMap::<SmolStr, Type>::new();
-    let mut values = HashMap::<SmolStr, Expression>::new();
+    let mut values = BTreeMap::<SmolStr, Expression>::new();
     let mut voids = Vec::new();
     for (name, ty, expr) in it {
         if !has_value(&ty) {
@@ -594,7 +594,7 @@ fn convert_struct(from: Expression, to: Type, symbol_counters: &SymbolCounters) 
         return Expression::Invalid;
     };
     if let Expression::Struct { mut values, .. } = from {
-        let mut new_values = HashMap::new();
+        let mut new_values = BTreeMap::new();
         for (key, ty) in &to.fields {
             let (key, expression) = values
                 .remove_entry(key)
@@ -605,7 +605,7 @@ fn convert_struct(from: Expression, to: Type, symbol_counters: &SymbolCounters) 
     }
     let var_name = symbol_counters.generate_name("tmpobj_ret_conv_");
     let from_ty = from.ty();
-    let mut new_values = HashMap::new();
+    let mut new_values = BTreeMap::new();
     let Type::Struct(from_s) = &from_ty else {
         assert_eq!(from_ty, Type::Invalid);
         return Expression::Invalid;

@@ -2410,10 +2410,10 @@ fn generate_repeated_component(
                             let inner_len = _self.as_ref().#inner_rep_id.len();
                             for _i in 0..inner_len {
                                 if write_idx < result.len() {
-                                    result[write_idx] = sp::GridLayoutInputData {
-                                        new_row: write_idx == 0 && new_row,
-                                        ..Default::default()
-                                    };
+                                    // Let the inner cell report its own col/row/colspan/rowspan.
+                                    if let Some(inner) = _self.as_ref().#inner_rep_id.instance_at(_i) {
+                                        inner.as_pin_ref().grid_layout_input_data(write_idx == 0 && new_row, core::slice::from_mut(&mut result[write_idx]));
+                                    }
                                 }
                                 write_idx += 1;
                             }
@@ -3009,8 +3009,19 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                         #ignore_shift,
                         #ignore_alt))
         },
-        Expression::NumberLiteral(n) if n.is_finite() => quote!(#n),
-        Expression::NumberLiteral(_) => quote!(0.),
+        Expression::NumberLiteral(n) => {
+            if n.is_nan() {
+                quote!(f64::NAN)
+            } else if n.is_infinite() {
+                if *n > 0. {
+                    quote!(f64::INFINITY)
+                } else {
+                    quote!(f64::NEG_INFINITY)
+                }
+            } else {
+                quote!(#n)
+            }
+        }
         Expression::BoolLiteral(b) => quote!(#b),
         Expression::Cast { from, to } => {
             let f = compile_expression(from, ctx);

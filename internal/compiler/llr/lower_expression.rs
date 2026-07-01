@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::rc::{Rc, Weak};
 
 use smol_str::SmolStr;
@@ -364,7 +364,7 @@ fn lower_assignment(
             };
             let lower_base =
                 tree_Expression::ReadLocalVariable { name: unique_name, ty: ty.clone() };
-            let mut values = HashMap::new();
+            let mut values = BTreeMap::new();
             let Type::Struct(ty) = ty else { unreachable!() };
 
             for field in ty.fields.keys() {

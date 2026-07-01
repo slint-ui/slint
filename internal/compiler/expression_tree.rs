@@ -14,7 +14,7 @@ use crate::typeregister;
 use core::cell::RefCell;
 use smol_str::{SmolStr, format_smolstr};
 use std::cell::Cell;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::rc::{Rc, Weak};
 
 // FIXME remove the pub
@@ -805,7 +805,7 @@ pub enum Expression {
     },
     Struct {
         ty: Rc<Struct>,
-        values: HashMap<SmolStr, Expression>,
+        values: BTreeMap<SmolStr, Expression>,
     },
 
     PathData(Path),
@@ -1488,7 +1488,7 @@ impl Expression {
                     if left.fields != right.fields =>
                 {
                     if let Expression::Struct { mut values, .. } = self {
-                        let mut new_values = HashMap::new();
+                        let mut new_values = BTreeMap::new();
                         for (key, ty) in &right.fields {
                             let (key, expression) = values.remove_entry(key).map_or_else(
                                 || (key.clone(), Expression::default_value_for_type(ty)),
@@ -1501,7 +1501,7 @@ impl Expression {
                         return Expression::Struct { values: new_values, ty: right.clone() };
                     }
                     let var_name = symbol_counters.generate_name("tmpobj_conv_");
-                    let mut new_values = HashMap::new();
+                    let mut new_values = BTreeMap::new();
                     for (key, ty) in &right.fields {
                         let expression = if left.fields.contains_key(key) {
                             Expression::StructFieldAccess {
@@ -1598,7 +1598,7 @@ impl Expression {
         {
             // Also special case struct literal in case they contain array literal
             let mut fields = struct_type.fields.clone();
-            let mut new_values = HashMap::new();
+            let mut new_values = BTreeMap::new();
             for (f, v) in values {
                 if let Some(t) = fields.remove(f) {
                     new_values.insert(
