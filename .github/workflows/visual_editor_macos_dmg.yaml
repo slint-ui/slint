@@ -101,6 +101,9 @@ jobs:
       - name: Stage and sign app
         run: ./scripts/package_macos_visual_editor.bash stage-and-sign-app
 
+      - name: Notarize and staple app
+        run: ./scripts/package_macos_visual_editor.bash notarize-and-staple-app
+
       - name: Create Cloudflare root artifact
         run: ./scripts/package_macos_visual_editor.bash create-cloudflare-root
 
@@ -142,6 +145,7 @@ jobs:
           name: slint-visual-editor-macos-dmg
           path: |
             dist/*.dmg
+            target/macos-visual-editor-dmg/app-notarization-log.json
             target/macos-visual-editor-dmg/notarization-log.json
           if-no-files-found: error
 

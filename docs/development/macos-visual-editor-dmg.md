@@ -121,28 +121,30 @@ The package driver is `scripts/package_macos_visual_editor.bash`.
 9. Copies the visual editor files into the app bundle resources so Finder
     launches can open a default project without command-line arguments.
 10. Signs the app bundle with `codesign --deep --options runtime`.
-11. Copies Cargo's timing report from
+11. Submits a temporary app ZIP with `xcrun notarytool submit --wait`.
+12. Staples and validates the notarization ticket on the staged app bundle.
+13. Copies Cargo's timing report from
     `target/xcode-cargo/slint-visual-editor/cargo-timings/` to
     `target/macos-visual-editor-dmg/cargo-timings/`.
-12. Deletes Xcode and Cargo build intermediates after the signed app is staged.
+14. Deletes Xcode and Cargo build intermediates after the signed app is staged.
     This is done to free up space on the runner image.
-13. Creates `dist/cloudflare-root/` with `appcast.xml` and a Sparkle-signed
-    update ZIP.
-14. Computes the versioned DMG name from the workflow's `VERSION`.
-15. Creates the DMG with `L-Super/create-dmg-actions`, passing
+15. Creates `dist/cloudflare-root/` with `appcast.xml` and a Sparkle-signed
+    update ZIP containing the notarized and stapled app.
+16. Computes the versioned DMG name from the workflow's `VERSION`.
+17. Creates the DMG with `L-Super/create-dmg-actions`, passing
     `tools/lsp/packaging/macos/dmg-background.svg`, the Finder window size, the
     app icon position, and the Applications drop-link position as action inputs.
-16. Moves the action output to `dist/`, signs the DMG with `codesign`, then
+18. Moves the action output to `dist/`, signs the DMG with `codesign`, then
     verifies the DMG and mounted app payload.
-17. Submits the DMG with `xcrun notarytool submit --wait`.
-18. Staples and validates the accepted ticket with `xcrun stapler`, then
+19. Submits the DMG with `xcrun notarytool submit --wait`.
+20. Staples and validates the accepted ticket with `xcrun stapler`, then
     repeats the DMG and mounted app signature checks on the final artifact.
-19. Mounts the DMG, verifies the mounted app with `codesign`, and checks it
+21. Mounts the DMG, verifies the mounted app with `codesign`, and checks it
     with `spctl`.
-20. Uploads `dist/*.dmg` as the `slint-visual-editor-macos-dmg` artifact,
-    `dist/cloudflare-root/*` as the `slint-visual-editor-cloudflare-root`
-    artifact, and the Cargo timing report as the
-    `slint-visual-editor-rust-build-report` artifact.
+22. Uploads `dist/*.dmg` and notarization logs as the
+    `slint-visual-editor-macos-dmg` artifact, `dist/cloudflare-root/*` as the
+    `slint-visual-editor-cloudflare-root` artifact, and the Cargo timing report
+    as the `slint-visual-editor-rust-build-report` artifact.
 
 The daily update channel sets the workflow `VERSION` to `1.17.1`.
 The app's `CFBundleShortVersionString` and Sparkle
@@ -159,6 +161,7 @@ For local debugging, the same phases can be run individually:
 ./scripts/package_macos_visual_editor.bash install-signing-material
 ./scripts/package_macos_visual_editor.bash archive-app
 ./scripts/package_macos_visual_editor.bash stage-and-sign-app
+./scripts/package_macos_visual_editor.bash notarize-and-staple-app
 ./scripts/package_macos_visual_editor.bash create-cloudflare-root
 ./scripts/package_macos_visual_editor.bash create-dmg
 ./scripts/package_macos_visual_editor.bash sign-dmg
