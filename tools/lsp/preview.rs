@@ -63,7 +63,6 @@ pub fn run(
     to_lsp: Rc<dyn common::PreviewToLsp>,
     fullscreen: bool,
     ui_kind: PreviewUiKind,
-    update_url_override: Option<&str>,
 ) -> std::result::Result<(), slint::PlatformError> {
     let app_window = ui::create_ui(&to_lsp, "", ui_kind)?;
 
@@ -89,11 +88,6 @@ pub fn run(
 
             _ => println!("Sparkle event: {event:?}"),
         });
-
-        if let Some(feed_override) = update_url_override {
-            println!("Overriding feed URL to {feed_override}");
-            updater.set_feed_url(feed_override).unwrap();
-        }
 
         // TODO: These calls can't return `Err`, the API needs to be changed
         // Errors are reported using the callback.

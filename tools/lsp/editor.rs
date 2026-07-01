@@ -33,7 +33,6 @@ pub fn editor_main() -> std::result::Result<(), slint::PlatformError> {
     use clap::Parser;
 
     let cli = Cli::parse();
-    let mut cli = cli;
 
     let (to_lsp, from_preview) = crossbeam_channel::unbounded();
     let (to_preview, from_lsp) = crossbeam_channel::unbounded();
@@ -53,11 +52,9 @@ pub fn editor_main() -> std::result::Result<(), slint::PlatformError> {
     // initialize the default platform first and lose the hook.
     start_processing_lsp_messages_thread(from_lsp)?;
 
-    let feed_url_override = cli.update_url.take();
-
     start_lsp_thread(from_preview, to_preview, notifier, cli);
 
-    preview::run(to_lsp, false, preview::PreviewUiKind::Editor, feed_url_override.as_deref())
+    preview::run(to_lsp, false, preview::PreviewUiKind::Editor)
 }
 
 // TODO: Deduplicate with main.rs
@@ -139,8 +136,6 @@ impl common::PreviewToLsp for EmbeddedPreviewToLsp {
 struct Cli {
     file: Option<String>,
     component: Option<String>,
-    #[arg(long, short)]
-    update_url: Option<String>,
 }
 
 fn start_processing_lsp_messages_thread(
