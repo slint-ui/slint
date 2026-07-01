@@ -45,7 +45,7 @@ targets:
         LSApplicationCategoryType: public.app-category.developer-tools
         LSMinimumSystemVersion: "12.0"
         NSHighResolutionCapable: true
-        SUPublicEDKey: IfbmMbVN3sKz+bUDIEExtwKlrNLlUgP2PDR3ygoIGec=
+        SUPublicEDKey: Ncon335q8qNLM0D+L2my+HRIAXmNtNb6uGNmUR0yG2o=
         SUFeedURL: https://visual-editor.slint.dev/appcast.xml
     sources:
       - path: packaging/macos/AppIcon.icon
