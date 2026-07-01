@@ -214,12 +214,30 @@ impl From<Box<dyn wgpu::DisplayAndWindowHandle + 'static>> for SurfaceTarget {
     }
 }
 
+/// Optional override for creating the wgpu device and queue once an adapter has been selected.
+///
+/// Returning `None` lets [`init_instance_adapter_device_queue_surface`] fall back to the default
+/// `adapter.request_device()`. A renderer can use this to build the device from resources it also
+/// uses elsewhere — for example a command queue it shares with another graphics library, so a
+/// single-queue driver keeps the two ordered. It is only consulted when Slint creates the device
+/// itself; a developer-provided (`Manual`) device/queue is used as-is.
+pub type DeviceQueueFactory<'a> = dyn FnMut(
+        &wgpu_29::Adapter,
+        &wgpu_29::DeviceDescriptor<'_>,
+    ) -> Option<
+        Result<
+            (wgpu_29::Device, wgpu_29::Queue),
+            Box<dyn std::error::Error + Send + Sync + 'static>,
+        >,
+    > + 'a;
+
 /// Internal helper function to initialize the wgpu instance/adapter/device/queue from either scratch or
 /// developer-provided config. This is called by any renderer intending to support WGPU.
 pub fn init_instance_adapter_device_queue_surface(
     surface_target: impl Into<SurfaceTarget>,
     requested_graphics_api: Option<RequestedGraphicsAPI>,
     backends_to_avoid: wgpu::Backends,
+    mut device_queue_factory: Option<&mut DeviceQueueFactory<'_>>,
 ) -> Result<
     (
         wgpu_29::Instance,
@@ -249,6 +267,26 @@ pub fn init_instance_adapter_device_queue_surface(
                 "Error creating wgpu window surface: {e}"
             ))
         })
+    };
+
+    // Create the device and queue, giving a renderer-provided factory the first chance (so it can,
+    // for example, share its Metal command queue with wgpu). Falls back to `request_device`.
+    let mut make_device_queue = |adapter: &wgpu::Adapter,
+                                 descriptor: wgpu::DeviceDescriptor<'_>|
+     -> Result<
+        (wgpu::Device, wgpu::Queue),
+        Box<dyn std::error::Error + Send + Sync + 'static>,
+    > {
+        if let Some(factory) = device_queue_factory.as_deref_mut()
+            && let Some(result) = factory(adapter, &descriptor)
+        {
+            return result;
+        }
+        // wgpu uses async here, but the returned future is ready on first poll on all platforms
+        // except WASM, which we don't support right now.
+        Ok(poll_once(async { adapter.request_device(&descriptor).await })
+            .expect("internal error: wgpu device creation is not expected to be async")
+            .expect("Failed to create device"))
     };
 
     let (instance, adapter, device, queue, surface) = match requested_graphics_api {
@@ -299,23 +337,20 @@ pub fn init_instance_adapter_device_queue_surface(
             })
             .expect("internal error: wgpu adapter creation is not expected to be async");
 
-            let (device, queue) = poll_once(async {
-                adapter
-                    .request_device(&wgpu::DeviceDescriptor {
-                        label: wgpu29_settings.device_label.as_deref(),
-                        required_features: wgpu29_settings.device_required_features,
-                        // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
-                        required_limits: wgpu29_settings
-                            .device_required_limits
-                            .using_resolution(adapter.limits()),
-                        experimental_features: wgpu29_settings.device_experimental_features,
-                        memory_hints: wgpu29_settings.device_memory_hints,
-                        trace: wgpu::Trace::default(),
-                    })
-                    .await
-                    .expect("Failed to create device")
-            })
-            .expect("internal error: wgpu device creation is not expected to be async");
+            let (device, queue) = make_device_queue(
+                &adapter,
+                wgpu::DeviceDescriptor {
+                    label: wgpu29_settings.device_label.as_deref(),
+                    required_features: wgpu29_settings.device_required_features,
+                    // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
+                    required_limits: wgpu29_settings
+                        .device_required_limits
+                        .using_resolution(adapter.limits()),
+                    experimental_features: wgpu29_settings.device_experimental_features,
+                    memory_hints: wgpu29_settings.device_memory_hints,
+                    trace: wgpu::Trace::default(),
+                },
+            )?;
 
             (instance, adapter, device, queue, surface)
         }
@@ -347,23 +382,19 @@ pub fn init_instance_adapter_device_queue_surface(
             })
             .expect("internal error: wgpu adapter creation is not expected to be async");
 
-            let (device, queue) = poll_once(async {
-                adapter
-                    .request_device(&wgpu::DeviceDescriptor {
-                        label: None,
-                        // Request all non-experimental features the adapter supports,
-                        // so that embedders like Bevy can use full GPU capabilities.
-                        required_features: adapter.features()
-                            - wgpu::Features::all_experimental_mask(),
-                        required_limits: adapter.limits(),
-                        experimental_features: wgpu::ExperimentalFeatures::disabled(),
-                        memory_hints: wgpu::MemoryHints::MemoryUsage,
-                        trace: wgpu::Trace::default(),
-                    })
-                    .await
-                    .expect("Failed to create device")
-            })
-            .expect("internal error: wgpu device creation is not expected to be async");
+            let (device, queue) = make_device_queue(
+                &adapter,
+                wgpu::DeviceDescriptor {
+                    label: None,
+                    // Request all non-experimental features the adapter supports,
+                    // so that embedders like Bevy can use full GPU capabilities.
+                    required_features: adapter.features() - wgpu::Features::all_experimental_mask(),
+                    required_limits: adapter.limits(),
+                    experimental_features: wgpu::ExperimentalFeatures::disabled(),
+                    memory_hints: wgpu::MemoryHints::MemoryUsage,
+                    trace: wgpu::Trace::default(),
+                },
+            )?;
             (instance, adapter, device, queue, surface)
         }
         Some(_) => {
