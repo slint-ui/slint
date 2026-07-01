@@ -1208,6 +1208,11 @@ impl Element {
                 }
             });
 
+            if parent_type == ElementType::Interface {
+                node.Binding().for_each(|n| error_on(&n, "bindings"));
+                node.TwoWayBinding().for_each(|n| error_on(&n, "two-way bindings"));
+            }
+
             parent_type
         } else if parent_type != ElementType::Error {
             // This should normally never happen because the parser does not allow for this
