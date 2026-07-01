@@ -57,7 +57,7 @@ pub fn editor_main() -> std::result::Result<(), slint::PlatformError> {
 
     start_lsp_thread(from_preview, to_preview, notifier, cli);
 
-    preview::run(to_lsp, false, true, feed_url_override.as_deref())
+    preview::run(to_lsp, false, preview::PreviewUiKind::Editor, feed_url_override.as_deref())
 }
 
 // TODO: Deduplicate with main.rs
@@ -325,7 +325,7 @@ async fn lsp_main(
         language::reload_document(&mut ctx, url)
             .await
             .map_err(|err| format!("Failed to load file: {file}: {err}"))?;
-        project_root = project_root_for_path(&full_path);
+        project_root = project_root_for_path(&full_path).map(Path::to_path_buf);
         sync_file_watcher_if_needed(
             &mut file_watcher,
             &ctx,
@@ -431,7 +431,7 @@ async fn handle_preview_message(
             let requested_project_root = requested_preview
                 .as_ref()
                 .and_then(|url| common::uri_to_file(url))
-                .and_then(|path| project_root_for_path(&path));
+                .and_then(|path| project_root_for_path(&path).map(Path::to_path_buf));
             let slint_files: Vec<_> =
                 files.iter().filter(|url| is_slint_url(url)).cloned().collect();
             for url in slint_files {
@@ -479,12 +479,8 @@ async fn handle_preview_message(
     }
 }
 
-fn project_root_for_path(path: &Path) -> Option<PathBuf> {
-    if std::fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_dir()) {
-        Some(path.to_path_buf())
-    } else {
-        path.parent().map(Path::to_path_buf)
-    }
+fn project_root_for_path(path: &Path) -> Option<&Path> {
+    if path.is_dir() { Some(path) } else { path.parent() }
 }
 
 fn requested_file_tree_preview(files: &[Url], settings: &[String]) -> Option<Url> {

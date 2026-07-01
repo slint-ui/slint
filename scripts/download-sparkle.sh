@@ -24,12 +24,12 @@ echo "Extracting Sparkle.framework..."
 tar -xf "$TEMP_DIR/sparkle.tar.xz" -C "$TEMP_DIR"
 
 rm -rf Sparkle.framework sparkle-bin
-cp -R "$TEMP_DIR/Sparkle.framework" .
+ditto "$TEMP_DIR/Sparkle.framework" Sparkle.framework
 
 # Also copy the bin tools (generate_keys, sign_update)
 if [ -d "$TEMP_DIR/bin" ]; then
     echo "Copying Sparkle bin tools..."
-    cp -R "$TEMP_DIR/bin" ./sparkle-bin
+    ditto "$TEMP_DIR/bin" sparkle-bin
     chmod +x ./sparkle-bin/*
 fi
 
