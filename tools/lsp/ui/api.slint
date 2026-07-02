@@ -397,8 +397,8 @@ export global Api {
     // ## Style:
     // All the known styles
     in property <[string]> known-styles;
-    // The current style
-    in-out property <string> current-style;
+    // The index of the current style within `known-styles`
+    in-out property <int> current-style-index;
     // control, but command on macOS
     in-out property <string> control-key-name: "control";
 

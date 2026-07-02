@@ -11,7 +11,7 @@ homepage = "https://slint.dev"
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-version = "1.17.0"
+version = "1.17.1"
 categories = ["gui", "development-tools", "command-line-utilities"]
 keywords = ["lsp", "ui", "toolkit"]
 default-run = "slint-lsp"
@@ -108,7 +108,7 @@ tracing-subscriber = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 smol_str = { workspace = true }
-i-slint-live-preview = { version = "=1.17.0", path = "../../internal/live-preview", features = ["protocol", "file-watcher"] }
+i-slint-live-preview = { version = "=1.17.1", path = "../../internal/live-preview", features = ["protocol", "file-watcher"] }
 lsp-types = { workspace = true }
 
 # for the preview-engine feature
@@ -156,6 +156,8 @@ tokio = { version = "1.50.0", features = ["rt", "sync", "macros"] }
 [dev-dependencies]
 i-slint-backend-testing = { path = "../../internal/backends/testing" }
 spin_on = { workspace = true }
+# The remote connector tests talk to the real viewer-side connection.
+i-slint-live-preview = { path = "../../internal/live-preview", features = ["remote"] }
 
 [build-dependencies]
 slint-build = { workspace = true, features = ["default"], optional = true }

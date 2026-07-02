@@ -44,8 +44,7 @@ pub struct CompilerConfiguration {
     pub library_paths: HashMap<String, std::path::PathBuf>,
     pub style: Option<String>,
     pub open_import_callback: Option<OpenImportCallback>,
-    pub resource_url_mapper:
-        Option<Rc<dyn Fn(&str) -> Pin<Box<dyn Future<Output = Option<String>>>>>>,
+    pub resource_url_mapper: Option<i_slint_compiler::ResourceUrlMapper>,
     pub format: super::ByteFormat,
     /// Whether to enable experimental features.
     /// Note that the i_slint_compiler::CompilerConfiguration still reads the environment variable
@@ -323,8 +322,11 @@ impl DocumentCache {
 
         if enable_experimental && !self.type_loader.compiler_config.enable_experimental {
             self.type_loader.compiler_config.enable_experimental = true;
-            *self.type_loader.global_type_registry.borrow_mut() =
-                Rc::into_inner(TypeRegister::builtin_experimental()).unwrap().into_inner();
+            *self.type_loader.global_type_registry.borrow_mut() = Rc::into_inner(
+                TypeRegister::builtin_experimental(&self.type_loader.symbol_counters),
+            )
+            .unwrap()
+            .into_inner();
         }
 
         self.invalidate_everything();

@@ -10,9 +10,9 @@ use crate::api::{
     PlatformError, Window, WindowPosition, WindowSize,
 };
 use crate::input::{
-    ClickState, FocusEvent, FocusReason, InternalKeyEvent, KeyEventResult, KeyEventType, Keys,
-    MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase, TouchState,
-    key_codes,
+    ClickState, DragData, FocusEvent, FocusReason, InternalKeyEvent, KeyEventResult, KeyEventType,
+    Keys, MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase,
+    TouchState, key_codes,
 };
 use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
@@ -705,7 +705,9 @@ impl WindowInner {
             Option<crate::item_tree::ItemWeak>,
         )> = None;
 
-        if let Some(mut drop_event) = mouse_input_state.drag_data.clone() {
+        if let Some(DragData { event: mut drop_event, allowed }) =
+            mouse_input_state.drag_data.clone()
+        {
             match &event {
                 MouseEvent::Released { position, button: PointerEventButton::Left, .. } => {
                     mouse_input_state.drag_data = None;
@@ -721,7 +723,7 @@ impl WindowInner {
                             .unwrap_or(crate::items::DragAction::None);
                         drop_event.proposed_action = hovered;
                         drop_event.position = crate::lengths::logical_position_to_api(*position);
-                        event = MouseEvent::Drop(drop_event);
+                        event = MouseEvent::Drop { event: drop_event, allowed };
                         if let Some(s) = source {
                             pending_drag_finished = Some((s, Some(target_weak)));
                         }
@@ -743,20 +745,18 @@ impl WindowInner {
                     // `can-drop` callback sees an up-to-date `event.proposed-action`.
                     drop_event.proposed_action = crate::items::compute_proposed_action(
                         self.context().0.modifiers.get().into(),
-                        drop_event.allow_copy,
-                        drop_event.allow_move,
-                        drop_event.allow_link,
+                        allowed,
                     );
                     // Mirror the position and proposed action into the persistent state so the
                     // renderer can place the drag-image overlay without re-deriving the cursor
                     // location, and so a subsequent synthetic Moved (e.g. fired from a modifier
                     // key press) starts from the right position.
                     if let Some(d) = mouse_input_state.drag_data.as_mut() {
-                        d.position = drop_event.position;
-                        d.proposed_action = drop_event.proposed_action;
+                        d.event.position = drop_event.position;
+                        d.event.proposed_action = drop_event.proposed_action;
                     }
                     mouse_input_state.cursor = MouseCursor::NoDrop;
-                    event = MouseEvent::DragMove(drop_event);
+                    event = MouseEvent::DragMove { event: drop_event, allowed };
                 }
                 MouseEvent::Exit => {
                     mouse_input_state.drag_data = None;
@@ -958,7 +958,7 @@ impl WindowInner {
                 .apply_pin(drag_area)
                 .call(&(action,));
             // The drag is over: reset the target's `current_action` so it matches
-            // `contains_drag` and the docstring ("none when no drag is hovering").
+            // `has_drag` and the docstring ("none when no drag is hovering").
             if let Some(target) = target {
                 target.as_pin_ref().current_action.set(crate::items::DragAction::None);
             }
@@ -1050,7 +1050,7 @@ impl WindowInner {
             // without having to move the mouse first.
             let drag_pos = {
                 let state = self.mouse_input_state.take();
-                let pos = state.drag_data.as_ref().map(|d| d.position);
+                let pos = state.drag_data.as_ref().map(|d| d.event.position);
                 self.mouse_input_state.replace(state);
                 pos
             };
@@ -1582,7 +1582,7 @@ impl WindowInner {
         item_renderer: &mut dyn crate::item_rendering::ItemRenderer,
     ) {
         let state = self.mouse_input_state.take();
-        let cursor = state.drag_data.as_ref().map(|d| d.position);
+        let cursor = state.drag_data.as_ref().map(|d| d.event.position);
         let source = state.drag_source.as_ref().and_then(|w| w.upgrade());
         self.mouse_input_state.set(state);
 
@@ -2177,6 +2177,17 @@ impl WindowInner {
     pub fn context(&self) -> &crate::SlintContext {
         self.ctx
             .get_or_init(|| crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().unwrap().clone()))
+    }
+
+    /// Like [`Self::context`], but returns `None` instead of panicking when no context is
+    /// available yet.
+    pub fn try_context(&self) -> Option<&crate::SlintContext> {
+        if self.ctx.get().is_none()
+            && let Some(ctx) = crate::context::GLOBAL_CONTEXT.with(|ctx| ctx.get().cloned())
+        {
+            let _ = self.ctx.set(ctx);
+        }
+        self.ctx.get()
     }
 
     /// Set the SlintContext.

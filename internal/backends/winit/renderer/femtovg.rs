@@ -212,6 +212,7 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
         active_event_loop: &ActiveEventLoop,
         window_attributes: winit::window::WindowAttributes,
     ) -> Result<Arc<winit::window::Window>, PlatformError> {
+        let transparent = window_attributes.transparent;
         let winit_window = Arc::new(active_event_loop.create_window(window_attributes).map_err(
             |winit_os_error| {
                 PlatformError::from(format!(
@@ -229,6 +230,7 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
                 as Box<dyn i_slint_core::graphics::wgpu_29::wgpu::DisplayAndWindowHandle>,
             crate::winitwindowadapter::physical_size_to_slint(&size),
             self.requested_graphics_api.clone(),
+            transparent,
         )?;
 
         Ok(winit_window)

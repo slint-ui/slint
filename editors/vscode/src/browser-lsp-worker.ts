@@ -21,7 +21,9 @@ slint_init(slint_wasm_data)
         const connection = createConnection(reader, writer);
 
         function send_notification(method: string, params: any): boolean {
-            connection.sendNotification(method, params);
+            void connection.sendNotification(method, params).catch((error) => {
+                console.log("Web-Worker notification error:", error);
+            });
             return true;
         }
 

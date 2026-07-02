@@ -252,7 +252,14 @@ pub(super) fn solve_box_layout(
     ctx: &mut ExpressionLoweringCtx,
 ) -> llr_Expression {
     let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, o, ctx);
-    let bld = box_layout_data(layout, o, ctx, None);
+    // For a horizontal layout's main (width) pass, feed each width-for-height
+    // child the layout's real cross size (its content height) instead of the
+    // `f32::MAX` "assume infinite height" fallback, so the width reserved for the
+    // child matches the height it will actually be given.
+    let cross_override = (o == layout.orientation && o == Orientation::Horizontal)
+        .then(|| layout_cross_content_size(layout))
+        .flatten();
+    let bld = box_layout_data(layout, o, ctx, cross_override.as_ref());
     let size = layout_geometry_size(&layout.geometry.rect, o, ctx);
     let (data, function) = if o == layout.orientation {
         let data = make_struct(
@@ -331,8 +338,8 @@ pub(super) fn solve_flexbox_layout(
         generate_layout_padding_and_spacing(&layout.geometry, Orientation::Vertical, ctx);
     // At solve time, the container width is known (set by our parent).
     // For column-direction flex (vertical main axis), each cell is
-    // stretched to the container's width, so it's the correct width to
-    // supply as the cross-axis constraint to height-for-width children.
+    // at most as wide as the container (per-column when wrapped), an upper
+    // bound to supply as the cross-axis constraint to height-for-width children.
     let container_width_for_cells = if matches!(
         layout.axis_relation(Orientation::Vertical),
         crate::layout::FlexboxAxisRelation::MainAxis
@@ -1383,7 +1390,9 @@ fn is_height_for_width_cell(elem: &ElementRc) -> bool {
 /// `layout_info_v_with_constraint` also has `layout_info_prop` set (the
 /// constrained function is synthesized from the existing `layoutinfo-v`
 /// binding), so the `layout_info_prop` branch covers it.
-fn default_cross_axis_constraint(elem: &ElementRc) -> Option<crate::expression_tree::Expression> {
+pub(crate) fn default_cross_axis_constraint(
+    elem: &ElementRc,
+) -> Option<crate::expression_tree::Expression> {
     let elem_b = elem.borrow();
 
     // Route through `layoutinfo-h-with-constraint` when available so we
@@ -1429,6 +1438,29 @@ fn default_cross_axis_constraint(elem: &ElementRc) -> Option<crate::expression_t
         base: Box::new(expr),
         name: "preferred".into(),
     })
+}
+
+/// Build an expression for the layout's cross-axis *content* size
+/// (`self.height` minus top/bottom padding, for a horizontal layout).
+fn layout_cross_content_size(
+    layout: &crate::layout::BoxLayout,
+) -> Option<crate::expression_tree::Expression> {
+    use crate::expression_tree::Expression;
+    let cross = layout.orientation.orthogonal();
+    let size_nr = layout.geometry.rect.size_reference(cross)?.clone();
+    let mut expr = Expression::PropertyReference(size_nr);
+    let pads = match cross {
+        Orientation::Horizontal => [&layout.geometry.padding.left, &layout.geometry.padding.right],
+        Orientation::Vertical => [&layout.geometry.padding.top, &layout.geometry.padding.bottom],
+    };
+    for p in pads.into_iter().flatten() {
+        expr = Expression::BinaryExpression {
+            lhs: Box::new(expr),
+            rhs: Box::new(Expression::PropertyReference(p.clone())),
+            op: '-',
+        };
+    }
+    Some(expr)
 }
 
 fn layout_geometry_size(

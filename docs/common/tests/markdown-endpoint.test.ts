@@ -203,3 +203,40 @@ test("without projectRoot, code imports are left as-is", async () => {
     const text = await res.text();
     assert.match(text, /import script from/);
 });
+
+test("API-reference signature HTML collapses to a ```cpp fence", async () => {
+    const body = [
+        '### <a id="title"></a> `title` <small>(virtual)</small>',
+        "",
+        '<pre class="shiki api-signature" style="--x:1"><code><span class="line">' +
+            '<a href="../sharedstring/" class="api-link">SharedString</a>' +
+            "<span> slint</span><span>::</span><span>title</span>" +
+            "<span>() </span><span>const</span></span></code></pre>",
+    ].join("\n");
+    const text = await renderMarkdownResponse(entry({ body }), {
+        apiSignatures: true,
+    }).text();
+    // The signature becomes a plain fence with the entities/tags stripped.
+    assert.match(text, /```cpp\nSharedString slint::title\(\) const\n```/);
+    // The empty deep-link anchor and the <small> marker are gone, the heading
+    // text (kept as inline code) and the marker text remain.
+    assert.doesNotMatch(text, /<a id=|<small>|<pre/);
+    assert.match(text, /### `title` \(virtual\)/);
+});
+
+test("angle-bracket types in a signature are decoded, not left as entities", async () => {
+    // Shiki escapes `<` as the hex reference `&#x3C;` (not `&lt;`); `>` is left
+    // bare. Both the hex and named forms must decode.
+    const body =
+        '<pre class="api-signature"><code>' +
+        "std::optional&#x3C; SharedPixelBuffer&lt;Rgba8Pixel> > take_snapshot()" +
+        "</code></pre>";
+    const text = await renderMarkdownResponse(entry({ body }), {
+        apiSignatures: true,
+    }).text();
+    assert.match(
+        text,
+        /```cpp\nstd::optional< SharedPixelBuffer<Rgba8Pixel> > take_snapshot\(\)\n```/,
+    );
+    assert.doesNotMatch(text, /&#x|&lt;|&gt;/);
+});

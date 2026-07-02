@@ -1,11 +1,11 @@
 {
   "name": "slint_repository",
-  "version": "1.17.0",
+  "version": "1.17.1",
   "description": "",
   "devDependencies": {
     "@cspell/dict-fr-fr": "2.3.2",
     "cspell": "catalog:",
-    "knip": "6.15.0"
+    "knip": "6.20.0"
   },
   "scripts": {
     "knip": "knip",
@@ -32,7 +32,9 @@
       "devalue@<=5.6.3": ">=5.6.4",
       "flatted@<3.4.0": ">=3.4.0",
       "yaml@>=2.0.0 <2.8.3": ">=2.8.3",
-      "uuid@<14.0.0": ">=14.0.0"
+      "uuid@<14.0.0": ">=14.0.0",
+      "qs@>=6.11.1 <=6.15.1": ">=6.15.2",
+      "js-yaml@<=4.1.1": ">=4.2.0 <5.0.0"
     }
   }
 }

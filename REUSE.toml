@@ -160,11 +160,9 @@ path = [
   "ui-libraries/material/docs/src/config.yaml",
   "ui-libraries/material/examples/gallery/ui/themes/**.json",
 
-  ".claude-plugin/*.json",
-  ".cursor-plugin/*.json",
-  "skills/.claude-plugin/*.json",
-  "skills/.cursor-plugin/*.json",
-  "skills/**/*.md",
+  "ai-plugins/.claude-plugin/*.json",
+  "ai-plugins/.cursor-plugin/*.json",
+  "ai-plugins/**/*.md",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
@@ -180,7 +178,7 @@ path = [
 
   "editors/**.md",
   "editors/sublime/LSP.sublime-settings",
-  "editors/tree-sitter-slint/corpus/**.txt",
+  "editors/tree-sitter-slint/test/corpus/**.txt",
   "editors/tree-sitter-slint/tree-sitter.json",
   "editors/vscode/**.json",
   "editors/vscode/css/**.css",
@@ -196,6 +194,8 @@ path = [
   "tools/figma-inspector/**.html",
   "tools/figma-inspector/**.css",
   "tools/viewer/TestFlight/WhatToTest.en-US.txt",
+  "tools/viewer/android/fastlane/metadata/android/**.txt",
+  "tools/viewer/android/fastlane/metadata/android/**.png",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"

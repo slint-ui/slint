@@ -209,6 +209,10 @@ jobs:
                   target: i686-unknown-linux-gnu
             - name: Run tests
               run: cargo test -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features
+            - name: Run tests with live-preview
+              env:
+                  SLINT_LIVE_PREVIEW: 1
+              run: cargo test -p test-driver-cpp --target i686-unknown-linux-gnu --no-default-features --features live-preview
 
     cpp_cmake_matrix:
         needs: files-changed
@@ -367,6 +371,7 @@ jobs:
             RUSTFLAGS: --cfg slint_int_coord -D warnings
             CARGO_PROFILE_DEV_DEBUG: 0
             CARGO_PROFILE_RELEASE_OPT_LEVEL: s
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v6
@@ -791,10 +796,10 @@ jobs:
         strategy:
             matrix:
                 include:
-                    - sdk_url: https://nextcloud.slint.dev/s/SCXYDmEmr45pkak/download/poky-glibc-x86_64-core-image-weston-cortexa57-qemuarm64-toolchain-4.0.9.sh
+                    - sdk_url: https://nextcloud.slint.dev/s/DRCzxmr8nRrnkcT/download/poky-glibc-x86_64-core-image-weston-sdk-cortexa57-qemuarm64-toolchain-6.0.1.sh
                       env_setup: environment-setup-cortexa57-poky-linux
                       target: aarch64-unknown-linux-gnu
-                    - sdk_url: https://nextcloud.slint.dev/s/BTL5NtLACjgS7Pf/download/poky-glibc-x86_64-core-image-weston-cortexa15t2hf-neon-qemuarm-toolchain-4.0.9.sh
+                    - sdk_url: https://nextcloud.slint.dev/s/SN5REo4B8zyYYoL/download/poky-glibc-x86_64-core-image-weston-sdk-cortexa15t2hf-neon-qemuarm-toolchain-6.0.1.sh
                       env_setup: environment-setup-cortexa15t2hf-neon-poky-linux-gnueabi
                       target: armv7-unknown-linux-gnueabihf
         runs-on: ubuntu-22.04
@@ -815,12 +820,26 @@ jobs:
               with:
                   toolchain: stable
                   target: ${{ matrix.target }}
+            - name: Install a libclang new enough for bindgen
+              # The runner's system libclang (15) cannot parse the SDK's GCC 15.2
+              # libstdc++ headers (<format>, <ranges>) that skia-bindings' bindgen
+              # pulls in, so install a newer libclang from apt.llvm.org. The SDK
+              # itself ships clang-22 but no libclang.so, so it can't be reused here.
+              run: |
+                  wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh
+                  chmod +x /tmp/llvm.sh
+                  sudo /tmp/llvm.sh 20
+                  sudo apt-get install --assume-yes libclang-20-dev
+                  rm -f /tmp/llvm.sh
             - name: C++ Build
               run: |
                   . ${{ runner.workspace }}/yocto-sdk/${{ matrix.env_setup }}
                   # Only needed for 32-bit arm builds where soft-fp/hard-fp affects header file lookup, hence the need to drag in these flags. See also commit
                   # f5c3908b7ec5131b7b19ff642b5975660c7484f8
                   export BINDGEN_EXTRA_CLANG_ARGS=$OECORE_TUNE_CCARGS
+                  # bindgen must parse the SDK's GCC 15.2 libstdc++ headers, which the
+                  # runner's system libclang is too old for; use the one installed above.
+                  export LIBCLANG_PATH=/usr/lib/llvm-20/lib
                   mkdir ${{ runner.workspace }}/cppbuild
                   cmake -GNinja -B ${{ runner.workspace }}/cppbuild -S . -DRust_CARGO_TARGET=${{ matrix.target }} -DSLINT_BUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_RENDERER_SKIA=ON -DSLINT_FEATURE_BACKEND_QT=OFF -DSLINT_FEATURE_BACKEND_LINUXKMS=ON -DSLINT_FEATURE_INTERPRETER=ON
                   cmake --build ${{ runner.workspace }}/cppbuild
@@ -839,7 +858,7 @@ jobs:
                       target: thumbv7em-none-eabihf
                       extra-cmake-args: -DSHIELD=rk055hdmipi4ma0
             fail-fast: false
-        runs-on: ubuntu-22.04
+        runs-on: ubuntu-24.04
         steps:
           - uses: actions/checkout@v6
             with:
@@ -859,7 +878,7 @@ jobs:
             with:
                 app-path: slint
                 manifest-file-name: demos/zephyr-common/west.yaml
-                sdk-version: 0.16.8
+                sdk-version: 1.0.1
           - name: Export the Zephyr CMake package
             run: west zephyr-export
           - name: Build for ${{matrix.board}}

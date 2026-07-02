@@ -1,7 +1,7 @@
 {
     "name": "slint-cpp-docs",
     "type": "module",
-    "version": "1.17.0",
+    "version": "1.17.1",
     "engines": {
         "node": ">=22"
     },
@@ -25,11 +25,12 @@
         "@astrojs/check": "catalog:",
         "@astrojs/sitemap": "catalog:",
         "@astrojs/starlight": "catalog:",
+        "@pagefind/default-ui": "catalog:",
         "@slint/common-files": "workspace:*",
         "@types/node": "catalog:",
         "astro": "catalog:",
         "sharp": "catalog:",
-        "shiki": "4.1.0",
+        "shiki": "4.2.0",
         "typescript": "catalog:"
     }
 }

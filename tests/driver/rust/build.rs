@@ -243,9 +243,33 @@ fn generate_source(
     output: &mut impl Write,
     testcase: test_driver_lib::TestCase,
 ) -> Result<(), std::io::Error> {
-    use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
-
     println!("cargo::rerun-if-env-changed=SLINT_LIVE_PREVIEW");
+
+    let generated = compile_and_generate(source, &testcase)?;
+
+    #[cfg(feature = "deterministic-output")]
+    {
+        let second = compile_and_generate(source, &testcase)?;
+        let expect_utf8 =
+            |bytes| std::str::from_utf8(bytes).expect("generated Rust is valid UTF-8");
+        assert_eq!(
+            expect_utf8(&generated),
+            expect_utf8(&second),
+            "Non-deterministic compiler output for {:?}",
+            testcase.absolute_path
+        );
+    }
+
+    output.write_all(&generated)?;
+    Ok(())
+}
+
+#[cfg(feature = "build-time")]
+fn compile_and_generate(
+    source: &str,
+    testcase: &test_driver_lib::TestCase,
+) -> Result<Vec<u8>, std::io::Error> {
+    use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
 
     let include_paths = test_driver_lib::extract_include_paths(source)
         .map(std::path::PathBuf::from)
@@ -282,12 +306,13 @@ fn generate_source(
         diag.print();
     }
 
+    let mut output = Vec::new();
     generator::generate(
         generator::OutputFormat::Rust,
-        output,
+        &mut output,
         None,
         &root_component,
         &loader.compiler_config,
     )?;
-    Ok(())
+    Ok(output)
 }

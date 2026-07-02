@@ -151,8 +151,8 @@ When this principle applies: any time you design syntax for a new visual or layo
 
 ### Comments and Docs
 
-- Follow `docs/astro/writing-style-guide.md` when writing *new* comments, doc comments, commit messages, or markdown.
-- But don't reformat existing prose to match the style.
+- **Always follow the [Writing Style Guide](docs/internal/writing-style-guide.md) for all new comments, doc comments, commit messages, and markdown.** It applies to code comments (internal and public API) as much as to prose. This is a requirement, not a suggestion.
+- But don't reformat existing prose just to match the style.
 
 ## Platform Prerequisites
 

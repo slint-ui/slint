@@ -22,8 +22,8 @@ use i_slint_core::item_tree::{
     ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeWeak, ParentItemTraversalMode,
 };
 use i_slint_core::items::{
-    self, DragAction, DropEvent, FillRule, ImageRendering, ItemRc, ItemRef, Layer, LineCap,
-    LineJoin, MouseCursor, Opacity, PointerEventButton, RenderingResult, TextWrap,
+    self, AllowedDragActions, DragAction, DropEvent, FillRule, ImageRendering, ItemRc, ItemRef,
+    Layer, LineCap, LineJoin, MouseCursor, Opacity, PointerEventButton, RenderingResult, TextWrap,
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
@@ -2117,12 +2117,14 @@ impl QtWindow {
         is_drop: bool,
     ) -> u32 {
         let position = i_slint_core::api::LogicalPosition::new(pos.x as f32, pos.y as f32);
-        let allow_copy = allowed & key_generated::Qt_DropAction_CopyAction != 0;
-        let allow_move = allowed
-            & (key_generated::Qt_DropAction_MoveAction
-                | key_generated::Qt_DropAction_TargetMoveAction)
-            != 0;
-        let allow_link = allowed & key_generated::Qt_DropAction_LinkAction != 0;
+        let allowed_actions = AllowedDragActions {
+            copy: allowed & key_generated::Qt_DropAction_CopyAction != 0,
+            move_: allowed
+                & (key_generated::Qt_DropAction_MoveAction
+                    | key_generated::Qt_DropAction_TargetMoveAction)
+                != 0,
+            link: allowed & key_generated::Qt_DropAction_LinkAction != 0,
+        };
         let mut data = DataTransfer::default();
         let text = text.to_shared_string();
         if !text.is_empty() {
@@ -2134,12 +2136,12 @@ impl QtWindow {
         let mut drop_event = DropEvent::default();
         drop_event.data = data;
         drop_event.position = position;
-        drop_event.allow_copy = allow_copy;
-        drop_event.allow_move = allow_move;
-        drop_event.allow_link = allow_link;
         drop_event.proposed_action = qt_drop_action_to_slint(proposed);
-        let mouse_event =
-            if is_drop { MouseEvent::Drop(drop_event) } else { MouseEvent::DragMove(drop_event) };
+        let mouse_event = if is_drop {
+            MouseEvent::Drop { event: drop_event, allowed: allowed_actions }
+        } else {
+            MouseEvent::DragMove { event: drop_event, allowed: allowed_actions }
+        };
         let chosen = WindowInner::from_pub(&self.window).process_mouse_input(mouse_event);
         timer_event();
         chosen

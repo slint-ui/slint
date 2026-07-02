@@ -924,12 +924,26 @@ pub fn generate(
         ));
     }
 
+    // The globals are not initialized in the constructor: a global's init may evaluate a
+    // binding (e.g. `Palette.color-scheme`) that resolves the root through `root_weak` and the
+    // root component's `globals` pointer. Those are only set after the SharedGlobals member has
+    // been constructed, so the init is deferred to `init_globals()`, called from the root
+    // component's `create()` once `globals` and `root_weak` are in place.
     globals_struct.members.push((
         Access::Public,
         Declaration::Function(Function {
             name: globals_struct.name.clone(),
             is_constructor_or_destructor: true,
             signature: "()".into(),
+            statements: Some(vec![]),
+            ..Default::default()
+        }),
+    ));
+    globals_struct.members.push((
+        Access::Public,
+        Declaration::Function(Function {
+            name: "init_globals".into(),
+            signature: "() -> void".into(),
             statements: Some(init_global),
             ..Default::default()
         }),
@@ -2039,6 +2053,9 @@ fn generate_item_tree(
 
         create_code.push("self->globals = &self->m_globals;".into());
         create_code.push("self->m_globals.root_weak = self->self_weak;".into());
+        // Now that `globals` and `root_weak` are set, the globals can be initialized: their
+        // init may resolve the root window adapter through these (see `init_globals`).
+        create_code.push("self->m_globals.init_globals();".into());
     }
 
     let global_access =
@@ -2279,6 +2296,13 @@ fn generate_sub_component(
     let mut subtrees_ranges_cases = Vec::new();
     let mut subtrees_components_cases = Vec::new();
     let mut ensure_instantiated_stmts: Vec<String> = Vec::new();
+
+    // The pre-init code (custom font registration) runs before the property initialization.
+    init.extend(component.pre_init_code.iter().map(|e| {
+        let mut expr_str = compile_expression(&e.borrow(), &ctx);
+        expr_str.push(';');
+        expr_str
+    }));
 
     for sub in &component.sub_components {
         let sub_field = field_name(&sub.name);
@@ -2942,12 +2966,13 @@ fn generate_grid_layout_input_decl(
                 }
                 llr::RowChildTemplateInfo::Repeated { repeater_index } => {
                     let inner_rep_id = format!("repeater_{}", usize::from(*repeater_index));
+                    // Let the inner cell report its own col/row/colspan/rowspan.
                     write!(
                         fill_code,
                         "this->{inner_rep_id}.track_instance_changes();\n\
-                         {inner_rep_id}.for_each([&]([[maybe_unused]] const auto &) {{\n\
+                         {inner_rep_id}.for_each([&](const auto &sub_comp) {{\n\
                              if (write_idx < result.size()) {{\n\
-                                 result[write_idx] = slint::cbindgen_private::GridLayoutInputData {{ (write_idx == 0) && new_row, {auto_val:.1}f, {auto_val:.1}f, 1.0f, 1.0f }};\n\
+                                 sub_comp->grid_layout_input_for_repeated((write_idx == 0) && new_row, result.subspan(write_idx, 1));\n\
                              }}\n\
                              ++write_idx;\n\
                          }});\n"
@@ -3804,9 +3829,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
     match expr {
         Expression::StringLiteral(s) => shared_string_literal(s),
         Expression::NumberLiteral(num) => {
-            if !num.is_finite() {
-                // just print something
-                "0.0".to_string()
+            if num.is_nan() {
+                "std::numeric_limits<double>::quiet_NaN()".to_string()
+            } else if num.is_infinite() {
+                if *num > 0. {
+                    "std::numeric_limits<double>::infinity()".to_string()
+                } else {
+                    "-std::numeric_limits<double>::infinity()".to_string()
+                }
             } else if num.abs() > 1_000_000_000. {
                 // If the numbers are too big, decimal notation will give too many digit
                 format!("{num:+e}")
@@ -3900,7 +3930,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             let f = compile_expression(from, ctx);
             match (from.ty(ctx), to) {
                 (Type::Float32, Type::Int32) => {
-                    format!("static_cast<int>({f})")
+                    format!("slint::private_api::saturating_float_to_int({f})")
                 }
                 (from, Type::String) if from.as_unit_product().is_some() => {
                     format!("slint::SharedString::from_number({f})")
@@ -4131,9 +4161,11 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::ImageReference { resource_ref, nine_slice } => {
             let image = match resource_ref {
                 crate::expression_tree::ImageReference::None => r#"slint::Image()"#.to_string(),
-                crate::expression_tree::ImageReference::AbsolutePath(path) => format!(
+                resource_ref @ (crate::expression_tree::ImageReference::Path(_)
+                | crate::expression_tree::ImageReference::Url(_)
+                | crate::expression_tree::ImageReference::DataUri(_)) => format!(
                     r#"slint::Image::load_from_path(slint::SharedString(u8"{}"))"#,
-                    escape_string(path.as_str())
+                    escape_string(resource_ref.source().unwrap())
                 ),
                 crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
                     let symbol = format!("slint_embedded_resource_{resource_id}");
@@ -4229,23 +4261,9 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => format!(
             "slint::cbindgen_private::EasingCurve(slint::cbindgen_private::EasingCurve::Tag::CubicBezier, {a}, {b}, {c}, {d})"
         ),
-        Expression::EasingCurve(EasingCurve::EaseInElastic) => {
-            "slint::cbindgen_private::EasingCurve::Tag::EaseInElastic".into()
-        }
-        Expression::EasingCurve(EasingCurve::EaseOutElastic) => {
-            "slint::cbindgen_private::EasingCurve::Tag::EaseOutElastic".into()
-        }
-        Expression::EasingCurve(EasingCurve::EaseInOutElastic) => {
-            "slint::cbindgen_private::EasingCurve::Tag::EaseInOutElastic".into()
-        }
-        Expression::EasingCurve(EasingCurve::EaseInBounce) => {
-            "slint::cbindgen_private::EasingCurve::Tag::EaseInBounce".into()
-        }
-        Expression::EasingCurve(EasingCurve::EaseOutBounce) => {
-            "slint::cbindgen_private::EasingCurve::Tag::EaseOutElastic".into()
-        }
-        Expression::EasingCurve(EasingCurve::EaseInOutBounce) => {
-            "slint::cbindgen_private::EasingCurve::Tag::EaseInOutElastic".into()
+        // The other curves have no parameters and their C++ Tag matches the variant name.
+        Expression::EasingCurve(e) => {
+            format!("slint::cbindgen_private::EasingCurve::Tag::{e:?}")
         }
         Expression::LinearGradient { angle, stops } => {
             let angle = compile_expression(angle, ctx);
@@ -4646,6 +4664,11 @@ fn compile_builtin_function_call(
         BuiltinFunction::ToPrecision => {
             format!("[](double n, int p) {{ slint::SharedString out; slint::cbindgen_private::slint_shared_string_from_number_precision(&out, n, std::max(p, 0)); return out; }}({}, {})",
                 a.next().unwrap(), a.next().unwrap(),
+            )
+        }
+        BuiltinFunction::ToStringUnlocalized => {
+            format!("[](double n) {{ slint::SharedString out; slint::cbindgen_private::slint_shared_string_from_number_unlocalized(&out, n); return out; }}({})",
+                a.next().unwrap(),
             )
         }
         BuiltinFunction::SetFocusItem => {
@@ -5278,6 +5301,9 @@ fn generate_with_layout_item_info(
                     repeater_idx,
                     "max_total",
                     |repeater_id, static_count, inner_ensure, rs_init| {
+                        // for_each only visits instantiated slots; pad the cells up to len()
+                        // afterwards so the cell count matches the repeater length recorded in
+                        // the repeater_indices array (not-yet-instantiated rows get placeholders).
                         format!(
                             "{{
                                 size_t max_total = {static_count};
@@ -5285,11 +5311,13 @@ fn generate_with_layout_item_info(
                                     {inner_ensure}
                                 }});
                                 {rs_init}
+                                auto start_offset = cells_vector.size();
                                 self->{repeater_id}.for_each([&](const auto &sub_comp) {{
                                     for (size_t child_idx = 0; child_idx < max_total; ++child_idx) {{
                                         cells_vector.push_back(sub_comp->layout_item_info({o}, child_idx));
                                     }}
                                 }});
+                                cells_vector.resize(start_offset + self->{repeater_id}.len() * max_total);
                             }}",
                             o = to_cpp_orientation(orientation),
                         )
@@ -5300,16 +5328,24 @@ fn generate_with_layout_item_info(
                         } else if step == 1 && is_column_repeater {
                             // Column-repeater: each sub-component IS a cell; nullopt returns its own layout_info
                             format!(
-                                "{rs_init}self->{repeater_id}.for_each([&](const auto &sub_comp){{ cells_vector.push_back(sub_comp->layout_item_info({o}, std::nullopt)); }});",
+                                "{rs_init}{{
+                                    auto start_offset = cells_vector.size();
+                                    self->{repeater_id}.for_each([&](const auto &sub_comp){{ cells_vector.push_back(sub_comp->layout_item_info({o}, std::nullopt)); }});
+                                    cells_vector.resize(start_offset + self->{repeater_id}.len());
+                                }}",
                                 o = to_cpp_orientation(orientation),
                             )
                         } else {
                             format!(
-                                "{rs_init}self->{repeater_id}.for_each([&](const auto &sub_comp){{
-                                    for (size_t child_idx = 0; child_idx < {step}; ++child_idx) {{
-                                        cells_vector.push_back(sub_comp->layout_item_info({o}, child_idx));
-                                    }}
-                                }});",
+                                "{rs_init}{{
+                                    auto start_offset = cells_vector.size();
+                                    self->{repeater_id}.for_each([&](const auto &sub_comp){{
+                                        for (size_t child_idx = 0; child_idx < {step}; ++child_idx) {{
+                                            cells_vector.push_back(sub_comp->layout_item_info({o}, child_idx));
+                                        }}
+                                    }});
+                                    cells_vector.resize(start_offset + self->{repeater_id}.len() * {step});
+                                }}",
                                 o = to_cpp_orientation(orientation),
                             )
                         }
@@ -5388,11 +5424,19 @@ fn generate_with_flexbox_layout_item_info(
                     .unwrap();
                 }
                 repeater_idx += 1;
+                // for_each only visits instantiated slots; pad the cells up to len() afterwards so
+                // the cell count matches the repeater length recorded in the repeater_indices array
+                // (not-yet-instantiated rows get placeholders).
                 write!(
                     push_code,
-                    "self->repeater_{repeater_index}.for_each([&](const auto &sub_comp){{ \
+                    "{{ \
+                     auto start_offset = cells_vector_h.size(); \
+                     self->repeater_{repeater_index}.for_each([&](const auto &sub_comp){{ \
                      cells_vector_h.push_back(sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Horizontal, std::nullopt)); \
-                     cells_vector_v.push_back(sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Vertical, std::nullopt)); }});"
+                     cells_vector_v.push_back(sub_comp->flexbox_layout_item_info(slint::cbindgen_private::Orientation::Vertical, std::nullopt)); }}); \
+                     auto repeater_len = self->repeater_{repeater_index}.len(); \
+                     cells_vector_h.resize(start_offset + repeater_len); \
+                     cells_vector_v.resize(start_offset + repeater_len); }}"
                 )
                 .unwrap();
             }

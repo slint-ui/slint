@@ -1146,11 +1146,7 @@ public:
     /// Register the instance generation as a dependency of the current
     /// tracking scope. Layout code uses this to re-evaluate only after
     /// ensure_updated materializes instance changes.
-    void track_instance_changes() const
-    {
-        if (inner)
-            instance_generation.register_as_dependency();
-    }
+    void track_instance_changes() const { instance_generation.register_as_dependency(); }
 
     /// Register the ListView viewport properties as dependencies so that
     /// scrolling triggers a redraw.  Model dependencies are registered by
@@ -1173,6 +1169,8 @@ public:
     uint64_t visit(TraversalOrder order, private_api::ItemVisitorRefMut visitor) const
     {
         track_model_changes();
+        if (!inner)
+            return std::numeric_limits<uint64_t>::max();
         for (std::size_t i = 0; i < inner->data.size(); ++i) {
             auto index = order == TraversalOrder::BackToFront ? i : inner->data.size() - 1 - i;
             if (!inner->data[index].ptr)
@@ -1188,6 +1186,8 @@ public:
 
     vtable::VWeak<private_api::ItemTreeVTable> instance_at(std::size_t i) const
     {
+        if (!inner)
+            return {};
         const auto offset = inner->layout_state.offset;
         if (i < offset || i - offset >= inner->data.size()) {
             return {};
@@ -1200,6 +1200,8 @@ public:
 
     private_api::IndexRange index_range() const
     {
+        if (!inner)
+            return private_api::IndexRange { 0, 0 };
         const auto offset = inner->layout_state.offset;
         return private_api::IndexRange { offset, offset + inner->data.size() };
     }

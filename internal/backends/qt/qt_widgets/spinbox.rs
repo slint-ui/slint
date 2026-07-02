@@ -243,7 +243,7 @@ impl Item for NativeSpinBox {
                     true
                 }
                 MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => false,
-                MouseEvent::DragMove(..) | MouseEvent::Drop(..) => false,
+                MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => false,
             };
         data.active_controls = new_control;
         if changed {

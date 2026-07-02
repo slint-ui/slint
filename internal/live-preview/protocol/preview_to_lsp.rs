@@ -54,4 +54,7 @@ pub enum PreviewToLspMessage {
     ConnectRemote { addresses: Vec<String>, port: u16 },
     /// The preview UI asked to disconnect the remote viewer.
     DisconnectRemote,
+    /// Answer to [`super::LspToPreviewMessage::Ping`], consumed by the LSP's
+    /// WebSocket connector.
+    Pong,
 }

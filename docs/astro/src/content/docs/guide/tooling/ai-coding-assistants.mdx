@@ -1,0 +1,64 @@
+---
+title: AI Coding Assistants
+description: Install the Slint skill for Claude Code, Codex, Cursor, and other AI coding agents.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Use the Slint skill to give your AI coding agent project-specific guidance for working with Slint.
+The skill covers the `.slint` language, layouts, common gotchas, host-language interop, and the embedded MCP server.
+
+The plugin and skills are available from the [slint-ui/ai-plugins](https://github.com/slint-ui/ai-plugins) repository.
+
+<Tabs syncKey="ai-tool">
+  <TabItem label="Claude Code">
+  Add the Slint marketplace from GitHub and install the plugin:
+
+  ```sh
+  /plugin marketplace add slint-ui/ai-plugins
+  /plugin install slint@slint
+  ```
+
+  Claude Code can then use the bundled Slint skill when working with Slint projects.
+  </TabItem>
+  <TabItem label="Codex">
+  Enter the following in the Codex prompt to install the skill from GitHub:
+
+  ```sh
+  codex plugin marketplace add slint-ui/ai-plugins
+  codex plugin add slint@slint
+  ```
+
+  Restart Codex after the install so it picks up the new skill.
+  </TabItem>
+  <TabItem label="GitHub CLI">
+  If you have the [GitHub CLI](https://cli.github.com/) installed, `gh skill install` works for any supported agent — pick the one matching your tool:
+
+  ```sh
+  # Codex
+  gh skill install slint-ui/ai-plugins slint --agent codex
+
+  # Claude Code
+  gh skill install slint-ui/ai-plugins slint --agent claude-code
+  ```
+
+  See [`gh skill install`](https://cli.github.com/manual/gh_skill_install) for the full list of supported agents (Cursor, Gemini CLI, Windsurf, and others). Restart your agent afterward so it picks up the new skill.
+  </TabItem>
+  <TabItem label="npx skills">
+  Install the Slint skill into the current project with the [`skills`](https://github.com/vercel-labs/skills) CLI:
+
+  ```sh
+  npx skills add slint-ui/ai-plugins --skill slint
+  ```
+
+  This works for any agent supported by the `skills` CLI (Claude Code, Cursor, and others) and installs into the project's agent skills directory by default. Pass `-g` to install globally for all projects.
+  </TabItem>
+</Tabs>
+
+## What Your Assistant Can Do
+
+With the skill installed, the assistant follows Slint's conventions when it writes, debugs, and reviews `.slint` code, and wires the UI to Rust, C++, JavaScript, or Python.
+Assistants also learn to verify rendering by taking screenshots of the scene before calling the work done.
+
+The skill also connects the assistant to the Model Context Protocol (MCP) server embedded in your running Slint application.
+Once connected, the assistant can inspect the UI through its accessibility tree, drive it with mouse, touch, and keyboard input, and capture screenshots to check the result — built on Slint's existing accessibility and testing APIs, with no debugging hooks in your application.

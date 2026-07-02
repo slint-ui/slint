@@ -82,8 +82,8 @@ export component TabImpl inherits Rectangle {
         i-text := Text {
             vertical-alignment: center;
             horizontal-alignment: left;
-            font-size: root.is-current ? FluentFontSettings.body-strong.font-size : FluentFontSettings.body.font-size;
-            font-weight: root.is-current ? FluentFontSettings.body-strong.font-weight : FluentFontSettings.body.font-weight;
+            font-size: root.is-current ? FluentFontSettings.body-strong.font-size : 1rem;
+            font-weight: root.is-current ? FluentFontSettings.body-strong.font-weight : FontWeight.normal;
             color: root.is-current ? FluentPalette.control-foreground : FluentPalette.text-secondary;
             accessible-role: none;
         }

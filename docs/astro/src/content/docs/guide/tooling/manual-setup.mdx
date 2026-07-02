@@ -2,7 +2,6 @@
 title: Manual Setup
 description: Manually set up Slint for your editor
 ---
-{/* cSpell: ignore libx libxcb libxkbcommon libinput libgbm */}
 
 import Link from '@slint/common-files/src/components/Link.astro';
 
@@ -28,32 +27,47 @@ Slint provides an LSP implementation with the `slint-lsp` binary.
 
 ### Installation
 
-If you have Rust installed, you can install the binary by running the following command:
+There are multiple ways to install `slint-lsp`:
+
+#### From pre-built binaries (with `cargo binstall`):
+
+The fastest way to install `slint-lsp` is with [cargo binstall](https://github.com/cargo-bins/cargo-binstall), which automatically downloads and installs the pre-built binary:
+
+```sh
+cargo binstall slint-lsp
+```
+
+#### From source:
+
+If you have a Rust toolchain installed, use `cargo install`:
 
 ```sh
 cargo install slint-lsp
 ```
 
-This makes the latest released version available in `$HOME/.cargo/bin`. If you would like to try a development version, you can also point `cargo install` to the git repository:
-for the released version. Or, to install the development version:
+To install the development version from the git repository:
 
 ```sh
 cargo install slint-lsp --git https://github.com/slint-ui/slint --force
 ```
-
-
-Alternatively, you can download one of our pre-built binaries for Linux or Windows:
-
-1. Go to [the latest Slint release](https://github.com/slint-ui/slint/releases/latest)
-2. From "Assets" download either `slint-lsp-linux.tar.gz` for a Linux x86-64 binary
-   or `slint-lsp-windows-x86_64.zip` for a Windows x86-64 binary.
-3. Uncompress the downloaded archive into a location of your choice.
 
 Make sure the required dependencies are found. On Debian-like systems install them with the following command:
 
 ```shell
 sudo apt install -y build-essential libx11-xcb1 libx11-dev libxcb1-dev libxkbcommon0 libinput10 libinput-dev libgbm1 libgbm-dev
 ```
+
+#### From pre-built binaries (manual download):
+
+You can also download the pre-built binaries from the Slint GitHub releases page:
+
+1. Go to [the latest Slint release](https://github.com/slint-ui/slint/releases/latest)
+2. From "Assets" download the appropriate `slint-lsp-*` archive for your architecture, for example:
+    - Linux x86-64: [`slint-lsp-x86_64-unknown-linux-gnu.tar.gz`](https://github.com/slint-ui/slint/releases/latest/download/slint-lsp-x86_64-unknown-linux-gnu.tar.gz).
+    - Windows x86-64: [`slint-lsp-x86_64-pc-windows-msvc.zip`](https://github.com/slint-ui/slint/releases/latest/download/slint-lsp-x86_64-pc-windows-msvc.zip).
+    - Mac (Intel & Apple Silicon) [`slint-lsp-universal-apple-darwin.tar.gz`](https://github.com/slint-ui/slint/releases/latest/download/slint-lsp-universal-apple-darwin.tar.gz).
+    - ARM binaries are also available for Linux and Windows (named aarch64 or armv7 respectively).
+3. Uncompress the downloaded archive into a location of your choice (preferably somewhere in your PATH, so that it becomes available in your command line).
 
 ### Editor configuration
 
@@ -88,14 +102,8 @@ If you have slint-lsp configured in your editor, you can launch the live preview
 
 ### Running `slint-viewer` from the terminal
 
-To open the live preview from a terminal, you can use the `slint-viewer` binary.
-
-To install it either:
-
-* [Download the binary](https://github.com/slint-ui/slint/releases/latest)
-* Run `cargo install slint-viewer` if you have a Rust installation
-
-Then run `slint-viewer --auto-reload <path/to/file.slint>`.
+To open the live preview from a terminal, run `slint-viewer --auto-reload <path/to/file.slint>`.
+See the <Link type="SlintViewer" label="Slint Viewer"/> page for installation, screenshots, and all command-line options.
 
 **Example on the [Printer Demo](https://github.com/slint-ui/slint/blob/master/demos/printerdemo/ui/printerdemo.slint)**
 

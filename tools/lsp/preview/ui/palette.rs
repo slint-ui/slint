@@ -614,7 +614,6 @@ export component Main { }
                     crate::common::DummyLspToPreview::default(),
                 ),
                 pending_recompile: Default::default(),
-                preview_to_lsp_sender: tokio::sync::mpsc::unbounded_channel().0,
             };
             let (url, _) = crate::language::test::load(
                 &mut ctx,

@@ -368,32 +368,34 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::ImageReference { resource_ref, nine_slice, .. } => {
             let mut image = match resource_ref {
                 i_slint_compiler::expression_tree::ImageReference::None => Ok(Default::default()),
-                i_slint_compiler::expression_tree::ImageReference::AbsolutePath(path) => {
-                    if path.starts_with("data:") {
-                        i_slint_compiler::data_uri::decode_data_uri(path)
-                            .ok()
-                            .and_then(|(data, extension)| {
-                                corelib::graphics::load_image_from_dynamic_data(&data, &extension)
-                                    .ok()
-                            })
-                            .ok_or_else(Default::default)
-                    } else {
-                        let path = std::path::Path::new(path);
-                        if path.starts_with("builtin:/") {
-                            i_slint_compiler::fileaccess::load_file(path)
-                                .and_then(|virtual_file| virtual_file.builtin_contents)
-                                .map(|virtual_file| {
-                                    let extension = path.extension().unwrap().to_str().unwrap();
-                                    corelib::graphics::load_image_from_embedded_data(
-                                        corelib::slice::Slice::from_slice(virtual_file),
-                                        corelib::slice::Slice::from_slice(extension.as_bytes()),
-                                    )
-                                })
-                                .ok_or_else(Default::default)
-                        } else {
-                            corelib::graphics::Image::load_from_path(path)
-                        }
-                    }
+                i_slint_compiler::expression_tree::ImageReference::DataUri(data) => {
+                    i_slint_compiler::data_uri::decode_data_uri(data)
+                        .ok()
+                        .and_then(|(data, extension)| {
+                            corelib::graphics::load_image_from_dynamic_data(&data, &extension).ok()
+                        })
+                        .ok_or_else(Default::default)
+                }
+                i_slint_compiler::expression_tree::ImageReference::Url(url)
+                    if url.scheme() == "builtin" =>
+                {
+                    let path = std::path::Path::new(url.as_str());
+                    i_slint_compiler::fileaccess::load_file(path)
+                        .and_then(|virtual_file| virtual_file.builtin_contents)
+                        .map(|virtual_file| {
+                            let extension = path.extension().unwrap().to_str().unwrap();
+                            corelib::graphics::load_image_from_embedded_data(
+                                corelib::slice::Slice::from_slice(virtual_file),
+                                corelib::slice::Slice::from_slice(extension.as_bytes()),
+                            )
+                        })
+                        .ok_or_else(Default::default)
+                }
+                i_slint_compiler::expression_tree::ImageReference::Path(path) => {
+                    corelib::graphics::Image::load_from_path(std::path::Path::new(path))
+                }
+                i_slint_compiler::expression_tree::ImageReference::Url(url) => {
+                    corelib::graphics::Image::load_from_path(std::path::Path::new(url.as_str()))
                 }
                 i_slint_compiler::expression_tree::ImageReference::EmbeddedData { .. } => {
                     todo!()
@@ -869,6 +871,10 @@ fn call_builtin_function(
             let precision: i32 = eval_expression(&arguments[1], local_context).try_into().unwrap();
             let precision: usize = precision.max(0) as usize;
             Value::String(i_slint_core::string::shared_string_from_number_precision(n, precision))
+        }
+        BuiltinFunction::ToStringUnlocalized => {
+            let n: f64 = eval_expression(&arguments[0], local_context).try_into().unwrap();
+            Value::String(i_slint_core::string::shared_string_from_number_unlocalized(n))
         }
         BuiltinFunction::SetFocusItem => {
             if arguments.len() != 1 {

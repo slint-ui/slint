@@ -1,0 +1,57 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for #12265: instantiating this in the interpreter (LSP live preview /
+// slint-viewer) panicked with "binding was of the wrong type: ()".
+//
+// `data` is a struct property the parent sets, and `checked <=> data.<field>` two-way binds into
+// it while `enabled: data.enabled` reads it. `data` is stored as a `Value`, whose default is `Void`
+// rather than a `Data`; when its value was read before its binding had run, `data.enabled` came back
+// `Void` and aborted when converted to `bool`. The fix initializes struct/array/enum properties to
+// their type's default instead of `Void`.
+//
+// In #12265 the early read came from a std CheckBox's `if has-focus && enabled` focus border being
+// evaluated during the TabWidget's layout. Here `changed enabled` reproduces the same early read
+// without any widget: a ChangeTracker reads its property once at instantiation to record a baseline,
+// so `enabled` (hence `data.enabled`) is read before `data`'s binding has run.
+
+struct Data { a: bool, b: bool, enabled: bool }
+
+component Field {
+    in-out property <bool> checked;
+    in property <bool> enabled <=> touch-area.enabled;
+    changed enabled => { }
+    touch-area := TouchArea { }
+}
+
+component Page {
+    in-out property <Data> data;
+    Field { checked <=> data.a; enabled: data.enabled; }
+    Field { checked <=> data.b; enabled: data.enabled; }
+}
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 200px;
+    in-out property <Data> model: { a: true, b: false, enabled: true };
+    Page { data: model; }
+    out property <bool> test: model.a && !model.b && model.enabled;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+let instance = new slint.TestCase();
+assert(instance.test);
+```
+*/

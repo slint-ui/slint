@@ -273,3 +273,46 @@ fn compare_rgb(actual: &Path, reference: &Path) -> Result<(), String> {
     }
     Ok(())
 }
+
+// --- Screenshot size ---------------------------------------------------
+
+#[test]
+fn size_requires_screenshot() {
+    let f = write_slint("export component App { }\n");
+    let (code, _stdout, stderr) = run(&["--size", "100x50", f.path().to_str().unwrap()]);
+    assert_eq!(code, 2);
+    assert!(stderr.contains("--screenshot"), "stderr was:\n{stderr}");
+}
+
+#[test]
+fn screenshot_size_sets_dimensions() {
+    let f = write_slint("export component App { Rectangle { background: red; } }\n");
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("out.png");
+    let (code, _stdout, stderr) = run(&[
+        "--screenshot",
+        out.to_str().unwrap(),
+        "--size",
+        "120x80",
+        f.path().to_str().unwrap(),
+    ]);
+    assert_eq!(code, 0, "stderr was:\n{stderr}");
+    assert_eq!(image::open(&out).expect("opening screenshot").to_rgb8().dimensions(), (120, 80));
+}
+
+#[test]
+fn invalid_size_is_reported() {
+    let f = write_slint("export component App { }\n");
+    let tmp = tempfile::tempdir().unwrap();
+    let out = tmp.path().join("out.png");
+    let (code, _stdout, stderr) = run(&[
+        "--screenshot",
+        out.to_str().unwrap(),
+        "--size",
+        "not-a-size",
+        f.path().to_str().unwrap(),
+    ]);
+    assert_ne!(code, 0);
+    assert!(stderr.contains("Invalid --size"), "stderr was:\n{stderr}");
+    assert!(!out.exists(), "screenshot file should not have been written");
+}

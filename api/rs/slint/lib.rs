@@ -412,6 +412,14 @@ macro_rules! init_translations {
     };
 }
 
+/// Forces all the strings that are translated with `@tr(...)` to be re-evaluated.
+/// Call this function after changing the language at run-time and when translating
+/// with either gettext or a custom translator. For bundled translations, there is no need
+/// to call this function.
+pub fn update_all_translations() {
+    i_slint_core::translations::mark_all_translations_dirty();
+}
+
 /// This module contains items that you need to use or implement if you want use Slint in an environment without
 /// one of the supplied platform backends such as qt or winit.
 ///
@@ -508,7 +516,7 @@ pub mod android;
 /// Helper type that helps checking that the generated code is generated for the right version
 #[doc(hidden)]
 #[allow(non_camel_case_types)]
-pub struct VersionCheck_1_17_0;
+pub struct VersionCheck_1_17_1;
 
 #[cfg(doctest)]
 mod compile_fail_tests;

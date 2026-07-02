@@ -249,9 +249,9 @@ export component PreviewUi inherits Window {
                     // `changed model`/`changed current-value` handlers onto the global, where the
                     // instance elements they reference can't be resolved (issue #6426). Use
                     // one-way bindings plus an explicit write-back instead.
-                    current-style: Api.current-style;
-                    changed current-style => {
-                        Api.current-style = self.current-style;
+                    current-style-index: Api.current-style-index;
+                    changed current-style-index => {
+                        Api.current-style-index = self.current-style-index;
                     }
                     known-styles: Api.known-styles;
                     preview-mode <=> Api.preview-mode;
@@ -282,13 +282,9 @@ export component PreviewUi inherits Window {
                     }
                 }
 
-                if root.remote-mode: RemotePreviewView {
-                    horizontal-stretch: 1;
-                    vertical-stretch: 1;
-                }
+                if root.remote-mode: RemotePreviewView { }
 
                 if !root.remote-mode: HorizontalLayout {
-                    spacing: 0px;
 
                     if root.library-widget: LibraryView {
                         known-components: Api.known-components;

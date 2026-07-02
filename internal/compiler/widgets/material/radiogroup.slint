@@ -58,8 +58,8 @@ export component RadioButtonImpl inherits RadioButtonImplBase {
         if root.text != "": Text {
             text: root.text;
             color: root.text-color;
-            font-size: MaterialFontSettings.body-large.font-size;
-            font-weight: MaterialFontSettings.body-large.font-weight;
+            font-size: MaterialFontSettings.title-small.font-size;
+            font-weight: MaterialFontSettings.title-small.font-weight;
             vertical-alignment: center;
             horizontal-alignment: left;
         }
@@ -68,8 +68,8 @@ export component RadioButtonImpl inherits RadioButtonImplBase {
 
 export component RadioGroupImpl inherits RadioGroupImplBase {
     title-color: !root.enabled ? MaterialPalette.control-foreground-variant : MaterialPalette.foreground;
-    title-font-size: MaterialFontSettings.body-large.font-size;
-    title-font-weight: MaterialFontSettings.body-large.font-weight;
+    title-font-size: MaterialFontSettings.title-small.font-size;
+    title-font-weight: MaterialFontSettings.title-small.font-weight;
 }
 
 export component RadioGroup inherits RadioGroup { }

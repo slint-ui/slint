@@ -431,9 +431,12 @@ pub struct InitCode {
 
 impl InitCode {
     pub fn iter(&self) -> impl Iterator<Item = &Expression> {
-        self.font_registration_code
+        self.font_registration_code.iter().chain(self.iter_without_font_registration())
+    }
+    /// The init code without the font registration, which has to run before the property init.
+    pub fn iter_without_font_registration(&self) -> impl Iterator<Item = &Expression> {
+        self.focus_setting_code
             .iter()
-            .chain(self.focus_setting_code.iter())
             .chain(self.constructor_code.iter())
             .chain(self.inlined_init_code.values())
     }
@@ -1983,7 +1986,21 @@ impl Element {
             diag,
             tr,
         );
-        let is_listview = if parent.borrow().base_type.to_string() == "ListView"
+        let parent_is_listview = {
+            let parent = parent.borrow();
+            parent.base_type.to_string() == "ListView"
+                // Custom "ListView" is OK, but it must have these properties
+                && [
+                    "viewport-y",
+                    "viewport-height",
+                    "viewport-width",
+                    "visible-height",
+                    "visible-width",
+                ]
+                .iter()
+                .all(|p| parent.lookup_property(p).property_type == Type::LogicalLength)
+        };
+        let is_listview = if parent_is_listview
             && let Some(geometry_props) = e.borrow().geometry_props.as_ref()
         {
             let lvi = ListViewInfo {

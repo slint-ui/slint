@@ -212,22 +212,18 @@ fn start_lsp_thread(
 
 fn bridge_crossbeam_to_tokio(
     from_preview: crossbeam_channel::Receiver<PreviewToLspMessage>,
-) -> (
-    tokio::sync::mpsc::UnboundedSender<PreviewToLspMessage>,
-    tokio::sync::mpsc::UnboundedReceiver<PreviewToLspMessage>,
-) {
+) -> tokio::sync::mpsc::UnboundedReceiver<PreviewToLspMessage> {
     let (from_preview_tx, from_preview_rx) =
         tokio::sync::mpsc::unbounded_channel::<PreviewToLspMessage>();
-    let inner_from_preview_tx = from_preview_tx.clone();
     std::thread::spawn(move || {
         while let Ok(msg) = from_preview.recv() {
-            if inner_from_preview_tx.send(msg).is_err() {
+            if from_preview_tx.send(msg).is_err() {
                 break;
             }
         }
         tracing::debug!("Preview->LSP crossbeam adapter thread exited");
     });
-    (from_preview_tx, from_preview_rx)
+    from_preview_rx
 }
 
 async fn lsp_main(
@@ -238,7 +234,7 @@ async fn lsp_main(
 ) -> Result<()> {
     use crate::common::document_cache::CompilerConfiguration;
 
-    let (from_preview_tx, mut from_preview_rx) = bridge_crossbeam_to_tokio(from_preview);
+    let mut from_preview_rx = bridge_crossbeam_to_tokio(from_preview);
     let (file_watcher_tx, mut file_watcher_rx) = tokio::sync::mpsc::unbounded_channel();
     let mut file_watcher = FileWatcher::start(
         move |event| {
@@ -297,7 +293,6 @@ async fn lsp_main(
         open_urls: Default::default(),
         to_preview,
         pending_recompile: Default::default(),
-        preview_to_lsp_sender: from_preview_tx,
     };
 
     let mut watch_paths_revision = None;
@@ -463,7 +458,8 @@ async fn handle_preview_message(
         | PreviewTypeChanged { .. }
         | TelemetryEvent(..)
         | ConnectRemote { .. }
-        | DisconnectRemote => {
+        | DisconnectRemote
+        | Pong => {
             tracing::debug!("Ignoring message from preview: {msg:?}");
             None
         }

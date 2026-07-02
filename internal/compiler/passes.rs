@@ -106,6 +106,8 @@ pub async fn run_passes(
     };
 
     let global_type_registry = type_loader.global_type_registry.clone();
+    // The shared symbol-name counters, handed to the passes that generate names.
+    let symbol_counters = type_loader.symbol_counters.clone();
 
     run_import_passes(doc, type_loader, diag);
     check_public_api::check_public_api(doc, &type_loader.compiler_config, diag);
@@ -131,12 +133,7 @@ pub async fn run_passes(
         );
         lower_states::lower_states(component, diag);
         lower_text_input_interface::lower_text_input_interface(component);
-        compile_paths::compile_paths(
-            component,
-            &doc.local_registry,
-            type_loader.compiler_config.embed_resources,
-            diag,
-        );
+        compile_paths::compile_paths(component, &doc.local_registry, diag);
         repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         collect_init_code::collect_init_code(component);
@@ -160,7 +157,7 @@ pub async fn run_passes(
         deprecated_rotation_origin::handle_rotation_origin(component, diag);
         flickable::handle_flickable(component, &global_type_registry.borrow());
         lower_layout::lower_layouts(component, type_loader, &style_metrics, diag);
-        default_geometry::default_geometry(component, diag);
+        default_geometry::default_geometry(component, diag, &symbol_counters);
         lower_layout::synthesize_layoutinfo_v_with_constraint(component);
         lower_layout::synthesize_layoutinfo_h_with_constraint(component);
         lower_absolute_coordinates::lower_absolute_coordinates(component);
@@ -207,6 +204,8 @@ pub async fn run_passes(
         }
     }
     collect_globals::collect_globals(doc, diag);
+    // Must be done before passes that rely on `NamedReference::is_constant`.
+    collect_globals::mark_library_globals(doc);
 
     if type_loader.compiler_config.inline_all_elements {
         inlining::inline(doc, inlining::InlineSelection::InlineAllComponents, diag);
@@ -215,7 +214,6 @@ pub async fn run_passes(
 
     let global_analysis =
         binding_analysis::binding_analysis(doc, &type_loader.compiler_config, diag);
-    collect_globals::mark_library_globals(doc);
     unique_id::assign_unique_id(doc);
 
     doc.visit_all_used_components(|component| {
@@ -233,7 +231,7 @@ pub async fn run_passes(
     });
 
     remove_aliases::remove_aliases(doc, diag);
-    remove_return::remove_return(doc);
+    remove_return::remove_return(doc, &symbol_counters);
 
     doc.visit_all_used_components(|component| {
         if !diag.has_errors() {
@@ -257,11 +255,27 @@ pub async fn run_passes(
         }
     });
 
+    // The fonts (system + imported) used to embed glyphs and rasterize SVG text are
+    // shared between `embed_images` and `embed_glyphs`, so the system is scanned once.
+    #[cfg(feature = "software-renderer")]
+    let font_collection = (type_loader.compiler_config.embed_resources
+        == crate::EmbedResourcesKind::EmbedTextures)
+        .then(|| {
+            let custom = embed_glyphs::read_custom_fonts(
+                std::iter::once(&*doc).chain(type_loader.all_documents()),
+                diag,
+            );
+            embed_glyphs::shared_font_collection(custom)
+        });
+    #[cfg(not(feature = "software-renderer"))]
+    let font_collection: Option<embed_images::SharedFontCollection> = None;
+
     embed_images::embed_images(
         doc,
         type_loader.compiler_config.embed_resources,
         type_loader.compiler_config.const_scale_factor.unwrap_or(1.),
         &type_loader.compiler_config.resource_url_mapper,
+        font_collection.as_ref(),
         diag,
     )
     .await;
@@ -313,7 +327,7 @@ pub async fn run_passes(
                 font_pixel_sizes,
                 font_weights,
                 characters_seen,
-                std::iter::once(&*doc).chain(type_loader.all_documents()),
+                font_collection.as_ref().expect("EmbedTextures builds the shared font collection"),
                 diag,
             );
         }
@@ -337,7 +351,7 @@ pub fn run_import_passes(
     type_loader: &crate::typeloader::TypeLoader,
     diag: &mut crate::diagnostics::BuildDiagnostics,
 ) {
-    infer_aliases_types::resolve_aliases(doc, diag);
+    infer_aliases_types::resolve_aliases(doc, diag, &type_loader.symbol_counters);
     resolving::resolve_expressions(doc, type_loader, diag);
     purity_check::purity_check(doc, diag);
     focus_handling::replace_forward_focus_bindings_with_focus_functions(doc, diag);

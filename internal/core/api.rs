@@ -660,8 +660,10 @@ impl Window {
         event: crate::platform::WindowEvent,
     ) -> Result<(), PlatformError> {
         // Only clone the event when a hook is installed to avoid allocation on the hot path.
-        let event_for_hook =
-            self.0.context().0.window_event_hook.borrow().is_some().then(|| event.clone());
+        let event_for_hook = self
+            .0
+            .try_context()
+            .and_then(|ctx| ctx.0.window_event_hook.borrow().is_some().then(|| event.clone()));
         let dispatch_result = match event {
             crate::platform::WindowEvent::PointerPressed { position, button } => self
                 .0
@@ -755,7 +757,8 @@ impl Window {
             }
         };
         if let Some(event_for_hook) = event_for_hook
-            && let Some(hook) = self.0.context().0.window_event_hook.borrow().as_ref()
+            && let Some(ctx) = self.0.try_context()
+            && let Some(hook) = ctx.0.window_event_hook.borrow().as_ref()
         {
             hook(&self.0.window_adapter(), &event_for_hook, dispatch_result);
         }

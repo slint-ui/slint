@@ -284,8 +284,6 @@ pub fn create(
     let mut rh = RequestHandler::default();
     language::register_request_handlers(&mut rh);
 
-    let (preview_to_lsp_sender, _preview_to_lsp_receiver) = tokio::sync::mpsc::unbounded_channel();
-
     Ok(SlintServer {
         ctx: ReentryGuard::new(Context {
             document_cache,
@@ -296,7 +294,6 @@ pub fn create(
             open_urls: Default::default(),
             to_preview,
             pending_recompile: Default::default(),
-            preview_to_lsp_sender,
         }),
         rh: Rc::new(rh),
     })
@@ -393,7 +390,7 @@ impl SlintServer {
             M::DebugMessage { location, message } => {
                 log(&common::preview_log_message_to_string(&location, &message));
             }
-            M::ConnectRemote { .. } | M::DisconnectRemote => {
+            M::ConnectRemote { .. } | M::DisconnectRemote | M::Pong => {
                 tracing::debug!("Ignoring remote-preview control message in WASM LSP");
             }
         }
