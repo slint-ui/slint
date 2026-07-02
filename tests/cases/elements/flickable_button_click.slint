@@ -52,4 +52,24 @@ window.dispatch_event(platform::WindowEvent::PointerMoved { position: moved_posi
 
 assert_eq!(instance.get_viewport_y(), 0.); // The flickable did not move
 ```
+
+```rust
+use slint::*;
+use i_slint_core::api::WindowEventDispatchResult::*;
+
+let instance = TestCase::new().unwrap();
+let window = instance.window();
+
+let pressed_position = LogicalPosition::new(250., 10.);
+let res = window.try_dispatch_event_with_result(platform::WindowEvent::PointerPressed { position: pressed_position, button: platform::PointerEventButton::Left });
+assert_eq!(res.unwrap(), Accepted);
+let res = window.try_dispatch_event_with_result(platform::WindowEvent::PointerReleased { position: pressed_position, button: platform::PointerEventButton::Left });
+assert_eq!(res.unwrap(), Accepted);
+
+let res = window.try_dispatch_event_with_result(platform::WindowEvent::PointerMoved { position: LogicalPosition::new(250., 0.) });
+assert_eq!(res.unwrap(), Accepted);
+
+let res = window.try_dispatch_event_with_result(platform::WindowEvent::PointerScrolled { position: LogicalPosition::new(250.0, 100.0), delta_x: 0.0, delta_y: -75.0 });
+assert_eq!(res.unwrap(), Accepted);
+```
 */

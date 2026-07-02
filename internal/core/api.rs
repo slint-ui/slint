@@ -7,7 +7,6 @@ This module contains types that are public and re-exported in the slint-rs as we
 
 #![warn(missing_docs)]
 
-use crate::context::WindowEventDispatchResult;
 use crate::input::{InternalKeyEvent, KeyEventType, MouseEvent, TouchPhase};
 use crate::window::{WindowAdapter, WindowInner};
 use alloc::boxed::Box;
@@ -23,6 +22,32 @@ pub use crate::graphics::{
 pub use crate::input::Keys;
 pub use crate::sharedvector::SharedVector;
 pub use crate::{format, string::SharedString, string::ToSharedString};
+
+/// Result of dispatching a window event through Slint's runtime.
+///
+/// Indicates how the event was processed:
+/// - [`Accepted`](Self::Accepted) — an element consumed the event.
+/// - [`Ignored`](Self::Ignored) — no element handled the event. For pointer
+///   events, this includes the case where elements updated hover state in
+///   response to the event but did not otherwise consume it.
+/// - [`Rejected`](Self::Rejected) — the event was explicitly blocked (e.g. a
+///   close request denied by a `close-requested` callback).
+///
+/// Note: [`PointerExited`](crate::platform::WindowEvent::PointerExited) always
+/// returns `Accepted` because the runtime always acts on it, so it is reported as `Accepted` even
+/// when no item was under the cursor.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum WindowEventDispatchResult {
+    /// The event was handled. For example, a key handler consumed a key press, or
+    /// the window acted on a resize or close request.
+    Accepted,
+    /// The event was actively refused. For example, a `close-requested` callback
+    /// returned `reject` to prevent the window from closing.
+    Rejected,
+    /// The event was not handled by any element.
+    Ignored,
+}
 
 impl From<crate::input::KeyEventResult> for WindowEventDispatchResult {
     fn from(value: crate::input::KeyEventResult) -> Self {
@@ -659,6 +684,21 @@ impl Window {
         &self,
         event: crate::platform::WindowEvent,
     ) -> Result<(), PlatformError> {
+        self.try_dispatch_event_with_result(event).map(|_| ())
+    }
+
+    /// Dispatch a window event to the scene.
+    ///
+    /// Use this when you're implementing your own backend and want to forward user input events.
+    ///
+    /// Any position fields in the event must be in the logical pixel coordinate system relative to
+    /// the top left corner of the window.
+    ///
+    /// Returns a [`WindowEventDispatchResult`] indicating how the event was handled.
+    pub fn try_dispatch_event_with_result(
+        &self,
+        event: crate::platform::WindowEvent,
+    ) -> Result<WindowEventDispatchResult, PlatformError> {
         // Only clone the event when a hook is installed to avoid allocation on the hot path.
         let event_for_hook = self
             .0
@@ -762,7 +802,7 @@ impl Window {
         {
             hook(&self.0.window_adapter(), &event_for_hook, dispatch_result);
         }
-        Ok(())
+        Ok(dispatch_result)
     }
 
     /// Returns true if there is an animation currently active on any property in the Window; false otherwise.
