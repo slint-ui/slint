@@ -137,9 +137,11 @@ with open(os.path.join(out, ".index.tsv")) as fh:
         with open(path, "rb") as f:
             sha = hashlib.sha256(f.read()).hexdigest()
         entry = {"name": name, "method": method, "file": fname, "sha256": sha}
-        if chip:
+        if d and d != demo:            # per-board demo only when it differs from the default
+            entry["demo"] = d
+        if chip and method == "probe-rs":  # chip is read only by probe-rs; espflash auto-detects
             entry["chip"] = chip
-        if offset:
+        if offset:                     # esp: flash offset for the merged bin
             entry["offset"] = offset
         boards[feature] = entry
 doc = {"demo": demo, "base": base, "generated": __import__("datetime").datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"), "boards": boards}
