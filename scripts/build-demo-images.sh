@@ -12,8 +12,8 @@
 #   home-automation-esp32-p4.bin
 #   demos.json  — the slint.dev/flash index (slint-ui/website docs/demos.schema.json)
 #
-# The images + demos.json are meant to be committed to slint-ui/website. demos.json
-# is what `slint.dev/flash` (slint-ui/website data/flash) reads: it downloads
+# The images + demos.json are meant to be hosted in the Slint website. demos.json
+# is what `slint.dev/flash` reads: it downloads
 # `base + boards[<feature>].file`, verifies `.sha256`, and flashes with the tool for
 # `.method` (uf2→picotool / esp→espflash / probe-rs).
 #
