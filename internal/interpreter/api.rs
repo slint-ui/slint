@@ -2357,9 +2357,3 @@ export component Foo2 inherits Window  {
         }
     }
 }
-
-#[cfg(feature = "ffi")]
-#[doc(hidden)]
-#[allow(missing_docs)]
-#[path = "ffi.rs"]
-pub mod ffi;
