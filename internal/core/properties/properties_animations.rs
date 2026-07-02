@@ -431,6 +431,7 @@ impl<Unit> Property<Length<crate::Coord, Unit>> {
 #[cfg(test)]
 mod animation_tests {
     use super::*;
+    use pin_weak::rc::PinWeak;
     use std::rc::Rc;
 
     #[derive(Default)]
@@ -441,9 +442,9 @@ mod animation_tests {
     }
 
     impl Component {
-        fn new_test_component() -> Rc<Self> {
-            let compo = Rc::new(Component::default());
-            let w = Rc::downgrade(&compo);
+        fn new_test_component() -> Pin<Rc<Self>> {
+            let compo = Rc::pin(Component::default());
+            let w = PinWeak::downgrade(compo.clone());
             compo.width_times_two.set_binding(move || {
                 let compo = w.upgrade().unwrap();
                 get_prop_value(&compo.width) * 2
@@ -461,9 +462,18 @@ mod animation_tests {
         unsafe { Pin::new_unchecked(prop).get() }
     }
 
+    // Helper just for testing: the property lives in a pinned `Rc<Component>`.
+    fn set_animated_value<T: Clone + InterpolatedPropertyValue + 'static>(
+        prop: &Property<T>,
+        value: T,
+        animation_data: PropertyAnimation,
+    ) {
+        unsafe { Pin::new_unchecked(prop) }.set_animated_value(value, animation_data);
+    }
+
     #[test]
     fn properties_test_animation_negative_delay_triggered_by_set() {
-        let compo = core::pin::pin!(Component::new_test_component());
+        let compo = Component::new_test_component();
 
         let animation_details = PropertyAnimation {
             delay: -25,
@@ -478,7 +488,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, animation_details);
+        set_animated_value(&compo.width, 200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
         assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
@@ -504,7 +514,7 @@ mod animation_tests {
 
     #[test]
     fn properties_test_animation_triggered_by_set() {
-        let compo = core::pin::pin!(Component::new_test_component());
+        let compo = Component::new_test_component();
 
         let animation_details = PropertyAnimation {
             duration: DURATION.as_millis() as _,
@@ -518,7 +528,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, animation_details);
+        set_animated_value(&compo.width, 200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
         assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
@@ -544,7 +554,7 @@ mod animation_tests {
 
     #[test]
     fn properties_test_delayed_animation_triggered_by_set() {
-        let compo = core::pin::pin!(Component::new_test_component());
+        let compo = Component::new_test_component();
 
         let animation_details = PropertyAnimation {
             delay: DELAY.as_millis() as _,
@@ -559,7 +569,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, animation_details);
+        set_animated_value(&compo.width, 200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
         assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
@@ -597,7 +607,7 @@ mod animation_tests {
 
     #[test]
     fn properties_test_delayed_animation_fractal_iteration_triggered_by_set() {
-        let compo = core::pin::pin!(Component::new_test_component());
+        let compo = Component::new_test_component();
 
         let animation_details = PropertyAnimation {
             delay: DELAY.as_millis() as _,
@@ -612,7 +622,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, animation_details);
+        set_animated_value(&compo.width, 200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
         assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
@@ -655,7 +665,7 @@ mod animation_tests {
     }
     #[test]
     fn properties_test_delayed_animation_null_duration_triggered_by_set() {
-        let compo = core::pin::pin!(Component::new_test_component());
+        let compo = Component::new_test_component();
 
         let animation_details = PropertyAnimation {
             delay: DELAY.as_millis() as _,
@@ -670,7 +680,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, animation_details);
+        set_animated_value(&compo.width, 200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
         assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
@@ -698,7 +708,7 @@ mod animation_tests {
 
     #[test]
     fn properties_test_delayed_animation_negative_duration_triggered_by_set() {
-        let compo = core::pin::pin!(Component::new_test_component());
+        let compo = Component::new_test_component();
 
         let animation_details = PropertyAnimation {
             delay: DELAY.as_millis() as _,
@@ -713,7 +723,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, animation_details);
+        set_animated_value(&compo.width, 200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
         assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
@@ -741,7 +751,7 @@ mod animation_tests {
 
     #[test]
     fn properties_test_delayed_animation_no_iteration_triggered_by_set() {
-        let compo = core::pin::pin!(Component::new_test_component());
+        let compo = Component::new_test_component();
 
         let animation_details = PropertyAnimation {
             delay: DELAY.as_millis() as _,
@@ -756,7 +766,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, animation_details);
+        set_animated_value(&compo.width, 200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
         assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
@@ -784,7 +794,7 @@ mod animation_tests {
 
     #[test]
     fn properties_test_delayed_animation_negative_iteration_triggered_by_set() {
-        let compo = core::pin::pin!(Component::new_test_component());
+        let compo = Component::new_test_component();
 
         let animation_details = PropertyAnimation {
             delay: DELAY.as_millis() as _,
@@ -799,7 +809,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, animation_details);
+        set_animated_value(&compo.width, 200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
         assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
@@ -843,7 +853,7 @@ mod animation_tests {
 
     #[test]
     fn properties_test_animation_direction_triggered_by_set() {
-        let compo = core::pin::pin!(Component::new_test_component());
+        let compo = Component::new_test_component();
 
         let animation_details = PropertyAnimation {
             delay: -25,
@@ -859,7 +869,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, animation_details);
+        set_animated_value(&compo.width, 200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 200);
         assert_eq!(get_prop_value(&compo.width_times_two), 400);
 
@@ -885,7 +895,7 @@ mod animation_tests {
 
     #[test]
     fn properties_test_animation_triggered_by_binding() {
-        let compo = core::pin::pin!(Component::new_test_component());
+        let compo = Component::new_test_component();
 
         let start_time = crate::animations::current_tick();
 
@@ -895,7 +905,7 @@ mod animation_tests {
             ..PropertyAnimation::default()
         };
 
-        let w = Rc::downgrade(&compo);
+        let w = PinWeak::downgrade(compo.clone());
         compo.width.set_animated_binding(
             move || {
                 let compo = w.upgrade().unwrap();
@@ -925,7 +935,7 @@ mod animation_tests {
 
     #[test]
     fn properties_test_delayed_animation_triggered_by_binding() {
-        let compo = core::pin::pin!(Component::new_test_component());
+        let compo = Component::new_test_component();
 
         let start_time = crate::animations::current_tick();
 
@@ -936,7 +946,7 @@ mod animation_tests {
             ..PropertyAnimation::default()
         };
 
-        let w = Rc::downgrade(&compo);
+        let w = PinWeak::downgrade(compo.clone());
         compo.width.set_animated_binding(
             move || {
                 let compo = w.upgrade().unwrap();
@@ -984,7 +994,7 @@ mod animation_tests {
 
     #[test]
     fn test_loop() {
-        let compo = core::pin::pin!(Component::new_test_component());
+        let compo = Component::new_test_component();
 
         let animation_details = PropertyAnimation {
             duration: DURATION.as_millis() as _,
@@ -996,7 +1006,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, animation_details);
+        set_animated_value(&compo.width, 200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
 
         crate::animations::CURRENT_ANIMATION_DRIVER
@@ -1023,7 +1033,7 @@ mod animation_tests {
     fn test_loop_via_binding() {
         // Loop twice, restart the animation and still loop twice.
 
-        let compo = core::pin::pin!(Component::new_test_component());
+        let compo = Component::new_test_component();
 
         let start_time = crate::animations::current_tick();
 
@@ -1033,7 +1043,7 @@ mod animation_tests {
             ..PropertyAnimation::default()
         };
 
-        let w = Rc::downgrade(&compo);
+        let w = PinWeak::downgrade(compo.clone());
         compo.width.set_animated_binding(
             move || {
                 let compo = w.upgrade().unwrap();
