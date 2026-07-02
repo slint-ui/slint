@@ -232,12 +232,8 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
 
         // On native, the wgpu init helper resolves on the first poll, so use
         // its synchronous wrapper directly. On WASM the helper does real
-        // async work (the WebGPU adapter probe is a JsFuture), so drive the
-        // future via wasm-bindgen-futures' microtask executor — slint's own
-        // executor delivers wakes through the winit EventLoopProxy, and a
-        // JsFuture-backed wake fires from a JS microtask outside any winit
-        // handler where `send_event` can return EventLoopProxyClosed and
-        // trip "No event loop despite we checked: EventLoopTerminated".
+        // async work (the WebGPU adapter probe is a JsFuture), so spawn a
+        // future to drive it.
         #[cfg(not(target_arch = "wasm32"))]
         {
             // On native we want a real GPU adapter, not an ANGLE/GL one
@@ -262,7 +258,18 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
         }
 
         #[cfg(target_arch = "wasm32")]
-        wasm_bindgen_futures::spawn_local(async move {
+        let context = {
+            let window_adapter = window_adapter_weak.upgrade().ok_or_else(|| {
+                PlatformError::from(
+                    "Cannot spawn async wgpu initialization: window adapter is destroyed",
+                )
+            })?;
+            use i_slint_core::platform::WindowAdapter;
+            i_slint_core::window::WindowInner::from_pub(window_adapter.window()).context().clone()
+        };
+
+        #[cfg(target_arch = "wasm32")]
+        let wgpu_init_future = async move {
             use i_slint_core::graphics::wgpu_29;
 
             // On WASM we *want* the GL backend to be available, so wgpu's
@@ -296,7 +303,12 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
                 return;
             }
             i_slint_core::debug_log!("Slint: Using FemtoVG WGPU renderer");
-        });
+        };
+
+        #[cfg(target_arch = "wasm32")]
+        context.spawn_local(wgpu_init_future).map_err(|e| {
+            PlatformError::from(format!("Error spawning async wgpu initialization: {e}"))
+        })?;
 
         Ok(winit_window)
     }
