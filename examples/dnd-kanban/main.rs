@@ -50,6 +50,10 @@ fn main() -> Result<(), slint::PlatformError> {
 
     api.on_make_data(|task, source_column, source_index| {
         let mut transfer = DataTransfer::default();
+        // Plain text lets the card drop onto other apps via a native drag.
+        transfer.set_plain_text(task.title.clone());
+        // The in-app payload carries the full move info. It can't cross a native drag boundary,
+        // but Slint restores it for drops back onto this window.
         transfer.set_user_data(Rc::new(DragPayload {
             task,
             source_column: source_column as usize,

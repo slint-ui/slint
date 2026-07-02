@@ -858,7 +858,7 @@ jobs:
                       target: thumbv7em-none-eabihf
                       extra-cmake-args: -DSHIELD=rk055hdmipi4ma0
             fail-fast: false
-        runs-on: ubuntu-22.04
+        runs-on: ubuntu-24.04
         steps:
           - uses: actions/checkout@v6
             with:
@@ -878,7 +878,7 @@ jobs:
             with:
                 app-path: slint
                 manifest-file-name: demos/zephyr-common/west.yaml
-                sdk-version: 0.16.8
+                sdk-version: 1.0.1
           - name: Export the Zephyr CMake package
             run: west zephyr-export
           - name: Build for ${{matrix.board}}
