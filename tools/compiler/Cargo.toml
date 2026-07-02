@@ -22,6 +22,9 @@ renderer-software = ["i-slint-compiler/renderer-software"]
 image-default-formats = ["i-slint-compiler/image-default-formats"]
 jemalloc = ["dep:tikv-jemallocator"]
 sdf-fonts = ["renderer-software", "i-slint-compiler/sdf-fonts"]
+fontconfig-dlopen = ["i-slint-common/fontconfig-dlopen"]
+
+# Code generators and translation support
 bundle-translations = ["i-slint-compiler/bundle-translations"]
 cpp = ["i-slint-compiler/cpp"]
 rust = ["i-slint-compiler/rust"]

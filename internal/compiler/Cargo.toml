@@ -43,7 +43,7 @@ renderer-software = [
   "i-slint-common/svg-text",
   "dep:rayon",
 ]
-# Enable `image`\'s default feature set (additional codecs). This is enabled by
+# Enable `image`'s default feature set (additional codecs). This is enabled by
 # default by `slint-build` and the `slint-compiler` binary for compatibility, but
 # can be opted out from to keep builds minimal.
 image-default-formats = ["image/default"]
