@@ -179,7 +179,6 @@ impl WGPUFemtoVGRenderer {
     pub fn new_suspended(
         shared_backend_data: &Rc<crate::SharedBackendData>,
     ) -> Result<Box<dyn WinitCompatibleRenderer>, PlatformError> {
-        #[cfg(not(target_arch = "wasm32"))]
         if !i_slint_core::graphics::wgpu_29::any_wgpu29_adapters_with_gpu(
             shared_backend_data.requested_graphics_api.clone(),
         ) {
@@ -258,57 +257,59 @@ impl WinitCompatibleRenderer for WGPUFemtoVGRenderer {
         }
 
         #[cfg(target_arch = "wasm32")]
-        let context = {
-            let window_adapter = window_adapter_weak.upgrade().ok_or_else(|| {
-                PlatformError::from(
-                    "Cannot spawn async wgpu initialization: window adapter is destroyed",
+        {
+            let context = {
+                let window_adapter = window_adapter_weak.upgrade().ok_or_else(|| {
+                    PlatformError::from(
+                        "Cannot spawn async wgpu initialization: window adapter is destroyed",
+                    )
+                })?;
+                use i_slint_core::platform::WindowAdapter;
+                i_slint_core::window::WindowInner::from_pub(window_adapter.window())
+                    .context()
+                    .clone()
+            };
+
+            let wgpu_init_future = async move {
+                use i_slint_core::graphics::wgpu_29;
+
+                // On WASM we *want* the GL backend to be available, so wgpu's
+                // `new_instance_with_webgpu_detection` can fall through to
+                // WebGL when no WebGPU adapter is reachable (e.g. headless
+                // Chromium on CI).
+                let init = wgpu_29::async_init_instance_adapter_device_queue_surface(
+                    window_handle,
+                    requested_graphics_api,
+                    wgpu_29::wgpu::Backends::empty(),
                 )
-            })?;
-            use i_slint_core::platform::WindowAdapter;
-            i_slint_core::window::WindowInner::from_pub(window_adapter.window()).context().clone()
-        };
-
-        #[cfg(target_arch = "wasm32")]
-        let wgpu_init_future = async move {
-            use i_slint_core::graphics::wgpu_29;
-
-            // On WASM we *want* the GL backend to be available, so wgpu's
-            // `new_instance_with_webgpu_detection` can fall through to
-            // WebGL when no WebGPU adapter is reachable (e.g. headless
-            // Chromium on CI).
-            let init = wgpu_29::async_init_instance_adapter_device_queue_surface(
-                window_handle,
-                requested_graphics_api,
-                wgpu_29::wgpu::Backends::empty(),
-            )
-            .await;
-            let (instance, adapter, device, queue, surface) = match init {
-                Ok(t) => t,
-                Err(e) => {
-                    i_slint_core::debug_log!("WGPU async initialization failed: {e}");
+                .await;
+                let (instance, adapter, device, queue, surface) = match init {
+                    Ok(t) => t,
+                    Err(e) => {
+                        i_slint_core::debug_log!("WGPU async initialization failed: {e}");
+                        return;
+                    }
+                };
+                if let Err(e) = finalize_wgpu_init(
+                    &window_adapter_weak,
+                    &winit_window_for_size,
+                    instance,
+                    adapter,
+                    device,
+                    queue,
+                    surface,
+                    transparent,
+                ) {
+                    i_slint_core::debug_log!("{e}");
                     return;
                 }
+                i_slint_core::debug_log!("Slint: Using FemtoVG WGPU renderer");
             };
-            if let Err(e) = finalize_wgpu_init(
-                &window_adapter_weak,
-                &winit_window_for_size,
-                instance,
-                adapter,
-                device,
-                queue,
-                surface,
-                transparent,
-            ) {
-                i_slint_core::debug_log!("{e}");
-                return;
-            }
-            i_slint_core::debug_log!("Slint: Using FemtoVG WGPU renderer");
-        };
 
-        #[cfg(target_arch = "wasm32")]
-        context.spawn_local(wgpu_init_future).map_err(|e| {
-            PlatformError::from(format!("Error spawning async wgpu initialization: {e}"))
-        })?;
+            context.spawn_local(wgpu_init_future).map_err(|e| {
+                PlatformError::from(format!("Error spawning async wgpu initialization: {e}"))
+            })?;
+        }
 
         Ok(winit_window)
     }

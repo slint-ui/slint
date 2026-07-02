@@ -150,6 +150,16 @@ use super::RequestedGraphicsAPI;
 /// This is used to determine if we should fall back to software rendering (instead of using WGPU
 /// software rendering, such as DX12's Warp adapter)
 pub fn any_wgpu29_adapters_with_gpu(requested_graphics_api: Option<RequestedGraphicsAPI>) -> bool {
+    // On WASM the wgpu init path uses
+    // `wgpu::util::new_instance_with_webgpu_detection`, which probes
+    // `navigator.gpu.requestAdapter()` asynchronously and falls through
+    // to the WebGL backend (compiled in via the wgpu-29 `webgl` feature)
+    // when no WebGPU adapter is reachable. So a hardware-accelerated
+    // adapter is effectively always available; assume yes here and
+    // let the actual init surface a real error if both fail.
+    if cfg!(target_family = "wasm") {
+        return true;
+    }
     let allow_cpu = std::env::var("SLINT_WGPU_CPU").is_ok();
     if allow_cpu {
         return true;
@@ -160,33 +170,17 @@ pub fn any_wgpu29_adapters_with_gpu(requested_graphics_api: Option<RequestedGrap
             (instance, wgpu::Backends::all())
         }
         #[cfg(feature = "unstable-wgpu-29")]
-        Some(RequestedGraphicsAPI::WGPU29(api::WGPUConfiguration::Automatic(wgpu29_settings))) => {
-            // On WASM the wgpu init path uses
-            // `wgpu::util::new_instance_with_webgpu_detection`, which probes
-            // `navigator.gpu.requestAdapter()` asynchronously and falls through
-            // to the WebGL backend (compiled in via the wgpu-29 `webgl` feature)
-            // when no WebGPU adapter is reachable. So a hardware-accelerated
-            // adapter is effectively always available — assume yes here and
-            // let the actual init surface a real error if both fail.
-            if cfg!(target_family = "wasm") {
-                return true;
-            }
-            (
-                wgpu::Instance::new(wgpu::InstanceDescriptor {
-                    backends: wgpu29_settings.backends,
-                    flags: wgpu29_settings.instance_flags,
-                    backend_options: wgpu29_settings.backend_options,
-                    memory_budget_thresholds: wgpu29_settings.instance_memory_budget_thresholds,
-                    display: None,
-                }),
-                wgpu29_settings.backends,
-            )
-        }
+        Some(RequestedGraphicsAPI::WGPU29(api::WGPUConfiguration::Automatic(wgpu29_settings))) => (
+            wgpu::Instance::new(wgpu::InstanceDescriptor {
+                backends: wgpu29_settings.backends,
+                flags: wgpu29_settings.instance_flags,
+                backend_options: wgpu29_settings.backend_options,
+                memory_budget_thresholds: wgpu29_settings.instance_memory_budget_thresholds,
+                display: None,
+            }),
+            wgpu29_settings.backends,
+        ),
         None => {
-            if cfg!(target_family = "wasm") {
-                return true;
-            }
-
             let backends = wgpu::Backends::from_env().unwrap_or_default();
 
             (
@@ -387,14 +381,11 @@ pub fn init_instance_adapter_device_queue_surface(
     ),
     Box<dyn std::error::Error + Send + Sync + 'static>,
 > {
-    poll_once(async move {
-        async_init_instance_adapter_device_queue_surface(
-            surface_target,
-            requested_graphics_api,
-            backends_to_avoid,
-        )
-        .await
-    })
+    poll_once(async_init_instance_adapter_device_queue_surface(
+        surface_target,
+        requested_graphics_api,
+        backends_to_avoid,
+    ))
     .expect("internal error: wgpu setup is not expected to be async")
 }
 

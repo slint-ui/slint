@@ -192,9 +192,9 @@ impl GraphicsBackend for WGPUBackend {
         // `configure_surface_from_init_result`). On WebGPU,
         // get_current_texture() panics in that state; bail out here and
         // wait for the first non-zero resize to configure the surface.
-        match self.surface_config.borrow().as_ref() {
-            Some(cfg) if cfg.width > 0 && cfg.height > 0 => {}
-            _ => return Err("WGPU surface not yet configured".into()),
+        if !self.surface_config.borrow().as_ref().is_some_and(|cfg| cfg.width > 0 && cfg.height > 0)
+        {
+            return Err("WGPU surface not yet configured".into());
         }
         let frame = match surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(t) => t,
