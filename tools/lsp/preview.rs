@@ -91,7 +91,6 @@ pub fn run(
 
         // TODO: These calls can't return `Err`, the API needs to be changed
         // Errors are reported using the callback.
-        updater.set_automatically_checks_for_updates(true);
         updater.check_for_updates_in_background();
     }
 
