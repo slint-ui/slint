@@ -3,22 +3,10 @@
 
 use objc2::rc::Retained;
 use objc2::runtime::ProtocolObject;
-use objc2_metal::{MTLCommandQueue, MTLDevice, MTLTexture};
+use objc2_metal::{MTLDevice, MTLTexture};
 use skia_safe::gpu::mtl;
 
 use wgpu_29 as wgpu;
-
-/// Matches the limit wgpu's own Metal backend uses when creating its command queue
-/// (`wgpu_hal::metal::adapter::MAX_COMMAND_BUFFERS`).
-const MAX_COMMAND_BUFFERS: usize = 4096;
-
-/// Creates an `MTLCommandQueue` on `device`, sized like wgpu's own queue so the two agree on the
-/// in-flight command-buffer limit.
-fn make_command_queue(
-    device: &ProtocolObject<dyn MTLDevice>,
-) -> Option<Retained<ProtocolObject<dyn MTLCommandQueue>>> {
-    device.newCommandQueueWithMaxCommandBufferCount(MAX_COMMAND_BUFFERS)
-}
 
 /// # Safety
 /// `metal_handle` must be a valid Metal texture handle for the lifetime of the returned Surface.
@@ -104,96 +92,21 @@ pub unsafe fn import_metal_texture(
     }
 }
 
-/// Builds the Skia Metal context.
-///
-/// When `shared_command_queue` is `Some`, it is the `MTLCommandQueue` that wgpu's device was also
-/// built from (see [`create_shared_metal_device_queue`]). Sharing one queue lets Metal's automatic
-/// per-queue hazard tracking order wgpu's work (e.g. rendering into a texture) before Skia samples
-/// it, avoiding reads of not-yet-produced (magenta under Metal validation) content.
-///
-/// When it is `None` (a developer-provided `Manual` device/queue, whose `MTLCommandQueue` wgpu 29
-/// doesn't expose), Skia falls back to its own queue. Cross-queue accesses are then not
-/// synchronized; see the note in `WGPUSurface::import_wgpu_texture`.
 pub fn make_metal_context(
     device: &wgpu::Device,
     _queue: &wgpu::Queue,
-    shared_command_queue: Option<*const core::ffi::c_void>,
 ) -> Option<skia_safe::gpu::DirectContext> {
-    let metal_device = unsafe { device.as_hal::<wgpu::wgc::api::Metal>() }?;
-    let metal_device_raw: &Retained<ProtocolObject<dyn MTLDevice>> = metal_device.raw_device();
-
-    // When wgpu's queue isn't shared with us, create our own; keep it owned so it outlives the
-    // `BackendContext` creation below, which retains it.
-    let owned_command_queue = match shared_command_queue {
-        Some(_) => None,
-        None => Some(make_command_queue(metal_device_raw)?),
-    };
-    let command_queue_handle: mtl::Handle = match &owned_command_queue {
-        Some(queue) => Retained::as_ptr(queue) as mtl::Handle,
-        None => shared_command_queue.expect("present when we didn't create our own queue") as _,
-    };
-
     let backend = unsafe {
+        let metal_device = device.as_hal::<wgpu::wgc::api::Metal>()?;
+        let metal_device_raw: &Retained<ProtocolObject<dyn MTLDevice>> = metal_device.raw_device();
+        // wgpu-29's Metal `Queue` no longer exposes its underlying `MTLCommandQueue`,
+        // so create a dedicated queue from the same device for Skia to submit on.
+        let skia_command_queue = metal_device_raw.newCommandQueue()?;
         mtl::BackendContext::new(
             Retained::as_ptr(metal_device_raw) as mtl::Handle,
-            command_queue_handle,
+            Retained::as_ptr(&skia_command_queue) as mtl::Handle,
         )
     };
 
     skia_safe::gpu::direct_contexts::make_metal(&backend, None)
-}
-
-/// Creates the wgpu device and queue from an `MTLCommandQueue` we allocate ourselves, and returns
-/// that queue through `shared_command_queue_out` so the Skia context can submit on it too.
-///
-/// This is the device/queue factory passed to `init_instance_adapter_device_queue_surface` for the
-/// Metal backend when Slint owns device creation. wgpu 29 doesn't let us read back the queue it would
-/// create itself, so we substitute our own before building the device.
-///
-/// TODO(wgpu>29): once a wgpu release restores `Queue::as_raw` (gfx-rs/wgpu#9560), drop this whole
-/// hal-interop dance and just read the queue back from the device wgpu creates normally.
-pub fn create_shared_metal_device_queue(
-    adapter: &wgpu::Adapter,
-    descriptor: &wgpu::DeviceDescriptor<'_>,
-    shared_command_queue_out: &mut Option<Retained<ProtocolObject<dyn MTLCommandQueue>>>,
-) -> Result<(wgpu::Device, wgpu::Queue), Box<dyn std::error::Error + Send + Sync + 'static>> {
-    // The hal `Adapter::open` trait method; aliased so it doesn't clash with `wgpu::Adapter`.
-    use wgpu::hal::Adapter as _;
-
-    unsafe {
-        let hal_adapter = adapter
-            .as_hal::<wgpu::wgc::api::Metal>()
-            .ok_or("Skia: expected a Metal hal adapter to share the command queue")?;
-
-        // `open` also builds a queue we can't read back, so we replace it with our own below.
-        let mut open_device = hal_adapter
-            .open(
-                descriptor.required_features,
-                &descriptor.required_limits,
-                &descriptor.memory_hints,
-            )
-            .map_err(|e| format!("Skia: failed to open Metal device for queue sharing: {e}"))?;
-
-        let metal_device: Retained<ProtocolObject<dyn MTLDevice>> =
-            open_device.device.raw_device().clone();
-
-        let shared_command_queue = make_command_queue(&metal_device)
-            .ok_or("Skia: failed to create a shared Metal command queue")?;
-
-        // Mirror wgpu's own timestamp-period heuristic (wgpu_hal::metal::adapter::open). Slint never
-        // reads GPU timestamps, so the exact value only matters for API parity.
-        let timestamp_period =
-            if metal_device.name().to_string().starts_with("Intel") { 83.333 } else { 1.0 };
-
-        open_device.queue =
-            wgpu::hal::metal::Queue::queue_from_raw(shared_command_queue.clone(), timestamp_period);
-
-        let (device, queue) = adapter
-            .create_device_from_hal::<wgpu::wgc::api::Metal>(open_device, descriptor)
-            .map_err(|e| format!("Skia: failed to create wgpu device from shared queue: {e}"))?;
-
-        *shared_command_queue_out = Some(shared_command_queue);
-
-        Ok((device, queue))
-    }
 }
