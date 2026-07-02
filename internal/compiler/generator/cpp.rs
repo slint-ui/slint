@@ -1113,7 +1113,7 @@ fn embed_resource(
                 ..Default::default()
             }));
         }
-        #[cfg(feature = "software-renderer")]
+        #[cfg(feature = "renderer-software")]
         crate::embedded_resources::EmbeddedResourcesKind::TextureData(
             crate::embedded_resources::Texture {
                 data,
@@ -1172,7 +1172,7 @@ fn embed_resource(
                 ..Default::default()
             }))
         }
-        #[cfg(feature = "software-renderer")]
+        #[cfg(feature = "renderer-software")]
         crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(
             crate::embedded_resources::BitmapFont {
                 family_name,
