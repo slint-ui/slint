@@ -2203,7 +2203,9 @@ extern "C" fn ensure_instantiated(component: ItemTreeRefPin) -> bool {
             changed |= repeater.ensure_updated_listview(
                 init,
                 assume_property_logical_length(get_property_ptr(&lv.viewport_width, instance_ref)),
+                lv.viewport_width_is_const,
                 assume_property_logical_length(get_property_ptr(&lv.viewport_height, instance_ref)),
+                lv.viewport_height_is_const,
                 assume_property_logical_length(get_property_ptr(&lv.viewport_y, instance_ref)),
                 eval::load_property(
                     instance_ref,

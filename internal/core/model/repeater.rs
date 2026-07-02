@@ -163,7 +163,9 @@ fn update_visible_instances(
     state: &mut RepeaterLayoutState,
     row_count: usize,
     viewport_width: Pin<&Property<LogicalLength>>,
+    viewport_width_is_fixed: bool,
     viewport_height: Pin<&Property<LogicalLength>>,
+    viewport_height_is_fixed: bool,
     viewport_y: Pin<&Property<LogicalLength>>,
     listview_width: LogicalLength,
     listview_height: LogicalLength,
@@ -176,7 +178,12 @@ fn update_visible_instances(
         ops.splice(0, ops.len(), 0);
         viewport_height.set(zero);
         viewport_y.set(zero);
-        viewport_width.set(listview_width);
+        if !viewport_height_is_fixed {
+            viewport_height.set(zero);
+        }
+        if !viewport_width_is_fixed {
+            viewport_width.set(listview_width);
+        }
         return false;
     }
 
@@ -317,8 +324,12 @@ fn update_visible_instances(
         // Recompute coordinates for the scrollbar.
         state.cached_item_height = (y - new_offset_y) / ops.len() as Coord;
         state.anchor_y = state.cached_item_height * state.offset as Coord;
-        viewport_height.set(LogicalLength::new(state.cached_item_height * row_count as Coord));
-        viewport_width.set(LogicalLength::new(vp_width));
+        if !viewport_height_is_fixed {
+            viewport_height.set(LogicalLength::new(state.cached_item_height * row_count as Coord));
+        }
+        if !viewport_width_is_fixed {
+            viewport_width.set(LogicalLength::new(vp_width));
+        }
         let new_viewport_y = -state.anchor_y + new_offset_y;
         // Important: Use get_internal here, the viewport_y may have a binding on it (especially
         // a physical animation).
@@ -629,7 +640,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         self: Pin<&Self>,
         init: impl Fn() -> ItemTreeRc<C>,
         viewport_width: Pin<&Property<LogicalLength>>,
+        viewport_width_is_fixed: bool,
         viewport_height: Pin<&Property<LogicalLength>>,
+        viewport_height_is_fixed: bool,
         viewport_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
@@ -647,7 +660,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             &mut layout_state,
             row_count,
             viewport_width,
+            viewport_width_is_fixed,
             viewport_height,
+            viewport_height_is_fixed,
             viewport_y,
             listview_width,
             listview_height.get(),
@@ -931,7 +946,9 @@ mod ffi {
         state: &mut RepeaterLayoutState,
         row_count: usize,
         viewport_width: Pin<&Property<LogicalLength>>,
+        viewport_width_is_fixed: bool,
         viewport_height: Pin<&Property<LogicalLength>>,
+        viewport_height_is_fixed: bool,
         viewport_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: LogicalLength,
@@ -941,7 +958,9 @@ mod ffi {
             state,
             row_count,
             viewport_width,
+            viewport_width_is_fixed,
             viewport_height,
+            viewport_height_is_fixed,
             viewport_y,
             listview_width,
             listview_height,
