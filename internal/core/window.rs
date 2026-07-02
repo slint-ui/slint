@@ -416,18 +416,6 @@ impl crate::properties::PropertyDirtyHandler for PopupWindowPropertiesTracker {
     }
 }
 
-struct WindowRedrawTracker {
-    window_adapter_weak: Weak<dyn WindowAdapter>,
-}
-
-impl crate::properties::PropertyDirtyHandler for WindowRedrawTracker {
-    fn notify(self: Pin<&Self>) {
-        if let Some(window_adapter) = self.window_adapter_weak.upgrade() {
-            window_adapter.request_redraw();
-        };
-    }
-}
-
 /// This enum describes the different ways a popup can be rendered by the back-end.
 pub enum PopupWindowLocation {
     /// The popup is rendered in its own top-level window that is know to the windowing system.
