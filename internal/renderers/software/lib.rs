@@ -3312,8 +3312,15 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
         Some(brush.color())
     }
 
-    fn fill_rectangle(&mut self, mut physical_rect: sharedparley::PhysicalRect, color: Color) {
-        if color.alpha() == 0 {
+    fn fill_rectangle(
+        &mut self,
+        mut physical_rect: sharedparley::PhysicalRect,
+        color: Color,
+        radius: f32,
+        border: Option<(Color, f32)>,
+    ) {
+        let has_visible_border = border.is_some_and(|(c, w)| w > 0.0 && c.alpha() > 0);
+        if color.alpha() == 0 && !has_visible_border {
             return;
         }
 
@@ -3321,13 +3328,29 @@ impl<T: ProcessScene> sharedparley::GlyphRenderer for SceneBuilder<'_, T> {
             (self.current_state.offset.to_vector().cast() * self.scale_factor).cast();
 
         physical_rect.origin += global_offset;
-        let physical_rect = physical_rect.cast().transformed(self.rotation);
-
-        let args = target_pixel_buffer::DrawRectangleArgs::from_rect(
-            physical_rect.cast(),
+        let clip = physical_rect.cast().transformed(self.rotation);
+        let mut args = target_pixel_buffer::DrawRectangleArgs::from_rect(
+            clip.cast(),
             Brush::SolidColor(color),
         );
-        self.processor.process_rectangle(&args, physical_rect);
+
+        if radius > 0.0 {
+            let r = radius.min(args.width / 2.0).min(args.height / 2.0);
+            args.top_left_radius = r;
+            args.top_right_radius = r;
+            args.bottom_right_radius = r;
+            args.bottom_left_radius = r;
+        }
+
+        if let Some((border_color, border_width)) = border
+            && border_width > 0.0
+            && border_color.alpha() > 0
+        {
+            args.border_width = border_width;
+            args.border = Brush::SolidColor(border_color);
+        }
+
+        self.processor.process_rectangle(&args, clip);
     }
 
     fn draw_glyph_run(

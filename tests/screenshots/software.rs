@@ -30,6 +30,18 @@ impl i_slint_core::platform::Platform for SwrTestingBackend {
 }
 
 pub fn init_swr() -> Rc<MinimalSoftwareWindow> {
+    // The build script registers SLINT_DEFAULT_FONT and SLINT_FONT_PATH via
+    // `cargo:rustc-env=`, which only exposes them to `env!()` at compile time —
+    // the test binary's runtime environment is empty. Propagate them so
+    // `i_slint_common::sharedfontique` can register NotoSans as the primary
+    // vector font, enabling the parley rendering path in the software renderer.
+    // Safety: cargo runs each test binary in its own process; no other threads
+    // are touching the environment at this point.
+    unsafe {
+        std::env::set_var("SLINT_DEFAULT_FONT", env!("SLINT_DEFAULT_FONT"));
+        std::env::set_var("SLINT_FONT_PATH", env!("SLINT_FONT_PATH"));
+    }
+
     crate::testing::force_reference_os();
 
     let window = MinimalSoftwareWindow::new(
