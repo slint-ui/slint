@@ -1175,8 +1175,10 @@ impl TypeLoader {
 
                             #[cfg(feature = "experimental-library-module")]
                             if let Some(library_info) = import.library_info.as_mut() {
+                                let exports = reexports.get_or_insert_with(Exports::default);
                                 library_info.exports =
-                                    doc.exports.iter().map(|(exported_name, _compo_or_type)| {
+                                    doc.exports.iter().map(|(exported_name, compo_or_type)| {
+                                        exports.add_library_reexport(exported_name.clone(), compo_or_type.clone());
                                         exported_name.clone()
                                     }).collect();
                             }
