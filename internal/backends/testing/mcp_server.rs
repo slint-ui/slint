@@ -50,7 +50,7 @@ const TOOLS: &[ToolDef] = &[
     },
     ToolDef {
         name: "get_window_properties",
-        description: "Get a window's physical size (pixels), position, fullscreen/maximized/minimized state, and rootElementHandle — the entry point for element tree traversal.",
+        description: "Get a window's physical size (pixels), position, scale factor, fullscreen/maximized/minimized state, and rootElementHandle — the entry point for element tree traversal.",
         request_type: "RequestWindowProperties",
         optional_fields: &[],
     },
