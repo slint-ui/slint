@@ -68,8 +68,17 @@ extern "C" void app_main(void)
     };
     auto i2c_handle = bsp_i2c_get_handle();
     esp_lcd_panel_io_handle_t tp_io_handle = nullptr;
-    esp_lcd_panel_io_i2c_config_t tp_io_config = ESP_LCD_TOUCH_IO_I2C_GT911_CONFIG();
-    tp_io_config.scl_speed_hz = CONFIG_BSP_I2C_CLK_SPEED_HZ;
+    // Equivalent to ESP_LCD_TOUCH_IO_I2C_GT911_CONFIG(), but with the fields in
+    // struct-declaration order: that macro lists them out of order, which GCC 14
+    // (ESP-IDF 5.4) rejects as a hard error when compiled as C++.
+    esp_lcd_panel_io_i2c_config_t tp_io_config = {
+        .dev_addr = ESP_LCD_TOUCH_IO_I2C_GT911_ADDRESS,
+        .control_phase_bytes = 1,
+        .dc_bit_offset = 0,
+        .lcd_cmd_bits = 16,
+        .flags = { .disable_control_phase = 1 },
+        .scl_speed_hz = CONFIG_BSP_I2C_CLK_SPEED_HZ,
+    };
     ESP_ERROR_CHECK(esp_lcd_new_panel_io_i2c(i2c_handle, &tp_io_config, &tp_io_handle));
     ESP_ERROR_CHECK(esp_lcd_touch_new_i2c_gt911(tp_io_handle, &tp_cfg, &touch_handle));
 
