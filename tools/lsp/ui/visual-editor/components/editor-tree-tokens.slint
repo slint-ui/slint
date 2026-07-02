@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette } from "std-widgets.slint";
+
+export global EditorTreeTokens {
+    property <ColorScheme> color-scheme: Palette.color-scheme;
+
+    out property <color> row-bg-hover: color-scheme == ColorScheme.dark ? #383838 : #f5f5f5;
+    out property <color> row-bg-current: color-scheme == ColorScheme.dark ? #4a5878 : #e4f4ff;
+    out property <color> drop-target-bg: color-scheme == ColorScheme.dark ? #1f2d3d : #eaf5ff;
+    out property <color> text: color-scheme == ColorScheme.dark ? #e6edf3 : #1f2328;
+    out property <color> muted-text: color-scheme == ColorScheme.dark ? #848d97 : #656d76;
+    out property <color> accent: color-scheme == ColorScheme.dark ? #2f81f7 : #0969da;
+    out property <color> guide: color-scheme == ColorScheme.dark ? #21262d : #d8dee4;
+    out property <color> directory-icon: color-scheme == ColorScheme.dark ? #848d97 : #0969da;
+
+    out property <length> row-height: 32px;
+    out property <length> row-font-size: 13px;
+    out property <length> row-radius: 6px;
+    out property <length> row-padding-inline: 8px;
+    out property <length> content-gap: 8px;
+    out property <length> toggle-width: 16px;
+    out property <length> disclosure-hit-size: 20px;
+    out property <length> icon-size: 16px;
+    out property <length> current-indicator-width: 4px;
+    out property <length> current-indicator-height: 24px;
+    out property <length> guide-width: 1px;
+    out property <length> focus-ring-width: 2px;
+    out property <length> drop-target-border-width: 1px;
+    out property <length> drop-indicator-height: 2px;
+    out property <length> root-drop-height: 8px;
+}

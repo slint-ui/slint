@@ -151,6 +151,7 @@ impl Tree for OutlineModel {
             None => {
                 let root = self.root_component.node.as_ref().map(|n| {
                     let elem = n.Element();
+                    let base_type = elem.QualifiedName().map(|base| base.text().to_shared_string());
                     let name = match elem.QualifiedName() {
                         None => n.DeclaredIdentifier().text().to_shared_string(),
                         Some(base) => slint::format!(
@@ -159,7 +160,8 @@ impl Tree for OutlineModel {
                             base.text()
                         ),
                     };
-                    let data = create_node(&elem, 0, name, Default::default());
+                    let icon_kind = icon_kind_for_type(base_type.as_deref().unwrap_or_default());
+                    let data = create_node(&elem, 0, name, Default::default(), icon_kind);
                     (elem, data)
                 });
                 itertools::Either::Left(root.into_iter())
@@ -192,7 +194,8 @@ impl Tree for OutlineModel {
                             .child_text(parser::SyntaxKind::Identifier)
                             .map(|x| x.to_shared_string())
                             .unwrap_or_default();
-                        let node = create_node(&elem, indent_level, base, id);
+                        let icon_kind = icon_kind_for_type(base.as_str());
+                        let node = create_node(&elem, indent_level, base, id, icon_kind);
                         Some((elem, node))
                     })
                     .peekable();
@@ -232,6 +235,7 @@ fn create_node(
     indent_level: i32,
     element_type: SharedString,
     element_id: SharedString,
+    icon_kind: ui::OutlineNodeIconKind,
 ) -> ui::OutlineTreeNode {
     ui::OutlineTreeNode {
         has_children: element
@@ -241,11 +245,21 @@ fn create_node(
             || element.ConditionalElement().next().is_some(),
         is_expanded: true,
         indent_level,
+        icon_kind,
         element_type,
         element_id,
         uri: crate::common::file_to_uri(element.source_file.path()).unwrap().to_shared_string(),
         offset: usize::from(element.text_range().start()) as i32,
         is_last_child: true,
+    }
+}
+
+fn icon_kind_for_type(element_type: &str) -> ui::OutlineNodeIconKind {
+    match element_type.trim() {
+        "Rectangle" => ui::OutlineNodeIconKind::Rectangle,
+        "Image" => ui::OutlineNodeIconKind::Image,
+        "Text" => ui::OutlineNodeIconKind::Text,
+        _ => ui::OutlineNodeIconKind::Default,
     }
 }
 
@@ -374,19 +388,29 @@ fn can_drop(
     };
 
     #[derive(Clone, Debug, Hash, Eq, PartialEq)]
+    enum CachedDropLocation {
+        Onto,
+        Before,
+        After,
+    }
+
+    let cached_location = if location == ui::DropLocation::Onto {
+        CachedDropLocation::Onto
+    } else if location == ui::DropLocation::Before {
+        CachedDropLocation::Before
+    } else {
+        CachedDropLocation::After
+    };
+
+    #[derive(Clone, Debug, Hash, Eq, PartialEq)]
     struct CacheEntry {
         data: DragItem,
         target_uri: SharedString,
         target_offset: i32,
-        location: bool,
+        location: CachedDropLocation,
     }
     thread_local!(static CACHE: RefCell<clru::CLruCache<CacheEntry, bool>> = RefCell::new(clru::CLruCache::new(NonZeroUsize::new(10).unwrap())));
-    let cache_entry = CacheEntry {
-        data,
-        target_uri,
-        target_offset,
-        location: location == ui::DropLocation::Onto,
-    };
+    let cache_entry = CacheEntry { data, target_uri, target_offset, location: cached_location };
     let Some(document_cache) = super::document_cache() else { return false };
     CACHE.with_borrow_mut(|cache| {
         if let Some(does_compile) = cache.get(&cache_entry) {

@@ -1,0 +1,219 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component DemoCreatorProfile inherits Window {
+    preferred-width: 390px;
+    preferred-height: 720px;
+    title: "Creator Profile";
+    private property <bool> landscape: root.width > root.height;
+
+    Rectangle {
+        width: root.width;
+        height: root.height;
+        background: #fbf7ff;
+    }
+
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: root.landscape ? 260px : root.width;
+        height: root.landscape ? root.height : 230px;
+        background: #4f46e5;
+    }
+
+    Rectangle {
+        x: root.landscape ? 246px : 28px;
+        y: root.landscape ? 34px : 176px;
+        width: root.landscape ? 430px : 334px;
+        height: root.landscape ? 300px : 424px;
+        border-radius: 30px;
+        background: #ffffff;
+        border-width: 1px;
+        border-color: #eee7ff;
+        drop-shadow-blur: 26px;
+        drop-shadow-offset-y: 12px;
+        drop-shadow-color: #4f46e522;
+    }
+
+    Image {
+        x: root.landscape ? 74px : 138px;
+        y: root.landscape ? 78px : 118px;
+        width: root.landscape ? 112px : 114px;
+        height: root.landscape ? 112px : 114px;
+        source: @image-url("image.png");
+        image-fit: cover;
+    }
+
+    Rectangle {
+        x: root.landscape ? 68px : 132px;
+        y: root.landscape ? 72px : 112px;
+        width: root.landscape ? 124px : 126px;
+        height: root.landscape ? 124px : 126px;
+        border-radius: 63px;
+        background: transparent;
+        border-width: 6px;
+        border-color: #ffffff;
+    }
+
+    Text {
+        x: root.landscape ? 34px : 72px;
+        y: root.landscape ? 228px : 268px;
+        width: root.landscape ? 192px : 246px;
+        height: 34px;
+        text: "Mira Vale";
+        color: root.landscape ? #ffffff : #111827;
+        font-size: root.landscape ? 26px : 28px;
+        font-weight: 800;
+        horizontal-alignment: center;
+    }
+
+    Text {
+        x: root.landscape ? 34px : 78px;
+        y: root.landscape ? 266px : 310px;
+        width: root.landscape ? 192px : 234px;
+        height: 18px;
+        text: "Product storyteller";
+        color: root.landscape ? #ddd6fe : #6b7280;
+        font-size: 14px;
+        horizontal-alignment: center;
+    }
+
+    Rectangle {
+        x: root.landscape ? 290px : 52px;
+        y: root.landscape ? 72px : 368px;
+        width: root.landscape ? 82px : 82px;
+        height: root.landscape ? 66px : 68px;
+        border-radius: 18px;
+        background: #f5f3ff;
+    }
+
+    Text {
+        x: root.landscape ? 306px : 68px;
+        y: root.landscape ? 86px : 382px;
+        width: 50px;
+        height: 22px;
+        text: "128";
+        color: #4f46e5;
+        font-size: 19px;
+        font-weight: 800;
+        horizontal-alignment: center;
+    }
+
+    Text {
+        x: root.landscape ? 306px : 68px;
+        y: root.landscape ? 112px : 408px;
+        width: 50px;
+        height: 14px;
+        text: "Posts";
+        color: #6b7280;
+        font-size: 11px;
+        horizontal-alignment: center;
+    }
+
+    Rectangle {
+        x: root.landscape ? 392px : 154px;
+        y: root.landscape ? 72px : 368px;
+        width: 82px;
+        height: root.landscape ? 66px : 68px;
+        border-radius: 18px;
+        background: #eef2ff;
+    }
+
+    Text {
+        x: root.landscape ? 408px : 170px;
+        y: root.landscape ? 86px : 382px;
+        width: 50px;
+        height: 22px;
+        text: "42k";
+        color: #4338ca;
+        font-size: 19px;
+        font-weight: 800;
+        horizontal-alignment: center;
+    }
+
+    Text {
+        x: root.landscape ? 408px : 170px;
+        y: root.landscape ? 112px : 408px;
+        width: 50px;
+        height: 14px;
+        text: "Fans";
+        color: #6b7280;
+        font-size: 11px;
+        horizontal-alignment: center;
+    }
+
+    Rectangle {
+        x: root.landscape ? 494px : 256px;
+        y: root.landscape ? 72px : 368px;
+        width: 82px;
+        height: root.landscape ? 66px : 68px;
+        border-radius: 18px;
+        background: #fdf2f8;
+    }
+
+    Text {
+        x: root.landscape ? 510px : 272px;
+        y: root.landscape ? 86px : 382px;
+        width: 50px;
+        height: 22px;
+        text: "9.8";
+        color: #be185d;
+        font-size: 19px;
+        font-weight: 800;
+        horizontal-alignment: center;
+    }
+
+    Text {
+        x: root.landscape ? 510px : 272px;
+        y: root.landscape ? 112px : 408px;
+        width: 50px;
+        height: 14px;
+        text: "Score";
+        color: #6b7280;
+        font-size: 11px;
+        horizontal-alignment: center;
+    }
+
+    Rectangle {
+        x: root.landscape ? 290px : 52px;
+        y: root.landscape ? 186px : 474px;
+        width: root.landscape ? 346px : 286px;
+        height: root.landscape ? 70px : 76px;
+        border-radius: 22px;
+        background: #f8fafc;
+        border-width: 1px;
+        border-color: #e5e7eb;
+    }
+
+    Text {
+        x: root.landscape ? 316px : 76px;
+        y: root.landscape ? 210px : 502px;
+        width: root.landscape ? 198px : 198px;
+        height: 20px;
+        text: "Launch film ready";
+        color: #111827;
+        font-size: 16px;
+        font-weight: 800;
+    }
+
+    Rectangle {
+        x: root.landscape ? 290px : 52px;
+        y: root.landscape ? 300px : 632px;
+        width: root.landscape ? 346px : 286px;
+        height: root.landscape ? 50px : 54px;
+        border-radius: 27px;
+        background: #111827;
+    }
+
+    Text {
+        x: root.landscape ? 384px : 116px;
+        y: root.landscape ? 316px : 649px;
+        width: 158px;
+        height: 20px;
+        text: "Invite Creator";
+        color: #ffffff;
+        font-size: 16px;
+        font-weight: 800;
+        horizontal-alignment: center;
+    }
+}

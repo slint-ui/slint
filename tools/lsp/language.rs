@@ -125,7 +125,55 @@ pub fn send_state_to_preview(ctx: &Context) {
     }
 }
 
-// Callers live in the native LSP (main.rs / editor.rs); not used from WASM.
+#[cfg(any(feature = "preview-external", feature = "preview-engine"))]
+pub fn send_requested_state_to_preview(
+    ctx: &Context,
+    files: &[lsp_types::Url],
+    settings: &[String],
+) {
+    if files.is_empty() {
+        send_state_to_preview(ctx);
+    } else {
+        send_files_to_preview(ctx, files);
+    }
+
+    // Reply with the stored blob for each requested settings file. The LSP is a
+    // dumb store here: it never interprets the contents, the preview does.
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        any(feature = "preview-external", feature = "preview-engine")
+    ))]
+    for name in settings {
+        if let Some(contents) = crate::settings_store::load(name) {
+            ctx.to_preview
+                .send(&LspToPreviewMessage::SetUserSettings { name: name.clone(), contents });
+        }
+    }
+    #[cfg(not(all(
+        not(target_arch = "wasm32"),
+        any(feature = "preview-external", feature = "preview-engine")
+    )))]
+    let _ = settings;
+}
+
+/// Persist a settings blob received from the preview. The payload is opaque to
+/// the LSP; it is written verbatim to disk (a no-op where there is no config
+/// directory, e.g. wasm).
+pub fn store_user_settings(name: &str, contents: &str) {
+    #[cfg(all(
+        not(target_arch = "wasm32"),
+        any(feature = "preview-external", feature = "preview-engine")
+    ))]
+    if let Err(err) = crate::settings_store::save(name, contents) {
+        tracing::warn!("Failed to save preview user settings: {err}");
+    }
+    #[cfg(not(all(
+        not(target_arch = "wasm32"),
+        any(feature = "preview-external", feature = "preview-engine")
+    )))]
+    let _ = (name, contents);
+}
+
 #[cfg(all(
     not(target_arch = "wasm32"),
     any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"),
@@ -205,6 +253,22 @@ fn send_referenced_fonts(ctx: &Context, doc_url: &Url, sent: &mut HashSet<PathBu
             Err(err) => {
                 tracing::warn!("Failed to read font {}: {err}", font_path.display());
             }
+        }
+    }
+}
+
+#[cfg(all(target_arch = "wasm32", any(feature = "preview-external", feature = "preview-engine")))]
+pub fn send_files_to_preview(ctx: &Context, files: &[lsp_types::Url]) {
+    for url in files {
+        if let Some(node) = ctx.document_cache.get_document(url).and_then(|doc| doc.node.as_ref()) {
+            let version = ctx.document_cache.document_version_by_path(node.source_file.path());
+            ctx.to_preview.send(&LspToPreviewMessage::SetContents {
+                url: VersionedUrl::new(url.clone(), version),
+                contents: node.text().to_string().into(),
+            });
+        } else {
+            tracing::warn!("WASM LSP cannot re-send uncached file to preview: {url}");
+            ctx.to_preview.send(&LspToPreviewMessage::ForgetFile { url: url.clone() });
         }
     }
 }
@@ -1771,8 +1835,18 @@ pub mod tests {
 
     use crate::language::test::{
         complex_document_cache, loaded_document_cache, loaded_document_cache_with_file_name,
+        preview_capture,
     };
+    use i_slint_live_preview::protocol::{LspToPreviewMessage, PreviewConfig};
     use lsp_types::WorkspaceEdit;
+    use std::{cell::RefCell, collections::HashMap, path::PathBuf, rc::Rc};
+
+    fn mock_context_with_preview_capture() -> (Context, Rc<RefCell<Vec<LspToPreviewMessage>>>) {
+        let (capture, messages) = preview_capture();
+        let mut ctx = test::mock_context();
+        ctx.to_preview = capture;
+        (ctx, messages)
+    }
 
     #[test]
     fn test_load_document_invalid_contents() {
@@ -2367,6 +2441,30 @@ export global NoPreviewForGlobal {}
             assert!(token.text().starts_with("NoPreviewFor"));
             assert_eq!(get_code_actions(&mut dc, token, &capabilities), None);
         }
+    }
+
+    #[test]
+    fn send_requested_state_sends_configuration_and_skips_absent_user_settings() {
+        let (mut ctx, messages) = mock_context_with_preview_capture();
+        ctx.preview_config = PreviewConfig {
+            hide_ui: Some(true),
+            style: "custom-style".into(),
+            include_paths: vec![PathBuf::from("/includes")],
+            library_paths: HashMap::from([("widgets".into(), PathBuf::from("/libraries/widgets"))]),
+            format_utf8: false,
+            enable_experimental: true,
+        };
+
+        // Configuration flows independently of user settings; a settings file
+        // the store does not have must not produce a SetUserSettings message.
+        send_requested_state_to_preview(&ctx, &[], &["does-not-exist-xyz.json".to_string()]);
+
+        let messages = messages.borrow();
+        assert!(messages.iter().any(|m| matches!(
+            m,
+            LspToPreviewMessage::SetConfiguration { config } if config == &ctx.preview_config
+        )));
+        assert!(!messages.iter().any(|m| matches!(m, LspToPreviewMessage::SetUserSettings { .. })));
     }
 
     #[test]

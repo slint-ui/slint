@@ -6,6 +6,8 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::{collections::HashMap, iter::once, rc::Rc};
 
+use super::editor_user_settings::EditorUserSettings;
+use super::user_settings::PreviewUserSettings;
 use i_slint_compiler::parser::TextRange;
 use i_slint_compiler::{expression_tree, langtype};
 
@@ -22,6 +24,7 @@ use crate::preview::{self, DragItem, SelectionNotification, preview_data, proper
 use crate::wasm_prelude::*;
 
 mod brushes;
+mod file_tree;
 pub mod log_messages;
 pub mod palette;
 mod property_view;
@@ -29,6 +32,18 @@ mod recent_colors;
 pub mod search_model;
 
 slint::include_modules!();
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PreviewUiKind {
+    Viewer,
+    Editor,
+}
+
+impl PreviewUiKind {
+    fn is_editor(self) -> bool {
+        matches!(self, Self::Editor)
+    }
+}
 
 /// Abstraction over the different window types (PreviewUi vs EditorUi).
 /// Only used for the few operations that need component-level access
@@ -93,12 +108,76 @@ impl AppWindow {
 
 pub type PropertyDeclarations = HashMap<SmolStr, PropertyDeclaration>;
 
+pub fn preview_user_settings_from_values(
+    always_on_top: bool,
+    show_library: bool,
+    show_properties: bool,
+    show_outline: bool,
+    show_simulation_data: bool,
+    show_console: bool,
+) -> PreviewUserSettings {
+    PreviewUserSettings {
+        version: PreviewUserSettings::CURRENT_VERSION,
+        always_on_top,
+        show_library,
+        show_properties,
+        show_outline,
+        show_simulation_data,
+        show_console,
+    }
+}
+
+pub fn apply_preview_user_settings(app_window: &AppWindow, settings: &PreviewUserSettings) {
+    // The `changed` handlers triggered by these setters run deferred and report
+    // back through `preview::update_user_settings_from_ui`, which dedupes them
+    // against the last synced settings, so no echo guard is needed here.
+    let api = app_window.api();
+    api.set_always_on_top(settings.always_on_top);
+
+    match app_window {
+        AppWindow::Preview(ui) => {
+            ui.set_library_widget(settings.show_library);
+            ui.set_properties_widget(settings.show_properties);
+            ui.set_outline_widget(settings.show_outline);
+            ui.set_data_widget(settings.show_simulation_data);
+            ui.set_console_panel_expanded(settings.show_console);
+        }
+        AppWindow::Editor(_) => {}
+    }
+}
+
+pub fn apply_editor_user_settings(app_window: &AppWindow, settings: &EditorUserSettings) {
+    let api = app_window.api();
+    api.set_always_on_top(settings.always_on_top);
+}
+
+pub fn setup_preview_user_settings(api: &Api<'_>) {
+    api.on_preview_user_settings_changed(
+        |always_on_top,
+         show_library,
+         show_properties,
+         show_outline,
+         show_simulation_data,
+         show_console| {
+            preview::update_user_settings_from_ui(preview_user_settings_from_values(
+                always_on_top,
+                show_library,
+                show_properties,
+                show_outline,
+                show_simulation_data,
+                show_console,
+            ));
+            preview::update_editor_settings_from_ui(EditorUserSettings { always_on_top });
+        },
+    );
+}
+
 pub fn create_ui(
     to_lsp: &Rc<dyn common::PreviewToLsp>,
     style: &str,
-    use_editor_ui: bool,
+    ui_kind: PreviewUiKind,
 ) -> Result<AppWindow, PlatformError> {
-    let app_window = if use_editor_ui {
+    let app_window = if ui_kind.is_editor() {
         AppWindow::Editor(EditorUi::new()?)
     } else {
         AppWindow::Preview(PreviewUi::new()?)
@@ -179,6 +258,14 @@ pub fn create_ui(
         transfer.set_user_data(Rc::new(DragItem::NewComponent { index }));
         transfer
     });
+    api.on_new_prototype_component_data(|kind: PrototypeComponentKind| -> DataTransfer {
+        let Some(index) = super::component_index_for_prototype_kind(kind) else {
+            return Default::default();
+        };
+        let mut transfer = DataTransfer::default();
+        transfer.set_user_data(Rc::new(DragItem::NewComponent { index }));
+        transfer
+    });
     api.on_move_element_instance_data(|uri: SharedString, offset: i32| -> DataTransfer {
         let Ok(offset) = offset.try_into() else {
             return Default::default();
@@ -195,16 +282,52 @@ pub fn create_ui(
         .ok();
         super::drop_component(data, x, y)
     });
+    let lsp = to_lsp.clone();
+    api.on_drop_with_geometry(
+        move |data: DataTransfer,
+              hit_x: f32,
+              hit_y: f32,
+              x: f32,
+              y: f32,
+              width: f32,
+              height: f32| {
+            lsp.send_telemetry(&mut [(
+                "type".to_string(),
+                serde_json::to_value("component_dropped").unwrap(),
+            )])
+            .ok();
+            super::drop_component_with_geometry(data, hit_x, hit_y, x, y, width, height)
+        },
+    );
     api.on_selected_element_resize(super::resize_selected_element);
     api.on_selected_element_can_move_to(super::can_move_selected_element);
     api.on_selected_element_move(super::move_selected_element);
     api.on_selected_element_delete(super::delete_selected_element);
+    api.on_override_selected_element_geometry(super::override_selected_element_geometry);
+    api.on_override_selected_element_border_radius(super::override_selected_element_border_radius);
+    api.on_persist_selected_element_border_radius(super::persist_selected_element_border_radius);
 
     api.on_test_code_binding(super::test_code_binding);
     api.on_set_code_binding(super::set_code_binding);
     api.on_set_color_binding(super::set_color_binding);
     api.on_set_element_id(super::set_element_id);
     api.on_property_declaration_ranges(super::property_declaration_ranges);
+    let property_api_weak = api_weak.clone();
+    api.on_current_property_value_data(move |property_name| {
+        let Some(api) = property_api_weak.upgrade() else {
+            return PropertyValue::default();
+        };
+
+        current_property_value_data(&api, property_name).unwrap_or_default()
+    });
+    let property_value_api_weak = api_weak.clone();
+    api.on_current_property_value(move |property_name, fallback| {
+        let Some(api) = property_value_api_weak.upgrade() else {
+            return fallback;
+        };
+
+        current_property_value(&api, property_name, fallback)
+    });
 
     api.on_get_property_value(get_property_value);
     api.on_get_property_value_table(get_property_value_table);
@@ -229,9 +352,12 @@ pub fn create_ui(
     brushes::setup(&api);
     log_messages::setup(&api);
     palette::setup(&api);
+    file_tree::setup(&api, api_weak.clone(), ui_kind);
     recent_colors::setup(&api, api_weak);
     super::outline::setup(&api);
     super::undo_redo::setup(&api);
+    setup_preview_user_settings(&api);
+    apply_preview_user_settings(&app_window, &PreviewUserSettings::default());
 
     #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
     super::remote::setup(&app_window, to_lsp);
@@ -1121,6 +1247,46 @@ fn get_property_value(container: SharedString, property_name: SharedString) -> P
         .unwrap_or_default()
 }
 
+fn current_property_value_data(
+    api: &Api<'_>,
+    property_name: SharedString,
+) -> Option<PropertyValue> {
+    for group in api.get_properties().iter() {
+        for property in group.properties.iter() {
+            if property.name == property_name {
+                return Some(property.value);
+            }
+        }
+    }
+
+    None
+}
+
+fn current_property_value(
+    api: &Api<'_>,
+    property_name: SharedString,
+    fallback: SharedString,
+) -> SharedString {
+    let Some(property) = current_property_value_data(api, property_name) else {
+        return fallback;
+    };
+
+    if !property.code.is_empty() {
+        return property.code;
+    }
+    if property.kind == PropertyValueKind::Enum && !property.value_string.is_empty() {
+        return property.value_string;
+    }
+    if !property.display_string.is_empty() {
+        return property.display_string;
+    }
+    if !property.value_string.is_empty() {
+        return property.value_string;
+    }
+
+    fallback
+}
+
 fn map_preview_data_to_property_value_table(
     preview_data: &preview_data::PreviewData,
 ) -> (bool, Vec<SharedString>, Vec<Vec<PropertyValue>>) {
@@ -1562,6 +1728,22 @@ mod tests {
         assert_eq!(t.value.code.as_str(), "DDD");
 
         assert!(it.next().is_none());
+    }
+
+    #[test]
+    fn preview_user_settings_from_values_maps_all_toggles() {
+        assert_eq!(
+            super::preview_user_settings_from_values(true, false, true, false, true, false),
+            super::PreviewUserSettings {
+                version: super::PreviewUserSettings::CURRENT_VERSION,
+                always_on_top: true,
+                show_library: false,
+                show_properties: true,
+                show_outline: false,
+                show_simulation_data: true,
+                show_console: false,
+            }
+        );
     }
 
     fn generate_preview_data(

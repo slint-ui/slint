@@ -1,0 +1,636 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette } from "std-widgets.slint";
+
+export enum ProjectKind {
+    mobile,
+    desktop,
+    embedded,
+}
+
+enum WizardPage {
+    welcome,
+    templates,
+}
+
+struct RecentFile {
+    title: string,
+    path: string,
+}
+
+global WizardTheme {
+    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
+    out property <color> stage-bg: dark ? #202124 : #c9c9c9;
+    out property <color> shell-bg: dark ? #303134 : #ffffff;
+    out property <color> side-bg: dark ? #2a2b2e : #f5f5f6;
+    out property <color> control-bg: dark ? #424347 : #eeeeef;
+    out property <color> control-hover: dark ? #4d4f54 : #e2e3e5;
+    out property <color> text: dark ? #f4f4f5 : #252527;
+    out property <color> muted: dark ? #b5b6ba : #797a7d;
+    out property <color> border: dark ? #4d4e52 : #dedfe2;
+    out property <color> separator: dark ? #44454a : #d9dadd;
+    out property <color> accent: #0878f8;
+    out property <color> accent-pressed: #0065d6;
+    out property <color> selection-soft: dark ? #1b3d73 : #e9f1ff;
+}
+
+component BrandMark inherits Rectangle {
+    in-out property <length> mark-size: 90px;
+    in property <bool> compact: false;
+    in property <float> progress: 0;
+
+    width: mark-size;
+    height: mark-size;
+    border-radius: mark-size * 23%;
+    background: @linear-gradient(155deg, #32e1ff 0%, #0b89ff 52%, #115bea 100%);
+    border-width: compact ? 1px : 0px;
+    border-color: #ffffff66;
+    clip: true;
+    drop-shadow-blur: compact ? 6px : 11px;
+    drop-shadow-offset-y: compact ? 2px : 6px;
+    drop-shadow-color: #00000033;
+    transform-rotation: progress * -3deg;
+    animate transform-rotation { duration: 420ms; easing: ease-out-quad; }
+
+    for row in 4: Rectangle {
+        y: root.mark-size * (22% + row * 19%);
+        height: 1px;
+        background: #ffffff26;
+    }
+
+    for col in 4: Rectangle {
+        x: root.mark-size * (22% + col * 19%);
+        width: 1px;
+        background: #ffffff22;
+    }
+
+    Image {
+        width: parent.width * 56%;
+        height: parent.height * 56%;
+        source: @image-url("../assets/slinterface-mark.svg");
+        colorize: white;
+        opacity: 0.94;
+        transform-rotation: progress * 16deg;
+        animate transform-rotation { duration: 520ms; easing: ease-out-back; }
+    }
+}
+
+component ActionIcon inherits Rectangle {
+    in property <bool> folder: false;
+
+    width: 18px;
+    height: 18px;
+    background: transparent;
+
+    Image {
+        width: 18px;
+        height: 18px;
+        source: root.folder
+            ? @image-url("../assets/slinterface-primer-folder-open.svg")
+            : @image-url("../assets/slinterface-primer-plus-circle.svg");
+        colorize: WizardTheme.muted;
+    }
+}
+
+component WelcomeAction inherits Rectangle {
+    in property <string> label;
+    in property <bool> folder: false;
+    in property <bool> enabled: true;
+    in property <float> progress: 0;
+    callback clicked;
+
+    height: 35px;
+    border-radius: 17.5px;
+    background: touch.pressed ? #d9dadd : touch.has-hover ? WizardTheme.control-hover : WizardTheme.control-bg;
+    opacity: 1 - progress;
+    transform-scale-x: 100% - progress * 4%;
+    transform-scale-y: 100% - progress * 8%;
+    animate background { duration: 140ms; easing: ease-out-quad; }
+    animate opacity {
+        duration: 240ms;
+        easing: ease-in-out-quad;
+    }
+    animate transform-scale-x, transform-scale-y { duration: 260ms; easing: ease-in-out-quad; }
+
+    HorizontalLayout {
+        padding-left: 11px;
+        padding-right: 11px;
+        spacing: 10px;
+        cross-axis-alignment: center;
+
+        ActionIcon {
+            folder: root.folder;
+        }
+
+        Text {
+            text: root.label;
+            color: WizardTheme.text;
+            font-size: 14px;
+            font-weight: 800;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component WizardButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> primary: false;
+    in property <bool> enabled: true;
+    callback clicked;
+
+    width: 94px;
+    height: 24px;
+    border-radius: 5.5px;
+    background: !enabled ? WizardTheme.control-bg
+        : primary ? (touch.pressed ? WizardTheme.accent-pressed : WizardTheme.accent)
+        : touch.has-hover ? WizardTheme.control-hover : WizardTheme.control-bg;
+    opacity: enabled ? 1 : 0.45;
+    animate background, opacity { duration: 140ms; easing: ease-out-quad; }
+
+    Text {
+        text: root.label;
+        color: root.primary ? white : WizardTheme.text;
+        font-size: 13px;
+        font-weight: 500;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component RecentFileRow inherits Rectangle {
+    in property <string> title;
+    in property <string> path;
+    in property <bool> selected: false;
+    in property <bool> enabled: true;
+    in property <length> exit-x: 0px;
+    in property <float> progress: 0;
+    in property <duration> motion-delay: 0ms;
+    callback opened;
+
+    height: 44px;
+    border-radius: 6.5px;
+    x: exit-x;
+    opacity: 1 - progress;
+    transform-scale-x: 100% - progress * 3%;
+    transform-scale-y: 100% - progress * 3%;
+    background: selected ? WizardTheme.accent : (touch.has-hover && enabled ? WizardTheme.control-hover : transparent);
+    animate background { duration: 150ms; easing: ease-out-quad; }
+    animate x, opacity {
+        duration: 280ms;
+        easing: ease-in-out-quad;
+        delay: motion-delay;
+    }
+    animate transform-scale-x, transform-scale-y {
+        duration: 280ms;
+        easing: ease-in-out-quad;
+        delay: motion-delay;
+    }
+
+    HorizontalLayout {
+        padding-left: 11px;
+        padding-right: 9px;
+        spacing: 11px;
+        cross-axis-alignment: center;
+
+        Image {
+            width: 27px;
+            height: 27px;
+            source: @image-url("../assets/slinterface-primer-file-code.svg");
+            colorize: root.selected ? white : WizardTheme.accent;
+        }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 1.5px;
+
+            Text {
+                text: root.title;
+                color: root.selected ? white : WizardTheme.text;
+                font-size: 13px;
+                font-weight: 800;
+                overflow: elide;
+            }
+
+            Text {
+                text: root.path;
+                color: root.selected ? #d7e7ff : WizardTheme.muted;
+                font-size: 12px;
+                overflow: elide;
+            }
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => {
+            root.opened();
+        }
+        double-clicked => {
+            root.opened();
+        }
+    }
+}
+
+component TemplateCard inherits Rectangle {
+    in property <ProjectKind> kind;
+    in property <string> title;
+    in property <image> icon;
+    in property <bool> selected: false;
+    in property <bool> enabled: true;
+    in property <float> progress: 0;
+    in property <duration> motion-delay: 0ms;
+    callback picked(ProjectKind);
+
+    width: 130px;
+    height: 115px;
+    border-radius: 6px;
+    opacity: progress;
+    transform-scale-x: 92% + progress * 8%;
+    transform-scale-y: 92% + progress * 8%;
+    background: touch.has-hover && enabled ? WizardTheme.control-bg.with-alpha(0.7) : transparent;
+    animate background { duration: 140ms; easing: ease-out-quad; }
+    animate y, opacity {
+        duration: 380ms;
+        easing: ease-out-back;
+        delay: motion-delay;
+    }
+    animate transform-scale-x, transform-scale-y {
+        duration: 420ms;
+        easing: ease-out-back;
+        delay: motion-delay;
+    }
+
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: 4px;
+        width: 64px;
+        height: 64px;
+        border-radius: 8.5px;
+        background: root.selected ? WizardTheme.selection-soft : transparent;
+        animate background { duration: 180ms; easing: ease-out-quad; }
+
+        Image {
+            width: 37px;
+            height: 37px;
+            source: root.icon;
+            colorize: WizardTheme.accent;
+        }
+    }
+
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: 68px;
+        width: root.selected ? min(parent.width - 8px, title-text.preferred-width + 14px) : parent.width;
+        height: 23px;
+        border-radius: 5.5px;
+        background: root.selected ? WizardTheme.accent : transparent;
+        animate background, width { duration: 180ms; easing: ease-out-quad; }
+
+        title-text := Text {
+            text: root.title;
+            color: root.selected ? white : WizardTheme.text;
+            font-size: 14px;
+            font-weight: 500;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => {
+            root.picked(root.kind);
+        }
+    }
+}
+
+export component StartupWizard inherits Rectangle {
+    in-out property <ProjectKind> selected-project: ProjectKind.mobile;
+    callback opened;
+    callback open-existing-project;
+
+    property <WizardPage> page: WizardPage.welcome;
+    property <bool> showing-templates: page == WizardPage.templates;
+    property <float> page-progress: showing-templates ? 1 : 0;
+    property <float> brand-progress: showing-templates ? page-progress : (page-progress / 0.34).clamp(0, 1);
+    property <float> welcome-opacity: (1 - page-progress * 1.75).clamp(0, 1);
+    property <float> welcome-content-opacity: showing-templates ? welcome-opacity : min(welcome-opacity, ((1 - brand-progress) * 1.6).clamp(0, 1));
+    property <float> template-opacity: ((page-progress - 0.22) * 1.45).clamp(0, 1);
+    property <float> footer-opacity: ((page-progress - 0.58) * 2.4).clamp(0, 1);
+    property <length> shell-width: min(root.width - 32px, 740px);
+    property <length> shell-height: min(root.height - 32px, 460px);
+    property <length> shell-left: (root.width - shell-width) / 2;
+    property <length> shell-top: (root.height - shell-height) / 2;
+    property <length> side-width: shell-width < 620px ? 220px : 270px;
+    property <length> main-width: shell-width - side-width;
+    property <[RecentFile]> recent-files: [
+        { title: "Slint Viewer", path: "~/slint/tools/viewer" },
+        { title: "Home Automation", path: "~/MyApps/home-auto" },
+        { title: "IconTests", path: "~/MyApps/TahoeIconsTests" },
+        { title: "Touch Kiosk Demo", path: "~/Projects/touch-kiosk-demo/ui/main.slint" },
+    ];
+
+    background: WizardTheme.stage-bg;
+    animate page-progress { duration: 520ms; easing: ease-in-out-quart; }
+
+    Rectangle {
+        x: root.shell-left;
+        y: root.shell-top;
+        width: root.shell-width;
+        height: root.shell-height;
+        border-radius: 19.5px;
+        border-width: 1px;
+        border-color: WizardTheme.dark ? #ffffff22 : #98999d;
+        background: WizardTheme.shell-bg;
+        clip: true;
+        drop-shadow-blur: 17px;
+        drop-shadow-offset-y: 8px;
+        drop-shadow-color: WizardTheme.dark ? #00000080 : #00000030;
+        animate width, height, x, y { duration: 180ms; easing: ease-out-quad; }
+
+        Rectangle {
+            width: root.main-width;
+            background: WizardTheme.shell-bg;
+        }
+
+        side-panel := Rectangle {
+            x: root.main-width + root.page-progress * 17px;
+            width: root.side-width;
+            background: WizardTheme.side-bg;
+            opacity: root.welcome-opacity;
+            animate x, opacity {
+                duration: 300ms;
+                easing: ease-in-out-quad;
+                delay: root.showing-templates ? 70ms : 0ms;
+            }
+        }
+
+        brand := BrandMark {
+            mark-size: 103px - root.brand-progress * 75px;
+            compact: root.brand-progress > 0.72;
+            progress: root.brand-progress;
+            x: ((root.main-width - self.width) / 2) * (1 - root.brand-progress) + 37px * root.brand-progress;
+            y: 64px * (1 - root.brand-progress) + 27.5px * root.brand-progress;
+        }
+
+        hero-title := Text {
+            x: 0px;
+            y: brand.y + brand.height + 18px - root.page-progress * 18px;
+            width: root.main-width;
+            height: 37px;
+            text: "Slinterface Pro";
+            color: WizardTheme.text;
+            font-size: 34px;
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            opacity: root.welcome-content-opacity;
+            transform-scale-x: 100% - root.page-progress * 8%;
+            transform-scale-y: 100% - root.page-progress * 8%;
+            animate y, opacity, transform-scale-x, transform-scale-y { duration: 360ms; easing: ease-in-out-quad; }
+        }
+
+        Text {
+            x: 73px;
+            y: 33px;
+            width: 210px;
+            height: 18px;
+            text: "Slinterface Pro";
+            color: WizardTheme.text;
+            font-size: 12px;
+            font-weight: 900;
+            vertical-alignment: center;
+            opacity: root.template-opacity;
+            animate opacity { duration: 240ms; easing: ease-out-quad; delay: root.showing-templates ? 170ms : 0ms; }
+        }
+
+        Text {
+            x: 0px;
+            y: hero-title.y + hero-title.height - 2px + root.page-progress * 8px;
+            width: root.main-width;
+            height: 17px;
+            text: "Version 1.0";
+            color: WizardTheme.muted;
+            font-size: 14px;
+            horizontal-alignment: center;
+            opacity: root.welcome-content-opacity;
+            animate opacity, y {
+                duration: 180ms;
+                easing: ease-out-quad;
+            }
+        }
+
+        welcome-actions := VerticalLayout {
+            x: 56px;
+            y: root.shell-height - 130px + root.page-progress * 18px;
+            width: root.main-width - 112px;
+            height: 79px;
+            spacing: 9px;
+            opacity: root.welcome-content-opacity;
+            transform-scale-x: 100% - root.page-progress * 5%;
+            transform-scale-y: 100% - root.page-progress * 8%;
+            animate y, opacity {
+                duration: 250ms;
+                easing: ease-in-out-quad;
+            }
+            animate transform-scale-x, transform-scale-y { duration: 260ms; easing: ease-in-out-quad; }
+
+            WelcomeAction {
+                label: "Create New Project...";
+                enabled: !root.showing-templates;
+                progress: root.page-progress;
+                clicked => {
+                    root.selected-project = ProjectKind.mobile;
+                    root.page = WizardPage.templates;
+                }
+            }
+
+            WelcomeAction {
+                label: "Open Existing Project...";
+                folder: true;
+                enabled: !root.showing-templates;
+                progress: root.page-progress;
+                clicked => {
+                    root.open-existing-project();
+                }
+            }
+        }
+
+        recent-list := VerticalLayout {
+            x: root.main-width + 10px;
+            y: 10px;
+            width: root.side-width - 20px;
+            height: 195px;
+            spacing: 5px;
+
+            for file[index] in root.recent-files: RecentFileRow {
+                title: file.title;
+                path: file.path;
+                selected: index == 0;
+                enabled: !root.showing-templates;
+                progress: 1 - root.welcome-opacity;
+                motion-delay: root.showing-templates ? index * 28ms : (3 - index) * 22ms;
+                exit-x: root.page-progress * (23px + index * 5px);
+                opened => {
+                    root.selected-project = ProjectKind.mobile;
+                    root.opened();
+                }
+            }
+        }
+
+        template-page := Rectangle {
+            x: -14px * (1 - root.page-progress);
+            y: 0px;
+            width: root.shell-width;
+            height: root.shell-height;
+            background: transparent;
+            opacity: root.template-opacity;
+            animate x, opacity {
+                duration: 320ms;
+                easing: ease-in-out-quad;
+                delay: root.showing-templates ? 110ms : 0ms;
+            }
+
+            Text {
+                x: 37px;
+                y: 75px;
+                width: parent.width - 74px;
+                height: 26px;
+                text: "Choose a template for your new project:";
+                color: WizardTheme.text;
+                font-size: 14px;
+                font-weight: 500;
+                vertical-alignment: center;
+            }
+
+            Rectangle {
+                y: 111px;
+                height: 1px;
+                background: WizardTheme.separator;
+            }
+
+            Rectangle {
+                x: parent.width * (1 - root.page-progress);
+                y: 111px;
+                width: parent.width * root.page-progress;
+                height: 1px;
+                background: WizardTheme.accent;
+                opacity: root.page-progress < 1 ? root.template-opacity : 0;
+            }
+
+            card-row := Rectangle {
+                x: 48px;
+                y: 151px;
+                width: parent.width - 96px;
+                height: 123px;
+
+                TemplateCard {
+                    x: parent.width / 2 - 215px;
+                    y: root.showing-templates ? 0px : 19px;
+                    kind: ProjectKind.mobile;
+                    title: "Mobile";
+                    icon: @image-url("../assets/slinterface-primer-device-mobile.svg");
+                    selected: root.selected-project == ProjectKind.mobile;
+                    enabled: root.showing-templates;
+                    progress: root.template-opacity;
+                    motion-delay: root.showing-templates ? 70ms : 0ms;
+                    picked(kind) => {
+                        root.selected-project = kind;
+                    }
+                }
+
+                TemplateCard {
+                    x: parent.width / 2 - self.width / 2;
+                    y: root.showing-templates ? 0px : 27px;
+                    kind: ProjectKind.desktop;
+                    title: "Desktop";
+                    icon: @image-url("../assets/slinterface-primer-device-desktop.svg");
+                    selected: root.selected-project == ProjectKind.desktop;
+                    enabled: root.showing-templates;
+                    progress: root.template-opacity;
+                    motion-delay: root.showing-templates ? 125ms : 0ms;
+                    picked(kind) => {
+                        root.selected-project = kind;
+                    }
+                }
+
+                TemplateCard {
+                    x: parent.width / 2 + 85px;
+                    y: root.showing-templates ? 0px : 35px;
+                    kind: ProjectKind.embedded;
+                    title: "Embedded";
+                    icon: @image-url("../assets/slinterface-primer-cpu.svg");
+                    selected: root.selected-project == ProjectKind.embedded;
+                    enabled: root.showing-templates;
+                    progress: root.template-opacity;
+                    motion-delay: root.showing-templates ? 180ms : 0ms;
+                    picked(kind) => {
+                        root.selected-project = kind;
+                    }
+                }
+            }
+
+            Rectangle {
+                y: parent.height - 63px;
+                height: 1px;
+                background: WizardTheme.separator;
+            }
+
+            footer := Rectangle {
+                x: 0px;
+                y: parent.height - 49px + (root.showing-templates ? 0px : 14px);
+                width: parent.width;
+                height: 31px;
+                opacity: root.footer-opacity;
+                animate y, opacity {
+                    duration: 260ms;
+                    easing: ease-out-quad;
+                    delay: root.showing-templates ? 160ms : 0ms;
+                }
+
+                WizardButton {
+                    x: parent.width - 213px;
+                    y: 0px;
+                    label: "Previous";
+                    enabled: root.showing-templates;
+                    clicked => {
+                        root.page = WizardPage.welcome;
+                    }
+                }
+
+                WizardButton {
+                    x: parent.width - 114px;
+                    y: 0px;
+                    label: "Next";
+                    primary: true;
+                    enabled: root.showing-templates;
+                    clicked => {
+                        root.opened();
+                    }
+                }
+            }
+        }
+    }
+}

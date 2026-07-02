@@ -1,0 +1,620 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Palette } from "std-widgets.slint";
+import { PrototypeComponentKind, CanvasCorner } from "../../api.slint";
+
+export { CanvasCorner }
+
+export enum CanvasOrientation {
+    portrait,
+    landscape,
+}
+
+export enum CanvasSelectionKind {
+    none,
+    artboard,
+    rectangle,
+    text,
+    image,
+}
+
+export global StudioTheme {
+    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
+    out property <color> app-bg: dark ? #2c2c2c : #f6f8fa;
+    out property <color> panel-bg: dark ? #2c2c2c : #ffffff;
+    out property <color> panel-subtle: dark ? #383838 : #f6f8fa;
+    out property <color> text: dark ? #f1f1f1 : #1f2328;
+    out property <color> muted: dark ? #b7b7b7 : #6e7781;
+    out property <color> border: dark ? #494949 : #d0d7de;
+    out property <color> soft-border: dark ? #3f3f3f : #eaeef2;
+    out property <color> accent: #0d99ff;
+    out property <color> accent-strong: #52aeff;
+    out property <color> canvas: dark ? #1f1f1f : #eef2f7;
+    out property <color> phone-bg: dark ? #f7f8fb : #ffffff;
+    out property <color> phone-text: #20252d;
+    out property <color> object-bg: #ffffff;
+    out property <color> object-subtle: #f6f8fa;
+    out property <color> object-border: #d0d7de;
+    out property <color> object-muted: #6e7781;
+}
+
+export global EditorMetrics {
+    out property <length> left-pane-width: 286px;
+    out property <length> inspector-pane-width: 232px;
+    out property <length> top-bar-height: 54px;
+    out property <length> phone-portrait-width: 390px;
+    out property <length> phone-portrait-height: 720px;
+    out property <length> phone-landscape-width: 720px;
+    out property <length> phone-landscape-height: 390px;
+    out property <length> phone-frame-radius: 34px;
+    out property <length> phone-status-bar-size: 42px;
+    out property <length> phone-outer-padding: 1px;
+    out property <length> selection-handle-size: 12px;
+    out property <length> rotation-zone-size: 22px;
+    out property <length> rotation-zone-gap: 4px;
+    out property <length> radius-handle-size: 10px;
+    out property <length> radius-handle-inset: 10px;
+}
+
+export component EdgeDivider inherits Rectangle {
+    width: 1px;
+    background: StudioTheme.border;
+}
+
+export component ImagePlaceholder inherits Rectangle {
+    in property <bool> active: false;
+
+    border-radius: 16px;
+    background: StudioTheme.object-subtle;
+    border-width: root.active ? 2px : 1px;
+    border-color: root.active ? StudioTheme.accent-strong : StudioTheme.object-border;
+
+    Rectangle {
+        width: 48px;
+        height: 36px;
+        border-radius: 6px;
+        border-width: 2px;
+        border-color: StudioTheme.object-muted.with-alpha(0.65);
+
+        Rectangle {
+            x: 30px;
+            y: 8px;
+            width: 7px;
+            height: 7px;
+            border-radius: 3.5px;
+            background: StudioTheme.object-muted.with-alpha(0.7);
+        }
+
+        Rectangle {
+            x: 9px;
+            y: 22px;
+            width: 30px;
+            height: 5px;
+            border-radius: 2.5px;
+            background: StudioTheme.object-muted.with-alpha(0.55);
+        }
+    }
+}
+
+export component BodyLabel inherits Text {
+    color: StudioTheme.text;
+    font-size: 13px;
+    font-weight: 500;
+    overflow: elide;
+}
+
+export component MutedLabel inherits Text {
+    color: StudioTheme.muted;
+    font-size: 12px;
+    overflow: elide;
+}
+
+export component SectionTitle inherits Text {
+    in property <string> label;
+    text: label;
+    color: StudioTheme.muted;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+export component PrimerTextInput inherits Rectangle {
+    in-out property <string> text <=> editor.text;
+    in property <string> placeholder: "";
+    in property <string> leading-text: "";
+
+    height: 34px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: editor.has-focus ? StudioTheme.accent-strong : StudioTheme.border;
+    background: StudioTheme.panel-bg;
+    animate border-color { duration: 120ms; }
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 8px;
+
+        if root.leading-text != "": Text {
+            text: root.leading-text;
+            color: StudioTheme.muted;
+            font-size: 14px;
+            font-weight: 700;
+            vertical-alignment: center;
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+
+            editor := TextInput {
+                width: parent.width;
+                height: parent.height;
+                text: "";
+                color: StudioTheme.text;
+                font-size: 13px;
+                single-line: true;
+                wrap: no-wrap;
+                vertical-alignment: center;
+                selection-background-color: StudioTheme.accent.with-alpha(0.28);
+            }
+
+            if editor.text == "": Text {
+                x: editor.x;
+                y: editor.y;
+                width: editor.width;
+                height: editor.height;
+                text: root.placeholder;
+                color: StudioTheme.muted;
+                font-size: 13px;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
+
+export component OrientationIconButton inherits Rectangle {
+    in property <bool> landscape: false;
+    in property <bool> selected: false;
+    callback clicked;
+
+    width: 34px;
+    height: 30px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: selected ? StudioTheme.accent-strong : StudioTheme.border;
+    background: selected ? StudioTheme.accent.with-alpha(0.14) : touch.has-hover ? StudioTheme.panel-subtle : StudioTheme.panel-bg;
+    animate background, border-color { duration: 120ms; }
+
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: root.landscape ? 18px : 12px;
+        height: root.landscape ? 12px : 18px;
+        border-radius: 3px;
+        border-width: 2px;
+        border-color: root.selected ? StudioTheme.accent-strong : StudioTheme.muted;
+        background: transparent;
+
+        Rectangle {
+            x: root.landscape ? parent.width - 5px : (parent.width - 4px) / 2;
+            y: root.landscape ? (parent.height - 4px) / 2 : parent.height - 5px;
+            width: root.landscape ? 2px : 4px;
+            height: root.landscape ? 4px : 2px;
+            border-radius: 1px;
+            background: root.selected ? StudioTheme.accent-strong : StudioTheme.muted;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+export component SidebarToggleButton inherits Rectangle {
+    in property <bool> active: false;
+    callback clicked;
+
+    width: 34px;
+    height: 30px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: active ? StudioTheme.accent-strong : StudioTheme.border;
+    background: active ? StudioTheme.accent.with-alpha(0.14) : touch.has-hover ? StudioTheme.panel-subtle : StudioTheme.panel-bg;
+    animate background, border-color { duration: 120ms; }
+
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 18px;
+        height: 16px;
+        border-radius: 3px;
+        border-width: 2px;
+        border-color: root.active ? StudioTheme.accent-strong : StudioTheme.text;
+        background: transparent;
+
+        Rectangle {
+            x: 7px;
+            width: 2px;
+            height: parent.height;
+            background: root.active ? StudioTheme.accent-strong : StudioTheme.text;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+export component PrimerNavRow inherits Rectangle {
+    in property <string> label;
+    in property <string> glyph;
+    in property <bool> selected: false;
+    in property <length> indent: 0px;
+
+    height: 30px;
+    border-radius: 6px;
+    background: selected ? StudioTheme.accent.with-alpha(0.13) : touch.has-hover ? StudioTheme.panel-subtle : transparent;
+
+    HorizontalLayout {
+        padding-left: 8px + root.indent;
+        padding-right: 8px;
+        spacing: 8px;
+
+        Text {
+            text: root.glyph;
+            color: root.selected ? StudioTheme.accent-strong : StudioTheme.muted;
+            font-size: 12px;
+            font-weight: 800;
+            vertical-alignment: center;
+        }
+
+        Text {
+            text: root.label;
+            color: root.selected ? StudioTheme.text : StudioTheme.muted;
+            font-size: 13px;
+            font-weight: root.selected ? 700 : 500;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+    }
+}
+
+export component PrimerActionListRow inherits Rectangle {
+    in property <PrototypeComponentKind> kind;
+    in property <string> label;
+    in property <string> detail;
+    in property <bool> enabled: true;
+    callback drag-started(PrototypeComponentKind, Point);
+    callback drag-moved(PrototypeComponentKind, Point);
+    callback drag-ended(PrototypeComponentKind, Point);
+
+    private property <length> drag-threshold: 2px;
+    property <bool> dragging: root.enabled && AppState.dragging-kind == root.kind;
+    property <bool> active: root.enabled && (root.dragging || touch.pressed);
+    property <bool> hovered: root.enabled && touch.has-hover && !root.dragging;
+
+    height: 62px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: !root.enabled ? StudioTheme.soft-border.with-alpha(0.68) : root.active ? StudioTheme.accent-strong.with-alpha(0.75) : root.hovered ? StudioTheme.border : StudioTheme.soft-border;
+    background: !root.enabled ? StudioTheme.panel-subtle.with-alpha(0.58) : root.active ? StudioTheme.accent.with-alpha(0.10) : root.hovered ? StudioTheme.panel-subtle.with-alpha(0.72) : StudioTheme.panel-bg;
+    opacity: !root.enabled ? 0.58 : root.dragging ? 0.56 : 1;
+    animate background, border-color, opacity { duration: 140ms; easing: ease-out-quad; }
+
+    HorizontalLayout {
+        padding: 10px;
+        spacing: 12px;
+        cross-axis-alignment: center;
+
+        Rectangle {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            border-width: 1px;
+            border-color: root.kind == PrototypeComponentKind.rectangle ? #f59e0b : root.kind == PrototypeComponentKind.text ? #38bdf8 : #22c55e;
+            background: root.kind == PrototypeComponentKind.rectangle ? #fff7ed : root.kind == PrototypeComponentKind.text ? #eff6ff : #f0fdf4;
+
+            if root.kind == PrototypeComponentKind.rectangle: Rectangle {
+                x: 10px;
+                y: 11px;
+                width: 20px;
+                height: 17px;
+                border-radius: 4px;
+                border-width: 2px;
+                border-color: #d97706;
+                background: #ffffffa0;
+            }
+
+            if root.kind == PrototypeComponentKind.text: Text {
+                text: "T";
+                color: #0369a1;
+                font-size: 18px;
+                font-weight: 900;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            if root.kind == PrototypeComponentKind.image: Rectangle {
+                x: 9px;
+                y: 10px;
+                width: 22px;
+                height: 20px;
+                border-radius: 4px;
+                border-width: 2px;
+                border-color: #15803d;
+                background: #ffffffa0;
+
+                Rectangle {
+                    x: 5px;
+                    y: 5px;
+                    width: 5px;
+                    height: 5px;
+                    border-radius: 2.5px;
+                    background: #22c55e;
+                }
+
+                Rectangle {
+                    x: 4px;
+                    y: 13px;
+                    width: 14px;
+                    height: 3px;
+                    border-radius: 2px;
+                    background: #15803d;
+                }
+            }
+        }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 2px;
+            alignment: center;
+
+            BodyLabel {
+                text: root.label;
+            }
+
+            MutedLabel {
+                text: root.detail;
+            }
+        }
+
+        Rectangle {
+            width: 18px;
+            height: 18px;
+            border-radius: 9px;
+            background: root.active ? StudioTheme.accent.with-alpha(0.16) : root.hovered ? StudioTheme.panel-bg : transparent;
+
+            for row in 3: Rectangle {
+                for col in 2: Rectangle {
+                    x: 5px + col * 5px;
+                    y: 4px + row * 5px;
+                    width: 2px;
+                    height: 2px;
+                    border-radius: 1px;
+                    background: root.active ? StudioTheme.accent-strong : StudioTheme.muted;
+                }
+            }
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        private property <bool> drag-active: false;
+        private property <Point> press-position: { x: 0px, y: 0px };
+
+        changed pressed => {
+            if root.enabled {
+                if self.pressed {
+                    AppState.visual-drag-cancelled = false;
+                    self.drag-active = false;
+                    self.press-position = { x: self.mouse-x, y: self.mouse-y };
+                } else if self.drag-active {
+                    if !AppState.visual-drag-cancelled {
+                        root.drag-ended(root.kind, {
+                            x: self.absolute-position.x + self.mouse-x,
+                            y: self.absolute-position.y + self.mouse-y,
+                        });
+                    }
+                    AppState.visual-drag-cancelled = false;
+                    self.drag-active = false;
+                }
+            }
+        }
+
+        moved => {
+            if root.enabled && !AppState.visual-drag-cancelled {
+                let window-position = {
+                    x: self.absolute-position.x + self.mouse-x,
+                    y: self.absolute-position.y + self.mouse-y,
+                };
+                let moved-far-enough = (self.mouse-x - self.press-position.x).abs() >= root.drag-threshold
+                    || (self.mouse-y - self.press-position.y).abs() >= root.drag-threshold;
+                if self.pressed && !self.drag-active && moved-far-enough {
+                    self.drag-active = true;
+                    AppState.dragging-kind = root.kind;
+                    root.drag-started(root.kind, window-position);
+                }
+                if self.drag-active {
+                    AppState.dragging-kind = root.kind;
+                    root.drag-moved(root.kind, window-position);
+                }
+            }
+        }
+    }
+}
+
+export global AppState {
+    in-out property <PrototypeComponentKind> dragging-kind: PrototypeComponentKind.none;
+    in-out property <Point> drag-position: { x: 0px, y: 0px };
+    in-out property <Point> drag-preview-position: { x: 0px, y: 0px };
+    in-out property <Size> drag-preview-size: { width: 96px, height: 48px };
+    in-out property <bool> visual-drag-cancelled: false;
+    in-out property <bool> outline-drag-active: false;
+    in-out property <bool> outline-drag-cancelled: false;
+    in-out property <string> outline-drag-label: "";
+    in-out property <image> outline-drag-icon;
+    in-out property <Point> outline-drag-position: { x: 0px, y: 0px };
+    in-out property <Size> outline-drag-preview-size: { width: 216px, height: 32px };
+
+    public pure function has-active-drag() -> bool {
+        return self.dragging-kind != PrototypeComponentKind.none || self.outline-drag-active;
+    }
+
+    public function cancel-visual-drag() {
+        if self.dragging-kind != PrototypeComponentKind.none {
+            self.visual-drag-cancelled = true;
+            self.dragging-kind = PrototypeComponentKind.none;
+        }
+    }
+
+    public function cancel-outline-drag() {
+        if self.outline-drag-active {
+            self.outline-drag-cancelled = true;
+            self.outline-drag-active = false;
+        }
+    }
+
+    public function cancel-active-drags() {
+        self.cancel-visual-drag();
+        self.cancel-outline-drag();
+    }
+
+    pure function outline-drag-pointer-gap() -> length {
+        return 6px;
+    }
+
+    public function update-outline-drag-position(window-position: Point) {
+        self.outline-drag-position = {
+            x: window-position.x + self.outline-drag-pointer-gap(),
+            y: window-position.y + self.outline-drag-pointer-gap(),
+        };
+    }
+
+    public function start-outline-drag(label: string, icon: image, window-position: Point) {
+        self.outline-drag-cancelled = false;
+        self.outline-drag-active = true;
+        self.outline-drag-label = label;
+        self.outline-drag-icon = icon;
+        self.update-outline-drag-position(window-position);
+    }
+
+    public function finish-outline-drag() {
+        self.outline-drag-active = false;
+    }
+}
+
+export component PropertyField inherits Rectangle {
+    in property <string> name;
+    in property <string> value;
+
+    height: 34px;
+
+    HorizontalLayout {
+        spacing: 10px;
+
+        Text {
+            width: 80px;
+            text: root.name;
+            color: StudioTheme.muted;
+            font-size: 12px;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+            height: 32px;
+            border-radius: 6px;
+            border-width: 1px;
+            border-color: StudioTheme.border;
+            background: StudioTheme.panel-subtle;
+
+            Text {
+                x: 10px;
+                width: parent.width - 20px;
+                text: root.value;
+                color: StudioTheme.text;
+                font-size: 12px;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+    }
+}
+
+export component ColorPropertyField inherits Rectangle {
+    in property <string> name;
+    in property <color> color-value;
+    in property <string> value;
+
+    height: 34px;
+
+    HorizontalLayout {
+        spacing: 10px;
+
+        Text {
+            width: 80px;
+            text: root.name;
+            color: StudioTheme.muted;
+            font-size: 12px;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+            height: 32px;
+            border-radius: 6px;
+            border-width: 1px;
+            border-color: StudioTheme.border;
+            background: StudioTheme.panel-subtle;
+
+            HorizontalLayout {
+                padding-left: 8px;
+                padding-right: 10px;
+                spacing: 8px;
+                cross-axis-alignment: center;
+
+                Rectangle {
+                    width: 16px;
+                    height: 16px;
+                    border-radius: 4px;
+                    border-width: 1px;
+                    border-color: StudioTheme.border;
+                    background: root.color-value;
+                }
+
+                Text {
+                    horizontal-stretch: 1;
+                    text: root.value;
+                    color: StudioTheme.text;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+            }
+        }
+    }
+}
+
+export component InspectorSection inherits VerticalLayout {
+    in property <string> title;
+    spacing: 10px;
+
+    SectionTitle {
+        label: root.title;
+    }
+
+    @children
+}

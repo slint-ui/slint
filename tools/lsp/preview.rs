@@ -13,7 +13,7 @@ use crate::common::{
 };
 use crate::preview::element_selection::ElementSelection;
 use crate::util;
-use i_slint_compiler::object_tree::ElementRc;
+use editor_user_settings::{EDITOR_SETTINGS_FILE, EditorUserSettings};
 use i_slint_compiler::parser::{TextSize, syntax_nodes};
 use i_slint_compiler::{EmbedResourcesKind, diagnostics};
 use i_slint_core::DataTransfer;
@@ -25,16 +25,20 @@ use i_slint_live_preview::protocol::{
 use lsp_types::Url;
 use slint::{PlatformError, SharedString, ToSharedString};
 use slint_interpreter::{ComponentDefinition, ComponentHandle, ComponentInstance};
+use smol_str::SmolStr;
 use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::rc::Rc;
+use user_settings::{PREVIEW_SETTINGS_FILE, PreviewUserSettings};
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 
 pub mod connector;
+pub use ui::PreviewUiKind;
 
 mod debug;
 mod drop_location;
@@ -45,25 +49,50 @@ mod ext;
 pub mod macos_titlebar;
 mod preview_data;
 use ext::ElementRcNodeExt;
+pub mod editor_user_settings;
 mod outline;
 mod properties;
 #[cfg(all(not(target_arch = "wasm32"), feature = "preview-remote"))]
 pub mod remote;
 pub mod ui;
 mod undo_redo;
+pub mod user_settings;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run(
     to_lsp: Rc<dyn common::PreviewToLsp>,
     fullscreen: bool,
-    use_editor_ui: bool,
+    ui_kind: PreviewUiKind,
 ) -> std::result::Result<(), slint::PlatformError> {
-    let app_window = ui::create_ui(&to_lsp, "", use_editor_ui)?;
+    let app_window = ui::create_ui(&to_lsp, "", ui_kind)?;
+
+    // We need to put the updater here so that it stays in scope.
+    // `cfg`'d out on non-mac platforms so we don't get a compiler
+    // error when it doesn't have a type to assign to it.
+    #[cfg(target_os = "macos")]
+    let updater;
 
     #[cfg(target_os = "macos")]
-    if let ui::AppWindow::Editor(editor) = &app_window {
+    if let ui::AppWindow::Editor(editor) = app_window.clone_strong() {
         use slint::ComponentHandle;
+        use sparklers::Sparkle;
+
         macos_titlebar::setup(editor.as_weak());
+
+        updater = Sparkle::new().unwrap().unwrap();
+
+        updater.set_nonsync_event_callback(move |event| match event {
+            sparklers::Event::DidFinishUpdateCycle { error: Some(error), .. }
+            | sparklers::Event::FailedToDownloadUpdate { error, .. }
+            | sparklers::Event::DidAbortWithError { error } => eprintln!("ERROR: {error}"),
+
+            _ => println!("Sparkle event: {event:?}"),
+        });
+
+        // TODO: These calls can't return `Err`, the API needs to be changed
+        // Errors are reported using the callback.
+        updater.set_automatically_checks_for_updates(true);
+        updater.check_for_updates_in_background();
     }
 
     to_lsp
@@ -75,7 +104,12 @@ pub fn run(
     app_window.window().set_fullscreen(fullscreen);
 
     tracing::debug!("Preview: requesting state from LSP");
-    to_lsp.send(&PreviewToLspMessage::RequestState { files: Vec::new() }).unwrap();
+    to_lsp
+        .send(&PreviewToLspMessage::RequestState {
+            files: Vec::new(),
+            settings: vec![PREVIEW_SETTINGS_FILE.into(), EDITOR_SETTINGS_FILE.into()],
+        })
+        .unwrap();
 
     let app_window_clone = PREVIEW_STATE.with(move |preview_state| {
         let mut preview_state = preview_state.borrow_mut();
@@ -135,6 +169,11 @@ pub struct PreviewState {
     /// The handle to the previewed component instance
     handle: Rc<RefCell<Option<slint_interpreter::ComponentInstance>>>,
     document_cache: Rc<RefCell<Option<Rc<common::DocumentCache>>>>,
+    debug_hook_overrides: Rc<
+        RefCell<
+            HashMap<SmolStr, Pin<Box<i_slint_core::Property<Option<slint_interpreter::Value>>>>>,
+        >,
+    >,
     selected: Option<element_selection::ElementSelection>,
     notify_editor_about_selection_after_update: bool,
     workspace_edit_sent: bool,
@@ -148,7 +187,12 @@ pub struct PreviewState {
     resources: HashSet<Url>,
     dependencies: HashSet<Url>,
     pub config: PreviewConfig,
+    /// The most recent user settings synced with the LSP, used to suppress
+    /// redundant updates when the UI re-reports settings we just applied.
+    last_user_settings: PreviewUserSettings,
+    last_editor_settings: EditorUserSettings,
     current_previewed_component: Option<PreviewComponent>,
+    pending_file_tree_preview: Option<PreviewComponent>,
     current_load_behavior: Option<LoadBehavior>,
     loading_state: PreviewFutureState,
 
@@ -228,6 +272,73 @@ fn delete_document(url: &lsp_types::Url) {
     }
 }
 
+pub(super) fn set_user_settings(name: String, contents: String) {
+    if name == PREVIEW_SETTINGS_FILE {
+        let Some(settings) = PreviewUserSettings::deserialize(&contents) else {
+            return;
+        };
+        PREVIEW_STATE.with_borrow_mut(|preview_state| {
+            if let Some(app_window) = &preview_state.app_window {
+                ui::apply_preview_user_settings(app_window, &settings);
+            }
+            // Remember what the UI now reflects so the deferred `changed` handlers
+            // it triggers don't echo these same values straight back to the LSP.
+            preview_state.last_user_settings = settings;
+        });
+    } else if name == EDITOR_SETTINGS_FILE {
+        let Some(settings) = EditorUserSettings::deserialize(&contents) else {
+            return;
+        };
+        PREVIEW_STATE.with_borrow_mut(|preview_state| {
+            if let Some(app_window) = &preview_state.app_window {
+                ui::apply_editor_user_settings(app_window, &settings);
+            }
+            preview_state.last_editor_settings = settings;
+        });
+    }
+}
+
+pub(super) fn update_user_settings_from_ui(settings: PreviewUserSettings) {
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        // The Slint `changed` handlers that drive this are deferred, so a flag
+        // set while applying inbound settings would already be cleared by the
+        // time they run. Compare against the last synced settings instead.
+        if preview_state.last_user_settings == settings {
+            return;
+        }
+        preview_state.last_user_settings = settings.clone();
+
+        if let Some(to_lsp) = preview_state.to_lsp.borrow().as_ref() {
+            let message = PreviewToLspMessage::UpdateUserSettings {
+                name: PREVIEW_SETTINGS_FILE.into(),
+                contents: settings.serialize(),
+            };
+            if let Err(err) = to_lsp.send(&message) {
+                tracing::warn!("Failed to send preview user settings update: {err}");
+            }
+        }
+    });
+}
+
+pub(super) fn update_editor_settings_from_ui(settings: EditorUserSettings) {
+    PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        if preview_state.last_editor_settings == settings {
+            return;
+        }
+        preview_state.last_editor_settings = settings.clone();
+
+        if let Some(to_lsp) = preview_state.to_lsp.borrow().as_ref() {
+            let message = PreviewToLspMessage::UpdateUserSettings {
+                name: EDITOR_SETTINGS_FILE.into(),
+                contents: settings.serialize(),
+            };
+            if let Err(err) = to_lsp.send(&message) {
+                tracing::warn!("Failed to send editor user settings update: {err}");
+            }
+        }
+    });
+}
+
 fn set_current_live_data(mut result: preview_data::PreviewDataMap) {
     PREVIEW_STATE.with_borrow_mut(|preview_state| {
         preview_state.current_live_data.append(&mut result);
@@ -271,7 +382,7 @@ fn apply_live_preview_data() {
 }
 
 fn set_contents(url: &VersionedUrl, content: String) {
-    if let Some(current) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
+    if let Some((current, behavior)) = PREVIEW_STATE.with_borrow_mut(|preview_state| {
         if !preview_state.undo_redo_stack.check_set_contents_valid(url.url(), &content) {
             undo_redo::set_undo_redo_enabled(preview_state);
         }
@@ -281,32 +392,62 @@ fn set_contents(url: &VersionedUrl, content: String) {
             SourceCodeCacheEntry { version: *url.version(), code: content.clone() },
         );
 
+        if let Some(pending) = take_pending_file_tree_preview(preview_state, url.url()) {
+            return Some((pending, LoadBehavior::Load));
+        }
+
         if Some(content) == old.map(|o| o.code) {
             return None;
         }
 
         if preview_state.dependencies.contains(url.url()) {
-            preview_state.current_component()
+            preview_state.current_component().map(|current| (current, LoadBehavior::Reload))
         } else {
             None
         }
     }) {
-        load_preview(current, LoadBehavior::Reload);
+        load_preview(current, behavior);
     }
 }
 
-/// Try to find the parent of element `child` below `root`.
-fn search_for_parent_element(root: &ElementRc, child: &ElementRc) -> Option<ElementRc> {
-    for c in &root.borrow().children {
-        if std::rc::Rc::ptr_eq(c, child) {
-            return Some(root.clone());
-        }
-
-        if let Some(parent) = search_for_parent_element(c, child) {
-            return Some(parent);
-        }
+fn take_pending_file_tree_preview(
+    preview_state: &mut PreviewState,
+    url: &Url,
+) -> Option<PreviewComponent> {
+    if !preview_state.pending_file_tree_preview.as_ref().is_some_and(|pending| pending.url == *url)
+    {
+        return None;
     }
-    None
+    preview_state.pending_file_tree_preview.take()
+}
+
+fn request_file_tree_preview(path: &Path) {
+    let Ok(path) = std::fs::canonicalize(path) else {
+        return;
+    };
+    if !path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("slint"))
+    {
+        return;
+    }
+    let Ok(url) = Url::from_file_path(&path) else {
+        return;
+    };
+    let pending = PreviewComponent { url: url.clone(), component: None };
+    let to_lsp = PREVIEW_STATE.with_borrow_mut(|preview_state| {
+        preview_state.pending_file_tree_preview = Some(pending);
+        preview_state.to_lsp.borrow().clone()
+    });
+    let Some(to_lsp) = to_lsp else {
+        return;
+    };
+    if let Err(err) =
+        to_lsp.send(&PreviewToLspMessage::RequestState { files: vec![url], settings: Vec::new() })
+    {
+        tracing::warn!("Failed to request file tree preview contents: {err}");
+    }
 }
 
 fn property_declaration_ranges(name: slint::SharedString) -> ui::PropertyDeclaration {
@@ -818,6 +959,28 @@ fn can_drop_component(data: DataTransfer, x: f32, y: f32, on_drop_area: bool) ->
     drop_location::can_drop_at(&document_cache, position, &component)
 }
 
+fn component_name_for_prototype_kind(kind: ui::PrototypeComponentKind) -> Option<&'static str> {
+    match kind {
+        ui::PrototypeComponentKind::Rectangle => Some("Rectangle"),
+        ui::PrototypeComponentKind::Text => Some("Text"),
+        ui::PrototypeComponentKind::Image => Some("Image"),
+        ui::PrototypeComponentKind::None => None,
+    }
+}
+
+fn component_index_for_prototype_kind(kind: ui::PrototypeComponentKind) -> Option<usize> {
+    let name = component_name_for_prototype_kind(kind)?;
+    PREVIEW_STATE.with_borrow(|preview_state| {
+        preview_state
+            .known_components
+            .iter()
+            .position(|component| component.name == name && component.is_builtin)
+            .or_else(|| {
+                preview_state.known_components.iter().position(|component| component.name == name)
+            })
+    })
+}
+
 fn drop_component(data: DataTransfer, x: f32, y: f32) {
     let Ok(DragItem::NewComponent { index: component_index }) = data.try_into() else {
         return;
@@ -837,6 +1000,48 @@ fn drop_component(data: DataTransfer, x: f32, y: f32) {
 
     let drop_result = drop_location::drop_at(&document_cache, position, &component)
         .map(|(e, d)| (e, d, component.name.clone()));
+
+    if let Some((edit, drop_data, component_name)) = drop_result {
+        element_selection::select_element_at_source_code_position(
+            drop_data.path,
+            drop_data.selection_offset,
+            None,
+            SelectionNotification::AfterUpdate,
+        );
+
+        send_workspace_edit(format!("Add element {component_name}"), edit, false);
+    };
+}
+
+fn drop_component_with_geometry(
+    data: DataTransfer,
+    hit_x: f32,
+    hit_y: f32,
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+) {
+    let Ok(DragItem::NewComponent { index: component_index }) = data.try_into() else {
+        return;
+    };
+
+    let Some(document_cache) = document_cache() else {
+        return;
+    };
+
+    let hit_position = LogicalPoint::new(hit_x, hit_y);
+    let geometry = LogicalRect::new(LogicalPoint::new(x, y), LogicalSize::new(width, height));
+
+    let Some(component) = PREVIEW_STATE
+        .with_borrow(|preview_state| preview_state.known_components.get(component_index).cloned())
+    else {
+        return;
+    };
+
+    let drop_result =
+        drop_location::drop_at_with_geometry(&document_cache, hit_position, &component, geometry)
+            .map(|(e, d)| (e, d, component.name.clone()));
 
     if let Some((edit, drop_data, component_name)) = drop_result {
         element_selection::select_element_at_source_code_position(
@@ -910,63 +1115,296 @@ fn resize_selected_element(x: f32, y: f32, width: f32, height: f32) {
 
     send_workspace_edit(label, edit, true);
 }
+fn override_selected_element_geometry(x: f32, y: f32, width: f32, height: f32) {
+    let Some(element_selection) = &selected_element() else { return };
+    let Some(element_node) = element_selection.as_element_node() else { return };
+    override_selected_element_geometry_impl(
+        &element_node,
+        element_selection.instance_index,
+        x,
+        y,
+        width,
+        height,
+    );
+}
+
+fn override_selected_element_geometry_impl(
+    element_node: &ElementRcNode,
+    instance_index: usize,
+    x: f32,
+    y: f32,
+    width: f32,
+    height: f32,
+) {
+    tracing::trace!(
+        "Setting geometry preview x: {}, y: {}, width: {}, height: {}",
+        x,
+        y,
+        width,
+        height
+    );
+    let Some(component_instance) = component_instance() else { return };
+
+    let element_hash = element_node
+        .element
+        .borrow()
+        .debug
+        .get(element_node.debug_index)
+        .map(|d| d.element_hash)
+        .unwrap_or(0);
+    if element_hash == 0 {
+        tracing::debug!("Element does not have a hash, cannot override geometry");
+        return;
+    }
+
+    let new_position = LogicalPoint::new(x, y);
+    // The parent origin rides along on the selected instance's geometry, so we don't have to
+    // guess which parent instance contains the dragged point (which breaks once the element is
+    // dragged outside of its parent).
+    let Some(geometry) = element_node.geometries(&component_instance).get(instance_index).cloned()
+    else {
+        tracing::debug!("Selected element does not have geometry, refusing to override");
+        return;
+    };
+    let parent_position = geometry.parent_origin;
+    let current_position = geometry.rect.origin;
+
+    // Round to match the values written on release by resize_selected_element_impl,
+    // so the element does not jump by a sub-pixel amount when the drag is committed.
+    let values = [
+        (
+            "x",
+            (new_position.x - parent_position.x).round() as f64,
+            (current_position.x - parent_position.x).round() as f64,
+        ),
+        (
+            "y",
+            (new_position.y - parent_position.y).round() as f64,
+            (current_position.y - parent_position.y).round() as f64,
+        ),
+        ("width", width.round() as f64, (geometry.rect.width()).round() as f64),
+        ("height", height.round() as f64, (geometry.rect.height()).round() as f64),
+    ];
+    let values = values
+        .into_iter()
+        .filter_map(|(name, new_value, current_value)| {
+            (new_value != current_value).then_some((name, new_value))
+        })
+        .collect::<Vec<_>>();
+
+    PREVIEW_STATE.with_borrow(|preview_state| {
+        let m = (*preview_state.debug_hook_overrides).borrow();
+        for (name, value) in values {
+            let id = i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(name));
+            let Some(property_override) = m.get(&id) else {
+                tracing::debug!(
+                    "Property debug hook {name} does not exist, cannot override geometry",
+                );
+                return;
+            };
+            (**property_override).set(Some(slint_interpreter::Value::Number(value)));
+        }
+    });
+
+    component_instance.window().request_redraw();
+}
+
+fn override_selected_element_border_radius(
+    corner: ui::CanvasCorner,
+    length: f32,
+    single_corner: bool,
+) {
+    if !single_corner {
+        override_selected_element_border_radius(ui::CanvasCorner::TopLeft, length, true);
+        override_selected_element_border_radius(ui::CanvasCorner::BottomRight, length, true);
+        override_selected_element_border_radius(ui::CanvasCorner::TopRight, length, true);
+        override_selected_element_border_radius(ui::CanvasCorner::BottomLeft, length, true);
+    }
+
+    let Some(element_selection) = &selected_element() else { return };
+    let Some(element_node) = element_selection.as_element_node() else { return };
+    let Some(component_instance) = component_instance() else { return };
+
+    let element_hash = element_node
+        .element
+        .borrow()
+        .debug
+        .get(element_node.debug_index)
+        .map(|d| d.element_hash)
+        .unwrap_or(0);
+    if element_hash == 0 {
+        tracing::debug!("Element does not have a hash, cannot override geometry");
+        return;
+    }
+
+    let property_name = match corner {
+        ui::CanvasCorner::TopLeft => "border-top-left-radius",
+        ui::CanvasCorner::TopRight => "border-top-right-radius",
+        ui::CanvasCorner::BottomLeft => "border-bottom-left-radius",
+        ui::CanvasCorner::BottomRight => "border-bottom-right-radius",
+    };
+
+    PREVIEW_STATE.with_borrow(|preview_state| {
+        let m = (*preview_state.debug_hook_overrides).borrow();
+        let id = i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(property_name));
+        let Some(property_override) = m.get(&id) else {
+            tracing::debug!(
+                "Property debug hook {property_name} does not exist, cannot override geometry",
+            );
+            return;
+        };
+        (**property_override).set(Some(slint_interpreter::Value::Number(length as f64)));
+    });
+
+    component_instance.window().request_redraw();
+}
+
+fn persist_selected_element_border_radius() {
+    let Some(element_selection) = &selected_element() else {
+        return;
+    };
+    let Some(element_node) = element_selection.as_element_node() else {
+        return;
+    };
+
+    let element_hash = element_node
+        .element
+        .borrow()
+        .debug
+        .get(element_node.debug_index)
+        .map(|d| d.element_hash)
+        .unwrap_or(0);
+    if element_hash == 0 {
+        tracing::debug!("Element does not have a hash, cannot resize");
+        return;
+    }
+
+    // They all have the same size anyway:
+    let (path, offset) = element_node.path_and_offset();
+
+    // Apply the overrides permanently
+    let properties = [
+        "border-top-left-radius",
+        "border-top-right-radius",
+        "border-bottom-left-radius",
+        "border-bottom-right-radius",
+    ];
+    let geometry_changes = PREVIEW_STATE.with_borrow(|preview_state| {
+        let overrides = (*preview_state.debug_hook_overrides).borrow();
+
+        properties
+            .into_iter()
+            .filter_map(|property| {
+                let id =
+                    i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(property));
+                overrides
+                    .get(&id)
+                    .and_then(|property_override| property_override.as_ref().get())
+                    .and_then(|value| {
+                        if let slint_interpreter::Value::Number(value) = value && value.is_finite() {
+                            Some((property, value))
+                        } else {
+                            tracing::debug!(
+                                "Property override '{property}' is not a finite number, cannot reposition"
+                            );
+                            None
+                        }
+                    })
+                    .map(|(property, value)| common::PropertyChange::new(
+                        property,
+                        format!("{}px", value)
+                    ))
+            })
+            .collect::<Vec<_>>()
+    });
+
+    if geometry_changes.is_empty() {
+        return;
+    }
+
+    let Some(url) = Url::from_file_path(&path).ok() else {
+        return;
+    };
+    let Some(document_cache) = document_cache() else {
+        return;
+    };
+
+    let version = document_cache.document_version(&url);
+
+    let Some((updates, _)) = properties::update_element_properties(
+        &document_cache,
+        common::VersionedPosition::new(VersionedUrl::new(url, version), offset),
+        geometry_changes,
+    )
+    .map(|edit| (edit, "Changing border radius".to_owned())) else {
+        return;
+    };
+
+    send_workspace_edit("Changing border radius".to_string(), updates, false);
+}
 
 fn resize_selected_element_impl(
     element_node: &ElementRcNode,
     instance_index: usize,
     rect: LogicalRect,
 ) -> Option<(lsp_types::WorkspaceEdit, String)> {
-    let component_instance = component_instance()?;
+    // apply as override, then commit.
+    override_selected_element_geometry_impl(
+        element_node,
+        instance_index,
+        rect.origin.x,
+        rect.origin.y,
+        rect.width(),
+        rect.height(),
+    );
+
+    let element_hash = element_node
+        .element
+        .borrow()
+        .debug
+        .get(element_node.debug_index)
+        .map(|d| d.element_hash)
+        .unwrap_or(0);
+    if element_hash == 0 {
+        tracing::debug!("Element does not have a hash, cannot resize");
+        return None;
+    }
 
     // They all have the same size anyway:
     let (path, offset) = element_node.path_and_offset();
-    let geometry = element_node.geometries(&component_instance).get(instance_index).cloned()?.rect;
 
-    let position = rect.origin;
-    let root_element = element_selection::root_element(&component_instance);
+    // Apply the overrides permanently
+    let properties = ["x", "y", "width", "height"];
+    let geometry_changes = PREVIEW_STATE.with_borrow(|preview_state| {
+        let overrides = (*preview_state.debug_hook_overrides).borrow();
 
-    let parent = search_for_parent_element(&root_element, &element_node.element)
-        .and_then(|parent_element| {
-            component_instance
-                .element_positions(&parent_element)
-                .iter()
-                .find(|g| g.contains(position))
-                .map(|g| g.rect.origin)
-        })
-        .unwrap_or_default();
+        properties
+            .into_iter()
+            .filter_map(|property| {
+                let id =
+                    i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(property));
+                overrides
+                    .get(&id)
+                    .and_then(|property_override| property_override.as_ref().get())
+                    .and_then(|value| {
+                        if let slint_interpreter::Value::Number(value) = value && value.is_finite() {
+                            Some((property, value))
+                        } else {
+                            tracing::debug!(
+                                "Property override '{property}' is not a finite number, cannot reposition"
+                            );
+                            None
+                        }
+                    })
+                    .map(|(property, value)| common::PropertyChange::new(
+                        property,
+                        format!("{}px", value)
+                    ))
+            })
+            .collect::<Vec<_>>()
+    });
 
-    let (properties, op) = {
-        let mut p = Vec::with_capacity(4);
-        let mut op = "";
-        if geometry.origin.x != position.x && position.x.is_finite() {
-            p.push(common::PropertyChange::new(
-                "x",
-                format!("{}px", (position.x - parent.x).round()),
-            ));
-            op = "Moving";
-        }
-        if geometry.origin.y != position.y && position.y.is_finite() {
-            p.push(common::PropertyChange::new(
-                "y",
-                format!("{}px", (position.y - parent.y).round()),
-            ));
-            op = "Moving";
-        }
-        if geometry.size.width != rect.size.width && rect.size.width.is_finite() {
-            p.push(common::PropertyChange::new("width", format!("{}px", rect.size.width.round())));
-            op = "Resizing";
-        }
-        if geometry.size.height != rect.size.height && rect.size.height.is_finite() {
-            p.push(common::PropertyChange::new(
-                "height",
-                format!("{}px", rect.size.height.round()),
-            ));
-            op = "Resizing";
-        }
-        (p, op)
-    };
-
-    if properties.is_empty() {
+    if geometry_changes.is_empty() {
         return None;
     }
 
@@ -978,9 +1416,9 @@ fn resize_selected_element_impl(
     properties::update_element_properties(
         &document_cache,
         common::VersionedPosition::new(VersionedUrl::new(url, version), offset),
-        properties,
+        geometry_changes,
     )
-    .map(|edit| (edit, format!("{op} element")))
+    .map(|edit| (edit, "Repositioning element".to_owned()))
 }
 
 fn can_move_selected_element(x: f32, y: f32, mouse_x: f32, mouse_y: f32) -> bool {
@@ -1132,22 +1570,24 @@ fn extract_resources(
     result
 }
 
-fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, success: bool) {
+fn finish_parsing() {
     set_status_text("");
+}
 
-    if !success {
-        // No need to update everything...
+fn previewed_component_changed() {
+    // TODO: Return early on !success (see previous finish_parsing implementation)
+    let (Some(previewed_url), preview_component, source_code) =
+        PREVIEW_STATE.with_borrow(|preview_state| {
+            let pc = preview_state.current_component();
+            (
+                pc.as_ref().map(|pc| pc.url.clone()),
+                pc.as_ref().and_then(|pc| pc.component.clone()),
+                preview_state.source_code.clone(),
+            )
+        })
+    else {
         return;
-    }
-
-    let (previewed_url, component, source_code) = PREVIEW_STATE.with_borrow(|preview_state| {
-        let pc = preview_state.current_component();
-        (
-            pc.as_ref().map(|pc| pc.url.clone()),
-            pc.as_ref().and_then(|pc| pc.component.clone()),
-            preview_state.source_code.clone(),
-        )
-    });
+    };
 
     if let Some(document_cache) = document_cache() {
         let mut document_cache = document_cache.snapshot().unwrap();
@@ -1164,7 +1604,7 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
             }
         }
 
-        let uses_widgets = document_cache.uses_widgets(preview_url);
+        let uses_widgets = document_cache.uses_widgets(&previewed_url);
 
         let mut components = Vec::new();
         component_catalog::builtin_components(&document_cache, &mut components);
@@ -1178,12 +1618,12 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
             component_catalog::file_local_components(&document_cache, &url, &mut components);
         }
 
-        let index = if let Some(component) = component {
+        let index = if let Some(component) = preview_component.as_ref() {
             components
                 .iter()
                 .position(|ci| {
-                    ci.name == component
-                        && ci.defined_at.as_ref().map(|da| da.url()) == previewed_url.as_ref()
+                    &ci.name == component
+                        && ci.defined_at.as_ref().map(|da| da.url()) == Some(&previewed_url)
                 })
                 .unwrap_or(usize::MAX)
         } else {
@@ -1209,19 +1649,20 @@ fn finish_parsing(preview_url: &Url, previewed_component: Option<String>, succes
                 if let Some(app_window) = &preview_state.app_window {
                     let win = i_slint_core::window::WindowInner::from_pub(app_window.window())
                         .window_adapter();
-                    let palettes = ui::palette::collect_palette(&document_cache, preview_url, &win);
+                    let palettes =
+                        ui::palette::collect_palette(&document_cache, &previewed_url, &win);
                     ui::palette::set_palette(&api, palettes);
                 }
                 ui::ui_set_uses_widgets(&api, uses_widgets);
                 ui::ui_set_known_components(&api, &preview_state.known_components, index);
-                let component = document_cache.get_document(preview_url).and_then(|doc| {
-                    match previewed_component.as_ref() {
+                let component = document_cache.get_document(&previewed_url).and_then(|doc| {
+                    match preview_component.as_ref() {
                         Some(c_id) => doc.inner_components.iter().find(|c| c.id == c_id).cloned(),
                         None => doc.last_exported_component(),
                     }
                 });
                 outline::reset_outline(&api, component);
-                ui::ui_set_preview_data(&api, preview_data, previewed_component);
+                ui::ui_set_preview_data(&api, preview_data, preview_component.clone());
             }
         });
     }
@@ -1483,6 +1924,7 @@ async fn parse_source(
     cc.include_paths = config.include_paths;
     cc.library_paths = config.library_paths;
     cc.enable_experimental |= config.enable_experimental;
+    cc.debug_hooks = Some(std::hash::RandomState::new());
 
     let (open_file_fallback, source_file_versions) =
         common::document_cache::document_cache_parts_setup(
@@ -1574,7 +2016,7 @@ async fn reload_preview_impl(
 
     update_preview_area(compiled, behavior, open_import_callback, source_file_versions, format)?;
 
-    finish_parsing(&component.url, loaded_component_name, success);
+    finish_parsing();
     Ok(())
 }
 
@@ -1988,6 +2430,7 @@ fn update_preview_area(
         let api = preview_state.api.upgrade().unwrap();
         let shared_handle = preview_state.handle.clone();
         let shared_document_cache = preview_state.document_cache.clone();
+        let shared_overrides = preview_state.debug_hook_overrides.clone();
 
         if let Some(compiled) = compiled {
             api.set_focus_previewed_element(behavior == LoadBehavior::BringWindowToFront);
@@ -2009,7 +2452,29 @@ fn update_preview_area(
                         )));
                     }
 
+                    // element_hash (and thus hook ids) change on every recompile, so drop stale overrides.
+                    (*shared_overrides).borrow_mut().clear();
+                    {
+                        let overrides = shared_overrides.clone();
+                        instance.set_debug_hook_callback(Some(Box::new(
+                            move |id: &str,
+                                  value: slint_interpreter::Value|
+                                  -> slint_interpreter::Value {
+                                let mut m = (*overrides).borrow_mut();
+                                let p = m.entry(SmolStr::from(id)).or_insert_with(|| {
+                                    tracing::trace!("Inserting Property override: {id}");
+                                    Box::pin(i_slint_core::Property::new(None))
+                                });
+                                match p.as_ref().get() {
+                                    Some(v) => v,
+                                    None => value,
+                                }
+                            },
+                        )));
+                    }
+
                     shared_handle.replace(Some(instance));
+                    previewed_component_changed();
                 }),
                 behavior,
             );
@@ -2093,5 +2558,173 @@ pub mod test {
     pub fn interpret_test(style: &str, source_code: &str) -> ComponentInstance {
         let code = HashMap::from([(main_test_file_name(), source_code.to_string())]);
         interpret_test_with_sources(style, code)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::common::PreviewToLsp;
+    use i_slint_live_preview::protocol::PreviewToLspMessage;
+    use std::fs;
+    use std::{cell::RefCell, rc::Rc};
+
+    #[derive(Default)]
+    struct CapturePreviewToLsp {
+        messages: Rc<RefCell<Vec<PreviewToLspMessage>>>,
+    }
+
+    impl PreviewToLsp for CapturePreviewToLsp {
+        fn send(&self, message: &PreviewToLspMessage) -> crate::common::Result<()> {
+            self.messages.as_ref().borrow_mut().push(message.clone());
+            Ok(())
+        }
+    }
+
+    fn reset_preview_state(messages: Rc<RefCell<Vec<PreviewToLspMessage>>>) {
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            *state = PreviewState::default();
+            state.to_lsp = RefCell::new(Some(Rc::new(CapturePreviewToLsp { messages })));
+        });
+    }
+
+    fn temp_file(name: &str) -> PathBuf {
+        let path =
+            std::env::temp_dir().join(format!("slint-preview-test-{}-{name}", std::process::id()));
+        fs::write(&path, "").unwrap();
+        path
+    }
+
+    #[test]
+    fn set_user_settings_keeps_updates_local() {
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        reset_preview_state(messages.clone());
+
+        let settings = PreviewUserSettings {
+            version: PreviewUserSettings::CURRENT_VERSION,
+            always_on_top: true,
+            show_library: false,
+            show_properties: true,
+            show_outline: false,
+            show_simulation_data: true,
+            show_console: false,
+        };
+        set_user_settings(PREVIEW_SETTINGS_FILE.into(), settings.serialize());
+        set_user_settings(PREVIEW_SETTINGS_FILE.into(), settings.serialize());
+
+        assert!(messages.borrow().is_empty());
+    }
+
+    #[test]
+    fn update_preview_user_settings_routes_updates_to_lsp() {
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        reset_preview_state(messages.clone());
+
+        let settings = PreviewUserSettings {
+            version: PreviewUserSettings::CURRENT_VERSION,
+            always_on_top: false,
+            show_library: true,
+            show_properties: false,
+            show_outline: true,
+            show_simulation_data: false,
+            show_console: true,
+        };
+        update_user_settings_from_ui(settings.clone());
+
+        let messages = messages.borrow();
+        assert_eq!(messages.len(), 1);
+        assert!(matches!(
+            &messages[0],
+            PreviewToLspMessage::UpdateUserSettings { name, contents }
+                if name == PREVIEW_SETTINGS_FILE && contents == &settings.serialize()
+        ));
+    }
+
+    #[test]
+    fn ui_echo_of_applied_settings_is_not_sent_back() {
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        reset_preview_state(messages.clone());
+
+        let settings = PreviewUserSettings {
+            version: PreviewUserSettings::CURRENT_VERSION,
+            always_on_top: true,
+            show_library: false,
+            show_properties: true,
+            show_outline: false,
+            show_simulation_data: true,
+            show_console: false,
+        };
+
+        // The LSP pushes settings; the deferred `changed` handlers then report
+        // the same values back. That echo must not be forwarded to the LSP.
+        set_user_settings(PREVIEW_SETTINGS_FILE.into(), settings.serialize());
+        update_user_settings_from_ui(settings.clone());
+        assert!(messages.borrow().is_empty());
+
+        // A genuine user change still gets through.
+        let changed = PreviewUserSettings { show_console: true, ..settings };
+        update_user_settings_from_ui(changed.clone());
+        let messages = messages.borrow();
+        assert_eq!(messages.len(), 1);
+        assert!(matches!(
+            &messages[0],
+            PreviewToLspMessage::UpdateUserSettings { name, contents }
+                if name == PREVIEW_SETTINGS_FILE && contents == &changed.serialize()
+        ));
+    }
+
+    #[test]
+    fn request_file_tree_preview_requests_slint_file_contents() {
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        reset_preview_state(messages.clone());
+        let path = temp_file("selected.slint");
+        let url = Url::from_file_path(std::fs::canonicalize(&path).unwrap()).unwrap();
+
+        request_file_tree_preview(&path);
+
+        let messages = messages.borrow();
+        assert!(matches!(
+            &messages[..],
+            [PreviewToLspMessage::RequestState { files, settings }]
+                if files == &vec![url.clone()] && settings.is_empty()
+        ));
+        PREVIEW_STATE.with_borrow(|state| {
+            assert_eq!(
+                state.pending_file_tree_preview.as_ref().map(|pending| &pending.url),
+                Some(&url)
+            );
+        });
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn request_file_tree_preview_ignores_non_slint_files() {
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        reset_preview_state(messages.clone());
+        let path = temp_file("image.png");
+
+        request_file_tree_preview(&path);
+
+        assert!(messages.borrow().is_empty());
+        PREVIEW_STATE.with_borrow(|state| {
+            assert!(state.pending_file_tree_preview.is_none());
+        });
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn matching_set_contents_consumes_pending_file_tree_preview() {
+        let messages = Rc::new(RefCell::new(Vec::new()));
+        reset_preview_state(messages);
+        let url = Url::parse("file:///tmp/selected.slint").unwrap();
+        let pending = PreviewComponent { url: url.clone(), component: None };
+
+        PREVIEW_STATE.with_borrow_mut(|state| {
+            state.pending_file_tree_preview = Some(pending.clone());
+            assert_eq!(take_pending_file_tree_preview(state, &url), Some(pending));
+            assert!(state.pending_file_tree_preview.is_none());
+        });
     }
 }

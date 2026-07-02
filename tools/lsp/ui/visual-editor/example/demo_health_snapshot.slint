@@ -1,0 +1,213 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component DemoHealthSnapshot inherits Window {
+    preferred-width: 390px;
+    preferred-height: 720px;
+    title: "Health Snapshot";
+    private property <bool> landscape: root.width > root.height;
+
+    Rectangle {
+        width: root.width;
+        height: root.height;
+        background: #f1fbf7;
+    }
+
+    Text {
+        x: root.landscape ? 34px : 30px;
+        y: root.landscape ? 30px : 34px;
+        width: 132px;
+        height: 30px;
+        text: "Pulse";
+        color: #0f172a;
+        font-size: 25px;
+        font-weight: 800;
+    }
+
+    Text {
+        x: root.landscape ? 34px : 30px;
+        y: root.landscape ? 66px : 70px;
+        width: 200px;
+        height: 18px;
+        text: "Today looks balanced";
+        color: #64748b;
+        font-size: 13px;
+    }
+
+    Rectangle {
+        x: root.landscape ? 86px : 92px;
+        y: root.landscape ? 116px : 116px;
+        width: root.landscape ? 190px : 206px;
+        height: root.landscape ? 190px : 206px;
+        border-radius: root.landscape ? 95px : 103px;
+        background: #c7f9df;
+    }
+
+    Rectangle {
+        x: root.landscape ? 106px : 114px;
+        y: root.landscape ? 136px : 138px;
+        width: root.landscape ? 150px : 162px;
+        height: root.landscape ? 150px : 162px;
+        border-radius: root.landscape ? 75px : 81px;
+        background: #ffffff;
+    }
+
+    Rectangle {
+        x: root.landscape ? 128px : 136px;
+        y: root.landscape ? 158px : 160px;
+        width: root.landscape ? 106px : 118px;
+        height: root.landscape ? 106px : 118px;
+        border-radius: root.landscape ? 53px : 59px;
+        background: #10b981;
+    }
+
+    Text {
+        x: root.landscape ? 140px : 154px;
+        y: root.landscape ? 184px : 190px;
+        width: 82px;
+        height: 48px;
+        text: "92";
+        color: #ffffff;
+        font-size: root.landscape ? 38px : 42px;
+        font-weight: 800;
+        horizontal-alignment: center;
+    }
+
+    Rectangle {
+        x: root.landscape ? 404px : 30px;
+        y: root.landscape ? 44px : 360px;
+        width: root.landscape ? 86px : 98px;
+        height: root.landscape ? 76px : 92px;
+        border-radius: 22px;
+        background: #ffffff;
+        border-width: 1px;
+        border-color: #d1fae5;
+    }
+
+    Text {
+        x: root.landscape ? 414px : 46px;
+        y: root.landscape ? 66px : 392px;
+        width: 66px;
+        height: 30px;
+        text: "7.4h";
+        color: #0f172a;
+        font-size: root.landscape ? 21px : 23px;
+        font-weight: 800;
+        horizontal-alignment: center;
+    }
+
+    Rectangle {
+        x: root.landscape ? 512px : 146px;
+        y: root.landscape ? 44px : 360px;
+        width: root.landscape ? 86px : 98px;
+        height: root.landscape ? 76px : 92px;
+        border-radius: 22px;
+        background: #ffffff;
+        border-width: 1px;
+        border-color: #d1fae5;
+    }
+
+    Text {
+        x: root.landscape ? 526px : 166px;
+        y: root.landscape ? 66px : 392px;
+        width: 58px;
+        height: 30px;
+        text: "64";
+        color: #0f172a;
+        font-size: root.landscape ? 21px : 23px;
+        font-weight: 800;
+        horizontal-alignment: center;
+    }
+
+    Rectangle {
+        x: root.landscape ? 620px : 262px;
+        y: root.landscape ? 44px : 360px;
+        width: root.landscape ? 86px : 98px;
+        height: root.landscape ? 76px : 92px;
+        border-radius: 22px;
+        background: #064e3b;
+    }
+
+    Text {
+        x: root.landscape ? 634px : 282px;
+        y: root.landscape ? 66px : 392px;
+        width: 58px;
+        height: 30px;
+        text: "8.2k";
+        color: #ffffff;
+        font-size: root.landscape ? 21px : 23px;
+        font-weight: 800;
+        horizontal-alignment: center;
+    }
+
+    Rectangle {
+        x: root.landscape ? 404px : 30px;
+        y: root.landscape ? 160px : 494px;
+        width: root.landscape ? 302px : 330px;
+        height: root.landscape ? 94px : 96px;
+        border-radius: 24px;
+        background: #ffffff;
+        border-width: 1px;
+        border-color: #d1fae5;
+    }
+
+    Text {
+        x: root.landscape ? 430px : 56px;
+        y: root.landscape ? 188px : 522px;
+        width: 116px;
+        height: 18px;
+        text: "Weekly Goal";
+        color: #334155;
+        font-size: 13px;
+        font-weight: 800;
+    }
+
+    Rectangle {
+        x: root.landscape ? 430px : 56px;
+        y: root.landscape ? 224px : 560px;
+        width: root.landscape ? 232px : 274px;
+        height: 12px;
+        border-radius: 6px;
+        background: #c7f9df;
+    }
+
+    Rectangle {
+        x: root.landscape ? 430px : 56px;
+        y: root.landscape ? 224px : 560px;
+        width: root.landscape ? 172px : 202px;
+        height: 12px;
+        border-radius: 6px;
+        background: #10b981;
+    }
+
+    Rectangle {
+        x: root.landscape ? 404px : 30px;
+        y: root.landscape ? 294px : 626px;
+        width: root.landscape ? 302px : 330px;
+        height: root.landscape ? 58px : 58px;
+        border-radius: 22px;
+        background: #dcfce7;
+    }
+
+    Text {
+        x: root.landscape ? 430px : 56px;
+        y: root.landscape ? 312px : 644px;
+        width: 74px;
+        height: 22px;
+        text: "Ready";
+        color: #166534;
+        font-size: 18px;
+        font-weight: 800;
+    }
+
+    Text {
+        x: root.landscape ? 518px : 154px;
+        y: root.landscape ? 315px : 647px;
+        width: 174px;
+        height: 18px;
+        text: "Recovery on track";
+        color: #166534;
+        font-size: 13px;
+        horizontal-alignment: right;
+    }
+}

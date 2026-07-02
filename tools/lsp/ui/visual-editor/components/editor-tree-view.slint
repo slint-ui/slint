@@ -1,0 +1,360 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import {
+    DropLocation,
+    OutlineNodeIconKind,
+    OutlineTreeNode,
+} from "../../api.slint";
+import { AppState } from "common.slint";
+import { EditorTreeIcons } from "editor-tree-icons.slint";
+import { EditorTreeTokens } from "editor-tree-tokens.slint";
+
+component EditorTreeRow {
+    in-out property <OutlineTreeNode> node;
+    in property <string> current-source-uri;
+    in property <int> current-offset;
+    in property <int> max-gutter-columns;
+    in property <bool> show-hierarchy-guides: false;
+    in property <bool> tree-has-hover: false;
+    in property <int> row-index: -1;
+
+    pure callback make-drag-data(string, int) -> data-transfer;
+    callback can-drop(DropEvent, string, int, DropLocation) -> DragAction;
+    callback dropped(DropEvent, string, int, DropLocation) -> DragAction;
+    callback current-requested(string, int);
+    callback drag-started();
+    callback row-hover-changed(int, bool);
+
+    property <bool> current: node.uri == current-source-uri && node.offset == current-offset;
+    property <int> level-safe: max(1, node.indent-level + 1);
+    property <int> gutter-segments: max(0, level-safe - 1);
+    property <bool> row-has-hover: row-touch.has-hover || disclosure-touch.has-hover;
+    property <string> row-label: node.element-id != "" ? node.element-id : node.element-type;
+    property <length> row-chrome-inset: EditorTreeTokens.disclosure-hit-size;
+    property <DropLocation> active-drop-location: DropLocation.onto;
+    property <bool> drop-allowed: false;
+    property <image> row-icon: node.icon-kind == OutlineNodeIconKind.rectangle
+        ? EditorTreeIcons.rectangle
+        : node.icon-kind == OutlineNodeIconKind.image
+        ? EditorTreeIcons.image
+        : node.icon-kind == OutlineNodeIconKind.text
+        ? EditorTreeIcons.text
+        : EditorTreeIcons.default-item;
+
+    vertical-stretch: 0;
+    horizontal-stretch: 1;
+
+    changed row-has-hover => {
+        root.row-hover-changed(root.row-index, root.row-has-hover);
+    }
+
+    function select() {
+        root.current-requested(root.node.uri, root.node.offset);
+    }
+
+    function toggle-expanded() {
+        if root.node.has-children {
+            root.node.is-expanded = !root.node.is-expanded;
+        }
+    }
+
+    function drop-location-for-y(y: length) -> DropLocation {
+        if y < EditorTreeTokens.row-height / 3 {
+            return DropLocation.before;
+        }
+        if y > EditorTreeTokens.row-height * 2 / 3 {
+            return DropLocation.after;
+        }
+        return DropLocation.onto;
+    }
+
+    function can-use-drop-location(location: DropLocation) -> bool {
+        return root.node.indent-level > 0 || location == DropLocation.onto;
+    }
+
+    function pointer-window-position() -> Point {
+        return {
+            x: row-touch.absolute-position.x + row-touch.mouse-x,
+            y: row-touch.absolute-position.y + row-touch.mouse-y,
+        };
+    }
+
+    function drop-event-window-position(event: DropEvent) -> Point {
+        return {
+            x: row-drop.absolute-position.x + event.position.x,
+            y: row-drop.absolute-position.y + event.position.y,
+        };
+    }
+
+    VerticalLayout {
+        alignment: start;
+        horizontal-stretch: 1;
+
+        row-focus := FocusScope {
+            focus-on-click: false;
+            vertical-stretch: 0;
+            horizontal-stretch: 1;
+
+            key-pressed(event) => {
+                if event.text == Key.Return || event.text == Key.Space {
+                    root.select();
+                    return accept;
+                }
+                return reject;
+            }
+
+            row-chrome := Rectangle {
+                horizontal-stretch: 1;
+                height: EditorTreeTokens.row-height - 4px;
+                background: transparent;
+
+                row-highlight := Rectangle {
+                    x: root.row-chrome-inset;
+                    width: parent.width - self.x;
+                    height: parent.height;
+                    border-radius: EditorTreeTokens.row-radius;
+                    border-width: row-drop.contains-drag
+                        && root.drop-allowed
+                        && root.active-drop-location == DropLocation.onto
+                        ? EditorTreeTokens.drop-target-border-width
+                        : row-focus.has-focus
+                        ? EditorTreeTokens.focus-ring-width
+                        : 0px;
+                    border-color: EditorTreeTokens.accent;
+                    background: root.current
+                        ? EditorTreeTokens.row-bg-current
+                        : row-drop.contains-drag
+                        && root.drop-allowed
+                        && root.active-drop-location == DropLocation.onto
+                        ? EditorTreeTokens.drop-target-bg
+                        : root.row-has-hover
+                        ? EditorTreeTokens.row-bg-hover
+                        : transparent;
+                }
+
+                row-drag := DragArea {
+                    width: parent.width;
+                    height: parent.height;
+                    data: root.make-drag-data(root.node.uri, root.node.offset);
+                    allow-move: true;
+                    opacity: self.dragging ? 0.45 : 1;
+
+                    changed dragging => {
+                        if self.dragging {
+                            root.drag-started();
+                            AppState.start-outline-drag(
+                                root.row-label,
+                                root.row-icon,
+                                root.pointer-window-position(),
+                            );
+                        } else {
+                            AppState.finish-outline-drag();
+                        }
+                    }
+
+                    row-drop := DropArea {
+                        width: parent.width;
+                        height: parent.height;
+                        can-drop(event) => {
+                            if AppState.outline-drag-cancelled {
+                                root.drop-allowed = false;
+                                return DragAction.none;
+                            }
+                            AppState.update-outline-drag-position(root.drop-event-window-position(event));
+                            root.active-drop-location = root.drop-location-for-y(event.position.y);
+                            if !root.can-use-drop-location(root.active-drop-location) {
+                                root.drop-allowed = false;
+                                return DragAction.none;
+                            }
+                            let action = root.can-drop(
+                                event,
+                                root.node.uri,
+                                root.node.offset,
+                                root.active-drop-location,
+                            );
+                            root.drop-allowed = action != DragAction.none;
+                            return action;
+                        }
+                        dropped(event) => {
+                            if AppState.outline-drag-cancelled {
+                                root.drop-allowed = false;
+                                AppState.finish-outline-drag();
+                                return DragAction.none;
+                            }
+                            AppState.update-outline-drag-position(root.drop-event-window-position(event));
+                            root.active-drop-location = root.drop-location-for-y(event.position.y);
+                            if !root.can-use-drop-location(root.active-drop-location) {
+                                root.drop-allowed = false;
+                                return DragAction.none;
+                            }
+                            root.drop-allowed = false;
+                            AppState.finish-outline-drag();
+                            return root.dropped(
+                                event,
+                                root.node.uri,
+                                root.node.offset,
+                                root.active-drop-location,
+                            );
+                        }
+                    }
+
+                    row-touch := TouchArea {
+                        width: parent.width;
+                        height: parent.height;
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.select();
+                        }
+                    }
+
+                    HorizontalLayout {
+                        alignment: start;
+                        cross-axis-alignment: center;
+                        padding-left: EditorTreeTokens.row-padding-inline;
+                        padding-right: EditorTreeTokens.row-padding-inline;
+                        min-height: EditorTreeTokens.row-height;
+
+                        if root.gutter-segments > 0: HorizontalLayout {
+                            alignment: start;
+
+                            for slot[index] in root.max-gutter-columns: Rectangle {
+                                width: index < root.gutter-segments ? EditorTreeTokens.toggle-width : 0px;
+                                height: EditorTreeTokens.row-height;
+
+                                if root.show-hierarchy-guides && index < root.gutter-segments: Rectangle {
+                                    x: (parent.width - EditorTreeTokens.guide-width) / 2
+                                        + (index >= 1 ? EditorTreeTokens.content-gap : 0px);
+                                    width: EditorTreeTokens.guide-width;
+                                    height: EditorTreeTokens.row-height;
+                                    background: EditorTreeTokens.guide;
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            width: EditorTreeTokens.disclosure-hit-size;
+                            height: EditorTreeTokens.row-height;
+
+                            disclosure-touch := TouchArea {
+                                width: EditorTreeTokens.disclosure-hit-size;
+                                height: EditorTreeTokens.disclosure-hit-size;
+                                y: (parent.height - self.height) / 2;
+                                mouse-cursor: root.node.has-children ? MouseCursor.pointer : MouseCursor.default;
+                                clicked => {
+                                    root.toggle-expanded();
+                                }
+                            }
+
+                            Image {
+                                visible: root.node.has-children;
+                                opacity: root.tree-has-hover ? 1 : 0;
+                                width: 12px;
+                                height: 12px;
+                                x: 0px;
+                                y: (parent.height - self.height) / 2;
+                                source: root.node.is-expanded ? EditorTreeIcons.chevron-down : EditorTreeIcons.chevron-right;
+                                colorize: EditorTreeTokens.muted-text;
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: EditorTreeTokens.content-gap;
+                            alignment: start;
+                            cross-axis-alignment: center;
+                            padding-right: EditorTreeTokens.row-padding-inline;
+                            min-height: EditorTreeTokens.row-height;
+
+                            Image {
+                                width: EditorTreeTokens.icon-size;
+                                height: EditorTreeTokens.icon-size;
+                                vertical-alignment: center;
+                                source: root.row-icon;
+                                colorize: EditorTreeTokens.text;
+                                opacity: root.current ? 1 : 0.5;
+                            }
+
+                            Text {
+                                horizontal-stretch: 1;
+                                vertical-alignment: center;
+                                text: root.row-label;
+                                color: EditorTreeTokens.text;
+                                font-size: EditorTreeTokens.row-font-size;
+                                overflow: elide;
+                                wrap: no-wrap;
+                            }
+                        }
+                    }
+
+                    if row-drop.contains-drag && root.drop-allowed && root.active-drop-location != DropLocation.onto: Rectangle {
+                        x: EditorTreeTokens.row-padding-inline
+                            + root.gutter-segments * (EditorTreeTokens.toggle-width + EditorTreeTokens.content-gap)
+                            + EditorTreeTokens.disclosure-hit-size
+                            + EditorTreeTokens.content-gap;
+                        y: root.active-drop-location == DropLocation.before ? 0px : parent.height - self.height;
+                        width: parent.width - self.x - EditorTreeTokens.row-padding-inline;
+                        height: EditorTreeTokens.drop-indicator-height;
+                        border-radius: EditorTreeTokens.drop-indicator-height / 2;
+                        background: EditorTreeTokens.accent;
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component EditorTreeView inherits VerticalLayout {
+    in property <[OutlineTreeNode]> rows: [];
+    in property <string> current-source-uri: "";
+    in property <int> current-offset: -1;
+    in property <string> accessible-name: "";
+    in property <int> max-gutter-columns: 12;
+    in property <bool> show-hierarchy-guides: false;
+    in property <bool> content-has-hover: false;
+    private property <int> hovered-row-index: -1;
+    private property <bool> tree-has-hover: content-has-hover || hovered-row-index >= 0;
+
+    pure callback make-row-drag-data(string, int) -> data-transfer;
+    callback row-can-drop(DropEvent, string, int, DropLocation) -> DragAction;
+    callback row-dropped(DropEvent, string, int, DropLocation) -> DragAction;
+    callback row-current-requested(string, int);
+    callback drag-started();
+
+    alignment: start;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    accessible-role: AccessibleRole.list;
+    accessible-label: root.accessible-name;
+
+    for row[i] in root.rows: EditorTreeRow {
+        node <=> row;
+        row-index: i;
+        current-source-uri: root.current-source-uri;
+        current-offset: root.current-offset;
+        max-gutter-columns: root.max-gutter-columns;
+        show-hierarchy-guides: root.show-hierarchy-guides;
+        tree-has-hover: root.tree-has-hover;
+        make-drag-data(uri, offset) => {
+            return root.make-row-drag-data(uri, offset);
+        }
+        can-drop(event, uri, offset, location) => {
+            return root.row-can-drop(event, uri, offset, location);
+        }
+        dropped(event, uri, offset, location) => {
+            return root.row-dropped(event, uri, offset, location);
+        }
+        current-requested(uri, offset) => {
+            root.row-current-requested(uri, offset);
+        }
+        drag-started => {
+            root.drag-started();
+        }
+        row-hover-changed(row-index, has-hover) => {
+            if has-hover {
+                root.hovered-row-index = row-index;
+            } else if root.hovered-row-index == row-index {
+                root.hovered-row-index = -1;
+            }
+        }
+    }
+}

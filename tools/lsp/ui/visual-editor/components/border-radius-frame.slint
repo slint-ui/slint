@@ -1,0 +1,108 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { CanvasCorner } from "../../api.slint";
+import { EditorMetrics, StudioTheme } from "common.slint";
+import { MoveResizeFrame } from "move-resize-frame.slint";
+
+export component BorderRadiusFrame inherits MoveResizeFrame {
+    in property <length> top-left-radius;
+    in property <length> top-right-radius;
+    in property <length> bottom-right-radius;
+    in property <length> bottom-left-radius;
+    callback radius-changed(CanvasCorner, length, bool);
+
+    width: 240px;
+    height: 96px;
+    out property <bool> radius-tooltip-visible: false;
+    out property <Point> radius-tooltip-position: { x: 0px, y: 0px };
+    out property <length> radius-tooltip-value: 0px;
+    private property <bool> radius-handle-active: false;
+
+    function radius-from-handle(corner: CanvasCorner, pointer-x: length, pointer-y: length) -> length {
+        let from-left = root.corner-on-left(corner) ? pointer-x : root.width - pointer-x;
+        let from-top = root.corner-on-top(corner) ? pointer-y : root.height - pointer-y;
+        return (min(from-left, from-top) - EditorMetrics.radius-handle-inset).clamp(0px, root.max-corner-radius());
+    }
+
+    function max-corner-radius() -> length {
+        return min(root.width, root.height) / 2;
+    }
+
+    function corner-radius(corner: CanvasCorner) -> length {
+        if corner == CanvasCorner.top-left {
+            return root.top-left-radius;
+        }
+        if corner == CanvasCorner.top-right {
+            return root.top-right-radius;
+        }
+        if corner == CanvasCorner.bottom-right {
+            return root.bottom-right-radius;
+        }
+        return root.bottom-left-radius;
+    }
+
+    for corner in [
+        CanvasCorner.top-left,
+        CanvasCorner.top-right,
+        CanvasCorner.bottom-right,
+        CanvasCorner.bottom-left,
+    ]: Rectangle {
+        property <length> radius: root.corner-radius(corner);
+        property <length> handle-center-x: root.corner-on-left(corner)
+            ? EditorMetrics.radius-handle-inset + radius
+            : root.width - EditorMetrics.radius-handle-inset - radius;
+        property <length> handle-center-y: root.corner-on-top(corner)
+            ? EditorMetrics.radius-handle-inset + radius
+            : root.height - EditorMetrics.radius-handle-inset - radius;
+
+        visible: root.active && !root.move-pressed && !root.rotating && (root.frame-hover || root.radius-handle-active);
+        x: handle-center-x - EditorMetrics.radius-handle-size / 2;
+        y: handle-center-y - EditorMetrics.radius-handle-size / 2;
+        width: EditorMetrics.radius-handle-size;
+        height: EditorMetrics.radius-handle-size;
+        border-radius: EditorMetrics.radius-handle-size / 2;
+        background: #00000000;
+        border-width: 1px;
+        border-color: StudioTheme.accent-strong;
+
+        touch := TouchArea {
+            mouse-cursor: pointer;
+            private property <bool> event-shift-pressed: false;
+
+            pointer-event(event) => {
+                self.event-shift-pressed = event.modifiers.shift;
+            }
+
+            changed has-hover => {
+                root.radius-handle-active = self.has-hover || self.pressed;
+            }
+
+            changed pressed => {
+                root.radius-handle-active = self.has-hover || self.pressed;
+                if self.pressed {
+                    let pointer-x = parent.x + self.mouse-x;
+                    let pointer-y = parent.y + self.mouse-y;
+                    root.selected();
+                    root.interaction-started();
+                    root.radius-tooltip-visible = true;
+                    root.radius-tooltip-position = { x: pointer-x, y: pointer-y };
+                    root.radius-tooltip-value = root.corner-radius(corner);
+                } else {
+                    root.interaction-ended();
+                    root.radius-tooltip-visible = false;
+                }
+            }
+
+            moved => {
+                let pointer-x = parent.x + self.mouse-x;
+                let pointer-y = parent.y + self.mouse-y;
+                let radius = root.radius-from-handle(corner, pointer-x, pointer-y);
+                root.radius-tooltip-visible = true;
+                root.radius-tooltip-position = { x: pointer-x, y: pointer-y };
+                root.radius-tooltip-value = radius;
+                root.radius-changed(corner, radius, root.shift-pressed || self.event-shift-pressed);
+            }
+        }
+    }
+}

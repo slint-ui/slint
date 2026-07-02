@@ -1,0 +1,971 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api, EditorSurfaceMode, ElementInformation, PropertyValueKind, SelectionRectangle } from "../../api.slint";
+import { CanvasSelectionKind, EdgeDivider, EditorMetrics, StudioTheme } from "common.slint";
+import { OutlinePane } from "outline-pane.slint";
+import { InspectorComboOption, InspectorTokens } from "inspector/tokens.slint";
+import { InspectorTooltipBubble } from "inspector/tooltip-bubble.slint";
+import { InspectorInfoIcon } from "inspector/info-icon.slint";
+import { InspectorValueField } from "inspector/value-field.slint";
+import { InspectorEditableField } from "inspector/editable-field.slint";
+import { InspectorComboBox } from "inspector/combo-box.slint";
+import { InspectorColorField } from "inspector/color-field.slint";
+import { InspectorCodeField } from "inspector/code-field.slint";
+import { InspectorReadOnlyField } from "inspector/read-only-field.slint";
+import { InspectorCopyButton } from "inspector/copy-button.slint";
+import { InspectorSyntaxField } from "inspector/syntax-field.slint";
+import { InspectorSection } from "inspector/section.slint";
+import { InspectorEffectDial } from "inspector/effect-dial.slint";
+import { InspectorEffectSlider } from "inspector/effect-slider.slint";
+import { ScrollView } from "std-widgets.slint";
+
+
+export component InspectorPane inherits Rectangle {
+    in property <CanvasSelectionKind> selection;
+    in property <Point> placed-position;
+    in property <Size> rectangle-size;
+    in property <Size> text-size;
+    in property <Size> image-size;
+    in property <color> phone-background;
+    in property <string> phone-background-label;
+    in property <ElementInformation> element-information;
+
+    callback local-geometry-edited(Point, Size) -> bool;
+    callback element-selected();
+    callback outline-drag-started();
+
+    width: EditorMetrics.inspector-pane-width;
+    background: InspectorTokens.panel-bg;
+    property <length> content-x: 1px;
+    property <length> split-height: 1px;
+    property <length> inspector-height: (root.height - root.split-height) / 2;
+    in-out property <length> inspector-scroll-y: 0px;
+
+    property <[SelectionRectangle]> selection-rects: Api.selection.highlight-index >= 0
+        ? Api.highlight-positions(root.element-information.source-uri, root.element-information.offset)
+        : [];
+    property <bool> image-mode: Api.editor-surface-mode == EditorSurfaceMode.image;
+    property <bool> tooltip-visible: false;
+    property <string> tooltip-key: "";
+    property <string> tooltip-label: "";
+    property <Point> tooltip-position: { x: 0px, y: 0px };
+    property <string> hovered-tooltip-key: "";
+    property <string> hovered-tooltip-label: "";
+    property <Point> hovered-tooltip-position: { x: 0px, y: 0px };
+    property <[InspectorComboOption]> image-fit-options: [
+        { value: "fill", label: "fill" },
+        { value: "preserve", label: "preserve" },
+        { value: "contain", label: "contain" },
+        { value: "cover", label: "cover" },
+    ];
+    property <[InspectorComboOption]> image-horizontal-alignment-options: [
+        { value: "center", label: "center" },
+        { value: "left", label: "left" },
+        { value: "right", label: "right" },
+    ];
+    property <[InspectorComboOption]> image-vertical-alignment-options: [
+        { value: "center", label: "center" },
+        { value: "top", label: "top" },
+        { value: "bottom", label: "bottom" },
+    ];
+    property <[InspectorComboOption]> text-font-weight-options: [
+        { value: "100", label: "Thin" },
+        { value: "200", label: "Extra Light" },
+        { value: "300", label: "Light" },
+        { value: "400", label: "Normal" },
+        { value: "500", label: "Medium" },
+        { value: "600", label: "Semi Bold" },
+        { value: "700", label: "Bold" },
+        { value: "800", label: "Extra Bold" },
+        { value: "900", label: "Black" },
+    ];
+    property <[InspectorComboOption]> rectangle-effect-options: [
+        { value: "none", label: "None" },
+        { value: "drop", label: "Drop Shadow" },
+        { value: "inner", label: "Inner Shadow" },
+    ];
+
+    function has-backend-rect() -> bool {
+        return Api.selection.highlight-index >= 0 && root.selection-rects.length > Api.selection.highlight-index;
+    }
+
+    function is-rectangle-selection() -> bool {
+        return root.selection == CanvasSelectionKind.rectangle
+            || (root.has-backend-rect() && root.element-information.type-name == "Rectangle");
+    }
+
+    function is-text-selection() -> bool {
+        return root.selection == CanvasSelectionKind.text
+            || (root.has-backend-rect() && root.element-information.type-name == "Text");
+    }
+
+    function is-image-selection() -> bool {
+        return root.selection == CanvasSelectionKind.image
+            || (root.has-backend-rect() && root.element-information.type-name == "Image");
+    }
+
+    function has-backend-image-selection() -> bool {
+        return root.has-backend-rect() && root.element-information.type-name == "Image";
+    }
+
+    function is-root-selection() -> bool {
+        return !root.has-backend-rect() && root.selection == CanvasSelectionKind.artboard;
+    }
+
+    function selected-x() -> length {
+        return root.has-backend-rect()
+            ? root.selection-rects[Api.selection.highlight-index].x
+            : root.placed-position.x;
+    }
+
+    function selected-y() -> length {
+        return root.has-backend-rect()
+            ? root.selection-rects[Api.selection.highlight-index].y
+            : root.placed-position.y;
+    }
+
+    function selected-width() -> length {
+        if root.has-backend-rect() {
+            return root.selection-rects[Api.selection.highlight-index].width;
+        }
+        if root.is-image-selection() {
+            return root.image-size.width;
+        }
+        return root.is-text-selection() ? root.text-size.width : root.rectangle-size.width;
+    }
+
+    function selected-height() -> length {
+        if root.has-backend-rect() {
+            return root.selection-rects[Api.selection.highlight-index].height;
+        }
+        if root.is-image-selection() {
+            return root.image-size.height;
+        }
+        return root.is-text-selection() ? root.text-size.height : root.rectangle-size.height;
+    }
+
+    function selected-x-label() -> string {
+        return (root.selected-x() / 1px).to-fixed(0);
+    }
+
+    function selected-y-label() -> string {
+        return (root.selected-y() / 1px).to-fixed(0);
+    }
+
+    function selected-width-label() -> string {
+        return (root.selected-width() / 1px).to-fixed(0);
+    }
+
+    function selected-height-label() -> string {
+        return (root.selected-height() / 1px).to-fixed(0);
+    }
+
+    function commit-geometry(x-text: string, y-text: string, width-text: string, height-text: string) -> bool {
+        if !x-text.is-float() || !y-text.is-float() || !width-text.is-float() || !height-text.is-float() {
+            return false;
+        }
+
+        let new-position = {
+            x: x-text.to-float() * 1px,
+            y: y-text.to-float() * 1px,
+        };
+        let new-size = {
+            width: width-text.to-float() * 1px,
+            height: height-text.to-float() * 1px,
+        };
+
+        if new-size.width <= 0px || new-size.height <= 0px {
+            return false;
+        }
+
+        if root.has-backend-rect() {
+            Api.selected-element-resize(new-position.x, new-position.y, new-size.width, new-size.height);
+            return true;
+        }
+
+        return root.local-geometry-edited(new-position, new-size);
+    }
+
+    function commit-code(property-name: string, value: string) -> bool {
+        if value == "" || root.element-information.source-uri == "" {
+            return false;
+        }
+        if !Api.test-code-binding(
+            root.element-information.source-uri,
+            root.element-information.source-version,
+            root.element-information.offset,
+            property-name,
+            value,
+        ) {
+            return false;
+        }
+        Api.set-code-binding(
+            root.element-information.source-uri,
+            root.element-information.source-version,
+            root.element-information.offset,
+            property-name,
+            value,
+        );
+        return true;
+    }
+
+    function commit-px-code(property-name: string, value: string) -> bool {
+        if !value.is-float() {
+            return false;
+        }
+        return root.commit-code(property-name, value + "px");
+    }
+
+    function remove-code(property-name: string) -> bool {
+        if root.element-information.source-uri == "" {
+            return false;
+        }
+        Api.set-code-binding(
+            root.element-information.source-uri,
+            root.element-information.source-version,
+            root.element-information.offset,
+            property-name,
+            "",
+        );
+        return true;
+    }
+
+    function has-shadow-property(prefix: string) -> bool {
+        return Api.current-property-value-data(prefix + "color").code != ""
+            || Api.current-property-value-data(prefix + "blur").code != ""
+            || Api.current-property-value-data(prefix + "spread").code != ""
+            || Api.current-property-value-data(prefix + "offset-x").code != ""
+            || Api.current-property-value-data(prefix + "offset-y").code != "";
+    }
+
+    function rectangle-effect-index() -> int {
+        if root.has-shadow-property("drop-shadow-") {
+            return 1;
+        }
+        if root.has-shadow-property("inner-shadow-") {
+            return 2;
+        }
+        return 0;
+    }
+
+    function rectangle-effect-value() -> string {
+        let index = root.rectangle-effect-index();
+        return root.rectangle-effect-options[index].label;
+    }
+
+    function current-shadow-prefix() -> string {
+        return root.rectangle-effect-index() == 2 ? "inner-shadow-" : "drop-shadow-";
+    }
+
+    function shadow-number(property-name: string, fallback: float) -> float {
+        let property = Api.current-property-value-data(property-name);
+        if property.code == "" {
+            return fallback;
+        }
+        if property.kind == PropertyValueKind.float || property.value-kind == PropertyValueKind.float {
+            return property.value-float;
+        }
+        return fallback;
+    }
+
+    function shadow-color-code() -> string {
+        let prefix = root.current-shadow-prefix();
+        let fallback = prefix == "inner-shadow-" ? "#00000030" : "#00000040";
+        return Api.current-property-value(prefix + "color", fallback);
+    }
+
+    function shadow-color-swatch() -> color {
+        let property = Api.current-property-value-data(root.current-shadow-prefix() + "color");
+        if property.code != "" {
+            return property.value-brush;
+        }
+        return root.current-shadow-prefix() == "inner-shadow-" ? #00000030 : #00000040;
+    }
+
+    function shadow-blur() -> float {
+        return root.shadow-number(root.current-shadow-prefix() + "blur", 16);
+    }
+
+    function shadow-spread() -> float {
+        return root.shadow-number(root.current-shadow-prefix() + "spread", 0);
+    }
+
+    function shadow-offset-x() -> float {
+        return root.shadow-number(root.current-shadow-prefix() + "offset-x", 0);
+    }
+
+    function shadow-offset-y() -> float {
+        return root.shadow-number(root.current-shadow-prefix() + "offset-y", 8);
+    }
+
+    function shadow-distance() -> float {
+        let x = root.shadow-offset-x();
+        let y = root.shadow-offset-y();
+        return sqrt(x * x + y * y).round();
+    }
+
+    function normalized-angle(value: angle) -> angle {
+        let normalized = value.mod(360deg);
+        return normalized < 0deg ? normalized + 360deg : normalized;
+    }
+
+    function shadow-angle() -> angle {
+        let distance = root.shadow-distance();
+        return distance == 0 ? 90deg : root.normalized-angle(atan2(root.shadow-offset-y(), root.shadow-offset-x()));
+    }
+
+    function commit-shadow-number(property-name: string, value: float) -> bool {
+        return root.commit-code(property-name, "\{value.round()}px");
+    }
+
+    function commit-shadow-offsets(angle: angle, distance: float) -> bool {
+        let prefix = root.current-shadow-prefix();
+        let x = (angle.cos() * distance).round();
+        let y = (angle.sin() * distance).round();
+        return root.commit-shadow-number(prefix + "offset-x", x)
+            && root.commit-shadow-number(prefix + "offset-y", y);
+    }
+
+    function remove-shadow-family(prefix: string) -> bool {
+        return root.remove-code(prefix + "color")
+            && root.remove-code(prefix + "blur")
+            && root.remove-code(prefix + "spread")
+            && root.remove-code(prefix + "offset-x")
+            && root.remove-code(prefix + "offset-y");
+    }
+
+    function ensure-shadow-defaults(prefix: string) -> bool {
+        let color = prefix == "inner-shadow-" ? "#00000030" : "#00000040";
+        return (Api.current-property-value-data(prefix + "color").code != "" || root.commit-code(prefix + "color", color))
+            && (Api.current-property-value-data(prefix + "blur").code != "" || root.commit-shadow-number(prefix + "blur", 16))
+            && (Api.current-property-value-data(prefix + "spread").code != "" || root.commit-shadow-number(prefix + "spread", 0))
+            && (Api.current-property-value-data(prefix + "offset-x").code != "" || root.commit-shadow-number(prefix + "offset-x", 0))
+            && (Api.current-property-value-data(prefix + "offset-y").code != "" || root.commit-shadow-number(prefix + "offset-y", 8));
+    }
+
+    function set-rectangle-effect(value: string) -> bool {
+        if value == "none" {
+            return root.remove-shadow-family("drop-shadow-")
+                && root.remove-shadow-family("inner-shadow-");
+        }
+        if value == "drop" {
+            return root.remove-shadow-family("inner-shadow-")
+                && root.ensure-shadow-defaults("drop-shadow-");
+        }
+        if value == "inner" {
+            return root.remove-shadow-family("drop-shadow-")
+                && root.ensure-shadow-defaults("inner-shadow-");
+        }
+        return false;
+    }
+
+    function quote(value: string) -> string {
+        return "\"" + value + "\"";
+    }
+
+    function image-source-value() -> string {
+        return Api.current-property-value("source", "");
+    }
+
+    function image-fit-index() -> int {
+        let value = Api.current-property-value("image-fit", "fill");
+        if value == "fill" {
+            return 0;
+        }
+        if value == "preserve" {
+            return 1;
+        }
+        if value == "contain" {
+            return 2;
+        }
+        if value == "cover" {
+            return 3;
+        }
+        return -1;
+    }
+
+    function image-fit-value() -> string {
+        let index = root.image-fit-index();
+        return index >= 0 ? root.image-fit-options[index].value : "fill";
+    }
+
+    function image-horizontal-alignment-index() -> int {
+        let value = Api.current-property-value("horizontal-alignment", "center");
+        if value == "center" {
+            return 0;
+        }
+        if value == "left" {
+            return 1;
+        }
+        if value == "right" {
+            return 2;
+        }
+        return -1;
+    }
+
+    function image-horizontal-alignment-value() -> string {
+        let index = root.image-horizontal-alignment-index();
+        return index >= 0 ? root.image-horizontal-alignment-options[index].value : "center";
+    }
+
+    function image-vertical-alignment-index() -> int {
+        let value = Api.current-property-value("vertical-alignment", "center");
+        if value == "center" {
+            return 0;
+        }
+        if value == "top" {
+            return 1;
+        }
+        if value == "bottom" {
+            return 2;
+        }
+        return -1;
+    }
+
+    function image-vertical-alignment-value() -> string {
+        let index = root.image-vertical-alignment-index();
+        return index >= 0 ? root.image-vertical-alignment-options[index].value : "center";
+    }
+
+    function text-font-weight-index() -> int {
+        let value = Api.current-property-value("font-weight", "400");
+        if value == "100" || value == "FontWeight.thin" || value == "thin" {
+            return 0;
+        }
+        if value == "200" || value == "FontWeight.extra-light" || value == "extra-light" {
+            return 1;
+        }
+        if value == "300" || value == "FontWeight.light" || value == "light" {
+            return 2;
+        }
+        if value == "400" || value == "FontWeight.normal" || value == "normal" {
+            return 3;
+        }
+        if value == "500" || value == "FontWeight.medium" || value == "medium" {
+            return 4;
+        }
+        if value == "600" || value == "FontWeight.semi-bold" || value == "semi-bold" {
+            return 5;
+        }
+        if value == "700" || value == "FontWeight.bold" || value == "bold" {
+            return 6;
+        }
+        if value == "800" || value == "FontWeight.extra-bold" || value == "extra-bold" {
+            return 7;
+        }
+        if value == "900" || value == "FontWeight.black" || value == "black" {
+            return 8;
+        }
+        return -1;
+    }
+
+    function text-font-weight-label() -> string {
+        let index = root.text-font-weight-index();
+        return index >= 0 ? root.text-font-weight-options[index].label : "Normal";
+    }
+
+    function image-width-label() -> string {
+        return Api.selected-image-asset.image.width + "";
+    }
+
+    function image-height-label() -> string {
+        return Api.selected-image-asset.image.height + "";
+    }
+
+    function image-nine-slice-expression() -> string {
+        return Api.image-nine-slice-expression(
+            Api.selected-image-asset.relative-path,
+            Api.image-nine-slice-top,
+            Api.image-nine-slice-right,
+            Api.image-nine-slice-bottom,
+            Api.image-nine-slice-left,
+        );
+    }
+
+    function tooltip-position-for(field-position: Point) -> Point {
+        return {
+            x: field-position.x - root.absolute-position.x - root.content-x + (InspectorTokens.column-width - 71px) / 2,
+            y: field-position.y - root.absolute-position.y + InspectorTokens.field-height + 1px,
+        };
+    }
+
+    function show-current-tooltip() {
+        root.tooltip-key = root.hovered-tooltip-key;
+        root.tooltip-label = root.hovered-tooltip-label;
+        root.tooltip-position = root.hovered-tooltip-position;
+        root.tooltip-visible = true;
+    }
+
+    function show-tooltip(key: string, label: string, field-position: Point) {
+        root.hovered-tooltip-key = key;
+        root.hovered-tooltip-label = label;
+        root.hovered-tooltip-position = root.tooltip-position-for(field-position);
+        hide-tooltip-timer.running = false;
+
+        if root.tooltip-visible {
+            show-tooltip-timer.running = false;
+            root.show-current-tooltip();
+        } else {
+            show-tooltip-timer.running = false;
+            show-tooltip-timer.running = true;
+        }
+    }
+
+    function hide-tooltip(key: string) {
+        if key != root.hovered-tooltip-key {
+            return;
+        }
+
+        root.hovered-tooltip-key = "";
+        root.hovered-tooltip-label = "";
+        show-tooltip-timer.running = false;
+
+        if root.tooltip-visible {
+            hide-tooltip-timer.running = false;
+            hide-tooltip-timer.running = true;
+        }
+    }
+
+    function reset-tooltip() {
+        root.tooltip-visible = false;
+        root.tooltip-key = "";
+        root.tooltip-label = "";
+    }
+
+    show-tooltip-timer := Timer {
+        interval: 1500ms;
+        running: false;
+        triggered => {
+            self.running = false;
+
+            if root.hovered-tooltip-key != "" {
+                root.show-current-tooltip();
+            }
+        }
+    }
+
+    hide-tooltip-timer := Timer {
+        interval: 1500ms;
+        running: false;
+        triggered => {
+            self.running = false;
+
+            if root.hovered-tooltip-key == "" {
+                root.reset-tooltip();
+            } else {
+                root.show-current-tooltip();
+            }
+        }
+    }
+
+    EdgeDivider {
+        x: 0px;
+        background: InspectorTokens.divider;
+    }
+
+    inspector-scroll := ScrollView {
+        x: root.content-x;
+        y: 0px;
+        width: root.width - root.content-x;
+        height: root.inspector-height;
+        viewport-width: self.width;
+        viewport-height: content.height;
+        viewport-y <=> root.inspector-scroll-y;
+        mouse-drag-pan-enabled: false;
+        vertical-scrollbar-policy: ScrollBarPolicy.always-off;
+        horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+
+        content := Rectangle {
+            width: parent.width;
+            height: content-layout.preferred-height;
+
+            content-layout := VerticalLayout {
+                width: parent.width;
+                alignment: start;
+
+                if root.image-mode: InspectorSection {
+                    title: "Image";
+
+                    VerticalLayout {
+                        padding-left: InspectorTokens.side-padding;
+                        spacing: 8px;
+
+                        InspectorReadOnlyField {
+                            prefix: "File";
+                            value: Api.selected-image-asset.relative-path;
+                            wide: true;
+                        }
+
+                        HorizontalLayout {
+                            spacing: InspectorTokens.column-gap;
+
+                            InspectorReadOnlyField {
+                                prefix: "Fmt";
+                                value: Api.selected-image-asset.format;
+                            }
+
+                            InspectorReadOnlyField {
+                                prefix: "W";
+                                value: root.image-width-label();
+                            }
+                        }
+
+                        InspectorReadOnlyField {
+                            prefix: "H";
+                            value: root.image-height-label();
+                        }
+                    }
+                }
+
+                if root.image-mode: InspectorSection {
+                    title: "Nine-Slice";
+
+                    VerticalLayout {
+                        padding-left: InspectorTokens.side-padding;
+                        padding-right: InspectorTokens.side-padding;
+                        spacing: 8px;
+
+                        InspectorSyntaxField {
+                            value: root.image-nine-slice-expression();
+                        }
+
+                        HorizontalLayout {
+                            alignment: end;
+
+                            InspectorCopyButton {
+                                clicked => {
+                                    Api.copy-nine-slice-expression(root.image-nine-slice-expression());
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if !root.image-mode && (root.is-rectangle-selection() || root.is-text-selection() || root.is-image-selection()): InspectorSection {
+                    title: "Position";
+
+                    HorizontalLayout {
+                        padding-left: InspectorTokens.side-padding;
+                        spacing: InspectorTokens.column-gap;
+
+                        InspectorValueField {
+                            prefix: "X";
+                            value: root.selected-x-label();
+                            tooltip-label: "X-position";
+                            tooltip-hovered(key, label, position) => { root.show-tooltip(key, label, position); }
+                            tooltip-hidden(key) => { root.hide-tooltip(key); }
+                            accepted(text) => {
+                                return root.commit-geometry(text, root.selected-y-label(), root.selected-width-label(), root.selected-height-label());
+                            }
+                        }
+
+                        InspectorValueField {
+                            prefix: "Y";
+                            value: root.selected-y-label();
+                            tooltip-label: "Y-position";
+                            tooltip-hovered(key, label, position) => { root.show-tooltip(key, label, position); }
+                            tooltip-hidden(key) => { root.hide-tooltip(key); }
+                            accepted(text) => {
+                                return root.commit-geometry(root.selected-x-label(), text, root.selected-width-label(), root.selected-height-label());
+                            }
+                        }
+                    }
+                }
+
+                if !root.image-mode && (root.is-rectangle-selection() || root.is-text-selection() || root.is-image-selection()): InspectorSection {
+                    title: "Layout";
+
+                    HorizontalLayout {
+                        padding-left: InspectorTokens.side-padding;
+                        spacing: InspectorTokens.column-gap;
+
+                        InspectorValueField {
+                            prefix: "W";
+                            value: root.selected-width-label();
+                            tooltip-label: "Width";
+                            tooltip-hovered(key, label, position) => { root.show-tooltip(key, label, position); }
+                            tooltip-hidden(key) => { root.hide-tooltip(key); }
+                            accepted(text) => {
+                                return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), text, root.selected-height-label());
+                            }
+                        }
+
+                        InspectorValueField {
+                            prefix: "H";
+                            value: root.selected-height-label();
+                            tooltip-label: "Height";
+                            tooltip-hovered(key, label, position) => { root.show-tooltip(key, label, position); }
+                            tooltip-hidden(key) => { root.hide-tooltip(key); }
+                            accepted(text) => {
+                                return root.commit-geometry(root.selected-x-label(), root.selected-y-label(), root.selected-width-label(), text);
+                            }
+                        }
+                    }
+                }
+
+                if !root.image-mode && (root.is-root-selection() || root.is-rectangle-selection() || root.is-text-selection()): InspectorSection {
+                    title: "Appearance";
+
+                    HorizontalLayout {
+                        padding-left: InspectorTokens.side-padding;
+                        spacing: InspectorTokens.column-gap;
+
+                        if root.is-root-selection(): InspectorColorField {
+                            value: root.phone-background-label;
+                            swatch: root.phone-background;
+                            wide: true;
+                            accepted(text) => {
+                                return root.commit-code("background", text);
+                            }
+                        }
+
+                        if root.is-rectangle-selection(): InspectorColorField {
+                            value: StudioTheme.dark ? "#383838" : "#ffffff";
+                            swatch: StudioTheme.dark ? #383838 : #ffffff;
+                            wide: true;
+                            accepted(text) => {
+                                return root.commit-code("background", text);
+                            }
+                        }
+
+                        if root.is-text-selection(): InspectorColorField {
+                            value: StudioTheme.dark ? "#f4f4f4" : "#1f2328";
+                            swatch: StudioTheme.dark ? #f4f4f4 : #1f2328;
+                            wide: true;
+                            accepted(text) => {
+                                return root.commit-code("color", text);
+                            }
+                        }
+                    }
+                }
+
+                if !root.image-mode && root.is-rectangle-selection(): InspectorSection {
+                    title: "Effects";
+
+                    VerticalLayout {
+                        padding-left: InspectorTokens.side-padding;
+                        padding-right: InspectorTokens.side-padding;
+                        spacing: 8px;
+
+                        InspectorComboBox {
+                            value: root.rectangle-effect-value();
+                            selected-index: root.rectangle-effect-index();
+                            options: root.rectangle-effect-options;
+                            wide: true;
+                            accepted(text) => {
+                                return root.set-rectangle-effect(text);
+                            }
+                        }
+
+                        if root.rectangle-effect-index() != 0: HorizontalLayout {
+                            spacing: InspectorTokens.column-gap;
+                            cross-axis-alignment: center;
+
+                            InspectorEffectDial {
+                                value: root.shadow-angle();
+                                accepted(angle) => {
+                                    return root.commit-shadow-offsets(angle, root.shadow-distance());
+                                }
+                            }
+
+                            VerticalLayout {
+                                spacing: 4px;
+
+                                Text {
+                                    height: 12px;
+                                    text: "Color";
+                                    color: InspectorTokens.text;
+                                    font-size: 11px;
+                                    font-weight: 600;
+                                    vertical-alignment: center;
+                                }
+
+                                InspectorColorField {
+                                    value: root.shadow-color-code();
+                                    swatch: root.shadow-color-swatch();
+                                    accepted(text) => {
+                                        return root.commit-code(root.current-shadow-prefix() + "color", text);
+                                    }
+                                }
+                            }
+                        }
+
+                        if root.rectangle-effect-index() != 0: InspectorEffectSlider {
+                            label: "Distance";
+                            value: root.shadow-distance();
+                            minimum: 0;
+                            maximum: 96;
+                            accepted(value) => {
+                                return root.commit-shadow-offsets(root.shadow-angle(), value);
+                            }
+                        }
+
+                        if root.rectangle-effect-index() != 0: InspectorEffectSlider {
+                            label: "Blur";
+                            value: root.shadow-blur();
+                            minimum: 0;
+                            maximum: 128;
+                            accepted(value) => {
+                                return root.commit-shadow-number(root.current-shadow-prefix() + "blur", value);
+                            }
+                        }
+
+                        if root.rectangle-effect-index() != 0: InspectorEffectSlider {
+                            label: "Spread";
+                            value: root.shadow-spread();
+                            minimum: -64;
+                            maximum: 64;
+                            accepted(value) => {
+                                return root.commit-shadow-number(root.current-shadow-prefix() + "spread", value);
+                            }
+                        }
+                    }
+                }
+
+                if !root.image-mode && root.has-backend-image-selection(): InspectorSection {
+                    title: "Image";
+
+                    VerticalLayout {
+                        padding-left: InspectorTokens.side-padding;
+                        padding-right: InspectorTokens.side-padding;
+                        spacing: 8px;
+
+                        InspectorCodeField {
+                            prefix: "Source";
+                            value: root.image-source-value();
+                            accepted(text) => {
+                                return root.commit-code("source", text);
+                            }
+                        }
+
+                        VerticalLayout {
+                            spacing: 5px;
+
+                            HorizontalLayout {
+                                spacing: 6px;
+                                cross-axis-alignment: center;
+
+                                Text {
+                                    text: "Image fit";
+                                    color: InspectorTokens.text;
+                                    font-size: 11px;
+                                    font-weight: 600;
+                                    vertical-alignment: center;
+                                }
+
+                                InspectorInfoIcon {
+                                    activated => {
+                                        Platform.open-url("https://docs.slint.dev/latest/docs/slint/reference/elements/image/#image-fit");
+                                    }
+                                }
+                            }
+
+                            InspectorComboBox {
+                                value: root.image-fit-value();
+                                selected-index: root.image-fit-index();
+                                options: root.image-fit-options;
+                                wide: true;
+                                accepted(text) => {
+                                    return text != "" && root.commit-code("image-fit", text);
+                                }
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: InspectorTokens.column-gap;
+
+                            InspectorComboBox {
+                                prefix: "H";
+                                value: root.image-horizontal-alignment-value();
+                                selected-index: root.image-horizontal-alignment-index();
+                                options: root.image-horizontal-alignment-options;
+                                accepted(text) => {
+                                    return text != "" && root.commit-code("horizontal-alignment", text);
+                                }
+                            }
+
+                            InspectorComboBox {
+                                prefix: "V";
+                                value: root.image-vertical-alignment-value();
+                                selected-index: root.image-vertical-alignment-index();
+                                options: root.image-vertical-alignment-options;
+                                accepted(text) => {
+                                    return text != "" && root.commit-code("vertical-alignment", text);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if !root.image-mode && root.is-text-selection(): InspectorSection {
+                    title: "Typography";
+
+                    VerticalLayout {
+                        padding-left: InspectorTokens.side-padding;
+                        spacing: 8px;
+
+                        InspectorEditableField {
+                            value: "Roboto";
+                            wide: true;
+                            accepted(text) => {
+                                return text != "" && root.commit-code("font-family", root.quote(text));
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: InspectorTokens.column-gap;
+
+                            InspectorComboBox {
+                                value: root.text-font-weight-label();
+                                selected-index: root.text-font-weight-index();
+                                options: root.text-font-weight-options;
+                                accepted(text) => {
+                                    return text != "" && root.commit-code("font-weight", text);
+                                }
+                            }
+
+                            InspectorEditableField {
+                                value: "14";
+                                accepted(text) => {
+                                    return root.commit-px-code("font-size", text);
+                                }
+                            }
+                        }
+
+                    }
+                }
+            }
+        }
+    }
+
+    tooltip-layer := Rectangle {
+        x: root.content-x;
+        y: 0px;
+        width: root.width - root.content-x;
+        height: root.inspector-height;
+
+        if root.tooltip-visible: InspectorTooltipBubble {
+            x: root.tooltip-position.x;
+            y: root.tooltip-position.y;
+            label: root.tooltip-label;
+        }
+    }
+
+    Rectangle {
+        x: root.content-x;
+        y: root.inspector-height;
+        width: root.width - root.content-x;
+        height: root.split-height;
+        background: InspectorTokens.divider;
+    }
+
+    OutlinePane {
+        x: root.content-x;
+        y: root.inspector-height + root.split-height;
+        width: root.width - root.content-x;
+        height: root.height - self.y;
+        element-selected => { root.element-selected(); }
+        drag-started => { root.outline-drag-started(); }
+    }
+}

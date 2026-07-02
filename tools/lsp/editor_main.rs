@@ -1,9 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// TODO: Remove
 #![allow(dead_code)]
-#![cfg(not(test))]
 
 mod common;
 #[cfg(feature = "preview")]
@@ -12,6 +10,11 @@ mod fmt;
 mod language;
 #[cfg(feature = "preview-engine")]
 mod preview;
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(feature = "preview-external", feature = "preview-engine")
+))]
+mod settings_store;
 mod util;
 
 use crate::common::Result;

@@ -7,6 +7,7 @@ import { Palette } from "std-widgets.slint";
 export global Icons {
     out property <image> add: @image-url("../assets/add.svg");
     out property <image> chevron-down: @image-url("../assets/chevron-down.svg");
+    out property <image> select-chevron: @image-url("../assets/octicons/select-chevron.svg");
     out property <image> inspect: @image-url("../assets/inspect.svg");
     out property <image> search: @image-url("../assets/search.svg");
     out property <image> filter: @image-url("../assets/filter.svg");
@@ -93,8 +94,8 @@ export global EditorPalette {
 
     out property <bool> dark-scheme: Palette.color-scheme == ColorScheme.dark;
 
-    out property <brush> drop-mark-background: #00ff0080;
-    out property <brush> drop-mark-foreground: #00ff00ff;
+    out property <brush> drop-mark-background: #ffffff;
+    out property <brush> drop-mark-foreground: #ffffff;
 
     out property <brush> general-element-selection-primary: #3884ed;
     out property <brush> general-element-selection-secondary: #86b5fc;
