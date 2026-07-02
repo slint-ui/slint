@@ -837,20 +837,18 @@ jobs:
                   mkdir -p target/release/apk
                   unzip -p slint-viewer.apks universal.apk > target/release/apk/slint-viewer.apk
 
-            # Upload the release AAB to the Play Store as a draft. A human
-            # publishes it from the console, so an accidental `release` run
-            # never reaches users. Only on `release`: other modes carry a
-            # nightly versionName that Play would reject or that would burn a
-            # versionCode.
+            # A full-nightly goes to internal testing; a release goes to
+            # production as a draft that a human publishes, so an accidental
+            # `release` run never reaches users.
             - name: Upload slint-viewer to Google Play
-              if: github.event.inputs.mode == 'release'
+              if: github.event.inputs.mode == 'full-nightly' || github.event.inputs.mode == 'release'
               uses: r0adkll/upload-google-play@v1
               with:
                   serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
                   packageName: dev.slint.viewer
                   releaseFiles: tools/viewer/android/app/build/outputs/bundle/release/slint-viewer.aab
-                  track: production
-                  status: draft
+                  track: ${{ github.event.inputs.mode == 'release' && 'production' || 'internal' }}
+                  status: ${{ github.event.inputs.mode == 'release' && 'draft' || 'completed' }}
 
             # Flatten into one directory so the artifact holds bare files.
             - name: Collect Android artifacts
