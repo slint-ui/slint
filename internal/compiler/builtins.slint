@@ -2491,10 +2491,11 @@ export component RadioGroup {
 /// :::
 /// \group:window
 export component PopupWindow {
-    //property <length> x;
-    //property <length> y;
-    in property <length> width;
-    in property <length> height;
+    // x and y are already in the WindowItem component we base
+    // internally so we don't have to specify them here again
+    // in property <length> x;
+    // in property <length> y;
+
     /*property <length> anchor_x;
     in property <length> anchor_y;
     in property <length> anchor_height;
@@ -2865,7 +2866,8 @@ export global Platform {
     /// to the top of the window stack. On other platforms this function is a no-op.
     ///
     /// This corresponds to the standard macOS **Window › Bring All to Front** menu item.
-    function macos-bring-all-windows-to-front() { }
+    function macos-bring-all-windows-to-front() {
+    }
 }
 
 export component NativeButton {

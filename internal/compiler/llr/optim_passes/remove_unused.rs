@@ -289,7 +289,7 @@ mod visitor {
             items: _,
             repeated,
             component_containers: _,
-            popup_windows,
+            popup_windows: _,
             menu_item_trees: _,
             timers,
             sub_components: _,
@@ -351,10 +351,6 @@ mod visitor {
             }
         }
 
-        for p in popup_windows {
-            let popup_scope = EvaluationScope::SubComponent(p.item_tree.root, None);
-            visit_expression(p.position.get_mut(), &popup_scope, state, visitor);
-        }
         for t in timers {
             visit_expression(t.interval.get_mut(), &scope, state, visitor);
             visit_expression(t.triggered.get_mut(), &scope, state, visitor);

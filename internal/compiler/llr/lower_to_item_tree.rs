@@ -880,20 +880,15 @@ fn lower_popup_component(
     compiler_config: &CompilerConfiguration,
 ) -> PopupWindow {
     let sc = lower_sub_component(&popup.component, ctx.state, Some(&ctx.inner), compiler_config);
-    use super::Expression::PropertyReference as PR;
-    let position = super::lower_expression::make_struct(
-        BuiltinStruct::LogicalPosition,
-        [
-            ("x", Type::LogicalLength, PR(sc.mapping.map_property_reference(&popup.x, ctx.state))),
-            ("y", Type::LogicalLength, PR(sc.mapping.map_property_reference(&popup.y, ctx.state))),
-        ],
-    );
+
+    let x = sc.mapping.map_property_reference(&popup.x, ctx.state);
+    let y = sc.mapping.map_property_reference(&popup.y, ctx.state);
 
     let item_tree = ItemTree {
         tree: make_tree(ctx.state, &popup.component.root_element, &sc, &[]),
         root: ctx.state.push_sub_component(sc),
     };
-    PopupWindow { item_tree, position: position.into(), is_tooltip: popup.is_tooltip }
+    PopupWindow { item_tree, is_tooltip: popup.is_tooltip, x, y }
 }
 
 fn lower_timer(timer: &object_tree::Timer, ctx: &ExpressionLoweringCtx) -> Timer {

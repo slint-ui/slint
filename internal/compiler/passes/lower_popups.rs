@@ -185,6 +185,10 @@ fn lower_popup_window(
         parent_element: RefCell::new(Rc::downgrade(parent_element)),
         ..Component::default()
     });
+    // The root was a `PopupWindow` (now lowered to a `Window`); record that so later passes
+    // can treat it specially. `materialize_fake_properties` uses this to keep `x`/`y` bound to
+    // the native `WindowItem` item fields instead of synthesizing local properties.
+    popup_comp.inherits_popup_window.set(true);
 
     let weak = Rc::downgrade(&popup_comp);
     recurse_elem(&popup_comp.root_element, &(), &mut |e, _| {

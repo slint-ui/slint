@@ -454,10 +454,6 @@ pub struct PopupWindow {
     /// Overlay tooltip: no focus steal, unclamped placement, skipped in main mouse routing.
     /// Context / popup menu: participates in menu-chain hit testing and cascading close.
     pub window_kind: WindowKind,
-    /// Callback that returns the current desired logical position of the popup.
-    /// Called during re-evaluation of the position tracker to re-subscribe to dependencies.
-    /// IMPORTANT: This position is relative to the parent
-    position_access: Box<dyn Fn() -> LogicalPosition>,
     /// Keeps the parent component's `PopupWindow::is-open` property in sync. Provided to
     /// [`WindowInner::show_popup`], invoked with `true` when the popup is shown and with `false` when
     /// this `PopupWindow` is dropped (see the `Drop` impl below). It is a no-op for popups whose
@@ -1440,9 +1436,15 @@ impl WindowInner {
         let offset = {
             let active_popups = self.active_popups.borrow();
             let Some(popup) = active_popups.iter().find(|p| p.popup_id == popup_id) else { return };
+            let component = ItemTreeRc::borrow_pin(&popup.component);
+            let root_item = component.as_ref().get_item_ref(0);
+            let window_item = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
+                .expect("Popup component is a Window item");
             if let Some(parent) = popup.parent_item.clone().upgrade() {
                 parent.map_to_native_window(
-                    parent.geometry().origin + (popup.position_access)().to_euclid().to_vector(),
+                    parent.geometry().origin
+                        + LogicalPoint::new(window_item.x().get(), window_item.y().get())
+                            .to_vector(),
                 )
             } else {
                 LogicalPoint::zero()
@@ -1489,7 +1491,7 @@ impl WindowInner {
                         (
                             old_popup_region,
                             LogicalRect::new(
-                                (popup.position_access)().to_euclid(),
+                                LogicalPoint::new(window_item.x().get(), window_item.y().get()),
                                 crate::lengths::LogicalSize::new(width, height),
                             ),
                         )
@@ -1513,7 +1515,12 @@ impl WindowInner {
                 // The size is already tracked in the windowadapter
                 let mut new_position: Option<LogicalPosition> = None;
                 popup.properties_tracker.as_ref().evaluate_as_dependency_root(|| {
-                    (popup.position_access)(); // Dummy access to track position changes
+                    let component = ItemTreeRc::borrow_pin(&popup.component);
+                    let root_item = component.as_ref().get_item_ref(0);
+                    let window_item = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
+                        .expect("Popup component is a Window item");
+                    window_item.x().get(); // Dummy access to track position changes
+                    window_item.y().get(); // Dummy access to track position changes
                     new_position = Some(LogicalPosition::from_euclid(offset));
                 });
                 if let Some(pos) = new_position {
@@ -1714,7 +1721,6 @@ impl WindowInner {
     pub fn show_popup(
         &self,
         popup_componentrc: &ItemTreeRc,
-        popup_access_position: Box<dyn Fn() -> LogicalPosition>,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
         window_kind: WindowKind,
@@ -1723,9 +1729,6 @@ impl WindowInner {
         // Popups live in their own ItemTree, which was invisible to any
         // earlier instantiation pass; materialize it before the layout queries below.
         crate::item_tree::ensure_item_tree_instantiated(popup_componentrc);
-        let position = parent_item.map_to_native_window(
-            parent_item.geometry().origin + popup_access_position().to_euclid().to_vector(),
-        );
         let popup_component = ItemTreeRc::borrow_pin(popup_componentrc);
         let popup_root = popup_component.as_ref().get_item_ref(0);
 
@@ -1753,13 +1756,20 @@ impl WindowInner {
 
         let size = crate::lengths::LogicalSize::from_lengths(w, h);
 
-        if let Some(window_item) = ItemRef::downcast_pin(popup_root) {
+        let position = if let Some(window_item) = ItemRef::downcast_pin(popup_root) {
             let width_property =
                 crate::items::WindowItem::FIELD_OFFSETS.width().apply_pin(window_item);
             let height_property =
                 crate::items::WindowItem::FIELD_OFFSETS.height().apply_pin(window_item);
             width_property.set(size.width_length());
             height_property.set(size.height_length());
+
+            parent_item.map_to_native_window(
+                parent_item.geometry().origin
+                    + LogicalPoint::new(window_item.x().get(), window_item.y().get()).to_vector(),
+            )
+        } else {
+            LogicalPoint::default()
         };
 
         let popup_id = self.next_popup_id.get();
@@ -1879,7 +1889,6 @@ impl WindowInner {
             focus_item_in_parent: focus_item,
             parent_item: parent_item.downgrade(),
             window_kind,
-            position_access: popup_access_position,
             is_open_setter,
             properties_tracker,
         });
@@ -2260,14 +2269,6 @@ pub mod ffi {
         }
     }
 
-    impl WithUserData<extern "C" fn(user_data: *mut c_void, pos: &mut LogicalPosition)> {
-        fn call(&self) -> LogicalPosition {
-            let mut logical_position = LogicalPosition::default();
-            (self.callback)(self.user_data, &mut logical_position);
-            logical_position
-        }
-    }
-
     impl WithUserData<extern "C" fn(user_data: *mut c_void) -> CloseRequestResponse> {
         fn call(&self) -> CloseRequestResponse {
             (self.callback)(self.user_data)
@@ -2444,9 +2445,6 @@ pub mod ffi {
     pub unsafe extern "C" fn slint_windowrc_show_popup(
         handle: *const WindowAdapterRcOpaque,
         popup: &ItemTreeRc,
-        position: extern "C" fn(user_data: *mut c_void, pos: &mut LogicalPosition),
-        drop_user_data: extern "C" fn(user_data: *mut c_void),
-        user_data: *mut c_void,
         close_policy: PopupClosePolicy,
         parent_item: &ItemRc,
         window_kind: WindowKind,
@@ -2455,7 +2453,6 @@ pub mod ffi {
         is_open_setter_user_data: *mut c_void,
     ) -> NonZeroU32 {
         unsafe {
-            let with_user_data = WithUserData { callback: position, drop_user_data, user_data };
             let is_open_with_user_data = WithUserData {
                 callback: is_open_setter,
                 drop_user_data: is_open_setter_drop_user_data,
@@ -2464,7 +2461,6 @@ pub mod ffi {
             let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
             WindowInner::from_pub(window_adapter.window()).show_popup(
                 popup,
-                Box::new(move || with_user_data.call()),
                 close_policy,
                 parent_item,
                 window_kind,
