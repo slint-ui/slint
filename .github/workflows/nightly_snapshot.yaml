@@ -757,6 +757,8 @@ jobs:
         env:
             CARGO_APK_RELEASE_KEYSTORE: /home/runner/.android/release.keystore
             CARGO_APK_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+            # cargo-apk does not honor the repository's relative `build.target-dir`.
+            CARGO_TARGET_DIR: ${{ github.workspace }}/target
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
@@ -792,15 +794,15 @@ jobs:
                   echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > $CARGO_APK_RELEASE_KEYSTORE
 
             - name: Build energy-monitor example
-              run: cargo apk build -p energy-monitor --target aarch64-linux-android --lib --release
+              run: cargo apk build --manifest-path demos/Cargo.toml -p energy-monitor --target aarch64-linux-android --lib --release
             - name: Build todo demo
-              run: cargo apk build -p todo --target aarch64-linux-android --lib --release
+              run: cargo apk build --manifest-path examples/Cargo.toml -p todo --target aarch64-linux-android --lib --release
             - name: Build weather-demo example
-              run: cargo apk build -p weather-demo --target aarch64-linux-android --lib --release
+              run: cargo apk build --manifest-path demos/Cargo.toml -p weather-demo --target aarch64-linux-android --lib --release
             - name: Build usecases demo
-              run: cargo apk build -p usecases --target aarch64-linux-android --lib --release
+              run: cargo apk build --manifest-path demos/Cargo.toml -p usecases --target aarch64-linux-android --lib --release
             - name: Build home automation demo
-              run: cargo apk build -p home-automation --target aarch64-linux-android --lib --release
+              run: cargo apk build --manifest-path demos/Cargo.toml -p home-automation --target aarch64-linux-android --lib --release
 
             # Play Store accepts only AABs for new submissions. Build the
             # bundle, then derive the nightly slint-viewer APK from it so the

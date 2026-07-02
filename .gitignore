@@ -1,5 +1,6 @@
-# The servo example requires a lock file as servo only builds with pinned dependencies.
-!examples/servo/Cargo.lock
+# The examples workspace lock file is committed: the servo example only builds
+# with pinned dependencies, and it is now part of examples/Cargo.lock.
+!examples/Cargo.lock
 tsconfig.tsbuildinfo
 /target
 node_modules
