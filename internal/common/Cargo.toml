@@ -20,7 +20,7 @@ path = "lib.rs"
 default = []
 shared-fontique = ["dep:fontique", "dep:skrifa"]
 # Lets usvg render SVG `<text>` through fontique. Pulled in by consumers that already
-# depend on resvg (i-slint-core's `svg`, the compiler's `software-renderer`). The `svg`
+# depend on resvg (i-slint-core's `svg`, the compiler's `renderer-software`). The `svg`
 # submodule only builds when `shared-fontique` is also on, so `svg` does not force it.
 svg-text = ["dep:resvg"]
 color-parsing = []

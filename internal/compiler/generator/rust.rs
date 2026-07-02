@@ -4957,7 +4957,7 @@ fn embedded_file_tokens(path: &str) -> TokenStream {
 }
 
 fn generate_resources(doc: &Document) -> Vec<TokenStream> {
-    #[cfg(feature = "software-renderer")]
+    #[cfg(feature = "renderer-software")]
     let link_section = std::env::var("SLINT_ASSET_SECTION")
         .ok()
         .map(|section| quote!(#[unsafe(link_section = #section)]));
@@ -4979,7 +4979,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                 crate::embedded_resources::EmbeddedResourcesKind::DataUriPayload(bytes, _) => {
                     quote!(static #symbol: &'static [u8] = &[#(#bytes),*];)
                 }
-                #[cfg(feature = "software-renderer")]
+                #[cfg(feature = "renderer-software")]
                 crate::embedded_resources::EmbeddedResourcesKind::TextureData(crate::embedded_resources::Texture {
                     data, format, rect,
                     total_size: crate::embedded_resources::Size{width, height},
@@ -5013,7 +5013,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                         };
                     )
                 },
-                #[cfg(feature = "software-renderer")]
+                #[cfg(feature = "renderer-software")]
                 crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(crate::embedded_resources::BitmapFont { family_name, character_map, units_per_em, ascent, descent, x_height, cap_height, glyphs, weight, italic, sdf }) => {
 
                     let character_map_size = character_map.len();

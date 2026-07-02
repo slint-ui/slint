@@ -20,7 +20,7 @@ mod const_propagation;
 mod deduplicate_property_read;
 mod default_geometry;
 mod deprecated_rotation_origin;
-#[cfg(feature = "software-renderer")]
+#[cfg(feature = "renderer-software")]
 mod embed_glyphs;
 mod embed_images;
 mod flickable;
@@ -251,7 +251,7 @@ pub async fn run_passes(
 
     // The fonts (system + imported) used to embed glyphs and rasterize SVG text are
     // shared between `embed_images` and `embed_glyphs`, so the system is scanned once.
-    #[cfg(feature = "software-renderer")]
+    #[cfg(feature = "renderer-software")]
     let font_collection = (type_loader.compiler_config.embed_resources
         == crate::EmbedResourcesKind::EmbedTextures)
         .then(|| {
@@ -261,7 +261,7 @@ pub async fn run_passes(
             );
             embed_glyphs::shared_font_collection(custom)
         });
-    #[cfg(not(feature = "software-renderer"))]
+    #[cfg(not(feature = "renderer-software"))]
     let font_collection: Option<embed_images::SharedFontCollection> = None;
 
     embed_images::embed_images(
@@ -293,7 +293,7 @@ pub async fn run_passes(
     }
 
     match type_loader.compiler_config.embed_resources {
-        #[cfg(feature = "software-renderer")]
+        #[cfg(feature = "renderer-software")]
         crate::EmbedResourcesKind::EmbedTextures => {
             let mut characters_seen = std::collections::HashSet::new();
 

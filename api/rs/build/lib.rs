@@ -82,7 +82,7 @@ pub enum EmbedResourcesKind {
     /// The files referenced from .slint files are embedded in the binary as-is (for example
     /// a PNG stays compressed), and decoded at run-time.
     EmbedFiles,
-    #[cfg(feature = "software-renderer")]
+    #[cfg(feature = "renderer-software")]
     /// Images and fonts are pre-processed at compile time and embedded as uncompressed pixel
     /// data, ready to be drawn by the software renderer without any decoding at run-time.
     ///
@@ -170,7 +170,7 @@ impl CompilerConfiguration {
             EmbedResourcesKind::EmbedFiles => {
                 i_slint_compiler::EmbedResourcesKind::EmbedAllResources
             }
-            #[cfg(feature = "software-renderer")]
+            #[cfg(feature = "renderer-software")]
             EmbedResourcesKind::EmbedForSoftwareRenderer => {
                 i_slint_compiler::EmbedResourcesKind::EmbedTextures
             }

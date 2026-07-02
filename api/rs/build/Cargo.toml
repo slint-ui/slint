@@ -18,7 +18,7 @@ categories = ["gui", "rendering::engine", "development-tools::build-utils"]
 path = "lib.rs"
 
 [features]
-default = ["compat-1-18", "software-renderer", "image-default-format"]
+default = ["compat-1-18", "renderer-software", "image-default-formats"]
 
 ## Mandatory feature:
 ## This feature is required to keep the compatibility with Slint 1.18.
@@ -28,12 +28,12 @@ default = ["compat-1-18", "software-renderer", "image-default-format"]
 "compat-1-18" = []
 
 ## Enable embedding of images and fonts optimized for the software renderer.
-## This enables the `i-slint-compiler/software-renderer` feature.
-software-renderer = ["i-slint-compiler/software-renderer"]
+## This enables the `i-slint-compiler/renderer-software` feature.
+renderer-software = ["i-slint-compiler/renderer-software"]
 ## Enable `image`'s default feature set (additional codecs).
-image-default-format = ["i-slint-compiler/image-default-format"]
+image-default-formats = ["i-slint-compiler/image-default-formats"]
 ## Enable the [`CompilerConfiguration::with_sdf_fonts`] function that encodes the font's glyphs as scalable signed distance fields, to reduce the size.
-sdf-fonts = ["i-slint-compiler/sdf-fonts"]
+sdf-fonts = ["renderer-software", "i-slint-compiler/sdf-fonts"]
 ## Enable this feature when building `.slint` libraries.
 ## This feature is experimental and may change or be removed in the future,
 ## enabling it implies opting out of [semver](https://semver.org).
