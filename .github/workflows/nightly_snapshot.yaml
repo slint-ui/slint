@@ -369,7 +369,7 @@ jobs:
 
     publish_artifacts:
         if: ${{ github.event.inputs.mode != 'test' }}
-        needs: [docs, wasm_demo, wasm, check-for-secrets, android]
+        needs: [docs, wasm_demo, wasm, check-for-secrets, android, demo_binaries, demo_binaries_linux]
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/download-artifact@v8
@@ -417,6 +417,15 @@ jobs:
               with:
                   name: android-demos
                   path: android
+            - uses: actions/download-artifact@v8
+              with:
+                  name: demo-binaries
+                  path: demo-binaries
+            - uses: actions/download-artifact@v8
+              with:
+                  pattern: demo-binaries-linux-*
+                  merge-multiple: true
+                  path: demo-binaries-linux
 
             - uses: actions/checkout@v6
               with:
@@ -496,6 +505,49 @@ jobs:
                   done
                   echo '</ul>'
                 } > $output_path/demos/android/index.html
+
+                # Flashable per-board MCU demo binaries (+ ESP Web Tools manifests) under demos/mcu/,
+                # and the runnable Linux-SBC tarballs under demos/linux/.
+                rm -rf $output_path/demos/mcu $output_path/demos/linux
+                mkdir -p $output_path/demos/mcu $output_path/demos/linux
+                cp -a ../demo-binaries/* $output_path/demos/mcu/
+                cp -a ../demo-binaries-linux/* $output_path/demos/linux/
+
+                # demos.json — the index the website reads at build time, derived from the published
+                # filenames. `boards` = MCU (flash firmware), `linux` = SBC (download + run). URLs point
+                # at this same www-releases tree (snapshots.slint.dev/<branch> or releases.slint.dev/<version>).
+                if [[ "${{ github.event.inputs.mode == 'release' }}" == "true" ]]; then
+                  demos_base="https://releases.slint.dev/${{ steps.version.outputs.VERSION }}"
+                else
+                  demos_base="https://snapshots.slint.dev/${GITHUB_REF##*/}"
+                fi
+                boards_json=$(
+                  for f in $output_path/demos/mcu/printerdemo-*; do
+                    [ -e "$f" ] || continue
+                    bn=$(basename "$f"); case "$bn" in manifest-*) continue;; esac
+                    rest=${bn#printerdemo-}; ext=${rest##*.}; feature=${rest%.*}
+                    manifest=""; [ -e "$output_path/demos/mcu/manifest-$feature.json" ] && manifest="manifest-$feature.json"
+                    jq -n --arg feature "$feature" --arg file "$bn" --arg fmt "$ext" \
+                          --arg url "$demos_base/demos/mcu/$bn" --arg manifest "$manifest" \
+                          --arg murl "$demos_base/demos/mcu/$manifest" '
+                      { key: $feature, value: (
+                          { feature: $feature, file: $file, format: $fmt, url: $url }
+                          + (if $manifest == "" then {} else { manifest: $manifest, manifestUrl: $murl } end)
+                        ) }'
+                  done | jq -s 'from_entries'
+                )
+                linux_json=$(
+                  for f in $output_path/demos/linux/printerdemo-*-linux.tar.gz; do
+                    [ -e "$f" ] || continue
+                    bn=$(basename "$f"); arch=${bn#printerdemo-}; arch=${arch%-linux.tar.gz}
+                    jq -n --arg arch "$arch" --arg file "$bn" --arg url "$demos_base/demos/linux/$bn" \
+                      '{ key: $arch, value: { arch: $arch, file: $file, format: "tar.gz", bin: "printerdemo", url: $url } }'
+                  done | jq -s 'from_entries'
+                )
+                jq -n --arg base "$demos_base" --argjson boards "$boards_json" --argjson linux "$linux_json" \
+                  '{ demo: "printerdemo", base: $base, generated: (now | todateiso8601), boards: $boards, linux: $linux }' \
+                  > $output_path/demos/demos.json
+                cat $output_path/demos/demos.json
 
                 rm -rf $output_path/wasm-interpreter
                 mkdir -p $output_path/wasm-interpreter
@@ -863,3 +915,202 @@ jobs:
               with:
                   name: android-demos
                   path: android-demos/
+
+    # Build the `printerdemo_mcu` demo for every board in examples/mcu-board-support
+    # and convert each ELF into the flashable format that board expects
+    # (.uf2 / merged .bin + ESP Web Tools manifest / .elf). The publish_artifacts job
+    # copies these (+ a `demos.json` index) into slint-ui/www-releases alongside the web
+    # demos, served from snapshots.slint.dev / releases.slint.dev; the website reads
+    # demos.json at build time to wire up download / one-click-flash / `slint.dev/flash`.
+    # The board matrix mirrors the `mcu` job in ci.yaml (the build gate); keep both in sync.
+    demo_binaries:
+        env:
+            # Match the README flash build (examples/mcu-board-support): opt-level=s only.
+            # Notably NO SLINT_FONT_SIZES (the `mcu` check-job sets 13 sizes, ~hundreds of KB of
+            # rodata that never had to *link* there) and NO `--cfg slint_int_coord`.
+            CARGO_PROFILE_DEV_DEBUG: 0
+            CARGO_PROFILE_RELEASE_OPT_LEVEL: s
+            # Pin the conversion tools; bump deliberately (see CI handover §6.4).
+            # elf2uf2-rs >= 2.2.0 accepts ELFOSABI_GNU (3) ELFs, which is what the
+            # mcu-board-support link step produces; 2.1.1 rejected them ("Unrecognized ABI").
+            ELF2UF2_VERSION: "2.2.0"
+            ESPFLASH_VERSION: "3.3.0"
+            PICOTOOL_REF: "2.1.1"
+            PICO_SDK_REF: "2.1.1"
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: thumbv6m-none-eabi,thumbv7em-none-eabihf,thumbv8m.main-none-eabihf
+            - uses: esp-rs/xtensa-toolchain@v1.7
+              with:
+                  buildtargets: esp32
+                  ldproxy: false
+
+            - name: Install conversion tool dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y libusb-1.0-0-dev libudev-dev pkg-config cmake build-essential
+            - name: Install elf2uf2-rs and espflash
+              run: |
+                  cargo install --locked elf2uf2-rs --version "$ELF2UF2_VERSION"
+                  cargo install --locked espflash --version "$ESPFLASH_VERSION"
+            - name: Build picotool (RP2350 .uf2 conversion)
+              run: |
+                  git clone --depth 1 --branch "$PICO_SDK_REF" https://github.com/raspberrypi/pico-sdk
+                  export PICO_SDK_PATH="$PWD/pico-sdk"
+                  git clone --depth 1 --branch "$PICOTOOL_REF" https://github.com/raspberrypi/picotool
+                  cmake -S picotool -B picotool/build -DPICO_SDK_PATH="$PICO_SDK_PATH"
+                  cmake --build picotool/build -j"$(nproc)"
+                  sudo cmake --install picotool/build
+
+            - name: Build and convert demo binaries
+              run: |
+                  set -euo pipefail
+                  OUT="$GITHUB_WORKSPACE/demo-out"
+                  rm -rf "$OUT"; mkdir -p "$OUT"
+                  : > "$RUNNER_TEMP/built-features.txt"
+
+                  # feature|target|kind|esp cargo-config (kind: rp2040 | rp2350 | stm | esp)
+                  BOARDS='
+                  pico-st7789|thumbv6m-none-eabi|rp2040|
+                  pico2-st7789|thumbv8m.main-none-eabihf|rp2350|
+                  pico2-touch-lcd-2-8|thumbv8m.main-none-eabihf|rp2350|
+                  stm32h735g|thumbv7em-none-eabihf|stm|
+                  stm32u5g9j-dk2|thumbv8m.main-none-eabihf|stm|
+                  esp32-s3-box-3|xtensa-esp32s3-none-elf|esp|examples/mcu-board-support/esp32_s3_box_3/cargo-config.toml
+                  esp32-s3-lcd-ev-board|xtensa-esp32s3-none-elf|esp|examples/mcu-board-support/esp32_s3_lcd_ev_board/cargo-config.toml
+                  esope-sld-c-w-s3|xtensa-esp32s3-none-elf|esp|examples/mcu-board-support/esope_sld_c_w_s3/cargo-config.toml
+                  waveshare-esp32-s3-touch-amoled-1-8|xtensa-esp32s3-none-elf|esp|examples/mcu-board-support/waveshare_esp32_s3_touch_amoled_1_8/cargo-config.toml
+                  m5stack-cores3|xtensa-esp32s3-none-elf|esp|examples/mcu-board-support/m5stack_cores3/cargo-config.toml
+                  '
+
+                  convert_fail=0
+                  while IFS='|' read -r feature target kind espcfg; do
+                    [ -z "$feature" ] && continue
+                    echo "::group::Build $feature ($kind / $target)"
+                    if [ "$kind" = "esp" ]; then
+                      cargo +esp build -p printerdemo_mcu --target "$target" --no-default-features \
+                        --features="mcu-board-support/$feature" --config "$espcfg" --release
+                    elif [ "$kind" = "stm" ]; then
+                      # STM boards route Slint's textures into external OSPI flash via the
+                      # .slint_assets linker section; without this they land in internal .rodata and
+                      # overflow FLASH (the H735 only has 1MB). Only the stm32* boards define it.
+                      SLINT_ASSET_SECTION=.slint_assets cargo build -p printerdemo_mcu --target "$target" --no-default-features \
+                        --features="mcu-board-support/$feature" --release
+                    else
+                      cargo build -p printerdemo_mcu --target "$target" --no-default-features \
+                        --features="mcu-board-support/$feature" --release
+                    fi
+                    elf="target/$target/release/printerdemo_mcu"
+                    echo "$feature" >> "$RUNNER_TEMP/built-features.txt"
+                    echo "::endgroup::"
+
+                    # Convert to the flashable format the board expects — one file per board, named
+                    # printerdemo-<feature>.<ext> (the publish job derives demos.json from the filenames).
+                    # Resilient: a conversion failure is recorded and the loop continues, so one CI run
+                    # surfaces every conversion issue; the step still fails at the end if any board failed.
+                    echo "::group::Convert $feature -> flashable artifact"
+                    if (
+                      set -e
+                      case "$kind" in
+                        rp2040)
+                          elf2uf2-rs "$elf" "$OUT/printerdemo-$feature.uf2"
+                          ;;
+                        rp2350)
+                          # -t elf is required: picotool infers type from the extension, and the
+                          # Rust binary has none. (elf2uf2-rs can't be used here — it stamps the
+                          # RP2040 family id onto RP2350 images.)
+                          picotool uf2 convert -t elf "$elf" "$OUT/printerdemo-$feature.uf2"
+                          ;;
+                        stm)
+                          # probe-rs / STM32CubeProgrammer flash the .elf directly.
+                          cp "$elf" "$OUT/printerdemo-$feature.elf"
+                          ;;
+                        esp)
+                          # Merged image (bootloader + partition table + app) flashable at offset 0
+                          # over WebSerial by ESP Web Tools, or by espflash/esptool.
+                          # --flash-size 16mb gives a large-enough app partition (the default 1MB is
+                          # too small for the ~1.4MB demo); --skip-padding keeps the file ~1.5MB
+                          # instead of padding to the full 16MB. Arg order is `<ELF> <OUTPUT>`.
+                          espflash save-image --merge --skip-padding --chip esp32s3 --flash-size 16mb "$elf" "$OUT/printerdemo-$feature.bin"
+                          jq -n --arg feature "$feature" --arg path "printerdemo-$feature.bin" \
+                            '{name: ("Slint printerdemo (" + $feature + ")"), builds: [ {chipFamily: "ESP32-S3", parts: [ {path: $path, offset: 0} ]} ]}' \
+                            > "$OUT/manifest-$feature.json"
+                          ;;
+                      esac
+                    ); then
+                      :
+                    else
+                      echo "::warning::conversion failed for $feature ($kind)"
+                      convert_fail=1
+                    fi
+                    echo "::endgroup::"
+                  done <<< "$BOARDS"
+
+                  echo "Produced artifacts:"; ls -l "$OUT"
+                  if [ "$convert_fail" -ne 0 ]; then
+                    echo "::error::one or more board conversions failed (see warnings above)"
+                    exit 1
+                  fi
+
+            - name: Guardrail - built boards must match mcu-board-support features
+              run: |
+                  set -euo pipefail
+                  # Single source of truth (CI handover §6.1): the buildable board features are the
+                  # [features] of examples/mcu-board-support. Fail loudly if this job's matrix drifts
+                  # from it (a new board added there but not built here, or vice versa).
+                  built=$(sort -u "$RUNNER_TEMP/built-features.txt")
+                  declared=$(awk '/^\[features\]/{f=1; next} /^\[/{f=0} f && /^[a-z0-9][a-z0-9-]* *= *\[/{sub(/ *=.*/, ""); print}' examples/mcu-board-support/Cargo.toml | sort -u)
+                  if ! diff <(printf '%s\n' "$built") <(printf '%s\n' "$declared"); then
+                    echo "::error::Demo board matrix drifted from examples/mcu-board-support [features] (< built here, > declared there)."
+                    exit 1
+                  fi
+                  echo "Board matrix in sync with mcu-board-support ($(printf '%s\n' "$declared" | grep -c .) boards)."
+
+            - name: Upload demo-binaries artifact
+              uses: actions/upload-artifact@v7
+              with:
+                  name: demo-binaries
+                  path: demo-out/
+
+    # The Linux-SBC counterpart of demo_binaries: cross-build the std `printerdemo`
+    # (winit + linuxkms backends, femtovg + software renderers) for the common 64/32-bit
+    # ARM Linux targets, so a Raspberry Pi / i.MX-class board runs the demo by downloading
+    # and executing it (`SLINT_BACKEND=linuxkms` for a no-compositor kiosk) — no flashing.
+    # publish_artifacts ships these to www-releases under demos/linux/ and lists them in demos.json.
+    demo_binaries_linux:
+        needs: [cross_containers]
+        env:
+            SLINT_NO_QT: 1
+        strategy:
+            matrix:
+                include:
+                    - target: aarch64-unknown-linux-gnu
+                      arch: aarch64
+                    - target: armv7-unknown-linux-gnueabihf
+                      arch: armv7
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/setup-rust
+              with:
+                  target: ${{ matrix.target }}
+            - uses: baptiste0928/cargo-install@v3
+              with:
+                  crate: cross
+            - name: Build printerdemo
+              run: cross build --target ${{ matrix.target }} --release -p printerdemo --features "slint/backend-linuxkms-noseat,slint/backend-winit,slint/renderer-femtovg,slint/renderer-software"
+            - name: Package tarball
+              run: |
+                  set -euo pipefail
+                  mkdir -p demo-out-linux
+                  tar -C target/${{ matrix.target }}/release -czf \
+                      demo-out-linux/printerdemo-${{ matrix.arch }}-linux.tar.gz printerdemo
+                  ls -l demo-out-linux
+            - name: Upload demo-binaries-linux artifact
+              uses: actions/upload-artifact@v7
+              with:
+                  name: demo-binaries-linux-${{ matrix.arch }}
+                  path: demo-out-linux/
