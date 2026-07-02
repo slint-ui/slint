@@ -167,7 +167,9 @@ fn generate_public_component(
     }
 
     let include_paths = compiler_config.include_paths.iter().map(|p| p.to_string_lossy());
-    let library_paths = compiler_config.library_paths.iter().map(|(n, p)| {
+    let mut sorted_library_paths: Vec<_> = compiler_config.library_paths.iter().collect();
+    sorted_library_paths.sort_by(|a, b| a.0.cmp(b.0));
+    let library_paths = sorted_library_paths.into_iter().map(|(n, p)| {
         let p = p.to_string_lossy();
         quote!((#n.to_string(), #p.into()))
     });

@@ -144,14 +144,14 @@ fn generate_public_component(
                 .map(|p| format!("\"{}\"", escape_string(&p.to_string_lossy())))
                 .join(", ")
         ),
-        format!(
-            "slint::SharedVector<slint::SharedString> library_paths{{ {} }};",
-            compiler_config
-                .library_paths
-                .iter()
+        format!("slint::SharedVector<slint::SharedString> library_paths{{ {} }};", {
+            let mut library_paths: Vec<_> = compiler_config.library_paths.iter().collect();
+            library_paths.sort_by(|a, b| a.0.cmp(b.0));
+            library_paths
+                .into_iter()
                 .map(|(l, p)| format!("\"{l}={}\"", p.to_string_lossy()))
                 .join(", ")
-        ),
+        }),
         format!(
             "auto live_preview = slint::private_api::live_preview::LiveReloadingComponent({main_file:?}, {:?}, include_paths, library_paths, {:?}, {:?}, {});",
             component.name,
