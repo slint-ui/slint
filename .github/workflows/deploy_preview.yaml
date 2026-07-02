@@ -54,7 +54,7 @@ jobs:
                     core.setOutput('pr_number', pr.number);
                     core.setOutput('head_sha', pr.head.sha);
 
-            - uses: pnpm/action-setup@v6.0.8
+            - uses: pnpm/action-setup@v6.0.9
               with:
                 version: 10.29.3
 
