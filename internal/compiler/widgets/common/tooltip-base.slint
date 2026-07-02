@@ -5,17 +5,18 @@ import { Palette } from "style-base.slint";
 
 export component ToolTipImpl inherits Rectangle {
     in property <styled-text> text;
+    in property <bool> no-frame;
 
-    background: Palette.alternate-background;
-    border-radius: 4px;
-    border-width: 1px;
-    border-color: Palette.border;
+    background: root.no-frame ? transparent : Palette.alternate-background;
+    border-radius: root.no-frame ? 0px : 4px;
+    border-width: root.no-frame ? 0px : 1px;
+    border-color: root.no-frame ? transparent : Palette.border;
 
     VerticalLayout {
-        padding-left: 9px;
-        padding-right: 9px;
-        padding-top: 6px;
-        padding-bottom: 6px;
+        padding-left: root.no-frame ? 0px : 9px;
+        padding-right: root.no-frame ? 0px : 9px;
+        padding-top: root.no-frame ? 0px : 6px;
+        padding-bottom: root.no-frame ? 0px : 6px;
 
         StyledText {
             text: root.text;
