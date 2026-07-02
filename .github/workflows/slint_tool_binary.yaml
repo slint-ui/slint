@@ -81,7 +81,7 @@ jobs:
 
         runs-on: ${{ matrix.runner}}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: ${{ matrix.arch }}
@@ -113,7 +113,7 @@ jobs:
     build_linux:
         runs-on: ubuntu-22.04
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/install-linux-dependencies
             - uses: ./.github/actions/setup-rust
               with:
@@ -142,7 +142,7 @@ jobs:
                 - armv7-unknown-linux-gnueabihf
                 - aarch64-unknown-linux-gnu
       steps:
-          - uses: actions/checkout@v6
+          - uses: actions/checkout@v7
           - uses: ./.github/actions/setup-rust
             with:
                 target: x86_64-unknown-linux-gnu
@@ -168,7 +168,7 @@ jobs:
     build_macos:
         runs-on: macos-26
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   target: x86_64-apple-darwin

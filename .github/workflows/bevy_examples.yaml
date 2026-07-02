@@ -36,7 +36,7 @@ jobs:
                 os: [ubuntu-22.04, macos-14, windows-2022]
         runs-on: ${{ matrix.os }}
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@v7
             - uses: ./.github/actions/setup-rust
               with:
                   save_if: ${{ inputs.save_if }}
