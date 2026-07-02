@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+use slint::ComponentHandle;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
@@ -9,7 +10,6 @@ pub mod ui;
 
 mod callback;
 pub use callback::*;
-pub use slint::*;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
