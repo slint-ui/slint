@@ -400,28 +400,11 @@ pub(crate) struct PopupWindowPropertiesTracker {
     parent_window_adapter_weak: Weak<dyn WindowAdapter>,
     /// ID of the popup this tracker belongs to, used to re-evaluate after notification
     popup_id: NonZeroU32,
-    /// Whether the popup is rendered as an embedded child window (as opposed to its own top-level
-    /// window). Child-window popups have their geometry re-evaluated synchronously from the parent's
-    /// render path (see [`WindowInner::update_active_popups_geometry`]), so that their size, position
-    /// and dirty region are updated within the same frame. Otherwise a resize takes effect via live
-    /// layout one frame before the position and dirty region catch up, leaving artifacts.
-    is_child_window: bool,
 }
 
 impl crate::properties::PropertyDirtyHandler for PopupWindowPropertiesTracker {
     fn notify(self: Pin<&Self>) {
         let parent = self.parent_window_adapter_weak.clone();
-        if self.is_child_window {
-            // Defer the geometry re-evaluation to the next frame's render, where the popup's size,
-            // position and dirty region are updated atomically in `update_active_popups_geometry`.
-            // Just make sure a frame happens. `request_redraw` merely sets a flag, so it is safe to
-            // call even while `update_popup_properties` holds the `active_popups` borrow (setting the
-            // window item size there re-notifies this tracker).
-            if let Some(parent_adapter) = parent.upgrade() {
-                parent_adapter.request_redraw();
-            }
-            return;
-        }
         let popup_id = self.popup_id;
         // Use a timer here, so if we change multiple properties at the same time not multiple notifications are send
         // This timer will delay for the next evaluation
@@ -1523,9 +1506,7 @@ impl WindowInner {
                     if !new_popup_region.is_empty() {
                         adapter.renderer().mark_dirty_region(new_popup_region.into());
                     }
-                    // No `request_redraw` here: for child-window popups this runs from the parent's
-                    // render path (`update_active_popups_geometry`) and the regions just marked are
-                    // consumed in the same frame
+                    adapter.request_redraw();
                 }
             }
             PopupWindowLocation::TopLevel(adapter) => {
@@ -1551,31 +1532,6 @@ impl WindowInner {
     /// of any item tree.
     ///
     /// Returns None if no component is set yet.
-    /// Re-evaluate the geometry of every active child-window popup whose tracked properties changed
-    /// since the last evaluation, committing the new location and marking the affected regions dirty.
-    ///
-    /// This runs from the parent's render path (the start of [`Self::draw_contents`]), *before* the
-    /// renderer collects the dirty region and reads the popup locations. Doing it here keeps a popup's
-    /// size (applied via live layout during rendering), its position and its dirty region in sync
-    /// within a single frame. Evaluating it out of band — e.g. from a timer between frames — lets a
-    /// resize reach the framebuffer one frame before the position and dirty region catch up, which
-    /// leaves the stale, differently-sized popup content behind as artifacts.
-    fn update_active_popups_geometry(&self) {
-        let dirty_child_popups: Vec<NonZeroU32> = self
-            .active_popups
-            .borrow()
-            .iter()
-            .filter(|popup| {
-                matches!(popup.location, PopupWindowLocation::ChildWindow(..))
-                    && popup.properties_tracker.is_dirty()
-            })
-            .map(|popup| popup.popup_id)
-            .collect();
-        for popup_id in dirty_child_popups {
-            self.update_popup_properties(popup_id);
-        }
-    }
-
     pub fn draw_contents<T>(
         &self,
         render_components: impl FnOnce(
@@ -1584,7 +1540,6 @@ impl WindowInner {
         ) -> T,
     ) -> Option<T> {
         crate::properties::evaluate_no_tracking(|| self.ensure_tree_instantiated());
-        self.update_active_popups_geometry();
         let component_weak = ItemTreeRc::downgrade(&self.try_component()?);
         let post_render = |renderer: &mut dyn crate::item_rendering::ItemRenderer| {
             self.render_drag_image_overlay(renderer);
@@ -1881,7 +1836,6 @@ impl WindowInner {
                         PopupWindowPropertiesTracker {
                             parent_window_adapter_weak: parent_window_adapter_weak.clone(),
                             popup_id,
-                            is_child_window: true,
                         },
                     )),
                 )
@@ -1898,7 +1852,6 @@ impl WindowInner {
                         PopupWindowPropertiesTracker {
                             parent_window_adapter_weak: parent_window_adapter_weak.clone(),
                             popup_id,
-                            is_child_window: false,
                         },
                     )),
                 )
@@ -1932,8 +1885,6 @@ impl WindowInner {
         });
 
         self.update_popup_properties(popup_id);
-        // redraw_request for the ChildWindow Popup is already done
-        // above so we don't have to do it here again
 
         popup_id
     }
