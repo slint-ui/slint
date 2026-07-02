@@ -4,6 +4,8 @@
 import { MaterialPalette, MaterialFontSettings, Icons } from "styling.slint";
 import { SpinBoxBase } from "../common/spinbox-base.slint";
 
+import { SpinBoxInterface } from "../common/std-widget-interfaces.slint";
+
 component SpinBoxButton inherits Rectangle {
     in-out property <bool> pressed: self.enabled && touch-area.pressed;
     in-out property <bool> enabled <=> touch-area.enabled;
@@ -57,18 +59,7 @@ component SpinBoxButton inherits Rectangle {
 }
 
 // Increment and decrement a value in the given range.
-export component SpinBox {
-    in property <int> minimum <=> base.minimum;
-    in property <int> maximum <=> base.maximum;
-    in property <bool> enabled <=> base.enabled;
-    in property <int> step-size <=> base.step-size;
-    in property <bool> read-only <=> base.read-only;
-    in property <TextHorizontalAlignment> horizontal-alignment <=> base.horizontal-alignment;
-    out property <bool> has-focus <=> base.has-focus;
-    in-out property <int> value <=> base.value;
-
-    callback edited <=> base.edited;
-
+export component SpinBox uses { SpinBoxInterface from base } {
     forward-focus: base;
     horizontal-stretch: 1;
     vertical-stretch: 0;

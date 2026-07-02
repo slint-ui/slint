@@ -4,13 +4,10 @@
 import { CupertinoFontSettings, CupertinoPalette } from "styling.slint";
 import { FocusBorder } from "components.slint";
 
-export component Switch {
-    in property <bool> enabled: true;
-    in property <string> text;
-    out property <bool> has-focus: i-focus-scope.has-focus;
-    in-out property <bool> checked;
+import { SwitchInterface } from "../common/std-widget-interfaces.slint";
 
-    callback toggled;
+export component Switch implements SwitchInterface {
+    has-focus: i-focus-scope.has-focus;
 
     private property <brush> background: checked && root.enabled ? CupertinoPalette.accent-background : CupertinoPalette.alternate-control-background;
     private property <color> text-color: CupertinoPalette.foreground;

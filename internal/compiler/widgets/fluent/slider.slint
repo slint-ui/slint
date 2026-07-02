@@ -4,18 +4,9 @@
 import { FluentPalette } from "styling.slint";
 import { SliderBase } from "../common/slider-base.slint";
 
-export component Slider {
-    in property <Orientation> orientation <=> base.orientation;
-    in property <float> maximum <=> base.maximum;
-    in property <float> minimum <=> base.minimum;
-    in property <float> step <=> base.step;
-    in property <bool> enabled <=> base.enabled;
-    out property <bool> has-focus: base.has-focus;
-    in-out property <float> value <=> base.value;
+import { SliderInterface } from "../common/std-widget-interfaces.slint";
 
-    callback changed <=> base.changed;
-    callback released <=> base.released;
-
+export component Slider uses { SliderInterface from base } {
     min-width: base.vertical ? 20px : 0px;
     min-height: base.vertical ? 0px : 20px;
     vertical-stretch: base.vertical ? 1 : 0;

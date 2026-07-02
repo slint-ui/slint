@@ -1,0 +1,32 @@
+// Copyright © 2026 Klarälvdalens Datakonsult AB, a KDAB Group company <info@kdab.com>, author Nathan Collins <nathan.collins@kdab.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export interface TextEdit {
+    in property <length> font-size: 0px;
+    in property <string> font-family: "";
+    in property <bool> font-italic: false;
+    in-out property <string> text: "";
+    out property <bool> has-focus: false;
+    in property <bool> enabled: true;
+    in property <bool> read-only: false;
+    in property <TextWrap> wrap: TextWrap.no-wrap;
+    in property <TextHorizontalAlignment> horizontal-alignment: TextHorizontalAlignment.left;
+    in property <string> placeholder-text: "";
+    out property <length> visible-width: 0px;
+    out property <length> visible-height: 0px;
+    in-out property <length> viewport-x: 0px;
+    in-out property <length> viewport-y: 0px;
+    in-out property <length> viewport-width: 0px;
+    in-out property <length> viewport-height: 0px;
+
+    callback edited(text: string);
+    callback key-pressed(event: KeyEvent) -> EventResult;
+    callback key-released(event: KeyEvent) -> EventResult;
+
+    public function set-selection-offsets(start: int, end: int);
+    public function select-all();
+    public function clear-selection();
+    public function copy();
+    public function cut();
+    public function paste();
+}

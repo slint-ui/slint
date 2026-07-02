@@ -3,13 +3,11 @@
 
 import { MaterialPalette, MaterialFontSettings } from "styling.slint";
 
-export component Switch {
-    in property <string> text <=> i-label.text;
-    in property <bool> enabled: true;
-    out property <bool> has-focus: i-focus-scope.has-focus;
-    in-out property <bool> checked;
+import { SwitchInterface } from "../common/std-widget-interfaces.slint";
 
-    callback toggled;
+export component Switch implements SwitchInterface {
+    text <=> i-label.text;
+    has-focus: i-focus-scope.has-focus;
 
     function toggle-checked() {
         if(!root.enabled) {
