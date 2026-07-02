@@ -1436,8 +1436,8 @@ fn partial_rendering_popup_position_size_change() {
 
             callback increment_properties();
             increment_properties() => {
-                debug("Increment called");
                 MyProperty.popup-increment += 1;
+                debug("Increment called: ", MyProperty.popup-increment);
             }
 
             popup:= PopupWindow {
@@ -1455,13 +1455,14 @@ fn partial_rendering_popup_position_size_change() {
                         if click-count == 0 {
                             change_popup();
                         } else {
-                            properties-change += 1;
+                            increment_properties();
                         }
                         click-count += 1;
                     }
                 }
 
                 changed properties-change => {
+                    debug("Popup properties-change: ", properties-change);
                     self.x += 10px;
                     self.y += 20px;
                     self.width += 30px;
@@ -1596,6 +1597,7 @@ fn partial_rendering_popup_position_size_change() {
 
     ui.invoke_increment_properties();
     // The popup properties change trigger a tracker with a timer we have to process before the next draw.
+    slint::platform::update_timers_and_animations();
     slint::platform::update_timers_and_animations();
     assert!(window.draw_if_needed());
     slint::platform::update_timers_and_animations();
