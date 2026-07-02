@@ -2419,18 +2419,14 @@ export component Win inherits Window {
     let store: Store = Default::default();
     {
         let store = store.clone();
-        instance.set_debug_hook_callback(Some(Box::new(
-            move |id: &str, value: Value| -> Value {
-                let mut m = (*store).borrow_mut();
-                let p = m
-                    .entry(SmolStr::from(id))
-                    .or_insert_with(|| Box::pin(Property::new(None)));
-                match p.as_ref().get() {
-                    Some(v) => v,
-                    None => value,
-                }
-            },
-        )));
+        instance.set_debug_hook_callback(Some(Box::new(move |id: &str, value: Value| -> Value {
+            let mut m = (*store).borrow_mut();
+            let p = m.entry(SmolStr::from(id)).or_insert_with(|| Box::pin(Property::new(None)));
+            match p.as_ref().get() {
+                Some(v) => v,
+                None => value,
+            }
+        })));
     }
 
     let set_override = |name: &str, value: Option<f64>| {

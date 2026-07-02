@@ -196,7 +196,7 @@ export component EditorCanvas inherits Rectangle {
         // selection-area so the active frame intercepts clicks on the selected element.
         // Note: This sits outside of the PhoneChrome so it doesn't get clipped.
         //
-        // TODO: Ugly hack! The root.selections model currently is constantly 
+        // TODO: Ugly hack! The root.selections model currently is constantly
         // recreated, which means if we do an actual `for` loop over it, the
         // MoveResizeFrame is recreated on every change, which means we lose all
         // local state like the drag position, and the interaction becomes jumpy and unusable.
