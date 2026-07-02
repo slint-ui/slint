@@ -62,6 +62,7 @@ pub enum EventResult {
 }
 
 mod renderer {
+    use std::rc::Weak;
     use std::sync::Arc;
 
     use i_slint_core::platform::PlatformError;
@@ -82,6 +83,7 @@ mod renderer {
             &self,
             active_event_loop: &ActiveEventLoop,
             window_attributes: winit::window::WindowAttributes,
+            window_adapter_weak: Weak<crate::winitwindowadapter::WinitWindowAdapter>,
         ) -> Result<Arc<winit::window::Window>, PlatformError>;
     }
 
