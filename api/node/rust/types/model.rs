@@ -244,6 +244,108 @@ impl Model for JsModel {
         }
     }
 
+    fn push_row(&self, data: Self::Data) {
+        let Some(model_unknown) = self.js_impl.get_unknown() else {
+            eprintln!("Node.js: JavaScript Model<T>'s pushRow threw an exception");
+            return;
+        };
+
+        let Ok(model) = model_unknown.coerce_to_object() else {
+            eprintln!("Node.js: JavaScript Model<T> is not an object");
+            return;
+        };
+
+        let push_row_fn: Function<Unknown<'_>, Unknown> = match model.get_named_property("pushRow")
+        {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("{}", e.to_string());
+                eprintln!(
+                    "Node.js: JavaScript Model<T> implementation is missing pushRow property"
+                );
+                return;
+            }
+        };
+
+        let Ok(js_data) = to_js_unknown(&self.env, &data) else {
+            eprintln!(
+                "Node.js: Model<T>'s push_row called by Rust with data type that can't be represented in JavaScript"
+            );
+            return;
+        };
+
+        if let Err(exception) = push_row_fn.apply(model, js_data) {
+            eprintln!(
+                "Node.js: JavaScript Model<T>'s pushRow function threw an exception: {exception}"
+            );
+        }
+    }
+
+    fn remove_row(&self, row: isize) {
+        let Some(model_unknown) = self.js_impl.get_unknown() else {
+            eprintln!("Node.js: JavaScript Model<T>'s removeRow threw an exception");
+            return;
+        };
+
+        let Ok(model) = model_unknown.coerce_to_object() else {
+            eprintln!("Node.js: JavaScript Model<T> is not an object");
+            return;
+        };
+
+        let remove_row_fn: Function<f64, Unknown> = match model.get_named_property("removeRow") {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("{}", e.to_string());
+                eprintln!(
+                    "Node.js: JavaScript Model<T> implementation is missing removeRow property"
+                );
+                return;
+            }
+        };
+
+        if let Err(exception) = remove_row_fn.apply(model, row as f64) {
+            eprintln!(
+                "Node.js: JavaScript Model<T>'s removeRow function threw an exception: {exception}"
+            );
+        }
+    }
+
+    fn insert_row(&self, row: isize, data: Self::Data) {
+        let Some(model_unknown) = self.js_impl.get_unknown() else {
+            eprintln!("Node.js: JavaScript Model<T>'s insertRow threw an exception");
+            return;
+        };
+
+        let Ok(model) = model_unknown.coerce_to_object() else {
+            eprintln!("Node.js: JavaScript Model<T> is not an object");
+            return;
+        };
+
+        let insert_row_fn: Function<FnArgs<(f64, Unknown<'_>)>, Unknown> =
+            match model.get_named_property("insertRow") {
+                Ok(f) => f,
+                Err(_) => {
+                    eprintln!(
+                        "Node.js: JavaScript Model<T> implementation is missing insertRow property"
+                    );
+                    return;
+                }
+            };
+
+        let Ok(js_data) = to_js_unknown(&self.env, &data) else {
+            eprintln!(
+                "Node.js: Model<T>'s insert_row called by Rust with data type that can't be represented in JavaScript"
+            );
+            return;
+        };
+
+        if let Err(exception) = insert_row_fn.apply(model, FnArgs::from((row as f64, js_data))) {
+            eprintln!(
+                "Node.js: JavaScript Model<T>'s insertRow function threw an exception: {exception}"
+            );
+        }
+    }
+
     fn model_tracker(&self) -> &dyn i_slint_core::model::ModelTracker {
         &**self.shared_model_notify
     }

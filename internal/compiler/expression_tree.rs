@@ -86,6 +86,9 @@ pub enum BuiltinFunction {
     ColorWithAlpha,
     ImageSize,
     ArrayLength,
+    ArrayPush,
+    ArrayRemove,
+    ArrayInsert,
     Rgb,
     Hsv,
     Oklch,
@@ -162,6 +165,9 @@ pub enum BuiltinMacroFunction {
     Oklch,
     /// transform `debug(a, b, c)` into debug `a + " " + b + " " + c`
     Debug,
+    ArrayPush,
+    ArrayRemove,
+    ArrayInsert,
 }
 
 macro_rules! declare_builtin_function_types {
@@ -276,6 +282,10 @@ declare_builtin_function_types!(
         name: crate::langtype::BuiltinStruct::Size.into(),
     })),
     ArrayLength: (Type::Model) -> Type::Int32,
+    // Using Type::InferredProperty as there is currently no valid type for the data argument.
+    ArrayPush: (Type::Model, Type::InferredProperty) -> Type::Void,
+    ArrayRemove: (Type::Model, Type::Int32) -> Type::Void,
+    ArrayInsert: (Type::Model, Type::Int32, Type::InferredProperty) -> Type::Void,
     Rgb: (Type::Int32, Type::Int32, Type::Int32, Type::Float32) -> Type::Color,
     Hsv: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
     Oklch: (Type::Float32, Type::Float32, Type::Float32, Type::Float32) -> Type::Color,
@@ -409,6 +419,9 @@ impl BuiltinFunction {
             #[cfg(target_arch = "wasm32")]
             BuiltinFunction::ImageSize => false,
             BuiltinFunction::ArrayLength => true,
+            BuiltinFunction::ArrayPush
+            | BuiltinFunction::ArrayRemove
+            | BuiltinFunction::ArrayInsert => false,
             BuiltinFunction::Rgb => true,
             BuiltinFunction::Hsv => true,
             BuiltinFunction::Oklch => true,
@@ -498,6 +511,9 @@ impl BuiltinFunction {
             | BuiltinFunction::ColorWithAlpha => true,
             BuiltinFunction::ImageSize => true,
             BuiltinFunction::ArrayLength => true,
+            BuiltinFunction::ArrayPush
+            | BuiltinFunction::ArrayRemove
+            | BuiltinFunction::ArrayInsert => false,
             BuiltinFunction::Rgb => true,
             BuiltinFunction::Hsv => true,
             BuiltinFunction::Oklch => true,

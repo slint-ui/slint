@@ -1133,16 +1133,20 @@ impl LookupObject for ArrayExpression<'_> {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&SmolStr, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        let member_function = |f: BuiltinFunction| {
+        let function_call = |f: BuiltinFunction| {
             LookupResult::from(Expression::FunctionCall {
                 function: Callable::Builtin(f),
                 source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
                 arguments: vec![self.0.clone()],
             })
         };
-        None.or_else(|| {
-            f(&SmolStr::new_static("length"), member_function(BuiltinFunction::ArrayLength))
-        })
+        let mut member_macro = member_macro_generator(self.0.clone(), ctx.current_token.clone());
+
+        let mut f = |s, res| f(&SmolStr::new_static(s), res);
+        None.or_else(|| f("length", function_call(BuiltinFunction::ArrayLength)))
+            .or_else(|| f("push", member_macro(BuiltinMacroFunction::ArrayPush)))
+            .or_else(|| f("remove", member_macro(BuiltinMacroFunction::ArrayRemove)))
+            .or_else(|| f("insert", member_macro(BuiltinMacroFunction::ArrayInsert)))
     }
 }
 
