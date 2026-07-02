@@ -147,8 +147,8 @@ public:
         slint_windowrc_set_component(&inner, &item_tree_rc);
     }
 
-    template<typename Component, typename Parent, typename PosGetter, typename IsOpenSetter>
-    uint32_t show_popup(const Parent *parent_component, PosGetter pos,
+    template<typename Component, typename Parent, typename IsOpenSetter>
+    uint32_t show_popup(const Parent *parent_component,
                         cbindgen_private::PopupClosePolicy close_policy,
                         cbindgen_private::ItemRc parent_item,
                         cbindgen_private::WindowKind window_kind, IsOpenSetter is_open_setter) const
@@ -165,24 +165,11 @@ public:
         auto popup = Component::create(parent_component, _own_globals);
         auto popup_dyn = popup.into_dyn();
 
-        struct PopupPositionData
-        {
-            PosGetter pos;
-            decltype(popup) popup_component;
-        };
-
-        auto position_data = new PopupPositionData { std::move(pos), popup };
         // Keeps the parent component's `PopupWindow::is-open` property in sync: invoked with `true`
         // when the popup is shown and with `false` from every close path.
         auto is_open_data = new IsOpenSetter(std::move(is_open_setter));
         auto id = cbindgen_private::slint_windowrc_show_popup(
-                &inner, &popup_dyn,
-                [](void *user_data, LogicalPosition *pos) {
-                    auto data = reinterpret_cast<PopupPositionData *>(user_data);
-                    *pos = data->pos(data->popup_component);
-                },
-                [](void *user_data) { delete reinterpret_cast<PopupPositionData *>(user_data); },
-                position_data, close_policy, &parent_item, window_kind,
+                &inner, &popup_dyn, close_policy, &parent_item, window_kind,
                 [](void *user_data, bool is_open) {
                     (*reinterpret_cast<IsOpenSetter *>(user_data))(is_open);
                 },
@@ -231,17 +218,11 @@ public:
         auto popup = Component::create(globals);
         init(&*popup);
         auto popup_dyn = popup.into_dyn();
-        auto position_data = new LogicalPosition(pos);
         auto id = cbindgen_private::slint_windowrc_show_popup(
-                &inner, &popup_dyn,
-                [](void *user_data, LogicalPosition *pos) {
-                    *pos = *reinterpret_cast<LogicalPosition *>(user_data);
-                },
-                [](void *user_data) { delete reinterpret_cast<LogicalPosition *>(user_data); },
-                position_data, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
+                &inner, &popup_dyn, cbindgen_private::PopupClosePolicy::CloseOnClickOutside,
                 &context_menu_rc, cbindgen_private::WindowKind::Menu,
                 // Menus do not expose `is-open`, so the setter is a no-op.
-                [](void *, bool) {}, [](void *) {}, nullptr);
+                [](void *, bool) { }, [](void *) { }, nullptr);
         popup->user_init();
         return id;
     }

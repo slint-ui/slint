@@ -20,8 +20,11 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
     let mut to_materialize = std::collections::HashMap::new();
 
     visit_all_named_references(component, &mut |nr| {
-        let elem = nr.element();
-        let elem = elem.borrow();
+        let elem_rc = nr.element();
+        if is_reserved_popup_position(&elem_rc, nr.name()) {
+            return;
+        }
+        let elem = elem_rc.borrow();
         if !to_materialize.contains_key(nr)
             && let Some(ty) =
                 should_materialize(&elem.property_declarations, &elem.base_type, nr.name())
@@ -40,6 +43,9 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
 
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
         for prop in elem.borrow().bindings.keys() {
+            if is_reserved_popup_position(elem, prop) {
+                continue;
+            }
             let nr = NamedReference::new(elem, prop.clone());
             if let std::collections::hash_map::Entry::Vacant(e) = to_materialize.entry(nr) {
                 let elem = elem.borrow();
@@ -89,6 +95,20 @@ fn must_initialize(elem: &Element, prop: &str) -> bool {
         None => true,
         Some(b) => matches!(b.borrow().expression, Expression::Invalid),
     }
+}
+
+/// `x`/`y` on a `PopupWindow`'s root element must bind to the native `WindowItem` item fields
+/// (the popup position, read at show time), not to synthesized component storage. Because `x`/`y`
+/// are reserved geometry names, `should_materialize` would otherwise turn them into local
+/// properties, and the binding would no longer reach the item. The popup's geometry `x`/`y` are
+/// kept at the dummy `(0, 0)` separately (see `lower_popups`).
+fn is_reserved_popup_position(elem: &ElementRc, name: &str) -> bool {
+    (name == "x" || name == "y")
+        && elem
+            .borrow()
+            .enclosing_component
+            .upgrade()
+            .is_some_and(|c| c.inherits_popup_window.get() && Rc::ptr_eq(&c.root_element, elem))
 }
 
 /// Returns a type if the property needs to be materialized.

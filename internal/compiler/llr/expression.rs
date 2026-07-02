@@ -882,6 +882,12 @@ impl<'a, T> EvaluationContext<'a, T> {
                     return &Type::PathData;
                 }
                 let item = &sc.items[*item_index];
+                if item.ty.class_name == "WindowItem" && (prop_name == "x" || prop_name == "y") {
+                    // A lowered `PopupWindow`'s `x`/`y` bind directly to the `WindowItem` item
+                    // fields (the popup position). They are not declared on the `WindowItem`
+                    // NativeClass, so resolve their type here. See `materialize_fake_properties`.
+                    return &Type::LogicalLength;
+                }
                 item.ty.lookup_property(prop_name).unwrap_or_else(|| {
                     panic!("Failed to lookup property {prop_name} for {}", item.name)
                 })

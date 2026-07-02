@@ -4937,14 +4937,6 @@ fn compile_builtin_function_call(
                 let popup_window_id =
                     ident(&ctx.compilation_unit.sub_components[popup.item_tree.root].name);
                 let parent_component = access_item_rc(parent_ref, ctx);
-                let parent_ctx = ParentScope::new(ctx, None);
-                let popup_ctx = EvaluationContext::new_sub_component(
-                    ctx.compilation_unit,
-                    popup.item_tree.root,
-                    CppGeneratorContext { global_access: "self->globals".into(), conditional_includes: ctx.generator_state.conditional_includes },
-                    Some(&parent_ctx),
-                );
-                let position = compile_expression(&popup.position.borrow(), &popup_ctx);
                 let close_policy = compile_expression(close_policy, ctx);
                 let window_kind = if popup.is_tooltip { "slint::cbindgen_private::WindowKind::ToolTip" } else { "slint::cbindgen_private::WindowKind::Popup" };
                 // Keep the parent's `is-open` property in sync. The setter is passed directly into
@@ -4976,7 +4968,6 @@ fn compile_builtin_function_call(
                     "{window}.close_popup({component_access}->popup_id_{popup_index}); \
                     {component_access}->popup_id_{popup_index} =  \
                         {window}.template show_popup<{popup_window_id}>(&*({component_access}),  \
-                                                                        [=](auto self) {{ return {position}; }},  \
                                                                         {close_policy},  \
                                                                         {{ {parent_component} }},  \
                                                                         {window_kind},  \
