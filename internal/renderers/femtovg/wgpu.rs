@@ -318,6 +318,8 @@ impl FemtoVGRenderer<WGPUBackend> {
                 requested_graphics_api,
                 /* rendering artifacts :( */
                 wgpu::Backends::GL,
+                // FemtoVG renders through wgpu directly, so it has no separate command queue to share.
+                None,
             )?;
 
         let mut surface_config =
