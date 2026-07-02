@@ -1602,17 +1602,29 @@ impl WindowInner {
                             h
                         };
 
-                        (
-                            old_popup_region,
-                            LogicalRect::new(
-                                (popup.position_access)().to_euclid(),
+                        let clip_region = Some(LogicalRect::new(
+                            LogicalPoint::new(0.0 as crate::Coord, 0.0 as crate::Coord),
+                            self.window_adapter()
+                                .size()
+                                .to_logical(self.scale_factor())
+                                .to_euclid(),
+                        ));
+
+                        let new_region_clipped = popup::place_popup(
+                            popup::Placement::Fixed(LogicalRect::new(
+                                offset,
                                 crate::lengths::LogicalSize::new(width, height),
-                            ),
-                        )
+                            )),
+                            &clip_region,
+                        );
+
+                        (old_popup_region, new_region_clipped)
                     });
 
+                self.window_adapter().request_redraw();
+
                 // Set new location
-                *old_location = offset;
+                *old_location = new_popup_region.origin;
 
                 if let Some(adapter) = self.window_adapter_weak.upgrade() {
                     if !old_popup_region.is_empty() {
