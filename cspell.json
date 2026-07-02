@@ -319,7 +319,10 @@
     "springgreen",
     "steelblue",
     "whitesmoke",
-    "yellowgreen"
+    "yellowgreen",
+    "hotspot",
+    "builtinmousecursor",
+    "mousecursor"
   ],
   "ignorePaths": [
     ".github/**",

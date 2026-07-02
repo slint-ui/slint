@@ -487,6 +487,7 @@ impl TypeRegister {
         register.insert_type(Type::StyledText);
         register.insert_type(Type::Keys);
         register.insert_type(Type::DataTransfer);
+        register.insert_type(Type::MouseCursor);
         register.types.insert("Point".into(), logical_point_type().into());
         register.types.insert("Size".into(), logical_size_type().into());
 

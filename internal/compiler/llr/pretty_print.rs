@@ -380,6 +380,7 @@ impl<'a, T> Display for DisplayExpression<'a, T> {
                 values.iter().map(|(k, v)| format!("{}: {}", k, e(v))).join(", ")
             ),
             Expression::EasingCurve(x) => write!(f, "{x:?}"),
+            Expression::MouseCursor(x) => write!(f, "{x:?}"),
             Expression::LinearGradient { angle, stops } => write!(
                 f,
                 "@linear-gradient({}, {})",

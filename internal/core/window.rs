@@ -9,6 +9,7 @@ use crate::api::{
     CloseRequestResponse, LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize,
     PlatformError, Window, WindowPosition, WindowSize,
 };
+use crate::cursor::MouseCursorInner;
 use crate::input::{
     ClickState, DragData, FocusEvent, FocusReason, InternalKeyEvent, KeyEventResult, KeyEventType,
     Keys, MouseEvent, MouseInputState, PointerEventButton, TextCursorBlinker, TouchPhase,
@@ -18,7 +19,7 @@ use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
-use crate::items::{InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
+use crate::items::{BuiltInMouseCursor, InputType, ItemRef, MenuEntry, PopupClosePolicy};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalVector, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
@@ -207,7 +208,7 @@ pub trait WindowAdapterInternal: core::any::Any {
 
     /// Set the mouse cursor
     // TODO: Make the enum public and make public
-    fn set_mouse_cursor(&self, _cursor: MouseCursor) {}
+    fn set_mouse_cursor(&self, _cursor: MouseCursorInner) {}
 
     /// This method allow editable input field to communicate with the platform about input methods
     fn input_method_request(&self, _: InputMethodRequest) {}
@@ -695,7 +696,10 @@ impl WindowInner {
         let mut mouse_input_state = self.mouse_input_state.take();
 
         let was_dragging = mouse_input_state.drag_data.is_some();
-        let old_cursor = core::mem::replace(&mut mouse_input_state.cursor, MouseCursor::Default);
+        let old_cursor = core::mem::replace(
+            &mut mouse_input_state.cursor,
+            MouseCursorInner::BuiltIn(BuiltInMouseCursor::Default),
+        );
 
         // drag-finished firing is deferred until after dispatch so the DropArea has had
         // a chance to fire its own `dropped` callback first; that callback returns the
@@ -755,7 +759,8 @@ impl WindowInner {
                         d.event.position = drop_event.position;
                         d.event.proposed_action = drop_event.proposed_action;
                     }
-                    mouse_input_state.cursor = MouseCursor::NoDrop;
+                    mouse_input_state.cursor =
+                        MouseCursorInner::BuiltIn(BuiltInMouseCursor::NoDrop);
                     event = MouseEvent::DragMove { event: drop_event, allowed };
                 }
                 MouseEvent::Exit => {
@@ -923,7 +928,7 @@ impl WindowInner {
         } else if old_cursor != mouse_input_state.cursor
             && let Some(window_adapter) = window_adapter.internal(crate::InternalToken)
         {
-            window_adapter.set_mouse_cursor(mouse_input_state.cursor);
+            window_adapter.set_mouse_cursor(mouse_input_state.cursor.clone());
         }
 
         let is_dragging = mouse_input_state.drag_data.is_some();
