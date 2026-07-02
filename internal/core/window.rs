@@ -18,7 +18,9 @@ use crate::item_tree::{
     ItemRc, ItemTreeRc, ItemTreeRef, ItemTreeRefPin, ItemTreeVTable, ItemTreeWeak, ItemWeak,
     ParentItemTraversalMode,
 };
-use crate::items::{InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy};
+use crate::items::{
+    InputMethodHints, InputType, ItemRef, MenuEntry, MouseCursor, PopupClosePolicy,
+};
 use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalVector, SizeLengths};
 use crate::menus::MenuVTable;
 use crate::properties::{Property, PropertyTracker};
@@ -305,6 +307,8 @@ pub struct InputMethodProperties {
     pub anchor_point: LogicalPosition,
     /// The type of input for the text edit.
     pub input_type: InputType,
+    /// The hints for the input method for the text edit.
+    pub input_method_hints: InputMethodHints,
     /// The clip rect in window coordinates
     pub clip_rect: Option<LogicalRect>,
 }
