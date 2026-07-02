@@ -163,7 +163,9 @@ fn update_visible_instances(
     state: &mut RepeaterLayoutState,
     row_count: usize,
     viewport_width: Pin<&Property<LogicalLength>>,
+    viewport_width_is_fixed: bool,
     viewport_height: Pin<&Property<LogicalLength>>,
+    viewport_height_is_fixed: bool,
     viewport_y: Pin<&Property<LogicalLength>>,
     listview_width: LogicalLength,
     listview_height: LogicalLength,
@@ -176,7 +178,12 @@ fn update_visible_instances(
         ops.splice(0, ops.len(), 0);
         viewport_height.set(zero);
         viewport_y.set(zero);
-        viewport_width.set(listview_width);
+        if !viewport_height_is_fixed {
+            viewport_height.set(zero);
+        }
+        if !viewport_width_is_fixed {
+            viewport_width.set(listview_width);
+        }
         return false;
     }
 
@@ -217,33 +224,36 @@ fn update_visible_instances(
 
     let one_and_a_half_screen = listview_height * 3 as Coord / 2 as Coord;
     let first_item_y = state.anchor_y;
-    let last_item_bottom = first_item_y + element_height * ops.len() as Coord;
-
-    let (mut new_offset, mut new_offset_y) = if first_item_y > -vp_y + one_and_a_half_screen
-        || last_item_bottom + element_height < -vp_y
-    {
-        // Jumping more than 1.5 screens: random seek.
-        ops.splice(0, ops.len(), 0);
-        state.offset = ((-vp_y / element_height).floor() as usize).min(row_count - 1);
-        (state.offset, 0 as Coord)
-    } else if vp_y < state.previous_viewport_y {
-        // Scrolled down: find the new offset by walking existing instances.
-        let mut it_y = first_item_y + vp_y;
-        let mut new_off = state.offset;
-        for i in 0..ops.len() {
-            changed |= ops.ensure_updated(i, new_off);
-            let h = ops.height(i).unwrap_or(0 as Coord);
-            if it_y + h > 0 as Coord || new_off + 1 >= row_count {
-                break;
-            }
-            it_y += h;
-            new_off += 1;
-        }
-        (new_off, it_y)
+    let list_bottom = if viewport_height_is_fixed {
+        viewport_height.get().get() as Coord
     } else {
-        // Scrolled up: will instantiate items before offset in the loop below.
-        (state.offset, first_item_y + vp_y)
+        first_item_y + element_height * ((ops.len() + 1) as Coord)
     };
+
+    let (mut new_offset, mut new_offset_y) =
+        if first_item_y > -vp_y + one_and_a_half_screen || list_bottom < -vp_y {
+            // Jumping more than 1.5 screens: random seek.
+            ops.splice(0, ops.len(), 0);
+            state.offset = ((-vp_y / element_height).floor() as usize).min(row_count - 1);
+            (state.offset, 0 as Coord)
+        } else if vp_y < state.previous_viewport_y {
+            // Scrolled down: find the new offset by walking existing instances.
+            let mut it_y = first_item_y + vp_y;
+            let mut new_off = state.offset;
+            for i in 0..ops.len() {
+                changed |= ops.ensure_updated(i, new_off);
+                let h = ops.height(i).unwrap_or(0 as Coord);
+                if it_y + h > 0 as Coord || new_off + 1 >= row_count {
+                    break;
+                }
+                it_y += h;
+                new_off += 1;
+            }
+            (new_off, it_y)
+        } else {
+            // Scrolled up: will instantiate items before offset in the loop below.
+            (state.offset, first_item_y + vp_y)
+        };
 
     let mut loop_count = 0;
     loop {
@@ -317,8 +327,12 @@ fn update_visible_instances(
         // Recompute coordinates for the scrollbar.
         state.cached_item_height = (y - new_offset_y) / ops.len() as Coord;
         state.anchor_y = state.cached_item_height * state.offset as Coord;
-        viewport_height.set(LogicalLength::new(state.cached_item_height * row_count as Coord));
-        viewport_width.set(LogicalLength::new(vp_width));
+        if !viewport_height_is_fixed {
+            viewport_height.set(LogicalLength::new(state.cached_item_height * row_count as Coord));
+        }
+        if !viewport_width_is_fixed {
+            viewport_width.set(LogicalLength::new(vp_width));
+        }
         let new_viewport_y = -state.anchor_y + new_offset_y;
         // Important: Use get_internal here, the viewport_y may have a binding on it (especially
         // a physical animation).
@@ -629,7 +643,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
         self: Pin<&Self>,
         init: impl Fn() -> ItemTreeRc<C>,
         viewport_width: Pin<&Property<LogicalLength>>,
+        viewport_width_is_fixed: bool,
         viewport_height: Pin<&Property<LogicalLength>>,
+        viewport_height_is_fixed: bool,
         viewport_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: Pin<&Property<LogicalLength>>,
@@ -647,7 +663,9 @@ impl<C: RepeatedItemTree + 'static> Repeater<C> {
             &mut layout_state,
             row_count,
             viewport_width,
+            viewport_width_is_fixed,
             viewport_height,
+            viewport_height_is_fixed,
             viewport_y,
             listview_width,
             listview_height.get(),
@@ -931,7 +949,9 @@ mod ffi {
         state: &mut RepeaterLayoutState,
         row_count: usize,
         viewport_width: Pin<&Property<LogicalLength>>,
+        viewport_width_is_fixed: bool,
         viewport_height: Pin<&Property<LogicalLength>>,
+        viewport_height_is_fixed: bool,
         viewport_y: Pin<&Property<LogicalLength>>,
         listview_width: LogicalLength,
         listview_height: LogicalLength,
@@ -941,7 +961,9 @@ mod ffi {
             state,
             row_count,
             viewport_width,
+            viewport_width_is_fixed,
             viewport_height,
+            viewport_height_is_fixed,
             viewport_y,
             listview_width,
             listview_height,

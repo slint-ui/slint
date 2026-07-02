@@ -521,6 +521,8 @@ impl Snapshotter {
                     viewport_width: lv.viewport_width.snapshot(self),
                     listview_height: lv.listview_height.snapshot(self),
                     listview_width: lv.listview_width.snapshot(self),
+                    viewport_width_is_const: lv.viewport_width_is_const,
+                    viewport_height_is_const: lv.viewport_height_is_const,
                 }),
             });
 

@@ -1275,6 +1275,8 @@ fn generate_sub_component(
                 let lv_h = access_member(&listview.listview_height, &ctx).unwrap();
                 let vp_w = access_member(&listview.viewport_width, &ctx).unwrap();
                 let lv_w = access_member(&listview.listview_width, &ctx).unwrap();
+                let lv_w_is_const = listview.viewport_width_is_const;
+                let lv_h_is_const = listview.viewport_height_is_const;
 
                 repeated_visit_branch.push(quote!(
                     #idx => {
@@ -1287,7 +1289,7 @@ fn generate_sub_component(
                 ensure_instantiated_stmts.push(quote!({
                     _changed |= #inner_component_id::FIELD_OFFSETS.#repeater_id().apply_pin(_self).ensure_updated_listview(
                         || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).unwrap().into() },
-                        #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
+                        #vp_w, #lv_w_is_const, #vp_h, #lv_h_is_const, #vp_y, #lv_w.get(), #lv_h
                     );
                 }));
             } else {

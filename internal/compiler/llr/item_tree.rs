@@ -348,6 +348,11 @@ pub struct ListViewInfo {
     pub prop_y: MemberReference,
     // In the repeated component context
     pub prop_height: MemberReference,
+
+    /// True if viewport-width was explicitly set and should not be auto-computed
+    pub viewport_width_is_const: bool,
+    /// True if viewport-height was explicitly set and should not be auto-computed
+    pub viewport_height_is_const: bool,
 }
 
 #[derive(Debug)]

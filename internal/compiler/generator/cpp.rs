@@ -2449,8 +2449,10 @@ fn generate_sub_component(
         if let Some(listview) = &repeated.listview {
             let vp_y = access_member(&listview.viewport_y, &ctx).unwrap();
             let vp_h = access_member(&listview.viewport_height, &ctx).unwrap();
+            let vp_h_is_constant = listview.viewport_height_is_const;
             let lv_h = access_member(&listview.listview_height, &ctx).unwrap();
             let vp_w = access_member(&listview.viewport_width, &ctx).unwrap();
+            let vp_w_is_constant = listview.viewport_width_is_const;
             let lv_w = access_member(&listview.listview_width, &ctx).unwrap();
 
             children_visitor_cases.push(format!(
@@ -2460,7 +2462,7 @@ fn generate_sub_component(
             }}",
             ));
             ensure_instantiated_stmts.push(format!(
-                "_changed |= self->{repeater_id}.ensure_updated_listview(self, &{vp_w}, &{vp_h}, &{vp_y}, {lv_w}.get(), {lv_h}.get());"
+                "_changed |= self->{repeater_id}.ensure_updated_listview(self, &{vp_w}, {vp_w_is_constant}, &{vp_h}, {vp_h_is_constant}, &{vp_y}, {lv_w}.get(), {lv_h}.get());"
             ));
         } else {
             children_visitor_cases.push(format!(

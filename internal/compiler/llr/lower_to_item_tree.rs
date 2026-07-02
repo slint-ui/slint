@@ -851,6 +851,8 @@ fn lower_repeated_component(
             listview_width: ctx.map_property_reference(&lv.listview_width),
             prop_y: sc.mapping.map_property_reference(&geom.y, ctx.state),
             prop_height: sc.mapping.map_property_reference(&geom.height, ctx.state),
+            viewport_width_is_const: lv.viewport_width_is_const,
+            viewport_height_is_const: lv.viewport_height_is_const,
         }
     });
 
