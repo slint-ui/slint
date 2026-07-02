@@ -10,7 +10,7 @@
 # Output (in $OUT, default ./demo-images/):
 #   printerdemo-<feature>.{uf2,elf}  |  printerdemo-<feature>.bin (ESP)
 #   home-automation-esp32-p4.bin
-#   demos.json  — the slint.dev/flash index (slint-ui/website docs/demos.schema.json)
+#   demos.json
 #
 # The images + demos.json are meant to be hosted in the Slint website. demos.json
 # is what `slint.dev/flash` reads: it downloads
@@ -22,7 +22,6 @@
 #   - the `esp` Rust channel + `cargo +esp` (espup) for the ESP32-S3 boards
 #   - elf2uf2-rs >= 2.2.0, picotool, espflash    (MCU conversions)
 #   - a full ESP-IDF 5.4 env (idf.py) for the ESP32-P4 home-automation demo
-#     (needs the fix from slint-ui/slint#12338)
 #
 # Usage: scripts/build-demo-images.sh [--only mcu|p4] [--skip-p4]
 set -euo pipefail
