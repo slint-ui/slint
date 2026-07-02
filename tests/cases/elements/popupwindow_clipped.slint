@@ -59,13 +59,12 @@ assert_eq!(instance.get_popup_open(), true);
 assert_eq!(inner.active_popups.borrow().len(), 1, "We have one open popup");
 
 let popups = inner.active_popups.borrow();
-let slint_testing::PopupWindowLocation::ChildWindow(loc) = &popups.first().unwrap().location else {
+if let slint_testing::PopupWindowLocation::ChildWindow(loc) = &popups.first().unwrap().location {
+    assert_eq!(loc.x, 0.);
+    assert_eq!(loc.y, 500. - 200., "The popup was moved up because otherwise it would clip");
+}else {
     assert!(false, "The popup is expected to be a ChildWindow");
-    panic!("");
 };
-
-assert_eq!(loc.x, 0.);
-assert_eq!(loc.y, 500. - 200., "The popup was moved up because otherwise it would clip");
 ```
 
 */
