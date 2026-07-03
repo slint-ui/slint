@@ -1,0 +1,74 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A subclass of a styled widget, instantiated with children. The lowering pass
+// rewrites base types as it walks the tree; if the empty subclass is lowered
+// first, the instance stops looking like a RadioGroup /
+// TabWidget, so its child (RadioButton / Tab) is never lowered. That panics the
+// interpreter and fails codegen with an unknown native type. The code blocks
+// also check that the widgets work, not just that they compile.
+//
+// C++ live preview: no element search (wrapper has no item tree)
+//ignore: cpp-live-preview
+import { RadioGroup, TabWidget } from "std-widgets.slint";
+
+export component FooRadio inherits RadioGroup { }
+export component FooTab inherits TabWidget { }
+
+export component TestCase inherits Window {
+    width: 300px;
+    height: 300px;
+
+    out property <string> radio-value: radio.current-value;
+    in-out property <int> tab-index <=> tab.current-index;
+
+    HorizontalLayout {
+        radio := FooRadio {
+            RadioButton { text: "A"; }
+            RadioButton { text: "B"; }
+        }
+        tab := FooTab {
+            Tab { title: "One"; }
+            Tab { title: "Two"; }
+        }
+    }
+
+    out property <bool> test: radio-value == "" && tab-index == 0;
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+// The RadioGroup subclass renders working radio buttons.
+let a = slint_testing::ElementHandle::find_by_accessible_label(&instance, "A").next().unwrap();
+a.invoke_accessible_default_action();
+assert_eq!(instance.get_radio_value(), slint::SharedString::from("A"));
+// The TabWidget subclass renders working tabs.
+let two = slint_testing::ElementHandle::find_by_accessible_label(&instance, "Two").next().unwrap();
+two.invoke_accessible_default_action();
+assert_eq!(instance.get_tab_index(), 1);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+auto radios = slint::testing::ElementHandle::find_by_accessible_label(handle, "A");
+assert(radios.size() >= 1);
+radios[0].invoke_accessible_default_action();
+assert_eq(instance.get_radio_value(), "A");
+auto tabs = slint::testing::ElementHandle::find_by_accessible_label(handle, "Two");
+assert(tabs.size() >= 1);
+tabs[0].invoke_accessible_default_action();
+assert_eq(instance.get_tab_index(), 1);
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+assert.equal(instance.radio_value, "");
+instance.tab_index = 1;
+assert.equal(instance.tab_index, 1);
+```
+*/
