@@ -311,7 +311,9 @@ template<>
 inline void Property<int32_t>::set_animated_value(
         const int32_t &new_value, const cbindgen_private::PropertyAnimation &animation_data) const
 {
-    cbindgen_private::slint_property_set_animated_value_int(&inner, value, new_value,
+    // Use get() (not the raw cached value) so the from-value reflects the binding's
+    // current value even if the binding was never evaluated yet (e.g. set in `init`).
+    cbindgen_private::slint_property_set_animated_value_int(&inner, get(), new_value,
                                                             &animation_data);
 }
 
@@ -320,7 +322,7 @@ inline void
 Property<float>::set_animated_value(const float &new_value,
                                     const cbindgen_private::PropertyAnimation &animation_data) const
 {
-    cbindgen_private::slint_property_set_animated_value_float(&inner, value, new_value,
+    cbindgen_private::slint_property_set_animated_value_float(&inner, get(), new_value,
                                                               &animation_data);
 }
 
@@ -329,7 +331,7 @@ inline void
 Property<Color>::set_animated_value(const Color &new_value,
                                     const cbindgen_private::PropertyAnimation &animation_data) const
 {
-    cbindgen_private::slint_property_set_animated_value_color(&inner, value, new_value,
+    cbindgen_private::slint_property_set_animated_value_color(&inner, get(), new_value,
                                                               &animation_data);
 }
 
