@@ -166,6 +166,7 @@ struct Brush {
     link_color: Option<Color>,
 }
 
+#[derive(Default)]
 struct LayoutOptions {
     max_width: Option<LogicalLength>,
     max_height: Option<LogicalLength>,
@@ -397,6 +398,19 @@ impl LayoutWithoutLineBreaksBuilder {
     }
 }
 
+/// Splits plain text into paragraph byte ranges at `'\n'`. The `'\n'` and any preceding `'\r'`
+/// are excluded from the range: parley treats a lone CR as a mandatory line break, so a CRLF
+/// left in the paragraph would render an extra empty line.
+fn paragraph_ranges(text: &str) -> impl Iterator<Item = Range<usize>> + '_ {
+    let mut start = 0;
+    text.split('\n').map(move |paragraph| {
+        let end = start + paragraph.len();
+        let range = if paragraph.ends_with('\r') { start..end - 1 } else { start..end };
+        start = end + 1;
+        range
+    })
+}
+
 fn create_text_paragraphs(
     layout_builder: &LayoutWithoutLineBreaksBuilder,
     font_context: &mut parley::FontContext,
@@ -432,28 +446,7 @@ fn create_text_paragraphs(
 
     match text {
         PlainOrStyledText::Plain(ref text) => {
-            let paragraph_ranges = core::iter::from_fn({
-                let mut start = 0;
-                let mut char_it = text.char_indices().peekable();
-                let mut eot = false;
-                move || {
-                    for (idx, ch) in char_it.by_ref() {
-                        if ch == '\n' {
-                            let next_range = start..idx;
-                            start = idx + ch.len_utf8();
-                            return Some(next_range);
-                        }
-                    }
-
-                    if eot {
-                        return None;
-                    }
-                    eot = true;
-                    Some(start..text.len())
-                }
-            });
-
-            for range in paragraph_ranges {
+            for range in paragraph_ranges(text) {
                 paragraphs.push(paragraph_from_text(
                     font_context,
                     &text[range.clone()],
@@ -989,8 +982,11 @@ impl Layout {
         Some(ElisionCut { last_paragraph, last_line, needs_ellipsis })
     }
 
+    /// Returns the last paragraph starting at or before the given byte offset. An offset in the
+    /// gap between two paragraph ranges (between a '\r' and its '\n') thus maps to the preceding
+    /// paragraph; callers have to clamp their local offset to the paragraph's range.
     fn paragraph_by_byte_offset(&self, byte_offset: usize) -> Option<&TextParagraph> {
-        self.paragraphs.iter().find(|p| byte_offset >= p.range.start && byte_offset <= p.range.end)
+        self.paragraphs.iter().take_while(|p| p.range.start <= byte_offset).last()
     }
 
     fn paragraph_by_y(&self, y: PhysicalLength) -> Option<&TextParagraph> {
@@ -1077,7 +1073,7 @@ impl Layout {
             return PhysicalRect::new(PhysicalPoint::default(), PhysicalSize::new(1.0, 1.0));
         };
 
-        let local_offset = byte_offset - paragraph.range.start;
+        let local_offset = (byte_offset - paragraph.range.start).min(paragraph.range.len());
         let cursor = parley::editing::Cursor::from_byte_index(
             &paragraph.layout,
             local_offset,
@@ -1724,4 +1720,76 @@ pub fn text_input_cursor_rect_for_byte_offset(
     );
     let cursor_rect = layout.cursor_rect_for_byte_offset(byte_offset, cursor_width);
     cursor_rect / scale_factor
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn paragraphs(text: &str) -> Vec<&str> {
+        paragraph_ranges(text).map(|r| &text[r]).collect()
+    }
+
+    fn layout_text(text: &str) -> Layout {
+        let mut font_ctx = parley::FontContext::new();
+        let builder = LayoutWithoutLineBreaksBuilder::new(
+            None,
+            TextWrap::NoWrap,
+            None,
+            ScaleFactor::new(1.0),
+        );
+        let paragraphs = create_text_paragraphs(
+            &builder,
+            &mut font_ctx,
+            PlainOrStyledText::Plain(text.into()),
+            None,
+            Color::default(),
+        );
+        layout(&builder, &mut font_ctx, paragraphs, ScaleFactor::new(1.0), LayoutOptions::default())
+    }
+
+    fn visual_line_count(text: &str) -> usize {
+        layout_text(text).paragraphs.iter().map(|p| p.layout.lines().len()).sum()
+    }
+
+    #[test]
+    fn test_crlf_line_count() {
+        assert_eq!(visual_line_count("hello\r\nworld"), visual_line_count("hello\nworld"));
+        assert_eq!(visual_line_count("hello\r\nworld"), 2);
+    }
+
+    #[test]
+    fn test_cursor_between_cr_and_lf() {
+        // The cursor can land between the '\r' and the '\n' (e.g. moving left from the start of
+        // the next line); it draws at the end of the preceding paragraph, like on the '\r'.
+        let layout = layout_text("hello\r\nworld");
+        let cursor_width = PhysicalLength::new(1.0);
+        assert_eq!(
+            layout.cursor_rect_for_byte_offset(6, cursor_width),
+            layout.cursor_rect_for_byte_offset(5, cursor_width)
+        );
+        assert_ne!(
+            layout.cursor_rect_for_byte_offset(6, cursor_width),
+            layout.cursor_rect_for_byte_offset(0, cursor_width)
+        );
+    }
+
+    #[test]
+    fn test_paragraph_ranges() {
+        assert_eq!(paragraphs(""), [""]);
+        assert_eq!(paragraphs("hello"), ["hello"]);
+        assert_eq!(paragraphs("hello\nworld"), ["hello", "world"]);
+        assert_eq!(paragraphs("hello\n"), ["hello", ""]);
+        assert_eq!(paragraphs("\n\n"), ["", "", ""]);
+    }
+
+    #[test]
+    fn test_paragraph_ranges_crlf() {
+        assert_eq!(paragraphs("hello\r\nworld"), ["hello", "world"]);
+        assert_eq!(paragraphs("hello\r\n"), ["hello", ""]);
+        assert_eq!(paragraphs("\r\n\r\n"), ["", "", ""]);
+        assert_eq!(paragraphs("a\r\n\nb"), ["a", "", "b"]);
+        // A lone CR stays in the paragraph; parley breaks the line there.
+        assert_eq!(paragraphs("hello\rworld"), ["hello\rworld"]);
+    }
 }
