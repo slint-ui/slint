@@ -430,6 +430,7 @@ impl IntrospectionState {
                 y: window.position().y,
             }),
             root_element_handle: Some(index_to_handle(self.root_element_handle(window_index)?)),
+            scale_factor: window.scale_factor(),
         })
     }
 

@@ -310,6 +310,7 @@ message WindowPropertiesResponse {
     PhysicalSize size = 4;
     PhysicalPosition position = 5;
     Handle root_element_handle = 6;
+    float scale_factor = 7;
 }
 
 message ElementsResponse {
