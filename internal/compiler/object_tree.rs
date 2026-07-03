@@ -1411,7 +1411,7 @@ impl Element {
         // An interface may inherit another interface, but cannot implement an interface.
         // A component may implement an interface, but cannot inherit an interface.
         // We should never have both at the same time.
-        debug_assert_eq!(implemented_interface.is_some() && inherited_interface.is_some(), false);
+        debug_assert!(!(implemented_interface.is_some() && inherited_interface.is_some()));
         let implemented_interface = implemented_interface.or(inherited_interface);
         interfaces::apply_properties(&mut r, &implemented_interface, diag);
 
