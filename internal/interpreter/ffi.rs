@@ -6,10 +6,13 @@ use crate::dynamic_item_tree::ErasedItemTreeBox;
 
 use super::*;
 use core::ptr::NonNull;
-use i_slint_core::model::{Model, ModelNotify, SharedVectorModel};
+use i_slint_core::model::{Model, ModelNotify, ModelRc, SharedVectorModel};
 use i_slint_core::slice::Slice;
 use i_slint_core::window::WindowAdapter;
+use smol_str::SmolStr;
 use std::ffi::c_void;
+use std::path::PathBuf;
+use std::rc::Rc;
 use vtable::VRef;
 
 /// Construct a new Value in the given memory location
@@ -871,7 +874,7 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_get_diagnostics(
     out_diags: &mut SharedVector<Diagnostic>,
 ) {
     #[allow(deprecated)]
-    out_diags.extend(compiler.as_component_compiler().diagnostics.iter().map(|diagnostic| {
+    out_diags.extend(compiler.as_component_compiler().diagnostics().iter().map(|diagnostic| {
         let (line, column) = diagnostic.line_column();
         Diagnostic {
             message: diagnostic.message().into(),

@@ -377,7 +377,7 @@ export component PreviewUi inherits Window {
                     }
                 }
 
-                if !root.remote-mode: Rectangle {
+                Rectangle {
                     height: cp.height;
                 }
 
@@ -386,7 +386,6 @@ export component PreviewUi inherits Window {
             cp := ConsolePanel {
                 y: parent.height - self.height - 1px;
                 width: parent.width;
-                visible: !root.remote-mode;
                 panel-expanded <=> root.console-panel-expanded;
             }
         }

@@ -9,6 +9,54 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut tests_file = std::fs::File::create(&tests_file_path)?;
 
+    // Example .slint files that are also run through the interpreter. Unlike the
+    // test cases collected below, these live outside tests/cases, so we list them
+    // here and honor SLINT_TEST_FILTER as a substring of their repo-root-relative
+    // path (e.g. SLINT_TEST_FILTER=examples runs the examples/ entries).
+    const EXAMPLES: &[(&str, &str)] = &[
+        ("example_printerdemo", "demos/printerdemo/ui/printerdemo.slint"),
+        ("example_usecases", "demos/usecases/ui/app.slint"),
+        ("example_memory", "examples/memory/memory.slint"),
+        ("example_slide_puzzle", "examples/slide_puzzle/slide_puzzle.slint"),
+        ("example_todo", "examples/todo/ui/todo.slint"),
+        ("example_gallery", "examples/gallery/gallery.slint"),
+        ("example_fancy_demo", "examples/fancy_demo/main.slint"),
+        ("example_bash_sysinfo", "examples/bash/sysinfo.slint"),
+        ("example_carousel", "examples/carousel/ui/carousel_demo.slint"),
+        ("example_iot_dashboard", "examples/iot-dashboard/main.slint"),
+        ("example_dial", "examples/dial/dial.slint"),
+        ("example_sprite_sheet", "examples/sprite-sheet/demo.slint"),
+        ("example_fancy_switches", "examples/fancy-switches/demo.slint"),
+        ("example_home_automation", "demos/home-automation/ui/demo.slint"),
+        ("example_energy_monitor", "demos/energy-monitor/ui/desktop_window.slint"),
+        ("example_weather", "demos/weather-demo/ui/main.slint"),
+        ("example_grid_model_rows", "examples/layouts/grid-with-model-in-rows.slint"),
+        ("example_grid_with_repeated_rows", "examples/layouts/grid-with-repeated-rows.slint"),
+        ("example_vector_as_grid", "examples/layouts/vector-as-grid.slint"),
+        ("example_vlayout", "examples/layouts/vertical-layout-with-model.slint"),
+        ("example_flexbox_interactive", "examples/layouts/flexbox-interactive.slint"),
+    ];
+
+    let filter = std::env::var("SLINT_TEST_FILTER").ok();
+    for (test_function_name, path) in EXAMPLES {
+        if let Some(filter) = &filter
+            && !path.contains(filter.as_str())
+        {
+            continue;
+        }
+        write!(
+            tests_file,
+            r##"
+            #[test]
+            fn {function_name}() {{
+                run_example(r#"{path}"#);
+            }}
+        "##,
+            function_name = test_function_name,
+            path = path,
+        )?;
+    }
+
     for testcase in test_driver_lib::collect_test_cases("cases")?.into_iter() {
         let test_function_name = testcase.identifier();
         let ignored = testcase.is_ignored("interpreter");

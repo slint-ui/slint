@@ -395,7 +395,16 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     corelib::graphics::Image::load_from_path(std::path::Path::new(path))
                 }
                 i_slint_compiler::expression_tree::ImageReference::Url(url) => {
-                    corelib::graphics::Image::load_from_path(std::path::Path::new(url.as_str()))
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        corelib::graphics::load_as_html_image(url.as_str())
+                    }
+                    // URL image references only work on the web, where the browser fetches them.
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        let _ = url;
+                        Err(Default::default())
+                    }
                 }
                 i_slint_compiler::expression_tree::ImageReference::EmbeddedData { .. } => {
                     todo!()

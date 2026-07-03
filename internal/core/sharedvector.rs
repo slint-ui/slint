@@ -466,11 +466,25 @@ impl<T: Clone> Extend<T> for SharedVector<T> {
     }
 }
 
-static SHARED_NULL: SharedVectorHeader =
-    SharedVectorHeader { refcount: atomic::AtomicIsize::new(-1), size: 0, capacity: 0 };
+/// The empty singleton that `SharedVector::default()` for every element type T points to.
+/// It only consists of a header, but the pointer is dereferenced as `SharedVectorInner<T>`,
+/// so the static must satisfy the alignment of the most aligned `SharedVectorInner<T>` in
+/// the program - not just `SharedVectorHeader`'s own alignment.
+#[repr(C, align(16))]
+struct SharedNull(SharedVectorHeader);
+
+static SHARED_NULL: SharedNull =
+    SharedNull(SharedVectorHeader { refcount: atomic::AtomicIsize::new(-1), size: 0, capacity: 0 });
 
 impl<T> Default for SharedVector<T> {
     fn default() -> Self {
+        const {
+            assert!(
+                core::mem::align_of::<SharedVectorInner<T>>()
+                    <= core::mem::align_of::<SharedNull>(),
+                "SharedVector element type is more aligned than the empty singleton"
+            );
+        }
         SharedVector { inner: NonNull::from(&SHARED_NULL).cast() }
     }
 }
@@ -832,4 +846,31 @@ fn test_replace_range() {
     let mut v = SharedVector::from([1, 2, 3, 4]);
     v.replace_range(&[2, 3, 4, 5], &[7, 8, 9, 9], 1);
     assert_eq!(v.as_slice(), &[1, 2, 3, 4]);
+}
+
+#[test]
+fn test_aligned_element_type() {
+    // The empty singleton behind `SharedVector::default()` must satisfy the element
+    // type's alignment (it is dereferenced as `SharedVectorInner<T>`). Use an element
+    // type with the maximum supported alignment so Miri catches a misaligned singleton
+    // on any host, like the 8-aligned element types on wasm32 did.
+    #[repr(align(16))]
+    #[derive(Clone, Debug, PartialEq)]
+    struct Aligned(u8);
+
+    let mut x: SharedVector<Aligned> = Default::default();
+    assert!(x.is_empty());
+    for i in 0..8 {
+        x.push(Aligned(i));
+    }
+    let y = x.clone();
+    assert_eq!(x.pop(), Some(Aligned(7)));
+    x.resize(4, Aligned(0));
+    x.clear();
+    assert!(x.is_empty());
+    assert_eq!(y.len(), 8);
+    assert_eq!(
+        y.as_slice().iter().map(|a| a.0).collect::<std::vec::Vec<_>>(),
+        std::vec![0, 1, 2, 3, 4, 5, 6, 7]
+    );
 }

@@ -858,7 +858,7 @@ jobs:
                       target: thumbv7em-none-eabihf
                       extra-cmake-args: -DSHIELD=rk055hdmipi4ma0
             fail-fast: false
-        runs-on: ubuntu-22.04
+        runs-on: ubuntu-24.04
         steps:
           - uses: actions/checkout@v6
             with:
@@ -1065,5 +1065,5 @@ jobs:
               run: cargo miri test -p vtable -p const-field-offset -p i-slint-common
             - name: Run Miri on i-slint-core
               env:
-                  MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-tree-borrows
+                  MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-tree-borrows -Zmiri-symbolic-alignment-check
               run: cargo miri test -p i-slint-core --lib --features ffi,rtti

@@ -520,13 +520,13 @@ pub unsafe extern "C" fn slint_change_tracker_drop(ct: *mut ChangeTrackerOpaque)
 /// initialize the change tracker
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn slint_change_tracker_init(
-    ct: &ChangeTrackerOpaque,
+    ct: *const ChangeTrackerOpaque,
     user_data: *mut c_void,
     drop_user_data: extern "C" fn(user_data: *mut c_void),
     eval_fn: extern "C" fn(user_data: *mut c_void) -> bool,
     notify_fn: extern "C" fn(user_data: *mut c_void),
 ) {
-    let ct = unsafe { &*(ct as *const ChangeTrackerOpaque as *const ChangeTracker) };
+    let ct = unsafe { &*ct.cast::<ChangeTracker>() };
     #[allow(non_camel_case_types)]
     struct C_ChangeTrackerInner {
         user_data: *mut c_void,
@@ -632,7 +632,7 @@ mod ffi_change_tracker_leak_test {
         let ct = ChangeTracker::default();
         unsafe {
             slint_change_tracker_init(
-                &*(&ct as *const ChangeTracker as *const ChangeTrackerOpaque),
+                &ct as *const ChangeTracker as *const ChangeTrackerOpaque,
                 &state as *const EvalState as *mut c_void,
                 drop_fn,
                 eval_fn,

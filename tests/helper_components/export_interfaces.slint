@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 export interface ExportedInterface {
-    in-out property <float> value: 3.14;
+    in-out property <float> value;
 }
 
 export component ExportedBase implements ExportedInterface {
@@ -11,7 +11,6 @@ export component ExportedBase implements ExportedInterface {
 
 export interface ComboBoxInterface {
     in property <[string]> model;
-    in-out property <int> current-index: 0;
-    // The property bindings refer to named references in the interface element.
-    in-out property <string> current-value: root.model[root.current-index];
+    in-out property <int> current-index;
+    in-out property <string> current-value;
 }

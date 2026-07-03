@@ -310,10 +310,9 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
     ///
     /// If other properties have binding depending of this property, these properties will
     /// be marked as dirty.
-    pub fn set_animated_value(&self, value: T, animation_data: PropertyAnimation) {
-        // FIXME if the current value is a dirty binding, we must run it, but we do not have the context
+    pub fn set_animated_value(self: Pin<&Self>, value: T, animation_data: PropertyAnimation) {
         let d = RefCell::new(properties_animations::PropertyValueAnimationData::new(
-            self.get_internal(),
+            self.get(),
             value,
             animation_data,
         ));
@@ -432,6 +431,7 @@ impl<Unit> Property<Length<crate::Coord, Unit>> {
 #[cfg(test)]
 mod animation_tests {
     use super::*;
+    use pin_weak::rc::PinWeak;
     use std::rc::Rc;
 
     #[derive(Default)]
@@ -442,9 +442,9 @@ mod animation_tests {
     }
 
     impl Component {
-        fn new_test_component() -> Rc<Self> {
-            let compo = Rc::new(Component::default());
-            let w = Rc::downgrade(&compo);
+        fn new_test_component() -> Pin<Rc<Self>> {
+            let compo = Rc::pin(Component::default());
+            let w = PinWeak::downgrade(compo.clone());
             compo.width_times_two.set_binding(move || {
                 let compo = w.upgrade().unwrap();
                 get_prop_value(&compo.width) * 2
@@ -460,6 +460,15 @@ mod animation_tests {
     // Helper just for testing
     fn get_prop_value<T: Clone>(prop: &Property<T>) -> T {
         unsafe { Pin::new_unchecked(prop).get() }
+    }
+
+    // Helper just for testing: the property lives in a pinned `Rc<Component>`.
+    fn set_animated_value<T: Clone + InterpolatedPropertyValue + 'static>(
+        prop: &Property<T>,
+        value: T,
+        animation_data: PropertyAnimation,
+    ) {
+        unsafe { Pin::new_unchecked(prop) }.set_animated_value(value, animation_data);
     }
 
     #[test]
@@ -479,7 +488,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, animation_details);
+        set_animated_value(&compo.width, 200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
         assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
@@ -519,7 +528,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, animation_details);
+        set_animated_value(&compo.width, 200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
         assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
@@ -560,7 +569,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, animation_details);
+        set_animated_value(&compo.width, 200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
         assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
@@ -613,7 +622,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, animation_details);
+        set_animated_value(&compo.width, 200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
         assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
@@ -671,7 +680,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, animation_details);
+        set_animated_value(&compo.width, 200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
         assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
@@ -714,7 +723,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, animation_details);
+        set_animated_value(&compo.width, 200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
         assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
@@ -757,7 +766,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, animation_details);
+        set_animated_value(&compo.width, 200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
         assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
@@ -800,7 +809,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, animation_details);
+        set_animated_value(&compo.width, 200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
         assert_eq!(get_prop_value(&compo.width_times_two), 200);
 
@@ -860,7 +869,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, animation_details);
+        set_animated_value(&compo.width, 200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 200);
         assert_eq!(get_prop_value(&compo.width_times_two), 400);
 
@@ -896,7 +905,7 @@ mod animation_tests {
             ..PropertyAnimation::default()
         };
 
-        let w = Rc::downgrade(&compo);
+        let w = PinWeak::downgrade(compo.clone());
         compo.width.set_animated_binding(
             move || {
                 let compo = w.upgrade().unwrap();
@@ -937,7 +946,7 @@ mod animation_tests {
             ..PropertyAnimation::default()
         };
 
-        let w = Rc::downgrade(&compo);
+        let w = PinWeak::downgrade(compo.clone());
         compo.width.set_animated_binding(
             move || {
                 let compo = w.upgrade().unwrap();
@@ -997,7 +1006,7 @@ mod animation_tests {
 
         let start_time = crate::animations::current_tick();
 
-        compo.width.set_animated_value(200, animation_details);
+        set_animated_value(&compo.width, 200, animation_details);
         assert_eq!(get_prop_value(&compo.width), 100);
 
         crate::animations::CURRENT_ANIMATION_DRIVER
@@ -1034,7 +1043,7 @@ mod animation_tests {
             ..PropertyAnimation::default()
         };
 
-        let w = Rc::downgrade(&compo);
+        let w = PinWeak::downgrade(compo.clone());
         compo.width.set_animated_binding(
             move || {
                 let compo = w.upgrade().unwrap();
