@@ -18,6 +18,15 @@ LOG_MODULE_REGISTER(zephyrSlint, LOG_LEVEL_DBG);
 #include <deque>
 #include <ranges>
 
+// Zephyr renamed this format upstream in commit b13d9a0510b ("display: rename
+// current BGR_565 format into RGB_565X"); PIXEL_FORMAT_BGR_565 no longer
+// exists from Zephyr v4.4.0 onwards.
+#if ZEPHYR_VERSION(4, 4, 0) > ZEPHYR_VERSION_CODE
+#    define SLINT_ZEPHYR_PIXEL_FORMAT_BGR_565 PIXEL_FORMAT_BGR_565
+#else
+#    define SLINT_ZEPHYR_PIXEL_FORMAT_BGR_565 PIXEL_FORMAT_RGB_565X
+#endif
+
 namespace {
 bool is_supported_pixel_format(display_pixel_format current_pixel_format)
 {
@@ -27,7 +36,7 @@ bool is_supported_pixel_format(display_pixel_format current_pixel_format)
     case PIXEL_FORMAT_RGB_888:
         // Slint supports this format, but it uses more space.
         return false;
-    case PIXEL_FORMAT_RGB_565X:
+    case SLINT_ZEPHYR_PIXEL_FORMAT_BGR_565:
 #if defined(CONFIG_SHIELD_RK055HDMIPI4MA0) || defined(CONFIG_SHIELD_LCD_PAR_S035)
         // Zephyr expects pixel data to be big endian [1].
 
@@ -109,6 +118,41 @@ using namespace std::chrono_literals;
 
 using RepaintBufferType = slint::platform::SoftwareRenderer::RepaintBufferType;
 
+// Scale factor applied to the Slint window. Values below 1.0 render a larger
+// logical UI scaled down to the physical display (e.g. 0.5 shows a 960x640
+// logical UI on a 480x320 panel). Override via compile definition.
+#ifndef SLINT_ZEPHYR_SCALE_FACTOR
+#    define SLINT_ZEPHYR_SCALE_FACTOR 1.0f
+#endif
+
+#ifdef SLINT_ZEPHYR_HEAP_PROBE
+#    include <cstdlib>
+// Measure remaining malloc headroom by greedily allocating blocks (halving on
+// failure), then freeing them. Reports total free bytes and the largest
+// contiguous block. C malloc returns NULL on failure, so this cannot trigger
+// the Rust alloc-failure panic.
+static void log_heap_headroom()
+{
+    void *ptrs[128];
+    int n = 0;
+    std::size_t total = 0, largest = 0, sz = 128 * 1024;
+    while (sz >= 64 && n < 128) {
+        void *p = std::malloc(sz);
+        if (p) {
+            ptrs[n++] = p;
+            total += sz;
+            if (sz > largest)
+                largest = sz;
+        } else {
+            sz /= 2;
+        }
+    }
+    for (int i = 0; i < n; i++)
+        std::free(ptrs[i]);
+    LOG_INF("HEAPROBE free=%u largest=%u", (unsigned)total, (unsigned)largest);
+}
+#endif
+
 K_SEM_DEFINE(SLINT_SEM, 0, 1);
 
 class ZephyrPlatform : public slint::platform::Platform
@@ -166,12 +210,26 @@ private:
 static ZephyrWindowAdapter *ZEPHYR_WINDOW = nullptr;
 
 // LCD-PAR-S035 shield: fixed 480x320 display resolution, BGR565 pixel format.
-// The render buffer is a static BSS array sized for render_by_line (64 lines at a time)
-// to avoid heap allocation on this RAM-constrained board (320 KB total SRAM).
+// render_by_line's callback is invoked once per physical line (see
+// slint-platform.h), and maybe_redraw below always fills the buffer from
+// offset 0 and flushes it with display_write before the next line is
+// rendered, so only one line's worth of pixels is ever live at a time. The
+// buffer is a static BSS array (not heap-allocated) to avoid heap allocation
+// on this RAM-constrained board (320 KB total SRAM).
+//
+// With SLINT_ZEPHYR_RENDER_BUFFER_SRAMX defined, the buffer is placed in the
+// otherwise-unused SRAMX region instead of the main SRAM. SRAMX must be
+// reachable by the display write path for this to work, so it is an opt-in
+// toggle.
 #ifdef CONFIG_SHIELD_LCD_PAR_S035
+#    ifdef SLINT_ZEPHYR_RENDER_BUFFER_SRAMX
+#        define SLINT_ZEPHYR_RENDER_BUFFER_SECTION __attribute__((section("SRAMX")))
+#    else
+#        define SLINT_ZEPHYR_RENDER_BUFFER_SECTION
+#    endif
 static constexpr std::size_t RENDER_BUFFER_WIDTH = 480;
-static constexpr std::size_t RENDER_BUFFER_HEIGHT = 64;
-alignas(8) static slint::platform::Rgb565Pixel
+static constexpr std::size_t RENDER_BUFFER_HEIGHT = 1;
+SLINT_ZEPHYR_RENDER_BUFFER_SECTION alignas(8) static slint::platform::Rgb565Pixel
         render_buffer[RENDER_BUFFER_WIDTH * RENDER_BUFFER_HEIGHT];
 // GT911 touch X-axis range in native orientation (320 pixels, used for invert-x transform)
 static constexpr int GT911_TOUCH_X_MAX = 319;
@@ -212,7 +270,7 @@ std::unique_ptr<ZephyrWindowAdapter> ZephyrWindowAdapter::init_from(const device
     case PIXEL_FORMAT_ARGB_8888:
         LOG_WRN("Unsupported pixel format: ARGB_8888");
         break;
-    case PIXEL_FORMAT_RGB_565X:
+    case SLINT_ZEPHYR_PIXEL_FORMAT_BGR_565:
         LOG_WRN("Unsupported pixel format: RGB_565X");
         break;
     }
@@ -228,7 +286,8 @@ std::unique_ptr<ZephyrWindowAdapter> ZephyrWindowAdapter::init_from(const device
     LOG_INF("Supports RGB_565: %d",
             static_cast<bool>(capabilities.supported_pixel_formats & PIXEL_FORMAT_RGB_565));
     LOG_INF("Supports RGB_565X: %d",
-            static_cast<bool>(capabilities.supported_pixel_formats & PIXEL_FORMAT_RGB_565X));
+            static_cast<bool>(capabilities.supported_pixel_formats
+                              & SLINT_ZEPHYR_PIXEL_FORMAT_BGR_565));
 
     if (!is_supported_pixel_format(capabilities.current_pixel_format)) {
         if (capabilities.supported_pixel_formats & PIXEL_FORMAT_RGB_565) {
@@ -298,7 +357,7 @@ void ZephyrWindowAdapter::maybe_redraw()
         return;
 
 #ifdef CONFIG_SHIELD_LCD_PAR_S035
-    display_buffer_descriptor line_desc;
+    display_buffer_descriptor line_desc {};
     line_desc.pitch = m_size.width;
 
     m_renderer.render_by_line<slint::platform::Rgb565Pixel>(
@@ -393,6 +452,17 @@ void ZephyrPlatform::run_event_loop()
 {
     LOG_DBG("Start");
 
+    if (m_window && SLINT_ZEPHYR_SCALE_FACTOR != 1.0f) {
+        const auto physical = m_window->size();
+        m_window->window().dispatch_scale_factor_change_event(SLINT_ZEPHYR_SCALE_FACTOR);
+        m_window->window().dispatch_resize_event(
+                slint::LogicalSize({ physical.width / SLINT_ZEPHYR_SCALE_FACTOR,
+                                     physical.height / SLINT_ZEPHYR_SCALE_FACTOR }));
+        LOG_INF("Scale factor: %f, logical size: %f x %f", (double)SLINT_ZEPHYR_SCALE_FACTOR,
+                (double)(physical.width / SLINT_ZEPHYR_SCALE_FACTOR),
+                (double)(physical.height / SLINT_ZEPHYR_SCALE_FACTOR));
+    }
+
     while (true) {
         LOG_DBG("Loop");
         slint::platform::update_timers_and_animations();
@@ -419,6 +489,14 @@ void ZephyrPlatform::run_event_loop()
 
         if (m_window) {
             m_window->maybe_redraw();
+
+#ifdef SLINT_ZEPHYR_HEAP_PROBE
+            static int64_t last_probe = -10000; // fire on the first frame, then every 5s
+            if (k_uptime_get() - last_probe > 5000) {
+                last_probe = k_uptime_get();
+                log_heap_headroom();
+            }
+#endif
 
             if (m_window->window().has_active_animations()) {
                 LOG_DBG("Has active animations");
@@ -462,6 +540,13 @@ void ZephyrPlatform::run_in_event_loop(Task event)
         m_queue.push_back(std::move(event));
     }
     k_sem_give(&SLINT_SEM);
+}
+
+// Transform a physical touch position (after rotation) into logical coordinates
+static slint::LogicalPosition to_logical(slint::LogicalPosition p)
+{
+    return slint::LogicalPosition(
+            { p.x / SLINT_ZEPHYR_SCALE_FACTOR, p.y / SLINT_ZEPHYR_SCALE_FACTOR });
 }
 
 void zephyr_process_input_event(struct input_event *event, void *user_data)
@@ -512,7 +597,7 @@ void zephyr_process_input_event(struct input_event *event, void *user_data)
             slint::invoke_from_event_loop([=, button = button.value()] {
                 __ASSERT(ZEPHYR_WINDOW, "Expected ZephyrWindowAdapter");
                 // Transform the physical screen position to the logical coordinate
-                const auto slintPos = transformed(pos, ZEPHYR_WINDOW->rotationInfo());
+                const auto slintPos = to_logical(transformed(pos, ZEPHYR_WINDOW->rotationInfo()));
                 ZEPHYR_WINDOW->window().dispatch_pointer_move_event(slintPos);
                 ZEPHYR_WINDOW->window().dispatch_pointer_press_event(slintPos, button);
             });
@@ -521,7 +606,7 @@ void zephyr_process_input_event(struct input_event *event, void *user_data)
             slint::invoke_from_event_loop([=] {
                 __ASSERT(ZEPHYR_WINDOW, "Expected ZephyrWindowAdapter");
                 // Transform the physical screen position to the logical coordinate
-                const auto slintPos = transformed(pos, ZEPHYR_WINDOW->rotationInfo());
+                const auto slintPos = to_logical(transformed(pos, ZEPHYR_WINDOW->rotationInfo()));
                 ZEPHYR_WINDOW->window().dispatch_pointer_move_event(slintPos);
             });
         } else {
@@ -529,7 +614,7 @@ void zephyr_process_input_event(struct input_event *event, void *user_data)
             slint::invoke_from_event_loop([=, button = button.value()] {
                 __ASSERT(ZEPHYR_WINDOW, "Expected ZephyrWindowAdapter");
                 // Transform the physical screen position to the logical coordinate
-                const auto slintPos = transformed(pos, ZEPHYR_WINDOW->rotationInfo());
+                const auto slintPos = to_logical(transformed(pos, ZEPHYR_WINDOW->rotationInfo()));
                 ZEPHYR_WINDOW->window().dispatch_pointer_release_event(slintPos, button);
                 ZEPHYR_WINDOW->window().dispatch_pointer_exit_event();
             });

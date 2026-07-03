@@ -16,7 +16,7 @@ LOG_MODULE_REGISTER(homeAutomation, LOG_LEVEL_INF);
 
 #include "slint-zephyr.h"
 
-#include "demo-sw-renderer.h"
+#include SLINT_HOME_AUTOMATION_UI_HEADER
 
 int main(void)
 {
