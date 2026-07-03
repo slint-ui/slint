@@ -837,7 +837,7 @@ pub(crate) struct ItemRTTI {
 fn rtti_for<T: 'static + Default + rtti::BuiltinItem + vtable::HasStaticVTable<ItemVTable>>()
 -> (&'static str, Rc<ItemRTTI>) {
     let rtti = ItemRTTI {
-        vtable: T::static_vtable(),
+        vtable: T::STATIC_VTABLE,
         type_info: dynamic_type::StaticTypeInfo::new::<T>(),
         properties: T::properties()
             .into_iter()

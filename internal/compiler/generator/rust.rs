@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore conv gdata powf punct vref rescope updt
+// cSpell: ignore conv gdata powf punct vref rescope rfold updt
 
 /*! module for the Rust code generator
 
@@ -2116,7 +2116,7 @@ fn generate_item_tree(
     let mut item_array = Vec::new();
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
         let parent_index = parent_index as u32;
-        let (path, component) =
+        let (_, component) =
             follow_sub_component_path(root, sub_tree.root, &node.sub_component_path);
         match node.item_index {
             Either::Right(mut repeater_index) => {
@@ -2135,10 +2135,6 @@ fn generate_item_tree(
             }
             Either::Left(item_index) => {
                 let item = &component.items[item_index];
-                let field = access_component_field_offset(
-                    &self::inner_component_id(component),
-                    &ident(&item.name),
-                );
 
                 let children_count = node.children.len() as u32;
                 let children_index = children_offset as u32;
@@ -2153,7 +2149,26 @@ fn generate_item_tree(
                         item_array_index: #item_array_len,
                     }
                 ));
-                item_array.push(quote!(sp::VOffset::new(#path #field)));
+
+                // The array is const, so nested offsets are composed with the
+                // const compose_field_offsets rather than the non-const `+`.
+                let mut sc = &root.sub_components[sub_tree.root];
+                let mut offsets = Vec::new();
+                for i in &node.sub_component_path {
+                    offsets.push(access_component_field_offset(
+                        &self::inner_component_id(sc),
+                        &ident(&sc.sub_components[*i].name),
+                    ));
+                    sc = &root.sub_components[sc.sub_components[*i].ty];
+                }
+                let offset = offsets.into_iter().rfold(
+                    access_component_field_offset(
+                        &self::inner_component_id(component),
+                        &ident(&item.name),
+                    ),
+                    |acc, seg| quote!(sp::compose_field_offsets(#seg, #acc)),
+                );
+                item_array.push(quote!(sp::VOffset::new(#offset)));
             }
         }
     });
@@ -2235,11 +2250,9 @@ fn generate_item_tree(
             }
 
             fn item_array() -> &'static [sp::VOffset<Self, sp::ItemVTable, sp::AllowPin>] {
-                // FIXME: ideally this should be a const, but we can't because of the pointer to the vtable
-                static ITEM_ARRAY : sp::OnceBox<
-                    [sp::VOffset<#inner_component_id, sp::ItemVTable, sp::AllowPin>; #item_array_len]
-                > = sp::OnceBox::new();
-                &*ITEM_ARRAY.get_or_init(|| sp::vec![#(#item_array),*].into_boxed_slice().try_into().unwrap())
+                const ITEM_ARRAY : [sp::VOffset<#inner_component_id, sp::ItemVTable, sp::AllowPin>; #item_array_len]
+                    = [#(#item_array),*];
+                &ITEM_ARRAY
             }
         }
 
