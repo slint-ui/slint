@@ -473,7 +473,7 @@ impl CompletionItemExt for CompletionItem {
 }
 
 /// Decide whether a reserved property should be offered as a completion in the given context.
-/// Reserved properties like row/col, flex-*, clip and drop-shadow-* are materialized on every
+/// Reserved properties like row/col, flex-*, clip and shadow properties are materialized on every
 /// item even though they only make sense on specific layout children or element types.
 fn is_reserved_prop_valid(
     prop: &str,
@@ -500,7 +500,9 @@ fn is_reserved_prop_valid(
     {
         return parent_name == Some("FlexboxLayout");
     }
-    if name_in(i_slint_compiler::typeregister::RESERVED_DROP_SHADOW_PROPERTIES) {
+    if name_in(i_slint_compiler::typeregister::RESERVED_DROP_SHADOW_PROPERTIES)
+        || name_in(i_slint_compiler::typeregister::RESERVED_INNER_SHADOW_PROPERTIES)
+    {
         return name_of(element_type).as_deref() == Some("Rectangle");
     }
     match prop {
@@ -1439,6 +1441,7 @@ mod tests {
         assert!(!res.iter().any(|ci| ci.label == "flex-grow"));
         assert!(!res.iter().any(|ci| ci.label == "clip"));
         assert!(!res.iter().any(|ci| ci.label == "drop-shadow-blur"));
+        assert!(!res.iter().any(|ci| ci.label == "inner-shadow-blur"));
 
         // elements
         let class = Some(CompletionItemKind::CLASS);
@@ -1511,6 +1514,7 @@ mod tests {
         assert!(!res.iter().any(|ci| ci.label == "flex-grow"));
         assert!(!res.iter().any(|ci| ci.label == "clip"));
         assert!(!res.iter().any(|ci| ci.label == "drop-shadow-blur"));
+        assert!(!res.iter().any(|ci| ci.label == "inner-shadow-blur"));
 
         // elements
         let class = Some(CompletionItemKind::CLASS);
@@ -1522,6 +1526,22 @@ mod tests {
 
     #[test]
     fn reserved_property_filtering() {
+        let res = get_completions(
+            r#"
+            component Foo {
+                Rectangle {
+                    🔺
+                }
+            }
+        "#,
+        )
+        .unwrap();
+        assert!(res.iter().any(|ci| ci.label == "drop-shadow-blur"));
+        assert!(res.iter().any(|ci| ci.label == "drop-shadow-spread"));
+        assert!(res.iter().any(|ci| ci.label == "inner-shadow-blur"));
+        assert!(res.iter().any(|ci| ci.label == "inner-shadow-spread"));
+        assert!(res.iter().any(|ci| ci.label == "inner-shadow-color"));
+
         let res = get_completions(
             r#"
             component Foo {

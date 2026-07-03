@@ -1,0 +1,115 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component SimplePreview inherits Window {
+    width: 323px;
+    height: 398px;
+    title: "Simple Preview";
+
+    Rectangle {
+        width: 236px;
+        height: 160px;
+        border-radius: 12px;
+        background: #ffffff;
+        border-width: 1px;
+        drop-shadow-blur: 19px;
+        drop-shadow-color: #00000040;
+        drop-shadow-offset-x: 2px;
+        drop-shadow-offset-y: 7px;
+        border-color: #d0d7de;
+
+        Text {
+            text: "Hello visual editor";
+            color: #1f2328;
+            font-size: 24px;
+            font-weight: 300;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+
+    }
+    Rectangle {
+        background: #f6f8fa;
+
+        Rectangle {
+            x: 96px;
+            y: 44px;
+            width: 160px;
+            height: 64px;
+            background: #ffffff;
+            border-radius: 12px;
+            border-color: #d0d7de;
+            border-width: 1px;
+            drop-shadow-blur: 102px;
+            drop-shadow-color: #00000040;
+            drop-shadow-offset-x: -1px;
+            drop-shadow-offset-y: 18px;
+            drop-shadow-spread: 0px;
+        }
+        Rectangle {
+            width: 160px;
+            height: 64px;
+            background: #ffffff;
+            border-radius: 12px;
+            border-color: #d0d7de;
+            border-width: 1px;
+        }
+        Rectangle {
+            x: 92px;
+            y: 91px;
+            width: 108px;
+            height: 104px;
+            background: #ffffff;
+            border-radius: 12px;
+            border-color: #d0d7de;
+            border-width: 1px;
+        }
+        Rectangle {
+            x: 8px;
+            y: 98px;
+            width: 160px;
+            height: 64px;
+            background: #ffffff;
+            border-radius: 12px;
+            border-color: #d0d7de;
+            border-width: 1px;
+            Text {
+                text: "Text";
+                x: 191px;
+                y: 125px;
+                width: 220px;
+                height: 40px;
+                color: #1f2328;
+                font-size: 24px;
+                vertical-alignment: center;
+            }
+        }
+        Image {
+            x: 198px;
+            y: 189px;
+            width: 160px;
+            height: 96px;
+            image-fit: contain;
+        }
+        Text {
+            text: "Text";
+            x: 161px;
+            y: 139px;
+            width: 220px;
+            height: 40px;
+            color: #1f2328;
+            font-size: 24px;
+            vertical-alignment: center;
+        }
+    }
+
+    Image {
+        source: @image-url("../../../../../demos/printerdemo/ui/images/cat.jpg");
+        width: 148px;
+        x: 5px;
+        y: 189px;
+        height: 197px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}

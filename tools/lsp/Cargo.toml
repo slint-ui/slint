@@ -24,6 +24,11 @@ icon = ["../../logo/slint-logo.icns"]
 name = "slint-lsp"
 path = "main.rs"
 
+[[bin]]
+name = "slint-visual-editor"
+path = "editor_main.rs"
+required-features = ["preview"]
+
 [[example]]
 name = "slint-editor"
 path = "editor_main.rs"
@@ -121,7 +126,8 @@ tikv-jemallocator = { workspace = true }
 
 # Used by the visual editor for the macOS unified title bar.
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSResponder", "NSToolbar", "NSView", "NSWindow", "objc2-core-foundation"] }
+sparklers = { git = "https://github.com/slint-ui/sparklers.git", rev = "76f2b67" }
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "NSToolbar", "NSView", "NSWindow"] }
 objc2-foundation = { version = "0.3.2", default-features = false, features = ["std", "NSString"] }
 objc2 = "0.6"
 raw-window-handle = "0.6"
@@ -129,10 +135,12 @@ raw-window-handle = "0.6"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { workspace = true }
 crossbeam-channel = "0.5"                                                                                                # must match the version used by lsp-server
+directories = "6.0"
 lsp-server = "0.7"
 tokio = { version = "1.50.0", features = ["rt", "sync", "time", "macros", "io-std", "io-util", "net", "fs", "process"] }
 dashmap = "6.1.0"
 mdns-sd = "0.20.0"
+rfd = "0.17.2"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.5"

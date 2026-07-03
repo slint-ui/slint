@@ -28,6 +28,7 @@ mod focus_handling;
 pub mod generate_item_indices;
 pub mod infer_aliases_types;
 mod inject_debug_hooks;
+pub use inject_debug_hooks::property_id;
 mod inlining;
 mod key_bindings;
 mod lower_absolute_coordinates;
@@ -197,6 +198,11 @@ pub async fn run_passes(
     for root_component in doc.exported_roots() {
         lower_layout::check_window_layout(&root_component);
     }
+    if let Some(random_state) = &type_loader.compiler_config.debug_hooks {
+        for root_component in doc.exported_roots() {
+            inject_debug_hooks::inject_debug_hooks(&root_component, random_state);
+        }
+    }
     collect_globals::collect_globals(doc, diag);
     // Must be done before passes that rely on `NamedReference::is_constant`.
     collect_globals::mark_library_globals(doc);
@@ -345,7 +351,6 @@ pub fn run_import_passes(
     type_loader: &crate::typeloader::TypeLoader,
     diag: &mut crate::diagnostics::BuildDiagnostics,
 ) {
-    inject_debug_hooks::inject_debug_hooks(doc, type_loader);
     infer_aliases_types::resolve_aliases(doc, diag, &type_loader.symbol_counters);
     resolving::resolve_expressions(doc, type_loader, diag);
     purity_check::purity_check(doc, diag);

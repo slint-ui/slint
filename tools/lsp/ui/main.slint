@@ -6,7 +6,7 @@
 import { Button, TabWidget, Palette, Switch, ScrollView} from "std-widgets.slint";
 import { Api, ComponentItem, DiagnosticSummary, PreviewMode, RemoteConnectionState } from "api.slint";
 
-import { EditorUi } from "./editor.slint";
+import { EditorUi } from "./visual-editor/editor.slint";
 import { EditorSizeSettings, EditorSpaceSettings, Icons, PickerStyles, ConsoleStyles } from "./components/styling.slint";
 import { StatusLine } from "./components/status-line.slint";
 import { HeaderView } from "./views/header-view.slint";
@@ -41,13 +41,46 @@ export component PreviewUi inherits Window {
     property <bool> show-floating-table-editor <=> WindowManager.showing-table-editor;
     property <bool> show-color-stop-picker <=> WindowManager.showing-color-stop-picker;
     property <length> initial-floating-x;
-    property <bool> console-panel-expanded: false;
-    property <bool> properties-widget: false;
-    property <bool> data-widget: false;
-    property <bool> outline-widget: false;
-    property <bool> library-widget: false;
+    in-out property <bool> console-panel-expanded: false;
+    in-out property <bool> properties-widget: false;
+    in-out property <bool> data-widget: false;
+    in-out property <bool> outline-widget: false;
+    in-out property <bool> library-widget: false;
     property <bool> remote-mode: Api.preview-mode == PreviewMode.Remote;
     in-out property <bool> select-mode: false;
+
+    function notify-preview-user-settings-changed() {
+        // Redundant updates (e.g. the deferred `changed` handlers fired right
+        // after the LSP pushed settings) are filtered out on the Rust side by
+        // comparing against the last synced settings.
+        Api.preview-user-settings-changed(
+            Api.always-on-top,
+            root.library-widget,
+            root.properties-widget,
+            root.outline-widget,
+            root.data-widget,
+            root.console-panel-expanded,
+        );
+    }
+
+    changed always-on-top => {
+        root.notify-preview-user-settings-changed();
+    }
+    changed library-widget => {
+        root.notify-preview-user-settings-changed();
+    }
+    changed properties-widget => {
+        root.notify-preview-user-settings-changed();
+    }
+    changed outline-widget => {
+        root.notify-preview-user-settings-changed();
+    }
+    changed data-widget => {
+        root.notify-preview-user-settings-changed();
+    }
+    changed console-panel-expanded => {
+        root.notify-preview-user-settings-changed();
+    }
 
     title: @tr("Slint Live-Preview");
     icon: @image-url("assets/slint-logo-small-light.png");
@@ -210,8 +243,17 @@ export component PreviewUi inherits Window {
                     vertical-stretch: 0;
                     height: self.preferred-height;
 
-                    current-style-index <=> Api.current-style-index;
-                    known-styles <=> Api.known-styles;
+                    // Don't two-way alias the ComboBox-backed `current-style`/`known-styles`
+                    // straight to the `Api` global: under the interpreter's full inlining
+                    // (used by SLINT_LIVE_PREVIEW), `remove_aliases` would fold the ComboBox's
+                    // `changed model`/`changed current-value` handlers onto the global, where the
+                    // instance elements they reference can't be resolved (issue #6426). Use
+                    // one-way bindings plus an explicit write-back instead.
+                    current-style-index: Api.current-style-index;
+                    changed current-style-index => {
+                        Api.current-style-index = self.current-style-index;
+                    }
+                    known-styles: Api.known-styles;
                     preview-mode <=> Api.preview-mode;
                     remote-mode: root.remote-mode;
                     library-widget <=> root.library-widget;
@@ -251,8 +293,8 @@ export component PreviewUi inherits Window {
                         preview-area-is-current: preview.preview-is-current;
                         visible-component: root.visible-component;
 
-                        show-preview-for(name, defined-at) => {
-                            Api.show-preview-for(name, defined-at);
+                        show-preview-for(component-name, defined-at) => {
+                            Api.show-preview-for(component-name, defined-at);
                         }
                     }
 

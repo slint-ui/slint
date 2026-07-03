@@ -1,0 +1,51 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component MyApp inherits Window {
+    width: 323px;
+    height: 398px;
+    title: "AppSimple Preview";
+
+    Rectangle {
+        background: grey;
+
+        Rectangle {
+            x: 74px;
+            y: 301px;
+            width: 160px;
+            height: 64px;
+            background: #ffffff;
+            border-radius: 12px;
+            border-color: #d0d7de;
+            border-width: 1px;
+        }
+    }
+    Rectangle {
+        width: 243px;
+        x: 12px;
+        y: 154px;
+        height: 120px;
+        border-radius: 12px;
+        background: #ffffff;
+        border-width: 3px;
+        border-color: #3586d7;
+
+        Text {
+            text: "My App!";
+            color: #1f2328;
+            font-size: 24px;
+            font-weight: 700;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+
+    }
+
+    Image {
+        source: @image-url("../../../../../demos/printerdemo/ui/images/cat.jpg");
+        width: 160px;
+        height: 64px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}

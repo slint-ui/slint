@@ -1,0 +1,215 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component DemoExecutiveInsights inherits Window {
+    preferred-width: 390px;
+    preferred-height: 720px;
+    title: "Executive Insights";
+    private property <bool> landscape: root.width > root.height;
+
+    Rectangle {
+        width: root.width;
+        height: root.height;
+        background: #eef4fb;
+    }
+
+    Image {
+        x: root.landscape ? 34px : 28px;
+        y: root.landscape ? 30px : 30px;
+        width: root.landscape ? 60px : 66px;
+        height: root.landscape ? 40px : 44px;
+        source: @image-url("title-frame.png");
+        image-fit: contain;
+    }
+
+    Text {
+        x: root.landscape ? 112px : 112px;
+        y: root.landscape ? 28px : 32px;
+        width: 190px;
+        height: 30px;
+        text: "Executive";
+        color: #111827;
+        font-size: 24px;
+        font-weight: 800;
+    }
+
+    Text {
+        x: root.landscape ? 112px : 112px;
+        y: root.landscape ? 62px : 64px;
+        width: 196px;
+        height: 18px;
+        text: "Q4 performance";
+        color: #64748b;
+        font-size: 13px;
+    }
+
+    Rectangle {
+        x: root.landscape ? 34px : 28px;
+        y: root.landscape ? 104px : 112px;
+        width: root.landscape ? 320px : 334px;
+        height: root.landscape ? 124px : 176px;
+        border-radius: root.landscape ? 22px : 24px;
+        background: #ffffff;
+        border-width: 1px;
+        border-color: #dbeafe;
+        drop-shadow-blur: 24px;
+        drop-shadow-offset-y: 10px;
+        drop-shadow-color: #2563eb22;
+    }
+
+    Text {
+        x: root.landscape ? 58px : 54px;
+        y: root.landscape ? 130px : 138px;
+        width: 112px;
+        height: 18px;
+        text: "Revenue";
+        color: #64748b;
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    Text {
+        x: root.landscape ? 58px : 54px;
+        y: root.landscape ? 154px : 166px;
+        width: root.landscape ? 152px : 178px;
+        height: root.landscape ? 40px : 46px;
+        text: "$2.84M";
+        color: #0f172a;
+        font-size: root.landscape ? 32px : 38px;
+        font-weight: 800;
+    }
+
+    Rectangle {
+        x: root.landscape ? 250px : 262px;
+        y: root.landscape ? 132px : 146px;
+        width: 70px;
+        height: 30px;
+        border-radius: 15px;
+        background: #dcfce7;
+    }
+
+    Text {
+        x: root.landscape ? 264px : 276px;
+        y: root.landscape ? 140px : 154px;
+        width: 42px;
+        height: 14px;
+        text: "+18%";
+        color: #15803d;
+        font-size: 12px;
+        font-weight: 800;
+        horizontal-alignment: center;
+    }
+
+    Rectangle {
+        x: 25px;
+        y: 325px;
+        width: 156px;
+        height: 100px;
+        border-radius: 22px;
+        background: #ffffff;
+        border-width: 1px;
+        border-color: #e5e7eb;
+        Text {
+            width: 90px;
+            x: 34px;
+            y: 24px;
+            height: 16px;
+            text: "Pipeline";
+            color: #64748b;
+            font-size: 13px;
+            font-weight: 700;
+        }
+    }
+
+
+    Text {
+        x: 58px;
+        y: 384px;
+        width: 88px;
+        height: 32px;
+        text: "74%";
+        color: #0f172a;
+        font-size: root.landscape ? 24px : 28px;
+        font-weight: 800;
+    }
+
+    Rectangle {
+        x: root.landscape ? 544px : 204px;
+        y: root.landscape ? 44px : 316px;
+        width: root.landscape ? 142px : 158px;
+        height: root.landscape ? 92px : 104px;
+        border-radius: 22px;
+        background: #0f172a;
+    }
+
+    Text {
+        x: root.landscape ? 568px : 228px;
+        y: root.landscape ? 68px : 344px;
+        width: 88px;
+        height: 16px;
+        text: "Margin";
+        color: #93c5fd;
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    Text {
+        x: root.landscape ? 568px : 228px;
+        y: root.landscape ? 96px : 374px;
+        width: 88px;
+        height: 32px;
+        text: "31%";
+        color: #ffffff;
+        font-size: root.landscape ? 24px : 28px;
+        font-weight: 800;
+    }
+
+    Rectangle {
+        x: root.landscape ? 388px : 28px;
+        y: root.landscape ? 160px : 454px;
+        width: root.landscape ? 298px : 334px;
+        height: root.landscape ? 104px : 128px;
+        border-radius: 24px;
+        background: #ffffff;
+        border-width: 1px;
+        border-color: #dbeafe;
+    }
+
+    Rectangle {
+        x: root.landscape ? 430px : 116px;
+        y: root.landscape ? 214px : 522px;
+        width: root.landscape ? 76px : 72px;
+        height: root.landscape ? 28px : 32px;
+        border-radius: 16px;
+        background: #60a5fa;
+    }
+
+    Rectangle {
+        x: root.landscape ? 528px : 202px;
+        y: root.landscape ? 198px : 504px;
+        width: root.landscape ? 116px : 116px;
+        height: root.landscape ? 44px : 50px;
+        border-radius: 25px;
+        background: #2563eb;
+    }
+
+    Rectangle {
+        x: root.landscape ? 388px : 28px;
+        y: root.landscape ? 292px : 622px;
+        width: root.landscape ? 298px : 334px;
+        height: root.landscape ? 58px : 62px;
+        border-radius: 20px;
+        background: #dff6ea;
+    }
+
+    Text {
+        x: root.landscape ? 416px : 54px;
+        y: root.landscape ? 310px : 642px;
+        width: 100px;
+        height: 22px;
+        text: "Ready";
+        color: #166534;
+        font-size: 18px;
+        font-weight: 800;
+    }
+}

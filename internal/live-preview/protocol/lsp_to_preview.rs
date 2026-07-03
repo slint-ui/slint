@@ -43,6 +43,14 @@ pub enum LspToPreviewMessage {
     SetConfiguration {
         config: PreviewConfig,
     },
+    /// Deliver a stored user-settings blob to the preview. The LSP treats the
+    /// payload opaquely: `name` is the settings file name the preview asked for
+    /// via [`super::PreviewToLspMessage::RequestState`], `contents` is the raw
+    /// serialized string read from disk. The preview owns (de)serialization.
+    SetUserSettings {
+        name: String,
+        contents: String,
+    },
     ShowPreview(PreviewComponent),
     HighlightFromEditor {
         url: Option<Url>,

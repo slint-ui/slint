@@ -36,6 +36,11 @@ SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"
 SPDX-License-Identifier = "CC-BY-ND-4.0"
 
 [[annotations]]
+path = ["tools/lsp/ui/assets/octicons/*.svg"]
+SPDX-FileCopyrightText = "Copyright © 2026 GitHub Inc."
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
 path = [
   "**/.eslintrc.yml",
   "**/.gitignore",
@@ -196,6 +201,14 @@ path = [
   "tools/viewer/TestFlight/WhatToTest.en-US.txt",
   "tools/viewer/android/fastlane/metadata/android/**.txt",
   "tools/viewer/android/fastlane/metadata/android/**.png",
+
+  # Visual editor-related files
+  "tools/lsp/packaging/macos/AppIcon.icon/Assets/icon_backdrop.svg",
+  "tools/lsp/packaging/macos/AppIcon.icon/icon.json",
+  "tools/lsp/packaging/macos/dmg-background.svg",
+  "tools/lsp/ui/assets/slinterface-*.svg",
+  "tools/lsp/ui/visual-editor/example/image.png",
+  "tools/lsp/ui/visual-editor/example/title-frame.png",
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright © SixtyFPS GmbH <info@slint.dev>"

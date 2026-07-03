@@ -17,6 +17,11 @@ mod fmt;
 mod language;
 #[cfg(feature = "preview-engine")]
 mod preview;
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(feature = "preview-external", feature = "preview-engine")
+))]
+mod settings_store;
 pub mod util;
 
 use common::Result;
@@ -233,7 +238,7 @@ fn run_preview(args: &LivePreview) -> std::result::Result<(), slint::PlatformErr
     let to_lsp: Rc<dyn common::PreviewToLsp> =
         Rc::new(preview::connector::RemoteControlledPreviewToLsp::new());
 
-    preview::run(to_lsp, args.fullscreen, false)
+    preview::run(to_lsp, args.fullscreen, preview::PreviewUiKind::Viewer, None)
 }
 
 fn main() {
@@ -602,7 +607,9 @@ async fn run_main_loop(
                 // Messages from the native preview come in here:
                 #[cfg(feature = "preview-engine")]
                 {
-                    if let Some(msg) = _msg && let Err(err) = handle_preview_to_lsp_message(msg, &ctx).await {
+                    if let Some(msg) =
+                        _msg && let Err(err) = handle_preview_to_lsp_message(msg, &mut ctx).await
+                    {
                         tracing::error!("handle_preview_to_lsp_message: {err}");
                     }
                 }
@@ -801,7 +808,10 @@ async fn send_workspace_edit(
 }
 
 #[cfg(any(feature = "preview-external", feature = "preview-engine", feature = "preview-remote"))]
-async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Context) -> Result<()> {
+async fn handle_preview_to_lsp_message(
+    message: PreviewToLspMessage,
+    ctx: &mut Context,
+) -> Result<()> {
     use PreviewToLspMessage as M;
     match message {
         M::Diagnostics { uri, version, diagnostics } => {
@@ -829,13 +839,12 @@ async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Conte
             tracing::debug!("Preview type changed: {target:?}");
             ctx.to_preview.set_local_target(target)?;
         }
-        M::RequestState { files } => {
+        M::RequestState { files, settings } => {
             tracing::debug!("Preview requested state");
-            if files.is_empty() {
-                crate::language::send_state_to_preview(ctx);
-            } else {
-                crate::language::send_files_to_preview(ctx, &files);
-            }
+            crate::language::send_requested_state_to_preview(ctx, &files, &settings);
+        }
+        M::UpdateUserSettings { name, contents } => {
+            crate::language::store_user_settings(&name, &contents);
         }
         M::SendWorkspaceEdit { label, edit } => {
             let sn = ctx.server_notifier.clone();
@@ -857,9 +866,18 @@ async fn handle_preview_to_lsp_message(message: PreviewToLspMessage, ctx: &Conte
             tracing::debug!("Preview asked to connect remote at {addresses:?}:{port}");
             #[cfg(feature = "preview-remote")]
             if let Some(remote) = ctx.to_preview.remote() {
-                // `connect()` owns the dialog state and has the preview
-                // state pushed once connected.
-                crate::common::spawn_local(remote.connect(addresses, port));
+                // `connect()` emits Connecting / Connected / Failed itself and
+                // rejects empty `addresses` up front.
+                let preview_to_lsp_sender = ctx.preview_to_lsp_sender.clone();
+                let future = remote.connect(addresses, port);
+                crate::common::spawn_local(async move {
+                    if future.await.is_ok() {
+                        let _ = preview_to_lsp_sender.send(PreviewToLspMessage::RequestState {
+                            files: Vec::new(),
+                            settings: Vec::new(),
+                        });
+                    }
+                });
             }
         }
         M::DisconnectRemote => {

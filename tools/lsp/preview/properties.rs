@@ -455,6 +455,13 @@ pub(super) fn get_properties(
                             .iter()
                             .cloned(),
                     ));
+                    result.extend(get_reserved_properties(
+                        &b.name,
+                        depth,
+                        i_slint_compiler::typeregister::RESERVED_INNER_SHADOW_PROPERTIES
+                            .iter()
+                            .cloned(),
+                    ));
                 }
 
                 result.push(PropertyInformation {
@@ -1004,6 +1011,14 @@ pub mod tests {
         // Poke deeper:
         let (_, result, dc, _) = properties_at_position(21, 30).unwrap();
         let property = find_property(&result, "background").unwrap();
+        assert_eq!(&find_property(&result, "drop-shadow-blur").unwrap().ty, &Type::LogicalLength);
+        assert_eq!(&find_property(&result, "drop-shadow-spread").unwrap().ty, &Type::LogicalLength);
+        assert_eq!(&find_property(&result, "inner-shadow-blur").unwrap().ty, &Type::LogicalLength);
+        assert_eq!(
+            &find_property(&result, "inner-shadow-spread").unwrap().ty,
+            &Type::LogicalLength
+        );
+        assert!(find_property(&result, "inner-shadow-color").is_some());
 
         let def_at = property.defined_at.as_ref().unwrap();
         let def_range = util::node_to_lsp_range(&def_at.code_block_or_expression, dc.format);
@@ -1023,6 +1038,8 @@ pub mod tests {
         // No callbacks
         assert!(find_property(&result, "accessible-action-default").is_none());
         assert!(find_property(&result, "clicked").is_none());
+        assert!(find_property(&result, "drop-shadow-blur").is_none());
+        assert!(find_property(&result, "inner-shadow-blur").is_none());
     }
 
     #[test]

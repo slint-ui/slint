@@ -1,0 +1,776 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { Api } from "../../api.slint";
+import { CanvasCorner, EditorMetrics, StudioTheme } from "common.slint";
+
+enum ImageAssetEditorMode {
+    preview,
+    nine-slice,
+}
+
+component GuideHandle inherits Rectangle {
+    in property <string> label;
+    in property <length> label-x;
+    in property <length> label-y;
+
+    x: label-x;
+    y: label-y;
+    width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    background: #ffd33d;
+    border-width: 2px;
+    border-color: StudioTheme.dark ? #111827 : #ffffff;
+    drop-shadow-blur: 8px;
+    drop-shadow-offset-y: 2px;
+    drop-shadow-color: #00000055;
+
+    Text {
+        text: root.label;
+        color: #111827;
+        font-size: 11px;
+        font-weight: 900;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component ImageEditorTab inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked;
+
+    height: 30px;
+    horizontal-stretch: 1;
+    border-radius: 6px;
+    border-width: selected ? 1px : 0px;
+    border-color: StudioTheme.border;
+    background: selected ? StudioTheme.panel-bg : touch.has-hover ? StudioTheme.panel-subtle : transparent;
+
+    Text {
+        text: root.label;
+        color: root.selected ? StudioTheme.text : StudioTheme.muted;
+        font-size: 12px;
+        font-weight: root.selected ? 800 : 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component FloatingReadOnlyField inherits Rectangle {
+    in property <string> prefix;
+    in property <string> value;
+    in property <bool> wide: false;
+
+    width: wide ? 250px : 96px;
+    height: 24px;
+    border-radius: 4px;
+    background: StudioTheme.dark ? #383838aa : #f5f5f5cc;
+
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 7px;
+        spacing: 5px;
+        cross-axis-alignment: center;
+
+        Text {
+            text: root.prefix;
+            color: StudioTheme.muted;
+            font-size: 11px;
+            vertical-alignment: center;
+        }
+
+        Text {
+            horizontal-stretch: 1;
+            text: root.value;
+            color: StudioTheme.text;
+            font-size: 12px;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+}
+
+component FloatingSyntaxField inherits Rectangle {
+    in property <string> value;
+
+    height: 78px;
+    border-radius: 4px;
+    background: StudioTheme.dark ? #383838 : #f5f5f5;
+
+    Text {
+        x: 8px;
+        width: parent.width - 16px;
+        text: root.value;
+        color: StudioTheme.text;
+        font-size: 11px;
+        vertical-alignment: center;
+        wrap: word-wrap;
+    }
+}
+
+component FloatingCopyButton inherits Rectangle {
+    callback clicked;
+
+    width: 54px;
+    height: 24px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: StudioTheme.dark ? #414141 : #e5e5e5;
+    background: touch.has-hover ? (StudioTheme.dark ? #414141 : #eeeeee) : (StudioTheme.dark ? #383838 : #f5f5f5);
+
+    Text {
+        text: "Copy";
+        color: StudioTheme.text;
+        font-size: 12px;
+        font-weight: 800;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+component FloatingImageDetailsPanel inherits Rectangle {
+    in property <string> file;
+    in property <string> format;
+    in property <string> image-width;
+    in property <string> image-height;
+    in property <string> expression: "";
+    callback copy-clicked;
+
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: StudioTheme.border;
+    background: StudioTheme.panel-bg;
+    drop-shadow-blur: 18px;
+    drop-shadow-offset-y: 8px;
+    drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b25;
+
+    VerticalLayout {
+        padding: 14px;
+        spacing: 8px;
+
+        Text {
+            text: "Image";
+            color: StudioTheme.text;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        FloatingReadOnlyField {
+            width: parent.width - 28px;
+            prefix: "File";
+            value: root.file;
+            wide: true;
+        }
+
+        HorizontalLayout {
+            width: parent.width - 28px;
+            spacing: 8px;
+
+            FloatingReadOnlyField {
+                horizontal-stretch: 1;
+                prefix: "Fmt";
+                value: root.format;
+            }
+        }
+
+        HorizontalLayout {
+            width: parent.width - 28px;
+            spacing: 8px;
+
+            FloatingReadOnlyField {
+                horizontal-stretch: 1;
+                prefix: "W";
+                value: root.image-width;
+            }
+
+            FloatingReadOnlyField {
+                horizontal-stretch: 1;
+                prefix: "H";
+                value: root.image-height;
+            }
+        }
+
+        if root.expression != "": FloatingSyntaxField {
+            width: parent.width - 28px;
+            value: root.expression;
+        }
+
+        if root.expression != "": HorizontalLayout {
+            width: parent.width - 28px;
+            alignment: end;
+
+            FloatingCopyButton {
+                clicked => {
+                    root.copy-clicked();
+                }
+            }
+        }
+    }
+}
+
+export component ImageAssetEditor inherits Rectangle {
+    in property <bool> sidebars-collapsed: false;
+
+    horizontal-stretch: 1;
+    background: StudioTheme.canvas;
+
+    private property <ImageAssetEditorMode> mode: ImageAssetEditorMode.preview;
+    private property <string> asset-path: Api.selected-image-asset.path;
+    private property <int> source-width: Api.selected-image-asset.image.width;
+    private property <int> source-height: Api.selected-image-asset.image.height;
+    private property <length> image-source-width: root.source-width * 1px;
+    private property <length> image-source-height: root.source-height * 1px;
+    private property <length> tab-bar-height: 58px;
+    private property <length> left-pane-offset: root.sidebars-collapsed ? 0px : EditorMetrics.left-pane-width;
+    private property <length> rail-margin: 24px;
+    private property <length> rail-gap: 28px;
+    private property <length> property-pane-width: EditorMetrics.inspector-pane-width;
+    private property <length> property-pane-height: 260px;
+    private property <length> preview-property-pane-height: 154px;
+    private property <length> property-pane-margin: root.rail-margin;
+    private property <length> preview-panel-width: root.property-pane-width;
+    private property <length> preview-panel-height: 196px;
+    private property <length> edit-safe-top: root.tab-bar-height + 12px;
+    private property <length> edit-safe-bottom: 44px;
+    private property <length> rail-width: max(root.preview-panel-width, root.property-pane-width);
+    private property <length> rail-x: root.width - root.rail-margin - root.rail-width;
+    private property <length> edit-safe-right: root.rail-width + root.rail-margin + root.rail-gap;
+    private property <length> available-width: max(1px, root.width - root.edit-safe-right - 24px);
+    private property <length> available-height: max(1px, root.height - root.edit-safe-top - root.edit-safe-bottom - 64px);
+    private property <float> fit-scale: root.has-image()
+        ? min(root.available-width / root.image-source-width, root.available-height / root.image-source-height)
+        : 1.0;
+    private property <length> display-width: root.has-image() ? root.image-source-width * root.fit-scale : 0px;
+    private property <length> display-height: root.has-image() ? root.image-source-height * root.fit-scale : 0px;
+    private property <length> plain-preview-available-width: max(1px, root.width - root.edit-safe-right - 48px);
+    private property <length> plain-preview-available-height: max(1px, root.height - root.tab-bar-height - 96px);
+    private property <float> plain-preview-fit-scale: root.has-image()
+        ? min(root.plain-preview-available-width / root.image-source-width, root.plain-preview-available-height / root.image-source-height)
+        : 1.0;
+    private property <length> plain-preview-display-width: root.has-image() ? root.image-source-width * root.plain-preview-fit-scale : 0px;
+    private property <length> plain-preview-display-height: root.has-image() ? root.image-source-height * root.plain-preview-fit-scale : 0px;
+    private property <length> edit-area-width: max(root.display-width, root.width - root.edit-safe-right);
+    private property <length> edit-area-height: max(1px, root.height - root.edit-safe-bottom - root.edit-safe-top);
+    private property <length> left-display: root.source-to-display(Api.image-nine-slice-left);
+    private property <length> right-display: root.source-to-display(Api.image-nine-slice-right);
+    private property <length> top-display: root.source-to-display(Api.image-nine-slice-top);
+    private property <length> bottom-display: root.source-to-display(Api.image-nine-slice-bottom);
+    private property <length> stretch-width: max(0px, root.display-width - root.left-display - root.right-display);
+    private property <length> stretch-height: max(0px, root.display-height - root.top-display - root.bottom-display);
+    private property <bool> preview-size-custom: false;
+    private property <length> preview-custom-width: 0px;
+    private property <length> preview-custom-height: 0px;
+    private property <Size> preview-resize-start-size: { width: 0px, height: 0px };
+    private property <Point> preview-resize-start-pointer: { x: 0px, y: 0px };
+    private property <CanvasCorner> preview-resize-corner: CanvasCorner.bottom-right;
+    private property <length> preview-min-size: 48px;
+
+    changed asset-path => {
+        root.mode = ImageAssetEditorMode.preview;
+        root.preview-size-custom = false;
+        Api.image-nine-slice-top = 0;
+        Api.image-nine-slice-right = 0;
+        Api.image-nine-slice-bottom = 0;
+        Api.image-nine-slice-left = 0;
+    }
+
+    function has-image() -> bool {
+        return root.source-width > 0 && root.source-height > 0 && Api.selected-image-asset.error == "";
+    }
+
+    function display-to-source(value: length) -> int {
+        if root.fit-scale <= 0 {
+            return 0;
+        }
+        return ((value / 1px) / root.fit-scale).round();
+    }
+
+    function source-to-display(value: int) -> length {
+        return value * root.fit-scale * 1px;
+    }
+
+    function set-left(display-value: length) {
+        Api.image-nine-slice-left = root.display-to-source(display-value)
+            .clamp(0, root.source-width - Api.image-nine-slice-right);
+    }
+
+    function set-right(display-value: length) {
+        Api.image-nine-slice-right = root.display-to-source(display-value)
+            .clamp(0, root.source-width - Api.image-nine-slice-left);
+    }
+
+    function set-top(display-value: length) {
+        Api.image-nine-slice-top = root.display-to-source(display-value)
+            .clamp(0, root.source-height - Api.image-nine-slice-bottom);
+    }
+
+    function set-bottom(display-value: length) {
+        Api.image-nine-slice-bottom = root.display-to-source(display-value)
+            .clamp(0, root.source-height - Api.image-nine-slice-top);
+    }
+
+    function preview-width() -> length {
+        return root.preview-size-custom ? root.preview-custom-width : max(root.preview-min-size, root.image-source-width);
+    }
+
+    function preview-height() -> length {
+        return root.preview-size-custom ? root.preview-custom-height : max(root.preview-min-size, root.image-source-height);
+    }
+
+    function preview-position() -> Point {
+        return {
+            x: root.rail-x + (root.rail-width - root.preview-panel-width) / 2
+                + (root.preview-panel-width - root.preview-width()) / 2,
+            y: root.tab-bar-height + 34px + (root.preview-panel-height - 46px - root.preview-height()) / 2,
+        };
+    }
+
+    function begin-preview-resize(corner: CanvasCorner, pointer: Point) {
+        root.preview-resize-corner = corner;
+        root.preview-resize-start-size = {
+            width: root.preview-width(),
+            height: root.preview-height(),
+        };
+        root.preview-resize-start-pointer = pointer;
+    }
+
+    function resize-preview-to(pointer: Point) {
+        let delta = {
+            x: pointer.x - root.preview-resize-start-pointer.x,
+            y: pointer.y - root.preview-resize-start-pointer.y,
+        };
+        let width-delta = 2 * (root.preview-resize-corner == CanvasCorner.top-left
+            || root.preview-resize-corner == CanvasCorner.bottom-left ? -delta.x : delta.x);
+        let height-delta = 2 * (root.preview-resize-corner == CanvasCorner.top-left
+            || root.preview-resize-corner == CanvasCorner.top-right ? -delta.y : delta.y);
+        root.preview-size-custom = true;
+        root.preview-custom-width = max(root.preview-min-size, root.preview-resize-start-size.width + width-delta);
+        root.preview-custom-height = max(root.preview-min-size, root.preview-resize-start-size.height + height-delta);
+    }
+
+    function image-width-label() -> string {
+        return root.source-width + "";
+    }
+
+    function image-height-label() -> string {
+        return root.source-height + "";
+    }
+
+    function nine-slice-expression() -> string {
+        return Api.image-nine-slice-expression(
+            Api.selected-image-asset.relative-path,
+            Api.image-nine-slice-top,
+            Api.image-nine-slice-right,
+            Api.image-nine-slice-bottom,
+            Api.image-nine-slice-left,
+        );
+    }
+
+    for row in 28: Rectangle {
+        y: row * 32px;
+        height: 1px;
+        background: StudioTheme.dark ? #ffffff0a : #00000008;
+    }
+
+    for col in 48: Rectangle {
+        x: col * 32px;
+        width: 1px;
+        background: StudioTheme.dark ? #ffffff0a : #00000008;
+    }
+
+    if root.has-image(): Rectangle {
+        x: (parent.width - self.width - root.left-pane-offset) / 2;
+        y: 14px;
+        width: 216px;
+        height: 38px;
+        border-radius: 8px;
+        background: StudioTheme.panel-subtle;
+
+        HorizontalLayout {
+            padding: 4px;
+            spacing: 4px;
+
+            ImageEditorTab {
+                label: "Preview";
+                selected: root.mode == ImageAssetEditorMode.preview;
+                clicked => {
+                    root.mode = ImageAssetEditorMode.preview;
+                }
+            }
+
+            ImageEditorTab {
+                label: "9 Slice";
+                selected: root.mode == ImageAssetEditorMode.nine-slice;
+                clicked => {
+                    root.mode = ImageAssetEditorMode.nine-slice;
+                }
+            }
+        }
+    }
+
+    if Api.selected-image-asset.error != "": Rectangle {
+        width: min(parent.width - 80px, 520px);
+        height: 96px;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: StudioTheme.border;
+        background: StudioTheme.panel-bg;
+
+        VerticalLayout {
+            padding: 18px;
+            spacing: 6px;
+            Text {
+                text: "Image could not be loaded";
+                color: StudioTheme.text;
+                font-size: 14px;
+                font-weight: 700;
+                horizontal-alignment: center;
+            }
+            Text {
+                text: Api.selected-image-asset.error;
+                color: StudioTheme.muted;
+                font-size: 12px;
+                horizontal-alignment: center;
+                overflow: elide;
+            }
+        }
+    }
+
+    if root.has-image(): Rectangle {
+        x: root.rail-x - 12px;
+        y: 0px;
+        width: root.rail-width + 24px;
+        height: parent.height;
+        background: StudioTheme.dark ? white.with-alpha(0.1) : white.with-alpha(0.4);
+
+        Rectangle {
+            // needed to stop the line centering in the parent
+            x: 0px;
+            width: 1px;
+            background: StudioTheme.dark ? #ffffff16 : #cbd5e166;
+        }
+    }
+
+    if root.has-image() && root.mode == ImageAssetEditorMode.preview: plain-preview-frame := Rectangle {
+        x: max(16px, (root.width - root.edit-safe-right - self.width) / 2);
+        y: root.tab-bar-height + (root.height - root.tab-bar-height - self.height) / 2;
+        width: root.plain-preview-display-width;
+        height: root.plain-preview-display-height;
+        border-width: 1px;
+        border-color: StudioTheme.border;
+        background: StudioTheme.panel-bg;
+        drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b30;
+        drop-shadow-blur: 24px;
+        drop-shadow-offset-y: 14px;
+
+        Image {
+            width: parent.width;
+            height: parent.height;
+            source: Api.selected-image-asset.image;
+            image-fit: fill;
+        }
+    }
+
+    if root.has-image() && root.mode == ImageAssetEditorMode.nine-slice: image-frame := Rectangle {
+        x: max(16px, (root.edit-area-width - self.width) / 2);
+        y: root.edit-safe-top + max(0px, (root.edit-area-height - self.height) * 0.55);
+        width: root.display-width;
+        height: root.display-height;
+        border-width: 1px;
+        border-color: StudioTheme.border;
+        background: StudioTheme.panel-bg;
+        drop-shadow-color: StudioTheme.dark ? #00000055 : #64748b30;
+        drop-shadow-blur: 24px;
+        drop-shadow-offset-y: 14px;
+
+        Image {
+            width: parent.width;
+            height: parent.height;
+            source: Api.selected-image-asset.image;
+            image-fit: fill;
+        }
+
+        Rectangle {
+            x: root.left-display;
+            y: 0px;
+            width: root.stretch-width;
+            height: root.top-display;
+            background: #ffffff1a;
+        }
+
+        Rectangle {
+            x: 0px;
+            y: root.top-display;
+            width: root.left-display;
+            height: root.stretch-height;
+            background: #ffffff1a;
+        }
+
+        Rectangle {
+            x: root.left-display;
+            y: root.top-display;
+            width: root.stretch-width;
+            height: root.stretch-height;
+            background: #ffffff1a;
+        }
+
+        Rectangle {
+            x: parent.width - root.right-display;
+            y: root.top-display;
+            width: root.right-display;
+            height: root.stretch-height;
+            background: #ffffff1a;
+        }
+
+        Rectangle {
+            x: root.left-display;
+            y: parent.height - root.bottom-display;
+            width: root.stretch-width;
+            height: root.bottom-display;
+            background: #ffffff1a;
+        }
+
+        Rectangle {
+            x: root.left-display - 2px;
+            width: 4px;
+            height: parent.height;
+            border-radius: 2px;
+            background: #ffd33d;
+        }
+
+        Rectangle {
+            x: parent.width - root.right-display - 2px;
+            width: 4px;
+            height: parent.height;
+            border-radius: 2px;
+            background: #ffd33d;
+        }
+
+        Rectangle {
+            y: root.top-display - 2px;
+            width: parent.width;
+            height: 4px;
+            border-radius: 2px;
+            background: #ffd33d;
+        }
+
+        Rectangle {
+            y: parent.height - root.bottom-display - 2px;
+            width: parent.width;
+            height: 4px;
+            border-radius: 2px;
+            background: #ffd33d;
+        }
+
+        GuideHandle {
+            label: "L";
+            label-x: root.left-display - self.width / 2;
+            label-y: parent.height + 10px;
+        }
+
+        GuideHandle {
+            label: "R";
+            label-x: parent.width - root.right-display - self.width / 2;
+            label-y: parent.height + 10px;
+        }
+
+        GuideHandle {
+            label: "T";
+            label-x: parent.width + 10px;
+            label-y: root.top-display - self.height / 2;
+        }
+
+        GuideHandle {
+            label: "B";
+            label-x: parent.width + 10px;
+            label-y: parent.height - root.bottom-display - self.height / 2;
+        }
+
+        left-guide := TouchArea {
+            x: root.left-display - 10px;
+            width: 20px;
+            height: parent.height + 38px;
+            mouse-cursor: ew-resize;
+            moved => {
+                if self.pressed {
+                    root.set-left(self.x + self.mouse-x);
+                }
+            }
+        }
+
+        right-guide := TouchArea {
+            x: parent.width - root.right-display - 10px;
+            width: 20px;
+            height: parent.height + 38px;
+            mouse-cursor: ew-resize;
+            moved => {
+                if self.pressed {
+                    root.set-right(parent.width - (self.x + self.mouse-x));
+                }
+            }
+        }
+
+        top-guide := TouchArea {
+            y: root.top-display - 10px;
+            width: parent.width + 38px;
+            height: 20px;
+            mouse-cursor: ns-resize;
+            moved => {
+                if self.pressed {
+                    root.set-top(self.y + self.mouse-y);
+                }
+            }
+        }
+
+        bottom-guide := TouchArea {
+            y: parent.height - root.bottom-display - 10px;
+            width: parent.width + 38px;
+            height: 20px;
+            mouse-cursor: ns-resize;
+            moved => {
+                if self.pressed {
+                    root.set-bottom(parent.height - (self.y + self.mouse-y));
+                }
+            }
+        }
+    }
+
+    if root.has-image() && root.mode == ImageAssetEditorMode.nine-slice: Rectangle {
+        x: root.rail-x + (root.rail-width - root.preview-panel-width) / 2;
+        y: root.tab-bar-height;
+        width: root.preview-panel-width;
+        height: root.preview-panel-height;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: StudioTheme.dark ? #ffffff18 : #cbd5e166;
+        background: StudioTheme.panel-bg.with-alpha(0.76);
+        drop-shadow-blur: 8px;
+        drop-shadow-offset-y: 3px;
+        drop-shadow-color: StudioTheme.dark ? #00000028 : #64748b12;
+
+        Text {
+            x: 14px;
+            y: 8px;
+            width: parent.width - 28px;
+            height: 18px;
+            text: "Preview";
+            color: StudioTheme.muted;
+            font-size: 11px;
+            font-weight: 700;
+            vertical-alignment: center;
+        }
+
+        Rectangle {
+            x: 12px;
+            y: 34px;
+            width: parent.width - 24px;
+            height: parent.height - 46px;
+            border-radius: 6px;
+            background: StudioTheme.canvas.with-alpha(0.72);
+        }
+    }
+
+    if root.has-image() && root.mode == ImageAssetEditorMode.nine-slice: preview-frame := Rectangle {
+        x: root.preview-position().x;
+        y: root.preview-position().y;
+        width: root.preview-width();
+        height: root.preview-height();
+        border-width: 1px;
+        border-color: StudioTheme.accent-strong;
+        background: StudioTheme.panel-bg;
+
+        Image {
+            width: parent.width;
+            height: parent.height;
+            source: Api.image-nine-slice-preview(
+                Api.selected-image-asset.image,
+                Api.image-nine-slice-top,
+                Api.image-nine-slice-right,
+                Api.image-nine-slice-bottom,
+                Api.image-nine-slice-left,
+            );
+            image-fit: fill;
+        }
+
+        for corner in [
+            CanvasCorner.top-left,
+            CanvasCorner.top-right,
+            CanvasCorner.bottom-right,
+            CanvasCorner.bottom-left,
+        ]: Rectangle {
+            x: corner == CanvasCorner.top-left || corner == CanvasCorner.bottom-left ? -7px : parent.width - 7px;
+            y: corner == CanvasCorner.top-left || corner == CanvasCorner.top-right ? -7px : parent.height - 7px;
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            background: white;
+            border-width: 2px;
+            border-color: StudioTheme.accent-strong;
+
+            TouchArea {
+                mouse-cursor: corner == CanvasCorner.top-left || corner == CanvasCorner.bottom-right ? nwse-resize : nesw-resize;
+
+                changed pressed => {
+                    let pointer = {
+                        x: self.absolute-position.x + self.mouse-x,
+                        y: self.absolute-position.y + self.mouse-y,
+                    };
+                    if self.pressed {
+                        root.begin-preview-resize(corner, pointer);
+                    }
+                }
+
+                moved => {
+                    if self.pressed {
+                        root.resize-preview-to({
+                            x: self.absolute-position.x + self.mouse-x,
+                            y: self.absolute-position.y + self.mouse-y,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    if root.has-image() && root.mode == ImageAssetEditorMode.preview: FloatingImageDetailsPanel {
+        x: root.rail-x + root.rail-width - root.property-pane-width;
+        y: root.height - root.preview-property-pane-height - root.property-pane-margin;
+        width: root.property-pane-width;
+        height: root.preview-property-pane-height;
+        file: Api.selected-image-asset.relative-path;
+        format: Api.selected-image-asset.format;
+        image-width: root.image-width-label();
+        image-height: root.image-height-label();
+    }
+
+    if root.has-image() && root.mode == ImageAssetEditorMode.nine-slice: FloatingImageDetailsPanel {
+        x: root.rail-x + root.rail-width - root.property-pane-width;
+        y: root.height - root.property-pane-height - root.property-pane-margin;
+        width: root.property-pane-width;
+        height: root.property-pane-height;
+        file: Api.selected-image-asset.relative-path;
+        format: Api.selected-image-asset.format;
+        image-width: root.image-width-label();
+        image-height: root.image-height-label();
+        expression: root.nine-slice-expression();
+        copy-clicked => {
+            Api.copy-nine-slice-expression(root.nine-slice-expression());
+        }
+    }
+}

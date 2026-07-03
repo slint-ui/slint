@@ -1,6 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
+export enum CanvasCorner {
+    top-left,
+    top-right,
+    bottom-right,
+    bottom-left,
+}
+
+
 // cSpell: ignore dataonly
 /// Basic information on a known component
 export struct ComponentItem {
@@ -59,6 +67,27 @@ export enum RemoteConnectionState {
 export enum PreviewMode {
     Local,
     Remote,
+}
+
+export enum UpdateState {
+    UpToDate,
+    Available,
+    Downloading,
+    ReadyToInstall,
+    Installing,
+    Error,
+}
+
+export enum PrototypeComponentKind {
+    none,
+    rectangle,
+    text,
+    image,
+}
+
+export enum EditorSurfaceMode {
+    component,
+    image,
 }
 
 /// What kind of layout we are working with
@@ -274,12 +303,20 @@ export struct LogMessage {
     level: LogMessageLevel,
 }
 
+export enum OutlineNodeIconKind {
+    default,
+    rectangle,
+    image,
+    text,
+}
+
 /// A node in the outline tree
 export struct OutlineTreeNode {
     indent-level: int,
     has-children: bool,
     is-expanded: bool,
     is-last-child: bool,
+    icon-kind: OutlineNodeIconKind,
     element-type: string,
     element-id: string,
     uri: string,
@@ -293,6 +330,33 @@ export enum DropLocation {
     after,
 }
 
+export enum FileTreeNodeKind {
+    folder,
+    file,
+    image,
+}
+
+export struct FileTreeNode {
+    label: string,
+    path: string,
+    parent-path: string,
+    indent-level: int,
+    has-children: bool,
+    is-expanded: bool,
+    is-selected: bool,
+    is-slint-file: bool,
+    show-selected-guide: bool,
+    kind: FileTreeNodeKind,
+}
+
+export struct ImageAssetPreview {
+    path: string,
+    relative-path: string,
+    format: string,
+    image: image,
+    error: string,
+}
+
 export global Api {
     // # Properties
     // ## General preview state:
@@ -301,7 +365,22 @@ export global Api {
     // std-widgets are used (=> show style dropdown)
     in-out property <bool> uses-widgets;
     in-out property <bool> always-on-top;
+    in-out property <UpdateState> update-state: UpdateState.UpToDate;
+    in-out property <float> update-download-progress: 0.0;
+    in-out property <string> update-version;
+    in-out property <string> update-error;
     in property <bool> focus-previewed-element;
+    callback check-for-update();
+    callback download-update();
+    callback install-update();
+    callback preview-user-settings-changed(
+        always-on-top: bool,
+        show-library: bool,
+        show-properties: bool,
+        show-outline: bool,
+        show-simulation-data: bool,
+        show-console: bool,
+    );
 
     // ## Component Data for ComponentList:
     // All the components
@@ -339,6 +418,7 @@ export global Api {
     in-out property <component-factory> preview-area;
 
     pure callback new-component-data(index: int) -> data-transfer;
+    pure callback new-prototype-component-data(kind: PrototypeComponentKind) -> data-transfer;
     pure callback move-element-instance-data(component-uri: string, offset: int) -> data-transfer;
 
     // set to true to resize
@@ -349,7 +429,14 @@ export global Api {
     in-out property <[color]> recent-colors;
 
     // ## Property Editor
-    in-out property <ElementInformation> current-element;
+    in-out property <ElementInformation> current-element: {
+        id: "title-text",
+        component-name: "MockEditor",
+        type-name: "Text",
+        source-uri: "file:///mock/editor.slint",
+        source-version: 0,
+        offset: 128,
+    };
     in-out property <[PropertyGroup]> properties: [
         {
             group-name: "Geometry",
@@ -503,13 +590,86 @@ export global Api {
         }
     ];
     callback properties-search(string);
+    pure callback current-property-value-data(property-name: string) -> PropertyValue;
+    pure callback current-property-value(property-name: string, fallback: string) -> string;
 
     // ## Outline
-    in-out property <[OutlineTreeNode]> outline;
+    in-out property <[OutlineTreeNode]> outline: [
+        {
+            indent-level: 0,
+            has-children: true,
+            is-expanded: true,
+            is-last-child: true,
+            icon-kind: OutlineNodeIconKind.default,
+            element-type: "MockEditor inherits Window",
+            element-id: "MockEditor",
+            uri: "file:///mock/editor.slint",
+            offset: 0,
+        },
+        {
+            indent-level: 1,
+            has-children: true,
+            is-expanded: true,
+            is-last-child: false,
+            icon-kind: OutlineNodeIconKind.rectangle,
+            element-type: "Rectangle",
+            element-id: "content-panel",
+            uri: "file:///mock/editor.slint",
+            offset: 64,
+        },
+        {
+            indent-level: 2,
+            has-children: false,
+            is-expanded: false,
+            is-last-child: false,
+            icon-kind: OutlineNodeIconKind.text,
+            element-type: "Text",
+            element-id: "title-text",
+            uri: "file:///mock/editor.slint",
+            offset: 128,
+        },
+        {
+            indent-level: 2,
+            has-children: false,
+            is-expanded: false,
+            is-last-child: true,
+            icon-kind: OutlineNodeIconKind.image,
+            element-type: "Image",
+            element-id: "hero-image",
+            uri: "file:///mock/editor.slint",
+            offset: 192,
+        },
+        {
+            indent-level: 1,
+            has-children: false,
+            is-expanded: false,
+            is-last-child: true,
+            icon-kind: OutlineNodeIconKind.default,
+            element-type: "CustomControl",
+            element-id: "actions",
+            uri: "file:///mock/editor.slint",
+            offset: 256,
+        },
+    ];
     callback outline-select-element(uri: string, offset: int, notify_editor: bool);
     // Data is either a "file:offset" for an element to move, or just a component index.
     callback outline-drop(data: data-transfer, uri: string, offset: int, location: DropLocation);
     callback outline-can-drop(data: data-transfer, uri: string, offset: int, location: DropLocation) -> bool;
+
+    // ## File Tree
+    in-out property <[FileTreeNode]> file-tree;
+    in-out property <string> selected-project-file;
+    in-out property <EditorSurfaceMode> editor-surface-mode: EditorSurfaceMode.component;
+    in-out property <ImageAssetPreview> selected-image-asset;
+    in-out property <int> image-nine-slice-top;
+    in-out property <int> image-nine-slice-right;
+    in-out property <int> image-nine-slice-bottom;
+    in-out property <int> image-nine-slice-left;
+    callback file-tree-toggle(path: string);
+    callback file-tree-select(path: string);
+    pure callback image-nine-slice-expression(path: string, top: int, right: int, bottom: int, left: int) -> string;
+    pure callback image-nine-slice-preview(source: image, top: int, right: int, bottom: int, left: int) -> image;
+    callback copy-nine-slice-expression(value: string);
 
     // ## preview data
 
@@ -534,13 +694,17 @@ export global Api {
     // Add an existing component
     pure callback can-drop(data: data-transfer, x: length, y: length, on-drop-area: bool) -> bool;
     callback drop(data: data-transfer, x: length, y: length);
+    callback drop-with-geometry(data: data-transfer, hit-x: length, hit-y: length, x: length, y: length, width: length, height: length);
 
     callback rename-component(old-name: string, defined-at: string, new-name: string);
 
     callback selected-element-can-move-to(x: length, y: length, mouse-x: length, mouse-y: length) -> bool;
     callback selected-element-move(x: length, y: length, mouse-x: length, mouse-y: length);
 
+    callback override-selected-element-border-radius(corner: CanvasCorner, radius: length, single-corner: bool);
+    callback persist-selected-element-border-radius();
     callback selected-element-resize(x: length, y: length, width: length, height: length);
+    callback override-selected-element-geometry(x: length, y: length, width: length, height: length);
 
     callback selected-element-delete();
 
@@ -649,6 +813,7 @@ export global Api {
         { url: "examples/sprite-sheet/demo.slint", title: "Sprite sheet Demo" },
     ];
     callback new-file();
+    callback open-existing-project() -> bool;
     callback share-permalink-to-clipboard();
     callback load-demo(url: string);
     callback show-about-slint();

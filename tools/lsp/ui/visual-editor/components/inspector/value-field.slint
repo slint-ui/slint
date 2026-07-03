@@ -1,0 +1,39 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+import { InspectorTokens } from "tokens.slint";
+import { InspectorTextFieldBase } from "text-field-base.slint";
+
+export component InspectorValueField inherits Rectangle {
+    in property <string> prefix;
+    in property <string> value;
+    in property <bool> enabled: true;
+    in property <string> tooltip-label: "";
+    in property <string> tooltip-key: tooltip-label;
+    callback tooltip-hovered(string, string, Point);
+    callback tooltip-hidden(string);
+    callback accepted(string) -> bool;
+
+    width: InspectorTokens.column-width;
+    height: InspectorTokens.field-height;
+
+    InspectorTextFieldBase {
+        width: parent.width;
+        value: root.value;
+        enabled: root.enabled;
+        tooltip-label: root.tooltip-label;
+        tooltip-key: root.tooltip-key;
+        tooltip-hovered(key, label, position) => { root.tooltip-hovered(key, label, position); }
+        tooltip-hidden(key) => { root.tooltip-hidden(key); }
+        accepted(text) => {
+            return root.accepted(text);
+        }
+
+        Text {
+            text: root.prefix;
+            color: root.enabled ? InspectorTokens.text : InspectorTokens.muted;
+            font-size: 11px;
+            vertical-alignment: center;
+        }
+    }
+}

@@ -33,6 +33,13 @@ pub struct HighlightedRect {
     pub rect: LogicalRect,
     /// In degrees, around the center of the element
     pub angle: f32,
+    /// Absolute origin of this instance's parent coordinate system (in root coordinates).
+    ///
+    /// `rect.origin - parent_origin` yields the element's position relative to its parent,
+    /// which matches the `x`/`y` properties written to the source. This is computed from the
+    /// instance's own ancestors, so it stays correct even if the element is positioned outside
+    /// of (or with a negative offset relative to) its parent.
+    pub parent_origin: LogicalPoint,
 }
 impl HighlightedRect {
     /// return true if the point is inside the (potentially rotated) rectangle
@@ -171,6 +178,9 @@ fn fill_highlight_data(
                 return;
             }
             let origin = item_rc.map_to_item_tree(geometry.origin, &root_vrc);
+            // `map_to_item_tree` does not add the item's own x/y, so mapping the zero point
+            // yields the absolute origin of this instance's parent coordinate system.
+            let parent_origin = item_rc.map_to_item_tree(LogicalPoint::default(), &root_vrc);
             let top_right = item_rc.map_to_item_tree(
                 geometry.origin + euclid::vec2(geometry.size.width, 0.),
                 &root_vrc,
@@ -191,6 +201,7 @@ fn fill_highlight_data(
                     size: euclid::size2(width, height),
                 },
                 angle: angle_rad.to_degrees(),
+                parent_origin,
             });
         }
     }
