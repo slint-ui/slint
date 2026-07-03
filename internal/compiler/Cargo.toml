@@ -46,7 +46,7 @@ renderer-software = [
 # Enable `image`'s default feature set (additional codecs). This is enabled by
 # default by `slint-build` and the `slint-compiler` binary for compatibility, but
 # can be opted out from to keep builds minimal.
-image-default-formats = ["image/default"]
+image-default-formats = ["image?/default"]
 # Enable support to embed the fonts as signed distance fields
 sdf-fonts = ["renderer-software", "dep:fdsm", "dep:fdsm-ttf-parser", "dep:nalgebra", "dep:rayon"]
 
