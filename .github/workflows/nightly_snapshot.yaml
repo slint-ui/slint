@@ -13,7 +13,7 @@ on:
                 required: false
                 description: "What to build and publish"
                 options:
-                    - release       # Publish a versioned release: a draft GitHub release and a non-nightly extension.
+                    - release       # Publish a versioned release: crates.io, a draft GitHub release and a non-nightly extension.
                     - full-nightly  # Publish the website snapshot, plus the VS Code extension and the `nightly` release tag.
                     - website-only  # Publish the website snapshot (docs, demos, editor) only.
                     - test          # Build everything, publish nothing.
@@ -730,6 +730,37 @@ jobs:
                 -H "X-GitHub-Api-Version: 2022-11-28" \
                 https://api.github.com/repos/slint-ui/slint-cpp-templates-stm32/actions/workflows/ci.yaml/dispatches \
                 -d '{"ref":"main"}'
+
+    publish_crates_io:
+        runs-on: ubuntu-22.04
+        permissions:
+            id-token: write # required for crates.io trusted publishing
+            contents: read
+        env:
+            CARGO_PROFILE_DEV_DEBUG: 0
+        steps:
+            - uses: actions/checkout@v6
+            - uses: ./.github/actions/install-linux-dependencies
+            - name: Install Qt
+              uses: jurplel/install-qt-action@v4
+              with:
+                  version: 6.5.1
+                  cache: true
+            - uses: ./.github/actions/setup-rust
+            - name: Package and verify all crates (dry run)
+              run: ./scripts/publish.sh --dry-run
+            # The trusted-publishing token only lives 30 minutes, less than the
+            # verification above takes. Mint it afterwards and upload the
+            # already-verified packages with --no-verify.
+            - name: Authenticate with crates.io
+              if: github.event.inputs.mode == 'release'
+              id: auth
+              uses: rust-lang/crates-io-auth-action@v1
+            - name: Publish to crates.io
+              if: github.event.inputs.mode == 'release'
+              run: ./scripts/publish.sh --no-verify
+              env:
+                  CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
     trigger_package_publishing:
         if: github.event.inputs.mode == 'release'
