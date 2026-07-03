@@ -92,3 +92,26 @@ west build -b mimxrt1170_evk@B/mimxrt1176/cm7 -p always slint/demos/home-automat
 # Flash
 west flash
 ```
+
+This sample has also been tested on the [NXP FRDM-MCXN947](https://docs.zephyrproject.org/latest/boards/nxp/frdm_mcxn947/doc/index.html) with an [LCD-PAR-S035 shield](https://www.nxp.com/part/LCD-PAR-S035).
+
+```bash
+# Build
+west build -b frdm_mcxn947/mcxn947/cpu0 -p always slint/demos/home-automation/zephyr -- -DSHIELD=lcd_par_s035_8080 -DCMAKE_BUILD_TYPE=Release
+```
+
+`west flash` requires [LinkServer](https://www.nxp.com/design/design-center/software/development-software/mcuxpresso-software-and-tools-/linkserver-for-microcontrollers:LINKERSERVER), which this workflow does not assume is installed. As a workaround, flash with `pyocd`, preceded by an `nxpdebugmbox` reset (plain `pyocd flash` alone times out on this board's flash driver):
+
+```bash
+nxpdebugmbox -i mcu-link tool reset -f mcxn947 && \
+pyocd flash \
+  -O pack.debug_sequences.disabled_sequences=ResetSystem,ResetCatchClear \
+  -M halt -e chip -t mcxn947 -a 0x10000000 \
+  build/zephyr/zephyr.bin
+```
+
+If the `nxpdebugmbox` reset itself fails with `TransferTimeoutError`, the board's debug port may be unresponsive (observed after the board ran arbitrary firmware for a while). Put the target into ISP mode first, then retry the command above:
+
+1. Press and hold the ISP button (SW3, bottom-right corner).
+2. Press and release the Reset button (SW1, upper-left corner).
+3. Release SW3.
