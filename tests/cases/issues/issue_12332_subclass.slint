@@ -1,9 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// Subclassing a styled widget and instantiating the subclass with children.
-// The lowering pass rewrites base types as it walks the tree; if the empty
-// subclass is lowered first, the instance stops looking like a RadioGroup /
+// A subclass of a styled widget, instantiated with children. The lowering pass
+// rewrites base types as it walks the tree; if the empty subclass is lowered
+// first, the instance stops looking like a RadioGroup /
 // TabWidget, so its child (RadioButton / Tab) is never lowered. That panics the
 // interpreter and fails codegen with an unknown native type. The code blocks
 // also check that the widgets work, not just that they compile.

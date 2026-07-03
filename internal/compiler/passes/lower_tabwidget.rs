@@ -27,18 +27,18 @@ pub async fn lower_tabwidget(
     // wrapper both match). Dedup a sub-component root visited more than once.
     // The empty check below also avoids loading std-widgets.slint when unused.
     let mut seen = HashSet::new();
-    let mut tabwidgets = Vec::new();
+    let mut tab_widgets = Vec::new();
     doc.visit_all_used_components(|component| {
         recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
             if matches!(&elem.borrow().builtin_type(), Some(b) if b.name == "TabWidget")
                 && seen.insert(Rc::as_ptr(elem))
             {
-                tabwidgets.push(elem.clone());
+                tab_widgets.push(elem.clone());
             }
         })
     });
 
-    if tabwidgets.is_empty() {
+    if tab_widgets.is_empty() {
         return;
     }
 
@@ -70,7 +70,7 @@ pub async fn lower_tabwidget(
         .expect("can't load TabBarVerticalImpl from std-widgets-impl.slint");
     let empty_type = type_loader.global_type_registry.borrow().empty_type();
 
-    for elem in &tabwidgets {
+    for elem in &tab_widgets {
         process_tabwidget(
             elem,
             ElementType::Component(tabwidget_impl.clone()),
