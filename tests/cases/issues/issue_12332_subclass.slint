@@ -7,6 +7,9 @@
 // TabWidget, so its child (RadioButton / Tab) is never lowered. That panics the
 // interpreter and fails codegen with an unknown native type. The code blocks
 // also check that the widgets work, not just that they compile.
+//
+// C++ live preview: no element search (wrapper has no item tree)
+//ignore: cpp-live-preview
 import { RadioGroup, TabWidget } from "std-widgets.slint";
 
 export component FooRadio inherits RadioGroup { }
