@@ -1731,7 +1731,22 @@ mod tests {
     }
 
     fn layout_text(text: &str) -> Layout {
-        let mut font_ctx = parley::FontContext::new();
+        // Don't load system fonts: that goes through fontconfig FFI, which Miri
+        // can't execute. Use the bundled Inter font instead.
+        let mut font_ctx = parley::FontContext {
+            collection: fontique::Collection::new(fontique::CollectionOptions {
+                system_fonts: false,
+                ..Default::default()
+            }),
+            source_cache: Default::default(),
+        };
+        let data = include_bytes!("../../common/sharedfontique/Inter-VariableFont.ttf");
+        let families =
+            font_ctx.collection.register_fonts(fontique::Blob::new(Arc::new(data)), None);
+        font_ctx.collection.set_generic_families(
+            fontique::GenericFamily::SansSerif,
+            families.iter().map(|(id, _)| *id),
+        );
         let builder = LayoutWithoutLineBreaksBuilder::new(
             None,
             TextWrap::NoWrap,
