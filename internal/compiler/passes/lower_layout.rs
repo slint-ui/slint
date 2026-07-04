@@ -1310,7 +1310,7 @@ fn lower_box_layout(
 
     for layout_child in &layout_children {
         let item = create_layout_item(layout_child, diag);
-        let index = layout.elems.len() * 2;
+        let index = layout.elems.len() * BOX_LAYOUT_CACHE_ENTRIES_PER_CELL;
         let rep_idx = &item.repeater_index;
         let (fixed_size, fixed_ortho) = match orientation {
             Orientation::Horizontal => {
@@ -1321,14 +1321,31 @@ fn lower_box_layout(
             }
         };
         let actual_elem = &item.elem;
-        set_prop_from_cache(actual_elem, pos, &layout_cache_prop, index, rep_idx, 2, diag);
+        let entries = BOX_LAYOUT_CACHE_ENTRIES_PER_CELL;
+        set_prop_from_cache(actual_elem, pos, &layout_cache_prop, index, rep_idx, entries, diag);
         if !fixed_size {
-            set_prop_from_cache(actual_elem, size, &layout_cache_prop, index + 1, rep_idx, 2, diag);
+            set_prop_from_cache(
+                actual_elem,
+                size,
+                &layout_cache_prop,
+                index + 1,
+                rep_idx,
+                entries,
+                diag,
+            );
         }
         if let Some(cache_ortho) = &layout_cache_ortho_prop {
-            set_prop_from_cache(actual_elem, pad, cache_ortho, index, rep_idx, 2, diag);
+            set_prop_from_cache(actual_elem, pad, cache_ortho, index, rep_idx, entries, diag);
             if !fixed_ortho {
-                set_prop_from_cache(actual_elem, ortho, cache_ortho, index + 1, rep_idx, 2, diag);
+                set_prop_from_cache(
+                    actual_elem,
+                    ortho,
+                    cache_ortho,
+                    index + 1,
+                    rep_idx,
+                    entries,
+                    diag,
+                );
             }
         } else {
             let (pad_expr, size_expr) = stretch_bindings.as_ref().unwrap();
