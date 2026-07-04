@@ -6,6 +6,7 @@ use std::fmt::{Display, Result, Write};
 use itertools::{Either, Itertools};
 
 use crate::expression_tree::MinMaxOp;
+use crate::langtype::{StructName, Type};
 use crate::layout::Orientation;
 
 use super::{
@@ -15,6 +16,23 @@ use super::{
 
 pub fn pretty_print(root: &CompilationUnit, writer: &mut dyn Write) -> Result {
     PrettyPrinter { writer, indentation: 0 }.print_root(root)
+}
+
+/// Print compiler-internal builtin structs by their name; they have no slint
+/// name, so `Type`'s Display spells out all their fields.
+struct DisplayType<'a>(&'a Type);
+impl Display for DisplayType<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result {
+        match self.0 {
+            Type::Struct(s) => match &s.name {
+                StructName::Builtin(b) if b.slint_name().is_none() => {
+                    write!(f, "{}", <&str>::from(b))
+                }
+                _ => write!(f, "{}", self.0),
+            },
+            _ => write!(f, "{}", self.0),
+        }
+    }
 }
 
 struct PrettyPrinter<'a> {
@@ -56,7 +74,13 @@ impl PrettyPrinter<'_> {
         self.indentation += 1;
         for p in &sc.properties {
             self.indent()?;
-            writeln!(self.writer, "property <{}> {}; //use={}", p.ty, p.name, p.use_count.get())?;
+            writeln!(
+                self.writer,
+                "property <{}> {}; //use={}",
+                DisplayType(&p.ty),
+                p.name,
+                p.use_count.get()
+            )?;
         }
         for c in &sc.callbacks {
             self.indent()?;
@@ -64,8 +88,8 @@ impl PrettyPrinter<'_> {
                 self.writer,
                 "callback {} ({}) -> {};",
                 c.name,
-                c.args.iter().map(ToString::to_string).join(", "),
-                c.ret_ty,
+                c.args.iter().map(|t| DisplayType(t).to_string()).join(", "),
+                DisplayType(&c.ret_ty),
             )?;
         }
         for f in &sc.functions {
@@ -74,8 +98,8 @@ impl PrettyPrinter<'_> {
                 self.writer,
                 "function {} ({}) -> {} {{ {} }}; ",
                 f.name,
-                f.args.iter().map(ToString::to_string).join(", "),
-                f.ret_ty,
+                f.args.iter().map(|t| DisplayType(t).to_string()).join(", "),
+                DisplayType(&f.ret_ty),
                 DisplayExpression(&f.code, &ctx)
             )?;
         }
@@ -260,7 +284,7 @@ impl PrettyPrinter<'_> {
             writeln!(
                 self.writer,
                 "property <{}> {}; //use={}{}",
-                p.ty,
+                DisplayType(&p.ty),
                 p.name,
                 p.use_count.get(),
                 if *is_const { "  const" } else { "" }
@@ -272,8 +296,8 @@ impl PrettyPrinter<'_> {
                 self.writer,
                 "callback {} ({}) -> {};",
                 c.name,
-                c.args.iter().map(ToString::to_string).join(", "),
-                c.ret_ty,
+                c.args.iter().map(|t| DisplayType(t).to_string()).join(", "),
+                DisplayType(&c.ret_ty),
             )?;
         }
         for (p, init) in &global.init_values {
