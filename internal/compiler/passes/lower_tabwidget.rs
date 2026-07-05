@@ -113,9 +113,7 @@ fn process_tabwidget(
         set_geometry_prop(elem, child, "height", diag);
 
         let index_expr = match &child.borrow().repeated {
-            Some(_) => Expression::RepeaterIndexReference {
-                element: Rc::downgrade(child),
-            },
+            Some(_) => Expression::RepeaterIndexReference { element: Rc::downgrade(child) },
             None => Expression::NumberLiteral(position as _, Unit::None),
         };
         let condition = Expression::BinaryExpression {
@@ -191,14 +189,10 @@ fn process_tabwidget(
             )
             .into(),
         );
-        tab.bindings.insert(
-            SmolStr::new_static("tab-index"),
-            RefCell::new(index_expr.clone().into()),
-        );
-        tab.bindings.insert(
-            SmolStr::new_static("num-tabs"),
-            RefCell::new(index_expr.clone().into()),
-        );
+        tab.bindings
+            .insert(SmolStr::new_static("tab-index"), RefCell::new(index_expr.clone().into()));
+        tab.bindings
+            .insert(SmolStr::new_static("num-tabs"), RefCell::new(index_expr.clone().into()));
         tabs.push(Element::make_rc(tab));
     }
 
