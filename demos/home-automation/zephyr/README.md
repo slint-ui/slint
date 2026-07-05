@@ -95,6 +95,12 @@ west flash
 
 This sample has also been tested on the [NXP FRDM-MCXN947](https://docs.zephyrproject.org/latest/boards/nxp/frdm_mcxn947/doc/index.html) with an [LCD-PAR-S035 shield](https://www.nxp.com/part/LCD-PAR-S035).
 
+If your Zephyr checkout is v4.4.0 or later, first apply a required upstream fix (not yet backported to the v4.4.x release branch) for a display-corrupting bug in the MCUX eDMA driver on EDMA-V4/no-DMAMUX parts like MCXN947 (fixed upstream in [`05aa0414f2b`](https://github.com/zephyrproject-rtos/zephyr/commit/05aa0414f2b04b64f06da5ab38ed85fff6e8976a), which itself fixes the regression introduced by [`efe48ea674c`](https://github.com/zephyrproject-rtos/zephyr/commit/efe48ea674cda08910347c660706e5c6155d21f9)). Without it, the FlexIO-driven parallel display on this board renders mostly static/garbage instead of the UI. On Zephyr v4.0.0 this bug does not exist, so the patch is unnecessary there.
+
+```bash
+(cd zephyr && git apply ../slint/demos/zephyr-common/patches/0001-drivers-dma-mcux_edma-handle-m2m-on-V4-instances-without-channel-mux.patch)
+```
+
 ```bash
 # Build
 west build -b frdm_mcxn947/mcxn947/cpu0 -p always slint/demos/home-automation/zephyr -- -DSHIELD=lcd_par_s035_8080 -DCMAKE_BUILD_TYPE=Release
