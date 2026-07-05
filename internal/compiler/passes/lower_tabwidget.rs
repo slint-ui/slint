@@ -96,14 +96,7 @@ fn process_tabwidget(
     let mut children = std::mem::take(&mut elem.borrow_mut().children);
     let num_tabs = children.len();
     let mut tabs = Vec::new();
-    for child in &mut children {
-        if child.borrow().repeated.is_some() {
-            diag.push_error(
-                "dynamic tabs ('if' or 'for') are currently not supported".into(),
-                &*child.borrow(),
-            );
-            continue;
-        }
+    for (position, child) in children.iter_mut().enumerate() {
         if child.borrow().base_type.to_string() != "Tab" {
             assert!(diag.has_errors());
             continue;
@@ -118,13 +111,20 @@ fn process_tabwidget(
         set_geometry_prop(elem, child, "y", diag);
         set_geometry_prop(elem, child, "width", diag);
         set_geometry_prop(elem, child, "height", diag);
+
+        let index_expr = match &child.borrow().repeated {
+            Some(_) => Expression::RepeaterIndexReference {
+                element: Rc::downgrade(child),
+            },
+            None => Expression::NumberLiteral(position as _, Unit::None),
+        };
         let condition = Expression::BinaryExpression {
             lhs: Expression::PropertyReference(NamedReference::new(
                 elem,
                 SmolStr::new_static("current-index"),
             ))
             .into(),
-            rhs: Expression::NumberLiteral(index as _, Unit::None).into(),
+            rhs: index_expr.clone().into(),
             op: '=',
         };
         let old = child
@@ -193,11 +193,11 @@ fn process_tabwidget(
         );
         tab.bindings.insert(
             SmolStr::new_static("tab-index"),
-            RefCell::new(Expression::NumberLiteral(index as _, Unit::None).into()),
+            RefCell::new(index_expr.clone().into()),
         );
         tab.bindings.insert(
             SmolStr::new_static("num-tabs"),
-            RefCell::new(Expression::NumberLiteral(num_tabs as _, Unit::None).into()),
+            RefCell::new(index_expr.clone().into()),
         );
         tabs.push(Element::make_rc(tab));
     }
