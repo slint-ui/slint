@@ -45,7 +45,7 @@
         "@types/mdx": "2.0.14",
         "astro-compress": "2.4.1",
         "cspell": "catalog:",
-        "js-yaml": "4.3.0",
+        "js-yaml": "5.2.1",
         "mdast-util-to-string": "4.0.0",
         "reading-time": "1.5.0",
         "tailwind-merge": "3.6.0",

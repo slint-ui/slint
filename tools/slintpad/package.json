@@ -52,8 +52,8 @@
         "typescript": "catalog:",
         "vite": "catalog:",
         "vscode": "npm:@codingame/monaco-vscode-api@8.0.4",
-        "vscode-languageclient": "10.0.1",
-        "vscode-languageserver": "10.0.1",
+        "vscode-languageclient": "10.1.0",
+        "vscode-languageserver": "10.1.0",
         "vscode-languageserver-protocol": "3.18.1",
         "vscode-languageserver-types": "3.18.0",
         "vscode-uri": "3.1.0"
