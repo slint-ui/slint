@@ -22,7 +22,7 @@ impl clru::WeightScale<ImageCacheKey, ImageInner> for ImageWeightInBytes {
                 SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels.as_bytes().len(),
             },
             #[cfg(feature = "svg")]
-            ImageInner::Svg(_) => 512, // Don't know how to measure the size of the parsed SVG tree...
+            ImageInner::Svg(svg) => svg.weight_in_bytes(),
             #[cfg(target_arch = "wasm32")]
             ImageInner::HTMLImage(_) => 512, // Something... the web browser maintainers its own cache. The purpose of this cache is to reduce the amount of DOM elements.
             ImageInner::StaticTextures(_) => 0,
