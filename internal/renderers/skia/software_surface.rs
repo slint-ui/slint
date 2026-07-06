@@ -111,6 +111,9 @@ impl RenderBuffer for SoftbufferRenderBuffer {
 /// This surface renders into the given window using Skia's software rasterize.
 pub struct SoftwareSurface {
     render_buffer: Box<dyn RenderBuffer>,
+    #[cfg(feature = "kms")]
+    pixel_pre_present_callback:
+        RefCell<Option<Box<dyn FnMut(&mut [u8], u32, u32, skia_safe::ColorType)>>>,
 }
 
 impl super::Surface for SoftwareSurface {
@@ -133,7 +136,11 @@ impl super::Surface for SoftwareSurface {
         let surface_access =
             Box::new(SoftbufferRenderBuffer { _context, surface: RefCell::new(surface) });
 
-        Ok(Self { render_buffer: surface_access })
+        Ok(Self {
+            render_buffer: surface_access,
+            #[cfg(feature = "kms")]
+            pixel_pre_present_callback: Default::default(),
+        })
     }
 
     #[cfg(not(feature = "softbuffer"))]
@@ -214,10 +221,24 @@ impl super::Surface for SoftwareSurface {
                     pre_present_callback();
                 }
 
+                #[cfg(feature = "kms")]
+                if let Some(pixel_callback) = self.pixel_pre_present_callback.borrow_mut().as_mut()
+                {
+                    pixel_callback(pixels, width.get(), height.get(), pixel_format);
+                }
+
                 Ok(dirty_region)
             },
         )?;
         Ok(DrawOutcome::Success)
+    }
+
+    #[cfg(feature = "kms")]
+    fn set_pixel_pre_present_callback(
+        &self,
+        callback: Option<Box<dyn FnMut(&mut [u8], u32, u32, skia_safe::ColorType)>>,
+    ) {
+        *self.pixel_pre_present_callback.borrow_mut() = callback;
     }
 
     fn bits_per_pixel(&self) -> Result<u8, i_slint_core::platform::PlatformError> {
@@ -231,7 +252,11 @@ impl super::Surface for SoftwareSurface {
 
 impl<T: RenderBuffer + 'static> From<T> for SoftwareSurface {
     fn from(render_buffer: T) -> Self {
-        Self { render_buffer: Box::new(render_buffer) }
+        Self {
+            render_buffer: Box::new(render_buffer),
+            #[cfg(feature = "kms")]
+            pixel_pre_present_callback: Default::default(),
+        }
     }
 }
 

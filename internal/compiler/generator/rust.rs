@@ -486,9 +486,13 @@ fn generate_public_component(
         }
     };
 
+    let custom_image_accessors = generate_custom_image_accessors(llr, unit, &public_component_id);
+
     quote!(
         #component
         pub struct #public_component_id(sp::VRc<sp::ItemTreeVTable, #inner_component_id>);
+
+        #custom_image_accessors
 
         impl #public_component_id {
             pub fn new() -> ::core::result::Result<Self, slint::PlatformError> {
@@ -2651,6 +2655,80 @@ fn generate_repeated_component(
 /// Return an identifier suitable for this component for internal use
 fn inner_component_id(component: &llr::SubComponent) -> proc_macro2::Ident {
     format_ident!("Inner{}", ident(&component.name))
+}
+
+/// Finds every `CustomImage` item reachable through the *static* component tree
+/// Returns a list of matches with the name and
+/// the path to walk from `root` to `SubComponent` that owns it
+fn find_custom_image_items(
+    unit: &llr::CompilationUnit,
+    root: llr::SubComponentIdx,
+) -> Vec<(SmolStr, Vec<llr::SubComponentInstanceIdx>, llr::ItemInstanceIdx)> {
+    fn visit(
+        unit: &llr::CompilationUnit,
+        sub_component_idx: llr::SubComponentIdx,
+        path: &mut Vec<llr::SubComponentInstanceIdx>,
+        out: &mut Vec<(SmolStr, Vec<llr::SubComponentInstanceIdx>, llr::ItemInstanceIdx)>,
+    ) {
+        let sub_component = &unit.sub_components[sub_component_idx];
+        for (item_idx, item) in sub_component.items.iter_enumerated() {
+            if item.ty.class_name == "CustomImage" {
+                out.push((item.name.clone(), path.clone(), item_idx));
+            }
+        }
+        for (instance_idx, instance) in sub_component.sub_components.iter_enumerated() {
+            path.push(instance_idx);
+            visit(unit, instance.ty, path, out);
+            path.pop();
+        }
+    }
+    let mut out = Vec::new();
+    visit(unit, root, &mut Vec::new(), &mut out);
+    out
+}
+
+/// Generates one accessor per named instance called `custom_image` returning a `CustomImageHandle`
+fn generate_custom_image_accessors(
+    llr: &llr::PublicComponent,
+    unit: &llr::CompilationUnit,
+    public_component_id: &proc_macro2::Ident,
+) -> TokenStream {
+    let items = find_custom_image_items(unit, llr.item_tree.root);
+    let accessors = items.iter().map(|(name, path, item_idx)| {
+        let method_name = if items.len() == 1 {
+            format_ident!("custom_image")
+        } else {
+            ident(name)
+        };
+
+        let mut access_tokens = quote!(_self);
+        let mut sub_component = &unit.sub_components[llr.item_tree.root];
+        for instance_idx in path {
+            let instance_name = ident(&sub_component.sub_components[*instance_idx].name);
+            access_tokens = quote!(#access_tokens . #instance_name);
+            sub_component = &unit.sub_components[sub_component.sub_components[*instance_idx].ty];
+        }
+
+        let local_index_in_tree = sub_component.items[*item_idx].index_in_tree;
+        let item_index_tokens = if local_index_in_tree == 0 {
+            quote!(#access_tokens.tree_index.get())
+        } else {
+            quote!(#access_tokens.tree_index_of_first_child.get() + #local_index_in_tree - 1)
+        };
+
+        quote!(
+            pub fn #method_name(&self) -> sp::CustomImageHandle {
+                let _self = sp::VRc::as_pin_ref(&self.0);
+                let origin = sp::VRcMapped::origin(&#access_tokens.self_weak.get().unwrap().upgrade().unwrap());
+                sp::CustomImageHandle::new(sp::ItemRc::new(origin, #item_index_tokens))
+            }
+        )
+    });
+    quote!(
+        impl #public_component_id {
+            #(#accessors)*
+        }
+    )
 }
 
 fn internal_popup_id(index: usize) -> proc_macro2::Ident {

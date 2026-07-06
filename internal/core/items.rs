@@ -28,8 +28,8 @@ use crate::input::{
     KeyEventResult, KeyEventType, Keys, MouseEvent,
 };
 use crate::item_rendering::{CachedRenderingData, RenderBorderRectangle, RenderRectangle};
-use crate::item_tree::ItemTreeRc;
 pub use crate::item_tree::{ItemRc, ItemTreeVTable};
+use crate::item_tree::{ItemTreeRc, ItemWeak};
 use crate::layout::LayoutInfo;
 use crate::lengths::{
     LogicalBorderRadius, LogicalLength, LogicalRect, LogicalSize, LogicalVector, PointLengths,
@@ -40,9 +40,11 @@ pub use crate::menus::MenuItem;
 use crate::rtti::*;
 use crate::window::{WindowAdapter, WindowAdapterRc, WindowInner};
 use crate::{Callback, Coord, Property, SharedString};
+use alloc::boxed::Box;
 use alloc::rc::Rc;
+use alloc::vec::Vec;
 use const_field_offset::FieldOffsets;
-use core::cell::Cell;
+use core::cell::{Cell, RefCell};
 use core::num::NonZeroU32;
 use core::pin::Pin;
 use core::time::Duration;
@@ -438,6 +440,197 @@ impl ItemConsts for Rectangle {
 
 declare_item_vtable! {
     fn slint_get_RectangleVTable() -> RectangleVTable for Rectangle
+}
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, SlintElement)]
+#[pin]
+/// Leaf item with geometry but rendered through a custom callback
+/// See `set_frame_provider` in the linuxkms software renderer.
+pub struct CustomImage {
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for CustomImage {
+    fn init(self: Pin<&Self>, _self_rc: &ItemRc) {}
+
+    fn deinit(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
+    fn layout_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _cross_axis_constraint: Coord,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> LayoutInfo {
+        LayoutInfo { stretch: 1., ..LayoutInfo::default() }
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: &MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut MouseCursor,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardAndIgnore
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        _: &MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        _: &mut MouseCursor,
+    ) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
+
+    fn capture_key_event(
+        self: Pin<&Self>,
+        _: &InternalKeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn key_event(
+        self: Pin<&Self>,
+        _: &InternalKeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(
+        self: Pin<&Self>,
+        _: &FocusEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> FocusEventResult {
+        FocusEventResult::FocusIgnored
+    }
+
+    fn render(
+        self: Pin<&Self>,
+        _backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+        _size: LogicalSize,
+    ) -> RenderingResult {
+        // Invisible to renderers, pixels are rendered in the callback before presenting
+        RenderingResult::ContinueRenderingChildren
+    }
+
+    fn bounding_rect(
+        self: core::pin::Pin<&Self>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+        geometry: LogicalRect,
+    ) -> LogicalRect {
+        geometry
+    }
+
+    fn clips_children(self: core::pin::Pin<&Self>) -> bool {
+        false
+    }
+}
+
+impl ItemConsts for CustomImage {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        CustomImage,
+        CachedRenderingData,
+    > = CustomImage::FIELD_OFFSETS.cached_rendering_data().as_unpinned_projection();
+}
+
+declare_item_vtable! {
+    fn slint_get_CustomImageVTable() -> CustomImageVTable for CustomImage
+}
+
+/// Pixel layout of the region the `CustomImage` frame provider writes into
+/// The renderer translate this into the negotiated type when invoking the provider
+/// necessary as to not add skia as a dependency
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum FramebufferPixelFormat {
+    Rgba8888,
+    Bgra8888,
+    Rgb565,
+}
+
+/// Region a `CustomImage`'s rect lives within the framebuffer
+#[derive(Debug, Clone, Copy)]
+pub struct FramebufferRegion {
+    /// Left edge of the rect, in physical pixels from the framebuffer's left edge.
+    pub x: u32,
+    /// Top edge of the rect, in physical pixels from the framebuffer's top edge.
+    pub y: u32,
+    /// Width of the rect, in physical pixels.
+    pub width: u32,
+    /// Height of the rect, in physical pixels.
+    pub height: u32,
+    /// Row stride of the *whole* framebuffer, in bytes. Not `width * bytes_per_pixel`: rows in
+    /// the provided buffer continue past this region's own width to the rest of the framebuffer.
+    pub stride: u32,
+}
+
+/// Invoked after painting but before presenting so it is safe to overwrite pixels
+/// callers don't need their own locking for the framebuffer itself
+/// see the linuxkms software renderer's pre-present callback
+pub type FrameProvider = dyn FnMut(&mut [u8], FramebufferRegion, FramebufferPixelFormat);
+
+crate::thread_local! {
+    #[allow(clippy::type_complexity)]
+    static CUSTOM_IMAGE_PROVIDERS: RefCell<Vec<(ItemWeak, Box<FrameProvider>)>>
+        = RefCell::new(Vec::new());
+}
+
+/// A handle to a `CustomImage` item, obtained through the
+/// `<Component>::custom_image()` accessor.
+#[derive(Clone)]
+pub struct CustomImageHandle(ItemRc);
+
+impl CustomImageHandle {
+    #[doc(hidden)]
+    pub fn new(item_rc: ItemRc) -> Self {
+        Self(item_rc)
+    }
+
+    /// The underlying item, for renderers that need to resolve its current geometry.
+    pub fn item_rc(&self) -> &ItemRc {
+        &self.0
+    }
+
+    /// Registers a `provider` to render directly to the pixels once per frame
+    /// Only has an effect when a renderer supports it (currently only the linuxkms software
+    /// renderer)
+    ///
+    /// Registering a new provider for the same `CustomImage` replaces the previous one.
+    pub fn set_frame_provider(
+        &self,
+        provider: impl FnMut(&mut [u8], FramebufferRegion, FramebufferPixelFormat) + 'static,
+    ) {
+        let weak = self.0.downgrade();
+        CUSTOM_IMAGE_PROVIDERS.with(|providers| {
+            let mut providers = providers.borrow_mut();
+            providers.retain(|(w, _)| w.upgrade().is_some_and(|i| i != self.0));
+            providers.push((weak, Box::new(provider)));
+        });
+    }
+}
+
+/// Invokes `f` once for every live
+#[doc(hidden)]
+pub fn with_custom_image_providers(mut f: impl FnMut(&ItemRc, &mut FrameProvider)) {
+    CUSTOM_IMAGE_PROVIDERS.with(|providers| {
+        let mut providers = providers.borrow_mut();
+        providers.retain_mut(|(weak, provider)| {
+            let Some(item_rc) = weak.upgrade() else { return false };
+            f(&item_rc, provider.as_mut());
+            true
+        });
+    });
 }
 
 #[repr(C)]

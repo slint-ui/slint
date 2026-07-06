@@ -497,6 +497,15 @@ export component ComponentContainer inherits Empty {
     //-accepts_focus
 }
 
+/// Gives applications the ability to blit pixel data directly to the framebuffer
+/// Only works with the linuxkms software renderer
+/// Use image handles if using a GPU based backend
+/// No visual properties and cannot have children
+export component CustomImage inherits Empty {
+    //-disallow_global_types_as_child_elements
+    //-keep_native_class
+}
+
 export component Transform inherits Empty {
     in property <angle> transform-rotation;
     in property <percent> transform-scale-x;

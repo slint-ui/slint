@@ -31,21 +31,25 @@ pub fn resolve_native_classes(component: &Component) {
                 }
             };
 
-            let analysis = elem.property_analysis.borrow();
-            let native_properties_used: HashSet<_> = elem
-                .bindings
-                .keys()
-                .chain(analysis.iter().filter(|(_, v)| v.is_used()).map(|(k, _)| k))
-                .filter(|k| {
-                    !elem.property_declarations.contains_key(*k)
-                        && base_type.as_ref().properties.contains_key(*k)
-                })
-                .collect();
+            if base_type.native_class.keep_native_class {
+                base_type.native_class.clone()
+            } else {
+                let analysis = elem.property_analysis.borrow();
+                let native_properties_used: HashSet<_> = elem
+                    .bindings
+                    .keys()
+                    .chain(analysis.iter().filter(|(_, v)| v.is_used()).map(|(k, _)| k))
+                    .filter(|k| {
+                        !elem.property_declarations.contains_key(*k)
+                            && base_type.as_ref().properties.contains_key(*k)
+                    })
+                    .collect();
 
-            select_minimal_class_based_on_property_usage(
-                &elem.base_type.as_builtin().native_class,
-                native_properties_used.into_iter(),
-            )
+                select_minimal_class_based_on_property_usage(
+                    &elem.base_type.as_builtin().native_class,
+                    native_properties_used.into_iter(),
+                )
+            }
         };
 
         elem.borrow_mut().base_type = ElementType::Native(new_native_class);

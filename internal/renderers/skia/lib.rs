@@ -854,6 +854,19 @@ impl SkiaRenderer {
         *self.pre_present_callback.borrow_mut() = callback;
     }
 
+    /// Sets a callback that's invoked with direct, mutable access to the raw pixel buffer right
+    /// after Skia has finished painting, before it's presented. Only has an effect when the
+    /// active surface exposes a CPU-mapped framebuffer (currently the software/DRM-dumb-buffer surface)
+    #[cfg(feature = "kms")]
+    pub fn set_pixel_pre_present_callback(
+        &self,
+        callback: Option<Box<dyn FnMut(&mut [u8], u32, u32, skia_safe::ColorType)>>,
+    ) {
+        if let Some(surface) = self.surface.borrow().as_ref() {
+            surface.set_pixel_pre_present_callback(callback);
+        }
+    }
+
     fn partial_rendering_state(&self) -> Option<&PartialRenderingState> {
         // We don't know where the application might render to, so disable partial rendering.
         if self.rendering_notifier.borrow().is_some() {
@@ -1092,6 +1105,18 @@ pub trait Surface {
         ) -> Option<DirtyRegion>,
         pre_present_callback: &RefCell<Option<Box<dyn FnMut()>>>,
     ) -> Result<DrawOutcome, i_slint_core::platform::PlatformError>;
+
+    /// Registers a callback that's invoked with direct, mutable access to the raw pixel buffer
+    /// right after Skia has finished painting into it, before it's presented. Only meaningful for
+    /// surfaces that expose a CPU-mapped framebuffer (currently the software/DRM-dumb-buffer
+    /// surface, see `software_surface.rs`); a no-op default for GPU-composited surfaces, which
+    /// have no such buffer to expose.
+    #[cfg(feature = "kms")]
+    fn set_pixel_pre_present_callback(
+        &self,
+        _callback: Option<Box<dyn FnMut(&mut [u8], u32, u32, skia_safe::ColorType)>>,
+    ) {
+    }
     /// Called when the surface should be resized.
     fn resize_event(
         &self,

@@ -783,6 +783,9 @@ pub struct NativeClass {
     /// Type override if class_name is not equal to the name to be used in the
     /// target language API.
     pub builtin_struct: Option<BuiltinStruct>,
+    /// Needed for items whose identity must remain stable throughout codegen regardless if its
+    /// properties are used or not
+    pub keep_native_class: bool,
 }
 
 impl NativeClass {

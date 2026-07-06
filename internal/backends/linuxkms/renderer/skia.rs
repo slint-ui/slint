@@ -173,6 +173,55 @@ impl SkiaRendererAdapter {
             _drm_output: None,
         });
 
+        renderer.renderer.set_pixel_pre_present_callback(Some(Box::new(
+            move |pixels, fb_width, fb_height, color_type| {
+                let (format, bytes_per_pixel) = match color_type {
+                    skia_safe::ColorType::RGBA8888 => {
+                        (i_slint_core::items::FramebufferPixelFormat::Rgba8888, 4)
+                    }
+                    skia_safe::ColorType::BGRA8888 => {
+                        (i_slint_core::items::FramebufferPixelFormat::Bgra8888, 4)
+                    }
+                    skia_safe::ColorType::RGB565 => {
+                        (i_slint_core::items::FramebufferPixelFormat::Rgb565, 2)
+                    }
+                    // No other format currently negotiated by SKIA_SUPPORTED_DRM_FOURCC_FORMATS
+                    // maps to a pixel layout a CustomImage provider can target.
+                    _ => return,
+                };
+                let stride = fb_width * bytes_per_pixel;
+
+                i_slint_core::items::with_custom_image_providers(|item_rc, provider| {
+                    let Some(window_adapter) = item_rc.window_adapter() else { return };
+                    let scale_factor = window_adapter.window().scale_factor();
+                    let geometry = item_rc.geometry();
+                    let origin = item_rc.map_to_window(geometry.origin);
+
+                    // Clip to the framebuffer
+                    let x0 =
+                        ((origin.x * scale_factor).round() as i64).clamp(0, fb_width as i64) as u32;
+                    let y0 = ((origin.y * scale_factor).round() as i64).clamp(0, fb_height as i64)
+                        as u32;
+                    let x1 = (((origin.x + geometry.size.width) * scale_factor).round() as i64)
+                        .clamp(0, fb_width as i64) as u32;
+                    let y1 = (((origin.y + geometry.size.height) * scale_factor).round() as i64)
+                        .clamp(0, fb_height as i64) as u32;
+                    if x0 >= x1 || y0 >= y1 {
+                        return;
+                    }
+
+                    let region = i_slint_core::items::FramebufferRegion {
+                        x: x0,
+                        y: y0,
+                        width: x1 - x0,
+                        height: y1 - y0,
+                        stride,
+                    };
+                    provider(&mut *pixels, region, format);
+                });
+            },
+        )));
+
         eprintln!("Using Skia Software renderer");
 
         Ok(renderer)

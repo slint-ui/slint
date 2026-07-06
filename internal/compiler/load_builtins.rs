@@ -146,6 +146,7 @@ pub(crate) fn load_builtins(register: &mut TypeRegister) {
             .collect();
         n.builtin_struct = parse_annotation("builtin_struct", &e)
             .map(|x| x.unwrap().parse::<BuiltinStruct>().unwrap());
+        n.keep_native_class = parse_annotation("keep_native_class", &e).is_some();
         enum Base {
             None,
             Global,
