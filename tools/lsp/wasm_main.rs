@@ -294,6 +294,7 @@ pub fn create(
             open_urls: Default::default(),
             to_preview,
             pending_recompile: Default::default(),
+            host_language_rename_dont_ask_again: Default::default(),
         }),
         rh: Rc::new(rh),
     })

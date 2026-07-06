@@ -6,6 +6,7 @@
 
 // cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals compl consteval constinit glyphset glyphsets reflexpr
 
+use super::accessor_names::{self, AccessorKind};
 use crate::fileaccess;
 use std::collections::HashSet;
 use std::fmt::Write;
@@ -3350,8 +3351,6 @@ fn generate_public_api_for_properties(
     ctx: &EvaluationContext,
 ) {
     for p in public_properties {
-        let prop_ident = concatenate_ident(&p.name);
-
         let access = access_member(&p.prop, ctx).unwrap();
 
         if let Type::Callback(callback) = &p.ty {
@@ -3369,7 +3368,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format_smolstr!("invoke_{prop_ident}"),
+                    name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Invoker),
                     signature: format!(
                         "({}) const -> {}",
                         param_types
@@ -3395,7 +3394,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format_smolstr!("on_{}", concatenate_ident(&p.name)),
+                    name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Handler),
                     template_parameters: Some(format!(
                         "std::invocable<{}> Functor",
                         param_types.join(", "),
@@ -3420,7 +3419,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format_smolstr!("invoke_{}", concatenate_ident(&p.name)),
+                    name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Invoker),
                     signature: format!(
                         "({}) const -> {ret}",
                         param_types
@@ -3443,7 +3442,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Public,
                 Declaration::Function(Function {
-                    name: format_smolstr!("get_{}", &prop_ident),
+                    name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Getter),
                     signature: format!("() const -> {}", &cpp_property_type),
                     statements: Some(prop_getter),
                     ..Default::default()
@@ -3459,7 +3458,7 @@ fn generate_public_api_for_properties(
                 declarations.push((
                     Access::Public,
                     Declaration::Function(Function {
-                        name: format_smolstr!("set_{}", &prop_ident),
+                        name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Setter),
                         signature: format!("(const {} &value) const -> void", &cpp_property_type),
                         statements: Some(prop_setter),
                         ..Default::default()
@@ -3469,7 +3468,7 @@ fn generate_public_api_for_properties(
                 declarations.push((
                     Access::Private,
                     Declaration::Function(Function {
-                        name: format_smolstr!("set_{}", &prop_ident),
+                        name: accessor_names::cpp_accessor_name(&p.name, AccessorKind::Setter),
                         signature: format!(
                             "(const {cpp_property_type} &) const = SLINT_DELETED_FUNCTION(\"property '{}' is declared as 'out' (read-only). Declare it as 'in' or 'in-out' to enable the setter\")", p.name
                         ),
@@ -3481,14 +3480,12 @@ fn generate_public_api_for_properties(
     }
 
     for (name, ty) in private_properties {
-        let prop_ident = concatenate_ident(name);
-
         if let Type::Function(function) = &ty {
             let param_types = function.args.iter().map(|t| t.cpp_type().unwrap()).join(", ");
             declarations.push((
                 Access::Private,
                 Declaration::Function(Function {
-                    name: format_smolstr!("invoke_{prop_ident}"),
+                    name: accessor_names::cpp_accessor_name(name, AccessorKind::Invoker),
                     signature: format!(
                         "({param_types}) const = SLINT_DELETED_FUNCTION(\"the function '{name}' is declared as private. Declare it as 'public'\")",
                     ),
@@ -3499,7 +3496,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Private,
                 Declaration::Function(Function {
-                    name: format_smolstr!("get_{prop_ident}"),
+                    name: accessor_names::cpp_accessor_name(name, AccessorKind::Getter),
                     signature: format!(
                         "() const = SLINT_DELETED_FUNCTION(\"the property '{name}' is declared as private. Declare it as 'in', 'out', or 'in-out' to make it public\")",
                     ),
@@ -3509,7 +3506,7 @@ fn generate_public_api_for_properties(
             declarations.push((
                 Access::Private,
                 Declaration::Function(Function {
-                    name: format_smolstr!("set_{}", &prop_ident),
+                    name: accessor_names::cpp_accessor_name(name, AccessorKind::Setter),
                     signature: format!(
                         "(const auto &) const = SLINT_DELETED_FUNCTION(\"property '{name}' is declared as private. Declare it as 'in' or 'in-out' to make it public\")",
                     ),

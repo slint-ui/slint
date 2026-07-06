@@ -115,6 +115,11 @@ All notable changes to this project are documented in this file.
  - LSP: Update the preview highlight on hover.
  - LSP: formatter preserve newlines in expression, as well as enum declarations and export lists.
  - LSP: show runtime warnings in the console (eg: missing image file).
+ - LSP: When renaming a public property, callback, or function in `.slint`, the LSP can search and replace matching generated Rust/C++ accessor identifiers in workspace source files.
+   The search is textual and includes comments and strings.
+   *Skip and don't ask again* suppresses the prompt for the rest of the LSP session.
+   Clients may apply the follow-up edit immediately, so inspect the resulting changes with source control.
+   This feature requires standard rename, `window/showMessageRequest`, and `workspace/applyEdit` support. (#11841)
  - Improved file watcher by tracking new file and moved directories.
  - Compiler: Report precise error location within `@markdown` and `@tr` strings. (#11577)
  - Added MCP server feature. (#11542)
