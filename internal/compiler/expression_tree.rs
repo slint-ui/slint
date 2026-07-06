@@ -575,13 +575,13 @@ macro_rules! declare_units {
         ///
         /// These are all the units a user can type. A literal is normalized to the
         /// canonical [`Unit`] of its type the moment it enters the expression tree, so
-        /// only the parser and tooling ever handle a `SurfaceUnit`.
+        /// only the parser and tooling ever handle a `WrittenUnit`.
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, strum::EnumIter)]
-        pub enum SurfaceUnit {
+        pub enum WrittenUnit {
             $($(#[$m])* $ident,)*
         }
 
-        impl std::fmt::Display for SurfaceUnit {
+        impl std::fmt::Display for WrittenUnit {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match self {
                     $(Self::$ident => write!(f, $string), )*
@@ -589,7 +589,7 @@ macro_rules! declare_units {
             }
         }
 
-        impl std::str::FromStr for SurfaceUnit {
+        impl std::str::FromStr for WrittenUnit {
             type Err = ();
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 match s {
@@ -599,7 +599,7 @@ macro_rules! declare_units {
             }
         }
 
-        impl SurfaceUnit {
+        impl WrittenUnit {
             /// Scale `value`, written in this surface unit, to the value and canonical
             /// [`Unit`] a `NumberLiteral` stores. The scale and the unit come out
             /// together so they can't drift apart.
@@ -657,7 +657,7 @@ declare_units! {
 /// The unit a [`Expression::NumberLiteral`] carries: always the canonical unit of
 /// its type, so the stored value is already scaled and needs no further
 /// conversion. The units a user can type (`cm`, `pt`, `grad`, ...) are
-/// [`SurfaceUnit`] and are normalized to one of these on the way in.
+/// [`WrittenUnit`] and are normalized to one of these on the way in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum Unit {
     /// Dimension-less (`float`, `int`)

@@ -81,18 +81,18 @@ fn map_property_to_ui(
 
         fn extract_value_with_unit(
             expression: &syntax_nodes::Expression,
-            units: &[expression_tree::SurfaceUnit],
+            units: &[expression_tree::WrittenUnit],
             value: &mut ui::PropertyValue,
         ) {
             fn extract_value_with_unit_impl(
                 expression: &syntax_nodes::Expression,
-                units: &[i_slint_compiler::expression_tree::SurfaceUnit],
+                units: &[i_slint_compiler::expression_tree::WrittenUnit],
             ) -> Option<(ui::PropertyValueKind, f32, i32, String)> {
                 let (value, unit) = convert_number_literal(expression)?;
 
                 let index = units.iter().position(|u| u == &unit).or_else(|| {
                     (units.is_empty()
-                        && unit == i_slint_compiler::expression_tree::SurfaceUnit::None)
+                        && unit == i_slint_compiler::expression_tree::WrittenUnit::None)
                         .then_some(0_usize)
                 })?;
 
@@ -154,36 +154,36 @@ fn map_property_to_ui(
         }
 
         if value.value_kind == ui::PropertyValueKind::Float {
-            use expression_tree::SurfaceUnit;
+            use expression_tree::WrittenUnit;
             use langtype::Type;
 
             match &property_info.ty {
                 Type::Float32 => extract_value_with_unit(expression, &[], &mut value),
                 Type::Duration => extract_value_with_unit(
                     expression,
-                    &[SurfaceUnit::S, SurfaceUnit::Ms],
+                    &[WrittenUnit::S, WrittenUnit::Ms],
                     &mut value,
                 ),
                 Type::PhysicalLength | Type::LogicalLength | Type::Rem => extract_value_with_unit(
                     expression,
                     &[
-                        SurfaceUnit::Px,
-                        SurfaceUnit::Cm,
-                        SurfaceUnit::Mm,
-                        SurfaceUnit::In,
-                        SurfaceUnit::Pt,
-                        SurfaceUnit::Phx,
-                        SurfaceUnit::Rem,
+                        WrittenUnit::Px,
+                        WrittenUnit::Cm,
+                        WrittenUnit::Mm,
+                        WrittenUnit::In,
+                        WrittenUnit::Pt,
+                        WrittenUnit::Phx,
+                        WrittenUnit::Rem,
                     ],
                     &mut value,
                 ),
                 Type::Angle => extract_value_with_unit(
                     expression,
-                    &[SurfaceUnit::Deg, SurfaceUnit::Grad, SurfaceUnit::Turn, SurfaceUnit::Rad],
+                    &[WrittenUnit::Deg, WrittenUnit::Grad, WrittenUnit::Turn, WrittenUnit::Rad],
                     &mut value,
                 ),
                 Type::Percent => {
-                    extract_value_with_unit(expression, &[SurfaceUnit::Percent], &mut value)
+                    extract_value_with_unit(expression, &[WrittenUnit::Percent], &mut value)
                 }
                 _ => {}
             }
@@ -364,7 +364,7 @@ fn map_property_definition(
 
 fn convert_number_literal(
     node: &syntax_nodes::Expression,
-) -> Option<(f64, i_slint_compiler::expression_tree::SurfaceUnit)> {
+) -> Option<(f64, i_slint_compiler::expression_tree::WrittenUnit)> {
     if let Some(unary) = &node.UnaryOpExpression() {
         let factor = match unary.first_token().unwrap().text() {
             "-" => -1.0,
