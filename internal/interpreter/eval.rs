@@ -1311,6 +1311,34 @@ fn call_builtin_function(
                 panic!("Argument not a string");
             }
         }
+        BuiltinFunction::StringStartsWith => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to StringStartsWith")
+            }
+            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
+                if let Value::String(pat) = eval_expression(&arguments[1], local_context) {
+                    Value::Bool(s.starts_with(pat.as_str()))
+                } else {
+                    panic!("Second argument not a string");
+                }
+            } else {
+                panic!("First argument not a string");
+            }
+        }
+        BuiltinFunction::StringEndsWith => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to StringEndsWith")
+            }
+            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
+                if let Value::String(pat) = eval_expression(&arguments[1], local_context) {
+                    Value::Bool(s.ends_with(pat.as_str()))
+                } else {
+                    panic!("Second argument not a string");
+                }
+            } else {
+                panic!("First argument not a string");
+            }
+        }
         BuiltinFunction::KeysToString => {
             if arguments.len() != 1 {
                 panic!("internal error: incorrect argument count to KeysToString")

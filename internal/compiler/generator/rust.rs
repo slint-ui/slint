@@ -4110,6 +4110,14 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::StringToLowercase => quote!(sp::SharedString::from(#(#a)*.to_lowercase())),
         BuiltinFunction::StringToUppercase => quote!(sp::SharedString::from(#(#a)*.to_uppercase())),
+        BuiltinFunction::StringStartsWith => {
+            let (s, pat) = (a.next().unwrap(), a.next().unwrap());
+            quote!(#s.starts_with(#pat.as_str()))
+        }
+        BuiltinFunction::StringEndsWith => {
+            let (s, pat) = (a.next().unwrap(), a.next().unwrap());
+            quote!(#s.ends_with(#pat.as_str()))
+        }
         BuiltinFunction::KeysToString => quote!(sp::ToSharedString::to_shared_string(&#(#a)*)),
         BuiltinFunction::ColorRgbaStruct => quote!( #(#a)*.to_argb_u8()),
         BuiltinFunction::ColorHsvaStruct => quote!( #(#a)*.to_hsva()),
