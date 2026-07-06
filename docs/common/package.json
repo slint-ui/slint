@@ -10,7 +10,7 @@
     "test": "node --experimental-strip-types --test tests/markdown-endpoint.test.ts"
   },
   "dependencies": {
-    "@expressive-code/core": "0.43.1",
+    "@expressive-code/core": "0.44.0",
     "@expressive-code/plugin-line-numbers": "catalog:",
     "rehype-external-links": "catalog:"
   },
