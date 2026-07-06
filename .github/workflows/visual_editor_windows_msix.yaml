@@ -1,0 +1,73 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Visual Editor Windows MSIX
+
+on:
+  workflow_dispatch:
+
+  pull_request:
+    branches:
+      - visual-editor
+
+permissions:
+  contents: read
+
+env:
+  MACOSX_DEPLOYMENT_TARGET: "12.0"
+  CARGO_INCREMENTAL: false
+  MACOS_CARGO_TIMINGS: "1"
+  SLINT_BUILD_NUMBER: ${{ github.run_number }}
+
+jobs:
+  msix:
+    name: Build signed notarized MSIX
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env: {}
+    steps:
+      - uses: actions/checkout@v6
+
+      # cache the build
+      - uses: ./.github/actions/setup-rust
+        with:
+          key: visual-editor-macos-dmg
+          save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+
+      - name: Install Windows Rust target
+        run: rustup target add x86_64-pc-windows-msvc
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+        id: node-install
+
+      - name: Install packaging tools
+        run: npm install @microsoft/winappcli --save-dev
+
+      - name: Build app for Windows
+        run: |
+          cargo build \
+            --manifest-path tools/lsp/Cargo.toml \
+            --target x86_64-pc-windows-msvc \
+            --bin slint-visual-editor \
+            --profile package-release \
+            --no-default-features \
+            --features backend-winit,renderer-skia
+
+      - name: Package app as MSIX
+        # TODO: `--cert path/to/cert.pfx`
+        run: |
+          mkdir tools/lsp/dist
+          cp target/package-release/slint-visual-editor tools/lsp/dist/slint-visual-editor
+          cd tools/lsp
+          winapp pack ./dist
+
+      - name: Upload MSIX artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: slint-visual-editor-windows-msix
+          path: |
+            Slint Visual Editor.msix
+          if-no-files-found: error
