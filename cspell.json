@@ -230,6 +230,7 @@
     "xcworkspace",
     "xtask",
     "xtensa",
+    "Zmiri",
     // CSS Color 4 named-color keywords not accepted by the default English dictionary (W3C CSS Color Module Level 4).
     "aliceblue",
     "antiquewhite",
