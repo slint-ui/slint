@@ -2385,7 +2385,8 @@ mod tests {
         spin_on::spin_on(dc.preload_builtins());
         let mut diagnostics = BuildDiagnostics::default();
 
-        let types_url = Url::from_file_path(format!("/foo/{types_file_name}")).unwrap();
+        let types_url =
+            Url::from_file_path(crate::common::test::test_file_name(types_file_name)).unwrap();
         let _ = spin_on::spin_on(dc.load_url(
             &types_url,
             Some(1),
@@ -2393,7 +2394,8 @@ mod tests {
             &mut diagnostics,
         ));
 
-        let main_url = Url::from_file_path(format!("/foo/{main_file_name}")).unwrap();
+        let main_url =
+            Url::from_file_path(crate::common::test::test_file_name(main_file_name)).unwrap();
         let _ = spin_on::spin_on(dc.load_url(
             &main_url,
             Some(2),

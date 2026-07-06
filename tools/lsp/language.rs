@@ -2427,8 +2427,8 @@ export component TestWindow inherits Window {
 }
 "#;
 
-        let types_url = Url::from_file_path("/foo/types.slint").unwrap();
-        let main_url = Url::from_file_path("/foo/main.slint").unwrap();
+        let types_url = Url::from_file_path(common::test::test_file_name("types.slint")).unwrap();
+        let main_url = Url::from_file_path(common::test::test_file_name("main.slint")).unwrap();
 
         // Load the types file first so the cache knows about it
         let mut dc = test::empty_document_cache();
