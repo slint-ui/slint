@@ -51,6 +51,7 @@ pub mod move_declarations;
 mod optimize_useless_rectangles;
 mod purity_check;
 mod remove_aliases;
+mod remove_constant_conditions;
 mod remove_return;
 mod remove_unused_properties;
 mod repeater_component;
@@ -231,6 +232,7 @@ pub async fn run_passes(
         if !diag.has_errors() {
             // binding loop causes panics in const_propagation
             const_propagation::const_propagation(component, &global_analysis);
+            remove_constant_conditions::remove_constant_conditions(component);
         }
         deduplicate_property_read::deduplicate_property_read(component);
         if !component.is_global() && !component.is_interface() {
