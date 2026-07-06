@@ -41,13 +41,7 @@ jobs:
 
       - name: Build app for Windows
         run: |
-          cargo build \
-            --manifest-path tools/lsp/Cargo.toml \
-            --target x86_64-pc-windows-msvc \
-            --bin slint-visual-editor \
-            --profile package-release \
-            --no-default-features \
-            --features backend-winit,renderer-skia
+          cargo build --manifest-path tools/lsp/Cargo.toml --target x86_64-pc-windows-msvc --bin slint-visual-editor --profile package-release --no-default-features --features backend-winit,renderer-skia
 
       - name: Package app as MSIX
         # TODO: `--cert path/to/cert.pfx`
