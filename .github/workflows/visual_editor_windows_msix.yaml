@@ -62,5 +62,5 @@ jobs:
         with:
           name: slint-visual-editor-windows-msix
           path: |
-            slintvisualeditor_0.17.0.0_x64.msix
+            tools/lsp/slintvisualeditor_0.17.0.0_x64.msix
           if-no-files-found: error
