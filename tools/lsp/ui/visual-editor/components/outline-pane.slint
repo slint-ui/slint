@@ -91,13 +91,13 @@ export component OutlinePane inherits Rectangle {
 
                 root-drop-target := Rectangle {
                     width: parent.width;
-                    height: root-drop-area.contains-drag ? 28px : EditorTreeTokens.root-drop-height;
+                    height: root-drop-area.has-drag ? 28px : EditorTreeTokens.root-drop-height;
                     border-radius: EditorTreeTokens.row-radius;
-                    border-width: root-drop-area.contains-drag && self.drop-allowed
+                    border-width: root-drop-area.has-drag && self.drop-allowed
                         ? EditorTreeTokens.drop-target-border-width
                         : 0px;
                     border-color: EditorTreeTokens.accent;
-                    background: root-drop-area.contains-drag && self.drop-allowed
+                    background: root-drop-area.has-drag && self.drop-allowed
                         ? EditorTreeTokens.drop-target-bg
                         : transparent;
                     property <bool> drop-allowed: false;
@@ -147,7 +147,7 @@ export component OutlinePane inherits Rectangle {
                     }
 
                     Text {
-                        visible: root-drop-area.contains-drag && root-drop-target.drop-allowed;
+                        visible: root-drop-area.has-drag && root-drop-target.drop-allowed;
                         x: EditorTreeTokens.row-padding-inline;
                         width: parent.width - 2 * self.x;
                         text: "Drop as child of root";

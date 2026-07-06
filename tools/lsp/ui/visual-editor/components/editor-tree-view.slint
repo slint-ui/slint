@@ -114,7 +114,7 @@ component EditorTreeRow {
                     width: parent.width - self.x;
                     height: parent.height;
                     border-radius: EditorTreeTokens.row-radius;
-                    border-width: row-drop.contains-drag
+                    border-width: row-drop.has-drag
                         && root.drop-allowed
                         && root.active-drop-location == DropLocation.onto
                         ? EditorTreeTokens.drop-target-border-width
@@ -124,7 +124,7 @@ component EditorTreeRow {
                     border-color: EditorTreeTokens.accent;
                     background: root.current
                         ? EditorTreeTokens.row-bg-current
-                        : row-drop.contains-drag
+                        : row-drop.has-drag
                         && root.drop-allowed
                         && root.active-drop-location == DropLocation.onto
                         ? EditorTreeTokens.drop-target-bg
@@ -286,7 +286,7 @@ component EditorTreeRow {
                         }
                     }
 
-                    if row-drop.contains-drag && root.drop-allowed && root.active-drop-location != DropLocation.onto: Rectangle {
+                    if row-drop.has-drag && root.drop-allowed && root.active-drop-location != DropLocation.onto: Rectangle {
                         x: EditorTreeTokens.row-padding-inline
                             + root.gutter-segments * (EditorTreeTokens.toggle-width + EditorTreeTokens.content-gap)
                             + EditorTreeTokens.disclosure-hit-size
