@@ -155,7 +155,7 @@ spin_on = { workspace = true }
 i-slint-live-preview = { path = "../../internal/live-preview", features = ["remote"] }
 
 [build-dependencies]
-slint-build = { workspace = true, features = ["default"], optional = true }
+slint-build = { workspace = true, optional = true }
 
 # [package.metadata.wasm-pack.profile.release]
 # wasm-opt = false
