@@ -55,7 +55,7 @@ jobs:
           mkdir tools/lsp/dist
           cp target/package-release/slint-visual-editor tools/lsp/dist/slint-visual-editor
           cd tools/lsp
-          npx winapp pack ./dist
+          winapp pack ./dist
 
       - name: Upload MSIX artifact
         uses: actions/upload-artifact@v7
