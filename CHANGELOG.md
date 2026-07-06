@@ -2,6 +2,31 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## [1.17.1] - 2026-07-07
+
+ - Fixed a panic/crash on startup when a global reads `Palette.color-scheme` (or accent-color) during its initialization.
+ - Fixed text elision across explicit line breaks and ellipsis placement.
+ - Fixed extra blank lines when the text contains Windows line endings. (#12347)
+ - Fixed animations starting from the wrong value when the property was set before its binding was evaluated. (#12303)
+ - Fixed scrolling behavior of `TextEdit` on cursor movement. (#10496)
+ - Warn when a `DragArea` has no data set. (#12247)
+ - Interpreter: Fixed crash with two-way bindings to struct fields. (#12278, #12279)
+ - Widgets: Made the default font size consistent with plain `Text`. (#12237)
+ - `GridLayout`: Fixed panic on out-of-range row or column, and `colspan` in conditional cells. (#12292, #12257)
+ - Fixed unbounded window height with an unsized `Image`. (#12286)
+ - Fixed non-finite number literals being generated as 0. (#12230)
+ - Fixed clipping popup for non native popups. (#12324)
+ - Fixed panic on `Timer.restart()` in a conditional sub-component. (#12355)
+ - winit: Fixed wrong initial window size on Wayland. (#12262)
+ - Skia: Fixed flickering of imported WGPU textures on macOS. (#12271)
+ - iOS: Focus input fields on tap release and follow the macOS keyboard navigation.
+ - esp-idf: Fixed rendering synchronization on MIPI-DSI DPI panels.
+ - Rust: Fixed panic when a future's waker fires after the event loop stopped. (#12289)
+ - LSP: Fixed panic when a watched file path has no URL representation. (#12291)
+ - live-preview: Made the remote preview resizable, fixed images not loading on iOS and Android devices,
+   and support link-local IPv6 addresses.
+ - Increased the stack size of the published tools on Windows.
+
 ## [1.17.0] - 2026-06-24
 
 ### General
