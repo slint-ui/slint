@@ -2339,15 +2339,13 @@ fn insert_cache_prop_binding(
     layout_cache_prop: &NamedReference,
     diag: &mut BuildDiagnostics,
 ) {
-    let old = elem.borrow_mut().bindings.insert(
-        prop.into(),
-        BindingExpression::new_with_span(
-            expr,
-            layout_cache_prop.element().borrow().to_source_location(),
-        )
-        .into(),
+    let new_binding = BindingExpression::new_with_span(
+        expr,
+        layout_cache_prop.element().borrow().to_source_location(),
     );
-    if let Some(old) = old.map(RefCell::into_inner) {
+    // Use set_binding_overwriting so that a synthetic debug hook (an unbound geometry default)
+    // is upgraded in-place rather than being treated as a genuine conflicting binding.
+    if let Some(old) = elem.borrow_mut().set_binding_overwriting(prop.into(), new_binding) {
         diag.push_error(
             format!("The property '{prop}' cannot be set for elements placed in this layout, because the layout is already setting it"),
             &old,
