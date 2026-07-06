@@ -47,7 +47,7 @@ jobs:
         # TODO: `--cert path/to/cert.pfx`
         run: |
           mkdir tools/lsp/dist
-          cp target/x86_64-pc-windows-msvc/package-release/slint-visual-editor tools/lsp/dist/slint-visual-editor
+          cp target/x86_64-pc-windows-msvc/package-release/slint-visual-editor.exe tools/lsp/dist/slint-visual-editor.exe
           cd tools/lsp
           winapp pack ./dist
 
