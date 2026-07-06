@@ -37,10 +37,31 @@ test("root index (empty id) maps to the index.md slug", () => {
     ]);
     assert.deepEqual(
         paths.map((p) => p.params.slug),
-        ["index", "guide/intro"],
+        ["index.md", "guide/intro.md"],
     );
     // The entry travels through as a prop for the GET handler.
     assert.equal(paths[1].props.entry.id, "guide/intro");
+});
+
+test("doc source extensions are stripped from route slugs", () => {
+    const mdEntry = entry({ id: "guide/backend_linuxkms.md" });
+    const paths = markdownStaticPaths([
+        mdEntry,
+        entry({ id: "guide/intro.mdx" }),
+        entry({ id: "guide/v1.2/intro" }),
+        entry({ id: "guide/file.name.markdown" }),
+    ]);
+
+    assert.deepEqual(
+        paths.map((p) => p.params.slug),
+        [
+            "guide/backend_linuxkms.md",
+            "guide/intro.md",
+            "guide/v1.2/intro.md",
+            "guide/file.name.md",
+        ],
+    );
+    assert.equal(paths[0].props.entry, mdEntry);
 });
 
 test("renders YAML frontmatter and serves text/markdown", async () => {
