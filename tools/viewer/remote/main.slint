@@ -30,6 +30,7 @@ export component RemoteViewerWindow inherits Window {
     property <bool> showing-name: true;
 
     property <bool> dark-color-scheme: Palette.color-scheme == ColorScheme.dark;
+    property <bool> landscape-layout: root.width > root.height;
     property <string> toast-message;
 
     hidden-input := TextInput {
@@ -60,10 +61,24 @@ export component RemoteViewerWindow inherits Window {
         background: root.dark-color-scheme ? @linear-gradient(180deg, #1C1C1C, black) : @linear-gradient(0deg, #D7D9DD, white);
     }
 
-    Image {
+    if !root.landscape-layout: Image {
         y: root.height - self.height;
         width: 100%;
         source: root.dark-color-scheme ? @image-url("assets/bg-frame.svg") : @image-url("assets/bg-frame-light.svg");
+    }
+
+    if root.landscape-layout: Image {
+        x: root.width - self.width;
+        y: root.height - self.height - root.height * 20%;
+        width: min(root.width * 0.36, 360px);
+        source: root.dark-color-scheme ? @image-url("assets/bg-frame-mark.svg") : @image-url("assets/bg-frame-mark-light.svg");
+    }
+
+    if root.landscape-layout: Image {
+        x: 0px;
+        y: root.height - self.height;
+        width: root.width;
+        source: root.dark-color-scheme ? @image-url("assets/bg-frame-lines.svg") : @image-url("assets/bg-frame-lines-light.svg");
     }
 
     TouchArea {
