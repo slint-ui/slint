@@ -44,7 +44,7 @@ jobs:
         id: node-install
 
       - name: Install packaging tools
-        run: npm install @microsoft/winappcli --save-dev
+        run: pnpm install @microsoft/winappcli --save-dev
 
       - name: Build app for Windows
         run: |
