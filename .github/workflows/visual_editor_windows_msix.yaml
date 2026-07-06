@@ -42,12 +42,9 @@ jobs:
           node-version: 24
           package-manager-cache: false
         id: node-install
-      - uses: pnpm/action-setup@v6.0.8
-        with:
-          version: 10.29.3
 
       - name: Install packaging tools
-        run: pnpm install @microsoft/winappcli --save-dev
+        run: npx install @microsoft/winappcli --save-dev
 
       - name: Build app for Windows
         run: |
@@ -65,7 +62,7 @@ jobs:
           mkdir tools/lsp/dist
           cp target/package-release/slint-visual-editor tools/lsp/dist/slint-visual-editor
           cd tools/lsp
-          winapp pack ./dist
+          npx winapp pack ./dist
 
       - name: Upload MSIX artifact
         uses: actions/upload-artifact@v7
