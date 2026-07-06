@@ -28,8 +28,10 @@ pub fn inject_debug_hooks(
     component: &std::rc::Rc<object_tree::Component>,
     random_state: &std::hash::RandomState,
 ) {
-    object_tree::recurse_elem(&component.root_element, &(), &mut |elem, &()| {
-        process_element(elem, random_state);
+    let root = component.root_element.clone();
+    object_tree::recurse_elem(&root, &(), &mut |elem, &()| {
+        let is_root = std::rc::Rc::ptr_eq(elem, &root);
+        process_element(elem, random_state, is_root);
     });
 }
 
@@ -58,7 +60,7 @@ fn calculate_element_hash(
     hasher.finish()
 }
 
-fn process_element(element: &ElementRc, random_state: &std::hash::RandomState) {
+fn process_element(element: &ElementRc, random_state: &std::hash::RandomState, is_root: bool) {
     let e = element.borrow();
     // Before repeater_component::process_repeater_components runs, a repeated element still
     // holds its content as children — recurse_elem will visit them naturally.
@@ -152,8 +154,33 @@ fn process_element(element: &ElementRc, random_state: &std::hash::RandomState) {
             .collect()
     };
 
+    // Reserved geometry properties (x, y, width, height) — these are not in property_list()
+    // because they are injected globally by the type system, not per builtin element.
+    // We exclude "z" to avoid spurious property materialization in materialize_fake_properties.
+    // We skip the component root element because its geometry is either runtime-managed (Window)
+    // or set after inlining into a parent component — either way, no compiler pass will upgrade
+    // a synthetic hook, which would leave root geometry frozen at 0px.
+    let geometry_candidates: Vec<(smol_str::SmolStr, Expression)> = if is_root {
+        vec![]
+    } else {
+        let elem = element.borrow();
+        crate::typeregister::RESERVED_GEOMETRY_PROPERTIES
+            .iter()
+            .filter(|(name, _)| *name != "z")
+            .filter_map(|(prop_name, ty)| {
+                if elem.bindings.contains_key(*prop_name) {
+                    return None;
+                }
+                let default = Expression::default_value_for_type(ty);
+                if matches!(default, Expression::Invalid) {
+                    return None;
+                }
+                Some((smol_str::SmolStr::new_static(prop_name), default))
+            })
+            .collect()
+    };
+
     // Also include reserved transform-property defaults.
-    // TODO: Add any other reserved properties here when debug hooks on them are needed
     let transform_candidates: Vec<(smol_str::SmolStr, Expression)> = {
         let elem = element.borrow();
         if elem.debug.is_empty() {
@@ -185,6 +212,19 @@ fn process_element(element: &ElementRc, random_state: &std::hash::RandomState) {
         use std::collections::btree_map::Entry;
         if let Entry::Vacant(entry) = element.borrow_mut().bindings.entry(name) {
             entry.insert(binding_expressions.into());
+        }
+    }
+
+    // Insert synthetic hooks for reserved geometry properties (x, y, width, height).
+    for (name, default_expr) in geometry_candidates {
+        let id = property_id(element_hash, &name);
+        let mut binding_expressions: crate::expression_tree::BindingExpression =
+            Expression::DebugHook { expression: Box::new(default_expr), id, synthetic: true }
+                .into();
+        binding_expressions.priority = 0;
+        use std::collections::btree_map::Entry;
+        if let Entry::Vacant(v) = element.borrow_mut().bindings.entry(name) {
+            v.insert(binding_expressions.into());
         }
     }
 

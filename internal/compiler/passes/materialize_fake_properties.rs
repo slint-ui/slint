@@ -40,6 +40,16 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
 
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
         for prop in elem.borrow().bindings.keys() {
+            // DebugHook bindings must not be materialized into property_declarations via this
+            // path: they are self-contained placeholders that must survive remove_unused_properties
+            // (which only removes declared properties).  If the property is genuinely referenced
+            // by a NamedReference, the first loop above will have already added it to
+            // `to_materialize`, and it will be handled correctly there.
+            if elem.borrow().bindings.get(prop).is_some_and(|b| {
+                matches!(b.borrow().expression, Expression::DebugHook { .. })
+            }) {
+                continue;
+            }
             let nr = NamedReference::new(elem, prop.clone());
             if let std::collections::hash_map::Entry::Vacant(e) = to_materialize.entry(nr) {
                 let elem = elem.borrow();
@@ -54,6 +64,17 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
 
     for (nr, ty) in to_materialize {
         let elem = nr.element();
+
+        // A DebugHook binding is a self-contained placeholder: don't materialize it into
+        // property_declarations.  If we did, move_declarations would pull it out of the inner
+        // element and into the root component, breaking the property's location.
+        // geometry_props NamedReferences (e.g. geometry_props.x → img.x) trigger this path;
+        // we skip them here so the DebugHook stays in-place on the inner element.
+        if elem.borrow().bindings.get(nr.name()).is_some_and(|b| {
+            matches!(b.borrow().expression, Expression::DebugHook { .. })
+        }) {
+            continue;
+        }
 
         elem.borrow_mut().property_declarations.insert(
             nr.name().clone(),

@@ -9,7 +9,6 @@
     This pass must be run after lower_layout
 */
 
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel, Spanned};
@@ -501,7 +500,8 @@ fn make_default_aspect_ratio_preserving_binding(
         op: '*',
     };
 
-    elem.borrow_mut().bindings.insert(missing_size_property, RefCell::new(binding.into()));
+    let binding_expr = binding;
+    elem.borrow_mut().set_binding_if_not_set(missing_size_property, || binding_expr);
 }
 
 fn maybe_center_in_parent(

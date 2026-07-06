@@ -2519,6 +2519,46 @@ impl Element {
         true
     }
 
+    /// Unconditionally set the property `property_name` to `new_binding`, but handle a synthetic
+    /// debug hook that already occupies the slot specially: instead of replacing it, upgrade it
+    /// in-place (replace its inner expression, clear `synthetic`, keep the wrapper+id so the
+    /// property stays live-editable).
+    ///
+    /// Returns the old `BindingExpression` if a *real* (non-synthetic) binding was displaced so
+    /// the caller can report a conflict.  Returns `None` if the slot was empty or held only a
+    /// synthetic hook (no conflict).
+    ///
+    /// This is intended for passes like `lower_layout` that must force-set a property and need to
+    /// distinguish a genuine conflict from a synthetic placeholder.
+    pub fn set_binding_overwriting(
+        &mut self,
+        property_name: SmolStr,
+        new_binding: BindingExpression,
+    ) -> Option<BindingExpression> {
+        match self.bindings.entry(property_name) {
+            Entry::Vacant(v) => {
+                v.insert(RefCell::new(new_binding));
+                None
+            }
+            Entry::Occupied(mut e) => {
+                let existing = e.get_mut().get_mut();
+                if let expression_tree::Expression::DebugHook { expression, synthetic, .. } =
+                    &mut existing.expression
+                {
+                    if *synthetic {
+                        // Upgrade the synthetic placeholder in-place.
+                        *expression = Box::new(new_binding.expression);
+                        *synthetic = false;
+                        existing.priority = i32::MAX;
+                        return None;
+                    }
+                }
+                // Real (non-synthetic) binding exists: replace it and report the conflict.
+                Some(std::mem::replace(e.get_mut().get_mut(), new_binding))
+            }
+        }
+    }
+
     pub fn sub_component(&self) -> Option<&Rc<Component>> {
         if self.repeated.is_some() {
             None
