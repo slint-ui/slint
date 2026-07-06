@@ -110,3 +110,44 @@ pub fn remove_constant_conditions(component: &Rc<Component>) {
         })
     });
 }
+
+#[test]
+fn removes_constant_false_conditionals() {
+    let mut compiler_config =
+        crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.style = Some("fluent".into());
+    let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
+    let doc_node = crate::parser::parse(
+        r#"
+export component Foo {
+    in property <bool> dynamic;
+    property <bool> never: false;
+    if false: Rectangle {}
+    if never: Rectangle {}
+    if dynamic: Rectangle {}
+}
+"#
+        .into(),
+        Some(std::path::Path::new("test.slint")),
+        &mut test_diags,
+    );
+    let (doc, diag, _) =
+        spin_on::spin_on(crate::compile_syntax_node(doc_node, test_diags, compiler_config));
+    assert!(!diag.has_errors(), "slint compile error {:#?}", diag.to_string_vec());
+
+    let foo = doc.inner_components.iter().find(|c| c.id == "Foo").unwrap();
+    let mut models = Vec::new();
+    recurse_elem_including_sub_components(foo, &(), &mut |elem, _| {
+        if let Some(r) = &elem.borrow().repeated
+            && r.is_conditional_element
+        {
+            models.push(r.model.clone());
+        }
+    });
+
+    // `never` folds to false during const propagation and is removed like the literal
+    // `if false`; only `dynamic`, an `in` property, stays non-constant and survives, its
+    // model still a runtime expression rather than a folded literal.
+    assert_eq!(models.len(), 1, "{models:?}");
+    assert!(!matches!(models[0], Expression::BoolLiteral(_)), "{:?}", models[0]);
+}
