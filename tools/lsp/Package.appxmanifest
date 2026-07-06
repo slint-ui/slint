@@ -12,7 +12,7 @@
     xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
 >
   <Identity
-        Name="slint-visual-editor"
+        Name="slintvisualeditor"
         Publisher="CN=sixtyfps"
         Version="0.17.0.0"
     />
@@ -33,13 +33,13 @@
   </Resources>
   <Applications>
     <Application
-            Id="slint-visual-editor"
+            Id="slintvisualeditor"
             Executable="$targetnametoken$.exe"
             uap10:TrustLevel="mediumIL"
             EntryPoint="Windows.FullTrustApplication"
         >
       <uap:VisualElements
-                DisplayName="slint-visual-editor"
+                DisplayName="slintvisualeditor"
                 Description="Windows Application"
                 BackgroundColor="transparent"
                 Square150x150Logo="Assets\MedTile.png"
