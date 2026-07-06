@@ -126,6 +126,16 @@ pub fn search_replace_host_language_accessors(
         if metadata.len() > bounds.max_file_bytes {
             continue;
         }
+        // TODO: Reading the file directly here may cause issues with files that are open and edited in the
+        // editor.
+        // Unfortunately, the LSP spec does not easily allow us to request the contents of a certain
+        // file. So we would have to keep track of all the workspace edits, even if the files are
+        // not relevant for the LSP otherwise.
+        // For now, we'll just not do this and hope that the files on disk are reasonably up to
+        // date.
+        //
+        // If this causes issues for our users, we should add another document cache that stores the
+        // contents of all open files, even if they're not Slint files and then read from that.
         let contents = match std::fs::read_to_string(&path) {
             Ok(s) => s,
             Err(_) => continue, // non-UTF-8 or unreadable; skip

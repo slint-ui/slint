@@ -891,7 +891,7 @@ async fn run_host_language_rename_followup(
     let message = format!(
         "Slint {kind_label} '{}' is exposed to host language code. \
          Search & Replace the Rust/C++ code with the new accessors? \
-         (The slint rename has already been applied.)",
+         (The Slint rename has already been applied.)",
         info.old_name,
     );
     let action_replace = "Search & Replace Rust/C++ accessors";
