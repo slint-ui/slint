@@ -496,6 +496,10 @@ impl Expression {
                         ctx.diag.slint_sc_error("Number literals are", &token);
                         Some(
                             crate::literals::parse_number_literal(token.text().into())
+                                .map(|(value, unit)| {
+                                    let (value, unit) = unit.normalize(value);
+                                    Expression::NumberLiteral(value, unit)
+                                })
                                 .unwrap_or_else(|e| {
                                     ctx.diag.push_error(e.to_string(), &node);
                                     Self::Invalid

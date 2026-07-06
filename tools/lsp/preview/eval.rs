@@ -38,7 +38,7 @@ fn eval_expression(
 
     match expression {
         Expression::StringLiteral(s) => Value::String(s.as_str().into()),
-        Expression::NumberLiteral(n, unit) => Value::Number(unit.normalize(*n)),
+        Expression::NumberLiteral(n, _unit) => Value::Number(*n),
         Expression::BoolLiteral(b) => Value::Bool(*b),
         Expression::StructFieldAccess { base, name } => {
             if let Value::Struct(o) = eval_expression(

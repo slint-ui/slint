@@ -468,7 +468,7 @@ fn string_to_code(
     }
 }
 
-fn unit_model(units: &[expression_tree::Unit]) -> ModelRc<SharedString> {
+fn unit_model(units: &[expression_tree::SurfaceUnit]) -> ModelRc<SharedString> {
     Rc::new(VecModel::from(
         units.iter().map(|u| u.to_string().into()).collect::<Vec<SharedString>>(),
     ))
@@ -620,7 +620,7 @@ fn map_value_and_type(
             ..Default::default()
         });
     }
-    use i_slint_compiler::expression_tree::Unit;
+    use i_slint_compiler::expression_tree::SurfaceUnit;
     use langtype::Type;
 
     match ty {
@@ -651,11 +651,11 @@ fn map_value_and_type(
         Type::Duration => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Ms),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), SurfaceUnit::Ms),
                 kind: PropertyValueKind::Float,
                 value_kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
-                visual_items: unit_model(&[Unit::S, Unit::Ms]),
+                visual_items: unit_model(&[SurfaceUnit::S, SurfaceUnit::Ms]),
                 value_int: 1,
                 code: get_code(value),
                 default_selection: 1,
@@ -666,18 +666,18 @@ fn map_value_and_type(
         Type::PhysicalLength => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Phx),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), SurfaceUnit::Phx),
                 kind: PropertyValueKind::Float,
                 value_kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 visual_items: unit_model(&[
-                    Unit::Px,
-                    Unit::Cm,
-                    Unit::Mm,
-                    Unit::In,
-                    Unit::Pt,
-                    Unit::Phx,
-                    Unit::Rem,
+                    SurfaceUnit::Px,
+                    SurfaceUnit::Cm,
+                    SurfaceUnit::Mm,
+                    SurfaceUnit::In,
+                    SurfaceUnit::Pt,
+                    SurfaceUnit::Phx,
+                    SurfaceUnit::Rem,
                 ]),
                 value_int: 5,
                 code: get_code(value),
@@ -689,18 +689,18 @@ fn map_value_and_type(
         Type::LogicalLength => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Px),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), SurfaceUnit::Px),
                 kind: PropertyValueKind::Float,
                 value_kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 visual_items: unit_model(&[
-                    Unit::Px,
-                    Unit::Cm,
-                    Unit::Mm,
-                    Unit::In,
-                    Unit::Pt,
-                    Unit::Phx,
-                    Unit::Rem,
+                    SurfaceUnit::Px,
+                    SurfaceUnit::Cm,
+                    SurfaceUnit::Mm,
+                    SurfaceUnit::In,
+                    SurfaceUnit::Pt,
+                    SurfaceUnit::Phx,
+                    SurfaceUnit::Rem,
                 ]),
                 value_int: 0,
                 code: get_code(value),
@@ -712,18 +712,18 @@ fn map_value_and_type(
         Type::Rem => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Rem),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), SurfaceUnit::Rem),
                 kind: PropertyValueKind::Float,
                 value_kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
                 visual_items: unit_model(&[
-                    Unit::Px,
-                    Unit::Cm,
-                    Unit::Mm,
-                    Unit::In,
-                    Unit::Pt,
-                    Unit::Phx,
-                    Unit::Rem,
+                    SurfaceUnit::Px,
+                    SurfaceUnit::Cm,
+                    SurfaceUnit::Mm,
+                    SurfaceUnit::In,
+                    SurfaceUnit::Pt,
+                    SurfaceUnit::Phx,
+                    SurfaceUnit::Rem,
                 ]),
                 value_int: 6,
                 code: get_code(value),
@@ -735,11 +735,16 @@ fn map_value_and_type(
         Type::Angle => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Deg),
+                display_string: slint::format!("{}{}", get_value::<f32>(value), SurfaceUnit::Deg),
                 kind: PropertyValueKind::Float,
                 value_kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
-                visual_items: unit_model(&[Unit::Deg, Unit::Grad, Unit::Turn, Unit::Rad]),
+                visual_items: unit_model(&[
+                    SurfaceUnit::Deg,
+                    SurfaceUnit::Grad,
+                    SurfaceUnit::Turn,
+                    SurfaceUnit::Rad,
+                ]),
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 0,
@@ -750,11 +755,15 @@ fn map_value_and_type(
         Type::Percent => {
             mapping.headers.push(mapping.name_prefix.clone());
             mapping.current_values.push(PropertyValue {
-                display_string: slint::format!("{}{}", get_value::<f32>(value), Unit::Percent),
+                display_string: slint::format!(
+                    "{}{}",
+                    get_value::<f32>(value),
+                    SurfaceUnit::Percent
+                ),
                 kind: PropertyValueKind::Float,
                 value_kind: PropertyValueKind::Float,
                 value_float: get_value::<f32>(value),
-                visual_items: unit_model(&[Unit::Percent]),
+                visual_items: unit_model(&[SurfaceUnit::Percent]),
                 value_int: 0,
                 code: get_code(value),
                 default_selection: 0,

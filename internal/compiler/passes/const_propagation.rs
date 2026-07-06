@@ -75,14 +75,10 @@ fn simplify_expression(
                 ('+', Expression::StringLiteral(a), Expression::StringLiteral(b)) => {
                     Some(Expression::StringLiteral(format_smolstr!("{}{}", a, b)))
                 }
-                ('+', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, un2))
-                    if un1 == un2 =>
-                {
+                ('+', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, _)) => {
                     Some(Expression::NumberLiteral(*a + *b, *un1))
                 }
-                ('-', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, un2))
-                    if un1 == un2 =>
-                {
+                ('-', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, _)) => {
                     Some(Expression::NumberLiteral(*a - *b, *un1))
                 }
                 ('*', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, un2))
@@ -127,14 +123,10 @@ fn simplify_expression(
                 }
                 ('|', Expression::BoolLiteral(false), e) => Some(std::mem::take(e)),
                 ('|', e, Expression::BoolLiteral(false)) => Some(std::mem::take(e)),
-                ('>', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, un2))
-                    if un1 == un2 =>
-                {
+                ('>', Expression::NumberLiteral(a, _), Expression::NumberLiteral(b, _)) => {
                     Some(Expression::BoolLiteral(*a > *b))
                 }
-                ('<', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, un2))
-                    if un1 == un2 =>
-                {
+                ('<', Expression::NumberLiteral(a, _), Expression::NumberLiteral(b, _)) => {
                     Some(Expression::BoolLiteral(*a < *b))
                 }
                 _ => None,
@@ -674,4 +666,53 @@ export component Foo inherits Window {
         matches!(test_binding, Expression::NumberLiteral(val, _) if val == 5.0),
         "Expression should be 5.0: {test_binding:?}"
     );
+}
+
+#[test]
+fn test_unit_normalization() {
+    // Compile `out property <ty> a: expr;` and return the folded binding of `a`.
+    fn fold(ty: &str, expr: &str) -> Expression {
+        let mut config =
+            crate::CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+        config.style = Some("fluent".into());
+        let mut diags = crate::diagnostics::BuildDiagnostics::default();
+        let doc_node = crate::parser::parse(
+            format!("export component Foo {{ out property <{ty}> a: {expr}; }}").into(),
+            Some(std::path::Path::new("HELLO")),
+            &mut diags,
+        );
+        let (doc, diag, _) = spin_on::spin_on(crate::compile_syntax_node(doc_node, diags, config));
+        assert!(!diag.has_errors(), "{expr}: {:#?}", diag.to_string_vec());
+        doc.inner_components.last().unwrap().root_element.borrow().bindings["a"]
+            .borrow()
+            .expression
+            .clone()
+    }
+
+    // A literal is stored in its type's canonical unit, not the one it was written in.
+    assert!(matches!(fold("length", "1in"), Expression::NumberLiteral(v, Unit::Px) if v == 96.0));
+    assert!(
+        matches!(fold("duration", "2s"), Expression::NumberLiteral(v, Unit::Ms) if v == 2000.0)
+    );
+
+    // Mixed units of one type now fold, because they share a canonical unit.
+    assert!(
+        matches!(fold("length", "5px + 5cm"), Expression::NumberLiteral(v, Unit::Px) if v == 194.0),
+        "{:?}",
+        fold("length", "5px + 5cm")
+    );
+    assert!(
+        matches!(fold("duration", "1s - 500ms"), Expression::NumberLiteral(v, Unit::Ms) if v == 500.0)
+    );
+    assert!(
+        matches!(fold("length", "max(12cm, 12px)"), Expression::NumberLiteral(v, Unit::Px) if v == 12.0 * 37.8),
+        "{:?}",
+        fold("length", "max(12cm, 12px)")
+    );
+
+    // Comparisons fold on the normalized values, so different units compare correctly.
+    assert!(matches!(fold("bool", "12cm == 12px"), Expression::BoolLiteral(false)));
+    assert!(matches!(fold("bool", "1s == 1000ms"), Expression::BoolLiteral(true)));
+    assert!(matches!(fold("bool", "12cm < 12px"), Expression::BoolLiteral(false)));
+    assert!(matches!(fold("bool", "1turn == 360deg"), Expression::BoolLiteral(true)));
 }
