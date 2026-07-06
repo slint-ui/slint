@@ -894,9 +894,9 @@ async fn run_host_language_rename_followup(
          (The Slint rename has already been applied.)",
         info.old_name,
     );
-    let action_replace = "Search & Replace Rust/C++ accessors";
-    let action_skip = "Skip";
-    let action_never = "Skip and don't ask again";
+    let action_replace = "🔍 Search & Replace Rust/C++ accessors";
+    let action_skip = "⏩ Skip";
+    let action_never = "⏭️ Skip and don't ask again";
 
     let action_items = vec![
         lsp_types::MessageActionItem {
@@ -2103,12 +2103,12 @@ pub mod tests {
         let actions: Vec<_> = params.actions.unwrap().into_iter().map(|a| a.title).collect();
         assert_eq!(
             actions,
-            ["Search & Replace Rust/C++ accessors", "Skip", "Skip and don't ask again"]
+            ["🔍 Search & Replace Rust/C++ accessors", "⏩ Skip", "⏭️ Skip and don't ask again"]
         );
         client.respond(
             request,
             Some(MessageActionItem {
-                title: "Skip and don't ask again".into(),
+                title: "⏭️ Skip and don't ask again".into(),
                 properties: Default::default(),
             }),
         );
@@ -2175,7 +2175,7 @@ pub mod tests {
         client.respond(
             prompt,
             Some(MessageActionItem {
-                title: "Search & Replace Rust/C++ accessors".into(),
+                title: "🔍 Search & Replace Rust/C++ accessors".into(),
                 properties: Default::default(),
             }),
         );
