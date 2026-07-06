@@ -11,7 +11,11 @@
     IgnorableNamespaces="uap uap2 uap3 uap10 desktop desktop6 rescap uap5"
     xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
 >
-  <Identity Name="msixtest" Publisher="CN=sixtyfps" Version="0.17.0.0" />
+  <Identity
+        Name="slint-visual-editor"
+        Publisher="CN=sixtyfps"
+        Version="0.17.0.0"
+    />
   <Properties>
     <DisplayName>Slint Visual Editor</DisplayName>
     <PublisherDisplayName>SixtyFPS GmbH</PublisherDisplayName>
@@ -29,13 +33,13 @@
   </Resources>
   <Applications>
     <Application
-            Id="msixtest"
+            Id="slint-visual-editor"
             Executable="$targetnametoken$.exe"
             uap10:TrustLevel="mediumIL"
             EntryPoint="Windows.FullTrustApplication"
         >
       <uap:VisualElements
-                DisplayName="msixtest"
+                DisplayName="slint-visual-editor"
                 Description="Windows Application"
                 BackgroundColor="transparent"
                 Square150x150Logo="Assets\MedTile.png"
