@@ -5,6 +5,12 @@ name: Visual Editor Windows MSIX
 
 on:
   workflow_dispatch:
+    inputs:
+      save_if:
+        description: "Condition to save the cache"
+        required: false
+        type: boolean
+        default: true
 
   pull_request:
     branches:
@@ -31,8 +37,8 @@ jobs:
       # cache the build
       - uses: ./.github/actions/setup-rust
         with:
-          key: visual-editor-macos-dmg
-          save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+          key: visual-editor-windows-msix
+          save_if: ${{ inputs.save-if }}
 
       - name: Install Windows Rust target
         run: rustup target add x86_64-pc-windows-msvc
@@ -56,5 +62,5 @@ jobs:
         with:
           name: slint-visual-editor-windows-msix
           path: |
-            Slint Visual Editor.msix
+            slint-visual-editor_0.17.0.0_x64.msix
           if-no-files-found: error
