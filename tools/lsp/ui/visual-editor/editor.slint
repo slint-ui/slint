@@ -401,14 +401,17 @@ export component EditorUi inherits Window {
     }
 
     function open-startup-wizard() {
+        root.settings-visible = false;
         Api.open-startup-wizard();
     }
 
     function close-startup-wizard() {
+        root.settings-visible = false;
         Api.close-startup-wizard();
     }
 
     function open-project() {
+        root.settings-visible = false;
         root.close-startup-wizard();
         state.open-project();
     }
@@ -637,6 +640,11 @@ export component EditorUi inherits Window {
         selected-project <=> root.selected-project;
         opened => {
             root.open-project();
+        }
+        create-new-project => {
+            if Api.create-new-project() {
+                root.open-project();
+            }
         }
         open-existing-project => {
             if Api.open-existing-project() {

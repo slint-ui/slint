@@ -329,6 +329,7 @@ component TemplateCard inherits Rectangle {
 export component StartupWizard inherits Rectangle {
     in-out property <ProjectKind> selected-project: ProjectKind.mobile;
     callback opened;
+    callback create-new-project;
     callback open-existing-project;
 
     property <WizardPage> page: WizardPage.welcome;
@@ -345,12 +346,7 @@ export component StartupWizard inherits Rectangle {
     property <length> shell-top: (root.height - shell-height) / 2;
     property <length> side-width: shell-width < 620px ? 220px : 270px;
     property <length> main-width: shell-width - side-width;
-    property <[RecentFile]> recent-files: [
-        { title: "Slint Viewer", path: "~/slint/tools/viewer" },
-        { title: "Home Automation", path: "~/MyApps/home-auto" },
-        { title: "IconTests", path: "~/MyApps/TahoeIconsTests" },
-        { title: "Touch Kiosk Demo", path: "~/Projects/touch-kiosk-demo/ui/main.slint" },
-    ];
+    property <[RecentFile]> recent-files: [];
 
     background: WizardTheme.stage-bg;
     animate page-progress { duration: 520ms; easing: ease-in-out-quart; }
@@ -463,7 +459,7 @@ export component StartupWizard inherits Rectangle {
                 progress: root.page-progress;
                 clicked => {
                     root.selected-project = ProjectKind.mobile;
-                    root.page = WizardPage.templates;
+                    root.create-new-project();
                 }
             }
 

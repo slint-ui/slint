@@ -754,6 +754,7 @@ export global Api {
         { url: "examples/sprite-sheet/demo.slint", title: "Sprite sheet Demo" },
     ];
     callback new-file();
+    callback create-new-project() -> bool;
     callback open-existing-project() -> bool;
     callback share-permalink-to-clipboard();
     callback load-demo(url: string);
