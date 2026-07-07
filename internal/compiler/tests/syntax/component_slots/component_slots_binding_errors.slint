@@ -57,7 +57,7 @@ export component FailDuplicateForwardingTarget inherits Rectangle {
     ForwardTargetHost {
         hostHeader << header;
         hostHeader << header;
-//      >        <error{Duplicate forwarding to slot 'hostHeader'}
+//      >        <error{Duplicate assignment to slot 'hostHeader'}
     }
 }
 
@@ -67,7 +67,7 @@ export component FailForwardAndAssignConflict inherits Rectangle {
     ForwardTargetHost {
         hostHeader << header;
         hostHeader << Rectangle { }
-//      >        <error{Slot 'hostHeader' cannot be both forwarded and assigned}
+//      >        <error{Duplicate assignment to slot 'hostHeader'}
     }
 }
 
