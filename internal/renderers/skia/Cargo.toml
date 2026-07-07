@@ -34,7 +34,7 @@ unstable-wgpu-29 = ["i-slint-core/unstable-wgpu-29", "wgpu-29"]
 default = ["softbuffer"]
 
 [dependencies]
-i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-parley"] }
+i-slint-core = { workspace = true, features = ["default", "box-shadow-cache", "shared-parley", "image-decoders", "svg"] }
 i-slint-core-macros = { workspace = true, features = ["default"] }
 i-slint-common = { workspace = true, features = ["default"] }
 

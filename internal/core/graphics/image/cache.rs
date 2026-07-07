@@ -86,7 +86,8 @@ impl ImageCache {
         }
         let cache_key = ImageCacheKey::Path(CachedPath::new(path.as_str()));
         self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
-            if cfg!(feature = "svg") && (path.ends_with(".svg") || path.ends_with(".svgz")) {
+            #[cfg(feature = "svg")]
+            if path.ends_with(".svg") || path.ends_with(".svgz") {
                 return Some(ImageInner::Svg(vtable::VRc::new(
                     super::svg::load_from_path(path, cache_key).map_or_else(
                         |err| {
@@ -164,7 +165,7 @@ pub fn replace_cached_image(key: ImageCacheKey, value: ImageInner) {
         IMAGE_CACHE.with(|global_cache| global_cache.borrow_mut().0.put_with_weight(key, value));
 }
 
-#[cfg(all(test, feature = "std"))]
+#[cfg(all(test, feature = "image-decoders"))]
 mod tests {
     use crate::graphics::Rgba8Pixel;
 

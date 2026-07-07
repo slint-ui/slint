@@ -47,6 +47,10 @@ wgpu-29 = { workspace = true, optional = true, default-features = true }
 web-sys = { workspace = true, features = ["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document"] }
 wasm-bindgen = { version = "0.2" }
 
+# The browser decodes images on the web; decode with the image and resvg crates elsewhere.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+i-slint-core = { workspace = true, features = ["image-decoders", "svg"] }
+
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(slint_nightly_test)"] }
 

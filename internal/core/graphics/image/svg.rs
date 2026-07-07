@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 use super::{ImageCacheKey, SharedImageBuffer, SharedPixelBuffer};
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "image-decoders", not(target_arch = "wasm32")))]
 use crate::SharedString;
 use crate::lengths::PhysicalPx;
 use resvg::{tiny_skia, usvg};
@@ -128,7 +128,7 @@ fn svg_options() -> usvg::Options<'static> {
     usvg::Options::default()
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "image-decoders", not(target_arch = "wasm32")))]
 pub fn load_from_path(
     path: &SharedString,
     cache_key: ImageCacheKey,
