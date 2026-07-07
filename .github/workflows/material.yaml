@@ -100,6 +100,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build
+        env:
+          MATERIAL_DOCS_BASE_PATH: ${{ github.event_name == 'pull_request' && '/material/' || '' }}
         run: pnpm build
       - uses: actions/download-artifact@v8
         with:
