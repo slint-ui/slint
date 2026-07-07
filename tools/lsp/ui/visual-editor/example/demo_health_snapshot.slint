@@ -6,6 +6,8 @@ export component DemoHealthSnapshot inherits Window {
     preferred-height: 720px;
     title: "Health Snapshot";
     private property <bool> landscape: root.width > root.height;
+    private property <length> content-right: root.width - 30px;
+    private property <length> metric-row-x: min(404px, root.content-right - 302px);
 
     Rectangle {
         width: root.width;
@@ -74,7 +76,7 @@ export component DemoHealthSnapshot inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 404px : 30px;
+        x: root.landscape ? root.metric-row-x : 30px;
         y: root.landscape ? 44px : 360px;
         width: root.landscape ? 86px : 98px;
         height: root.landscape ? 76px : 92px;
@@ -85,7 +87,7 @@ export component DemoHealthSnapshot inherits Window {
     }
 
     Text {
-        x: root.landscape ? 414px : 46px;
+        x: root.landscape ? root.metric-row-x + 10px : 46px;
         y: root.landscape ? 66px : 392px;
         width: 66px;
         height: 30px;
@@ -97,7 +99,7 @@ export component DemoHealthSnapshot inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 512px : 146px;
+        x: root.landscape ? root.metric-row-x + 108px : 146px;
         y: root.landscape ? 44px : 360px;
         width: root.landscape ? 86px : 98px;
         height: root.landscape ? 76px : 92px;
@@ -108,7 +110,7 @@ export component DemoHealthSnapshot inherits Window {
     }
 
     Text {
-        x: root.landscape ? 526px : 166px;
+        x: root.landscape ? root.metric-row-x + 122px : 166px;
         y: root.landscape ? 66px : 392px;
         width: 58px;
         height: 30px;
@@ -120,7 +122,7 @@ export component DemoHealthSnapshot inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 620px : 262px;
+        x: root.landscape ? root.metric-row-x + 216px : 262px;
         y: root.landscape ? 44px : 360px;
         width: root.landscape ? 86px : 98px;
         height: root.landscape ? 76px : 92px;
@@ -129,7 +131,7 @@ export component DemoHealthSnapshot inherits Window {
     }
 
     Text {
-        x: root.landscape ? 634px : 282px;
+        x: root.landscape ? root.metric-row-x + 230px : 282px;
         y: root.landscape ? 66px : 392px;
         width: 58px;
         height: 30px;
@@ -141,7 +143,7 @@ export component DemoHealthSnapshot inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 404px : 30px;
+        x: root.landscape ? root.metric-row-x : 30px;
         y: root.landscape ? 160px : 494px;
         width: root.landscape ? 302px : 330px;
         height: root.landscape ? 94px : 96px;
@@ -152,7 +154,7 @@ export component DemoHealthSnapshot inherits Window {
     }
 
     Text {
-        x: root.landscape ? 430px : 56px;
+        x: root.landscape ? root.metric-row-x + 26px : 56px;
         y: root.landscape ? 188px : 522px;
         width: 116px;
         height: 18px;
@@ -163,7 +165,7 @@ export component DemoHealthSnapshot inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 430px : 56px;
+        x: root.landscape ? root.metric-row-x + 26px : 56px;
         y: root.landscape ? 224px : 560px;
         width: root.landscape ? 232px : 274px;
         height: 12px;
@@ -172,7 +174,7 @@ export component DemoHealthSnapshot inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 430px : 56px;
+        x: root.landscape ? root.metric-row-x + 26px : 56px;
         y: root.landscape ? 224px : 560px;
         width: root.landscape ? 172px : 202px;
         height: 12px;
@@ -181,7 +183,7 @@ export component DemoHealthSnapshot inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 404px : 30px;
+        x: root.landscape ? root.metric-row-x : 30px;
         y: root.landscape ? 294px : 626px;
         width: root.landscape ? 302px : 330px;
         height: root.landscape ? 58px : 58px;
@@ -190,7 +192,7 @@ export component DemoHealthSnapshot inherits Window {
     }
 
     Text {
-        x: root.landscape ? 430px : 56px;
+        x: root.landscape ? root.metric-row-x + 26px : 56px;
         y: root.landscape ? 312px : 644px;
         width: 74px;
         height: 22px;
@@ -201,7 +203,7 @@ export component DemoHealthSnapshot inherits Window {
     }
 
     Text {
-        x: root.landscape ? 518px : 154px;
+        x: root.landscape ? root.metric-row-x + 114px : 154px;
         y: root.landscape ? 315px : 647px;
         width: 174px;
         height: 18px;

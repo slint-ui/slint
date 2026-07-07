@@ -103,13 +103,19 @@ export component SimplePreview inherits Window {
         }
     }
 
-    Image {
-        source: @image-url("../../../../../demos/printerdemo/ui/images/cat.jpg");
+    Rectangle {
         width: 148px;
         x: 5px;
         y: 189px;
         height: 197px;
-        horizontal-alignment: center;
-        vertical-alignment: center;
+        border-radius: 12px;
+        clip: true;
+
+        Image {
+            source: @image-url("image.png");
+            width: parent.width;
+            height: parent.height;
+            image-fit: cover;
+        }
     }
 }

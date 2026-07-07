@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-export component MyApp inherits Window {
+export component MainFixture inherits Window {
     width: 323px;
     height: 398px;
     title: "AppSimple Preview";
@@ -41,11 +41,17 @@ export component MyApp inherits Window {
 
     }
 
-    Image {
-        source: @image-url("../../../../../demos/printerdemo/ui/images/cat.jpg");
+    Rectangle {
         width: 160px;
         height: 64px;
-        horizontal-alignment: center;
-        vertical-alignment: center;
+        border-radius: 12px;
+        clip: true;
+
+        Image {
+            source: @image-url("image.png");
+            width: parent.width;
+            height: parent.height;
+            image-fit: cover;
+        }
     }
 }

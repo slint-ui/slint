@@ -6,6 +6,8 @@ export component DemoEventPass inherits Window {
     preferred-height: 720px;
     title: "Launch Pass";
     private property <bool> landscape: root.width > root.height;
+    private property <length> content-right: root.width - 28px;
+    private property <length> details-x: min(362px, root.content-right - 330px);
 
     Rectangle {
         width: root.width;
@@ -13,14 +15,21 @@ export component DemoEventPass inherits Window {
         background: #121826;
     }
 
-    Image {
+    Rectangle {
         x: root.landscape ? 28px : 28px;
         y: root.landscape ? 28px : 28px;
         width: root.landscape ? 304px : 334px;
         height: root.landscape ? 220px : 252px;
-        source: @image-url("image.png");
-        image-fit: cover;
         opacity: 0.82;
+        border-radius: 28px;
+        clip: true;
+
+        Image {
+            source: @image-url("image.png");
+            width: parent.width;
+            height: parent.height;
+            image-fit: cover;
+        }
     }
 
     Rectangle {
@@ -89,7 +98,7 @@ export component DemoEventPass inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 362px : 28px;
+        x: root.landscape ? root.details-x : 28px;
         y: root.landscape ? 28px : 316px;
         width: root.landscape ? 330px : 334px;
         height: root.landscape ? 268px : 286px;
@@ -101,7 +110,7 @@ export component DemoEventPass inherits Window {
     }
 
     Text {
-        x: root.landscape ? 390px : 56px;
+        x: root.landscape ? root.details-x + 28px : 56px;
         y: root.landscape ? 60px : 348px;
         width: 120px;
         height: 18px;
@@ -112,7 +121,7 @@ export component DemoEventPass inherits Window {
     }
 
     Text {
-        x: root.landscape ? 390px : 56px;
+        x: root.landscape ? root.details-x + 28px : 56px;
         y: root.landscape ? 86px : 374px;
         width: 164px;
         height: 56px;
@@ -123,7 +132,7 @@ export component DemoEventPass inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 582px : 248px;
+        x: root.landscape ? root.details-x + 220px : 248px;
         y: root.landscape ? 62px : 350px;
         width: 82px;
         height: 82px;
@@ -132,7 +141,7 @@ export component DemoEventPass inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 594px : 260px;
+        x: root.landscape ? root.details-x + 232px : 260px;
         y: root.landscape ? 74px : 362px;
         width: 16px;
         height: 16px;
@@ -140,7 +149,7 @@ export component DemoEventPass inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 620px : 286px;
+        x: root.landscape ? root.details-x + 258px : 286px;
         y: root.landscape ? 74px : 362px;
         width: 30px;
         height: 16px;
@@ -148,7 +157,7 @@ export component DemoEventPass inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 594px : 260px;
+        x: root.landscape ? root.details-x + 232px : 260px;
         y: root.landscape ? 106px : 394px;
         width: 26px;
         height: 24px;
@@ -156,7 +165,7 @@ export component DemoEventPass inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 634px : 300px;
+        x: root.landscape ? root.details-x + 272px : 300px;
         y: root.landscape ? 110px : 398px;
         width: 16px;
         height: 16px;
@@ -164,7 +173,7 @@ export component DemoEventPass inherits Window {
     }
 
     Text {
-        x: root.landscape ? 390px : 56px;
+        x: root.landscape ? root.details-x + 28px : 56px;
         y: root.landscape ? 204px : 522px;
         width: 110px;
         height: 30px;
@@ -175,7 +184,7 @@ export component DemoEventPass inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 362px : 28px;
+        x: root.landscape ? root.details-x : 28px;
         y: root.landscape ? 322px : 636px;
         width: root.landscape ? 330px : 334px;
         height: root.landscape ? 44px : 56px;
@@ -184,7 +193,7 @@ export component DemoEventPass inherits Window {
     }
 
     Text {
-        x: root.landscape ? 452px : 114px;
+        x: root.landscape ? root.details-x + 90px : 114px;
         y: root.landscape ? 334px : 654px;
         width: 162px;
         height: 20px;

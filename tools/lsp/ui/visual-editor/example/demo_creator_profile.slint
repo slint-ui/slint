@@ -6,6 +6,9 @@ export component DemoCreatorProfile inherits Window {
     preferred-height: 720px;
     title: "Creator Profile";
     private property <bool> landscape: root.width > root.height;
+    private property <length> content-right: root.width - 34px;
+    private property <length> card-x: min(246px, root.content-right - 430px);
+    private property <length> metrics-x: min(290px, root.content-right - 346px);
 
     Rectangle {
         width: root.width;
@@ -22,7 +25,7 @@ export component DemoCreatorProfile inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 246px : 28px;
+        x: root.landscape ? root.card-x : 28px;
         y: root.landscape ? 34px : 176px;
         width: root.landscape ? 430px : 334px;
         height: root.landscape ? 300px : 424px;
@@ -35,13 +38,20 @@ export component DemoCreatorProfile inherits Window {
         drop-shadow-color: #4f46e522;
     }
 
-    Image {
+    Rectangle {
         x: root.landscape ? 74px : 138px;
         y: root.landscape ? 78px : 118px;
         width: root.landscape ? 112px : 114px;
         height: root.landscape ? 112px : 114px;
-        source: @image-url("image.png");
-        image-fit: cover;
+        border-radius: self.width / 2;
+        clip: true;
+
+        Image {
+            source: @image-url("image.png");
+            width: parent.width;
+            height: parent.height;
+            image-fit: cover;
+        }
     }
 
     Rectangle {
@@ -79,7 +89,7 @@ export component DemoCreatorProfile inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 290px : 52px;
+        x: root.landscape ? root.metrics-x : 52px;
         y: root.landscape ? 72px : 368px;
         width: root.landscape ? 82px : 82px;
         height: root.landscape ? 66px : 68px;
@@ -88,7 +98,7 @@ export component DemoCreatorProfile inherits Window {
     }
 
     Text {
-        x: root.landscape ? 306px : 68px;
+        x: root.landscape ? root.metrics-x + 16px : 68px;
         y: root.landscape ? 86px : 382px;
         width: 50px;
         height: 22px;
@@ -100,7 +110,7 @@ export component DemoCreatorProfile inherits Window {
     }
 
     Text {
-        x: root.landscape ? 306px : 68px;
+        x: root.landscape ? root.metrics-x + 16px : 68px;
         y: root.landscape ? 112px : 408px;
         width: 50px;
         height: 14px;
@@ -111,7 +121,7 @@ export component DemoCreatorProfile inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 392px : 154px;
+        x: root.landscape ? root.metrics-x + 102px : 154px;
         y: root.landscape ? 72px : 368px;
         width: 82px;
         height: root.landscape ? 66px : 68px;
@@ -120,7 +130,7 @@ export component DemoCreatorProfile inherits Window {
     }
 
     Text {
-        x: root.landscape ? 408px : 170px;
+        x: root.landscape ? root.metrics-x + 118px : 170px;
         y: root.landscape ? 86px : 382px;
         width: 50px;
         height: 22px;
@@ -132,7 +142,7 @@ export component DemoCreatorProfile inherits Window {
     }
 
     Text {
-        x: root.landscape ? 408px : 170px;
+        x: root.landscape ? root.metrics-x + 118px : 170px;
         y: root.landscape ? 112px : 408px;
         width: 50px;
         height: 14px;
@@ -143,7 +153,7 @@ export component DemoCreatorProfile inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 494px : 256px;
+        x: root.landscape ? root.metrics-x + 204px : 256px;
         y: root.landscape ? 72px : 368px;
         width: 82px;
         height: root.landscape ? 66px : 68px;
@@ -152,7 +162,7 @@ export component DemoCreatorProfile inherits Window {
     }
 
     Text {
-        x: root.landscape ? 510px : 272px;
+        x: root.landscape ? root.metrics-x + 220px : 272px;
         y: root.landscape ? 86px : 382px;
         width: 50px;
         height: 22px;
@@ -164,7 +174,7 @@ export component DemoCreatorProfile inherits Window {
     }
 
     Text {
-        x: root.landscape ? 510px : 272px;
+        x: root.landscape ? root.metrics-x + 220px : 272px;
         y: root.landscape ? 112px : 408px;
         width: 50px;
         height: 14px;
@@ -175,7 +185,7 @@ export component DemoCreatorProfile inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 290px : 52px;
+        x: root.landscape ? root.metrics-x : 52px;
         y: root.landscape ? 186px : 474px;
         width: root.landscape ? 346px : 286px;
         height: root.landscape ? 70px : 76px;
@@ -186,7 +196,7 @@ export component DemoCreatorProfile inherits Window {
     }
 
     Text {
-        x: root.landscape ? 316px : 76px;
+        x: root.landscape ? root.metrics-x + 26px : 76px;
         y: root.landscape ? 210px : 502px;
         width: root.landscape ? 198px : 198px;
         height: 20px;
@@ -197,7 +207,7 @@ export component DemoCreatorProfile inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 290px : 52px;
+        x: root.landscape ? root.metrics-x : 52px;
         y: root.landscape ? 300px : 632px;
         width: root.landscape ? 346px : 286px;
         height: root.landscape ? 50px : 54px;
@@ -206,7 +216,7 @@ export component DemoCreatorProfile inherits Window {
     }
 
     Text {
-        x: root.landscape ? 384px : 116px;
+        x: root.landscape ? root.metrics-x + 94px : 116px;
         y: root.landscape ? 316px : 649px;
         width: 158px;
         height: 20px;

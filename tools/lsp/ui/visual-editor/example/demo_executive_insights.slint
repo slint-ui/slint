@@ -6,6 +6,9 @@ export component DemoExecutiveInsights inherits Window {
     preferred-height: 720px;
     title: "Executive Insights";
     private property <bool> landscape: root.width > root.height;
+    private property <length> content-right: root.width - 34px;
+    private property <length> right-card-x: min(388px, root.content-right - 298px);
+    private property <length> margin-card-x: min(544px, root.content-right - 142px);
 
     Rectangle {
         width: root.width;
@@ -134,7 +137,7 @@ export component DemoExecutiveInsights inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 544px : 204px;
+        x: root.landscape ? root.margin-card-x : 204px;
         y: root.landscape ? 44px : 316px;
         width: root.landscape ? 142px : 158px;
         height: root.landscape ? 92px : 104px;
@@ -143,7 +146,7 @@ export component DemoExecutiveInsights inherits Window {
     }
 
     Text {
-        x: root.landscape ? 568px : 228px;
+        x: root.landscape ? root.margin-card-x + 24px : 228px;
         y: root.landscape ? 68px : 344px;
         width: 88px;
         height: 16px;
@@ -154,7 +157,7 @@ export component DemoExecutiveInsights inherits Window {
     }
 
     Text {
-        x: root.landscape ? 568px : 228px;
+        x: root.landscape ? root.margin-card-x + 24px : 228px;
         y: root.landscape ? 96px : 374px;
         width: 88px;
         height: 32px;
@@ -165,7 +168,7 @@ export component DemoExecutiveInsights inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 388px : 28px;
+        x: root.landscape ? root.right-card-x : 28px;
         y: root.landscape ? 160px : 454px;
         width: root.landscape ? 298px : 334px;
         height: root.landscape ? 104px : 128px;
@@ -176,7 +179,7 @@ export component DemoExecutiveInsights inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 430px : 116px;
+        x: root.landscape ? root.right-card-x + 42px : 116px;
         y: root.landscape ? 214px : 522px;
         width: root.landscape ? 76px : 72px;
         height: root.landscape ? 28px : 32px;
@@ -185,7 +188,7 @@ export component DemoExecutiveInsights inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 528px : 202px;
+        x: root.landscape ? root.right-card-x + 140px : 202px;
         y: root.landscape ? 198px : 504px;
         width: root.landscape ? 116px : 116px;
         height: root.landscape ? 44px : 50px;
@@ -194,7 +197,7 @@ export component DemoExecutiveInsights inherits Window {
     }
 
     Rectangle {
-        x: root.landscape ? 388px : 28px;
+        x: root.landscape ? root.right-card-x : 28px;
         y: root.landscape ? 292px : 622px;
         width: root.landscape ? 298px : 334px;
         height: root.landscape ? 58px : 62px;
@@ -203,7 +206,7 @@ export component DemoExecutiveInsights inherits Window {
     }
 
     Text {
-        x: root.landscape ? 416px : 54px;
+        x: root.landscape ? root.right-card-x + 28px : 54px;
         y: root.landscape ? 310px : 642px;
         width: 100px;
         height: 22px;
