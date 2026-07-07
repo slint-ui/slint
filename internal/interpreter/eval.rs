@@ -358,11 +358,12 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::ImageReference { resource_ref, nine_slice, .. } => {
             let mut image = match resource_ref {
                 i_slint_compiler::expression_tree::ImageReference::None => Ok(Default::default()),
-                i_slint_compiler::expression_tree::ImageReference::DataUri(data) => {
-                    i_slint_compiler::data_uri::decode_data_uri(data)
+                i_slint_compiler::expression_tree::ImageReference::DataUri(data_uri) => {
+                    i_slint_compiler::data_uri::decode_data_uri(data_uri)
                         .ok()
                         .and_then(|(data, extension)| {
-                            corelib::graphics::load_image_from_dynamic_data(&data, &extension).ok()
+                            corelib::graphics::load_image_from_data_uri(data_uri, &data, &extension)
+                                .ok()
                         })
                         .ok_or_else(Default::default)
                 }
