@@ -4158,11 +4158,14 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         Expression::ImageReference { resource_ref, nine_slice } => {
             let image = match resource_ref {
                 crate::expression_tree::ImageReference::None => r#"slint::Image()"#.to_string(),
-                resource_ref @ (crate::expression_tree::ImageReference::Path(_)
-                | crate::expression_tree::ImageReference::Url(_)) => format!(
+                resource_ref @ crate::expression_tree::ImageReference::Path(_) => format!(
                     r#"slint::Image::load_from_path(slint::SharedString(u8"{}"))"#,
                     escape_string(resource_ref.source().unwrap())
                 ),
+                crate::expression_tree::ImageReference::Url(_) => {
+                    // Loading images from URLs only work on the web, which we don't support in C++.
+                    "slint::Image()".to_string()
+                }
                 crate::expression_tree::ImageReference::DataUri(_) => {
                     unreachable!("data: URIs are embedded before code generation")
                 }
