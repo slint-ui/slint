@@ -6,6 +6,10 @@
     <name>Slint Visual Editor</name>
     <summary>Visual editor for Slint files</summary>
 
+    <categories>
+        <category>Development</category>
+    </categories>
+
     <keywords>
         <keyword>development</keyword>
     </keywords>
