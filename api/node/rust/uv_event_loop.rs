@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore epoll libuv libuv's nonblocking unref
+// cSpell: ignore unref
+
 //! Integrated event loop for Node.js.
 //!
 //! Replaces the 16ms `setInterval` polling with a `uv_prepare_t`
@@ -18,7 +19,6 @@
 #[cfg(unix)]
 mod uv {
     use napi::Env;
-    use std::os::fd::BorrowedFd;
     use std::os::raw::c_int;
 
     type UvHandleSizeFn = unsafe extern "C" fn(c_int) -> usize;
@@ -266,30 +266,23 @@ mod uv {
             }
         }
     }
-
-    /// Borrows libuv's backend fd without closing it on drop.
-    pub(super) struct FdWrapper(pub(super) c_int);
-
-    impl std::os::fd::AsFd for FdWrapper {
-        fn as_fd(&self) -> BorrowedFd<'_> {
-            // SAFETY: libuv owns this fd for the process lifetime.
-            unsafe { BorrowedFd::borrow_raw(self.0) }
-        }
-    }
 }
+
+#[cfg(unix)]
+mod unix;
 
 #[cfg(unix)]
 mod platform {
     use super::super::ProcessEventsResult;
+    use super::unix::Watcher;
     use super::uv;
     use napi::Env;
     use napi::bindgen_prelude::*;
     use std::cell::{Cell, OnceCell, RefCell};
-    use std::rc::Rc;
     use std::time::Duration;
 
     struct PrepareState {
-        fd_ready: Rc<Cell<bool>>,
+        watcher: Watcher,
         prepare_handle: uv::PrepareHandle,
         async_handle: uv::AsyncHandle,
         env: Env,
@@ -298,7 +291,7 @@ mod platform {
 
     struct ThreadState {
         uv: OnceCell<Option<uv::Functions>>,
-        watcher_flag: OnceCell<Rc<Cell<bool>>>,
+        watcher: OnceCell<Watcher>,
         prepare: RefCell<Option<Box<PrepareState>>>,
         quit_requested: Cell<bool>,
     }
@@ -307,7 +300,7 @@ mod platform {
         static TLS: ThreadState = const {
             ThreadState {
                 uv: OnceCell::new(),
-                watcher_flag: OnceCell::new(),
+                watcher: OnceCell::new(),
                 prepare: RefCell::new(None),
                 quit_requested: Cell::new(false),
             }
@@ -331,34 +324,15 @@ mod platform {
         TLS.with(|tls| tls.quit_requested.set(true));
     }
 
-    /// Spawn a future that watches the libuv fd for readability and
-    /// sets the returned flag when I/O arrives.
-    fn ensure_watcher_spawned(uv: &uv::Functions) -> napi::Result<Rc<Cell<bool>>> {
+    /// Get the per-thread watcher, creating it on first use.
+    fn ensure_watcher(uv: &uv::Functions) -> napi::Result<Watcher> {
         TLS.with(|tls| {
-            if let Some(flag) = tls.watcher_flag.get() {
-                return Ok(flag.clone());
+            if let Some(watcher) = tls.watcher.get() {
+                return Ok(watcher.clone());
             }
-
-            // new_nonblocking: ioctl to set non-blocking fails on macOS kqueue fds.
-            let async_fd = async_io::Async::new_nonblocking(uv::FdWrapper(uv.backend_fd()))
-                .map_err(|e| {
-                    napi::Error::from_reason(format!("failed to create async fd watcher: {e}"))
-                })?;
-
-            let flag = Rc::new(Cell::new(false));
-            let flag_for_future = flag.clone();
-            slint_interpreter::spawn_local(async move {
-                loop {
-                    if async_fd.readable().await.is_err() {
-                        break;
-                    }
-                    flag_for_future.set(true);
-                }
-            })
-            .map_err(|e| napi::Error::from_reason(e.to_string()))?;
-
-            tls.watcher_flag.set(flag.clone()).ok();
-            Ok(flag)
+            let watcher = Watcher::new(uv)?;
+            tls.watcher.set(watcher.clone()).ok();
+            Ok(watcher)
         })
     }
 
@@ -399,6 +373,7 @@ mod platform {
             let timeout =
                 if uv_timeout < 0 { None } else { Some(Duration::from_millis(uv_timeout as u64)) };
 
+            state.watcher.arm(uv_timeout);
             match crate::process_events_with_timeout(timeout) {
                 Ok(ProcessEventsResult::Exited) | Err(_) => return ProcessEventsResult::Exited,
                 Ok(ProcessEventsResult::Continue) => {}
@@ -409,7 +384,7 @@ mod platform {
             }
 
             state.prepare_handle.update_time();
-            if state.fd_ready.replace(false) || uv_timeout == 0 {
+            if state.watcher.take_ready() || uv_timeout == 0 {
                 // Wake libuv so it doesn't sleep in its I/O poll and
                 // the prepare callback fires again on the next iteration.
                 state.async_handle.send();
@@ -438,7 +413,7 @@ mod platform {
         // (the testing backend doesn't).
         crate::process_events_with_timeout(Some(Duration::ZERO))?;
 
-        let fd_ready = ensure_watcher_spawned(&uv)?;
+        let watcher = ensure_watcher(&uv)?;
         let on_exit = on_exit.create_ref()?;
         let mut prepare_handle = uv::PrepareHandle::new(uv)?;
         prepare_handle.start(prepare_cb)?;
@@ -446,7 +421,7 @@ mod platform {
         let async_handle = uv::AsyncHandle::new(uv, noop_cb)?;
 
         let state =
-            Box::new(PrepareState { fd_ready, prepare_handle, async_handle, env: *env, on_exit });
+            Box::new(PrepareState { watcher, prepare_handle, async_handle, env: *env, on_exit });
 
         // Ref'd handle keeps Node.js alive until on_exit fires.
         // Clear stale quit request from a previous run.

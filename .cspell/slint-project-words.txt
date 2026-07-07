@@ -178,6 +178,7 @@ endforeach
 endfunction
 endrst
 enim
+epoll
 entrancy
 enummember
 eprintln
@@ -339,6 +340,7 @@ libseat
 libslint
 libstdc
 libudev
+libuv
 libx
 libxcb
 libxcursor
