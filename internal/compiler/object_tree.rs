@@ -2190,25 +2190,23 @@ impl Element {
                 if !Self::assert_experimental_slots(diag, &se, "named slots") {
                     continue;
                 }
-                let name = parser::identifier_text(
-                    &se.child_node(SyntaxKind::DeclaredIdentifier).unwrap(),
-                )
-                .unwrap_or_default();
+                let name_node = se.child_node(SyntaxKind::DeclaredIdentifier).unwrap();
+                let name = parser::identifier_text(&name_node).unwrap_or_default();
                 if name == "children" {
                     diag.push_error(
                         format!(
                             "The name '{name}' is reserved for the default slot. Use @children instead"
                         ),
-                        &se,
+                        &name_node,
                     );
                 }
                 if !assigned_slots.insert(name.clone()) {
-                    diag.push_error(format!("Duplicate assignment to slot '{name}'"), &se);
+                    diag.push_error(format!("Duplicate assignment to slot '{name}'"), &name_node);
                 }
                 if r.borrow().forwarded_slots.iter().any(|f| f.target == name) {
                     diag.push_error(
                         format!("Slot '{name}' cannot be both forwarded and assigned"),
-                        &se,
+                        &name_node,
                     );
                 }
                 let sub_element_node = se.child_node(SyntaxKind::SubElement).unwrap();
@@ -2223,7 +2221,7 @@ impl Element {
                     {
                         diag.push_error(
                             format!("Unknown slot '{name}' in '{}'", component.id),
-                            &se,
+                            &name_node,
                         );
                     }
                     ElementType::Component(_) => {}
