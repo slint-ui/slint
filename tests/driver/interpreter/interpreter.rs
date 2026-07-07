@@ -9,6 +9,23 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     i_slint_backend_testing::init_no_event_loop();
     i_slint_backend_testing::configure_test_fonts();
 
+    run_test(testcase, false)?;
+
+    // With the `inject-debug-hooks` feature, run every test a second time with debug hooks
+    // injected (as the visual editor's live-preview does). Debug hooks must never change
+    // program behavior, so the test must pass identically in both runs.
+    #[cfg(feature = "inject-debug-hooks")]
+    run_test(testcase, true)?;
+
+    Ok(())
+}
+
+fn run_test(
+    testcase: &test_driver_lib::TestCase,
+    inject_debug_hooks: bool,
+) -> Result<(), Box<dyn Error>> {
+    let mode = if inject_debug_hooks { " (with debug hooks)" } else { "" };
+
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
     let include_paths = test_driver_lib::extract_include_paths(&source)
         .map(std::path::PathBuf::from)
@@ -20,6 +37,11 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     compiler.set_include_paths(include_paths);
     compiler.set_library_paths(library_paths);
     compiler.set_style(testcase.requested_style.unwrap_or("fluent").into());
+
+    if inject_debug_hooks {
+        compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
+            Some(std::hash::RandomState::new());
+    }
 
     // Ensure we get consistent results on all platforms even for OS-dependent
     // behavior like dialog button order.
@@ -52,7 +74,11 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
             _ => {}
         }
 
-        return Err(diagnostics.iter().map(|d| d.to_string()).join("\n").into());
+        return Err(format!(
+            "compilation failed{mode}:\n{}",
+            diagnostics.iter().map(|d| d.to_string()).join("\n")
+        )
+        .into());
     }
 
     for component_name in result.component_names() {
@@ -64,7 +90,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
                 let result = instance.get_property("test")?;
                 if result != Value::Bool(true) {
                     eprintln!(
-                        "FAIL: {}: test returned {:?}",
+                        "FAIL: {}{mode}: test returned {:?}",
                         testcase.relative_path.display(),
                         result
                     );
@@ -72,7 +98,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
                     for (p, _) in component.properties() {
                         eprintln!(" {}: {:?}", p, instance.get_property(&p));
                     }
-                    panic!("Test Failed: {result:?}");
+                    panic!("Test Failed{mode}: {result:?}");
                 }
             }
         };

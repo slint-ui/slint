@@ -17,8 +17,15 @@ publish = false
 path = "main.rs"
 name = "test-driver-interpreter"
 
+[features]
+# Run every test a second time with debug hooks injected (as the visual editor's
+# live-preview does). Debug hooks must never change program behavior, so each test must
+# pass identically in both runs. Not a default feature to keep regular test runs fast,
+# but CI enables it via --all-features.
+inject-debug-hooks = []
+
 [dev-dependencies]
-slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "backend-qt"] }
+slint-interpreter = { workspace = true, features = ["display-diagnostics", "compat-1-2", "backend-qt", "internal"] }
 i-slint-backend-testing = { workspace = true, features = ["internal"] }
 i-slint-core = { workspace = true }
 
