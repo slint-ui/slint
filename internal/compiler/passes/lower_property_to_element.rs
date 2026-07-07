@@ -26,17 +26,15 @@ pub(crate) fn lower_property_to_element(
     diag: &mut BuildDiagnostics,
 ) {
     for property_name in property_names.clone() {
-        // Only warn about real (non-synthetic) bindings on the root element.
-        // Synthetic debug hooks are placeholders that will be upgraded or stripped later.
-        if let Some(b) = component.root_element.borrow().bindings.get(property_name) {
-            if !b.borrow().expression.is_synthetic_debug_hook() {
-                diag.push_warning(
-                    format!(
-                        "The {property_name} property cannot be used on the root element, it will not be applied"
-                    ),
-                    &*b.borrow(),
-                );
-            }
+        // binding() only returns real (non-synthetic) bindings — synthetic debug hooks are
+        // placeholders that will be upgraded or stripped later and must not warn.
+        if let Some(b) = component.root_element.borrow().binding(property_name) {
+            diag.push_warning(
+                format!(
+                    "The {property_name} property cannot be used on the root element, it will not be applied"
+                ),
+                &*b.borrow(),
+            );
         }
     }
 
@@ -54,10 +52,8 @@ pub(crate) fn lower_property_to_element(
         let has_property_binding = |e: &ElementRc| {
             property_names.clone().any(|property_name| {
                 e.borrow().base_type.lookup_property(property_name).property_type != Type::Invalid
-                    // Ignore synthetic debug hooks — they are placeholders, not real user bindings.
-                    && (e.borrow().bindings.get(property_name).is_some_and(|b| {
-                        !b.borrow().expression.is_synthetic_debug_hook()
-                    })
+                    // binding() ignores synthetic debug hooks — placeholders, not user bindings.
+                    && (e.borrow().binding(property_name).is_some()
                         || e.borrow()
                             .property_analysis
                             .borrow()
@@ -113,7 +109,9 @@ fn create_property_element(
                 NamedReference::new(child, property_name.clone()).into(),
             );
             if let Some(default_value_for_extra_properties) = default_value_for_extra_properties
-                && !child.borrow().bindings.contains_key(&property_name)
+                // binding() ignores synthetic debug hooks: an unbound property placeholder
+                // must not suppress the default value.
+                && child.borrow().binding(&property_name).is_none()
                 && let Some(e) = default_value_for_extra_properties(child, &property_name)
             {
                 bind.expression = e;

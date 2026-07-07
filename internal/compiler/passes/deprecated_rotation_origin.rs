@@ -7,7 +7,6 @@ use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::Expression;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, ElementRc};
-use core::cell::RefCell;
 use smol_str::SmolStr;
 
 pub fn handle_rotation_origin(component: &Component, diag: &mut BuildDiagnostics) {
@@ -66,16 +65,15 @@ pub fn handle_rotation_origin(component: &Component, diag: &mut BuildDiagnostics
                     .collect(),
             };
 
-            match elem.borrow_mut().bindings.entry(transform_origin.0.into()) {
-                std::collections::btree_map::Entry::Occupied(occupied_entry) => {
-                    diag.push_error(
-                        "Can't specify transform-origin if rotation-origin-x or rotation-origin-y is used on this element".into(),
-                        &occupied_entry.get().borrow().span
-                    );
-                }
-                std::collections::btree_map::Entry::Vacant(vacant_entry) => {
-                    vacant_entry.insert(RefCell::new(expr.into()));
-                }
+            // set_binding_overwriting upgrades a synthetic debug hook placeholder in place
+            // and only reports a real (user-written) binding as a conflict.
+            if let Some(old_binding) =
+                elem.borrow_mut().set_binding_overwriting(transform_origin.0.into(), expr.into())
+            {
+                diag.push_error(
+                    "Can't specify transform-origin if rotation-origin-x or rotation-origin-y is used on this element".into(),
+                    &old_binding,
+                );
             }
         },
     );

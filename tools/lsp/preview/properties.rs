@@ -324,8 +324,12 @@ fn insert_property_definitions(
             return Expression::Invalid;
         }
 
-        if let Some(binding) = element.borrow().bindings.get(prop) {
-            let e = binding.borrow().expression.clone();
+        // binding() ignores synthetic debug hooks: a placeholder for an unbound property must
+        // fall through to the base/builtin default below, not read as a user-set value.
+        if let Some(binding) = element.borrow().binding(prop) {
+            // Strip (non-synthetic) debug hook wrappers so the properties panel sees the
+            // binding as written.
+            let e = binding.borrow().expression.ignore_debug_hooks().clone();
             if !matches!(e, Expression::Invalid) {
                 return e;
             }

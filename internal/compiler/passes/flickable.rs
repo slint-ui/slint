@@ -212,10 +212,9 @@ fn set_binding_if_not_explicit(
     expression: impl FnOnce() -> Option<Expression>,
 ) {
     // we can't use `set_binding_if_not_set` directly because `expression()` may borrow `elem`
-    // A synthetic debug hook is treated the same as "no binding" here.
-    if elem.borrow().bindings.get(property).is_none_or(|b| {
-        !b.borrow().has_binding() || b.borrow().expression.is_synthetic_debug_hook()
-    }) && let Some(e) = expression()
+    // (`has_binding` treats a synthetic debug hook as "no binding")
+    if elem.borrow().bindings.get(property).is_none_or(|b| !b.borrow().has_binding())
+        && let Some(e) = expression()
     {
         elem.borrow_mut().set_binding_if_not_set(property.into(), || e);
     }

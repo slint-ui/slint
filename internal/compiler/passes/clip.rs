@@ -93,7 +93,7 @@ fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
         for optional_binding in super::border_radius::BORDER_RADIUS_PROPERTIES.iter() {
             copy_optional_binding(parent_elem, optional_binding, &clip);
         }
-    } else if parent_elem.borrow().bindings.contains_key("border-radius") {
+    } else if parent_elem.borrow().binding("border-radius").is_some() {
         for prop in super::border_radius::BORDER_RADIUS_PROPERTIES.iter() {
             clip.borrow_mut().bindings.insert(
                 SmolStr::new(prop),
@@ -121,7 +121,7 @@ fn copy_optional_binding(
     optional_binding: &'static str,
     clip: &ElementRc,
 ) {
-    if parent_elem.borrow().bindings.contains_key(optional_binding) {
+    if parent_elem.borrow().binding(optional_binding).is_some() {
         clip.borrow_mut().bindings.insert(
             optional_binding.into(),
             RefCell::new(

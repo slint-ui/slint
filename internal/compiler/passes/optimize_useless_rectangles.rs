@@ -63,7 +63,9 @@ fn can_optimize(elem: &ElementRc) -> bool {
 
     let analysis = e.property_analysis.borrow();
     for coord in ["x", "y"] {
-        if e.bindings.contains_key(coord) || analysis.get(coord).is_some_and(|a| a.is_set) {
+        // binding() / real_bindings() ignore synthetic debug hooks (placeholders for
+        // unbound properties), which must not prevent the optimization.
+        if e.binding(coord).is_some() || analysis.get(coord).is_some_and(|a| a.is_set) {
             return false;
         }
     }
@@ -72,7 +74,10 @@ fn can_optimize(elem: &ElementRc) -> bool {
     }
 
     // Check that no Rectangle property are set
-    !e.bindings.keys().chain(analysis.iter().filter(|(_, v)| v.is_set).map(|(k, _)| k)).any(|k| {
+    !e.real_bindings()
+        .map(|(k, _)| k)
+        .chain(analysis.iter().filter(|(_, v)| v.is_set).map(|(k, _)| k))
+        .any(|k| {
         !e.property_declarations.contains_key(k.as_str())
             && base_type.properties.contains_key(k.as_str())
     }) && e.accessibility_props.0.is_empty()
