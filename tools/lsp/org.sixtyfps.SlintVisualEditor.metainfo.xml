@@ -26,6 +26,7 @@
     >LicenseRef-proprietary=https://github.com/slint-ui/slint/blob/master/LICENSE.md</project_license>
 
     <description>
+        <p>Slint Visual Editor</p>
     </description>
 
     <url type="homepage">https://slint.dev/</url>
