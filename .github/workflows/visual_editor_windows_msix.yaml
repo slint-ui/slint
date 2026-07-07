@@ -20,14 +20,14 @@ permissions:
   contents: read
 
 env:
-  MACOSX_DEPLOYMENT_TARGET: "12.0"
   CARGO_INCREMENTAL: false
-  MACOS_CARGO_TIMINGS: "1"
   SLINT_BUILD_NUMBER: ${{ github.run_number }}
+  SLINT_VISUAL_EDITOR_MSIX_PATH: tools/lsp/slintvisualeditor_0.17.0.0_x64.msix
+  SLINT_VISUAL_EDITOR_TEST_CERT_PASSWORD: slint-ci-self-signed
 
 jobs:
   msix:
-    name: Build signed notarized MSIX
+    name: Build self-signed MSIX
     runs-on: windows-latest
     timeout-minutes: 90
     env: {}
@@ -38,7 +38,7 @@ jobs:
       - uses: ./.github/actions/setup-rust
         with:
           key: visual-editor-windows-msix
-          save_if: ${{ inputs.save-if }}
+          save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
 
       - name: Install Windows Rust target
         run: rustup target add x86_64-pc-windows-msvc
@@ -49,13 +49,52 @@ jobs:
         run: |
           cargo build --manifest-path tools/lsp/Cargo.toml --target x86_64-pc-windows-msvc --bin slint-visual-editor --profile package-release --no-default-features --features backend-winit,renderer-skia
 
-      - name: Package app as MSIX
-        # TODO: `--cert path/to/cert.pfx`
+      - name: Create self-signed test certificate
+        id: test_certificate
+        shell: pwsh
         run: |
-          mkdir tools/lsp/dist
-          cp target/x86_64-pc-windows-msvc/package-release/slint-visual-editor.exe tools/lsp/dist/slint-visual-editor.exe
-          cd tools/lsp
+          $pfxPath = Join-Path $env:RUNNER_TEMP "slint-visual-editor-self-signed.pfx"
+          $cerPath = Join-Path $env:GITHUB_WORKSPACE "slint-visual-editor-self-signed.cer"
+          $password = ConvertTo-SecureString -String $env:SLINT_VISUAL_EDITOR_TEST_CERT_PASSWORD -Force -AsPlainText
+          $cert = New-SelfSignedCertificate `
+            -Type Custom `
+            -Subject "CN=sixtyfps" `
+            -KeyAlgorithm RSA `
+            -KeyLength 2048 `
+            -KeyUsage DigitalSignature `
+            -FriendlyName "Slint Visual Editor CI Test Certificate" `
+            -CertStoreLocation "Cert:\CurrentUser\My" `
+            -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.3")
+          Export-PfxCertificate -Cert $cert -FilePath $pfxPath -Password $password | Out-Null
+          Export-Certificate -Cert $cert -FilePath $cerPath | Out-Null
+          Import-Certificate -FilePath $cerPath -CertStoreLocation "Cert:\CurrentUser\Root" | Out-Null
+          Import-Certificate -FilePath $cerPath -CertStoreLocation "Cert:\CurrentUser\TrustedPeople" | Out-Null
+          "pfx_path=$pfxPath" >> $env:GITHUB_OUTPUT
+          "cer_path=$cerPath" >> $env:GITHUB_OUTPUT
+
+      - name: Package app as MSIX
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force tools/lsp/dist | Out-Null
+          Copy-Item target/x86_64-pc-windows-msvc/package-release/slint-visual-editor.exe tools/lsp/dist/slint-visual-editor.exe
+          Set-Location tools/lsp
           winapp pack ./dist
+
+      - name: Sign MSIX with self-signed test certificate
+        shell: pwsh
+        run: |
+          $signtool = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter signtool.exe |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $signtool) {
+            throw "signtool.exe was not found in the Windows SDK."
+          }
+          & $signtool sign `
+            /fd SHA256 `
+            /f "${{ steps.test_certificate.outputs.pfx_path }}" `
+            /p "$env:SLINT_VISUAL_EDITOR_TEST_CERT_PASSWORD" `
+            "$env:SLINT_VISUAL_EDITOR_MSIX_PATH"
+          & $signtool verify /pa /v "$env:SLINT_VISUAL_EDITOR_MSIX_PATH"
 
       - name: Upload MSIX artifact
         uses: actions/upload-artifact@v7
@@ -63,4 +102,5 @@ jobs:
           name: slint-visual-editor-windows-msix
           path: |
             tools/lsp/slintvisualeditor_0.17.0.0_x64.msix
+            slint-visual-editor-self-signed.cer
           if-no-files-found: error
