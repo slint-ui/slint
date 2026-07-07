@@ -2,22 +2,37 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
 import { InspectorTokens } from "tokens.slint";
+import { ScrollView } from "std-widgets.slint";
 
 export component InspectorSyntaxField inherits Rectangle {
     in property <string> value;
+    in property <length> max-field-height: 96px;
 
     horizontal-stretch: 1;
-    height: 54px;
+    height: min(max(54px, syntax-text.preferred-height + 12px), root.max-field-height);
     border-radius: InspectorTokens.field-radius;
     background: InspectorTokens.field-bg;
+    clip: true;
+    accessible-role: AccessibleRole.text;
+    accessible-value: root.value;
 
-    Text {
+    syntax-scroll := ScrollView {
         x: 8px;
+        y: 6px;
         width: parent.width - 16px;
-        text: root.value;
-        color: InspectorTokens.text;
-        font-size: 11px;
-        vertical-alignment: center;
-        wrap: word-wrap;
+        height: parent.height - 12px;
+        viewport-width: self.width;
+        viewport-height: syntax-text.preferred-height;
+        horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+        vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
+        mouse-drag-pan-enabled: true;
+
+        syntax-text := Text {
+            width: syntax-scroll.width;
+            text: root.value;
+            color: InspectorTokens.text;
+            font-size: 11px;
+            wrap: word-wrap;
+        }
     }
 }

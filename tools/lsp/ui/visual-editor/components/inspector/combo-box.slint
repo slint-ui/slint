@@ -4,6 +4,7 @@
 import { Icons } from "../../../components/styling.slint";
 import { StudioTheme } from "../common.slint";
 import { InspectorComboOption, InspectorTokens } from "tokens.slint";
+import { ScrollView } from "std-widgets.slint";
 
 export component InspectorComboBox inherits Rectangle {
     in property <string> prefix: "";
@@ -12,13 +13,14 @@ export component InspectorComboBox inherits Rectangle {
     in property <[InspectorComboOption]> options;
     in property <bool> wide: false;
     in property <string> placeholder: "";
+    in property <length> popup-available-height: 220px;
     callback accepted(string) -> bool;
 
     width: wide ? InspectorTokens.wide-width : InspectorTokens.column-width;
     height: InspectorTokens.field-height;
     border-radius: InspectorTokens.field-radius;
-    background: fallback-popup.is-open ? InspectorTokens.panel-bg : native-menu-touch.has-hover ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg;
-    border-width: fallback-popup.is-open ? 1px : 0px;
+    background: fallback-popup.is-open ? InspectorTokens.panel-bg : native-menu-touch.has-hover || combo-focus.has-focus ? InspectorTokens.field-bg-hover : InspectorTokens.field-bg;
+    border-width: fallback-popup.is-open || combo-focus.has-focus ? 1px : 0px;
     border-color: InspectorTokens.accent;
     accessible-role: AccessibleRole.combobox;
     accessible-value: root.value;
@@ -26,12 +28,48 @@ export component InspectorComboBox inherits Rectangle {
     accessible-action-expand => {
         root.show-popup();
     }
+    accessible-action-default => {
+        root.show-popup();
+    }
 
     private property <length> row-height: 26px;
     private property <length> popup-padding: 4px;
     private property <bool> can-open: root.options.length > 0;
+    private property <int> highlighted-index: max(root.selected-index, 0);
     private property <bool> use-native-menu:
         Platform.os == OperatingSystemType.macos || Platform.os == OperatingSystemType.windows;
+
+    changed selected-index => {
+        if !fallback-popup.is-open {
+            root.highlighted-index = max(root.selected-index, 0);
+        }
+    }
+
+    function option-count() -> int {
+        return root.options.length;
+    }
+
+    function full-popup-height() -> length {
+        return root.option-count() * root.row-height + 2 * root.popup-padding;
+    }
+
+    function popup-height() -> length {
+        return min(root.full-popup-height(), max(root.row-height + 2 * root.popup-padding, root.popup-available-height));
+    }
+
+    function move-highlight(delta: int) {
+        if root.option-count() == 0 {
+            return;
+        }
+        root.highlighted-index = (root.highlighted-index + delta).clamp(0, root.option-count() - 1);
+    }
+
+    function accept-highlighted() -> bool {
+        if root.highlighted-index < 0 || root.highlighted-index >= root.option-count() {
+            return false;
+        }
+        return root.accepted(root.options[root.highlighted-index].value);
+    }
 
     function fallback-popup-y() -> length {
         if Platform.os == OperatingSystemType.macos && root.selected-index >= 0 {
@@ -54,10 +92,22 @@ export component InspectorComboBox inherits Rectangle {
         if !root.can-open {
             return;
         }
+        combo-focus.focus();
+        root.highlighted-index = root.selected-index >= 0 ? root.selected-index : 0;
         if root.use-native-menu {
             native-menu.show({ x: 0px, y: root.native-menu-y() });
         } else {
             fallback-popup.show();
+        }
+    }
+
+    combo-focus := FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == Key.Space || event.text == Key.DownArrow {
+                root.show-popup();
+                return accept;
+            }
+            return reject;
         }
     }
 
@@ -121,7 +171,7 @@ export component InspectorComboBox inherits Rectangle {
         x: 0px;
         y: root.fallback-popup-y();
         width: root.width;
-        height: root.options.length * root.row-height + 2 * root.popup-padding;
+        height: root.popup-height();
         close-policy: close-on-click-outside;
         forward-focus: popup-focus;
 
@@ -139,51 +189,94 @@ export component InspectorComboBox inherits Rectangle {
             key-pressed(event) => {
                 if event.text == Key.Escape {
                     fallback-popup.close();
+                    combo-focus.focus();
+                    return accept;
+                }
+                if event.text == Key.UpArrow {
+                    root.move-highlight(-1);
+                    return accept;
+                }
+                if event.text == Key.DownArrow {
+                    root.move-highlight(1);
+                    return accept;
+                }
+                if event.text == Key.Return || event.text == Key.Space {
+                    if root.accept-highlighted() {
+                        fallback-popup.close();
+                        combo-focus.focus();
+                    }
                     return accept;
                 }
                 return reject;
             }
 
-            VerticalLayout {
-                padding: root.popup-padding;
-                alignment: start;
+            options-scroll := ScrollView {
+                x: root.popup-padding;
+                y: root.popup-padding;
+                width: parent.width - 2 * root.popup-padding;
+                height: parent.height - 2 * root.popup-padding;
+                viewport-width: self.width;
+                viewport-height: options-content.height;
+                mouse-drag-pan-enabled: true;
+                horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
 
-                for option[index] in root.options: Rectangle {
-                    height: root.row-height;
-                    border-radius: InspectorTokens.field-radius;
-                    background: index == root.selected-index
-                        ? InspectorTokens.accent.with-alpha(0.16)
-                        : row-touch.has-hover
-                        ? InspectorTokens.field-bg-hover
-                        : transparent;
+                options-content := Rectangle {
+                    width: options-scroll.width;
+                    height: options-layout.preferred-height;
 
-                    Text {
-                        x: 7px;
-                        width: 14px;
-                        text: index == root.selected-index ? "✓" : "";
-                        color: InspectorTokens.accent;
-                        font-size: 12px;
-                        font-weight: 600;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
+                    options-layout := VerticalLayout {
+                        width: parent.width;
+                        alignment: start;
 
-                    Text {
-                        x: 25px;
-                        width: parent.width - self.x - 8px;
-                        text: option.label;
-                        color: InspectorTokens.text;
-                        font-size: 12px;
-                        vertical-alignment: center;
-                        overflow: elide;
-                        wrap: no-wrap;
-                    }
+                        for option[index] in root.options: Rectangle {
+                            width: parent.width;
+                            height: root.row-height;
+                            border-radius: InspectorTokens.field-radius;
+                            background: index == root.highlighted-index
+                                ? InspectorTokens.accent.with-alpha(0.16)
+                                : row-touch.has-hover
+                                ? InspectorTokens.field-bg-hover
+                                : transparent;
+                            accessible-role: AccessibleRole.list-item;
+                            accessible-label: option.label;
 
-                    row-touch := TouchArea {
-                        mouse-cursor: pointer;
-                        clicked => {
-                            if root.accepted(option.value) {
-                                fallback-popup.close();
+                            Text {
+                                x: 7px;
+                                width: 14px;
+                                text: index == root.selected-index ? "✓" : "";
+                                color: InspectorTokens.accent;
+                                font-size: 12px;
+                                font-weight: 600;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            Text {
+                                x: 25px;
+                                width: parent.width - self.x - 8px;
+                                text: option.label;
+                                color: InspectorTokens.text;
+                                font-size: 12px;
+                                vertical-alignment: center;
+                                overflow: elide;
+                                wrap: no-wrap;
+                            }
+
+                            row-touch := TouchArea {
+                                mouse-cursor: pointer;
+                                clicked => {
+                                    root.highlighted-index = index;
+                                    if root.accepted(option.value) {
+                                        fallback-popup.close();
+                                        combo-focus.focus();
+                                    }
+                                }
+
+                                changed has-hover => {
+                                    if self.has-hover {
+                                        root.highlighted-index = index;
+                                    }
+                                }
                             }
                         }
                     }

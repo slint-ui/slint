@@ -5,13 +5,32 @@ import { InspectorTokens } from "tokens.slint";
 
 export component InspectorIconButton inherits Rectangle {
     in property <string> kind;
+    in property <string> label: root.kind;
     in property <bool> selected: false;
     callback clicked;
 
     width: 18px;
     height: 18px;
     border-radius: 3.5px;
-    background: selected ? InspectorTokens.accent.with-alpha(0.12) : touch.has-hover ? InspectorTokens.field-bg : transparent;
+    background: selected ? InspectorTokens.accent.with-alpha(0.12) : touch.has-hover || button-focus.has-focus ? InspectorTokens.field-bg : transparent;
+    border-width: button-focus.has-focus ? 1px : 0px;
+    border-color: InspectorTokens.accent;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-checked: root.selected;
+    accessible-action-default => {
+        root.clicked();
+    }
+
+    button-focus := FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == Key.Space {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
 
     if root.kind == "eye": Rectangle {
         x: 3.5px;
@@ -71,6 +90,9 @@ export component InspectorIconButton inherits Rectangle {
 
     touch := TouchArea {
         mouse-cursor: pointer;
-        clicked => { root.clicked(); }
+        clicked => {
+            button-focus.focus();
+            root.clicked();
+        }
     }
 }

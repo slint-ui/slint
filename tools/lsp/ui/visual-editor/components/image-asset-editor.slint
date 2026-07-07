@@ -3,6 +3,7 @@
 
 import { Api } from "../../api.slint";
 import { CanvasCorner, EditorMetrics, StudioTheme } from "common.slint";
+import { ScrollView } from "std-widgets.slint";
 
 enum ImageAssetEditorMode {
     preview,
@@ -44,9 +45,25 @@ component ImageEditorTab inherits Rectangle {
     height: 30px;
     horizontal-stretch: 1;
     border-radius: 6px;
-    border-width: selected ? 1px : 0px;
-    border-color: StudioTheme.border;
-    background: selected ? StudioTheme.panel-bg : touch.has-hover ? StudioTheme.panel-subtle : transparent;
+    border-width: tab-focus.has-focus ? 2px : selected ? 1px : 0px;
+    border-color: tab-focus.has-focus ? StudioTheme.accent-strong : StudioTheme.border;
+    background: selected ? StudioTheme.panel-bg : touch.has-hover || tab-focus.has-focus ? StudioTheme.panel-subtle : transparent;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-checked: root.selected;
+    accessible-action-default => {
+        root.clicked();
+    }
+
+    tab-focus := FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == Key.Space {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
 
     Text {
         text: root.label;
@@ -60,6 +77,7 @@ component ImageEditorTab inherits Rectangle {
     touch := TouchArea {
         mouse-cursor: pointer;
         clicked => {
+            tab-focus.focus();
             root.clicked();
         }
     }
@@ -101,31 +119,61 @@ component FloatingReadOnlyField inherits Rectangle {
 
 component FloatingSyntaxField inherits Rectangle {
     in property <string> value;
+    in property <length> max-field-height: 96px;
 
-    height: 78px;
+    height: min(max(78px, syntax-text.preferred-height + 12px), root.max-field-height);
     border-radius: 4px;
     background: StudioTheme.dark ? #383838 : #f5f5f5;
+    clip: true;
+    accessible-role: AccessibleRole.text;
+    accessible-value: root.value;
 
-    Text {
+    syntax-scroll := ScrollView {
         x: 8px;
+        y: 6px;
         width: parent.width - 16px;
-        text: root.value;
-        color: StudioTheme.text;
-        font-size: 11px;
-        vertical-alignment: center;
-        wrap: word-wrap;
+        height: parent.height - 12px;
+        viewport-width: self.width;
+        viewport-height: syntax-text.preferred-height;
+        horizontal-scrollbar-policy: ScrollBarPolicy.always-off;
+        vertical-scrollbar-policy: ScrollBarPolicy.as-needed;
+        mouse-drag-pan-enabled: true;
+
+        syntax-text := Text {
+            width: syntax-scroll.width;
+            text: root.value;
+            color: StudioTheme.text;
+            font-size: 11px;
+            wrap: word-wrap;
+        }
     }
 }
 
 component FloatingCopyButton inherits Rectangle {
+    in property <string> label: "Copy";
     callback clicked;
 
     width: 54px;
     height: 24px;
     border-radius: 4px;
-    border-width: 1px;
-    border-color: StudioTheme.dark ? #414141 : #e5e5e5;
-    background: touch.has-hover ? (StudioTheme.dark ? #414141 : #eeeeee) : (StudioTheme.dark ? #383838 : #f5f5f5);
+    border-width: copy-focus.has-focus ? 2px : 1px;
+    border-color: copy-focus.has-focus ? StudioTheme.accent-strong : StudioTheme.dark ? #414141 : #e5e5e5;
+    background: touch.has-hover || copy-focus.has-focus ? (StudioTheme.dark ? #414141 : #eeeeee) : (StudioTheme.dark ? #383838 : #f5f5f5);
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => {
+        root.clicked();
+    }
+
+    copy-focus := FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == Key.Space {
+                root.clicked();
+                return accept;
+            }
+            return reject;
+        }
+    }
 
     Text {
         text: "Copy";
@@ -139,6 +187,7 @@ component FloatingCopyButton inherits Rectangle {
     touch := TouchArea {
         mouse-cursor: pointer;
         clicked => {
+            copy-focus.focus();
             root.clicked();
         }
     }

@@ -824,6 +824,7 @@ export component InspectorPane inherits Rectangle {
                             selected-index: root.rectangle-effect-index();
                             options: root.rectangle-effect-options;
                             wide: true;
+                            popup-available-height: max(InspectorTokens.field-height, root.absolute-position.y + root.height - self.absolute-position.y - 12px);
                             accepted(text) => {
                                 return root.set-rectangle-effect(text);
                             }
@@ -942,6 +943,7 @@ export component InspectorPane inherits Rectangle {
                                 selected-index: root.image-fit-index();
                                 options: root.image-fit-options;
                                 wide: true;
+                                popup-available-height: max(InspectorTokens.field-height, root.absolute-position.y + root.height - self.absolute-position.y - 12px);
                                 accepted(text) => {
                                     return text != "" && root.commit-code("image-fit", text);
                                 }
@@ -956,6 +958,7 @@ export component InspectorPane inherits Rectangle {
                                 value: root.image-horizontal-alignment-value();
                                 selected-index: root.image-horizontal-alignment-index();
                                 options: root.image-horizontal-alignment-options;
+                                popup-available-height: max(InspectorTokens.field-height, root.absolute-position.y + root.height - self.absolute-position.y - 12px);
                                 accepted(text) => {
                                     return text != "" && root.commit-code("horizontal-alignment", text);
                                 }
@@ -966,6 +969,7 @@ export component InspectorPane inherits Rectangle {
                                 value: root.image-vertical-alignment-value();
                                 selected-index: root.image-vertical-alignment-index();
                                 options: root.image-vertical-alignment-options;
+                                popup-available-height: max(InspectorTokens.field-height, root.absolute-position.y + root.height - self.absolute-position.y - 12px);
                                 accepted(text) => {
                                     return text != "" && root.commit-code("vertical-alignment", text);
                                 }
@@ -997,6 +1001,7 @@ export component InspectorPane inherits Rectangle {
                                 value: root.text-font-weight-label();
                                 selected-index: root.text-font-weight-index();
                                 options: root.text-font-weight-options;
+                                popup-available-height: max(InspectorTokens.field-height, root.absolute-position.y + root.height - self.absolute-position.y - 12px);
                                 accepted(text) => {
                                     return text != "" && root.commit-code("font-weight", text);
                                 }
