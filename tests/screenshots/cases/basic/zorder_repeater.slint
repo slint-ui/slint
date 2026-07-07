@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Screenshot test for dynamic z-ordering with repeated and conditional elements.
+
+export component TestCase inherits Window {
+    width: 64px;
+    height: 64px;
+    background: black;
+
+    in-out property <int> top-item: 0;
+    in-out property <bool> lift: false;
+
+    init => {
+        top-item = 2;
+        lift = true;
+    }
+
+    // Left half: overlapping repeated squares; top-item (the blue one) is lifted
+    // above the ones after it in the model.
+    Rectangle {
+        x: 0px; y: 0px; width: 32px; height: 64px;
+
+        for i in [0, 1, 2] : Rectangle {
+            x: 2px + i * 4px;
+            y: 6px + i * 14px;
+            width: 20px; height: 20px;
+            background: i == 0 ? red : (i == 1 ? green : blue);
+            z: top-item == i ? 10 : i;
+        }
+    }
+
+    // Right half: a conditional magenta square lifted above the yellow one.
+    Rectangle {
+        x: 32px; y: 0px; width: 32px; height: 64px;
+
+        Rectangle {
+            x: 4px; y: 8px; width: 24px; height: 24px;
+            background: yellow;
+            z: 5;
+        }
+        if top-item != 9 : Rectangle {
+            x: 10px; y: 14px; width: 20px; height: 20px;
+            background: magenta;
+            z: lift ? 9 : 0;
+        }
+    }
+}

@@ -1,0 +1,69 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// A child `z` inside a `for` two-way bound to a property of the enclosing component.
+// The bound value is honored during the dynamic z sort: the first TouchArea has z=10
+// (from `shared-z`) and sits above the sibling with z=5.
+
+export component TestCase inherits Rectangle {
+    width: 100phx;
+    height: 100phx;
+
+    in-out property <int> clicked-value;
+    in-out property <float> shared-z: 10;
+
+    for _ in [0] : Rectangle {
+        width: 100%;
+        height: 100%;
+        TouchArea {
+            width: 100%;
+            height: 100%;
+            z <=> root.shared-z;
+            clicked => { root.clicked-value = 1; }
+        }
+        TouchArea {
+            width: 100%;
+            height: 100%;
+            z: 5;
+            clicked => { root.clicked-value = 2; }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new().unwrap();
+// z=10 (from shared-z) beats z=5, so the first TouchArea is on top.
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_clicked_value(), 1);
+// Lowering shared-z below the sibling flips the order.
+instance.set_shared_z(1.);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq!(instance.get_clicked_value(), 2);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// z=10 (from shared-z) beats z=5, so the first TouchArea is on top.
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_clicked_value(), 1);
+// Lowering shared-z below the sibling flips the order.
+instance.set_shared_z(1.);
+slint_testing::send_mouse_click(&instance, 50., 50.);
+assert_eq(instance.get_clicked_value(), 2);
+```
+
+```js
+var instance = new slint.TestCase();
+
+// z=10 (from shared-z) beats z=5, so the first TouchArea is on top.
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+assert.equal(instance.clicked_value, 1);
+// Lowering shared-z below the sibling flips the order.
+instance.shared_z = 1.;
+slintlib.private_api.send_mouse_click(instance, 50., 50.);
+assert.equal(instance.clicked_value, 2);
+```
+*/
