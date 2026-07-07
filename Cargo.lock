@@ -3463,6 +3463,7 @@ dependencies = [
  "i-slint-core-macros",
  "icu_normalizer",
  "image",
+ "js-sys",
  "ksni",
  "log",
  "lyon_algorithms",

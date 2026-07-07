@@ -139,7 +139,7 @@ impl<R: femtovg::Renderer + TextureImporter> Texture<R> {
         let image_id = match image {
             #[cfg(target_arch = "wasm32")]
             ImageInner::HTMLImage(html_image) => {
-                if html_image.size().is_some() {
+                if html_image.is_loaded() {
                     // Anecdotal evidence suggests that HTMLImageElement converts to a texture with
                     // pre-multiplied alpha. It's possible that this is not generally applicable, but it
                     // is the case for SVGs.
