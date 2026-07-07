@@ -56,4 +56,4 @@ jobs:
               working-directory: api/python/slint
               run: uv run pytest -s -v
             - name: Run python test driver
-              run: cargo test -p test-driver-python
+              run: cargo test --manifest-path tests/Cargo.toml -p test-driver-python

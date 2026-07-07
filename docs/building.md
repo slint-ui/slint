@@ -120,32 +120,48 @@ cargo test
 **Important:** Note that `cargo test` does not work without first calling `cargo build` because the
 the required dynamic library won't be found.
 
-### Building workspace
+### Workspace layout
 
-To build all examples install the entire workplace to executables
-(excluding [UEFI-demo](https://github.com/slint-ui/slint/tree/master/examples/uefi-demo) - different target)
+The repository is split into several Cargo workspaces that all share the same
+`target/` directory (configured in `.cargo/config.toml`):
+
+- the root workspace contains the library and tool crates,
+- `examples/`, `demos/` and `tests/` each contain their respective crates,
+- `ui-libraries/material/` contains the material library and its gallery.
+
+Keeping the examples, demos and tests out of the root workspace keeps
+rust-analyzer fast when working on the libraries; the shared `target/` directory
+means the common library crates are only built once across all the workspaces.
+Select a non-root workspace with `--manifest-path <dir>/Cargo.toml`.
+
+To build all examples (excluding the
+[UEFI-demo](https://github.com/slint-ui/slint/tree/master/examples/uefi-demo) and
+the MCU examples, which target different platforms):
 
 ```sh
-cargo build --workspace --exclude uefi-demo --release
+cargo build --manifest-path examples/Cargo.toml --workspace --release \
+    --exclude uefi-demo --exclude mcu-board-support --exclude mcu-embassy
 ```
 
 ### C++ Tests
 
-The C++ tests are contained in the `test-driver-cpp` crate. It requires the Slint C++ library to be built,
-which isn't done by default. Build it explicitly before running the tests:
+The C++ tests are contained in the `test-driver-cpp` crate of the `tests/`
+workspace. It requires the Slint C++ library to be built, which isn't done by
+default. Build it explicitly before running the tests:
 
 ```sh
 cargo build --lib -p slint-cpp
-cargo test -p test-driver-cpp
+cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp
 ```
 
 ### Node.js Tests
 
-The Node.js tests are contained in the `test-driver-nodejs` crate. The node integration will be run
-automatically when running the tests:
+The Node.js tests are contained in the `test-driver-nodejs` crate of the
+`tests/` workspace. The node integration will be run automatically when running
+the tests:
 
 ```sh
-cargo build -p test-driver-nodejs
+cargo build --manifest-path tests/Cargo.toml -p test-driver-nodejs
 ```
 
 ### More Info About Tests
@@ -200,7 +216,7 @@ This includes for example the Raspberry Pi OS. Using the following steps you can
 pi:
 
 ```sh
-cross build --target armv7-unknown-linux-gnueabihf --workspace --exclude slint-node --exclude pyslint --release
+cross build --target armv7-unknown-linux-gnueabihf --manifest-path demos/Cargo.toml -p printerdemo --release
 scp target/armv7-unknown-linux-gnueabihf/release/printerdemo pi@raspberrypi.local:.
 ```
 

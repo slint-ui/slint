@@ -2,8 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 # cSpell: ignore rustls thiserror
-[workspace]
-
+# This example is part of the examples workspace (examples/Cargo.toml).
 [package]
 name = "servo-example"
 version = "1.18.0"
