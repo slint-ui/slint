@@ -4,6 +4,7 @@ tsconfig.tsbuildinfo
 /target
 node_modules
 .pnpm-store/
+.worktrees/
 /tools/figma_import/target
 /tools/figma_import/figma_output
 *.code-workspace
