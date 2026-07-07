@@ -1,0 +1,34 @@
+id: org.sixtyfps.SlintVisualEditor
+runtime: org.freedesktop.Platform
+runtime-version: "25.08"
+sdk: org.freedesktop.Sdk
+command: slint-visual-editor
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+finish-args:
+  - --device=dri
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+modules:
+  - name: slint-visual-editor
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin
+      env:
+        CARGO_HOME: /run/build/slint-visual-editor/cargo
+        CARGO_NET_OFFLINE: "true"
+    build-commands:
+      - cd tools/lsp
+      - cargo --offline fetch --manifest-path Cargo.toml --verbose
+      - cargo build --bin slint-visual-editor --offline --profile package-release --features backend-winit,renderer-skia
+      - install -Dm0755 target/package-release/slint-visual-editor ${FLATPAK_DEST}/bin/slint-visual-editor
+      - install -Dm0644 packaging/linux/SlintVisualEditor-Logo.svg ${FLATPAK_DEST}/share/icons/hicolor/1000x1000/apps/${FLATPAK_ID}.png
+      - install -Dm0644 packaging/linux/${FLATPAK_ID}.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
+      - install -Dm0644 ${FLATPAK_ID}.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
+    sources:
+      - type: archive
+        url: https://github.com/slint-ui/slint.git
+        branch: visual-editor-linux-package
+        commit: cf62c975c311e7036d599ed8ed0b7e6a8386a934
+      - cargo-sources-filtered.json
