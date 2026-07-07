@@ -1997,7 +1997,7 @@ impl Element {
             }
 
             if r.borrow().forwarded_slots.iter().any(|f| f.target == target) {
-                diag.push_error(format!("Duplicate forwarding to slot '{target}'"), &target_node);
+                diag.push_error(format!("Duplicate assignment to slot '{target}'"), &target_node);
                 continue;
             }
 
@@ -2204,10 +2204,7 @@ impl Element {
                     diag.push_error(format!("Duplicate assignment to slot '{name}'"), &name_node);
                 }
                 if r.borrow().forwarded_slots.iter().any(|f| f.target == name) {
-                    diag.push_error(
-                        format!("Slot '{name}' cannot be both forwarded and assigned"),
-                        &name_node,
-                    );
+                    diag.push_error(format!("Duplicate assignment to slot '{name}'"), &name_node);
                 }
                 let sub_element_node = se.child_node(SyntaxKind::SubElement).unwrap();
                 let parent_type = r.borrow().base_type.clone();
