@@ -25,12 +25,8 @@ The position of the element relative to its parent.
 ### z
 <SlintProperty propName="z" typeName="float" >
 Allows to specify a different order to stack the items with its siblings.
-The value must be a compile time constant.
-
-:::note[Note]
-Currently the `z` value is a compile time constant and cannot be changed at runtime.
-:::
-
+On elements created with `for` or `if`, each instance is ordered
+individually by its z value among the siblings.
 </SlintProperty>
 
 
