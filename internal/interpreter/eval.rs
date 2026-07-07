@@ -403,7 +403,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     #[cfg(not(target_arch = "wasm32"))]
                     {
                         let _ = url;
-                        Err(Default::default())
+                        Ok(Default::default())
                     }
                 }
                 i_slint_compiler::expression_tree::ImageReference::EmbeddedData { .. } => {
