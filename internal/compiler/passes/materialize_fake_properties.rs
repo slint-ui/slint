@@ -40,13 +40,14 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
 
     recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
         for prop in elem.borrow().bindings.keys() {
-            // DebugHook bindings must not be materialized into property_declarations via this
-            // path: they are self-contained placeholders that must survive remove_unused_properties
-            // (which only removes declared properties).  If the property is genuinely referenced
-            // by a NamedReference, the first loop above will have already added it to
-            // `to_materialize`, and it will be handled correctly there.
+            // Synthetic DebugHook bindings must not be materialized into property_declarations
+            // via this path: they are placeholders equivalent to "no binding", and a real
+            // binding for the same property would not have existed here. They are
+            // self-contained and must survive remove_unused_properties (which only removes
+            // declared properties). Non-synthetic hooks wrap a real binding and must behave
+            // exactly like one — including triggering materialization.
             if elem.borrow().bindings.get(prop).is_some_and(|b| {
-                matches!(b.borrow().expression, Expression::DebugHook { .. })
+                b.borrow().expression.is_synthetic_debug_hook()
             }) {
                 continue;
             }
@@ -65,17 +66,13 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
     for (nr, ty) in to_materialize {
         let elem = nr.element();
 
-        // A DebugHook binding is a self-contained placeholder: don't materialize it into
-        // property_declarations.  If we did, move_declarations would pull it out of the inner
-        // element and into the root component, breaking the property's location.
-        // geometry_props NamedReferences (e.g. geometry_props.x → img.x) trigger this path;
-        // we skip them here so the DebugHook stays in-place on the inner element.
-        if elem.borrow().bindings.get(nr.name()).is_some_and(|b| {
-            matches!(b.borrow().expression, Expression::DebugHook { .. })
-        }) {
-            continue;
-        }
-
+        // Note: a DebugHook binding must materialize like the binding it wraps would.
+        // A referenced property whose binding is a *synthetic* hook counts as uninitialized
+        // (see `must_initialize`), so `initialize` below upgrades the hook in place with the
+        // computed default — e.g. geometry_props references (geometry_props.x → img.x) reach
+        // this for unbound geometry, and the Transform element's two-way reference reaches it
+        // for the injected `transform-rotation`. Skipping hooked properties here instead would
+        // leave a binding on a property that never exists at runtime.
         elem.borrow_mut().property_declarations.insert(
             nr.name().clone(),
             PropertyDeclaration { property_type: ty, ..PropertyDeclaration::default() },
@@ -97,7 +94,17 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
                     e.insert(binding.into());
                 }
                 std::collections::btree_map::Entry::Occupied(mut e) => {
-                    e.get_mut().get_mut().expression = init_expr;
+                    // A synthetic debug hook may occupy the slot (must_initialize treats it as
+                    // uninitialized): upgrade it in place — keep the wrapper and id so the
+                    // property stays live-editable, wrap the computed default.
+                    if let Expression::DebugHook { expression, synthetic, .. } =
+                        &mut e.get_mut().get_mut().expression
+                    {
+                        *expression = Box::new(init_expr);
+                        *synthetic = false;
+                    } else {
+                        e.get_mut().get_mut().expression = init_expr;
+                    }
                 }
             }
         }
