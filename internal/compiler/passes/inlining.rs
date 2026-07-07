@@ -167,7 +167,6 @@ fn inline_element(
     // Group instance children by slot target (named slot or default _children).
     // This preserves relative order within each slot and allows named slot validation.
     let mut children_by_slot: HashMap<SmolStr, Vec<ElementRc>> = HashMap::new();
-    let mut seen_slots: HashSet<SmolStr> = HashSet::new();
     for child in std::mem::take(&mut elem_mut.children) {
         let slot = child
             .borrow()
@@ -175,17 +174,6 @@ fn inline_element(
             .as_ref()
             .map(|s| crate::parser::normalize_identifier(s))
             .unwrap_or_else(|| "_children".into());
-
-        // Only named slots are single-assignment; default _children can appear multiple times.
-        if let Some(target) = &child.borrow().slot_target {
-            let normalized = crate::parser::normalize_identifier(target);
-            if normalized != "_children" && !seen_slots.insert(normalized.clone()) {
-                diag.push_error(
-                    format!("Duplicate assignment to slot '{target}'"),
-                    &*child.borrow(),
-                );
-            }
-        }
 
         children_by_slot.entry(slot).or_default().push(child);
     }
