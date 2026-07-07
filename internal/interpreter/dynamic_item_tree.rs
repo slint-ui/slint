@@ -1039,6 +1039,7 @@ fn generate_rtti() -> HashMap<&'static str, Rc<ItemRTTI>> {
             rtti_for::<Layer>(),
             rtti_for::<DragArea>(),
             rtti_for::<DropArea>(),
+            rtti_for::<WindowMoveArea>(),
             rtti_for::<ContextMenu>(),
             rtti_for::<MenuItem>(),
             rtti_for::<SystemTrayIcon>(),

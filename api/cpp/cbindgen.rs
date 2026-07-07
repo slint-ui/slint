@@ -417,6 +417,7 @@ fn gen_corelib(
         "BorderRectangle",
         "DragArea",
         "DropArea",
+        "WindowMoveArea",
         "ImageItem",
         "ClippedImage",
         "TouchArea",
