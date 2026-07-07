@@ -11,18 +11,24 @@
 //! Prepare callbacks run after the timer phase but before I/O poll,
 //! so `uv_backend_timeout()` returns an accurate next-timer deadline.
 //!
-//! On Windows/Deno the JS side falls back to 16ms polling.
+//! On Deno — and on Windows when the IOCP can't be located — the JS
+//! side falls back to 16ms polling.
 
 /// Safe wrappers around the libuv C API.
 /// Symbols are resolved at runtime so the addon also loads in
 /// non-libuv runtimes (e.g. Deno).
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 mod uv {
     use napi::Env;
     use std::os::raw::c_int;
 
     type UvHandleSizeFn = unsafe extern "C" fn(c_int) -> usize;
+    #[cfg(unix)]
     type UvBackendFdFn = unsafe extern "C" fn(*mut napi::sys::uv_loop_s) -> c_int;
+    #[cfg(windows)]
+    type UvVersionFn = unsafe extern "C" fn() -> std::os::raw::c_uint;
+    #[cfg(windows)]
+    type UvLoopSizeFn = unsafe extern "C" fn() -> usize;
     type UvBackendTimeoutFn = unsafe extern "C" fn(*mut napi::sys::uv_loop_s) -> c_int;
     type UvPrepareInitFn = unsafe extern "C" fn(*mut napi::sys::uv_loop_s, *mut u8) -> c_int;
     type UvPrepareStartFn = unsafe extern "C" fn(*mut u8, unsafe extern "C" fn(*mut u8)) -> c_int;
@@ -41,7 +47,11 @@ mod uv {
     /// Valid for the process lifetime (Node.js owns the loop).
     #[derive(Clone, Copy)]
     pub(super) struct Functions {
+        #[cfg(unix)]
         backend_fd: UvBackendFdFn,
+        /// Raw handle value of the loop's I/O completion port.
+        #[cfg(windows)]
+        iocp: usize,
         backend_timeout: UvBackendTimeoutFn,
         prepare_init: UvPrepareInitFn,
         prepare_start: UvPrepareStartFn,
@@ -58,12 +68,20 @@ mod uv {
 
     impl Functions {
         /// Resolve libuv symbols from the host process.
-        /// Returns `None` if any symbol is missing or the fd is invalid.
+        /// Returns `None` if any symbol is missing or the loop's I/O
+        /// source (backend fd, IOCP on Windows) can't be found.
         pub(super) fn try_new(env: &Env) -> Option<Self> {
             // SAFETY: loading from the current process is always valid.
+            #[cfg(unix)]
             let lib = libloading::os::unix::Library::this();
+            // On Windows the uv symbols are exported by the process
+            // executable (node.exe); that's also where native addons
+            // resolve them from via node.lib's delay-load hook.
+            #[cfg(windows)]
+            let lib = libloading::os::windows::Library::this().ok()?;
             // SAFETY: stable C signatures exported by the Node.js binary.
             let handle_size = *unsafe { lib.get::<UvHandleSizeFn>(b"uv_handle_size").ok()? };
+            #[cfg(unix)]
             let backend_fd = *unsafe { lib.get::<UvBackendFdFn>(b"uv_backend_fd").ok()? };
             let backend_timeout =
                 *unsafe { lib.get::<UvBackendTimeoutFn>(b"uv_backend_timeout").ok()? };
@@ -82,10 +100,30 @@ mod uv {
             }
 
             // SAFETY: uv_loop is non-null.
-            let fd = unsafe { backend_fd(uv_loop) };
-            if fd < 0 {
+            #[cfg(unix)]
+            if unsafe { backend_fd(uv_loop) } < 0 {
                 return None;
             }
+
+            #[cfg(windows)]
+            let iocp = {
+                let uv_version = *unsafe { lib.get::<UvVersionFn>(b"uv_version").ok()? };
+                let uv_loop_size = *unsafe { lib.get::<UvLoopSizeFn>(b"uv_loop_size").ok()? };
+                let version = unsafe { uv_version() };
+                let loop_size = unsafe { uv_loop_size() };
+                match super::windows::find_iocp(uv_loop, version, loop_size) {
+                    Ok(iocp) => iocp,
+                    Err(reason) => {
+                        i_slint_core::debug_log!(
+                            "Slint: integrated Node.js event loop unavailable, falling back to polling: {reason} (libuv {}.{}.{}, uv_loop_t size {loop_size})",
+                            (version >> 16) & 0xff,
+                            (version >> 8) & 0xff,
+                            version & 0xff,
+                        );
+                        return None;
+                    }
+                }
+            };
 
             /// `UV_PREPARE` value from the `uv_handle_type` enum.
             const UV_PREPARE: c_int = 9;
@@ -97,7 +135,10 @@ mod uv {
             let async_layout = std::alloc::Layout::from_size_align(async_size, 8).ok()?;
 
             Some(Self {
+                #[cfg(unix)]
                 backend_fd,
+                #[cfg(windows)]
+                iocp,
                 backend_timeout,
                 prepare_init,
                 prepare_start,
@@ -114,9 +155,16 @@ mod uv {
         }
 
         /// Backend fd (epoll/kqueue) for the libuv event loop.
+        #[cfg(unix)]
         pub(super) fn backend_fd(&self) -> c_int {
             // SAFETY: uv_loop is valid for the process lifetime.
             unsafe { (self.backend_fd)(self.uv_loop) }
+        }
+
+        /// Raw handle value of the loop's I/O completion port.
+        #[cfg(windows)]
+        pub(super) fn iocp(&self) -> usize {
+            self.iocp
         }
 
         /// Milliseconds until the next libuv timer, or -1 if none.
@@ -271,11 +319,17 @@ mod uv {
 #[cfg(unix)]
 mod unix;
 
-#[cfg(unix)]
+#[cfg(windows)]
+mod windows;
+
+#[cfg(any(unix, windows))]
 mod platform {
     use super::super::ProcessEventsResult;
+    #[cfg(unix)]
     use super::unix::Watcher;
     use super::uv;
+    #[cfg(windows)]
+    use super::windows::Watcher;
     use napi::Env;
     use napi::bindgen_prelude::*;
     use std::cell::{Cell, OnceCell, RefCell};
@@ -434,7 +488,7 @@ mod platform {
     }
 }
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 mod platform {
     use napi::Env;
 
