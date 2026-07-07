@@ -353,8 +353,8 @@ pub fn create_ui(
     log_messages::setup(&api);
     palette::setup(&api);
     file_tree::setup(&api, api_weak.clone(), ui_kind);
-    recent_colors::setup(&api, api_weak);
-    super::outline::setup(&api);
+    recent_colors::setup(&api, api_weak.clone());
+    super::outline::setup(&api, api_weak);
     super::undo_redo::setup(&api);
     setup_preview_user_settings(&api);
     apply_preview_user_settings(&app_window, &PreviewUserSettings::default());

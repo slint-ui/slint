@@ -1,7 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-import { ScrollView } from "std-widgets.slint";
 import {
     BodyLabel, EdgeDivider, EditorMetrics, MutedLabel, PrimerActionListRow, SectionTitle, SidebarToggleButton,
     StudioTheme,
@@ -61,6 +60,55 @@ component ElementsUnavailableNotice inherits Rectangle {
 
             MutedLabel {
                 text: "Open a component to drag elements.";
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
+component FilesUnavailableNotice inherits Rectangle {
+    height: 82px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: StudioTheme.soft-border;
+    background: StudioTheme.panel-subtle.with-alpha(0.72);
+
+    HorizontalLayout {
+        padding: 12px;
+        spacing: 12px;
+        cross-axis-alignment: center;
+
+        Rectangle {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            border-width: 1px;
+            border-color: StudioTheme.border.with-alpha(0.82);
+            background: StudioTheme.panel-bg.with-alpha(0.72);
+
+            Rectangle {
+                x: 8px;
+                y: 10px;
+                width: 18px;
+                height: 14px;
+                border-radius: 4px;
+                border-width: 2px;
+                border-color: StudioTheme.muted.with-alpha(0.72);
+                background: transparent;
+            }
+        }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 4px;
+            alignment: center;
+
+            BodyLabel {
+                text: "No files available";
+            }
+
+            MutedLabel {
+                text: "Open a project file to browse siblings.";
                 wrap: word-wrap;
             }
         }
@@ -155,15 +203,10 @@ export component LeftPane inherits Rectangle {
 
         SectionTitle { label: "FILES"; }
 
-        ScrollView {
-            vertical-stretch: 1;
-            viewport-width: self.width;
-            viewport-height: file-list.preferred-height;
-            vertical-scrollbar-policy: always-off;
+        if Api.file-tree.length == 0: FilesUnavailableNotice { }
 
-            file-list := FileTreeView {
-                width: parent.width;
-            }
+        if Api.file-tree.length > 0: FileTreeView {
+            vertical-stretch: 1;
         }
 
         VerticalLayout {

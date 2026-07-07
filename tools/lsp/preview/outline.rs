@@ -270,7 +270,7 @@ pub fn reset_outline(api: &ui::Api<'_>, root_component: Option<Rc<object_tree::C
     }
 }
 
-pub fn setup(api: &ui::Api<'_>) {
+pub fn setup(api: &ui::Api<'_>, api_weak: slint::Weak<ui::Api<'static>>) {
     api.on_outline_select_element(|uri, offset, notify_editor| {
         super::element_selection::select_element_at_source_code_position(
             crate::common::uri_to_file(&Url::parse(uri.as_str()).unwrap()).unwrap(),
@@ -282,6 +282,23 @@ pub fn setup(api: &ui::Api<'_>) {
                 super::SelectionNotification::Never
             },
         );
+    });
+    api.on_outline_set_expanded(move |row, expanded| {
+        let Some(api) = api_weak.upgrade() else {
+            return;
+        };
+        let Ok(row) = row.try_into() else {
+            return;
+        };
+        let model = api.get_outline();
+        let Some(mut node) = model.row_data(row) else {
+            return;
+        };
+        if node.is_expanded == expanded {
+            return;
+        }
+        node.is_expanded = expanded;
+        model.set_row_data(row, node);
     });
     api.on_outline_drop(|data, target_uri, target_offset, location| {
         if let Ok(drag_item) = data.try_into()

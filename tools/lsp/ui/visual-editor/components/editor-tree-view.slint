@@ -9,6 +9,7 @@ import {
 import { AppState } from "common.slint";
 import { EditorTreeIcons } from "editor-tree-icons.slint";
 import { EditorTreeTokens } from "editor-tree-tokens.slint";
+import { ListView } from "std-widgets.slint";
 
 component EditorTreeRow {
     in-out property <OutlineTreeNode> node;
@@ -25,6 +26,7 @@ component EditorTreeRow {
     callback current-requested(string, int);
     callback drag-started();
     callback row-hover-changed(int, bool);
+    callback expanded-changed(int, bool);
 
     property <bool> current: node.uri == current-source-uri && node.offset == current-offset;
     property <int> level-safe: max(1, node.indent-level + 1);
@@ -55,7 +57,7 @@ component EditorTreeRow {
 
     function toggle-expanded() {
         if root.node.has-children {
-            root.node.is-expanded = !root.node.is-expanded;
+            root.expanded-changed(root.row-index, !root.node.is-expanded);
         }
     }
 
@@ -303,7 +305,7 @@ component EditorTreeRow {
     }
 }
 
-export component EditorTreeView inherits VerticalLayout {
+export component EditorTreeView inherits ListView {
     in property <[OutlineTreeNode]> rows: [];
     in property <string> current-source-uri: "";
     in property <int> current-offset: -1;
@@ -319,14 +321,14 @@ export component EditorTreeView inherits VerticalLayout {
     callback row-dropped(DropEvent, string, int, DropLocation) -> DragAction;
     callback row-current-requested(string, int);
     callback drag-started();
+    callback row-expanded-changed(int, bool);
 
-    alignment: start;
     horizontal-stretch: 1;
-    vertical-stretch: 0;
     accessible-role: AccessibleRole.list;
     accessible-label: root.accessible-name;
 
     for row[i] in root.rows: EditorTreeRow {
+        width: root.visible-width;
         node <=> row;
         row-index: i;
         current-source-uri: root.current-source-uri;
@@ -355,6 +357,9 @@ export component EditorTreeView inherits VerticalLayout {
             } else if root.hovered-row-index == row-index {
                 root.hovered-row-index = -1;
             }
+        }
+        expanded-changed(row-index, expanded) => {
+            root.row-expanded-changed(row-index, expanded);
         }
     }
 }
