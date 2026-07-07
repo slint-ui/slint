@@ -20,6 +20,11 @@
 //!    sets a default on a property that carries a synthetic hook, `set_binding_if_not_set`
 //!    replaces the hook's inner expression in place (keeping the wrapper and id) and clears
 //!    the `synthetic` flag — so the hook ends up wrapping the real compiler-computed value.
+//!
+//! 3. **Inject a real `transform-rotation` binding** (a *non-synthetic* hook wrapping the 0deg
+//!    default) on elements that support it. Transform properties only exist at runtime when the
+//!    lowering reifies them onto a `Transform` wrapper element, which requires a visible binding
+//!    — see the comment on `transform_candidate` below.
 
 use crate::expression_tree::Expression;
 use crate::object_tree::{self, ElementRc, PropertyVisibility};
@@ -154,13 +159,24 @@ fn process_element(element: &ElementRc, random_state: &std::hash::RandomState, i
             .collect()
     };
 
+    // Elements that are (or will become) the root of a component are never wrapped by the
+    // property-to-element lowerings, and their geometry is managed specially (runtime-managed
+    // for windows, set after inlining otherwise) — treat them all like the component root below.
+    // A `PopupWindow` is still an ordinary child element at this point, but the lower_popups
+    // pass later turns it into the root of its own component.
+    let becomes_root = is_root
+        || matches!(&element.borrow().base_type,
+            crate::langtype::ElementType::Builtin(b) if b.name == "PopupWindow");
+
     // Reserved geometry properties (x, y, width, height) — these are not in property_list()
     // because they are injected globally by the type system, not per builtin element.
     // We exclude "z" to avoid spurious property materialization in materialize_fake_properties.
-    // We skip the component root element because its geometry is either runtime-managed (Window)
-    // or set after inlining into a parent component — either way, no compiler pass will upgrade
-    // a synthetic hook, which would leave root geometry frozen at 0px.
-    let geometry_candidates: Vec<(smol_str::SmolStr, Expression)> = if is_root {
+    // We skip root elements because their geometry is either runtime-managed (Window) or set
+    // after inlining into a parent component — either way, no compiler pass will upgrade a
+    // synthetic hook, which would leave root geometry frozen at 0px.
+    // We also skip elements that don't actually have the property (non-item types like Timer
+    // report Type::Invalid for the reserved properties).
+    let geometry_candidates: Vec<(smol_str::SmolStr, Expression)> = if becomes_root {
         vec![]
     } else {
         let elem = element.borrow();
@@ -169,6 +185,10 @@ fn process_element(element: &ElementRc, random_state: &std::hash::RandomState, i
             .filter(|(name, _)| *name != "z")
             .filter_map(|(prop_name, ty)| {
                 if elem.bindings.contains_key(*prop_name) {
+                    return None;
+                }
+                if elem.lookup_property(prop_name).property_type == crate::langtype::Type::Invalid
+                {
                     return None;
                 }
                 let default = Expression::default_value_for_type(ty);
@@ -180,25 +200,40 @@ fn process_element(element: &ElementRc, random_state: &std::hash::RandomState, i
             .collect()
     };
 
-    // Also include reserved transform-property defaults.
-    let transform_candidates: Vec<(smol_str::SmolStr, Expression)> = {
+    // The reserved transform properties are unlike the geometry properties above: no item
+    // actually has them. They only exist at runtime when the lower_transform_properties pass
+    // finds a binding and reifies the property onto an injected `Transform` wrapper element.
+    // A synthetic hook is (by design) invisible to other passes, so it would never cause that
+    // wrapper to be created — the hook would remain as a binding to a property that never
+    // materializes, and the interpreter aborts on the unknown property.
+    //
+    // To keep every element rotatable in live-preview, inject `transform-rotation` as a
+    // *non-synthetic* hook wrapping its default — semantically "as if the user had written
+    // `transform-rotation: 0deg;`" — which the lowering then reifies like any real binding.
+    // Only `transform-rotation` gets this treatment: it is what the editor overrides live, and
+    // its default is context-free. The other transform properties have context-dependent
+    // defaults (e.g. `transform-scale-x` follows `transform-scale`, which passes running after
+    // this one may still bind) that are correctly computed at lowering time instead.
+    //
+    // Root elements (including future popup roots) are skipped — the lowering never wraps a
+    // root, so the transform properties are not applicable there — as are elements that don't
+    // support transforms at all (non-item types).
+    let transform_candidate: Option<(smol_str::SmolStr, Expression)> = {
         let elem = element.borrow();
-        if elem.debug.is_empty() {
-            vec![]
+        let property_name = smol_str::SmolStr::new_static("transform-rotation");
+        if becomes_root
+            || elem.bindings.contains_key(&property_name)
+            || elem.lookup_property(&property_name).property_type
+                == crate::langtype::Type::Invalid
+        {
+            None
         } else {
-            crate::typeregister::RESERVED_TRANSFORM_PROPERTIES
-                .iter()
-                .filter_map(|(prop_name, _)| {
-                    if elem.bindings.contains_key(*prop_name) {
-                        return None;
-                    }
-                    let default_expr =
-                        super::lower_property_to_element::transform_property_default_value(
-                            element, prop_name,
-                        )?;
-                    Some((smol_str::SmolStr::new_static(prop_name), default_expr))
-                })
-                .collect()
+            drop(elem);
+            super::lower_property_to_element::transform_property_default_value(
+                element,
+                &property_name,
+            )
+            .map(|default_expression| (property_name, default_expression))
         }
     };
 
@@ -228,11 +263,12 @@ fn process_element(element: &ElementRc, random_state: &std::hash::RandomState, i
         }
     }
 
-    // Insert synthetic hooks for the transform properties.
-    for (name, default_expr) in transform_candidates {
+    // Insert the transform-rotation hook. Deliberately *non-synthetic*: later passes must see
+    // it as a real binding so the Transform wrapper element is created (see above).
+    if let Some((name, default_expr)) = transform_candidate {
         let id = property_id(element_hash, &name);
         let mut binding_expressions: crate::expression_tree::BindingExpression =
-            Expression::DebugHook { expression: Box::new(default_expr), id, synthetic: true }
+            Expression::DebugHook { expression: Box::new(default_expr), id, synthetic: false }
                 .into();
         binding_expressions.priority = 0;
         use std::collections::btree_map::Entry;
@@ -353,6 +389,49 @@ mod tests {
         assert_ne!(txt.borrow().debug.first().unwrap().element_hash, 0);
     }
 
+    /// The injected `transform-rotation` hook must cause the Transform wrapper element to be
+    /// reified so the property actually exists at runtime, and the hook (carrying the source
+    /// element's hash id) must survive as a non-synthetic binding. A binding left on a property
+    /// that is never materialized would abort the interpreter at instantiation time.
+    #[test]
+    fn transform_rotation_hook_is_reified() {
+        let doc = compile(
+            r#"
+            export component Foo inherits Window {
+                rect := Rectangle { }
+            }
+            "#,
+        );
+        let foo = component(&doc, "Foo");
+        let rect = child(&foo.root_element, "rect");
+        let rect_hash = rect.borrow().debug.first().unwrap().element_hash;
+        let rotation_hook_id =
+            property_id(rect_hash, &smol_str::SmolStr::new_static("transform-rotation"));
+
+        // A Transform wrapper element must have been injected for the rectangle.
+        let transform_element = child(&foo.root_element, "rect-Transform");
+
+        // The rotation hook ends up driving the Transform element (the two-way binding to the
+        // rectangle's materialized property is collapsed by the alias optimizations); it must
+        // be non-synthetic and wrap the 0 default.
+        let binding_holder = transform_element.borrow();
+        let binding_expression = binding_holder
+            .bindings
+            .get("transform-rotation")
+            .expect("the Transform element must bind transform-rotation");
+        match &binding_expression.borrow().expression {
+            Expression::DebugHook { id, synthetic, expression } => {
+                assert_eq!(id, &rotation_hook_id, "hook id must be derived from rect's hash");
+                assert!(!synthetic, "the injected rotation hook must be non-synthetic");
+                assert!(
+                    matches!(**expression, Expression::NumberLiteral(v, _) if v == 0.),
+                    "the rotation hook must wrap the 0deg default"
+                );
+            }
+            other => panic!("transform-rotation must be a DebugHook, got {other:?}"),
+        }
+    }
+
     /// Regression: geometry defaults (width/height) must still be computed even when
     /// debug hooks are active and inject synthetic hooks for unbound geometry properties.
     #[test]
@@ -366,24 +445,37 @@ mod tests {
         );
         let foo = component(&doc, "Foo");
         let img = child(&foo.root_element, "img");
+        let img_hash = img.borrow().debug.first().unwrap().element_hash;
+
+        // The geometry properties are materialized into declarations and the declarations
+        // (with their bindings) are moved to the root by move_declarations — so look the hook
+        // up by its id across the whole component instead of by name on the img element.
+        let find_hook_by_id = |wanted_id: &smol_str::SmolStr| -> Option<Expression> {
+            let mut found = None;
+            object_tree::recurse_elem(&foo.root_element, &(), &mut |elem, &()| {
+                for (_, binding_expression) in elem.borrow().bindings.iter() {
+                    if let Expression::DebugHook { id, .. } = &binding_expression.borrow().expression
+                        && id == wanted_id
+                    {
+                        found = Some(binding_expression.borrow().expression.clone());
+                    }
+                }
+            });
+            found
+        };
 
         for property in ["x", "y", "width", "height"] {
             // The default_geometry pass must have set width and height on the image.
             // If synthetic hooks were treated as real bindings, default_geometry would
             // skip the image, leaving it with no layout binding.  The resulting hook
-            // must therefore be non-synthetic (upgraded from the compiler-computed default).
-            let element = img.borrow();
-            let binding_expression = element
-                .bindings
-                .get(property)
-                .unwrap_or_else(|| panic!("img.{property} must be bound after default_geometry"));
-            // A synthetic hook would mean default_geometry never ran.
-            let expression = &binding_expression.borrow().expression;
-            // There must be a debug hook, but it must not be synthetic, as the pass injects a "real"
-            // binding
+            // must therefore be non-synthetic: either upgraded by default_geometry itself or
+            // by materialize_fake_properties' initialization.
+            let hook_id = property_id(img_hash, &smol_str::SmolStr::new_static(property));
+            let expression = find_hook_by_id(&hook_id)
+                .unwrap_or_else(|| panic!("a debug hook for img.{property} must survive"));
             assert!(
                 matches!(expression, Expression::DebugHook { synthetic: false, .. }),
-                "img.width should not be synthetic after default_geometry, got {expression:?}"
+                "img.{property} hook should not be synthetic after default_geometry, got {expression:?}"
             );
         }
     }

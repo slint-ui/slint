@@ -2477,6 +2477,63 @@ export component Win inherits Window {
     assert!((reverted.size.width - base.size.width).abs() < 0.5, "width should revert");
 }
 
+// Regression test: debug hooks inject bindings for properties the element may not have
+// natively (geometry, transform-rotation). Every injected binding must end up on a property
+// that actually exists at runtime, for every kind of element — otherwise instantiation
+// aborts with "unknown property ... in ...". Exercise the special cases: the root element,
+// plain items, elements that become component roots later (PopupWindow), non-item types
+// (Timer), repeated and conditional elements, layouts, and menus.
+#[cfg(all(test, feature = "internal", feature = "internal-highlight"))]
+#[test]
+fn test_debug_hooks_instantiate_special_elements() {
+    i_slint_backend_testing::init_no_event_loop();
+
+    let code = r#"
+export component Win inherits Window {
+    width: 300px;
+    height: 300px;
+
+    MenuBar {
+        Menu {
+            title: "File";
+            MenuItem { title: "Quit"; }
+        }
+    }
+
+    rect := Rectangle {
+        rotated := Rectangle { transform-rotation: 45deg; }
+        scaled := Rectangle { transform-scale: 150%; }
+        plain := Rectangle { }
+    }
+
+    popup := PopupWindow {
+        Text { text: "popup content"; }
+    }
+    callback show-the-popup();
+    show-the-popup() => { popup.show(); }
+
+    Timer { interval: 1s; running: false; }
+
+    for _ in 3: Rectangle { width: 10px; }
+    if true: Rectangle { height: 5px; }
+
+    VerticalLayout {
+        Rectangle { }
+    }
+}"#;
+
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
+        Some(std::hash::RandomState::new());
+    let result = spin_on::spin_on(compiler.build_from_source(code.into(), Default::default()));
+    assert!(!result.has_errors(), "{:?}", result.diagnostics);
+    let instance = result.components().next().unwrap().create().unwrap();
+
+    // Showing the popup instantiates the popup component (its bindings are only set up then).
+    instance.invoke("show-the-popup", &[]).unwrap();
+}
+
 // Enabling debug_hooks now also materializes hooked default bindings for unbound properties.
 // This must NOT change the rendered result when no override is set: wrapping default-geometry
 // bindings must preserve fill/implicit sizing, and injecting the type-default for unbound props
