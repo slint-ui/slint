@@ -1,14 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore Heade
-
-import { Button, TabWidget, Palette, Switch, ScrollView} from "std-widgets.slint";
+import { Button, TabWidget, Palette, Switch, ScrollView } from "std-widgets.slint";
 import { Api, ComponentItem, DiagnosticSummary, PreviewMode, RemoteConnectionState } from "api.slint";
 
 import { EditorUi } from "./visual-editor/editor.slint";
 import { EditorSizeSettings, EditorSpaceSettings, Icons, PickerStyles, ConsoleStyles } from "./components/styling.slint";
-import { StatusLine } from "./components/status-line.slint";
 import { HeaderView } from "./views/header-view.slint";
 import { LibraryView } from "./views/library-view.slint";
 import { DrawAreaMode, PreviewView } from "./views/preview-view.slint";
@@ -423,7 +420,6 @@ export component PreviewUi inherits Window {
                     height: cp.height;
                 }
 
-                // StatusLine { }
             }
             cp := ConsolePanel {
                 y: parent.height - self.height - 1px;

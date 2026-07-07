@@ -75,25 +75,74 @@ pub fn run(
     #[cfg(target_os = "macos")]
     if let ui::AppWindow::Editor(editor) = app_window.clone_strong() {
         use slint::ComponentHandle;
+        use slint::Global;
         use sparklers::Sparkle;
 
         macos_titlebar::setup(editor.as_weak());
 
-        updater = Sparkle::new().unwrap();
+        updater = Sparkle::new().unwrap().map(Rc::new);
 
         if let Some(updater) = updater.as_ref() {
-            updater.set_nonsync_event_callback(move |event| match event {
-                sparklers::Event::DidFinishUpdateCycle { error: Some(error), .. }
-                | sparklers::Event::FailedToDownloadUpdate { error, .. }
-                | sparklers::Event::DidAbortWithError { error } => eprintln!("ERROR: {error}"),
-
-                _ => println!("Sparkle event: {event:?}"),
+            let api = editor.global::<ui::Api>();
+            let api_weak = <ui::Api as Global<'_, ui::EditorUi>>::as_weak(&api);
+            updater.set_nonsync_event_callback(move |event| {
+                let Some(api) = api_weak.upgrade() else {
+                    return;
+                };
+                match event {
+                    sparklers::Event::DidFindValidUpdate { item } => {
+                        api.set_update_error(Default::default());
+                        api.set_update_version(item.version().into());
+                        api.set_update_state(ui::UpdateState::Available);
+                    }
+                    sparklers::Event::DidNotFindUpdate => {
+                        api.set_update_error(Default::default());
+                        api.set_update_version(Default::default());
+                        api.set_update_state(ui::UpdateState::UpToDate);
+                    }
+                    sparklers::Event::WillDownloadUpdate { .. } => {
+                        api.set_update_error(Default::default());
+                        api.set_update_state(ui::UpdateState::Downloading);
+                    }
+                    sparklers::Event::DidDownloadUpdate { .. } => {
+                        api.set_update_error(Default::default());
+                        api.set_update_download_progress(1.0);
+                        api.set_update_state(ui::UpdateState::ReadyToInstall);
+                    }
+                    sparklers::Event::WillInstallUpdate { .. }
+                    | sparklers::Event::WillInstallUpdateOnQuit { .. } => {
+                        api.set_update_error(Default::default());
+                        api.set_update_state(ui::UpdateState::Installing);
+                    }
+                    sparklers::Event::DidFinishUpdateCycle { error: Some(error), .. }
+                    | sparklers::Event::FailedToDownloadUpdate { error, .. }
+                    | sparklers::Event::DidAbortWithError { error } => {
+                        api.set_update_error(error.message().into());
+                        api.set_update_state(ui::UpdateState::Error);
+                    }
+                    _ => tracing::debug!("Sparkle event: {event:?}"),
+                }
             });
 
-            // TODO: These calls can't return `Err`, the API needs to be changed
-            // Errors are reported using the callback.
-            updater.set_automatically_checks_for_updates(true);
-            updater.check_for_updates_in_background();
+            let api = editor.global::<ui::Api>();
+            let sparkle = updater.clone();
+            api.on_check_for_update(move || {
+                sparkle.check_for_update_information();
+            });
+            api.on_download_update(|| {
+                tracing::warn!(
+                    "Ignoring download-update request: custom Sparkle downloads are not wired yet"
+                );
+            });
+            api.on_install_update(|| {
+                tracing::warn!(
+                    "Ignoring install-update request: custom Sparkle installs are not wired yet"
+                );
+            });
+
+            updater.set_automatically_checks_for_updates(false);
+            updater.set_automatically_downloads_updates(false);
+            updater.check_for_update_information();
         }
     }
 
