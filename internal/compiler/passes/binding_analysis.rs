@@ -48,6 +48,7 @@ impl DefaultFontSize {
 pub struct GlobalAnalysis {
     pub default_font_size: DefaultFontSize,
     pub const_scale_factor: Option<f32>,
+    pub const_image_sizes: bool,
 }
 
 /// Maps the alias in the other direction than what the BindingExpression::two_way_binding does.
@@ -62,6 +63,7 @@ pub fn binding_analysis(
 ) -> GlobalAnalysis {
     let mut global_analysis = GlobalAnalysis {
         const_scale_factor: compiler_config.const_scale_factor,
+        const_image_sizes: compiler_config.const_image_sizes,
         ..Default::default()
     };
     let mut reverse_aliases = Default::default();

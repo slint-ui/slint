@@ -405,14 +405,10 @@ impl BuiltinFunction {
             | BuiltinFunction::ColorTransparentize
             | BuiltinFunction::ColorMix
             | BuiltinFunction::ColorWithAlpha => true,
-            // ImageSize is pure, except when loading images via the network. Then the initial size will be 0/0 and
-            // we need to make sure that calls to this function stay within a binding, so that the property
-            // notification when updating kicks in. Only SlintPad (wasm-interpreter) loads images via the network,
-            // which is when this code is targeting wasm.
-            #[cfg(not(target_arch = "wasm32"))]
-            BuiltinFunction::ImageSize => true,
-            #[cfg(target_arch = "wasm32")]
-            BuiltinFunction::ImageSize => false,
+            // On the web, the browser loads images asynchronously, so the size is initially 0/0
+            // and updates once the image is loaded. Calls to this function must stay within a
+            // binding so that the property notification kicks in when the code may run on the web.
+            BuiltinFunction::ImageSize => global_analysis.is_some_and(|x| x.const_image_sizes),
             BuiltinFunction::ArrayLength => true,
             BuiltinFunction::ArrayPush
             | BuiltinFunction::ArrayRemove
