@@ -76,9 +76,7 @@ pub fn lower_expression(
         }
         tree_Expression::Uncompiled(_) => panic!(),
         tree_Expression::StringLiteral(s) => llr_Expression::StringLiteral(s.clone()),
-        tree_Expression::NumberLiteral(n, unit) => {
-            llr_Expression::NumberLiteral(unit.normalize(*n))
-        }
+        tree_Expression::NumberLiteral(n, _unit) => llr_Expression::NumberLiteral(*n),
         tree_Expression::BoolLiteral(b) => llr_Expression::BoolLiteral(*b),
         tree_Expression::PropertyReference(nr) => {
             llr_Expression::PropertyReference(ctx.map_property_reference(nr))

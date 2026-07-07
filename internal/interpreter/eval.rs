@@ -202,7 +202,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::Invalid => panic!("invalid expression while evaluating"),
         Expression::Uncompiled(_) => panic!("uncompiled expression while evaluating"),
         Expression::StringLiteral(s) => Value::String(s.as_str().into()),
-        Expression::NumberLiteral(n, unit) => Value::Number(unit.normalize(*n)),
+        Expression::NumberLiteral(n, _unit) => Value::Number(*n),
         Expression::BoolLiteral(b) => Value::Bool(*b),
         Expression::ElementReference(_) => todo!(
             "Element references are only supported in the context of built-in function calls at the moment"

@@ -572,14 +572,24 @@ pub fn operator_class(op: char) -> OperatorClass {
 }
 
 macro_rules! declare_units {
-    ($( $(#[$m:meta])* $ident:ident = $string:literal -> $ty:ident $(* $factor:expr)? ,)*) => {
-        /// The units that can be used after numbers in the language
+    // A unit written without a conversion is already its type's canonical unit.
+    (@normalize $value:ident, $ident:ident) => { ($value, Unit::$ident) };
+    // Otherwise scale by the factor and switch to the named canonical unit.
+    (@normalize $value:ident, $ident:ident, $canon:ident, $factor:expr) => {
+        ($value * ($factor as f64), Unit::$canon)
+    };
+    ($( $(#[$m:meta])* $ident:ident = $string:literal $(-> $canon:ident * $factor:expr)? ,)*) => {
+        /// A unit as written after a number in the source (`px`, `cm`, `grad`, ...).
+        ///
+        /// These are all the units a user can type. A literal is normalized to the
+        /// canonical [`Unit`] of its type the moment it enters the expression tree, so
+        /// only the parser and tooling ever handle a `WrittenUnit`.
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, strum::EnumIter)]
-        pub enum Unit {
+        pub enum WrittenUnit {
             $($(#[$m])* $ident,)*
         }
 
-        impl std::fmt::Display for Unit {
+        impl std::fmt::Display for WrittenUnit {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match self {
                     $(Self::$ident => write!(f, $string), )*
@@ -587,7 +597,7 @@ macro_rules! declare_units {
             }
         }
 
-        impl std::str::FromStr for Unit {
+        impl std::str::FromStr for WrittenUnit {
             type Err = ();
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 match s {
@@ -597,69 +607,110 @@ macro_rules! declare_units {
             }
         }
 
-        impl Unit {
-            pub fn ty(self) -> Type {
+        impl WrittenUnit {
+            /// Scale `value`, written in this surface unit, to the value and canonical
+            /// [`Unit`] a `NumberLiteral` stores. The scale and the unit come out
+            /// together so they can't drift apart.
+            pub fn normalize(self, value: f64) -> (f64, Unit) {
                 match self {
-                    $(Self::$ident => Type::$ty, )*
+                    $(Self::$ident => declare_units!(@normalize value, $ident $(, $canon, $factor)?), )*
                 }
             }
-
-            pub fn normalize(self, x: f64) -> f64 {
-                match self {
-                    $(Self::$ident => x $(* $factor as f64)?, )*
-                }
-            }
-
         }
     };
 }
 
 declare_units! {
     /// No unit was given
-    None = "" -> Float32,
+    None = "",
     /// Percent value
-    Percent = "%" -> Percent,
+    Percent = "%",
 
     // Lengths or Coord
 
     /// Physical pixels
-    Phx = "phx" -> PhysicalLength,
+    Phx = "phx",
     /// Logical pixels
-    Px = "px" -> LogicalLength,
+    Px = "px",
     /// Centimeters
-    Cm = "cm" -> LogicalLength * 37.8,
+    Cm = "cm" -> Px * 37.8,
     /// Millimeters
-    Mm = "mm" -> LogicalLength * 3.78,
+    Mm = "mm" -> Px * 3.78,
     /// inches
-    In = "in" -> LogicalLength * 96,
+    In = "in" -> Px * 96,
     /// Points
-    Pt = "pt" -> LogicalLength * 96./72.,
+    Pt = "pt" -> Px * 96./72.,
     /// Logical pixels multiplied with the window's default-font-size
-    Rem = "rem" -> Rem,
+    Rem = "rem",
 
     // durations
 
     /// Seconds
-    S = "s" -> Duration * 1000,
+    S = "s" -> Ms * 1000,
     /// Milliseconds
-    Ms = "ms" -> Duration,
+    Ms = "ms",
 
     // angles
 
     /// Degree
-    Deg = "deg" -> Angle,
+    Deg = "deg",
     /// Gradians
-    Grad = "grad" -> Angle * 360./180.,
+    Grad = "grad" -> Deg * 360./180.,
     /// Turns
-    Turn = "turn" -> Angle * 360.,
+    Turn = "turn" -> Deg * 360.,
     /// Radians
-    Rad = "rad" -> Angle * 360./std::f32::consts::TAU,
+    Rad = "rad" -> Deg * 360./std::f32::consts::TAU,
 }
 
-#[allow(clippy::derivable_impls)] // more readable this way
-impl Default for Unit {
-    fn default() -> Self {
-        Self::None
+/// The unit a [`Expression::NumberLiteral`] carries: always the canonical unit of
+/// its type, so the stored value is already scaled and needs no further
+/// conversion. The units a user can type (`cm`, `pt`, `grad`, ...) are
+/// [`WrittenUnit`] and are normalized to one of these on the way in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
+pub enum Unit {
+    /// Dimension-less (`float`, `int`)
+    #[default]
+    None,
+    /// Percent
+    Percent,
+    /// Physical pixels
+    Phx,
+    /// Logical pixels
+    Px,
+    /// Logical pixels multiplied with the window's default-font-size
+    Rem,
+    /// Milliseconds
+    Ms,
+    /// Degrees
+    Deg,
+}
+
+impl Unit {
+    pub fn ty(self) -> Type {
+        match self {
+            Unit::None => Type::Float32,
+            Unit::Percent => Type::Percent,
+            Unit::Px => Type::LogicalLength,
+            Unit::Phx => Type::PhysicalLength,
+            Unit::Rem => Type::Rem,
+            Unit::Ms => Type::Duration,
+            Unit::Deg => Type::Angle,
+        }
+    }
+}
+
+impl std::fmt::Display for Unit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Unit::None => "",
+            Unit::Percent => "%",
+            Unit::Px => "px",
+            Unit::Phx => "phx",
+            Unit::Rem => "rem",
+            Unit::Ms => "ms",
+            Unit::Deg => "deg",
+        };
+        write!(f, "{s}")
     }
 }
 
