@@ -136,6 +136,23 @@ impl ImageCache {
             ImageInner::load_from_data_with_cache_key(cache_key, data, format)
         })
     }
+
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) fn load_image_from_data_uri(
+        &mut self,
+        uri: &str,
+        data: &[u8],
+        format: &str,
+    ) -> Option<Image> {
+        let cache_key = ImageCacheKey::URL(uri.into());
+        self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
+            ImageInner::load_from_data_with_cache_key(
+                cache_key,
+                data.into(),
+                format.as_bytes().into(),
+            )
+        })
+    }
 }
 
 /// Replace the cached image key with the given value
