@@ -44,6 +44,45 @@ pub fn property_id(element_id: u64, name: &smol_str::SmolStr) -> smol_str::SmolS
     smol_str::format_smolstr!("?{element_id}-{name}")
 }
 
+/// Guard rail, run near the end of the passes when debug hooks are enabled: every synthetic
+/// hook that survived must sit on a property that actually exists at runtime (native,
+/// declared, or materialized). An orphan would make the interpreter abort at instantiation
+/// with "unknown property ..." — catch it at compile time with a source location instead.
+///
+/// A property still needing materialization at this point (`should_materialize` returns
+/// `Some`) is exactly such an orphan.
+pub fn validate_no_orphan_synthetic_hooks(component: &std::rc::Rc<object_tree::Component>) {
+    if !cfg!(debug_assertions) {
+        return;
+    }
+    object_tree::recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, &()| {
+        let elem = elem.borrow();
+        for (name, binding_expression) in elem.bindings.iter() {
+            if !binding_expression.borrow().expression.is_synthetic_debug_hook() {
+                continue;
+            }
+            if super::materialize_fake_properties::should_materialize(
+                &elem.property_declarations,
+                &elem.base_type,
+                name,
+            )
+            .is_some()
+            {
+                panic!(
+                    "Orphan synthetic debug hook: property '{name}' on element '{}' ({}) does \
+                     not exist at runtime — a pass inserted or kept a synthetic hook for a \
+                     property that is neither native, declared, nor materialized",
+                    elem.id,
+                    elem.debug
+                        .first()
+                        .map(|d| format!("{:?}", d.node.source_file.path()))
+                        .unwrap_or_default(),
+                );
+            }
+        }
+    });
+}
+
 fn calculate_element_hash(
     elem: &object_tree::Element,
     random_state: &std::hash::RandomState,
@@ -69,10 +108,17 @@ fn process_element(element: &ElementRc, random_state: &std::hash::RandomState, i
     let e = element.borrow();
     // Before repeater_component::process_repeater_components runs, a repeated element still
     // holds its content as children — recurse_elem will visit them naturally.
-    // Skip:
-    // * @children placeholder (generator skips these too)
-    // * non-inlined sub-component instances (base_type = Component)
-    if e.is_component_placeholder || e.sub_component().is_some() {
+    //
+    // Component-instance elements (base_type = Component, e.g. `sub := Sub { ... }`) are
+    // processed like any other element: their explicit instance bindings are wrapped and
+    // their unbound properties get synthetic hooks. The definition's own defaults are NOT
+    // consulted here — when the component is inlined, `BindingExpression::merge_with`
+    // upgrades a synthetic hook in place with the definition's real binding, so the
+    // property stays live-editable per instance (under the instance element's hook id)
+    // at its correct default value.
+    //
+    // Skip only the @children placeholder (the generator skips these too).
+    if e.is_component_placeholder {
         return;
     }
     if e.debug.is_empty() {
@@ -95,6 +141,12 @@ fn process_element(element: &ElementRc, random_state: &std::hash::RandomState, i
     {
         let elem = element.borrow();
         elem.bindings.iter().for_each(|(name, be)| {
+            // Only hook properties — callback handlers and functions also live in
+            // `bindings`, but hook ids are a property-only namespace and overriding a code
+            // block with a value makes no sense.
+            if !elem.lookup_property(name).property_type.is_property_type() {
+                return;
+            }
             let expr = std::mem::take(&mut be.borrow_mut().expression);
             be.borrow_mut().expression = {
                 let stripped = super::ignore_debug_hooks(&expr);
@@ -163,10 +215,10 @@ fn process_element(element: &ElementRc, random_state: &std::hash::RandomState, i
     // property-to-element lowerings, and their geometry is managed specially (runtime-managed
     // for windows, set after inlining otherwise) — treat them all like the component root below.
     // A `PopupWindow` is still an ordinary child element at this point, but the lower_popups
-    // pass later turns it into the root of its own component.
+    // pass later turns it into the root of its own component. `builtin_type()` walks through
+    // component bases, so instances of `component MyPopup inherits PopupWindow` are covered.
     let becomes_root = is_root
-        || matches!(&element.borrow().base_type,
-            crate::langtype::ElementType::Builtin(b) if b.name == "PopupWindow");
+        || element.borrow().builtin_type().is_some_and(|b| b.name == "PopupWindow");
 
     // Reserved geometry properties (x, y, width, height) — these are not in property_list()
     // because they are injected globally by the type system, not per builtin element.
@@ -389,6 +441,154 @@ mod tests {
         assert_ne!(txt.borrow().debug.first().unwrap().element_hash, 0);
     }
 
+    /// Component-instance elements are hooked too. The synthetic hooks injected on the
+    /// instance for the component's unbound properties must be upgraded with the definition's
+    /// real default bindings when the component is inlined (`merge_with`) — NOT clobber them.
+    /// Regression: repeated instances used to lose `tint: blue` / `background: tint` and
+    /// render transparent.
+    #[test]
+    fn instance_defaults_upgraded_into_hooks() {
+        let doc = compile(
+            r#"
+            component Item inherits Rectangle {
+                in property <color> tint: blue;
+                background: tint;
+            }
+            export component Win inherits Window {
+                width: 100px; height: 100px;
+                plain := Item { }
+                for _idx in 2: Item { }
+            }
+            "#,
+        );
+        let win = component(&doc, "Win");
+
+        let assert_background_preserved = |element: &ElementRc, what: &str| {
+            let borrowed = element.borrow();
+            let binding_expression = borrowed
+                .bindings
+                .get("background")
+                .unwrap_or_else(|| panic!("{what}: background must be bound"));
+            let expression = binding_expression.borrow().expression.clone();
+            let Expression::DebugHook { expression: inner, id, synthetic } = expression else {
+                panic!("{what}: background must be a DebugHook, got {expression:?}");
+            };
+            assert!(!synthetic, "{what}: hook must be upgraded with the definition's binding");
+            // The definition's `background: tint` must survive as the hook's inner expression
+            // (a reference to the — possibly moved/renamed — tint property, not the
+            // transparent type default).
+            let mut references_tint = false;
+            inner.visit_recursive(&mut |expression| {
+                if let Expression::PropertyReference(named_reference) = expression
+                    && named_reference.name().ends_with("tint")
+                {
+                    references_tint = true;
+                }
+            });
+            assert!(references_tint, "{what}: background must still reference tint, got {inner:?}");
+            // The hook id must belong to one of the merged source elements (the instance
+            // element's hash — hooks were injected before inlining).
+            assert!(
+                borrowed
+                    .debug
+                    .iter()
+                    .any(|d| property_id(d.element_hash, &smol_str::SmolStr::new_static("background")) == id),
+                "{what}: hook id {id} must match a merged element hash"
+            );
+        };
+
+        // Non-repeated instance: `plain` is the merged element after inlining.
+        let plain = child(&win.root_element, "plain");
+        assert_background_preserved(&plain, "plain instance");
+
+        // Repeated instance: the repeated element's base is the generated repeater component;
+        // the merged instance element is inside it.
+        let repeated = win
+            .root_element
+            .borrow()
+            .children
+            .iter()
+            .find(|c| c.borrow().repeated.is_some())
+            .expect("repeated element")
+            .clone();
+        let repeated_base = repeated.borrow().base_type.as_component().clone();
+        let mut found = None;
+        object_tree::recurse_elem(&repeated_base.root_element, &(), &mut |elem, &()| {
+            if elem.borrow().bindings.contains_key("background") {
+                found = Some(elem.clone());
+            }
+        });
+        let repeated_item = found.expect("repeated Item element with background binding");
+        assert_background_preserved(&repeated_item, "repeated instance");
+    }
+
+    /// Direct unit tests for the synthetic-hook rules in `BindingExpression::merge_with`
+    /// (used by inlining to merge a definition's bindings into an instance element).
+    #[test]
+    fn merge_with_synthetic_hook_rules() {
+        use crate::expression_tree::BindingExpression;
+
+        let synthetic_hook = || -> BindingExpression {
+            Expression::DebugHook {
+                expression: Box::new(Expression::NumberLiteral(0., Default::default())),
+                id: "?42-prop".into(),
+                synthetic: true,
+            }
+            .into()
+        };
+        let real_binding = |value: f64| -> BindingExpression {
+            let mut binding: BindingExpression =
+                Expression::NumberLiteral(value, Default::default()).into();
+            binding.priority = 3;
+            binding
+        };
+
+        // Synthetic hook + real binding: upgraded in place, wrapper and id survive.
+        let mut binding = synthetic_hook();
+        assert!(binding.merge_with(&real_binding(7.)), "the other expression must be taken");
+        match &binding.expression {
+            Expression::DebugHook { expression, id, synthetic } => {
+                assert!(!synthetic, "upgraded hook must no longer be synthetic");
+                assert_eq!(id, "?42-prop", "the hook id must survive the merge");
+                assert!(
+                    matches!(**expression, Expression::NumberLiteral(v, _) if v == 7.),
+                    "the definition's expression must be taken"
+                );
+            }
+            other => panic!("expected an upgraded DebugHook, got {other:?}"),
+        }
+        assert_eq!(binding.priority, 3, "the other side's priority must be taken");
+
+        // Synthetic hook + synthetic hook: unchanged, still synthetic ("no binding").
+        let mut binding = synthetic_hook();
+        assert!(!binding.merge_with(&synthetic_hook()));
+        assert!(binding.expression.is_synthetic_debug_hook());
+
+        // Synthetic hook + two-way-only binding: the hook is dropped — its default must not
+        // become the two-way's initial value.
+        let mut binding = synthetic_hook();
+        let mut two_way: BindingExpression = Expression::Invalid.into();
+        two_way.two_way_bindings.push(crate::expression_tree::TwoWayBinding::ModelData {
+            repeated_element: std::rc::Weak::default(),
+            field_access: Default::default(),
+        });
+        assert!(binding.merge_with(&two_way));
+        assert!(matches!(binding.expression, Expression::Invalid));
+        assert_eq!(binding.two_way_bindings.len(), 1);
+
+        // Real (non-synthetic hook) binding keeps priority over anything.
+        let mut binding: BindingExpression = Expression::DebugHook {
+            expression: Box::new(Expression::NumberLiteral(1., Default::default())),
+            id: "?42-prop".into(),
+            synthetic: false,
+        }
+        .into();
+        assert!(!binding.merge_with(&real_binding(9.)));
+        assert!(
+            matches!(binding.expression.ignore_debug_hooks(), Expression::NumberLiteral(v, _) if *v == 1.)
+        );
+    }
+
     /// The injected `transform-rotation` hook must cause the Transform wrapper element to be
     /// reified so the property actually exists at runtime, and the hook (carrying the source
     /// element's hash id) must survive as a non-synthetic binding. A binding left on a property
@@ -480,3 +680,4 @@ mod tests {
         }
     }
 }
+

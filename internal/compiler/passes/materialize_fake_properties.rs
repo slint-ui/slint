@@ -124,7 +124,7 @@ fn must_initialize(elem: &Element, prop: &str) -> bool {
 }
 
 /// Returns a type if the property needs to be materialized.
-fn should_materialize(
+pub(crate) fn should_materialize(
     property_declarations: &BTreeMap<SmolStr, PropertyDeclaration>,
     base_type: &ElementType,
     prop: &str,

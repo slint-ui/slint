@@ -2446,12 +2446,11 @@ impl Element {
     /// If `need_explicit` is true, then only consider binding set in the code, not the ones set
     /// by the compiler later.
     ///
-    /// Synthetic debug hooks (materialized for unbound properties) are never considered set.
+    /// Synthetic debug hooks (materialized for unbound properties) are never considered set
+    /// (`has_binding` treats them as "no expression").
     pub fn is_binding_set(self: &Element, property_name: &str, need_explicit: bool) -> bool {
         if self.bindings.get(property_name).is_some_and(|b| {
-            b.borrow().has_binding()
-                && !b.borrow().expression.is_synthetic_debug_hook()
-                && (!need_explicit || b.borrow().priority > 0)
+            b.borrow().has_binding() && (!need_explicit || b.borrow().priority > 0)
         }) {
             true
         } else if let ElementType::Component(base) = &self.base_type {
@@ -2474,6 +2473,30 @@ impl Element {
                 .get(property_name)
                 .is_some_and(|a| a.is_set || a.is_linked)
             || matches!(&self.base_type, ElementType::Component(base) if base.root_element.borrow().is_property_set(property_name))
+    }
+
+    /// The binding for `property_name`, if one exists and is not a synthetic debug hook.
+    ///
+    /// This is the hook-aware replacement for `self.bindings.get(..)`: a synthetic debug hook
+    /// is a materialized placeholder for an *unbound* property and must read as "no binding".
+    /// Use this instead of the raw map whenever the question is "did anything bind this
+    /// property" or "what is this property's binding".
+    pub fn binding(&self, property_name: &str) -> Option<&RefCell<BindingExpression>> {
+        self.bindings
+            .get(property_name)
+            .filter(|binding| !binding.borrow().expression.is_synthetic_debug_hook())
+    }
+
+    /// Iterate over the bindings that are not synthetic debug hooks.
+    ///
+    /// The hook-aware replacement for iterating `self.bindings` directly when enumerating the
+    /// properties that are actually set on this element.
+    pub fn real_bindings(
+        &self,
+    ) -> impl Iterator<Item = (&SmolStr, &RefCell<BindingExpression>)> {
+        self.bindings
+            .iter()
+            .filter(|(_, binding)| !binding.borrow().expression.is_synthetic_debug_hook())
     }
 
     /// Set the property `property_name` of this Element only if it was not set.
