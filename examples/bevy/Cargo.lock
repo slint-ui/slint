@@ -615,7 +615,7 @@ dependencies = [
 
 [[package]]
 name = "bevy-example"
-version = "1.17.1"
+version = "1.18.0"
 dependencies = [
  "async-compat",
  "bevy",
@@ -628,7 +628,7 @@ dependencies = [
 
 [[package]]
 name = "bevy-hosts-slint"
-version = "1.17.1"
+version = "1.18.0"
 dependencies = [
  "bevy",
  "bevy_image",
@@ -638,7 +638,7 @@ dependencies = [
 
 [[package]]
 name = "bevy-hosts-slint-gpu"
-version = "1.17.1"
+version = "1.18.0"
 dependencies = [
  "bevy",
  "bevy_image",
@@ -2677,27 +2677,27 @@ checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 
 [[package]]
 name = "crossbeam-channel"
-version = "0.5.15"
+version = "0.5.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82b8f8f868b36967f9606790d1903570de9ceaf870a7bf9fbbd3016d636a2cb2"
+checksum = "d85363c37faeca707aef026efa9f3b34d077bce547e48f770770625c6013679e"
 dependencies = [
  "crossbeam-utils",
 ]
 
 [[package]]
 name = "crossbeam-queue"
-version = "0.3.12"
+version = "0.3.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f58bbc28f91df819d0aa2a2c00cd19754769c2fad90579b3592b1c9ba7a3115"
+checksum = "803d13fb3b09d88be9f4dbc29062c66b19bf7170867ceb746d2a8689bf6c7a26"
 dependencies = [
  "crossbeam-utils",
 ]
 
 [[package]]
 name = "crossbeam-utils"
-version = "0.8.21"
+version = "0.8.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
+checksum = "61803da095bee82a81bb1a452ecc25d3b2f1416d1897eb86430c6159ef717c17"
 
 [[package]]
 name = "crunchy"
@@ -3945,7 +3945,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-android-activity"
-version = "1.17.1"
+version = "1.18.0"
 dependencies = [
  "android-build",
  "i-slint-common",
@@ -3957,7 +3957,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-linuxkms"
-version = "1.17.1"
+version = "1.18.0"
 dependencies = [
  "bytemuck",
  "calloop 0.14.4",
@@ -3979,7 +3979,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-selector"
-version = "1.17.1"
+version = "1.18.0"
 dependencies = [
  "cfg-if",
  "cfg_aliases",
@@ -3995,7 +3995,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-testing"
-version = "1.17.1"
+version = "1.18.0"
 dependencies = [
  "cfg_aliases",
  "i-slint-common",
@@ -4007,7 +4007,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-backend-winit"
-version = "1.17.1"
+version = "1.18.0"
 dependencies = [
  "accesskit",
  "accesskit_winit 0.33.1",
@@ -4052,7 +4052,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-common"
-version = "1.17.1"
+version = "1.18.0"
 dependencies = [
  "derive_more",
  "fontique 0.11.0",
@@ -4067,7 +4067,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-compiler"
-version = "1.17.1"
+version = "1.18.0"
 dependencies = [
  "annotate-snippets",
  "by_address",
@@ -4092,7 +4092,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-core"
-version = "1.17.1"
+version = "1.18.0"
 dependencies = [
  "async-channel",
  "auto_enums",
@@ -4144,7 +4144,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-core-macros"
-version = "1.17.1"
+version = "1.18.0"
 dependencies = [
  "quote",
  "serde_json",
@@ -4153,7 +4153,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-femtovg"
-version = "1.17.1"
+version = "1.18.0"
 dependencies = [
  "cfg-if",
  "const-field-offset",
@@ -4174,7 +4174,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-skia"
-version = "1.17.1"
+version = "1.18.0"
 dependencies = [
  "ash",
  "bytemuck",
@@ -4213,7 +4213,7 @@ dependencies = [
 
 [[package]]
 name = "i-slint-renderer-software"
-version = "1.17.1"
+version = "1.18.0"
 dependencies = [
  "bytemuck",
  "clru",
@@ -4500,9 +4500,9 @@ checksum = "a257582fdcde896fd96463bf2d40eefea0580021c0712a0e2b028b60b47a837a"
 
 [[package]]
 name = "inotify"
-version = "0.11.2"
+version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "533e68a5842e734946fe159fb03fc9bbbb254f590dd0d8ad321ae5ff7beca2c1"
+checksum = "dd854a95a4ac672fed8c054136039fd32c22cf039ff09ead7280afe920486483"
 dependencies = [
  "bitflags 2.13.0",
  "inotify-sys",
@@ -6605,9 +6605,9 @@ dependencies = [
 
 [[package]]
 name = "rustversion"
-version = "1.0.22"
+version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
+checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
 name = "rustybuzz"
@@ -6907,7 +6907,7 @@ checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
 
 [[package]]
 name = "slint"
-version = "1.17.1"
+version = "1.18.0"
 dependencies = [
  "const-field-offset",
  "i-slint-backend-android-activity",
@@ -6929,7 +6929,7 @@ dependencies = [
 
 [[package]]
 name = "slint-macros"
-version = "1.17.1"
+version = "1.18.0"
 dependencies = [
  "i-slint-compiler",
  "proc-macro2",
@@ -9137,18 +9137,18 @@ checksum = "6df3dc4292935e51816d896edcd52aa30bc297907c26167fec31e2b0c6a32524"
 
 [[package]]
 name = "zerocopy"
-version = "0.8.52"
+version = "0.8.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce1022995ff5ff5d841ad7d994facc23098cd40152f2c1d11cd607c6f530653f"
+checksum = "75726053136156d419e285b9b7eddaaea9e3fea6ce32eed44a89901f0bd98de1"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.52"
+version = "0.8.53"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ae7f38b72ec2a254e2b87ef277cf2cd4fb97cbebf944faa6f33354da0867930"
+checksum = "4714fd92cf900833d49538023a9b3915155210801d1c1169eba513b2addefd71"
 dependencies = [
  "proc-macro2",
  "quote",

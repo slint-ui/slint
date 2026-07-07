@@ -237,7 +237,7 @@ backend-android-activity-05 = [
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.17", features = ["unstable-wgpu-28"] }
+## slint = { version = "~1.18", features = ["unstable-wgpu-28"] }
 ## ```
 unstable-wgpu-28 = [
   "i-slint-core/unstable-wgpu-28",
@@ -256,7 +256,7 @@ unstable-wgpu-28 = [
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.17", features = ["unstable-wgpu-29"] }
+## slint = { version = "~1.18", features = ["unstable-wgpu-29"] }
 ## ```
 unstable-wgpu-29 = [
   "i-slint-core/unstable-wgpu-29",
@@ -273,7 +273,7 @@ unstable-wgpu-29 = [
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.17", features = ["unstable-winit-030"] }
+## slint = { version = "~1.18", features = ["unstable-winit-030"] }
 ## ```
 unstable-winit-030 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-backend-selector/unstable-winit-030"]
 
@@ -287,7 +287,7 @@ unstable-winit-030 = ["backend-winit", "dep:i-slint-backend-winit", "i-slint-bac
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.17", features = ["unstable-libinput-09"] }
+## slint = { version = "~1.18", features = ["unstable-libinput-09"] }
 ## ```
 unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 
@@ -300,7 +300,7 @@ unstable-libinput-09 = ["i-slint-backend-selector/unstable-libinput-09"]
 ## in your `Cargo.toml` when enabling this feature:
 ##
 ## ```toml
-## slint = { version = "~1.17", features = ["unstable-fontique-011"] }
+## slint = { version = "~1.18", features = ["unstable-fontique-011"] }
 ## ```
 unstable-fontique-011 = ["i-slint-common/shared-fontique"]
 
