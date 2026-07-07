@@ -4249,12 +4249,15 @@ impl std::fmt::Display for crate::expression_tree::ImageReference {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             crate::expression_tree::ImageReference::None => write!(f, r#"slint::Image()"#),
-            resource_ref @ (crate::expression_tree::ImageReference::Path(_)
-            | crate::expression_tree::ImageReference::Url(_)) => write!(
+            resource_ref @ crate::expression_tree::ImageReference::Path(_) => write!(
                 f,
                 r#"slint::Image::load_from_path(slint::SharedString(u8"{}"))"#,
                 escape_string(resource_ref.source().unwrap())
             ),
+            crate::expression_tree::ImageReference::Url(_) => {
+                // Loading images from URLs only work on the web, which we don't support in C++.
+                write!(f, r#"slint::Image()"#)
+            }
             crate::expression_tree::ImageReference::DataUri(_) => {
                 unreachable!("data: URIs are embedded before code generation")
             }
