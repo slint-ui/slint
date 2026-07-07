@@ -151,7 +151,7 @@ slint-cpp = { version = "=1.17.1", path = "api/cpp", default-features = false }
 slint-interpreter = { version = "=1.17.1", path = "internal/interpreter", default-features = false }
 slint-macros = { version = "=1.17.1", path = "api/rs/macros", default-features = false }
 
-vtable = { version = "0.4", path = "helper_crates/vtable" }
+vtable = { version = "0.5", path = "helper_crates/vtable" }
 
 by_address = { version = "1.0.4" }
 bytemuck = { version = "1.13.1" }
