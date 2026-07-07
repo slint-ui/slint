@@ -1921,8 +1921,7 @@ impl Element {
             if se.kind() != SyntaxKind::SlotForwarding {
                 continue;
             }
-            if !diag.enable_experimental {
-                diag.push_error("'slot forwarding' is an experimental feature".into(), &se);
+            if !Self::assert_experimental_slots(diag, &se, "slot forwarding") {
                 continue;
             }
 
@@ -2124,16 +2123,13 @@ impl Element {
                     );
                 }
             } else if se.kind() == SyntaxKind::SlotDeclaration {
-                if !diag.enable_experimental {
-                    diag.push_error("'named slots' is an experimental feature".into(), &se);
-                }
+                Self::assert_experimental_slots(diag, &se, "named slots");
                 let decl: syntax_nodes::SlotDeclaration = se.into();
                 let name_ident = decl.DeclaredIdentifier();
                 let name = parser::identifier_text(&name_ident).unwrap_or_default();
                 declared_slots.push(DeclaredSlot { name, name_ident: name_ident.into() });
             } else if se.kind() == SyntaxKind::SlotAssignment {
-                if !diag.enable_experimental {
-                    diag.push_error("'named slots' is an experimental feature".into(), &se);
+                if !Self::assert_experimental_slots(diag, &se, "named slots") {
                     continue;
                 }
                 let name = parser::identifier_text(
@@ -2290,6 +2286,18 @@ impl Element {
         )
     }
 
+    fn assert_experimental_slots(
+        diagnostics: &mut BuildDiagnostics,
+        node: &SyntaxNode,
+        what: &str,
+    ) -> bool {
+        if diagnostics.enable_experimental {
+            return true;
+        }
+        diagnostics.push_error(format!("'{what}' is an experimental feature"), node);
+        false
+    }
+
     fn sub_element_slot_placeholder_name(
         node: &SyntaxNode,
         declared_slots: &[DeclaredSlot],
@@ -2316,9 +2324,7 @@ impl Element {
         component_child_insertion_points: &mut BTreeMap<String, ChildrenInsertionPoint>,
         diagnostics: &mut BuildDiagnostics,
     ) {
-        if !diagnostics.enable_experimental {
-            diagnostics.push_error("'named slots' is an experimental feature".into(), node);
-        }
+        Self::assert_experimental_slots(diagnostics, node, "named slots");
         if let Some(existing) = component_child_insertion_points.get(slot_name.as_str()) {
             if existing.node.kind() == SyntaxKind::Expression {
                 diagnostics.push_error(
