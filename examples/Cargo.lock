@@ -7191,6 +7191,7 @@ dependencies = [
  "i-slint-core-macros",
  "icu_normalizer 2.2.0",
  "image",
+ "js-sys",
  "ksni",
  "lyon_algorithms",
  "lyon_extra",

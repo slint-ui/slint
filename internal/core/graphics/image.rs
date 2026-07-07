@@ -14,7 +14,7 @@ use crate::{SharedString, SharedVector};
 use super::{IntRect, IntSize};
 use crate::items::{ImageFit, ImageHorizontalAlignment, ImageTiling, ImageVerticalAlignment};
 
-#[cfg(feature = "image-decoders")]
+#[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
 pub mod cache;
 #[cfg(target_arch = "wasm32")]
 mod htmlimage;
@@ -296,7 +296,7 @@ pub struct CachedPath {
     last_modified: u32,
 }
 
-#[cfg(all(feature = "std", not(target_arch = "wasm32")))]
+#[cfg(all(feature = "image-decoders", not(target_arch = "wasm32")))]
 impl CachedPath {
     fn new<P: AsRef<std::path::Path>>(path: P) -> Self {
         let path_str = path.as_ref().to_string_lossy().as_ref().into();
@@ -565,7 +565,7 @@ impl ImageInner {
     /// which could lead to bad behavior. This constructor should be called from within
     /// `ImageCache::lookup_image_in_cache_or_create`, or `ImageCacheKey::Invalid` should be
     /// supplied.
-    #[cfg(feature = "image-decoders")]
+    #[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
     pub(crate) fn load_from_data_with_cache_key(
         cache_key: ImageCacheKey,
         data: Slice<'_, u8>,
@@ -801,7 +801,7 @@ impl std::error::Error for LoadImageError {}
 pub struct Image(pub(crate) ImageInner);
 
 impl Image {
-    #[cfg(feature = "image-decoders")]
+    #[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
     /// Load an Image from a path to a file containing an image.
     ///
     /// Supported formats are SVG, PNG and JPEG.
@@ -999,7 +999,7 @@ impl Image {
     /// Creates a new Image from the specified buffer, which contains SVG raw data.
     ///
     /// On the web, the browser renders the SVG, and compressed SVG data (svgz) is not supported.
-    #[cfg(feature = "svg")]
+    #[cfg(any(feature = "svg", target_arch = "wasm32"))]
     pub fn load_from_svg_data(buffer: &[u8]) -> Result<Self, LoadImageError> {
         // On the web, the browser decodes the SVG.
         #[cfg(target_arch = "wasm32")]
@@ -1073,7 +1073,7 @@ impl Image {
     }
 }
 
-#[cfg(feature = "image-decoders")]
+#[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
 /// Load an image from the decoded payload of a data URI.
 /// This is called by the interpreter.
 pub fn load_image_from_data_uri(
@@ -1203,7 +1203,7 @@ impl BorrowedOpenGLTextureBuilder {
 /// references that are URLs rather than file-system paths; it is not general
 /// network image loading.
 /// This is called by the interpreter and the generated code.
-#[cfg(all(target_arch = "wasm32", feature = "image-decoders"))]
+#[cfg(all(target_arch = "wasm32", feature = "std"))]
 pub fn load_as_html_image(url: &str) -> Result<Image, LoadImageError> {
     self::cache::IMAGE_CACHE.with(|global_cache| {
         global_cache.borrow_mut().load_as_html_image(url).ok_or(LoadImageError(()))
@@ -1212,7 +1212,7 @@ pub fn load_as_html_image(url: &str) -> Result<Image, LoadImageError> {
 
 /// Load an image from an image embedded in the binary.
 /// This is called by the generated code.
-#[cfg(feature = "image-decoders")]
+#[cfg(any(feature = "image-decoders", all(target_arch = "wasm32", feature = "std")))]
 pub fn load_image_from_embedded_data(data: Slice<'static, u8>, format: Slice<'_, u8>) -> Image {
     self::cache::IMAGE_CACHE.with(|global_cache| {
         global_cache.borrow_mut().load_image_from_embedded_data(data, format).unwrap_or_default()
@@ -1536,7 +1536,9 @@ pub(crate) mod ffi {
         a: u8,
     }
 
-    #[cfg(feature = "image-decoders")]
+    // Keep the cfg free of target_arch: cbindgen maps target_arch = wasm32 to a C macro and
+    // would guard the declaration, but the C++ API is native only and relies on it being there.
+    #[cfg(all(feature = "std", feature = "image-decoders"))]
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_image_load_from_path(path: &SharedString, image: *mut Image) {
         unsafe {
@@ -1547,7 +1549,7 @@ pub(crate) mod ffi {
         }
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(all(feature = "std", feature = "image-decoders"))]
     #[unsafe(no_mangle)]
     pub unsafe extern "C" fn slint_image_load_from_embedded_data(
         data: Slice<'static, u8>,
