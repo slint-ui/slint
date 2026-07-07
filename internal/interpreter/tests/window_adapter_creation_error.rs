@@ -1,12 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-//! A window adapter creation failure must surface as an `Err` from `create()`. With a custom
-//! font import, the font registration during instantiation is the first window adapter access
-//! and used to panic instead. The attempt counter in the error message documents the flow:
-//! `instantiate()` has no error channel, so the registration logs and skips its failed attempt,
-//! and the eager creation in `create()` reports the error of the next attempt. The test also
-//! checks that the skipped registration is logged rather than swallowed silently.
+//! A window adapter creation failure must surface as an `Err` from `create()`, not a panic.
+//! The platform is asked once per instance: the first failure is cached and reported by
+//! every later access, like generated code where the error propagates out of `new()` at
+//! the first access. With a custom font import, that first access is the registration
+//! during instantiation, which logs the failure and skips instead of swallowing it.
+//! The attempt counter in the message asserts both properties: which access failed first,
+//! and that no path asked the platform again.
 
 use i_slint_core::platform::{Platform, PlatformError, WindowAdapter, set_platform};
 use std::cell::{Cell, RefCell};
@@ -39,7 +40,8 @@ fn compile(code: &str) -> slint_interpreter::ComponentDefinition {
 fn window_adapter_creation_error_is_returned() {
     set_platform(Box::new(FailingPlatform { attempts: Cell::new(0) })).unwrap();
 
-    // Without fonts, the eager window adapter creation in `create()` reports the error.
+    // Without fonts, instantiation makes the first (and only) creation attempt and
+    // `create()` reports its error.
     let definition = compile(
         r#"
         export component TestCase inherits Window {
@@ -54,8 +56,8 @@ fn window_adapter_creation_error_is_returned() {
     };
     assert_eq!(message, "cannot create window adapter (attempt 1)");
 
-    // With a custom font, the registration during instantiation logs and skips attempt 2,
-    // and the eager creation in `create()` reports attempt 3.
+    // With a custom font, the registration during instantiation is the first access:
+    // its failure is logged, skipped, and reported by `create()`.
     let logs = Rc::new(RefCell::new(Vec::<String>::new()));
     let logs_handler = logs.clone();
     i_slint_backend_selector::with_global_context(|ctx| {
@@ -80,13 +82,13 @@ fn window_adapter_creation_error_is_returned() {
     let Err(PlatformError::Other(message)) = definition.create() else {
         panic!("expected create() to fail with the platform error");
     };
-    assert_eq!(message, "cannot create window adapter (attempt 3)");
+    assert_eq!(message, "cannot create window adapter (attempt 2)");
 
-    // The window adapter failure that skipped the registration (attempt 2) is logged rather
-    // than swallowed silently, and the log is about creating the window, not the font.
+    // The failure that skipped the font registration is logged, and it is the same
+    // first error that create() reports.
     let logs = logs.borrow();
     assert!(
         logs.iter().any(|l| l == "cannot create window adapter (attempt 2)"),
-        "expected a log about the window adapter creation failure, got {logs:?}"
+        "expected the skipped font registration to log the adapter failure, got {logs:?}"
     );
 }
