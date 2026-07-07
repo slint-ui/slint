@@ -392,6 +392,10 @@ pub struct Timer {
     pub element: ElementWeak,
 }
 
+/// Key used for the default slot's insertion point and slot-target maps.
+/// Not a valid Slint identifier, so it can never collide with a user-declared slot name.
+pub const DEFAULT_SLOT_NAME: &str = "@children";
+
 #[derive(Clone, Debug)]
 pub struct ChildrenInsertionPoint {
     pub parent: ElementRc,
@@ -573,7 +577,7 @@ impl Component {
         }
         let mut declared_slot_nodes = BTreeMap::<SmolStr, SyntaxNode>::new();
         for slot in self.declared_slots.borrow().iter() {
-            if slot.name == "children" || slot.name == "_children" {
+            if slot.name == "children" {
                 diagnostics.push_error(
                     format!(
                         "The name '{}' is reserved for the default slot. Use @children instead",
@@ -591,7 +595,7 @@ impl Component {
             }
         }
         for (name, cip) in self.child_insertion_points.borrow().iter() {
-            if name == "_children" {
+            if name == DEFAULT_SLOT_NAME {
                 continue;
             }
             if !declared_slot_nodes.contains_key(name.as_str()) {
@@ -1925,7 +1929,7 @@ impl Element {
             let target_node = se.child_node(SyntaxKind::DeclaredIdentifier).unwrap();
             let target = parser::identifier_text(&target_node.clone()).unwrap_or_default();
 
-            if target == "children" || target == "_children" {
+            if target == "children" {
                 diag.push_error(
                     format!(
                         "The name '{target}' is reserved for the default slot. Use @children instead"
@@ -1976,7 +1980,7 @@ impl Element {
                 continue;
             };
 
-            if source == "children" || source == "_children" {
+            if source == "children" {
                 diag.push_error(
                     format!(
                         "The name '{source}' is reserved for the default slot. Use @children instead"
@@ -2104,14 +2108,14 @@ impl Element {
             } else if se.kind() == SyntaxKind::ChildrenPlaceholder {
                 #[cfg(feature = "slint-sc")]
                 diag.slint_sc_error("The @children placeholder is", &se);
-                if component_child_insertion_points.contains_key("_children") {
+                if component_child_insertion_points.contains_key(DEFAULT_SLOT_NAME) {
                     diag.push_error(
                         "The @children placeholder can only appear once in an element".into(),
                         &se,
                     );
                 } else {
                     component_child_insertion_points.insert(
-                        "_children".into(),
+                        DEFAULT_SLOT_NAME.into(),
                         ChildrenInsertionPoint {
                             parent: r.clone(),
                             insertion_index: r.borrow().children.len(),
@@ -2136,7 +2140,7 @@ impl Element {
                     &se.child_node(SyntaxKind::DeclaredIdentifier).unwrap(),
                 )
                 .unwrap_or_default();
-                if name == "children" || name == "_children" {
+                if name == "children" {
                     diag.push_error(
                         format!(
                             "The name '{name}' is reserved for the default slot. Use @children instead"

@@ -133,7 +133,7 @@ fn inline_element(
 
     // Ensure @children CIP exists if it's missing but the component is a builtin that accepts children.
     // This preserves the implicit-children behavior for builtins without explicit placeholders.
-    if !inlined_insertion_points.contains_key("_children")
+    if !inlined_insertion_points.contains_key(DEFAULT_SLOT_NAME)
         && let Some(builtin) = inlined_component.root_element.borrow().builtin_type()
         && !builtin.is_non_item_type
         && !builtin.disallow_global_types_as_child_elements
@@ -155,7 +155,7 @@ fn inline_element(
             .expect("Missing syntax node for implicit @children insertion point");
 
         inlined_insertion_points.insert(
-            "_children".into(),
+            DEFAULT_SLOT_NAME.into(),
             ChildrenInsertionPoint {
                 parent: inlined_component.root_element.clone(),
                 insertion_index: inlined_component.root_element.borrow().children.len(),
@@ -164,7 +164,7 @@ fn inline_element(
         );
     }
 
-    // Group instance children by slot target (named slot or default _children).
+    // Group instance children by slot target (named slot or the default slot).
     // This preserves relative order within each slot and allows named slot validation.
     let mut children_by_slot: HashMap<SmolStr, Vec<ElementRc>> = HashMap::new();
     for child in std::mem::take(&mut elem_mut.children) {
@@ -173,7 +173,7 @@ fn inline_element(
             .slot_target
             .as_ref()
             .map(|s| crate::parser::normalize_identifier(s))
-            .unwrap_or_else(|| "_children".into());
+            .unwrap_or_else(|| DEFAULT_SLOT_NAME.into());
 
         children_by_slot.entry(slot).or_default().push(child);
     }
@@ -181,9 +181,9 @@ fn inline_element(
     // Validate that all referenced slots exist on the inlined component.
     let mut unknown_slots = Vec::new();
     for (slot_name, children) in &children_by_slot {
-        if slot_name == "_children" {
+        if slot_name == DEFAULT_SLOT_NAME {
             // Missing default slot diagnostics are emitted earlier while constructing the object tree.
-            // Keep the existing behavior and avoid reporting "_children" as an unknown named slot here.
+            // Keep the existing behavior and avoid reporting the default slot as an unknown named slot here.
             continue;
         }
         if !inlined_insertion_points.contains_key(slot_name.as_str()) {
@@ -241,7 +241,7 @@ fn inline_element(
                 &p.component,
                 &inlined_cip.parent.borrow().enclosing_component.upgrade().unwrap()
             )));
-            if slot_name == "_children" {
+            if slot_name == DEFAULT_SLOT_NAME {
                 move_children_into_popup = Some(children);
             } else {
                 diag.push_error(
@@ -293,10 +293,10 @@ fn inline_element(
                     }
                     if root_insertion_points.is_empty()
                         && Rc::ptr_eq(elem, &root_component.root_element)
-                        && insertion.slot_name == "_children"
+                        && insertion.slot_name == DEFAULT_SLOT_NAME
                     {
                         root_insertion_points.insert(
-                            "_children".into(),
+                            DEFAULT_SLOT_NAME.into(),
                             ChildrenInsertionPoint {
                                 parent: insertion.insertion_element.clone(),
                                 insertion_index: adjusted_index + inserted_len,
@@ -340,10 +340,10 @@ fn inline_element(
                     }
                     if root_insertion_points.is_empty()
                         && Rc::ptr_eq(elem, &root_component.root_element)
-                        && insertion.slot_name == "_children"
+                        && insertion.slot_name == DEFAULT_SLOT_NAME
                     {
                         root_insertion_points.insert(
-                            "_children".into(),
+                            DEFAULT_SLOT_NAME.into(),
                             ChildrenInsertionPoint {
                                 parent: insertion.insertion_element.clone(),
                                 insertion_index: adjusted_index + inserted_len,
@@ -401,7 +401,7 @@ fn inline_element(
     let mut moved_into_popup = HashSet::new();
     if let Some(children) = move_children_into_popup {
         let inlined_insertion_points = inlined_component.child_insertion_points.borrow();
-        let inlined_cip = inlined_insertion_points.get("_children").unwrap();
+        let inlined_cip = inlined_insertion_points.get(DEFAULT_SLOT_NAME).unwrap();
 
         let insertion_element = mapping.get(&element_key(inlined_cip.parent.clone())).unwrap();
         debug_assert!(!std::rc::Weak::ptr_eq(
@@ -435,7 +435,7 @@ fn inline_element(
         }
         if root_insertion_points.is_empty() {
             root_insertion_points.insert(
-                "_children".into(),
+                DEFAULT_SLOT_NAME.into(),
                 ChildrenInsertionPoint {
                     parent: insertion_element.clone(),
                     insertion_index: inlined_cip.insertion_index,

@@ -2259,7 +2259,7 @@ fn resolve_slot_reference_element(
     node: &dyn Spanned,
     report_unknown: bool,
 ) -> Option<ElementRc> {
-    if name == "children" || name == "_children" {
+    if name == "children" {
         ctx.diag.push_error(
             "The default slot '@children' cannot be referenced in expressions".into(),
             node,
