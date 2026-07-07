@@ -383,7 +383,7 @@ export component EditorUi inherits Window {
     default-font-family: "Inter";
     always-on-top: Api.always-on-top;
 
-    property <bool> wizard-visible: true;
+    property <bool> wizard-visible: Api.selected-project-file == "";
     property <bool> sidebars-collapsed: false;
     property <bool> settings-visible: false;
     property <bool> device-dark: false;
@@ -427,6 +427,10 @@ export component EditorUi inherits Window {
         width: root.width;
         height: root.height;
         property <bool> shift-pressed: false;
+
+        init => {
+            self.focus();
+        }
 
         capture-key-pressed(event) => {
             if event.text == Key.Shift || event.text == Key.ShiftR {
