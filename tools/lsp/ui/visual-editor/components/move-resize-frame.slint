@@ -7,9 +7,11 @@ export component MoveResizeFrame inherits Rectangle {
     in property <bool> active;
     in property <bool> shift-pressed: false;
     in property <angle> rotation: 0deg;
+    in property <bool> show-rotation-handles: true;
     out property <bool> frame-hover: move-touch.has-hover;
     out property <bool> move-pressed: move-touch.pressed;
     out property <bool> move-dragging: false;
+    out property <Point> move-pointer-position: { x: 0px, y: 0px };
     out property <bool> rotating: false;
     out property <bool> rotation-tooltip-visible: false;
     out property <Point> rotation-tooltip-position: { x: 0px, y: 0px };
@@ -251,6 +253,7 @@ export component MoveResizeFrame inherits Rectangle {
                 };
                 let moved-far-enough = delta.x.abs() >= root.drag-threshold
                     || delta.y.abs() >= root.drag-threshold;
+                root.move-pointer-position = pointer;
                 if self.pressed && moved-far-enough {
                     root.move-dragging = true;
                 }
@@ -298,6 +301,7 @@ export component MoveResizeFrame inherits Rectangle {
                 CanvasCorner.bottom-right,
                 CanvasCorner.bottom-left,
             ]: Rectangle {
+                visible: root.show-rotation-handles;
                 x: root.rotation-zone-x(corner);
                 y: root.rotation-zone-y(corner);
                 width: EditorMetrics.rotation-zone-size;

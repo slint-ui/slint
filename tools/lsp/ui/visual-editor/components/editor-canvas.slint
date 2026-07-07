@@ -64,6 +64,8 @@ export component EditorCanvas inherits Rectangle {
     private property <bool> selection-drag-active: false;
     private property <Point> selection-drag-position;
     private property <Size> selection-drag-size;
+    private property <bool> selection-move-active: false;
+    private property <Point> selection-move-pointer;
     private property <bool> selection-radius-active: false;
 
     callback selected(CanvasSelectionKind);
@@ -102,6 +104,15 @@ export component EditorCanvas inherits Rectangle {
     function normalized-angle(value: angle) -> angle {
         let normalized = value.mod(360deg);
         return normalized < 0deg ? normalized + 360deg : normalized;
+    }
+
+    function current-length-property(property-name: string) -> length {
+        return Api.current-property-value-data(property-name).value-float * 1px;
+    }
+
+    function current-corner-radius(property-name: string) -> length {
+        let corner = Api.current-property-value-data(property-name);
+        return corner.code != "" ? corner.value-float * 1px : root.current-length-property("border-radius");
     }
 
     for row in 28: Rectangle {
@@ -175,6 +186,12 @@ export component EditorCanvas inherits Rectangle {
 
             property <DropMark> drop-mark <=> Api.drop-mark;
             if drop-mark.x1 >= 0.0 || drop-mark.y1 >= 0.0 || drop-mark.x2 >= 0.0 || drop-mark.y2 >= 0.0: Rectangle {
+                property <length> mark-x: min(drop-mark.x1, drop-mark.x2);
+                property <length> mark-y: min(drop-mark.y1, drop-mark.y2);
+                x: mark-x;
+                y: mark-y;
+                width: max((drop-mark.x2 - drop-mark.x1).abs(), 2px);
+                height: max((drop-mark.y2 - drop-mark.y1).abs(), 2px);
                 border-color: EditorPalette.drop-mark-foreground;
                 background: EditorPalette.drop-mark-background;
             }
@@ -201,7 +218,7 @@ export component EditorCanvas inherits Rectangle {
         // MoveResizeFrame is recreated on every change, which means we lose all
         // local state like the drag position, and the interaction becomes jumpy and unusable.
         // To work around this, we only render a single MoveResizeFrame for the first selection rectangle.
-        if root.selections.length > 0: MoveResizeFrame {
+        if root.selections.length > 0 && Api.current-element.type-name != "Rectangle": MoveResizeFrame {
             property <int> idx: 0;
             property <SelectionRectangle> s: root.selections[0];
             property <bool> primary: idx == Api.selection.highlight-index;
@@ -217,12 +234,14 @@ export component EditorCanvas inherits Rectangle {
             height: root.selection-drag-active && primary ? root.selection-drag-size.height : s.height;
             rotation: s.angle;
             active: true;
+            show-rotation-handles: false;
             // Only allow resize for elements that have geometry outside a layout,
             // and only when the element is not rotated (axis-aligned edits only).
             resizable: primary && Api.selection.is-resizable && s.angle == 0deg;
 
             resized-to(corner, position, size) => {
                 root.selection-drag-active = true;
+                root.selection-move-active = false;
                 root.selection-drag-position = position;
                 root.selection-drag-size = size;
                 // Push live geometry (content space) so the previewed element follows the
@@ -235,25 +254,53 @@ export component EditorCanvas inherits Rectangle {
                 );
             }
             moved-to(position) => {
+                let content-position = {
+                    x: position.x - EditorMetrics.phone-outer-padding,
+                    y: position.y - EditorMetrics.phone-outer-padding,
+                };
+                let content-pointer = {
+                    x: self.move-pointer-position.x - EditorMetrics.phone-outer-padding,
+                    y: self.move-pointer-position.y - EditorMetrics.phone-outer-padding,
+                };
+                if !Api.selected-element-can-move-to(
+                    content-position.x,
+                    content-position.y,
+                    content-pointer.x,
+                    content-pointer.y,
+                ) {
+                    return;
+                }
                 root.selection-drag-active = true;
+                root.selection-move-active = true;
                 root.selection-drag-position = position;
                 root.selection-drag-size = { width: s.width, height: s.height };
+                root.selection-move-pointer = self.move-pointer-position;
                 Api.override-selected-element-geometry(
-                    position.x - EditorMetrics.phone-outer-padding,
-                    position.y - EditorMetrics.phone-outer-padding,
+                    content-position.x,
+                    content-position.y,
                     s.width,
                     s.height,
                 );
             }
             interaction-ended => {
-                // Convert from phone (frame-parent) space back to content space
-                // by subtracting the 1px phone-outer-padding, then commit once.
-                Api.selected-element-resize(
-                    root.selection-drag-position.x - EditorMetrics.phone-outer-padding,
-                    root.selection-drag-position.y - EditorMetrics.phone-outer-padding,
-                    root.selection-drag-size.width,
-                    root.selection-drag-size.height,
-                );
+                if root.selection-move-active {
+                    Api.selected-element-move(
+                        root.selection-drag-position.x - EditorMetrics.phone-outer-padding,
+                        root.selection-drag-position.y - EditorMetrics.phone-outer-padding,
+                        root.selection-move-pointer.x - EditorMetrics.phone-outer-padding,
+                        root.selection-move-pointer.y - EditorMetrics.phone-outer-padding,
+                    );
+                    root.selection-move-active = false;
+                } else if root.selection-drag-active {
+                    // Convert from phone (frame-parent) space back to content space
+                    // by subtracting the 1px phone-outer-padding, then commit once.
+                    Api.selected-element-resize(
+                        root.selection-drag-position.x - EditorMetrics.phone-outer-padding,
+                        root.selection-drag-position.y - EditorMetrics.phone-outer-padding,
+                        root.selection-drag-size.width,
+                        root.selection-drag-size.height,
+                    );
+                }
                 root.selection-drag-active = false;
             }
         }
@@ -274,6 +321,11 @@ export component EditorCanvas inherits Rectangle {
             height: root.selection-drag-active && primary ? root.selection-drag-size.height : s.height;
             rotation: s.angle;
             active: true;
+            show-rotation-handles: false;
+            top-left-radius: root.current-corner-radius("border-top-left-radius");
+            top-right-radius: root.current-corner-radius("border-top-right-radius");
+            bottom-right-radius: root.current-corner-radius("border-bottom-right-radius");
+            bottom-left-radius: root.current-corner-radius("border-bottom-left-radius");
             // Only allow resize for elements that have geometry outside a layout,
             // and only when the element is not rotated (axis-aligned edits only).
             resizable: primary && Api.selection.is-resizable && s.angle == 0deg;
@@ -284,6 +336,7 @@ export component EditorCanvas inherits Rectangle {
 
             resized-to(corner, position, size) => {
                 root.selection-drag-active = true;
+                root.selection-move-active = false;
                 root.selection-drag-position = position;
                 root.selection-drag-size = size;
                 // Push live geometry (content space) so the previewed element follows the
@@ -296,18 +349,44 @@ export component EditorCanvas inherits Rectangle {
                 );
             }
             moved-to(position) => {
+                let content-position = {
+                    x: position.x - EditorMetrics.phone-outer-padding,
+                    y: position.y - EditorMetrics.phone-outer-padding,
+                };
+                let content-pointer = {
+                    x: self.move-pointer-position.x - EditorMetrics.phone-outer-padding,
+                    y: self.move-pointer-position.y - EditorMetrics.phone-outer-padding,
+                };
+                if !Api.selected-element-can-move-to(
+                    content-position.x,
+                    content-position.y,
+                    content-pointer.x,
+                    content-pointer.y,
+                ) {
+                    return;
+                }
                 root.selection-drag-active = true;
+                root.selection-move-active = true;
                 root.selection-drag-position = position;
                 root.selection-drag-size = { width: s.width, height: s.height };
+                root.selection-move-pointer = self.move-pointer-position;
                 Api.override-selected-element-geometry(
-                    position.x - EditorMetrics.phone-outer-padding,
-                    position.y - EditorMetrics.phone-outer-padding,
+                    content-position.x,
+                    content-position.y,
                     s.width,
                     s.height,
                 );
             }
             interaction-ended => {
-                if root.selection-drag-active {
+                if root.selection-move-active {
+                    Api.selected-element-move(
+                        root.selection-drag-position.x - EditorMetrics.phone-outer-padding,
+                        root.selection-drag-position.y - EditorMetrics.phone-outer-padding,
+                        root.selection-move-pointer.x - EditorMetrics.phone-outer-padding,
+                        root.selection-move-pointer.y - EditorMetrics.phone-outer-padding,
+                    );
+                    root.selection-move-active = false;
+                } else if root.selection-drag-active {
                     // Convert from phone (frame-parent) space back to content space
                     // by subtracting the 1px phone-outer-padding, then commit once.
                     Api.selected-element-resize(
@@ -315,9 +394,9 @@ export component EditorCanvas inherits Rectangle {
                         root.selection-drag-position.y - EditorMetrics.phone-outer-padding,
                         root.selection-drag-size.width,
                         root.selection-drag-size.height,
-                        );
-                    root.selection-drag-active = false;
+                    );
                 }
+                root.selection-drag-active = false;
                 if self.radius-tooltip-visible {
                     Api.persist-selected-element-border-radius();
                     root.selection-radius-active = false;
