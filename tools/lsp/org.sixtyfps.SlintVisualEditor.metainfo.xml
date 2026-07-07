@@ -6,6 +6,10 @@
     <name>Slint Visual Editor</name>
     <summary>Visual editor for Slint files</summary>
 
+    <keywords>
+        <keyword>development</keyword>
+    </keywords>
+
     <!-- Developer currently does not exist -->
     <developer id="org.sixtyfps">
         <name>SixtyFPS</name>
