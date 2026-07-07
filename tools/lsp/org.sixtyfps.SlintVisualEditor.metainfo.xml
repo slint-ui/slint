@@ -7,11 +7,11 @@
     <summary>Visual editor for Slint files</summary>
 
     <!-- Developer currently does not exist -->
-    <developer id="com.sixtyfps">
+    <developer id="org.sixtyfps">
         <name>SixtyFPS</name>
     </developer>
 
-    <icon type="stock">com.sixtyfps.SlintVisualEditor</icon>
+    <icon type="stock">org.sixtyfps.SlintVisualEditor</icon>
 
     <metadata_license>MIT</metadata_license>
     <project_license
@@ -24,7 +24,7 @@
 
     <launchable
         type="desktop-id"
-    >com.sixtyfps.SlintVisualEditor.desktop</launchable>
+    >org.sixtyfps.SlintVisualEditor.desktop</launchable>
     <screenshots>
     </screenshots>
 
