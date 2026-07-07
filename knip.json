@@ -69,6 +69,7 @@
     "examples/imagefilter/node": { "ignoreBinaries": ["compile"] },
     "examples/carousel/node": { "ignoreBinaries": ["compile"] },
     "examples/todo/node": { "ignoreBinaries": ["compile"] },
+    "examples/todo/node-typescript": { "ignoreBinaries": ["compile"] },
     "examples/dnd-kanban": { "ignoreBinaries": ["compile"] },
     "examples/maps": { "ignoreBinaries": ["compile"] },
     "examples/memory": { "ignoreBinaries": ["compile"] },

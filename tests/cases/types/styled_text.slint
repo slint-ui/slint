@@ -244,4 +244,34 @@ except ValueError:
     threw = True
 assert threw
 ```
+
+```d.ts
+export interface TestStruct {
+    label: string;
+    text: slint.StyledText;
+}
+
+export interface TestCase {
+    readonly default_struct: TestStruct;
+    readonly default_styled_text: slint.StyledText;
+    readonly foo_bar: slint.StyledText;
+    plain_text_prop: slint.StyledText;
+    t1: slint.StyledText;
+    t2: slint.StyledText;
+    t3: slint.StyledText;
+    readonly test: boolean;
+    readonly w1: number;
+    readonly w10: number;
+    readonly w11: number;
+    readonly w12: number;
+    readonly w2: number;
+    readonly w3: number;
+    readonly w4: number;
+    readonly w5: number;
+    readonly w6: number;
+    readonly w7: number;
+    readonly w8: number;
+    readonly w9: number;
+}
+```
 */

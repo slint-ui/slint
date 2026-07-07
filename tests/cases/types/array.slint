@@ -53,6 +53,34 @@ assert_eq(p6_players->row_data(0)->skill_profile, 9);
 ```
 
 
+```d.ts
+export interface Player {
+    skill_profile: number;
+}
+
+export interface NewGameTeam {
+    players: slint.Model<Player>;
+}
+
+export interface NewGameParameters {
+    teams: slint.Model<NewGameTeam>;
+}
+
+export interface StructWithArrayOfStruct {
+    prop: slint.Model<{ hello: string; world: number }>;
+    xxx: number;
+}
+
+export interface TestCase {
+    p1: slint.Model<number>;
+    p2: slint.Model<number>;
+    p3: slint.Model<string>;
+    p4: slint.Model<{ a: number; b: number }>;
+    p5: StructWithArrayOfStruct;
+    p6: NewGameParameters;
+}
+```
+
 ```js
 var instance = new slint.TestCase({});
 assert.deepEqual(Array.from(instance.p1), [12, 13]);

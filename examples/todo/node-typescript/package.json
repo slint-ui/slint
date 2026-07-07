@@ -1,11 +1,9 @@
 {
-    "name": "imagefilter",
+    "name": "todo-typescript",
     "version": "1.18.0",
-    "main": "main.js",
     "type": "module",
     "dependencies": {
-        "slint-ui": "workspace:*",
-        "image-js": "1.6.2"
+        "slint-ui": "workspace:*"
     },
     "devDependencies": {
         "@types/node": "catalog:",
@@ -13,7 +11,7 @@
         "typescript": "catalog:"
     },
     "scripts": {
-        "generate": "cargo run -p slint-compiler -- -f typescript ../ui/main.slint -o ../ui/main.slint.d.ts",
+        "generate": "cargo run -p slint-compiler -- -f typescript ../ui/todo.slint -o ../ui/todo.slint.d.ts",
         "start": "npm run generate && tsx --import slint-ui/register main.ts",
         "prestart": "cd ../../../api/node/ && pnpm run build && pnpm compile",
         "check": "npm run generate && tsc --noEmit"
