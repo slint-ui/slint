@@ -1,6 +1,6 @@
 {
   "name": "slint",
-  "version": "1.17.1",
+  "version": "1.18.0",
   "description": "Enhances Claude's ability to work with, debug, and build Slint GUI applications",
   "author": {
     "name": "Slint",

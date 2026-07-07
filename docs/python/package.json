@@ -1,7 +1,7 @@
 {
     "name": "slint-python-docs",
     "type": "module",
-    "version": "1.17.1",
+    "version": "1.18.0",
     "engines": {
         "node": ">=24"
     },
