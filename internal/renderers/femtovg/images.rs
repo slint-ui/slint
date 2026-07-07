@@ -37,8 +37,15 @@ impl TextureImporter for femtovg::renderer::OpenGl {
     }
 }
 
-#[cfg(all(feature = "wgpu-29", not(target_family = "wasm")))]
+// The FemtoVG WGPU renderer implements `TextureImporter` on every platform: the
+// renderer's associated type bound (`GraphicsBackend::Renderer: TextureImporter`)
+// must be satisfied for `unstable-wgpu-29` to build at all, and WGPU (unlike the
+// OpenGL backend) is available on wasm too. `convert_opengl_texture` is only part
+// of the trait off-wasm, so gate it to match; on wasm only the identity
+// `convert_wgpu_29_texture` is required.
+#[cfg(feature = "wgpu-29")]
 impl TextureImporter for femtovg::renderer::WGPURenderer {
+    #[cfg(not(target_family = "wasm"))]
     fn convert_opengl_texture(_opengl_texture: std::num::NonZero<u32>) -> Self::NativeTexture {
         todo!()
     }
