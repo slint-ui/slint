@@ -21,14 +21,14 @@ export component FailDuplicateAssignment inherits Rectangle {
     SlotHost {
         header << Rectangle { background: red; }
         header << Rectangle { background: green; }
-//      >                                        <error{Duplicate assignment to slot 'header'}
+//      >    <error{Duplicate assignment to slot 'header'}
     }
 }
 
 export component FailUnknownSlot inherits Rectangle {
     SlotHost {
         footer << Rectangle { }
-//      >                     <error{Unknown slot 'footer' in 'SlotHost'}
+//      >    <error{Unknown slot 'footer' in 'SlotHost'}
     }
 }
 
@@ -67,7 +67,7 @@ export component FailForwardAndAssignConflict inherits Rectangle {
     ForwardTargetHost {
         hostHeader << header;
         hostHeader << Rectangle { }
-//      >                         <error{Slot 'hostHeader' cannot be both forwarded and assigned}
+//      >        <error{Slot 'hostHeader' cannot be both forwarded and assigned}
     }
 }
 
