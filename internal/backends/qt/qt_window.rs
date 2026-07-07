@@ -2591,6 +2591,15 @@ impl WindowAdapterInternal for QtWindow {
         true
     }
 
+    fn start_window_move(&self) {
+        let widget_ptr = self.widget_ptr();
+        cpp! {unsafe [widget_ptr as "QWidget*"] {
+            if (QWindow *window = widget_ptr->window()->windowHandle()) {
+                window->startSystemMove();
+            }
+        }}
+    }
+
     fn register_item_tree(&self, _: ItemTreeRefPin) {
         self.tree_structure_changed.replace(true);
     }

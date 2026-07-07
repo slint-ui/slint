@@ -1452,6 +1452,12 @@ impl WindowAdapter for WinitWindowAdapter {
 }
 
 impl WindowAdapterInternal for WinitWindowAdapter {
+    fn start_window_move(&self) {
+        if let Some(winit_window) = self.winit_window_or_none.borrow().as_window() {
+            let _ = winit_window.drag_window();
+        }
+    }
+
     fn set_mouse_cursor(&self, cursor: MouseCursorInner) {
         let winit_cursor = match &cursor {
             MouseCursorInner::BuiltIn(cursor) => match cursor {

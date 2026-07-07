@@ -322,6 +322,13 @@ pub trait WindowAdapterInternal: core::any::Any {
     fn start_drag(&self, _request: &DragRequest) -> bool {
         false
     }
+
+    /// Ask the windowing system to start an interactive, user-driven move of the window,
+    /// as if the user had dragged the window's title bar.
+    ///
+    /// This is called while the user holds a mouse button pressed.
+    /// The default implementation does nothing; backends without support ignore the request.
+    fn start_window_move(&self) {}
 }
 
 /// This is the parameter from [`WindowAdapterInternal::input_method_request()`] which lets the editable text input field

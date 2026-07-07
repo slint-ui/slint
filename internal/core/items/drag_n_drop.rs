@@ -44,6 +44,64 @@ impl AllowedDragActions {
     }
 }
 
+/// Filter step of the "left press, then drag past the threshold" gesture shared by
+/// `DragArea` and `WindowMoveArea`: tracks the press in the item's `pressed`/
+/// `pressed_position` cells and intercepts the children's events once the threshold is
+/// crossed. The caller handles its disabled/precondition case before calling this.
+pub(super) fn press_drag_filter(
+    pressed: &Cell<bool>,
+    pressed_position: &Cell<LogicalPoint>,
+    event: &MouseEvent,
+) -> InputEventFilterResult {
+    match event {
+        MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
+            pressed_position.set(*position);
+            pressed.set(true);
+            InputEventFilterResult::ForwardAndInterceptGrab
+        }
+        MouseEvent::Exit => {
+            pressed.set(false);
+            InputEventFilterResult::ForwardAndIgnore
+        }
+        MouseEvent::Released { button: PointerEventButton::Left, .. } => {
+            pressed.set(false);
+            InputEventFilterResult::ForwardAndIgnore
+        }
+        MouseEvent::Moved { position, .. } => {
+            if !pressed.get() {
+                InputEventFilterResult::ForwardEvent
+            } else if exceeds_drag_threshold(pressed_position.get(), *position) {
+                InputEventFilterResult::Intercept
+            } else {
+                InputEventFilterResult::ForwardAndInterceptGrab
+            }
+        }
+        MouseEvent::Wheel { .. } => InputEventFilterResult::ForwardAndIgnore,
+        // Not the left button
+        MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
+            InputEventFilterResult::ForwardAndIgnore
+        }
+        MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
+            InputEventFilterResult::ForwardAndIgnore
+        }
+        MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => {
+            InputEventFilterResult::ForwardAndIgnore
+        }
+    }
+}
+
+/// True once the pointer has moved far enough from the press position to count as a
+/// drag rather than a click.
+pub(super) fn exceeds_drag_threshold(
+    pressed_position: LogicalPoint,
+    position: LogicalPoint,
+) -> bool {
+    let dx = (position.x - pressed_position.x).abs();
+    let dy = (position.y - pressed_position.y).abs();
+    let threshold = super::flickable::DISTANCE_THRESHOLD.get();
+    dx > threshold || dy > threshold
+}
+
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
@@ -90,49 +148,7 @@ impl Item for DragArea {
             self.cancel();
             return InputEventFilterResult::ForwardAndIgnore;
         }
-
-        match event {
-            MouseEvent::Pressed { position, button: PointerEventButton::Left, .. } => {
-                self.pressed_position.set(*position);
-                self.pressed.set(true);
-                InputEventFilterResult::ForwardAndInterceptGrab
-            }
-            MouseEvent::Exit => {
-                self.cancel();
-                InputEventFilterResult::ForwardAndIgnore
-            }
-            MouseEvent::Released { button: PointerEventButton::Left, .. } => {
-                self.pressed.set(false);
-                InputEventFilterResult::ForwardAndIgnore
-            }
-
-            MouseEvent::Moved { position, .. } => {
-                if !self.pressed.get() {
-                    InputEventFilterResult::ForwardEvent
-                } else {
-                    let pressed_pos = self.pressed_position.get();
-                    let dx = (position.x - pressed_pos.x).abs();
-                    let dy = (position.y - pressed_pos.y).abs();
-                    let threshold = super::flickable::DISTANCE_THRESHOLD.get();
-                    if dy > threshold || dx > threshold {
-                        InputEventFilterResult::Intercept
-                    } else {
-                        InputEventFilterResult::ForwardAndInterceptGrab
-                    }
-                }
-            }
-            MouseEvent::Wheel { .. } => InputEventFilterResult::ForwardAndIgnore,
-            // Not the left button
-            MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
-                InputEventFilterResult::ForwardAndIgnore
-            }
-            MouseEvent::PinchGesture { .. } | MouseEvent::RotationGesture { .. } => {
-                InputEventFilterResult::ForwardAndIgnore
-            }
-            MouseEvent::DragMove { .. } | MouseEvent::Drop { .. } => {
-                InputEventFilterResult::ForwardAndIgnore
-            }
-        }
+        press_drag_filter(&self.pressed, &self.pressed_position, event)
     }
 
     fn input_event(
@@ -160,11 +176,7 @@ impl Item for DragArea {
                 {
                     return InputEventResult::EventIgnored;
                 }
-                let pressed_pos = self.pressed_position.get();
-                let dx = (position.x - pressed_pos.x).abs();
-                let dy = (position.y - pressed_pos.y).abs();
-                let threshold = super::flickable::DISTANCE_THRESHOLD.get();
-                let start_drag = dx > threshold || dy > threshold;
+                let start_drag = exceeds_drag_threshold(self.pressed_position.get(), *position);
                 if start_drag {
                     self.pressed.set(false);
                     InputEventResult::StartDrag
