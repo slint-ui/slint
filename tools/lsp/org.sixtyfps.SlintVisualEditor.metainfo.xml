@@ -11,6 +11,8 @@
         <name>SixtyFPS</name>
     </developer>
 
+    <icon type="stock">com.sixtyfps.SlintVisualEditor</icon>
+
     <metadata_license>MIT</metadata_license>
     <project_license
     >LicenseRef-proprietary=https://github.com/slint-ui/slint/blob/master/LICENSE.md</project_license>

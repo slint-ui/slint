@@ -21,8 +21,10 @@ modules:
         SKIA_BINARIES_URL: file:///run/build/slint-visual-editor/deps/vendor/skia/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-unknown-linux-gnu-gl-jpegd-jpege-pdf-textlayout-vulkan.tar.gz
     build-commands:
       - cargo --offline fetch --manifest-path Cargo.toml --verbose
-      - cargo build -p slint-lsp --bin slint-visual-editor --offline --profile package-release --features backend-winit,renderer-skia
-      - install -Dm0755 target/package-release/slint-visual-editor ${FLATPAK_DEST}/bin/slint-visual-editor
+      # - cargo build -p slint-lsp --bin slint-visual-editor --profile package-release --offline --features backend-winit,renderer-skia
+      # - install -Dm0755 target/package-release/slint-visual-editor ${FLATPAK_DEST}/bin/slint-visual-editor
+      - cargo build -p slint-lsp --bin slint-visual-editor --offline --features backend-winit,renderer-skia
+      - install -Dm0755 target/debug/slint-visual-editor ${FLATPAK_DEST}/bin/slint-visual-editor
       - install -Dm0644 tools/lsp/packaging/linux/SlintVisualEditor-Logo.png ${FLATPAK_DEST}/share/icons/hicolor/1000x1000/apps/${FLATPAK_ID}.png
       - install -Dm0644 tools/lsp/packaging/linux/${FLATPAK_ID}.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
       - install -Dm0644 tools/lsp/${FLATPAK_ID}.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
@@ -30,7 +32,7 @@ modules:
       - type: git
         url: https://github.com/slint-ui/slint.git
         branch: visual-editor-linux-package
-        commit: 8e01c3a2e9c2d685bd8d423188ad628e8dbb90b8
+        commit: e28959c4b80043bb7a6c84d444c50cfa18951727
       - cargo-sources.json
       - type: file
         url: https://github.com/rust-skia/skia-binaries/releases/download/0.99.0/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-unknown-linux-gnu-gl-jpegd-jpege-pdf-textlayout-vulkan.tar.gz
