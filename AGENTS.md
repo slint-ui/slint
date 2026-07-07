@@ -8,17 +8,27 @@ UIs are written in `.slint` markup and connected to Rust, C++, JavaScript, or Py
 ## Build Commands
 
 ### Rust (Primary)
+
+The repository is split into separate workspaces that share one `target/`
+directory (configured in `.cargo/config.toml`): the root workspace holds the
+library and tool crates, while `examples/`, `demos/`, `tests/` and
+`ui-libraries/material/` are each their own workspace. Keeping examples/demos/
+tests out of the root workspace keeps rust-analyzer fast; the shared `target/`
+means the common library crates are only built once across all of them. Select
+a non-root workspace with `--manifest-path <dir>/Cargo.toml`.
+
 ```sh
-cargo build                                    # Build the workspace
+cargo build                                    # Build the root (library/tool) workspace
 cargo build --release                          # Release build (use whenever measuring performance)
-cargo test                                     # Run tests
-cargo build --workspace --exclude uefi-demo    # Build all examples
+cargo test                                     # Run the root workspace tests
+cargo build --manifest-path examples/Cargo.toml --workspace \
+    --exclude mcu-board-support --exclude mcu-embassy --exclude uefi-demo   # Build the examples
 ```
 
 ### Running Examples
 ```sh
-cargo run -p gallery                 # Run the gallery example
-cargo run --bin slint-viewer -- path/to/file.slint  # View a .slint file
+cargo run --manifest-path examples/Cargo.toml -p gallery   # Run the gallery example
+cargo run --bin slint-viewer -- path/to/file.slint         # View a .slint file (root workspace)
 ```
 
 ### C++ Build
@@ -39,12 +49,14 @@ cd api/node && pnpm install
 Don't run `cargo build` before `cargo test` — `cargo test` compiles what it needs.
 
 ### Test Drivers
+The integration tests live in the `tests/` workspace, so pass
+`--manifest-path tests/Cargo.toml`:
 ```sh
-cargo test -p test-driver-interpreter         # Fastest: interpreter-based
-cargo test -p test-driver-rust                # Rust API (slow to compile without SLINT_TEST_FILTER)
-cargo test -p test-driver-cpp                 # C++ (build slint-cpp first for the dynamic library)
-cargo test -p test-driver-nodejs              # Node.js
-cargo test -p doctests                        # Documentation snippets
+cargo test --manifest-path tests/Cargo.toml -p test-driver-interpreter   # Fastest: interpreter-based
+cargo test --manifest-path tests/Cargo.toml -p test-driver-rust          # Rust API (slow to compile without SLINT_TEST_FILTER)
+cargo test --manifest-path tests/Cargo.toml -p test-driver-cpp           # C++ (build slint-cpp first for the dynamic library)
+cargo test --manifest-path tests/Cargo.toml -p test-driver-nodejs        # Node.js
+cargo test --manifest-path tests/Cargo.toml -p doctests                  # Documentation snippets
 ```
 
 ### Filtering .slint Test Cases
@@ -71,8 +83,8 @@ SLINT_SYNTAX_TEST_UPDATE=1 cargo test -p i-slint-compiler --test syntax_tests  #
 
 ### Screenshot Tests
 ```sh
-cargo test -p test-driver-screenshots                    # Compare against references
-SLINT_CREATE_SCREENSHOTS=1 cargo test -p test-driver-screenshots  # Generate references
+cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots                    # Compare against references
+SLINT_CREATE_SCREENSHOTS=1 cargo test --manifest-path tests/Cargo.toml -p test-driver-screenshots  # Generate references
 ```
 
 ## Architecture
