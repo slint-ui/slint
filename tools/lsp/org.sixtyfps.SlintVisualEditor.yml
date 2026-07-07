@@ -25,14 +25,14 @@ modules:
       # - install -Dm0755 target/package-release/slint-visual-editor ${FLATPAK_DEST}/bin/slint-visual-editor
       - cargo build -p slint-lsp --bin slint-visual-editor --offline --features backend-winit,renderer-skia
       - install -Dm0755 target/debug/slint-visual-editor ${FLATPAK_DEST}/bin/slint-visual-editor
-      - install -Dm0644 tools/lsp/packaging/linux/SlintVisualEditor-Logo.png ${FLATPAK_DEST}/share/icons/hicolor/1000x1000/apps/${FLATPAK_ID}.png
+      - install -Dm0644 tools/lsp/packaging/linux/SlintVisualEditor-Logo-512x512.png ${FLATPAK_DEST}/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png
       - install -Dm0644 tools/lsp/packaging/linux/${FLATPAK_ID}.desktop ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
       - install -Dm0644 tools/lsp/${FLATPAK_ID}.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
     sources:
       - type: git
         url: https://github.com/slint-ui/slint.git
         branch: visual-editor-linux-package
-        commit: e28959c4b80043bb7a6c84d444c50cfa18951727
+        commit: 6c941faea0f60407ea2e8364ad3be18a11ec746d
       - cargo-sources.json
       - type: file
         url: https://github.com/rust-skia/skia-binaries/releases/download/0.99.0/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-unknown-linux-gnu-gl-jpegd-jpege-pdf-textlayout-vulkan.tar.gz
