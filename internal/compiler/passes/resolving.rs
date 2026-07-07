@@ -568,7 +568,18 @@ impl Expression {
                         })
                 }
             };
-            ImageReference::from_resolved(absolute_source_path)
+            let reference = ImageReference::from_resolved(absolute_source_path);
+            #[cfg(not(target_arch = "wasm32"))]
+            if let ImageReference::Url(url) = &reference
+                && (url.scheme() == "http" || url.scheme() == "https")
+            {
+                ctx.diag.push_warning(
+                    "Loading images from HTTP/HTTPS is only supported for Web targets".into(),
+                    &node,
+                );
+            }
+
+            reference
         };
 
         let nine_slice = node

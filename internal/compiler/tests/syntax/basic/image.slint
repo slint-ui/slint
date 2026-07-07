@@ -31,6 +31,12 @@ export SubElements := Rectangle {
 //              >                                                      <error{Invalid data URI payload: symbol with codepoint 33 not expected}
     }
 
+    Image {
+        source: @image-url("https://slint.dev/logo.png");
+//              >                                      <warning{Loading images from HTTP/HTTPS is only supported for Web targets}
+    }
+
+
     Rectangle {
         background: red;
     }
