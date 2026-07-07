@@ -53,7 +53,7 @@ fn diagnose_component_container(element: &ElementRc, diag: &mut BuildDiagnostics
     for (name, cip) in &*elem.enclosing_component.upgrade().unwrap().child_insertion_points.borrow()
     {
         if Rc::ptr_eq(&cip.parent, element) {
-            let slot_name = if name == "_children" {
+            let slot_name = if name == DEFAULT_SLOT_NAME {
                 "The @children placeholder".into()
             } else {
                 format!("the slot '{name}'")
