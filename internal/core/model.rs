@@ -23,7 +23,7 @@ mod adapters;
 mod model_peer;
 mod repeater;
 
-pub use repeater::{Conditional, RepeatedItemTree, Repeater, RepeaterTracker};
+pub use repeater::{Conditional, ListViewProperties, RepeatedItemTree, Repeater, RepeaterTracker};
 
 /// This trait defines the interface that users of a model can use to track changes
 /// to a model. It is supplied via [`Model::model_tracker`] and implementation usually
