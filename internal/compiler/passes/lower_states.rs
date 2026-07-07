@@ -88,7 +88,18 @@ fn lower_state_in_element(
             };
             match e.borrow_mut().bindings.entry(ne.name().clone()) {
                 std::collections::btree_map::Entry::Occupied(mut e) => {
-                    e.get_mut().get_mut().expression = new_expr
+                    let binding = e.get_mut().get_mut();
+                    // A synthetic debug hook may occupy an unbound property: upgrade it in
+                    // place (keep the wrapper and id, clear `synthetic`) so the property
+                    // stays live-editable. A non-synthetic hook already survives inside
+                    // `property_expr` (the else-branch), so it is replaced as before.
+                    match &mut binding.expression {
+                        Expression::DebugHook { expression, synthetic, .. } if *synthetic => {
+                            *expression = Box::new(new_expr);
+                            *synthetic = false;
+                        }
+                        expression => *expression = new_expr,
+                    }
                 }
                 std::collections::btree_map::Entry::Vacant(e) => {
                     let mut r = BindingExpression::from(new_expr);
@@ -203,7 +214,10 @@ fn expression_for_property(element: &ElementRc, name: &str) -> ExpressionForProp
     let mut element_it = Some(element.clone());
     let mut in_base = false;
     while let Some(elem) = element_it {
-        if let Some(e) = elem.borrow().bindings.get(name) {
+        // binding() skips synthetic debug hooks: an unbound property's placeholder must not
+        // shadow a real default binding deeper in the base chain (it would become the state's
+        // else-branch and change the idle value).
+        if let Some(e) = elem.borrow().binding(name) {
             let e = e.borrow();
             if !e.two_way_bindings.is_empty() {
                 return ExpressionForProperty::TwoWayBinding;

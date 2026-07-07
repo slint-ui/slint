@@ -2477,18 +2477,129 @@ export component Win inherits Window {
     assert!((reverted.size.width - base.size.width).abs() < 0.5, "width should revert");
 }
 
+// Component-instance elements are hooked too: their unbound properties get synthetic hooks
+// that must be upgraded with the definition's default bindings during inlining (keeping the
+// *instance* element's hook id). Verifies that the defaults are preserved (regression: they
+// used to be clobbered, rendering repeated items transparent) and that instance properties
+// are live-overridable through the hook callback.
+#[cfg(all(test, feature = "internal", feature = "internal-highlight"))]
+#[test]
+fn test_debug_hook_component_instance_override() {
+    use i_slint_core::Property;
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+    use std::pin::Pin;
+    use std::rc::Rc;
+
+    i_slint_backend_testing::init_no_event_loop();
+
+    let code = r#"
+component Sub inherits Rectangle {
+    in property <color> tint: blue;
+    background: tint;
+}
+export component Win inherits Window {
+    width: 300px;
+    height: 300px;
+    sub := Sub { x: 10px; y: 20px; width: 50px; height: 50px; }
+    for _idx in 2: Sub { width: 10px; height: 10px; }
+    out property <brush> sub-background: sub.background;
+}"#;
+    let path = PathBuf::from("/tmp/debug_hook_instance_test.slint");
+
+    let mut compiler = Compiler::default();
+    compiler.set_style("fluent".into());
+    compiler.compiler_configuration(i_slint_core::InternalToken).debug_hooks =
+        Some(std::hash::RandomState::new());
+    let compile_result =
+        spin_on::spin_on(compiler.build_from_source(code.to_string(), path.clone()));
+    assert!(!compile_result.has_errors(), "{:?}", compile_result.diagnostics);
+    let instance = compile_result.components().next().unwrap().create().unwrap();
+
+    // Editor-style override store, installed before the first evaluation.
+    type Store = Rc<RefCell<HashMap<SmolStr, Pin<Box<Property<Option<Value>>>>>>>;
+    let store: Store = Default::default();
+    {
+        let store = store.clone();
+        instance.set_debug_hook_callback(Some(Box::new(move |id: &str| -> Option<Value> {
+            let mut map = (*store).borrow_mut();
+            let property =
+                map.entry(SmolStr::from(id)).or_insert_with(|| Box::pin(Property::new(None)));
+            property.as_ref().get()
+        })));
+    }
+
+    // The definition's default must be preserved: `background: tint` with `tint: blue`.
+    let blue = Value::Brush(i_slint_core::Brush::SolidColor(i_slint_core::Color::from_rgb_u8(
+        0, 0, 255,
+    )));
+    assert_eq!(instance.get_property("sub-background").unwrap(), blue);
+
+    // Resolve the instance element and its hash (hooks carry the instance element's id).
+    let offset = code.find("Sub {").unwrap() as u32;
+    let (element, debug_index) = instance
+        .element_node_at_source_code_position(&path, offset)
+        .first()
+        .cloned()
+        .expect("instance element resolved");
+    let element_hash = element.borrow().debug[debug_index].element_hash;
+    assert_ne!(element_hash, 0, "the instance element must carry a hook hash");
+
+    let set_override = |name: &str, value: Option<Value>| {
+        let id = i_slint_compiler::passes::property_id(element_hash, &SmolStr::from(name));
+        let mut map = (*store).borrow_mut();
+        let property = map.entry(id).or_insert_with(|| Box::pin(Property::new(None)));
+        (&**property).set(value);
+    };
+
+    // Override the instance's background (an upgraded synthetic hook) and revert.
+    let red = Value::Brush(i_slint_core::Brush::SolidColor(i_slint_core::Color::from_rgb_u8(
+        255, 0, 0,
+    )));
+    set_override("background", Some(red.clone()));
+    assert_eq!(instance.get_property("sub-background").unwrap(), red);
+    set_override("background", None);
+    assert_eq!(instance.get_property("sub-background").unwrap(), blue);
+
+    // Override the instance's x (wrapped explicit binding) and observe the geometry shift.
+    let base = instance.element_positions(&element).first().expect("geometry").rect;
+    set_override("x", Some(Value::Number(110.0)));
+    let after = instance.element_positions(&element).first().expect("geometry").rect;
+    assert!(
+        (after.origin.x - base.origin.x - 100.0).abs() < 0.5,
+        "x override should shift the instance by 100px (base {}, after {})",
+        base.origin.x,
+        after.origin.x
+    );
+    set_override("x", None);
+
+    // Overriding the injected transform-rotation hook must be possible (the Transform
+    // wrapper element is reified around the instance) and must not affect the geometry.
+    set_override("transform-rotation", Some(Value::Number(45.0)));
+    let rotated = instance.element_positions(&element).first().expect("geometry").rect;
+    assert!((rotated.origin.x - base.origin.x).abs() < 0.5, "rotation must not move the origin");
+    set_override("transform-rotation", None);
+}
+
 // Regression test: debug hooks inject bindings for properties the element may not have
 // natively (geometry, transform-rotation). Every injected binding must end up on a property
 // that actually exists at runtime, for every kind of element — otherwise instantiation
 // aborts with "unknown property ... in ...". Exercise the special cases: the root element,
-// plain items, elements that become component roots later (PopupWindow), non-item types
-// (Timer), repeated and conditional elements, layouts, and menus.
+// plain items, elements that become component roots later (PopupWindow — plain or through
+// component inheritance), non-item types (Timer), repeated and conditional elements,
+// layouts, menus, style widgets, and tooltips with custom content.
 #[cfg(all(test, feature = "internal", feature = "internal-highlight"))]
 #[test]
 fn test_debug_hooks_instantiate_special_elements() {
     i_slint_backend_testing::init_no_event_loop();
 
     let code = r#"
+import { Button } from "std-widgets.slint";
+
+component MyPopup inherits PopupWindow {
+    Rectangle { background: yellow; }
+}
+
 export component Win inherits Window {
     width: 300px;
     height: 300px;
@@ -2506,11 +2617,20 @@ export component Win inherits Window {
         plain := Rectangle { }
     }
 
+    covered := Rectangle {
+        Tooltip {
+            Rectangle { background: #222; }
+        }
+    }
+
+    Button { text: "a widget"; }
+
     popup := PopupWindow {
         Text { text: "popup content"; }
     }
-    callback show-the-popup();
-    show-the-popup() => { popup.show(); }
+    my-popup := MyPopup { }
+    callback show-the-popups();
+    show-the-popups() => { popup.show(); my-popup.show(); }
 
     Timer { interval: 1s; running: false; }
 
@@ -2530,8 +2650,8 @@ export component Win inherits Window {
     assert!(!result.has_errors(), "{:?}", result.diagnostics);
     let instance = result.components().next().unwrap().create().unwrap();
 
-    // Showing the popup instantiates the popup component (its bindings are only set up then).
-    instance.invoke("show-the-popup", &[]).unwrap();
+    // Showing the popups instantiates the popup components (their bindings are only set up then).
+    instance.invoke("show-the-popups", &[]).unwrap();
 }
 
 // Enabling debug_hooks now also materializes hooked default bindings for unbound properties.

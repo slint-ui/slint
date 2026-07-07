@@ -2014,7 +2014,8 @@ impl BindingExpression {
     }
 
     /// Merge the other into this one. Normally, &self is kept intact (has priority)
-    /// unless the expression is invalid, in which case the other one is taken.
+    /// unless the expression is invalid or a synthetic debug hook, in which case the
+    /// other one is taken.
     ///
     /// Also the animation is taken if the other don't have one, and the two ways binding
     /// are taken into account.
@@ -2026,18 +2027,46 @@ impl BindingExpression {
         }
         let has_binding = self.has_binding();
         self.two_way_bindings.extend_from_slice(&other.two_way_bindings);
-        if !has_binding {
-            self.priority = other.priority;
-            self.expression = other.expression.clone();
-            true
-        } else {
-            false
+        if has_binding {
+            return false;
         }
+        // A synthetic debug hook is equivalent to "no binding", but the hook wrapper (and
+        // its id) must survive the merge so the property stays live-editable on this
+        // element: upgrade the hook in place with the other side's real expression.
+        if let Expression::DebugHook { expression, synthetic, .. } = &mut self.expression {
+            debug_assert!(*synthetic, "has_binding() returned false for a non-synthetic hook");
+            if !matches!(other.expression, Expression::Invalid)
+                && !other.expression.is_synthetic_debug_hook()
+            {
+                *expression = Box::new(other.expression.clone());
+                *synthetic = false;
+                self.priority = other.priority;
+                return true;
+            }
+            if self.two_way_bindings.is_empty() {
+                // Nothing real to adopt from the other side: keep the synthetic placeholder.
+                return false;
+            }
+            // Two-way bindings now drive this property. The synthetic default must not
+            // become the two-way's initial value, so the hook is dropped (the property is
+            // then edited through the two-way target instead).
+            self.expression = Expression::Invalid;
+            self.priority = other.priority;
+            return true;
+        }
+        self.priority = other.priority;
+        self.expression = other.expression.clone();
+        true
     }
 
     /// returns false if there is no expression or two way binding
+    ///
+    /// A synthetic debug hook (a materialized placeholder for an unbound property) counts
+    /// as "no expression".
     pub fn has_binding(&self) -> bool {
-        !matches!(self.expression, Expression::Invalid) || !self.two_way_bindings.is_empty()
+        (!matches!(self.expression, Expression::Invalid)
+            && !self.expression.is_synthetic_debug_hook())
+            || !self.two_way_bindings.is_empty()
     }
 }
 

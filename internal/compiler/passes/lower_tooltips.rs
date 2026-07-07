@@ -116,8 +116,10 @@ fn bind_popup_effective_size_from_content(
     popup_window_rc: &ElementRc,
     tooltip_content_rc: &ElementRc,
 ) {
-    let content_has_width = tooltip_content_rc.borrow().bindings.contains_key(WIDTH);
-    let content_has_height = tooltip_content_rc.borrow().bindings.contains_key(HEIGHT);
+    // binding() ignores synthetic debug hooks — an unbound width/height must take the
+    // preferred-size path even when a hook placeholder occupies the slot.
+    let content_has_width = tooltip_content_rc.borrow().binding(WIDTH).is_some();
+    let content_has_height = tooltip_content_rc.borrow().binding(HEIGHT).is_some();
 
     if content_has_width {
         let explicit_width = NamedReference::new(tooltip_content_rc, SmolStr::new_static(WIDTH));
@@ -352,7 +354,7 @@ fn lower_tooltips_in_component(
         }
 
         let has_custom_content = !tooltip_candidate.borrow().children.is_empty();
-        let has_text_binding = tooltip_candidate.borrow().bindings.contains_key("text");
+        let has_text_binding = tooltip_candidate.borrow().binding("text").is_some();
         if has_custom_content && has_text_binding {
             diag.push_error(
                 "Tooltip cannot have both text and custom content".into(),

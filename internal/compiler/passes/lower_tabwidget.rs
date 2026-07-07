@@ -290,17 +290,17 @@ fn set_geometry_prop(
     prop: &str,
     diag: &mut BuildDiagnostics,
 ) {
-    let old = content.borrow_mut().bindings.insert(
+    // set_binding_overwriting upgrades a synthetic debug hook placeholder in place and only
+    // reports a real (user-written) binding as a conflict.
+    let old = content.borrow_mut().set_binding_overwriting(
         prop.into(),
-        RefCell::new(
-            Expression::PropertyReference(NamedReference::new(
-                tab_widget,
-                format_smolstr!("content-{}", prop),
-            ))
-            .into(),
-        ),
+        Expression::PropertyReference(NamedReference::new(
+            tab_widget,
+            format_smolstr!("content-{}", prop),
+        ))
+        .into(),
     );
-    if let Some(old) = old.map(RefCell::into_inner) {
+    if let Some(old) = old {
         diag.push_error(
             format!("The property '{prop}' cannot be set for Tabs inside a TabWidget"),
             &old,

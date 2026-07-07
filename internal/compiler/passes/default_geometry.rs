@@ -373,7 +373,8 @@ fn fix_percent_size(
     if binding.borrow().ty() != Type::Percent {
         let Some(parent) = parent.as_ref() else { return false };
         // Pattern match to check it was already parent.<property>
-        return matches!(&binding.borrow().expression, Expression::PropertyReference(nr) if *nr.name() == property && Rc::ptr_eq(&nr.element(), parent));
+        // (through a possible debug hook wrapper)
+        return matches!(binding.borrow().expression.ignore_debug_hooks(), Expression::PropertyReference(nr) if *nr.name() == property && Rc::ptr_eq(&nr.element(), parent));
     }
     let mut b = binding.borrow_mut();
     if let Some(mut parent) = parent.clone() {
@@ -385,8 +386,8 @@ fn fix_percent_size(
             parent.borrow().lookup_property(property).property_type,
             Type::LogicalLength
         );
-        let fill =
-            matches!(b.expression, Expression::NumberLiteral(x, _) if (x - 100.).abs() < 0.001);
+        let fill = matches!(b.expression.ignore_debug_hooks(),
+            Expression::NumberLiteral(x, _) if (x - 100.).abs() < 0.001);
         b.expression = Expression::BinaryExpression {
             lhs: Box::new(std::mem::take(&mut b.expression).maybe_convert_to(
                 Type::Float32,
@@ -533,6 +534,10 @@ fn adjust_image_clip_rect(elem: &ElementRc, builtin: &Rc<BuiltinElement>) {
     debug_assert_eq!(builtin.native_class.class_name, "ClippedImage");
 
     if builtin.native_class.properties.keys().any(|p| {
+        // Deliberately count synthetic debug hooks here (raw map access): they also count as
+        // "used" in resolve_native_classes, so the ClippedImage native class gets selected —
+        // and a ClippedImage without the synthesized clip defaults renders/measures as a
+        // zero-size clip. This condition must match the class-selection semantics.
         elem.borrow().bindings.contains_key(p)
             || elem.borrow().property_analysis.borrow().get(p).is_some_and(|a| a.is_used())
     }) {
