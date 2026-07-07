@@ -7,6 +7,7 @@ import { InspectorTextFieldBase } from "text-field-base.slint";
 export component InspectorCodeField inherits Rectangle {
     in property <string> prefix: "";
     in property <string> value;
+    in property <string> commit-key: "";
     callback accepted(string) -> bool;
 
     horizontal-stretch: 1;
@@ -15,6 +16,7 @@ export component InspectorCodeField inherits Rectangle {
     InspectorTextFieldBase {
         width: parent.width;
         value: root.value;
+        commit-key: root.commit-key;
         field-padding-right: 8px;
         input-font-size: 11px;
         accepted(text) => {

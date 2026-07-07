@@ -10,6 +10,7 @@ export component InspectorEffectSlider inherits Rectangle {
     in property <float> minimum: 0;
     in property <float> maximum: 100;
     in property <string> suffix: "px";
+    in property <string> commit-key: "";
     callback accepted(float) -> bool;
 
     property <bool> dragging: false;
@@ -115,6 +116,7 @@ export component InspectorEffectSlider inherits Rectangle {
         x: parent.width - self.width - (root.suffix != "" ? 14px : 0px);
         prefix: "";
         value: "\{root.visual-value().round()}";
+        commit-key: root.commit-key;
         width: root.suffix != "" ? 44px : 52px;
         accepted(text) => {
             if !text.is-float() {

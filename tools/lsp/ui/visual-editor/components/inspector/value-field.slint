@@ -10,6 +10,7 @@ export component InspectorValueField inherits Rectangle {
     in property <bool> enabled: true;
     in property <string> tooltip-label: "";
     in property <string> tooltip-key: tooltip-label;
+    in property <string> commit-key: "";
     callback tooltip-hovered(string, string, Point);
     callback tooltip-hidden(string);
     callback accepted(string) -> bool;
@@ -23,6 +24,7 @@ export component InspectorValueField inherits Rectangle {
         enabled: root.enabled;
         tooltip-label: root.tooltip-label;
         tooltip-key: root.tooltip-key;
+        commit-key: root.commit-key;
         tooltip-hovered(key, label, position) => { root.tooltip-hovered(key, label, position); }
         tooltip-hidden(key) => { root.tooltip-hidden(key); }
         accepted(text) => {

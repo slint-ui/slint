@@ -13,6 +13,8 @@ export component InspectorTextFieldBase inherits Rectangle {
     in property <color> input-color: root.enabled ? InspectorTokens.text : InspectorTokens.muted;
     in property <string> tooltip-label: "";
     in property <string> tooltip-key: tooltip-label;
+    in property <string> commit-key: "";
+    private property <string> active-commit-key: root.commit-key;
     callback accepted(string) -> bool;
     callback tooltip-hovered(string, string, Point);
     callback tooltip-hidden(string);
@@ -27,6 +29,20 @@ export component InspectorTextFieldBase inherits Rectangle {
         if !input.has-focus {
             input.text = root.value;
         }
+    }
+
+    changed commit-key => {
+        input.text = root.value;
+        root.active-commit-key = root.commit-key;
+    }
+
+    function accept-input(text: string) -> bool {
+        if root.active-commit-key != root.commit-key {
+            input.text = root.value;
+            root.active-commit-key = root.commit-key;
+            return false;
+        }
+        return root.accepted(text);
     }
 
     HorizontalLayout {
@@ -50,14 +66,17 @@ export component InspectorTextFieldBase inherits Rectangle {
             text-cursor-width: 1px;
 
             accepted => {
-                if !root.accepted(self.text) {
+                if !root.accept-input(self.text) {
                     self.text = root.value;
                 }
             }
 
             changed has-focus => {
+                if self.has-focus {
+                    root.active-commit-key = root.commit-key;
+                }
                 if !self.has-focus && self.text != root.value {
-                    if !root.accepted(self.text) {
+                    if !root.accept-input(self.text) {
                         self.text = root.value;
                     }
                 }

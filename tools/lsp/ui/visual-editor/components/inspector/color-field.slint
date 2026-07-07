@@ -8,6 +8,7 @@ export component InspectorColorField inherits Rectangle {
     in property <string> value;
     in property <color> swatch;
     in property <bool> wide: false;
+    in property <string> commit-key: "";
     callback accepted(string) -> bool;
 
     width: wide ? InspectorTokens.wide-width : InspectorTokens.column-width;
@@ -16,6 +17,7 @@ export component InspectorColorField inherits Rectangle {
     InspectorTextFieldBase {
         width: parent.width;
         value: root.value;
+        commit-key: root.commit-key;
         field-padding-left: 7px;
         content-spacing: 6px;
         accepted(text) => {

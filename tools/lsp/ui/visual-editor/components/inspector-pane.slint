@@ -217,6 +217,46 @@ export component InspectorPane inherits Rectangle {
         return root.commit-code(property-name, value + "px");
     }
 
+    function field-key(property-name: string) -> string {
+        return root.element-information.source-uri
+            + ":"
+            + root.element-information.source-version
+            + ":"
+            + root.element-information.offset
+            + ":"
+            + property-name;
+    }
+
+    function property-brush(property-name: string, fallback: brush) -> brush {
+        let property = Api.current-property-value-data(property-name);
+        return property.code != "" ? property.value-brush : fallback;
+    }
+
+    function property-string(property-name: string, fallback: string) -> string {
+        let property = Api.current-property-value-data(property-name);
+        if property.code == "" {
+            return fallback;
+        }
+        if property.value-kind == PropertyValueKind.string && property.value-string != "" {
+            return property.value-string;
+        }
+        if property.display-string != "" {
+            return property.display-string;
+        }
+        return property.code;
+    }
+
+    function property-length-label(property-name: string, fallback: string) -> string {
+        let property = Api.current-property-value-data(property-name);
+        if property.code == "" {
+            return fallback;
+        }
+        if property.value-kind == PropertyValueKind.float || property.kind == PropertyValueKind.float {
+            return property.value-float.to-fixed(0);
+        }
+        return property.code;
+    }
+
     function remove-code(property-name: string) -> bool {
         if root.element-information.source-uri == "" {
             return false;
@@ -366,6 +406,30 @@ export component InspectorPane inherits Rectangle {
 
     function image-source-value() -> string {
         return Api.current-property-value("source", "");
+    }
+
+    function rectangle-background-code() -> string {
+        return Api.current-property-value("background", StudioTheme.dark ? "#383838" : "#ffffff");
+    }
+
+    function rectangle-background-swatch() -> brush {
+        return root.property-brush("background", StudioTheme.dark ? #383838 : #ffffff);
+    }
+
+    function text-color-code() -> string {
+        return Api.current-property-value("color", StudioTheme.dark ? "#f4f4f4" : "#1f2328");
+    }
+
+    function text-color-swatch() -> brush {
+        return root.property-brush("color", StudioTheme.dark ? #f4f4f4 : #1f2328);
+    }
+
+    function text-font-family-value() -> string {
+        return root.property-string("font-family", "Default font");
+    }
+
+    function text-font-size-value() -> string {
+        return root.property-length-label("font-size", "Default size");
     }
 
     function image-fit-index() -> int {
@@ -652,6 +716,7 @@ export component InspectorPane inherits Rectangle {
                         InspectorValueField {
                             prefix: "X";
                             value: root.selected-x-label();
+                            commit-key: root.field-key("x");
                             tooltip-label: "X-position";
                             tooltip-hovered(key, label, position) => { root.show-tooltip(key, label, position); }
                             tooltip-hidden(key) => { root.hide-tooltip(key); }
@@ -663,6 +728,7 @@ export component InspectorPane inherits Rectangle {
                         InspectorValueField {
                             prefix: "Y";
                             value: root.selected-y-label();
+                            commit-key: root.field-key("y");
                             tooltip-label: "Y-position";
                             tooltip-hovered(key, label, position) => { root.show-tooltip(key, label, position); }
                             tooltip-hidden(key) => { root.hide-tooltip(key); }
@@ -683,6 +749,7 @@ export component InspectorPane inherits Rectangle {
                         InspectorValueField {
                             prefix: "W";
                             value: root.selected-width-label();
+                            commit-key: root.field-key("width");
                             tooltip-label: "Width";
                             tooltip-hovered(key, label, position) => { root.show-tooltip(key, label, position); }
                             tooltip-hidden(key) => { root.hide-tooltip(key); }
@@ -694,6 +761,7 @@ export component InspectorPane inherits Rectangle {
                         InspectorValueField {
                             prefix: "H";
                             value: root.selected-height-label();
+                            commit-key: root.field-key("height");
                             tooltip-label: "Height";
                             tooltip-hovered(key, label, position) => { root.show-tooltip(key, label, position); }
                             tooltip-hidden(key) => { root.hide-tooltip(key); }
@@ -714,6 +782,7 @@ export component InspectorPane inherits Rectangle {
                         if root.is-root-selection(): InspectorColorField {
                             value: root.phone-background-label;
                             swatch: root.phone-background;
+                            commit-key: root.field-key("background");
                             wide: true;
                             accepted(text) => {
                                 return root.commit-code("background", text);
@@ -721,8 +790,9 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.is-rectangle-selection(): InspectorColorField {
-                            value: StudioTheme.dark ? "#383838" : "#ffffff";
-                            swatch: StudioTheme.dark ? #383838 : #ffffff;
+                            value: root.rectangle-background-code();
+                            swatch: root.rectangle-background-swatch();
+                            commit-key: root.field-key("background");
                             wide: true;
                             accepted(text) => {
                                 return root.commit-code("background", text);
@@ -730,8 +800,9 @@ export component InspectorPane inherits Rectangle {
                         }
 
                         if root.is-text-selection(): InspectorColorField {
-                            value: StudioTheme.dark ? "#f4f4f4" : "#1f2328";
-                            swatch: StudioTheme.dark ? #f4f4f4 : #1f2328;
+                            value: root.text-color-code();
+                            swatch: root.text-color-swatch();
+                            commit-key: root.field-key("color");
                             wide: true;
                             accepted(text) => {
                                 return root.commit-code("color", text);
@@ -784,6 +855,7 @@ export component InspectorPane inherits Rectangle {
                                 InspectorColorField {
                                     value: root.shadow-color-code();
                                     swatch: root.shadow-color-swatch();
+                                    commit-key: root.field-key(root.current-shadow-prefix() + "color");
                                     accepted(text) => {
                                         return root.commit-code(root.current-shadow-prefix() + "color", text);
                                     }
@@ -796,6 +868,7 @@ export component InspectorPane inherits Rectangle {
                             value: root.shadow-distance();
                             minimum: 0;
                             maximum: 96;
+                            commit-key: root.field-key(root.current-shadow-prefix() + "offset");
                             accepted(value) => {
                                 return root.commit-shadow-offsets(root.shadow-angle(), value);
                             }
@@ -806,6 +879,7 @@ export component InspectorPane inherits Rectangle {
                             value: root.shadow-blur();
                             minimum: 0;
                             maximum: 128;
+                            commit-key: root.field-key(root.current-shadow-prefix() + "blur");
                             accepted(value) => {
                                 return root.commit-shadow-number(root.current-shadow-prefix() + "blur", value);
                             }
@@ -816,6 +890,7 @@ export component InspectorPane inherits Rectangle {
                             value: root.shadow-spread();
                             minimum: -64;
                             maximum: 64;
+                            commit-key: root.field-key(root.current-shadow-prefix() + "spread");
                             accepted(value) => {
                                 return root.commit-shadow-number(root.current-shadow-prefix() + "spread", value);
                             }
@@ -834,6 +909,7 @@ export component InspectorPane inherits Rectangle {
                         InspectorCodeField {
                             prefix: "Source";
                             value: root.image-source-value();
+                            commit-key: root.field-key("source");
                             accepted(text) => {
                                 return root.commit-code("source", text);
                             }
@@ -906,7 +982,8 @@ export component InspectorPane inherits Rectangle {
                         spacing: 8px;
 
                         InspectorEditableField {
-                            value: "Roboto";
+                            value: root.text-font-family-value();
+                            commit-key: root.field-key("font-family");
                             wide: true;
                             accepted(text) => {
                                 return text != "" && root.commit-code("font-family", root.quote(text));
@@ -926,9 +1003,12 @@ export component InspectorPane inherits Rectangle {
                             }
 
                             InspectorEditableField {
-                                value: "14";
+                                value: root.text-font-size-value();
+                                commit-key: root.field-key("font-size");
                                 accepted(text) => {
-                                    return root.commit-px-code("font-size", text);
+                                    return text.is-float()
+                                        ? root.commit-px-code("font-size", text)
+                                        : root.commit-code("font-size", text);
                                 }
                             }
                         }
