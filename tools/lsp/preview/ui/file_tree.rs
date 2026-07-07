@@ -17,12 +17,15 @@ pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, ui_kind: Previe
     if !ui_kind.is_editor() {
         api.set_file_tree(Default::default());
         api.set_selected_project_file(Default::default());
+        api.set_startup_wizard_visible(false);
         return;
     };
 
+    let initial_paths = initial_file_tree_paths();
+    api.set_startup_wizard_visible(initial_paths.is_none());
+
     let controller = Rc::new(RefCell::new(
-        initial_file_tree_paths()
-            .map(|(root, selected_path)| FileTreeController::new(root, selected_path)),
+        initial_paths.map(|(root, selected_path)| FileTreeController::new(root, selected_path)),
     ));
     if let Some(controller) = controller.borrow().as_ref() {
         controller.publish(api);
@@ -56,6 +59,7 @@ pub fn setup(api: &Api<'_>, api_weak: slint::Weak<Api<'static>>, ui_kind: Previe
             if let Some(controller) = controller.as_mut() {
                 controller.publish(&api);
             }
+            api.set_startup_wizard_visible(false);
             super::super::request_file_tree_preview(&path);
             true
         } else {

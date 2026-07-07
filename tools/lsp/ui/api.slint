@@ -597,12 +597,15 @@ export global Api {
     // ## File Tree
     in-out property <[FileTreeNode]> file-tree;
     in-out property <string> selected-project-file;
+    in-out property <bool> startup-wizard-visible;
     in-out property <EditorSurfaceMode> editor-surface-mode: EditorSurfaceMode.component;
     in-out property <ImageAssetPreview> selected-image-asset;
     in-out property <int> image-nine-slice-top;
     in-out property <int> image-nine-slice-right;
     in-out property <int> image-nine-slice-bottom;
     in-out property <int> image-nine-slice-left;
+    callback open-startup-wizard();
+    callback close-startup-wizard();
     callback file-tree-toggle(path: string);
     callback file-tree-select(path: string);
     pure callback image-nine-slice-expression(path: string, top: int, right: int, bottom: int, left: int) -> string;

@@ -352,6 +352,18 @@ pub fn create_ui(
     brushes::setup(&api);
     log_messages::setup(&api);
     palette::setup(&api);
+    let open_startup_wizard_api_weak = api_weak.clone();
+    api.on_open_startup_wizard(move || {
+        if let Some(api) = open_startup_wizard_api_weak.upgrade() {
+            api.set_startup_wizard_visible(true);
+        }
+    });
+    let close_startup_wizard_api_weak = api_weak.clone();
+    api.on_close_startup_wizard(move || {
+        if let Some(api) = close_startup_wizard_api_weak.upgrade() {
+            api.set_startup_wizard_visible(false);
+        }
+    });
     file_tree::setup(&api, api_weak.clone(), ui_kind);
     recent_colors::setup(&api, api_weak.clone());
     super::outline::setup(&api, api_weak);

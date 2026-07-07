@@ -79,20 +79,22 @@ pub fn run(
 
         macos_titlebar::setup(editor.as_weak());
 
-        updater = Sparkle::new().unwrap().unwrap();
+        updater = Sparkle::new().unwrap();
 
-        updater.set_nonsync_event_callback(move |event| match event {
-            sparklers::Event::DidFinishUpdateCycle { error: Some(error), .. }
-            | sparklers::Event::FailedToDownloadUpdate { error, .. }
-            | sparklers::Event::DidAbortWithError { error } => eprintln!("ERROR: {error}"),
+        if let Some(updater) = updater.as_ref() {
+            updater.set_nonsync_event_callback(move |event| match event {
+                sparklers::Event::DidFinishUpdateCycle { error: Some(error), .. }
+                | sparklers::Event::FailedToDownloadUpdate { error, .. }
+                | sparklers::Event::DidAbortWithError { error } => eprintln!("ERROR: {error}"),
 
-            _ => println!("Sparkle event: {event:?}"),
-        });
+                _ => println!("Sparkle event: {event:?}"),
+            });
 
-        // TODO: These calls can't return `Err`, the API needs to be changed
-        // Errors are reported using the callback.
-        updater.set_automatically_checks_for_updates(true);
-        updater.check_for_updates_in_background();
+            // TODO: These calls can't return `Err`, the API needs to be changed
+            // Errors are reported using the callback.
+            updater.set_automatically_checks_for_updates(true);
+            updater.check_for_updates_in_background();
+        }
     }
 
     to_lsp

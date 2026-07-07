@@ -383,7 +383,6 @@ export component EditorUi inherits Window {
     default-font-family: "Inter";
     always-on-top: Api.always-on-top;
 
-    property <bool> wizard-visible: Api.selected-project-file == "";
     property <bool> sidebars-collapsed: false;
     property <bool> settings-visible: false;
     property <bool> device-dark: false;
@@ -401,8 +400,16 @@ export component EditorUi inherits Window {
         return 0.85 + root.text-size-index * 0.15;
     }
 
+    function open-startup-wizard() {
+        Api.open-startup-wizard();
+    }
+
+    function close-startup-wizard() {
+        Api.close-startup-wizard();
+    }
+
     function open-project() {
-        root.wizard-visible = false;
+        root.close-startup-wizard();
         state.open-project();
     }
 
@@ -423,7 +430,7 @@ export component EditorUi inherits Window {
         }
     }
 
-    if !root.wizard-visible: editor := FocusScope {
+    if !Api.startup-wizard-visible: editor := FocusScope {
         width: root.width;
         height: root.height;
         property <bool> shift-pressed: false;
@@ -626,7 +633,7 @@ export component EditorUi inherits Window {
         }
     }
 
-    if root.wizard-visible: StartupWizard {
+    if Api.startup-wizard-visible: StartupWizard {
         selected-project <=> root.selected-project;
         opened => {
             root.open-project();

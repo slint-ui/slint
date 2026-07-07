@@ -105,9 +105,10 @@ component FileTreeRow inherits Rectangle {
     touch := TouchArea {
         mouse-cursor: pointer;
         clicked => {
-            Api.file-tree-select(root.node.path);
             if root.folder {
                 Api.file-tree-toggle(root.node.path);
+            } else {
+                Api.file-tree-select(root.node.path);
             }
         }
     }
