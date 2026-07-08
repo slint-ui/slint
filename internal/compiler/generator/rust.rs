@@ -3442,17 +3442,46 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             }
         }
         Expression::Struct { ty, values } => {
-            let elem = ty.fields.keys().map(|k| values.get(k).map(|e| compile_expression_to_value(e, ctx)));
             if ty.name.is_some() {
                 let name_tokens = struct_name_to_tokens(&ty.name).unwrap();
-                let keys = ty.fields.keys().map(|k| ident(k));
-                if matches!(&ty.name, StructName::Builtin(b) if b.is_layout_data())
-                {
-                    quote!(#name_tokens{#(#keys: #elem as _,)*})
+                // A struct literal can only be used when all the fields are public, there
+                // is no hidden field (like euclid's `_unit`), and the struct is not
+                // `#[non_exhaustive]`. That holds for the generated user structs and for
+                // the listed builtin structs.
+                use crate::langtype::BuiltinStruct as BS;
+                let supports_struct_literal = match &ty.name {
+                    StructName::User { .. } => true,
+                    StructName::Builtin(b) => {
+                        b.is_layout_data()
+                            || matches!(
+                                b,
+                                BS::LayoutInfo
+                                    | BS::LayoutItemInfo
+                                    | BS::FlexboxLayoutItemInfo
+                                    | BS::Padding
+                                    | BS::PropertyAnimation
+                                    | BS::StateInfo
+                            )
+                    }
+                    StructName::None => false,
+                };
+                if supports_struct_literal {
+                    let (keys, elem): (Vec<_>, Vec<_>) = ty
+                        .fields
+                        .keys()
+                        .filter(|k| values.contains_key(*k))
+                        .map(|k| (ident(k), compile_expression_to_value(&values[k], ctx)))
+                        .unzip();
+                    let default_rest = (keys.len() != ty.fields.len())
+                        .then(|| quote!(..::core::default::Default::default()));
+                    quote!(#name_tokens{#(#keys: #elem as _,)* #default_rest})
                 } else {
+                    let elem = ty.fields.keys().map(|k| values.get(k).map(|e| compile_expression_to_value(e, ctx)));
+                    let keys = ty.fields.keys().map(|k| ident(k));
                     quote!({ let mut the_struct = #name_tokens::default(); #(the_struct.#keys = #elem as _;)* the_struct})
                 }
             } else {
+                let elem = ty.fields.keys().map(|k| values.get(k).map(|e| compile_expression_to_value(e, ctx)));
                 let as_ = ty.fields.values().map(|t| {
                     if t.as_unit_product().is_some() {
                         // number needs to be converted to the right things because intermediate
