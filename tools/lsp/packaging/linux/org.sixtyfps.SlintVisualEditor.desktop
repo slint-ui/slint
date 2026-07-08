@@ -5,5 +5,5 @@ Type=Application
 Terminal=false
 Exec=/app/bin/slint-visual-editor
 Name=Slint Visual Editor
-Icon=/app/share/icons/hicolor/512x512/apps/${FLATPAK_ID}.png
+Icon=/app/share/icons/hicolor/512x512/apps/org.sixtyfps.SlintVisualEditor.png
 X-AppImage-Name=Slint Visual Editor
