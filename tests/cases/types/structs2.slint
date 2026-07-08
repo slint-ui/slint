@@ -58,6 +58,38 @@ const TestCase &instance = *handle;
 assert_eq(instance.invoke_cb1(Foo2{ Foo1{ 123 } }).b, 124);
 ```
 
+```d.ts
+export interface DeleteMe {
+    c: slint.RgbaColor;
+}
+
+export interface Foo1 {
+    member: number;
+}
+
+export interface Foo2 {
+    a: Foo1;
+}
+
+export interface Foo3 {
+    b: number;
+}
+
+export interface Palette {
+    box: slint.Brush;
+    mainContent: slint.Brush;
+    menuBar: slint.Brush;
+}
+
+export interface TestCase {
+    cb1: (arg_0: Foo2) => Foo3;
+    cb2: (arg_0: Foo2, arg_1: Foo2) => Foo2;
+    readonly palette: Palette;
+    xx: Foo2;
+    xx2: Foo2;
+}
+```
+
 ```js
 var instance = new slint.TestCase();
 assert.equal(instance.cb1({a: {member: 123}}).b, 124);

@@ -50,6 +50,17 @@ assert_eq(instance.get_six(), 6);
 assert_eq(instance.get_profit(), 1000);
 ```
 
+```d.ts
+export interface TestCase {
+    five: number;
+    mul: (arg_0: number, arg_1: number) => number;
+    profit: number;
+    six: number;
+    sum: (arg_0: number, arg_1: number) => number;
+    test: boolean;
+}
+```
+
 ```js
 let instance = new slint.TestCase({
     sum: function(a, b) { return a + b; },

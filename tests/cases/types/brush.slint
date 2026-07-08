@@ -59,6 +59,18 @@ assert_eq!(t.get_color_brush().color(), green);
 
 ```
 
+```d.ts
+export interface Test {
+    color_brush: slint.Brush;
+    conditional: slint.Brush;
+    lighter: slint.Brush;
+    r2_col: slint.RgbaColor;
+    seethru: slint.Brush;
+    readonly test: boolean;
+    readonly test_rgb: boolean;
+}
+```
+
 ```js
 var t = new slint.Test({});
 assert.equal(t.color_brush.toString(), "#0000ff");
