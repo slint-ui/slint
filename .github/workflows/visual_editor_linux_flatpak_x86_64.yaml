@@ -61,7 +61,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: slint-visual-editor-linux-flatpak
-          path: |
-            tools/lsp/slint-visual-editor_0.17.1.flatpak
-            slint-visual-editor-self-signed.cer
+          path: tools/lsp/slint-visual-editor_1.17.1.flatpak
           if-no-files-found: error
