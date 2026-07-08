@@ -51,7 +51,7 @@ jobs:
 
       - name: Install flatpak tools
         run: |
-          sudo apt install -y flatpak flatpak-builder
+          sudo apt-get install -y flatpak flatpak-builder
           flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
       - name: Build flatpak
@@ -62,6 +62,6 @@ jobs:
         with:
           name: slint-visual-editor-linux-flatpak
           path: |
-            tools/lsp/slint-visual-editor_0.17.0.flatpak
+            tools/lsp/slint-visual-editor_0.17.1.flatpak
             slint-visual-editor-self-signed.cer
           if-no-files-found: error

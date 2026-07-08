@@ -15,7 +15,7 @@ options:
     macOS: "12.0"
 settings:
   ENABLE_HARDENED_RUNTIME: YES
-  MARKETING_VERSION: "1.17.0"
+  MARKETING_VERSION: "1.17.1"
   CURRENT_PROJECT_VERSION: "1"
 targets:
   Slint Visual Editor:
