@@ -22,7 +22,7 @@ if [ "${cargo_profile_dir}" = dev ]; then
     cargo_profile_dir=debug
 fi
 
-if [ -z "${FLATPAK_CARGO_GENERATOR_PATH}" ] && ! [ -f "${flatpak_cargo_generator}" ]; then
+if [ -z "${FLATPAK_CARGO_GENERATOR_PATH:-}" ] && ! [ -f "${flatpak_cargo_generator}" ]; then
     echo -e 'Please download flatpak-cargo-generator.py from github.com/flatpak/flatpak-builder-tools and set FLATPAK_CARGO_GENERATOR_PATH to point to it'
     exit 1
 fi

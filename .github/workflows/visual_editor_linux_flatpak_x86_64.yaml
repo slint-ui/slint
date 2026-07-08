@@ -53,21 +53,13 @@ jobs:
           key: visual-editor-linux-flatpak
           save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
 
-      - name: Install Linux x86_64 Rust target
-        run: rustup target add x86_64-unknown-linux-gnu
-
       - name: Generate flatpak manifest
         run: scripts/generate_visual_editor_flatpak_manifest.bash
 
       - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
         with:
-          bundle: tools/lsp/slint-visual-editor.flatpak
+          bundle: slint-visual-editor.flatpak
           manifest-path: tools/lsp/org.sixtyfps.SlintVisualEditor.yml
           cache-key: flatpak-builder-${{ github.sha }}
-
-      - name: Upload flatpak artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: slint-visual-editor-linux-flatpak
-          path: tools/lsp/slint-visual-editor.flatpak
-          if-no-files-found: error
+          upload-artifact: true
+          artifact-name: slint-visual-editor-linux-flatpak
