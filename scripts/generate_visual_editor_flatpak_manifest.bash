@@ -22,22 +22,23 @@ if [ "${cargo_profile_dir}" = dev ]; then
     cargo_profile_dir=debug
 fi
 
-flatpak_cargo_generator="${repo_root}/scripts/flatpak-cargo-generator.py"
-
-if ! [ -f "${flatpak_cargo_generator}" ]; then
-    echo -e 'Please download flatpak-cargo-generator.py from github.com/flatpak/flatpak-builder-tools'
+if [ -z "${FLATPAK_CARGO_GENERATOR_PATH}" ] && ! [ -f "${flatpak_cargo_generator}" ]; then
+    echo -e 'Please download flatpak-cargo-generator.py from github.com/flatpak/flatpak-builder-tools and set FLATPAK_CARGO_GENERATOR_PATH to point to it'
     exit 1
 fi
 
-"${flatpak_cargo_generator}" "${repo_root}/Cargo.lock" -o cargo-sources.json
+"${FLATPAK_CARGO_GENERATOR_PATH}" "${repo_root}/Cargo.lock" -o "${CARGO_SOURCES_PATH:-cargo-sources.json}"
 
-output_flatpak_yml="${PWD}/org.sixtyfps.SlintVisualEditor.yml"
+output_flatpak_manifest_path="${OUTPUT_FLATPAK_MANIFEST:-${PWD}/org.sixtyfps.SlintVisualEditor.yml}"
 
-echo -e 'Generated flatpak-builder file:'
+echo -e 'Generated flatpak manifest:'
 sed \
     org.sixtyfps.SlintVisualEditor.template.yml \
     -e 's/\$\$GIT_COMMIT\$\$/'${current_commit}'/g;
         s:\$\$GIT_CHECKOUT_PATH\$\$:'${repo_root}':g;
         s/\$\$CARGO_PROFILE\$\$/'${CARGO_PROFILE}'/g;
         s/\$\$CARGO_PROFILE_DIR\$\$/'${cargo_profile_dir}'/g' \
-    | tee "${output_flatpak_yml}" 1>&2
+    | tee "${output_flatpak_manifest_path}" 1>&2
+
+echo -e
+echo -e "Path: ${output_flatpak_manifest_path}"
