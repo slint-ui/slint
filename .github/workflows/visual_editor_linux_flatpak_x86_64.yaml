@@ -43,6 +43,7 @@ jobs:
       - name: Install flatpak tools
         run: |
           sudo apt install -y flatpak flatpak-builder
+          flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
       - name: Build flatpak
         run: scripts/build_linux_flatpak.bash
