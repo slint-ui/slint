@@ -43,7 +43,7 @@ jobs:
       # cache the build
       - uses: ./.github/actions/setup-rust
         with:
-          key: visual-editor-windows-msix
+          key: visual-editor-linux-flatpak
           save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
 
       - name: Install Linux x86_64 Rust target
@@ -54,12 +54,18 @@ jobs:
           sudo apt-get install -y flatpak flatpak-builder
           flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
-      - name: Build flatpak
-        run: scripts/build_linux_flatpak.bash
+      - name: Generate flatpak manifest
+        run: scripts/generate_visual_editor_flatpak_manifest.bash
+
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: tools/lsp/slint-visual-editor.flatpak
+          manifest-path: tools/lsp/org.sixtyfps.SlintVisualEditor.yml
+          cache-key: flatpak-builder-${{ github.sha }}
 
       - name: Upload flatpak artifact
         uses: actions/upload-artifact@v7
         with:
           name: slint-visual-editor-linux-flatpak
-          path: tools/lsp/slint-visual-editor_1.17.1.flatpak
+          path: tools/lsp/slint-visual-editor.flatpak
           if-no-files-found: error

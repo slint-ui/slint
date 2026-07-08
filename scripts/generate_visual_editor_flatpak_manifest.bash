@@ -30,7 +30,6 @@ if ! [ -f "${flatpak_cargo_generator}" ]; then
 fi
 
 "${flatpak_cargo_generator}" "${repo_root}/Cargo.lock" -o cargo-sources.json
-trap "rm ${PWD}/cargo-sources.json" EXIT
 
 output_flatpak_yml="${PWD}/org.sixtyfps.SlintVisualEditor.yml"
 
@@ -42,21 +41,3 @@ sed \
         s/\$\$CARGO_PROFILE\$\$/'${CARGO_PROFILE}'/g;
         s/\$\$CARGO_PROFILE_DIR\$\$/'${cargo_profile_dir}'/g' \
     | tee "${output_flatpak_yml}" 1>&2
-
-trap "rm ${output_flatpak_yml}" EXIT
-
-flatpak-builder \
-    --force-clean \
-    --user \
-    --install-deps-from=flathub \
-    --repo=repo \
-    builddir \
-    org.sixtyfps.SlintVisualEditor.yml
-
-flatpak build-bundle \
-    repo \
-    "slint-visual-editor_$version.flatpak" \
-    org.sixtyfps.SlintVisualEditor \
-    --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
-
-# TODO: Append version to metainfo
