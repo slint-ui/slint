@@ -35,7 +35,7 @@ jobs:
 
       - name: Download flatpak helper script + dependencies
         run: |
-          python3 -m pip install aiohttp
+          python3 -m pip install aiohttp tomlkit
           curl -o scripts/flatpak-cargo-generator.py \
                   ${FLATPAK_CARGO_GENERATOR_URL}
           chmod +x scripts/flatpak-cargo-generator.py
