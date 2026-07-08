@@ -9,7 +9,9 @@
 //! be further inlined as it may expand to a native widget that needs inlining
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{BindingExpression, Callable, Expression, MinMaxOp, NamedReference, Unit};
+use crate::expression_tree::{
+    BindingExpression, Callable, Expression, MinMaxOp, NamedReference, Unit,
+};
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use smol_str::{SmolStr, format_smolstr};
@@ -232,10 +234,10 @@ fn process_tabwidget(
     set_tabbar_geometry_prop(elem, &tabbar, "y");
     set_tabbar_geometry_prop(elem, &tabbar, "width");
     set_tabbar_geometry_prop(elem, &tabbar, "height");
-    tabbar.borrow_mut().bindings.insert(
-        SmolStr::new_static("num-tabs"),
-        RefCell::new(num_tabs_expr.into()),
-    );
+    tabbar
+        .borrow_mut()
+        .bindings
+        .insert(SmolStr::new_static("num-tabs"), RefCell::new(num_tabs_expr.into()));
     tabbar.borrow_mut().bindings.insert(
         SmolStr::new_static("current"),
         BindingExpression::new_two_way(
