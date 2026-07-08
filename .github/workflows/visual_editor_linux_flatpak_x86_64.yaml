@@ -1,0 +1,58 @@
+# Copyright © SixtyFPS GmbH <info@slint.dev>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+name: Visual Editor Windows MSIX
+
+on:
+  workflow_dispatch:
+    inputs:
+      save_if:
+        description: "Condition to save the cache"
+        required: false
+        type: boolean
+        default: true
+
+  pull_request:
+    branches:
+      - visual-editor
+
+permissions:
+  contents: read
+
+env:
+  SLINT_BUILD_NUMBER: ${{ github.run_number }}
+
+jobs:
+  msix:
+    name: Build self-signed MSIX
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env: {}
+    steps:
+      - uses: actions/checkout@v6
+
+      # cache the build
+      - uses: ./.github/actions/setup-rust
+        with:
+          key: visual-editor-windows-msix
+          save_if: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository || inputs.save_if }}
+
+      - name: Install Linux x86_64 Rust target
+        run: rustup target add x86_64-unknown-linux-gnu
+
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          # We want to create the yaml from a template, so we disable building here
+          build-bundle: false
+
+      - name: Build flatpak
+        run: scripts/build_linux_flatpak.bash
+
+      - name: Upload flatpak artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: slint-visual-editor-linux-flatpak
+          path: |
+            tools/lsp/slint-visual-editor_0.17.0.flatpak
+            slint-visual-editor-self-signed.cer
+          if-no-files-found: error

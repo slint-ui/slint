@@ -20,7 +20,6 @@ permissions:
   contents: read
 
 env:
-  CARGO_INCREMENTAL: false
   SLINT_BUILD_NUMBER: ${{ github.run_number }}
   SLINT_VISUAL_EDITOR_MSIX_PATH: tools/lsp/slintvisualeditor_0.17.0.0_x64.msix
   SLINT_VISUAL_EDITOR_TEST_CERT_PASSWORD: slint-ci-self-signed
