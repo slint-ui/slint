@@ -42,7 +42,7 @@ image = { workspace = true }
 crossterm = "0.29"
 
 [build-dependencies]
-i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "software-renderer"], optional = true }
+i-slint-compiler = { workspace = true, features = ["default", "rust", "display-diagnostics", "renderer-software"], optional = true }
 walkdir = "2.3"
 spin_on = { workspace = true }
 test_driver_lib = { path = "../driver/driverlib" }

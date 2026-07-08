@@ -232,6 +232,27 @@ impl Scene {
         self.range_valid_until_line = Length::new(validity.unwrap_or_default());
         false
     }
+
+    pub fn is_guaranteed_opaque(&self, command: &SceneCommand) -> bool {
+        match command {
+            SceneCommand::Rectangle { color } => color.alpha == 255,
+            SceneCommand::Texture { texture_index } => {
+                let texture = &self.vectors.textures[*texture_index as usize];
+                // Below alpha 255 an RGB texture blends rather than overwrites (see
+                // draw_texture_line), so it is not opaque.
+                texture.format == TexturePixelFormat::Rgb && texture.extra.alpha == 255
+            }
+            SceneCommand::SharedBuffer { shared_buffer_index } => {
+                let buffer = &self.vectors.shared_buffers[*shared_buffer_index as usize];
+                buffer.extra.alpha == 255
+                    && matches!(
+                        buffer.buffer,
+                        SharedBufferData::SharedImage(SharedImageBuffer::RGB8(_))
+                    )
+            }
+            _ => false,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]

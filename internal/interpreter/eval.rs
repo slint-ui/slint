@@ -202,7 +202,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::Invalid => panic!("invalid expression while evaluating"),
         Expression::Uncompiled(_) => panic!("uncompiled expression while evaluating"),
         Expression::StringLiteral(s) => Value::String(s.as_str().into()),
-        Expression::NumberLiteral(n, unit) => Value::Number(unit.normalize(*n)),
+        Expression::NumberLiteral(n, _unit) => Value::Number(*n),
         Expression::BoolLiteral(b) => Value::Bool(*b),
         Expression::ElementReference(_) => todo!(
             "Element references are only supported in the context of built-in function calls at the moment"
@@ -1309,6 +1309,34 @@ fn call_builtin_function(
                 Value::String(s.to_uppercase().into())
             } else {
                 panic!("Argument not a string");
+            }
+        }
+        BuiltinFunction::StringStartsWith => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to StringStartsWith")
+            }
+            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
+                if let Value::String(pat) = eval_expression(&arguments[1], local_context) {
+                    Value::Bool(s.starts_with(pat.as_str()))
+                } else {
+                    panic!("Second argument not a string");
+                }
+            } else {
+                panic!("First argument not a string");
+            }
+        }
+        BuiltinFunction::StringEndsWith => {
+            if arguments.len() != 2 {
+                panic!("internal error: incorrect argument count to StringEndsWith")
+            }
+            if let Value::String(s) = eval_expression(&arguments[0], local_context) {
+                if let Value::String(pat) = eval_expression(&arguments[1], local_context) {
+                    Value::Bool(s.ends_with(pat.as_str()))
+                } else {
+                    panic!("Second argument not a string");
+                }
+            } else {
+                panic!("First argument not a string");
             }
         }
         BuiltinFunction::KeysToString => {

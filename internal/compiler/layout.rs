@@ -13,6 +13,9 @@ use smol_str::{SmolStr, ToSmolStr, format_smolstr};
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
+/// Number of slots a cell occupies in a box layout cache: position and size.
+pub const BOX_LAYOUT_CACHE_ENTRIES_PER_CELL: usize = 2;
+
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub enum Orientation {
     Horizontal,

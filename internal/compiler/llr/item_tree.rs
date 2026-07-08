@@ -20,7 +20,7 @@ pub struct CallbackIdx(usize);
 pub struct SubComponentIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
 pub struct GlobalIdx(usize);
-#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SubComponentInstanceIdx(usize);
 #[derive(Debug, Clone, Copy, Into, From, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ItemInstanceIdx(usize);
@@ -221,7 +221,7 @@ impl From<LocalMemberReference> for MemberReference {
 }
 
 /// A reference to something within an ItemTree
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct LocalMemberReference {
     pub sub_component_path: Vec<SubComponentInstanceIdx>,
     pub reference: LocalMemberIndex,
@@ -465,7 +465,7 @@ pub struct SubComponent {
     pub property_init: Vec<(MemberReference, BindingExpression)>,
     pub change_callbacks: Vec<(MemberReference, MutExpression)>,
     /// The animation for properties which are animated
-    pub animations: HashMap<LocalMemberReference, Expression>,
+    pub animations: BTreeMap<LocalMemberReference, Expression>,
     /// The two way bindings that map the first property to the second wih optional field access
     pub two_way_bindings: Vec<TwoWayBinding>,
     pub const_properties: Vec<LocalMemberReference>,

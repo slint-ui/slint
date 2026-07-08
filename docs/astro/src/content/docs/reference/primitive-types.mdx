@@ -116,6 +116,34 @@ export component StringToUppercase {
 }
 ```
 
+#### starts-with(pat: string) -> bool
+
+Returns `true` if the given pattern matches a prefix of this string.
+
+Returns `false` if it does not.
+
+```slint
+export component StringStartsWith {
+    property<bool> res1: "Hello".starts-with("He"); // true
+    property<bool> res2: "你好".starts-with("好"); // false
+}
+```
+
+#### ends-with(pat: string) -> bool
+
+Returns `true` if the given pattern matches a suffix of this string.
+
+Returns `false` if it does not.
+
+```slint
+export component StringEndsWith {
+    property<bool> res1: "Hello".ends-with("lo"); // true
+    property<bool> res2: "你好".ends-with("你"); // false
+}
+```
+
+Returns a string with leading and trailing whitespace removed.
+
 #### to-float() -> float
 
 Returns the number contained in the string, or 0 if the string isn't a valid number.

@@ -5,6 +5,7 @@ component TestCase inherits Rectangle {
     width: 400phx;
     height: 400phx;
     forward-focus: input2;
+    in property <bool> show: false;
 
     input1 := TextInput {
         y:0;
@@ -21,7 +22,7 @@ component TestCase inherits Rectangle {
                     accept
                 }
 
-                if (false) : Rectangle { FocusScope {} }
+                if (root.show) : Rectangle { FocusScope {} }
 
                 input2 := TextInput {
                     x:0;

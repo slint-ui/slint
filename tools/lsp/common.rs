@@ -19,6 +19,8 @@ pub mod component_catalog;
 pub mod document_cache;
 pub use document_cache::DocumentCache;
 pub use i_slint_compiler::diagnostics::ByteFormat;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod host_language_search;
 mod lsp_to_previews;
 pub mod rename_component;
 pub mod rename_element_id;
@@ -453,6 +455,36 @@ pub fn create_workspace_edit_from_text_document_edits(
     WorkspaceEdit { document_changes, ..Default::default() }
 }
 
+/// Merge the document-change edits from `additional` into `base`. Test-only
+/// since the rename flow now sends two independent `workspace/applyEdit`
+/// requests; the helper exists for tests that want to assert on the
+/// combined edit shape.
+///
+/// Both `WorkspaceEdit`s must use the `document_changes: Edits(...)` form --
+/// the one produced by [`create_workspace_edit_from_single_text_edits`] and
+/// the other `create_workspace_edit*` helpers. Fields not in `document_changes`
+/// are not merged (`changes`, `change_annotations`, and the `Operations`
+/// variant); the assertion below catches the misuse in debug builds.
+#[cfg(test)]
+pub fn merge_workspace_edits(base: &mut WorkspaceEdit, additional: WorkspaceEdit) {
+    debug_assert!(
+        additional.changes.is_none() && additional.change_annotations.is_none(),
+        "merge_workspace_edits only merges document_changes; got changes/change_annotations on additional",
+    );
+    let Some(lsp_types::DocumentChanges::Edits(more)) = additional.document_changes else {
+        return;
+    };
+    match &mut base.document_changes {
+        Some(lsp_types::DocumentChanges::Edits(existing)) => existing.extend(more),
+        None => {
+            base.document_changes = Some(lsp_types::DocumentChanges::Edits(more));
+        }
+        Some(lsp_types::DocumentChanges::Operations(_)) => {
+            // Operations form is not produced by our codebase; nothing to merge into.
+        }
+    }
+}
+
 pub fn create_workspace_edit_from_single_text_edits(
     mut inputs: Vec<SingleTextEdit>,
 ) -> WorkspaceEdit {
@@ -706,6 +738,55 @@ pub fn fuzzy_filter_iter<T: std::fmt::Debug>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn mk_edit(uri: &str, new_text: &str) -> SingleTextEdit {
+        SingleTextEdit {
+            url: Url::parse(uri).unwrap(),
+            version: None,
+            edit: TextEdit {
+                range: lsp_types::Range::new(
+                    lsp_types::Position::new(0, 0),
+                    lsp_types::Position::new(0, 0),
+                ),
+                new_text: new_text.into(),
+            },
+        }
+    }
+
+    fn doc_edits(edit: &WorkspaceEdit) -> &Vec<lsp_types::TextDocumentEdit> {
+        match edit.document_changes.as_ref().unwrap() {
+            lsp_types::DocumentChanges::Edits(v) => v,
+            _ => panic!("expected DocumentChanges::Edits"),
+        }
+    }
+
+    #[test]
+    fn merge_workspace_edits_combines_edits_lists() {
+        let mut base =
+            create_workspace_edit_from_single_text_edits(vec![mk_edit("file:///a.slint", "a")]);
+        let additional =
+            create_workspace_edit_from_single_text_edits(vec![mk_edit("file:///b.rs", "b")]);
+        merge_workspace_edits(&mut base, additional);
+        assert_eq!(doc_edits(&base).len(), 2);
+    }
+
+    #[test]
+    fn merge_workspace_edits_into_empty_base() {
+        let mut base = WorkspaceEdit::default();
+        let additional =
+            create_workspace_edit_from_single_text_edits(vec![mk_edit("file:///b.rs", "b")]);
+        merge_workspace_edits(&mut base, additional);
+        assert_eq!(doc_edits(&base).len(), 1);
+    }
+
+    #[test]
+    fn merge_workspace_edits_noop_for_empty_additional() {
+        let mut base =
+            create_workspace_edit_from_single_text_edits(vec![mk_edit("file:///a.slint", "a")]);
+        let before_len = doc_edits(&base).len();
+        merge_workspace_edits(&mut base, WorkspaceEdit::default());
+        assert_eq!(doc_edits(&base).len(), before_len);
+    }
 
     #[test]
     fn test_uri_conversion_of_builtins() {

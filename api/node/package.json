@@ -1,6 +1,6 @@
 {
   "name": "slint-ui",
-  "version": "1.17.1",
+  "version": "1.18.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "homepage": "https://github.com/slint-ui/slint",
@@ -25,7 +25,7 @@
     "@types/capture-console": "1.0.5",
     "@types/node": "catalog:",
     "capture-console": "1.0.2",
-    "image-js": "1.6.1",
+    "image-js": "1.6.2",
     "typescript": "catalog:",
     "verdaccio": "6.7.4",
     "vitest": "catalog:"

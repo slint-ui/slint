@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-// cSpell: ignore conv gdata powf punct vref rescope updt
+// cSpell: ignore conv gdata powf punct vref rescope rfold updt
 
 /*! module for the Rust code generator
 
@@ -12,6 +12,7 @@ Some convention used in the generated code:
    this is usually a local variable to the init code that shouldn't be relied upon by the binding code.
 */
 
+use super::accessor_names::{self, AccessorKind};
 use crate::CompilerConfiguration;
 use crate::expression_tree::{BuiltinFunction, EasingCurve, MinMaxOp, OperatorClass};
 use crate::langtype::{Enumeration, EnumerationValue, Struct, StructName, Type};
@@ -1009,7 +1010,6 @@ fn public_api(
 ) -> TokenStream {
     let mut property_and_callback_accessors: Vec<TokenStream> = Vec::new();
     for p in public_properties {
-        let prop_ident = ident(&p.name);
         let prop = access_member(&p.prop, ctx).unwrap();
 
         if let Type::Callback(callback) = &p.ty {
@@ -1018,7 +1018,7 @@ fn public_api(
             let return_type = rust_primitive_type(&callback.return_type).unwrap();
             let args_name =
                 (0..callback.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
-            let caller_ident = format_ident!("invoke_{}", prop_ident);
+            let caller_ident = accessor_names::rust_accessor_ident(&p.name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
@@ -1026,7 +1026,7 @@ fn public_api(
                     #prop.call(&(#(#args_name,)*))
                 }
             ));
-            let on_ident = format_ident!("on_{}", prop_ident);
+            let on_ident = accessor_names::rust_accessor_ident(&p.name, AccessorKind::Handler);
             let args_index = (0..callback_args.len()).map(proc_macro2::Literal::usize_unsuffixed);
             let tracker_access = access_callback_tracker(&p.prop, ctx);
             let set_dirty = tracker_access.map(|t| quote!(#t.mark_dirty();));
@@ -1048,7 +1048,7 @@ fn public_api(
             let return_type = rust_primitive_type(&function.return_type).unwrap();
             let args_name =
                 (0..function.args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
-            let caller_ident = format_ident!("invoke_{}", prop_ident);
+            let caller_ident = accessor_names::rust_accessor_ident(&p.name, AccessorKind::Invoker);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
                 pub fn #caller_ident(&self, #(#args_name : #callback_args,)*) -> #return_type {
@@ -1059,7 +1059,7 @@ fn public_api(
         } else {
             let rust_property_type = rust_primitive_type(&p.ty).unwrap();
 
-            let getter_ident = format_ident!("get_{}", prop_ident);
+            let getter_ident = accessor_names::rust_accessor_ident(&p.name, AccessorKind::Getter);
 
             let prop_expression = primitive_property_value(&p.ty, MemberAccess::Direct(prop));
 
@@ -1072,7 +1072,7 @@ fn public_api(
                 }
             ));
 
-            let setter_ident = format_ident!("set_{}", prop_ident);
+            let setter_ident = accessor_names::rust_accessor_ident(&p.name, AccessorKind::Setter);
             if !p.read_only {
                 let set_value = property_set_value_tokens(&p.prop, quote!(value), ctx);
                 property_and_callback_accessors.push(quote!(
@@ -1092,15 +1092,14 @@ fn public_api(
     }
 
     for (name, ty) in private_properties {
-        let prop_ident = ident(name);
         if let Type::Function { .. } = ty {
-            let caller_ident = format_ident!("invoke_{}", prop_ident);
+            let caller_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Invoker);
             property_and_callback_accessors.push(
                 quote!( #[allow(dead_code)] fn #caller_ident(&self, _private_function: ()) {} ),
             );
         } else {
-            let getter_ident = format_ident!("get_{}", prop_ident);
-            let setter_ident = format_ident!("set_{}", prop_ident);
+            let getter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Getter);
+            let setter_ident = accessor_names::rust_accessor_ident(name, AccessorKind::Setter);
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)] fn #getter_ident(&self, _private_property: ()) {}
                 #[allow(dead_code)] fn #setter_ident(&self, _private_property: ()) {}
@@ -2117,7 +2116,7 @@ fn generate_item_tree(
     let mut item_array = Vec::new();
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
         let parent_index = parent_index as u32;
-        let (path, component) =
+        let (_, component) =
             follow_sub_component_path(root, sub_tree.root, &node.sub_component_path);
         match node.item_index {
             Either::Right(mut repeater_index) => {
@@ -2136,10 +2135,6 @@ fn generate_item_tree(
             }
             Either::Left(item_index) => {
                 let item = &component.items[item_index];
-                let field = access_component_field_offset(
-                    &self::inner_component_id(component),
-                    &ident(&item.name),
-                );
 
                 let children_count = node.children.len() as u32;
                 let children_index = children_offset as u32;
@@ -2154,7 +2149,26 @@ fn generate_item_tree(
                         item_array_index: #item_array_len,
                     }
                 ));
-                item_array.push(quote!(sp::VOffset::new(#path #field)));
+
+                // The array is const, so nested offsets are composed with the
+                // const compose_field_offsets rather than the non-const `+`.
+                let mut sc = &root.sub_components[sub_tree.root];
+                let mut offsets = Vec::new();
+                for i in &node.sub_component_path {
+                    offsets.push(access_component_field_offset(
+                        &self::inner_component_id(sc),
+                        &ident(&sc.sub_components[*i].name),
+                    ));
+                    sc = &root.sub_components[sc.sub_components[*i].ty];
+                }
+                let offset = offsets.into_iter().rfold(
+                    access_component_field_offset(
+                        &self::inner_component_id(component),
+                        &ident(&item.name),
+                    ),
+                    |acc, seg| quote!(sp::compose_field_offsets(#seg, #acc)),
+                );
+                item_array.push(quote!(sp::VOffset::new(#offset)));
             }
         }
     });
@@ -2236,11 +2250,9 @@ fn generate_item_tree(
             }
 
             fn item_array() -> &'static [sp::VOffset<Self, sp::ItemVTable, sp::AllowPin>] {
-                // FIXME: ideally this should be a const, but we can't because of the pointer to the vtable
-                static ITEM_ARRAY : sp::OnceBox<
-                    [sp::VOffset<#inner_component_id, sp::ItemVTable, sp::AllowPin>; #item_array_len]
-                > = sp::OnceBox::new();
-                &*ITEM_ARRAY.get_or_init(|| sp::vec![#(#item_array),*].into_boxed_slice().try_into().unwrap())
+                const ITEM_ARRAY : [sp::VOffset<#inner_component_id, sp::ItemVTable, sp::AllowPin>; #item_array_len]
+                    = [#(#item_array),*];
+                &ITEM_ARRAY
             }
         }
 
@@ -4111,6 +4123,14 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::StringToLowercase => quote!(sp::SharedString::from(#(#a)*.to_lowercase())),
         BuiltinFunction::StringToUppercase => quote!(sp::SharedString::from(#(#a)*.to_uppercase())),
+        BuiltinFunction::StringStartsWith => {
+            let (s, pat) = (a.next().unwrap(), a.next().unwrap());
+            quote!(#s.starts_with(#pat.as_str()))
+        }
+        BuiltinFunction::StringEndsWith => {
+            let (s, pat) = (a.next().unwrap(), a.next().unwrap());
+            quote!(#s.ends_with(#pat.as_str()))
+        }
         BuiltinFunction::KeysToString => quote!(sp::ToSharedString::to_shared_string(&#(#a)*)),
         BuiltinFunction::ColorRgbaStruct => quote!( #(#a)*.to_argb_u8()),
         BuiltinFunction::ColorHsvaStruct => quote!( #(#a)*.to_hsva()),
@@ -5007,7 +5027,7 @@ fn embedded_file_tokens(path: &str) -> TokenStream {
 }
 
 fn generate_resources(doc: &Document) -> Vec<TokenStream> {
-    #[cfg(feature = "software-renderer")]
+    #[cfg(feature = "renderer-software")]
     let link_section = std::env::var("SLINT_ASSET_SECTION")
         .ok()
         .map(|section| quote!(#[unsafe(link_section = #section)]));
@@ -5029,7 +5049,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                 crate::embedded_resources::EmbeddedResourcesKind::DataUriPayload(bytes, _) => {
                     quote!(static #symbol: &'static [u8] = &[#(#bytes),*];)
                 }
-                #[cfg(feature = "software-renderer")]
+                #[cfg(feature = "renderer-software")]
                 crate::embedded_resources::EmbeddedResourcesKind::TextureData(crate::embedded_resources::Texture {
                     data, format, rect,
                     total_size: crate::embedded_resources::Size{width, height},
@@ -5063,7 +5083,7 @@ fn generate_resources(doc: &Document) -> Vec<TokenStream> {
                         };
                     )
                 },
-                #[cfg(feature = "software-renderer")]
+                #[cfg(feature = "renderer-software")]
                 crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(crate::embedded_resources::BitmapFont { family_name, character_map, units_per_em, ascent, descent, x_height, cap_height, glyphs, weight, italic, sdf }) => {
 
                     let character_map_size = character_map.len();
