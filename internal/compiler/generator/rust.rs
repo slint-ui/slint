@@ -1649,11 +1649,16 @@ fn generate_sub_component(
         }
 
         impl #inner_component_id {
-            // Shorthand used by the generated expression code: the member access is
-            // emitted for every global property access, so keep it as small as possible.
+            // Shorthands used by the generated expression code: these accesses are
+            // emitted many times, so keep the call sites as small as possible.
             #[allow(dead_code)]
             fn globals(&self) -> &sp::Rc<SharedGlobals> {
                 self.globals.get().unwrap()
+            }
+
+            #[allow(dead_code)]
+            fn origin_rc(&self) -> sp::ItemTreeRc {
+                sp::VRcMapped::origin(&self.self_weak.get().unwrap().upgrade().unwrap())
             }
 
             fn init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>,
@@ -3000,7 +3005,7 @@ fn access_item_rc(pr: &llr::MemberReference, ctx: &EvaluationContext) -> TokenSt
         component_access_tokens = quote!(#component_access_tokens . #sub_component_name);
         sub_component = &ctx.compilation_unit.sub_components[sub_component.sub_components[*i].ty];
     }
-    let component_rc_tokens = quote!(sp::VRcMapped::origin(&#component_access_tokens.self_weak.get().unwrap().upgrade().unwrap()));
+    let component_rc_tokens = quote!(#component_access_tokens.origin_rc());
     let item_index_in_tree = sub_component.items[*item_index].index_in_tree;
     let item_index_tokens = if item_index_in_tree == 0 {
         quote!(#component_access_tokens.tree_index.get())
