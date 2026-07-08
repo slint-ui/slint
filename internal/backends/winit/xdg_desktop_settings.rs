@@ -250,6 +250,26 @@ async fn watch(
     Ok(())
 }
 
+/// True when the error only means the session bus or the settings portal is missing,
+/// which is normal on headless systems and bare compositors.
+fn portal_unavailable(err: &zbus::Error) -> bool {
+    #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
+    match err {
+        // No session bus address, or nothing listening on it.
+        zbus::Error::Address(_) | zbus::Error::InputOutput(_) => true,
+        zbus::Error::MethodError(name, ..) => matches!(
+            name.as_str(),
+            "org.freedesktop.DBus.Error.ServiceUnknown"
+                | "org.freedesktop.DBus.Error.NameHasNoOwner"
+        ),
+        zbus::Error::FDO(err) => matches!(
+            **err,
+            zbus::fdo::Error::ServiceUnknown(_) | zbus::fdo::Error::NameHasNoOwner(_)
+        ),
+        _ => false,
+    }
+}
+
 /// Starts the portal watcher and the timeout that releases the first windows if
 /// the portal is slow or missing. Returns the task so the backend can abort it.
 pub(crate) fn spawn(
@@ -265,7 +285,9 @@ pub(crate) fn spawn(
     strong_ctx
         .spawn_local(async move {
             if let Err(err) = watch(&shared_weak, ctx_weak).await {
-                i_slint_core::debug_log!("Error watching for xdg desktop settings: {err}");
+                if !portal_unavailable(&err) {
+                    i_slint_core::debug_log!("Error watching for xdg desktop settings: {err}");
+                }
                 // The portal is unavailable; create the waiting windows anyway.
                 finish_appearance_query(&shared_weak);
             }
