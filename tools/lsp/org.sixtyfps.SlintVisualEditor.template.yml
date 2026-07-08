@@ -32,7 +32,7 @@ modules:
       - type: git
         url: https://github.com/slint-ui/slint.git
         branch: visual-editor-linux-package
-        commit: 50673744d4493b56d9b2138c326271244a6e4585
+        commit: $$CURRENT_COMMIT$$
       - cargo-sources.json
       - type: file
         url: https://github.com/rust-skia/skia-binaries/releases/download/0.99.0/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-unknown-linux-gnu-gl-jpegd-jpege-pdf-textlayout-vulkan.tar.gz

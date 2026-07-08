@@ -15,7 +15,6 @@ permissions:
 
 env:
   MACOSX_DEPLOYMENT_TARGET: "12.0"
-  CARGO_INCREMENTAL: false
   MACOS_CARGO_TIMINGS: "1"
   SLINT_BUILD_NUMBER: ${{ github.run_number }}
 
