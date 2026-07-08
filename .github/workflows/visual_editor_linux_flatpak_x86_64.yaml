@@ -42,7 +42,7 @@ jobs:
 
       - name: Install flatpak tools
         run: |
-          apt install -y flatpak flatpak-builder
+          sudo apt install -y flatpak flatpak-builder
 
       - name: Build flatpak
         run: scripts/build_linux_flatpak.bash
