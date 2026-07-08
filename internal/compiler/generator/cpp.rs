@@ -3934,7 +3934,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
                     format!(
-                        "std::make_shared<slint::private_api::UIntModel>(std::max<int>(0, {f}))"
+                        "std::make_shared<slint::private_api::UIntModel>(std::max(0, slint::private_api::saturating_float_to_int({f})))"
                     )
                 }
                 (Type::Array(_), Type::Model) => f,
