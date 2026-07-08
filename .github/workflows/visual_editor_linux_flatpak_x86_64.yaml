@@ -41,7 +41,7 @@ jobs:
         uses: actions/cache@v4
         with:
           key: slint-visual-editor-linux-flatpak
-          path: ~/.flatpak-state
+          path: .flatpak-builder
 
       - name: Download flatpak helper script + dependencies
         run: |
@@ -62,11 +62,10 @@ jobs:
       - name: Generate flatpak manifest
         run: scripts/generate_visual_editor_flatpak_manifest.bash
 
-      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6.7
         with:
           bundle: slint-visual-editor.flatpak
           manifest-path: tools/lsp/org.sixtyfps.SlintVisualEditor.yml
           cache-key: flatpak-builder-${{ github.sha }}
+          state-dir: .flatpak-builder
           upload-artifact: true
-          state-dir: ~/.flatpak-state
-          artifact-name: slint-visual-editor-linux-flatpak

@@ -54,4 +54,8 @@ flatpak build-bundle \
     org.sixtyfps.SlintVisualEditor \
     --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
 
-mv "${flatpak_out_name}" "${1}"
+if [ "${flatpak_out_name}" != "${1}" ]; then
+    mv "${flatpak_out_name}" "${1}"
+fi
+
+exit 0
