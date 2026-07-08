@@ -23,7 +23,7 @@ env:
   SLINT_BUILD_NUMBER: ${{ github.run_number }}
 
 jobs:
-  msix:
+  flatpak:
     name: Build flatpak
     runs-on: ubuntu-latest
     timeout-minutes: 90

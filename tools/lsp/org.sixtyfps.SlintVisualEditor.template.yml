@@ -29,7 +29,6 @@ modules:
     sources:
       - type: git
         url: https://github.com/slint-ui/slint.git
-        branch: visual-editor-linux-package
         commit: $$CURRENT_COMMIT$$
       - cargo-sources.json
       - type: file
