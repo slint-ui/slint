@@ -729,9 +729,10 @@ fn recurse_expression(
             }
             BuiltinFunction::ItemAbsolutePosition => {
                 if let Some(Expression::ElementReference(item)) = arguments.first() {
+                    // The result depends on the element's own geometry origin as well as every
+                    // ancestor's (map_to_window walks the whole ancestor chain).
                     let mut item = item.upgrade().unwrap();
-                    while let Some(parent) = find_parent_element(&item) {
-                        item = parent;
+                    loop {
                         vis(
                             &NamedReference::new(&item, SmolStr::new_static("x")).into(),
                             ReadType::NativeRead,
@@ -740,6 +741,8 @@ fn recurse_expression(
                             &NamedReference::new(&item, SmolStr::new_static("y")).into(),
                             ReadType::NativeRead,
                         );
+                        let Some(parent) = find_parent_element(&item) else { break };
+                        item = parent;
                     }
                 }
             }
