@@ -5,5 +5,5 @@ Type=Application
 Terminal=false
 Exec=/app/bin/slint-visual-editor
 Name=Slint Visual Editor
-Icon=/app/assets/SlintVisualEditor-Logo.png
+Icon=/app/assets/SlintVisualEditor-Logo-512x512.png
 X-AppImage-Name=Slint Visual Editor
