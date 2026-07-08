@@ -9,7 +9,7 @@
 //! be further inlined as it may expand to a native widget that needs inlining
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{BindingExpression, Expression, MinMaxOp, NamedReference, Unit};
+use crate::expression_tree::{BindingExpression, Callable, Expression, MinMaxOp, NamedReference, Unit};
 use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use smol_str::{SmolStr, format_smolstr};
@@ -94,7 +94,16 @@ fn process_tabwidget(
 ) {
     elem.borrow_mut().base_type = tabwidget_impl;
     let mut children = std::mem::take(&mut elem.borrow_mut().children);
-    let num_tabs = children.len();
+
+    let num_tabs_expr = match children.first().and_then(|c| c.borrow().repeated.clone()) {
+        Some(rep) if children.len() == 1 => Expression::FunctionCall {
+            function: Callable::Builtin(crate::expression_tree::BuiltinFunction::ArrayLength),
+            arguments: vec![rep.model],
+            source_location: None,
+        },
+        _ => Expression::NumberLiteral(children.len() as f64, Unit::None),
+    };
+
     let mut tabs = Vec::new();
     for (position, child) in children.iter_mut().enumerate() {
         if child.borrow().base_type.to_string() != "Tab" {
@@ -192,7 +201,7 @@ fn process_tabwidget(
         tab.bindings
             .insert(SmolStr::new_static("tab-index"), RefCell::new(index_expr.clone().into()));
         tab.bindings
-            .insert(SmolStr::new_static("num-tabs"), RefCell::new(index_expr.clone().into()));
+            .insert(SmolStr::new_static("num-tabs"), RefCell::new(num_tabs_expr.clone().into()));
         tabs.push(Element::make_rc(tab));
     }
 
@@ -225,7 +234,7 @@ fn process_tabwidget(
     set_tabbar_geometry_prop(elem, &tabbar, "height");
     tabbar.borrow_mut().bindings.insert(
         SmolStr::new_static("num-tabs"),
-        RefCell::new(Expression::NumberLiteral(num_tabs as _, Unit::None).into()),
+        RefCell::new(num_tabs_expr.into()),
     );
     tabbar.borrow_mut().bindings.insert(
         SmolStr::new_static("current"),
