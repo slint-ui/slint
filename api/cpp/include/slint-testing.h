@@ -530,12 +530,12 @@ public:
     LogicalPosition absolute_position() const
     {
         if (auto item = private_api::upgrade_item_weak(inner.item)) {
-            cbindgen_private::LogicalRect rect =
-                    item->item_tree.vtable()->item_geometry(item->item_tree.borrow(), item->index);
+            // `slint_item_absolute_position` already returns the element's own absolute
+            // position (it maps the element's geometry origin through the ancestor transforms).
             cbindgen_private::LogicalPoint abs =
                     slint::cbindgen_private::slint_item_absolute_position(&item->item_tree,
                                                                           item->index);
-            return LogicalPosition({ abs.x + rect.x, abs.y + rect.y });
+            return LogicalPosition({ abs.x, abs.y });
         }
         return LogicalPosition({ 0, 0 });
     }

@@ -4848,7 +4848,7 @@ fn compile_builtin_function_call(
             if let [Expression::PropertyReference(pr)] = arguments {
                 let item_rc = access_item_rc(pr, ctx);
                 quote!(
-                    sp::logical_position_to_api((*#item_rc).map_to_window(::core::default::Default::default()))
+                    sp::logical_position_to_api((*#item_rc).map_to_window((*#item_rc).geometry().origin))
                 )
             } else {
                 panic!("internal error: invalid args to MapPointToWindow {arguments:?}")
