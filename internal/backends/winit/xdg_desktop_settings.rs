@@ -170,13 +170,30 @@ fn apply_cursor_blink_time_value(value: zbus::zvariant::OwnedValue, cx: &Setting
 /// whole batch costs roughly one round-trip instead of one per setting.
 async fn read_all_settings(settings_proxy: &zbus::Proxy<'_>, cx: &SettingsContext<'_>) {
     futures::future::join_all(SETTINGS.iter().map(|setting| async move {
-        let value: zbus::Result<zbus::zvariant::OwnedValue> =
-            settings_proxy.call("ReadOne", &(setting.namespace, setting.key)).await;
-        if let Ok(value) = value {
+        if let Ok(value) = read_setting(settings_proxy, setting).await {
             (setting.apply)(value, cx);
         }
     }))
     .await;
+}
+
+/// Reads one setting.
+/// Portals older than 1.15 (Ubuntu 22.04 and earlier) only implement the deprecated `Read`,
+/// whose extra variant wrapping `downcast_ref()` unwraps transparently.
+async fn read_setting(
+    settings_proxy: &zbus::Proxy<'_>,
+    setting: &SettingDescriptor,
+) -> zbus::Result<zbus::zvariant::OwnedValue> {
+    let args = (setting.namespace, setting.key);
+    #[cfg_attr(slint_nightly_test, allow(non_exhaustive_omitted_patterns))]
+    match settings_proxy.call("ReadOne", &args).await {
+        Err(zbus::Error::MethodError(name, ..))
+            if name.as_str() == "org.freedesktop.DBus.Error.UnknownMethod" =>
+        {
+            settings_proxy.call("Read", &args).await
+        }
+        result => result,
+    }
 }
 
 /// Clears the pending flag so the backend creates and shows the first windows.
