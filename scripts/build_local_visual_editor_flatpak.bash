@@ -18,10 +18,9 @@ fi
 export FLATPAK_CARGO_GENERATOR_PATH="$(mktemp)"
 
 export CARGO_SOURCES_PATH="${repo_root}/tools/lsp/cargo-sources.json"
-trap "rm ${CARGO_SOURCES_PATH}" EXIT
-
 export OUTPUT_FLATPAK_MANIFEST="${repo_root}/tools/lsp/org.sixtyfps.SlintVisualEditor.yml"
-trap "rm ${OUTPUT_FLATPAK_MANIFEST}" EXIT
+
+trap "rm ${CARGO_SOURCES_PATH} ${OUTPUT_FLATPAK_MANIFEST}" EXIT
 
 cargo_generator_url=https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/737c0085912f9f7dabf9341d4608e2a77a51a73a/cargo/flatpak-cargo-generator.py
 
