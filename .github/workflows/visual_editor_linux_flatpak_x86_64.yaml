@@ -29,8 +29,15 @@ jobs:
     timeout-minutes: 90
     env:
       CARGO_PROFILE: package-release
+      FLATPAK_CARGO_GENERATOR_URL: https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/737c0085912f9f7dabf9341d4608e2a77a51a73a/cargo/flatpak-cargo-generator.py
     steps:
       - uses: actions/checkout@v6
+
+      - name: Download flatpak helper script + dependencies
+        run: |
+          curl -o scripts/flatpak-cargo-generator.py \
+                  ${FLATPAK_CARGO_GENERATOR_URL}
+          chmod +x scripts/flatpak-cargo-generator.py
 
       # cache the build
       - uses: ./.github/actions/setup-rust

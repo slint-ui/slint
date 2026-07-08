@@ -1,3 +1,4 @@
+# See scripts/visual_editor_linux_flatpak.bash, which fills this template out and populates `cargo-sources.json`
 id: org.sixtyfps.SlintVisualEditor
 runtime: org.freedesktop.Platform
 runtime-version: "25.08"
