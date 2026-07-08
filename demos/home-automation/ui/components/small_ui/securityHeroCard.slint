@@ -1,0 +1,131 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// SPDX-License-Identifier: MIT
+
+import { AppState } from "../../appState.slint";
+import { LightsTheme } from "lightsTheme.slint";
+import { GlassPanel } from "glassPanel.slint";
+import { ShadowText } from "shadowText.slint";
+
+export component SecurityHeroCard inherits GlassPanel {
+    property <int> security-mode: 1;
+
+    radius: 14px;
+    outline: LightsTheme.panel-border;
+
+    ShadowText {
+        x: 44px;
+        y: 38px;
+        width: 390px;
+        height: 70px;
+        label: "System";
+        size: 48px;
+        weight: FontWeight.bold;
+    }
+
+    ShadowText {
+        x: 44px;
+        y: 103px;
+        width: 430px;
+        height: 75px;
+        label: "Armed Home";
+        size: 56px;
+        weight: FontWeight.bold;
+        text-color: LightsTheme.purple;
+    }
+
+    Text {
+        x: 47px;
+        y: 182px;
+        width: 330px;
+        height: 38px;
+        text: "All sensors normal";
+        font-family: AppState.default-font-family;
+        font-size: 32px;
+        font-weight: FontWeight.medium;
+        color: LightsTheme.muted-text;
+    }
+
+    Rectangle {
+        x: 452px;
+        y: 38px;
+        width: 1px;
+        height: 162px;
+        background: #65518466;
+    }
+
+    Image {
+        x: 552px;
+        y: 45px;
+        width: 176px;
+        height: 176px;
+        source: @image-url("../../images/primer-icons/shield-check.svg");
+        colorize: LightsTheme.purple;
+    }
+
+    Rectangle {
+        x: 676px;
+        y: 174px;
+        width: 76px;
+        height: 76px;
+        border-radius: self.width / 2;
+        border-width: 2px;
+        border-color: LightsTheme.panel-border;
+        background: #b88cff18;
+
+        Image {
+            x: 19px;
+            y: 18px;
+            width: 38px;
+            height: 38px;
+            source: @image-url("../../images/primer-icons/lock.svg");
+            colorize: LightsTheme.muted-text;
+        }
+    }
+
+    Rectangle {
+        x: 40px;
+        y: 232px;
+        width: 474px;
+        height: 68px;
+        border-radius: 34px;
+        border-width: 2px;
+        border-color: LightsTheme.panel-border-soft;
+        background: #07071170;
+
+        Rectangle {
+            x: root.security-mode * 153px;
+            y: 6px;
+            width: 168px;
+            height: 56px;
+            border-radius: 28px;
+            background: LightsTheme.purple;
+        }
+
+        for item[index] in ["Away", "Home", "Night"] : Rectangle {
+            x: index * 158px;
+            y: 0px;
+            width: 158px;
+            height: 68px;
+            background: transparent;
+
+            Text {
+                y: 17px;
+                width: parent.width;
+                height: 35px;
+                text: item;
+                font-family: AppState.default-font-family;
+                font-size: 25px;
+                font-weight: FontWeight.bold;
+                color: index == root.security-mode ? #080810 : LightsTheme.muted-text;
+                horizontal-alignment: center;
+            }
+
+            TouchArea {
+                mouse-cursor: MouseCursor.pointer;
+                clicked => { root.security-mode = index; }
+            }
+        }
+    }
+}

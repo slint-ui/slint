@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// SPDX-License-Identifier: MIT
+
+// Small-screen Home Automation variant: 960x640 logical pixels for a
+// 480x320 panel at 0.5 device-pixel-ratio.
+
+import { LightsScreen } from "components/small_ui/lightsScreen.slint";
+import { AppState } from "appState.slint";
+
+export component AppWindow inherits Window {
+    in-out property <int> active-page: 0;
+
+    width: 960px;
+    height: 640px;
+
+    LightsScreen {
+        active-page <=> root.active-page;
+    }
+
+    init => {
+        AppState.graphics-accelerator-available = true;
+    }
+}

@@ -1,0 +1,34 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// SPDX-License-Identifier: MIT
+
+import { LightsTheme } from "lightsTheme.slint";
+
+export component GlassPanel inherits Rectangle {
+    in property <length> radius: 14px;
+    in property <brush> fill: LightsTheme.panel-background;
+    in property <brush> outline: LightsTheme.panel-border;
+
+    border-radius: radius;
+
+    Rectangle {
+        border-radius: root.radius;
+        background: root.fill;
+    }
+
+    Rectangle {
+        border-radius: root.radius;
+        background: LightsTheme.panel-sheen;
+        opacity: 0.68;
+    }
+
+    @children
+
+    Rectangle {
+        border-radius: root.radius;
+        border-width: 2px;
+        border-color: root.outline;
+        background: transparent;
+    }
+}

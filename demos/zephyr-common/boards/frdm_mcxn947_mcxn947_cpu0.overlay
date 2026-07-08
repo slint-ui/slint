@@ -1,0 +1,26 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// Board-specific overlay for FRDM-MCXN947 with LCD-PAR-S035
+// The LCD-PAR-S035 shield provides display and touch configuration
+
+// Touch coordinate transform: the GT911 raw axes don't match the display
+// orientation. This board is on Zephyr >= v4.4.0 (which includes GT911
+// touchscreen-common support, upstream 0f07faa14b3), so the transform is
+// done here via devicetree properties instead of the version-guarded
+// workaround in slint-zephyr.cpp (which self-disables on this Zephyr
+// version).
+//
+// We only need X inverted (Y is not inverted, only swapped with X), but
+// the shield's own overlay sets screen-height without inverted-y, which
+// violates touchscreen-common's invariant that the two must be set
+// together (input_touch.c:13 asserts inverted_y == (screen_height > 0)
+// -- with CONFIG_ASSERT on, this is a boot-time kernel panic; with it
+// off, touch silently misbehaves instead). Override screen-height back
+// to unset (0) here since we don't want Y inversion.
+&gt911_lcd_par_s035 {
+	swapped-x-y;
+	inverted-x;
+	screen-width = <320>;
+	screen-height = <0>;
+};

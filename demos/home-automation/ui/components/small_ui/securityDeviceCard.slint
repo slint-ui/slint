@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// SPDX-License-Identifier: MIT
+
+import { LightsTheme } from "lightsTheme.slint";
+import { GlassPanel } from "glassPanel.slint";
+import { ShadowText } from "shadowText.slint";
+
+
+export component SecurityDeviceCard inherits GlassPanel {
+    in property <string> title;
+    in property <string> value;
+    in property <image> icon;
+
+    radius: 14px;
+    outline: LightsTheme.panel-border-soft;
+
+    Image {
+        x: 24px;
+        y: 46px;
+        width: 58px;
+        height: 58px;
+        source: root.icon;
+        colorize: LightsTheme.muted-text;
+    }
+
+    ShadowText {
+        x: 108px;
+        y: 28px;
+        width: parent.width - 168px;
+        height: 43px;
+        label: root.title;
+        size: 31px;
+        weight: FontWeight.bold;
+    }
+
+    ShadowText {
+        x: 108px;
+        y: 75px;
+        width: parent.width - 170px;
+        height: 47px;
+        label: root.value;
+        size: 40px;
+        weight: FontWeight.bold;
+        text-color: LightsTheme.muted-text;
+    }
+}

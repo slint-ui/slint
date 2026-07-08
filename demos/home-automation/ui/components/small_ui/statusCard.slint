@@ -1,0 +1,79 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// SPDX-License-Identifier: MIT
+
+import { LightsTheme } from "lightsTheme.slint";
+import { GlassPanel } from "glassPanel.slint";
+import { ShadowText } from "shadowText.slint";
+
+
+export component StatusCard inherits GlassPanel {
+    in property <string> title;
+    in property <string> value;
+    in property <string> caption;
+    in property <image> icon;
+    in property <color> accent: LightsTheme.purple;
+
+    radius: 14px;
+    outline: LightsTheme.panel-border-soft;
+
+    Rectangle {
+        x: 0px;
+        y: 15px;
+        width: 3px;
+        height: 148px;
+        border-radius: 2px;
+        background: root.accent;
+    }
+
+    Image {
+        x: 36px;
+        y: 30px;
+        width: 40px;
+        height: 40px;
+        source: root.icon;
+        colorize: root.accent;
+    }
+
+    ShadowText {
+        x: 90px;
+        y: 28px;
+        width: parent.width - 130px;
+        height: 42px;
+        label: root.title;
+        size: 31px;
+        weight: FontWeight.bold;
+    }
+
+    Rectangle {
+        x: 36px;
+        y: 80px;
+        width: parent.width - 66px;
+        height: 1px;
+        background: #6a56815a;
+    }
+
+    ShadowText {
+        x: 36px;
+        y: 101px;
+        width: parent.width - 105px;
+        height: 55px;
+        label: root.value;
+        size: 47px;
+        weight: FontWeight.bold;
+        text-color: root.accent;
+    }
+
+    Text {
+        x: 39px;
+        y: 151px;
+        width: parent.width - 110px;
+        height: 22px;
+        text: root.caption;
+        font-size: 17px;
+        font-weight: FontWeight.medium;
+        color: LightsTheme.muted-text;
+        opacity: 0.78;
+    }
+}

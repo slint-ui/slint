@@ -341,6 +341,7 @@
     ".cspell/slint-project-words.txt",
     ".cspell/slint-project-words-audit.tsv",
     "tools/figma-inspector/tests/figma_output.json",
+    "demos/zephyr-common/patches/**",
     "**/*.gltf",
     "**/*.po",
     "**/*.pot",

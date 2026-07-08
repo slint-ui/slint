@@ -803,12 +803,13 @@ public:
     {
         auto process_line_fn = [](void *process_line_callback_ptr, uintptr_t line,
                                   uintptr_t line_start, uintptr_t line_end,
-                                  void (*render_fn)(const void *, PixelType *, std::size_t),
+                                  void (*render_fn)(const void *, PixelType *, uintptr_t),
                                   const void *render_fn_data) {
             (*reinterpret_cast<Callback *>(process_line_callback_ptr))(
                     std::size_t(line), std::size_t(line_start), std::size_t(line_end),
                     [render_fn, render_fn_data](std::span<PixelType> line_span) {
-                        render_fn(render_fn_data, line_span.data(), line_span.size());
+                        render_fn(render_fn_data, line_span.data(),
+                                  static_cast<uintptr_t>(line_span.size()));
                     });
         };
 

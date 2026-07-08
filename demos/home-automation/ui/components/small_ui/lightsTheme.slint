@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// SPDX-License-Identifier: MIT
+
+export global LightsTheme {
+    out property <color> white: #ffffff;
+    out property <color> background-top: #080810;
+    out property <color> background-bottom: #05070d;
+    out property <color> panel-fill-a: #1f1730dd;
+    out property <color> panel-fill-b: #0c0b16f2;
+    out property <color> panel-border: #83609c;
+    out property <color> panel-border-soft: #5a4675;
+    out property <color> muted-text: #b8add6;
+    out property <color> purple: #b88cff;
+    out property <color> purple-glow: #b486ff80;
+    out property <color> warm: #f5b837;
+    out property <color> warm-glow: #f3a92f80;
+    out property <color> safe: #8be7c0;
+    out property <color> safe-glow: #8be7c080;
+    out property <color> cool: #82d9ff;
+    out property <color> cool-glow: #82d9ff80;
+
+    out property <brush> background: @linear-gradient(160deg, background-top 0%, #100d1c 52%, background-bottom 100%);
+    out property <brush> panel-background: @linear-gradient(145deg, panel-fill-a 0%, #151021e8 45%, panel-fill-b 100%);
+    out property <brush> panel-sheen: @linear-gradient(180deg, #ffffff12 0%, #ffffff00 42%, #ffffff08 100%);
+    out property <brush> slider-fill: @linear-gradient(90deg, #c8a0ff 0%, #eadbff 62%, #fffaff 100%);
+    out property <brush> nav-background: @linear-gradient(180deg, #1b142bcc 0%, #080913ee 100%);
+    out property <brush> selected-nav-background: @linear-gradient(90deg, #583b81a8 0%, #231935a4 100%);
+}

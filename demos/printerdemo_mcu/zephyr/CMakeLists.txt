@@ -14,6 +14,10 @@ if(BOARD STREQUAL "native_sim/native/64")
 elseif(BOARD STREQUAL "mimxrt1170_evk@B/mimxrt1176/cm7")
     set(Rust_CARGO_TARGET "thumbv7em-none-eabihf")
     set(BOARD_CONF_NAME "mimxrt1170_evk_mimxrt1176_cm7")
+elseif(BOARD STREQUAL "frdm_mcxn947/mcxn947/cpu0")
+    set(Rust_CARGO_TARGET "thumbv8m.main-none-eabihf")
+    set(SLINT_LIBRARY_CARGO_FLAGS "-Zbuild-std=core,alloc")
+    set(BOARD_CONF_NAME "frdm_mcxn947_mcxn947_cpu0")
 else()
     # See rustc --print target-list for available targets. Match that up with you supported board
     # https://docs.zephyrproject.org/latest/boards
@@ -36,7 +40,7 @@ project(slint_zephyr_printer_demo_mcu LANGUAGES CXX)
 set(SLINT_FEATURE_FREESTANDING ON)
 set(SLINT_FEATURE_RENDERER_SOFTWARE ON)
 set(DEFAULT_SLINT_EMBED_RESOURCES "embed-for-software-renderer" CACHE STRING "")
-# set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Release)
 set(BUILD_SHARED_LIBS OFF)
 
 # TODO: FetchContent?

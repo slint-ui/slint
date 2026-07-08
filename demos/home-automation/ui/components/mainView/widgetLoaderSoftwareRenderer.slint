@@ -72,7 +72,10 @@ export component WidgetLoaderSoftwareRenderer {
         height: root.height;
     }
 
-    if root.type == WidgetType.graph && root.is-visible: Graph {
+    // Graph/HVAC/WeatherInfo carry heavy data-model state (~20-24 KB each). On
+    // RAM-constrained software-rendered targets they blow the page budget and make
+    // tab switching OOM, so only instantiate them when a GPU/accelerator is present.
+    if root.type == WidgetType.graph && root.is-visible && AppState.graphics-accelerator-available: Graph {
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
         width: root.width;
@@ -100,7 +103,7 @@ export component WidgetLoaderSoftwareRenderer {
         width: root.width;
         height: root.height;
     }
-    if root.type == WidgetType.hvac && root.is-visible: HVAC {
+    if root.type == WidgetType.hvac && root.is-visible && AppState.graphics-accelerator-available: HVAC {
         index: root.index;
         name: AppState.component-details[root.index].name;
         id: AppState.component-details[root.index].id;
@@ -121,7 +124,7 @@ export component WidgetLoaderSoftwareRenderer {
         width: root.width;
         height: root.height;
     }
-    if root.type == WidgetType.weatherInfo && root.is-visible: WeatherInfo {
+    if root.type == WidgetType.weatherInfo && root.is-visible && AppState.graphics-accelerator-available: WeatherInfo {
         property <float> scaler: Math.min(1.0, root.width / 270px);
         index: root.index;
         name: AppState.component-details[root.index].name;

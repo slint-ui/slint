@@ -1,0 +1,61 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// SPDX-License-Identifier: MIT
+
+import { LightsTheme } from "lightsTheme.slint";
+import { GlassPanel } from "glassPanel.slint";
+import { ShadowText } from "shadowText.slint";
+
+
+export component ClimateMetricCard inherits GlassPanel {
+    in property <string> title;
+    in property <string> value;
+    in property <image> icon;
+    in property <color> accent: LightsTheme.purple;
+    in property <color> icon-color: root.accent;
+    in property <bool> show-accent-edge: false;
+
+    radius: 14px;
+    outline: LightsTheme.panel-border-soft;
+
+    Rectangle {
+        visible: root.show-accent-edge;
+        x: 0px;
+        y: 16px;
+        width: 2px;
+        height: parent.height - 32px;
+        border-radius: 2px;
+        background: root.accent;
+    }
+
+    ShadowText {
+        x: 36px;
+        y: 19px;
+        width: parent.width - 160px;
+        height: 48px;
+        label: root.title;
+        size: 36px;
+        weight: FontWeight.bold;
+    }
+
+    Image {
+        x: parent.width - 130px;
+        y: 42px;
+        width: 66px;
+        height: 66px;
+        source: root.icon;
+        colorize: root.icon-color;
+    }
+
+    ShadowText {
+        x: 36px;
+        y: 76px;
+        width: parent.width - 150px;
+        height: 54px;
+        label: root.value;
+        size: 53px;
+        weight: FontWeight.bold;
+        text-color: root.accent;
+    }
+}

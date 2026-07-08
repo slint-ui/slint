@@ -92,3 +92,32 @@ west build -b mimxrt1170_evk@B/mimxrt1176/cm7 -p always slint/demos/home-automat
 # Flash
 west flash
 ```
+
+This sample has also been tested on the [NXP FRDM-MCXN947](https://docs.zephyrproject.org/latest/boards/nxp/frdm_mcxn947/doc/index.html) with an [LCD-PAR-S035 shield](https://www.nxp.com/part/LCD-PAR-S035).
+
+If your Zephyr checkout is v4.4.0/v4.4.1, or any other v4.4.x release that does not yet contain upstream commit [`05aa0414f2b`](https://github.com/zephyrproject-rtos/zephyr/commit/05aa0414f2b04b64f06da5ab38ed85fff6e8976a), first apply the patch below. It backports that fix for a display-corrupting bug in the MCUX eDMA driver on EDMA-V4/no-DMAMUX parts like MCXN947 (the regression it fixes was introduced by [`efe48ea674c`](https://github.com/zephyrproject-rtos/zephyr/commit/efe48ea674cda08910347c660706e5c6155d21f9)). Without it, the FlexIO-driven parallel display on this board renders mostly static/garbage instead of the UI. On Zephyr v4.0.0 this bug does not exist, so the patch is unnecessary there; once `05aa0414f2b` is backported to a v4.4.x point release, it becomes unnecessary there too, and `git apply` will fail (harmlessly, since the fix is already present) if attempted against such a checkout.
+
+```bash
+(cd zephyr && git apply ../slint/demos/zephyr-common/patches/0001-drivers-dma-mcux_edma-handle-m2m-on-V4-instances-without-channel-mux.patch)
+```
+
+```bash
+# Build
+west build -b frdm_mcxn947/mcxn947/cpu0 -p always slint/demos/home-automation/zephyr -- -DSHIELD=lcd_par_s035_8080 -DCMAKE_BUILD_TYPE=Release
+```
+
+`west flash` requires [LinkServer](https://www.nxp.com/design/design-center/software/development-software/mcuxpresso-software-and-tools-/linkserver-for-microcontrollers:LINKERSERVER), which this workflow does not assume is installed. As a workaround, flash with `pyocd`, preceded by an `nxpdebugmbox` reset (plain `pyocd flash` alone times out on this board's flash driver):
+
+```bash
+nxpdebugmbox -i mcu-link tool reset -f mcxn947 && \
+pyocd flash \
+  -O pack.debug_sequences.disabled_sequences=ResetSystem,ResetCatchClear \
+  -M halt -e chip -t mcxn947 -a 0x10000000 \
+  build/zephyr/zephyr.bin
+```
+
+If the `nxpdebugmbox` reset itself fails with `TransferTimeoutError`, the board's debug port may be unresponsive (observed after the board ran arbitrary firmware for a while). Put the target into ISP mode first, then retry the command above:
+
+1. Press and hold the ISP button (SW3, bottom-right corner).
+2. Press and release the Reset button (SW1, upper-left corner).
+3. Release SW3.

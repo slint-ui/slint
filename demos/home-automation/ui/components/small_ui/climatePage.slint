@@ -1,0 +1,42 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: MIT
+
+// SPDX-License-Identifier: MIT
+
+import { LightsTheme } from "lightsTheme.slint";
+import { ClimateHeroCard } from "climateHeroCard.slint";
+import { ClimateMetricCard } from "climateMetricCard.slint";
+
+export component ClimatePage inherits Rectangle {
+    ClimateHeroCard {
+        x: 0px;
+        y: 0px;
+        width: 780px;
+        height: 324px;
+    }
+
+    ClimateMetricCard {
+        x: 0px;
+        y: 345px;
+        width: 375px;
+        height: 149px;
+        title: "Humidity";
+        value: "42%";
+        icon: @image-url("../../images/primer-icons/cloud.svg");
+        accent: LightsTheme.warm;
+        icon-color: LightsTheme.muted-text;
+        show-accent-edge: true;
+    }
+
+    ClimateMetricCard {
+        x: 390px;
+        y: 345px;
+        width: 390px;
+        height: 149px;
+        title: "Bedroom";
+        value: "20.8°C";
+        icon: @image-url("../../images/primer-icons/flame.svg");
+        accent: LightsTheme.muted-text;
+        icon-color: LightsTheme.muted-text;
+    }
+}
