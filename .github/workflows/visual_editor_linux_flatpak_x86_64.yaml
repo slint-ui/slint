@@ -27,7 +27,8 @@ jobs:
     name: Build flatpak
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    env: {}
+    env:
+      CARGO_PROFILE: package-release
     steps:
       - uses: actions/checkout@v6
 
