@@ -28,8 +28,8 @@ modules:
       - install -Dm0644 tools/lsp/${FLATPAK_ID}.metainfo.xml ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
     sources:
       - type: git
-        url: https://github.com/slint-ui/slint.git
-        commit: $$CURRENT_COMMIT$$
+        path: $$GIT_CHECKOUT_PATH$$
+        commit: $$GIT_COMMIT$$
       - cargo-sources.json
       - type: file
         url: https://github.com/rust-skia/skia-binaries/releases/download/0.99.0/skia-binaries-a25a0fdb7d90429aa2d1-x86_64-unknown-linux-gnu-gl-jpegd-jpege-pdf-textlayout-vulkan.tar.gz

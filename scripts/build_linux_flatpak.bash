@@ -12,7 +12,6 @@ version=$(
     cargo metadata --offline --format-version 1 --no-deps |
         jq -r 'first(.packages[] | select(.name == "slint-lsp") | .version)'
 )
-current_commit=$(git rev-parse --verify HEAD)
 
 CARGO_PROFILE="${CARGO_PROFILE:-dev}"
 
@@ -27,7 +26,10 @@ output_flatpak_yml="${PWD}/org.sixtyfps.SlintVisualEditor.yml"
 echo -e 'Generated flatpak-builder file:'
 sed \
     org.sixtyfps.SlintVisualEditor.template.yml \
-    -e 's/\$\$CURRENT_COMMIT\$\$/'${current_commit}'/g; s/\$\$CARGO_PROFILE\$\$/'${CARGO_PROFILE}'/g; s/\$\$CARGO_PROFILE_DIR\$\$/'${cargo_profile_dir}'/g' \
+    -e 's/\$\$GIT_COMMIT\$\$/'${current_commit}'/g;
+        s/\$\$GIT_CHECKOUT_PATH\$\$/'${repo_root}'/g;
+        s/\$\$CARGO_PROFILE\$\$/'${CARGO_PROFILE}'/g;
+        s/\$\$CARGO_PROFILE_DIR\$\$/'${cargo_profile_dir}'/g' \
     | tee "${output_flatpak_yml}" 1>&2
 
 trap "rm ${output_flatpak_yml}" EXIT
