@@ -40,10 +40,9 @@ jobs:
       - name: Install Linux x86_64 Rust target
         run: rustup target add x86_64-unknown-linux-gnu
 
-      - uses: flatpak/flatpak-github-actions/flatpak-builder@v6
-        with:
-          # We want to create the yaml from a template, so we disable building here
-          build-bundle: false
+      - name: Install flatpak tools
+        run: |
+          apt install -y flatpak flatpak-builder
 
       - name: Build flatpak
         run: scripts/build_linux_flatpak.bash
