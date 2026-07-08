@@ -67,13 +67,36 @@ pub(super) struct PropertyValueAnimationData<T> {
     details: PropertyAnimation,
     start_time: crate::animations::Instant,
     state: AnimationState,
+    /// Applied to every interpolated value before it is stored. Lets a
+    /// type-erased property (the interpreter's `Property<Value>`) reproduce
+    /// the interpolation of the erased type, e.g. rounding for `int`.
+    map: Option<fn(T) -> T>,
 }
 
 impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
     pub fn new(from_value: T, to_value: Option<T>, details: PropertyAnimation) -> Self {
         let start_time = crate::animations::current_tick();
 
-        Self { from_value, to_value, details, start_time, state: AnimationState::Delaying }
+        Self {
+            from_value,
+            to_value,
+            details,
+            start_time,
+            state: AnimationState::Delaying,
+            map: None,
+        }
+    }
+
+    pub fn with_map(mut self, map: fn(T) -> T) -> Self {
+        self.map = Some(map);
+        self
+    }
+
+    fn apply_map(&self, value: T) -> T {
+        match self.map {
+            Some(map) => map(value),
+            None => value,
+        }
     }
 
     /// Single iteration of the animation
@@ -81,7 +104,7 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
         // If animation is disabled, immediately return the target value
         let to_value = self.to_value.clone().expect("The animation should have a to_value");
         if !self.details.enabled {
-            return (to_value, true);
+            return (self.apply_map(to_value), true);
         }
 
         let new_tick = crate::animations::current_tick();
@@ -106,7 +129,11 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                 let delay = self.details.delay as u64;
 
                 if time_progress < delay {
-                    if reversed(0) { (to_value, false) } else { (self.from_value.clone(), false) }
+                    if reversed(0) {
+                        (self.apply_map(to_value), false)
+                    } else {
+                        (self.apply_map(self.from_value.clone()), false)
+                    }
                 } else {
                     self.start_time =
                         new_tick - core::time::Duration::from_millis(time_progress - delay);
@@ -143,8 +170,7 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
                     };
                     let t = crate::animations::easing_curve(&self.details.easing, progress);
                     let val = self.from_value.interpolate(&to_value, t);
-
-                    (val, false)
+                    (self.apply_map(val), false)
                 } else {
                     self.state =
                         AnimationState::Done { iteration_count: current_iteration.max(1) - 1 };
@@ -153,9 +179,9 @@ impl<T: InterpolatedPropertyValue + Clone> PropertyValueAnimationData<T> {
             }
             AnimationState::Done { iteration_count } => {
                 if reversed(iteration_count) {
-                    (self.from_value.clone(), true)
+                    (self.apply_map(self.from_value.clone()), true)
                 } else {
-                    (to_value, true)
+                    (self.apply_map(to_value), true)
                 }
             }
         }
@@ -319,11 +345,36 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
     /// If other properties have binding depending of this property, these properties will
     /// be marked as dirty.
     pub fn set_animated_value(self: Pin<&Self>, value: T, animation_data: PropertyAnimation) {
-        let d = RefCell::new(properties_animations::PropertyValueAnimationData::new(
+        self.set_animated_value_impl(value, animation_data, None)
+    }
+
+    /// Like [`Self::set_animated_value`], but passes every interpolated value through `map`
+    /// before storing it, so a type-erased property can reproduce the interpolation
+    /// of the erased type (e.g. rounding for `int` properties).
+    pub fn set_animated_value_with_map(
+        self: Pin<&Self>,
+        value: T,
+        animation_data: PropertyAnimation,
+        map: fn(T) -> T,
+    ) {
+        self.set_animated_value_impl(value, animation_data, Some(map))
+    }
+
+    fn set_animated_value_impl(
+        self: Pin<&Self>,
+        value: T,
+        animation_data: PropertyAnimation,
+        map: Option<fn(T) -> T>,
+    ) {
+        let mut d = properties_animations::PropertyValueAnimationData::new(
             self.get(),
             Some(value),
             animation_data,
-        ));
+        );
+        if let Some(map) = map {
+            d = d.with_map(map);
+        }
+        let d = RefCell::new(d);
         // Safety: the BindingCallable will cast its argument to T
         unsafe {
             self.handle.set_binding(
@@ -356,6 +407,37 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         compute_animation_details: impl Fn() -> (PropertyAnimation, Option<crate::animations::Instant>)
         + 'static,
     ) {
+        self.set_animated_binding_impl(binding, compute_animation_details, None)
+    }
+
+    /// Like [`Self::set_animated_binding`], but passes every interpolated value through `map`
+    /// before storing it, so a type-erased property can reproduce the interpolation
+    /// of the erased type (e.g. rounding for `int` properties).
+    pub fn set_animated_binding_with_map(
+        &self,
+        binding: impl Binding<T> + 'static,
+        compute_animation_details: impl Fn() -> (PropertyAnimation, Option<crate::animations::Instant>)
+        + 'static,
+        map: fn(T) -> T,
+    ) {
+        self.set_animated_binding_impl(binding, compute_animation_details, Some(map))
+    }
+
+    fn set_animated_binding_impl(
+        &self,
+        binding: impl Binding<T> + 'static,
+        compute_animation_details: impl Fn() -> (PropertyAnimation, Option<crate::animations::Instant>)
+        + 'static,
+        map: Option<fn(T) -> T>,
+    ) {
+        let mut animation_data = properties_animations::PropertyValueAnimationData::new(
+            T::default(),
+            None,
+            PropertyAnimation::default(),
+        );
+        if let Some(map) = map {
+            animation_data = animation_data.with_map(map);
+        }
         let binding_callable = properties_animations::AnimatedBindingCallable::<T, _> {
             original_binding: PropertyHandle {
                 handle: Cell::new(
@@ -367,11 +449,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
                 ),
             },
             state: Cell::new(properties_animations::AnimatedBindingState::NotAnimating),
-            animation_data: RefCell::new(properties_animations::PropertyValueAnimationData::new(
-                T::default(),
-                None,
-                PropertyAnimation::default(),
-            )),
+            animation_data: RefCell::new(animation_data),
             compute_animation_details,
             dirty_time: Cell::new(crate::animations::current_tick()),
         };
