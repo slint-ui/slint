@@ -1,0 +1,66 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+// Regression test for a two-way binding equivalence class that spans struct
+// *fields* of properties whose bindings are NON-const.
+//
+// `str2 <=> str1` collapses `str1`/`str2` into a single scalar property, which
+// is then two-way bound to BOTH `s1.s1` and `s2.s2`. All three are therefore in
+// one equivalence class and must always hold the same value (that is the core
+// invariant of two-way bindings), so `s1.s1 == s2.s2` must hold.
+//
+// With CONSTANT struct bindings this unifies correctly (see
+// two_way_binding_structs2.slint). Here `ext1`/`ext2` are settable properties,
+// which makes the `s1`/`s2` bindings non-const. The two live bindings then fail
+// to collapse into the shared value: `s1.s1` stays "a" and `s2.s2` stays "b",
+// so the invariant is violated.
+//
+// NOTE: this currently FAILS (test == false); it documents the bug. It
+// reproduces WITHOUT debug hooks - the debug-hook feature merely exposes the
+// same bug by turning constant initializers into non-const ones.
+
+component Link {
+    in-out property <string> str1: "XXX";
+    in-out property <string> str2 <=> str1;
+}
+
+struct S1 { s1: string, i1: int }
+struct S2 { s2: string, i2: int }
+
+export component TestCase {
+    // Referencing settable properties makes the struct bindings non-const.
+    in-out property <string> ext1: "a";
+    in-out property <string> ext2: "b";
+    in-out property <int> int1: 42;
+    in-out property <int> int2: 43;
+    in-out property <S1> s1: { s1: ext1, i1: int1 };
+    in-out property <S2> s2: { s2: ext2, i2: int2 };
+    Link {
+        str1 <=> s1.s1;
+        str2 <=> s2.s2;
+    }
+    out property <bool> test: s1.s1 == s2.s2 && s1.i1 != s2.i2;
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new().unwrap();
+assert!(instance.get_test());
+instance.set_int1(43);
+assert_eq!(instance.get_s1().i1, instance.get_s2().i2);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+```
+
+*/
