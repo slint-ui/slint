@@ -14,6 +14,8 @@ version=$(
 )
 current_commit=$(git rev-parse --verify HEAD)
 
+CARGO_PROFILE="${CARGO_PROFILE:-dev}"
+
 cargo_profile_dir="${CARGO_PROFILE}"
 
 if [ "${cargo_profile_dir}" = dev ]; then
@@ -21,7 +23,10 @@ if [ "${cargo_profile_dir}" = dev ]; then
 fi
 
 echo -e 'Generated flatpak-builder file:'
-sed -e "s/\$\$CURRENT_COMMIT\$\$/${current_commit}/g; s/\$\$CARGO_PROFILE\$\$/${CARGO_PROFILE}/g; s/\$\$CARGO_PROFILE_DIR\$\$/${cargo_profile_dir}/g" org.sixtyfps.SlintVisualEditor.template.yml | tee org.sixtyfps.SlintVisualEditor.yml 1>&2
+sed \
+    org.sixtyfps.SlintVisualEditor.template.yml \
+    -e 's/\$\$CURRENT_COMMIT\$\$/'${current_commit}'/g; s/\$\$CARGO_PROFILE\$\$/'${CARGO_PROFILE}'/g; s/\$\$CARGO_PROFILE_DIR\$\$/'${cargo_profile_dir}'/g' \
+    | tee org.sixtyfps.SlintVisualEditor.yml 1>&2
 
 flatpak-builder \
     --force-clean \
