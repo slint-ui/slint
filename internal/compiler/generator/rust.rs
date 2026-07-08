@@ -336,9 +336,7 @@ fn generate_public_component(
     let ctx = EvaluationContext {
         compilation_unit: unit,
         current_scope: EvaluationScope::SubComponent(llr.item_tree.root, None),
-        generator_state: RustGeneratorContext {
-            global_access: quote!(_self.globals.get().unwrap()),
-        },
+        generator_state: RustGeneratorContext { global_access: quote!(_self.globals()) },
         argument_types: &[],
     };
 
@@ -1124,7 +1122,7 @@ fn generate_sub_component(
     let ctx = EvaluationContext::new_sub_component(
         root,
         component_idx,
-        RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
+        RustGeneratorContext { global_access: quote!(_self.globals()) },
         parent_ctx,
     );
     let mut extra_components = component
@@ -1651,6 +1649,13 @@ fn generate_sub_component(
         }
 
         impl #inner_component_id {
+            // Shorthand used by the generated expression code: the member access is
+            // emitted for every global property access, so keep it as small as possible.
+            #[allow(dead_code)]
+            fn globals(&self) -> &sp::Rc<SharedGlobals> {
+                self.globals.get().unwrap()
+            }
+
             fn init(self_rc: sp::VRcMapped<sp::ItemTreeVTable, Self>,
                     globals : sp::Rc<SharedGlobals>,
                     tree_index: u32, tree_index_of_first_child: u32) {
@@ -1876,9 +1881,7 @@ fn generate_global(
     let ctx = EvaluationContext::new_global(
         root,
         global_idx,
-        RustGeneratorContext {
-            global_access: quote!(_self.globals.get().unwrap().upgrade().unwrap()),
-        },
+        RustGeneratorContext { global_access: quote!(_self.globals()) },
     );
 
     let declared_functions = generate_functions(global.functions.as_ref(), &ctx);
@@ -1984,6 +1987,12 @@ fn generate_global(
             }
 
             impl #inner_component_id {
+                // Shorthand used by the generated expression code: the member access is
+                // emitted for every global property access, so keep it as small as possible.
+                #[allow(dead_code)]
+                fn globals(&self) -> sp::Rc<SharedGlobals> {
+                    self.globals.get().unwrap().upgrade().unwrap()
+                }
                 fn new() -> ::core::pin::Pin<sp::Rc<Self>> {
                     sp::Rc::pin(Self::default())
                 }
@@ -2506,7 +2515,7 @@ fn generate_repeated_component(
                         Some(parent_ctx),
                     ),
                     generator_state: RustGeneratorContext {
-                        global_access: quote!(_self.globals.get().unwrap()),
+                        global_access: quote!(_self.globals()),
                     },
                     argument_types: &[],
                 };
@@ -3777,7 +3786,7 @@ fn compile_builtin_function_call(
                 let popup_ctx = EvaluationContext::new_sub_component(
                     ctx.compilation_unit,
                     popup.item_tree.root,
-                    RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
+                    RustGeneratorContext { global_access: quote!(_self.globals()) },
                     Some(&parent_ctx),
                 );
                 let position = compile_expression(&popup.position.borrow(), &popup_ctx);
@@ -3923,7 +3932,7 @@ fn compile_builtin_function_call(
             let popup_ctx = EvaluationContext::new_sub_component(
                 ctx.compilation_unit,
                 popup.item_tree.root,
-                RustGeneratorContext { global_access: quote!(_self.globals.get().unwrap()) },
+                RustGeneratorContext { global_access: quote!(_self.globals()) },
                 None,
             );
             let access_entries = access_member(&popup.entries, &popup_ctx).unwrap();
