@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint.dev>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
 
-name: Visual Editor Windows MSIX
+name: Visual Editor Linux package
 
 on:
   workflow_dispatch:
@@ -24,8 +24,8 @@ env:
 
 jobs:
   msix:
-    name: Build self-signed MSIX
-    runs-on: windows-latest
+    name: Build flatpak
+    runs-on: ubuntu-latest
     timeout-minutes: 90
     env: {}
     steps:
