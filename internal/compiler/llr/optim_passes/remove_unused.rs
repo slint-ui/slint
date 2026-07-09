@@ -7,6 +7,7 @@ use typed_index_collections::TiVec;
 struct Mapping {
     prop_mapping: TiVec<PropertyIdx, Option<PropertyIdx>>,
     callback_mapping: TiVec<CallbackIdx, Option<CallbackIdx>>,
+    function_mapping: TiVec<FunctionIdx, Option<FunctionIdx>>,
 }
 
 impl Mapping {
@@ -14,7 +15,8 @@ impl Mapping {
         match member {
             LocalMemberIndex::Property(p) => self.prop_mapping[*p].is_some(),
             LocalMemberIndex::Callback(c) => self.callback_mapping[*c].is_some(),
-            _ => true,
+            LocalMemberIndex::Function(f) => self.function_mapping[*f].is_some(),
+            LocalMemberIndex::Native { .. } => true,
         }
     }
 }
@@ -31,7 +33,7 @@ pub fn remove_unused(root: &mut CompilationUnit) {
         sc_mappings: root
             .sub_components
             .iter_mut()
-            .map(|sc| create_mapping(&mut sc.properties, &mut sc.callbacks))
+            .map(|sc| create_mapping(&mut sc.properties, &mut sc.callbacks, &mut sc.functions))
             .collect(),
         glob_mappings: root
             .globals
@@ -39,7 +41,7 @@ pub fn remove_unused(root: &mut CompilationUnit) {
             .map(|g| {
                 clean_vec(&mut g.const_properties, &g.properties);
                 clean_vec(&mut g.prop_analysis, &g.properties);
-                create_mapping(&mut g.properties, &mut g.callbacks)
+                create_mapping(&mut g.properties, &mut g.callbacks, &mut g.functions)
             })
             .collect(),
     };
@@ -86,40 +88,33 @@ pub fn remove_unused(root: &mut CompilationUnit) {
         g.animations.retain(|x, _| mappings.glob_mappings[idx].keep(x));
     }
 
+    macro_rules! remap_index {
+        ($method:ident, $idx:ty, $field:ident) => {
+            fn $method(
+                &mut self,
+                p: &mut $idx,
+                scope: &EvaluationScope,
+                _state: &visitor::VisitorState,
+            ) {
+                *p = match scope {
+                    EvaluationScope::SubComponent(sub_component_idx, _) => {
+                        self.sc_mappings[*sub_component_idx].$field[*p]
+                    }
+                    EvaluationScope::Global(global_idx) => {
+                        self.glob_mappings[*global_idx].$field[*p]
+                    }
+                }
+                .unwrap();
+            }
+        };
+    }
     impl visitor::Visitor for &RemoveUnusedMappings {
-        fn visit_property_idx(
-            &mut self,
-            p: &mut PropertyIdx,
-            scope: &EvaluationScope,
-            _state: &visitor::VisitorState,
-        ) {
-            match scope {
-                EvaluationScope::SubComponent(sub_component_idx, _) => {
-                    // Debugging hint: if this unwrap fails, check if count_property_use() didn't
-                    // forget to visit something, leading to the property being removed
-                    *p = self.sc_mappings[*sub_component_idx].prop_mapping[*p].unwrap();
-                }
-                EvaluationScope::Global(global_idx) => {
-                    *p = self.glob_mappings[*global_idx].prop_mapping[*p].unwrap();
-                }
-            }
-        }
-
-        fn visit_callback_idx(
-            &mut self,
-            p: &mut CallbackIdx,
-            scope: &EvaluationScope,
-            _state: &visitor::VisitorState,
-        ) {
-            match scope {
-                EvaluationScope::SubComponent(sub_component_idx, _) => {
-                    *p = self.sc_mappings[*sub_component_idx].callback_mapping[*p].unwrap();
-                }
-                EvaluationScope::Global(global_idx) => {
-                    *p = self.glob_mappings[*global_idx].callback_mapping[*p].unwrap();
-                }
-            }
-        }
+        // All three remap an index through the mapping of the enclosing scope. If one of the
+        // unwraps fails, count_property_use() forgot to visit something, so a member that is
+        // still referenced was removed.
+        remap_index!(visit_property_idx, PropertyIdx, prop_mapping);
+        remap_index!(visit_callback_idx, CallbackIdx, callback_mapping);
+        remap_index!(visit_function_idx, FunctionIdx, function_mapping);
     }
     let mut visitor = &mappings;
     visitor::visit_compilation_unit(root, &state, &mut visitor);
@@ -128,10 +123,12 @@ pub fn remove_unused(root: &mut CompilationUnit) {
 fn create_mapping(
     properties: &mut TiVec<PropertyIdx, Property>,
     callbacks: &mut TiVec<CallbackIdx, Callback>,
+    functions: &mut TiVec<FunctionIdx, Function>,
 ) -> Mapping {
     Mapping {
         prop_mapping: create_vec_mapping(properties, |p| p.use_count.get() > 0),
         callback_mapping: create_vec_mapping(callbacks, |c| c.use_count.get() > 0),
+        function_mapping: create_vec_mapping(functions, |f| f.use_count.get() > 0),
     }
 }
 
@@ -502,7 +499,7 @@ mod visitor {
     }
 
     pub fn visit_function(
-        Function { name: _, ret_ty: _, args: _, code }: &mut Function,
+        Function { name: _, ret_ty: _, args: _, code, use_count: _ }: &mut Function,
         scope: &EvaluationScope,
         state: &VisitorState,
         visitor: &mut (impl Visitor + ?Sized),
@@ -520,6 +517,7 @@ mod visitor {
             let p = match expr {
                 Expression::PropertyReference(p) => p,
                 Expression::CallBackCall { callback, .. } => callback,
+                Expression::FunctionCall { function, .. } => function,
                 Expression::PropertyAssignment { property, .. } => property,
                 Expression::LayoutCacheAccess { layout_cache_prop, .. } => layout_cache_prop,
                 Expression::GridRepeaterCacheAccess { layout_cache_prop, .. } => layout_cache_prop,

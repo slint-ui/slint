@@ -635,6 +635,10 @@ impl Expression {
             let p = match expr {
                 Expression::PropertyReference(p) => p,
                 Expression::CallBackCall { callback, .. } => callback,
+                // The `function` of a call is also a member reference. `property_info`
+                // returns nothing for it, so callers that only care about properties
+                // ignore it, while callers that track function use can act on it.
+                Expression::FunctionCall { function, .. } => function,
                 Expression::PropertyAssignment { property, .. } => {
                     if let Some((a, map)) = &ctx.property_info(property).animation {
                         let ctx2 = map.map_context(ctx);
@@ -861,6 +865,44 @@ impl<'a, T> EvaluationContext<'a, T> {
         }
     }
 
+    /// Resolve a reference to a user function, returning the function and the
+    /// [`ContextMap`] to evaluate its body in the current context.
+    pub(crate) fn function_info<'b>(
+        &'b self,
+        reference: &MemberReference,
+    ) -> Option<(&'b super::Function, ContextMap)> {
+        let cu = self.compilation_unit;
+        match reference {
+            MemberReference::Relative { parent_level, local_reference } => {
+                // Cheap check before walking the scope: most references are not functions.
+                let LocalMemberIndex::Function(idx) = local_reference.reference else {
+                    return None;
+                };
+                let mut scope = self.current_scope;
+                for _ in 0..*parent_level {
+                    let EvaluationScope::SubComponent(_, Some(p)) = scope else { return None };
+                    scope = EvaluationScope::SubComponent(p.sub_component, p.parent);
+                }
+                let EvaluationScope::SubComponent(mut sc, _) = scope else { return None };
+                for i in &local_reference.sub_component_path {
+                    sc = cu.sub_components[sc].sub_components[*i].ty;
+                }
+                Some((
+                    cu.sub_components[sc].functions.get(idx)?,
+                    ContextMap::from_parent_level(*parent_level)
+                        .deeper_by_path(&local_reference.sub_component_path),
+                ))
+            }
+            MemberReference::Global { global_index, member } => {
+                let LocalMemberIndex::Function(idx) = member else { return None };
+                Some((
+                    cu.globals[*global_index].functions.get(*idx)?,
+                    ContextMap::InGlobal(*global_index),
+                ))
+            }
+        }
+    }
+
     pub fn current_sub_component(&self) -> Option<&super::SubComponent> {
         let EvaluationScope::SubComponent(i, _) = self.current_scope else { return None };
         self.compilation_unit.sub_components.get(i)
@@ -980,6 +1022,10 @@ impl ContextMap {
             }
             ContextMap::InGlobal(_) => panic!(),
         }
+    }
+
+    fn deeper_by_path(self, path: &[SubComponentInstanceIdx]) -> Self {
+        path.iter().fold(self, |m, sub| m.deeper_in_sub_component(*sub))
     }
 
     pub fn map_property_reference(&self, p: &MemberReference) -> MemberReference {
