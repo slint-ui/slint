@@ -292,6 +292,22 @@ pub(crate) enum WindowVisibility {
     Shown,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum DisplayServerProtocol {
+    #[cfg(feature = "x11")]
+    X11,
+    #[cfg(feature = "wayland")]
+    Wayland,
+}
+
+#[derive(Copy, Clone, Debug, Default)]
+struct EventLoopProperties {
+    /// Specifies if the current platform supports native popup
+    /// with winit or not
+    support_native_popup: bool,
+    display_server_protocol: Option<DisplayServerProtocol>,
+}
+
 /// GraphicsWindow is an implementation of the [WindowAdapter][`crate::eventloop::WindowAdapter`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
 pub struct WinitWindowAdapter {
@@ -308,9 +324,7 @@ pub struct WinitWindowAdapter {
     maximized: Cell<bool>,
     minimized: Cell<bool>,
     fullscreen: Cell<bool>,
-    /// Specifies if the current platform supports native popup
-    /// with winit or not
-    support_native_popup: Cell<bool>,
+    event_loop_properties: Cell<EventLoopProperties>,
 
     pub(crate) renderer: Box<dyn WinitCompatibleRenderer>,
     /// We cache the size because winit_window.surface_size() can return different value between calls (eg, on X11)
@@ -365,10 +379,12 @@ impl WinitWindowAdapter {
         parent: Weak<Self>,
     ) -> Rc<Self> {
         #[cfg(any(target_os = "windows", target_os = "macos"))]
-        let support_native_popup = true;
+        let event_loop_properties =
+            EventLoopProperties { support_native_popup: true, ..Default::default() };
 
         #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-        let support_native_popup = false; // We don't know it yet
+        let event_loop_properties =
+            EventLoopProperties { support_native_popup: false, ..Default::default() }; // We don't know it yet
 
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             shared_backend_data: shared_backend_data.clone(),
@@ -401,7 +417,7 @@ impl WinitWindowAdapter {
             muda_enable_default_menu_bar,
             window_icon_cache_key: Default::default(),
             parent,
-            support_native_popup: Cell::new(support_native_popup),
+            event_loop_properties: Cell::new(event_loop_properties),
         });
 
         // The renderer must be set, because otherwise for text layout infos the scale factor is not available
@@ -433,13 +449,16 @@ impl WinitWindowAdapter {
 
             #[cfg(feature = "wayland")]
             if winit_wayland::ActiveEventLoopExtWayland::is_wayland(active_event_loop) {
-                if let Some(xdg_app_id) = xdg_app_id {
+                if let Some(xdg_app_id) = xdg_app_id.clone() {
                     window_attributes = window_attributes.with_platform_attributes(Box::new(
                         winit_wayland::WindowAttributesWayland::default()
                             .with_name(xdg_app_id.as_str(), ""),
                     ));
                 }
-                self.support_native_popup.set(true);
+                let mut p = self.event_loop_properties.get();
+                p.display_server_protocol = Some(DisplayServerProtocol::Wayland);
+                p.support_native_popup = true;
+                self.event_loop_properties.set(p);
             }
 
             #[cfg(feature = "x11")]
@@ -451,7 +470,10 @@ impl WinitWindowAdapter {
                     ));
                 }
                 // Currently x11 does not support native popups
-                self.support_native_popup.set(false);
+                let mut p = self.event_loop_properties.get();
+                p.display_server_protocol = Some(DisplayServerProtocol::X11);
+                p.support_native_popup = false;
+                self.event_loop_properties.set(p);
             }
         }
 
@@ -1561,7 +1583,7 @@ impl WindowAdapterInternal for WinitWindowAdapter {
     }
 
     fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
-        if !self.support_native_popup.get() {
+        if !self.event_loop_properties.get().support_native_popup {
             return None;
         }
 
