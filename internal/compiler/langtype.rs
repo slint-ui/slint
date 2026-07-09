@@ -72,6 +72,9 @@ pub enum Type {
     ArrayOfU16,
 
     StyledText,
+
+    /// Used by the animation objects
+    Animatable,
 }
 
 impl core::cmp::PartialEq for Type {
@@ -116,6 +119,7 @@ impl core::cmp::PartialEq for Type {
             Type::ArrayOfU16 => matches!(other, Type::ArrayOfU16),
             Type::StyledText => matches!(other, Type::StyledText),
             Type::DataTransfer => matches!(other, Type::DataTransfer),
+            Type::Animatable => matches!(other, Type::Animatable),
         }
     }
 }
@@ -194,6 +198,7 @@ impl Display for Type {
             Type::LayoutCache => write!(f, "layout cache"),
             Type::ArrayOfU16 => write!(f, "[u16]"),
             Type::StyledText => write!(f, "styled-text"),
+            Type::Animatable => write!(f, "animatable"),
         }
     }
 }
@@ -232,6 +237,7 @@ impl Type {
                 | Self::Brush
                 | Self::InferredProperty
                 | Self::StyledText
+                | Self::Animatable
         )
     }
 
@@ -337,6 +343,7 @@ impl Type {
             Type::LayoutCache => None,
             Type::ArrayOfU16 => None,
             Type::StyledText => None,
+            Type::Animatable => None,
         }
     }
 

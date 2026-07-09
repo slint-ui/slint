@@ -522,6 +522,7 @@ fn to_debug_string(
         | Type::Easing
         | Type::StyledText
         | Type::Array(_)
+        | Type::Animatable
         | Type::DataTransfer => {
             Expression::StringLiteral("<debug-of-this-type-not-yet-implemented>".into())
         }

@@ -308,6 +308,7 @@ impl Expression {
             | Type::InferredCallback
             | Type::ElementReference
             | Type::LayoutCache
+            | Type::Animatable
             | Type::ArrayOfU16 => return None,
             Type::Float32
             | Type::Duration

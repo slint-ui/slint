@@ -2746,6 +2746,43 @@ export component Timer {
     //-disallow_global_types_as_child_elements
 }
 
+/// Base class for all animation objects. Not user-facing directly;
+/// concrete animations (TweenAnimation, DelayAnimation, ParallelAnimation,
+/// SequentialAnimation, ...) inherit from this. Each subtype declares its
+/// own concretely-typed `target` property.
+component Animation {
+    /// Optional property reference to bind the animation to. When bound,
+    /// triggers animation automatically when this property's value changes
+    /// (for root animations only; parent animations control child triggering).
+    /// Type is subtype-specific and will be resolved at lowering time.
+    in property <animatable> target;
+
+    /// `true` while the animation is running.
+    in-out property <bool> running: false;
+
+    /// Start the animation. No-op if already running.
+    function start() {
+    }
+    /// Stop the animation.
+    function stop() {
+    }
+    /// Stop and immediately restart the animation.
+    function restart() {
+    }
+
+    //-is_non_item_type
+    //-is_internal
+}
+
+export component TweenAnimation inherits Animation {
+    in property <animatable> from;
+    in property <animatable> to;
+    /// The easing curve of the animation
+    in property <easing> easing;
+    /// Duration of the animation
+    in property <duration> duration;
+}
+
 /// ```slint playground imageAlt="dialog example" width="200" height="100"
 /// import { StandardButton, Button } from "std-widgets.slint";
 /// export component Example inherits Dialog {

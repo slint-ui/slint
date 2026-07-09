@@ -500,6 +500,10 @@ impl TypeRegister {
         register.supported_property_animation_types.insert(Type::Brush.to_string());
         register.supported_property_animation_types.insert(Type::Angle.to_string());
 
+        // TODO fix
+        register.insert_type(Type::Animatable);
+        register.supported_property_animation_types.insert(Type::Animatable.to_string());
+
         macro_rules! register_builtin_structs {
             ($(
                 $(#[$attr:meta])*

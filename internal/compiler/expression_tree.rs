@@ -1713,6 +1713,7 @@ impl Expression {
             | Type::InferredCallback
             | Type::ElementReference
             | Type::LayoutCache
+            | Type::Animatable
             | Type::ArrayOfU16 => Expression::Invalid,
             Type::Void => Expression::CodeBlock(Vec::new()),
             Type::DataTransfer => Expression::EmptyDataTransfer,
