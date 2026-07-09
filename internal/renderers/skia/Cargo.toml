@@ -29,7 +29,7 @@ kms = ["softbuffer/kms"]
 # unstable-wgpu-{28,29} additionally exposes public API integration (GraphicsAPI, texture import).
 wgpu-28 = ["i-slint-core/wgpu-28", "dep:wgpu-28", "dep:spin_on", "dep:foreign-types", "dep:ash", "dep:windows-core"]
 unstable-wgpu-28 = ["i-slint-core/unstable-wgpu-28", "wgpu-28"]
-wgpu-29 = ["i-slint-core/wgpu-29", "dep:wgpu-29", "dep:spin_on", "dep:ash", "dep:windows-core"]
+wgpu-29 = ["i-slint-core/wgpu-29", "dep:wgpu-29", "dep:spin_on", "dep:ash", "dep:windows-core", "dep:wgpu-hal-29"]
 unstable-wgpu-29 = ["i-slint-core/unstable-wgpu-29", "wgpu-29"]
 default = ["softbuffer"]
 
@@ -88,6 +88,10 @@ raw-window-metal = "1.0"
 foreign-types = { version = "0.5.0", optional = true }
 wgpu-28 = { workspace = true, optional = true, features = ["metal"] }
 wgpu-29 = { workspace = true, optional = true, features = ["metal"] }
+# Version floor for `metal::Queue::as_raw` (used in wgpu_29_surface/metal.rs),
+# which was added in wgpu-hal 29.0.4. Enabled by the `wgpu-29` feature; only
+# declared here (Apple) because that is the only target using the API.
+wgpu-hal-29 = { workspace = true, optional = true }
 
 read-fonts = { workspace = true }
 # Pinned to 0.49 to align with read-fonts from parley and avoid duplicated dependencies
