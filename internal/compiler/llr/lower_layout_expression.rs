@@ -89,7 +89,9 @@ pub(super) fn compute_box_layout_info(
     cross_axis_size_override: Option<&crate::expression_tree::Expression>,
 ) -> llr_Expression {
     let (padding, spacing) = generate_layout_padding_and_spacing(&layout.geometry, o, ctx);
-    let bld = box_layout_data(layout, o, ctx, cross_axis_size_override, None);
+    let adjusted_override = cross_axis_size_override
+        .map(|o_expr| subtract_padding(o_expr.clone(), &layout.geometry, o.orthogonal()));
+    let bld = box_layout_data(layout, o, ctx, adjusted_override.as_ref(), None);
     let sub_expression = if o == layout.orientation {
         llr_Expression::ExtraBuiltinFunctionCall {
             function: "box_layout_info".into(),
@@ -350,12 +352,13 @@ pub(super) fn solve_flexbox_layout(
         layout.axis_relation(Orientation::Vertical),
         crate::layout::FlexboxAxisRelation::MainAxis
     ) {
-        layout
-            .geometry
-            .rect
-            .width_reference
-            .as_ref()
-            .map(|nr| crate::expression_tree::Expression::PropertyReference(nr.clone()))
+        layout.geometry.rect.width_reference.as_ref().map(|nr| {
+            subtract_padding(
+                crate::expression_tree::Expression::PropertyReference(nr.clone()),
+                &layout.geometry,
+                Orientation::Horizontal,
+            )
+        })
     } else {
         None
     };
@@ -1634,6 +1637,30 @@ pub(crate) fn default_cross_axis_constraint(
     })
 }
 
+/// Subtract `geometry`'s padding on the `axis` from `base`. Turns an outer size
+/// into the content size a child is actually laid out at (used to constrain a
+/// height-for-width child at its real width rather than the padded outer width).
+fn subtract_padding(
+    base: crate::expression_tree::Expression,
+    geometry: &crate::layout::LayoutGeometry,
+    axis: Orientation,
+) -> crate::expression_tree::Expression {
+    use crate::expression_tree::Expression;
+    let pads = match axis {
+        Orientation::Horizontal => [&geometry.padding.left, &geometry.padding.right],
+        Orientation::Vertical => [&geometry.padding.top, &geometry.padding.bottom],
+    };
+    let mut expr = base;
+    for p in pads.into_iter().flatten() {
+        expr = Expression::BinaryExpression {
+            lhs: Box::new(expr),
+            rhs: Box::new(Expression::PropertyReference(p.clone())),
+            op: '-',
+        };
+    }
+    expr
+}
+
 /// Build an expression for the layout's cross-axis *content* size
 /// (`self.height` minus top/bottom padding, for a horizontal layout).
 fn layout_cross_content_size(
@@ -1642,19 +1669,7 @@ fn layout_cross_content_size(
     use crate::expression_tree::Expression;
     let cross = layout.orientation.orthogonal();
     let size_nr = layout.geometry.rect.size_reference(cross)?.clone();
-    let mut expr = Expression::PropertyReference(size_nr);
-    let pads = match cross {
-        Orientation::Horizontal => [&layout.geometry.padding.left, &layout.geometry.padding.right],
-        Orientation::Vertical => [&layout.geometry.padding.top, &layout.geometry.padding.bottom],
-    };
-    for p in pads.into_iter().flatten() {
-        expr = Expression::BinaryExpression {
-            lhs: Box::new(expr),
-            rhs: Box::new(Expression::PropertyReference(p.clone())),
-            op: '-',
-        };
-    }
-    Some(expr)
+    Some(subtract_padding(Expression::PropertyReference(size_nr), &layout.geometry, cross))
 }
 
 fn layout_geometry_size(

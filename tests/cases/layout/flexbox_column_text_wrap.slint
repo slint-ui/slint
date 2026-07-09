@@ -9,25 +9,43 @@ export component TestCase inherits Window {
     width: 150px;
     height: 300px;
 
+    property <string> long-text: "This is a long text that should word-wrap inside a column FlexboxLayout";
+
     FlexboxLayout {
         flex-direction: column;
         spacing: 10px;
+        // Padding: the text is laid out at the content width (150 - 2*20 = 110px),
+        // so its height-for-width must be measured at that width too, not the raw
+        // container width. Otherwise it wraps to fewer lines than it is drawn with
+        // and overflows its cell.
+        padding: 20px;
 
         r := Rectangle {
             height: 50px;
             background: red;
         }
         t := Text {
-            text: "This is a long text that should word-wrap inside a column FlexboxLayout";
+            text: long-text;
             wrap: word-wrap;
             horizontal-alignment: left;
         }
     }
 
-    // In column direction, items stack vertically.
-    // The text should be below the rectangle and wrap within the container width.
+    // Ground truth: the same text wrapped at the cell's actual width.
+    ref := Text {
+        x: -1000px;
+        width: t.width;
+        text: long-text;
+        wrap: word-wrap;
+        horizontal-alignment: left;
+    }
+
+    // In column direction, items stack vertically below the 20px top padding.
     out property <bool> test_r: r.height == 50px;
-    out property <bool> test_t: t.y == 60px && t.width <= 150px && t.height > 30px;
+    // The text sits below the rectangle (+spacing), spans the content width, and
+    // — the point of this test — is exactly as tall as the reference wrapped at
+    // that same width. Without measuring at the content width it would be shorter.
+    out property <bool> test_t: t.y == 80px && t.width <= 110px && t.height == ref.height;
 
     out property <bool> test: test_r && test_t;
 }
