@@ -643,11 +643,18 @@ export component Foo inherits Window {
     // REMOVED: only read from a timer's interval, which is inlined.
     property <duration> gone_timer: ext * 1ms;
 
-    // KEPT: read from a function that is actually called. Function bodies are
-    // not inlined into, so the property cannot be removed.
-    property <int> kept_from_function: ext * 5;
-    pure function f() -> int { kept_from_function }
-    out property <int> function_reader: f();
+    // REMOVED: read from a function that is called exactly once. The function is
+    // inlined into its caller, and the property is then inlined and removed.
+    property <int> gone_single_call: ext * 5;
+    pure function called_once() -> int { gone_single_call }
+    out property <int> single_reader: called_once();
+
+    // KEPT: read from a function that is called from more than one place. Such a
+    // function is not inlined, so the property it reads stays.
+    property <int> kept_multi_call: ext * 6;
+    pure function called_twice() -> int { kept_multi_call }
+    out property <int> reader_a: called_twice();
+    out property <int> reader_b: called_twice();
 
     // KEPT: has a change callback.
     property <int> kept_with_change_callback: ext * 7;
@@ -660,13 +667,13 @@ export component Foo inherits Window {
     #[test]
     fn unused_properties_are_removed_and_used_ones_kept() {
         let names = lowered_property_names(SOURCE);
-        for gone in ["gone-inlined", "gone-reader", "gone-timer"] {
+        for gone in ["gone-inlined", "gone-reader", "gone-timer", "gone-single-call"] {
             assert!(
                 !names.iter().any(|n| n.contains(gone)),
                 "property {gone} should have been removed, got {names:?}"
             );
         }
-        for kept in ["kept-public", "kept-from-function", "kept-with-change-callback"] {
+        for kept in ["kept-public", "kept-multi-call", "kept-with-change-callback"] {
             assert!(
                 names.iter().any(|n| n.contains(kept)),
                 "property {kept} should have been kept, got {names:?}"
