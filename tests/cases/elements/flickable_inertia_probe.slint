@@ -1,0 +1,89 @@
+// Copyright © SixtyFPS GmbH <info@slint.dev>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-Royalty-free-2.0 OR LicenseRef-Slint-Software-3.0
+
+export component TestCase inherits Window {
+    width: 320px;
+    height: 480px;
+
+    flick := Flickable {
+        width: parent.width;
+        height: parent.height;
+        viewport-width: parent.width;
+        viewport-height: 4000px;
+
+        for row in 80: Rectangle {
+            y: row * 50px;
+            width: parent.width;
+            height: 50px;
+            background: row.mod(2) == 0 ? #f3f6f9 : #d8e3ec;
+
+            Text {
+                x: 12px;
+                vertical-alignment: center;
+                height: parent.height;
+                text: "row";
+                color: #1f2933;
+                font-size: 18px;
+            }
+        }
+    }
+
+    out property <length> offset-y: -flick.viewport-y;
+}
+
+/*
+
+```rust
+use slint::{LogicalPosition, platform::{PointerEventButton, WindowEvent}};
+
+fn drag(instance: &TestCase, samples: &[(u64, f32)]) -> Vec<f32> {
+    let window = instance.window();
+    let x = 160.0;
+    let start_y = samples[0].1;
+    window.dispatch_event(WindowEvent::PointerMoved {
+        position: LogicalPosition::new(x, start_y),
+    });
+    window.dispatch_event(WindowEvent::PointerPressed {
+        position: LogicalPosition::new(x, start_y),
+        button: PointerEventButton::Left,
+    });
+
+    for &(dt, y) in &samples[1..] {
+        slint_testing::mock_elapsed_time(dt);
+        window.dispatch_event(WindowEvent::PointerMoved {
+            position: LogicalPosition::new(x, y),
+        });
+    }
+
+    let release_y = samples.last().unwrap().1;
+    window.dispatch_event(WindowEvent::PointerReleased {
+        position: LogicalPosition::new(x, release_y),
+        button: PointerEventButton::Left,
+    });
+
+    let mut trace = Vec::new();
+    trace.push(instance.get_offset_y());
+    for _ in 0..90 {
+        slint_testing::mock_elapsed_time(16);
+        trace.push(instance.get_offset_y());
+    }
+    trace
+}
+
+let slow_drag = TestCase::new().unwrap();
+let slow_trace = drag(&slow_drag, &[(0, 360.0), (250, 330.0), (250, 300.0), (250, 270.0)]);
+assert_eq!(slow_trace.len(), 91);
+assert!(slow_trace.last().unwrap() >= slow_trace.first().unwrap());
+
+let medium_flick = TestCase::new().unwrap();
+let medium_trace = drag(&medium_flick, &[(0, 360.0), (16, 320.0), (16, 280.0), (16, 240.0)]);
+assert_eq!(medium_trace.len(), 91);
+assert!(medium_trace.last().unwrap() > medium_trace.first().unwrap());
+
+let fast_flick = TestCase::new().unwrap();
+let fast_trace = drag(&fast_flick, &[(0, 380.0), (16, 300.0), (16, 220.0), (16, 140.0)]);
+assert_eq!(fast_trace.len(), 91);
+assert!(fast_trace.last().unwrap() > medium_trace.last().unwrap());
+```
+
+*/
