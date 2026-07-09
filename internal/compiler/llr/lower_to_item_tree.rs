@@ -291,6 +291,7 @@ fn lower_sub_component(
         popup_windows: Default::default(),
         menu_item_trees: Vec::new(),
         timers: Default::default(),
+        animation_objects: Default::default(),
         sub_components: Default::default(),
         property_init: Default::default(),
         change_callbacks: Default::default(),
@@ -594,6 +595,7 @@ fn lower_sub_component(
         .collect();
 
     sub_component.timers = component.timers.borrow().iter().map(|t| lower_timer(t, &ctx)).collect();
+    sub_component.animation_objects = component.animations.borrow().iter().map(|a| lower_animation(a, &ctx)).collect();
 
     crate::generator::for_each_const_properties(component, |elem, n| {
         let x = ctx.map_property_reference(&NamedReference::new(elem, n.clone()));
@@ -918,6 +920,48 @@ fn lower_timer(timer: &object_tree::Timer, ctx: &ExpressionLoweringCtx) -> Timer
             arguments: Vec::new(),
         }
         .into(),
+    }
+}
+
+fn lower_animation(animation: &object_tree::Animation, ctx: &ExpressionLoweringCtx) -> AnimationObject {
+    AnimationObject {
+        target: match &animation.target {
+            Some(_) => Some(
+                super::Expression::PropertyReference(ctx.map_property_reference(&animation.target.as_ref().unwrap()))
+                .into()
+            ),
+            None => None,
+        },
+        running: super::Expression::PropertyReference(ctx.map_property_reference(&animation.running))
+            .into(),
+        from: match &animation.from {
+            Some(_) => Some(
+                super::Expression::PropertyReference(ctx.map_property_reference(&animation.from.as_ref().unwrap()))
+                .into()
+            ),
+            None => None,
+        },
+        to: match &animation.to {
+            Some(_) => Some(
+                super::Expression::PropertyReference(ctx.map_property_reference(&animation.to.as_ref().unwrap()))
+                .into()
+            ),
+            None => None,
+        },
+        duration: match &animation.duration {
+            Some(_) => Some(
+                super::Expression::PropertyReference(ctx.map_property_reference(&animation.duration.as_ref().unwrap()))
+                .into()
+            ),
+            None => None,
+        },
+        easing: match &animation.easing {
+            Some(_) => Some(
+                super::Expression::PropertyReference(ctx.map_property_reference(&animation.easing.as_ref().unwrap()))
+                .into()
+            ),
+            None => None,
+        },
     }
 }
 

@@ -171,6 +171,11 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::StartTimer => 10,
         BuiltinFunction::StopTimer => 10,
         BuiltinFunction::RestartTimer => 10,
+        // TODO check
+        BuiltinFunction::UpdateAnimations => 10,
+        BuiltinFunction::StartAnimation => 10,
+        BuiltinFunction::StopAnimation => 10,
+        BuiltinFunction::RestartAnimation => 10,
         BuiltinFunction::ParseMarkdown => isize::MAX,
         BuiltinFunction::StringToStyledText => ALLOC_COST,
         BuiltinFunction::ColorToStyledText => ALLOC_COST,

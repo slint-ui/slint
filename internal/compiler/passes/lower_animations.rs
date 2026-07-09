@@ -4,9 +4,8 @@
 //! This pass validates and lowers Animation elements (TweenAnimation, DelayAnimation, etc.)
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::BindingExpression;
+use crate::expression_tree::{BindingExpression, BuiltinFunction, Callable, Expression, NamedReference};
 use crate::langtype::ElementType;
-use crate::namedreference::NamedReference;
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
 use smol_str::SmolStr;
@@ -20,9 +19,31 @@ pub fn lower_animations(
     type_register: &Rc<RefCell<TypeRegister>>,
     diag: &mut BuildDiagnostics,
 ) {
-    // TODO replace <animation>.start/end with <animation>.running = true/false
+    // replace <animation>.start/end with <animation>.running = true/false
+    visit_all_expressions(component, |e, _| {
+        e.visit_recursive_mut(&mut |e| {
+            if let Expression::FunctionCall { function, arguments, .. } = e
+                && let Callable::Builtin(BuiltinFunction::StartAnimation | BuiltinFunction::StopAnimation) =
+                    function
+                && let [Expression::ElementReference(timer)] = arguments.as_slice()
+            {
+                *e = Expression::SelfAssignment {
+                    lhs: Box::new(Expression::PropertyReference(NamedReference::new(
+                        &timer.upgrade().unwrap(),
+                        SmolStr::new_static("running"),
+                    ))),
+                    rhs: Box::new(Expression::BoolLiteral(matches!(
+                        function,
+                        Callable::Builtin(BuiltinFunction::StartAnimation)
+                    ))),
+                    op: '=',
+                    node: None,
+                }
+            }
+        });
+    });
 
-    // Walk all elements and validate animation components
+    // validate and lower animations
     recurse_elem_including_sub_components_no_borrow(
         component,
         &None,

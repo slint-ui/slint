@@ -461,6 +461,7 @@ pub struct SubComponent {
     /// The MenuItem trees. The index is stored in a Expression::NumberLiteral in the arguments of BuiltinFunction::ShowPopupMenu and BuiltinFunction::SetupMenuBar
     pub menu_item_trees: Vec<ItemTree>,
     pub timers: Vec<Timer>,
+    pub animation_objects: Vec<AnimationObject>,
     pub sub_components: TiVec<SubComponentInstanceIdx, SubComponentInstance>,
     /// The initial value or binding for properties.
     /// This is ordered in the order they must be set.
@@ -534,6 +535,18 @@ pub struct Timer {
     pub interval: MutExpression,
     pub running: MutExpression,
     pub triggered: MutExpression,
+}
+
+#[derive(Debug)]
+pub struct AnimationObject {
+    pub target: Option<MutExpression>,
+    pub running: MutExpression,
+    pub from: Option<MutExpression>,
+    pub to: Option<MutExpression>,
+    pub duration: Option<MutExpression>,
+    pub easing: Option<MutExpression>,
+    // TODO implement
+    // pub children: Vec<AnimationObject>,
 }
 
 #[derive(Debug, Clone)]

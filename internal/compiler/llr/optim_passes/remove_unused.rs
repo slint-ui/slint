@@ -293,6 +293,7 @@ mod visitor {
             popup_windows,
             menu_item_trees: _,
             timers,
+            animation_objects,
             sub_components: _,
             property_init,
             change_callbacks,
@@ -361,6 +362,24 @@ mod visitor {
             visit_expression(t.interval.get_mut(), &scope, state, visitor);
             visit_expression(t.triggered.get_mut(), &scope, state, visitor);
             visit_expression(t.running.get_mut(), &scope, state, visitor);
+        }
+        for a in animation_objects {
+            if a.target.is_some() {
+                visit_expression(a.target.as_mut().unwrap().get_mut(), &scope, state, visitor);
+            }
+            visit_expression(a.running.get_mut(), &scope, state, visitor);
+            if a.from.is_some() {
+                visit_expression(a.from.as_mut().unwrap().get_mut(), &scope, state, visitor);
+            }
+            if a.to.is_some() {
+                visit_expression(a.to.as_mut().unwrap().get_mut(), &scope, state, visitor);
+            }
+            if a.duration.is_some() {
+                visit_expression(a.duration.as_mut().unwrap().get_mut(), &scope, state, visitor);
+            }
+            if a.easing.is_some() {
+                visit_expression(a.easing.as_mut().unwrap().get_mut(), &scope, state, visitor);
+            }
         }
         for (idx, init) in property_init {
             visit_member_reference(idx, &scope, state, visitor);

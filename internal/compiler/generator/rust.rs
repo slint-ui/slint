@@ -4636,6 +4636,20 @@ fn compile_builtin_function_call(
                 panic!("internal error: invalid args to RestartTimer {arguments:?}")
             }
         }
+        BuiltinFunction::UpdateAnimations => {
+            quote!(_self.update_animations())
+        }
+        // start and stop are unreachable because they are lowered to simple assignment of running
+        BuiltinFunction::StartAnimation => unreachable!(),
+        BuiltinFunction::StopAnimation => unreachable!(),
+        BuiltinFunction::RestartAnimation => {
+            if let [Expression::NumberLiteral(timer_index)] = arguments {
+                let ident = format_ident!("timer{}", *timer_index as usize);
+                quote!(_self.#ident.restart())
+            } else {
+                panic!("internal error: invalid args to RestartAnimation {arguments:?}")
+            }
+        }
         BuiltinFunction::OpenUrl => {
             let url = a.next().unwrap();
             let window_adapter_tokens = access_window_adapter_field(ctx);
