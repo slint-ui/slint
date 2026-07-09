@@ -18,6 +18,7 @@ use euclid::approxeq::ApproxEq;
 use i_slint_core::api::LogicalPosition;
 use i_slint_core::lengths::{PhysicalPx, ScaleFactor};
 use i_slint_core::renderer::DrawOutcome;
+use i_slint_core::window::WindowKind;
 use winit::event_loop::ActiveEventLoop;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWeb;
@@ -1606,7 +1607,10 @@ impl WindowAdapterInternal for WinitWindowAdapter {
         }
     }
 
-    fn create_popup_window_adapter(&self) -> Option<Rc<dyn WindowAdapter>> {
+    fn create_child_window_adapter(
+        &self,
+        _window_kind: i_slint_core::window::WindowKind,
+    ) -> Option<Rc<dyn WindowAdapter>> {
         if !self.event_loop_properties.get().support_native_popup {
             return None;
         }
