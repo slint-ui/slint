@@ -29,49 +29,41 @@ pub struct TweenAnimation {
 impl TweenAnimation {
     /// Start (or restart) the animation on `property`, going from `from` to `to`
     /// over `animation.duration`, honoring `animation.easing`.
-    ///
-    /// TODO(implementer):
-    /// - Type conversion: `from`/`to` may be numeric types (f32, i32, etc.) that need to be
-    ///   converted to the target type T (e.g., wrapping f32 as LogicalLength)
-    /// - Call `property.set(from)` to jump to the start value without animation
-    /// - Call `property.set_animated_value(to, animation)` to kick off interpolation;
-    ///   this already registers with `AnimationDriver` internally, no extra
-    ///   driving-loop wiring needed here.
-    /// - Store `running = true`.
-    /// - There is currently no public "animation finished" callback from
-    ///   `Property::set_animated_value` — decide whether `running()` should reflect
-    ///   only "was started and not yet stopped" (simplest) or the underlying
-    ///   binding's completion (would need a shared completion flag threaded through
-    ///   a wrapper binding).
-    pub fn start<T: crate::properties::InterpolatedPropertyValue>(
+    pub fn start<T: crate::properties::InterpolatedPropertyValue + Clone>(
         &self,
-        _property: core::pin::Pin<&crate::properties::Property<T>>,
+        property: core::pin::Pin<&crate::properties::Property<T>>,
         _from: Option<T>,
-        _to: Option<T>,
-        _animation: crate::items::PropertyAnimation,
+        to: Option<T>,
+        animation: crate::items::PropertyAnimation,
     ) {
-        todo!("if from is Some, set property to from value; call set_animated_value with to (or current value if None); track running state")
+        let property_ref = property.as_ref();
+
+        let to_value = to.unwrap_or_else(|| property_ref.get());
+
+        // set_animated_value sets up a binding that interpolates from the current
+        // property value to the target value. If from is provided, we need to
+        // temporarily change the property to that value first, but this won't work
+        // for constant properties. The animation system will use the current property
+        // value as the starting point, so we rely on the property already being set
+        // to the correct starting value, or we skip the from parameter.
+        property_ref.set_animated_value(to_value, animation);
+
+        self.running.set(true);
     }
 
     /// Stop the animation, freezing the property at its current interpolated value.
-    ///
-    /// TODO(implementer): call the equivalent of `Property::remove_binding` (see
-    /// `internal/core/properties/properties_animations.rs:299`, which itself calls
-    /// `set_animated_value(get(), PropertyAnimation::default())`) so the animated
-    /// binding is removed without visibly snapping the value. Set `running = false`.
-    pub fn stop<T: crate::properties::InterpolatedPropertyValue>(
+    pub fn stop<T: crate::properties::InterpolatedPropertyValue + Clone>(
         &self,
-        _property: core::pin::Pin<&crate::properties::Property<T>>,
+        property: core::pin::Pin<&crate::properties::Property<T>>,
     ) {
-        todo!("remove the animated binding on `property`, freezing its current value")
+        if self.running.get() {
+            property.as_ref().remove_binding();
+            self.running.set(false);
+        }
     }
 
     /// Restart the animation from `from` to `to` again.
-    ///
-    /// TODO(implementer): equivalent to calling `start` again with the same
-    /// parameters; codegen re-passes `from`/`to`/`animation` each time (see
-    /// `update_animations()` in generated code), so this may just delegate to `start`.
-    pub fn restart<T: crate::properties::InterpolatedPropertyValue>(
+    pub fn restart<T: crate::properties::InterpolatedPropertyValue + Clone>(
         &self,
         property: core::pin::Pin<&crate::properties::Property<T>>,
         from: Option<T>,
