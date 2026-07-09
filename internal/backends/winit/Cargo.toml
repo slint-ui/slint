@@ -112,8 +112,8 @@ accesskit_winit = { version = "0.33", optional = true, default-features = false,
 copypasta = { version = "0.10", default-features = false }
 
 [target.'cfg(not(any(target_family = "windows", target_vendor = "apple", target_arch = "wasm32", target_os = "android")))'.dependencies]
-winit-wayland = { git = "https://github.com/Murmele/winit.git", rev = "f856616d969d63fafd8fea020f98bca5966cc556", optional = true}
-winit-x11 = { git = "https://github.com/Murmele/winit.git", rev = "f856616d969d63fafd8fea020f98bca5966cc556", optional = true}
+winit-wayland = { git = "https://github.com/Murmele/winit.git", rev = "f856616d969d63fafd8fea020f98bca5966cc556", optional = true }
+winit-x11 = { git = "https://github.com/Murmele/winit.git", rev = "f856616d969d63fafd8fea020f98bca5966cc556", optional = true }
 # Use same version and executor as accesskit
 zbus = { version = "5.14.0", default-features = false, features = ["async-io"] }
 futures = { version = "0.3.31" }
