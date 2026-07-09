@@ -1789,19 +1789,26 @@ pub enum TwoWayBinding {
         /// If property is a struct, this is the fields.
         /// So if you have `foo <=> element.property.baz.xyz`, then `field_access` is `vec!["baz", "xyz"]`
         field_access: Vec<SmolStr>,
+        /// Field path applied to the property *holding* this two-way
+        /// binding. Non-empty only for links the compiler decomposed
+        /// because their two-way class contains both whole-struct and
+        /// struct-field links (see the `decompose_two_way_links` pass).
+        field_access1: Vec<SmolStr>,
     },
     ModelData {
         /// The model being linked
         repeated_element: ElementWeak,
         /// same as `Self::Property::field_access`
         field_access: Vec<SmolStr>,
+        /// same as `Self::Property::field_access1`
+        field_access1: Vec<SmolStr>,
     },
 }
 impl TwoWayBinding {
     pub fn ty(&self) -> Type {
         let (mut ty, field_access) = match self {
-            Self::Property { property, field_access } => (property.ty(), field_access),
-            Self::ModelData { repeated_element, field_access } => {
+            Self::Property { property, field_access, .. } => (property.ty(), field_access),
+            Self::ModelData { repeated_element, field_access, .. } => {
                 let ty =
                     Expression::RepeaterModelReference { element: repeated_element.clone() }.ty();
                 (ty, field_access)
@@ -1834,7 +1841,7 @@ impl TwoWayBinding {
 
 impl From<NamedReference> for TwoWayBinding {
     fn from(nr: NamedReference) -> Self {
-        Self::Property { property: nr, field_access: Vec::new() }
+        Self::Property { property: nr, field_access: Vec::new(), field_access1: Vec::new() }
     }
 }
 

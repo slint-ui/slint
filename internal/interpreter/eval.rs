@@ -67,6 +67,20 @@ pub trait ErasedPropertyInfo {
         getter: Box<dyn Fn() -> Option<Value>>,
         setter: Box<dyn Fn(&Value)>,
     );
+
+    /// If this property is stored as a `Property<Value>`, return a
+    /// type-erased pointer to it.
+    fn as_value_property_ptr(&self, item: Pin<ItemRef>) -> Option<*const c_void>;
+
+    /// Safety: `struct_prop` must point to a live, pinned `Property<Value>`.
+    unsafe fn link_two_way_to_member(
+        &self,
+        item: Pin<ItemRef>,
+        struct_prop: *const c_void,
+        field_key: &str,
+        get_field: Box<dyn Fn(&Value) -> Value>,
+        set_field: Box<dyn Fn(&mut Value, &Value)>,
+    );
 }
 
 impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyInfo
@@ -123,6 +137,30 @@ impl<Item: vtable::HasStaticVTable<corelib::items::ItemVTable>> ErasedPropertyIn
         setter: Box<dyn Fn(&Value)>,
     ) {
         (*self).link_two_way_to_model_data(ItemRef::downcast_pin(item).unwrap(), getter, setter)
+    }
+
+    fn as_value_property_ptr(&self, item: Pin<ItemRef>) -> Option<*const c_void> {
+        (*self).as_value_property_ptr(ItemRef::downcast_pin(item).unwrap())
+    }
+
+    unsafe fn link_two_way_to_member(
+        &self,
+        item: Pin<ItemRef>,
+        struct_prop: *const c_void,
+        field_key: &str,
+        get_field: Box<dyn Fn(&Value) -> Value>,
+        set_field: Box<dyn Fn(&mut Value, &Value)>,
+    ) {
+        // Safety: same requirement as PropertyInfo::link_two_way_to_member
+        unsafe {
+            (*self).link_two_way_to_member(
+                ItemRef::downcast_pin(item).unwrap(),
+                struct_prop,
+                field_key,
+                get_field,
+                set_field,
+            )
+        }
     }
 }
 

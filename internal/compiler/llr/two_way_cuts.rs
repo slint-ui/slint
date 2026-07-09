@@ -61,9 +61,12 @@ pub struct MemberCuts {
 
 impl MemberCuts {
     pub fn analyze(document: &Document) -> Self {
-        // (prop1, prop2, path2): `prop1 <=> prop2.path2` — the left-hand
-        // side of a two-way binding is always a whole property.
-        let mut links: Vec<(NamedReference, NamedReference, Vec<SmolStr>)> = Vec::new();
+        // (prop1, path1, prop2, path2): `prop1.path1 <=> prop2.path2`.
+        // In source, the left-hand side of a two-way binding is always a
+        // whole property (`path1` empty); non-empty `path1` only occurs
+        // when the tree was already decomposed.
+        type Link = (NamedReference, Vec<SmolStr>, NamedReference, Vec<SmolStr>);
+        let mut links: Vec<Link> = Vec::new();
         document.visit_all_used_components(|component| {
             crate::object_tree::recurse_elem_including_sub_components(
                 component,
@@ -74,6 +77,7 @@ impl MemberCuts {
                             if let crate::expression_tree::TwoWayBinding::Property {
                                 property,
                                 field_access,
+                                field_access1,
                             } = twb
                             {
                                 let prop1 = canonical_property(&NamedReference::new(
@@ -81,7 +85,12 @@ impl MemberCuts {
                                     name.clone(),
                                 ));
                                 let prop2 = canonical_property(property);
-                                links.push((prop1, prop2, field_access.clone()));
+                                links.push((
+                                    prop1,
+                                    field_access1.clone(),
+                                    prop2,
+                                    field_access.clone(),
+                                ));
                             }
                         }
                     }
@@ -90,42 +99,53 @@ impl MemberCuts {
         });
 
         let mut cuts: HashMap<NamedReference, HashSet<Vec<SmolStr>>> = HashMap::new();
-        for (_, prop2, path2) in &links {
+        for (prop1, path1, prop2, path2) in &links {
             if !path2.is_empty() {
                 cuts.entry(prop2.clone()).or_default().insert(path2.clone());
             }
+            if !path1.is_empty() {
+                cuts.entry(prop1.clone()).or_default().insert(path1.clone());
+            }
         }
 
-        // Propagate the cuts through the links until a fixpoint is reached.
-        // This terminates: only valid (finitely many) field paths of each
-        // property's type are ever inserted, and the sets grow monotonically.
+        // Propagate the cuts through the links until a fixpoint is reached:
+        // a link makes the field of prop1 at path1 and the field of prop2
+        // at path2 the same value, so a cut strictly below one link anchor
+        // lies at the corresponding sub-path below the other. This
+        // terminates: only valid (finitely many) field paths of each
+        // property's type are ever inserted, and the sets grow
+        // monotonically.
+        let propagate = |cuts: &mut HashMap<NamedReference, HashSet<Vec<SmolStr>>>,
+                         from: &NamedReference,
+                         from_path: &[SmolStr],
+                         to: &NamedReference,
+                         to_path: &[SmolStr]|
+         -> bool {
+            let deeper: Vec<Vec<SmolStr>> = cuts
+                .get(from)
+                .map(|c| {
+                    c.iter()
+                        .filter(|cut| cut.len() > from_path.len() && cut.starts_with(from_path))
+                        .map(|cut| {
+                            let mut translated = to_path.to_vec();
+                            translated.extend(cut[from_path.len()..].iter().cloned());
+                            translated
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            let mut changed = false;
+            for translated in deeper {
+                changed |= cuts.entry(to.clone()).or_default().insert(translated);
+            }
+            changed
+        };
         let mut changed = true;
         while changed {
             changed = false;
-            for (prop1, prop2, path2) in &links {
-                // A cut anywhere in prop1 lies at path2 + cut in prop2.
-                let prop1_cuts: Vec<Vec<SmolStr>> =
-                    cuts.get(prop1).map(|c| c.iter().cloned().collect()).unwrap_or_default();
-                for cut in prop1_cuts {
-                    let mut translated = path2.clone();
-                    translated.extend(cut);
-                    changed |= cuts.entry(prop2.clone()).or_default().insert(translated);
-                }
-                // A cut strictly below path2 in prop2 lies at the
-                // corresponding sub-path in prop1. (Cuts at or above path2
-                // do not constrain prop1.)
-                let deeper: Vec<Vec<SmolStr>> = cuts
-                    .get(prop2)
-                    .map(|c| {
-                        c.iter()
-                            .filter(|cut| cut.len() > path2.len() && cut.starts_with(path2))
-                            .map(|cut| cut[path2.len()..].to_vec())
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                for sub_path in deeper {
-                    changed |= cuts.entry(prop1.clone()).or_default().insert(sub_path);
-                }
+            for (prop1, path1, prop2, path2) in &links {
+                changed |= propagate(&mut cuts, prop1, path1, prop2, path2);
+                changed |= propagate(&mut cuts, prop2, path2, prop1, path1);
             }
         }
         Self { cuts }

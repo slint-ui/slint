@@ -51,6 +51,7 @@ pub mod materialize_fake_properties;
 pub mod move_declarations;
 mod optimize_useless_rectangles;
 mod purity_check;
+mod decompose_two_way_links;
 mod remove_aliases;
 mod remove_return;
 mod remove_unused_properties;
@@ -242,6 +243,10 @@ pub async fn run_passes(
 
     remove_aliases::remove_aliases(doc, diag);
     remove_return::remove_return(doc);
+
+    if type_loader.compiler_config.decompose_struct_two_way_links && !diag.has_errors() {
+        decompose_two_way_links::decompose_two_way_links(doc);
+    }
 
     doc.visit_all_used_components(|component| {
         if !diag.has_errors() {

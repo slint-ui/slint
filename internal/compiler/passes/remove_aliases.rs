@@ -77,7 +77,7 @@ pub fn remove_aliases(doc: &Document, diag: &mut BuildDiagnostics) {
     let mut process_element = |e: &ElementRc| {
         'bindings: for (name, binding) in &e.borrow().bindings {
             for twb in &binding.borrow().two_way_bindings {
-                if let TwoWayBinding::Property { property, field_access } = twb {
+                if let TwoWayBinding::Property { property, field_access, .. } = twb {
                     if !field_access.is_empty() {
                         // Don't optimize two way bindings to fields for now
                         continue;

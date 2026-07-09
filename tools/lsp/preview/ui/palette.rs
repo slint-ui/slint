@@ -108,7 +108,7 @@ fn find_binding_expression(
     let be = elem.bindings.get(&property_name).map(|be| be.borrow().clone())?;
     if matches!(be.expression, expression_tree::Expression::Invalid) {
         for twb in &be.two_way_bindings {
-            let expression_tree::TwoWayBinding::Property { property, field_access } = twb else {
+            let expression_tree::TwoWayBinding::Property { property, field_access, .. } = twb else {
                 continue;
             };
             if let Some(mut e) =

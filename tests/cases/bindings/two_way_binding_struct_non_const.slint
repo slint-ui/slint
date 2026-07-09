@@ -9,15 +9,15 @@
 // one equivalence class and must always hold the same value (that is the core
 // invariant of two-way bindings), so `s1.s1 == s2.s2` must hold.
 //
-// With CONSTANT struct bindings this unifies correctly (see
+// With CONSTANT struct bindings this unifies trivially (see
 // two_way_binding_structs2.slint). Here `ext1`/`ext2` are settable properties,
-// which makes the `s1`/`s2` bindings non-const. The two live bindings then fail
-// to collapse into the shared value: `s1.s1` stays "a" and `s2.s2` stays "b",
-// so the invariant is violated.
-//
-// NOTE: this currently FAILS (test == false); it documents the bug. It
-// reproduces WITHOUT debug hooks - the debug-hook feature merely exposes the
-// same bug by turning constant initializers into non-const ones.
+// which makes the `s1`/`s2` bindings non-const. Under the old wide-common
+// two-way machinery the two live bindings then failed to collapse into the
+// shared value (`s1.s1` stayed "a" and `s2.s2` stayed "b"); with the
+// narrow-common machinery (`StructMemberBindings`) the class converges
+// structurally: the last installed binding drives the shared field, and the
+// independent fields keep tracking their own sources. The debug-hook feature
+// exposed the same bug by turning constant initializers into non-const ones.
 
 component Link {
     in-out property <string> str1: "XXX";

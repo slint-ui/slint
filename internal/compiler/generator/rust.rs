@@ -1504,7 +1504,7 @@ fn generate_sub_component(
                             set_primitive_property_value(&ty, quote!(s #access .clone()));
                         let to_struct_value =
                             primitive_value_from_property_value(&ty, quote!((*v).clone()));
-                        quote!(sp::Property::link_two_way_to_member(#p2, #p1, #field_key, |s| #to_property_value, |s, v| s #access = #to_struct_value))
+                        quote!(sp::Property::link_two_way_to_member(#p2, #p1, #field_key, |s| #to_property_value, |s, v| s #access = #to_struct_value, false))
                     }
                     (false, false) => {
                         // a compiler-decomposed cell link:

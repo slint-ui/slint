@@ -212,6 +212,11 @@ pub trait GlobalComponent {
         self: Pin<&Self>,
         prop_name: &str,
     ) -> Result<Pin<Rc<Property<Value>>>, ()>;
+
+    /// Type-erased pointer to the `Property<Value>` backing the given
+    /// property, when its storage is a `Value` property (user-declared
+    /// struct/array properties).
+    fn as_value_property_ptr(self: Pin<&Self>, prop_name: &str) -> Option<*const c_void>;
 }
 
 /// Instantiate the global singleton and store it in `globals`
@@ -344,6 +349,15 @@ impl GlobalComponent for GlobalComponentInstance {
         let item = unsafe { Pin::new_unchecked(&*comp.borrow_instance().as_ptr().add(x.offset)) };
         Ok(x.prop.prepare_for_two_way_binding(item))
     }
+
+    fn as_value_property_ptr(self: Pin<&Self>, prop_name: &str) -> Option<*const c_void> {
+        generativity::make_guard!(guard);
+        let comp = self.0.unerase(guard);
+        let description = comp.description();
+        let x = description.custom_properties.get(prop_name)?;
+        let item = unsafe { Pin::new_unchecked(&*comp.borrow_instance().as_ptr().add(x.offset)) };
+        x.prop.as_value_property_ptr(item)
+    }
 }
 
 impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
@@ -403,6 +417,12 @@ impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
             .ok_or(())?
             .1
             .prepare_for_two_way_binding(self))
+    }
+
+    fn as_value_property_ptr(self: Pin<&Self>, prop_name: &str) -> Option<*const c_void> {
+        let prop: &dyn rtti::PropertyInfo<Self, Value> =
+            Self::properties().into_iter().find(|(k, _)| *k == prop_name)?.1;
+        prop.as_value_property_ptr(self)
     }
 }
 

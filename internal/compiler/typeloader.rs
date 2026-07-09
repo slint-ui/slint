@@ -604,18 +604,23 @@ impl Snapshotter {
                 .two_way_bindings
                 .iter()
                 .map(|twb| match twb {
-                    crate::expression_tree::TwoWayBinding::Property { property, field_access } => {
-                        crate::expression_tree::TwoWayBinding::Property {
-                            property: property.snapshot(self),
-                            field_access: field_access.clone(),
-                        }
-                    }
+                    crate::expression_tree::TwoWayBinding::Property {
+                        property,
+                        field_access,
+                        field_access1,
+                    } => crate::expression_tree::TwoWayBinding::Property {
+                        property: property.snapshot(self),
+                        field_access: field_access.clone(),
+                        field_access1: field_access1.clone(),
+                    },
                     crate::expression_tree::TwoWayBinding::ModelData {
                         repeated_element,
                         field_access,
+                        field_access1,
                     } => crate::expression_tree::TwoWayBinding::ModelData {
                         repeated_element: repeated_element.clone(),
                         field_access: field_access.clone(),
+                        field_access1: field_access1.clone(),
                     },
                 })
                 .collect(),

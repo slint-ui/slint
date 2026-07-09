@@ -167,6 +167,28 @@ pub trait PropertyInfo<Item, Value> {
         getter: Box<dyn Fn() -> Option<Value>>,
         setter: Box<dyn Fn(&Value)>,
     );
+
+    /// If this property is stored as a `Property<Value>` (struct and array
+    /// properties in the interpreter), return a type-erased pointer to it.
+    fn as_value_property_ptr(&self, item: Pin<&Item>) -> Option<*const c_void>;
+
+    /// Link the field at `field_key` of the struct property `struct_prop`
+    /// two-way with this property, using the narrow-common struct member
+    /// machinery (`Property::link_two_way_to_member`). `get_field` and
+    /// `set_field` read/write the field of the struct `Value`.
+    ///
+    /// # Safety
+    /// `struct_prop` must point to a live, pinned `Property<Value>`
+    /// (obtained e.g. from [`Self::as_value_property_ptr`]).
+    #[allow(unsafe_code)]
+    unsafe fn link_two_way_to_member(
+        &self,
+        item: Pin<&Item>,
+        struct_prop: *const c_void,
+        field_key: &str,
+        get_field: Box<dyn Fn(&Value) -> Value>,
+        set_field: Box<dyn Fn(&mut Value, &Value)>,
+    );
 }
 
 impl<Item: 'static, T, Value> PropertyInfo<Item, Value> for FieldOffset<Item, Property<T>>
@@ -297,6 +319,42 @@ where
             move |_, v: &T| setter(&v.clone().try_into().unwrap_or_default()),
         );
     }
+
+    fn as_value_property_ptr(&self, item: Pin<&Item>) -> Option<*const c_void> {
+        (self as &dyn core::any::Any).downcast_ref::<FieldOffset<Item, Property<Value>>>().map(
+            |field_offset| {
+                field_offset.apply_pin(item).get_ref() as *const Property<Value> as *const c_void
+            },
+        )
+    }
+
+    #[allow(unsafe_code)]
+    unsafe fn link_two_way_to_member(
+        &self,
+        item: Pin<&Item>,
+        struct_prop: *const c_void,
+        field_key: &str,
+        get_field: Box<dyn Fn(&Value) -> Value>,
+        set_field: Box<dyn Fn(&mut Value, &Value)>,
+    ) {
+        let member = self.apply_pin(item);
+        // Safety: guaranteed by the caller
+        let struct_prop = unsafe { Pin::new_unchecked(&*(struct_prop as *const Property<Value>)) };
+        let get_field: Rc<dyn Fn(&Value) -> Value> = get_field.into();
+        let set_field: Rc<dyn Fn(&mut Value, &Value)> = set_field.into();
+        Property::link_two_way_to_member(
+            struct_prop,
+            member,
+            crate::SharedString::from(field_key),
+            move |value: &Value| get_field(value).try_into().unwrap_or_default(),
+            move |value: &mut Value, field: &T| {
+                set_field(value, &field.clone().try_into().unwrap_or_default())
+            },
+            // the interpreter installs bindings before the links: a
+            // pre-existing member binding drives the class
+            true,
+        );
+    }
 }
 
 /// Wrapper for a field offset that optionally implement PropertyInfo and uses
@@ -418,6 +476,24 @@ where
         setter: Box<dyn Fn(&Value)>,
     ) {
         self.0.link_two_way_to_model_data(item, getter, setter)
+    }
+
+    fn as_value_property_ptr(&self, item: Pin<&Item>) -> Option<*const c_void> {
+        self.0.as_value_property_ptr(item)
+    }
+
+    #[allow(unsafe_code)]
+    unsafe fn link_two_way_to_member(
+        &self,
+        item: Pin<&Item>,
+        struct_prop: *const c_void,
+        field_key: &str,
+        get_field: Box<dyn Fn(&Value) -> Value>,
+        set_field: Box<dyn Fn(&mut Value, &Value)>,
+    ) {
+        unsafe {
+            self.0.link_two_way_to_member(item, struct_prop, field_key, get_field, set_field)
+        }
     }
 }
 

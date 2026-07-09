@@ -377,7 +377,9 @@ impl<T> DriverSlot<T> {
         scopeguard::defer! {
             self.evaluation_depth.set(self.evaluation_depth.get() - 1);
             if self.evaluation_depth.get() == 0 {
-                for holder in self.pending_drops.borrow_mut().drain(..) {
+                // pop-style drain: the borrow is not held across the drop
+                // call, whose Drop code could re-enter this slot
+                while let Some(holder) = self.pending_drops.borrow_mut().pop() {
                     // Safety: parked by `dispose`, no longer executing
                     unsafe { ((*holder).vtable.drop)(holder) }
                 }
@@ -393,7 +395,7 @@ impl<T> Drop for DriverSlot<T> {
     fn drop(&mut self) {
         debug_assert_eq!(self.evaluation_depth.get(), 0);
         self.clear();
-        for holder in self.pending_drops.borrow_mut().drain(..) {
+        while let Some(holder) = self.pending_drops.borrow_mut().pop() {
             // Safety: parked by `dispose`, no longer executing
             unsafe { ((*holder).vtable.drop)(holder) }
         }
@@ -450,7 +452,7 @@ struct StructMemberMapping<T> {
     /// Field path within the struct (e.g. `"field"` or `"outer.inner"`),
     /// used to find and replace the mapping when the same link is
     /// re-established (conditional/repeated component re-instantiation).
-    key: &'static str,
+    key: crate::SharedString,
     /// `value.<key> = common.get()`; reading the common registers the
     /// dependency so the struct re-evaluates when the class changes.
     apply_from_common: Box<dyn Fn(&mut T)>,
@@ -564,10 +566,10 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
     /// property is synchronized with, if any.
     fn struct_member_common<T2: PartialEq + Clone + 'static>(
         self: Pin<&Self>,
-        field_key: &'static str,
+        field_key: &str,
     ) -> Option<Pin<Rc<Property<T2>>>> {
         self.with_struct_member_bindings(|wrapper| {
-            wrapper.mappings.borrow().iter().find(|mapping| mapping.key == field_key).and_then(
+            wrapper.mappings.borrow().iter().find(|mapping| mapping.key.as_str() == field_key).and_then(
                 |mapping| {
                     let common = mapping.common.clone().downcast::<Property<T2>>();
                     debug_assert!(
@@ -619,7 +621,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
     /// `field_key` of this struct property with `common`.
     fn add_struct_member_mapping<T2: PartialEq + Clone + 'static>(
         self: Pin<&Self>,
-        field_key: &'static str,
+        field_key: crate::SharedString,
         common: Pin<Rc<Property<T2>>>,
         get_field: impl Fn(&T) -> T2 + Clone + 'static,
         set_field: impl Fn(&mut T, &T2) + Clone + 'static,
@@ -627,7 +629,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         self.ensure_struct_member_bindings();
         self.with_struct_member_bindings(|wrapper| {
             let mapping = StructMemberMapping {
-                key: field_key,
+                key: field_key.clone(),
                 apply_from_common: Box::new({
                     let common = common.clone();
                     move |value: &mut T| {
@@ -697,16 +699,25 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
     /// `struct_prop` is the right-hand side and its current field value wins.
     /// `get_field`/`set_field` read/write the field at `field_key` of the
     /// struct.
+    ///
+    /// A pre-existing regular binding on `member_prop` is dropped when
+    /// `preserve_member_binding` is false (generated code installs bindings
+    /// *after* the links, so the struct's value wins over a leftover
+    /// binding), or forwarded onto the class' common — where it drives the
+    /// class, exactly like a binding installed after the link — when true
+    /// (the interpreter installs bindings *before* the links).
     pub fn link_two_way_to_member<T2: PartialEq + Clone + 'static>(
         struct_prop: Pin<&Self>,
         member_prop: Pin<&Property<T2>>,
-        field_key: &'static str,
+        field_key: impl Into<crate::SharedString>,
         get_field: impl Fn(&T) -> T2 + Clone + 'static,
         set_field: impl Fn(&mut T, &T2) + Clone + 'static,
+        preserve_member_binding: bool,
     ) {
+        let field_key = field_key.into();
         let member_common = member_prop.check_common_property();
         let member_was_linked = member_common.is_some();
-        let struct_common = struct_prop.struct_member_common::<T2>(field_key);
+        let struct_common = struct_prop.struct_member_common::<T2>(&field_key);
 
         let common = match (member_common, struct_common) {
             (Some(member_common), Some(struct_common)) => {
@@ -753,9 +764,17 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
                         member_prop.handle.set_binding_impl(old);
                     } else {
                         member_prop.handle.set_binding_impl(new_binding);
-                        // The member's own binding is dropped: the struct's
-                        // value wins (as with `link_two_way_with_map`).
-                        ((*old).vtable.drop)(old);
+                        if preserve_member_binding {
+                            // Re-attach the member's binding: the fresh
+                            // TwoWayBinding intercepts and forwards it onto
+                            // the common, where it drives the class.
+                            member_prop.handle.set_binding_impl(old);
+                        } else {
+                            // The member's own binding is dropped: the
+                            // struct's value wins (as with
+                            // `link_two_way_with_map`).
+                            ((*old).vtable.drop)(old);
+                        }
                     }
                 } else {
                     member_prop.handle.set_binding(
@@ -778,16 +797,18 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
     /// field value wins.
     pub fn link_two_way_members<TB: PartialEq + Clone + 'static, T2: PartialEq + Clone + 'static>(
         prop_a: Pin<&Self>,
-        field_key_a: &'static str,
+        field_key_a: impl Into<crate::SharedString>,
         get_field_a: impl Fn(&T) -> T2 + Clone + 'static,
         set_field_a: impl Fn(&mut T, &T2) + Clone + 'static,
         prop_b: Pin<&Property<TB>>,
-        field_key_b: &'static str,
+        field_key_b: impl Into<crate::SharedString>,
         get_field_b: impl Fn(&TB) -> T2 + Clone + 'static,
         set_field_b: impl Fn(&mut TB, &T2) + Clone + 'static,
     ) {
-        let common_a = prop_a.struct_member_common::<T2>(field_key_a);
-        let common_b = prop_b.struct_member_common::<T2>(field_key_b);
+        let field_key_a = field_key_a.into();
+        let field_key_b = field_key_b.into();
+        let common_a = prop_a.struct_member_common::<T2>(&field_key_a);
+        let common_b = prop_b.struct_member_common::<T2>(&field_key_b);
 
         let common = match (common_a, common_b) {
             (Some(common_a), Some(common_b)) => {
@@ -827,14 +848,15 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
     /// common property and drives it.
     pub fn link_two_way_member_to_model_data<T2: PartialEq + Clone + 'static, ItemTree: 'static>(
         struct_prop: Pin<&Self>,
-        field_key: &'static str,
+        field_key: impl Into<crate::SharedString>,
         get_field: impl Fn(&T) -> T2 + Clone + 'static,
         set_field: impl Fn(&mut T, &T2) + Clone + 'static,
         item_tree: ItemTree,
         getter: impl Fn(&ItemTree) -> Option<T2> + 'static,
         setter: impl Fn(&ItemTree, &T2) + 'static,
     ) {
-        let common = struct_prop.struct_member_common::<T2>(field_key).unwrap_or_else(|| {
+        let field_key = field_key.into();
+        let common = struct_prop.struct_member_common::<T2>(&field_key).unwrap_or_else(|| {
             Rc::pin(Property::new(get_field(&struct_prop.get_untracked())))
         });
         struct_prop.add_struct_member_mapping(field_key, common.clone(), get_field, set_field);
@@ -1187,6 +1209,7 @@ mod struct_member_tests {
             "s1",
             |s: &S1| s.s1.clone(),
             |s: &mut S1, v: &String| s.s1 = v.clone(),
+            false,
         );
     }
     fn link_s2(strct: Pin<&Property<S2>>, member: Pin<&Property<String>>) {
@@ -1196,6 +1219,7 @@ mod struct_member_tests {
             "s2",
             |s: &S2| s.s2.clone(),
             |s: &mut S2, v: &String| s.s2 = v.clone(),
+            false,
         );
     }
 
@@ -1437,6 +1461,7 @@ mod struct_member_tests {
             "i1",
             |s: &S1| s.i1,
             |s: &mut S1, v: &i32| s.i1 = *v,
+            false,
         );
 
         let link_page = |page_data: Pin<&Property<S1>>| {
@@ -1525,6 +1550,7 @@ mod struct_member_tests {
             "inner.s1",
             |s: &Outer| s.inner.s1.clone(),
             |s: &mut Outer, v: &String| s.inner.s1 = v.clone(),
+            false,
         );
         Property::link_two_way_to_member(
             outer.as_ref(),
@@ -1532,6 +1558,7 @@ mod struct_member_tests {
             "z",
             |s: &Outer| s.z,
             |s: &mut Outer, v: &i32| s.z = *v,
+            false,
         );
         assert_eq!(deep_scalar.as_ref().get(), "deep");
         assert_eq!(z_scalar.as_ref().get(), 9);

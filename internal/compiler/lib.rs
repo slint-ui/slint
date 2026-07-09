@@ -187,6 +187,14 @@ pub struct CompilerConfiguration {
     /// Generate debug hooks to inspect/override properties.
     pub debug_hooks: Option<std::hash::RandomState>,
 
+    /// Decompose whole-struct two-way links whose class also contains
+    /// struct-field links into per-field links, on the object tree (see the
+    /// `decompose_two_way_links` pass). Enabled for backends whose runtime
+    /// uses the narrow-common two-way machinery for struct members
+    /// (currently the interpreter; the Rust generator does the equivalent
+    /// decomposition when lowering to the LLR).
+    pub decompose_struct_two_way_links: bool,
+
     pub components_to_generate: ComponentSelection,
 
     /// The name of the library when compiling as a library.
@@ -240,6 +248,8 @@ impl CompilerConfiguration {
             Err(_) => output_format == OutputFormat::Interpreter,
         };
 
+        let decompose_struct_two_way_links = output_format == OutputFormat::Interpreter;
+
         let const_scale_factor = std::env::var("SLINT_SCALE_FACTOR")
             .ok()
             .and_then(|x| x.parse::<f32>().ok())
@@ -281,6 +291,7 @@ impl CompilerConfiguration {
             error_on_binding_loop_with_window_layout: false,
             debug_info,
             debug_hooks: None,
+            decompose_struct_two_way_links,
             components_to_generate: ComponentSelection::ExportedWindows,
             #[cfg(all(feature = "software-renderer", feature = "sdf-fonts"))]
             use_sdf_fonts: false,

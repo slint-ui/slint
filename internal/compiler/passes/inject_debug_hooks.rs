@@ -571,6 +571,7 @@ mod tests {
         two_way.two_way_bindings.push(crate::expression_tree::TwoWayBinding::ModelData {
             repeated_element: std::rc::Weak::default(),
             field_access: Default::default(),
+            field_access1: Default::default(),
         });
         assert!(binding.merge_with(&two_way));
         assert!(matches!(binding.expression, Expression::Invalid));

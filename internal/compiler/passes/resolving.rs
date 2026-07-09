@@ -2524,6 +2524,7 @@ pub fn resolve_two_way_binding(
                         Some(TwoWayBinding::ModelData {
                             repeated_element: element.clone(),
                             field_access: vec![],
+                            field_access1: vec![],
                         })
                     }
                     _ => None,
@@ -2534,8 +2535,9 @@ pub fn resolve_two_way_binding(
                 // lookup built it without type checks (the row type may not
                 // have been known yet). Emits per-field diagnostics and
                 // yields the leaf type as `expr_ty`.
-                let expr_ty = if let TwoWayBinding::ModelData { repeated_element, field_access } =
-                    &result
+                let expr_ty = if let TwoWayBinding::ModelData {
+                    repeated_element, field_access, ..
+                } = &result
                 {
                     let mut ty =
                         Expression::RepeaterModelReference { element: repeated_element.clone() }

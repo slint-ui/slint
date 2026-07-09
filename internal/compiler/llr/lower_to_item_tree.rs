@@ -490,8 +490,24 @@ fn lower_sub_component(
 
         for tw in &binding.two_way_bindings {
             match tw {
-                crate::expression_tree::TwoWayBinding::Property { property, field_access } => {
+                crate::expression_tree::TwoWayBinding::Property {
+                    property,
+                    field_access,
+                    field_access1,
+                } => {
                     let prop2 = ctx.map_property_reference(property);
+                    if !field_access1.is_empty() {
+                        // already decomposed by the decompose_two_way_links
+                        // pass on the object tree
+                        sub_component.two_way_bindings.push(TwoWayBinding {
+                            prop1: prop.local(),
+                            prop2,
+                            field_access: field_access.clone(),
+                            field_access1: field_access1.clone(),
+                            is_model: None,
+                        });
+                        continue;
+                    }
                     // Decompose the link into per-field cell links when its
                     // two-way class mixes whole-struct and struct-field
                     // links (see `two_way_cuts`).
@@ -526,12 +542,25 @@ fn lower_sub_component(
                 crate::expression_tree::TwoWayBinding::ModelData {
                     repeated_element,
                     field_access,
+                    field_access1,
                 } => {
                     let prop2 = super::lower_expression::repeater_special_property(
                         repeated_element,
                         component,
                         PropertyIdx::REPEATER_DATA,
                     );
+                    if !field_access1.is_empty() {
+                        // already decomposed by the decompose_two_way_links
+                        // pass on the object tree
+                        sub_component.two_way_bindings.push(TwoWayBinding {
+                            prop1: prop.local(),
+                            prop2,
+                            field_access: field_access.clone(),
+                            field_access1: field_access1.clone(),
+                            is_model: Some(PropertyIdx::REPEATER_INDEX),
+                        });
+                        continue;
+                    }
                     let cells = ctx
                         .state
                         .member_cuts

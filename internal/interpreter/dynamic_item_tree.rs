@@ -1742,7 +1742,7 @@ pub fn instantiate(
                 }
                 for twb in &binding.two_way_bindings {
                     match twb {
-                        TwoWayBinding::Property { property, field_access }
+                        TwoWayBinding::Property { property, field_access, .. }
                             if field_access.is_empty()
                                 && !matches!(
                                     &property_type,
@@ -1753,18 +1753,60 @@ pub fn instantiate(
                             // the same type (except for struct/array, which may map to a Value).
                             prop_info.link_two_ways(item, get_property_ptr(property, instance_ref));
                         }
-                        TwoWayBinding::Property { property, field_access } => {
-                            let (common, map) =
-                                prepare_for_two_way_binding(instance_ref, property, field_access);
-                            prop_info.link_two_way_with_map(item, common, map);
+                        TwoWayBinding::Property { property, field_access, field_access1 } => {
+                            if !field_access1.is_empty() {
+                                // compiler-decomposed cell link: both sides
+                                // are struct properties stored as Value
+                                link_value_member_cell(
+                                    prop_info.as_value_property_ptr(item),
+                                    field_access1,
+                                    value_struct_property_ptr(property, instance_ref),
+                                    field_access,
+                                    &field_path_type(property_type.clone(), field_access1),
+                                );
+                            } else if !field_access.is_empty()
+                                && let Some(struct_ptr) =
+                                    value_struct_property_ptr(property, instance_ref)
+                            {
+                                let (get_field, set_field) =
+                                    value_field_path_boxed_accessors(field_access);
+                                let field_key = field_access.join(".");
+                                // Safety: struct_ptr points to a live pinned Property<Value>
+                                prop_info.link_two_way_to_member(
+                                    item, struct_ptr, &field_key, get_field, set_field,
+                                );
+                            } else {
+                                // whole struct/array link, or a natively
+                                // stored struct side: wide-common machinery
+                                let (common, map) = prepare_for_two_way_binding(
+                                    instance_ref,
+                                    property,
+                                    field_access,
+                                );
+                                prop_info.link_two_way_with_map(item, common, map);
+                            }
                         }
-                        TwoWayBinding::ModelData { repeated_element, field_access } => {
+                        TwoWayBinding::ModelData {
+                            repeated_element,
+                            field_access,
+                            field_access1,
+                        } => {
                             let (getter, setter) = prepare_model_two_way_binding(
                                 instance_ref,
                                 repeated_element,
                                 field_access,
                             );
-                            prop_info.link_two_way_to_model_data(item, getter, setter);
+                            if field_access1.is_empty() {
+                                prop_info.link_two_way_to_model_data(item, getter, setter);
+                            } else {
+                                link_value_member_cell_to_model_data(
+                                    prop_info.as_value_property_ptr(item),
+                                    field_access1,
+                                    getter,
+                                    setter,
+                                    &field_path_type(property_type.clone(), field_access1),
+                                );
+                            }
                         }
                     }
                 }
@@ -1778,7 +1820,7 @@ pub fn instantiate(
 
                     for twb in &binding.two_way_bindings {
                         match twb {
-                            TwoWayBinding::Property { property, field_access }
+                            TwoWayBinding::Property { property, field_access, .. }
                                 if field_access.is_empty()
                                     && !matches!(
                                         &property_type,
@@ -1790,21 +1832,66 @@ pub fn instantiate(
                                 prop_rtti
                                     .link_two_ways(item, get_property_ptr(property, instance_ref));
                             }
-                            TwoWayBinding::Property { property, field_access } => {
-                                let (common, map) = prepare_for_two_way_binding(
-                                    instance_ref,
-                                    property,
-                                    field_access,
-                                );
-                                prop_rtti.link_two_way_with_map(item, common, map);
+                            TwoWayBinding::Property {
+                                property,
+                                field_access,
+                                field_access1,
+                            } => {
+                                if !field_access1.is_empty() {
+                                    // compiler-decomposed cell link: both
+                                    // sides are struct properties stored as
+                                    // Value
+                                    link_value_member_cell(
+                                        prop_rtti.as_value_property_ptr(item),
+                                        field_access1,
+                                        value_struct_property_ptr(property, instance_ref),
+                                        field_access,
+                                        &field_path_type(property_type.clone(), field_access1),
+                                    );
+                                } else if !field_access.is_empty()
+                                    && let Some(struct_ptr) =
+                                        value_struct_property_ptr(property, instance_ref)
+                                {
+                                    let (get_field, set_field) =
+                                        value_field_path_boxed_accessors(field_access);
+                                    let field_key = field_access.join(".");
+                                    // Safety: struct_ptr points to a live pinned Property<Value>
+                                    prop_rtti.link_two_way_to_member(
+                                        item, struct_ptr, &field_key, get_field, set_field,
+                                    );
+                                } else {
+                                    // whole struct/array link, or a natively
+                                    // stored struct side: wide-common
+                                    // machinery
+                                    let (common, map) = prepare_for_two_way_binding(
+                                        instance_ref,
+                                        property,
+                                        field_access,
+                                    );
+                                    prop_rtti.link_two_way_with_map(item, common, map);
+                                }
                             }
-                            TwoWayBinding::ModelData { repeated_element, field_access } => {
+                            TwoWayBinding::ModelData {
+                                repeated_element,
+                                field_access,
+                                field_access1,
+                            } => {
                                 let (getter, setter) = prepare_model_two_way_binding(
                                     instance_ref,
                                     repeated_element,
                                     field_access,
                                 );
-                                prop_rtti.link_two_way_to_model_data(item, getter, setter);
+                                if field_access1.is_empty() {
+                                    prop_rtti.link_two_way_to_model_data(item, getter, setter);
+                                } else {
+                                    link_value_member_cell_to_model_data(
+                                        prop_rtti.as_value_property_ptr(item),
+                                        field_access1,
+                                        getter,
+                                        setter,
+                                        &field_path_type(property_type.clone(), field_access1),
+                                    );
+                                }
                             }
                         }
                     }
@@ -1966,6 +2053,298 @@ fn prepare_model_two_way_binding(
     });
 
     (getter, setter)
+}
+
+/// Type-erased pointer to the `Property<Value>` backing `nr`, when its
+/// storage is a `Value` property (user-declared struct/array properties on
+/// components or globals). `None` for natively stored properties.
+fn value_struct_property_ptr(nr: &NamedReference, instance: InstanceRef) -> Option<*const c_void> {
+    let element = nr.element();
+    generativity::make_guard!(guard);
+    let enclosing_component = eval::enclosing_component_instance_for_element(
+        &element,
+        &eval::ComponentInstance::InstanceRef(instance),
+        guard,
+    );
+    match enclosing_component {
+        eval::ComponentInstance::InstanceRef(enclosing_component) => {
+            let element = element.borrow();
+            if element.id == element.enclosing_component.upgrade().unwrap().root_element.borrow().id
+                && let Some(x) = enclosing_component.description.custom_properties.get(nr.name())
+            {
+                let item =
+                    unsafe { Pin::new_unchecked(&*enclosing_component.as_ptr().add(x.offset)) };
+                return x.prop.as_value_property_ptr(item);
+            }
+            let item_info = enclosing_component.description.items.get(element.id.as_str())?;
+            let prop_info = item_info.rtti.properties.get(nr.name().as_str())?;
+            core::mem::drop(element);
+            let item = unsafe { item_info.item_from_item_tree(enclosing_component.as_ptr()) };
+            prop_info.as_value_property_ptr(item)
+        }
+        eval::ComponentInstance::GlobalComponent(glob) => {
+            glob.as_ref().as_value_property_ptr(nr.name())
+        }
+    }
+}
+
+/// Clone-able getter/setter closures for a field path on a struct `Value`.
+fn value_field_path_accessors(
+    field_access: &[SmolStr],
+) -> (impl Fn(&Value) -> Value + Clone + 'static, impl Fn(&mut Value, &Value) + Clone + 'static) {
+    let path: Rc<[SmolStr]> = field_access.into();
+    let get_field = {
+        let path = path.clone();
+        move |value: &Value| walk_struct_field_path(value.clone(), &path).unwrap_or_default()
+    };
+    let set_field = move |root: &mut Value, from: &Value| {
+        if let Some(leaf) = walk_struct_field_path_mut(root, &path) {
+            *leaf = from.clone();
+        }
+    };
+    (get_field, set_field)
+}
+
+/// Boxed variant of [`value_field_path_accessors`], for the
+/// `link_two_way_to_member` trait methods.
+fn value_field_path_boxed_accessors(
+    field_access: &[SmolStr],
+) -> (Box<dyn Fn(&Value) -> Value>, Box<dyn Fn(&mut Value, &Value)>) {
+    let (get_field, set_field) = value_field_path_accessors(field_access);
+    (Box::new(get_field), Box::new(set_field))
+}
+
+/// The type of the field at `path` within `ty`.
+fn field_path_type(mut ty: Type, path: &[SmolStr]) -> Type {
+    for field in path {
+        ty = match ty {
+            Type::Struct(s) => s.fields.get(field).cloned().unwrap_or_default(),
+            _ => Type::Invalid,
+        };
+    }
+    ty
+}
+
+/// Run `link(get_field1, set_field1, get_field2, set_field2)` with typed
+/// accessors for the two field paths on struct `Value`s, where the shared
+/// type `T2` is the interpreter's *property* representation of `cell_type`
+/// (same mapping as `property_info_for_type`) — so the two-way common
+/// created by a cell link is of the same `Property<T2>` type as the common
+/// a member link to the same field creates.
+fn with_typed_cell_accessors<R>(
+    cell_type: &Type,
+    field_access1: &[SmolStr],
+    field_access2: &[SmolStr],
+    link: impl TypedCellLink<R>,
+) -> R {
+    fn accessors<T2>(
+        path: &[SmolStr],
+    ) -> (impl Fn(&Value) -> T2 + Clone + 'static, impl Fn(&mut Value, &T2) + Clone + 'static)
+    where
+        T2: Clone + Default + 'static,
+        Value: TryInto<T2>,
+        T2: TryInto<Value>,
+    {
+        let path: Rc<[SmolStr]> = path.into();
+        let get_field = {
+            let path = path.clone();
+            move |value: &Value| {
+                walk_struct_field_path(value.clone(), &path)
+                    .unwrap_or_default()
+                    .try_into()
+                    .unwrap_or_default()
+            }
+        };
+        let set_field = move |root: &mut Value, field: &T2| {
+            if let Some(leaf) = walk_struct_field_path_mut(root, &path) {
+                *leaf = field.clone().try_into().unwrap_or_default();
+            }
+        };
+        (get_field, set_field)
+    }
+
+    macro_rules! dispatch {
+        ($T2:ty) => {{
+            let (get_field1, set_field1) = accessors::<$T2>(field_access1);
+            let (get_field2, set_field2) = accessors::<$T2>(field_access2);
+            link.link(get_field1, set_field1, get_field2, set_field2)
+        }};
+    }
+
+    match cell_type {
+        Type::Float32
+        | Type::Angle
+        | Type::PhysicalLength
+        | Type::LogicalLength
+        | Type::Rem
+        | Type::Percent => dispatch!(f32),
+        Type::Int32 => dispatch!(i32),
+        Type::String => dispatch!(SharedString),
+        Type::Color => dispatch!(Color),
+        Type::Brush => dispatch!(Brush),
+        Type::Duration => dispatch!(i64),
+        Type::Image => dispatch!(i_slint_core::graphics::Image),
+        Type::Bool => dispatch!(bool),
+        Type::Easing => dispatch!(i_slint_core::animations::EasingCurve),
+        Type::Enumeration(e) => {
+            macro_rules! match_enum_type {
+                ($( $(#[$enum_doc:meta])* $vis:vis enum $Name:ident { $($body:tt)* })*) => {
+                    match e.name.as_str() {
+                        $(
+                            stringify!($Name) => dispatch!(i_slint_core::items::$Name),
+                        )*
+                        x => unreachable!("Unknown non-builtin enum {x}"),
+                    }
+                }
+            }
+            if e.node.is_some() {
+                dispatch!(Value)
+            } else {
+                i_slint_common::for_each_enums!(match_enum_type)
+            }
+        }
+        _ => dispatch!(Value),
+    }
+}
+
+/// Callback for [`with_typed_cell_accessors`]; generic over the cell type,
+/// which a closure could not express.
+trait TypedCellLink<R> {
+    fn link<T2>(
+        self,
+        get_field1: impl Fn(&Value) -> T2 + Clone + 'static,
+        set_field1: impl Fn(&mut Value, &T2) + Clone + 'static,
+        get_field2: impl Fn(&Value) -> T2 + Clone + 'static,
+        set_field2: impl Fn(&mut Value, &T2) + Clone + 'static,
+    ) -> R
+    where
+        T2: Clone + PartialEq + Default + 'static,
+        Value: TryInto<T2>,
+        T2: TryInto<Value>;
+}
+
+/// Establish a compiler-decomposed two-way cell link
+/// `prop1.field_access1 <=> prop2.field_access`. Both sides are struct
+/// properties stored as `Property<Value>` (the `decompose_two_way_links`
+/// pass only decomposes links between such properties).
+fn link_value_member_cell(
+    prop1: Option<*const c_void>,
+    field_access1: &[SmolStr],
+    prop2: Option<*const c_void>,
+    field_access: &[SmolStr],
+    cell_type: &Type,
+) {
+    let (Some(prop1), Some(prop2)) = (prop1, prop2) else {
+        debug_assert!(false, "decomposed two-way cell link on a natively stored property");
+        return;
+    };
+
+    struct Link {
+        prop1: *const c_void,
+        key1: String,
+        prop2: *const c_void,
+        key2: String,
+    }
+    impl TypedCellLink<()> for Link {
+        fn link<T2>(
+            self,
+            get_field1: impl Fn(&Value) -> T2 + Clone + 'static,
+            set_field1: impl Fn(&mut Value, &T2) + Clone + 'static,
+            get_field2: impl Fn(&Value) -> T2 + Clone + 'static,
+            set_field2: impl Fn(&mut Value, &T2) + Clone + 'static,
+        ) where
+            T2: Clone + PartialEq + Default + 'static,
+            Value: TryInto<T2>,
+            T2: TryInto<Value>,
+        {
+            // Safety: both pointers point to live, pinned Property<Value>
+            unsafe {
+                let prop1 = Pin::new_unchecked(&*(self.prop1 as *const Property<Value>));
+                let prop2 = Pin::new_unchecked(&*(self.prop2 as *const Property<Value>));
+                Property::link_two_way_members(
+                    prop1,
+                    self.key1.as_str(),
+                    get_field1,
+                    set_field1,
+                    prop2,
+                    self.key2.as_str(),
+                    get_field2,
+                    set_field2,
+                );
+            }
+        }
+    }
+
+    with_typed_cell_accessors(
+        cell_type,
+        field_access1,
+        field_access,
+        Link {
+            prop1,
+            key1: field_access1.join("."),
+            prop2,
+            key2: field_access.join("."),
+        },
+    );
+}
+
+/// Establish a compiler-decomposed two-way cell link between
+/// `prop1.field_access1` and a model row field (`getter`/`setter` already
+/// resolve the full row path).
+fn link_value_member_cell_to_model_data(
+    prop1: Option<*const c_void>,
+    field_access1: &[SmolStr],
+    getter: Box<dyn Fn() -> Option<Value>>,
+    setter: Box<dyn Fn(&Value)>,
+    cell_type: &Type,
+) {
+    let Some(prop1) = prop1 else {
+        debug_assert!(false, "decomposed two-way cell link on a natively stored property");
+        return;
+    };
+
+    struct Link {
+        prop1: *const c_void,
+        key1: String,
+        getter: Box<dyn Fn() -> Option<Value>>,
+        setter: Box<dyn Fn(&Value)>,
+    }
+    impl TypedCellLink<()> for Link {
+        fn link<T2>(
+            self,
+            get_field1: impl Fn(&Value) -> T2 + Clone + 'static,
+            set_field1: impl Fn(&mut Value, &T2) + Clone + 'static,
+            _get_field2: impl Fn(&Value) -> T2 + Clone + 'static,
+            _set_field2: impl Fn(&mut Value, &T2) + Clone + 'static,
+        ) where
+            T2: Clone + PartialEq + Default + 'static,
+            Value: TryInto<T2>,
+            T2: TryInto<Value>,
+        {
+            let getter = self.getter;
+            let setter = self.setter;
+            // Safety: prop1 points to a live, pinned Property<Value>
+            unsafe {
+                let prop1 = Pin::new_unchecked(&*(self.prop1 as *const Property<Value>));
+                Property::link_two_way_member_to_model_data(
+                    prop1,
+                    self.key1.as_str(),
+                    get_field1,
+                    set_field1,
+                    (),
+                    move |_| getter().and_then(|value| value.try_into().ok()),
+                    move |_, field: &T2| setter(&field.clone().try_into().unwrap_or_default()),
+                );
+            }
+        }
+    }
+
+    with_typed_cell_accessors(
+        cell_type,
+        field_access1,
+        field_access1,
+        Link { prop1, key1: field_access1.join("."), getter, setter },
+    );
 }
 
 /// Resolve the repeater that backs `repeated_element` and its current row
