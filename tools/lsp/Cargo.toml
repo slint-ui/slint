@@ -151,6 +151,7 @@ tokio = { version = "1.50.0", features = ["rt", "sync", "macros"] }
 [dev-dependencies]
 i-slint-backend-testing = { path = "../../internal/backends/testing" }
 spin_on = { workspace = true }
+tempfile = "3"
 # The remote connector tests talk to the real viewer-side connection.
 i-slint-live-preview = { path = "../../internal/live-preview", features = ["remote"] }
 
