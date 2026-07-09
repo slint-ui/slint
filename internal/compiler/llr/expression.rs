@@ -1065,6 +1065,8 @@ impl ContextMap {
         match e {
             Expression::PropertyReference(p)
             | Expression::CallBackCall { callback: p, .. }
+            | Expression::FunctionCall { function: p, .. }
+            | Expression::ItemMemberFunctionCall { function: p, .. }
             | Expression::PropertyAssignment { property: p, .. }
             | Expression::LayoutCacheAccess { layout_cache_prop: p, .. }
             | Expression::GridRepeaterCacheAccess { layout_cache_prop: p, .. } => {
