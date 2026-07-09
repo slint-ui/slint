@@ -9,6 +9,7 @@ use core::cell::Cell;
 #[cfg(not(feature = "std"))]
 use num_traits::Float;
 pub(crate) mod physics_simulation;
+pub mod tween;
 
 mod cubic_bezier {
     //! This is a copy from lyon_algorithms::geom::cubic_bezier implementation

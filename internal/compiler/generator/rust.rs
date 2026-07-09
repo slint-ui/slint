@@ -1697,6 +1697,52 @@ fn generate_sub_component(
         false,
         &mut chunk_fns,
     );
+    let anim_names =
+        component.animation_objects.iter().enumerate().map(|(idx, _)| format_ident!("anim{idx}"));
+    let update_animations = (!component.animation_objects.is_empty()).then(|| {
+        let upda = component.animation_objects.iter().enumerate().map(|(idx, anim)| {
+            let ident = format_ident!("anim{idx}");
+            let running = compile_expression(&anim.running.borrow(), &ctx);
+            let target_ref = match &*anim.target.as_ref()
+                .expect("TweenAnimation requires a target").borrow()
+            {
+                llr::Expression::PropertyReference(mr) => mr.clone(),
+                _ => panic!("internal error: animation target must be a property reference"),
+            };
+            let get_property = |exp: &Expression| -> TokenStream {
+                if let Expression::PropertyReference(nr) = exp {
+                    access_member(nr, &ctx).get_property()
+                } else {
+                    panic!("internal error: {:#?} needs to be a property reference", exp);
+                }
+            };
+            let from = anim.from.as_ref().map(|f| get_property(&f.borrow()));
+            let to = anim.to.as_ref().map(|t| get_property(&t.borrow()));
+            let duration = get_property(&anim.duration.as_ref().unwrap().borrow());
+            let easing = get_property(&anim.easing.as_ref().unwrap().borrow());
+            access_member(&target_ref, &ctx).then(|prop| {
+                let from_arg = from.as_ref().map(|f| quote!(Some(#f))).unwrap_or_else(|| quote!(None));
+                let to_arg = to.as_ref().map(|t| quote!(Some(#t))).unwrap_or_else(|| quote!(None));
+                quote!(
+                    if #running {
+                        self.#ident.start(
+                            #prop, #from_arg, #to_arg,
+                            sp::PropertyAnimation { duration: #duration as i32, easing: #easing, ..::core::default::Default::default() },
+                        );
+                    } else {
+                        self.#ident.stop(#prop);
+                    }
+                )
+            })
+        });
+        user_init_code.push(quote!(_self.update_animations();));
+        quote!(
+            fn update_animations(self: ::core::pin::Pin<&Self>) {
+                let _self = self;
+                #(#upda)*
+            }
+        )
+    });
 
     let pin_macro = if pinned_drop { quote!(#[pin_drop]) } else { quote!(#[pin]) };
 
@@ -1716,6 +1762,7 @@ fn generate_sub_component(
             #(#repeated_element_components,)*
             #(#change_tracker_names : sp::ChangeTracker,)*
             #(#timer_names : sp::Timer,)*
+            #(#anim_names : sp::TweenAnimation,)*
             self_weak : sp::OnceCell<sp::VWeakMapped<sp::ItemTreeVTable, #inner_component_id>>,
             #(parent : #parent_component_type,)*
             globals: sp::OnceCell<sp::Rc<SharedGlobals>>,
@@ -1881,6 +1928,8 @@ fn generate_sub_component(
             }
 
             #update_timers
+
+            #update_animations
 
             #(#declared_functions)*
         }
@@ -4643,9 +4692,11 @@ fn compile_builtin_function_call(
         BuiltinFunction::StartAnimation => unreachable!(),
         BuiltinFunction::StopAnimation => unreachable!(),
         BuiltinFunction::RestartAnimation => {
-            if let [Expression::NumberLiteral(timer_index)] = arguments {
-                let ident = format_ident!("timer{}", *timer_index as usize);
-                quote!(_self.#ident.restart())
+            if let [Expression::NumberLiteral(anim_index)] = arguments {
+                let ident = format_ident!("anim{}", *anim_index as usize);
+                // For animations, we need the property reference + animation parameters from codegen context
+                // The actual restart call is done in update_animations()
+                quote!(_self.#ident.restart(Default::default(), Default::default(), Default::default(), Default::default()))
             } else {
                 panic!("internal error: invalid args to RestartAnimation {arguments:?}")
             }

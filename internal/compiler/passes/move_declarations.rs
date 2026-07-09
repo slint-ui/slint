@@ -265,8 +265,15 @@ fn simplify_optimized_items(items: &[ElementRc]) {
                 // For animation elements, get the actual type of from/to properties
                 let target_type = get_animation_target_type(&elem, &c);
 
-                elem.borrow_mut().property_declarations.extend(c.properties.iter().map(
+                elem.borrow_mut().property_declarations.extend(c.properties.iter().filter_map(
                     |(k, v)| {
+                        // Skip the "target" property for animation elements - it's extracted directly from the binding
+                        if let Some(ref _target) = target_type {
+                            if k == "target" {
+                                return None;
+                            }
+                        }
+
                         let prop_type = if let Some(ref target) = target_type {
                             // For from/to properties, use the target type instead of Animatable
                             if (k == "from" || k == "to") && v.ty == crate::langtype::Type::Animatable {
@@ -278,13 +285,13 @@ fn simplify_optimized_items(items: &[ElementRc]) {
                             v.ty.clone()
                         };
 
-                        (
+                        Some((
                             k.clone(),
                             PropertyDeclaration {
                                 property_type: prop_type,
                                 ..Default::default()
                             },
-                        )
+                        ))
                     },
                 ));
             } else {

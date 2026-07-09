@@ -133,6 +133,7 @@ pub fn lower_expression(
         }
         tree_Expression::FunctionCall { function, arguments, .. } => match function {
             Callable::Builtin(BuiltinFunction::RestartTimer) => lower_restart_timer(arguments),
+            Callable::Builtin(BuiltinFunction::RestartAnimation) => lower_restart_animation(arguments),
             Callable::Builtin(BuiltinFunction::ShowPopupWindow) => {
                 lower_show_popup_window(arguments, ctx)
             }
@@ -475,6 +476,28 @@ fn lower_restart_timer(args: &[tree_Expression]) -> llr_Expression {
         }
     } else {
         panic!("invalid arguments to RestartTimer");
+    }
+}
+
+fn lower_restart_animation(args: &[tree_Expression]) -> llr_Expression {
+    if let [tree_Expression::ElementReference(e)] = args {
+        let anim_element = e.upgrade().unwrap();
+        let anim_comp = anim_element.borrow().enclosing_component.upgrade().unwrap();
+
+        let anim_list = anim_comp.animations.borrow();
+        let anim_index = anim_list
+            .iter()
+            .position(|a| {
+                a.element.upgrade().map(|elem| Rc::ptr_eq(&elem, &anim_element)).unwrap_or(false)
+            })
+            .unwrap();
+
+        llr_Expression::BuiltinFunctionCall {
+            function: BuiltinFunction::RestartAnimation,
+            arguments: vec![llr_Expression::NumberLiteral(anim_index as _)],
+        }
+    } else {
+        panic!("invalid arguments to RestartAnimation");
     }
 }
 

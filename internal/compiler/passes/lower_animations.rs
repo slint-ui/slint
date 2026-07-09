@@ -145,8 +145,24 @@ fn lower_animation(
         return;
     }
 
-    let target = if animation_element.borrow().is_binding_set("target", true) {
-        Some(NamedReference::new(animation_element, SmolStr::new_static("target")))
+    let target = if let Some(target_binding) = animation_element.borrow().bindings.get("target") {
+        if let Ok(target_expr) = target_binding.try_borrow() {
+            if let Expression::PropertyReference(target_ref) = &target_expr.expression {
+                Some(target_ref.clone())
+            } else {
+                diag.push_error(
+                    "Animation 'target' must be a property reference".into(),
+                    &target_expr.span,
+                );
+                return;
+            }
+        } else {
+            diag.push_error(
+                "Animation 'target' binding could not be read".into(),
+                &*animation_element.borrow(),
+            );
+            return;
+        }
     } else if anim_type == AnimationType::Tween {
         diag.push_error(
             "TweenAnimation must have a binding set for its 'target' property".into(),

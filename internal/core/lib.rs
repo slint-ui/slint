@@ -62,6 +62,7 @@ pub mod styled_text;
 pub mod textlayout;
 pub mod timers;
 pub mod translations;
+pub use animations::tween;
 pub mod window;
 
 #[doc(inline)]
