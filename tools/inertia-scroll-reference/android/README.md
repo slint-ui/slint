@@ -4,10 +4,12 @@ This local-only project records Android `OverScroller` inertia for the same medi
 
 ```sh
 cd tools/inertia-scroll-reference/android
+export ANDROID_HOME="${ANDROID_HOME:-/opt/homebrew/share/android-commandlinetools}"
 gradle assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb shell am force-stop dev.slint.inertiareference
 adb logcat -c
-adb shell monkey -p dev.slint.inertiareference 1
+adb shell am start -n dev.slint.inertiareference/.MainActivity
 sleep 5
 adb logcat -d | grep -E 'inertia-reference|source,gesture|android-over-scroller,'
 ```

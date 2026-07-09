@@ -33,6 +33,7 @@ public final class MainActivity extends Activity {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private int frame;
         private long firstFrameNanos;
+        private long previousFrameNanos;
         private int previousY = RELEASE_Y;
         private String phase = "released";
 
@@ -46,15 +47,6 @@ public final class MainActivity extends Activity {
         protected void onAttachedToWindow() {
             super.onAttachedToWindow();
             Log.i(TAG, "source,gesture,frame,time_ms,y_px,velocity_px_s,phase");
-            scroller.fling(
-                    0,
-                    RELEASE_Y,
-                    0,
-                    RELEASE_VELOCITY_Y,
-                    0,
-                    0,
-                    0,
-                    CONTENT_HEIGHT - VIEWPORT_HEIGHT);
             Choreographer.getInstance().postFrameCallback(this);
         }
 
@@ -62,14 +54,26 @@ public final class MainActivity extends Activity {
         public void doFrame(long frameTimeNanos) {
             if (firstFrameNanos == 0) {
                 firstFrameNanos = frameTimeNanos;
+                previousFrameNanos = frameTimeNanos;
+                scroller.fling(
+                        0,
+                        RELEASE_Y,
+                        0,
+                        RELEASE_VELOCITY_Y,
+                        0,
+                        0,
+                        0,
+                        CONTENT_HEIGHT - VIEWPORT_HEIGHT);
             }
 
             boolean moving = scroller.computeScrollOffset();
             int y = scroller.getCurrY();
             int elapsedMs = (int) ((frameTimeNanos - firstFrameNanos) / 1_000_000L);
-            float velocity = frame == 0 ? 0.0f : (y - previousY) * 1000.0f / 16.0f;
+            long deltaMs = Math.max(1L, (frameTimeNanos - previousFrameNanos) / 1_000_000L);
+            float velocity = frame == 0 ? 0.0f : (y - previousY) * 1000.0f / deltaMs;
             phase = moving ? "inertia" : "stopped";
             previousY = y;
+            previousFrameNanos = frameTimeNanos;
 
             Log.i(
                     TAG,

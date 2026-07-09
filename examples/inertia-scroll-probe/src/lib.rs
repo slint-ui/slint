@@ -11,17 +11,16 @@ slint::include_modules!();
 
 #[derive(Clone, Copy)]
 struct GestureSample {
-    at_ms: u64,
     y: f32,
 }
 
 const GESTURE_NAME: &str = "medium-flick";
 const GESTURE_X: f32 = 160.0;
 const GESTURE: &[GestureSample] = &[
-    GestureSample { at_ms: 0, y: 360.0 },
-    GestureSample { at_ms: 16, y: 320.0 },
-    GestureSample { at_ms: 32, y: 280.0 },
-    GestureSample { at_ms: 48, y: 240.0 },
+    GestureSample { y: 360.0 },
+    GestureSample { y: 320.0 },
+    GestureSample { y: 280.0 },
+    GestureSample { y: 240.0 },
 ];
 
 pub fn app_main() -> Result<(), slint::PlatformError> {
@@ -42,6 +41,7 @@ fn start_sampler(app: &MainWindow) {
     let weak = app.as_weak();
     let frame = Rc::new(Cell::new(0_u32));
     let previous_y = Rc::new(Cell::new(0.0_f32));
+    let previous_time_ms = Rc::new(Cell::new(0_i32));
     let start_time = Instant::now();
     let emit_trace = cfg!(target_os = "android") || std::env::var("SLINT_INERTIA_TRACE").is_ok();
 
@@ -58,17 +58,19 @@ fn start_sampler(app: &MainWindow) {
         };
 
         let frame_number = frame.get();
+        let elapsed_ms = start_time.elapsed().as_millis() as i32;
         let y = -app.get_viewport_y();
-        let velocity = if frame_number == 0 {
+        let delta_ms = elapsed_ms - previous_time_ms.get();
+        let velocity = if frame_number == 0 || delta_ms <= 0 {
             0.0
         } else {
-            (y - previous_y.get()) * 1000.0 / 16.0
+            (y - previous_y.get()) * 1000.0 / delta_ms as f32
         };
         previous_y.set(y);
+        previous_time_ms.set(elapsed_ms);
 
-        let elapsed_ms = start_time.elapsed().as_millis() as i32;
         let current_phase = app.get_phase();
-        let phase = if current_phase.as_str() == "released" {
+        let phase = if current_phase.as_str() == "released" || current_phase.as_str() == "inertia" {
             if velocity.abs() < 0.01 { "stopped" } else { "inertia" }
         } else {
             current_phase.as_str()
@@ -92,44 +94,50 @@ fn start_sampler(app: &MainWindow) {
 
 fn schedule_gesture(app: &MainWindow) {
     let weak = app.as_weak();
-    Timer::single_shot(Duration::from_millis(250), move || {
-        let Some(app) = weak.upgrade() else {
-            return;
-        };
-        app.set_phase("dragging".into());
-        app.window().dispatch_event(slint::platform::WindowEvent::PointerMoved {
-            position: LogicalPosition::new(GESTURE_X, GESTURE[0].y),
-        });
-        app.window().dispatch_event(slint::platform::WindowEvent::PointerPressed {
-            position: LogicalPosition::new(GESTURE_X, GESTURE[0].y),
-            button: slint::platform::PointerEventButton::Left,
-        });
-    });
-
-    for sample in &GESTURE[1..] {
-        let weak = app.as_weak();
-        Timer::single_shot(Duration::from_millis(250 + sample.at_ms), move || {
+    Timer::single_shot(Duration::from_millis(1200), move || {
+        let step = Rc::new(Cell::new(0_usize));
+        let driver = Rc::new(Timer::default());
+        let driver_for_callback = driver.clone();
+        driver.start(TimerMode::Repeated, Duration::from_millis(16), move || {
             let Some(app) = weak.upgrade() else {
+                driver_for_callback.stop();
                 return;
             };
-            app.window().dispatch_event(slint::platform::WindowEvent::PointerMoved {
-                position: LogicalPosition::new(GESTURE_X, sample.y),
-            });
+            let current_step = step.get();
+            match current_step {
+                0 => {
+                    app.set_phase("dragging".into());
+                    app.window().dispatch_event(slint::platform::WindowEvent::PointerMoved {
+                        position: LogicalPosition::new(GESTURE_X, GESTURE[0].y),
+                    });
+                    app.window().dispatch_event(slint::platform::WindowEvent::PointerPressed {
+                        position: LogicalPosition::new(GESTURE_X, GESTURE[0].y),
+                        button: slint::platform::PointerEventButton::Left,
+                    });
+                }
+                1 | 2 => {
+                    app.window().dispatch_event(slint::platform::WindowEvent::PointerMoved {
+                        position: LogicalPosition::new(GESTURE_X, GESTURE[current_step].y),
+                    });
+                }
+                3 => {
+                    let release_y = GESTURE[current_step].y;
+                    app.window().dispatch_event(slint::platform::WindowEvent::PointerMoved {
+                        position: LogicalPosition::new(GESTURE_X, release_y),
+                    });
+                    app.window().dispatch_event(slint::platform::WindowEvent::PointerReleased {
+                        position: LogicalPosition::new(GESTURE_X, release_y),
+                        button: slint::platform::PointerEventButton::Left,
+                    });
+                    app.set_phase("released".into());
+                    driver_for_callback.stop();
+                }
+                _ => {
+                    driver_for_callback.stop();
+                }
+            }
+            step.set(current_step + 1);
         });
-    }
-
-    let weak = app.as_weak();
-    let release_y = GESTURE.last().unwrap().y;
-    let release_at_ms = 250 + GESTURE.last().unwrap().at_ms;
-    Timer::single_shot(Duration::from_millis(release_at_ms), move || {
-        let Some(app) = weak.upgrade() else {
-            return;
-        };
-        app.window().dispatch_event(slint::platform::WindowEvent::PointerReleased {
-            position: LogicalPosition::new(GESTURE_X, release_y),
-            button: slint::platform::PointerEventButton::Left,
-        });
-        app.set_phase("released".into());
     });
 }
 
