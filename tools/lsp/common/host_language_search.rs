@@ -759,34 +759,7 @@ mod tests {
         assert!(matches!(err, HostLanguageScanError::TooManyFiles { limit: 3 }));
     }
 
-    /// A throwaway directory that cleans itself up on drop.
-    struct TempDir {
-        path: PathBuf,
-    }
-
-    impl TempDir {
-        fn path(&self) -> &Path {
-            &self.path
-        }
-    }
-
-    impl Drop for TempDir {
-        fn drop(&mut self) {
-            let _ = std::fs::remove_dir_all(&self.path);
-        }
-    }
-
-    fn tempdir() -> TempDir {
-        let mut path = std::env::temp_dir();
-        path.push(format!(
-            "slint-lsp-test-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_nanos())
-                .unwrap_or(0)
-        ));
-        std::fs::create_dir(&path).unwrap();
-        TempDir { path }
+    fn tempdir() -> tempfile::TempDir {
+        tempfile::tempdir().unwrap()
     }
 }
