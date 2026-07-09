@@ -77,6 +77,11 @@ pub(crate) fn compute_box_layout_info(
     let expr_eval = |nr: &NamedReference| -> f32 {
         eval::load_property(component, &nr.element(), nr.name()).unwrap().try_into().unwrap()
     };
+    let cross_axis_size = cross_axis_size.map(|w| {
+        let (cross_pad, _) =
+            padding_and_spacing(&box_layout.geometry, orientation.orthogonal(), &expr_eval);
+        w - cross_pad.begin - cross_pad.end
+    });
     let (cells, alignment) = box_layout_data(
         box_layout,
         orientation,
@@ -260,12 +265,20 @@ pub(crate) fn solve_flexbox_layout(
     let height_ref = &flexbox_layout.geometry.rect.height_reference;
     let direction = flexbox_layout_direction(flexbox_layout, local_context);
 
-    // For column direction, pass the container width so cells_v can use it
-    // as the constraint for height-for-width items (items stretch to it).
+    // For column direction, pass the container content width (outer width minus
+    // horizontal padding) so cells_v can use it as the constraint for
+    // height-for-width items — the width they are actually laid out at.
     let container_width_for_cells = match direction {
         i_slint_core::items::FlexboxLayoutDirection::Column
         | i_slint_core::items::FlexboxLayoutDirection::ColumnReverse => {
-            width_ref.as_ref().map(&expr_eval)
+            width_ref.as_ref().map(|w| {
+                let (pad_h, _) = padding_and_spacing(
+                    &flexbox_layout.geometry,
+                    Orientation::Horizontal,
+                    &expr_eval,
+                );
+                expr_eval(w) - pad_h.begin - pad_h.end
+            })
         }
         _ => None,
     };
